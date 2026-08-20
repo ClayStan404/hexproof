@@ -149,28 +149,42 @@ Item {
 
     Menu {
         id: ownLibraryMenu
+        readonly property real widestItemWidth: Math.max(
+                                                    drawCardsMenuItem.implicitWidth,
+                                                    shuffleLibraryMenuItem.implicitWidth,
+                                                    searchLibraryMenuItem.implicitWidth,
+                                                    viewSideboardMenuItem.implicitWidth,
+                                                    viewTopCardMenuItem.implicitWidth,
+                                                    viewTopCardsMenuItem.implicitWidth,
+                                                    moveTopToGraveyardMenuItem.implicitWidth,
+                                                    moveTopToExileMenuItem.implicitWidth)
         width: Math.min(root.width - Theme.size(24),
-                        Math.max(Theme.size(420), implicitWidth))
+                        Math.max(Theme.size(420),
+                                 widestItemWidth + leftPadding + rightPadding))
 
         MenuItem {
+            id: drawCardsMenuItem
             objectName: "drawCardsAction"
             text: qsTr("Draw X cards") + " · Ctrl+D"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered: root.drawCardsEditorPopup.showFor(2)
         }
         MenuItem {
+            id: shuffleLibraryMenuItem
             objectName: "shuffleLibraryAction"
             text: qsTr("Shuffle") + " · Ctrl+Shift+S"
             onTriggered: root.tableController.shuffleConfirmation.open()
         }
         MenuSeparator { }
         MenuItem {
+            id: searchLibraryMenuItem
             text: qsTr("Search library") + " · Ctrl+F"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered: root.tableController.wsModel.dumpLibrary(
                              root.tableController.roomSession.seatIndex)
         }
         MenuItem {
+            id: viewSideboardMenuItem
             objectName: "viewSideboardAction"
             text: qsTr("View sideboard") + " · Ctrl+B · "
                   + (root.tableController.ownSeatData.sideboardCount
@@ -184,6 +198,7 @@ Item {
         }
         MenuSeparator { }
         MenuItem {
+            id: viewTopCardMenuItem
             objectName: "viewLibraryTopCardAction"
             text: qsTr("View top card") + " · Ctrl+Shift+L"
             enabled: root.tableController.ownSeatData.libraryCount > 0
@@ -191,6 +206,7 @@ Item {
                              root.tableController.roomSession.seatIndex, 1)
         }
         MenuItem {
+            id: viewTopCardsMenuItem
             objectName: "viewLibraryTopCardsAction"
             text: qsTr("View top X cards…") + " · Ctrl+L"
             enabled: root.tableController.ownSeatData.libraryCount > 0
@@ -202,6 +218,7 @@ Item {
                                  root.tableController.ownSeatData.libraryCount))
         }
         MenuItem {
+            id: moveTopToGraveyardMenuItem
             objectName: "moveLibraryTopToGraveyardAction"
             text: qsTr("Put top X cards into graveyard…")
                   + " · Ctrl+Shift+G"
@@ -210,6 +227,7 @@ Item {
                 root.tableController.sessionUi.showLibraryMoveCardsEditor("graveyard")
         }
         MenuItem {
+            id: moveTopToExileMenuItem
             objectName: "moveLibraryTopToExileAction"
             text: qsTr("Put top X cards into exile…")
                   + " · Ctrl+Shift+E"
