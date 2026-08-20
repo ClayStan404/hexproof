@@ -795,9 +795,14 @@ void TestCardCatalog::migratesUsablePreviousPolicyCache() const
     QTRY_COMPARE_WITH_TIMEOUT(availableSpy.count(), 1, 2'000);
     QCOMPARE(network.requestedUrls.size(), 0);
 
-    QVERIFY(cacheFile.open(QIODevice::ReadOnly));
-    const QJsonObject saved = QJsonDocument::fromJson(cacheFile.readAll()).object();
-    QCOMPARE(saved.value(u"version"_s).toInt(), 6);
+    const auto savedCache = [&storage]() {
+        QFile savedFile(storage.filePath(u"card-cache.json"_s));
+        if (!savedFile.open(QIODevice::ReadOnly))
+            return QJsonObject{};
+        return QJsonDocument::fromJson(savedFile.readAll()).object();
+    };
+    QTRY_COMPARE_WITH_TIMEOUT(savedCache().value(u"version"_s).toInt(), 6, 2'000);
+    const QJsonObject saved = savedCache();
     QCOMPARE(saved.value(u"positive"_s)
                  .toObject()
                  .value(u"en|lightning bolt"_s)
