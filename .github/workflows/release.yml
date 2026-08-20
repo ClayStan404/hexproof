@@ -101,7 +101,8 @@ jobs:
           if git rev-parse HEAD^ >/dev/null 2>&1; then
             base="HEAD^"
           else
-            base="$(git hash-object -t tree /dev/null)"
+            # A root source snapshot has no prior formatting baseline.
+            base="HEAD"
           fi
           formatting_patch="$(
             git diff --unified=0 "$base" HEAD -- \

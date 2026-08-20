@@ -38,7 +38,10 @@ jobs:
             if git rev-parse HEAD^ >/dev/null 2>&1; then
               base="HEAD^"
             else
-              base="$(git hash-object -t tree /dev/null)"
+              # The imported public root commit establishes the formatting
+              # baseline. Subsequent pushes and pull requests still check
+              # every changed C/C++ line against their real base revision.
+              base="HEAD"
             fi
           fi
           formatting_patch="$(
