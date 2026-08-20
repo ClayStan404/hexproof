@@ -1,0 +1,18 @@
+# Build output
+build/
+apps/server/hexproof-server
+apps/server/data/
+
+# Runtime state and tool caches
+/data/
+__pycache__/
+
+# Qt / CMake user files
+*.user
+*.user.*
+
+# Operator-owned client server directory (copy from servers.example.json)
+/apps/client-qt/config/servers.json
+
+# Claude Code session/plan artifacts (not part of the project)
+.claude/

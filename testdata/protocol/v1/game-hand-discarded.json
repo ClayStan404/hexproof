@@ -1,0 +1,9 @@
+{
+  "type": "game.hand_discarded",
+  "id": "discard-hand-1",
+  "payload": {
+    "roomId": "room-1",
+    "seat": 0,
+    "count": 1
+  }
+}

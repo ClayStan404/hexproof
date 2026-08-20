@@ -1,0 +1,10 @@
+{
+  "type": "game.face_down_set",
+  "id": "face-down-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "cardId": "s0-c8",
+    "faceDown": true
+  }
+}

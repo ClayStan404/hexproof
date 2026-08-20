@@ -1,0 +1,7 @@
+{
+  "type": "game.cast_commander",
+  "id": "cast-commander-1",
+  "payload": {
+    "commanderId": "s0-commander"
+  }
+}

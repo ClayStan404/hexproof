@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [],
+  "messages": [
+    {
+      "type": "game.public_zone_move_pending",
+      "direction": "serverToClient",
+      "goType": "GamePublicZoneMovePending",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "approvalId", "type": "string", "required": true},
+        {"name": "targetSeat", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "game.public_zone_move_requested",
+      "direction": "serverToClient",
+      "goType": "GamePublicZoneMoveRequested",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "approvalId", "type": "string", "required": true},
+        {"name": "requesterSeat", "type": "integer", "required": true},
+        {"name": "requesterName", "type": "string", "required": true},
+        {"name": "sourceZone", "type": "string", "required": true, "enum": ["ZoneGraveyard", "ZoneExile"]},
+        {"name": "cardCount", "type": "integer", "required": true},
+        {"name": "toZone", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "game.respond_public_zone_move",
+      "direction": "clientToServer",
+      "goType": "GameRespondPublicZoneMove",
+      "fields": [
+        {"name": "approvalId", "type": "string", "required": true},
+        {"name": "approved", "type": "boolean", "required": true}
+      ],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::respondPublicZoneMove"}
+    },
+    {
+      "type": "game.public_zone_move_responded",
+      "direction": "serverToClient",
+      "goType": "GamePublicZoneMoveResponded",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "approvalId", "type": "string", "required": true},
+        {"name": "approved", "type": "boolean", "required": true}
+      ]
+    }
+  ]
+}

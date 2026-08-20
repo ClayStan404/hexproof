@@ -1,0 +1,8 @@
+{
+  "type": "game.set_face_down",
+  "id": "face-down-1",
+  "payload": {
+    "cardId": "s0-c8",
+    "faceDown": true
+  }
+}

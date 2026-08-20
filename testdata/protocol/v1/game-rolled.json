@@ -1,0 +1,11 @@
+{
+  "type": "game.rolled",
+  "id": "roll-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "sides": 6,
+    "rolls": [4, 6],
+    "total": 10
+  }
+}

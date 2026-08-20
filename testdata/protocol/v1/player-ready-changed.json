@@ -1,0 +1,9 @@
+{
+  "type": "player.ready_changed",
+  "id": "r1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "ready": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "type": "sideboard.ready_changed",
+  "id": "sb2",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "ready": true,
+    "nextGameStarted": false
+  }
+}

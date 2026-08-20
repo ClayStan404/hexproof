@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [],
+  "messages": [
+    {
+      "type": "game.mulligan",
+      "direction": "clientToServer",
+      "goType": "GameMulligan",
+      "fields": [],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::mulligan"
+      }
+    },
+    {
+      "type": "game.mulliganed",
+      "direction": "serverToClient",
+      "goType": "GameMulliganed",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "handSize",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "mulliganCount",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.discard_hand",
+      "direction": "clientToServer",
+      "goType": "GameDiscardHand",
+      "fields": [
+        {
+          "name": "all",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::discardHand"
+      }
+    },
+    {
+      "type": "game.hand_discarded",
+      "direction": "serverToClient",
+      "goType": "GameHandDiscarded",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.next_turn",
+      "direction": "clientToServer",
+      "goType": "GameNextTurn",
+      "fields": [],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::nextTurn"
+      }
+    },
+    {
+      "type": "game.turn_advanced",
+      "direction": "serverToClient",
+      "goType": "GameTurnAdvanced",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "activeSeat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "currentPhase",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GamePhaseUntap",
+            "GamePhaseUpkeep",
+            "GamePhaseDraw",
+            "GamePhaseFirstMain",
+            "GamePhaseBeginningCombat",
+            "GamePhaseDeclareAttackers",
+            "GamePhaseDeclareBlockers",
+            "GamePhaseCombatDamage",
+            "GamePhaseEndCombat",
+            "GamePhaseSecondMain",
+            "GamePhaseEnd"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "game.play_land",
+      "direction": "clientToServer",
+      "goType": "GamePlayLand",
+      "fields": [
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "object",
+          "required": true,
+          "ref": "CardPosition",
+          "goType": "*CardPosition"
+        },
+        {
+          "name": "faceName",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::playLand"
+      }
+    },
+    {
+      "type": "game.land_played",
+      "direction": "serverToClient",
+      "goType": "GameLandPlayed",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.set_land_play_count",
+      "direction": "clientToServer",
+      "goType": "GameSetLandPlayCount",
+      "fields": [
+        {
+          "name": "value",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setLandPlayCount"
+      }
+    },
+    {
+      "type": "game.land_play_count_set",
+      "direction": "serverToClient",
+      "goType": "GameLandPlayCountSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.reveal",
+      "direction": "clientToServer",
+      "goType": "GameReveal",
+      "fields": [
+        {
+          "name": "zone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ZoneHand"
+          ]
+        },
+        {
+          "name": "cardIds",
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    {
+      "type": "game.revealed",
+      "direction": "serverToClient",
+      "goType": "GameRevealed",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ZoneHand"
+          ]
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.recall_revealed",
+      "direction": "clientToServer",
+      "goType": "GameRecallRevealed",
+      "fields": [],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::recallRevealed"
+      }
+    },
+    {
+      "type": "game.revealed_recalled",
+      "direction": "serverToClient",
+      "goType": "GameRevealedRecalled",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.adjust_commander_tax",
+      "direction": "clientToServer",
+      "goType": "GameAdjustCommanderTax",
+      "fields": [
+        {
+          "name": "commanderId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "delta",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::adjustCommanderTax"
+      }
+    },
+    {
+      "type": "game.commander_tax_adjusted",
+      "direction": "serverToClient",
+      "goType": "GameCommanderTaxAdjusted",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "commanderId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.cast_commander",
+      "direction": "clientToServer",
+      "goType": "GameCastCommander",
+      "fields": [
+        {
+          "name": "commanderId",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::castCommander"
+      }
+    },
+    {
+      "type": "game.commander_cast",
+      "direction": "serverToClient",
+      "goType": "GameCommanderCast",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "commanderId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tax",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.set_commander_damage",
+      "direction": "clientToServer",
+      "goType": "GameSetCommanderDamage",
+      "fields": [
+        {
+          "name": "commanderId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "targetSeat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        },
+        {
+          "name": "delta",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        },
+        {
+          "name": "applyToLife",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setCommanderDamage"
+      }
+    },
+    {
+      "type": "game.commander_damage_set",
+      "direction": "serverToClient",
+      "goType": "GameCommanderDamageSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "commanderId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "targetSeat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "targetLife",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "appliedToLife",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.set_arrow",
+      "direction": "clientToServer",
+      "goType": "GameSetArrow",
+      "fields": [
+        {
+          "name": "sourceCardIds",
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "tappedSourceCardIds",
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "targetCardId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "targetSeat",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setCombatArrows"
+      }
+    },
+    {
+      "type": "game.arrow_set",
+      "direction": "serverToClient",
+      "goType": "GameArrowSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "sourceCardIds",
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "clear",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "game.set_attachment",
+      "direction": "clientToServer",
+      "goType": "GameSetAttachment",
+      "fields": [
+        {
+          "name": "sourceCardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "targetCardId",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setAttachment"
+      }
+    },
+    {
+      "type": "game.attachment_set",
+      "direction": "serverToClient",
+      "goType": "GameAttachmentSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ownerSeat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "sourceCardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "detached",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

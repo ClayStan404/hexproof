@@ -1,0 +1,11 @@
+{
+  "type": "game.counter_set",
+  "id": "counter-pip-2",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "counter": "counter-1",
+    "value": 1,
+    "label": "Energy"
+  }
+}

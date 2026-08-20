@@ -1,0 +1,13 @@
+{
+  "type": "game.library_searched",
+  "id": "search-opponent-26",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "sourceSeat": 1,
+    "toSeat": 0,
+    "toZone": "hand",
+    "revealed": false,
+    "count": 1
+  }
+}

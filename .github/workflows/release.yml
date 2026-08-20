@@ -1,0 +1,625 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Release packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version for an artifact-only build (for example 0.1.0)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+env:
+  QT_VERSION: '6.8.3'
+
+jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      publish: ${{ steps.metadata.outputs.publish }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Resolve and validate version
+        id: metadata
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          source_version="$(
+            sed -nE 's/^[[:space:]]*set\(HEXPROOF_VERSION[[:space:]]+"([0-9]+\.[0-9]+\.[0-9]+)"[[:space:]]*\)[[:space:]]*$/\1/p' \
+              apps/client-qt/CMakeLists.txt
+          )"
+          if [[ -z "$source_version" ]]; then
+            echo "Could not read the default version from CMakeLists.txt." >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            if [[ ! "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              echo "Release tags must use vMAJOR.MINOR.PATCH." >&2
+              exit 1
+            fi
+            version="${BASH_REMATCH[1]}"
+            publish=true
+            tag="$GITHUB_REF_NAME"
+          else
+            version="${REQUESTED_VERSION:-$source_version}"
+            publish=false
+            tag=""
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use MAJOR.MINOR.PATCH." >&2
+            exit 1
+          fi
+          {
+            echo "publish=$publish"
+            echo "tag=$tag"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+  quality-gate:
+    name: Release quality gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Install quality dependencies
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y clang-format-18 cmake ninja-build
+          ripgrep shellcheck zlib1g-dev
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets qtimageformats
+          cache: true
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            base="HEAD^"
+          else
+            base="$(git hash-object -t tree /dev/null)"
+          fi
+          formatting_patch="$(
+            git diff --unified=0 "$base" HEAD -- \
+              ':(glob)apps/client-qt/**/*.cpp' \
+              ':(glob)apps/client-qt/**/*.h' \
+              ':(glob)tools/ui-automation/x11/**/*.cpp' \
+              ':(glob)tools/ui-automation/x11/**/*.h' |
+              clang-format-diff-18 -p1 -style=file
+          )"
+          if [[ -n "$formatting_patch" ]]; then
+            printf '%s\n' "$formatting_patch"
+            echo "Release C/C++ changes must be clang-formatted." >&2
+            exit 1
+          fi
+          go_files="$(cd apps/server && gofmt -l .)"
+          test -z "$go_files" || {
+            printf 'gofmt required:\n%s\n' "$go_files"
+            exit 1
+          }
+      - name: Check generated and policy files
+        run: |
+          ./tools/check-license-headers.sh
+          ./tools/check-qml-text-safety.sh
+          python3 tools/check-protocol-parity.py
+          python3 tools/check-i18n.py --strict
+          python3 tools/check-module-size.py
+          tests=(
+            tools.tests.test_quality_checks
+            tools.tests.test_table_architecture
+          )
+          scripts=(tools/card-database-builder/build-latest.sh)
+          if [[ -f tools/tests/test_deploy_script.py ]]; then
+            tests+=(tools.tests.test_deploy_script)
+          fi
+          if [[ -f deploy/update-public-server.sh ]]; then
+            scripts+=(deploy/update-public-server.sh)
+          fi
+          python3 -m unittest "${tests[@]}"
+          shellcheck "${scripts[@]}"
+      - name: Test server
+        working-directory: apps/server
+        run: |
+          go vet ./...
+          go test ./...
+          go test -race ./internal/room ./internal/server ./internal/tournament
+          CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
+      - name: Configure client
+        run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build and test client
+        env:
+          QT_QPA_PLATFORM: offscreen
+          HEXPROOF_SERVER_BINARY: ${{ github.workspace }}/build/server/hexproof-server
+        run: |
+          cmake --build build/client-qt
+          ctest --test-dir build/client-qt --output-on-failure
+
+  client-linux:
+    name: Linux client (x86_64)
+    needs:
+      - prepare
+      - quality-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare private server directory
+        shell: bash
+        env:
+          HEXPROOF_PUBLIC_SERVERS_JSON: ${{ secrets.HEXPROOF_PUBLIC_SERVERS_JSON }}
+        run: |
+          server_directory="$RUNNER_TEMP/hexproof-servers.json"
+          python3 tools/write-server-directory.py "$server_directory"
+          echo "HEXPROOF_SERVER_DIRECTORY_FILE=$server_directory" >> "$GITHUB_ENV"
+      - name: Install build dependencies
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y cmake ninja-build xvfb zlib1g-dev
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets qtimageformats
+          cache: true
+      - name: Build package
+        env:
+          HEXPROOF_ARCH: x86_64
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: ./packaging/linux/build-tarball.sh
+      - name: Verify packaged client
+        shell: bash
+        env:
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="build/packages/Hexproof-${HEXPROOF_VERSION}-linux-x86_64.tar.gz"
+          unpack_dir="$RUNNER_TEMP/hexproof-linux"
+          mkdir -p "$unpack_dir"
+          tar -xzf "$archive" -C "$unpack_dir"
+          executable="$unpack_dir/Hexproof-${HEXPROOF_VERSION}-linux-x86_64/bin/hexproof"
+          test -x "$executable"
+          file "$executable" | grep -F "x86-64"
+          xvfb-run -a "$executable" --version | grep -F "$HEXPROOF_VERSION"
+          webp_plugin="$(
+            find "$unpack_dir" -type f -name 'libqwebp.so' -print -quit
+          )"
+          test -n "$webp_plugin"
+          ibus_plugin="$(
+            find "$unpack_dir" -type f \
+              -name 'libibusplatforminputcontextplugin.so' -print -quit
+          )"
+          test -n "$ibus_plugin"
+          chmod u+x "$webp_plugin"
+          chmod u+x "$ibus_plugin"
+          if ldd "$executable" | grep -F "not found"; then
+            echo "Packaged Linux client has unresolved runtime dependencies." >&2
+            exit 1
+          fi
+          if ldd "$webp_plugin" | grep -F "not found"; then
+            echo "Packaged Qt WebP plugin has unresolved runtime dependencies." >&2
+            exit 1
+          fi
+          if ldd "$ibus_plugin" | grep -F "not found"; then
+            echo "Packaged Qt IBus plugin has unresolved runtime dependencies." >&2
+            exit 1
+          fi
+          data_dir="$RUNNER_TEMP/hexproof-linux-data"
+          mkdir -p "$data_dir"
+          set +e
+          XDG_DATA_HOME="$data_dir" xvfb-run -a \
+            timeout 5s "$executable" >"$RUNNER_TEMP/hexproof-linux.log" 2>&1
+          smoke_status=$?
+          set -e
+          if [[ $smoke_status -ne 124 ]]; then
+            cat "$RUNNER_TEMP/hexproof-linux.log"
+            echo "Packaged Linux client did not remain running." >&2
+            exit 1
+          fi
+      - name: Upload Linux client
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-client-linux-x86_64
+          path: build/packages/Hexproof-*-linux-x86_64.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+
+  client-windows:
+    name: Windows client (x64)
+    needs:
+      - prepare
+      - quality-gate
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare private server directory
+        shell: pwsh
+        env:
+          HEXPROOF_PUBLIC_SERVERS_JSON: ${{ secrets.HEXPROOF_PUBLIC_SERVERS_JSON }}
+        run: |
+          $serverDirectory = Join-Path $env:RUNNER_TEMP "hexproof-servers.json"
+          python tools/write-server-directory.py $serverDirectory
+          if ($LASTEXITCODE -ne 0) {
+              throw "Server directory preparation failed with exit code $LASTEXITCODE."
+          }
+          "HEXPROOF_SERVER_DIRECTORY_FILE=$serverDirectory" | Out-File `
+              -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets qtimageformats
+          cache: true
+      - name: Install zlib
+        shell: pwsh
+        run: vcpkg install zlib:x64-windows
+      - name: Build package
+        shell: pwsh
+        env:
+          HEXPROOF_ARCH: x64
+          HEXPROOF_CMAKE_GENERATOR: Visual Studio 17 2022
+          HEXPROOF_CMAKE_GENERATOR_PLATFORM: x64
+          HEXPROOF_VCPKG_TARGET_TRIPLET: x64-windows
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $env:HEXPROOF_CMAKE_TOOLCHAIN_FILE = Join-Path $env:VCPKG_INSTALLATION_ROOT "scripts/buildsystems/vcpkg.cmake"
+          ./packaging/windows/build-package.ps1
+      - name: Verify packaged client
+        shell: pwsh
+        env:
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $archive = "build/packages/Hexproof-$env:HEXPROOF_VERSION-windows-x64.zip"
+          $unpackDir = Join-Path $env:RUNNER_TEMP "hexproof-windows"
+          Expand-Archive -Path $archive -DestinationPath $unpackDir
+          $root = Join-Path $unpackDir "Hexproof-$env:HEXPROOF_VERSION-windows-x64"
+          $executable = Join-Path $root "bin/hexproof.exe"
+          if (-not (Test-Path $executable)) {
+              throw "Packaged executable was not found."
+          }
+          $webpPlugin = Get-ChildItem -Path $root -Recurse -File -Filter "qwebp.dll" |
+              Select-Object -First 1
+          if (-not $webpPlugin) {
+              throw "Packaged Qt WebP plugin was not found."
+          }
+          $versionOutput = (& $executable --version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or
+              -not $versionOutput.Contains($env:HEXPROOF_VERSION)) {
+              throw "Packaged executable did not report the expected version."
+          }
+          $zlibRuntime = Join-Path $root "bin/z.dll"
+          if (-not (Test-Path $zlibRuntime)) {
+              throw "Packaged zlib runtime was not found."
+          }
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP "hexproof-appdata"
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP "hexproof-localappdata"
+          New-Item -ItemType Directory -Force -Path $env:APPDATA, $env:LOCALAPPDATA |
+              Out-Null
+          $process = Start-Process -FilePath $executable -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+              throw "Packaged Windows client exited during the startup smoke test."
+          }
+          Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+          Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+      - name: Upload Windows client
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-client-windows-x64
+          path: build/packages/Hexproof-*-windows-x64.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  client-macos:
+    name: macOS client (${{ matrix.arch }})
+    needs:
+      - prepare
+      - quality-gate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          # macOS Intel packaging remains supported, but automatic x86_64
+          # builds are temporarily paused to reduce release time.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare private server directory
+        shell: bash
+        env:
+          HEXPROOF_PUBLIC_SERVERS_JSON: ${{ secrets.HEXPROOF_PUBLIC_SERVERS_JSON }}
+        run: |
+          server_directory="$RUNNER_TEMP/hexproof-servers.json"
+          python3 tools/write-server-directory.py "$server_directory"
+          echo "HEXPROOF_SERVER_DIRECTORY_FILE=$server_directory" >> "$GITHUB_ENV"
+      - name: Verify runner architecture
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: test "$(uname -m)" = "$EXPECTED_ARCH"
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets qtimageformats
+          cache: true
+      - name: Import signing certificate
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          HEXPROOF_MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$MACOS_CERTIFICATE_P12" &&
+                -z "$HEXPROOF_MACOS_SIGN_IDENTITY" ]]; then
+            echo "No Developer ID certificate configured; the bundle will be ad-hoc signed."
+            exit 0
+          fi
+          if [[ -z "$MACOS_CERTIFICATE_P12" ||
+                -z "$MACOS_CERTIFICATE_PASSWORD" ||
+                -z "$HEXPROOF_MACOS_SIGN_IDENTITY" ]]; then
+            echo "macOS certificate, password, and signing identity must be configured together." >&2
+            exit 1
+          fi
+          certificate_path="$RUNNER_TEMP/hexproof-certificate.p12"
+          keychain_path="$RUNNER_TEMP/hexproof-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          {
+            echo "HEXPROOF_MACOS_KEYCHAIN_PATH=$keychain_path"
+            echo "HEXPROOF_MACOS_CERTIFICATE_PATH=$certificate_path"
+          } >> "$GITHUB_ENV"
+      - name: Build package
+        env:
+          HEXPROOF_ARCH: ${{ matrix.arch }}
+          HEXPROOF_MACOS_DEPLOYMENT_TARGET: '12.0'
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+          HEXPROOF_MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          HEXPROOF_MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          HEXPROOF_MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          HEXPROOF_MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+        run: ./packaging/macos/build-bundle.sh
+      - name: Verify packaged client
+        shell: bash
+        env:
+          HEXPROOF_ARCH: ${{ matrix.arch }}
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="build/packages/Hexproof-${HEXPROOF_VERSION}-macos-${HEXPROOF_ARCH}.zip"
+          unpack_dir="$RUNNER_TEMP/hexproof-macos"
+          mkdir -p "$unpack_dir"
+          ditto -x -k "$archive" "$unpack_dir"
+          bundle="$(find "$unpack_dir" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$bundle"
+          executable="$bundle/Contents/MacOS/hexproof"
+          test -x "$executable"
+          webp_plugin="$(
+            find "$bundle" -type f -name 'libqwebp.dylib' -print -quit
+          )"
+          test -n "$webp_plugin"
+          lipo -archs "$executable" | tr ' ' '\n' | grep -Fx "$HEXPROOF_ARCH"
+          "$executable" --version | grep -F "$HEXPROOF_VERSION"
+          codesign --verify --deep --strict --verbose=2 "$bundle"
+          "$executable" >"$RUNNER_TEMP/hexproof-macos.log" 2>&1 &
+          pid=$!
+          sleep 5
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$RUNNER_TEMP/hexproof-macos.log"
+            echo "Packaged macOS client exited during the startup smoke test." >&2
+            exit 1
+          fi
+          kill "$pid"
+          wait "$pid" || true
+      - name: Upload macOS client
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-client-macos-${{ matrix.arch }}
+          path: build/packages/Hexproof-*-macos-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          compression-level: 0
+      - name: Delete temporary signing keychain
+        if: always() && env.HEXPROOF_MACOS_KEYCHAIN_PATH != ''
+        shell: bash
+        run: |
+          security delete-keychain "$HEXPROOF_MACOS_KEYCHAIN_PATH" || true
+          rm -f "$HEXPROOF_MACOS_CERTIFICATE_PATH"
+
+  server:
+    name: Linux server (${{ matrix.arch }})
+    needs:
+      - prepare
+      - quality-gate
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Build package
+        env:
+          HEXPROOF_ARCH: ${{ matrix.arch }}
+          HEXPROOF_GOOS: linux
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: ./packaging/server/build-tarball.sh
+      - name: Verify packaged server
+        shell: bash
+        env:
+          HEXPROOF_ARCH: ${{ matrix.arch }}
+          HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="build/packages/hexproof-server-${HEXPROOF_VERSION}-linux-${HEXPROOF_ARCH}.tar.gz"
+          unpack_dir="$RUNNER_TEMP/hexproof-server-${HEXPROOF_ARCH}"
+          mkdir -p "$unpack_dir"
+          tar -xzf "$archive" -C "$unpack_dir"
+          executable="$unpack_dir/hexproof-server-${HEXPROOF_VERSION}-linux-${HEXPROOF_ARCH}/bin/hexproof-server"
+          test -x "$executable"
+          if [[ "$HEXPROOF_ARCH" == "amd64" ]]; then
+            "$executable" -version | grep -F "$HEXPROOF_VERSION"
+            file "$executable" | grep -F "x86-64"
+          else
+            file "$executable" | grep -E "ARM aarch64|ARM64"
+          fi
+      - name: Upload Linux server
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-server-linux-${{ matrix.arch }}
+          path: build/packages/hexproof-server-*-linux-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+
+  assemble:
+    name: Assemble release
+    needs:
+      - prepare
+      - client-linux
+      - client-windows
+      - client-macos
+      - server
+    runs-on: ubuntu-24.04
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - name: Download platform artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: downloaded
+      - name: Assemble assets and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          while IFS= read -r -d '' file; do
+            destination="release-assets/$(basename "$file")"
+            if [[ -e "$destination" ]]; then
+              echo "Duplicate release filename: $destination" >&2
+              exit 1
+            fi
+            cp "$file" "$destination"
+          done < <(find downloaded -type f -print0)
+          (
+            cd release-assets
+            sha256sum Hexproof-* hexproof-server-* > SHA256SUMS
+          )
+      - name: Upload combined release bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Hexproof-${{ needs.prepare.outputs.version }}-release
+          path: release-assets/
+          if-no-files-found: error
+          compression-level: 0
+      - name: Attest release assets
+        if: needs.prepare.outputs.publish == 'true'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: release-assets/*
+      - name: Create or update draft release
+        if: needs.prepare.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          MACOS_RELEASE_NOTARIZED: ${{ secrets.MACOS_SIGNING_IDENTITY != '' && secrets.MACOS_NOTARY_APPLE_ID != '' && secrets.MACOS_NOTARY_PASSWORD != '' && secrets.MACOS_NOTARY_TEAM_ID != '' }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" --clobber release-assets/*
+          else
+            gh release create "$RELEASE_TAG" \
+              --draft \
+              --generate-notes \
+              --target "$GITHUB_SHA" \
+              --verify-tag \
+              release-assets/* >/dev/null
+          fi
+
+          release_body="$(gh release view "$RELEASE_TAG" --json body --jq .body)"
+          clean_body="$(
+            printf '%s\n' "$release_body" |
+              awk '
+                /^<!-- hexproof-macos-install-notes:start -->$/ {
+                  skipping = 1
+                  next
+                }
+                /^<!-- hexproof-macos-install-notes:end -->$/ {
+                  skipping = 0
+                  next
+                }
+                /^## macOS install notes$/ {
+                  skipping = 2
+                  next
+                }
+                skipping == 2 && /^## / {
+                  skipping = 0
+                }
+                !skipping {
+                  print
+                }
+              '
+          )"
+
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          if [[ "$MACOS_RELEASE_NOTARIZED" != "true" ]]; then
+            printf '%s\n' \
+              '<!-- hexproof-macos-install-notes:start -->' \
+              '## macOS install notes' '' \
+              'This macOS build is ad-hoc signed or not Apple-notarized. To open it the first time, bypass Gatekeeper:' '' \
+              '- Right-click Hexproof.app -> "Open" -> confirm "Open"; or' \
+              '- Run `xattr -cr /path/to/Hexproof.app` in a terminal, then double-click.' '' \
+              'If macOS says the app is "damaged", run the `xattr` command above.' \
+              '<!-- hexproof-macos-install-notes:end -->' '' \
+              > "$notes_file"
+          else
+            : > "$notes_file"
+          fi
+          if [[ -n "$clean_body" ]]; then
+            printf '%s\n' "$clean_body" >> "$notes_file"
+          fi
+          gh release edit "$RELEASE_TAG" -F "$notes_file" >/dev/null

@@ -1,0 +1,9 @@
+{
+  "type": "game.response_status_set",
+  "id": "response-17",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 1,
+    "status": "hold"
+  }
+}

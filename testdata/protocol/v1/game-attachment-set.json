@@ -1,0 +1,9 @@
+{
+  "type": "game.attachment_set",
+  "id": "at1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "ownerSeat": 0,
+    "sourceCardId": "s0-c9"
+  }
+}

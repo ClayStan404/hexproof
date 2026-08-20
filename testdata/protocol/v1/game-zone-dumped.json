@@ -1,0 +1,26 @@
+{
+  "type": "game.zone_dumped",
+  "id": "dump-18",
+  "payload": {
+    "roomId": "ABCDEF",
+    "zone": "library",
+    "sourceSeat": 0,
+    "topCount": 3,
+    "cards": [
+      {
+        "id": "s0-c8",
+        "name": "Island",
+        "setCode": "M21",
+        "collectorNumber": "265",
+        "ownerSeat": 0
+      },
+      {
+        "id": "s0-c9",
+        "name": "Demonic Tutor",
+        "setCode": "STA",
+        "collectorNumber": "27",
+        "ownerSeat": 0
+      }
+    ]
+  }
+}

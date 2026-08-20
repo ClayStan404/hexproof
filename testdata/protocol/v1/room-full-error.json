@@ -1,0 +1,8 @@
+{
+  "type": "error",
+  "id": "j3",
+  "payload": {
+    "code": "room_full",
+    "message": "room_full"
+  }
+}

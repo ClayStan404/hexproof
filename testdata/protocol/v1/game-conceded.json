@@ -1,0 +1,15 @@
+{
+  "type": "game.conceded",
+  "id": "concede-17",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "concededSeat": 0,
+    "winnerSeat": 1,
+    "score": [
+      0,
+      1
+    ],
+    "matchFinished": false
+  }
+}

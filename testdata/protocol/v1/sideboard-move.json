@@ -1,0 +1,11 @@
+{
+  "type": "sideboard.move",
+  "id": "sb1",
+  "payload": {
+    "name": "Wear // Tear",
+    "setCode": "DGM",
+    "collectorNumber": "135",
+    "fromZone": "sideboard",
+    "toZone": "mainboard"
+  }
+}

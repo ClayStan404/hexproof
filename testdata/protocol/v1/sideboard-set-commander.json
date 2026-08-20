@@ -1,0 +1,8 @@
+{
+  "type": "sideboard.set_commander",
+  "id": "commander-next-1",
+  "payload": {
+    "name": "Sol Ring",
+    "designated": true
+  }
+}

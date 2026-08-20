@@ -1,0 +1,10 @@
+{
+  "type": "game.arrow_set",
+  "id": "a1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "sourceCardIds": ["s0-c8", "s0-c9"],
+    "kind": "attack"
+  }
+}

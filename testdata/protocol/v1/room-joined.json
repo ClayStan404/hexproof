@@ -1,0 +1,9 @@
+{
+  "type": "room.joined",
+  "id": "j1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "role": "player",
+    "seat": 1
+  }
+}

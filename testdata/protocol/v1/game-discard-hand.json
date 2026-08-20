@@ -1,0 +1,5 @@
+{
+  "type": "game.discard_hand",
+  "id": "discard-hand-1",
+  "payload": {}
+}

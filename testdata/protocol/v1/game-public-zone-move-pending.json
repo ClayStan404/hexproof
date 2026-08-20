@@ -1,0 +1,9 @@
+{
+  "type": "game.public_zone_move_pending",
+  "id": "move-remote-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "approvalId": "public-zone-move-1",
+    "targetSeat": 1
+  }
+}

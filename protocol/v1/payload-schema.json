@@ -1,0 +1,590 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "RoomSettings",
+      "goType": "RoomSettings",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "FormatModern",
+            "FormatDuel",
+            "FormatEDH"
+          ]
+        },
+        {
+          "name": "deckFormat",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DeckFormatCustom",
+            "DeckFormatStandard",
+            "DeckFormatPioneer",
+            "DeckFormatModern",
+            "DeckFormatLegacy",
+            "DeckFormatVintage",
+            "DeckFormatPauper",
+            "DeckFormatDuel",
+            "DeckFormatCommander"
+          ]
+        },
+        {
+          "name": "maxSeats",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "playtest",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "allowSpectators",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "matchMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "MatchBO1",
+            "MatchBO3"
+          ]
+        },
+        {
+          "name": "cardLoadMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "CardLoadPreload",
+            "CardLoadBackground"
+          ]
+        },
+        {
+          "name": "hasPassword",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "DeckCard",
+      "goType": "DeckCard",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "setCode",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "collectorNumber",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "typeLine",
+          "type": "string",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "CardKey",
+      "goType": "CardKey",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "setCode",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "collectorNumber",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "session.hello",
+      "direction": "clientToServer",
+      "goType": "SessionHello",
+      "fields": [
+        {
+          "name": "displayName",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "clientVersion",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "protocol",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "ProtocolVersion"
+          ]
+        },
+        {
+          "name": "resumeToken",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lastSeq",
+          "type": "integer",
+          "required": false,
+          "goType": "int64"
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClient.cpp",
+        "function": "WsClient::onConnected"
+      }
+    },
+    {
+      "type": "session.welcome",
+      "direction": "serverToClient",
+      "goType": "SessionWelcome",
+      "fields": [
+        {
+          "name": "v",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ProtocolVersion"
+          ]
+        },
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "serverVersion",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "resumeToken",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "resumed",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "RolePlayer",
+            "RoleSpectator"
+          ]
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "host",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "room.create",
+      "direction": "clientToServer",
+      "goType": "RoomCreate",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "FormatModern",
+            "FormatDuel",
+            "FormatEDH"
+          ]
+        },
+        {
+          "name": "deckFormat",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DeckFormatCustom",
+            "DeckFormatStandard",
+            "DeckFormatPioneer",
+            "DeckFormatModern",
+            "DeckFormatLegacy",
+            "DeckFormatVintage",
+            "DeckFormatPauper",
+            "DeckFormatDuel",
+            "DeckFormatCommander"
+          ]
+        },
+        {
+          "name": "maxSeats",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "playtest",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "allowSpectators",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "matchMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "MatchBO1",
+            "MatchBO3"
+          ]
+        },
+        {
+          "name": "cardLoadMode",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "CardLoadPreload",
+            "CardLoadBackground"
+          ]
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::createRoom"
+      }
+    },
+    {
+      "type": "room.created",
+      "direction": "serverToClient",
+      "goType": "RoomCreated",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "required": true,
+          "ref": "RoomSettings"
+        },
+        {
+          "name": "hostSeat",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "room.join",
+      "direction": "clientToServer",
+      "goType": "RoomJoin",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "asSpectator",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::joinRoom"
+      }
+    },
+    {
+      "type": "room.joined",
+      "direction": "serverToClient",
+      "goType": "RoomJoined",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RolePlayer",
+            "RoleSpectator"
+          ]
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "type": "deck.select",
+      "direction": "clientToServer",
+      "goType": "DeckSelect",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "FormatModern",
+            "FormatDuel",
+            "FormatEDH"
+          ]
+        },
+        {
+          "name": "deckFormat",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DeckFormatCustom",
+            "DeckFormatStandard",
+            "DeckFormatPioneer",
+            "DeckFormatModern",
+            "DeckFormatLegacy",
+            "DeckFormatVintage",
+            "DeckFormatPauper",
+            "DeckFormatDuel",
+            "DeckFormatCommander"
+          ]
+        },
+        {
+          "name": "commander",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "commanders",
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "mainboard",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "DeckCard"
+          }
+        },
+        {
+          "name": "sideboard",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "DeckCard"
+          }
+        }
+      ]
+    },
+    {
+      "type": "deck.selected",
+      "direction": "serverToClient",
+      "goType": "DeckSelected",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "player.ready",
+      "direction": "clientToServer",
+      "goType": "PlayerReady",
+      "fields": [
+        {
+          "name": "ready",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setReady"
+      }
+    },
+    {
+      "type": "player.ready_changed",
+      "direction": "serverToClient",
+      "goType": "PlayerReadyChanged",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "ready",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "match.load_required",
+      "direction": "serverToClient",
+      "goType": "MatchLoadRequired",
+      "fields": [
+        {
+          "name": "loadId",
+          "type": "integer",
+          "required": true,
+          "goType": "int64"
+        },
+        {
+          "name": "cardKeys",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "CardKey"
+          }
+        }
+      ]
+    },
+    {
+      "type": "client.load_complete",
+      "direction": "clientToServer",
+      "goType": "ClientLoadComplete",
+      "fields": [
+        {
+          "name": "loadId",
+          "type": "integer",
+          "required": true,
+          "goType": "int64"
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::completeLoad"
+      }
+    },
+    {
+      "type": "client.load_completed",
+      "direction": "serverToClient",
+      "goType": "ClientLoadCompleted",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "loadId",
+          "type": "integer",
+          "required": true,
+          "goType": "int64"
+        }
+      ]
+    },
+    {
+      "type": "match.started",
+      "direction": "serverToClient",
+      "goType": "MatchStarted",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "loadId",
+          "type": "integer",
+          "required": true,
+          "goType": "int64"
+        }
+      ]
+    }
+  ]
+}

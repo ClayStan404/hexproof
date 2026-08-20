@@ -1,0 +1,7 @@
+{
+  "type": "player.ready",
+  "id": "r1",
+  "payload": {
+    "ready": true
+  }
+}

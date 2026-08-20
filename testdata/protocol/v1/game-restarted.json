@@ -1,0 +1,9 @@
+{
+  "type": "game.restarted",
+  "id": "restart-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 2,
+    "startingSeat": 1
+  }
+}

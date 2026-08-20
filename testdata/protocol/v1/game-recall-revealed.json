@@ -1,0 +1,5 @@
+{
+  "type": "game.recall_revealed",
+  "id": "recall-20",
+  "payload": {}
+}

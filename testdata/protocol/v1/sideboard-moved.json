@@ -1,0 +1,8 @@
+{
+  "type": "sideboard.moved",
+  "id": "sb1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0
+  }
+}

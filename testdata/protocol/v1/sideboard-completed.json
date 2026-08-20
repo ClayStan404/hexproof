@@ -1,0 +1,9 @@
+{
+  "type": "sideboard.completed",
+  "seq": 31,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 2,
+    "reason": "ready"
+  }
+}

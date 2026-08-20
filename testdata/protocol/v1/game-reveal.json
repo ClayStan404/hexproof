@@ -1,0 +1,7 @@
+{
+  "type": "game.reveal",
+  "id": "reveal-17",
+  "payload": {
+    "zone": "hand"
+  }
+}

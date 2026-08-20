@@ -1,0 +1,8 @@
+{
+  "type": "game.set_attachment",
+  "id": "at1",
+  "payload": {
+    "sourceCardId": "s0-c9",
+    "targetCardId": "s1-c3"
+  }
+}

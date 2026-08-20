@@ -1,0 +1,132 @@
+{
+  "type": "game.snapshot",
+  "seq": 25,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 2,
+    "startingSeat": 1,
+    "activeSeat": -1,
+    "currentPhase": "main_2",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 8,
+        "kind": "departure",
+        "seat": 1,
+        "text": "Bob left the match. Alice wins."
+      }
+    ],
+    "score": [
+      2,
+      1
+    ],
+    "result": {
+      "reason": "departure",
+      "winnerSeat": 0,
+      "concededSeat": 1,
+      "matchFinished": true
+    }
+  }
+}

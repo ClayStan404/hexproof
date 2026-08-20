@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [],
+  "messages": [
+    {
+      "type": "game.set_card_face",
+      "direction": "clientToServer",
+      "goType": "GameSetCardFace",
+      "fields": [
+        {"name": "cardId", "type": "string", "required": true},
+        {"name": "faceName", "type": "string", "required": false}
+      ],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::setCardFace"}
+    },
+    {
+      "type": "game.card_face_set",
+      "direction": "serverToClient",
+      "goType": "GameCardFaceSet",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "cardId", "type": "string", "required": true},
+        {"name": "faceName", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "game.set_counter",
+      "direction": "clientToServer",
+      "goType": "GameSetCounter",
+      "fields": [
+        {"name": "counter", "type": "string", "required": true},
+        {"name": "value", "type": "integer", "required": false, "goType": "*int"},
+        {"name": "delta", "type": "integer", "required": false, "goType": "*int"},
+        {"name": "label", "type": "string", "required": false, "goType": "*string"}
+      ]
+    },
+    {
+      "type": "game.counter_set",
+      "direction": "serverToClient",
+      "goType": "GameCounterSet",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "counter", "type": "string", "required": true},
+        {"name": "value", "type": "integer", "required": true},
+        {"name": "label", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "game.set_counter_count",
+      "direction": "clientToServer",
+      "goType": "GameSetCounterCount",
+      "fields": [{"name": "count", "type": "integer", "required": true}],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::setCounterCount"}
+    },
+    {
+      "type": "game.counter_count_set",
+      "direction": "serverToClient",
+      "goType": "GameCounterCountSet",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "count", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "game.concede",
+      "direction": "clientToServer",
+      "goType": "GameConcede",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::concede"}
+    },
+    {
+      "type": "game.conceded",
+      "direction": "serverToClient",
+      "goType": "GameConceded",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "gameNumber", "type": "integer", "required": true},
+        {"name": "concededSeat", "type": "integer", "required": true},
+        {"name": "winnerSeat", "type": "integer", "required": true},
+        {"name": "score", "type": "array", "required": true, "items": {"type": "integer"}, "goType": "[]int"},
+        {"name": "matchFinished", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "type": "game.declare_draw",
+      "direction": "clientToServer",
+      "goType": "GameDeclareDraw",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::declareDraw"}
+    },
+    {
+      "type": "game.draw_declared",
+      "direction": "serverToClient",
+      "goType": "GameDrawDeclared",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "gameNumber", "type": "integer", "required": true},
+        {"name": "declaredSeat", "type": "integer", "required": true},
+        {"name": "score", "type": "array", "required": true, "items": {"type": "integer"}, "goType": "[]int"},
+        {"name": "drawnGames", "type": "integer", "required": false},
+        {"name": "matchFinished", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "type": "game.restart",
+      "direction": "clientToServer",
+      "goType": "GameRestart",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::restartGame"}
+    },
+    {
+      "type": "game.restarted",
+      "direction": "serverToClient",
+      "goType": "GameRestarted",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "gameNumber", "type": "integer", "required": true},
+        {"name": "startingSeat", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "game.roll",
+      "direction": "clientToServer",
+      "goType": "GameRoll",
+      "fields": [
+        {"name": "sides", "type": "integer", "required": true},
+        {"name": "count", "type": "integer", "required": false}
+      ],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::rollDice"}
+    },
+    {
+      "type": "game.rolled",
+      "direction": "serverToClient",
+      "goType": "GameRolled",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "sides", "type": "integer", "required": true},
+        {"name": "rolls", "type": "array", "required": true, "items": {"type": "integer"}, "goType": "[]int"},
+        {"name": "total", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "game.flip_coin",
+      "direction": "clientToServer",
+      "goType": "GameFlipCoin",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::flipCoin"}
+    },
+    {
+      "type": "game.coin_flipped",
+      "direction": "serverToClient",
+      "goType": "GameCoinFlipped",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "result", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "game.random_select",
+      "direction": "clientToServer",
+      "goType": "GameRandomSelect",
+      "fields": [
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "cardIds", "type": "array", "required": false, "items": {"type": "string"}}
+      ]
+    },
+    {
+      "type": "game.random_selected",
+      "direction": "serverToClient",
+      "goType": "GameRandomSelected",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "selectedSeat", "type": "integer", "required": true},
+        {"name": "selectedCardId", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "game.return_to_room",
+      "direction": "clientToServer",
+      "goType": "GameReturnToRoom",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::returnToRoom"}
+    },
+    {
+      "type": "game.returned_to_room",
+      "direction": "serverToClient",
+      "goType": "GameReturnedToRoom",
+      "fields": [{"name": "roomId", "type": "string", "required": true}]
+    },
+    {
+      "type": "game.say",
+      "direction": "clientToServer",
+      "goType": "GameSay",
+      "fields": [{"name": "message", "type": "string", "required": true}],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::sayGameMessage"}
+    },
+    {
+      "type": "game.said",
+      "direction": "serverToClient",
+      "goType": "GameSaid",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "logId", "type": "integer", "required": true, "goType": "int64"}
+      ]
+    }
+  ]
+}

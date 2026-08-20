@@ -1,0 +1,7 @@
+{
+  "type": "game.say",
+  "id": "say-20",
+  "payload": {
+    "message": "Good luck!"
+  }
+}

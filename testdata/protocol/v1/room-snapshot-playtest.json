@@ -1,0 +1,26 @@
+{
+  "type": "room.snapshot",
+  "seq": 1,
+  "payload": {
+    "roomId": "SOLO12",
+    "name": "Solo playtest",
+    "format": "modern",
+    "deckFormat": "custom",
+    "maxSeats": 1,
+    "playtest": true,
+    "matchMode": "bo1",
+    "cardLoadMode": "background",
+    "hostSeat": 0,
+    "hasPassword": false,
+    "seats": [
+      {
+        "occupied": true,
+        "displayName": "Alice",
+        "host": true
+      }
+    ],
+    "spectators": [],
+    "allowSpectators": false,
+    "phase": "waiting"
+  }
+}

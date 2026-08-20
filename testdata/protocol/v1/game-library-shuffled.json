@@ -1,0 +1,8 @@
+{
+  "type": "game.library_shuffled",
+  "id": "shuffle-1",
+  "payload": {
+    "roomId": "room-1",
+    "seat": 0
+  }
+}

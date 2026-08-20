@@ -1,0 +1,13 @@
+{
+  "type": "game.resolve_library_view",
+  "id": "resolve-top-1",
+  "payload": {
+    "selectedCardIds": ["s0-c8", "s0-c10"],
+    "remainderCardIds": ["s0-c9"],
+    "toZone": "battlefield",
+    "position": {"x": 0.5, "y": 0.5},
+    "faceDown": true,
+    "remainderPlacement": "bottom",
+    "randomizeRemainder": true
+  }
+}
