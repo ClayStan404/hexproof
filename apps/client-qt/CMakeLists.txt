@@ -753,7 +753,9 @@ qt_add_resources(hexproof_qml_test "qml_test_translations"
         ${HEXPROOF_DYNAMIC_QM_FILES})
 add_test(NAME qml COMMAND hexproof_qml_test
     -input ${CMAKE_CURRENT_SOURCE_DIR}/tests/qml
-    -import ${CMAKE_CURRENT_SOURCE_DIR}/qml)
+    -import ${CMAKE_CURRENT_SOURCE_DIR}/qml
+    -o -,txt
+    -v1)
 set_tests_properties(qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Context properties are an intentional part of the current QML integration,
