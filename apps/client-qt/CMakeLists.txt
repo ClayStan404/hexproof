@@ -751,10 +751,16 @@ qt_add_resources(hexproof_qml_test "qml_test_translations"
     FILES
         ${HEXPROOF_UI_QM_FILE}
         ${HEXPROOF_DYNAMIC_QM_FILES})
+if(WIN32)
+    set(HEXPROOF_QML_TEXT_LOG
+        "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.txt")
+else()
+    set(HEXPROOF_QML_TEXT_LOG "-")
+endif()
 add_test(NAME qml COMMAND hexproof_qml_test
     -input ${CMAKE_CURRENT_SOURCE_DIR}/tests/qml
     -import ${CMAKE_CURRENT_SOURCE_DIR}/qml
-    -o -,txt
+    -o ${HEXPROOF_QML_TEXT_LOG},txt
     -o ${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.xml,junitxml
     -v1)
 set_tests_properties(qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

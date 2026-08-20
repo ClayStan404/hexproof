@@ -232,7 +232,12 @@ jobs:
             --output-on-failure -E '^server-integration$'
           test_exit_code=$?
           set -e
+          qml_text_log="build/client-qt/qml-test-results.txt"
           qml_report="build/client-qt/qml-test-results.xml"
+          if [[ $test_exit_code -ne 0 && -f "$qml_text_log" ]]; then
+            echo "QML text log:"
+            cat "$qml_text_log"
+          fi
           if [[ $test_exit_code -ne 0 && -f "$qml_report" ]]; then
             echo "QML test report:"
             cat "$qml_report"

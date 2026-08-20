@@ -2379,13 +2379,17 @@ TestCase {
         table.ownLibraryMenu.open()
         tryVerify(() => table.ownLibraryMenu.opened)
         verify(viewTopCard.contentItem.width + 1
-               >= viewTopCard.contentItem.implicitWidth)
+               >= viewTopCard.contentItem.implicitWidth,
+               "View-top-card menu text must not be elided")
         verify(viewTopCards.contentItem.width + 1
-               >= viewTopCards.contentItem.implicitWidth)
+               >= viewTopCards.contentItem.implicitWidth,
+               "View-top-cards menu text must not be elided")
         verify(moveTopToGraveyard.contentItem.width + 1
-               >= moveTopToGraveyard.contentItem.implicitWidth)
+               >= moveTopToGraveyard.contentItem.implicitWidth,
+               "Move-to-graveyard menu text must not be elided")
         verify(moveTopToExile.contentItem.width + 1
-               >= moveTopToExile.contentItem.implicitWidth)
+               >= moveTopToExile.contentItem.implicitWidth,
+               "Move-to-exile menu text must not be elided")
         table.ownLibraryMenu.close()
         verify(viewTopCard.enabled)
         viewTopCard.triggered()

@@ -149,7 +149,8 @@ Item {
 
     Menu {
         id: ownLibraryMenu
-        width: Math.min(root.width - Theme.size(24), Theme.size(420))
+        width: Math.min(root.width - Theme.size(24),
+                        Math.max(Theme.size(420), implicitWidth))
 
         MenuItem {
             objectName: "drawCardsAction"
