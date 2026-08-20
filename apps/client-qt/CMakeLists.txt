@@ -755,6 +755,7 @@ add_test(NAME qml COMMAND hexproof_qml_test
     -input ${CMAKE_CURRENT_SOURCE_DIR}/tests/qml
     -import ${CMAKE_CURRENT_SOURCE_DIR}/qml
     -o -,txt
+    -o ${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.xml,junitxml
     -v1)
 set_tests_properties(qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
