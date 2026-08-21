@@ -1,0 +1,1 @@
+{"type":"tournament.listed","id":"t-1","payload":{"tournaments":[{"tournamentId":"ABC123","name":"Friday Swiss","format":"modern","matchMode":"bo3","status":"registration","registered":4,"checkedIn":3,"maxPlayers":32,"currentRound":0,"plannedRounds":0,"registrationOpen":true}]}}

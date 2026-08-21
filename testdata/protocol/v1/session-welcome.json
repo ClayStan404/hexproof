@@ -1,0 +1,10 @@
+{
+  "type": "session.welcome",
+  "id": "req-1",
+  "payload": {
+    "v": "hexproof.v1",
+    "connectionId": "conn-7F3A",
+    "serverVersion": "0.1.0",
+    "resumeToken": "fixture-resume-token"
+  }
+}

@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Format, protocol, and license headers
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Install formatter
+        run: sudo apt-get update && sudo apt-get install -y clang-format-18 ripgrep shellcheck
+      - name: Check changed C/C++ formatting
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          base="${PR_BASE_SHA:-$PUSH_BASE_SHA}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] ||
+             ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            if git rev-parse --verify --quiet HEAD^ >/dev/null; then
+              base="HEAD^"
+            else
+              # Force-pushes and imported root commits have no reachable
+              # predecessor. Subsequent pushes and pull requests still check
+              # every changed C/C++ line against their real base revision.
+              base="HEAD"
+            fi
+          fi
+          formatting_patch="$(
+            git diff --unified=0 "$base" HEAD -- \
+              ':(glob)apps/client-qt/**/*.cpp' \
+              ':(glob)apps/client-qt/**/*.h' \
+              ':(glob)tools/ui-automation/x11/**/*.cpp' \
+              ':(glob)tools/ui-automation/x11/**/*.h' |
+              clang-format-diff-18 -p1 -style=file
+          )"
+          if [[ -n "$formatting_patch" ]]; then
+            printf '%s\n' "$formatting_patch"
+            echo "Changed C/C++ lines must be clang-formatted." >&2
+            exit 1
+          fi
+      - name: Check license headers
+        run: ./tools/check-license-headers.sh
+      - name: Check shell scripts
+        shell: bash
+        run: |
+          scripts=(tools/card-database-builder/build-latest.sh)
+          if [[ -f deploy/update-public-server.sh ]]; then
+            scripts+=(deploy/update-public-server.sh)
+          fi
+          shellcheck "${scripts[@]}"
+      - name: Check QML text safety
+        run: ./tools/check-qml-text-safety.sh
+      - name: Check protocol parity
+        run: python3 tools/check-protocol-parity.py
+      - name: Check Simplified Chinese translations
+        run: python3 tools/check-i18n.py --strict
+      - name: Check module size budgets
+        run: python3 tools/check-module-size.py
+      - name: Test quality checks
+        shell: bash
+        run: |
+          tests=(
+            tools.tests.test_quality_checks
+            tools.tests.test_table_architecture
+          )
+          if [[ -f tools/tests/test_deploy_script.py ]]; then
+            tests+=(tools.tests.test_deploy_script)
+          fi
+          python3 -m unittest "${tests[@]}"
+
+  server:
+    name: Go server
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Check Go formatting
+        shell: bash
+        run: |
+          files="$(gofmt -l .)"
+          test -z "$files" || {
+            printf 'gofmt required:\n%s\n' "$files"
+            exit 1
+          }
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Test room, server, and tournament race safety
+        run: go test -race ./internal/room ./internal/server ./internal/tournament
+      - name: Fuzz protocol, reducer, and retention boundaries
+        shell: bash
+        run: |
+          go test ./internal/protocol -run '^$' -fuzz '^FuzzParseEnvelope$' -fuzztime 5s
+          go test ./internal/room -run '^$' -fuzz '^FuzzGameMoveSequencePreservesCards$' -fuzztime 5s
+          go test ./internal/server -run '^$' -fuzz '^FuzzDecodeRetainedRoom$' -fuzztime 5s
+      - name: Pin privacy fixtures
+        run: go test ./internal/protocol -run 'GoldenFixtures|P7Golden'
+      - name: Build static server
+        run: CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
+
+  client:
+    name: Qt client
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: '6.8.3'
+          modules: 'qtwebsockets qtimageformats'
+          cache: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Build integration server
+        working-directory: apps/server
+        run: CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
+      - name: Configure
+        run: >
+          cmake -S apps/client-qt -B build/client-qt -G Ninja
+          -DHEXPROOF_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build build/client-qt
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+          HEXPROOF_SERVER_BINARY: ${{ github.workspace }}/build/server/hexproof-server
+        run: ctest --test-dir build/client-qt --output-on-failure
+
+  client-sanitizers:
+    name: Qt client (ASan and UBSan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: '6.8.3'
+          modules: 'qtwebsockets qtimageformats'
+          cache: true
+      - name: Configure Debug sanitizers
+        run: >
+          cmake -S apps/client-qt -B build/client-qt-sanitizers -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DHEXPROOF_ENABLE_SANITIZERS=ON
+          -DHEXPROOF_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build build/client-qt-sanitizers
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+          ASAN_OPTIONS: abort_on_error=1:detect_leaks=0:strict_string_checks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: >
+          ctest --test-dir build/client-qt-sanitizers
+          --output-on-failure -E '^server-integration$'
+
+  client-platforms:
+    name: Qt client (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-15
+          - name: Windows
+            os: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: '6.8.3'
+          modules: 'qtwebsockets qtimageformats'
+          cache: true
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: vcpkg install zlib:x64-windows
+      - name: Configure macOS
+        if: runner.os == 'macOS'
+        run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >
+          cmake -S apps/client-qt -B build/client-qt
+          -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build
+        run: cmake --build build/client-qt --config Release
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: >
+          ctest --test-dir build/client-qt -C Release
+          --output-on-failure -E '^server-integration$'

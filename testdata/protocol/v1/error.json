@@ -1,0 +1,8 @@
+{
+  "type": "error",
+  "id": "req-9",
+  "payload": {
+    "code": "room_full",
+    "message": "All seats are taken"
+  }
+}

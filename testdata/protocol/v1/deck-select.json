@@ -1,0 +1,19 @@
+{
+  "type": "deck.select",
+  "id": "d1",
+  "payload": {
+    "name": "Burn",
+    "format": "modern",
+    "deckFormat": "modern",
+    "mainboard": [
+      {
+        "name": "Lightning Bolt",
+        "count": 7,
+        "setCode": "M11",
+        "collectorNumber": "149",
+        "typeLine": "Instant"
+      }
+    ],
+    "sideboard": []
+  }
+}

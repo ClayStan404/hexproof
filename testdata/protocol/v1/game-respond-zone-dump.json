@@ -1,0 +1,8 @@
+{
+  "type": "game.respond_zone_dump",
+  "id": "respond-zone-dump-25",
+  "payload": {
+    "approvalId": "zone-dump-1",
+    "approved": true
+  }
+}

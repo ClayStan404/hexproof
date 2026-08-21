@@ -1,0 +1,128 @@
+{
+  "type": "game.snapshot",
+  "seq": 31,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 0,
+    "activeSeat": 0,
+    "currentPhase": "main_1",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 51,
+        "handCount": 8,
+        "mulliganCount": 0,
+        "hand": [
+          {
+            "id": "s0-secret",
+            "name": "Demonic Tutor",
+            "setCode": "STA",
+            "collectorNumber": "27",
+            "ownerSeat": 0
+          }
+        ],
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [],
+    "score": [
+      0,
+      0
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "match.load_required",
+  "seq": 8,
+  "payload": {
+    "loadId": 1,
+    "cardKeys": [
+      {
+        "name": "Lightning Bolt",
+        "setCode": "M11",
+        "collectorNumber": "149"
+      },
+      {
+        "name": "Sol Ring",
+        "setCode": "CMM",
+        "collectorNumber": "396"
+      }
+    ]
+  }
+}

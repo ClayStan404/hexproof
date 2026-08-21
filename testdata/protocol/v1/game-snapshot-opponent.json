@@ -1,0 +1,191 @@
+{
+  "type": "game.snapshot",
+  "seq": 12,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 1,
+    "activeSeat": 1,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "counterCount": 3,
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "counterCount": 1,
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "hand": [
+          {
+            "id": "s1-c1",
+            "name": "Island",
+            "setCode": "M11",
+            "collectorNumber": "234",
+            "ownerSeat": 1
+          },
+          {
+            "id": "s1-c2",
+            "name": "Counterspell",
+            "setCode": "MH2",
+            "collectorNumber": "267",
+            "ownerSeat": 1
+          },
+          {
+            "id": "s1-c3",
+            "name": "Consider",
+            "setCode": "MID",
+            "collectorNumber": "44",
+            "ownerSeat": 1
+          },
+          {
+            "id": "s1-c4",
+            "name": "Murktide Regent",
+            "setCode": "MH2",
+            "collectorNumber": "52",
+            "ownerSeat": 1
+          },
+          {
+            "id": "s1-c5",
+            "name": "Mishra's Bauble",
+            "setCode": "IMA",
+            "collectorNumber": "221",
+            "ownerSeat": 1
+          },
+          {
+            "id": "s1-c6",
+            "name": "Steam Vents",
+            "setCode": "GRN",
+            "collectorNumber": "257",
+            "ownerSeat": 1
+          },
+          {
+            "id": "s1-c7",
+            "name": "Unholy Heat",
+            "setCode": "MH2",
+            "collectorNumber": "145",
+            "ownerSeat": 1
+          }
+        ],
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 1,
+        "kind": "roll",
+        "seat": 1,
+        "text": "Bob won the opening roll."
+      },
+      {
+        "id": 2,
+        "kind": "opening_hand",
+        "seat": 0,
+        "text": "Alice drew an opening hand of 7 cards."
+      },
+      {
+        "id": 3,
+        "kind": "opening_hand",
+        "seat": 1,
+        "text": "Bob drew an opening hand of 7 cards."
+      }
+    ],
+    "score": [
+      0,
+      0
+    ]
+  }
+}

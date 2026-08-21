@@ -1,0 +1,10 @@
+{
+  "type": "game.revealed",
+  "id": "reveal-17",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "zone": "hand",
+    "count": 2
+  }
+}

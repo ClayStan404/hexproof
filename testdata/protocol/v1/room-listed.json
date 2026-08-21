@@ -1,0 +1,24 @@
+{
+  "type": "room.listed",
+  "id": "rl1",
+  "payload": {
+    "rooms": [
+      {
+        "roomId": "ABCDEF",
+        "name": "Friday Modern",
+        "format": "modern",
+        "deckFormat": "modern",
+        "matchMode": "bo3",
+        "cardLoadMode": "preload",
+        "maxSeats": 2,
+        "playerCount": 1,
+        "spectatorCount": 0,
+        "allowSpectators": true,
+        "hasPassword": true,
+        "phase": "waiting",
+        "playerJoinable": true,
+        "spectatorJoinable": true
+      }
+    ]
+  }
+}

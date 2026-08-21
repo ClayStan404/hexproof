@@ -1,0 +1,11 @@
+{
+  "type": "game.draw_declared",
+  "id": "draw-result-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 2,
+    "declaredSeat": 1,
+    "score": [1, 0],
+    "matchFinished": false
+  }
+}

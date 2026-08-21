@@ -1,0 +1,10 @@
+{
+  "type": "game.reorder_library",
+  "id": "reorder-22",
+  "payload": {
+    "cardIds": [
+      "s0-c9",
+      "s0-c8"
+    ]
+  }
+}

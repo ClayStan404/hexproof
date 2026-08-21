@@ -1,0 +1,245 @@
+{
+  "type": "game.snapshot",
+  "seq": 24,
+  "payload": {
+    "roomId": "EDH123",
+    "gameNumber": 1,
+    "startingSeat": 2,
+    "activeSeat": 1,
+    "currentPhase": "main_1",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 38,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 92,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": [],
+        "commandZone": [
+          {
+            "id": "s0-c1",
+            "name": "Atraxa, Praetors' Voice",
+            "setCode": "C16",
+            "collectorNumber": "28",
+            "ownerSeat": 0,
+            "commander": true
+          }
+        ],
+        "commanderTax": 2,
+        "commanderTaxes": {
+          "s0-c1": 2
+        }
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 0,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 80,
+        "handCount": 5,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": [],
+        "eliminated": true
+      },
+      {
+        "seat": 2,
+        "displayName": "Carol",
+        "life": 40,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 92,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 3,
+        "displayName": "Dan",
+        "life": 40,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 92,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [
+          {
+            "id": "s3-t1",
+            "name": "Goblin",
+            "setCode": "TNEO",
+            "collectorNumber": "12",
+            "ownerSeat": 3,
+            "position": {
+              "x": 0.5,
+              "y": 0.3
+            },
+            "token": true
+          }
+        ],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [],
+    "score": [
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+}

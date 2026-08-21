@@ -1,0 +1,12 @@
+{
+  "type": "game.public_zone_move_requested",
+  "payload": {
+    "roomId": "ABCDEF",
+    "approvalId": "public-zone-move-1",
+    "requesterSeat": 0,
+    "requesterName": "Alice",
+    "sourceZone": "graveyard",
+    "cardCount": 1,
+    "toZone": "battlefield"
+  }
+}

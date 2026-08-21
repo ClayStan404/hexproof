@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: Latest
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 100
+PointerAlignment: Right
+DerivePointerAlignment: false
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: Never
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: Never
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: true
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+AllowShortFunctionsOnASingleLine: Empty

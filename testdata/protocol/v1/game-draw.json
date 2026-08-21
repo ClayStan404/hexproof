@@ -1,0 +1,7 @@
+{
+  "type": "game.draw",
+  "id": "g1",
+  "payload": {
+    "count": 3
+  }
+}

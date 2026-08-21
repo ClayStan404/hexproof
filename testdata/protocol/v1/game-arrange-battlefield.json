@@ -1,0 +1,22 @@
+{
+  "type": "game.arrange_battlefield",
+  "id": "req-arrange-1",
+  "payload": {
+    "cards": [
+      {
+        "cardId": "s0-c1",
+        "position": {
+          "x": 0.1,
+          "y": 0.9
+        }
+      },
+      {
+        "cardId": "s0-c2",
+        "position": {
+          "x": 0.2,
+          "y": 0.4
+        }
+      }
+    ]
+  }
+}

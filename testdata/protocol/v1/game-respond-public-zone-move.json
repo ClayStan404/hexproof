@@ -1,0 +1,8 @@
+{
+  "type": "game.respond_public_zone_move",
+  "id": "respond-public-zone-1",
+  "payload": {
+    "approvalId": "public-zone-move-1",
+    "approved": true
+  }
+}

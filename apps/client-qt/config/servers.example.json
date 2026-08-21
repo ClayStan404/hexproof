@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "servers": [
+    {
+      "url": "wss://server-1.invalid/ws"
+    },
+    {
+      "url": "wss://server-2.invalid/ws"
+    },
+    {
+      "url": "wss://server-3.invalid/ws"
+    }
+  ]
+}

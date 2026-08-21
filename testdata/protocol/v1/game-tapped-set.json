@@ -1,0 +1,10 @@
+{
+  "type": "game.tapped_set",
+  "id": "g3-tap",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 1,
+    "cardId": "s0-c1",
+    "tapped": true
+  }
+}

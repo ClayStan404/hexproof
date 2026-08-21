@@ -1,0 +1,13 @@
+{
+  "type": "room.create",
+  "id": "c1",
+  "payload": {
+    "name": "Friday EDH",
+    "format": "edh",
+    "deckFormat": "commander",
+    "maxSeats": 4,
+    "allowSpectators": true,
+    "matchMode": "bo3",
+    "cardLoadMode": "preload"
+  }
+}

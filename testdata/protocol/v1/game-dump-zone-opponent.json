@@ -1,0 +1,8 @@
+{
+  "type": "game.dump_zone",
+  "id": "dump-opponent-24",
+  "payload": {
+    "zone": "library",
+    "seat": 1
+  }
+}

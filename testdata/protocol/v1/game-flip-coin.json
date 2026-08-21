@@ -1,0 +1,5 @@
+{
+  "type": "game.flip_coin",
+  "id": "coin-1",
+  "payload": {}
+}

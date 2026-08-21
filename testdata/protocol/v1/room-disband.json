@@ -1,0 +1,5 @@
+{
+  "type": "room.disband",
+  "id": "d1",
+  "payload": {}
+}

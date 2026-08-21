@@ -1,0 +1,8 @@
+{
+  "type": "game.said",
+  "id": "say-20",
+  "payload": {
+    "roomId": "ABCDEF",
+    "logId": 42
+  }
+}

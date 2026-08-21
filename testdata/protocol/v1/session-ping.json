@@ -1,0 +1,5 @@
+{
+  "type": "session.ping",
+  "id": "ping-1",
+  "payload": {}
+}

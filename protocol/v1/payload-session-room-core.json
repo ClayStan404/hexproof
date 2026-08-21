@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "RoomListEntry",
+      "goType": "RoomListEntry",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "format", "type": "string", "required": true, "enum": ["FormatModern", "FormatDuel", "FormatEDH"]},
+        {"name": "deckFormat", "type": "string", "required": true, "enum": ["DeckFormatCustom", "DeckFormatStandard", "DeckFormatPioneer", "DeckFormatModern", "DeckFormatLegacy", "DeckFormatVintage", "DeckFormatPauper", "DeckFormatDuel", "DeckFormatCommander"]},
+        {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
+        {"name": "cardLoadMode", "type": "string", "required": true, "enum": ["CardLoadPreload", "CardLoadBackground"]},
+        {"name": "maxSeats", "type": "integer", "required": true},
+        {"name": "playerCount", "type": "integer", "required": true},
+        {"name": "spectatorCount", "type": "integer", "required": true},
+        {"name": "allowSpectators", "type": "boolean", "required": true},
+        {"name": "hasPassword", "type": "boolean", "required": true},
+        {"name": "phase", "type": "string", "required": true, "enum": ["RoomPhaseWaiting", "RoomPhaseLoading", "RoomPhaseStarted"]},
+        {"name": "playerJoinable", "type": "boolean", "required": true},
+        {"name": "spectatorJoinable", "type": "boolean", "required": true}
+      ]
+    }
+  ],
+  "messages": [
+    {"type": "session.ping", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
+    {"type": "session.pong", "direction": "serverToClient", "goType": "EmptyPayload", "fields": []},
+    {
+      "type": "room.leave",
+      "direction": "clientToServer",
+      "goType": "EmptyPayload",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::leaveRoom"}
+    },
+    {
+      "type": "room.left",
+      "direction": "serverToClient",
+      "goType": "RoomLeft",
+      "fields": [{"name": "roomId", "type": "string", "required": true}]
+    },
+    {
+      "type": "room.kick",
+      "direction": "clientToServer",
+      "goType": "RoomKick",
+      "fields": [
+        {"name": "seat", "type": "integer", "required": false, "goType": "*int"},
+        {"name": "spectatorIndex", "type": "integer", "required": false, "goType": "*int"}
+      ]
+    },
+    {
+      "type": "room.kicked",
+      "direction": "serverToClient",
+      "goType": "RoomLeft",
+      "fields": [{"name": "roomId", "type": "string", "required": true}]
+    },
+    {
+      "type": "room.disband",
+      "direction": "clientToServer",
+      "goType": "EmptyPayload",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::disbandRoom"}
+    },
+    {
+      "type": "room.disbanded",
+      "direction": "serverToClient",
+      "goType": "RoomLeft",
+      "fields": [{"name": "roomId", "type": "string", "required": true}]
+    },
+    {
+      "type": "room.list",
+      "direction": "clientToServer",
+      "goType": "EmptyPayload",
+      "fields": [],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::requestRoomList"}
+    },
+    {
+      "type": "room.listed",
+      "direction": "serverToClient",
+      "goType": "RoomListed",
+      "fields": [
+        {"name": "rooms", "type": "array", "required": true, "items": {"type": "object", "ref": "RoomListEntry"}}
+      ]
+    },
+    {
+      "type": "error",
+      "direction": "serverToClient",
+      "goType": "ErrorPayload",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ErrWrongPassword", "ErrRoomFull", "ErrRoomNotFound", "ErrSpectatorsNotAllowed",
+            "ErrSpectatorLimit", "ErrAlreadyInRoom", "ErrNotHost", "ErrNotInRoom",
+            "ErrInvalidMessage", "ErrNameRequired", "ErrUnsupportedFormat", "ErrInvalidTarget",
+            "ErrCannotKickHost", "ErrInvalidMatchMode", "ErrInvalidCardLoadMode", "ErrNotPlayer",
+            "ErrInvalidDeck", "ErrDeckRequired", "ErrSeatsNotFilled", "ErrNotLoading",
+            "ErrStaleLoad", "ErrMatchStarted", "ErrGameNotStarted", "ErrGameFinished",
+            "ErrMatchNotFinished", "ErrLibraryEmpty", "ErrGameSetupFailed", "ErrInvalidZone",
+            "ErrCardNotFound", "ErrInvalidPosition", "ErrInvalidMove", "ErrInvalidPhase",
+            "ErrNotActivePlayer", "ErrInvalidCounter", "ErrInvalidChat", "ErrInvalidToken",
+            "ErrPlayerEliminated", "ErrNotSideboarding", "ErrInvalidSideboardMove",
+            "ErrSideboardNotExpired", "ErrServerLimit", "ErrRateLimited", "ErrReplayNotFound",
+            "ErrInternal", "ErrPermissionDenied", "ErrApprovalRequired", "ErrApprovalPending",
+            "ErrApprovalExpired", "ErrClientVersionMismatch", "ErrTournamentInvalid",
+            "ErrTournamentForbidden", "ErrTournamentNotFound", "ErrTournamentFull",
+            "ErrTournamentAlreadyRegistered", "ErrTournamentRegistrationClosed",
+            "ErrTournamentNotReady", "ErrTournamentRoundIncomplete",
+            "ErrTournamentResultInvalid"
+          ]
+        },
+        {"name": "message", "type": "string", "required": true},
+        {"name": "clientVersion", "type": "string", "required": false},
+        {"name": "requiredVersion", "type": "string", "required": false}
+      ]
+    }
+  ]
+}

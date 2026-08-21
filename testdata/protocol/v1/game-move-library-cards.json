@@ -1,0 +1,8 @@
+{
+  "type": "game.move_library_cards",
+  "id": "move-library-cards-23",
+  "payload": {
+    "count": 3,
+    "toZone": "graveyard"
+  }
+}

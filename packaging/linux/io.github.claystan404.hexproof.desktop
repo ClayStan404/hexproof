@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hexproof
+Comment=Multiplayer tabletop card game client
+Comment[zh_CN]=多人桌面对战卡牌客户端
+Exec=hexproof
+Icon=io.github.claystan404.hexproof
+Terminal=false
+Categories=Game;CardGame;
+StartupWMClass=hexproof

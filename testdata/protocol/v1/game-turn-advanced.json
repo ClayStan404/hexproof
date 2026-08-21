@@ -1,0 +1,9 @@
+{
+  "type": "game.turn_advanced",
+  "id": "turn-16",
+  "payload": {
+    "roomId": "ABCDEF",
+    "activeSeat": 0,
+    "currentPhase": "untap"
+  }
+}

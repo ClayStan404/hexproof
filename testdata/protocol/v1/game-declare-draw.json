@@ -1,0 +1,5 @@
+{
+  "type": "game.declare_draw",
+  "id": "draw-result-1",
+  "payload": {}
+}

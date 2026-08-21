@@ -1,0 +1,11 @@
+{
+  "type": "game.random_selected",
+  "id": "random-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "kind": "card",
+    "selectedSeat": -1,
+    "selectedCardId": "s1-c2"
+  }
+}

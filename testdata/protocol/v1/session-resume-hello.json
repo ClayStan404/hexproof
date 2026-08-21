@@ -1,0 +1,11 @@
+{
+  "type": "session.hello",
+  "id": "req-2",
+  "payload": {
+    "displayName": "Alice",
+    "clientVersion": "0.1.0",
+    "protocol": "hexproof.v1",
+    "resumeToken": "fixture-resume-token",
+    "lastSeq": 41
+  }
+}

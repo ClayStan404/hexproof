@@ -1,0 +1,11 @@
+{
+  "type": "game.land_played",
+  "id": "play-land-1",
+  "seq": 53,
+  "payload": {
+    "roomId": "AB12CD",
+    "seat": 0,
+    "cardId": "s0-c12",
+    "count": 1
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "type": "deck.selected",
+  "id": "d1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0
+  }
+}

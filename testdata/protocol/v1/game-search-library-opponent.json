@@ -1,0 +1,12 @@
+{
+  "type": "game.search_library",
+  "id": "search-opponent-26",
+  "payload": {
+    "cardId": "s1-c8",
+    "toZone": "hand",
+    "toSeat": 0,
+    "reveal": false,
+    "sourceSeat": 1,
+    "approvalId": "zone-dump-1"
+  }
+}

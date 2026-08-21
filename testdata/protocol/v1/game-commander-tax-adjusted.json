@@ -1,0 +1,10 @@
+{
+  "type": "game.commander_tax_adjusted",
+  "id": "ct1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "commanderId": "s0-c1",
+    "value": 1
+  }
+}

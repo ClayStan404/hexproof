@@ -1,0 +1,8 @@
+{
+  "type": "match.started",
+  "seq": 11,
+  "payload": {
+    "roomId": "ABCDEF",
+    "loadId": 1
+  }
+}

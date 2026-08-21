@@ -1,0 +1,35 @@
+{
+  "type": "room.snapshot",
+  "seq": 10,
+  "payload": {
+    "roomId": "ABCDEF",
+    "name": "Friday Modern",
+    "format": "modern",
+    "deckFormat": "modern",
+    "maxSeats": 2,
+    "matchMode": "bo3",
+    "cardLoadMode": "preload",
+    "hostSeat": 0,
+    "hasPassword": false,
+    "seats": [
+      {
+        "occupied": true,
+        "displayName": "Alice",
+        "host": true,
+        "deckSelected": true,
+        "ready": true,
+        "loaded": true
+      },
+      {
+        "occupied": true,
+        "displayName": "Bob",
+        "deckSelected": true,
+        "ready": true
+      }
+    ],
+    "spectators": [],
+    "allowSpectators": true,
+    "phase": "loading",
+    "loadId": 1
+  }
+}

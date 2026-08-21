@@ -1,0 +1,9 @@
+{
+  "type": "game.revealed_recalled",
+  "id": "recall-20",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "count": 2
+  }
+}
