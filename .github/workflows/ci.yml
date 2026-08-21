@@ -34,12 +34,13 @@ jobs:
           PUSH_BASE_SHA: ${{ github.event.before }}
         run: |
           base="${PR_BASE_SHA:-$PUSH_BASE_SHA}"
-          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
-            if git rev-parse HEAD^ >/dev/null 2>&1; then
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] ||
+             ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            if git rev-parse --verify --quiet HEAD^ >/dev/null; then
               base="HEAD^"
             else
-              # The imported public root commit establishes the formatting
-              # baseline. Subsequent pushes and pull requests still check
+              # Force-pushes and imported root commits have no reachable
+              # predecessor. Subsequent pushes and pull requests still check
               # every changed C/C++ line against their real base revision.
               base="HEAD"
             fi

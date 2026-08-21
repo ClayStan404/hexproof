@@ -29,13 +29,15 @@ void TestOptimisticCommandModel::expiresValuesIndependently() const
     model.setValue(u"life"_s, u"0"_s, 19);
     model.trackValues(u"life"_s, {u"0"_s});
 
-    QTest::qWait(50);
+    // Give the later preview a longer timeout so coarse QTimer ticks cannot
+    // expire both keys in the same expireValues() pass.
+    model.setTimeoutMs(2000);
     model.setValue(u"counter"_s, u"0:counter-1"_s, 1);
     model.trackValues(u"counter"_s, {u"0:counter-1"_s});
 
-    QTRY_VERIFY_WITH_TIMEOUT(!model.contains(u"life"_s, u"0"_s), 150);
+    QTRY_VERIFY_WITH_TIMEOUT(!model.contains(u"life"_s, u"0"_s), 500);
     QVERIFY(model.contains(u"counter"_s, u"0:counter-1"_s));
-    QTRY_VERIFY_WITH_TIMEOUT(!model.contains(u"counter"_s, u"0:counter-1"_s), 150);
+    QTRY_VERIFY_WITH_TIMEOUT(!model.contains(u"counter"_s, u"0:counter-1"_s), 3000);
     QCOMPARE(expired.count(), 2);
     QCOMPARE(expired.at(0).at(0).toInt(), 1);
 }

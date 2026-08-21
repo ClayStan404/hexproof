@@ -316,6 +316,12 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn("FuzzGameMoveSequencePreservesCards", ci)
         self.assertIn("FuzzDecodeRetainedRoom", ci)
 
+    def test_ci_format_check_tolerates_rewritten_push_bases(self) -> None:
+        ci = self.source(".github/workflows/ci.yml")
+        self.assertIn("PUSH_BASE_SHA: ${{ github.event.before }}", ci)
+        self.assertIn('git cat-file -e "$base^{commit}"', ci)
+        self.assertIn("git rev-parse --verify --quiet HEAD^", ci)
+
     def test_retention_rejects_and_removes_invalid_archives(self) -> None:
         retention = self.source("apps/server/internal/server/retention.go")
         self.assertIn("decoder.Decode(&struct{}{})", retention)
