@@ -1,0 +1,17 @@
+{
+  "type": "game.card_moved",
+  "id": "g3",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "cardId": "s1-gy1",
+    "fromZone": "graveyard",
+    "fromSeat": 1,
+    "toZone": "battlefield",
+    "toSeat": 0,
+    "position": {
+      "x": 0.25,
+      "y": 0.6
+    }
+  }
+}

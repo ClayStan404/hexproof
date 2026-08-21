@@ -1,0 +1,1 @@
+{"type":"tournament.create","id":"t-2","payload":{"name":"Friday Swiss","format":"modern","matchMode":"bo3","roundMinutes":50,"maxPlayers":32}}

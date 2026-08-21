@@ -1,0 +1,14 @@
+{
+  "type": "game.search_library",
+  "id": "search-19",
+  "payload": {
+    "cardIds": [
+      "s0-c8",
+      "s0-c9"
+    ],
+    "toZone": "graveyard",
+    "toSeat": 0,
+    "reveal": false,
+    "randomize": true
+  }
+}

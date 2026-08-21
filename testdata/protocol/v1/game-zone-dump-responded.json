@@ -1,0 +1,9 @@
+{
+  "type": "game.zone_dump_responded",
+  "id": "respond-zone-dump-25",
+  "payload": {
+    "roomId": "ABCDEF",
+    "approvalId": "zone-dump-1",
+    "approved": true
+  }
+}

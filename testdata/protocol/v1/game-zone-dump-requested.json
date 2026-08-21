@@ -1,0 +1,10 @@
+{
+  "type": "game.zone_dump_requested",
+  "payload": {
+    "roomId": "ABCDEF",
+    "approvalId": "zone-dump-1",
+    "requesterSeat": 0,
+    "requesterName": "Alice",
+    "zone": "library"
+  }
+}

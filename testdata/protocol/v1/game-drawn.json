@@ -1,0 +1,9 @@
+{
+  "type": "game.drawn",
+  "id": "g1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "count": 3
+  }
+}

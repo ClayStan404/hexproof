@@ -1,0 +1,13 @@
+{
+  "type": "game.library_searched",
+  "id": "search-19",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "sourceSeat": 0,
+    "toSeat": 0,
+    "toZone": "graveyard",
+    "revealed": false,
+    "count": 2
+  }
+}

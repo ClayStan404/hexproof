@@ -1,0 +1,10 @@
+{
+  "type": "game.battlefield_arranged",
+  "id": "req-arrange-1",
+  "seq": 47,
+  "payload": {
+    "roomId": "ABC123",
+    "seat": 0,
+    "count": 2
+  }
+}

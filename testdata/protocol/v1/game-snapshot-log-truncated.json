@@ -1,0 +1,28 @@
+{
+  "type": "game.snapshot",
+  "seq": 42,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 0,
+    "activeSeat": 0,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 9501,
+        "kind": "chat",
+        "seat": 0,
+        "text": "Older public entries were truncated."
+      }
+    ],
+    "logStartId": 9501,
+    "logTruncated": true,
+    "score": []
+  }
+}

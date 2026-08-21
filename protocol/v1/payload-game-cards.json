@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "CardPosition",
+      "goType": "CardPosition",
+      "fields": [
+        {
+          "name": "x",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "y",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "GameCardCounter",
+      "goType": "GameCardCounter",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "BattlefieldCardPosition",
+      "goType": "BattlefieldCardPosition",
+      "fields": [
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "object",
+          "required": true,
+          "ref": "CardPosition",
+          "goType": "*CardPosition"
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "game.draw",
+      "direction": "clientToServer",
+      "goType": "GameDraw",
+      "fields": [
+        {
+          "name": "count",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::drawCards"
+      }
+    },
+    {
+      "type": "game.drawn",
+      "direction": "serverToClient",
+      "goType": "GameDrawn",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.shuffle_library",
+      "direction": "clientToServer",
+      "goType": "GameShuffleLibrary",
+      "fields": [],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::shuffleLibrary"
+      }
+    },
+    {
+      "type": "game.library_shuffled",
+      "direction": "serverToClient",
+      "goType": "GameLibraryShuffled",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.move_card",
+      "direction": "clientToServer",
+      "goType": "GameMoveCard",
+      "fields": [
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "fromZone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ZoneHand",
+            "ZoneBattlefield",
+            "ZoneGraveyard",
+            "ZoneExile",
+            "ZoneStack",
+            "ZoneReveal",
+            "ZoneLibrary",
+            "ZoneCommand",
+            "ZoneSideboard"
+          ]
+        },
+        {
+          "name": "fromSeat",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        },
+        {
+          "name": "toZone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ZoneHand",
+            "ZoneBattlefield",
+            "ZoneGraveyard",
+            "ZoneExile",
+            "ZoneStack",
+            "ZoneReveal",
+            "ZoneLibrary",
+            "ZoneCommand",
+            "ZoneSideboard"
+          ]
+        },
+        {
+          "name": "toSeat",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        },
+        {
+          "name": "position",
+          "type": "object",
+          "required": false,
+          "ref": "CardPosition",
+          "goType": "*CardPosition"
+        },
+        {
+          "name": "libraryPlacement",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "libraryIndex",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        },
+        {
+          "name": "faceName",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "faceDown",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::moveCard"
+      }
+    },
+    {
+      "type": "game.card_moved",
+      "direction": "serverToClient",
+      "goType": "GameCardMoved",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "fromZone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ZoneHand",
+            "ZoneBattlefield",
+            "ZoneGraveyard",
+            "ZoneExile",
+            "ZoneStack",
+            "ZoneReveal",
+            "ZoneLibrary",
+            "ZoneCommand",
+            "ZoneSideboard"
+          ]
+        },
+        {
+          "name": "fromSeat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "toZone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ZoneHand",
+            "ZoneBattlefield",
+            "ZoneGraveyard",
+            "ZoneExile",
+            "ZoneStack",
+            "ZoneReveal",
+            "ZoneLibrary",
+            "ZoneCommand",
+            "ZoneSideboard"
+          ]
+        },
+        {
+          "name": "toSeat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "position",
+          "type": "object",
+          "required": false,
+          "ref": "CardPosition",
+          "goType": "*CardPosition"
+        },
+        {
+          "name": "removed",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "game.arrange_battlefield",
+      "direction": "clientToServer",
+      "goType": "GameArrangeBattlefield",
+      "fields": [
+        {
+          "name": "cards",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "BattlefieldCardPosition"
+          }
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::arrangeBattlefield"
+      }
+    },
+    {
+      "type": "game.battlefield_arranged",
+      "direction": "serverToClient",
+      "goType": "GameBattlefieldArranged",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.set_tapped",
+      "direction": "clientToServer",
+      "goType": "GameSetTapped",
+      "fields": [
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tapped",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setCardTapped"
+      }
+    },
+    {
+      "type": "game.tapped_set",
+      "direction": "serverToClient",
+      "goType": "GameTappedSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tapped",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "type": "game.set_counter_count",
+  "id": "counter-count-1",
+  "payload": {
+    "count": 3
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "room.left",
+  "id": "l1",
+  "payload": {
+    "roomId": "ABCDEF"
+  }
+}

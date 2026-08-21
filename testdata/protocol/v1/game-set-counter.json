@@ -1,0 +1,8 @@
+{
+  "type": "game.set_counter",
+  "id": "counter-1",
+  "payload": {
+    "counter": "life",
+    "value": 19
+  }
+}

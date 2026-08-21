@@ -1,0 +1,10 @@
+{
+  "type": "game.set_arrow",
+  "id": "a1",
+  "payload": {
+    "sourceCardIds": ["s0-c8", "s0-c9"],
+    "tappedSourceCardIds": ["s0-c8"],
+    "kind": "attack",
+    "targetSeat": 1
+  }
+}

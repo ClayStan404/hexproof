@@ -1,0 +1,13 @@
+{
+  "type": "game.commander_damage_set",
+  "id": "req-commander-damage-1",
+  "seq": 52,
+  "payload": {
+    "roomId": "AB12CD",
+    "commanderId": "s0-c1",
+    "targetSeat": 1,
+    "value": 5,
+    "targetLife": 35,
+    "appliedToLife": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "game.play_land",
+  "id": "play-land-1",
+  "payload": {
+    "cardId": "s0-c12",
+    "position": {
+      "x": 0.42,
+      "y": 0.88
+    },
+    "faceName": "Bala Ged Sanctuary"
+  }
+}

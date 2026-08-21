@@ -1,0 +1,9 @@
+{
+  "type": "game.public_zone_move_responded",
+  "id": "respond-public-zone-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "approvalId": "public-zone-move-1",
+    "approved": true
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "type": "game.create_token",
+  "id": "t1",
+  "payload": {
+    "name": "Goblin",
+    "setCode": "TNEO",
+    "collectorNumber": "12",
+    "typeLine": "Token Creature — Goblin",
+    "position": {
+      "x": 0.5,
+      "y": 0.3
+    }
+  }
+}

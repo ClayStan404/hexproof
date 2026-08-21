@@ -1,0 +1,10 @@
+{
+  "type": "game.land_play_count_set",
+  "id": "land-count-1",
+  "seq": 54,
+  "payload": {
+    "roomId": "AB12CD",
+    "seat": 0,
+    "value": 2
+  }
+}

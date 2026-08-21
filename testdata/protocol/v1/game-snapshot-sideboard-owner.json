@@ -1,0 +1,160 @@
+{
+  "type": "game.snapshot",
+  "seq": 30,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 1,
+    "activeSeat": -1,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [],
+    "score": [
+      0,
+      1
+    ],
+    "result": {
+      "reason": "concede",
+      "winnerSeat": 1,
+      "concededSeat": 0,
+      "matchFinished": false
+    },
+    "sideboard": {
+      "deadlineUnixMs": 1784721900000,
+      "seats": [
+        {
+          "seat": 0,
+          "ready": false,
+          "mainboardCount": 60,
+          "sideboardCount": 15
+        },
+        {
+          "seat": 1,
+          "ready": true,
+          "mainboardCount": 60,
+          "sideboardCount": 15
+        }
+      ],
+      "mainboard": [
+        {
+          "name": "Lightning Bolt",
+          "count": 4,
+          "setCode": "M11",
+          "collectorNumber": "149",
+          "typeLine": "Instant"
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Wear // Tear",
+          "count": 2,
+          "setCode": "DGM",
+          "collectorNumber": "135",
+          "typeLine": "Instant"
+        }
+      ]
+    }
+  }
+}

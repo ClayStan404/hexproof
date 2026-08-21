@@ -1,0 +1,7 @@
+{
+  "type": "room.disbanded",
+  "id": "d1",
+  "payload": {
+    "roomId": "ABCDEF"
+  }
+}

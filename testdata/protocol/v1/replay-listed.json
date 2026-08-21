@@ -1,0 +1,27 @@
+{
+  "type": "replay.listed",
+  "id": "rp1",
+  "payload": {
+    "replays": [
+      {
+        "replayId": "ABCDEF-1785067200000000000.json",
+        "savedAt": "2026-07-26T12:00:00Z",
+        "expiresAt": "2026-08-02T12:00:00Z",
+        "roomName": "Friday Modern",
+        "format": "modern",
+        "deckFormat": "modern",
+        "matchMode": "bo3",
+        "gameNumber": 2,
+        "players": [
+          "Alice",
+          "Bob"
+        ],
+        "score": [
+          1,
+          1
+        ],
+        "logEntryCount": 12
+      }
+    ]
+  }
+}

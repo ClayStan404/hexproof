@@ -1,0 +1,9 @@
+{
+  "type": "game.phase_set",
+  "id": "phase-15",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 1,
+    "phase": "declare_attackers"
+  }
+}

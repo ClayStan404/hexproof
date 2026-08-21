@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "ReplaySummary",
+      "goType": "ReplaySummary",
+      "fields": [
+        {
+          "name": "replayId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "savedAt",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "roomName",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "FormatModern",
+            "FormatDuel",
+            "FormatEDH"
+          ]
+        },
+        {
+          "name": "deckFormat",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "DeckFormatCustom",
+            "DeckFormatStandard",
+            "DeckFormatPioneer",
+            "DeckFormatModern",
+            "DeckFormatLegacy",
+            "DeckFormatVintage",
+            "DeckFormatPauper",
+            "DeckFormatDuel",
+            "DeckFormatCommander"
+          ]
+        },
+        {
+          "name": "matchMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "MatchBO1",
+            "MatchBO3"
+          ]
+        },
+        {
+          "name": "gameNumber",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "players",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "score",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "integer"
+          },
+          "goType": "[]int"
+        },
+        {
+          "name": "logEntryCount",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "replay.list",
+      "direction": "clientToServer",
+      "goType": "ReplayList",
+      "fields": [
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::requestReplayPage"
+      }
+    },
+    {
+      "type": "replay.listed",
+      "direction": "serverToClient",
+      "goType": "ReplayListed",
+      "fields": [
+        {
+          "name": "replays",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "ReplaySummary"
+          }
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "hasMore",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "replay.get",
+      "direction": "clientToServer",
+      "goType": "ReplayGet",
+      "fields": [
+        {
+          "name": "replayId",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::loadReplay"
+      }
+    },
+    {
+      "type": "replay.loaded",
+      "direction": "serverToClient",
+      "goType": "ReplayLoaded",
+      "fields": [
+        {
+          "name": "replay",
+          "type": "object",
+          "required": true,
+          "ref": "ReplaySummary"
+        },
+        {
+          "name": "log",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "GameLogEntry"
+          }
+        }
+      ]
+    },
+    {
+      "type": "sideboard.move",
+      "direction": "clientToServer",
+      "goType": "SideboardMove",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "setCode",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "collectorNumber",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "fromZone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SideboardZoneMain",
+            "SideboardZoneSide"
+          ]
+        },
+        {
+          "name": "toZone",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "SideboardZoneMain",
+            "SideboardZoneSide"
+          ]
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::moveSideboardCard"
+      }
+    },
+    {
+      "type": "sideboard.moved",
+      "direction": "serverToClient",
+      "goType": "SideboardMoved",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "sideboard.set_commander",
+      "direction": "clientToServer",
+      "goType": "SideboardSetCommander",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "designated",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setSideboardCommander"
+      }
+    },
+    {
+      "type": "sideboard.commander_set",
+      "direction": "serverToClient",
+      "goType": "SideboardCommanderSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "sideboard.ready",
+      "direction": "clientToServer",
+      "goType": "SideboardReady",
+      "fields": [
+        {
+          "name": "ready",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setSideboardReady"
+      }
+    },
+    {
+      "type": "sideboard.ready_changed",
+      "direction": "serverToClient",
+      "goType": "SideboardReadyChanged",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "ready",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "nextGameStarted",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "sideboard.completed",
+      "direction": "serverToClient",
+      "goType": "SideboardCompleted",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "gameNumber",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

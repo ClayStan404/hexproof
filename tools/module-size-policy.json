@@ -1,0 +1,21 @@
+{
+  "defaults": {
+    ".qml": 1000,
+    ".cpp": 1200,
+    ".h": 800,
+    ".go": 1200,
+    ".py": 800
+  },
+  "excludePrefixes": [
+    "apps/client-qt/tests/",
+    "apps/server/internal/protocol/wire_constants_generated.go",
+    "apps/server/",
+    "build/",
+    "data/",
+    "tools/__pycache__/"
+  ],
+  "includeGoPrefix": "apps/server/internal/",
+  "overrides": {
+    "apps/client-qt/qml/screens/TournamentLobby.qml": 700
+  }
+}

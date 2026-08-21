@@ -1,0 +1,10 @@
+{
+  "type": "game.commander_cast",
+  "id": "cast-commander-1",
+  "payload": {
+    "roomId": "ROOM01",
+    "seat": 0,
+    "commanderId": "s0-commander",
+    "tax": 1
+  }
+}

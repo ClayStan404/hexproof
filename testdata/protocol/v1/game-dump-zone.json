@@ -1,0 +1,8 @@
+{
+  "type": "game.dump_zone",
+  "id": "dump-18",
+  "payload": {
+    "zone": "library",
+    "topCount": 3
+  }
+}

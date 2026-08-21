@@ -1,0 +1,8 @@
+{
+  "type": "client.load_completed",
+  "id": "l1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "loadId": 1
+  }
+}

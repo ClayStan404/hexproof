@@ -1,0 +1,10 @@
+{
+  "type": "game.cards_moved",
+  "id": "move-cards-21",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "count": 2,
+    "toZone": "library"
+  }
+}

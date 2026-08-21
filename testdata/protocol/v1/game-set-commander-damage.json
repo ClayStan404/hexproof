@@ -1,0 +1,10 @@
+{
+  "type": "game.set_commander_damage",
+  "id": "req-commander-damage-1",
+  "payload": {
+    "commanderId": "s0-c1",
+    "targetSeat": 1,
+    "delta": 5,
+    "applyToLife": true
+  }
+}

@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Card database
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly on Sunday at 03:25 UTC (11:25 Asia/Shanghai).
+    - cron: '25 3 * * 0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: card-database
+  cancel-in-progress: false
+
+env:
+  QT_VERSION: '6.8.3'
+
+jobs:
+  build:
+    name: Build official card database
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install build dependencies
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y cmake curl gzip jq ninja-build python3 sqlite3 zlib1g-dev
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets qtimageformats
+          cache: true
+      - name: Download, build, and package latest database
+        shell: bash
+        run: ./tools/card-database-builder/build-latest.sh build/card-database
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-card-database
+          path: build/card-database/release/
+          if-no-files-found: error
+          compression-level: 0
+      - name: Publish card-data release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view card-data >/dev/null 2>&1; then
+            gh release upload card-data --clobber build/card-database/release/*
+          else
+            gh release create card-data \
+              --latest=false \
+              --title "Hexproof card database" \
+              --notes "Automated searchable metadata and localized-art index. Card images are not included." \
+              --target "$GITHUB_SHA" \
+              build/card-database/release/*
+          fi

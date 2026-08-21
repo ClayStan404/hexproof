@@ -1,0 +1,9 @@
+{
+  "type": "game.library_reordered",
+  "id": "reorder-22",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "count": 2
+  }
+}

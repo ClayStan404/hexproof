@@ -1,0 +1,8 @@
+{
+  "type": "game.set_tapped",
+  "id": "g3-tap",
+  "payload": {
+    "cardId": "s0-c1",
+    "tapped": true
+  }
+}

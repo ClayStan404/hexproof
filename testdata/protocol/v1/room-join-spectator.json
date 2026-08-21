@@ -1,0 +1,8 @@
+{
+  "type": "room.join",
+  "id": "j2",
+  "payload": {
+    "roomId": "ABCDEF",
+    "asSpectator": true
+  }
+}

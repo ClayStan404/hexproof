@@ -1,0 +1,132 @@
+{
+  "type": "game.snapshot",
+  "seq": 24,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 0,
+    "activeSeat": -1,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 4,
+        "kind": "concede",
+        "seat": 0,
+        "text": "Alice conceded. Bob wins Game 1."
+      }
+    ],
+    "score": [
+      0,
+      1
+    ],
+    "result": {
+      "reason": "concede",
+      "winnerSeat": 1,
+      "concededSeat": 0,
+      "matchFinished": false
+    }
+  }
+}

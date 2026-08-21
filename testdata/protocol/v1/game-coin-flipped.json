@@ -1,0 +1,9 @@
+{
+  "type": "game.coin_flipped",
+  "id": "coin-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "result": "heads"
+  }
+}

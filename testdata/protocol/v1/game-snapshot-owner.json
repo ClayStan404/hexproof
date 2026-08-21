@@ -1,0 +1,191 @@
+{
+  "type": "game.snapshot",
+  "seq": 12,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 1,
+    "activeSeat": 1,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "counterCount": 3,
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "hand": [
+          {
+            "id": "s0-c1",
+            "name": "Lightning Bolt",
+            "setCode": "M11",
+            "collectorNumber": "149",
+            "ownerSeat": 0
+          },
+          {
+            "id": "s0-c2",
+            "name": "Mountain",
+            "setCode": "M11",
+            "collectorNumber": "242",
+            "ownerSeat": 0
+          },
+          {
+            "id": "s0-c3",
+            "name": "Monastery Swiftspear",
+            "setCode": "KTK",
+            "collectorNumber": "118",
+            "ownerSeat": 0
+          },
+          {
+            "id": "s0-c4",
+            "name": "Lava Spike",
+            "setCode": "CHK",
+            "collectorNumber": "178",
+            "ownerSeat": 0
+          },
+          {
+            "id": "s0-c5",
+            "name": "Rift Bolt",
+            "setCode": "TSP",
+            "collectorNumber": "176",
+            "ownerSeat": 0
+          },
+          {
+            "id": "s0-c6",
+            "name": "Boros Charm",
+            "setCode": "GTC",
+            "collectorNumber": "148",
+            "ownerSeat": 0
+          },
+          {
+            "id": "s0-c7",
+            "name": "Sacred Foundry",
+            "setCode": "GRN",
+            "collectorNumber": "254",
+            "ownerSeat": 0
+          }
+        ],
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "counterCount": 1,
+        "libraryCount": 53,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 1,
+        "kind": "roll",
+        "seat": 1,
+        "text": "Bob won the opening roll."
+      },
+      {
+        "id": 2,
+        "kind": "opening_hand",
+        "seat": 0,
+        "text": "Alice drew an opening hand of 7 cards."
+      },
+      {
+        "id": 3,
+        "kind": "opening_hand",
+        "seat": 1,
+        "text": "Bob drew an opening hand of 7 cards."
+      }
+    ],
+    "score": [
+      0,
+      0
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "game.returned_to_room",
+  "id": "return-18",
+  "payload": {
+    "roomId": "ABCDEF"
+  }
+}

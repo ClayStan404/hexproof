@@ -1,0 +1,8 @@
+{
+  "type": "game.adjust_commander_tax",
+  "id": "ct1",
+  "payload": {
+    "commanderId": "s0-c1",
+    "delta": 1
+  }
+}

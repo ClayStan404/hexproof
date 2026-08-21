@@ -1,0 +1,9 @@
+{
+  "type": "session.hello",
+  "id": "req-1",
+  "payload": {
+    "displayName": "Alice",
+    "clientVersion": "0.1.0",
+    "protocol": "hexproof.v1"
+  }
+}
