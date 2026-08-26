@@ -1,0 +1,10 @@
+{
+  "type": "game.set_card_counter",
+  "id": "card-counter-1",
+  "payload": {
+    "cardId": "s0-c1",
+    "kind": "ability",
+    "label": "Flying",
+    "value": 1
+  }
+}

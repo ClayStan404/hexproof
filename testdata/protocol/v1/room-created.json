@@ -1,0 +1,19 @@
+{
+  "type": "room.created",
+  "id": "c1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "settings": {
+      "name": "Friday EDH",
+      "format": "edh",
+      "deckFormat": "commander",
+      "maxSeats": 4,
+      "allowSpectators": true,
+      "spectatorsSeeHands": true,
+      "matchMode": "bo3",
+      "cardLoadMode": "preload",
+      "hasPassword": false
+    },
+    "hostSeat": 0
+  }
+}

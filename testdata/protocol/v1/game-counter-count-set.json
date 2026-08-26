@@ -1,0 +1,9 @@
+{
+  "type": "game.counter_count_set",
+  "id": "counter-count-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "count": 3
+  }
+}

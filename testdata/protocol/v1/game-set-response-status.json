@@ -1,0 +1,7 @@
+{
+  "type": "game.set_response_status",
+  "id": "response-17",
+  "payload": {
+    "status": "hold"
+  }
+}

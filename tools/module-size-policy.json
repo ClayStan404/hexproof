@@ -1,0 +1,32 @@
+{
+  "defaults": {
+    ".qml": 1000,
+    ".cpp": 1200,
+    ".h": 800,
+    ".go": 1200,
+    ".py": 800
+  },
+  "pathRules": [
+    {
+      "glob": "apps/client-qt/qml/**/*Controller.qml",
+      "limit": 700
+    },
+    {
+      "glob": "apps/client-qt/qml/**/*Shortcuts.qml",
+      "limit": 700
+    },
+    {
+      "glob": "apps/client-qt/qml/components/TableShortcutContext.qml",
+      "limit": 700
+    }
+  ],
+  "excludePrefixes": [
+    "apps/server/internal/protocol/wire_constants_generated.go",
+    "build/",
+    "data/",
+    "tools/__pycache__/"
+  ],
+  "overrides": {
+    "apps/client-qt/qml/screens/TournamentLobby.qml": 700
+  }
+}

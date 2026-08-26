@@ -1,0 +1,89 @@
+{
+  "type": "game.snapshot",
+  "seq": 43,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 0,
+    "activeSeat": 0,
+    "currentPhase": "main_1",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "Poison",
+            "value": 2
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 1,
+        "handCount": 1,
+        "mulliganCount": 0,
+        "battlefield": [
+          {
+            "id": "face-down-1",
+            "ownerSeat": 0,
+            "faceDown": true,
+            "position": {
+              "x": 0.5,
+              "y": 0.4
+            }
+          }
+        ],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 1,
+        "kind": "set_face_down",
+        "seat": 0,
+        "text": "Alice turned a card face down."
+      }
+    ],
+    "logStartId": 1,
+    "score": [
+      0,
+      0
+    ]
+  }
+}

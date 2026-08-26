@@ -1,0 +1,5 @@
+{
+  "type": "session.pong",
+  "id": "ping-1",
+  "payload": {}
+}

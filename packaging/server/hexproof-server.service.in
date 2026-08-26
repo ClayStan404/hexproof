@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Hexproof multi-room hub (hexproof.v1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@HEXPROOF_USER@
+Group=@HEXPROOF_GROUP@
+WorkingDirectory=@HEXPROOF_DATA_DIR@
+ExecStart=@HEXPROOF_BIN@ \
+  -bind 127.0.0.1 \
+  -port 57320 \
+  -reconnect-window 3m \
+  -retention-ttl 168h \
+  -retention-dir @HEXPROOF_DATA_DIR@/retained \
+  -max-rooms 256 \
+  -max-connections 1024 \
+  -max-message-bytes 1048576 \
+  -messages-per-second 60 \
+  -room-creates-per-minute 6 \
+  -trusted-proxies 127.0.0.1/32,::1/128
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

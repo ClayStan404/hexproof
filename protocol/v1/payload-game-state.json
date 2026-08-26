@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [],
+  "messages": [
+    {
+      "type": "game.set_face_down",
+      "direction": "clientToServer",
+      "goType": "GameSetFaceDown",
+      "fields": [
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "faceDown",
+          "type": "boolean",
+          "required": true
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setCardFaceDown"
+      }
+    },
+    {
+      "type": "game.face_down_set",
+      "direction": "serverToClient",
+      "goType": "GameFaceDownSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "faceDown",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "game.set_card_counter",
+      "direction": "clientToServer",
+      "goType": "GameSetCardCounter",
+      "fields": [
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "counterId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        },
+        {
+          "name": "delta",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
+        }
+      ]
+    },
+    {
+      "type": "game.card_counter_set",
+      "direction": "serverToClient",
+      "goType": "GameCardCounterSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "counter",
+          "type": "object",
+          "required": true,
+          "ref": "GameCardCounter"
+        },
+        {
+          "name": "removed",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "game.set_phase",
+      "direction": "clientToServer",
+      "goType": "GameSetPhase",
+      "fields": [
+        {
+          "name": "phase",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GamePhaseUntap",
+            "GamePhaseUpkeep",
+            "GamePhaseDraw",
+            "GamePhaseFirstMain",
+            "GamePhaseBeginningCombat",
+            "GamePhaseDeclareAttackers",
+            "GamePhaseDeclareBlockers",
+            "GamePhaseCombatDamage",
+            "GamePhaseEndCombat",
+            "GamePhaseSecondMain",
+            "GamePhaseEnd"
+          ]
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setPhase"
+      }
+    },
+    {
+      "type": "game.phase_set",
+      "direction": "serverToClient",
+      "goType": "GamePhaseSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "phase",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "GamePhaseUntap",
+            "GamePhaseUpkeep",
+            "GamePhaseDraw",
+            "GamePhaseFirstMain",
+            "GamePhaseBeginningCombat",
+            "GamePhaseDeclareAttackers",
+            "GamePhaseDeclareBlockers",
+            "GamePhaseCombatDamage",
+            "GamePhaseEndCombat",
+            "GamePhaseSecondMain",
+            "GamePhaseEnd"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "game.set_response_status",
+      "direction": "clientToServer",
+      "goType": "GameSetResponseStatus",
+      "fields": [
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ResponseStatusPass",
+            "ResponseStatusHold",
+            "ResponseStatusClear"
+          ]
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::setResponseStatus"
+      }
+    },
+    {
+      "type": "game.response_status_set",
+      "direction": "serverToClient",
+      "goType": "GameResponseStatusSet",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "ResponseStatusPass",
+            "ResponseStatusHold",
+            "ResponseStatusClear"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "game.create_token",
+      "direction": "clientToServer",
+      "goType": "GameCreateToken",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "setCode",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "collectorNumber",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "typeLine",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "position",
+          "type": "object",
+          "required": true,
+          "ref": "CardPosition",
+          "goType": "*CardPosition"
+        }
+      ],
+      "qtBuilder": {
+        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
+        "function": "WsClient::createToken"
+      }
+    },
+    {
+      "type": "game.token_created",
+      "direction": "serverToClient",
+      "goType": "GameTokenCreated",
+      "fields": [
+        {
+          "name": "roomId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seat",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "cardId",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

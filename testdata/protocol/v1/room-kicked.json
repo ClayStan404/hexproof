@@ -1,0 +1,7 @@
+{
+  "type": "room.kicked",
+  "id": "k1",
+  "payload": {
+    "roomId": "ABCDEF"
+  }
+}

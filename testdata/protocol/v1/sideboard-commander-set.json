@@ -1,0 +1,8 @@
+{
+  "type": "sideboard.commander_set",
+  "id": "commander-next-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0
+  }
+}

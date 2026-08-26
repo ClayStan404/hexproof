@@ -1,0 +1,7 @@
+{
+  "type": "room.kick",
+  "id": "k1",
+  "payload": {
+    "seat": 1
+  }
+}

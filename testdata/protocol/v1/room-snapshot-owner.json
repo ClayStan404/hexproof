@@ -1,0 +1,35 @@
+{
+  "type": "room.snapshot",
+  "seq": 1,
+  "payload": {
+    "roomId": "ABCDEF",
+    "name": "Friday EDH",
+    "format": "edh",
+    "deckFormat": "commander",
+    "maxSeats": 4,
+    "matchMode": "bo3",
+    "cardLoadMode": "preload",
+    "hostSeat": 0,
+    "hasPassword": false,
+    "seats": [
+      {
+        "occupied": true,
+        "displayName": "Alice",
+        "host": true
+      },
+      {
+        "occupied": false
+      },
+      {
+        "occupied": false
+      },
+      {
+        "occupied": false
+      }
+    ],
+    "spectators": [],
+    "allowSpectators": true,
+    "spectatorsSeeHands": true,
+    "phase": "waiting"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "game.zone_dumped",
+  "id": "dump-opponent-24",
+  "payload": {
+    "roomId": "ABCDEF",
+    "zone": "library",
+    "sourceSeat": 1,
+    "approvalId": "zone-dump-1",
+    "cards": [
+      {
+        "id": "s1-c8",
+        "name": "Island",
+        "setCode": "M21",
+        "collectorNumber": "265",
+        "ownerSeat": 1
+      }
+    ]
+  }
+}

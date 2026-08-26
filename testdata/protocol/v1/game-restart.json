@@ -1,0 +1,5 @@
+{
+  "type": "game.restart",
+  "id": "restart-1",
+  "payload": {}
+}

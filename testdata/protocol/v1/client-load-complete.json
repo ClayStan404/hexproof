@@ -1,0 +1,7 @@
+{
+  "type": "client.load_complete",
+  "id": "l1",
+  "payload": {
+    "loadId": 1
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "type": "game.roll",
+  "id": "roll-1",
+  "payload": {
+    "sides": 6,
+    "count": 2
+  }
+}

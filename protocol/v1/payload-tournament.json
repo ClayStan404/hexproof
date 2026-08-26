@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "TournamentListEntry",
+      "goType": "TournamentListEntry",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "format", "type": "string", "required": true},
+        {"name": "eventType", "type": "string", "required": true},
+        {"name": "coordinator", "type": "string", "required": true},
+        {"name": "stage", "type": "string", "required": true},
+        {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
+        {"name": "status", "type": "string", "required": true},
+        {"name": "registered", "type": "integer", "required": true},
+        {"name": "checkedIn", "type": "integer", "required": true},
+        {"name": "maxPlayers", "type": "integer", "required": true},
+        {"name": "currentRound", "type": "integer", "required": true},
+        {"name": "plannedRounds", "type": "integer", "required": true},
+        {"name": "registrationOpen", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "name": "TournamentDeckView",
+      "goType": "TournamentDeckView",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "format", "type": "string", "required": true, "enum": ["FormatModern", "FormatDuel", "FormatEDH"]},
+        {"name": "commander", "type": "string", "required": false},
+        {"name": "commanders", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "mainboard", "type": "array", "required": true, "items": {"type": "object", "ref": "DeckCard"}},
+        {"name": "sideboard", "type": "array", "required": true, "items": {"type": "object", "ref": "DeckCard"}}
+      ]
+    },
+    {
+      "name": "TournamentParticipantView",
+      "goType": "TournamentParticipantView",
+      "fields": [
+        {"name": "participantId", "type": "string", "required": true},
+        {"name": "displayName", "type": "string", "required": true},
+        {"name": "checkedIn", "type": "boolean", "required": true},
+        {"name": "competing", "type": "boolean", "required": true},
+        {"name": "dropped", "type": "boolean", "required": true},
+        {"name": "online", "type": "boolean", "required": true},
+        {"name": "deck", "type": "object", "required": false, "ref": "TournamentDeckView", "goType": "*TournamentDeckView"}
+      ]
+    },
+    {
+      "name": "TournamentPairingView",
+      "goType": "TournamentPairingView",
+      "fields": [
+        {"name": "pairingId", "type": "string", "required": true},
+        {"name": "table", "type": "integer", "required": true},
+        {"name": "playerAId", "type": "string", "required": true},
+        {"name": "playerAName", "type": "string", "required": true},
+        {"name": "playerBId", "type": "string", "required": false},
+        {"name": "playerBName", "type": "string", "required": false},
+        {"name": "bye", "type": "boolean", "required": true},
+        {"name": "roomId", "type": "string", "required": false},
+        {"name": "status", "type": "string", "required": true},
+        {"name": "playerAWins", "type": "integer", "required": true},
+        {"name": "playerBWins", "type": "integer", "required": true},
+        {"name": "drawnGames", "type": "integer", "required": true},
+        {"name": "reporterId", "type": "string", "required": false},
+        {"name": "corrected", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "TournamentStandingView",
+      "goType": "TournamentStandingView",
+      "fields": [
+        {"name": "rank", "type": "integer", "required": true},
+        {"name": "participantId", "type": "string", "required": true},
+        {"name": "displayName", "type": "string", "required": true},
+        {"name": "wins", "type": "integer", "required": true},
+        {"name": "losses", "type": "integer", "required": true},
+        {"name": "draws", "type": "integer", "required": true},
+        {"name": "matchPoints", "type": "integer", "required": true},
+        {"name": "oppMatchWin", "type": "number", "required": true},
+        {"name": "gameWin", "type": "number", "required": true},
+        {"name": "oppGameWin", "type": "number", "required": true},
+        {"name": "byes", "type": "integer", "required": true},
+        {"name": "dropped", "type": "boolean", "required": true}
+      ]
+    }
+  ],
+  "messages": [
+    {"type": "tournament.list", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
+    {
+      "type": "tournament.listed",
+      "direction": "serverToClient",
+      "goType": "TournamentListed",
+      "fields": [
+        {"name": "tournaments", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentListEntry"}}
+      ]
+    },
+    {
+      "type": "tournament.create",
+      "direction": "clientToServer",
+      "goType": "TournamentCreate",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "format", "type": "string", "required": true},
+        {"name": "eventType", "type": "string", "required": false},
+        {"name": "coordinator", "type": "string", "required": false},
+        {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
+        {"name": "roundMinutes", "type": "integer", "required": true},
+        {"name": "maxPlayers", "type": "integer", "required": true},
+        {"name": "plannedRounds", "type": "integer", "required": false},
+        {"name": "product", "type": "object", "required": false, "ref": "LimitedProductDefinition", "goType": "*LimitedProductDefinition"}
+      ]
+    },
+    {
+      "type": "tournament.created",
+      "direction": "serverToClient",
+      "goType": "TournamentCreated",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "organizerToken", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "tournament.enter",
+      "direction": "clientToServer",
+      "goType": "TournamentEnter",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "credential", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "tournament.entered",
+      "direction": "serverToClient",
+      "goType": "TournamentEntered",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "role", "type": "string", "required": true},
+        {"name": "participantId", "type": "string", "required": false}
+      ]
+    },
+    {"type": "tournament.leave", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
+    {
+      "type": "tournament.left",
+      "direction": "serverToClient",
+      "goType": "TournamentLeft",
+      "fields": [{"name": "tournamentId", "type": "string", "required": true}]
+    },
+    {
+      "type": "tournament.register",
+      "direction": "clientToServer",
+      "goType": "TournamentRegister",
+      "fields": [{"name": "tournamentId", "type": "string", "required": true}]
+    },
+    {
+      "type": "tournament.registered",
+      "direction": "serverToClient",
+      "goType": "TournamentRegistered",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "participantId", "type": "string", "required": true},
+        {"name": "participantToken", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "tournament.unregister",
+      "direction": "clientToServer",
+      "goType": "TournamentParticipantCommand",
+      "fields": [{"name": "participantId", "type": "string", "required": false}]
+    },
+    {
+      "type": "tournament.unregistered",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [{"name": "tournamentId", "type": "string", "required": true}]
+    },
+    {
+      "type": "tournament.check_in",
+      "direction": "clientToServer",
+      "goType": "TournamentCheckIn",
+      "fields": [
+        {"name": "checkedIn", "type": "boolean", "required": true},
+        {"name": "participantId", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "tournament.check_in_set",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [{"name": "tournamentId", "type": "string", "required": true}]
+    },
+    {"type": "tournament.start", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
+    {"type": "tournament.started", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {"type": "tournament.drop", "direction": "clientToServer", "goType": "TournamentParticipantCommand", "fields": [{"name": "participantId", "type": "string", "required": false}]},
+    {"type": "tournament.dropped", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {
+      "type": "tournament.report_result",
+      "direction": "clientToServer",
+      "goType": "TournamentResultCommand",
+      "fields": [
+        {"name": "pairingId", "type": "string", "required": true},
+        {"name": "playerAWins", "type": "integer", "required": true},
+        {"name": "playerBWins", "type": "integer", "required": true},
+        {"name": "drawnGames", "type": "integer", "required": true}
+      ]
+    },
+    {"type": "tournament.result_reported", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {"type": "tournament.confirm_result", "direction": "clientToServer", "goType": "TournamentPairingCommand", "fields": [{"name": "pairingId", "type": "string", "required": true}]},
+    {"type": "tournament.result_confirmed", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {"type": "tournament.reject_result", "direction": "clientToServer", "goType": "TournamentPairingCommand", "fields": [{"name": "pairingId", "type": "string", "required": true}]},
+    {"type": "tournament.result_rejected", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {
+      "type": "tournament.correct_result",
+      "direction": "clientToServer",
+      "goType": "TournamentResultCommand",
+      "fields": [
+        {"name": "pairingId", "type": "string", "required": true},
+        {"name": "playerAWins", "type": "integer", "required": true},
+        {"name": "playerBWins", "type": "integer", "required": true},
+        {"name": "drawnGames", "type": "integer", "required": true}
+      ]
+    },
+    {"type": "tournament.result_corrected", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {"type": "tournament.next_round", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
+    {"type": "tournament.round_started", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {"type": "tournament.open_match", "direction": "clientToServer", "goType": "TournamentPairingCommand", "fields": [{"name": "pairingId", "type": "string", "required": true}]},
+    {
+      "type": "tournament.match_opened",
+      "direction": "serverToClient",
+      "goType": "TournamentMatchOpened",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "pairingId", "type": "string", "required": true},
+        {"name": "roomId", "type": "string", "required": true}
+      ]
+    },
+    {"type": "tournament.cancel", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
+    {"type": "tournament.cancelled", "direction": "serverToClient", "goType": "TournamentChanged", "fields": [{"name": "tournamentId", "type": "string", "required": true}]},
+    {
+      "type": "tournament.snapshot",
+      "direction": "serverToClient",
+      "goType": "TournamentSnapshot",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "format", "type": "string", "required": true},
+        {"name": "eventType", "type": "string", "required": true},
+        {"name": "coordinator", "type": "string", "required": true},
+        {"name": "stage", "type": "string", "required": true},
+        {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
+        {"name": "status", "type": "string", "required": true},
+        {"name": "roundMinutes", "type": "integer", "required": true},
+        {"name": "roundStartedAt", "type": "string", "required": false},
+        {"name": "maxPlayers", "type": "integer", "required": true},
+        {"name": "plannedRounds", "type": "integer", "required": true},
+        {"name": "currentRound", "type": "integer", "required": true},
+        {"name": "registered", "type": "integer", "required": true},
+        {"name": "checkedIn", "type": "integer", "required": true},
+        {"name": "roundComplete", "type": "boolean", "required": true},
+        {"name": "organizerName", "type": "string", "required": true},
+        {"name": "role", "type": "string", "required": true},
+        {"name": "participantId", "type": "string", "required": false},
+        {"name": "canRegister", "type": "boolean", "required": true},
+        {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentParticipantView"}},
+        {"name": "pairings", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentPairingView"}},
+        {"name": "standings", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentStandingView"}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "type": "game.set_counter",
+  "id": "counter-pip-1",
+  "payload": {
+    "counter": "counter-1",
+    "delta": 1
+  }
+}

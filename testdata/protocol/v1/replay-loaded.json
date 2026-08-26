@@ -1,0 +1,39 @@
+{
+  "type": "replay.loaded",
+  "id": "rp2",
+  "payload": {
+    "replay": {
+      "replayId": "ABCDEF-1785067200000000000.json",
+      "savedAt": "2026-07-26T12:00:00Z",
+      "expiresAt": "2026-08-02T12:00:00Z",
+      "roomName": "Friday Modern",
+      "format": "modern",
+      "deckFormat": "modern",
+      "matchMode": "bo3",
+      "gameNumber": 2,
+      "players": [
+        "Alice",
+        "Bob"
+      ],
+      "score": [
+        1,
+        1
+      ],
+      "logEntryCount": 12
+    },
+    "log": [
+      {
+        "id": 1,
+        "kind": "draw",
+        "seat": 0,
+        "text": "Alice drew a card."
+      },
+      {
+        "id": 2,
+        "kind": "shuffle_library",
+        "seat": 0,
+        "text": "Alice shuffled their library."
+      }
+    ]
+  }
+}

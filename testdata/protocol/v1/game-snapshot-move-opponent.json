@@ -1,0 +1,148 @@
+{
+  "type": "game.snapshot",
+  "seq": 14,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameNumber": 1,
+    "startingSeat": 1,
+    "activeSeat": 1,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 1,
+        "handCount": 1,
+        "mulliganCount": 0,
+        "battlefield": [
+          {
+            "id": "s0-c1",
+            "name": "Lightning Bolt",
+            "setCode": "M11",
+            "collectorNumber": "149",
+            "ownerSeat": 0,
+            "position": {
+              "x": 0.25,
+              "y": 0.6
+            }
+          }
+        ],
+        "graveyard": [],
+        "exile": []
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 20,
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ],
+        "libraryCount": 1,
+        "handCount": 1,
+        "mulliganCount": 0,
+        "hand": [
+          {
+            "id": "s1-c1",
+            "name": "Island",
+            "setCode": "M11",
+            "collectorNumber": "235",
+            "ownerSeat": 1
+          }
+        ],
+        "battlefield": [],
+        "graveyard": [],
+        "exile": []
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "log": [
+      {
+        "id": 1,
+        "kind": "move_card",
+        "seat": 0,
+        "text": "Alice moved Lightning Bolt from hand to battlefield."
+      }
+    ],
+    "logStartId": 1,
+    "score": [
+      0,
+      0
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "game.move_cards",
+  "id": "move-cards-21",
+  "payload": {
+    "cardIds": [
+      "s0-c1",
+      "s0-c2"
+    ],
+    "fromZone": "battlefield",
+    "toZone": "library",
+    "libraryPlacement": "bottom"
+  }
+}

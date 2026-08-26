@@ -1,0 +1,10 @@
+{
+  "type": "game.mulliganed",
+  "id": "g2",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "handSize": 7,
+    "mulliganCount": 1
+  }
+}

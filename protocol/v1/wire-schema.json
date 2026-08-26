@@ -1,0 +1,1186 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "constants": [
+    {
+      "name": "ProtocolVersion",
+      "value": "hexproof.v1"
+    },
+    {
+      "name": "TypeSessionHello",
+      "value": "session.hello"
+    },
+    {
+      "name": "TypeSessionWelcome",
+      "value": "session.welcome"
+    },
+    {
+      "name": "TypeSessionPing",
+      "value": "session.ping"
+    },
+    {
+      "name": "TypeSessionPong",
+      "value": "session.pong"
+    },
+    {
+      "name": "TypeRoomCreate",
+      "value": "room.create"
+    },
+    {
+      "name": "TypeRoomCreated",
+      "value": "room.created"
+    },
+    {
+      "name": "TypeRoomJoin",
+      "value": "room.join"
+    },
+    {
+      "name": "TypeRoomJoined",
+      "value": "room.joined"
+    },
+    {
+      "name": "TypeRoomLeave",
+      "value": "room.leave"
+    },
+    {
+      "name": "TypeRoomLeft",
+      "value": "room.left"
+    },
+    {
+      "name": "TypeRoomKick",
+      "value": "room.kick"
+    },
+    {
+      "name": "TypeRoomKicked",
+      "value": "room.kicked"
+    },
+    {
+      "name": "TypeRoomDisband",
+      "value": "room.disband"
+    },
+    {
+      "name": "TypeRoomDisbanded",
+      "value": "room.disbanded"
+    },
+    {
+      "name": "TypeRoomSnapshot",
+      "value": "room.snapshot"
+    },
+    {
+      "name": "TypeRoomEvent",
+      "value": "room.event"
+    },
+    {
+      "name": "TypeRoomList",
+      "value": "room.list"
+    },
+    {
+      "name": "TypeRoomListed",
+      "value": "room.listed"
+    },
+    {
+      "name": "TypeTournamentList",
+      "value": "tournament.list"
+    },
+    {
+      "name": "TypeTournamentListed",
+      "value": "tournament.listed"
+    },
+    {
+      "name": "TypeTournamentCreate",
+      "value": "tournament.create"
+    },
+    {
+      "name": "TypeTournamentCreated",
+      "value": "tournament.created"
+    },
+    {
+      "name": "TypeTournamentEnter",
+      "value": "tournament.enter"
+    },
+    {
+      "name": "TypeTournamentEntered",
+      "value": "tournament.entered"
+    },
+    {
+      "name": "TypeTournamentLeave",
+      "value": "tournament.leave"
+    },
+    {
+      "name": "TypeTournamentLeft",
+      "value": "tournament.left"
+    },
+    {
+      "name": "TypeTournamentRegister",
+      "value": "tournament.register"
+    },
+    {
+      "name": "TypeTournamentRegistered",
+      "value": "tournament.registered"
+    },
+    {
+      "name": "TypeTournamentUnregister",
+      "value": "tournament.unregister"
+    },
+    {
+      "name": "TypeTournamentUnregistered",
+      "value": "tournament.unregistered"
+    },
+    {
+      "name": "TypeTournamentCheckIn",
+      "value": "tournament.check_in"
+    },
+    {
+      "name": "TypeTournamentCheckInSet",
+      "value": "tournament.check_in_set"
+    },
+    {
+      "name": "TypeTournamentStart",
+      "value": "tournament.start"
+    },
+    {
+      "name": "TypeTournamentStarted",
+      "value": "tournament.started"
+    },
+    {
+      "name": "TypeTournamentSnapshot",
+      "value": "tournament.snapshot"
+    },
+    {
+      "name": "TypeTournamentDrop",
+      "value": "tournament.drop"
+    },
+    {
+      "name": "TypeTournamentDropped",
+      "value": "tournament.dropped"
+    },
+    {
+      "name": "TypeTournamentReportResult",
+      "value": "tournament.report_result"
+    },
+    {
+      "name": "TypeTournamentResultReported",
+      "value": "tournament.result_reported"
+    },
+    {
+      "name": "TypeTournamentConfirmResult",
+      "value": "tournament.confirm_result"
+    },
+    {
+      "name": "TypeTournamentResultConfirmed",
+      "value": "tournament.result_confirmed"
+    },
+    {
+      "name": "TypeTournamentRejectResult",
+      "value": "tournament.reject_result"
+    },
+    {
+      "name": "TypeTournamentResultRejected",
+      "value": "tournament.result_rejected"
+    },
+    {
+      "name": "TypeTournamentCorrectResult",
+      "value": "tournament.correct_result"
+    },
+    {
+      "name": "TypeTournamentResultCorrected",
+      "value": "tournament.result_corrected"
+    },
+    {
+      "name": "TypeTournamentNextRound",
+      "value": "tournament.next_round"
+    },
+    {
+      "name": "TypeTournamentRoundStarted",
+      "value": "tournament.round_started"
+    },
+    {
+      "name": "TypeTournamentOpenMatch",
+      "value": "tournament.open_match"
+    },
+    {
+      "name": "TypeTournamentMatchOpened",
+      "value": "tournament.match_opened"
+    },
+    {
+      "name": "TypeTournamentCancel",
+      "value": "tournament.cancel"
+    },
+    {
+      "name": "TypeTournamentCancelled",
+      "value": "tournament.cancelled"
+    },
+    {
+      "name": "TypeLimitedCreateCasualMatch",
+      "value": "limited.create_casual_match"
+    },
+    {
+      "name": "TypeLimitedCasualMatchCreated",
+      "value": "limited.casual_match_created"
+    },
+    {
+      "name": "TypeLimitedPick",
+      "value": "limited.pick"
+    },
+    {
+      "name": "TypeLimitedPicked",
+      "value": "limited.picked"
+    },
+    {
+      "name": "TypeLimitedSubmitDeck",
+      "value": "limited.submit_deck"
+    },
+    {
+      "name": "TypeLimitedDeckSubmitted",
+      "value": "limited.deck_submitted"
+    },
+    {
+      "name": "TypeLimitedSnapshot",
+      "value": "limited.snapshot"
+    },
+    {
+      "name": "TypeDeckSelect",
+      "value": "deck.select"
+    },
+    {
+      "name": "TypeDeckSelected",
+      "value": "deck.selected"
+    },
+    {
+      "name": "TypePlayerReady",
+      "value": "player.ready"
+    },
+    {
+      "name": "TypePlayerReadyChanged",
+      "value": "player.ready_changed"
+    },
+    {
+      "name": "TypeMatchLoadRequired",
+      "value": "match.load_required"
+    },
+    {
+      "name": "TypeClientLoadComplete",
+      "value": "client.load_complete"
+    },
+    {
+      "name": "TypeClientLoadCompleted",
+      "value": "client.load_completed"
+    },
+    {
+      "name": "TypeMatchStarted",
+      "value": "match.started"
+    },
+    {
+      "name": "TypeGameSnapshot",
+      "value": "game.snapshot"
+    },
+    {
+      "name": "TypeGameDraw",
+      "value": "game.draw"
+    },
+    {
+      "name": "TypeGameDrawn",
+      "value": "game.drawn"
+    },
+    {
+      "name": "TypeGameShuffleLibrary",
+      "value": "game.shuffle_library"
+    },
+    {
+      "name": "TypeGameLibraryShuffled",
+      "value": "game.library_shuffled"
+    },
+    {
+      "name": "TypeGameMulligan",
+      "value": "game.mulligan"
+    },
+    {
+      "name": "TypeGameMulliganed",
+      "value": "game.mulliganed"
+    },
+    {
+      "name": "TypeGameDiscardHand",
+      "value": "game.discard_hand"
+    },
+    {
+      "name": "TypeGameHandDiscarded",
+      "value": "game.hand_discarded"
+    },
+    {
+      "name": "TypeGameMoveCard",
+      "value": "game.move_card"
+    },
+    {
+      "name": "TypeGameCardMoved",
+      "value": "game.card_moved"
+    },
+    {
+      "name": "TypeGamePublicZoneMovePending",
+      "value": "game.public_zone_move_pending"
+    },
+    {
+      "name": "TypeGamePublicZoneMoveRequested",
+      "value": "game.public_zone_move_requested"
+    },
+    {
+      "name": "TypeGameRespondPublicZoneMove",
+      "value": "game.respond_public_zone_move"
+    },
+    {
+      "name": "TypeGamePublicZoneMoveResponded",
+      "value": "game.public_zone_move_responded"
+    },
+    {
+      "name": "TypeGameArrangeBattlefield",
+      "value": "game.arrange_battlefield"
+    },
+    {
+      "name": "TypeGameBattlefieldArranged",
+      "value": "game.battlefield_arranged"
+    },
+    {
+      "name": "TypeGameSetTapped",
+      "value": "game.set_tapped"
+    },
+    {
+      "name": "TypeGameTappedSet",
+      "value": "game.tapped_set"
+    },
+    {
+      "name": "TypeGameSetCardFace",
+      "value": "game.set_card_face"
+    },
+    {
+      "name": "TypeGameCardFaceSet",
+      "value": "game.card_face_set"
+    },
+    {
+      "name": "TypeGameSetFaceDown",
+      "value": "game.set_face_down"
+    },
+    {
+      "name": "TypeGameFaceDownSet",
+      "value": "game.face_down_set"
+    },
+    {
+      "name": "TypeGameSetCardCounter",
+      "value": "game.set_card_counter"
+    },
+    {
+      "name": "TypeGameCardCounterSet",
+      "value": "game.card_counter_set"
+    },
+    {
+      "name": "TypeGameSetPhase",
+      "value": "game.set_phase"
+    },
+    {
+      "name": "TypeGamePhaseSet",
+      "value": "game.phase_set"
+    },
+    {
+      "name": "TypeGameSetResponseStatus",
+      "value": "game.set_response_status"
+    },
+    {
+      "name": "TypeGameResponseStatusSet",
+      "value": "game.response_status_set"
+    },
+    {
+      "name": "TypeGameNextTurn",
+      "value": "game.next_turn"
+    },
+    {
+      "name": "TypeGameTurnAdvanced",
+      "value": "game.turn_advanced"
+    },
+    {
+      "name": "TypeGamePlayLand",
+      "value": "game.play_land"
+    },
+    {
+      "name": "TypeGameLandPlayed",
+      "value": "game.land_played"
+    },
+    {
+      "name": "TypeGameSetLandPlayCount",
+      "value": "game.set_land_play_count"
+    },
+    {
+      "name": "TypeGameLandPlayCountSet",
+      "value": "game.land_play_count_set"
+    },
+    {
+      "name": "TypeGameReveal",
+      "value": "game.reveal"
+    },
+    {
+      "name": "TypeGameRevealed",
+      "value": "game.revealed"
+    },
+    {
+      "name": "TypeGameRecallRevealed",
+      "value": "game.recall_revealed"
+    },
+    {
+      "name": "TypeGameRevealedRecalled",
+      "value": "game.revealed_recalled"
+    },
+    {
+      "name": "TypeGameMoveCards",
+      "value": "game.move_cards"
+    },
+    {
+      "name": "TypeGameCardsMoved",
+      "value": "game.cards_moved"
+    },
+    {
+      "name": "TypeGameMoveLibraryCards",
+      "value": "game.move_library_cards"
+    },
+    {
+      "name": "TypeGameLibraryCardsMoved",
+      "value": "game.library_cards_moved"
+    },
+    {
+      "name": "TypeGameDumpZone",
+      "value": "game.dump_zone"
+    },
+    {
+      "name": "TypeGameZoneDumpPending",
+      "value": "game.zone_dump_pending"
+    },
+    {
+      "name": "TypeGameZoneDumpRequested",
+      "value": "game.zone_dump_requested"
+    },
+    {
+      "name": "TypeGameRespondZoneDump",
+      "value": "game.respond_zone_dump"
+    },
+    {
+      "name": "TypeGameZoneDumpResponded",
+      "value": "game.zone_dump_responded"
+    },
+    {
+      "name": "TypeGameZoneDumped",
+      "value": "game.zone_dumped"
+    },
+    {
+      "name": "TypeGameSearchLibrary",
+      "value": "game.search_library"
+    },
+    {
+      "name": "TypeGameLibrarySearched",
+      "value": "game.library_searched"
+    },
+    {
+      "name": "TypeGameReorderLibrary",
+      "value": "game.reorder_library"
+    },
+    {
+      "name": "TypeGameLibraryReordered",
+      "value": "game.library_reordered"
+    },
+    {
+      "name": "TypeGameResolveLibraryView",
+      "value": "game.resolve_library_view"
+    },
+    {
+      "name": "TypeGameLibraryViewResolved",
+      "value": "game.library_view_resolved"
+    },
+    {
+      "name": "TypeGameSetCounter",
+      "value": "game.set_counter"
+    },
+    {
+      "name": "TypeGameCounterSet",
+      "value": "game.counter_set"
+    },
+    {
+      "name": "TypeGameSetCounterCount",
+      "value": "game.set_counter_count"
+    },
+    {
+      "name": "TypeGameCounterCountSet",
+      "value": "game.counter_count_set"
+    },
+    {
+      "name": "TypeGameConcede",
+      "value": "game.concede"
+    },
+    {
+      "name": "TypeGameConceded",
+      "value": "game.conceded"
+    },
+    {
+      "name": "TypeGameDeclareDraw",
+      "value": "game.declare_draw"
+    },
+    {
+      "name": "TypeGameDrawDeclared",
+      "value": "game.draw_declared"
+    },
+    {
+      "name": "TypeGameRestart",
+      "value": "game.restart"
+    },
+    {
+      "name": "TypeGameRestarted",
+      "value": "game.restarted"
+    },
+    {
+      "name": "TypeGameRoll",
+      "value": "game.roll"
+    },
+    {
+      "name": "TypeGameRolled",
+      "value": "game.rolled"
+    },
+    {
+      "name": "TypeGameFlipCoin",
+      "value": "game.flip_coin"
+    },
+    {
+      "name": "TypeGameCoinFlipped",
+      "value": "game.coin_flipped"
+    },
+    {
+      "name": "TypeGameRandomSelect",
+      "value": "game.random_select"
+    },
+    {
+      "name": "TypeGameRandomSelected",
+      "value": "game.random_selected"
+    },
+    {
+      "name": "TypeGameReturnToRoom",
+      "value": "game.return_to_room"
+    },
+    {
+      "name": "TypeGameReturnedToRoom",
+      "value": "game.returned_to_room"
+    },
+    {
+      "name": "TypeGameSay",
+      "value": "game.say"
+    },
+    {
+      "name": "TypeGameSaid",
+      "value": "game.said"
+    },
+    {
+      "name": "TypeGameCreateToken",
+      "value": "game.create_token"
+    },
+    {
+      "name": "TypeGameTokenCreated",
+      "value": "game.token_created"
+    },
+    {
+      "name": "TypeGameAdjustCommanderTax",
+      "value": "game.adjust_commander_tax"
+    },
+    {
+      "name": "TypeGameCommanderTaxAdjusted",
+      "value": "game.commander_tax_adjusted"
+    },
+    {
+      "name": "TypeGameCastCommander",
+      "value": "game.cast_commander"
+    },
+    {
+      "name": "TypeGameCommanderCast",
+      "value": "game.commander_cast"
+    },
+    {
+      "name": "TypeGameSetCommanderDamage",
+      "value": "game.set_commander_damage"
+    },
+    {
+      "name": "TypeGameCommanderDamageSet",
+      "value": "game.commander_damage_set"
+    },
+    {
+      "name": "TypeGameSetArrow",
+      "value": "game.set_arrow"
+    },
+    {
+      "name": "TypeGameArrowSet",
+      "value": "game.arrow_set"
+    },
+    {
+      "name": "TypeGameSetAttachment",
+      "value": "game.set_attachment"
+    },
+    {
+      "name": "TypeGameAttachmentSet",
+      "value": "game.attachment_set"
+    },
+    {
+      "name": "TypeReplayList",
+      "value": "replay.list"
+    },
+    {
+      "name": "TypeReplayListed",
+      "value": "replay.listed"
+    },
+    {
+      "name": "TypeReplayGet",
+      "value": "replay.get"
+    },
+    {
+      "name": "TypeReplayLoaded",
+      "value": "replay.loaded"
+    },
+    {
+      "name": "TypeSideboardMove",
+      "value": "sideboard.move"
+    },
+    {
+      "name": "TypeSideboardMoved",
+      "value": "sideboard.moved"
+    },
+    {
+      "name": "TypeSideboardSetCommander",
+      "value": "sideboard.set_commander"
+    },
+    {
+      "name": "TypeSideboardCommanderSet",
+      "value": "sideboard.commander_set"
+    },
+    {
+      "name": "TypeSideboardReady",
+      "value": "sideboard.ready"
+    },
+    {
+      "name": "TypeSideboardReadyChanged",
+      "value": "sideboard.ready_changed"
+    },
+    {
+      "name": "TypeSideboardCompleted",
+      "value": "sideboard.completed"
+    },
+    {
+      "name": "TypeError",
+      "value": "error"
+    },
+    {
+      "name": "ErrWrongPassword",
+      "value": "wrong_password"
+    },
+    {
+      "name": "ErrRoomFull",
+      "value": "room_full"
+    },
+    {
+      "name": "ErrRoomNotFound",
+      "value": "room_not_found"
+    },
+    {
+      "name": "ErrSpectatorsNotAllowed",
+      "value": "spectators_not_allowed"
+    },
+    {
+      "name": "ErrSpectatorLimit",
+      "value": "spectator_limit"
+    },
+    {
+      "name": "ErrAlreadyInRoom",
+      "value": "already_in_room"
+    },
+    {
+      "name": "ErrNotHost",
+      "value": "not_host"
+    },
+    {
+      "name": "ErrNotInRoom",
+      "value": "not_in_room"
+    },
+    {
+      "name": "ErrInvalidMessage",
+      "value": "invalid_message"
+    },
+    {
+      "name": "ErrNameRequired",
+      "value": "name_required"
+    },
+    {
+      "name": "ErrUnsupportedFormat",
+      "value": "unsupported_format"
+    },
+    {
+      "name": "ErrInvalidTarget",
+      "value": "invalid_target"
+    },
+    {
+      "name": "ErrCannotKickHost",
+      "value": "cannot_kick_host"
+    },
+    {
+      "name": "ErrInvalidMatchMode",
+      "value": "invalid_match_mode"
+    },
+    {
+      "name": "ErrInvalidCardLoadMode",
+      "value": "invalid_card_load_mode"
+    },
+    {
+      "name": "ErrNotPlayer",
+      "value": "not_player"
+    },
+    {
+      "name": "ErrInvalidDeck",
+      "value": "invalid_deck"
+    },
+    {
+      "name": "ErrDeckRequired",
+      "value": "deck_required"
+    },
+    {
+      "name": "ErrSeatsNotFilled",
+      "value": "seats_not_filled"
+    },
+    {
+      "name": "ErrNotLoading",
+      "value": "not_loading"
+    },
+    {
+      "name": "ErrStaleLoad",
+      "value": "stale_load"
+    },
+    {
+      "name": "ErrMatchStarted",
+      "value": "match_started"
+    },
+    {
+      "name": "ErrGameNotStarted",
+      "value": "game_not_started"
+    },
+    {
+      "name": "ErrGameFinished",
+      "value": "game_finished"
+    },
+    {
+      "name": "ErrMatchNotFinished",
+      "value": "match_not_finished"
+    },
+    {
+      "name": "ErrLibraryEmpty",
+      "value": "library_empty"
+    },
+    {
+      "name": "ErrGameSetupFailed",
+      "value": "game_setup_failed"
+    },
+    {
+      "name": "ErrInvalidZone",
+      "value": "invalid_zone"
+    },
+    {
+      "name": "ErrCardNotFound",
+      "value": "card_not_found"
+    },
+    {
+      "name": "ErrInvalidPosition",
+      "value": "invalid_position"
+    },
+    {
+      "name": "ErrInvalidMove",
+      "value": "invalid_move"
+    },
+    {
+      "name": "ErrInvalidPhase",
+      "value": "invalid_phase"
+    },
+    {
+      "name": "ErrNotActivePlayer",
+      "value": "not_active_player"
+    },
+    {
+      "name": "ErrInvalidCounter",
+      "value": "invalid_counter"
+    },
+    {
+      "name": "ErrInvalidChat",
+      "value": "invalid_chat"
+    },
+    {
+      "name": "ErrInvalidToken",
+      "value": "invalid_token"
+    },
+    {
+      "name": "ErrPlayerEliminated",
+      "value": "player_eliminated"
+    },
+    {
+      "name": "ErrNotSideboarding",
+      "value": "not_sideboarding"
+    },
+    {
+      "name": "ErrInvalidSideboardMove",
+      "value": "invalid_sideboard_move"
+    },
+    {
+      "name": "ErrSideboardNotExpired",
+      "value": "sideboard_not_expired"
+    },
+    {
+      "name": "ErrServerLimit",
+      "value": "server_limit"
+    },
+    {
+      "name": "ErrRateLimited",
+      "value": "rate_limited"
+    },
+    {
+      "name": "ErrReplayNotFound",
+      "value": "replay_not_found"
+    },
+    {
+      "name": "ErrInternal",
+      "value": "internal_error"
+    },
+    {
+      "name": "ErrPermissionDenied",
+      "value": "permission_denied"
+    },
+    {
+      "name": "ErrApprovalRequired",
+      "value": "approval_required"
+    },
+    {
+      "name": "ErrApprovalPending",
+      "value": "approval_pending"
+    },
+    {
+      "name": "ErrApprovalExpired",
+      "value": "approval_expired"
+    },
+    {
+      "name": "ErrClientVersionMismatch",
+      "value": "client_version_mismatch"
+    },
+    {
+      "name": "ErrTournamentInvalid",
+      "value": "tournament_invalid"
+    },
+    {
+      "name": "ErrTournamentForbidden",
+      "value": "tournament_forbidden"
+    },
+    {
+      "name": "ErrTournamentNotFound",
+      "value": "tournament_not_found"
+    },
+    {
+      "name": "ErrTournamentFull",
+      "value": "tournament_full"
+    },
+    {
+      "name": "ErrTournamentAlreadyRegistered",
+      "value": "tournament_already_registered"
+    },
+    {
+      "name": "ErrTournamentRegistrationClosed",
+      "value": "tournament_registration_closed"
+    },
+    {
+      "name": "ErrTournamentNotReady",
+      "value": "tournament_not_ready"
+    },
+    {
+      "name": "ErrTournamentRoundIncomplete",
+      "value": "tournament_round_incomplete"
+    },
+    {
+      "name": "ErrTournamentResultInvalid",
+      "value": "tournament_result_invalid"
+    },
+    {
+      "name": "ErrLimitedInvalid",
+      "value": "limited_invalid"
+    },
+    {
+      "name": "ErrLimitedForbidden",
+      "value": "limited_forbidden"
+    },
+    {
+      "name": "ErrLimitedNotReady",
+      "value": "limited_not_ready"
+    },
+    {
+      "name": "ErrLimitedPickUnavailable",
+      "value": "limited_pick_unavailable"
+    },
+    {
+      "name": "ErrLimitedDeckInvalid",
+      "value": "limited_deck_invalid"
+    },
+    {
+      "name": "FormatModern",
+      "value": "modern"
+    },
+    {
+      "name": "FormatDuel",
+      "value": "duel"
+    },
+    {
+      "name": "FormatEDH",
+      "value": "edh"
+    },
+    {
+      "name": "DeckFormatCustom",
+      "value": "custom"
+    },
+    {
+      "name": "DeckFormatStandard",
+      "value": "standard"
+    },
+    {
+      "name": "DeckFormatPioneer",
+      "value": "pioneer"
+    },
+    {
+      "name": "DeckFormatModern",
+      "value": "modern"
+    },
+    {
+      "name": "DeckFormatLegacy",
+      "value": "legacy"
+    },
+    {
+      "name": "DeckFormatVintage",
+      "value": "vintage"
+    },
+    {
+      "name": "DeckFormatPauper",
+      "value": "pauper"
+    },
+    {
+      "name": "DeckFormatDuel",
+      "value": "duel"
+    },
+    {
+      "name": "DeckFormatCommander",
+      "value": "commander"
+    },
+    {
+      "name": "DeckFormatLimited",
+      "value": "limited"
+    },
+    {
+      "name": "LimitedEventConstructed",
+      "value": "constructed"
+    },
+    {
+      "name": "LimitedEventSetSealed",
+      "value": "set_sealed"
+    },
+    {
+      "name": "LimitedEventSetDraft",
+      "value": "set_draft"
+    },
+    {
+      "name": "LimitedEventCubeDraft",
+      "value": "cube_draft"
+    },
+    {
+      "name": "LimitedCoordinatorSwiss",
+      "value": "swiss"
+    },
+    {
+      "name": "LimitedCoordinatorCasual",
+      "value": "casual"
+    },
+    {
+      "name": "LimitedStageRegistration",
+      "value": "registration"
+    },
+    {
+      "name": "LimitedStageDraft",
+      "value": "draft"
+    },
+    {
+      "name": "LimitedStageDeckBuilding",
+      "value": "deck_building"
+    },
+    {
+      "name": "LimitedStageCompetition",
+      "value": "competition"
+    },
+    {
+      "name": "LimitedStageCompleted",
+      "value": "completed"
+    },
+    {
+      "name": "LimitedStageCancelled",
+      "value": "cancelled"
+    },
+    {
+      "name": "RolePlayer",
+      "value": "player"
+    },
+    {
+      "name": "RoleSpectator",
+      "value": "spectator"
+    },
+    {
+      "name": "RoomPhaseWaiting",
+      "value": "waiting"
+    },
+    {
+      "name": "RoomPhaseLoading",
+      "value": "loading"
+    },
+    {
+      "name": "RoomPhaseStarted",
+      "value": "started"
+    },
+    {
+      "name": "CardLoadPreload",
+      "value": "preload"
+    },
+    {
+      "name": "CardLoadBackground",
+      "value": "background"
+    },
+    {
+      "name": "ZoneHand",
+      "value": "hand"
+    },
+    {
+      "name": "ZoneBattlefield",
+      "value": "battlefield"
+    },
+    {
+      "name": "ZoneGraveyard",
+      "value": "graveyard"
+    },
+    {
+      "name": "ZoneExile",
+      "value": "exile"
+    },
+    {
+      "name": "ZoneStack",
+      "value": "stack"
+    },
+    {
+      "name": "ZoneReveal",
+      "value": "reveal"
+    },
+    {
+      "name": "ZoneLibrary",
+      "value": "library"
+    },
+    {
+      "name": "ZoneCommand",
+      "value": "command"
+    },
+    {
+      "name": "ZoneSideboard",
+      "value": "sideboard"
+    },
+    {
+      "name": "PlayerCounterLife",
+      "value": "life"
+    },
+    {
+      "name": "PlayerCounterSlotPrefix",
+      "value": "counter-"
+    },
+    {
+      "name": "LibraryDestinationTop",
+      "value": "library_top"
+    },
+    {
+      "name": "LibraryDestinationBottom",
+      "value": "library_bottom"
+    },
+    {
+      "name": "GamePhaseUntap",
+      "value": "untap"
+    },
+    {
+      "name": "GamePhaseUpkeep",
+      "value": "upkeep"
+    },
+    {
+      "name": "GamePhaseDraw",
+      "value": "draw"
+    },
+    {
+      "name": "GamePhaseFirstMain",
+      "value": "main_1"
+    },
+    {
+      "name": "GamePhaseBeginningCombat",
+      "value": "begin_combat"
+    },
+    {
+      "name": "GamePhaseDeclareAttackers",
+      "value": "declare_attackers"
+    },
+    {
+      "name": "GamePhaseDeclareBlockers",
+      "value": "declare_blockers"
+    },
+    {
+      "name": "GamePhaseCombatDamage",
+      "value": "combat_damage"
+    },
+    {
+      "name": "GamePhaseEndCombat",
+      "value": "end_combat"
+    },
+    {
+      "name": "GamePhaseSecondMain",
+      "value": "main_2"
+    },
+    {
+      "name": "GamePhaseEnd",
+      "value": "end"
+    },
+    {
+      "name": "ArrowKindAttack",
+      "value": "attack"
+    },
+    {
+      "name": "ArrowKindBlock",
+      "value": "block"
+    },
+    {
+      "name": "ArrowKindTarget",
+      "value": "target"
+    },
+    {
+      "name": "ResponseStatusPass",
+      "value": "pass"
+    },
+    {
+      "name": "ResponseStatusHold",
+      "value": "hold"
+    },
+    {
+      "name": "ResponseStatusClear",
+      "value": "clear"
+    },
+    {
+      "name": "MatchBO1",
+      "value": "bo1"
+    },
+    {
+      "name": "MatchBO3",
+      "value": "bo3"
+    },
+    {
+      "name": "SideboardZoneMain",
+      "value": "mainboard"
+    },
+    {
+      "name": "SideboardZoneSide",
+      "value": "sideboard"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "type": "game.zone_dump_pending",
+  "id": "dump-opponent-24",
+  "payload": {
+    "roomId": "ABCDEF",
+    "approvalId": "zone-dump-1",
+    "targetSeat": 1
+  }
+}

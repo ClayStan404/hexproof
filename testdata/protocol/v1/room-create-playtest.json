@@ -1,0 +1,15 @@
+{
+  "type": "room.create",
+  "id": "solo-1",
+  "payload": {
+    "name": "Solo playtest",
+    "format": "modern",
+    "deckFormat": "custom",
+    "maxSeats": 1,
+    "playtest": true,
+    "allowSpectators": false,
+    "spectatorsSeeHands": false,
+    "matchMode": "bo1",
+    "cardLoadMode": "background"
+  }
+}

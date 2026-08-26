@@ -1,0 +1,10 @@
+{
+  "type": "game.library_view_resolved",
+  "id": "resolve-top-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "seat": 0,
+    "movedCount": 2,
+    "remainderCount": 1
+  }
+}

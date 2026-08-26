@@ -1,0 +1,8 @@
+{
+  "type": "game.set_card_face",
+  "id": "face-1",
+  "payload": {
+    "cardId": "s0-c1",
+    "faceName": "Back Face"
+  }
+}

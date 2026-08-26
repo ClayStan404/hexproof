@@ -1,0 +1,7 @@
+{
+  "type": "game.set_phase",
+  "id": "phase-15",
+  "payload": {
+    "phase": "declare_attackers"
+  }
+}

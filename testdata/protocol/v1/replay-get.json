@@ -1,0 +1,7 @@
+{
+  "type": "replay.get",
+  "id": "rp2",
+  "payload": {
+    "replayId": "ABCDEF-1785067200000000000.json"
+  }
+}
