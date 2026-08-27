@@ -75,26 +75,105 @@ jobs:
   quality-gate:
     name: Release quality gate
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     steps:
+      - name: Verify CI for tagged commit
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          runs_url="/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}&per_page=100"
+          run_id=""
+          run_url=""
+
+          for attempt in {1..30}; do
+            response="$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$runs_url")"
+            successful_run="$(
+              jq -r --arg sha "$GITHUB_SHA" '
+                [.workflow_runs[] |
+                  select(.head_sha == $sha and .conclusion == "success")] |
+                first |
+                if . == null then empty else [.id, .html_url] | @tsv end
+              ' <<< "$response"
+            )"
+            if [[ -n "$successful_run" ]]; then
+              IFS=$'\t' read -r run_id run_url <<< "$successful_run"
+              break
+            fi
+
+            active_run="$(
+              jq -r --arg sha "$GITHUB_SHA" '
+                [.workflow_runs[] |
+                  select(.head_sha == $sha and .status != "completed")] |
+                first |
+                if . == null then empty else [.id, .html_url] | @tsv end
+              ' <<< "$response"
+            )"
+            if [[ -n "$active_run" ]]; then
+              IFS=$'\t' read -r run_id run_url <<< "$active_run"
+              break
+            fi
+
+            completed_run="$(
+              jq -r --arg sha "$GITHUB_SHA" '
+                [.workflow_runs[] |
+                  select(.head_sha == $sha and .status == "completed")] |
+                first |
+                if . == null then empty
+                else [.conclusion, .html_url] | @tsv end
+              ' <<< "$response"
+            )"
+            if [[ -n "$completed_run" ]]; then
+              IFS=$'\t' read -r conclusion completed_url <<< "$completed_run"
+              echo "CI run concluded ${conclusion}: ${completed_url}" >&2
+              exit 1
+            fi
+
+            if (( attempt < 30 )); then
+              echo "Waiting for CI to start for ${GITHUB_SHA}..."
+              sleep 10
+            fi
+          done
+
+          if [[ -z "$run_id" ]]; then
+            echo "No CI run found for tagged commit ${GITHUB_SHA}." >&2
+            exit 1
+          fi
+          echo "Reusing CI result from ${run_url}"
+          gh run watch "$run_id" \
+            --repo "$GITHUB_REPOSITORY" \
+            --exit-status
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: github.event_name == 'workflow_dispatch'
         with:
           fetch-depth: 0
       - name: Install quality dependencies
+        if: github.event_name == 'workflow_dispatch'
         run: >
           sudo apt-get update &&
           sudo apt-get install -y clang-format-18 cmake ninja-build
           ripgrep shellcheck zlib1g-dev
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: github.event_name == 'workflow_dispatch'
         with:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
       - name: Install Qt
+        if: github.event_name == 'workflow_dispatch'
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
         with:
           version: ${{ env.QT_VERSION }}
           modules: qtwebsockets qtimageformats
           cache: true
       - name: Check formatting
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -123,6 +202,7 @@ jobs:
             exit 1
           }
       - name: Check generated and policy files
+        if: github.event_name == 'workflow_dispatch'
         run: |
           ./tools/check-license-headers.sh
           ./tools/check-qml-text-safety.sh
@@ -144,6 +224,7 @@ jobs:
           python3 -m unittest "${tests[@]}"
           shellcheck "${scripts[@]}"
       - name: Test server
+        if: github.event_name == 'workflow_dispatch'
         working-directory: apps/server
         run: |
           go vet ./...
@@ -151,8 +232,10 @@ jobs:
           go test -race ./internal/room ./internal/server ./internal/tournament
           CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
       - name: Configure client
+        if: github.event_name == 'workflow_dispatch'
         run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
       - name: Build and test client
+        if: github.event_name == 'workflow_dispatch'
         env:
           QT_QPA_PLATFORM: offscreen
           HEXPROOF_SERVER_BINARY: ${{ github.workspace }}/build/server/hexproof-server
