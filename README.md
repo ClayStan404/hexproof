@@ -1,5 +1,7 @@
 # Hexproof
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 [![CI](https://github.com/ClayStan404/hexproof/actions/workflows/ci.yml/badge.svg)](https://github.com/ClayStan404/hexproof/actions/workflows/ci.yml)
 
 Hexproof is a native desktop multiplayer tabletop for Magic: The Gathering.
