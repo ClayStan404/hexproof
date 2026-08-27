@@ -18,6 +18,66 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect build scope
+    runs-on: ubuntu-24.04
+    outputs:
+      client: ${{ steps.scope.outputs.client }}
+      server: ${{ steps.scope.outputs.server }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Select affected build targets
+        id: scope
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          client=false
+          server=false
+          reason="changed paths"
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            client=true
+            server=true
+            reason="manual run"
+          else
+            base="${PR_BASE_SHA:-$PUSH_BASE_SHA}"
+            if [[ -z "$base" || "$base" =~ ^0+$ ]] ||
+               ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              client=true
+              server=true
+              reason="unavailable comparison base"
+            else
+              while IFS= read -r -d '' path; do
+                case "$path" in
+                  .github/workflows/ci.yml|.github/actions/*)
+                    client=true
+                    server=true
+                    ;;
+                  apps/server/*|protocol/*|testdata/protocol/*)
+                    server=true
+                    ;;
+                esac
+                case "$path" in
+                  apps/client-qt/*|apps/server/*|packaging/linux/*|protocol/*|testdata/protocol/*)
+                    client=true
+                    ;;
+                esac
+              done < <(git diff --no-renames --name-only -z "$base" HEAD)
+            fi
+          fi
+
+          {
+            echo "client=$client"
+            echo "server=$server"
+          } >> "$GITHUB_OUTPUT"
+          printf 'Qt client: %s; Go server: %s (%s)\n' \
+            "$client" "$server" "$reason"
+
   quality:
     name: Format, protocol, and license headers
     runs-on: ubuntu-24.04
@@ -91,6 +151,8 @@ jobs:
 
   server:
     name: Go server
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -130,6 +192,8 @@ jobs:
 
   client:
     name: Qt client
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -249,3 +313,63 @@ jobs:
             cat "$qml_report"
           fi
           exit "$test_exit_code"
+
+  ci-required:
+    name: CI required
+    if: always()
+    needs:
+      - changes
+      - quality
+      - server
+      - client
+      - client-sanitizers
+      - client-platforms
+    runs-on: ubuntu-24.04
+    env:
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      QUALITY_RESULT: ${{ needs.quality.result }}
+      SERVER_REQUIRED: ${{ needs.changes.outputs.server }}
+      SERVER_RESULT: ${{ needs.server.result }}
+      CLIENT_REQUIRED: ${{ needs.changes.outputs.client }}
+      CLIENT_RESULT: ${{ needs.client.result }}
+      SANITIZERS_RESULT: ${{ needs['client-sanitizers'].result }}
+      PLATFORMS_RESULT: ${{ needs['client-platforms'].result }}
+    steps:
+      - name: Require successful selected checks
+        shell: bash
+        run: |
+          failures=0
+          require_result() {
+            local name="$1"
+            local actual="$2"
+            local expected="$3"
+            if [[ "$actual" != "$expected" ]]; then
+              printf '%s: expected %s, got %s\n' \
+                "$name" "$expected" "$actual" >&2
+              failures=1
+            fi
+          }
+
+          require_result "Build scope" "$CHANGES_RESULT" "success"
+          require_result "Quality" "$QUALITY_RESULT" "success"
+
+          if [[ "$SERVER_REQUIRED" == "true" ]]; then
+            require_result "Go server" "$SERVER_RESULT" "success"
+          else
+            require_result "Go server" "$SERVER_RESULT" "skipped"
+          fi
+          if [[ "$CLIENT_REQUIRED" == "true" ]]; then
+            require_result "Qt client" "$CLIENT_RESULT" "success"
+          else
+            require_result "Qt client" "$CLIENT_RESULT" "skipped"
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            require_result "Qt sanitizers" "$SANITIZERS_RESULT" "success"
+            require_result "Qt platforms" "$PLATFORMS_RESULT" "success"
+          else
+            require_result "Qt sanitizers" "$SANITIZERS_RESULT" "skipped"
+            require_result "Qt platforms" "$PLATFORMS_RESULT" "skipped"
+          fi
+
+          exit "$failures"

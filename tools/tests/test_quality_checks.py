@@ -463,6 +463,58 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn('git cat-file -e "$base^{commit}"', ci)
         self.assertIn("git rev-parse --verify --quiet HEAD^", ci)
 
+    def test_ci_selects_build_scope_and_keeps_one_required_gate(self) -> None:
+        ci = self.source(".github/workflows/ci.yml")
+        changes = ci.split("  changes:\n", 1)[1].split("\n  quality:\n", 1)[0]
+        server = ci.split("  server:\n", 1)[1].split("\n  client:\n", 1)[0]
+        client = ci.split("  client:\n", 1)[1].split(
+            "\n  client-sanitizers:\n", 1
+        )[0]
+        required = ci.split("  ci-required:\n", 1)[1]
+
+        self.assertIn("apps/server/*|protocol/*|testdata/protocol/*", changes)
+        self.assertIn(
+            "apps/client-qt/*|apps/server/*|packaging/linux/*|protocol/*",
+            changes,
+        )
+        self.assertIn("    needs: changes", server)
+        self.assertIn("if: needs.changes.outputs.server == 'true'", server)
+        self.assertIn("    needs: changes", client)
+        self.assertIn("if: needs.changes.outputs.client == 'true'", client)
+        self.assertIn("    name: CI required", required)
+        self.assertIn("    if: always()", required)
+        self.assertIn(
+            'require_result "Quality" "$QUALITY_RESULT" "success"',
+            required,
+        )
+
+    def test_tag_release_reuses_ci_for_the_exact_commit(self) -> None:
+        release = self.source(".github/workflows/release.yml")
+        gate = release.split("  quality-gate:\n", 1)[1].split(
+            "\n  client-linux:\n", 1
+        )[0]
+
+        self.assertIn("      - name: Verify CI for tagged commit", gate)
+        self.assertIn(
+            "actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}",
+            gate,
+        )
+        self.assertIn(
+            'select(.head_sha == $sha and .conclusion == "success")',
+            gate,
+        )
+        self.assertIn('gh run watch "$run_id"', gate)
+        self.assertIn(
+            "      - name: Test server\n"
+            "        if: github.event_name == 'workflow_dispatch'",
+            gate,
+        )
+        self.assertIn(
+            "      - name: Build and test client\n"
+            "        if: github.event_name == 'workflow_dispatch'",
+            gate,
+        )
+
     def test_retention_rejects_and_removes_invalid_archives(self) -> None:
         retention = self.source("apps/server/internal/server/retention.go")
         self.assertIn("decoder.Decode(&struct{}{})", retention)
