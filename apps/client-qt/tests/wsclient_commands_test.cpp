@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "wsclient_test.h"
@@ -381,6 +381,26 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.payload.value(u"toZone"_s).toString(),
              hexproof::protocol::kLibraryDestinationBottom);
     QCOMPARE(sent.payload.value(u"remainderPlacement"_s).toString(), u"top"_s);
+
+    const QVariantList assignments{
+        QVariantMap{{u"cardId"_s, u"s1-c8"_s}, {u"toZone"_s, u"hand"_s}},
+        QVariantMap{{u"cardId"_s, u"s1-c9"_s}, {u"toZone"_s, u"exile"_s}},
+        QVariantMap{{u"cardId"_s, u"s1-c10"_s}, {u"toZone"_s, u"library_bottom"_s}},
+    };
+    client.resolveLibraryViewAssignments(assignments, false, true, {}, 1, u"zone-dump-2"_s);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.type, hexproof::protocol::kTypeGameResolveLibraryView);
+    QCOMPARE(sent.payload.value(u"assignments"_s).toArray().size(), 3);
+    QCOMPARE(sent.payload.value(u"assignments"_s).toArray().at(1).toObject().value(u"toZone"_s),
+             u"exile"_s);
+    QVERIFY(sent.payload.value(u"randomizeBottom"_s).toBool());
+    QVERIFY(sent.payload.value(u"selectedCardIds"_s).toArray().isEmpty());
+    QVERIFY(sent.payload.value(u"remainderCardIds"_s).toArray().isEmpty());
+    QCOMPARE(sent.payload.value(u"remainderPlacement"_s), u"top"_s);
+    QCOMPARE(sent.payload.value(u"sourceSeat"_s), 1);
+    QCOMPARE(sent.payload.value(u"approvalId"_s), u"zone-dump-2"_s);
 
     client.searchLibrary(u"s0-c8"_s, hexproof::protocol::kZoneBattlefield, true,
                          QVariantMap{{u"x"_s, 0.5}, {u"y"_s, 0.5}});

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "cardcatalog_test.h"
@@ -175,6 +175,52 @@ void TestCardCatalog::usesWholeCardImageForAdventureFace() const
     QCOMPARE(record.faceName, u"Murderous Rider"_s);
     QCOMPARE(record.typeLine, u"Creature — Zombie Knight"_s);
     QCOMPARE(record.imageUrl, u"https://images.test/murderous-rider.png"_s);
+}
+
+void TestCardCatalog::usesRequestedMtgchDoubleFace() const
+{
+    const QJsonObject object{
+        {u"name"_s, u"Ajani, Nacatl Pariah // Ajani, Nacatl Avenger"_s},
+        {u"oracle_id"_s, u"ajani-oracle"_s},
+        {u"layout"_s, u"transform"_s},
+        {u"set"_s, u"MH3"_s},
+        {u"collector_number"_s, u"237"_s},
+        {u"lang"_s, u"en"_s},
+        {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://images.test/front-en.webp"_s}}},
+        {u"zhs_image_uris"_s, QJsonObject{{u"normal"_s, u"https://images.test/front-zh.webp"_s}}},
+        {u"other_faces"_s,
+         QJsonArray{QJsonObject{
+             {u"name"_s, u"Ajani, Nacatl Pariah // Ajani, Nacatl Avenger"_s},
+             {u"face_name"_s, u"Ajani, Nacatl Avenger"_s},
+             {u"type_line"_s, u"Legendary Planeswalker — Ajani"_s},
+             {u"zhs_face_name"_s, u"拿卡地复仇者阿耶尼"_s},
+             {u"zhs_type_line"_s, u"传奇鹏洛客～阿耶尼"_s},
+             {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://images.test/back-en.webp"_s}}},
+             {u"zhs_image_uris"_s,
+              QJsonObject{{u"normal"_s, u"https://images.test/back-zh.webp"_s}}},
+         }}},
+    };
+
+    const CardCatalog::CardRecord chinese =
+        CardCatalog::parseCardObject(object, u"zh"_s, u"Ajani, Nacatl Avenger"_s);
+    QCOMPARE(chinese.faceName, u"Ajani, Nacatl Avenger"_s);
+    QCOMPARE(chinese.localizedName, u"拿卡地复仇者阿耶尼"_s);
+    QCOMPARE(chinese.typeLine, u"传奇鹏洛客～阿耶尼"_s);
+    QCOMPARE(chinese.imageUrl, u"https://images.test/back-zh.webp"_s);
+
+    QJsonObject missingLocalizedBack = object;
+    QJsonObject englishOnlyBack = object.value(u"other_faces"_s).toArray().first().toObject();
+    englishOnlyBack.remove(u"zhs_image_uris"_s);
+    missingLocalizedBack.insert(u"other_faces"_s, QJsonArray{englishOnlyBack});
+    const CardCatalog::CardRecord missingChinese =
+        CardCatalog::parseCardObject(missingLocalizedBack, u"zh"_s, u"Ajani, Nacatl Avenger"_s);
+    QVERIFY(missingChinese.imageUrl.isEmpty());
+
+    const CardCatalog::CardRecord english =
+        CardCatalog::parseCardObject(object, u"en"_s, u"Ajani, Nacatl Avenger"_s);
+    QCOMPARE(english.faceName, u"Ajani, Nacatl Avenger"_s);
+    QCOMPARE(english.typeLine, u"Legendary Planeswalker — Ajani"_s);
+    QCOMPARE(english.imageUrl, u"https://images.test/back-en.webp"_s);
 }
 
 void TestCardCatalog::preservesScryfallFlavorName() const

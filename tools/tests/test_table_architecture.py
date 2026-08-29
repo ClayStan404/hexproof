@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 from __future__ import annotations
@@ -290,14 +290,19 @@ class TableArchitectureTests(unittest.TestCase):
         card_list = self.source(
             "apps/client-qt/qml/components/LibrarySearchCardList.qml"
         )
+        inspector = self.source(
+            "apps/client-qt/qml/components/LibrarySearchInspector.qml"
+        )
         menu = self.source(
             "apps/client-qt/qml/components/LibrarySearchContextMenu.qml"
         )
 
         self.assertLess(len(popup.splitlines()), 700)
         self.assertLess(len(card_list.splitlines()), 700)
+        self.assertLess(len(inspector.splitlines()), 700)
         self.assertLess(len(menu.splitlines()), 700)
         self.assertIn("LibrarySearchCardList", popup)
+        self.assertIn("LibrarySearchInspector", popup)
         self.assertIn("LibrarySearchContextMenu", popup)
         self.assertIn('objectName: "librarySearchCards"', card_list)
         self.assertIn('objectName: "libraryCardMenu"', menu)

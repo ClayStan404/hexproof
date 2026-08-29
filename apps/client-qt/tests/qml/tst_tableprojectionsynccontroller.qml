@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -30,6 +30,7 @@ TestCase {
         property var authoritativeOwnHand: []
         property var pendingCardMoves: ({})
         property var authoritativeSeats: []
+        property var turnOrder: []
         property var tableGameLog: []
         property var pendingFromKeys: ({})
 
@@ -73,6 +74,7 @@ TestCase {
         fakeTable.authoritativeOwnHand = []
         fakeTable.pendingCardMoves = ({})
         fakeTable.authoritativeSeats = []
+        fakeTable.turnOrder = []
         fakeTable.tableGameLog = []
         fakeTable.pendingFromKeys = ({})
         fakeGameLogModel.clear()
@@ -119,6 +121,46 @@ TestCase {
         compare(controller.activeHandDragCardId, "")
         verify(!controller.handModelSyncDeferred)
         compare(controller.ownHand.length, 2)
+    }
+
+    function test_manualHandOrderSurvivesSnapshotsAndAppendsNewCards() {
+        fakeTable.authoritativeOwnHand = [
+            {"id": "card-1", "name": "One"},
+            {"id": "card-2", "name": "Two"},
+            {"id": "card-3", "name": "Three"}
+        ]
+        controller.syncDisplayedOwnHand()
+
+        verify(controller.reorderDisplayedHandCard("card-3", 0))
+        compare(controller.ownHand[0].id, "card-3")
+        compare(controller.ownHand[1].id, "card-1")
+        compare(controller.ownHand[2].id, "card-2")
+
+        fakeTable.authoritativeOwnHand = [
+            {"id": "card-1", "name": "One updated"},
+            {"id": "card-2", "name": "Two"},
+            {"id": "card-3", "name": "Three"},
+            {"id": "card-4", "name": "Four"}
+        ]
+        controller.syncDisplayedOwnHand()
+
+        compare(controller.ownHand.length, 4)
+        compare(controller.ownHand[0].id, "card-3")
+        compare(controller.ownHand[1].id, "card-1")
+        compare(controller.ownHand[1].name, "One updated")
+        compare(controller.ownHand[2].id, "card-2")
+        compare(controller.ownHand[3].id, "card-4")
+
+        fakeTable.authoritativeOwnHand = [
+            {"id": "card-2", "name": "Two"},
+            {"id": "card-3", "name": "Three"},
+            {"id": "card-4", "name": "Four"}
+        ]
+        controller.syncDisplayedOwnHand()
+        compare(controller.ownHand[0].id, "card-3")
+        compare(controller.ownHand[1].id, "card-2")
+        compare(controller.ownHand[2].id, "card-4")
+        compare(controller.handOrderIds.length, 3)
     }
 
     function test_visibleHandCountExcludesPendingDepartures() {
@@ -182,6 +224,7 @@ TestCase {
         fakeTable.authoritativeSeats = [
             {"seat": 0}, {"seat": 1}, {"seat": 2}, {"seat": 3}
         ]
+        fakeTable.turnOrder = [0, 1, 2, 3]
 
         const snapshots = controller.orderedBattlefieldSeatSnapshots()
         compare(snapshots.length, 4)
@@ -197,12 +240,46 @@ TestCase {
         fakeTable.authoritativeSeats = [
             {"seat": 0}, {"seat": 1}, {"seat": 2}
         ]
+        fakeTable.turnOrder = [0, 1, 2]
 
         const snapshots = controller.orderedBattlefieldSeatSnapshots()
         compare(snapshots.length, 3)
         compare(snapshots[0].seat, 2)
         compare(snapshots[1].seat, 0)
         compare(snapshots[2].seat, 1)
+    }
+
+    function test_edhSeatOrderUsesRolledTurnOrder() {
+        fakeTable.isEDH = true
+        fakeWs.seatIndex = 3
+        fakeTable.authoritativeSeats = [
+            {"seat": 0}, {"seat": 1}, {"seat": 2}, {"seat": 3}
+        ]
+        fakeTable.turnOrder = [2, 0, 3, 1]
+
+        const snapshots = controller.orderedBattlefieldSeatSnapshots()
+        compare(snapshots.length, 4)
+        compare(snapshots[0].seat, 1)
+        compare(snapshots[1].seat, 2)
+        compare(snapshots[2].seat, 3)
+        compare(snapshots[3].seat, 0)
+    }
+
+    function test_edhSpectatorAnchorsStartingPlayerAtBottom() {
+        fakeTable.isEDH = true
+        fakeWs.roomRole = "spectator"
+        fakeWs.seatIndex = -1
+        fakeTable.authoritativeSeats = [
+            {"seat": 0}, {"seat": 1}, {"seat": 2}, {"seat": 3}
+        ]
+        fakeTable.turnOrder = [2, 0, 3, 1]
+
+        const snapshots = controller.orderedBattlefieldSeatSnapshots()
+        compare(snapshots.length, 4)
+        compare(snapshots[0].seat, 0)
+        compare(snapshots[1].seat, 3)
+        compare(snapshots[2].seat, 2)
+        compare(snapshots[3].seat, 1)
     }
 
     function test_gameLogProjectionAppendsAndRebuildsChangedPrefix() {

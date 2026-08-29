@@ -1,0 +1,61 @@
+{
+  "type": "rules.snapshot",
+  "seq": 8,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "turn": 1,
+    "step": "main1",
+    "activeSeat": 0,
+    "prioritySeat": 0,
+    "players": [
+      {
+        "seat": 0,
+        "name": "Alice",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [
+          {"name": "W", "value": 0}
+        ]
+      },
+      {
+        "seat": 1,
+        "name": "Bob",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": []
+      }
+    ],
+    "zones": [
+      {
+        "zone": "hand",
+        "ownerSeat": 0,
+        "count": 1,
+        "cards": [
+          {
+            "id": "java-card-1",
+            "visible": true,
+            "identity": {
+              "name": "Lightning Bolt",
+              "setCode": "M11",
+              "collectorNumber": "149"
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": []
+          }
+        ]
+      },
+      {
+        "zone": "hand",
+        "ownerSeat": 1,
+        "count": 1,
+        "cards": []
+      }
+    ],
+    "stack": [],
+    "gameOver": false
+  }
+}

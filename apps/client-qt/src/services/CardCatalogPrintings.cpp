@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardArtCache.h"
@@ -83,7 +83,8 @@ QString CardCatalog::printingImageSource(const QString &name, const QString &set
     const CardRecord exact = m_artCache->exactRecord(key);
     QString path;
     if (exact.valid() && exact.resolutionVersion >= kCardResolutionVersion &&
-        !exact.usesSubstituteArt && QFileInfo::exists(exact.imagePath)) {
+        m_artCache->matchesRequestedFace(request, exact) && !exact.usesSubstituteArt &&
+        QFileInfo::exists(exact.imagePath)) {
         path = exact.imagePath;
     } else {
         path = cachedResolvedPrinting(request).imagePath;
@@ -114,6 +115,7 @@ QString CardCatalog::resolvedImagePath(const CardRequest &request) const
         cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
     const CardRecord exact = m_artCache->exactRecord(key);
     if (exact.valid() && exact.resolutionVersion >= kCardResolutionVersion &&
+        m_artCache->matchesRequestedFace(request, exact) &&
         (!exact.reusesLocalArt || request.allowsSubstituteArt(m_artCache->reuseLocalArt())) &&
         QFileInfo::exists(exact.imagePath)) {
         return exact.imagePath;
@@ -138,7 +140,7 @@ QString CardCatalog::cardTypeLine(const QString &name, const QString &setCode,
     const QString key =
         cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
     const CardRecord exact = m_artCache->exactRecord(key);
-    if (!exact.typeLine.isEmpty())
+    if (m_artCache->matchesRequestedFace(request, exact) && !exact.typeLine.isEmpty())
         return exact.typeLine;
 
     const CardRecord cached = cachedResolvedPrinting(request);
@@ -160,7 +162,7 @@ QString CardCatalog::cardTypeLine(const QString &name, const QString &setCode,
     const QString englishKey =
         cacheKey(english.name, english.language, english.setCode, english.collectorNumber);
     const CardRecord englishExact = m_artCache->exactRecord(englishKey);
-    if (!englishExact.typeLine.isEmpty())
+    if (m_artCache->matchesRequestedFace(english, englishExact) && !englishExact.typeLine.isEmpty())
         return englishExact.typeLine;
     const CardRecord englishCached = cachedResolvedPrinting(english);
     if (!englishCached.typeLine.isEmpty())

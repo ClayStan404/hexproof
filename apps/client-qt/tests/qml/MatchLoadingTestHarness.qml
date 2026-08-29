@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -55,6 +55,7 @@ Item {
         property int seatIndex: 0
         property int gameNumber: 1
         property int startingSeat: 1
+        property var turnOrder: [1, 0]
         property int activeSeat: 0
         property string currentPhase: "untap"
         property int drawCount: 0
@@ -470,6 +471,19 @@ Item {
                 "approvalId": approvalId
             }
         }
+        function resolveLibraryViewAssignments(assignments, randomizeTop,
+                                               randomizeBottom, position,
+                                               sourceSeat, approvalId) {
+            ++resolveLibraryCount
+            lastLibraryResolve = {
+                "assignments": assignments,
+                "randomizeTop": randomizeTop,
+                "randomizeBottom": randomizeBottom,
+                "position": position,
+                "sourceSeat": sourceSeat,
+                "approvalId": approvalId
+            }
+        }
         function moveCard(cardId, fromZone, toZone, position, toSeat,
                           libraryPlacement, libraryIndex, fromSeat,
                           faceName, faceDown) {
@@ -520,6 +534,7 @@ Item {
         id: mockGameSession
         property int gameNumber: mockWs.gameNumber
         property int startingSeat: mockWs.startingSeat
+        property var turnOrder: mockWs.turnOrder
         property int activeSeat: mockWs.activeSeat
         property string currentPhase: mockWs.currentPhase
         property var score: mockWs.matchScore
@@ -673,6 +688,7 @@ Item {
         mockWs.inRoom = true
         mockWs.format = "modern"
         mockWs.matchMode = "bo3"
+        mockWs.turnOrder = [1, 0]
         mockWs.seatIndex = 0
         mockWs.activeSeat = 0
         mockWs.currentPhase = "untap"

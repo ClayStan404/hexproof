@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -350,11 +350,14 @@ func TestOpponentTopLibraryViewResolvesWithOneUseApproval(t *testing.T) {
 
 	resolve, err := protocol.NewEnvelope(protocol.TypeGameResolveLibraryView,
 		protocol.GameResolveLibraryView{
-			SelectedCardIDs:    []string{"s1-top1", "s1-top2"},
-			RemainderCardIDs:   []string{"s1-top3"},
-			ToZone:             protocol.LibraryDestinationBattlefield,
+			Assignments: []protocol.LibraryViewAssignment{
+				{CardID: "s1-top1", ToZone: protocol.LibraryDestinationBattlefield,
+					FaceDown: true},
+				{CardID: "s1-top2", ToZone: protocol.LibraryDestinationBattlefield,
+					FaceDown: true},
+				{CardID: "s1-top3", ToZone: protocol.LibraryDestinationBottom},
+			},
 			Position:           &protocol.CardPosition{X: 0.5, Y: 0.5},
-			FaceDown:           true,
 			SourceSeat:         &sourceSeat,
 			ApprovalID:         dumpedPayload.ApprovalID,
 			RemainderPlacement: protocol.LibraryPlacementBottom,
@@ -418,8 +421,7 @@ func TestOpponentTopLibraryViewResolvesWithOneUseApproval(t *testing.T) {
 	}
 	log := setup.room.Game.Log[len(setup.room.Game.Log)-1]
 	if log.Kind != "library_view" ||
-		!strings.Contains(log.Text,
-			"put 2 card(s) face down onto battlefield") ||
+		!strings.Contains(log.Text, "across 2 destination(s)") ||
 		strings.Contains(log.Text, "Remote One") ||
 		strings.Contains(log.Text, "Remote Two") {
 		t.Fatalf("remote face-down resolve log = %+v", log)

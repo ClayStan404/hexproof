@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -10,6 +10,11 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
+    property var wsModel
+    property var cardCatalogModel
+    readonly property var hub: wsModel ? wsModel : ws
+    readonly property var catalog: cardCatalogModel ? cardCatalogModel : cardCatalog
+
     readonly property var eventOptions: [
         {"label": qsTr("Set sealed"), "value": "set_sealed"},
         {"label": qsTr("Set draft"), "value": "set_draft"}
@@ -19,7 +24,7 @@ Page {
     property string matchMode: "bo3"
 
     background: AppBackground { }
-    Component.onCompleted: limitedSets = cardCatalog.limitedSets()
+    Component.onCompleted: limitedSets = root.catalog.limitedSets()
 
     ColumnLayout {
         anchors.fill: parent
@@ -31,8 +36,8 @@ Page {
 
         ScreenHeader {
             Layout.fillWidth: true
-            title: qsTr("Create limited room")
-            subtitle: qsTr("Open pools, build 40-card decks, then play private casual tables")
+            title: qsTr("Create Limited tournament")
+            subtitle: qsTr("Open pools, build 40-card decks, then play Swiss rounds with standings")
             onBackRequested: root.appWindow.popScreen()
         }
 
@@ -51,16 +56,27 @@ Page {
 
         }
 
-        ScrollView {
+        Flickable {
+            id: formBody
+            objectName: "limitedRoomCreateBody"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            contentWidth: availableWidth
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: width
+            contentHeight: Math.max(height, formCard.height)
+            ScrollBar.vertical: ScrollBar {
+                policy: formBody.contentHeight > formBody.height
+                        ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+            }
 
             Surface {
-                width: Math.min(Theme.size(680), parent.width - Theme.size(48))
-                height: form.implicitHeight + Theme.size(60)
-                anchors.horizontalCenter: parent.horizontalCenter
+                id: formCard
+                objectName: "limitedRoomCreateCard"
+                width: Math.min(Theme.size(680), formBody.width - Theme.size(48))
+                implicitHeight: form.implicitHeight + Theme.size(60)
+                height: implicitHeight
+                x: Math.max(0, Math.round((formBody.width - width) / 2))
                 elevated: true
 
                 ColumnLayout {
@@ -73,7 +89,7 @@ Page {
 
                     Text {
                         textFormat: Text.PlainText
-                        text: qsTr("ROOM NAME")
+                        text: qsTr("EVENT NAME")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(11)
                         font.weight: Font.Bold
@@ -82,7 +98,7 @@ Page {
                     AppTextField {
                         id: nameField
                         Layout.fillWidth: true
-                        placeholderText: qsTr("Friday limited room")
+                        placeholderText: qsTr("Friday Limited tournament")
                         maximumLength: 128
                     }
 
@@ -174,7 +190,7 @@ Page {
                                 enabled: !root.isDraft
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 validator: IntValidator {
-                                    bottom: root.isDraft ? 8 : 2
+                                    bottom: root.isDraft ? 8 : 4
                                     top: root.isDraft ? 8 : 64
                                 }
                             }
@@ -186,8 +202,8 @@ Page {
                         Layout.topMargin: Theme.size(8)
                         tone: "success"
                         message: root.isDraft
-                                 ? qsTr("The room starts with exactly eight checked-in players and runs a three-pack left/right/left draft.")
-                                 : qsTr("Every checked-in player receives exactly six boosters and proceeds directly to deck building.")
+                                 ? qsTr("Eight checked-in players draft three packs, then play three Swiss rounds with standings.")
+                                 : qsTr("Players receive six boosters, build decks, then play the recommended number of Swiss rounds.")
                     }
 
                     RowLayout {
@@ -195,18 +211,22 @@ Page {
                         Layout.topMargin: Theme.size(16)
                         Item { Layout.fillWidth: true }
                         AppButton {
+                            objectName: "limitedRoomCreateSubmitButton"
                             variant: "primary"
-                            text: qsTr("Create limited room")
-                            enabled: ws.connected && !ws.inRoom
+                            text: qsTr("Create Limited tournament")
+                            enabled: root.hub.connected && !root.hub.inRoom
                                      && nameField.text.trim().length > 0
                                      && playerCapField.acceptableInput
                                      && setPicker.hasSelection
                             onClicked: {
                                 const selectedSet = setPicker.selectedSet
-                                ws.createCasualLimitedEvent(
-                                            nameField.text.trim(), eventSelector.currentValue,
-                                            root.matchMode, Number(playerCapField.text),
-                                            cardCatalog.limitedProduct(selectedSet.productId))
+                                root.hub.createLimitedTournament(
+                                            nameField.text.trim(),
+                                            eventSelector.currentValue,
+                                            root.matchMode, 50,
+                                            Number(playerCapField.text), 0,
+                                            root.catalog.limitedProduct(
+                                                selectedSet.productId))
                             }
                         }
                     }

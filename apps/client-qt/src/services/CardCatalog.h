@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -231,6 +231,7 @@ class CardCatalog : public QObject
     Q_INVOKABLE QVariantList limitedSets() const;
     Q_INVOKABLE QVariantMap limitedProduct(const QString &productId) const;
     Q_INVOKABLE QVariantList simulateLimitedPacks(const QVariantMap &product, int packCount) const;
+    Q_INVOKABLE QVariantList enrichLimitedCards(const QVariantList &cards) const;
 
     static CardRecord parseCardObject(const QJsonObject &object, const QString &language,
                                       const QString &requestedName = {});

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -23,10 +23,14 @@ Page {
         {"label": I18n.formatLabel("cube"), "value": "cube", "tableMode": "modern"}
     ]
     readonly property bool isCubeFormat: root.deckFormat === "cube"
+    property var wsModel
+    property var deckLibraryModel
+    readonly property var hub: wsModel ? wsModel : ws
+    readonly property var decks: deckLibraryModel ? deckLibraryModel : deckLibrary
     readonly property var cubeDecks: {
-        void deckLibrary.count
-        void deckLibrary.currentDeckId
-        return deckLibrary.matchDecks("cube", true)
+        void root.decks.count
+        void root.decks.currentDeckId
+        return root.decks.matchDecks("cube", true)
     }
     readonly property var selectedCube: root.cubeById(root.selectedCubeDeckId,
                                                        root.cubeDecks)
@@ -39,6 +43,7 @@ Page {
     property bool spectatorsSeeHands: false
     property string matchMode: "bo1"
     property string cardLoadMode: "preload"
+    property string rulesMode: "manual"
     property string roomPassword: ""
     property string selectedCubeDeckId: ""
 
@@ -54,14 +59,20 @@ Page {
         anchors.topMargin: Theme.size(22)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        title: root.playtestMode ? qsTr("Playtest") : qsTr("Create room")
+        title: root.playtestMode ? qsTr("Playtest")
+               : root.isCubeFormat ? qsTr("Create Cube tournament")
+               : qsTr("Create room")
         subtitle: root.playtestMode
                   ? qsTr("Practice alone on a full tabletop")
+                  : root.isCubeFormat
+                    ? qsTr("Draft the Cube, build decks, then play Swiss rounds with standings")
                   : qsTr("Set the table, then share its room code")
         onBackRequested: root.appWindow.popScreen()
     }
 
-    ScrollView {
+    Flickable {
+        id: formBody
+        objectName: "createRoomBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -69,13 +80,21 @@ Page {
         anchors.topMargin: Theme.size(14)
         anchors.bottomMargin: Theme.size(24)
         clip: true
-        contentWidth: availableWidth
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        boundsBehavior: Flickable.StopAtBounds
+        contentWidth: width
+        contentHeight: Math.max(height, formCard.height)
+        ScrollBar.vertical: ScrollBar {
+            policy: formBody.contentHeight > formBody.height
+                    ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+        }
 
         Surface {
-            width: Math.min(Theme.size(650), parent.width - Theme.size(72))
-            height: form.implicitHeight + Theme.size(60)
-            anchors.horizontalCenter: parent.horizontalCenter
+            id: formCard
+            objectName: "createRoomCard"
+            width: Math.min(Theme.size(650), formBody.width - Theme.size(72))
+            implicitHeight: form.implicitHeight + Theme.size(60)
+            height: implicitHeight
+            x: Math.max(0, Math.round((formBody.width - width) / 2))
             elevated: true
 
             ColumnLayout {
@@ -126,7 +145,8 @@ Page {
                     textFormat: Text.PlainText
                     Layout.topMargin: Theme.size(16)
                     visible: !root.playtestMode
-                    text: qsTr("ROOM NAME")
+                    text: root.isCubeFormat ? qsTr("EVENT NAME")
+                                            : qsTr("ROOM NAME")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
                     font.weight: Font.Bold
@@ -137,7 +157,9 @@ Page {
                     id: nameField
                     Layout.fillWidth: true
                     visible: !root.playtestMode
-                    placeholderText: qsTr("Friday game night")
+                    placeholderText: root.isCubeFormat
+                                     ? qsTr("Friday Cube Draft")
+                                     : qsTr("Friday game night")
                     maximumLength: 80
                     text: root.roomName
                     onTextEdited: root.roomName = text
@@ -148,7 +170,7 @@ Page {
                     Layout.fillWidth: true
                     visible: !root.playtestMode
                     text: root.isCubeFormat
-                          ? qsTr("The selected Cube is locked when the eight-player draft starts.")
+                          ? qsTr("The selected Cube is locked when the draft starts.")
                           : qsTr("Include the exact format in the room name so players know which card pool to bring.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(10)
@@ -240,6 +262,7 @@ Page {
                         SegmentedControl {
                             Layout.fillWidth: true
                             options: root.roomFormat === "edh"
+                                     || root.rulesMode === "forge"
                                      ? [qsTr("BO 1")]
                                      : [qsTr("BO 1"),
                                         qsTr("BO 3")]
@@ -253,6 +276,59 @@ Page {
                             visible: root.roomFormat === "edh"
                             text: qsTr("Commander is a single multiplayer game.")
                             color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(10)
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+
+                Surface {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.size(8)
+                    visible: !root.playtestMode && !root.isCubeFormat
+                    implicitHeight: rulesModeColumn.implicitHeight + Theme.size(28)
+                    radius: Theme.radiusMedium
+                    color: Theme.surfaceMuted
+
+                    ColumnLayout {
+                        id: rulesModeColumn
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: Theme.size(14)
+                        spacing: Theme.size(8)
+
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("GAMEPLAY RULES")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(10)
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.0
+                        }
+
+                        SegmentedControl {
+                            Layout.fillWidth: true
+                            options: [qsTr("Manual tabletop"),
+                                      qsTr("Forge rules")]
+                            currentIndex: root.rulesMode === "forge" ? 1 : 0
+                            onActivated: index => {
+                                root.rulesMode = index === 1 ? "forge" : "manual"
+                                if (root.rulesMode === "forge")
+                                    root.matchMode = "bo1"
+                            }
+                        }
+
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: root.rulesMode === "forge"
+                                  ? (root.hub.forgeRulesAvailable
+                                     ? qsTr("Forge validates legal actions, priority, the stack, triggers, combat, and state-based actions. The current preview supports BO1 only.")
+                                     : qsTr("This server does not provide the Forge rules runtime."))
+                                  : qsTr("Players control every move and resolve unusual interactions together.")
+                            color: root.rulesMode === "forge" && !root.hub.forgeRulesAvailable
+                                   ? Theme.warning : Theme.textMuted
                             font.pixelSize: Theme.fontSize(10)
                             wrapMode: Text.WordWrap
                         }
@@ -305,12 +381,37 @@ Page {
                             }
                         }
 
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.size(8)
+
+                            Text {
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                text: qsTr("PLAYER CAP")
+                                color: Theme.textMuted
+                                font.pixelSize: Theme.fontSize(10)
+                                font.weight: Font.Bold
+                            }
+
+                            AppTextField {
+                                id: cubePlayerCapField
+                                objectName: "cubePlayerCapField"
+                                Layout.preferredWidth: Theme.size(110)
+                                text: "8"
+                                inputMethodHints: Qt.ImhDigitsOnly
+                                validator: IntValidator { bottom: 4; top: 8 }
+                            }
+                        }
+
                         Text {
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
                             text: !root.selectedCube.deckId
                                   ? qsTr("Import a Cube-format deck before creating this room.")
-                                  : qsTr("Eight players draft three 15-card packs, passing left, right, then left. This Cube contains %1 cards.")
+                                  : qsTr("A Cube draft starts with at least four checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.")
+                                    .arg(root.cubePlayerCap())
+                                    .arg(root.cubeCardsRequired())
                                     .arg(root.selectedCube.mainCount)
                             color: root.cubeReady() ? Theme.textMuted : Theme.warning
                             font.pixelSize: Theme.fontSize(10)
@@ -514,10 +615,12 @@ Page {
                     Item { Layout.fillWidth: true }
 
                     AppButton {
+                        objectName: "createRoomSubmitButton"
                         variant: "primary"
-                        text: root.playtestMode
-                              ? qsTr("Create playtest")
-                              : qsTr("Create room")
+                        text: root.playtestMode ? qsTr("Create playtest")
+                              : root.isCubeFormat
+                                ? qsTr("Create Cube tournament")
+                                : qsTr("Create room")
                         leadingText: root.playtestMode ? "▶" : "+"
                         enabled: root.playtestMode
                                  || root.createBlockerReason().length === 0
@@ -542,22 +645,25 @@ Page {
                               ? qsTr("Solo playtest")
                               : roomName.trim()
         if (root.isCubeFormat) {
-            const product = deckLibrary.cubeProduct(
+            const product = root.decks.cubeProduct(
                                 root.selectedCubeDeckId)
             if (!product.id)
                 return
-            ws.createCasualLimitedEvent(
-                        submittedName, "cube_draft", matchMode, 8,
-                        product)
+            root.hub.createLimitedTournament(
+                        submittedName, "cube_draft", matchMode,
+                        50, root.cubePlayerCap(), 0, product)
             return
         }
-        ws.createRoom(submittedName, roomFormat, deckFormat,
+        const submittedMatchMode = root.rulesMode === "forge"
+                                   ? "bo1" : matchMode
+        root.hub.createRoom(submittedName, roomFormat, deckFormat,
                       playtestMode ? false : allowSpectators,
                       playtestMode ? false : spectatorsSeeHands,
-                      playtestMode ? "bo1" : matchMode,
+                      playtestMode ? "bo1" : submittedMatchMode,
                       cardLoadMode,
                       playtestMode ? "" : roomPassword,
-                      playtestMode)
+                      playtestMode,
+                      playtestMode ? "manual" : rulesMode)
     }
 
     function createBlockerReason() {
@@ -569,10 +675,16 @@ Page {
             return qsTr("Import and select a Cube-format deck")
         if (root.isCubeFormat && !root.selectedCube.exactPrintings)
             return qsTr("Every Cube card needs an exact printing")
-        if (root.isCubeFormat && Number(root.selectedCube.mainCount) < 360)
-            return qsTr("An eight-player Cube draft needs at least 360 cards")
+        if (root.isCubeFormat && !cubePlayerCapField.acceptableInput)
+            return qsTr("Choose a Cube player cap from 4 to 8")
+        if (root.isCubeFormat
+                && Number(root.selectedCube.mainCount) < root.cubeCardsRequired())
+            return qsTr("A %1-player Cube draft needs at least %2 cards")
+                .arg(root.cubePlayerCap()).arg(root.cubeCardsRequired())
         if (root.isCubeFormat && Number(root.selectedCube.sideboardCount) > 0)
             return qsTr("Move every Cube card into the main pool")
+        if (root.rulesMode === "forge" && !root.hub.forgeRulesAvailable)
+            return qsTr("Forge rules are unavailable on this server")
         if (!passwordField.withinUtf8ByteLimit)
             return qsTr("Password cannot exceed 72 UTF-8 bytes.")
         return ""
@@ -584,6 +696,14 @@ Page {
                 return cubes[index]
         }
         return ({})
+    }
+
+    function cubePlayerCap() {
+        return Number(cubePlayerCapField.text)
+    }
+
+    function cubeCardsRequired() {
+        return root.cubePlayerCap() * 3 * 15
     }
 
     function ensureSelectedCube() {
@@ -603,19 +723,22 @@ Page {
 
     function cubeReady() {
         return root.selectedCube.ready === true
+                && cubePlayerCapField.acceptableInput
+                && Number(root.selectedCube.mainCount)
+                   >= root.cubeCardsRequired()
     }
 
     Connections {
-        target: deckLibrary
+        target: root.decks
         function onCountChanged() { root.ensureSelectedCube() }
         function onCurrentDeckChanged() { root.ensureSelectedCube() }
     }
 
     Connections {
-        target: ws
+        target: root.hub
         function onLastErrorChanged() {
-            if (!ws.inRoom)
-                errorBanner.message = I18n.status(ws.lastError)
+            if (!root.hub.inRoom)
+                errorBanner.message = I18n.status(root.hub.lastError)
         }
     }
 }

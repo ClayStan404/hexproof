@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -14,6 +14,7 @@ QtObject {
 
     property var ownHand: []
     property string ownHandModelSignature: ""
+    property var handOrderIds: []
     property string activeHandDragCardId: ""
     property bool handModelSyncDeferred: false
 
@@ -36,6 +37,70 @@ QtObject {
             return
         battlefieldSeatSyncDeferred = false
         syncBattlefieldSeats()
+    }
+
+    function handSignature(cards) {
+        const signatureParts = []
+        for (let index = 0; index < cards.length; ++index) {
+            const card = cards[index]
+            signatureParts.push(
+                        String(card.id ? card.id : "") + "\u001e"
+                        + String(card.name ? card.name : "") + "\u001e"
+                        + String(card.setCode ? card.setCode : "") + "\u001e"
+                        + String(card.collectorNumber
+                                 ? card.collectorNumber : "") + "\u001e"
+                        + (card.pending === true ? "1" : "0"))
+        }
+        return signatureParts.join("\u001f")
+    }
+
+    function orderedOwnHand(cards) {
+        const cardsById = ({})
+        for (let index = 0; index < cards.length; ++index)
+            cardsById[cards[index].id] = cards[index]
+
+        const ordered = []
+        const included = ({})
+        for (let index = 0; index < handOrderIds.length; ++index) {
+            const cardId = handOrderIds[index]
+            if (!cardsById[cardId])
+                continue
+            ordered.push(cardsById[cardId])
+            included[cardId] = true
+        }
+        for (let index = 0; index < cards.length; ++index) {
+            const card = cards[index]
+            if (included[card.id])
+                continue
+            ordered.push(card)
+            included[card.id] = true
+        }
+        handOrderIds = ordered.map(card => card.id)
+        return ordered
+    }
+
+    function reorderDisplayedHandCard(cardId, targetIndex) {
+        const cards = ownHand.slice()
+        let sourceIndex = -1
+        for (let index = 0; index < cards.length; ++index) {
+            if (cards[index].id === cardId) {
+                sourceIndex = index
+                break
+            }
+        }
+        if (sourceIndex < 0 || cards.length < 2)
+            return false
+
+        const boundedTarget = Math.max(
+                    0, Math.min(cards.length - 1, targetIndex))
+        if (boundedTarget === sourceIndex)
+            return false
+        const moved = cards.splice(sourceIndex, 1)[0]
+        cards.splice(boundedTarget, 0, moved)
+        handOrderIds = cards.map(card => card.id)
+        ownHandModelSignature = handSignature(cards)
+        ownHand = cards
+        return true
     }
 
     function syncDisplayedOwnHand() {
@@ -65,19 +130,9 @@ QtObject {
                 included[move.card.id] = true
             }
         }
-        const cards = authoritative.slice().concat(pendingCards)
-        const signatureParts = []
-        for (let index = 0; index < cards.length; ++index) {
-            const card = cards[index]
-            signatureParts.push(
-                        String(card.id ? card.id : "") + "\u001e"
-                        + String(card.name ? card.name : "") + "\u001e"
-                        + String(card.setCode ? card.setCode : "") + "\u001e"
-                        + String(card.collectorNumber
-                                 ? card.collectorNumber : "") + "\u001e"
-                        + (card.pending === true ? "1" : "0"))
-        }
-        const signature = signatureParts.join("\u001f")
+        const cards = orderedOwnHand(
+                        authoritative.slice().concat(pendingCards))
+        const signature = handSignature(cards)
         if (signature === ownHandModelSignature)
             return
         ownHandModelSignature = signature
@@ -131,50 +186,47 @@ QtObject {
     function orderedBattlefieldSeatSnapshots() {
         const authoritative = tableRoot.authoritativeSeats
                               ? tableRoot.authoritativeSeats : []
-        if (tableRoot.isEDH
-                && tableRoot.roomSession.role === "player"
-                && tableRoot.roomSession.seatIndex >= 0) {
-            if (authoritative.length === 3) {
-                const threePlayerOrder = []
-                const ownSeat = tableRoot.roomSession.seatIndex
-                for (let offset = 1; offset < 4; ++offset) {
-                    const wantedSeat = (ownSeat + offset) % 4
-                    for (let gameSeatIndex = 0;
-                         gameSeatIndex < authoritative.length;
-                         ++gameSeatIndex) {
-                        if (authoritative[gameSeatIndex].seat === wantedSeat) {
-                            threePlayerOrder.push(
-                                        authoritative[gameSeatIndex])
-                            break
-                        }
-                    }
-                }
-                for (let gameSeatIndex = 0;
-                     gameSeatIndex < authoritative.length;
-                     ++gameSeatIndex) {
-                    if (authoritative[gameSeatIndex].seat === ownSeat) {
-                        threePlayerOrder.push(authoritative[gameSeatIndex])
-                        break
-                    }
-                }
-                return threePlayerOrder
+        if (tableRoot.isEDH && authoritative.length >= 3) {
+            const bySeat = ({})
+            for (let index = 0; index < authoritative.length; ++index)
+                bySeat[String(authoritative[index].seat)] = authoritative[index]
+
+            const seatOrder = []
+            const included = ({})
+            const authoritativeOrder = tableRoot.turnOrder
+                                       ? tableRoot.turnOrder : []
+            for (let index = 0; index < authoritativeOrder.length; ++index) {
+                const seat = Number(authoritativeOrder[index])
+                if (!bySeat[String(seat)] || included[String(seat)])
+                    continue
+                seatOrder.push(seat)
+                included[String(seat)] = true
             }
-            const ordered = []
-            const offsets = [1, 2, 0, 3]
-            for (let offsetIndex = 0;
-                 offsetIndex < offsets.length; ++offsetIndex) {
-                const wantedSeat = (tableRoot.roomSession.seatIndex
-                                    + offsets[offsetIndex]) % 4
-                for (let gameSeatIndex = 0;
-                     gameSeatIndex < authoritative.length;
-                     ++gameSeatIndex) {
-                    if (authoritative[gameSeatIndex].seat === wantedSeat) {
-                        ordered.push(authoritative[gameSeatIndex])
-                        break
-                    }
-                }
+            for (let index = 0; index < authoritative.length; ++index) {
+                const seat = authoritative[index].seat
+                if (included[String(seat)])
+                    continue
+                seatOrder.push(seat)
+                included[String(seat)] = true
             }
-            return ordered
+
+            let anchorSeat = seatOrder[0]
+            if (tableRoot.roomSession.role === "player"
+                    && bySeat[String(tableRoot.roomSession.seatIndex)]) {
+                anchorSeat = tableRoot.roomSession.seatIndex
+            }
+            const anchorIndex = seatOrder.indexOf(anchorSeat)
+            const clockwise = seatOrder.slice(anchorIndex)
+                    .concat(seatOrder.slice(0, anchorIndex))
+            if (clockwise.length === 3) {
+                return [bySeat[String(clockwise[1])],
+                        bySeat[String(clockwise[2])],
+                        bySeat[String(clockwise[0])]]
+            }
+            return [bySeat[String(clockwise[1])],
+                    bySeat[String(clockwise[2])],
+                    bySeat[String(clockwise[0])],
+                    bySeat[String(clockwise[clockwise.length - 1])]]
         }
         const otherSeats = []
         let ownSeat = null
@@ -236,6 +288,7 @@ QtObject {
         battlefieldSeatOrderSignature = ""
         ownHand = []
         ownHandModelSignature = ""
+        handOrderIds = []
         gameLogModel.clear()
         activeHandDragCardId = ""
         handModelSyncDeferred = false

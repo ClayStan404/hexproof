@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "RoomSessionState.h"
@@ -18,6 +18,7 @@ RoomSessionState::RoomSessionState(QObject *parent)
     : QObject(parent),
       m_cardLoadMode(kCardLoadPreload)
 {
+    m_rulesMode = kRulesModeManual;
 }
 
 void RoomSessionState::enter(const QString &roomId, const QString &role, int seatIndex, bool host)
@@ -43,6 +44,7 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
     m_spectatorsSeeHands = m_allowSpectators && snapshot.value(u"spectatorsSeeHands"_s).toBool();
     m_matchMode = snapshot.value(u"matchMode"_s).toString(kMatchBO1);
     m_cardLoadMode = snapshot.value(u"cardLoadMode"_s).toString(kCardLoadPreload);
+    m_rulesMode = snapshot.value(u"rulesMode"_s).toString(kRulesModeManual);
     m_maxSeats = snapshot.value(u"maxSeats"_s).toInt();
     m_phase = snapshot.value(u"phase"_s).toString(kRoomPhaseWaiting);
     m_loadId = m_phase == kRoomPhaseWaiting ? 0 : snapshot.value(u"loadId"_s).toInteger();
@@ -152,6 +154,7 @@ void RoomSessionState::clear()
     m_spectatorsSeeHands = false;
     m_matchMode.clear();
     m_cardLoadMode = kCardLoadPreload;
+    m_rulesMode = kRulesModeManual;
     m_maxSeats = 0;
     m_phase.clear();
     m_loadId = 0;

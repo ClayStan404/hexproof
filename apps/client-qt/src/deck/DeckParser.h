@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2009-2026 Cockatrice contributors
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
@@ -22,13 +22,20 @@ struct DeckParseResult
     }
 };
 
+enum class DeckParseProfile
+{
+    Constructed,
+    Cube,
+};
+
 // Parses common plain-text and Moxfield clipboard exports, and writes the
 // same explicit Deck / Sideboard / Commander text for round-trip import while
 // retaining set/collector hints for Hexproof's image resolver.
 class DeckParser
 {
   public:
-    static DeckParseResult parse(const QString &text, bool blankSectionIsCommander = false);
+    static DeckParseResult parse(const QString &text, bool blankSectionIsCommander = false,
+                                 DeckParseProfile profile = DeckParseProfile::Constructed);
     static QString format(const Deck &deck);
 };
 

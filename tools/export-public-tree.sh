@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 set -euo pipefail
@@ -41,10 +41,12 @@ public_paths=(
     .gitignore
     LICENSE
     README.md
+    THIRD-PARTY-NOTICES.md
     apps
     packaging
     protocol
     testdata
+    third_party
     tools
 )
 

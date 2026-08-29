@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -175,6 +175,97 @@ func TestResolveLibraryViewRejectsFaceDownLibraryDestination(t *testing.T) {
 	}); err == nil || err.Error() != protocol.ErrInvalidMove {
 		t.Fatalf("face-down library bottom err = %v, want %q",
 			err, protocol.ErrInvalidMove)
+	}
+}
+
+func TestResolveLibraryViewAssignsEveryTopCardIndependently(t *testing.T) {
+	r := newTestRoom(t, 2, true)
+	r.Phase = protocol.RoomPhaseStarted
+	r.Game = &GameState{
+		Number: 1,
+		Seats: []PlayerGameState{{
+			Seat: 0, DisplayName: "Host",
+			Library: []protocol.GameCard{
+				{ID: "a", Name: "Hand Secret"},
+				{ID: "b", Name: "Exile Secret"},
+				{ID: "c", Name: "Bottom Secret"},
+				{ID: "d", Name: "Top Secret"},
+				{ID: "e", Name: "Battlefield Secret"},
+				{ID: "suffix", Name: "Unseen"},
+			},
+		}},
+		NextLogID: 1,
+	}
+	result, err := r.ResolveLibraryView("host-conn", protocol.GameResolveLibraryView{
+		Assignments: []protocol.LibraryViewAssignment{
+			{CardID: "a", ToZone: protocol.LibraryDestinationHand},
+			{CardID: "b", ToZone: protocol.LibraryDestinationExile},
+			{CardID: "c", ToZone: protocol.LibraryDestinationBottom},
+			{CardID: "d", ToZone: protocol.LibraryDestinationTop},
+			{CardID: "e", ToZone: protocol.LibraryDestinationBattlefield, FaceDown: true},
+		},
+		Position:           &protocol.CardPosition{X: 0.5, Y: 0.5},
+		RemainderPlacement: protocol.LibraryPlacementTop,
+	})
+	if err != nil {
+		t.Fatalf("resolve assigned library view: %v", err)
+	}
+	state := r.Game.Seats[0]
+	if len(state.Hand) != 1 || state.Hand[0].ID != "a" {
+		t.Fatalf("hand = %+v", state.Hand)
+	}
+	if len(state.Exile) != 1 || state.Exile[0].ID != "b" {
+		t.Fatalf("exile = %+v", state.Exile)
+	}
+	if len(state.Battlefield) != 1 || state.Battlefield[0].ID != "e" ||
+		!state.Battlefield[0].FaceDown || state.Battlefield[0].Position == nil {
+		t.Fatalf("battlefield = %+v", state.Battlefield)
+	}
+	if len(state.Library) != 3 || state.Library[0].ID != "d" ||
+		state.Library[1].ID != "suffix" || state.Library[2].ID != "c" {
+		t.Fatalf("library = %+v", state.Library)
+	}
+	var reply protocol.GameLibraryViewResolved
+	if result.Reply == nil || result.Reply.DecodePayload(&reply) != nil ||
+		reply.MovedCount != 3 || reply.RemainderCount != 2 {
+		t.Fatalf("reply = %+v", reply)
+	}
+	if len(r.Game.Log) != 1 ||
+		!strings.Contains(r.Game.Log[0].Text, "across 5 destination(s)") ||
+		strings.Contains(r.Game.Log[0].Text, "Secret") {
+		t.Fatalf("log = %+v", r.Game.Log)
+	}
+}
+
+func TestResolveLibraryViewRejectsInvalidPerCardAssignment(t *testing.T) {
+	r := newTestRoom(t, 2, true)
+	r.Phase = protocol.RoomPhaseStarted
+	r.Game = &GameState{
+		Number: 1,
+		Seats: []PlayerGameState{{
+			Seat: 0, DisplayName: "Host",
+			Library: []protocol.GameCard{{ID: "a"}, {ID: "b"}},
+		}},
+		NextLogID: 1,
+	}
+	_, err := r.ResolveLibraryView("host-conn", protocol.GameResolveLibraryView{
+		Assignments: []protocol.LibraryViewAssignment{
+			{CardID: "a", ToZone: protocol.LibraryDestinationHand},
+			{CardID: "a", ToZone: protocol.LibraryDestinationExile},
+		},
+		RemainderPlacement: protocol.LibraryPlacementTop,
+	})
+	if err == nil || err.Error() != protocol.ErrInvalidMove {
+		t.Fatalf("duplicate assignment err = %v, want %q", err, protocol.ErrInvalidMove)
+	}
+	_, err = r.ResolveLibraryView("host-conn", protocol.GameResolveLibraryView{
+		Assignments: []protocol.LibraryViewAssignment{{
+			CardID: "a", ToZone: protocol.LibraryDestinationExile, FaceDown: true,
+		}},
+		RemainderPlacement: protocol.LibraryPlacementTop,
+	})
+	if err == nil || err.Error() != protocol.ErrInvalidMove {
+		t.Fatalf("face-down exile err = %v, want %q", err, protocol.ErrInvalidMove)
 	}
 }
 

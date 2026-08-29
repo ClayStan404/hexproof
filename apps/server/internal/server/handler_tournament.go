@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -516,7 +516,7 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 				sess.setRoom(nil)
 				_ = h.removeRoom(r)
 				roomOperation.opMu.Unlock()
-				sendTournamentError(h, sess, env.ID, createErr)
+				sendTournamentError(h, sess, env.ID, mapRoomError(createErr))
 				return nil
 			}
 		}
@@ -551,9 +551,13 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			HostSeat: r.HostSeat,
 		})
 		h.send(sess, created)
-		snapshotEnvelope, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, snapshot)
-		h.send(sess, snapshotEnvelope.WithSeq(seq))
-		if lockedDeck != nil {
+		if lockedDeck == nil {
+			snapshotEnvelope, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, snapshot)
+			h.send(sess, snapshotEnvelope.WithSeq(seq))
+		} else {
+			// The creation snapshot predates automatic Limited deck selection.
+			// Send only the reducer's post-selection snapshot so the client
+			// enters the room with the authoritative locked-deck state.
 			h.fanout(r, selected.Broadcast)
 		}
 		roomOperation.opMu.Unlock()
@@ -583,10 +587,13 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			roomOperation.mu.Unlock()
 			sess.setRoom(nil)
 			roomOperation.opMu.Unlock()
-			sendTournamentError(h, sess, env.ID, selectErr)
+			sendTournamentError(h, sess, env.ID, mapRoomError(selectErr))
 			return nil
 		}
-		result.Broadcast = append(result.Broadcast, selected.Broadcast...)
+		// Joining emits a pre-selection room snapshot. Replace it with the
+		// post-selection snapshot so neither paired client observes a transient
+		// deck-required state.
+		result.Broadcast = selected.Broadcast
 	}
 	opened, _ := protocol.NewEnvelope(protocol.TypeTournamentMatchOpened,
 		protocol.TournamentMatchOpened{

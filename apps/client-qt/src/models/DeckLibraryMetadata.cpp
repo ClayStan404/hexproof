@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "DeckLibraryModel.h"
@@ -195,7 +195,7 @@ void DeckLibraryModel::applyCatalogMetadata(const QVariantList &cards)
         return;
     m_metadataChangedDeckIds.unite(changedDeckIds);
     scheduleMetadataCommit();
-    notifyDecksChanged(changedDeckIds);
+    notifyDecksChanged(changedDeckIds, true);
 }
 
 void DeckLibraryModel::applyTokenMetadata(const QVariantList &tokens)
@@ -317,7 +317,7 @@ void DeckLibraryModel::finishBackgroundSave()
         return;
     }
     m_backgroundSaveAttempts = 0;
-    notifyDecksChanged(std::exchange(m_backgroundSaveDeckIds, {}));
+    notifyDecksChanged(std::exchange(m_backgroundSaveDeckIds, {}), true);
     m_persistedGeneration = std::max(m_persistedGeneration, result.generation);
     m_metadataCommitPending = m_persistedGeneration < m_persistenceGeneration;
     if (m_metadataCommitPending)

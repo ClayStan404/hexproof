@@ -5,6 +5,10 @@
     "roomId": "ABCDEF",
     "gameNumber": 1,
     "startingSeat": 1,
+    "turnOrder": [
+      1,
+      0
+    ],
     "activeSeat": -1,
     "currentPhase": "untap",
     "landPlaysThisTurn": 0,

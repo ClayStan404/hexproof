@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -13,6 +13,7 @@
 
 #include "GameSessionState.h"
 #include "RoomSessionState.h"
+#include "RulesSessionState.h"
 #include "WsMessageParser.h"
 #include "protocol/Message.h"
 
@@ -61,8 +62,10 @@ class WsClient : public QObject
     Q_PROPERTY(bool versionMismatch READ versionMismatch NOTIFY versionMismatchChanged)
     Q_PROPERTY(QString requiredVersion READ requiredVersion NOTIFY versionMismatchChanged)
     Q_PROPERTY(QString releaseDownloadUrl READ releaseDownloadUrl CONSTANT)
+    Q_PROPERTY(bool forgeRulesAvailable READ forgeRulesAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(RoomSessionState *roomSession READ roomSession CONSTANT)
     Q_PROPERTY(GameSessionState *gameSession READ gameSession CONSTANT)
+    Q_PROPERTY(RulesSessionState *rulesSession READ rulesSession CONSTANT)
     Q_PROPERTY(LimitedSessionState *limitedSession READ limitedSession CONSTANT)
 
   public:
@@ -107,6 +110,10 @@ class WsClient : public QObject
     GameSessionState *gameSession() const
     {
         return m_gameSession;
+    }
+    RulesSessionState *rulesSession() const
+    {
+        return m_rulesSession;
     }
     LimitedSessionState *limitedSession() const
     {
@@ -290,6 +297,10 @@ class WsClient : public QObject
         return m_requiredVersion;
     }
     QString releaseDownloadUrl() const;
+    bool forgeRulesAvailable() const
+    {
+        return m_forgeRulesAvailable;
+    }
     TournamentSessionState *tournamentSession() const
     {
         return m_tournamentSession;
@@ -308,7 +319,8 @@ class WsClient : public QObject
                                 const QString &deckFormat, bool allowSpectators,
                                 bool spectatorsSeeHands, const QString &matchMode,
                                 const QString &cardLoadMode, const QString &password,
-                                bool playtest = false);
+                                bool playtest = false,
+                                const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void requestRoomList();
     Q_INVOKABLE void requestTournamentList();
     Q_INVOKABLE void createTournament(const QString &name, const QString &format,
@@ -350,6 +362,16 @@ class WsClient : public QObject
     Q_INVOKABLE void selectDeck(const QVariantMap &deck);
     Q_INVOKABLE void setReady(bool ready);
     Q_INVOKABLE void completeLoad(qint64 loadId);
+    Q_INVOKABLE void respondRulesPrompt(qint64 promptId, const QString &responseId);
+    Q_INVOKABLE void respondRulesPromptWithCards(qint64 promptId, const QString &responseId,
+                                                 const QVariantList &cardIds);
+    Q_INVOKABLE void respondRulesPromptWithTargets(qint64 promptId, const QString &responseId,
+                                                   const QVariantList &targetIds);
+    Q_INVOKABLE void respondRulesPromptWithAssignments(qint64 promptId,
+                                                       const QVariantList &assignments);
+    Q_INVOKABLE void respondRulesPromptWithChoices(qint64 promptId, const QVariantList &choiceIds);
+    Q_INVOKABLE void respondRulesPromptWithOrder(qint64 promptId, const QVariantList &orderedIds);
+    Q_INVOKABLE void respondRulesPromptWithNumber(qint64 promptId, int chosenNumber);
     Q_INVOKABLE void drawCards(int count = 1);
     Q_INVOKABLE void shuffleLibrary();
     Q_INVOKABLE void mulligan();
@@ -425,6 +447,11 @@ class WsClient : public QObject
                                         const QString &remainderPlacement, bool randomizeRemainder,
                                         bool faceDown = false, const QVariantMap &position = {},
                                         int sourceSeat = -1, const QString &approvalId = {});
+    Q_INVOKABLE void resolveLibraryViewAssignments(const QVariantList &assignments,
+                                                   bool randomizeTop, bool randomizeBottom,
+                                                   const QVariantMap &position = {},
+                                                   int sourceSeat = -1,
+                                                   const QString &approvalId = {});
     Q_INVOKABLE void requestReplayList();
     Q_INVOKABLE void requestReplayPage(int offset);
     Q_INVOKABLE void loadReplay(const QString &replayId);
@@ -450,6 +477,7 @@ class WsClient : public QObject
     void replayLoaded();
     void lastErrorChanged();
     void versionMismatchChanged();
+    void capabilitiesChanged();
     void commandQueued(const QString &requestId, const QString &commandType,
                        const QVariantMap &payload);
     void commandSucceeded(const QString &requestId, const QString &commandType,
@@ -503,6 +531,8 @@ class WsClient : public QObject
     void handleLoadRequired(const protocol::Envelope &env);
     void handleMatchStarted(const protocol::Envelope &env);
     void handleGameSnapshot(const QVariantMap &snapshot);
+    void handleRulesSnapshot(const QJsonObject &snapshot);
+    void handleRulesPrompt(const QJsonObject &prompt);
     void handleReplayListed(const protocol::Envelope &env);
     void handleReplayLoaded(const protocol::Envelope &env);
     void handleZoneDumpRequested(const protocol::Envelope &env);
@@ -516,17 +546,26 @@ class WsClient : public QObject
     void clearLastError();
     void setVersionMismatch(const QString &requiredVersion);
     void clearVersionMismatch();
+    void setForgeRulesAvailable(bool available);
     void clearGameState();
     void clearRoomState();
     QString tournamentCredential(const QString &tournamentId) const;
     void storeTournamentCredential(const QString &tournamentId, const QString &credential);
     void removeTournamentCredential(const QString &tournamentId);
     void resumeTournamentView();
+    void sendLibraryViewResolution(const QVariantList &assignments,
+                                   const QVariantList &selectedCardIds,
+                                   const QVariantList &remainderCardIds, const QString &toZone,
+                                   const QString &remainderPlacement, bool randomizeRemainder,
+                                   bool randomizeTop, bool randomizeBottom, bool faceDown,
+                                   const QVariantMap &position, int sourceSeat,
+                                   const QString &approvalId);
 
     ProtocolSession *m_protocolSession = nullptr;
     ReconnectController *m_reconnectController = nullptr;
     RoomSessionState *m_roomSession = nullptr;
     GameSessionState *m_gameSession = nullptr;
+    RulesSessionState *m_rulesSession = nullptr;
     ServerDirectory *m_serverDirectory = nullptr;
     TournamentSessionState *m_tournamentSession = nullptr;
     LimitedSessionState *m_limitedSession = nullptr;
@@ -545,6 +584,7 @@ class WsClient : public QObject
     QString m_lastError;
     QString m_requiredVersion;
     bool m_versionMismatch = false;
+    bool m_forgeRulesAvailable = false;
     QTimer m_helloTimer; // handshake timeout while connecting or reconnecting
     QTimer m_keepAliveTimer;
     QString m_serverUrl;

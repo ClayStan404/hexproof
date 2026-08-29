@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -62,7 +62,7 @@ func (r *Room) DeclareDrawAt(connID string, now time.Time) (Result, error) {
 }
 
 // RestartGame rebuilds the current game from committed decks while preserving
-// its number, match score, and starting player.
+// its number, match score, starting player, and turn order.
 func (r *Room) RestartGame(connID string) (Result, error) {
 	if err := r.requireActiveGame(); err != nil {
 		return Result{}, err
@@ -73,8 +73,10 @@ func (r *Room) RestartGame(connID string) (Result, error) {
 	hostSeat := r.FindSeatByConnection(connID)
 	gameNumber := r.Game.Number
 	startingSeat := r.Game.StartingSeat
+	turnOrder := append([]int{}, r.Game.TurnOrder...)
 	displayName := r.Game.Seats[hostSeat].DisplayName
-	if err := r.setupGameNumber(gameNumber, startingSeat); err != nil {
+	if err := r.setupGameNumberWithTurnOrder(
+		gameNumber, startingSeat, turnOrder); err != nil {
 		return Result{}, newError(protocol.ErrGameSetupFailed)
 	}
 	if len(r.Game.Log) > 0 &&

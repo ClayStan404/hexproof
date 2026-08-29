@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "RulesCounter",
+      "goType": "RulesCounter",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "value", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "name": "RulesCardIdentity",
+      "goType": "RulesCardIdentity",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "token", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "RulesPlayerState",
+      "goType": "RulesPlayerState",
+      "fields": [
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "status", "type": "string", "required": true},
+        {"name": "life", "type": "integer", "required": true},
+        {"name": "counters", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}},
+        {"name": "manaPool", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}}
+      ]
+    },
+    {
+      "name": "RulesCardState",
+      "goType": "RulesCardState",
+      "fields": [
+        {"name": "id", "type": "string", "required": true},
+        {"name": "visible", "type": "boolean", "required": true},
+        {"name": "identity", "type": "object", "required": false, "ref": "RulesCardIdentity", "goType": "*RulesCardIdentity"},
+        {"name": "ownerSeat", "type": "integer", "required": true},
+        {"name": "controllerSeat", "type": "integer", "required": true},
+        {"name": "tapped", "type": "boolean", "required": false},
+        {"name": "faceDown", "type": "boolean", "required": false},
+        {"name": "attacking", "type": "boolean", "required": false},
+        {"name": "power", "type": "string", "required": false},
+        {"name": "toughness", "type": "string", "required": false},
+        {"name": "counters", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}},
+        {"name": "damage", "type": "integer", "required": false},
+        {"name": "attachedTo", "type": "string", "required": false}
+      ]
+    },
+    {
+      "name": "RulesZoneState",
+      "goType": "RulesZoneState",
+      "fields": [
+        {"name": "zone", "type": "string", "required": true},
+        {"name": "ownerSeat", "type": "integer", "required": true},
+        {"name": "count", "type": "integer", "required": true},
+        {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCardState"}}
+      ]
+    },
+    {
+      "name": "RulesStackObject",
+      "goType": "RulesStackObject",
+      "fields": [
+        {"name": "id", "type": "string", "required": true},
+        {"name": "sourceId", "type": "string", "required": true},
+        {"name": "controllerSeat", "type": "integer", "required": true},
+        {"name": "ownerSeat", "type": "integer", "required": true},
+        {"name": "identity", "type": "object", "required": true, "ref": "RulesCardIdentity"},
+        {"name": "text", "type": "string", "required": true}
+      ]
+    },
+    {
+      "name": "RulesPromptOption",
+      "goType": "RulesPromptOption",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "cardId", "type": "string", "required": false}
+      ]
+    },
+    {
+      "name": "RulesPromptCard",
+      "goType": "RulesPromptCard",
+      "fields": [
+        {"name": "id", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "token", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "RulesPromptOrderItem",
+      "goType": "RulesPromptOrderItem",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "collectorNumber", "type": "string", "required": false},
+        {"name": "token", "type": "boolean", "required": false},
+        {"name": "oracle", "type": "string", "required": false}
+      ]
+    },
+    {
+      "name": "RulesPromptChoice",
+      "goType": "RulesPromptChoice",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "weight", "type": "integer", "required": true},
+        {"name": "canRepeat", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "name": "RulesPromptTarget",
+      "goType": "RulesPromptTarget",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "objectId", "type": "string", "required": false},
+        {"name": "name", "type": "string", "required": false},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "collectorNumber", "type": "string", "required": false},
+        {"name": "token", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "RulesPromptCombatSource",
+      "goType": "RulesPromptCombatSource",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "objectId", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "token", "type": "boolean", "required": false},
+        {"name": "validTargetIds", "type": "array", "required": true, "items": {"type": "string"}},
+        {"name": "mustAssignIfAble", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "name": "RulesPromptCombatTarget",
+      "goType": "RulesPromptCombatTarget",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "objectId", "type": "string", "required": false},
+        {"name": "name", "type": "string", "required": false},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "collectorNumber", "type": "string", "required": false},
+        {"name": "token", "type": "boolean", "required": false},
+        {"name": "minAssignments", "type": "integer", "required": true},
+        {"name": "maxAssignments", "type": "integer", "required": true},
+        {"name": "mustReceiveIfAble", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "name": "RulesPromptAssignment",
+      "goType": "RulesPromptAssignment",
+      "fields": [
+        {"name": "sourceId", "type": "string", "required": true},
+        {"name": "targetId", "type": "string", "required": true}
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "rules.snapshot",
+      "direction": "serverToClient",
+      "goType": "RulesGameSnapshot",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "gameId", "type": "string", "required": true},
+        {"name": "turn", "type": "integer", "required": true},
+        {"name": "step", "type": "string", "required": true},
+        {"name": "activeSeat", "type": "integer", "required": true},
+        {"name": "prioritySeat", "type": "integer", "required": true},
+        {"name": "players", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPlayerState"}},
+        {"name": "zones", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesZoneState"}},
+        {"name": "stack", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesStackObject"}},
+        {"name": "gameOver", "type": "boolean", "required": true},
+        {"name": "winnerSeat", "type": "integer", "required": false, "nullable": true}
+      ]
+    },
+    {
+      "type": "rules.prompt",
+      "direction": "serverToClient",
+      "goType": "RulesPrompt",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "gameId", "type": "string", "required": true},
+        {"name": "pending", "type": "boolean", "required": true},
+        {"name": "promptId", "type": "integer", "required": true, "goType": "int64"},
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "supported", "type": "boolean", "required": true},
+        {"name": "title", "type": "string", "required": true},
+        {"name": "detail", "type": "string", "required": true},
+        {"name": "options", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptOption"}},
+        {"name": "choices", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptChoice"}},
+        {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCard"}},
+        {"name": "orderItems", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptOrderItem"}},
+        {"name": "requiredSelections", "type": "integer", "required": true},
+        {"name": "minCardSelections", "type": "integer", "required": true},
+        {"name": "maxCardSelections", "type": "integer", "required": true},
+        {"name": "targets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptTarget"}},
+        {"name": "combatSources", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCombatSource"}},
+        {"name": "combatTargets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCombatTarget"}},
+        {"name": "minSelections", "type": "integer", "required": true},
+        {"name": "maxSelections", "type": "integer", "required": true},
+        {"name": "cancellable", "type": "boolean", "required": true},
+        {"name": "minChoiceTotal", "type": "integer", "required": true},
+        {"name": "maxChoiceTotal", "type": "integer", "required": true},
+        {"name": "minNumber", "type": "integer", "required": true},
+        {"name": "maxNumber", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "rules.respond",
+      "direction": "clientToServer",
+      "goType": "RulesRespond",
+      "fields": [
+        {"name": "promptId", "type": "integer", "required": true, "goType": "int64"},
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "cardIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "targetIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "assignments", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesPromptAssignment"}},
+        {"name": "choiceIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "orderedIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "chosenNumber", "type": "integer", "required": false, "goType": "*int"}
+      ]
+    },
+    {
+      "type": "rules.responded",
+      "direction": "serverToClient",
+      "goType": "RulesResponded",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "promptId", "type": "integer", "required": true, "goType": "int64"}
+      ]
+    }
+  ]
+}

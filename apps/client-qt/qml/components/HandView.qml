@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -6,6 +6,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQml.Models
 
 Item {
     id: root
@@ -85,14 +86,52 @@ Item {
         enabled: root.tableController.canAct
         keys: ["hexproof/card"]
 
+        function reorderOwnHandAt(source, areaX, areaY) {
+            if (!source || source.zoneName !== "hand"
+                    || source.ownerSeat
+                       !== root.tableController.roomSession.seatIndex) {
+                return
+            }
+            const point = handList.mapFromItem(
+                            handDropArea, areaX, areaY)
+            if (point.y < 0 || point.y > handList.height
+                    || point.x < 0 || point.x > handList.width) {
+                return
+            }
+            const stride = root.tableController.handCardWidth
+                           + handList.spacing
+            const contentCenter = handList.contentX + point.x
+            const targetIndex = Math.max(
+                        0, Math.min(handVisualModel.count - 1,
+                                    Math.round((contentCenter
+                                                - root.tableController.handCardWidth
+                                                  / 2) / stride)))
+            const sourceIndex = source.visualIndex
+            if (sourceIndex >= 0 && targetIndex >= 0
+                    && sourceIndex !== targetIndex) {
+                handVisualModel.items.move(sourceIndex, targetIndex)
+            }
+        }
+
         onEntered: function(drag) {
             handDropArea.cardSource = drag.source
+            reorderOwnHandAt(drag.source, drag.x, drag.y)
+        }
+        onPositionChanged: function(drag) {
+            reorderOwnHandAt(drag.source, drag.x, drag.y)
         }
         onExited: handDropArea.cardSource = null
         onDropped: function(drop) {
             // Use the drop event as the authoritative source. A transient
             // leave can clear the cached source immediately before release.
             const source = drop.source ? drop.source : handDropArea.cardSource
+            if (source && source.zoneName === "hand"
+                    && source.ownerSeat
+                       === root.tableController.roomSession.seatIndex) {
+                handDropArea.cardSource = null
+                drop.acceptProposedAction()
+                return
+            }
             if (!root.tableController.cardMoveCommands.canMoveToHand(source)) {
                 drop.accepted = false
                 return
@@ -151,35 +190,14 @@ Item {
             }
         }
 
-        ListView {
-            id: handList
-            objectName: "ownHand"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            orientation: ListView.Horizontal
-            spacing: Theme.size(7)
-            clip: true
-            model: root.tableController.ownHand
-            boundsBehavior: Flickable.StopAtBounds
+        Component {
+            id: handCardDelegate
 
-            function focusCard(targetIndex) {
-                if (count <= 0)
-                    return
-                const bounded = Math.max(0, Math.min(count - 1,
-                                                     targetIndex))
-                currentIndex = bounded
-                positionViewAtIndex(bounded, ListView.Contain)
-                Qt.callLater(() => {
-                    const item = itemAtIndex(bounded)
-                    if (item)
-                        item.forceActiveFocus()
-                })
-            }
-
-            delegate: Item {
+            Item {
                 id: handCard
                 required property var modelData
-                required property int index
+                readonly property int visualIndex: DelegateModel.itemsIndex
+                property int dragStartVisualIndex: -1
                 readonly property string cardId: modelData.id
                 readonly property string zoneName: "hand"
                 readonly property int ownerSeat:
@@ -190,7 +208,7 @@ Item {
                     root.tableController.optimisticCommands.isCardPendingFrom(
                         cardId, "hand",
                         root.tableController.roomSession.seatIndex)
-                objectName: "handCard" + index
+                objectName: "handCard" + visualIndex
                 // Visibility already removes a delegate from tab traversal.
                 // Keeping this constant avoids changing activeFocusOnTab while
                 // the card still owns active focus during an optimistic move.
@@ -235,12 +253,12 @@ Item {
 
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Left) {
-                        handList.focusCard(index - 1)
+                        handList.focusCard(visualIndex - 1)
                         event.accepted = true
                         return
                     }
                     if (event.key === Qt.Key_Right) {
-                        handList.focusCard(index + 1)
+                        handList.focusCard(visualIndex + 1)
                         event.accepted = true
                         return
                     }
@@ -329,17 +347,33 @@ Item {
                                   handCard)
                     onPressed: {
                         root.tableController.presentation.hideCardPreview()
+                        handCard.dragStartVisualIndex = handCard.visualIndex
                         root.tableController.activeHandDragCardId =
                             handCard.cardId
                     }
                     onReleased: {
+                        const cardId = handCard.cardId
+                        const targetIndex = handCard.visualIndex
                         handCard.Drag.drop()
                         Qt.callLater(() => {
+                            root.tableController.projectionSync.reorderDisplayedHandCard(
+                                        cardId, targetIndex)
                             root.tableController.projectionSync.finishHandDrag()
                             handList.forceLayout()
                         })
                     }
-                    onCanceled: root.tableController.projectionSync.finishHandDrag()
+                    onCanceled: {
+                        const currentIndex = handCard.visualIndex
+                        if (currentIndex >= 0
+                                && handCard.dragStartVisualIndex >= 0
+                                && currentIndex
+                                   !== handCard.dragStartVisualIndex) {
+                            handVisualModel.items.move(
+                                        currentIndex,
+                                        handCard.dragStartVisualIndex)
+                        }
+                        root.tableController.projectionSync.finishHandDrag()
+                    }
                 }
                 TapHandler {
                     acceptedButtons: Qt.RightButton
@@ -353,6 +387,49 @@ Item {
                     root.registerCard(modelData.id, handCard)
                 Component.onDestruction:
                     root.unregisterCard(modelData.id, handCard)
+            }
+        }
+
+        DelegateModel {
+            id: handVisualModel
+            objectName: "handVisualModel"
+            model: root.tableController.ownHand
+            delegate: handCardDelegate
+        }
+
+        ListView {
+            id: handList
+            objectName: "ownHand"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            orientation: ListView.Horizontal
+            spacing: Theme.size(7)
+            clip: true
+            model: handVisualModel
+            boundsBehavior: Flickable.StopAtBounds
+            onCountChanged: forceLayout()
+            Component.onCompleted: forceLayout()
+
+            moveDisplaced: Transition {
+                NumberAnimation {
+                    properties: "x"
+                    duration: Theme.motionFast
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            function focusCard(targetIndex) {
+                if (count <= 0)
+                    return
+                const bounded = Math.max(0, Math.min(count - 1,
+                                                     targetIndex))
+                currentIndex = bounded
+                positionViewAtIndex(bounded, ListView.Contain)
+                Qt.callLater(() => {
+                    const item = itemAtIndex(bounded)
+                    if (item)
+                        item.forceActiveFocus()
+                })
             }
         }
     }

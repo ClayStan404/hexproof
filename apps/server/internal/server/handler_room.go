@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -76,6 +76,23 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, code, code)
 		return nil
 	}
+	if rc.RulesMode == "" {
+		rc.RulesMode = protocol.RulesModeManual
+	}
+	if code := room.ValidateRulesMode(rc.RulesMode); code != "" {
+		h.sendError(sess, env.ID, code, code)
+		return nil
+	}
+	if rc.RulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
+		h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
+			"Forge rules mode is not available on this server")
+		return nil
+	}
+	if rc.Playtest && rc.RulesMode == protocol.RulesModeForge {
+		h.sendError(sess, env.ID, protocol.ErrInvalidRulesMode,
+			"Forge rules mode requires at least two players")
+		return nil
+	}
 	if rc.Format == protocol.FormatEDH || rc.Playtest {
 		rc.MatchMode = protocol.MatchBO1
 	}
@@ -93,9 +110,9 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	}
 	// Format dictates the multiplayer seat cap (2 or 4); Playtest overrides it
 	// with one private seat. Client MaxSeats is ignored (decisions.md).
-	r, initialSnapshot, initialSeq, operation, err := h.hub.CreateRoomWithDeckFormat(
-		rc.Name, rc.Format, rc.DeckFormat, rc.MatchMode, rc.CardLoadMode, maxSeats,
-		rc.AllowSpectators, rc.SpectatorsSeeHands, rc.Password, sess)
+	r, initialSnapshot, initialSeq, operation, err := h.hub.CreateRoomWithRulesMode(
+		rc.Name, rc.Format, rc.DeckFormat, rc.MatchMode, rc.CardLoadMode, rc.RulesMode,
+		maxSeats, rc.AllowSpectators, rc.SpectatorsSeeHands, rc.Password, sess)
 	if err != nil {
 		code, _ := ErrCode(err)
 		if code == "" {
@@ -118,6 +135,7 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 			MatchMode:          r.MatchMode,
 			CardLoadMode:       r.CardLoadMode,
 			HasPassword:        r.HasPassword,
+			RulesMode:          r.RulesMode,
 		},
 		HostSeat: r.HostSeat,
 	}
@@ -209,6 +227,12 @@ func (h *Handler) handleRoomLeave(sess *Session, env protocol.Envelope) error {
 		h.commitPairingRoomCleanup(cleanup)
 		h.saveRoomRetention(retained)
 	}()
+	operation.mu.Lock()
+	departingForgePlayer := operation.room == r &&
+		r.RulesMode == protocol.RulesModeForge &&
+		r.Phase == protocol.RoomPhaseStarted &&
+		r.FindSeatByConnection(sess.ConnectionID) >= 0
+	operation.mu.Unlock()
 	res, disbanded, err := h.hub.LeaveRoom(sess.ConnectionID, r)
 	if err != nil {
 		code, _ := ErrCode(err)
@@ -222,13 +246,27 @@ func (h *Handler) handleRoomLeave(sess *Session, env protocol.Envelope) error {
 		res.Reply.ID = env.ID
 		h.send(sess, *res.Reply)
 	}
+	var rulesReset *room.Result
+	if !disbanded && departingForgePlayer {
+		h.abortForgeGame(r.ID)
+		reset, resetErr := h.hub.ResetRulesStartFailure(r)
+		if resetErr != nil {
+			h.failClosedGameProjections(r, resetErr)
+			return nil
+		}
+		rulesReset = &reset
+	}
 	if disbanded {
 		h.disbandAndFanout(r, res.Broadcast)
 		retained = h.snapshotRoomRetention(r)
 		cleanup = h.removeRoom(r)
 	} else {
-		h.fanout(r, res.Broadcast)
-		if res.ProjectGame {
+		if rulesReset != nil {
+			h.fanout(r, rulesReset.Broadcast)
+		} else {
+			h.fanout(r, res.Broadcast)
+		}
+		if res.ProjectGame && rulesReset == nil {
 			h.fanoutGameProjections(r)
 		}
 		retained, cleanup = h.removeRoomIfEmpty(r)
@@ -264,6 +302,17 @@ func (h *Handler) handleRoomKick(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
 	}
+	var rulesReset *room.Result
+	if rk.Seat != nil && r.RulesMode == protocol.RulesModeForge &&
+		r.Phase == protocol.RoomPhaseStarted {
+		h.abortForgeGame(r.ID)
+		reset, resetErr := h.hub.ResetRulesStartFailure(r)
+		if resetErr != nil {
+			h.failClosedGameProjections(r, resetErr)
+			return nil
+		}
+		rulesReset = &reset
+	}
 
 	// Notify the kicked target FIRST: a server-push room.kicked (no echo of the
 	// host's request id) + unbind its room so subsequent commands fail with
@@ -285,8 +334,12 @@ func (h *Handler) handleRoomKick(sess *Session, env protocol.Envelope) error {
 		h.send(sess, *res.Reply)
 	}
 	// Fanout snapshot to remaining members (target already excluded).
-	h.fanout(r, res.Broadcast)
-	if res.ProjectGame {
+	if rulesReset != nil {
+		h.fanout(r, rulesReset.Broadcast)
+	} else {
+		h.fanout(r, res.Broadcast)
+	}
+	if res.ProjectGame && rulesReset == nil {
 		h.fanoutGameProjections(r)
 	}
 	return nil
@@ -398,11 +451,30 @@ func (h *Handler) handlePlayerReady(sess *Session, env protocol.Envelope) error 
 		h.fanout(r, res.Broadcast)
 		return nil
 	}
+	var rulesState forgeStartState
+	if res.StartRulesGame {
+		rulesState, err = h.startForgeGame(r)
+		if err != nil {
+			rollback, rollbackErr := h.hub.ResetRulesStartFailure(r)
+			if rollbackErr != nil {
+				h.failClosedGameProjections(r, rollbackErr)
+				return nil
+			}
+			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
+				"Forge could not start this match")
+			h.fanout(r, rollback.Broadcast)
+			return nil
+		}
+	}
 	res.Reply.ID = env.ID
 	h.send(sess, *res.Reply)
 	h.fanout(r, res.Broadcast)
 	if res.ProjectGame {
 		h.fanoutGameProjections(r)
+	}
+	if res.StartRulesGame {
+		h.sendRulesProjections(rulesState.projections)
+		h.sendRulesPrompts(rulesState.prompts)
 	}
 	return nil
 }
@@ -435,6 +507,21 @@ func (h *Handler) handleClientLoadComplete(sess *Session, env protocol.Envelope)
 		h.fanout(r, res.Broadcast)
 		return nil
 	}
+	var rulesState forgeStartState
+	if res.StartRulesGame {
+		rulesState, err = h.startForgeGame(r)
+		if err != nil {
+			rollback, rollbackErr := h.hub.ResetRulesStartFailure(r)
+			if rollbackErr != nil {
+				h.failClosedGameProjections(r, rollbackErr)
+				return nil
+			}
+			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
+				"Forge could not start this match")
+			h.fanout(r, rollback.Broadcast)
+			return nil
+		}
+	}
 	if res.Reply != nil {
 		res.Reply.ID = env.ID
 		h.send(sess, *res.Reply)
@@ -442,6 +529,10 @@ func (h *Handler) handleClientLoadComplete(sess *Session, env protocol.Envelope)
 	h.fanout(r, res.Broadcast)
 	if res.ProjectGame {
 		h.fanoutGameProjections(r)
+	}
+	if res.StartRulesGame {
+		h.sendRulesProjections(rulesState.projections)
+		h.sendRulesPrompts(rulesState.prompts)
 	}
 	return nil
 }
@@ -520,6 +611,7 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 		roomID:       r.ID,
 	}
 	h.hub.RemoveRoom(r.ID)
+	h.abortForgeGame(r.ID)
 
 	h.sideboardTimerMu.Lock()
 	timer := h.sideboardTimers[r.ID]
@@ -562,6 +654,10 @@ func (h *Handler) fanout(r *room.Room, envelopes []protocol.Envelope) {
 }
 
 func (h *Handler) fanoutGameProjections(r *room.Room) {
+	if r != nil && r.RulesMode == protocol.RulesModeForge {
+		h.fanoutRulesProjections(r)
+		return
+	}
 	projections, err := h.hub.GameProjections(r)
 	if err != nil {
 		h.failClosedGameProjections(r, err)

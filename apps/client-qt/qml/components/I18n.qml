@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma Singleton
@@ -132,8 +132,8 @@ QtObject {
             return qsTr("Main deck requires at least 60 cards.")
         if (source === "Sideboard can contain at most 15 cards.")
             return qsTr("Sideboard can contain at most 15 cards.")
-        if (source === "The Cube needs at least 360 physical cards for an eight-player draft.")
-            return qsTr("The Cube needs at least 360 physical cards for an eight-player draft.")
+        if (source === "The Cube needs at least 180 physical cards for a four-player draft.")
+            return qsTr("The Cube needs at least 180 physical cards for a four-player draft.")
         if (source === "Cube cards must stay in the main pool.")
             return qsTr("Cube cards must stay in the main pool.")
         if (source === "Every Cube card needs an exact printing.")
@@ -323,6 +323,15 @@ QtObject {
         match = source.match(/^(.+) won the opening roll\.$/)
         if (match)
             return qsTr("%1 won the opening roll.").arg(match[1])
+        match = source.match(/^Commander opening roll: (.+)\.$/)
+        if (match)
+            return qsTr("Commander opening roll: %1.").arg(match[1])
+        match = source.match(/^Commander tie-break roll: (.+)\.$/)
+        if (match)
+            return qsTr("Commander tie-break roll: %1.").arg(match[1])
+        match = source.match(/^Commander turn order: (.+)\.$/)
+        if (match)
+            return qsTr("Commander turn order: %1.").arg(match[1])
         match = source.match(
                     /^(.+) drew an opening hand of (\d+) cards\.$/)
         if (match) {
@@ -393,6 +402,13 @@ QtObject {
                     .arg(match[1]).arg(match[2])
                     .arg(libraryOwnerLabel(match[3])).arg(match[4])
                     .arg(searchDestinationLabel(match[5]))
+        }
+        match = source.match(
+                    /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library across (\d+) destination\(s\)\.$/)
+        if (match) {
+            return qsTr("%1 resolved the top %2 card(s) of %3 library across %4 destination(s).")
+                    .arg(match[1]).arg(match[2])
+                    .arg(libraryOwnerLabel(match[3])).arg(match[4])
         }
         match = source.match(
                     /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library\.$/)
@@ -660,6 +676,9 @@ QtObject {
             "cannot_kick_host": qsTr("The host cannot be removed"),
             "invalid_match_mode": qsTr("Invalid match mode"),
             "invalid_card_load_mode": qsTr("Invalid card image loading mode"),
+            "invalid_rules_mode": qsTr("Invalid gameplay rules mode"),
+            "rules_unavailable": qsTr("Forge rules are unavailable on this server"),
+            "rules_action_rejected": qsTr("The Forge decision is stale or no longer available"),
             "not_player": qsTr("Only players can do that"),
             "invalid_deck": qsTr("This deck cannot be used in the room"),
             "deck_required": qsTr("Select a playable deck first"),

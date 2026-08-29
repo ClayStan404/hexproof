@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -59,6 +59,7 @@ var commandRegistry = map[string]commandSpec{
 	protocol.TypeDeckSelect:                requiredCommand((*Handler).handleDeckSelect),
 	protocol.TypePlayerReady:               requiredCommand((*Handler).handlePlayerReady),
 	protocol.TypeClientLoadComplete:        requiredCommand((*Handler).handleClientLoadComplete),
+	protocol.TypeRulesRespond:              requiredCommand((*Handler).handleRulesRespond),
 	protocol.TypeGameDraw:                  requiredCommand((*Handler).handleGameDraw),
 	protocol.TypeGameShuffleLibrary:        requiredCommand((*Handler).handleGameShuffleLibrary),
 	protocol.TypeGameMulligan:              requiredCommand((*Handler).handleGameMulligan),

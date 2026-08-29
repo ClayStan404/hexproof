@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "deck_test.h"
@@ -68,8 +68,12 @@ Sideboard
         const QVariantList added = cachingSpy.last().first().toList();
         QCOMPARE(added.size(), 1);
         QCOMPARE(added.first().toMap().value(u"name"_s).toString(), u"Sol Ring"_s);
+        QSignalSpy cardsAboutToChangeSpy(&model, &DeckLibraryModel::currentDeckCardsAboutToChange);
+        QSignalSpy cardsChangedSpy(&model, &DeckLibraryModel::currentDeckCardsChanged);
         QVERIFY(model.setCardPrinting(u"Sol Ring"_s, false, u"阳光戒"_s, u"神器"_s, u"2X2"_s,
                                       u"308"_s));
+        QCOMPARE(cardsAboutToChangeSpy.count(), 1);
+        QCOMPARE(cardsChangedSpy.count(), 1);
         QCOMPARE(cachingSpy.count(), 2);
         const QVariantMap printingRequest = cachingSpy.last().first().toList().constFirst().toMap();
         QVERIFY(printingRequest.value(u"exactArt"_s).toBool());
@@ -192,6 +196,7 @@ void TestDeckLibrary::legalityWarningsDoNotBlockDeckSelection() const
     QTRY_COMPARE(validationSpy.count(), 1);
     const QVariantMap request =
         validationSpy.takeFirst().constFirst().toList().constFirst().toMap();
+    QSignalSpy cardsChangedSpy(&model, &DeckLibraryModel::currentDeckCardsChanged);
     const QString summary = u"2 cards may be outside the commanders' color identity."_s;
     model.applyDeckValidation({QVariantMap{
         {u"deckId"_s, id},
@@ -205,6 +210,7 @@ void TestDeckLibrary::legalityWarningsDoNotBlockDeckSelection() const
         {u"warnings"_s, QStringList{summary}},
     }});
 
+    QCOMPARE(cardsChangedSpy.count(), 0);
     QCOMPARE(model.currentValidationWarnings(), QStringList{summary});
     QCOMPARE(model.data(model.index(0), DeckLibraryModel::ValidationWarningsRole).toStringList(),
              QStringList{summary});
@@ -352,6 +358,7 @@ void TestDeckLibrary::coalescesCardMetadataPersistence() const
     const QString id = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
     QVERIFY(model.openDeck(id));
     QSignalSpy changedSpy(&model, &DeckLibraryModel::currentDeckChanged);
+    QSignalSpy cardsChangedSpy(&model, &DeckLibraryModel::currentDeckCardsChanged);
     QSignalSpy dataChangedSpy(&model, &QAbstractItemModel::dataChanged);
     QSignalSpy resetSpy(&model, &QAbstractItemModel::modelReset);
 
@@ -373,6 +380,7 @@ void TestDeckLibrary::coalescesCardMetadataPersistence() const
 
     QCOMPARE(changedSpy.count(), 0);
     QTRY_COMPARE_WITH_TIMEOUT(changedSpy.count(), 1, 1'000);
+    QCOMPARE(cardsChangedSpy.count(), 1);
     QCOMPARE(dataChangedSpy.count(), 1);
     QCOMPARE(resetSpy.count(), 0);
     DeckLibraryModel restored(storage.path());
@@ -747,6 +755,23 @@ void TestDeckLibrary::storesLocalArtReusePreference() const
 
     ClientPreferencesModel restored(storage.path());
     QVERIFY(!restored.reuseLocalCardArt());
+}
+
+void TestDeckLibrary::storesPackOpeningAnimationPreference() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        QVERIFY(model.animatePackOpenings());
+        QSignalSpy preferenceSpy(&model, &ClientPreferencesModel::animatePackOpeningsChanged);
+        model.setAnimatePackOpenings(false);
+        QVERIFY(!model.animatePackOpenings());
+        QCOMPARE(preferenceSpy.count(), 1);
+    }
+
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(!restored.animatePackOpenings());
 }
 
 void TestDeckLibrary::storesAndClampsInterfaceScale() const

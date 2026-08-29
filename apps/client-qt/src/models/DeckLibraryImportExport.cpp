@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "DeckLibraryModel.h"
@@ -33,9 +33,12 @@ bool DeckLibraryModel::importDeck(const QString &name, const QString &format, co
     if (!validateDeckImport(name, format, &deckName, &deckFormat))
         return false;
 
+    const DeckParseProfile parseProfile =
+        isCubeDeckFormat(deckFormat) ? DeckParseProfile::Cube : DeckParseProfile::Constructed;
     return commitDeckImport(
         deckName, deckFormat,
-        DeckParser::parse(text, isCommanderTableMode(tableModeForDeckFormat(deckFormat))));
+        DeckParser::parse(text, isCommanderTableMode(tableModeForDeckFormat(deckFormat)),
+                          parseProfile));
 }
 
 bool DeckLibraryModel::importDeckAsync(const QString &name, const QString &format,
@@ -57,9 +60,12 @@ bool DeckLibraryModel::importDeckAsync(const QString &name, const QString &forma
     setImportStage(QStringLiteral("parsing"));
     emit importingDeckChanged();
     const bool commander = isCommanderTableMode(tableModeForDeckFormat(deckFormat));
+    const DeckParseProfile parseProfile =
+        isCubeDeckFormat(deckFormat) ? DeckParseProfile::Cube : DeckParseProfile::Constructed;
     m_importWatcher.setFuture(
-        QtConcurrent::run(BackgroundTaskPools::deckParsing(),
-                          [text, commander]() { return DeckParser::parse(text, commander); }));
+        QtConcurrent::run(BackgroundTaskPools::deckParsing(), [text, commander, parseProfile]() {
+            return DeckParser::parse(text, commander, parseProfile);
+        }));
     return true;
 }
 

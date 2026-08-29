@@ -1,12 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
 pragma Translator: "Table"
 
 import QtQuick
-import QtQuick.Controls.Basic
-import QtQuick.Layouts
 
 Item {
     id: root
@@ -50,6 +48,30 @@ Item {
         return result
     }
 
+    function libraryBattlefieldCardsForAssignments(assignments) {
+        const requested = assignments ? assignments : []
+        const available = librarySearchPopup.cards
+                          ? librarySearchPopup.cards : []
+        const result = []
+        for (let assignmentIndex = 0;
+             assignmentIndex < requested.length; ++assignmentIndex) {
+            const assignment = requested[assignmentIndex]
+            if (assignment.toZone !== "battlefield")
+                continue
+            for (let cardIndex = 0; cardIndex < available.length;
+                 ++cardIndex) {
+                if (available[cardIndex].id !== assignment.cardId)
+                    continue
+                result.push(assignment.faceDown === true
+                            ? Object.assign({}, available[cardIndex],
+                                            {"faceDown": true})
+                            : available[cardIndex])
+                break
+            }
+        }
+        return result
+    }
+
     LibrarySearchPopup {
         id: librarySearchPopup
         objectName: "librarySearchPopup"
@@ -68,21 +90,18 @@ Item {
                         resolvedPosition,
                         sourceSeat, approvalId, destinationSeat, faceDown)
         }
-        onReorderRequested: cardIds =>
-            root.tableController.wsModel.reorderLibrary(cardIds)
-        onResolveRequested: function(selectedCardIds, remainderCardIds,
-                                     destination, remainderPlacement,
-                                     randomizeRemainder, faceDown, position,
-                                     sourceSeat, approvalId) {
-            const resolvedPosition = destination === "battlefield"
+        onResolveAssignmentsRequested: function(assignments, randomizeTop,
+                                                randomizeBottom, position,
+                                                sourceSeat, approvalId) {
+            const battlefieldCards =
+                root.libraryBattlefieldCardsForAssignments(assignments)
+            const resolvedPosition = battlefieldCards.length > 0
                                      ? root.tableController.cardMoveCommands.smartBattlefieldAnchor(
                                            root.tableController.roomSession.seatIndex,
-                                           root.libraryCardsForIds(
-                                               selectedCardIds, faceDown))
+                                           battlefieldCards)
                                      : position
-            root.tableController.wsModel.resolveLibraryView(
-                        selectedCardIds, remainderCardIds, destination,
-                        remainderPlacement, randomizeRemainder, faceDown,
+            root.tableController.wsModel.resolveLibraryViewAssignments(
+                        assignments, randomizeTop, randomizeBottom,
                         resolvedPosition, sourceSeat, approvalId)
         }
         onShuffleReminderRequested: {
@@ -161,7 +180,7 @@ Item {
         }
 
         titleText: qsTr("View top cards")
-        message: qsTr("Enter how many cards to inspect and reorder.")
+        message: qsTr("Enter how many cards to view.")
         placeholderText: qsTr("Number of cards")
         confirmText: qsTr("View")
         minimumValue: 1

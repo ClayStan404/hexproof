@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -94,6 +94,7 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 		RoomID:            r.ID,
 		GameNumber:        r.Game.Number,
 		StartingSeat:      r.Game.StartingSeat,
+		TurnOrder:         r.projectTurnOrder(),
 		ActiveSeat:        r.Game.ActiveSeat,
 		CurrentPhase:      r.Game.CurrentPhase,
 		LandPlaysThisTurn: r.Game.LandPlaysThisTurn,
@@ -113,6 +114,23 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 		Result:       gameResult,
 		Sideboard:    sideboardProjection,
 	}, nil
+}
+
+func (r *Room) projectTurnOrder() []int {
+	if len(r.Game.TurnOrder) > 0 {
+		return append([]int{}, r.Game.TurnOrder...)
+	}
+	activeSeats := make([]int, 0, len(r.Game.Seats))
+	for _, state := range r.Game.Seats {
+		if state.DisplayName != "" {
+			activeSeats = append(activeSeats, state.Seat)
+		}
+	}
+	order, err := turnOrderStartingAt(activeSeats, r.Game.StartingSeat)
+	if err != nil {
+		return activeSeats
+	}
+	return order
 }
 
 func (r *Room) projectCommanderIdentities() []protocol.GameCommanderIdentity {
@@ -302,6 +320,7 @@ func (r *Room) Snapshot() protocol.RoomSnapshot {
 		Playtest:           r.Playtest,
 		MatchMode:          r.MatchMode,
 		CardLoadMode:       r.CardLoadMode,
+		RulesMode:          r.RulesMode,
 		HostSeat:           r.HostSeat,
 		HasPassword:        r.HasPassword,
 		Seats:              seats,
@@ -323,6 +342,7 @@ func (r *Room) ListEntry() protocol.RoomListEntry {
 		DeckFormat:         r.DeckFormat,
 		MatchMode:          r.MatchMode,
 		CardLoadMode:       r.CardLoadMode,
+		RulesMode:          r.RulesMode,
 		MaxSeats:           r.MaxSeats,
 		PlayerCount:        playerCount,
 		SpectatorCount:     len(r.Spectators),

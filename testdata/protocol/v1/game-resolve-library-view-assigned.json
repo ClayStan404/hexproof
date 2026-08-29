@@ -1,0 +1,14 @@
+{
+  "type": "game.resolve_library_view",
+  "id": "resolve-top-assigned-1",
+  "payload": {
+    "assignments": [
+      {"cardId": "s0-c8", "toZone": "hand"},
+      {"cardId": "s0-c9", "toZone": "exile"},
+      {"cardId": "s0-c10", "toZone": "library_bottom"}
+    ],
+    "remainderCardIds": [],
+    "remainderPlacement": "top",
+    "randomizeBottom": true
+  }
+}

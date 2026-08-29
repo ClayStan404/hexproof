@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "WsClient.h"
@@ -56,6 +56,10 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleMatchStarted(env);
     else if (env.type == kTypeGameSnapshot)
         handleGameSnapshot(gameSnapshot);
+    else if (env.type == kTypeRulesSnapshot)
+        handleRulesSnapshot(env.payload);
+    else if (env.type == kTypeRulesPrompt)
+        handleRulesPrompt(env.payload);
     else if (env.type == kTypeGameZoneDumpRequested)
         handleZoneDumpRequested(env);
     else if (env.type == kTypeGamePublicZoneMoveRequested)
@@ -165,6 +169,7 @@ void WsClient::handleWelcome(const Envelope &env)
         m_ws.close();
         return;
     }
+    setForgeRulesAvailable(env.payload.value(u"forgeRulesAvailable"_s).toBool());
     const bool resumed = env.payload.value(u"resumed"_s).toBool();
     const bool tournamentOnlyReconnect = m_resumeAttempted && m_state == Reconnecting &&
                                          roomId().isEmpty() && m_tournamentSession->inTournament();
@@ -273,6 +278,18 @@ void WsClient::handleMatchStarted(const Envelope &env)
 void WsClient::handleGameSnapshot(const QVariantMap &snapshot)
 {
     m_gameSession->applySnapshot(snapshot);
+}
+
+void WsClient::handleRulesSnapshot(const QJsonObject &snapshot)
+{
+    if (!m_rulesSession->applySnapshot(snapshot))
+        setLastError(u"invalid_rules_snapshot"_s, u"invalid rules snapshot"_s);
+}
+
+void WsClient::handleRulesPrompt(const QJsonObject &prompt)
+{
+    if (!m_rulesSession->applyPrompt(prompt))
+        setLastError(u"protocol"_s, u"invalid rules prompt"_s);
 }
 
 void WsClient::handleReplayListed(const Envelope &env)

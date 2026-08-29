@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 from __future__ import annotations
@@ -318,28 +318,30 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn("      - name: Build package", macos_job)
         self.assertIn("MACOS_RELEASE_NOTARIZED:", workflow)
 
-    def test_release_includes_current_card_database(self) -> None:
+    def test_release_uses_compatible_stable_card_database(self) -> None:
         workflow = (TOOLS_DIR.parent / ".github/workflows/release.yml").read_text(
             encoding="utf-8"
         )
-        database_job = workflow.split("  card-database:\n", 1)[1].split(
-            "\n  assemble:\n", 1
+        quality_job = workflow.split("  quality-gate:\n", 1)[1].split(
+            "\n  client-linux:\n", 1
         )[0]
         assemble_job = workflow.split("  assemble:\n", 1)[1]
+        self.assertNotIn("\n  card-database:\n", workflow)
         self.assertIn(
-            "./tools/card-database-builder/build-latest.sh build/card-database",
-            database_job,
-        )
-        self.assertIn(".schemaVersion == 10", database_job)
-        self.assertIn(
-            "build/card-database/release/hexproof-default-cards.sqlite.gz",
-            database_job,
+            "Verify stable card database compatibility",
+            quality_job,
         )
         self.assertIn(
-            "build/card-database/release/card-database-manifest.json",
-            database_job,
+            "kCatalogIndexVersion",
+            quality_job,
         )
-        self.assertIn("      - card-database", assemble_job)
+        self.assertIn(
+            "releases/download/card-data/card-database-manifest.json",
+            quality_job,
+        )
+        self.assertIn(".schemaVersion == $expectedSchema", quality_job)
+        self.assertNotIn("      - card-database", assemble_job)
+        self.assertNotIn("hexproof-card-database", assemble_job)
         self.assertIn('! -name SHA256SUMS', assemble_job)
         self.assertIn('sha256sum "${assets[@]}" > SHA256SUMS', assemble_job)
 

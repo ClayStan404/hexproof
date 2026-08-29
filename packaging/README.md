@@ -67,7 +67,7 @@ GitHub Release. The client verifies the manifest, compressed payload, expanded
 size, and expanded SHA-256 before the existing atomic database installer
 replaces a user's catalog.
 
-The workflow and local release builds share
+The workflow and local database builds share
 `tools/card-database-builder/build-latest.sh`. Every invocation resolves and
 downloads all four current upstream inputs before building; cached or
 previously downloaded source archives are not accepted as implicit inputs.
@@ -93,13 +93,14 @@ and may be made explicit with `HEXPROOF_GOOS=linux`.
 
 ## GitHub release workflow
 
-`.github/workflows/release.yml` builds all six platform archives plus a fresh
-schema-v10 card database and its manifest. A manual run creates Actions
-artifacts only. A tag named exactly `vMAJOR.MINOR.PATCH` also creates or updates
-a draft GitHub Release, uploads the packages, database, manifest, and combined
-`SHA256SUMS`, and attests every release asset. The tag version is injected into
-the client application metadata, protocol hello, server welcome, server CLI,
-and archive filenames.
+`.github/workflows/release.yml` builds the six platform archives without
+rebuilding or attaching card data. Its quality gate checks that the stable
+`card-data` manifest uses the catalog schema expected by the client. A manual
+run creates Actions artifacts only. A tag named exactly `vMAJOR.MINOR.PATCH`
+also creates or updates a draft GitHub Release, uploads the platform packages
+and combined `SHA256SUMS`, and attests every release asset. The tag version is
+injected into the client application metadata, protocol hello, server welcome,
+server CLI, and archive filenames.
 
 Release clients require the `HEXPROOF_PUBLIC_SERVERS_JSON` repository Actions
 secret. Each platform job validates the complete JSON document, writes it with

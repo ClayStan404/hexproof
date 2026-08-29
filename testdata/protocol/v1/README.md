@@ -40,6 +40,8 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `match-started.json` | S -> C | Automatic transition after every player completes loading |
 | `game-snapshot-owner.json` | S -> C | Owner sees their seven private hand identities and only opponent counts |
 | `game-snapshot-opponent.json` | S -> C | Opponent gets their own hand while Alice's hand identities remain absent |
+| `rules-snapshot-owner.json` | S -> C | Normalized Forge projection with seat-mapped players and viewer-authorized card identities |
+| `rules-prompt.json` / `rules-respond.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choice, stable response id, and identity-free acknowledgement |
 | `game-draw.json` / `game-drawn.json` | both | Bounded multi-card draw request and identity-free acknowledgement |
 | `game-return-to-room.json` / `game-returned-to-room.json` | both | End completed-match review and restore the room waiting flow |
 | `game-shuffle-library.json` / `game-library-shuffled.json` | both | Shuffle the acting player's hidden library with an identity-free acknowledgement |
@@ -62,7 +64,7 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-search-library.json` / `game-library-searched.json` | both | Atomic multi-card library search with ordered/random movement and reveal-aware public logging |
 | `game-search-library-opponent.json` / `game-library-searched-opponent.json` | both | Approved remote-library search into either the requester or source player's destination zone |
 | `game-reorder-library.json` / `game-library-reordered.json` | both | Count-only acknowledgement for returning the exact viewed top prefix in a custom order |
-| `game-resolve-library-view.json` / `game-library-view-resolved.json` | both | Atomic top-X selection to hand/battlefield/library top or bottom plus ordered/random remainder placement on library top/bottom |
+| `game-resolve-library-view*.json` / `game-library-view-resolved.json` | both | Atomic top-X resolution using either the compatible selected/remainder form or one destination assignment per viewed card |
 | `game-snapshot-shared.json` | S -> C | Stack and revealed cards are public with an authoritative owner seat |
 | `game-set-phase.json` / `game-phase-set.json` | both | Active player changes the shared 11-step phase marker |
 | `game-next-turn.json` / `game-turn-advanced.json` | both | Active player advances the turn and resets the marker to Untap |

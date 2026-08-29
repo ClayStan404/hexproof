@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 // Package tournament implements account-free individual Swiss tournament
@@ -201,20 +201,19 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	} else if config.Product == nil {
 		return nil, fail(ErrInvalid, "limited tournaments require a product")
 	}
-	if config.EventType == protocol.LimitedEventCubeDraft {
-		if config.Coordinator != protocol.LimitedCoordinatorCasual {
-			return nil, fail(ErrInvalid, "Cube draft requires casual coordination")
-		}
-	}
 	if config.Coordinator == protocol.LimitedCoordinatorCasual {
 		config.PlannedRounds = 0
 	}
 	if config.EventType != protocol.LimitedEventConstructed && config.MaxPlayers > 64 {
 		return nil, fail(ErrInvalid, "limited tournaments support at most 64 players")
 	}
-	if (config.EventType == protocol.LimitedEventSetDraft ||
-		config.EventType == protocol.LimitedEventCubeDraft) && config.MaxPlayers != 8 {
+	if config.EventType == protocol.LimitedEventSetDraft && config.MaxPlayers != 8 {
 		return nil, fail(ErrInvalid, "draft requires exactly eight seats")
+	}
+	if config.EventType == protocol.LimitedEventCubeDraft &&
+		(config.MaxPlayers < limited.MinCubeDraftPlayers ||
+			config.MaxPlayers > limited.MaxCubeDraftPlayers) {
+		return nil, fail(ErrInvalid, "Cube draft supports four to eight seats")
 	}
 	var product *protocol.LimitedProductDefinition
 	if config.Product != nil {
@@ -223,9 +222,13 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		if validationErr != nil {
 			return nil, fail(ErrInvalid, validationErr.Error())
 		}
-		if config.EventType == protocol.LimitedEventCubeDraft &&
-			validated.View().CardCount < 360 {
-			return nil, fail(ErrInvalid, "Cube draft requires at least 360 physical cards")
+		if config.EventType == protocol.LimitedEventCubeDraft {
+			requiredCards := limited.CubeDraftCardsRequired(config.MaxPlayers)
+			if validated.View().CardCount < requiredCards {
+				return nil, fail(ErrInvalid, fmt.Sprintf(
+					"Cube draft requires at least %d physical cards for %d seats",
+					requiredCards, config.MaxPlayers))
+			}
 		}
 		product = &cloned
 	}
@@ -478,9 +481,10 @@ func (t *Tournament) Start(actor Actor, seed int64, now time.Time) error {
 	if t.Coordinator == protocol.LimitedCoordinatorCasual {
 		minimumPlayers = 2
 	}
-	if t.EventType == protocol.LimitedEventSetDraft ||
-		t.EventType == protocol.LimitedEventCubeDraft {
+	if t.EventType == protocol.LimitedEventSetDraft {
 		minimumPlayers = 8
+	} else if t.EventType == protocol.LimitedEventCubeDraft {
+		minimumPlayers = limited.MinCubeDraftPlayers
 	}
 	if len(competing) < minimumPlayers {
 		return fail(ErrNotReady, fmt.Sprintf(

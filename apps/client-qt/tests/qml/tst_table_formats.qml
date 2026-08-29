@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -281,6 +281,7 @@ TestCase {
         const originalSeats = mockWs.gameSeats
         mockWs.format = "edh"
         mockWs.matchMode = "bo1"
+        mockWs.turnOrder = [0, 1, 2]
         mockWs.gameSeats = [
             {
                 "seat": 0, "displayName": "Alice", "life": 40,
@@ -356,6 +357,7 @@ TestCase {
         const originalSeats = mockWs.gameSeats
         mockWs.format = "edh"
         mockWs.matchMode = "bo1"
+        mockWs.turnOrder = [0, 1, 2, 3]
         mockWs.gameSeats = [
             {
                 "seat": 0, "displayName": "Alice", "life": 40,

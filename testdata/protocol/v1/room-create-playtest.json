@@ -10,6 +10,7 @@
     "allowSpectators": false,
     "spectatorsSeeHands": false,
     "matchMode": "bo1",
-    "cardLoadMode": "background"
+    "cardLoadMode": "background",
+    "rulesMode": "manual"
   }
 }

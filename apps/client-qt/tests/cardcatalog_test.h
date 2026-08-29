@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -319,6 +319,7 @@ class TestCardCatalog : public QObject
     void rejectsScryfallPlaceholderImages() const;
     void filtersPlaceholderImagesFromBulkCatalog() const;
     void usesWholeCardImageForAdventureFace() const;
+    void usesRequestedMtgchDoubleFace() const;
     void preservesScryfallFlavorName() const;
     void importsAndSearchesBulkData() const;
     void importsChineseNameIndex() const;

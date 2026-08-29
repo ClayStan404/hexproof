@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package tournament
@@ -123,7 +123,8 @@ func TestLimitedTournamentBuildsPrivatePoolsAndLockedRoundDecks(t *testing.T) {
 	}
 }
 
-func TestCasualCubeDraftsAndOrganizerCreatesPrivateMatch(t *testing.T) {
+func cubeDraftThroughDeckBuilding(t *testing.T, coordinator string) (*Tournament, Actor) {
+	t.Helper()
 	product := tournamentLimitedProduct()
 	product.ID = "cube-test"
 	product.Name = "Test Cube"
@@ -136,12 +137,12 @@ func TestCasualCubeDraftsAndOrganizerCreatesPrivateMatch(t *testing.T) {
 		product.Sheets[0].Cards[index].Weight = 6
 	}
 	event, err := New("CUBE12", Config{
-		Name: "Casual Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
-		Coordinator: protocol.LimitedCoordinatorCasual, MatchMode: "bo1",
+		Name: "Cube Draft", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
+		Coordinator: coordinator, MatchMode: "bo1",
 		RoundMinutes: 50, MaxPlayers: 8, Product: &product,
 	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow)
 	if err != nil {
-		t.Fatalf("new casual Cube: %v", err)
+		t.Fatalf("new Cube: %v", err)
 	}
 	for index := 0; index < 8; index++ {
 		participant, registerErr := event.Register(
@@ -192,6 +193,30 @@ func TestCasualCubeDraftsAndOrganizerCreatesPrivateMatch(t *testing.T) {
 			t.Fatalf("submit Cube deck: %v", err)
 		}
 	}
+	return event, organizer
+}
+
+func TestSwissCubeDraftBuildsRankedRound(t *testing.T) {
+	event, organizer := cubeDraftThroughDeckBuilding(t, protocol.LimitedCoordinatorSwiss)
+	if event.PlannedRounds != 3 {
+		t.Fatalf("planned rounds = %d, want 3", event.PlannedRounds)
+	}
+	if err := event.Start(organizer, 43, testNow); err != nil {
+		t.Fatalf("publish Cube round one: %v", err)
+	}
+	if event.Stage != protocol.LimitedStageCompetition || event.CurrentRound() == nil {
+		t.Fatalf("competition stage=%q round=%+v", event.Stage, event.CurrentRound())
+	}
+	if pairings := len(event.CurrentRound().Pairings); pairings != 4 {
+		t.Fatalf("round-one pairings = %d, want 4", pairings)
+	}
+	if standings := len(event.Standings()); standings != 8 {
+		t.Fatalf("standings = %d, want 8", standings)
+	}
+}
+
+func TestCasualCubeDraftsAndOrganizerCreatesPrivateMatch(t *testing.T) {
+	event, organizer := cubeDraftThroughDeckBuilding(t, protocol.LimitedCoordinatorCasual)
 	if err := event.Start(organizer, 43, testNow); err != nil {
 		t.Fatalf("enter casual competition: %v", err)
 	}
@@ -217,28 +242,70 @@ func TestCasualCubeDraftsAndOrganizerCreatesPrivateMatch(t *testing.T) {
 	}
 }
 
-func TestCubeDraftRejectsSwissCoordinator(t *testing.T) {
+func TestCubeDraftRejectsSmallProduct(t *testing.T) {
 	product := tournamentLimitedProduct()
 	product.ProductType = "cube"
 	product.Authentic = false
 	product.CardsPerPack = 0
 	product.Variants = nil
-	_, err := New("BAD123", Config{
-		Name: "Swiss Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
+	_, err := New("SMALL1", Config{
+		Name: "Small Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
 		Coordinator: protocol.LimitedCoordinatorSwiss, MatchMode: "bo1",
 		RoundMinutes: 50, MaxPlayers: 8, Product: &product,
 	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow)
 	if ErrorCode(err) != ErrInvalid {
-		t.Fatalf("Swiss Cube error = %v", err)
-	}
-
-	_, err = New("SMALL1", Config{
-		Name: "Small Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
-		Coordinator: protocol.LimitedCoordinatorCasual, MatchMode: "bo1",
-		RoundMinutes: 50, MaxPlayers: 8, Product: &product,
-	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow)
-	if ErrorCode(err) != ErrInvalid {
 		t.Fatalf("small Cube error = %v", err)
+	}
+}
+
+func TestFourPlayerCubeDraftStartsAtMinimumAttendance(t *testing.T) {
+	product := tournamentLimitedProduct()
+	product.ProductType = "cube"
+	product.Authentic = false
+	product.CardsPerPack = 0
+	product.Variants = nil
+	for index := range product.Sheets[0].Cards {
+		product.Sheets[0].Cards[index].Weight = 3
+	}
+	if _, err := New("TOOBIG", Config{
+		Name: "Oversized Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
+		Coordinator: protocol.LimitedCoordinatorSwiss, MatchMode: "bo1",
+		RoundMinutes: 50, MaxPlayers: 9, Product: &product,
+	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow); ErrorCode(err) != ErrInvalid {
+		t.Fatalf("nine-seat Cube error = %v", err)
+	}
+	event, err := New("CUBE04", Config{
+		Name: "Four-player Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
+		Coordinator: protocol.LimitedCoordinatorSwiss, MatchMode: "bo1",
+		RoundMinutes: 50, MaxPlayers: 4, Product: &product,
+	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow)
+	if err != nil {
+		t.Fatalf("new four-player Cube: %v", err)
+	}
+	for index := 0; index < 3; index++ {
+		participant, registerErr := event.Register(
+			fmt.Sprintf("Player %d", index+1), fmt.Sprintf("conn-%d", index+1),
+			CredentialHash(fmt.Sprintf("token-%d", index+1)), testNow)
+		if registerErr != nil {
+			t.Fatalf("register: %v", registerErr)
+		}
+		participant.CheckedIn = true
+	}
+	organizer := Actor{ConnectionID: "owner-conn", Role: RoleOrganizer}
+	if err := event.Start(organizer, 47, testNow); ErrorCode(err) != ErrNotReady {
+		t.Fatalf("three-player Cube start error = %v", err)
+	}
+	participant, registerErr := event.Register(
+		"Player 4", "conn-4", CredentialHash("token-4"), testNow)
+	if registerErr != nil {
+		t.Fatalf("register fourth player: %v", registerErr)
+	}
+	participant.CheckedIn = true
+	if err := event.Start(organizer, 47, testNow); err != nil {
+		t.Fatalf("start four-player Cube: %v", err)
+	}
+	if event.Stage != protocol.LimitedStageDraft || len(event.Limited.Players) != 4 {
+		t.Fatalf("four-player Cube stage=%q players=%d", event.Stage, len(event.Limited.Players))
 	}
 }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "DeckLibraryModel.h"
@@ -357,14 +357,16 @@ void DeckLibraryModel::rebuildCardDeckIndex()
 
 void DeckLibraryModel::notifyAllChanged()
 {
+    emit currentDeckCardsAboutToChange();
     beginResetModel();
     rebuildVisibleRows();
     endResetModel();
     emit countChanged();
+    emit currentDeckCardsChanged();
     emit currentDeckChanged();
 }
 
-void DeckLibraryModel::notifyDecksChanged(const QSet<QString> &deckIds)
+void DeckLibraryModel::notifyDecksChanged(const QSet<QString> &deckIds, bool cardsChanged)
 {
     static const QList<int> changedRoles{
         ReadyRole,
@@ -380,8 +382,13 @@ void DeckLibraryModel::notifyDecksChanged(const QSet<QString> &deckIds)
             emit dataChanged(index(visibleRow), index(visibleRow), changedRoles);
     }
     emit countChanged();
-    if (deckIds.contains(m_currentDeckId))
+    if (deckIds.contains(m_currentDeckId)) {
+        if (cardsChanged) {
+            emit currentDeckCardsAboutToChange();
+            emit currentDeckCardsChanged();
+        }
         emit currentDeckChanged();
+    }
     if (deckIds.contains(m_activeMatchDeckId))
         emit activeMatchTokensChanged();
 }

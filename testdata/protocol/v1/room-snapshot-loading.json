@@ -9,6 +9,7 @@
     "maxSeats": 2,
     "matchMode": "bo3",
     "cardLoadMode": "preload",
+    "rulesMode": "manual",
     "hostSeat": 0,
     "hasPassword": false,
     "seats": [

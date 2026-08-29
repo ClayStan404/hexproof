@@ -12,7 +12,8 @@
       "spectatorsSeeHands": true,
       "matchMode": "bo3",
       "cardLoadMode": "preload",
-      "hasPassword": false
+      "hasPassword": false,
+      "rulesMode": "manual"
     },
     "hostSeat": 0
   }

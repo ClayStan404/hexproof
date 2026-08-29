@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "models/ClientPreferencesModel.h"
@@ -75,7 +75,20 @@ int main(int argc, char *argv[])
     commandLine.setApplicationDescription(QStringLiteral("Hexproof tabletop client"));
     commandLine.addHelpOption();
     commandLine.addVersionOption();
+    QCommandLineOption instanceLabelOption(
+        QStringLiteral("instance-label"),
+        QStringLiteral("Append a label to the application window title."), QStringLiteral("label"));
+    QCommandLineOption windowedOption(
+        QStringLiteral("windowed"),
+        QStringLiteral("Start in a normal window instead of maximized."));
+    commandLine.addOption(instanceLabelOption);
+    commandLine.addOption(windowedOption);
     commandLine.process(app);
+
+    const QString instanceLabel = commandLine.value(instanceLabelOption).simplified().left(80);
+    QGuiApplication::setApplicationDisplayName(
+        instanceLabel.isEmpty() ? QStringLiteral("Hexproof")
+                                : QStringLiteral("Hexproof — %1").arg(instanceLabel));
 
     qInfo().noquote() << "Hexproof protocol:" << hexproof::protocol::kProtocolVersion;
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -45,6 +45,7 @@ class CatalogRepository
                            const QString &collectorNumber, QString *error = nullptr) const;
     QVariantList limitedProducts(QString *error = nullptr) const;
     QVariantMap limitedProduct(const QString &productId, QString *error = nullptr) const;
+    QVariantList enrichLimitedCards(const QVariantList &cards, QString *error = nullptr) const;
     CardRecord lookup(const CatalogCardQuery &request) const;
     CardRecord lookupLocalizedPrinting(const CatalogCardQuery &request,
                                        const CardRecord &catalogIdentity, int indexVersion) const;

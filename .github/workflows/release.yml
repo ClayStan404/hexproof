@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 name: Release packages
@@ -83,7 +83,7 @@ jobs:
         run: >
           sudo apt-get update &&
           sudo apt-get install -y clang-format-18 cmake ninja-build
-          ripgrep shellcheck zlib1g-dev
+          curl jq ripgrep shellcheck zlib1g-dev
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/server/go.mod
@@ -138,11 +138,40 @@ jobs:
           if [[ -f tools/tests/test_deploy_script.py ]]; then
             tests+=(tools.tests.test_deploy_script)
           fi
-          if [[ -f deploy/update-public-server.sh ]]; then
-            scripts+=(deploy/update-public-server.sh)
+          if [[ -f deploy/deploy-release-server.sh ]]; then
+            scripts+=(deploy/deploy-release-server.sh)
           fi
           python3 -m unittest "${tests[@]}"
           shellcheck "${scripts[@]}"
+      - name: Verify stable card database compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_schema="$(
+            sed -nE 's/^[[:space:]]*inline constexpr int kCatalogIndexVersion = ([0-9]+);$/\1/p' \
+              apps/client-qt/src/services/CardCatalogCommon.h
+          )"
+          if [[ ! "$expected_schema" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Could not read the client card database schema version." >&2
+            exit 1
+          fi
+          manifest="$RUNNER_TEMP/card-database-manifest.json"
+          curl -fsSL --connect-timeout 10 --max-time 30 \
+            --retry 3 --retry-all-errors --retry-delay 2 \
+            -o "$manifest" \
+            https://github.com/ClayStan404/hexproof/releases/download/card-data/card-database-manifest.json
+          if ! jq -e --argjson expectedSchema "$expected_schema" '
+            .format == "hexproof-card-database-v1" and
+            .schemaVersion == $expectedSchema and
+            .package == "default_cards" and
+            .asset == "hexproof-default-cards.sqlite.gz" and
+            .compressedSize > 0 and
+            .cardCount > 0
+          ' "$manifest" >/dev/null; then
+            echo "The stable card-data release is incompatible with client schema $expected_schema." >&2
+            echo "Run the Card database workflow before publishing this application release." >&2
+            exit 1
+          fi
       - name: Test server
         working-directory: apps/server
         run: |
@@ -515,54 +544,6 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
-  card-database:
-    name: Card database
-    needs:
-      - prepare
-      - quality-gate
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install build dependencies
-        run: >
-          sudo apt-get update &&
-          sudo apt-get install -y cmake curl gzip jq ninja-build python3 sqlite3 zlib1g-dev
-      - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: qtwebsockets qtimageformats
-          cache: true
-      - name: Download, build, and package latest database
-        shell: bash
-        run: ./tools/card-database-builder/build-latest.sh build/card-database
-      - name: Verify database release assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          database="build/card-database/release/hexproof-default-cards.sqlite.gz"
-          manifest="build/card-database/release/card-database-manifest.json"
-          test -s "$database"
-          gzip -t "$database"
-          jq -e '
-            .format == "hexproof-card-database-v1" and
-            .schemaVersion == 10 and
-            .package == "default_cards" and
-            .asset == "hexproof-default-cards.sqlite.gz" and
-            .compressedSize > 0 and
-            .cardCount > 0 and
-            .localizedPrintingCount > 0
-          ' "$manifest" >/dev/null
-      - name: Upload card database
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: hexproof-card-database
-          path: |
-            build/card-database/release/hexproof-default-cards.sqlite.gz
-            build/card-database/release/card-database-manifest.json
-          if-no-files-found: error
-          compression-level: 0
-
   assemble:
     name: Assemble release
     needs:
@@ -571,7 +552,6 @@ jobs:
       - client-windows
       - client-macos
       - server
-      - card-database
     runs-on: ubuntu-24.04
     permissions:
       attestations: write
@@ -671,7 +651,8 @@ jobs:
               '<!-- hexproof-macos-install-notes:start -->' \
               '## macOS install notes' '' \
               'This macOS build is ad-hoc signed or not Apple-notarized. To open it the first time, bypass Gatekeeper:' '' \
-              '- Right-click Hexproof.app -> "Open" -> confirm "Open"; or' \
+              '- Try to launch it once, then open System Settings -> Privacy & Security, scroll to the bottom, and click "Open Anyway"; or' \
+              '- Right-click Hexproof.app -> "Open" -> confirm "Open" (older macOS releases); or' \
               '- Run `xattr -cr /path/to/Hexproof.app` in a terminal, then double-click.' '' \
               'If macOS says the app is "damaged", run the `xattr` command above.' \
               '<!-- hexproof-macos-install-notes:end -->' '' \

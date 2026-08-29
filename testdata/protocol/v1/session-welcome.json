@@ -5,6 +5,7 @@
     "v": "hexproof.v1",
     "connectionId": "conn-7F3A",
     "serverVersion": "0.1.0",
-    "resumeToken": "fixture-resume-token"
+    "resumeToken": "fixture-resume-token",
+    "forgeRulesAvailable": false
   }
 }

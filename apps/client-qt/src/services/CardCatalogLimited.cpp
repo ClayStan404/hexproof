@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardCatalog.h"
@@ -178,6 +178,13 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
         result.append(QVariantMap{{QStringLiteral("cards"), packCards}});
     }
     return result;
+}
+
+QVariantList CardCatalog::enrichLimitedCards(const QVariantList &cards) const
+{
+    if (cards.isEmpty() || m_catalogBusy || !installed())
+        return cards;
+    return guiCatalog().enrichLimitedCards(cards);
 }
 
 } // namespace hexproof::client

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -89,9 +89,10 @@ func (r *Room) SetReady(connID string, ready bool) (Result, error) {
 		broadcast = append(broadcast, started)
 	}
 	return Result{
-		Reply:       &reply,
-		Broadcast:   broadcast,
-		ProjectGame: startedMatch,
+		Reply:          &reply,
+		Broadcast:      broadcast,
+		ProjectGame:    startedMatch && r.RulesMode == protocol.RulesModeManual,
+		StartRulesGame: startedMatch && r.RulesMode == protocol.RulesModeForge,
 	}, nil
 }
 
@@ -123,7 +124,15 @@ func (r *Room) CompleteLoad(connID string, loadID int64) (Result, error) {
 		}
 	}
 	if allLoaded {
-		if err := r.setupGame(); err != nil {
+		if r.RulesMode == protocol.RulesModeManual {
+			if err := r.setupGame(); err != nil {
+				r.resetAfterGameSetupFailure()
+				return Result{
+					Broadcast: []protocol.Envelope{r.snapshotEnvelope()},
+				}, newError(protocol.ErrGameSetupFailed)
+			}
+		}
+		if r.RulesMode == protocol.RulesModeForge && r.Game != nil {
 			r.resetAfterGameSetupFailure()
 			return Result{
 				Broadcast: []protocol.Envelope{r.snapshotEnvelope()},
@@ -138,7 +147,12 @@ func (r *Room) CompleteLoad(connID string, loadID int64) (Result, error) {
 		started.SeqPtr = seqPtr(r.allocSeq())
 		broadcast = append(broadcast, started)
 	}
-	return Result{Reply: &reply, Broadcast: broadcast, ProjectGame: allLoaded}, nil
+	return Result{
+		Reply:          &reply,
+		Broadcast:      broadcast,
+		ProjectGame:    allLoaded && r.RulesMode == protocol.RulesModeManual,
+		StartRulesGame: allLoaded && r.RulesMode == protocol.RulesModeForge,
+	}, nil
 }
 
 func (r *Room) beginLoadingIfReady() (bool, error) {
@@ -152,8 +166,10 @@ func (r *Room) beginLoadingIfReady() (bool, error) {
 		}
 	}
 	if r.CardLoadMode == protocol.CardLoadBackground {
-		if err := r.setupGame(); err != nil {
-			return false, newError(protocol.ErrGameSetupFailed)
+		if r.RulesMode == protocol.RulesModeManual {
+			if err := r.setupGame(); err != nil {
+				return false, newError(protocol.ErrGameSetupFailed)
+			}
 		}
 		r.LoadID++
 		for i := range r.Seats {
@@ -168,6 +184,35 @@ func (r *Room) beginLoadingIfReady() (bool, error) {
 		r.Phase = protocol.RoomPhaseLoading
 	}
 	return true, nil
+}
+
+// RulesStartPlayers returns a private copy of every occupied seat's active
+// deck. The server calls it only while starting an already-gated Forge room.
+func (r *Room) RulesStartPlayers() ([]RulesStartPlayer, error) {
+	if r.RulesMode != protocol.RulesModeForge || r.Phase != protocol.RoomPhaseStarted ||
+		r.Game != nil {
+		return nil, newError(protocol.ErrGameNotStarted)
+	}
+	players := make([]RulesStartPlayer, 0, r.PlayerCount())
+	for seatIndex, seat := range r.Seats {
+		if !seat.Occupied {
+			continue
+		}
+		if seat.Deck == nil {
+			return nil, newError(protocol.ErrDeckRequired)
+		}
+		players = append(players, RulesStartPlayer{
+			Seat: seatIndex, DisplayName: seat.DisplayName, Deck: cloneDeck(*seat.Deck),
+		})
+	}
+	return players, nil
+}
+
+// ResetRulesStartFailure restores a waiting room after the external rules
+// backend rejected or failed to start a game.
+func (r *Room) ResetRulesStartFailure() Result {
+	r.resetAfterGameSetupFailure()
+	return Result{Broadcast: []protocol.Envelope{r.snapshotEnvelope()}}
 }
 
 func (r *Room) minimumPlayersToStart() int {
@@ -297,9 +342,15 @@ func (r *Room) setupGame() error {
 }
 
 func (r *Room) setupGameNumber(gameNumber, fixedStartingSeat int) error {
+	return r.setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat, nil)
+}
+
+func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
+	fixedTurnOrder []int) error {
 	game := &GameState{
 		Number:            gameNumber,
 		StartingSeat:      -1,
+		TurnOrder:         []int{},
 		ActiveSeat:        -1,
 		CurrentPhase:      protocol.GamePhaseUntap,
 		LandPlaysThisTurn: 0,
@@ -408,7 +459,22 @@ func (r *Room) setupGameNumber(gameNumber, fixedStartingSeat int) error {
 
 	randomStartingSeat := fixedStartingSeat < 0
 	startingSeat := fixedStartingSeat
-	if startingSeat < 0 {
+	var commanderRolls []commanderOpeningRollRound
+	if len(fixedTurnOrder) > 0 {
+		if err := validateFixedTurnOrder(
+			fixedTurnOrder, activeSeats, startingSeat); err != nil {
+			return err
+		}
+		game.TurnOrder = append([]int{}, fixedTurnOrder...)
+	} else if r.Format == protocol.FormatEDH && startingSeat < 0 {
+		turnOrder, rolls, err := r.rollCommanderTurnOrder(activeSeats)
+		if err != nil {
+			return err
+		}
+		game.TurnOrder = turnOrder
+		commanderRolls = rolls
+		startingSeat = turnOrder[0]
+	} else if startingSeat < 0 {
 		randomIndex, err := r.randomIndex(len(activeSeats))
 		if err != nil {
 			return err
@@ -419,10 +485,24 @@ func (r *Room) setupGameNumber(gameNumber, fixedStartingSeat int) error {
 		game.Seats[startingSeat].Eliminated {
 		return errors.New("invalid starting seat")
 	}
+	if len(game.TurnOrder) == 0 {
+		turnOrder, err := turnOrderStartingAt(activeSeats, startingSeat)
+		if err != nil {
+			return err
+		}
+		game.TurnOrder = turnOrder
+	}
 	game.StartingSeat = startingSeat
 	game.ActiveSeat = startingSeat
 	r.Game = game
-	if gameNumber == 1 {
+	if len(commanderRolls) > 0 {
+		for _, roll := range commanderRolls {
+			r.appendGameLog("roll", roll.Seats[0],
+				commanderOpeningRollText(game, roll))
+		}
+		r.appendGameLog("turn_order", startingSeat,
+			commanderTurnOrderText(game))
+	} else if gameNumber == 1 {
 		r.appendGameLog("roll", startingSeat,
 			fmt.Sprintf("%s won the opening roll.", game.Seats[startingSeat].DisplayName))
 	} else if randomStartingSeat {
@@ -504,12 +584,16 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 			setCode := strings.TrimSpace(card.SetCode)
 			collectorNumber := strings.TrimSpace(card.CollectorNumber)
 			typeLine := strings.TrimSpace(card.TypeLine)
+			virtualLimitedBasic := roomDeckFormat == protocol.DeckFormatLimited &&
+				setCode == "" && collectorNumber == "" && isOrdinaryBasicLand(name)
 			if name == "" || utf8.RuneCountInString(name) > protocol.MaxCardNameRunes ||
 				containsControlCharacters(name) ||
 				card.Count <= 0 || card.Count > protocol.MaxDeckCards-totalCards ||
-				setCode == "" || utf8.RuneCountInString(setCode) > protocol.MaxSetCodeRunes ||
+				(!virtualLimitedBasic && setCode == "") ||
+				utf8.RuneCountInString(setCode) > protocol.MaxSetCodeRunes ||
 				containsControlCharacters(setCode) ||
-				collectorNumber == "" || utf8.RuneCountInString(collectorNumber) > protocol.MaxCollectorNumberRunes ||
+				(!virtualLimitedBasic && collectorNumber == "") ||
+				utf8.RuneCountInString(collectorNumber) > protocol.MaxCollectorNumberRunes ||
 				containsControlCharacters(collectorNumber) ||
 				utf8.RuneCountInString(typeLine) > protocol.MaxTypeLineRunes ||
 				containsControlCharacters(typeLine) {
@@ -537,6 +621,15 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 		}
 	}
 	return nil
+}
+
+func isOrdinaryBasicLand(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "plains", "island", "swamp", "mountain", "forest":
+		return true
+	default:
+		return false
+	}
 }
 
 func containsControlCharacters(value string) bool {

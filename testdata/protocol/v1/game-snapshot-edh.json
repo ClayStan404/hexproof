@@ -5,6 +5,12 @@
     "roomId": "EDH123",
     "gameNumber": 1,
     "startingSeat": 2,
+    "turnOrder": [
+      2,
+      3,
+      0,
+      1
+    ],
     "activeSeat": 1,
     "currentPhase": "main_1",
     "landPlaysThisTurn": 0,

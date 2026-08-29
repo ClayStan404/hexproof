@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "ClientPreferencesModel.h"
@@ -181,6 +181,19 @@ void ClientPreferencesModel::setReuseLocalCardArt(bool reuse)
         return;
     }
     emit reuseLocalCardArtChanged();
+}
+
+void ClientPreferencesModel::setAnimatePackOpenings(bool animate)
+{
+    if (animate == m_preferences.animatePackOpenings)
+        return;
+    const bool previous = m_preferences.animatePackOpenings;
+    m_preferences.animatePackOpenings = animate;
+    if (!save()) {
+        m_preferences.animatePackOpenings = previous;
+        return;
+    }
+    emit animatePackOpeningsChanged();
 }
 
 void ClientPreferencesModel::setInterfaceScale(qreal scale)

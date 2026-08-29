@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "cardcatalog_test.h"
@@ -202,6 +202,8 @@ void TestCardCatalog::importsAndSearchesBulkData() const
             {u"set"_s, u"M11"_s},
             {u"collector_number"_s, u"149"_s},
             {u"lang"_s, u"en"_s},
+            {u"color_identity"_s, QJsonArray{u"R"_s}},
+            {u"cmc"_s, 1.0},
             {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://example.test/bolt.jpg"_s}}},
         },
         QJsonObject{
@@ -306,6 +308,24 @@ void TestCardCatalog::importsAndSearchesBulkData() const
     QCOMPARE(catalog.cardTypeLine(u"Murderous Rider"_s, {}, {}),
              u"Creature — Zombie Knight // Instant — Adventure"_s);
     QCOMPARE(catalog.cardTypeLine(u"Missing Card"_s, {}, {}), QString{});
+    const QVariantList limitedCards = catalog.enrichLimitedCards(QVariantList{
+        QVariantMap{{u"instanceId"_s, u"limited-1"_s},
+                    {u"name"_s, u"Lightning Bolt"_s},
+                    {u"setCode"_s, u"M11"_s},
+                    {u"collectorNumber"_s, u"149"_s}},
+        QVariantMap{{u"instanceId"_s, u"limited-missing"_s},
+                    {u"name"_s, u"Missing Card"_s},
+                    {u"setCode"_s, u"TST"_s},
+                    {u"collectorNumber"_s, u"404"_s}},
+    });
+    QCOMPARE(limitedCards.size(), 2);
+    const QVariantMap limitedBolt = limitedCards.first().toMap();
+    QCOMPARE(limitedBolt.value(u"instanceId"_s).toString(), u"limited-1"_s);
+    QCOMPARE(limitedBolt.value(u"typeLine"_s).toString(), u"Instant"_s);
+    QCOMPARE(limitedBolt.value(u"colors"_s).toString(), u"R"_s);
+    QCOMPARE(limitedBolt.value(u"manaValue"_s).toDouble(), 1.0);
+    QVERIFY(limitedBolt.value(u"limitedMetadataResolved"_s).toBool());
+    QVERIFY(!limitedCards.at(1).toMap().contains(u"limitedMetadataResolved"_s));
     QSignalSpy metadataSpy(&catalog, &CardCatalog::cardMetadataAvailable);
     catalog.enrichCardMetadata(QVariantList{
         QVariantMap{

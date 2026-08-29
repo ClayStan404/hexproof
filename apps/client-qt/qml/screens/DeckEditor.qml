@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -26,6 +26,9 @@ Page {
     property string pendingDeckFilterQuery: ""
     property string deckFilterQuery: ""
     property string pendingDeckFormat: ""
+    property bool deckScrollRestorePending: false
+    property real savedMainDeckContentY: 0
+    property real savedSideboardContentY: 0
     readonly property var filteredMainCards:
         filterDeckCards(deckLibrary.mainCards)
     readonly property var filteredSideboardCards:
@@ -814,6 +817,23 @@ Page {
         return names.join(" · ")
     }
 
+    function restoreListContentY(listView, savedContentY) {
+        const minimum = listView.originY
+        const maximum = Math.max(minimum,
+                                 minimum + listView.contentHeight
+                                 - listView.height)
+        listView.contentY = Math.max(minimum,
+                                     Math.min(savedContentY, maximum))
+    }
+
+    function restoreDeckScrollPositions() {
+        if (!deckScrollRestorePending)
+            return
+        restoreListContentY(mainList, savedMainDeckContentY)
+        restoreListContentY(sideboardList, savedSideboardContentY)
+        deckScrollRestorePending = false
+    }
+
     function closeEditor() {
         deckLibrary.closeDeck()
         root.appWindow.popScreen()
@@ -822,9 +842,29 @@ Page {
     Connections {
         target: deckLibrary
 
+        function onCurrentDeckCardsAboutToChange() {
+            if (root.deckScrollRestorePending)
+                return
+            root.savedMainDeckContentY = mainList.contentY
+            root.savedSideboardContentY = sideboardList.contentY
+            root.deckScrollRestorePending = true
+        }
+
+        function onCurrentDeckCardsChanged() {
+            if (root.deckScrollRestorePending)
+                deckScrollRestoreTimer.restart()
+        }
+
         function onCurrentDeckChanged() {
             root.syncFormatSelector()
         }
+    }
+
+    Timer {
+        id: deckScrollRestoreTimer
+        interval: 0
+        repeat: false
+        onTriggered: Qt.callLater(root.restoreDeckScrollPositions)
     }
 
     ConfirmDialog {

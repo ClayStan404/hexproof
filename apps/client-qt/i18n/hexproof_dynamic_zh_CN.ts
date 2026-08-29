@@ -1016,8 +1016,8 @@
             <translation>输入要从牌库抓取的牌数。</translation>
         </message>
         <message>
-            <source>Enter how many cards to inspect and reorder.</source>
-            <translation>输入要查看并重新排序的牌数。</translation>
+            <source>Enter how many cards to view.</source>
+            <translation>输入要查看的牌数。</translation>
         </message>
         <message>
             <source>Enter how many cards to move from the top of your library.</source>

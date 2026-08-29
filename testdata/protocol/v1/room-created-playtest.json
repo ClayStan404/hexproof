@@ -13,7 +13,8 @@
       "spectatorsSeeHands": false,
       "matchMode": "bo1",
       "cardLoadMode": "background",
-      "hasPassword": false
+      "hasPassword": false,
+      "rulesMode": "manual"
     },
     "hostSeat": 0
   }

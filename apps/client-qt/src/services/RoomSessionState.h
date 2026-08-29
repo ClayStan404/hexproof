@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -24,6 +24,7 @@ class RoomSessionState : public QObject
     Q_PROPERTY(bool spectatorsSeeHands READ spectatorsSeeHands NOTIFY snapshotChanged)
     Q_PROPERTY(QString matchMode READ matchMode NOTIFY snapshotChanged)
     Q_PROPERTY(QString cardLoadMode READ cardLoadMode NOTIFY snapshotChanged)
+    Q_PROPERTY(QString rulesMode READ rulesMode NOTIFY snapshotChanged)
     Q_PROPERTY(int maxSeats READ maxSeats NOTIFY snapshotChanged)
     Q_PROPERTY(QString phase READ phase NOTIFY snapshotChanged)
     Q_PROPERTY(qint64 loadId READ loadId NOTIFY snapshotChanged)
@@ -78,6 +79,10 @@ class RoomSessionState : public QObject
     QString cardLoadMode() const
     {
         return m_cardLoadMode;
+    }
+    QString rulesMode() const
+    {
+        return m_rulesMode;
     }
     int maxSeats() const
     {
@@ -147,6 +152,7 @@ class RoomSessionState : public QObject
     bool m_spectatorsSeeHands = false;
     QString m_matchMode;
     QString m_cardLoadMode;
+    QString m_rulesMode;
     int m_maxSeats = 0;
     QString m_phase;
     qint64 m_loadId = 0;

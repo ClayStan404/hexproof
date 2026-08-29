@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -31,6 +31,7 @@ class TestDeckLibrary : public QObject
     void parsesBlankLineCommander() const;
     void rejectsOversizedImports() const;
     void rejectsInvalidAndOverflowingCounts() const;
+    void appliesLargerCubeImportLimits() const;
     void rejectsControlCharacters() const;
     void allowsInteractiveBasicLandCopies() const;
     void importsFiltersEditsAndPersists() const;
@@ -54,6 +55,7 @@ class TestDeckLibrary : public QObject
     void storesUiAndCardLanguagesSeparately() const;
     void storesCardArtProviderPreference() const;
     void storesLocalArtReusePreference() const;
+    void storesPackOpeningAnimationPreference() const;
     void storesAndClampsInterfaceScale() const;
     void storesTableLayoutPreferences() const;
     void storesCustomShortcutPreferences() const;

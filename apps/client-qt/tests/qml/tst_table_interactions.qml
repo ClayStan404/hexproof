@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -246,6 +246,51 @@ TestCase {
         compare(mockWs.lastMove.cardId, "s0-c1")
         compare(mockWs.lastMove.fromZone, "hand")
         compare(mockWs.lastMove.toZone, "stack")
+        table.destroy()
+    }
+
+    function test_draggingHandCardsReordersOnlyTheLocalProjection() {
+        const handSeats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        handSeats[0].hand = [{
+            "id": "s0-hand-a",
+            "name": "Alpha",
+            "ownerSeat": 0
+        }, {
+            "id": "s0-hand-b",
+            "name": "Beta",
+            "ownerSeat": 0
+        }, {
+            "id": "s0-hand-c",
+            "name": "Gamma",
+            "ownerSeat": 0
+        }]
+        handSeats[0].handCount = handSeats[0].hand.length
+        mockWs.gameSeats = handSeats
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+
+        const firstCard = findChild(table, "handCard0")
+        const thirdCard = findChild(table, "handCard2")
+        verify(firstCard !== null)
+        verify(thirdCard !== null)
+        const beforeMoves = mockWs.moveCount
+        const pressPoint = firstCard.mapToItem(
+                             table, firstCard.width / 2,
+                             firstCard.height / 2)
+        const dropPoint = thirdCard.mapToItem(
+                            table, thirdCard.width / 2,
+                            thirdCard.height / 2)
+        mouseDrag(table, pressPoint.x, pressPoint.y,
+                  dropPoint.x - pressPoint.x, dropPoint.y - pressPoint.y,
+                  Qt.LeftButton, Qt.NoModifier, 30)
+
+        tryVerify(() => table.ownHand[2].id === "s0-hand-a")
+        compare(table.ownHand[0].id, "s0-hand-b")
+        compare(table.ownHand[1].id, "s0-hand-c")
+        compare(mockWs.moveCount, beforeMoves)
         table.destroy()
     }
 

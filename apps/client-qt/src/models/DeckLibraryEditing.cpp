@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "DeckLibraryModel.h"
@@ -39,6 +39,7 @@ bool DeckLibraryModel::deleteDeck(const QString &id)
         rebuildCardDeckIndex();
         endResetModel();
         emit countChanged();
+        emit currentDeckCardsChanged();
         emit currentDeckChanged();
         if (activeMatchDeckRemoved)
             emit activeMatchTokensChanged();
@@ -53,6 +54,7 @@ bool DeckLibraryModel::openDeck(const QString &id)
     for (const Deck &deck : m_decks) {
         if (deck.id == id) {
             m_currentDeckId = id;
+            emit currentDeckCardsChanged();
             emit currentDeckChanged();
             return true;
         }
@@ -66,6 +68,7 @@ void DeckLibraryModel::closeDeck()
     if (m_currentDeckId.isEmpty())
         return;
     m_currentDeckId.clear();
+    emit currentDeckCardsChanged();
     emit currentDeckChanged();
 }
 

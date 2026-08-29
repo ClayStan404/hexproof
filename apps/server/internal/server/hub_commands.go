@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -34,6 +34,44 @@ func (h *Hub) SetReady(connID string, ready bool, r *room.Room) (room.Result, er
 func (h *Hub) CompleteLoad(connID string, loadID int64, r *room.Room) (room.Result, error) {
 	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
 		return locked.CompleteLoad(connID, loadID)
+	})
+}
+
+// RulesStartPlayers copies private deck inputs for an already-gated Forge
+// room under the room state lock.
+func (h *Hub) RulesStartPlayers(r *room.Room) ([]room.RulesStartPlayer, error) {
+	if r == nil {
+		return nil, &protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	entry := h.roomEntryFor(r.ID)
+	if entry == nil {
+		return nil, &protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.room != r {
+		return nil, &protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	players, err := entry.room.RulesStartPlayers()
+	if err != nil {
+		return nil, mapRoomError(err)
+	}
+	return players, nil
+}
+
+// ResetRulesStartFailure restores a Forge room after its external engine
+// start failed.
+func (h *Hub) ResetRulesStartFailure(r *room.Room) (room.Result, error) {
+	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
+		return locked.ResetRulesStartFailure(), nil
+	})
+}
+
+// CompleteRulesGame commits the externally authoritative terminal result to
+// the ordinary Hexproof match lifecycle without importing Forge card state.
+func (h *Hub) CompleteRulesGame(r *room.Room, winnerSeat int) (room.Result, error) {
+	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
+		return locked.CompleteRulesGame(winnerSeat, time.Now().UTC())
 	})
 }
 

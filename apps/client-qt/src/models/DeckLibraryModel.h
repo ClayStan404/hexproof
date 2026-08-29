@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -32,10 +32,11 @@ class DeckLibraryModel : public QAbstractListModel
     Q_PROPERTY(QString currentDeckName READ currentDeckName NOTIFY currentDeckChanged)
     Q_PROPERTY(QString currentDeckFormat READ currentDeckFormat NOTIFY currentDeckChanged)
     Q_PROPERTY(QString currentDeckTableMode READ currentDeckTableMode NOTIFY currentDeckChanged)
-    Q_PROPERTY(QString currentCommander READ currentCommander NOTIFY currentDeckChanged)
-    Q_PROPERTY(int currentMainCount READ currentMainCount NOTIFY currentDeckChanged)
-    Q_PROPERTY(int currentMissingImageCount READ currentMissingImageCount NOTIFY currentDeckChanged)
-    Q_PROPERTY(int currentSideboardCount READ currentSideboardCount NOTIFY currentDeckChanged)
+    Q_PROPERTY(QString currentCommander READ currentCommander NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(int currentMainCount READ currentMainCount NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(
+        int currentMissingImageCount READ currentMissingImageCount NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(int currentSideboardCount READ currentSideboardCount NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(bool currentReady READ currentReady NOTIFY currentDeckChanged)
     Q_PROPERTY(QString currentStatus READ currentStatus NOTIFY currentDeckChanged)
     Q_PROPERTY(
@@ -44,9 +45,9 @@ class DeckLibraryModel : public QAbstractListModel
         QStringList currentValidationIssues READ currentValidationIssues NOTIFY currentDeckChanged)
     Q_PROPERTY(QStringList currentValidationWarnings READ currentValidationWarnings NOTIFY
                    currentDeckChanged)
-    Q_PROPERTY(QVariantList mainCards READ mainCards NOTIFY currentDeckChanged)
-    Q_PROPERTY(QVariantList sideboardCards READ sideboardCards NOTIFY currentDeckChanged)
-    Q_PROPERTY(QVariantList currentTokens READ currentTokens NOTIFY currentDeckChanged)
+    Q_PROPERTY(QVariantList mainCards READ mainCards NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(QVariantList sideboardCards READ sideboardCards NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(QVariantList currentTokens READ currentTokens NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(
         QVariantList activeMatchTokens READ activeMatchTokens NOTIFY activeMatchTokensChanged)
     Q_PROPERTY(bool hasMissingArt READ hasMissingArt NOTIFY countChanged)
@@ -207,6 +208,8 @@ class DeckLibraryModel : public QAbstractListModel
     void countChanged();
     void formatFilterChanged();
     void currentDeckChanged();
+    void currentDeckCardsAboutToChange();
+    void currentDeckCardsChanged();
     void activeMatchTokensChanged();
     void lastErrorChanged();
     void lastImportWarningsChanged();
@@ -240,7 +243,7 @@ class DeckLibraryModel : public QAbstractListModel
     void rebuildVisibleRows();
     void rebuildCardDeckIndex();
     void notifyAllChanged();
-    void notifyDecksChanged(const QSet<QString> &deckIds);
+    void notifyDecksChanged(const QSet<QString> &deckIds, bool cardsChanged = false);
     bool validateDeckImport(const QString &name, const QString &format, QString *deckName,
                             QString *deckFormat);
     bool commitDeckImport(const QString &deckName, const QString &deckFormat,

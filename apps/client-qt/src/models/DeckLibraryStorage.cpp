@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "DeckLibraryStorage.h"
@@ -349,6 +349,9 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
     const QJsonValue reuseLocalCardArt = settings.value(QStringLiteral("reuseLocalCardArt"));
     if (reuseLocalCardArt.isBool())
         preferences.reuseLocalCardArt = reuseLocalCardArt.toBool();
+    const QJsonValue animatePackOpenings = settings.value(QStringLiteral("animatePackOpenings"));
+    if (animatePackOpenings.isBool())
+        preferences.animatePackOpenings = animatePackOpenings.toBool();
     const QJsonValue interfaceScale = settings.value(QStringLiteral("interfaceScale"));
     if (interfaceScale.isDouble())
         preferences.interfaceScale = normalizedInterfaceScale(interfaceScale.toDouble());
@@ -429,11 +432,12 @@ bool DeckLibraryStorage::savePreferences(const DeckLibraryPreferences &preferenc
         shortcuts.insert(actionId, sequences);
     }
     const QJsonObject settings{
-        {QStringLiteral("version"), 9},
+        {QStringLiteral("version"), 10},
         {QStringLiteral("uiLanguage"), preferences.uiLanguage},
         {QStringLiteral("cardLanguage"), preferences.cardLanguage},
         {QStringLiteral("cardArtProvider"), preferences.cardArtProvider},
         {QStringLiteral("reuseLocalCardArt"), preferences.reuseLocalCardArt},
+        {QStringLiteral("animatePackOpenings"), preferences.animatePackOpenings},
         {QStringLiteral("interfaceScale"), preferences.interfaceScale},
         {QStringLiteral("tableShowPlayers"), preferences.tableShowPlayers},
         {QStringLiteral("tableShowShared"), preferences.tableShowShared},

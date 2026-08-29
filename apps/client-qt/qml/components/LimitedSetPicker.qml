@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -9,6 +9,8 @@ ColumnLayout {
 
     property var sets: []
     property string selectedId: ""
+    property string searchPlaceholder: qsTr("Search set name or code")
+    property string noMatchesText: qsTr("No sets match this search.")
     property alias searchText: searchField.text
     readonly property var filteredSets: filterSets(sets, searchText)
     readonly property var selectedSet: findSet(sets, selectedId)
@@ -80,7 +82,7 @@ ColumnLayout {
             id: searchField
             objectName: "limitedSetSearchField"
             Layout.fillWidth: true
-            placeholderText: qsTr("Search set name or code")
+            placeholderText: root.searchPlaceholder
             onAccepted: setSelector.forceActiveFocus()
         }
 
@@ -113,7 +115,7 @@ ColumnLayout {
         textFormat: Text.PlainText
         Layout.fillWidth: true
         visible: root.filteredSets.length === 0
-        text: qsTr("No sets match this search.")
+        text: root.noMatchesText
         color: Theme.warning
         font.pixelSize: Theme.fontSize(11)
         wrapMode: Text.WordWrap

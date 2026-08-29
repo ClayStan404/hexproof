@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -10,6 +10,11 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
+    property var wsModel
+    property var cardCatalogModel
+    readonly property var hub: wsModel ? wsModel : ws
+    readonly property var catalog: cardCatalogModel ? cardCatalogModel : cardCatalog
+
     readonly property var formatOptions: [
         {"label": I18n.tournamentFormatLabel("Standard"),
          "value": "Standard"},
@@ -37,7 +42,7 @@ Page {
     property string matchMode: "bo3"
 
     background: AppBackground { }
-    Component.onCompleted: limitedSets = cardCatalog.limitedSets()
+    Component.onCompleted: limitedSets = root.catalog.limitedSets()
 
     ColumnLayout {
         anchors.fill: parent
@@ -54,17 +59,27 @@ Page {
             onBackRequested: root.appWindow.popScreen()
         }
 
-        ScrollView {
+        Flickable {
+            id: formBody
+            objectName: "tournamentCreateBody"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            contentWidth: availableWidth
             clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: width
+            contentHeight: Math.max(height, formCard.height)
+            ScrollBar.vertical: ScrollBar {
+                policy: formBody.contentHeight > formBody.height
+                        ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+            }
 
             Surface {
-                width: Math.min(Theme.size(720), parent.width - Theme.size(48))
-                height: form.implicitHeight + Theme.size(60)
-                anchors.horizontalCenter: parent.horizontalCenter
+                id: formCard
+                objectName: "tournamentCreateCard"
+                width: Math.min(Theme.size(720), formBody.width - Theme.size(48))
+                implicitHeight: form.implicitHeight + Theme.size(60)
+                height: implicitHeight
+                x: Math.max(0, Math.round((formBody.width - width) / 2))
                 elevated: true
 
                 ColumnLayout {
@@ -292,6 +307,7 @@ Page {
                         Layout.topMargin: Theme.size(18)
                         Item { Layout.fillWidth: true }
                         AppButton {
+                            objectName: "tournamentCreateSubmitButton"
                             variant: "primary"
                             text: qsTr("Create tournament")
                             enabled: nameField.text.trim().length > 0
@@ -303,17 +319,17 @@ Page {
                                          || setPicker.hasSelection)
                             onClicked: {
                                 if (!root.isLimited) {
-                                    ws.createTournament(nameField.text.trim(),
-                                                        formatSelector.currentValue,
-                                                        root.matchMode,
-                                                        Number(minutesField.text),
-                                                        Number(capField.text),
-                                                        Number(roundsField.text))
+                                    root.hub.createTournament(nameField.text.trim(),
+                                                               formatSelector.currentValue,
+                                                               root.matchMode,
+                                                               Number(minutesField.text),
+                                                               Number(capField.text),
+                                                               Number(roundsField.text))
                                     return
                                 }
                                 const selectedSet = setPicker.selectedSet
-                                const product = cardCatalog.limitedProduct(selectedSet.productId)
-                                ws.createLimitedTournament(
+                                const product = root.catalog.limitedProduct(selectedSet.productId)
+                                root.hub.createLimitedTournament(
                                             nameField.text.trim(),
                                             eventSelector.currentValue,
                                             root.matchMode,
@@ -330,10 +346,10 @@ Page {
     }
 
     Connections {
-        target: ws
+        target: root.hub
         function onLastErrorChanged() {
-            if (ws.lastError)
-                root.appWindow.showBanner(I18n.status(ws.lastError))
+            if (root.hub.lastError)
+                root.appWindow.showBanner(I18n.status(root.hub.lastError))
         }
     }
 }

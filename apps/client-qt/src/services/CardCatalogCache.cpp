@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardArtCache.h"
@@ -245,6 +245,7 @@ CardCatalog::CardRecord CardCatalog::localCachedRecord(const CardRequest &reques
     const CardRecord positive = m_artCache->exactRecord(key);
     const bool positiveMatchesPolicy =
         positive.valid() && positive.resolutionVersion >= kCardResolutionVersion &&
+        m_artCache->matchesRequestedFace(request, positive) &&
         (!positive.reusesLocalArt || request.allowsSubstituteArt(m_artCache->reuseLocalArt()));
     if (positiveMatchesPolicy && QFileInfo::exists(positive.imagePath))
         return positive;

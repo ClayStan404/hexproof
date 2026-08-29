@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -523,6 +523,23 @@ func (r *Room) ReturnToRoom(connID string) (Result, error) {
 
 func (r *Room) nextActiveSeat(current int) int {
 	if r.Game == nil || len(r.Game.Seats) == 0 {
+		return -1
+	}
+	currentIndex := -1
+	for index, seat := range r.Game.TurnOrder {
+		if seat == current {
+			currentIndex = index
+			break
+		}
+	}
+	if currentIndex >= 0 {
+		for offset := 1; offset <= len(r.Game.TurnOrder); offset++ {
+			candidate := r.Game.TurnOrder[(currentIndex+offset)%len(r.Game.TurnOrder)]
+			if candidate >= 0 && candidate < len(r.Game.Seats) &&
+				!r.Game.Seats[candidate].Eliminated {
+				return candidate
+			}
+		}
 		return -1
 	}
 	for offset := 1; offset <= len(r.Game.Seats); offset++ {

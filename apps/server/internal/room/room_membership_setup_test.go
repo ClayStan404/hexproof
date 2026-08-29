@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -43,6 +43,137 @@ func TestNewHostTakesSeatZero(t *testing.T) {
 	}
 	if r.MatchMode != protocol.MatchBO1 {
 		t.Fatalf("EDH matchMode = %q, want %q", r.MatchMode, protocol.MatchBO1)
+	}
+}
+
+func TestNewWithRulesModeKeepsAuthorityInPublicProjections(t *testing.T) {
+	r, err := NewWithRulesMode("FORGE1", "Rules table", protocol.FormatModern,
+		protocol.MatchBO1, protocol.CardLoadPreload, protocol.RulesModeForge,
+		2, true, false, "Host", "host-conn", testNow)
+	if err != nil {
+		t.Fatalf("NewWithRulesMode: %v", err)
+	}
+	if r.RulesMode != protocol.RulesModeForge ||
+		r.MatchMode != protocol.MatchBO1 ||
+		r.Snapshot().RulesMode != protocol.RulesModeForge ||
+		r.ListEntry().RulesMode != protocol.RulesModeForge {
+		t.Fatalf("rules mode was not preserved: room=%q snapshot=%q list=%q",
+			r.RulesMode, r.Snapshot().RulesMode, r.ListEntry().RulesMode)
+	}
+
+	bo3, err := NewWithRulesMode("FORGE3", "Rules table", protocol.FormatModern,
+		protocol.MatchBO3, protocol.CardLoadPreload, protocol.RulesModeForge,
+		2, true, false, "Host", "host-conn", testNow)
+	if err != nil || bo3.MatchMode != protocol.MatchBO1 {
+		t.Fatalf("Forge BO3 normalization = %+v, %v", bo3, err)
+	}
+
+	if _, err := NewWithRulesMode("BADMOD", "Bad rules", protocol.FormatModern,
+		protocol.MatchBO1, protocol.CardLoadPreload, "unknown", 2, true, false,
+		"Host", "host-conn", testNow); err == nil {
+		t.Fatal("NewWithRulesMode accepted an unknown rules mode")
+	} else if code, ok := ErrorCode(err); !ok || code != protocol.ErrInvalidRulesMode {
+		t.Fatalf("rules mode error = %v (%q, %t)", err, code, ok)
+	}
+}
+
+func TestCompleteRulesGameCreatesOnlyTerminalMatchShell(t *testing.T) {
+	r, err := NewWithRulesMode("FORGE1", "Rules table", protocol.FormatModern,
+		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge,
+		2, true, false, "Host", "host-conn", testNow)
+	if err != nil {
+		t.Fatalf("NewWithRulesMode: %v", err)
+	}
+	if _, err := r.Join("guest-conn", "Guest", false, ""); err != nil {
+		t.Fatalf("Join: %v", err)
+	}
+	r.Phase = protocol.RoomPhaseStarted
+	result, err := r.CompleteRulesGame(1, testNow.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("CompleteRulesGame: %v", err)
+	}
+	if r.Game == nil || r.Game.Result == nil ||
+		r.Game.Result.Reason != protocol.GameResultRules ||
+		r.Game.Result.WinnerSeat != 1 || !r.Game.Result.MatchFinished ||
+		r.Score[1] != 1 || len(result.Broadcast) != 1 {
+		t.Fatalf("completed Forge room = game %+v score %v result %+v",
+			r.Game, r.Score, result)
+	}
+	if len(r.Game.Seats[0].Hand) != 0 || len(r.Game.Seats[0].Library) != 0 {
+		t.Fatal("Forge completion copied card state into the manual reducer")
+	}
+	if _, err := r.CompleteRulesGame(0, testNow.Add(2*time.Minute)); err == nil {
+		t.Fatal("CompleteRulesGame accepted a duplicate terminal result")
+	}
+}
+
+func TestForgePreloadStartDefersGameStateToExternalEngine(t *testing.T) {
+	r, err := NewWithRulesMode("FORGE1", "Rules table", protocol.FormatModern,
+		protocol.MatchBO1, protocol.CardLoadPreload, protocol.RulesModeForge,
+		2, true, false, "Host", "host-conn", testNow)
+	if err != nil {
+		t.Fatalf("NewWithRulesMode: %v", err)
+	}
+	if _, err := r.Join("guest-conn", "Guest", false, ""); err != nil {
+		t.Fatalf("Join: %v", err)
+	}
+	for _, connectionID := range []string{"host-conn", "guest-conn"} {
+		if _, err := r.SelectDeck(connectionID, testDeck(protocol.FormatModern)); err != nil {
+			t.Fatalf("SelectDeck(%s): %v", connectionID, err)
+		}
+		if _, err := r.SetReady(connectionID, true); err != nil {
+			t.Fatalf("SetReady(%s): %v", connectionID, err)
+		}
+	}
+	if r.Phase != protocol.RoomPhaseLoading || r.Game != nil {
+		t.Fatalf("preload Forge room = phase %q game %+v", r.Phase, r.Game)
+	}
+	if _, err := r.CompleteLoad("host-conn", r.LoadID); err != nil {
+		t.Fatalf("CompleteLoad(host): %v", err)
+	}
+	started, err := r.CompleteLoad("guest-conn", r.LoadID)
+	if err != nil {
+		t.Fatalf("CompleteLoad(guest): %v", err)
+	}
+	if r.Phase != protocol.RoomPhaseStarted || r.Game != nil ||
+		started.ProjectGame || !started.StartRulesGame {
+		t.Fatalf("started Forge room = phase %q game %+v project=%v startRules=%v",
+			r.Phase, r.Game, started.ProjectGame, started.StartRulesGame)
+	}
+	players, err := r.RulesStartPlayers()
+	if err != nil || len(players) != 2 || players[0].Deck.Mainboard[0].Name != "Sol Ring" {
+		t.Fatalf("RulesStartPlayers() = %+v, %v", players, err)
+	}
+	reset := r.ResetRulesStartFailure()
+	if r.Phase != protocol.RoomPhaseWaiting || r.Seats[0].Ready ||
+		r.Seats[1].Ready || len(reset.Broadcast) != 1 {
+		t.Fatalf("ResetRulesStartFailure = phase %q seats %+v result %+v",
+			r.Phase, r.Seats, reset)
+	}
+}
+
+func TestForgeBackgroundStartDefersGameStateToExternalEngine(t *testing.T) {
+	r, err := NewWithRulesMode("FORGE2", "Rules table", protocol.FormatModern,
+		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge,
+		2, true, false, "Host", "host-conn", testNow)
+	if err != nil {
+		t.Fatalf("NewWithRulesMode: %v", err)
+	}
+	_, _ = r.Join("guest-conn", "Guest", false, "")
+	for _, connectionID := range []string{"host-conn", "guest-conn"} {
+		_, _ = r.SelectDeck(connectionID, testDeck(protocol.FormatModern))
+	}
+	if _, err := r.SetReady("host-conn", true); err != nil {
+		t.Fatalf("SetReady(host): %v", err)
+	}
+	started, err := r.SetReady("guest-conn", true)
+	if err != nil {
+		t.Fatalf("SetReady(guest): %v", err)
+	}
+	if r.Phase != protocol.RoomPhaseStarted || r.Game != nil ||
+		started.ProjectGame || !started.StartRulesGame {
+		t.Fatalf("background Forge start = phase %q game %+v project=%v startRules=%v",
+			r.Phase, r.Game, started.ProjectGame, started.StartRulesGame)
 	}
 }
 

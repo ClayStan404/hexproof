@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -246,6 +246,43 @@ Page {
                         Layout.fillWidth: true
                         tone: "success"
                         message: qsTr("The scale applies immediately to every theme-aware UI component.")
+                    }
+                }
+            }
+
+            Surface {
+                Layout.fillWidth: true
+                implicitHeight: motionContent.implicitHeight + Theme.size(48)
+                elevated: true
+
+                ColumnLayout {
+                    id: motionContent
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(24)
+                    spacing: Theme.size(10)
+
+                    Text {
+                        textFormat: Text.PlainText
+                        text: qsTr("Motion effects")
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSize(20)
+                        font.weight: Font.DemiBold
+                    }
+
+                    AppToggle {
+                        Layout.fillWidth: true
+                        text: qsTr("Animate simulated pack openings")
+                        checked: preferences.animatePackOpenings
+                        onToggled: preferences.animatePackOpenings = checked
+                    }
+
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: qsTr("Turn this off to show simulated pack contents immediately. Every opening animation can also be skipped while it is playing.")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(12)
+                        wrapMode: Text.WordWrap
                     }
                 }
             }

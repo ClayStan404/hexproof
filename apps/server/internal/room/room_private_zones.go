@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -461,6 +461,12 @@ func (r *Room) resolveLibraryView(connID string,
 		strings.TrimSpace(request.ApprovalID) == "") {
 		return Result{}, newError(protocol.ErrApprovalRequired)
 	}
+	if len(request.Assignments) > 0 {
+		return r.resolveAssignedLibraryView(actorSeat, sourceSeat, request)
+	}
+	if request.RandomizeTop || request.RandomizeBottom {
+		return Result{}, newError(protocol.ErrInvalidMove)
+	}
 	selectedIDs := append([]string{}, request.SelectedCardIDs...)
 	remainderIDs := append([]string{}, request.RemainderCardIDs...)
 	count := len(selectedIDs) + len(remainderIDs)
@@ -571,6 +577,123 @@ func (r *Room) resolveLibraryView(connID string,
 	reply, _ := protocol.NewEnvelope(protocol.TypeGameLibraryViewResolved,
 		protocol.GameLibraryViewResolved{RoomID: r.ID, Seat: actorSeat,
 			MovedCount: len(selected), RemainderCount: len(remainder)})
+	return Result{Reply: &reply, ProjectGame: true}, nil
+}
+
+func (r *Room) resolveAssignedLibraryView(actorSeat, sourceSeat int,
+	request protocol.GameResolveLibraryView) (Result, error) {
+	if len(request.SelectedCardIDs) > 0 || len(request.RemainderCardIDs) > 0 ||
+		request.ToZone != "" || request.FaceDown || request.RandomizeRemainder ||
+		(request.RemainderPlacement != protocol.LibraryPlacementTop &&
+			request.RemainderPlacement != protocol.LibraryPlacementBottom) {
+		return Result{}, newError(protocol.ErrInvalidMove)
+	}
+	count := len(request.Assignments)
+	sourceState := &r.Game.Seats[sourceSeat]
+	actorState := &r.Game.Seats[actorSeat]
+	if count == 0 || count > protocol.MaxDeckCards || count > len(sourceState.Library) {
+		return Result{}, newError(protocol.ErrInvalidMove)
+	}
+	hasBattlefield := false
+	for _, assignment := range request.Assignments {
+		if !validLibraryDestination(assignment.ToZone) {
+			return Result{}, newError(protocol.ErrInvalidZone)
+		}
+		if assignment.ToZone == protocol.LibraryDestinationBattlefield {
+			hasBattlefield = true
+		} else if assignment.FaceDown {
+			return Result{}, newError(protocol.ErrInvalidMove)
+		}
+	}
+	if hasBattlefield {
+		if !validCardPosition(request.Position) {
+			return Result{}, newError(protocol.ErrInvalidPosition)
+		}
+	} else if request.Position != nil {
+		return Result{}, newError(protocol.ErrInvalidPosition)
+	}
+
+	prefixByID := make(map[string]protocol.GameCard, count)
+	for _, card := range sourceState.Library[:count] {
+		prefixByID[card.ID] = card
+	}
+	seen := make(map[string]struct{}, count)
+	top := make([]protocol.GameCard, 0, count)
+	bottom := make([]protocol.GameCard, 0, count)
+	hand := make([]protocol.GameCard, 0, count)
+	battlefield := make([]protocol.GameCard, 0, count)
+	graveyard := make([]protocol.GameCard, 0, count)
+	exile := make([]protocol.GameCard, 0, count)
+	destinationKinds := make(map[string]struct{})
+	for _, assignment := range request.Assignments {
+		cardID := strings.TrimSpace(assignment.CardID)
+		card, found := prefixByID[cardID]
+		if cardID == "" || !found {
+			return Result{}, newError(protocol.ErrCardNotFound)
+		}
+		if _, duplicate := seen[cardID]; duplicate {
+			return Result{}, newError(protocol.ErrInvalidMove)
+		}
+		seen[cardID] = struct{}{}
+		destinationKinds[assignment.ToZone] = struct{}{}
+		card.OwnerSeat = sourceSeat
+		card.Position = nil
+		card.Tapped = false
+		card.Counters = nil
+		card.FaceDown = false
+		switch assignment.ToZone {
+		case protocol.LibraryDestinationHand:
+			hand = append(hand, card)
+		case protocol.LibraryDestinationBattlefield:
+			card.FaceDown = assignment.FaceDown
+			battlefield = append(battlefield, card)
+		case protocol.LibraryDestinationGraveyard:
+			graveyard = append(graveyard, card)
+		case protocol.LibraryDestinationExile:
+			exile = append(exile, card)
+		case protocol.LibraryDestinationTop:
+			top = append(top, card)
+		case protocol.LibraryDestinationBottom:
+			bottom = append(bottom, card)
+		}
+	}
+	if len(seen) != count {
+		return Result{}, newError(protocol.ErrInvalidMove)
+	}
+	if request.RandomizeTop {
+		if err := r.shuffle(top); err != nil {
+			return Result{}, newError(protocol.ErrGameSetupFailed)
+		}
+	}
+	if request.RandomizeBottom {
+		if err := r.shuffle(bottom); err != nil {
+			return Result{}, newError(protocol.ErrGameSetupFailed)
+		}
+	}
+
+	suffix := append([]protocol.GameCard{}, sourceState.Library[count:]...)
+	sourceState.Library = append(top, suffix...)
+	sourceState.Library = append(sourceState.Library, bottom...)
+	actorState.Hand = append(actorState.Hand, hand...)
+	for index := range battlefield {
+		battlefield[index].Position = battlefieldBatchPosition(
+			*request.Position, index, len(battlefield))
+		actorState.Battlefield = append(actorState.Battlefield, battlefield[index])
+	}
+	sourceState.Graveyard = append(sourceState.Graveyard, graveyard...)
+	sourceState.Exile = append(sourceState.Exile, exile...)
+
+	libraryOwner := "their"
+	if sourceSeat != actorSeat {
+		libraryOwner = sourceState.DisplayName + "'s"
+	}
+	r.appendGameLog("library_view", actorSeat,
+		fmt.Sprintf("%s resolved the top %d card(s) of %s library across %d destination(s).",
+			actorState.DisplayName, count, libraryOwner, len(destinationKinds)))
+	libraryCount := len(top) + len(bottom)
+	reply, _ := protocol.NewEnvelope(protocol.TypeGameLibraryViewResolved,
+		protocol.GameLibraryViewResolved{RoomID: r.ID, Seat: actorSeat,
+			MovedCount: count - libraryCount, RemainderCount: libraryCount})
 	return Result{Reply: &reply, ProjectGame: true}, nil
 }
 

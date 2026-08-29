@@ -275,6 +275,22 @@
       "value": "game.snapshot"
     },
     {
+      "name": "TypeRulesSnapshot",
+      "value": "rules.snapshot"
+    },
+    {
+      "name": "TypeRulesPrompt",
+      "value": "rules.prompt"
+    },
+    {
+      "name": "TypeRulesRespond",
+      "value": "rules.respond"
+    },
+    {
+      "name": "TypeRulesResponded",
+      "value": "rules.responded"
+    },
+    {
       "name": "TypeGameDraw",
       "value": "game.draw"
     },
@@ -727,6 +743,18 @@
       "value": "invalid_card_load_mode"
     },
     {
+      "name": "ErrInvalidRulesMode",
+      "value": "invalid_rules_mode"
+    },
+    {
+      "name": "ErrRulesUnavailable",
+      "value": "rules_unavailable"
+    },
+    {
+      "name": "ErrRulesActionRejected",
+      "value": "rules_action_rejected"
+    },
+    {
       "name": "ErrNotPlayer",
       "value": "not_player"
     },
@@ -1045,6 +1073,14 @@
     {
       "name": "CardLoadBackground",
       "value": "background"
+    },
+    {
+      "name": "RulesModeManual",
+      "value": "manual"
+    },
+    {
+      "name": "RulesModeForge",
+      "value": "forge"
     },
     {
       "name": "ZoneHand",

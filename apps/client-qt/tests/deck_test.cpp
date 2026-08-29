@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "deck/Deck.h"
@@ -138,7 +138,8 @@ void TestDeckLibrary::keepsIncompleteCubeEditableButUnplayable() const
     QVERIFY(!model.addCard(u"Counterspell"_s, {}, u"Instant"_s, u"MH2"_s, u"267"_s, true));
     QVERIFY(
         model.setCardPrinting(u"Lightning Bolt"_s, false, {}, u"Instant"_s, u"2XM"_s, u"117"_s));
-    QVERIFY(model.changeCardCount(u"Lightning Bolt"_s, false, 320));
+    QVERIFY(model.changeCardCount(u"Lightning Bolt"_s, false, 140));
+    QCOMPARE(model.currentMainCount(), 180);
     QVERIFY(!model.cubeProduct(cubeId).isEmpty());
 }
 
@@ -835,6 +836,28 @@ void TestDeckLibrary::rejectsInvalidAndOverflowingCounts() const
     const auto entries = DeckParser::parse(tooManyEntries);
     QVERIFY(!entries.ok());
     QCOMPARE(entries.error, u"Deck imports can contain at most 1000 cards and 500 entries."_s);
+}
+
+void TestDeckLibrary::appliesLargerCubeImportLimits() const
+{
+    QString cube;
+    for (int index = 0; index < 540; ++index) {
+        cube += QStringLiteral("1 Cube Card %1 (TST) %1\n").arg(index + 1);
+    }
+
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY2(model.importDeck(u"Large Cube"_s, u"cube"_s, cube), qPrintable(model.lastError()));
+    QCOMPARE(model.data(model.index(0), DeckLibraryModel::MainCountRole).toInt(), 540);
+
+    QString tooManyEntries;
+    for (int index = 0; index < 5001; ++index)
+        tooManyEntries += QStringLiteral("1 Cube Card %1\n").arg(index + 1);
+    const auto parsed =
+        DeckParser::parse(tooManyEntries, false, hexproof::client::DeckParseProfile::Cube);
+    QVERIFY(!parsed.ok());
+    QCOMPARE(parsed.error, u"Deck imports can contain at most 10000 cards and 5000 entries."_s);
 }
 
 void TestDeckLibrary::rejectsControlCharacters() const

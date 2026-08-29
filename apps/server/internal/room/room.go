@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 // Package room is a pure game/room state reducer. It holds NO network I/O and
@@ -81,6 +81,7 @@ type SideboardState struct {
 type GameState struct {
 	Number            int
 	StartingSeat      int
+	TurnOrder         []int
 	ActiveSeat        int
 	CurrentPhase      string
 	LandPlaysThisTurn int
@@ -111,6 +112,7 @@ type Room struct {
 	SpectatorsSeeHands bool
 	MatchMode          string
 	CardLoadMode       string
+	RulesMode          string
 	HasPassword        bool // password hash lives in the server room entry
 	HostSeat           int
 	Seats              []Seat
@@ -133,6 +135,16 @@ type Room struct {
 // the room is password protected.
 func New(id, name, format, matchMode, cardLoadMode string, maxSeats int, allowSpectators bool,
 	hasPassword bool, hostDisplay, hostConnID string, now time.Time) (*Room, error) {
+	return NewWithRulesMode(id, name, format, matchMode, cardLoadMode, protocol.RulesModeManual,
+		maxSeats, allowSpectators, hasPassword, hostDisplay, hostConnID, now)
+}
+
+// NewWithRulesMode creates a room whose gameplay authority is immutable for
+// the room lifetime. New remains the compatibility entry point for manual
+// rooms and reducer tests.
+func NewWithRulesMode(id, name, format, matchMode, cardLoadMode, rulesMode string, maxSeats int,
+	allowSpectators bool, hasPassword bool, hostDisplay, hostConnID string,
+	now time.Time) (*Room, error) {
 	if maxSeats <= 0 {
 		return nil, errors.New("room: maxSeats must be > 0")
 	}
@@ -142,11 +154,20 @@ func New(id, name, format, matchMode, cardLoadMode string, maxSeats int, allowSp
 	if code := ValidateCardLoadMode(cardLoadMode); code != "" {
 		return nil, newError(code)
 	}
+	if code := ValidateRulesMode(rulesMode); code != "" {
+		return nil, newError(code)
+	}
 	if maxSeats == 1 {
 		matchMode = protocol.MatchBO1
 		allowSpectators = false
 	}
 	if format == protocol.FormatEDH {
+		matchMode = protocol.MatchBO1
+	}
+	// Multi-game Forge matches need an engine-aware sideboard restart, which is
+	// deliberately deferred until the core prompt families are complete. Keep
+	// the current integration honest and playable as BO1 in the meantime.
+	if rulesMode == protocol.RulesModeForge {
 		matchMode = protocol.MatchBO1
 	}
 	r := &Room{
@@ -159,6 +180,7 @@ func New(id, name, format, matchMode, cardLoadMode string, maxSeats int, allowSp
 		AllowSpectators: allowSpectators,
 		MatchMode:       matchMode,
 		CardLoadMode:    cardLoadMode,
+		RulesMode:       rulesMode,
 		HasPassword:     hasPassword,
 		HostSeat:        0,
 		Seats:           make([]Seat, maxSeats),
@@ -239,7 +261,16 @@ type Result struct {
 	Broadcast         []protocol.Envelope // sent to all members (snapshot/event)
 	TargetConnID      string              // for Kick: the kicked connection's id (handler notifies + unbinds it)
 	ProjectGame       bool                // fan out role-specific game.snapshot projections after this result
+	StartRulesGame    bool                // server must start the configured rules backend before fan-out
 	SideboardDeadline time.Time           // non-zero asks the server layer to schedule expiry
+}
+
+// RulesStartPlayer is the private, exact deck input for one occupied rules
+// seat. It is copied under the room lock and never projected to clients.
+type RulesStartPlayer struct {
+	Seat        int
+	DisplayName string
+	Deck        protocol.DeckSelect
 }
 
 // ZoneDumpTarget identifies the two live players involved in a private
@@ -302,5 +333,16 @@ func ValidateCardLoadMode(cardLoadMode string) string {
 		return ""
 	default:
 		return protocol.ErrInvalidCardLoadMode
+	}
+}
+
+// ValidateRulesMode returns an error code when a room requests an unknown
+// gameplay authority.
+func ValidateRulesMode(rulesMode string) string {
+	switch rulesMode {
+	case protocol.RulesModeManual, protocol.RulesModeForge:
+		return ""
+	default:
+		return protocol.ErrInvalidRulesMode
 	}
 }

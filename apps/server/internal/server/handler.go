@@ -1,14 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"hexproof/server/internal/protocol"
+	"hexproof/server/internal/rulesengine/forge"
 )
 
 // Lock order for room mutations:
@@ -64,6 +67,11 @@ type Handler struct {
 	passwordJoinLimiter     *fixedWindowLimiter
 	replayRequestLimiter    *fixedWindowLimiter
 	tournaments             *tournamentRegistry
+	forgeRuntime            *forge.ProcessConfig
+	forgeMu                 sync.Mutex
+	forgeClient             *forge.Client
+	forgeGames              map[string]forgeRoomGame
+	forgeClosed             bool
 	// marshalEnvelope, when set, replaces Envelope.Marshal for send/fan-out tests.
 	marshalEnvelope func(protocol.Envelope) ([]byte, error)
 }
@@ -90,6 +98,20 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	var forgeRuntime *forge.ProcessConfig
+	if config.ForgeRuntime != nil {
+		probe, probeErr := forge.Start(context.Background(), *config.ForgeRuntime)
+		if probeErr != nil {
+			return nil, fmt.Errorf("configure Forge runtime: %w", probeErr)
+		}
+		if closeErr := probe.Close(); closeErr != nil {
+			return nil, fmt.Errorf("close Forge runtime probe: %w", closeErr)
+		}
+		copy := *config.ForgeRuntime
+		copy.Args = append([]string(nil), config.ForgeRuntime.Args...)
+		copy.Env = append([]string(nil), config.ForgeRuntime.Env...)
+		forgeRuntime = &copy
+	}
 	return &Handler{
 		hub: NewHubWithLimits(
 			config.MaxRooms, config.MaxConcurrentPasswordChecks),
@@ -106,5 +128,11 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		passwordJoinLimiter:     newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		replayRequestLimiter:    newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournaments:             newTournamentRegistry(config.MaxTournaments),
+		forgeRuntime:            forgeRuntime,
+		forgeGames:              make(map[string]forgeRoomGame),
 	}, nil
+}
+
+func (h *Handler) forgeRulesAvailable() bool {
+	return h.forgeRuntime != nil
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -433,7 +433,12 @@ func (h *Handler) validateZoneDumpGrant(approvalID, requesterConnID,
 func (h *Handler) validateZoneDumpResolveGrant(approvalID, requesterConnID,
 	roomID string, sourceSeat int,
 	resolve protocol.GameResolveLibraryView) error {
-	cardIDs := append([]string(nil), resolve.SelectedCardIDs...)
+	cardIDs := make([]string, 0, len(resolve.Assignments)+
+		len(resolve.SelectedCardIDs)+len(resolve.RemainderCardIDs))
+	for _, assignment := range resolve.Assignments {
+		cardIDs = append(cardIDs, assignment.CardID)
+	}
+	cardIDs = append(cardIDs, resolve.SelectedCardIDs...)
 	cardIDs = append(cardIDs, resolve.RemainderCardIDs...)
 	return h.validateZoneDumpGrantCardIDs(
 		approvalID, requesterConnID, roomID, sourceSeat, cardIDs, true)

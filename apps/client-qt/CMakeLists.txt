@@ -1,9 +1,9 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "1.0.0")
+set(HEXPROOF_VERSION "1.0.3")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -154,6 +154,11 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/ProtocolSession.cpp
     src/services/ReconnectController.cpp
     src/services/RoomSessionState.cpp
+    src/services/RulesChoiceModel.cpp
+    src/services/RulesCombatModel.cpp
+    src/services/RulesOrderModel.cpp
+    src/services/RulesSessionState.cpp
+    src/services/RulesStateModels.cpp
     src/services/ServerDirectory.cpp
     src/services/TournamentSessionState.cpp
     src/services/WsClient.cpp
@@ -307,15 +312,27 @@ qt_add_resources(hexproof "app_qml"
         qml/components/LandPlayPopup.qml
         qml/components/LibrarySearchCardList.qml
         qml/components/LibrarySearchContextMenu.qml
+        qml/components/LibrarySearchInspector.qml
         qml/components/LibrarySearchPopup.qml
+        qml/components/LimitedCardGrouping.qml
+        qml/components/LimitedCardGroupView.qml
         qml/components/LimitedDeckBuilder.qml
+        qml/components/LimitedCardTile.qml
+        qml/components/LimitedDraftSeatMap.qml
         qml/components/LimitedDraftView.qml
         qml/components/LimitedSetPicker.qml
         qml/components/LifeEditorPopup.qml
         qml/components/NumberInputPopup.qml
+        qml/components/PackOpeningOverlay.qml
         qml/components/PlayerCounterPip.qml
         qml/components/PrintingPicker.qml
         qml/components/RoomListQuery.qml
+        qml/components/RulesCardSelectionPrompt.qml
+        qml/components/RulesCombatAssignmentPrompt.qml
+        qml/components/RulesNumberPrompt.qml
+        qml/components/RulesOrderPrompt.qml
+        qml/components/RulesScalarChoicePrompt.qml
+        qml/components/RulesTargetSelectionPrompt.qml
         qml/components/ScreenHeader.qml
         qml/components/SegmentedControl.qml
         qml/components/ShortcutActionCatalog.qml
@@ -394,6 +411,7 @@ qt_add_resources(hexproof "app_qml"
         qml/screens/RoomBrowser.qml
         qml/screens/Settings.qml
         qml/screens/ShortcutSettings.qml
+        qml/screens/RulesTable.qml
         qml/screens/Table.qml
         qml/screens/TournamentBrowser.qml
         qml/screens/TournamentCreate.qml
@@ -484,7 +502,9 @@ if(UNIX AND NOT APPLE)
         DESTINATION share/applications)
 endif()
 
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE"
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../THIRD-PARTY-NOTICES.md"
     DESTINATION .)
 
 # Qt 6.8's generic Linux deployment does not select the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "GameSessionState.h"
@@ -21,6 +21,7 @@ void GameSessionState::applySnapshot(const QVariantMap &snapshot)
 {
     m_gameNumber = snapshot.value(u"gameNumber"_s).toInt();
     m_startingSeat = snapshot.value(u"startingSeat"_s, -1).toInt();
+    m_turnOrder = snapshot.value(u"turnOrder"_s).toList();
     m_activeSeat = snapshot.value(u"activeSeat"_s, -1).toInt();
     m_currentPhase = snapshot.value(u"currentPhase"_s, kGamePhaseUntap).toString();
     m_seats = snapshot.value(u"seats"_s).toList();
@@ -41,6 +42,7 @@ void GameSessionState::clear()
 {
     m_gameNumber = 0;
     m_startingSeat = -1;
+    m_turnOrder.clear();
     m_activeSeat = -1;
     m_currentPhase.clear();
     m_seats.clear();

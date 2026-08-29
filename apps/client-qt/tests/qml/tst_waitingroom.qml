@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -355,5 +355,34 @@ TestCase {
         tryVerify(() => host.width > actions.width + 40)
         tryVerify(() => actions.x > host.width / 2)
         tryVerify(() => Math.abs((actions.x + actions.width) - host.width) <= 1)
+    }
+
+    function test_limitedPairingUsesServerLockedDeck() {
+        mockRoomSession.deckFormat = "limited"
+        mockRoomSession.selectedDeckName = ""
+        mockRoomSession.seats = [{
+            "occupied": true,
+            "displayName": "Alice",
+            "host": true,
+            "deckSelected": true,
+            "ready": false
+        }, {
+            "occupied": true,
+            "displayName": "Bob",
+            "host": false,
+            "deckSelected": true,
+            "ready": false
+        }]
+
+        const selectDeck = findChild(page, "waitingRoomSelectDeckButton")
+        const lockedDeck = findChild(page, "waitingRoomLimitedDeckStatus")
+        const ready = findChild(page, "playerReadyButton")
+        verify(selectDeck !== null)
+        verify(lockedDeck !== null)
+        verify(ready !== null)
+        tryVerify(() => !selectDeck.visible)
+        tryVerify(() => lockedDeck.visible)
+        compare(lockedDeck.text, "Limited deck locked")
+        tryVerify(() => ready.enabled)
     }
 }

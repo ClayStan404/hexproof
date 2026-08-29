@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -194,7 +194,7 @@ Page {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
                 visible: root.deckFormat === "cube"
-                text: qsTr("Cube uses every imported card as one pool. Exact set and collector numbers are required before creating an eight-player draft.")
+                text: qsTr("Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a four-to-eight-player draft.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(11)
                 wrapMode: Text.WordWrap

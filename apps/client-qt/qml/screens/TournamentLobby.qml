@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -127,6 +127,7 @@ Page {
                         Layout.fillHeight: true
                         visible: tournament.stage === "draft"
                         limitedModel: limited
+                        tournamentModel: tournament
                         wsModel: ws
                         cardCatalogModel: cardCatalog
                     }

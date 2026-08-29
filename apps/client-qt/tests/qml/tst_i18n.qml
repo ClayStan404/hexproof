@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -53,6 +53,18 @@ TestCase {
             "Bob 开始了自己的回合。")
     }
 
+    function test_translatesCommanderOpeningOrderLogs() {
+        compare(
+            I18n.status("Commander opening roll: Alice 18, Bob 12."),
+            "指挥官开局掷骰：Alice 18, Bob 12。")
+        compare(
+            I18n.status("Commander tie-break roll: Alice 16, Bob 7."),
+            "指挥官同点重掷：Alice 16, Bob 7。")
+        compare(
+            I18n.status("Commander turn order: Alice -> Bob -> Carol."),
+            "指挥官行动顺序：Alice -> Bob -> Carol。")
+    }
+
     function test_translatesMoveLogsAcrossAllDestinations() {
         compare(
             I18n.status("Alice moved Lightning Bolt from hand to Bob's battlefield."),
@@ -83,5 +95,9 @@ TestCase {
             I18n.status(
                 "Alice resolved the top 3 card(s) of their library and put 2 card(s) on bottom of their library."),
             "Alice 查看了自己的牌库顶的 3 张牌，并将 2 张牌置于自己的牌库底。")
+        compare(
+            I18n.status(
+                "Alice resolved the top 3 card(s) of Bob's library across 3 destination(s)."),
+            "Alice 将Bob 的牌库顶 3 张牌分别置入了 3 个目的区域。")
     }
 }

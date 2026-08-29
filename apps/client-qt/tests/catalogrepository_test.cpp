@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "services/CatalogRepository.h"
@@ -199,6 +199,8 @@ void TestCatalogRepository::queriesCatalog() const
     const QVariantList delverFaces =
         repository.cardFaces(u"Delver of Secrets"_s, u"MID"_s, u"47"_s);
     QCOMPARE(delverFaces.size(), 2);
+    QCOMPARE(delverFaces.at(0).toMap().value(u"name"_s).toString(), u"Delver of Secrets"_s);
+    QCOMPARE(delverFaces.at(1).toMap().value(u"name"_s).toString(), u"Insectile Aberration"_s);
     QCOMPARE(delverFaces.at(0).toMap().value(u"typeLine"_s).toString(),
              u"Creature — Human Wizard"_s);
     QCOMPARE(delverFaces.at(1).toMap().value(u"typeLine"_s).toString(),

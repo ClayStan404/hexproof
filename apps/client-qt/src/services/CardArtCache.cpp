@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardArtCache.h"
@@ -129,6 +129,28 @@ CardRecord CardArtCache::exactRecord(const QString &cacheKey) const
     return m_positive.value(cacheKey);
 }
 
+bool CardArtCache::matchesRequestedFace(const CardRequest &request, const CardRecord &record) const
+{
+    const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+    if (faces.size() != 2)
+        return true;
+
+    const QString requestedName = normalizedCardName(request.name);
+    const QString frontName = normalizedCardName(faces.first());
+    const QString backName = normalizedCardName(faces.last());
+    const QString recordFace = normalizedCardName(record.faceName);
+    if (requestedName == frontName)
+        return recordFace == frontName;
+    if (requestedName == backName)
+        return recordFace == backName;
+
+    // Whole-card requests render the front of a transforming or modal card.
+    // Do not let a cached back-face record alias the canonical printing key.
+    if (requestedName == normalizedCardName(record.name))
+        return recordFace.isEmpty() || recordFace == frontName;
+    return true;
+}
+
 CardRecord CardArtCache::resolvedPrinting(const CardRequest &request) const
 {
     if (request.setCode.isEmpty() || request.collectorNumber.isEmpty())
@@ -142,6 +164,8 @@ CardRecord CardArtCache::resolvedPrinting(const CardRequest &request) const
         if (it == m_positive.cend() || it->resolutionVersion < kCardResolutionVersion) {
             continue;
         }
+        if (!matchesRequestedFace(request, *it))
+            continue;
         if (it->reusesLocalArt && !request.allowsSubstituteArt(m_reuseLocalArt))
             continue;
         if (QFileInfo::exists(it->imagePath))

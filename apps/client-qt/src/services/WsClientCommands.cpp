@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "WsClient.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSet>
 
 namespace hexproof::client {
 
@@ -28,7 +29,8 @@ int formatMaxSeats(const QString &format, bool playtest)
 
 void WsClient::createRoom(const QString &name, const QString &format, const QString &deckFormat,
                           bool allowSpectators, bool spectatorsSeeHands, const QString &matchMode,
-                          const QString &cardLoadMode, const QString &password, bool playtest)
+                          const QString &cardLoadMode, const QString &password, bool playtest,
+                          const QString &rulesMode)
 {
     QJsonObject p;
     p.insert(u"name"_s, name);
@@ -40,6 +42,7 @@ void WsClient::createRoom(const QString &name, const QString &format, const QStr
     p.insert(u"spectatorsSeeHands"_s, playtest ? false : allowSpectators && spectatorsSeeHands);
     p.insert(u"matchMode"_s, playtest ? kMatchBO1 : matchMode);
     p.insert(u"cardLoadMode"_s, cardLoadMode);
+    p.insert(u"rulesMode"_s, playtest ? kRulesModeManual : rulesMode);
     if (!password.isEmpty())
         p.insert(u"password"_s, password);
     send(kTypeRoomCreate, p);
@@ -101,6 +104,111 @@ void WsClient::setReady(bool ready)
 void WsClient::completeLoad(qint64 loadId)
 {
     send(kTypeClientLoadComplete, QJsonObject{{u"loadId"_s, loadId}});
+}
+
+void WsClient::respondRulesPrompt(qint64 promptId, const QString &responseId)
+{
+    const QString choice = responseId.trimmed();
+    if (promptId <= 0 || choice.isEmpty())
+        return;
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId}, {u"responseId"_s, choice}});
+}
+
+void WsClient::respondRulesPromptWithCards(qint64 promptId, const QString &responseId,
+                                           const QVariantList &cardIds)
+{
+    const QString choice = responseId.trimmed();
+    if (promptId <= 0 || choice.isEmpty())
+        return;
+    QJsonArray cards;
+    for (const QVariant &value : cardIds) {
+        const QString cardId = value.toString();
+        if (cardId.isEmpty())
+            return;
+        cards.append(cardId);
+    }
+    send(kTypeRulesRespond,
+         QJsonObject{{u"promptId"_s, promptId}, {u"responseId"_s, choice}, {u"cardIds"_s, cards}});
+}
+
+void WsClient::respondRulesPromptWithTargets(qint64 promptId, const QString &responseId,
+                                             const QVariantList &targetIds)
+{
+    const QString choice = responseId.trimmed();
+    if (promptId <= 0 || choice.isEmpty())
+        return;
+    QJsonArray targets;
+    for (const QVariant &value : targetIds) {
+        const QString targetId = value.toString();
+        if (targetId.isEmpty())
+            return;
+        targets.append(targetId);
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, choice},
+                                        {u"targetIds"_s, targets}});
+}
+
+void WsClient::respondRulesPromptWithOrder(qint64 promptId, const QVariantList &orderedIds)
+{
+    if (promptId <= 0)
+        return;
+    QJsonArray order;
+    QSet<QString> seen;
+    for (const QVariant &value : orderedIds) {
+        const QString itemId = value.toString();
+        if (!itemId.startsWith(u"order:"_s) || seen.contains(itemId))
+            return;
+        seen.insert(itemId);
+        order.append(itemId);
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"orderedIds"_s, order}});
+}
+
+void WsClient::respondRulesPromptWithAssignments(qint64 promptId, const QVariantList &assignments)
+{
+    if (promptId <= 0)
+        return;
+    QJsonArray encodedAssignments;
+    for (const QVariant &value : assignments) {
+        const QVariantMap assignment = value.toMap();
+        const QString sourceId = assignment.value(u"sourceId"_s).toString();
+        const QString targetId = assignment.value(u"targetId"_s).toString();
+        if (sourceId.isEmpty() || targetId.isEmpty())
+            return;
+        encodedAssignments.append(
+            QJsonObject{{u"sourceId"_s, sourceId}, {u"targetId"_s, targetId}});
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"assignments"_s, encodedAssignments}});
+}
+
+void WsClient::respondRulesPromptWithChoices(qint64 promptId, const QVariantList &choiceIds)
+{
+    if (promptId <= 0 || choiceIds.size() > 512)
+        return;
+    QJsonArray choices;
+    for (const QVariant &value : choiceIds) {
+        const QString choiceId = value.toString().trimmed();
+        if (!choiceId.startsWith(u"choice:"_s))
+            return;
+        choices.append(choiceId);
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"choiceIds"_s, choices}});
+}
+
+void WsClient::respondRulesPromptWithNumber(qint64 promptId, int chosenNumber)
+{
+    if (promptId <= 0)
+        return;
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"chosenNumber"_s, chosenNumber}});
 }
 
 void WsClient::drawCards(int count)
@@ -608,6 +716,27 @@ void WsClient::resolveLibraryView(const QVariantList &selectedCardIds,
                                   bool faceDown, const QVariantMap &position, int sourceSeat,
                                   const QString &approvalId)
 {
+    sendLibraryViewResolution({}, selectedCardIds, remainderCardIds, toZone, remainderPlacement,
+                              randomizeRemainder, false, false, faceDown, position, sourceSeat,
+                              approvalId);
+}
+
+void WsClient::resolveLibraryViewAssignments(const QVariantList &assignments, bool randomizeTop,
+                                             bool randomizeBottom, const QVariantMap &position,
+                                             int sourceSeat, const QString &approvalId)
+{
+    if (assignments.isEmpty())
+        return;
+    sendLibraryViewResolution(assignments, {}, {}, {}, u"top"_s, false, randomizeTop,
+                              randomizeBottom, false, position, sourceSeat, approvalId);
+}
+
+void WsClient::sendLibraryViewResolution(
+    const QVariantList &assignments, const QVariantList &selectedCardIds,
+    const QVariantList &remainderCardIds, const QString &toZone, const QString &remainderPlacement,
+    bool randomizeRemainder, bool randomizeTop, bool randomizeBottom, bool faceDown,
+    const QVariantMap &position, int sourceSeat, const QString &approvalId)
+{
     if (remainderPlacement != u"top"_s && remainderPlacement != u"bottom"_s)
         return;
     QJsonObject payload{
@@ -615,10 +744,16 @@ void WsClient::resolveLibraryView(const QVariantList &selectedCardIds,
         {u"remainderCardIds"_s, QJsonArray::fromVariantList(remainderCardIds)},
         {u"remainderPlacement"_s, remainderPlacement},
     };
+    if (!assignments.isEmpty())
+        payload.insert(u"assignments"_s, QJsonArray::fromVariantList(assignments));
     if (!selectedCardIds.isEmpty())
         payload.insert(u"toZone"_s, toZone);
     if (randomizeRemainder)
         payload.insert(u"randomizeRemainder"_s, true);
+    if (randomizeTop)
+        payload.insert(u"randomizeTop"_s, true);
+    if (randomizeBottom)
+        payload.insert(u"randomizeBottom"_s, true);
     if (faceDown)
         payload.insert(u"faceDown"_s, true);
     if (!position.isEmpty())

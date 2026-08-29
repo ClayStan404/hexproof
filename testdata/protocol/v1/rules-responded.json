@@ -1,0 +1,8 @@
+{
+  "type": "rules.responded",
+  "id": "req-rules-1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "promptId": 7
+  }
+}

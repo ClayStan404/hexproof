@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -392,6 +392,35 @@ TestCase {
         table.cardMoveCommands.moveCardToBattlefield("s0-c1", "battlefield",
                                     1, 0.4, 0.5)
         compare(mockWs.lastMove.toSeat, 1)
+        table.destroy()
+    }
+
+    function test_chatFocusDoesNotBlockBattlefieldContextMenu() {
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+        const chatInput = findChild(table, "gameChatInput")
+        const battlefieldBackground =
+            findChild(table, "battlefieldBackgroundMouseArea0")
+        const battlefieldAreaMenu = findChild(table, "battlefieldAreaMenu")
+        verify(chatInput !== null)
+        verify(battlefieldBackground !== null)
+        verify(battlefieldAreaMenu !== null)
+
+        chatInput.text = "Still typing"
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
+        chatInput.forceActiveFocus()
+        tryVerify(() => chatInput.activeFocus)
+        verify(battlefieldBackground.enabled)
+        tryVerify(() => battlefieldBackground.width > 0
+                  && battlefieldBackground.height > 0)
+        mouseClick(battlefieldBackground, battlefieldBackground.width / 2,
+                   battlefieldBackground.height / 2, Qt.RightButton)
+        tryVerify(() => battlefieldAreaMenu.opened)
+        battlefieldAreaMenu.close()
         table.destroy()
     }
 

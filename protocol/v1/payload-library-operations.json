@@ -1,7 +1,17 @@
 {
   "schemaVersion": 1,
   "protocol": "hexproof.v1",
-  "definitions": [],
+  "definitions": [
+    {
+      "name": "LibraryViewAssignment",
+      "goType": "LibraryViewAssignment",
+      "fields": [
+        {"name": "cardId", "type": "string", "required": true},
+        {"name": "toZone", "type": "string", "required": true, "enum": ["ZoneHand", "ZoneBattlefield", "LibraryDestinationTop", "LibraryDestinationBottom", "ZoneGraveyard", "ZoneExile"]},
+        {"name": "faceDown", "type": "boolean", "required": false}
+      ]
+    }
+  ],
   "messages": [
     {
       "type": "game.move_cards",
@@ -172,6 +182,7 @@
       "direction": "clientToServer",
       "goType": "GameResolveLibraryView",
       "fields": [
+        {"name": "assignments", "type": "array", "required": false, "items": {"type": "object", "ref": "LibraryViewAssignment"}},
         {"name": "selectedCardIds", "type": "array", "required": false, "items": {"type": "string"}},
         {"name": "remainderCardIds", "type": "array", "required": true, "items": {"type": "string"}},
         {"name": "toZone", "type": "string", "required": false, "enum": ["ZoneHand", "ZoneBattlefield", "LibraryDestinationTop", "LibraryDestinationBottom"]},
@@ -180,9 +191,11 @@
         {"name": "sourceSeat", "type": "integer", "required": false, "goType": "*int"},
         {"name": "approvalId", "type": "string", "required": false},
         {"name": "remainderPlacement", "type": "string", "required": true},
-        {"name": "randomizeRemainder", "type": "boolean", "required": false}
+        {"name": "randomizeRemainder", "type": "boolean", "required": false},
+        {"name": "randomizeTop", "type": "boolean", "required": false},
+        {"name": "randomizeBottom", "type": "boolean", "required": false}
       ],
-      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::resolveLibraryView"}
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::sendLibraryViewResolution"}
     },
     {
       "type": "game.library_view_resolved",

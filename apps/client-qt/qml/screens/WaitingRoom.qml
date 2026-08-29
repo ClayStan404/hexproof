@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -19,6 +19,7 @@ Page {
     property int pendingSpectator: -1
     property string pendingName: ""
     readonly property bool compactLayout: Theme.isCompactWidth(width)
+    readonly property bool limitedPairing: roomSession.deckFormat === "limited"
 
     background: AppBackground { }
 
@@ -56,6 +57,11 @@ Page {
                                 + I18n.formatLabel(root.roomSession.deckFormat)
                               : I18n.formatLabel(root.roomSession.deckFormat)
                         statusColor: Theme.accent
+                    }
+                    StatusPill {
+                        visible: root.roomSession.rulesMode === "forge"
+                        text: qsTr("Forge rules")
+                        statusColor: Theme.success
                     }
                 }
 
@@ -538,7 +544,9 @@ Page {
                 textFormat: Text.PlainText
                 text: root.roomSession.playtest
                       ? qsTr("Select a deck and ready up to open the playtest table.")
-                      : qsTr("The match starts automatically once every player is ready.")
+                      : (root.limitedPairing
+                         ? qsTr("Your submitted Limited deck is locked for this pairing. Ready up to play.")
+                         : qsTr("The match starts automatically once every player is ready."))
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
             }
@@ -576,10 +584,22 @@ Page {
                     AppButton {
                         objectName: "waitingRoomSelectDeckButton"
                         visible: root.roomSession.role === "player"
+                                 && !root.limitedPairing
                         text: root.selectedDeckLabel()
                         leadingText: "◇"
                         onClicked: deckPicker.showForFormat(root.roomSession.format,
                                                             root.roomSession.deckFormat)
+                    }
+
+                    StatusPill {
+                        objectName: "waitingRoomLimitedDeckStatus"
+                        visible: root.roomSession.role === "player"
+                                 && root.limitedPairing
+                        text: root.myDeckSelected()
+                              ? qsTr("Limited deck locked")
+                              : qsTr("Waiting for submitted Limited deck")
+                        statusColor: root.myDeckSelected()
+                                     ? Theme.success : Theme.warning
                     }
 
                     AppButton {
@@ -766,7 +786,9 @@ Page {
         if (missingSeats > 1)
             return qsTr("Waiting for %1 more players").arg(missingSeats)
         if (!root.myDeckSelected())
-            return qsTr("Select a deck before readying up")
+            return root.limitedPairing
+                   ? qsTr("Waiting for submitted Limited deck")
+                   : qsTr("Select a deck before readying up")
         return ""
     }
 

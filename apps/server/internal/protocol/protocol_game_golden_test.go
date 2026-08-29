@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package protocol
@@ -208,6 +208,27 @@ func TestGoldenGameActionFixtures(t *testing.T) {
 			searched.ToZone != LibraryDestinationGraveyard ||
 			searched.Revealed || searched.Count != 2 {
 			t.Fatalf("game.library_searched = env %+v payload %+v", env, searched)
+		}
+	})
+
+	t.Run("game-resolve-library-view-assigned.json", func(t *testing.T) {
+		env, err := ParseEnvelope(loadFixture(t,
+			"game-resolve-library-view-assigned.json"))
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		var resolve GameResolveLibraryView
+		if err := env.DecodePayload(&resolve); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if env.Type != TypeGameResolveLibraryView ||
+			env.ID != "resolve-top-assigned-1" ||
+			len(resolve.Assignments) != 3 ||
+			resolve.Assignments[1].CardID != "s0-c9" ||
+			resolve.Assignments[1].ToZone != LibraryDestinationExile ||
+			!resolve.RandomizeBottom || resolve.RandomizeTop {
+			t.Fatalf("game.resolve_library_view assigned = env %+v payload %+v",
+				env, resolve)
 		}
 	})
 

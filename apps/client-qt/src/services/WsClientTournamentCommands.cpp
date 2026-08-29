@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "LimitedSessionState.h"
@@ -42,7 +42,7 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
 {
     QJsonObject payload{
         {u"name"_s, name},
-        {u"format"_s, u"Limited"_s},
+        {u"format"_s, eventType == kLimitedEventCubeDraft ? u"Cube"_s : u"Limited"_s},
         {u"eventType"_s, eventType},
         {u"matchMode"_s, matchMode},
         {u"roundMinutes"_s, roundMinutes},

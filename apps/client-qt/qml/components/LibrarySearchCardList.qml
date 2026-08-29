@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -80,8 +80,14 @@ ColumnLayout {
                 objectName: "librarySearchCard" + index
                 width: ListView.view.width
                 height: Theme.size(76)
-                color: root.popupController.cardSelected(modelData.id) ? Theme.primaryMuted : Theme.surfaceMuted
-                border.color: root.popupController.cardSelected(modelData.id) ? Theme.primary : Theme.border
+                color: root.popupController.cardSelected(modelData.id)
+                       || (root.popupController.reorderMode
+                           && root.popupController.selectedIndex === index)
+                       ? Theme.primaryMuted : Theme.surfaceMuted
+                border.color: root.popupController.cardSelected(modelData.id)
+                              || (root.popupController.reorderMode
+                                  && root.popupController.selectedIndex === index)
+                              ? Theme.primary : Theme.border
 
                 RowLayout {
                     anchors.fill: parent
@@ -99,6 +105,7 @@ ColumnLayout {
                         id: selectionBox
                         objectName: "librarySelectBox" + cardRow.index
                         visible: !root.popupController.topCardMode
+                                 && !root.popupController.reorderMode
                         Layout.preferredWidth: Theme.size(22)
                         Layout.preferredHeight: Theme.size(22)
                         radius: Theme.radiusSmall
@@ -142,6 +149,25 @@ ColumnLayout {
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(10)
                             elide: Text.ElideRight
+                        }
+                    }
+                    AppComboBox {
+                        objectName: "topCardDestination" + cardRow.index
+                        visible: root.popupController.reorderMode
+                        Layout.preferredWidth: Theme.size(220)
+                        model: root.popupController.topCardDestinations
+                        textRole: "label"
+                        valueRole: "value"
+                        currentIndex: root.popupController.topCardDestinationIndex(
+                                          cardRow.modelData.id)
+                        onActivated: function(optionIndex) {
+                            root.popupController.selectedIndex = cardRow.index
+                            const option = root.popupController.topCardDestinations[
+                                               optionIndex]
+                            if (option) {
+                                root.popupController.setTopCardDestination(
+                                            cardRow.modelData.id, option.value)
+                            }
                         }
                     }
                     AppButton {

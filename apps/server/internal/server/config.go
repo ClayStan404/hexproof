@@ -1,9 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
 
-import "time"
+import (
+	"time"
+
+	"hexproof/server/internal/rulesengine/forge"
+)
 
 // Config contains bounded public-hub operational settings. Zero values are
 // normalized to conservative defaults by NewHandlerWithConfig.
@@ -29,6 +33,9 @@ type Config struct {
 	TournamentAbandonedTTL      time.Duration
 	PasswordJoinsPerMinute      int
 	MaxConcurrentPasswordChecks int
+	// ForgeRuntime is nil when rules-enforced rooms are unavailable. A
+	// configured runtime is probed before the handler is returned.
+	ForgeRuntime *forge.ProcessConfig
 }
 
 // DefaultConfig returns limits suitable for a small public home hub. Retention

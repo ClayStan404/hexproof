@@ -10,6 +10,7 @@
     "roomId": "ABCDEF",
     "role": "player",
     "seat": 0,
-    "host": true
+    "host": true,
+    "forgeRulesAvailable": false
   }
 }

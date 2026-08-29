@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 // Package protocol defines the hexproof.v1 wire envelope and message types.
@@ -37,15 +37,16 @@ type SessionHello struct {
 // membership metadata for a restarted client to interpret the fresh room and
 // role-specific game snapshots that immediately follow.
 type SessionWelcome struct {
-	V             string `json:"v"`
-	ConnectionID  string `json:"connectionId"`
-	ServerVersion string `json:"serverVersion"`
-	ResumeToken   string `json:"resumeToken"`
-	Resumed       bool   `json:"resumed,omitempty"`
-	RoomID        string `json:"roomId,omitempty"`
-	Role          string `json:"role,omitempty"`
-	Seat          *int   `json:"seat,omitempty"`
-	Host          bool   `json:"host,omitempty"`
+	V                   string `json:"v"`
+	ConnectionID        string `json:"connectionId"`
+	ServerVersion       string `json:"serverVersion"`
+	ResumeToken         string `json:"resumeToken"`
+	Resumed             bool   `json:"resumed,omitempty"`
+	RoomID              string `json:"roomId,omitempty"`
+	Role                string `json:"role,omitempty"`
+	Seat                *int   `json:"seat,omitempty"`
+	Host                bool   `json:"host,omitempty"`
+	ForgeRulesAvailable bool   `json:"forgeRulesAvailable"`
 }
 
 // ErrorPayload is the payload of an `error` message.
@@ -67,6 +68,7 @@ type RoomCreate struct {
 	SpectatorsSeeHands bool   `json:"spectatorsSeeHands"`
 	MatchMode          string `json:"matchMode"`
 	CardLoadMode       string `json:"cardLoadMode,omitempty"`
+	RulesMode          string `json:"rulesMode"`
 	Password           string `json:"password,omitempty"`
 }
 
@@ -89,6 +91,7 @@ type RoomSettings struct {
 	MatchMode          string `json:"matchMode"`
 	CardLoadMode       string `json:"cardLoadMode"`
 	HasPassword        bool   `json:"hasPassword"`
+	RulesMode          string `json:"rulesMode"`
 }
 
 // RoomListEntry is the public, hub-local discovery projection. It never
@@ -101,6 +104,7 @@ type RoomListEntry struct {
 	DeckFormat         string `json:"deckFormat"`
 	MatchMode          string `json:"matchMode"`
 	CardLoadMode       string `json:"cardLoadMode"`
+	RulesMode          string `json:"rulesMode"`
 	MaxSeats           int    `json:"maxSeats"`
 	PlayerCount        int    `json:"playerCount"`
 	SpectatorCount     int    `json:"spectatorCount"`
@@ -327,6 +331,7 @@ type GameSnapshot struct {
 	RoomID            string                  `json:"roomId"`
 	GameNumber        int                     `json:"gameNumber"`
 	StartingSeat      int                     `json:"startingSeat"`
+	TurnOrder         []int                   `json:"turnOrder"`
 	ActiveSeat        int                     `json:"activeSeat"`
 	CurrentPhase      string                  `json:"currentPhase"`
 	LandPlaysThisTurn int                     `json:"landPlaysThisTurn"`
@@ -419,6 +424,7 @@ type RoomSnapshot struct {
 	Playtest           bool                  `json:"playtest,omitempty"`
 	MatchMode          string                `json:"matchMode"`
 	CardLoadMode       string                `json:"cardLoadMode"`
+	RulesMode          string                `json:"rulesMode"`
 	HostSeat           int                   `json:"hostSeat"`
 	HasPassword        bool                  `json:"hasPassword"`
 	Seats              []Seat                `json:"seats"`

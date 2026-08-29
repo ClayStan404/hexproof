@@ -530,6 +530,15 @@
           "required": true
         },
         {
+          "name": "turnOrder",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "integer"
+          },
+          "goType": "[]int"
+        },
+        {
           "name": "activeSeat",
           "type": "integer",
           "required": true
@@ -739,6 +748,15 @@
           "enum": [
             "CardLoadPreload",
             "CardLoadBackground"
+          ]
+        },
+        {
+          "name": "rulesMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RulesModeManual",
+            "RulesModeForge"
           ]
         },
         {

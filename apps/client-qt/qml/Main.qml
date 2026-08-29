@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -12,12 +12,13 @@ ApplicationWindow {
     property string notifiedUpdateVersion: ""
     property string notifiedDownloadPath: ""
 
-    title: "Hexproof"
+    title: Qt.application.name
     width: 1280
     height: 800
     minimumWidth: 900
     minimumHeight: 620
-    visibility: Window.Maximized
+    visibility: Qt.application.arguments.indexOf("--windowed") >= 0
+                ? Window.Windowed : Window.Maximized
     color: Theme.background
 
     function syncUiScale() {
@@ -118,7 +119,16 @@ ApplicationWindow {
                       })
     }
     function showTable() {
-        stack.replace(null, "screens/Table.qml", root.tableScreenProperties())
+        if (ws.roomSession.rulesMode === "forge") {
+            stack.replace(null, "screens/RulesTable.qml",
+                          {
+                              "wsModel": ws,
+                              "cardCatalogModel": cardCatalog
+                          })
+        } else {
+            stack.replace(null, "screens/Table.qml",
+                          root.tableScreenProperties())
+        }
     }
 
     Connections {

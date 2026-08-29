@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -15,6 +15,7 @@ class GameSessionState : public QObject
     Q_OBJECT
     Q_PROPERTY(int gameNumber READ gameNumber NOTIFY snapshotChanged)
     Q_PROPERTY(int startingSeat READ startingSeat NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantList turnOrder READ turnOrder NOTIFY snapshotChanged)
     Q_PROPERTY(int activeSeat READ activeSeat NOTIFY snapshotChanged)
     Q_PROPERTY(QString currentPhase READ currentPhase NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList score READ score NOTIFY snapshotChanged)
@@ -29,6 +30,10 @@ class GameSessionState : public QObject
 
     int gameNumber() const { return m_gameNumber; }
     int startingSeat() const { return m_startingSeat; }
+    QVariantList turnOrder() const
+    {
+        return m_turnOrder;
+    }
     int activeSeat() const { return m_activeSeat; }
     QString currentPhase() const { return m_currentPhase; }
     QVariantList seats() const { return m_seats; }
@@ -57,6 +62,7 @@ class GameSessionState : public QObject
   private:
     int m_gameNumber = 0;
     int m_startingSeat = -1;
+    QVariantList m_turnOrder;
     int m_activeSeat = -1;
     QString m_currentPhase;
     QVariantList m_seats;

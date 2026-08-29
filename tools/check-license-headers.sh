@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 set -euo pipefail
@@ -23,8 +23,8 @@ while IFS= read -r -d '' file; do
     esac
 
     header="$(head -n 5 "$file")"
-    if ! grep -Fq "SPDX-License-Identifier: GPL-2.0-only" <<<"$header"; then
-        echo "missing GPL-2.0-only SPDX header: $file" >&2
+    if ! grep -Fq "SPDX-License-Identifier: GPL-3.0-or-later" <<<"$header"; then
+        echo "missing GPL-3.0-or-later SPDX header: $file" >&2
         failed=1
     fi
     if ! grep -Fq "SPDX-FileCopyrightText:" <<<"$header"; then

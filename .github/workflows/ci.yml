@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 name: CI
@@ -64,8 +64,8 @@ jobs:
         shell: bash
         run: |
           scripts=(tools/card-database-builder/build-latest.sh)
-          if [[ -f deploy/update-public-server.sh ]]; then
-            scripts+=(deploy/update-public-server.sh)
+          if [[ -f deploy/deploy-release-server.sh ]]; then
+            scripts+=(deploy/deploy-release-server.sh)
           fi
           shellcheck "${scripts[@]}"
       - name: Check QML text safety

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package limited
@@ -67,7 +67,14 @@ const (
 	draftPacksPerPlayer     = 3
 	draftSeats              = 8
 	cubeDraftCardsPerPack   = 15
+
+	MinCubeDraftPlayers = 4
+	MaxCubeDraftPlayers = 8
 )
+
+func CubeDraftCardsRequired(players int) int {
+	return players * draftPacksPerPlayer * cubeDraftCardsPerPack
+}
 
 func newCardInstance(id string, card protocol.LimitedCardDefinition) *CardInstance {
 	return &CardInstance{
@@ -87,10 +94,14 @@ func New(config Config, seed int64) (*Event, error) {
 	if len(config.Participants) < 2 || len(config.Participants) > 64 {
 		return nil, fail(ErrInvalid, "invalid limited participant count")
 	}
-	if (config.EventType == protocol.LimitedEventSetDraft ||
-		config.EventType == protocol.LimitedEventCubeDraft) &&
+	if config.EventType == protocol.LimitedEventSetDraft &&
 		len(config.Participants) != draftSeats {
 		return nil, fail(ErrInvalid, "draft requires exactly eight players")
+	}
+	if config.EventType == protocol.LimitedEventCubeDraft &&
+		(len(config.Participants) < MinCubeDraftPlayers ||
+			len(config.Participants) > MaxCubeDraftPlayers) {
+		return nil, fail(ErrInvalid, "Cube draft requires four to eight players")
 	}
 	product, err := NewProduct(config.Product)
 	if err != nil {
@@ -125,7 +136,7 @@ func New(config Config, seed int64) (*Event, error) {
 	}
 	if isCube {
 		event.cubeStock = product.cubeStock()
-		required := len(event.Players) * draftPacksPerPlayer * cubeDraftCardsPerPack
+		required := CubeDraftCardsRequired(len(event.Players))
 		if len(event.cubeStock) < required {
 			return nil, fail(ErrInvalid, "Cube does not contain enough cards")
 		}

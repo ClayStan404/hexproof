@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -36,6 +36,7 @@ class CardArtCache
     QString key(const QString &name, const QString &language, const QString &setCode = {},
                 const QString &collectorNumber = {}) const;
     CardRecord exactRecord(const QString &key) const;
+    bool matchesRequestedFace(const CardRequest &request, const CardRecord &record) const;
     CardRecord resolvedPrinting(const CardRequest &request) const;
     CardRecord reusableArt(const CardRequest &request, const CardRecord &catalogIdentity) const;
     CardRecord substituteRecord(const CardRequest &request, const CardRecord &catalogIdentity,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "services/BackgroundTaskPools.h"
@@ -44,6 +44,7 @@ class TestCardServices final : public QObject
     void networkReplyLimiterRejectsOversizePayloads() const;
     void imageTimeoutDoesNotOpenHostCooldown() const;
     void artCachePersistsPolicyAndReusesOraclePrinting() const;
+    void artCacheRejectsCachedWrongDoubleFace() const;
     void artCachePreservesCorruptMetadataBeforeWriting() const;
 };
 
@@ -437,6 +438,39 @@ void TestCardServices::artCachePersistsPolicyAndReusesOraclePrinting() const
     QVERIFY(!restored.reusableArt(request, identity).valid());
     const CardRequest unspecifiedPrinting{u"Sol Ring"_s, {}, {}, u"zh"_s};
     QVERIFY(restored.reusableArt(unspecifiedPrinting, identity).valid());
+}
+
+void TestCardServices::artCacheRejectsCachedWrongDoubleFace() const
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    CardArtCache cache(directory.path());
+    const QString imagePath =
+        cache.imagePath(u"Ajani, Nacatl Avenger"_s, u"https://images.test/front.webp"_s, u"zh"_s);
+    QFile image(imagePath);
+    QVERIFY(image.open(QIODevice::WriteOnly));
+    QCOMPARE(image.write("cached"), 6);
+    image.close();
+
+    CardRecord stale;
+    stale.requestedName = u"Ajani, Nacatl Avenger"_s;
+    stale.name = u"Ajani, Nacatl Pariah // Ajani, Nacatl Avenger"_s;
+    stale.oracleId = u"ajani-oracle"_s;
+    stale.setCode = u"MH3"_s;
+    stale.collectorNumber = u"237"_s;
+    stale.imageLanguage = u"zh"_s;
+    stale.imagePath = imagePath;
+    stale.resolutionVersion = catalog_internal::kCardResolutionVersion;
+    cache.rememberSuccess(
+        cache.key(stale.requestedName, u"zh"_s, stale.setCode, stale.collectorNumber), stale);
+
+    const CardRequest backRequest{u"Ajani, Nacatl Avenger"_s, u"MH3"_s, u"237"_s, u"zh"_s};
+    QVERIFY(!cache.matchesRequestedFace(backRequest, stale));
+    QVERIFY(!cache.resolvedPrinting(backRequest).valid());
+
+    stale.faceName = u"Ajani, Nacatl Avenger"_s;
+    QVERIFY(cache.matchesRequestedFace(backRequest, stale));
 }
 
 void TestCardServices::artCachePreservesCorruptMetadataBeforeWriting() const

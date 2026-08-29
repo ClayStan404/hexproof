@@ -3,17 +3,40 @@
 [![CI](https://github.com/ClayStan404/hexproof/actions/workflows/ci.yml/badge.svg)](https://github.com/ClayStan404/hexproof/actions/workflows/ci.yml)
 
 Hexproof is a native desktop multiplayer tabletop for Magic: The Gathering.
-Players move cards and resolve card rules themselves, while the application
-keeps shared zones, hidden information, turns, combat declarations, and match
-state synchronized.
+Its existing manual tables let players resolve card rules themselves while the
+application synchronizes zones, hidden information, turns, combat declarations,
+and match state. An optional Forge-backed rules mode is under active development
+for players who prefer enforced legal actions, priority, triggers, and stack
+resolution.
 
-It is intentionally **not a card-rules engine**. Hexproof provides a fast,
-flexible table for real decks without accounts, matchmaking, or a browser
-shell. The client supports English and Simplified Chinese on Linux, Windows,
-and macOS.
+Hexproof keeps both experiences focused and native without accounts,
+matchmaking, or a browser shell. The client supports English and Simplified
+Chinese on Linux, Windows, and macOS.
 
-Current version: **1.0.0**. Client and server application versions must match
+Current version: **1.0.3**. Client and server application versions must match
 exactly.
+
+## Download
+
+Prebuilt client packages for Windows x64, macOS (Apple Silicon and Intel),
+and Linux x86_64 are published on the
+[Releases page](https://github.com/ClayStan404/hexproof/releases). The
+in-client update check offers the same packages automatically at most once
+per 24 hours. The card database is a separate download installed through
+in-client **Settings**.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Main menu](.github/screenshots/home.png) | ![Rooms on a hub](.github/screenshots/hub-rooms.png) |
+| ![Waiting room](.github/screenshots/waiting-room.png) | ![Battlefield](.github/screenshots/battlefield.png) |
+| ![Deck import](.github/screenshots/deck-import.png) | ![Printing picker](.github/screenshots/printing-picker.png) |
+
+The main menu, hub room browser, and a waiting room with its room code, seat,
+deck, and ready state. The battlefield shows the synchronized manual table
+with library counts, phase controls, and the public game log. The deck
+screens show plain-text import and per-card printing selection.
 
 ## What is implemented
 
@@ -76,11 +99,12 @@ exactly.
 
 ## Product boundary
 
-Hexproof automates shared state and safe tabletop operations, not Magic card
-rules. Players and tournament organizers remain responsible for card text,
-legal targets, triggers, priority, replacement effects, penalties, and unusual
-interactions. There are no core accounts, ladder, global matchmaking service,
-collection economy, or web client.
+Manual rooms preserve Hexproof's free-form tabletop: players and tournament
+organizers remain responsible for card text, legal targets, triggers, priority,
+replacement effects, penalties, and unusual interactions. Optional rules rooms
+delegate game rules to a server-hosted Forge runtime. There are no core
+accounts, ladder, global matchmaking service, collection economy, or web
+client.
 
 Deck validation is advisory and depends on the installed local catalog. A
 missing or outdated catalog produces an unverified result instead of a false
@@ -148,6 +172,11 @@ Use `./build/server/hexproof-server -help` to inspect capacity, retention,
 rate-limit, and trusted-proxy options before exposing a public hub. Put a
 TLS-capable reverse proxy or tunnel in front of the localhost listener for
 Internet-facing `wss://` service.
+
+Manual rooms require no Java runtime. To enable the optional Forge rules room
+selector, build the pinned payload under `third_party/forge-runtime/` and start
+the server with matching `-forge-harness` and `-forge-home` paths. See
+`docs/rules-engine.md` for the authority and privacy boundary.
 
 ### Client
 
@@ -238,8 +267,10 @@ hours, with an explicit Settings refresh available. Draft releases are not
 offered to users.
 
 Unsigned macOS Actions artifacts are ad-hoc signed and not Apple-notarized.
-For review builds, right-click `Hexproof.app`, choose **Open**, and confirm, or
-run `xattr -cr /path/to/Hexproof.app` before launching it. Properly signed and
+For review builds, try to launch once, then open System Settings -> Privacy &
+Security and click **Open Anyway**; on older macOS releases, right-click
+`Hexproof.app`, choose **Open**, and confirm, or run
+`xattr -cr /path/to/Hexproof.app` before launching it. Properly signed and
 notarized releases do not require this bypass.
 
 ## Repository layout
@@ -251,11 +282,19 @@ notarized releases do not require this bypass.
 | `protocol/v1/` | Canonical `hexproof.v1` wire schema |
 | `testdata/protocol/v1/` | Shared client/server protocol fixtures |
 | `packaging/` | Client, server, and card-database release tooling |
+| `third_party/forge-runtime/` | Pinned Manabrew/Forge revisions and the optional rules-runtime build |
 | `tools/` | Verification, code generation, database builder, and UI test helpers |
 
 ## Contributing
 
+Report bugs and suggest features by opening an issue at
+https://github.com/ClayStan404/hexproof/issues. Include the application
+version and card-database build shown in **Settings**, your operating system,
+the hub you were connected to, and the shortest steps that reproduce the
+problem. Do not paste room passwords or resume tokens into public issues.
+
 Keep changes focused and preserve the manual-tabletop and privacy boundaries.
+Rules-engine work must also follow [`docs/rules-engine.md`](docs/rules-engine.md).
 Format Go with `gofmt`; follow the existing Qt style; retain SPDX headers; and
 add owner/opponent/spectator tests for hidden-information changes.
 
@@ -271,6 +310,12 @@ Update shared fixtures under `testdata/protocol/v1/` and run
 
 ## License
 
-Hexproof is licensed under GPL-2.0-only; see [`LICENSE`](LICENSE). Files that
+Hexproof is licensed under GPL-3.0-or-later; see [`LICENSE`](LICENSE). Files that
 incorporate third-party work retain their applicable upstream copyright
-notices.
+notices. Forge/Manabrew attribution is in
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+
+This is unofficial fan software. It is not affiliated with, endorsed by, or
+sponsored by Wizards of the Coast LLC or by the Forge project. Magic: The
+Gathering, card names, rules text, and related marks are property of Wizards
+of the Coast LLC. Card images are not shipped by this project.

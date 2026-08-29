@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardCatalogCommon.h"
@@ -154,7 +154,7 @@ QVariantList CatalogRepository::cardFaces(const QString &name, const QString &se
     const QString backTypeLine =
         typeLines.size() == names.size() ? typeLines.at(1).simplified() : QString{};
     result.append(QVariantMap{
-        {QStringLiteral("name"), cardName},
+        {QStringLiteral("name"), names.at(0).simplified()},
         {QStringLiteral("faceName"), QString{}},
         {QStringLiteral("displayName"), names.at(0).simplified()},
         {QStringLiteral("typeLine"), frontTypeLine},

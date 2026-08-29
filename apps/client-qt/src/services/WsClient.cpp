@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "WsClient.h"
@@ -44,6 +44,8 @@ WsClient::WsClient(QObject *parent)
             &WsClient::gameSnapshotChanged);
     connect(m_gameSession, &GameSessionState::snapshotDataChanged, this,
             &WsClient::gameSnapshotDataChanged);
+
+    m_rulesSession = new RulesSessionState(this);
 
     m_serverDirectory = new ServerDirectory(this);
     connect(m_serverDirectory, &ServerDirectory::latenciesChanged, this,
@@ -153,6 +155,7 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
 {
     clearLastError();
     clearVersionMismatch();
+    setForgeRulesAvailable(false);
     const QString nextServerUrl = url.trimmed();
     if (m_serverUrl != nextServerUrl) {
         m_serverUrl = nextServerUrl;
@@ -359,6 +362,7 @@ void WsClient::onDisconnected()
         return;
     }
     setState(Disconnected);
+    setForgeRulesAvailable(false);
     if (hadRoom) {
         clearRoomState();
         emit inRoomChanged();
@@ -430,9 +434,18 @@ void WsClient::clearVersionMismatch()
     emit versionMismatchChanged();
 }
 
+void WsClient::setForgeRulesAvailable(bool available)
+{
+    if (m_forgeRulesAvailable == available)
+        return;
+    m_forgeRulesAvailable = available;
+    emit capabilitiesChanged();
+}
+
 void WsClient::clearGameState()
 {
     m_gameSession->clear();
+    m_rulesSession->clear();
 }
 
 void WsClient::clearRoomState()

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -75,6 +75,37 @@ func TestCreateDuelCommanderCanonicalizesSeatsAndKeepsBO3(t *testing.T) {
 		t.Fatalf("duel settings = %+v", created.Settings)
 	}
 	host.recvType(protocol.TypeRoomSnapshot)
+}
+
+func TestForgeRoomRequiresConfiguredRuntime(t *testing.T) {
+	srv, _ := newTestServer(t)
+	host := dial(t, srv)
+	defer host.close()
+	welcomeEnvelope := host.hello("Alice")
+	var welcome protocol.SessionWelcome
+	if err := welcomeEnvelope.DecodePayload(&welcome); err != nil {
+		t.Fatalf("decode welcome: %v", err)
+	}
+	if welcome.ForgeRulesAvailable {
+		t.Fatal("default test server unexpectedly advertised Forge rules")
+	}
+
+	request, _ := protocol.NewEnvelope(protocol.TypeRoomCreate, protocol.RoomCreate{
+		Name: "Rules table", Format: protocol.FormatModern,
+		DeckFormat: protocol.DeckFormatModern, MaxSeats: 2,
+		AllowSpectators: true, MatchMode: protocol.MatchBO1,
+		CardLoadMode: protocol.CardLoadPreload, RulesMode: protocol.RulesModeForge,
+	})
+	request.ID = "forge-create"
+	host.send(request)
+	response := host.recvType(protocol.TypeError)
+	var payload protocol.ErrorPayload
+	if err := response.DecodePayload(&payload); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if response.ID != request.ID || payload.Code != protocol.ErrRulesUnavailable {
+		t.Fatalf("forge create response = id %q payload %+v", response.ID, payload)
+	}
 }
 
 func TestHubRoomListExposesOnlyPublicJoinMetadata(t *testing.T) {

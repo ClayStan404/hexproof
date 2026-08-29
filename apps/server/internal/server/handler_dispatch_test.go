@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -38,6 +38,7 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypeDeckSelect,
 		protocol.TypePlayerReady,
 		protocol.TypeClientLoadComplete,
+		protocol.TypeRulesRespond,
 		protocol.TypeGameDraw,
 		protocol.TypeGameShuffleLibrary,
 		protocol.TypeGameMulligan,

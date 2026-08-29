@@ -9,7 +9,10 @@ CardCounterEditor 1.0 CardCounterEditor.qml
 CardFacePicker 1.0 CardFacePicker.qml
 ConfigurableShortcut 1.0 ConfigurableShortcut.qml
 LibrarySearchPopup 1.0 LibrarySearchPopup.qml
+LimitedCardGrouping 1.0 LimitedCardGrouping.qml
+LimitedCardGroupView 1.0 LimitedCardGroupView.qml
 LimitedSetPicker 1.0 LimitedSetPicker.qml
+PackOpeningOverlay 1.0 PackOpeningOverlay.qml
 LifeEditorPopup 1.0 LifeEditorPopup.qml
 NumberInputPopup 1.0 NumberInputPopup.qml
 PlayerCounterPip 1.0 PlayerCounterPip.qml

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -302,6 +302,11 @@ Page {
                                     visible: roomRow.modelData.spectatorsSeeHands === true
                                     text: qsTr("Hands visible")
                                     statusColor: Theme.warning
+                                }
+                                StatusPill {
+                                    visible: roomRow.modelData.rulesMode === "forge"
+                                    text: qsTr("Forge rules")
+                                    statusColor: Theme.accent
                                 }
                             }
 

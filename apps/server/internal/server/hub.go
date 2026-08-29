@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 // Package server is the WebSocket hub: it owns the room registry, per-connection
@@ -203,7 +203,17 @@ func (h *Hub) CreateRoom(name, format, matchMode, cardLoadMode string, maxSeats 
 func (h *Hub) CreateRoomWithDeckFormat(name, format, deckFormat, matchMode,
 	cardLoadMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool, password string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, maxSeats,
+	return h.CreateRoomWithRulesMode(name, format, deckFormat, matchMode, cardLoadMode,
+		protocol.RulesModeManual, maxSeats, allowSpectators, spectatorsSeeHands, password, host)
+}
+
+// CreateRoomWithRulesMode creates an ordinary room with an immutable gameplay
+// authority. Runtime availability is checked by the handler before the room
+// is published.
+func (h *Hub) CreateRoomWithRulesMode(name, format, deckFormat, matchMode, cardLoadMode,
+	rulesMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool, password string,
+	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
+	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, maxSeats,
 		allowSpectators, spectatorsSeeHands, password, "", "", "", host)
 }
 
@@ -213,12 +223,13 @@ func (h *Hub) CreateRoomWithDeckFormat(name, format, deckFormat, matchMode,
 func (h *Hub) createTournamentRoom(name, format, deckFormat, matchMode, cardLoadMode string,
 	maxSeats int, tournamentID, tournamentPairing, tournamentParticipantID string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, maxSeats, false,
+	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode,
+		protocol.RulesModeManual, maxSeats, false,
 		false, "", tournamentID, tournamentPairing, tournamentParticipantID, host)
 }
 
-func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode string, maxSeats int,
-	allowSpectators, spectatorsSeeHands bool, password, tournamentID, tournamentPairing,
+func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode string,
+	maxSeats int, allowSpectators, spectatorsSeeHands bool, password, tournamentID, tournamentPairing,
 	tournamentParticipantID string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
 	if !protocol.ValidDeckFormat(deckFormat) ||
@@ -254,8 +265,8 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode strin
 		if _, ok := h.rooms[id]; ok {
 			continue // collision, retry
 		}
-		r, err = room.New(id, name, format, matchMode, cardLoadMode, maxSeats, allowSpectators,
-			len(hash) > 0, host.DisplayName, host.ConnectionID, time.Now())
+		r, err = room.NewWithRulesMode(id, name, format, matchMode, cardLoadMode, rulesMode,
+			maxSeats, allowSpectators, len(hash) > 0, host.DisplayName, host.ConnectionID, time.Now())
 		if err != nil {
 			return nil, protocol.RoomSnapshot{}, 0, nil, err
 		}
@@ -626,6 +637,35 @@ func (h *Hub) GameProjections(r *room.Room) (map[string]protocol.Envelope, error
 		projections[connID] = envelope.WithSeq(seq)
 	}
 	return projections, nil
+}
+
+// RulesProjectionTargets snapshots the authenticated viewer seat for each
+// current room member and allocates one shared room sequence number. A seat of
+// -1 denotes the explicit spectator projection.
+func (h *Hub) RulesProjectionTargets(r *room.Room) (map[string]int, int64, error) {
+	if r == nil {
+		return nil, 0, &protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	entry := h.roomEntryFor(r.ID)
+	if entry == nil {
+		return nil, 0, &protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.room != r || r.RulesMode != protocol.RulesModeForge ||
+		r.Phase != protocol.RoomPhaseStarted {
+		return nil, 0, &protocolError{code: protocol.ErrGameNotStarted, message: "game not started"}
+	}
+	targets := make(map[string]int, r.PlayerCount()+len(r.Spectators))
+	for seatIndex, seat := range r.Seats {
+		if seat.Occupied {
+			targets[seat.ConnectionID] = seatIndex
+		}
+	}
+	for _, spectator := range r.Spectators {
+		targets[spectator.ConnectionID] = -1
+	}
+	return targets, r.AllocSeq(), nil
 }
 
 // DisbandRoom validates that actorConnID is the host and disbands the room in

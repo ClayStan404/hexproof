@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "wsclient_test.h"
@@ -374,15 +374,12 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
         return ok ? envelope : Envelope{};
     };
 
+    const QVariantMap cubeProduct{{u"id"_s, u"cube-1"_s},         {u"name"_s, u"Test Cube"_s},
+                                  {u"productType"_s, u"cube"_s},  {u"authentic"_s, false},
+                                  {u"cardsPerPack"_s, 0},         {u"sheets"_s, QVariantList{}},
+                                  {u"variants"_s, QVariantList{}}};
     client.createCasualLimitedEvent(u"Cube night"_s, hexproof::protocol::kLimitedEventCubeDraft,
-                                    u"bo1"_s, 8,
-                                    QVariantMap{{u"id"_s, u"cube-1"_s},
-                                                {u"name"_s, u"Test Cube"_s},
-                                                {u"productType"_s, u"cube"_s},
-                                                {u"authentic"_s, false},
-                                                {u"cardsPerPack"_s, 0},
-                                                {u"sheets"_s, QVariantList{}},
-                                                {u"variants"_s, QVariantList{}}});
+                                    u"bo1"_s, 8, cubeProduct);
     const Envelope createCasual = nextOutbound();
     QCOMPARE(createCasual.type, hexproof::protocol::kTypeTournamentCreate);
     QCOMPARE(createCasual.payload.value(u"eventType"_s).toString(),
@@ -391,6 +388,16 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
     QCOMPARE(createCasual.payload.value(u"coordinator"_s).toString(),
              hexproof::protocol::kLimitedCoordinatorCasual);
     QVERIFY(!createCasual.payload.contains(u"cardsPerPlayer"_s));
+
+    client.createLimitedTournament(u"Ranked Cube"_s, hexproof::protocol::kLimitedEventCubeDraft,
+                                   u"bo1"_s, 50, 8, 0, cubeProduct);
+    const Envelope createSwissCube = nextOutbound();
+    QCOMPARE(createSwissCube.type, hexproof::protocol::kTypeTournamentCreate);
+    QCOMPARE(createSwissCube.payload.value(u"eventType"_s).toString(),
+             hexproof::protocol::kLimitedEventCubeDraft);
+    QCOMPARE(createSwissCube.payload.value(u"format"_s).toString(), u"Cube"_s);
+    QVERIFY(!createSwissCube.payload.contains(u"coordinator"_s));
+    QVERIFY(!createSwissCube.payload.contains(u"plannedRounds"_s));
 
     client.requestTournamentList();
     QCOMPARE(nextOutbound().type, hexproof::protocol::kTypeTournamentList);
@@ -799,6 +806,7 @@ void TestWsClient::gameSessionStateExposesQmlBindableSnapshot() const
     session.applySnapshot({
         {u"gameNumber"_s, 2},
         {u"startingSeat"_s, 1},
+        {u"turnOrder"_s, QVariantList{1, 0}},
         {u"activeSeat"_s, 0},
         {u"currentPhase"_s, u"declare_attackers"_s},
         {u"score"_s, QVariantList{1, 0}},
@@ -809,6 +817,7 @@ void TestWsClient::gameSessionStateExposesQmlBindableSnapshot() const
 
     QCOMPARE(session.property("gameNumber").toInt(), 2);
     QCOMPARE(session.property("startingSeat").toInt(), 1);
+    QCOMPARE(session.property("turnOrder").toList(), QVariantList({1, 0}));
     QCOMPARE(session.property("activeSeat").toInt(), 0);
     QCOMPARE(session.property("currentPhase").toString(), u"declare_attackers"_s);
     QCOMPARE(session.property("score").toList().size(), 2);
@@ -816,6 +825,167 @@ void TestWsClient::gameSessionStateExposesQmlBindableSnapshot() const
     QCOMPARE(session.property("result").toMap().value(u"winnerSeat"_s).toInt(), 0);
     QCOMPARE(session.property("finished").toBool(), true);
     QCOMPARE(session.property("sideboarding").toBool(), true);
+}
+
+void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
+{
+    bool ok = false;
+    const Envelope snapshot = sharedFixture(u"rules-snapshot-owner.json"_s, &ok);
+    QVERIFY(ok);
+
+    RulesSessionState session;
+    QSignalSpy changed(&session, &RulesSessionState::snapshotChanged);
+    QVERIFY(session.applySnapshot(snapshot.payload));
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(session.roomId(), u"ABCDEF"_s);
+    QCOMPARE(session.gameId(), u"ABCDEF-1"_s);
+    QCOMPARE(session.turn(), 1);
+    QCOMPARE(session.step(), u"main1"_s);
+    QCOMPARE(session.activeSeat(), 0);
+    QCOMPARE(session.prioritySeat(), 0);
+    QVERIFY(!session.gameOver());
+    QVERIFY(!session.hasWinner());
+
+    auto *players = session.players();
+    QCOMPARE(players->rowCount(), 2);
+    const auto playerRoles = players->roleNames().key(QByteArrayLiteral("name"));
+    QCOMPARE(players->data(players->index(0), playerRoles).toString(), u"Alice"_s);
+    const auto lifeRole = players->roleNames().key(QByteArrayLiteral("life"));
+    QCOMPARE(players->data(players->index(0), lifeRole).toInt(), 20);
+
+    auto *zones = session.zones();
+    QCOMPARE(zones->rowCount(), 2);
+    auto *zoneCards = session.zoneCards();
+    QCOMPARE(zoneCards->rowCount(), 1);
+    const auto cardNameRole = zoneCards->roleNames().key(QByteArrayLiteral("name"));
+    QCOMPARE(zoneCards->data(zoneCards->index(0), cardNameRole).toString(), u"Lightning Bolt"_s);
+    const auto zoneOwnerRole = zoneCards->roleNames().key(QByteArrayLiteral("zoneOwnerSeat"));
+    QCOMPARE(zoneCards->data(zoneCards->index(0), zoneOwnerRole).toInt(), 0);
+    QCOMPARE(session.battlefieldCards()->rowCount(), 0);
+    QCOMPARE(session.stack()->rowCount(), 0);
+
+    const Envelope prompt = sharedFixture(u"rules-prompt.json"_s, &ok);
+    QVERIFY(ok);
+    QSignalSpy promptChanged(&session, &RulesSessionState::promptChanged);
+    QVERIFY(session.applyPrompt(prompt.payload));
+    QCOMPARE(promptChanged.count(), 1);
+    QVERIFY(session.promptPending());
+    QVERIFY(session.promptSupported());
+    QCOMPARE(session.promptId(), 7);
+    QCOMPARE(session.promptKind(), u"chooseAction"_s);
+    QCOMPARE(session.promptOptions()->rowCount(), 3);
+    const auto responseIdRole =
+        session.promptOptions()->roleNames().key(QByteArrayLiteral("responseId"));
+    QCOMPARE(
+        session.promptOptions()->data(session.promptOptions()->index(0), responseIdRole).toString(),
+        u"action:0"_s);
+
+    QJsonObject cardPrompt = prompt.payload;
+    cardPrompt.insert(u"promptId"_s, 10);
+    cardPrompt.insert(u"kind"_s, u"chooseCards"_s);
+    cardPrompt.insert(u"options"_s, QJsonArray{});
+    cardPrompt.insert(u"cards"_s, QJsonArray{QJsonObject{{u"id"_s, u"card-a"_s},
+                                                         {u"name"_s, u"Plains"_s},
+                                                         {u"setCode"_s, u"M21"_s},
+                                                         {u"collectorNumber"_s, u"309"_s}}});
+    cardPrompt.insert(u"minCardSelections"_s, 0);
+    cardPrompt.insert(u"maxCardSelections"_s, 1);
+    QVERIFY(session.applyPrompt(cardPrompt));
+    QCOMPARE(session.promptCards()->rowCount(), 1);
+    QCOMPARE(session.promptMinCardSelections(), 0);
+    QCOMPARE(session.promptMaxCardSelections(), 1);
+
+    QJsonObject orderPrompt = prompt.payload;
+    orderPrompt.insert(u"promptId"_s, 11);
+    orderPrompt.insert(u"kind"_s, u"reorder"_s);
+    orderPrompt.insert(u"options"_s, QJsonArray{});
+    orderPrompt.insert(u"orderItems"_s,
+                       QJsonArray{QJsonObject{{u"responseId"_s, u"order:0"_s},
+                                              {u"name"_s, u"Teval"_s},
+                                              {u"setCode"_s, u"DFT"_s},
+                                              {u"collectorNumber"_s, u"199"_s},
+                                              {u"oracle"_s, u"Create a token."_s}},
+                                  QJsonObject{{u"responseId"_s, u"order:1"_s},
+                                              {u"name"_s, u"Teval's Judgment"_s}}});
+    QVERIFY(session.applyPrompt(orderPrompt));
+    QCOMPARE(session.promptOrderItems()->rowCount(), 2);
+    const QVariantList orderItems = session.promptOrderItems()->items();
+    QCOMPARE(orderItems.at(0).toMap().value(u"responseId"_s).toString(), u"order:0"_s);
+    QCOMPARE(orderItems.at(0).toMap().value(u"oracle"_s).toString(), u"Create a token."_s);
+
+    QJsonObject choicePrompt = prompt.payload;
+    choicePrompt.insert(u"promptId"_s, 9);
+    choicePrompt.insert(u"kind"_s, u"chooseFromSelection"_s);
+    choicePrompt.insert(u"options"_s, QJsonArray{});
+    choicePrompt.insert(u"choices"_s, QJsonArray{QJsonObject{{u"responseId"_s, u"choice:0"_s},
+                                                             {u"label"_s, u"First mode"_s},
+                                                             {u"weight"_s, 2},
+                                                             {u"canRepeat"_s, true}}});
+    choicePrompt.insert(u"minChoiceTotal"_s, 2);
+    choicePrompt.insert(u"maxChoiceTotal"_s, 4);
+    QVERIFY(session.applyPrompt(choicePrompt));
+    QCOMPARE(session.promptChoices()->rowCount(), 1);
+    QCOMPARE(session.promptMinChoiceTotal(), 2);
+    QCOMPARE(session.promptMaxChoiceTotal(), 4);
+    const auto weightRole = session.promptChoices()->roleNames().key(QByteArrayLiteral("weight"));
+    QCOMPARE(session.promptChoices()->data(session.promptChoices()->index(0), weightRole).toInt(),
+             2);
+
+    QJsonObject combatPrompt = prompt.payload;
+    combatPrompt.insert(u"promptId"_s, 8);
+    combatPrompt.insert(u"kind"_s, u"chooseAttackers"_s);
+    combatPrompt.insert(u"options"_s, QJsonArray{});
+    combatPrompt.insert(u"combatTargets"_s,
+                        QJsonArray{QJsonObject{{u"responseId"_s, u"combat-target:0"_s},
+                                               {u"kind"_s, u"player"_s},
+                                               {u"label"_s, u"Bob · Seat 2"_s},
+                                               {u"minAssignments"_s, 0},
+                                               {u"maxAssignments"_s, 1},
+                                               {u"mustReceiveIfAble"_s, false}}});
+    combatPrompt.insert(
+        u"combatSources"_s,
+        QJsonArray{QJsonObject{{u"responseId"_s, u"combat-source:0"_s},
+                               {u"objectId"_s, u"card-a"_s},
+                               {u"label"_s, u"Goblin Guide"_s},
+                               {u"name"_s, u"Goblin Guide"_s},
+                               {u"setCode"_s, u"ZEN"_s},
+                               {u"collectorNumber"_s, u"126"_s},
+                               {u"validTargetIds"_s, QJsonArray{u"combat-target:0"_s}},
+                               {u"mustAssignIfAble"_s, true}}});
+    QVERIFY(session.applyPrompt(combatPrompt));
+    QCOMPARE(session.promptCombat()->rowCount(), 1);
+    QVERIFY(session.promptCombat()->validAssignments({}));
+    QVERIFY(
+        session.promptCombat()->validAssignments({{u"combat-source:0"_s, u"combat-target:0"_s}}));
+
+    QJsonObject inconsistent = snapshot.payload;
+    QJsonArray zonesWithHiddenIdentity = inconsistent.value(u"zones"_s).toArray();
+    QJsonObject hiddenHand = zonesWithHiddenIdentity.at(1).toObject();
+    hiddenHand.insert(u"cards"_s, QJsonArray{QJsonObject{
+                                      {u"id"_s, u"hidden-card"_s},
+                                      {u"visible"_s, false},
+                                      {u"identity"_s, QJsonObject{{u"name"_s, u"Secret card"_s}}},
+                                      {u"ownerSeat"_s, 1},
+                                      {u"controllerSeat"_s, 1},
+                                      {u"counters"_s, QJsonArray{}}}});
+    zonesWithHiddenIdentity.replace(1, hiddenHand);
+    inconsistent.insert(u"zones"_s, zonesWithHiddenIdentity);
+    QVERIFY(session.applySnapshot(inconsistent));
+    QCOMPARE(session.zoneCards()->rowCount(), 2);
+    const auto visibleRole = zoneCards->roleNames().key(QByteArrayLiteral("visibleIdentity"));
+    QVERIFY(!zoneCards->data(zoneCards->index(1), visibleRole).toBool());
+    QVERIFY(zoneCards->data(zoneCards->index(1), cardNameRole).toString().isEmpty());
+
+    session.clear();
+    QVERIFY(!session.active());
+    QCOMPARE(session.players()->rowCount(), 0);
+    QCOMPARE(session.zones()->rowCount(), 0);
+    QCOMPARE(session.battlefieldCards()->rowCount(), 0);
+    QCOMPARE(session.zoneCards()->rowCount(), 0);
+    QVERIFY(!session.promptPending());
+    QCOMPARE(session.promptOptions()->rowCount(), 0);
+    QCOMPARE(session.promptChoices()->rowCount(), 0);
+    QCOMPARE(session.promptCombat()->rowCount(), 0);
 }
 
 void TestWsClient::dispatchesSharedSessionRoomAndGameFixtures() const
@@ -870,20 +1040,41 @@ void TestWsClient::dispatchesSharedSessionRoomAndGameFixtures() const
     QCOMPARE(
         seats.at(1).toMap().value(u"hand"_s).toList().first().toMap().value(u"name"_s).toString(),
         u"Island"_s);
+
+    QSignalSpy rulesSnapshots(client.rulesSession(), &RulesSessionState::snapshotChanged);
+    Envelope rules = sharedFixture(u"rules-snapshot-owner.json"_s, &ok);
+    QVERIFY(ok);
+    sendEnvelope(peer, rules);
+    QTRY_COMPARE_WITH_TIMEOUT(rulesSnapshots.count(), 1, 1000);
+    QCOMPARE(client.rulesSession()->gameId(), u"ABCDEF-1"_s);
+    QCOMPARE(client.rulesSession()->players()->rowCount(), 2);
+    QCOMPARE(client.rulesSession()->zoneCards()->rowCount(), 1);
+
+    QSignalSpy rulesPrompts(client.rulesSession(), &RulesSessionState::promptChanged);
+    Envelope prompt = sharedFixture(u"rules-prompt.json"_s, &ok);
+    QVERIFY(ok);
+    sendEnvelope(peer, prompt);
+    QTRY_COMPARE_WITH_TIMEOUT(rulesPrompts.count(), 1, 1000);
+    QVERIFY(client.rulesSession()->promptPending());
+    QCOMPARE(client.rulesSession()->promptOptions()->rowCount(), 3);
 }
 
-void TestWsClient::exposesRoomAndGameSessionsToQml() const
+void TestWsClient::exposesRoomGameAndRulesSessionsToQml() const
 {
     WsClient client;
     QVERIFY(client.metaObject()->indexOfProperty("roomSession") >= 0);
     QVERIFY(client.metaObject()->indexOfProperty("gameSession") >= 0);
+    QVERIFY(client.metaObject()->indexOfProperty("rulesSession") >= 0);
 
     auto *room = qvariant_cast<RoomSessionState *>(client.property("roomSession"));
     auto *game = qvariant_cast<GameSessionState *>(client.property("gameSession"));
+    auto *rules = qvariant_cast<RulesSessionState *>(client.property("rulesSession"));
     QVERIFY(room != nullptr);
     QVERIFY(game != nullptr);
+    QVERIFY(rules != nullptr);
     QCOMPARE(room, client.findChild<RoomSessionState *>());
     QCOMPARE(game, client.findChild<GameSessionState *>());
+    QCOMPARE(rules, client.findChild<RulesSessionState *>());
 }
 
 void TestWsClient::hidesMirroredSessionPropertiesFromQml() const
@@ -910,6 +1101,7 @@ void TestWsClient::hidesMirroredSessionPropertiesFromQml() const
     QVERIFY(meta->indexOfProperty("replayList") >= 0);
     QVERIFY(meta->indexOfProperty("roomSession") >= 0);
     QVERIFY(meta->indexOfProperty("gameSession") >= 0);
+    QVERIFY(meta->indexOfProperty("rulesSession") >= 0);
     QCOMPARE(client.seatIndex(), -1);
     QCOMPARE(client.youAreHost(), false);
 }

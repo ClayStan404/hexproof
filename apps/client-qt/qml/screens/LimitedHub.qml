@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -58,23 +58,23 @@ Page {
                             font.weight: Font.Bold
                         }
 
-                        AppComboBox {
+                        LimitedSetPicker {
                             id: productSelector
                             Layout.fillWidth: true
-                            model: root.products
-                            textRole: "name"
-                            valueRole: "id"
+                            sets: root.products
+                            searchPlaceholder: qsTr("Search set, code, or booster product")
+                            noMatchesText: qsTr("No booster products match this search.")
                         }
 
                         Text {
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
-                            text: productSelector.currentIndex >= 0
-                                  && !root.products[productSelector.currentIndex].authentic
+                            text: productSelector.hasSelection
+                                  && !productSelector.selectedSet.authentic
                                   ? qsTr("Approximate rarity collation — not an exact retail pack.")
                                   : qsTr("Exact generated product collation.")
-                            color: productSelector.currentIndex >= 0
-                                   && !root.products[productSelector.currentIndex].authentic
+                            color: productSelector.hasSelection
+                                   && !productSelector.selectedSet.authentic
                                    ? Theme.warning : Theme.success
                             font.pixelSize: Theme.fontSize(11)
                             wrapMode: Text.WordWrap
@@ -93,8 +93,9 @@ Page {
                             Layout.fillWidth: true
                             variant: "primary"
                             text: qsTr("Open packs")
-                            enabled: productSelector.currentIndex >= 0
+                            enabled: productSelector.hasSelection
                                      && packCountField.acceptableInput
+                                     && !packOpeningOverlay.opened
                             onClicked: root.openSelectedPacks()
                         }
                     }
@@ -210,6 +211,11 @@ Page {
         function onCatalogChanged() { root.reloadProducts() }
     }
 
+    PackOpeningOverlay {
+        id: packOpeningOverlay
+        cardCatalogModel: cardCatalog
+    }
+
     function reloadProducts() {
         root.products = cardCatalog.limitedProducts()
     }
@@ -223,7 +229,7 @@ Page {
     }
 
     function openSelectedPacks() {
-        const definition = cardCatalog.limitedProduct(productSelector.currentValue)
+        const definition = cardCatalog.limitedProduct(productSelector.selectedId)
         const packs = cardCatalog.simulateLimitedPacks(
                         definition, Number(packCountField.text))
         root.openedPacks = packs
@@ -235,5 +241,10 @@ Page {
                 cards.push(packCards[cardIndex])
         }
         cardCatalog.cacheCardsIncrementally(cards)
+        if (preferences.animatePackOpenings && packs.length > 0) {
+            const product = productSelector.selectedSet
+            packOpeningOverlay.showPacks(
+                        packs, product && product.name ? product.name : "")
+        }
     }
 }

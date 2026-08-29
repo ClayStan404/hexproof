@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CatalogRepository.h"
 
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
@@ -179,6 +180,88 @@ QVariantMap CatalogRepository::limitedProduct(const QString &productId, QString 
          QVariantList{
              QVariantMap{{QStringLiteral("weight"), 1}, {QStringLiteral("slots"), packSlots}}}},
     };
+}
+
+QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QString *error) const
+{
+    if (cards.isEmpty() || !ensureOpen(error))
+        return cards;
+    if (!m_schema.cardColumns.contains(QStringLiteral("type_line")) ||
+        !m_schema.cardColumns.contains(QStringLiteral("set_code")) ||
+        !m_schema.cardColumns.contains(QStringLiteral("collector_number"))) {
+        return cards;
+    }
+
+    const bool hasColors = m_schema.cardColumns.contains(QStringLiteral("colors"));
+    const bool hasManaValue = m_schema.cardColumns.contains(QStringLiteral("mana_value"));
+    const bool hasLanguage = m_schema.cardColumns.contains(QStringLiteral("lang"));
+    QStringList columns{QStringLiteral("type_line")};
+    if (hasColors)
+        columns.append(QStringLiteral("colors"));
+    if (hasManaValue)
+        columns.append(QStringLiteral("mana_value"));
+
+    QString statement = QStringLiteral("SELECT %1 FROM cards WHERE set_code = ? COLLATE NOCASE "
+                                       "AND collector_number = ? COLLATE NOCASE")
+                            .arg(columns.join(QStringLiteral(", ")));
+    if (hasLanguage)
+        statement += QStringLiteral(" ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END");
+    statement += QStringLiteral(" LIMIT 1");
+
+    const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
+    QSqlQuery query(database);
+    if (!query.prepare(statement)) {
+        if (error)
+            *error = query.lastError().text();
+        return cards;
+    }
+
+    QVariantList result;
+    result.reserve(cards.size());
+    QHash<QString, QVariantMap> metadataByPrinting;
+    for (const QVariant &value : cards) {
+        QVariantMap card = value.toMap();
+        const QString setCode = card.value(QStringLiteral("setCode")).toString().trimmed();
+        const QString collectorNumber =
+            card.value(QStringLiteral("collectorNumber")).toString().trimmed();
+        const QString key = setCode.toUpper() + QLatin1Char('/') + collectorNumber.toLower();
+
+        QVariantMap metadata;
+        if (!setCode.isEmpty() && !collectorNumber.isEmpty()) {
+            const auto cached = metadataByPrinting.constFind(key);
+            if (cached != metadataByPrinting.cend()) {
+                metadata = cached.value();
+            } else {
+                query.bindValue(0, setCode);
+                query.bindValue(1, collectorNumber);
+                if (query.exec() && query.next()) {
+                    int column = 0;
+                    metadata.insert(QStringLiteral("typeLine"), query.value(column++).toString());
+                    if (hasColors)
+                        metadata.insert(QStringLiteral("colors"),
+                                        query.value(column++).toString().toUpper());
+                    if (hasManaValue && !query.value(column).isNull())
+                        metadata.insert(QStringLiteral("manaValue"),
+                                        query.value(column).toDouble());
+                    metadata.insert(QStringLiteral("limitedMetadataResolved"), true);
+                }
+                metadataByPrinting.insert(key, metadata);
+            }
+        }
+
+        if (!metadata.isEmpty()) {
+            if (card.value(QStringLiteral("typeLine")).toString().isEmpty())
+                card.insert(QStringLiteral("typeLine"), metadata.value(QStringLiteral("typeLine")));
+            if (metadata.contains(QStringLiteral("colors")))
+                card.insert(QStringLiteral("colors"), metadata.value(QStringLiteral("colors")));
+            if (metadata.contains(QStringLiteral("manaValue")))
+                card.insert(QStringLiteral("manaValue"),
+                            metadata.value(QStringLiteral("manaValue")));
+            card.insert(QStringLiteral("limitedMetadataResolved"), true);
+        }
+        result.append(card);
+    }
+    return result;
 }
 
 } // namespace hexproof::client

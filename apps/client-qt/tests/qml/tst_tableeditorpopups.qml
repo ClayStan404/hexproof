@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -47,8 +47,7 @@ TestCase {
         property int renameCalls: 0
         property int tokenCalls: 0
         function searchLibraryCards() {}
-        function reorderLibrary() {}
-        function resolveLibraryView() {}
+        function resolveLibraryViewAssignments() {}
         function drawCards(value) { ++drawCalls; drawCount = value }
         function dumpLibrary(seat, topCount) {
             ++dumpCalls

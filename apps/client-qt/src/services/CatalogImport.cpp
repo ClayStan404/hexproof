@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CatalogImport.h"
@@ -6,6 +6,7 @@
 #include "CardImageProvider.h"
 #include "CatalogStorage.h"
 #include <QFuture>
+#include <QSet>
 #include <QtConcurrent>
 
 namespace hexproof::client::catalogimport {
@@ -21,21 +22,58 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
     record.oracleId = object.value(QStringLiteral("oracle_id")).toString();
     if (record.name.isEmpty())
         record.name = requestedName.simplified();
-    QJsonObject selectedFace;
     const QString normalizedRequest = requestedName.simplified();
-    for (const QJsonValue &value : object.value(QStringLiteral("card_faces")).toArray()) {
-        const QJsonObject face = value.toObject();
-        if (face.value(QStringLiteral("name"))
-                .toString()
-                .simplified()
-                .compare(normalizedRequest, Qt::CaseInsensitive) == 0) {
-            selectedFace = face;
+    QJsonObject selectedFace;
+    QString selectedFaceName;
+    bool selectedNestedFace = false;
+    const auto selectMatchingFace = [&](const QJsonObject &face) {
+        const QStringList candidates{
+            face.value(QStringLiteral("face_name")).toString().simplified(),
+            face.value(QStringLiteral("name")).toString().simplified(),
+        };
+        for (const QString &candidate : candidates) {
+            if (!candidate.isEmpty() &&
+                candidate.compare(normalizedRequest, Qt::CaseInsensitive) == 0) {
+                selectedFace = face;
+                selectedFaceName = candidate;
+                selectedNestedFace = true;
+                return true;
+            }
+        }
+        return false;
+    };
+    const QStringList faceArrayKeys{
+        QStringLiteral("card_faces"),
+        QStringLiteral("faces"),
+        QStringLiteral("other_faces"),
+    };
+    for (const QString &key : faceArrayKeys) {
+        for (const QJsonValue &value : object.value(key).toArray()) {
+            if (selectMatchingFace(value.toObject()))
+                break;
+        }
+        if (!selectedFace.isEmpty())
             break;
+    }
+    if (selectedFace.isEmpty()) {
+        const QStringList canonicalFaces = record.name.split(QStringLiteral(" // "));
+        if (canonicalFaces.size() == 2 && canonicalFaces.first().simplified().compare(
+                                              normalizedRequest, Qt::CaseInsensitive) == 0) {
+            selectedFace = object;
+            selectedFaceName = canonicalFaces.first().simplified();
         }
     }
-    if (!selectedFace.isEmpty())
-        record.faceName = selectedFace.value(QStringLiteral("name")).toString().simplified();
+    record.faceName = selectedFaceName;
     const QJsonObject metadata = selectedFace.isEmpty() ? object : selectedFace;
+    static const QSet<QString> independentFaceLayouts{
+        QStringLiteral("transform"),
+        QStringLiteral("modal_dfc"),
+        QStringLiteral("double_faced_token"),
+        QStringLiteral("reversible_card"),
+    };
+    const bool requiresFaceSpecificImage =
+        selectedNestedFace &&
+        independentFaceLayouts.contains(object.value(QStringLiteral("layout")).toString());
     record.typeLine = language == QStringLiteral("zh")
                           ? metadata.value(QStringLiteral("zhs_type_line")).toString()
                           : QString{};
@@ -50,13 +88,27 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
         record.illustrationId = object.value(QStringLiteral("illustration_id")).toString();
 
     if (language == QStringLiteral("zh")) {
-        const QStringList localizedCandidates{
-            object.value(QStringLiteral("zhs_name")).toString().simplified(),
-            object.value(QStringLiteral("zhs_face_name")).toString().simplified(),
-            object.value(QStringLiteral("atomic_official_name")).toString().simplified(),
-            object.value(QStringLiteral("atomic_translated_name")).toString().simplified(),
-            object.value(QStringLiteral("printed_name")).toString().simplified(),
-        };
+        QStringList localizedCandidates;
+        if (!selectedFaceName.isEmpty()) {
+            localizedCandidates.append(
+                metadata.value(QStringLiteral("zhs_face_name")).toString().simplified());
+            localizedCandidates.append(
+                metadata.value(QStringLiteral("atomic_official_name")).toString().simplified());
+            localizedCandidates.append(
+                metadata.value(QStringLiteral("atomic_translated_name")).toString().simplified());
+            localizedCandidates.append(
+                metadata.value(QStringLiteral("printed_name")).toString().simplified());
+        }
+        localizedCandidates.append(
+            object.value(QStringLiteral("zhs_name")).toString().simplified());
+        localizedCandidates.append(
+            object.value(QStringLiteral("zhs_face_name")).toString().simplified());
+        localizedCandidates.append(
+            object.value(QStringLiteral("atomic_official_name")).toString().simplified());
+        localizedCandidates.append(
+            object.value(QStringLiteral("atomic_translated_name")).toString().simplified());
+        localizedCandidates.append(
+            object.value(QStringLiteral("printed_name")).toString().simplified());
         for (const QString &candidate : localizedCandidates) {
             if (looksLikeChinese(candidate)) {
                 record.localizedName = candidate;
@@ -64,14 +116,14 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
             }
         }
         record.imageUrl = localizedImageUrl(metadata);
-        if (record.imageUrl.isEmpty() && !selectedFace.isEmpty())
+        if (record.imageUrl.isEmpty() && !selectedFace.isEmpty() && !requiresFaceSpecificImage)
             record.imageUrl = localizedImageUrl(object);
         const QString sourceLanguage = object.value(QStringLiteral("lang")).toString().toLower();
         if (record.imageUrl.isEmpty() &&
             (sourceLanguage == QStringLiteral("zhs") || sourceLanguage == QStringLiteral("zh")) &&
             imageStatusAllowsArt(object)) {
             record.imageUrl = normalImageUrl(metadata);
-            if (record.imageUrl.isEmpty() && !selectedFace.isEmpty())
+            if (record.imageUrl.isEmpty() && !selectedFace.isEmpty() && !requiresFaceSpecificImage)
                 record.imageUrl = normalImageUrl(object);
         }
         if (!record.imageUrl.isEmpty())
@@ -79,7 +131,7 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
     } else {
         if (imageStatusAllowsArt(object)) {
             record.imageUrl = normalImageUrl(metadata);
-            if (record.imageUrl.isEmpty() && !selectedFace.isEmpty())
+            if (record.imageUrl.isEmpty() && !selectedFace.isEmpty() && !requiresFaceSpecificImage)
                 record.imageUrl = normalImageUrl(object);
         }
         if (!record.imageUrl.isEmpty())
@@ -97,7 +149,7 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
 }
 
 } // namespace hexproof::client::catalogimport
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardImageProvider.h"

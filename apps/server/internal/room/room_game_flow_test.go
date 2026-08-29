@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -44,7 +44,10 @@ func TestGameSetupDrawMulliganAndPrivateProjection(t *testing.T) {
 	if !result.ProjectGame || r.Game == nil || r.Phase != protocol.RoomPhaseStarted {
 		t.Fatalf("game did not start: result=%+v phase=%q game=%+v", result, r.Phase, r.Game)
 	}
-	if r.Game.StartingSeat != 0 || len(r.Game.Log) != 3 || r.Game.Log[0].Kind != "roll" {
+	if r.Game.StartingSeat != 0 || len(r.Game.TurnOrder) != 2 ||
+		r.Game.TurnOrder[0] != r.Game.StartingSeat ||
+		len(r.Game.Log) < 4 || r.Game.Log[0].Kind != "roll" ||
+		r.Game.Log[len(r.Game.Log)-3].Kind != "turn_order" {
 		t.Fatalf("opening game state = %+v", r.Game)
 	}
 	if r.Game.ActiveSeat != r.Game.StartingSeat ||

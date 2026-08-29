@@ -10,6 +10,7 @@
         "deckFormat": "modern",
         "matchMode": "bo3",
         "cardLoadMode": "preload",
+        "rulesMode": "manual",
         "maxSeats": 2,
         "playerCount": 1,
         "spectatorCount": 0,

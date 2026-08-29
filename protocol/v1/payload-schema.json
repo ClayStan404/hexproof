@@ -79,6 +79,15 @@
           "name": "hasPassword",
           "type": "boolean",
           "required": true
+        },
+        {
+          "name": "rulesMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RulesModeManual",
+            "RulesModeForge"
+          ]
         }
       ]
     },
@@ -233,6 +242,11 @@
           "name": "host",
           "type": "boolean",
           "required": false
+        },
+        {
+          "name": "forgeRulesAvailable",
+          "type": "boolean",
+          "required": true
         }
       ]
     },
@@ -308,6 +322,15 @@
           "enum": [
             "CardLoadPreload",
             "CardLoadBackground"
+          ]
+        },
+        {
+          "name": "rulesMode",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "RulesModeManual",
+            "RulesModeForge"
           ]
         },
         {

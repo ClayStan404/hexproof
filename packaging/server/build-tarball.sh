@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 set -euo pipefail
@@ -54,6 +54,7 @@ cp "${repo_root}/packaging/server/hexproof-server.service.in" \
     "${package_root}/deploy/"
 cp "${repo_root}/packaging/server/README.md" "${package_root}/SELF-HOSTING.md"
 cp "${repo_root}/LICENSE" "${package_root}/"
+cp "${repo_root}/THIRD-PARTY-NOTICES.md" "${package_root}/"
 
 tar -C "${stage_dir}" -czf \
     "${output_dir}/hexproof-server-${version}-linux-${arch}.tar.gz" \

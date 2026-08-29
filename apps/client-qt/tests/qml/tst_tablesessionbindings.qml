@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -41,6 +41,7 @@ TestCase {
         id: mockGameSession
         property int gameNumber: 1
         property int startingSeat: 0
+        property var turnOrder: [0, 1, 2, 3]
         property int activeSeat: 0
         property string currentPhase: "precombat_main"
         property var score: [0, 0]

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2009-2026 Cockatrice contributors
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
@@ -12,8 +12,15 @@ namespace hexproof::client {
 namespace {
 
 constexpr qsizetype kMaximumDeckImportBytes = 1024 * 1024;
-constexpr int kMaximumDeckCards = 1000;
-constexpr qsizetype kMaximumDeckEntries = 500;
+
+struct DeckParseLimits
+{
+    int cards;
+    qsizetype entries;
+};
+
+constexpr DeckParseLimits kConstructedLimits{1000, 500};
+constexpr DeckParseLimits kCubeLimits{10'000, 5'000};
 
 enum class Section
 {
@@ -23,20 +30,25 @@ enum class Section
     Ignore
 };
 
-bool mergeCard(QVector<DeckCard> &cards, const DeckCard &incoming)
+DeckParseLimits limitsForProfile(DeckParseProfile profile)
+{
+    return profile == DeckParseProfile::Cube ? kCubeLimits : kConstructedLimits;
+}
+
+bool mergeCard(QVector<DeckCard> &cards, const DeckCard &incoming, const DeckParseLimits &limits)
 {
     const QString key = normalizedCardName(incoming.name);
     for (DeckCard &card : cards) {
         if (normalizedCardName(card.name) == key &&
             card.setCode.compare(incoming.setCode, Qt::CaseInsensitive) == 0 &&
             card.collectorNumber == incoming.collectorNumber) {
-            if (incoming.count > kMaximumDeckCards - card.count)
+            if (incoming.count > limits.cards - card.count)
                 return false;
             card.count += incoming.count;
             return true;
         }
     }
-    if (cards.size() >= kMaximumDeckEntries)
+    if (cards.size() >= limits.entries)
         return false;
     cards.append(incoming);
     return true;
@@ -83,9 +95,11 @@ bool isDesignatedCommander(const Deck &deck, const DeckCard &card)
 
 } // namespace
 
-DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsCommander)
+DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsCommander,
+                                  DeckParseProfile profile)
 {
     DeckParseResult result;
+    const DeckParseLimits limits = limitsForProfile(profile);
     if (text.size() > kMaximumDeckImportBytes || text.toUtf8().size() > kMaximumDeckImportBytes) {
         result.error = QStringLiteral("Deck imports cannot exceed 1 MB.");
         return result;
@@ -182,7 +196,7 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
         DeckCard card;
         bool countOk = false;
         const qlonglong parsedCount = cardMatch.captured(1).toLongLong(&countOk);
-        if (!countOk || parsedCount <= 0 || parsedCount > kMaximumDeckCards) {
+        if (!countOk || parsedCount <= 0 || parsedCount > limits.cards) {
             result.error = QStringLiteral("Line %1 has an invalid card count.").arg(lineNumber + 1);
             return result;
         }
@@ -215,32 +229,31 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
         }
 
         const bool merged = prefixedSideboard || section == Section::Sideboard
-                                ? mergeCard(result.deck.sideboard, card)
-                                : mergeCard(result.deck.mainboard, card);
+                                ? mergeCard(result.deck.sideboard, card, limits)
+                                : mergeCard(result.deck.mainboard, card, limits);
         if (!merged) {
             result.error =
                 QStringLiteral("Deck imports can contain at most %1 cards and %2 entries.")
-                    .arg(kMaximumDeckCards)
-                    .arg(kMaximumDeckEntries);
+                    .arg(limits.cards)
+                    .arg(limits.entries);
             return result;
         }
         sawCard = true;
     }
 
-    if (result.deck.mainboard.size() + result.deck.sideboard.size() > kMaximumDeckEntries) {
-        result.error =
-            QStringLiteral("Deck imports can contain at most %1 cards and %2 entries.")
-                .arg(kMaximumDeckCards)
-                .arg(kMaximumDeckEntries);
+    if (result.deck.mainboard.size() + result.deck.sideboard.size() > limits.entries) {
+        result.error = QStringLiteral("Deck imports can contain at most %1 cards and %2 entries.")
+                           .arg(limits.cards)
+                           .arg(limits.entries);
         return result;
     }
 
     qint64 totalCards = 0;
     for (const auto &cards : {result.deck.mainboard, result.deck.sideboard}) {
         for (const DeckCard &card : cards) {
-            if (card.count > kMaximumDeckCards - totalCards) {
-                result.error = QStringLiteral("Deck imports can contain at most %1 cards.")
-                                   .arg(kMaximumDeckCards);
+            if (card.count > limits.cards - totalCards) {
+                result.error =
+                    QStringLiteral("Deck imports can contain at most %1 cards.").arg(limits.cards);
                 return result;
             }
             totalCards += card.count;

@@ -1,0 +1,9 @@
+{
+  "type": "rules.respond",
+  "id": "req-rules-1",
+  "payload": {
+    "promptId": 7,
+    "responseId": "$submit",
+    "cardIds": ["hand-2"]
+  }
+}

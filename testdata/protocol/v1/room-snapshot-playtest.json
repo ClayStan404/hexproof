@@ -10,6 +10,7 @@
     "playtest": true,
     "matchMode": "bo1",
     "cardLoadMode": "background",
+    "rulesMode": "manual",
     "hostSeat": 0,
     "hasPassword": false,
     "seats": [

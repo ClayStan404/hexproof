@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 // Command hexproof-server is the Hexproof room hub. It serves WebSocket
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"hexproof/server/internal/buildinfo"
+	"hexproof/server/internal/rulesengine/forge"
 	"hexproof/server/internal/server"
 )
 
@@ -66,10 +67,25 @@ func main() {
 		"per-IP protected-room join rate")
 	maxConcurrentPasswordChecks := flag.Int("max-concurrent-password-checks", 8,
 		"maximum concurrent bcrypt password checks")
+	forgeHarness := flag.String("forge-harness", "",
+		"path to forge-harness.jar (empty disables Forge rules rooms)")
+	forgeHome := flag.String("forge-home", "",
+		"path to the Forge runtime home containing card scripts")
+	forgeJava := flag.String("forge-java", "java", "Java command for the Forge runtime")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintf(os.Stdout, "hexproof-server %s\n", buildinfo.Version)
 		return
+	}
+
+	var forgeRuntime *forge.ProcessConfig
+	if (*forgeHarness == "") != (*forgeHome == "") {
+		log.Fatal("hexproof-server: -forge-harness and -forge-home must be set together")
+	}
+	if *forgeHarness != "" {
+		configured := forge.JavaProcessConfig(*forgeJava, *forgeHarness, *forgeHome)
+		configured.Stderr = os.Stderr
+		forgeRuntime = &configured
 	}
 
 	handler, err := server.NewHandlerWithConfig(server.Config{
@@ -94,10 +110,16 @@ func main() {
 		TournamentAbandonedTTL:      *tournamentAbandonedTTL,
 		PasswordJoinsPerMinute:      *passwordJoinsPerMinute,
 		MaxConcurrentPasswordChecks: *maxConcurrentPasswordChecks,
+		ForgeRuntime:                forgeRuntime,
 	})
 	if err != nil {
 		log.Fatalf("hexproof-server: configure: %v", err)
 	}
+	defer func() {
+		if closeErr := handler.Close(); closeErr != nil {
+			log.Printf("hexproof-server: close Forge runtime: %v", closeErr)
+		}
+	}()
 
 	mux := http.NewServeMux()
 	// Ops/tunnel health checks (Cloudflare / curl). Not part of the game protocol.

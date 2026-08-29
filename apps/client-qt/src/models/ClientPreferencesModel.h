@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -21,6 +21,8 @@ class ClientPreferencesModel final : public QObject
                    cardArtProviderChanged)
     Q_PROPERTY(bool reuseLocalCardArt READ reuseLocalCardArt WRITE setReuseLocalCardArt NOTIFY
                    reuseLocalCardArtChanged)
+    Q_PROPERTY(bool animatePackOpenings READ animatePackOpenings WRITE setAnimatePackOpenings NOTIFY
+                   animatePackOpeningsChanged)
     Q_PROPERTY(qreal interfaceScale READ interfaceScale WRITE setInterfaceScale NOTIFY
                    interfaceScaleChanged)
     Q_PROPERTY(bool tableShowPlayers READ tableShowPlayers WRITE setTableShowPlayers NOTIFY
@@ -70,6 +72,11 @@ class ClientPreferencesModel final : public QObject
         return m_preferences.reuseLocalCardArt;
     }
     void setReuseLocalCardArt(bool reuse);
+    bool animatePackOpenings() const
+    {
+        return m_preferences.animatePackOpenings;
+    }
+    void setAnimatePackOpenings(bool animate);
     qreal interfaceScale() const
     {
         return m_preferences.interfaceScale;
@@ -152,6 +159,7 @@ class ClientPreferencesModel final : public QObject
     void cardLanguageChanged();
     void cardArtProviderChanged();
     void reuseLocalCardArtChanged();
+    void animatePackOpeningsChanged();
     void interfaceScaleChanged();
     void tableLayoutChanged();
     void shortcutsChanged();

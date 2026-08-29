@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package protocol
@@ -165,6 +165,14 @@ func fixturePayloadForType(messageType string) any {
 		return &MatchStarted{}
 	case TypeGameSnapshot:
 		return &GameSnapshot{}
+	case TypeRulesSnapshot:
+		return &RulesGameSnapshot{}
+	case TypeRulesPrompt:
+		return &RulesPrompt{}
+	case TypeRulesRespond:
+		return &RulesRespond{}
+	case TypeRulesResponded:
+		return &RulesResponded{}
 	case TypeGameDraw:
 		return &GameDraw{}
 	case TypeGameDrawn:
@@ -812,7 +820,9 @@ func TestP5GoldenFixturesPinTokensEDHAndSideboardPrivacy(t *testing.T) {
 	if err := edhEnvelope.DecodePayload(&edh); err != nil {
 		t.Fatalf("decode EDH snapshot: %v", err)
 	}
-	if len(edh.Seats) != 4 || len(edh.Seats[0].CommandZone) != 1 ||
+	if len(edh.Seats) != 4 ||
+		!reflect.DeepEqual(edh.TurnOrder, []int{2, 3, 0, 1}) ||
+		len(edh.Seats[0].CommandZone) != 1 ||
 		edh.Seats[0].CommanderTax != 2 || edh.Seats[0].CommanderTaxes["s0-c1"] != 2 ||
 		!edh.Seats[1].Eliminated ||
 		len(edh.Seats[3].Battlefield) != 1 ||

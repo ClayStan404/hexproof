@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 set -Eeuo pipefail
@@ -137,6 +137,7 @@ python3 tools/check-protocol-parity.py
 python3 tools/check-i18n.py --strict
 python3 tools/check-module-size.py
 quality_tests=(
+    tools.tests.test_multiclient_script
     tools.tests.test_limited_product_builder
     tools.tests.test_quality_checks
     tools.tests.test_table_architecture

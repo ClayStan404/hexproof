@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package limited
@@ -142,50 +142,54 @@ func TestDraftPassesPacksAndAlternatesDirection(t *testing.T) {
 }
 
 func TestCubeDraftsPhysicalCardsWithoutReplacement(t *testing.T) {
-	product := testProduct(1, 400)
-	product.ID = "cube-1"
-	product.Name = "Test Cube"
-	product.ProductType = ProductTypeCube
-	product.Authentic = false
-	product.CardsPerPack = 0
-	product.Variants = nil
-	event, err := New(Config{
-		TournamentID: "event-3", EventType: protocol.LimitedEventCubeDraft,
-		Product: product, Participants: testParticipants(8),
-	}, 19)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	for steps := 0; event.Stage == protocol.LimitedStageDraft && steps < 100; steps++ {
-		picked := false
-		for _, player := range event.Players {
-			if len(player.Inbox) == 0 {
-				continue
+	for playerCount := MinCubeDraftPlayers; playerCount <= MaxCubeDraftPlayers; playerCount++ {
+		t.Run(fmt.Sprintf("%d_players", playerCount), func(t *testing.T) {
+			product := testProduct(1, CubeDraftCardsRequired(playerCount))
+			product.ID = "cube-1"
+			product.Name = "Test Cube"
+			product.ProductType = ProductTypeCube
+			product.Authentic = false
+			product.CardsPerPack = 0
+			product.Variants = nil
+			event, err := New(Config{
+				TournamentID: "event-3", EventType: protocol.LimitedEventCubeDraft,
+				Product: product, Participants: testParticipants(playerCount),
+			}, 19)
+			if err != nil {
+				t.Fatalf("New: %v", err)
 			}
-			if _, err := event.Pick(player.ID, player.Inbox[0].Cards[0].ID); err != nil {
-				t.Fatalf("Pick(%s): %v", player.ID, err)
+			for steps := 0; event.Stage == protocol.LimitedStageDraft && steps < 100; steps++ {
+				picked := false
+				for _, player := range event.Players {
+					if len(player.Inbox) == 0 {
+						continue
+					}
+					if _, err := event.Pick(player.ID, player.Inbox[0].Cards[0].ID); err != nil {
+						t.Fatalf("Pick(%s): %v", player.ID, err)
+					}
+					picked = true
+				}
+				if !picked && event.Stage == protocol.LimitedStageDraft {
+					t.Fatal("Cube draft stalled with no available pack")
+				}
 			}
-			picked = true
-		}
-		if !picked && event.Stage == protocol.LimitedStageDraft {
-			t.Fatal("Cube draft stalled with no available pack")
-		}
-	}
-	if event.Stage != protocol.LimitedStageDeckBuilding {
-		t.Fatalf("Cube draft stage = %q", event.Stage)
-	}
-	seen := map[string]bool{}
-	for _, player := range event.Players {
-		if got, want := len(player.Pool), 45; got != want {
-			t.Fatalf("%s pool = %d, want %d", player.ID, got, want)
-		}
-		for _, card := range player.Pool {
-			key := card.SetCode + "/" + card.CollectorNumber
-			if seen[key] {
-				t.Fatalf("Cube card %s was dealt twice", key)
+			if event.Stage != protocol.LimitedStageDeckBuilding {
+				t.Fatalf("Cube draft stage = %q", event.Stage)
 			}
-			seen[key] = true
-		}
+			seen := map[string]bool{}
+			for _, player := range event.Players {
+				if got, want := len(player.Pool), 45; got != want {
+					t.Fatalf("%s pool = %d, want %d", player.ID, got, want)
+				}
+				for _, card := range player.Pool {
+					key := card.SetCode + "/" + card.CollectorNumber
+					if seen[key] {
+						t.Fatalf("Cube card %s was dealt twice", key)
+					}
+					seen[key] = true
+				}
+			}
+		})
 	}
 }
 
@@ -207,6 +211,19 @@ func TestLimitedModeInvariants(t *testing.T) {
 		Product: cube, Participants: testParticipants(8),
 	}, 1); ErrorCode(err) != ErrInvalid {
 		t.Fatalf("small Cube draft error = %v", err)
+	}
+	cube = testProduct(1, 180)
+	cube.ProductType = ProductTypeCube
+	cube.Authentic = false
+	cube.CardsPerPack = 0
+	cube.Variants = nil
+	for _, players := range []int{3, 9} {
+		if _, err := New(Config{
+			TournamentID: "bad-cube-seats", EventType: protocol.LimitedEventCubeDraft,
+			Product: cube, Participants: testParticipants(players),
+		}, 1); ErrorCode(err) != ErrInvalid {
+			t.Fatalf("%d-seat Cube draft error = %v", players, err)
+		}
 	}
 }
 

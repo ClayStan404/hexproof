@@ -12,6 +12,7 @@
         {"name": "deckFormat", "type": "string", "required": true, "enum": ["DeckFormatCustom", "DeckFormatStandard", "DeckFormatPioneer", "DeckFormatModern", "DeckFormatLegacy", "DeckFormatVintage", "DeckFormatPauper", "DeckFormatDuel", "DeckFormatCommander"]},
         {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
         {"name": "cardLoadMode", "type": "string", "required": true, "enum": ["CardLoadPreload", "CardLoadBackground"]},
+        {"name": "rulesMode", "type": "string", "required": true, "enum": ["RulesModeManual", "RulesModeForge"]},
         {"name": "maxSeats", "type": "integer", "required": true},
         {"name": "playerCount", "type": "integer", "required": true},
         {"name": "spectatorCount", "type": "integer", "required": true},
@@ -109,7 +110,7 @@
             "ErrTournamentForbidden", "ErrTournamentNotFound", "ErrTournamentFull",
             "ErrTournamentAlreadyRegistered", "ErrTournamentRegistrationClosed",
             "ErrTournamentNotReady", "ErrTournamentRoundIncomplete",
-            "ErrTournamentResultInvalid"
+            "ErrTournamentResultInvalid", "ErrInvalidRulesMode", "ErrRulesUnavailable"
           ]
         },
         {"name": "message", "type": "string", "required": true},

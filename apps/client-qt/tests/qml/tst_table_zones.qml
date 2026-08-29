@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
@@ -540,24 +540,19 @@ TestCase {
         verify(searchPopup !== null)
         tryVerify(() => searchPopup.opened)
         verify(searchPopup.reorderMode)
-        searchPopup.toggleCard("s1-top1")
-        const destinationBox = findChild(searchPopup, "topCardsDestination")
-        verify(destinationBox !== null)
-        let bottomIndex = -1
-        for (let i = 0; i < destinationBox.count; ++i) {
-            if (destinationBox.valueAt(i) === "library_bottom") {
-                bottomIndex = i
-                break
-            }
-        }
-        verify(bottomIndex >= 0)
-        destinationBox.currentIndex = bottomIndex
+        searchPopup.setTopCardDestination("s1-top1", "library_bottom")
+        searchPopup.setTopCardDestination("s1-top2", "hand")
         searchPopup.resolveTopCards()
         compare(mockWs.resolveLibraryCount, 1)
-        compare(mockWs.lastLibraryResolve.selectedCardIds.length, 1)
-        compare(mockWs.lastLibraryResolve.selectedCardIds[0], "s1-top1")
-        compare(mockWs.lastLibraryResolve.remainderCardIds.length, 2)
-        compare(mockWs.lastLibraryResolve.toZone, "library_bottom")
+        compare(mockWs.lastLibraryResolve.assignments.length, 3)
+        compare(mockWs.lastLibraryResolve.assignments[0].cardId, "s1-top1")
+        compare(mockWs.lastLibraryResolve.assignments[0].toZone,
+                "library_bottom")
+        compare(mockWs.lastLibraryResolve.assignments[1].cardId, "s1-top2")
+        compare(mockWs.lastLibraryResolve.assignments[1].toZone, "hand")
+        compare(mockWs.lastLibraryResolve.assignments[2].cardId, "s1-top3")
+        compare(mockWs.lastLibraryResolve.assignments[2].toZone,
+                "library_top")
         compare(mockWs.lastLibraryResolve.sourceSeat, 1)
         compare(mockWs.lastLibraryResolve.approvalId,
                 "zone-dump-remote")

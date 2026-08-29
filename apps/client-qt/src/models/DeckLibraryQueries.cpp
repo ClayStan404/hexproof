@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "DeckLibraryQueries.h"
@@ -15,6 +15,8 @@
 namespace hexproof::client {
 
 namespace {
+
+constexpr int kMinimumCubeDraftCards = 4 * 3 * 15;
 
 qsizetype categoryOrder(const QString &category)
 {
@@ -50,7 +52,7 @@ bool DeckLibraryQueries::deckSelectable(const Deck &deck, bool allowMissingArt,
                                         const QVariantMap &validation)
 {
     if (isCubeDeckFormat(deck.deckFormat)) {
-        return cardCount(deck.mainboard) >= 360 && deck.sideboard.isEmpty() &&
+        return cardCount(deck.mainboard) >= kMinimumCubeDraftCards && deck.sideboard.isEmpty() &&
                hasExactPrintings(deck) && (allowMissingArt || missingImageCount(deck) == 0);
     }
     constexpr int minimumOpeningHandCards = 7;
@@ -75,9 +77,9 @@ QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &vali
             return QStringLiteral("Cube cards must stay in the main pool.");
         if (!hasExactPrintings(deck))
             return QStringLiteral("Every Cube card needs an exact printing.");
-        if (cardCount(deck.mainboard) < 360) {
+        if (cardCount(deck.mainboard) < kMinimumCubeDraftCards) {
             return QStringLiteral(
-                "The Cube needs at least 360 physical cards for an eight-player draft.");
+                "The Cube needs at least 180 physical cards for a four-player draft.");
         }
         const int missing = missingImageCount(deck);
         if (missing > 0) {
@@ -146,7 +148,7 @@ bool DeckLibraryQueries::hasExactPrintings(const Deck &deck)
 
 QVariantMap DeckLibraryQueries::cubeProduct(const Deck &deck)
 {
-    if (!isCubeDeckFormat(deck.deckFormat) || cardCount(deck.mainboard) < 360 ||
+    if (!isCubeDeckFormat(deck.deckFormat) || cardCount(deck.mainboard) < kMinimumCubeDraftCards ||
         !deck.sideboard.isEmpty() || !hasExactPrintings(deck)) {
         return {};
     }

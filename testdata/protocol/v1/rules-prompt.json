@@ -1,0 +1,47 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 7,
+    "kind": "chooseAction",
+    "supported": true,
+    "title": "Choose an action",
+    "detail": "You have priority.",
+    "options": [
+      {
+        "responseId": "action:0",
+        "kind": "cast",
+        "label": "Cast Lightning Bolt",
+        "cardId": "hand-2"
+      },
+      {
+        "responseId": "$pass",
+        "kind": "pass",
+        "label": "Pass priority"
+      },
+      {
+        "responseId": "$pass-stack",
+        "kind": "pass",
+        "label": "Resolve current stack"
+      }
+    ],
+    "choices": [],
+    "cards": [],
+    "orderItems": [],
+    "requiredSelections": 0,
+    "minCardSelections": 0,
+    "maxCardSelections": 0,
+    "targets": [],
+    "combatSources": [],
+    "combatTargets": [],
+    "minSelections": 0,
+    "maxSelections": 0,
+    "cancellable": false,
+    "minChoiceTotal": 0,
+    "maxChoiceTotal": 0,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

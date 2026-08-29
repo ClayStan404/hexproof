@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package protocol
@@ -397,21 +397,34 @@ type GameLibraryReordered struct {
 	Count  int    `json:"count"`
 }
 
-// GameResolveLibraryView atomically moves selected cards from the currently
-// viewed top prefix to hand, battlefield, or the source library top/bottom,
-// then returns every remaining card to the requested end. A remote source
-// requires the one-use approval id issued with the private dump.
-// RemainderCardIDs is the explicit order unless RandomizeRemainder is true.
+// LibraryViewAssignment gives one viewed card its destination. Hand and
+// battlefield mean the acting player's zones; graveyard, exile, and both
+// library ends mean the source player's zones. FaceDown is valid only for the
+// battlefield.
+type LibraryViewAssignment struct {
+	CardID   string `json:"cardId"`
+	ToZone   string `json:"toZone"`
+	FaceDown bool   `json:"faceDown,omitempty"`
+}
+
+// GameResolveLibraryView atomically resolves the currently viewed top prefix.
+// New clients submit one Assignment for every viewed card. The legacy
+// selected/remainder representation remains accepted for protocol-compatible
+// clients. A remote source requires the one-use approval id issued with the
+// private dump.
 type GameResolveLibraryView struct {
-	SelectedCardIDs    []string      `json:"selectedCardIds,omitempty"`
-	RemainderCardIDs   []string      `json:"remainderCardIds"`
-	ToZone             string        `json:"toZone,omitempty"`
-	Position           *CardPosition `json:"position,omitempty"`
-	FaceDown           bool          `json:"faceDown,omitempty"`
-	SourceSeat         *int          `json:"sourceSeat,omitempty"`
-	ApprovalID         string        `json:"approvalId,omitempty"`
-	RemainderPlacement string        `json:"remainderPlacement"`
-	RandomizeRemainder bool          `json:"randomizeRemainder,omitempty"`
+	Assignments        []LibraryViewAssignment `json:"assignments,omitempty"`
+	SelectedCardIDs    []string                `json:"selectedCardIds,omitempty"`
+	RemainderCardIDs   []string                `json:"remainderCardIds"`
+	ToZone             string                  `json:"toZone,omitempty"`
+	Position           *CardPosition           `json:"position,omitempty"`
+	FaceDown           bool                    `json:"faceDown,omitempty"`
+	SourceSeat         *int                    `json:"sourceSeat,omitempty"`
+	ApprovalID         string                  `json:"approvalId,omitempty"`
+	RemainderPlacement string                  `json:"remainderPlacement"`
+	RandomizeRemainder bool                    `json:"randomizeRemainder,omitempty"`
+	RandomizeTop       bool                    `json:"randomizeTop,omitempty"`
+	RandomizeBottom    bool                    `json:"randomizeBottom,omitempty"`
 }
 
 type GameLibraryViewResolved struct {

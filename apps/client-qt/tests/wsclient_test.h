@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #pragma once
@@ -6,6 +6,7 @@
 #include "protocol/Message.h"
 #include "services/LimitedSessionState.h"
 #include "services/NetworkLimits.h"
+#include "services/RulesSessionState.h"
 #include "services/ServerDirectory.h"
 #include "services/TournamentSessionState.h"
 #include "services/WsClient.h"
@@ -26,6 +27,7 @@ using namespace Qt::StringLiterals;
 using hexproof::client::GameSessionState;
 using hexproof::client::LimitedSessionState;
 using hexproof::client::RoomSessionState;
+using hexproof::client::RulesSessionState;
 using hexproof::client::ServerDirectory;
 using hexproof::client::WsClient;
 namespace network_limits = hexproof::client::network_limits;
@@ -110,9 +112,10 @@ class TestWsClient : public QObject
     void roomSessionStateExposesQmlBindableIdentity() const;
     void roomSessionStateExposesQmlBindableSnapshot() const;
     void gameSessionStateExposesQmlBindableSnapshot() const;
+    void rulesSessionStateExposesTypedSnapshot() const;
     void limitedSessionRestoresPrivateDeckSelection() const;
     void dispatchesSharedSessionRoomAndGameFixtures() const;
-    void exposesRoomAndGameSessionsToQml() const;
+    void exposesRoomGameAndRulesSessionsToQml() const;
     void hidesMirroredSessionPropertiesFromQml() const;
     void updatesHostAuthorityFromRoomSnapshots() const;
     void handshakeErrorDisconnects() const;

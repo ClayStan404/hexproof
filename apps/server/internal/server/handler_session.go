@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package server
@@ -183,21 +183,27 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 					sess.DisplayName = hold.displayName
 					sess.ResumeToken = resumeToken
 					welcome := protocol.SessionWelcome{
-						V:             protocol.ProtocolVersion,
-						ConnectionID:  sess.ConnectionID,
-						ServerVersion: buildinfo.Version,
-						ResumeToken:   sess.ResumeToken,
-						Resumed:       true,
-						RoomID:        hold.room.ID,
-						Role:          info.Role,
-						Seat:          info.Seat,
-						Host:          info.Host,
+						V:                   protocol.ProtocolVersion,
+						ConnectionID:        sess.ConnectionID,
+						ServerVersion:       buildinfo.Version,
+						ResumeToken:         sess.ResumeToken,
+						Resumed:             true,
+						RoomID:              hold.room.ID,
+						Role:                info.Role,
+						Seat:                info.Seat,
+						Host:                info.Host,
+						ForgeRulesAvailable: h.forgeRulesAvailable(),
 					}
 					welcomeEnvelope, _ := protocol.NewEnvelope(
 						protocol.TypeSessionWelcome, welcome)
 					welcomeEnvelope.ID = env.ID
 					h.send(sess, welcomeEnvelope)
 					h.fanoutTo([]*Session{sess}, envelopes)
+					if hold.room.RulesMode == protocol.RulesModeForge &&
+						hold.room.Phase == protocol.RoomPhaseStarted {
+						h.fanoutRulesProjections(hold.room)
+						h.fanoutRulesPrompts(hold.room)
+					}
 					operation.opMu.Unlock()
 					return nil
 				}
@@ -220,10 +226,11 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 	sess.DisplayName = displayName
 	sess.ResumeToken = resumeToken
 	welcome := protocol.SessionWelcome{
-		V:             protocol.ProtocolVersion,
-		ConnectionID:  sess.ConnectionID,
-		ServerVersion: buildinfo.Version,
-		ResumeToken:   sess.ResumeToken,
+		V:                   protocol.ProtocolVersion,
+		ConnectionID:        sess.ConnectionID,
+		ServerVersion:       buildinfo.Version,
+		ResumeToken:         sess.ResumeToken,
+		ForgeRulesAvailable: h.forgeRulesAvailable(),
 	}
 	wEnv, _ := protocol.NewEnvelope(protocol.TypeSessionWelcome, welcome)
 	wEnv.ID = env.ID
@@ -329,14 +336,30 @@ func (h *Handler) expireResumeHold(expected resumeHold) {
 		h.commitPairingRoomCleanup(cleanup)
 		h.saveRoomRetention(retained)
 	}()
+	operation.mu.Lock()
+	departingForgePlayer := operation.room == expected.room &&
+		expected.room.RulesMode == protocol.RulesModeForge &&
+		expected.room.Phase == protocol.RoomPhaseStarted &&
+		expected.room.FindSeatByConnection(expected.oldConnectionID) >= 0
+	operation.mu.Unlock()
 	result, empty, err := h.hub.ExpireDisconnected(
 		expected.oldConnectionID, expected.room)
 	if err != nil {
 		return
 	}
 	if !empty {
-		h.fanout(expected.room, result.Broadcast)
-		if result.ProjectGame {
+		if departingForgePlayer {
+			h.abortForgeGame(expected.room.ID)
+			reset, resetErr := h.hub.ResetRulesStartFailure(expected.room)
+			if resetErr != nil {
+				h.failClosedGameProjections(expected.room, resetErr)
+				return
+			}
+			h.fanout(expected.room, reset.Broadcast)
+		} else {
+			h.fanout(expected.room, result.Broadcast)
+		}
+		if result.ProjectGame && !departingForgePlayer {
 			h.fanoutGameProjections(expected.room)
 		}
 		return

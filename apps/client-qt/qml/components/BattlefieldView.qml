@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
@@ -324,19 +324,22 @@ Surface {
                         anchors.fill: parent
                         anchors.margins: Theme.size(6)
 
-                    TapHandler {
+                    MouseArea {
+                        objectName: "battlefieldBackgroundMouseArea"
+                                    + battlefieldZone.modelData.seat
+                        anchors.fill: parent
                         acceptedButtons: Qt.RightButton
                         enabled: battlefieldZone.isOwn
                                  && root.tableController.canAct
-                                 && !root.tableController.sessionUi.counterShortcutBlocked()
-                        onTapped: function(point) {
+                                 && !root.tableController.tableModalOpen
+                        onClicked: function(mouse) {
                             if (root.tableController.suppressBattlefieldAreaMenu)
                                 return
                             const position =
                                 battlefieldZoneArea.mapToItem(
                                     root.tableController,
-                                    point.position.x,
-                                    point.position.y)
+                                    mouse.x,
+                                    mouse.y)
                             if (root.tableController.battlefieldScene.cardAtRootPoint(
                                         position.x,
                                         position.y)) {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 package room
@@ -96,9 +96,10 @@ func (r *Room) buildJoinResult(connID, role string, seat *int) (Result, error) {
 		broadcast = append(broadcast, r.loadRequiredEnvelope())
 	}
 	return Result{
-		Reply:       &replyEnv,
-		Broadcast:   broadcast,
-		ProjectGame: r.Phase == protocol.RoomPhaseStarted && r.Game != nil,
+		Reply:     &replyEnv,
+		Broadcast: broadcast,
+		ProjectGame: r.Phase == protocol.RoomPhaseStarted &&
+			(r.Game != nil || r.RulesMode == protocol.RulesModeForge),
 	}, nil
 }
 

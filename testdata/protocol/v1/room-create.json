@@ -9,6 +9,7 @@
     "allowSpectators": true,
     "spectatorsSeeHands": true,
     "matchMode": "bo3",
-    "cardLoadMode": "preload"
+    "cardLoadMode": "preload",
+    "rulesMode": "manual"
   }
 }
