@@ -51,6 +51,21 @@ screens show plain-text import and per-card printing selection.
 - Named bundled servers plus a user-defined custom WebSocket server.
 - Public-log replay for matches retained by the connected hub.
 
+### Limited play: draft, sealed, and Cube
+
+- Set draft with exactly eight checked-in players, three packs each, passing
+  left, then right, then left again, with server-authoritative pools and card
+  movement.
+- Set sealed gives every player exactly six boosters before deck building.
+- Cube draft for four to eight players from a Cube deck registered in the
+  local deck library; the Cube contents are locked when the draft starts.
+- Authentic booster collation from installed set definitions where available,
+  with approximate rarity collation otherwise; every participant sees which
+  mode a set uses.
+- Build 40-card Limited decks from opened pools in the deck editor, then play
+  Swiss rounds with standings.
+- A standalone pack simulator for opening packs without creating a tournament.
+
 ### Manual tabletop
 
 - Drag cards among library, hand, battlefield, graveyard, exile, stack,
