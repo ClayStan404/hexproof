@@ -16,6 +16,10 @@ Chinese on Linux, Windows, and macOS.
 Current version: **1.0.3**. Client and server application versions must match
 exactly.
 
+Hexproof is still in active development: features may change and releases can
+be unstable. The optional Forge rules mode is under development and not yet
+complete.
+
 ## Download
 
 Prebuilt client packages for Windows x64, macOS (Apple Silicon and Intel),
