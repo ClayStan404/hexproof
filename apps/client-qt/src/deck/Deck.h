@@ -19,6 +19,8 @@ struct DeckCard
     QString typeLine;
     QString imagePath;
     int count = 1;
+    QString colors;
+    double manaValue = -1.0;
 };
 
 struct DeckToken
@@ -47,6 +49,9 @@ struct Deck
     QString updatedAt;
     QVector<DeckCard> mainboard;
     QVector<DeckCard> sideboard;
+    // Editor-only maybeboard. It is persisted and exported, but never sent as
+    // part of a registered match deck.
+    QVector<DeckCard> consider;
     QVector<DeckToken> tokens;
 };
 

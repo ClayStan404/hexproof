@@ -424,6 +424,35 @@ TestCase {
         table.destroy()
     }
 
+    function test_chatFocusDoesNotBlockHandAreaContextMenu() {
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+        const chatInput = findChild(table, "gameChatInput")
+        const handList = findChild(table, "ownHand")
+        const handCard = findChild(table, "handCard0")
+        const handAreaMenu = findChild(table, "handAreaMenu")
+        verify(chatInput !== null)
+        verify(handList !== null)
+        verify(handCard !== null)
+        verify(handAreaMenu !== null)
+
+        chatInput.text = "Still typing"
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
+        chatInput.forceActiveFocus()
+        tryVerify(() => chatInput.activeFocus)
+        tryVerify(() => handList.width > handCard.width * 2
+                  && handList.height > 0)
+        mouseClick(handList, handList.width - 4,
+                   handList.height / 2, Qt.RightButton)
+        tryVerify(() => handAreaMenu.opened)
+        handAreaMenu.close()
+        table.destroy()
+    }
+
     function test_spectatorHandViewerIsReadOnlyAndSeatScoped() {
         mockWs.roomRole = "spectator"
         mockWs.seatIndex = -1

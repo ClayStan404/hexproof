@@ -20,6 +20,7 @@ class DeckLibraryQueries
                                const QVariantMap &validation = {});
     static QString deckStatus(const Deck &deck, const QVariantMap &validation = {});
     static int missingImageCount(const Deck &deck);
+    static int missingImageCount(const QVector<DeckCard> &cards);
     static bool hasMissingArt(const QVector<Deck> &decks);
     static bool hasExactPrintings(const Deck &deck);
     static QVariantMap cubeProduct(const Deck &deck);

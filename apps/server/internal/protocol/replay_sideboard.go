@@ -61,7 +61,8 @@ type SideboardProjection struct {
 }
 
 // SideboardMove moves one copy of one already-registered printing between the
-// current match mainboard and sideboard.
+// current match mainboard and sideboard. Limited pairings also use the virtual
+// basic_lands supply for the five unlimited ordinary basic lands.
 type SideboardMove struct {
 	Name            string `json:"name"`
 	SetCode         string `json:"setCode"`

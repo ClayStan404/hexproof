@@ -29,6 +29,7 @@ payload_schema = importlib.import_module("payload_schema")
 payload_go_structs = importlib.import_module("payload_go_structs")
 i18n = load_tool("check-i18n.py", "check_i18n")
 module_size = load_tool("check-module-size.py", "check_module_size")
+server_directory = load_tool("write-server-directory.py", "write_server_directory")
 
 
 class ProtocolParityTests(unittest.TestCase):
@@ -180,7 +181,35 @@ class I18nAuditTests(unittest.TestCase):
             )
             _, duplicates, unfinished = i18n.catalog_messages(path)
             self.assertEqual(duplicates, [("Main", "Hello")])
-            self.assertEqual(unfinished, [("Main", "Hello")])
+        self.assertEqual(unfinished, [("Main", "Hello")])
+
+
+class ServerDirectoryToolTests(unittest.TestCase):
+    def test_accepts_five_servers_including_a_path_scoped_test_hub(self) -> None:
+        document = {
+            "schemaVersion": 1,
+            "servers": [
+                {"url": "wss://server-1.example/ws"},
+                {"url": "wss://server-2.example/ws"},
+                {"url": "wss://server-3.example/ws"},
+                {"url": "wss://server-4.example/ws"},
+                {"url": "wss://server-1.example/test/ws"},
+            ],
+        }
+        self.assertEqual(server_directory.validate_directory(document), document)
+
+    def test_rejects_the_legacy_four_server_shape(self) -> None:
+        document = {
+            "schemaVersion": 1,
+            "servers": [
+                {"url": "wss://server-1.example/ws"},
+                {"url": "wss://server-2.example/ws"},
+                {"url": "wss://server-3.example/ws"},
+                {"url": "wss://server-1.example/test/ws"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "exactly 5 entries"):
+            server_directory.validate_directory(document)
 
 
 class VerificationScriptTests(unittest.TestCase):
@@ -242,6 +271,16 @@ class VerificationScriptTests(unittest.TestCase):
             script,
         )
         self.assertIn("./build/server/hexproof-server -bind", readme)
+
+    def test_public_export_includes_linked_rules_engine_contract(self) -> None:
+        root = TOOLS_DIR.parent
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        export_script = (TOOLS_DIR / "export-public-tree.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("docs/rules-engine.md", readme)
+        self.assertTrue((root / "docs/rules-engine.md").is_file())
+        self.assertIn("    docs/rules-engine.md\n", export_script)
 
     def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:
         paths = (

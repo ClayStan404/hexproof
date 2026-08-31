@@ -27,6 +27,9 @@ TestCase {
             id: mockCatalog
             property int imageRevision: 0
             function tableImageSource(name, setCode, collectorNumber) { return "" }
+            function imageSource(name, setCode, collectorNumber) {
+                return "file:///tmp/limited-preview.png"
+            }
             function cacheCardsIncrementally(cards) {}
             function enrichLimitedCards(cards) {
                 const enriched = []
@@ -43,13 +46,17 @@ TestCase {
 
         QtObject {
             id: mockLimited
+            signal snapshotChanged()
+            property int packRound: 1
+            property int direction: 1
+            property var currentPack: pool
             property var pool: [
                 {"instanceId": "card-1", "name": "Island",
                  "setCode": "TST", "collectorNumber": "1",
-                 "typeLine": "Basic Land — Island"},
+                 "typeLine": "Basic Land — Island", "rarity": "common"},
                 {"instanceId": "card-2", "name": "Test Creature",
                  "setCode": "TST", "collectorNumber": "2",
-                 "typeLine": "Creature — Test"}
+                 "typeLine": "Creature — Test", "rarity": "mythic"}
             ]
             property var participants: testCase.seats
             property bool deckSubmitted: false
@@ -61,7 +68,14 @@ TestCase {
         QtObject {
             id: mockWs
             property var submittedIds: []
+            property string pickedId: ""
             function submitLimitedDeck(name, ids, lands) { submittedIds = ids }
+            function pickLimitedCard(instanceId) { pickedId = instanceId }
+        }
+
+        QtObject {
+            id: mockTournament
+            property string participantId: "p1"
         }
 
         LimitedDraftSeatMap {
@@ -80,6 +94,16 @@ TestCase {
             wsModel: mockWs
             cardCatalogModel: mockCatalog
         }
+
+        LimitedDraftView {
+            id: draftView
+            anchors.fill: parent
+            visible: false
+            limitedModel: mockLimited
+            tournamentModel: mockTournament
+            wsModel: mockWs
+            cardCatalogModel: mockCatalog
+        }
     }
 
     function init() {
@@ -92,6 +116,10 @@ TestCase {
         deckBuilder.groupingModeIndex = 0
         deckBuilder.clearFilters()
         deckBuilder.basicLandsExpanded = false
+        deckBuilder.hoverPreviewVisible = false
+        draftView.pickedRarityFilterIndex = 0
+        draftView.hoverPreviewVisible = false
+        draftView.visible = false
     }
 
     function test_seatMapUsesViewerRelativePhysicalOrder() {
@@ -149,6 +177,7 @@ TestCase {
         deckBuilder.colorFilterIndex = 6
         deckBuilder.typeFilterIndex = 1
         deckBuilder.manaFilterIndex = 4
+        deckBuilder.rarityFilterIndex = 4
         compare(deckBuilder.visibleSideboardCards.length, 1)
         compare(deckBuilder.visibleSideboardCards[0].instanceId, "card-2")
 
@@ -158,5 +187,66 @@ TestCase {
         deckBuilder.clearFilters()
         compare(deckBuilder.visibleSideboardCards.length, 2)
         verify(!deckBuilder.filtersActive)
+    }
+
+    function test_deckBuilderShowsRarityAndFullCardPreview() {
+        deckBuilder.rarityFilterIndex = 1
+        compare(deckBuilder.visibleSideboardCards.length, 1)
+        compare(deckBuilder.visibleSideboardCards[0].rarity, "common")
+
+        deckBuilder.clearFilters()
+        deckBuilder.visible = true
+        wait(0)
+        const tile = findChild(deckBuilder, "limitedCardTile-card-2")
+        verify(tile)
+        compare(tile.rarityCode(), "M")
+        compare(tile.rarityLabel(), "Mythic rare")
+
+        deckBuilder.inspectCard(deckBuilder.sideboardCards[1], tile)
+        verify(deckBuilder.hoverPreviewVisible)
+        const preview = findChild(deckBuilder, "limitedCardHoverPreview")
+        const previewArt = findChild(deckBuilder, "limitedCardHoverPreviewArt")
+        verify(preview)
+        verify(previewArt)
+        verify(preview.visible)
+        compare(previewArt.source.toString(), "file:///tmp/limited-preview.png")
+        deckBuilder.hideCardPreview()
+        verify(!deckBuilder.hoverPreviewVisible)
+        deckBuilder.visible = false
+    }
+
+    function test_draftViewFiltersPicksAndPreviewsBothAreas() {
+        draftView.pickedRarityFilterIndex = 4
+        compare(draftView.visiblePickedCards.length, 1)
+        compare(draftView.visiblePickedCards[0].instanceId, "card-2")
+        compare(mockLimited.currentPack.length, 2)
+
+        draftView.visible = true
+        wait(0)
+        const packCard = findChild(draftView, "limitedDraftPackCard-card-1")
+        const pickedCard = findChild(
+                               draftView,
+                               "limitedDraftPickedCard-card-2")
+        const preview = findChild(
+                            draftView,
+                            "limitedDraftCardHoverPreview")
+        const previewArt = findChild(
+                               draftView,
+                               "limitedDraftCardHoverPreviewArt")
+        verify(packCard)
+        verify(pickedCard)
+        verify(preview)
+        verify(previewArt)
+
+        draftView.inspectCard(mockLimited.currentPack[0], packCard)
+        verify(preview.visible)
+        compare(draftView.inspectedCard.instanceId, "card-1")
+        compare(previewArt.source.toString(), "file:///tmp/limited-preview.png")
+
+        draftView.inspectCard(draftView.visiblePickedCards[0], pickedCard)
+        verify(preview.visible)
+        compare(draftView.inspectedCard.instanceId, "card-2")
+        draftView.hideCardPreview()
+        verify(!draftView.hoverPreviewVisible)
     }
 }

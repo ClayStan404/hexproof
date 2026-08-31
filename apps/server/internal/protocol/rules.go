@@ -78,8 +78,8 @@ type RulesPromptChoice struct {
 	CanRepeat  bool   `json:"canRepeat"`
 }
 
-// RulesPromptCard is a private selectable card identity projected only to the
-// authenticated player who owns the current rules prompt.
+// RulesPromptCard is a private card identity projected only to the authenticated
+// player who owns the current selection or disclosure prompt.
 type RulesPromptCard struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
@@ -96,6 +96,12 @@ type RulesPromptOrderItem struct {
 	CollectorNumber string `json:"collectorNumber,omitempty"`
 	Token           bool   `json:"token,omitempty"`
 	Oracle          string `json:"oracle,omitempty"`
+}
+
+// RulesPromptScryPile is one ordered destination pile in a scry response.
+type RulesPromptScryPile struct {
+	Destination string   `json:"destination"`
+	CardIDs     []string `json:"cardIds"`
 }
 
 // RulesPromptTarget is a short-lived target choice. ResponseID is opaque;
@@ -152,46 +158,90 @@ type RulesPromptAssignment struct {
 	TargetID string `json:"targetId"`
 }
 
+// RulesPromptDamageSource is the visible identity of the permanent assigning
+// combat damage.
+type RulesPromptDamageSource struct {
+	ObjectID        string `json:"objectId"`
+	Label           string `json:"label"`
+	Name            string `json:"name"`
+	SetCode         string `json:"setCode"`
+	CollectorNumber string `json:"collectorNumber"`
+	Token           bool   `json:"token,omitempty"`
+}
+
+// RulesPromptDamageTarget is one assignee in the engine-required order.
+// LethalDamage is -1 for the final defending player or permanent, which does
+// not gate later assignees.
+type RulesPromptDamageTarget struct {
+	ResponseID      string `json:"responseId"`
+	Kind            string `json:"kind"`
+	Label           string `json:"label"`
+	ObjectID        string `json:"objectId,omitempty"`
+	Name            string `json:"name,omitempty"`
+	SetCode         string `json:"setCode,omitempty"`
+	CollectorNumber string `json:"collectorNumber,omitempty"`
+	Token           bool   `json:"token,omitempty"`
+	LethalDamage    int    `json:"lethalDamage"`
+}
+
+// RulesPromptDamageAssignment assigns an exact amount to one current opaque
+// damage target.
+type RulesPromptDamageAssignment struct {
+	TargetID string `json:"targetId"`
+	Damage   int    `json:"damage"`
+}
+
 // RulesPrompt is addressed only to its deciding player. Unsupported prompt
 // families remain visible as a non-interactive soft error instead of exposing
 // raw backend JSON or making the Qt client guess its shape.
 type RulesPrompt struct {
-	RoomID        string                    `json:"roomId"`
-	GameID        string                    `json:"gameId"`
-	Pending       bool                      `json:"pending"`
-	PromptID      int64                     `json:"promptId"`
-	Kind          string                    `json:"kind"`
-	Supported     bool                      `json:"supported"`
-	Title         string                    `json:"title"`
-	Detail        string                    `json:"detail"`
-	Options       []RulesPromptOption       `json:"options"`
-	Choices       []RulesPromptChoice       `json:"choices"`
-	Cards         []RulesPromptCard         `json:"cards"`
-	OrderItems    []RulesPromptOrderItem    `json:"orderItems"`
-	Required      int                       `json:"requiredSelections"`
-	CardMinimum   int                       `json:"minCardSelections"`
-	CardMaximum   int                       `json:"maxCardSelections"`
-	Targets       []RulesPromptTarget       `json:"targets"`
-	CombatSources []RulesPromptCombatSource `json:"combatSources"`
-	CombatTargets []RulesPromptCombatTarget `json:"combatTargets"`
-	Minimum       int                       `json:"minSelections"`
-	Maximum       int                       `json:"maxSelections"`
-	Cancellable   bool                      `json:"cancellable"`
-	ChoiceMinimum int                       `json:"minChoiceTotal"`
-	ChoiceMaximum int                       `json:"maxChoiceTotal"`
-	NumberMinimum int                       `json:"minNumber"`
-	NumberMaximum int                       `json:"maxNumber"`
+	RoomID           string                    `json:"roomId"`
+	GameID           string                    `json:"gameId"`
+	Pending          bool                      `json:"pending"`
+	PromptID         int64                     `json:"promptId"`
+	Kind             string                    `json:"kind"`
+	Supported        bool                      `json:"supported"`
+	Title            string                    `json:"title"`
+	Detail           string                    `json:"detail"`
+	Options          []RulesPromptOption       `json:"options"`
+	Choices          []RulesPromptChoice       `json:"choices"`
+	Cards            []RulesPromptCard         `json:"cards"`
+	ScryDestinations []string                  `json:"scryDestinations"`
+	OrderItems       []RulesPromptOrderItem    `json:"orderItems"`
+	ContextCards     []RulesPromptCard         `json:"contextCards"`
+	ContextTargets   []RulesPromptTarget       `json:"contextTargets"`
+	ContextText      string                    `json:"contextText"`
+	Required         int                       `json:"requiredSelections"`
+	CardMinimum      int                       `json:"minCardSelections"`
+	CardMaximum      int                       `json:"maxCardSelections"`
+	Targets          []RulesPromptTarget       `json:"targets"`
+	CombatSources    []RulesPromptCombatSource `json:"combatSources"`
+	CombatTargets    []RulesPromptCombatTarget `json:"combatTargets"`
+	DamageSource     *RulesPromptDamageSource  `json:"damageSource,omitempty"`
+	DamageTargets    []RulesPromptDamageTarget `json:"damageTargets"`
+	TotalDamage      int                       `json:"totalDamage"`
+	DamageDeathtouch bool                      `json:"damageDeathtouch"`
+	Minimum          int                       `json:"minSelections"`
+	Maximum          int                       `json:"maxSelections"`
+	Cancellable      bool                      `json:"cancellable"`
+	ChoiceMinimum    int                       `json:"minChoiceTotal"`
+	ChoiceMaximum    int                       `json:"maxChoiceTotal"`
+	NumberMinimum    int                       `json:"minNumber"`
+	NumberMaximum    int                       `json:"maxNumber"`
 }
 
 type RulesRespond struct {
-	PromptID     int64                   `json:"promptId"`
-	ResponseID   string                  `json:"responseId"`
-	CardIDs      []string                `json:"cardIds,omitempty"`
-	TargetIDs    []string                `json:"targetIds,omitempty"`
-	Assignments  []RulesPromptAssignment `json:"assignments,omitempty"`
-	ChoiceIDs    []string                `json:"choiceIds,omitempty"`
-	OrderedIDs   []string                `json:"orderedIds,omitempty"`
-	ChosenNumber *int                    `json:"chosenNumber,omitempty"`
+	PromptID          int64                         `json:"promptId"`
+	ResponseID        string                        `json:"responseId"`
+	CardIDs           []string                      `json:"cardIds,omitempty"`
+	TargetIDs         []string                      `json:"targetIds,omitempty"`
+	Assignments       []RulesPromptAssignment       `json:"assignments,omitempty"`
+	ChoiceIDs         []string                      `json:"choiceIds,omitempty"`
+	OrderedIDs        []string                      `json:"orderedIds,omitempty"`
+	ScryPiles         []RulesPromptScryPile         `json:"scryPiles,omitempty"`
+	DamageOrderIDs    []string                      `json:"damageOrderIds,omitempty"`
+	DamageAssignments []RulesPromptDamageAssignment `json:"damageAssignments,omitempty"`
+	ChosenNumber      *int                          `json:"chosenNumber,omitempty"`
 }
 
 type RulesResponded struct {

@@ -371,6 +371,10 @@ class WsClient : public QObject
                                                        const QVariantList &assignments);
     Q_INVOKABLE void respondRulesPromptWithChoices(qint64 promptId, const QVariantList &choiceIds);
     Q_INVOKABLE void respondRulesPromptWithOrder(qint64 promptId, const QVariantList &orderedIds);
+    Q_INVOKABLE void respondRulesPromptWithDamageOrder(qint64 promptId,
+                                                       const QVariantList &orderedIds);
+    Q_INVOKABLE void respondRulesPromptWithDamage(qint64 promptId, const QVariantList &assignments);
+    Q_INVOKABLE void respondRulesPromptWithScry(qint64 promptId, const QVariantList &piles);
     Q_INVOKABLE void respondRulesPromptWithNumber(qint64 promptId, int chosenNumber);
     Q_INVOKABLE void drawCards(int count = 1);
     Q_INVOKABLE void shuffleLibrary();

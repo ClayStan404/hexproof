@@ -15,6 +15,7 @@ Popup {
     property bool searching: false
     property var deckLibraryModel: null
     property bool allowSideboard: true
+    property bool considerOnly: false
     property bool filtersAvailable: true
     property string typeFilter: ""
     property alias setFilter: setCodeField.text
@@ -397,14 +398,14 @@ Popup {
                         AppButton {
                             compact: true
                             variant: "primary"
-                            text: qsTr("+ Main")
+                            text: root.considerOnly ? qsTr("+ Consider") : qsTr("+ Main")
                             Layout.preferredWidth: Theme.size(82)
                             enabled: searchResultDelegate.canIncrement
                             onClicked: root.addRequested(searchResultDelegate.modelData, false)
                         }
 
                         AppButton {
-                            visible: root.allowSideboard
+                            visible: root.allowSideboard && !root.considerOnly
                             compact: true
                             text: qsTr("+ Side")
                             Layout.preferredWidth: Theme.size(78)

@@ -29,7 +29,7 @@ enum class DeckParseProfile
 };
 
 // Parses common plain-text and Moxfield clipboard exports, and writes the
-// same explicit Deck / Sideboard / Commander text for round-trip import while
+// same explicit Deck / Sideboard / Commander / Consider text for round-trip import while
 // retaining set/collector hints for Hexproof's image resolver.
 class DeckParser
 {

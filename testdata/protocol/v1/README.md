@@ -41,7 +41,7 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-snapshot-owner.json` | S -> C | Owner sees their seven private hand identities and only opponent counts |
 | `game-snapshot-opponent.json` | S -> C | Opponent gets their own hand while Alice's hand identities remain absent |
 | `rules-snapshot-owner.json` | S -> C | Normalized Forge projection with seat-mapped players and viewer-authorized card identities |
-| `rules-prompt.json` / `rules-respond.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choice, stable response id, and identity-free acknowledgement |
+| `rules-prompt.json` / `rules-prompt-reveal.json` / `rules-prompt-scry.json` / `rules-prompt-damage-order.json` / `rules-prompt-damage-assignment.json` / `rules-prompt-replacement.json` / `rules-respond.json` / `rules-respond-scry.json` / `rules-respond-damage-order.json` / `rules-respond-damage-assignment.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choices, including private card disclosure, scry ordering, combat-damage assignment, and read-only replacement-effect context, stable response ids, and identity-free acknowledgements |
 | `game-draw.json` / `game-drawn.json` | both | Bounded multi-card draw request and identity-free acknowledgement |
 | `game-return-to-room.json` / `game-returned-to-room.json` | both | End completed-match review and restore the room waiting flow |
 | `game-shuffle-library.json` / `game-library-shuffled.json` | both | Shuffle the acting player's hidden library with an identity-free acknowledgement |

@@ -27,7 +27,7 @@ enum class Section
     Mainboard,
     Sideboard,
     Commander,
-    Ignore
+    Consider
 };
 
 DeckParseLimits limitsForProfile(DeckParseProfile profile)
@@ -160,11 +160,11 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
             section = Section::Commander;
             continue;
         }
-        if (isHeading(line, {QStringLiteral("maybeboard"), QStringLiteral("maybe board"),
-                             QStringLiteral("considering")})) {
+        if (isHeading(line, {QStringLiteral("consider"), QStringLiteral("maybeboard"),
+                             QStringLiteral("maybe board"), QStringLiteral("considering")})) {
             sawSectionHeading = true;
             pendingPlainSideboard = false;
-            section = Section::Ignore;
+            section = Section::Consider;
             continue;
         }
 
@@ -220,17 +220,19 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
             section = blankSectionIsCommander ? Section::Commander : Section::Sideboard;
             pendingPlainSideboard = false;
         }
-        if (section == Section::Ignore)
-            continue;
-
         const bool commander = markedCommander || section == Section::Commander;
         if (commander && !result.deck.commanders.contains(card.name, Qt::CaseInsensitive)) {
             result.deck.commanders.append(card.name);
         }
 
-        const bool merged = prefixedSideboard || section == Section::Sideboard
-                                ? mergeCard(result.deck.sideboard, card, limits)
-                                : mergeCard(result.deck.mainboard, card, limits);
+        bool merged = false;
+        if (section == Section::Consider) {
+            merged = mergeCard(result.deck.consider, card, limits);
+        } else if (prefixedSideboard || section == Section::Sideboard) {
+            merged = mergeCard(result.deck.sideboard, card, limits);
+        } else {
+            merged = mergeCard(result.deck.mainboard, card, limits);
+        }
         if (!merged) {
             result.error =
                 QStringLiteral("Deck imports can contain at most %1 cards and %2 entries.")
@@ -241,7 +243,8 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
         sawCard = true;
     }
 
-    if (result.deck.mainboard.size() + result.deck.sideboard.size() > limits.entries) {
+    if (result.deck.mainboard.size() + result.deck.sideboard.size() + result.deck.consider.size() >
+        limits.entries) {
         result.error = QStringLiteral("Deck imports can contain at most %1 cards and %2 entries.")
                            .arg(limits.cards)
                            .arg(limits.entries);
@@ -249,7 +252,7 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
     }
 
     qint64 totalCards = 0;
-    for (const auto &cards : {result.deck.mainboard, result.deck.sideboard}) {
+    for (const auto &cards : {result.deck.mainboard, result.deck.sideboard, result.deck.consider}) {
         for (const DeckCard &card : cards) {
             if (card.count > limits.cards - totalCards) {
                 result.error =
@@ -303,6 +306,12 @@ QString DeckParser::format(const Deck &deck)
             fallback.count = 1;
             lines.append(formatCardLine(fallback, true));
         }
+    }
+    if (!deck.consider.isEmpty()) {
+        lines.append(QString());
+        lines.append(QStringLiteral("Consider"));
+        for (const DeckCard &card : deck.consider)
+            lines.append(formatCardLine(card, false));
     }
     return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
 }

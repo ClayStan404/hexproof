@@ -5,6 +5,7 @@
 
 #include <QAbstractListModel>
 #include <QString>
+#include <QVariantList>
 #include <QVector>
 
 namespace hexproof::client {
@@ -134,6 +135,7 @@ class RulesZoneModel final : public QAbstractListModel
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
+    int countFor(int ownerSeat, const QString &zone) const;
     void replace(QVector<RulesZoneRow> rows);
     void clear();
 
@@ -219,6 +221,7 @@ class RulesPromptOptionModel final : public QAbstractListModel
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
+    QVariantList castActionsForCard(const QString &cardId) const;
     void replace(QVector<RulesPromptOptionRow> rows);
     void clear();
 
@@ -242,6 +245,7 @@ class RulesPromptCardModel final : public QAbstractListModel
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
+    Q_INVOKABLE QVariantList items() const;
     void replace(QVector<RulesPromptCardRow> rows);
     void clear();
 

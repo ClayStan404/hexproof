@@ -24,8 +24,14 @@ Item {
     property int colorFilterIndex: 0
     property int typeFilterIndex: 0
     property int manaFilterIndex: 0
+    property int rarityFilterIndex: 0
     property int metadataRevision: 0
     property bool basicLandsExpanded: false
+    property var inspectedCard: ({})
+    property var inspectedSource: null
+    property bool hoverPreviewVisible: false
+    property real hoverPreviewX: 0
+    property real hoverPreviewY: 0
     readonly property var basicNames: ["Plains", "Island", "Swamp",
                                        "Mountain", "Forest"]
     readonly property var groupingModes: ["mana", "color", "type", "name"]
@@ -51,13 +57,20 @@ Item {
     readonly property var manaFilterOptions: [qsTr("All mana values"), "0", "1", "2",
                                               "3", "4", "5", "6", "7+",
                                               qsTr("Lands"), qsTr("Unknown")]
+    readonly property var rarityFilterKeys: ["all", "common", "uncommon", "rare",
+                                              "mythic", "unknown"]
+    readonly property var rarityFilterOptions: [qsTr("All rarities"), qsTr("Common"),
+                                                 qsTr("Uncommon"), qsTr("Rare"),
+                                                 qsTr("Mythic rare"), qsTr("Unknown")]
     readonly property string groupingMode: groupingModes[groupingModeIndex]
     readonly property string colorFilter: colorFilterKeys[colorFilterIndex]
     readonly property string typeFilter: typeFilterKeys[typeFilterIndex]
     readonly property string manaFilter: manaFilterKeys[manaFilterIndex]
+    readonly property string rarityFilter: rarityFilterKeys[rarityFilterIndex]
     readonly property bool filtersActive: colorFilterIndex !== 0
                                           || typeFilterIndex !== 0
                                           || manaFilterIndex !== 0
+                                          || rarityFilterIndex !== 0
     readonly property var enrichedPool: enrichPoolCards()
     readonly property int selectedPoolCount: countSelected()
     readonly property int selectedCount: selectedPoolCount + countBasics()
@@ -65,7 +78,8 @@ Item {
     readonly property var sideboardCards: cardsForSelection(false)
     readonly property var visibleSideboardCards: grouping.filterCards(
                                                     sideboardCards, colorFilter,
-                                                    typeFilter, manaFilter)
+                                                    typeFilter, manaFilter,
+                                                    rarityFilter)
     readonly property var mainDeckGroups: grouping.groupCards(mainDeckCards)
     readonly property var sideboardGroups: grouping.groupCards(visibleSideboardCards)
     readonly property int selectedLandCount: countSelectedLands()
@@ -193,6 +207,17 @@ Item {
                     currentIndex: root.manaFilterIndex
                     displayText: qsTr("Mana: %1").arg(currentText)
                     onActivated: index => root.manaFilterIndex = index
+                }
+
+                AppComboBox {
+                    id: rarityFilterControl
+                    objectName: "limitedRarityFilter"
+                    Layout.preferredWidth: Theme.size(136)
+                    implicitHeight: Theme.size(40)
+                    model: root.rarityFilterOptions
+                    currentIndex: root.rarityFilterIndex
+                    displayText: qsTr("Rarity: %1").arg(currentText)
+                    onActivated: index => root.rarityFilterIndex = index
                 }
 
                 AppButton {
@@ -341,6 +366,10 @@ Item {
                         cardWidth: Theme.size(108)
                         cardHeight: Theme.size(156)
                         onCardActivated: instanceId => root.moveToSideboard(instanceId)
+                        onCardInspected: (card, sourceItem) =>
+                            root.inspectCard(card, sourceItem)
+                        onCardInspectionEnded: sourceItem =>
+                            root.hideCardPreview(sourceItem)
                     }
                 }
             }
@@ -406,6 +435,10 @@ Item {
                         cardWidth: Theme.size(128)
                         cardHeight: Theme.size(185)
                         onCardActivated: instanceId => root.moveToMainDeck(instanceId)
+                        onCardInspected: (card, sourceItem) =>
+                            root.inspectCard(card, sourceItem)
+                        onCardInspectionEnded: sourceItem =>
+                            root.hideCardPreview(sourceItem)
                     }
                 }
             }
@@ -421,6 +454,51 @@ Item {
             color: root.limitedModel.allDecksSubmitted
                    ? Theme.success : Theme.textMuted
             font.pixelSize: Theme.fontSize(11)
+        }
+    }
+
+    Item {
+        id: hoverPreview
+
+        objectName: "limitedCardHoverPreview"
+        x: root.hoverPreviewX
+        y: root.hoverPreviewY
+        width: Math.min(Theme.size(340), root.width * 0.3)
+        height: Math.round(width * 88 / 63)
+        z: 500
+        visible: root.hoverPreviewVisible && !!root.inspectedCard.name
+        enabled: false
+
+        Image {
+            id: hoverPreviewArt
+
+            objectName: "limitedCardHoverPreviewArt"
+            anchors.fill: parent
+            source: root.previewImageSource(root.inspectedCard)
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            smooth: true
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: hoverPreviewArt.status !== Image.Ready
+            color: Theme.backgroundRaised
+            radius: Theme.radiusMedium
+            border.width: 1
+            border.color: Theme.borderStrong
+
+            Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                width: parent.width - Theme.size(24)
+                text: root.inspectedCard.name ? root.inspectedCard.name : ""
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(15)
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+            }
         }
     }
 
@@ -462,6 +540,7 @@ Item {
     }
 
     function moveToMainDeck(instanceId) {
+        hideCardPreview()
         const changed = Object.assign({}, selectedCards)
         changed[instanceId] = true
         selectedCards = changed
@@ -469,6 +548,7 @@ Item {
     }
 
     function moveToSideboard(instanceId) {
+        hideCardPreview()
         const changed = Object.assign({}, selectedCards)
         delete changed[instanceId]
         selectedCards = changed
@@ -512,6 +592,49 @@ Item {
         colorFilterIndex = 0
         typeFilterIndex = 0
         manaFilterIndex = 0
+        rarityFilterIndex = 0
+        hideCardPreview()
+    }
+
+    function previewImageSource(card) {
+        if (!card || !card.name || !cardCatalogModel
+                || typeof cardCatalogModel.imageSource !== "function") {
+            return ""
+        }
+        void cardCatalogModel.imageRevision
+        return cardCatalogModel.imageSource(
+                    card.name, card.setCode || "",
+                    card.collectorNumber || "")
+    }
+
+    function inspectCard(card, sourceItem) {
+        if (!card || !card.name || !sourceItem)
+            return
+        inspectedCard = card
+        inspectedSource = sourceItem
+        const previewWidth = Math.min(Theme.size(340), root.width * 0.3)
+        const previewHeight = Math.round(previewWidth * 88 / 63)
+        const margin = Theme.size(12)
+        const right = sourceItem.mapToItem(root, sourceItem.width, 0)
+        const left = sourceItem.mapToItem(root, 0, 0)
+        let x = right.x + margin
+        if (x + previewWidth > root.width - margin)
+            x = left.x - previewWidth - margin
+        hoverPreviewX = Math.max(
+                            margin,
+                            Math.min(root.width - previewWidth - margin, x))
+        hoverPreviewY = Math.max(
+                            margin,
+                            Math.min(root.height - previewHeight - margin,
+                                     left.y))
+        hoverPreviewVisible = true
+    }
+
+    function hideCardPreview(sourceItem) {
+        if (sourceItem && inspectedSource && sourceItem !== inspectedSource)
+            return
+        hoverPreviewVisible = false
+        inspectedSource = null
     }
 
     function cachePoolCards() {

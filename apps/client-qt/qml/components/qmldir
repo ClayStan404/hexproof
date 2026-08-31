@@ -37,6 +37,9 @@ ConditionalMenuItem 1.0 ConditionalMenuItem.qml
 ConditionalMenuSeparator 1.0 ConditionalMenuSeparator.qml
 ExportDeckDialog 1.0 ExportDeckDialog.qml
 DeckCardRow 1.0 DeckCardRow.qml
+DeckVisualCard 1.0 DeckVisualCard.qml
+DeckMainCollection 1.0 DeckMainCollection.qml
+DeckConsiderManager 1.0 DeckConsiderManager.qml
 DeckPicker 1.0 DeckPicker.qml
 DeckTokenManager 1.0 DeckTokenManager.qml
 DiceRollPopup 1.0 DiceRollPopup.qml

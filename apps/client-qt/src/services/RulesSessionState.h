@@ -5,12 +5,14 @@
 
 #include "RulesChoiceModel.h"
 #include "RulesCombatModel.h"
+#include "RulesDamageModel.h"
 #include "RulesOrderModel.h"
 #include "RulesStateModels.h"
 
 #include <QJsonObject>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 namespace hexproof::client {
 
@@ -49,9 +51,17 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(QAbstractListModel *promptOptions READ promptOptions CONSTANT)
     Q_PROPERTY(QAbstractListModel *promptChoices READ promptChoices CONSTANT)
     Q_PROPERTY(QAbstractListModel *promptCards READ promptCards CONSTANT)
+    Q_PROPERTY(QStringList promptScryDestinations READ promptScryDestinations NOTIFY promptChanged)
     Q_PROPERTY(RulesOrderModel *promptOrderItems READ promptOrderItems CONSTANT)
+    Q_PROPERTY(QAbstractListModel *promptContextCards READ promptContextCards CONSTANT)
+    Q_PROPERTY(QAbstractListModel *promptContextTargets READ promptContextTargets CONSTANT)
+    Q_PROPERTY(QString promptContextText READ promptContextText NOTIFY promptChanged)
     Q_PROPERTY(QAbstractListModel *promptTargets READ promptTargets CONSTANT)
     Q_PROPERTY(RulesCombatModel *promptCombat READ promptCombat CONSTANT)
+    Q_PROPERTY(QVariantMap promptDamageSource READ promptDamageSource NOTIFY promptChanged)
+    Q_PROPERTY(RulesDamageModel *promptDamageTargets READ promptDamageTargets CONSTANT)
+    Q_PROPERTY(int promptTotalDamage READ promptTotalDamage NOTIFY promptChanged)
+    Q_PROPERTY(bool promptDamageDeathtouch READ promptDamageDeathtouch NOTIFY promptChanged)
     Q_PROPERTY(int promptMinChoiceTotal READ promptMinChoiceTotal NOTIFY promptChanged)
     Q_PROPERTY(int promptMaxChoiceTotal READ promptMaxChoiceTotal NOTIFY promptChanged)
     Q_PROPERTY(int promptMinNumber READ promptMinNumber NOTIFY promptChanged)
@@ -184,13 +194,29 @@ class RulesSessionState final : public QObject
     {
         return &m_promptChoices;
     }
-    QAbstractListModel *promptCards()
+    RulesPromptCardModel *promptCards()
     {
         return &m_promptCards;
+    }
+    QStringList promptScryDestinations() const
+    {
+        return m_promptScryDestinations;
     }
     RulesOrderModel *promptOrderItems()
     {
         return &m_promptOrderItems;
+    }
+    QAbstractListModel *promptContextCards()
+    {
+        return &m_promptContextCards;
+    }
+    QAbstractListModel *promptContextTargets()
+    {
+        return &m_promptContextTargets;
+    }
+    QString promptContextText() const
+    {
+        return m_promptContextText;
     }
     QAbstractListModel *promptTargets()
     {
@@ -199,6 +225,22 @@ class RulesSessionState final : public QObject
     RulesCombatModel *promptCombat()
     {
         return &m_promptCombat;
+    }
+    QVariantMap promptDamageSource() const
+    {
+        return m_promptDamageSource;
+    }
+    RulesDamageModel *promptDamageTargets()
+    {
+        return &m_promptDamageTargets;
+    }
+    int promptTotalDamage() const
+    {
+        return m_promptTotalDamage;
+    }
+    bool promptDamageDeathtouch() const
+    {
+        return m_promptDamageDeathtouch;
     }
     int promptMinChoiceTotal() const
     {
@@ -215,6 +257,17 @@ class RulesSessionState final : public QObject
     int promptMaxNumber() const
     {
         return m_promptMaxNumber;
+    }
+    Q_INVOKABLE int zoneCount(int ownerSeat, const QString &zone) const
+    {
+        return m_zones.countFor(ownerSeat, zone);
+    }
+    Q_INVOKABLE QVariantList castActionsForCard(const QString &cardId) const
+    {
+        if (!m_promptPending || !m_promptSupported ||
+            m_promptKind != QStringLiteral("chooseAction"))
+            return {};
+        return m_promptOptions.castActionsForCard(cardId);
     }
 
     bool applySnapshot(const QJsonObject &snapshot);
@@ -257,9 +310,17 @@ class RulesSessionState final : public QObject
     RulesPromptOptionModel m_promptOptions;
     RulesChoiceModel m_promptChoices;
     RulesPromptCardModel m_promptCards;
+    QStringList m_promptScryDestinations;
     RulesOrderModel m_promptOrderItems;
+    RulesPromptCardModel m_promptContextCards;
+    RulesPromptTargetModel m_promptContextTargets;
+    QString m_promptContextText;
     RulesPromptTargetModel m_promptTargets;
     RulesCombatModel m_promptCombat;
+    QVariantMap m_promptDamageSource;
+    RulesDamageModel m_promptDamageTargets;
+    int m_promptTotalDamage = 0;
+    bool m_promptDamageDeathtouch = false;
     int m_promptMinChoiceTotal = 0;
     int m_promptMaxChoiceTotal = 0;
     int m_promptMinNumber = 0;

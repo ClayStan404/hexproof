@@ -25,6 +25,7 @@ Item {
     property real hoverPreviewX: 0
     property real hoverPreviewY: 0
     property var resolvedTypeLineCache: ({})
+    property bool basicLandsExpanded: false
     readonly property var sideboardData: gameSession.sideboard
                                                    ? gameSession.sideboard : ({})
     readonly property var mainboard: sideboardData.mainboard
@@ -36,19 +37,20 @@ Item {
     readonly property bool isPlayer: roomSession.role === "player"
     readonly property bool ownReady: playerReady(roomSession.seatIndex)
     readonly property bool deckChangesAllowed: roomSession.format !== "duel"
+    readonly property bool limitedDeck: roomSession.deckFormat === "limited"
     readonly property var commanders: sideboardData.commanders
                                       ? sideboardData.commanders : []
 
     Binding {
         target: root.tableModel
         property: "mainboardCards"
-        value: root.cardsWithResolvedTypes(root.mainboard)
+        value: limitedFilters.visibleMainboard
     }
 
     Binding {
         target: root.tableModel
         property: "sideboardCards"
-        value: root.cardsWithResolvedTypes(root.sideboard)
+        value: limitedFilters.visibleSideboard
     }
 
     z: 200
@@ -97,7 +99,9 @@ Item {
                     Text {
                         textFormat: Text.PlainText
                         objectName: "sideboardDeckRulesHint"
-                        text: root.deckChangesAllowed
+                        text: root.limitedDeck
+                              ? qsTr("Move pool cards between main and sideboard; ordinary basic lands are unlimited.")
+                              : root.deckChangesAllowed
                               ? qsTr("Move only registered cards between main and sideboard.")
                               : qsTr("Choose one or two commanders for the next game; the registered deck stays unchanged.")
                         color: Theme.textSecondary
@@ -144,6 +148,16 @@ Item {
 
                 Item { Layout.fillWidth: true }
 
+                AppButton {
+                    objectName: "sideboardBasicLandsButton"
+                    visible: root.isPlayer && root.limitedDeck
+                    compact: true
+                    variant: root.basicLandsExpanded ? "highlight" : "secondary"
+                    text: qsTr("Basic lands · %1")
+                          .arg(basicLandsPanel.virtualBasicTotal())
+                    onClicked: root.basicLandsExpanded = !root.basicLandsExpanded
+                }
+
                 Text {
                     textFormat: Text.PlainText
                     visible: !root.isPlayer
@@ -151,6 +165,18 @@ Item {
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
                 }
+            }
+
+            LimitedSideboardFilters {
+                id: limitedFilters
+
+                panel: root
+            }
+
+            LimitedSideboardBasicLandsPanel {
+                id: basicLandsPanel
+
+                panel: root
             }
 
             GridLayout {
@@ -186,7 +212,9 @@ Item {
                                 boardTables.width) * 100))
                     title: qsTr("Mainboard")
                     zoneName: "mainboard"
-                    totalCount: root.tableModel.mainboardCount
+                    totalCount: limitedFilters.mainboardCount
+                    visibleCount: limitedFilters.visibleMainboardCount
+                    filtersActive: limitedFilters.filtersActive
                     groups: root.mainboardGroups
                     destinationName: "sideboard"
                     enabled: !root.ownReady
@@ -211,7 +239,9 @@ Item {
                                 boardTables.width) * 100))
                     title: qsTr("Sideboard")
                     zoneName: "sideboard"
-                    totalCount: root.tableModel.sideboardCount
+                    totalCount: limitedFilters.sideboardCount
+                    visibleCount: limitedFilters.visibleSideboardCount
+                    filtersActive: limitedFilters.filtersActive
                     groups: root.sideboardGroups
                     destinationName: "mainboard"
                     enabled: root.deckChangesAllowed && !root.ownReady
@@ -249,6 +279,8 @@ Item {
                     visible: root.isPlayer
                     variant: root.ownReady ? "ghost" : "primary"
                     text: root.ownReady ? qsTr("Cancel ready") : qsTr("Ready for next game")
+                    enabled: root.ownReady || !root.limitedDeck
+                             || limitedFilters.mainboardCount >= 40
                     onClicked: root.wsModel.setSideboardReady(!root.ownReady)
                 }
             }
@@ -299,6 +331,11 @@ Item {
     }
 
     function moveSideboardCard(card, fromZone, toZone) {
+        if (limitedDeck && fromZone === "mainboard"
+                && toZone === "sideboard"
+                && basicLandsPanel.isVirtualOrdinaryBasic(card)) {
+            toZone = "basic_lands"
+        }
         wsModel.moveSideboardCard(card, fromZone, toZone)
     }
 
@@ -345,6 +382,7 @@ Item {
 
     function sideboardCardKey(card) {
         return String(card.name ? card.name : "").trim().toLowerCase()
+                + (card.virtualCard === true ? "\u001fvirtual" : "\u001fprinted")
     }
 
     function sideboardCardModelEntry(card) {
@@ -359,6 +397,7 @@ Item {
                                     ? card.collectorNumber : "")
         const typeLine = String(card.typeLine ? card.typeLine : "")
         const category = String(card.category ? card.category : "Other")
+        const virtualCard = card.virtualCard === true
         const tableIndex = Number(
                                typeof card.tableIndex !== "undefined"
                                ? card.tableIndex : 0)
@@ -366,7 +405,7 @@ Item {
             "cardKey": sideboardCardKey(card),
             "contentKey": [
                 name, count, pileCount, setCode, collectorNumber, typeLine,
-                category, tableIndex
+                category, virtualCard, tableIndex
             ].join("\u001f"),
             "name": name,
             "count": count,
@@ -375,6 +414,7 @@ Item {
             "collectorNumber": collectorNumber,
             "typeLine": typeLine,
             "category": category,
+            "virtualCard": virtualCard,
             "tableIndex": tableIndex
         }
     }

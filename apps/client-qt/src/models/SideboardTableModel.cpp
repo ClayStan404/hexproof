@@ -114,6 +114,7 @@ SideboardTableModel::GroupedCards SideboardTableModel::buildGroups(const QVarian
         QString collectorNumber;
         QString typeLine;
         QString category;
+        bool virtualCard = false;
         int count = 0;
     };
 
@@ -126,7 +127,12 @@ SideboardTableModel::GroupedCards SideboardTableModel::buildGroups(const QVarian
         const QString typeLine = card.value(QStringLiteral("typeLine")).toString();
         const QString category = categoryForTypeLine(typeLine);
         const int quantity = std::max(1, card.value(QStringLiteral("count"), 1).toInt());
-        const QString key = category + QChar(0x0001) + name.trimmed().toCaseFolded();
+        const QString setCode = card.value(QStringLiteral("setCode")).toString();
+        const QString collectorNumber = card.value(QStringLiteral("collectorNumber")).toString();
+        const bool virtualCard = setCode.trimmed().isEmpty() && collectorNumber.trimmed().isEmpty();
+        const QString key = category + QChar(0x0001) + name.trimmed().toCaseFolded() +
+                            QChar(0x0001) +
+                            (virtualCard ? QStringLiteral("virtual") : QStringLiteral("printed"));
         totalCount += quantity;
 
         const auto existing = locations.constFind(key);
@@ -139,10 +145,11 @@ SideboardTableModel::GroupedCards SideboardTableModel::buildGroups(const QVarian
         locations.insert(key, qMakePair(category, categoryPiles.size()));
         categoryPiles.append(Pile{
             .name = name,
-            .setCode = card.value(QStringLiteral("setCode")).toString(),
-            .collectorNumber = card.value(QStringLiteral("collectorNumber")).toString(),
+            .setCode = setCode,
+            .collectorNumber = collectorNumber,
             .typeLine = typeLine,
             .category = category,
+            .virtualCard = virtualCard,
             .count = quantity,
         });
     }
@@ -169,6 +176,7 @@ SideboardTableModel::GroupedCards SideboardTableModel::buildGroups(const QVarian
                 {QStringLiteral("collectorNumber"), pile.collectorNumber},
                 {QStringLiteral("typeLine"), pile.typeLine},
                 {QStringLiteral("category"), pile.category},
+                {QStringLiteral("virtualCard"), pile.virtualCard},
                 {QStringLiteral("tableIndex"), tableIndex++},
             });
             categoryCount += pile.count;

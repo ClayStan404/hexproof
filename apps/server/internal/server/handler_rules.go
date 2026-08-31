@@ -25,7 +25,10 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		!validRulesPromptSelectionIDs(request.TargetIDs, true) ||
 		!validRulesPromptChoiceIDs(request.ChoiceIDs) ||
 		!validRulesPromptOrderIDs(request.OrderedIDs) ||
-		!validRulesPromptAssignments(request.Assignments) {
+		!validRulesPromptScryPiles(request.ScryPiles) ||
+		!validRulesPromptAssignments(request.Assignments) ||
+		!validRulesPromptDamageOrderIDs(request.DamageOrderIDs) ||
+		!validRulesPromptDamageAssignments(request.DamageAssignments) {
 		message := "invalid rules response"
 		if err != nil {
 			message = err.Error()
@@ -68,12 +71,39 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			"Forge prompt is unavailable")
 		return nil
 	}
+	promptView, err := forge.NormalizePrompt(rawPrompt)
+	if err != nil {
+		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
+			"The Forge decision is stale or no longer available")
+		return nil
+	}
+	if promptView.Kind == "chooseCombatDamageAssignment" {
+		ctx, cancel = context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+		snapshot, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, playerIndex)
+		cancel()
+		if snapshotErr != nil {
+			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
+				"Forge damage state is unavailable")
+			return nil
+		}
+		_, damageTargets, projectionErr := projectedRulesDamage(promptView.DamageSource,
+			promptView.DamageTargets, promptView.DamageDeathtouch, game, snapshot)
+		if projectionErr != nil || !validRulesDamageDistribution(
+			damageTargets, promptView.TotalDamage, request.DamageAssignments) {
+			h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
+				"The combat damage assignment is invalid")
+			return nil
+		}
+	}
 	response, err := forge.BuildPromptResponse(rawPrompt, playerIndex, request.PromptID,
 		forge.PromptResponse{
 			ResponseID: request.ResponseID, CardIDs: request.CardIDs,
 			TargetIDs: request.TargetIDs, Assignments: forgePromptAssignments(request.Assignments),
 			ChoiceIDs: request.ChoiceIDs, OrderedIDs: request.OrderedIDs,
-			ChosenNumber: request.ChosenNumber,
+			ScryPiles:         forgePromptScryPiles(request.ScryPiles),
+			DamageOrderIDs:    request.DamageOrderIDs,
+			DamageAssignments: forgePromptDamageAssignments(request.DamageAssignments),
+			ChosenNumber:      request.ChosenNumber,
 		})
 	if err != nil {
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
@@ -172,6 +202,89 @@ func forgePromptAssignments(assignments []protocol.RulesPromptAssignment) []forg
 	return result
 }
 
+func validRulesPromptDamageOrderIDs(ids []string) bool {
+	if len(ids) > 512 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if len(id) > 128 || !strings.HasPrefix(id, "damage-target:") {
+			return false
+		}
+		if _, duplicate := seen[id]; duplicate {
+			return false
+		}
+		seen[id] = struct{}{}
+	}
+	return true
+}
+
+func validRulesPromptDamageAssignments(assignments []protocol.RulesPromptDamageAssignment) bool {
+	if len(assignments) > 512 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(assignments))
+	for _, assignment := range assignments {
+		if len(assignment.TargetID) > 128 ||
+			!strings.HasPrefix(assignment.TargetID, "damage-target:") || assignment.Damage < 0 {
+			return false
+		}
+		if _, duplicate := seen[assignment.TargetID]; duplicate {
+			return false
+		}
+		seen[assignment.TargetID] = struct{}{}
+	}
+	return true
+}
+
+func validRulesDamageDistribution(targets []protocol.RulesPromptDamageTarget, totalDamage int,
+	assignments []protocol.RulesPromptDamageAssignment) bool {
+	if totalDamage < 0 || len(assignments) != len(targets) {
+		return false
+	}
+	assigned := make(map[string]int, len(assignments))
+	total := 0
+	for _, assignment := range assignments {
+		if assignment.Damage < 0 {
+			return false
+		}
+		if _, duplicate := assigned[assignment.TargetID]; duplicate {
+			return false
+		}
+		assigned[assignment.TargetID] = assignment.Damage
+		if assignment.Damage > totalDamage-total {
+			return false
+		}
+		total += assignment.Damage
+	}
+	if total != totalDamage {
+		return false
+	}
+	laterDamage := 0
+	for index := len(targets) - 1; index >= 0; index-- {
+		target := targets[index]
+		damage, exists := assigned[target.ResponseID]
+		if !exists {
+			return false
+		}
+		if laterDamage > 0 && target.LethalDamage >= 0 && damage < target.LethalDamage {
+			return false
+		}
+		laterDamage += damage
+	}
+	return true
+}
+
+func forgePromptDamageAssignments(assignments []protocol.RulesPromptDamageAssignment) []forge.PromptDamageAssignment {
+	result := make([]forge.PromptDamageAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		result = append(result, forge.PromptDamageAssignment{
+			TargetID: assignment.TargetID, Damage: assignment.Damage,
+		})
+	}
+	return result
+}
+
 func validRulesPromptSelectionIDs(ids []string, opaque bool) bool {
 	if len(ids) > 512 {
 		return false
@@ -195,4 +308,45 @@ func validRulesPromptOrderIDs(ids []string) bool {
 		}
 	}
 	return true
+}
+
+func validRulesPromptScryPiles(piles []protocol.RulesPromptScryPile) bool {
+	if len(piles) > 5 {
+		return false
+	}
+	seen := make(map[string]struct{})
+	seenDestinations := make(map[string]struct{}, len(piles))
+	total := 0
+	for _, pile := range piles {
+		if _, supported := map[string]struct{}{
+			"libraryTop": {}, "libraryBottom": {}, "graveyard": {}, "exile": {}, "hand": {},
+		}[pile.Destination]; !supported {
+			return false
+		}
+		if _, duplicate := seenDestinations[pile.Destination]; duplicate {
+			return false
+		}
+		seenDestinations[pile.Destination] = struct{}{}
+		for _, id := range pile.CardIDs {
+			total++
+			if total > 512 || len(id) > 128 || !strings.HasPrefix(id, "scry:") {
+				return false
+			}
+			if _, duplicate := seen[id]; duplicate {
+				return false
+			}
+			seen[id] = struct{}{}
+		}
+	}
+	return true
+}
+
+func forgePromptScryPiles(piles []protocol.RulesPromptScryPile) []forge.PromptScryPile {
+	result := make([]forge.PromptScryPile, 0, len(piles))
+	for _, pile := range piles {
+		result = append(result, forge.PromptScryPile{
+			Destination: pile.Destination, CardIDs: append([]string(nil), pile.CardIDs...),
+		})
+	}
+	return result
 }

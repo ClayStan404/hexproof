@@ -14,6 +14,7 @@ Item {
     required property var cardCatalogModel
     required property var orderModel
     required property int promptId
+    property bool damageOrder: false
 
     implicitHeight: Theme.size(218)
 
@@ -37,7 +38,10 @@ Item {
         const orderedIds = []
         for (let index = 0; index < visualOrder.count; ++index)
             orderedIds.push(visualOrder.get(index).responseId)
-        wsModel.respondRulesPromptWithOrder(promptId, orderedIds)
+        if (damageOrder)
+            wsModel.respondRulesPromptWithDamageOrder(promptId, orderedIds)
+        else
+            wsModel.respondRulesPromptWithOrder(promptId, orderedIds)
     }
 
     onPromptIdChanged: resetOrder()

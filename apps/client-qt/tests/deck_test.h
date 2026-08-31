@@ -18,6 +18,7 @@ class TestDeckLibrary : public QObject
     void migratesLegacyCubesIntoDeckLibrary() const;
     void formatsExplicitDeckSideboardAndCommanderSections() const;
     void roundTripsFormattedDeckTextThroughTheParser() const;
+    void persistsConsiderWithoutRegisteringItForMatches() const;
     void exportsDeckTextAndSavesUtf8File() const;
     void loadsDeckTextFromUtf8File() const;
     void rejectsInvalidDeckListFiles() const;

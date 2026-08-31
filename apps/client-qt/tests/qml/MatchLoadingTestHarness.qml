@@ -49,6 +49,7 @@ Item {
         property string roomId: "ABC123"
         property string roomName: "Friday Modern"
         property string format: "modern"
+        property string deckFormat: "modern"
         property string matchMode: "bo3"
         property string roomPhase: "started"
         property bool inRoom: true
@@ -61,6 +62,7 @@ Item {
         property int drawCount: 0
         property int leaveRoomCount: 0
         property int shuffleLibraryCount: 0
+        property var libraryActionOrder: []
         property int mulliganCount: 0
         property int discardHandCount: 0
         property bool lastDiscardAll: false
@@ -272,7 +274,10 @@ Item {
         function setReady(ready) {}
         function leaveRoom() { ++leaveRoomCount }
         function drawCards(count) { drawCount += count }
-        function shuffleLibrary() { ++shuffleLibraryCount }
+        function shuffleLibrary() {
+            ++shuffleLibraryCount
+            libraryActionOrder = libraryActionOrder.concat(["shuffle"])
+        }
         function setCardCounter(cardId, counter) {}
         function mulligan() { ++mulliganCount }
         function setCombatArrows(sourceCardIds, kind, targetCardId,
@@ -441,6 +446,7 @@ Item {
                                     position, sourceSeat, approvalId, toSeat,
                                     faceDown) {
             ++searchLibraryCount
+            libraryActionOrder = libraryActionOrder.concat(["search"])
             lastLibrarySearch = {
                 "cardIds": cardIds,
                 "toZone": toZone,
@@ -520,6 +526,7 @@ Item {
         property string roomId: mockWs.roomId
         property string roomName: mockWs.roomName
         property string format: mockWs.format
+        property string deckFormat: mockWs.deckFormat
         property bool playtest: mockWs.playtest
         property bool spectatorsSeeHands: false
         property string matchMode: mockWs.matchMode
@@ -570,6 +577,7 @@ Item {
         function cardTypeLine(name, setCode, collectorNumber) {
             return typeLines[name] ? typeLines[name] : ""
         }
+        function enrichLimitedCards(cards) { return cards }
         function matchesCardQuery(name, setCode, collectorNumber, query) {
             const needle = query.trim().toLocaleLowerCase()
             return name.toLocaleLowerCase().includes(needle)
@@ -661,6 +669,7 @@ Item {
         mockWs.leaveRoomCount = 0
         mockWs.returnToRoomCount = 0
         mockWs.shuffleLibraryCount = 0
+        mockWs.libraryActionOrder = []
         mockWs.mulliganCount = 0
         mockWs.discardHandCount = 0
         mockWs.lastDiscardAll = false
@@ -735,6 +744,7 @@ Item {
         mockWs.lastSay = ""
         mockWs.lastError = ""
         mockWs.gameFinished = false
+        mockWs.deckFormat = "modern"
         mockWs.sideboarding = false
         mockWs.sideboardState = ({})
         mockWs.matchScore = [0, 0]

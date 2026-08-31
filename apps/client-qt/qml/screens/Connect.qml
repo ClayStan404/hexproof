@@ -17,6 +17,8 @@ Page {
         {"label": root.serverLabel(0)},
         {"label": root.serverLabel(1)},
         {"label": root.serverLabel(2)},
+        {"label": root.serverLabel(3)},
+        {"label": root.serverLabel(4)},
         {"label": root.serverLabel(root.customServerIndex)}
     ]
 
@@ -325,9 +327,11 @@ Page {
     }
 
     function serverLabel(index) {
-        const name = index === 0 ? qsTr("Server 1")
+        const name = index === 0 ? qsTr("Server 1 (sponsored by 情报)")
                    : index === 1 ? qsTr("Server 2")
                    : index === 2 ? qsTr("Server 3")
+                   : index === 3 ? qsTr("Server 4")
+                   : index === 4 ? qsTr("Test server")
                                  : qsTr("Custom server")
         if (index === root.customServerIndex
             && ws.customServerUrl.length === 0) {

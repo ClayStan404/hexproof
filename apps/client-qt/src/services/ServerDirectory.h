@@ -22,7 +22,7 @@ class ServerDirectory : public QObject
     Q_OBJECT
 
   public:
-    static constexpr int ConfiguredServerCount = 3;
+    static constexpr int ConfiguredServerCount = 5;
     static constexpr int CustomServerIndex = ConfiguredServerCount;
     static constexpr int ServerCount = ConfiguredServerCount + 1;
 
@@ -45,7 +45,7 @@ class ServerDirectory : public QObject
     QNetworkAccessManager m_networkManager;
     std::array<QString, ConfiguredServerCount> m_configuredServerUrls;
     std::array<QStringList, ConfiguredServerCount> m_legacyServerUrls;
-    std::array<int, ServerCount> m_latencyMs{{-2, -2, -2, -2}};
+    std::array<int, ServerCount> m_latencyMs;
     QString m_customServerUrl;
     quint64 m_probeGeneration = 0;
 };

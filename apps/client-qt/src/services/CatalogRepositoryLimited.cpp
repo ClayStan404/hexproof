@@ -194,12 +194,15 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
 
     const bool hasColors = m_schema.cardColumns.contains(QStringLiteral("colors"));
     const bool hasManaValue = m_schema.cardColumns.contains(QStringLiteral("mana_value"));
+    const bool hasRarity = m_schema.cardColumns.contains(QStringLiteral("rarity"));
     const bool hasLanguage = m_schema.cardColumns.contains(QStringLiteral("lang"));
     QStringList columns{QStringLiteral("type_line")};
     if (hasColors)
         columns.append(QStringLiteral("colors"));
     if (hasManaValue)
         columns.append(QStringLiteral("mana_value"));
+    if (hasRarity)
+        columns.append(QStringLiteral("rarity"));
 
     QString statement = QStringLiteral("SELECT %1 FROM cards WHERE set_code = ? COLLATE NOCASE "
                                        "AND collector_number = ? COLLATE NOCASE")
@@ -240,9 +243,15 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
                     if (hasColors)
                         metadata.insert(QStringLiteral("colors"),
                                         query.value(column++).toString().toUpper());
-                    if (hasManaValue && !query.value(column).isNull())
-                        metadata.insert(QStringLiteral("manaValue"),
-                                        query.value(column).toDouble());
+                    if (hasManaValue) {
+                        if (!query.value(column).isNull())
+                            metadata.insert(QStringLiteral("manaValue"),
+                                            query.value(column).toDouble());
+                        ++column;
+                    }
+                    if (hasRarity)
+                        metadata.insert(QStringLiteral("rarity"),
+                                        query.value(column++).toString().toLower());
                     metadata.insert(QStringLiteral("limitedMetadataResolved"), true);
                 }
                 metadataByPrinting.insert(key, metadata);
@@ -257,6 +266,10 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
             if (metadata.contains(QStringLiteral("manaValue")))
                 card.insert(QStringLiteral("manaValue"),
                             metadata.value(QStringLiteral("manaValue")));
+            if (card.value(QStringLiteral("rarity")).toString().isEmpty() &&
+                metadata.contains(QStringLiteral("rarity"))) {
+                card.insert(QStringLiteral("rarity"), metadata.value(QStringLiteral("rarity")));
+            }
             card.insert(QStringLiteral("limitedMetadataResolved"), true);
         }
         result.append(card);

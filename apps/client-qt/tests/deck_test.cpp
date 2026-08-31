@@ -194,6 +194,8 @@ Maybeboard
     QCOMPARE(parsed.deck.commanders, QStringList{u"Atraxa, Praetors' Voice"_s});
     QCOMPARE(parsed.deck.mainboard.size(), 3);
     QCOMPARE(parsed.deck.sideboard.size(), 1);
+    QCOMPARE(parsed.deck.consider.size(), 1);
+    QCOMPARE(parsed.deck.consider.first().name, u"Doubling Season"_s);
     QCOMPARE(hexproof::client::cardCount(parsed.deck.mainboard), 7);
     QCOMPARE(hexproof::client::cardCount(parsed.deck.sideboard), 2);
     QCOMPARE(parsed.deck.mainboard.at(1).setCode, u"CMM"_s);
@@ -205,11 +207,12 @@ void TestDeckLibrary::formatsExplicitDeckSideboardAndCommanderSections() const
     hexproof::client::Deck deck;
     deck.commanders = {u"Atraxa, Praetors' Voice"_s};
     deck.mainboard = {
-        {u"Sol Ring"_s, {}, u"CMM"_s, u"396"_s, {}, {}, 1},
-        {u"Atraxa, Praetors' Voice"_s, {}, u"2X2"_s, u"183"_s, {}, {}, 1},
-        {u"Forest"_s, {}, {}, {}, {}, {}, 99},
+        {u"Sol Ring"_s, {}, u"CMM"_s, u"396"_s, {}, {}, 1, {}, -1.0},
+        {u"Atraxa, Praetors' Voice"_s, {}, u"2X2"_s, u"183"_s, {}, {}, 1, {}, -1.0},
+        {u"Forest"_s, {}, {}, {}, {}, {}, 99, {}, -1.0},
     };
-    deck.sideboard = {{u"Negate"_s, {}, u"M20"_s, u"69"_s, {}, {}, 2}};
+    deck.sideboard = {{u"Negate"_s, {}, u"M20"_s, u"69"_s, {}, {}, 2, {}, -1.0}};
+    deck.consider = {{u"Doubling Season"_s, {}, u"RAV"_s, u"158"_s, {}, {}, 1, {}, -1.0}};
     deck.tokens = {{u"Beast"_s, {}, u"TDMU"_s, u"1"_s, {}, {}, {}, {}}};
 
     const QString text = DeckParser::format(deck);
@@ -221,7 +224,10 @@ void TestDeckLibrary::formatsExplicitDeckSideboardAndCommanderSections() const
                    "2 Negate (M20) 69\n"
                    "\n"
                    "Commander\n"
-                   "1 Atraxa, Praetors' Voice (2X2) 183 *CMDR*\n"_s);
+                   "1 Atraxa, Praetors' Voice (2X2) 183 *CMDR*\n"
+                   "\n"
+                   "Consider\n"
+                   "1 Doubling Season (RAV) 158\n"_s);
     QVERIFY(!text.contains(u"Beast"_s));
 }
 
@@ -230,12 +236,13 @@ void TestDeckLibrary::roundTripsFormattedDeckTextThroughTheParser() const
     hexproof::client::Deck deck;
     deck.commanders = {u"Thrasios, Triton Hero"_s, u"Tymna the Weaver"_s};
     deck.mainboard = {
-        {u"Thrasios, Triton Hero"_s, {}, u"C16"_s, u"46"_s, {}, {}, 1},
-        {u"Sol Ring"_s, {}, u"CMM"_s, u"396"_s, {}, {}, 1},
-        {u"Tymna the Weaver"_s, {}, u"C16"_s, u"48"_s, {}, {}, 1},
-        {u"Island"_s, {}, {}, {}, {}, {}, 30},
+        {u"Thrasios, Triton Hero"_s, {}, u"C16"_s, u"46"_s, {}, {}, 1, {}, -1.0},
+        {u"Sol Ring"_s, {}, u"CMM"_s, u"396"_s, {}, {}, 1, {}, -1.0},
+        {u"Tymna the Weaver"_s, {}, u"C16"_s, u"48"_s, {}, {}, 1, {}, -1.0},
+        {u"Island"_s, {}, {}, {}, {}, {}, 30, {}, -1.0},
     };
-    deck.sideboard = {{u"Wear // Tear"_s, {}, u"DGM"_s, u"135"_s, {}, {}, 1}};
+    deck.sideboard = {{u"Wear // Tear"_s, {}, u"DGM"_s, u"135"_s, {}, {}, 1, {}, -1.0}};
+    deck.consider = {{u"Rhystic Study"_s, {}, u"JMP"_s, u"169"_s, {}, {}, 2, {}, -1.0}};
 
     const auto parsed = DeckParser::parse(DeckParser::format(deck));
     QVERIFY2(parsed.ok(), qPrintable(parsed.error));
@@ -247,6 +254,9 @@ void TestDeckLibrary::roundTripsFormattedDeckTextThroughTheParser() const
     QCOMPARE(parsed.deck.sideboard.at(0).name, u"Wear // Tear"_s);
     QCOMPARE(parsed.deck.sideboard.at(0).setCode, u"DGM"_s);
     QCOMPARE(parsed.deck.sideboard.at(0).collectorNumber, u"135"_s);
+    QCOMPARE(parsed.deck.consider.size(), 1);
+    QCOMPARE(parsed.deck.consider.first().name, u"Rhystic Study"_s);
+    QCOMPARE(parsed.deck.consider.first().count, 2);
 
     QStringList mainNames;
     for (const auto &card : parsed.deck.mainboard)
@@ -255,6 +265,48 @@ void TestDeckLibrary::roundTripsFormattedDeckTextThroughTheParser() const
     QVERIFY(mainNames.contains(u"Island"_s));
     QVERIFY(mainNames.contains(u"Thrasios, Triton Hero"_s));
     QVERIFY(mainNames.contains(u"Tymna the Weaver"_s));
+}
+
+void TestDeckLibrary::persistsConsiderWithoutRegisteringItForMatches() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+
+    QString deckId;
+    {
+        DeckLibraryModel model(storage.path());
+        QVERIFY(model.importDeck(u"Ideas"_s, u"custom"_s,
+                                 u"Deck\n7 Mountain (M21) 312\n"
+                                 "Consider\n1 Lightning Bolt (M11) 149\n"_s));
+        deckId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+        QVERIFY(model.openDeck(deckId));
+        QCOMPARE(model.currentMainCount(), 7);
+        QCOMPARE(model.currentConsiderCount(), 1);
+        QCOMPARE(model.currentConsiderMissingImageCount(), 1);
+        QCOMPARE(model.considerCards().first().toMap().value(u"name"_s).toString(),
+                 u"Lightning Bolt"_s);
+
+        QVariantMap payload = model.deckForMatch(deckId, true);
+        QVERIFY(!payload.isEmpty());
+        QCOMPARE(payload.value(u"mainboard"_s).toList().size(), 1);
+        QCOMPARE(payload.value(u"mainboard"_s).toList().first().toMap().value(u"name"_s).toString(),
+                 u"Mountain"_s);
+        QVERIFY(!payload.contains(u"consider"_s));
+
+        QVERIFY(model.moveConsiderCardToMain(u"Lightning Bolt"_s, u"M11"_s, u"149"_s));
+        QCOMPARE(model.currentMainCount(), 8);
+        QCOMPARE(model.currentConsiderCount(), 0);
+        QVERIFY(model.moveCardToConsider(u"Lightning Bolt"_s, u"M11"_s, u"149"_s));
+        QVERIFY(model.changeConsiderCardCount(u"Lightning Bolt"_s, u"M11"_s, u"149"_s, 1));
+        QVERIFY(model.addConsiderCard(u"Counterspell"_s, {}, u"Instant"_s, u"MH2"_s, u"267"_s));
+        QCOMPARE(model.currentConsiderCount(), 3);
+        QVERIFY(model.exportCurrentDeckText().contains(u"Consider\n"_s));
+    }
+
+    DeckLibraryModel restored(storage.path());
+    QVERIFY(restored.openDeck(deckId));
+    QCOMPARE(restored.currentMainCount(), 7);
+    QCOMPARE(restored.currentConsiderCount(), 3);
 }
 
 void TestDeckLibrary::exportsDeckTextAndSavesUtf8File() const
@@ -541,6 +593,8 @@ void TestDeckLibrary::hydratesTypeLineFromCatalogWithoutCachingArt() const
             {u"requestedCollectorNumber"_s, QString{}},
             {u"typeLine"_s, u"Instant"_s},
             {u"localizedName"_s, u"闪电击"_s},
+            {u"colors"_s, u"R"_s},
+            {u"manaValue"_s, 1.0},
         },
         QVariantMap{
             {u"requestedName"_s, u"Mountain"_s},
@@ -567,6 +621,8 @@ void TestDeckLibrary::hydratesTypeLineFromCatalogWithoutCachingArt() const
     QCOMPARE(bolt.value(u"typeLine"_s).toString(), u"Instant"_s);
     QCOMPARE(bolt.value(u"category"_s).toString(), u"Spells"_s);
     QCOMPARE(bolt.value(u"displayName"_s).toString(), u"闪电击"_s);
+    QCOMPARE(bolt.value(u"colors"_s).toString(), u"R"_s);
+    QCOMPARE(bolt.value(u"manaValue"_s).toDouble(), 1.0);
     QCOMPARE(mountain.value(u"typeLine"_s).toString(), u"Basic Land — Mountain"_s);
     QCOMPARE(mountain.value(u"category"_s).toString(), u"Lands"_s);
     QVERIFY(bolt.value(u"imageSource"_s).toString().isEmpty());

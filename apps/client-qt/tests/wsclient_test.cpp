@@ -511,7 +511,7 @@ void TestWsClient::loadsSavedResumeEndpoint() const
 
     WsClient client;
     QCOMPARE(client.serverUrl(), u"ws://127.0.0.1:57320/ws"_s);
-    QCOMPARE(client.serverIndex(), 3);
+    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
     QCOMPARE(client.customServerUrl(), u"ws://127.0.0.1:57320/ws"_s);
     QCOMPARE(client.displayName(), u"Saved player"_s);
 }
@@ -540,7 +540,7 @@ void TestWsClient::configuresAndPersistsCustomServer() const
     client.connectToCustomServer(u" ws://127.0.0.1:9 "_s, u"Alice"_s);
     QCOMPARE(client.customServerUrl(), u"ws://127.0.0.1:9/ws"_s);
     QCOMPARE(client.serverUrl(), client.customServerUrl());
-    QCOMPARE(client.serverIndex(), 3);
+    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
 
     QSettings settings;
     QCOMPARE(settings.value(u"network/customServerUrl"_s).toString(), client.customServerUrl());
@@ -555,12 +555,12 @@ void TestWsClient::migratesLegacyPrimaryPublicHubEndpoint() const
     const QByteArray directoryPayload = R"({
   "schemaVersion": 1,
   "servers": [
-    {
-      "url": "wss://primary.example/ws",
-      "legacyUrls": ["ws://retired-primary.example:57320/ws"]
-    },
+    {"url": "wss://primary.example/ws",
+     "legacyUrls": ["ws://retired-primary.example:57320/ws"]},
     {"url": "wss://secondary.example/ws"},
-    {"url": "wss://tertiary.example/ws"}
+    {"url": "wss://tertiary.example/ws"},
+    {"url": "wss://quaternary.example/ws"},
+    {"url": "wss://test.example/test/ws"}
   ]
 })";
     QCOMPARE(directoryFile.write(directoryPayload), directoryPayload.size());
@@ -581,11 +581,13 @@ void TestWsClient::exposesInitialServerLatencyState() const
 {
     WsClient client;
     const QVariantList latencies = client.serverLatencies();
-    QCOMPARE(latencies.size(), 4);
+    QCOMPARE(latencies.size(), ServerDirectory::ServerCount);
     QCOMPARE(latencies[0].toInt(), -2);
     QCOMPARE(latencies[1].toInt(), -2);
     QCOMPARE(latencies[2].toInt(), -2);
     QCOMPARE(latencies[3].toInt(), -2);
+    QCOMPARE(latencies[4].toInt(), -2);
+    QCOMPARE(latencies[5].toInt(), -2);
 }
 
 void TestWsClient::processesFinalMessageBeforeDisconnect() const
@@ -855,6 +857,9 @@ void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
 
     auto *zones = session.zones();
     QCOMPARE(zones->rowCount(), 2);
+    QCOMPARE(session.zoneCount(0, u"hand"_s), 1);
+    QCOMPARE(session.zoneCount(1, u"hand"_s), 1);
+    QCOMPARE(session.zoneCount(0, u"library"_s), 0);
     auto *zoneCards = session.zoneCards();
     QCOMPARE(zoneCards->rowCount(), 1);
     const auto cardNameRole = zoneCards->roleNames().key(QByteArrayLiteral("name"));
@@ -879,6 +884,10 @@ void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
     QCOMPARE(
         session.promptOptions()->data(session.promptOptions()->index(0), responseIdRole).toString(),
         u"action:0"_s);
+    const QVariantList castActions = session.castActionsForCard(u"hand-2"_s);
+    QCOMPARE(castActions.size(), 1);
+    QCOMPARE(castActions.first().toMap().value(u"responseId"_s).toString(), u"action:0"_s);
+    QVERIFY(session.castActionsForCard(u"missing-card"_s).isEmpty());
 
     QJsonObject cardPrompt = prompt.payload;
     cardPrompt.insert(u"promptId"_s, 10);
@@ -894,6 +903,26 @@ void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
     QCOMPARE(session.promptCards()->rowCount(), 1);
     QCOMPARE(session.promptMinCardSelections(), 0);
     QCOMPARE(session.promptMaxCardSelections(), 1);
+
+    const Envelope revealPrompt = sharedFixture(u"rules-prompt-reveal.json"_s, &ok);
+    QVERIFY(ok);
+    QVERIFY(session.applyPrompt(revealPrompt.payload));
+    QCOMPARE(session.promptId(), 71);
+    QCOMPARE(session.promptKind(), u"revealCards"_s);
+    QCOMPARE(session.promptCards()->rowCount(), 2);
+    const auto tokenRole = session.promptCards()->roleNames().key(QByteArrayLiteral("token"));
+    QVERIFY(session.promptCards()->data(session.promptCards()->index(1), tokenRole).toBool());
+    QCOMPARE(session.promptOptions()->rowCount(), 1);
+
+    const Envelope scryPrompt = sharedFixture(u"rules-prompt-scry.json"_s, &ok);
+    QVERIFY(ok);
+    QVERIFY(session.applyPrompt(scryPrompt.payload));
+    QCOMPARE(session.promptId(), 72);
+    QCOMPARE(session.promptKind(), u"scry"_s);
+    QCOMPARE(session.promptCards()->rowCount(), 2);
+    QCOMPARE(session.promptScryDestinations(), QStringList({u"libraryTop"_s, u"libraryBottom"_s}));
+    const QVariantList scryCards = session.promptCards()->items();
+    QCOMPARE(scryCards.at(1).toMap().value(u"cardId"_s).toString(), u"scry:1"_s);
 
     QJsonObject orderPrompt = prompt.payload;
     orderPrompt.insert(u"promptId"_s, 11);

@@ -21,6 +21,15 @@ class DeckEditor
     static bool addCard(Deck &deck, const QString &name, const QString &localizedName,
                         const QString &typeLine, const QString &setCode,
                         const QString &collectorNumber, bool sideboard, QString *error);
+    static bool addConsiderCard(Deck &deck, const QString &name, const QString &localizedName,
+                                const QString &typeLine, const QString &setCode,
+                                const QString &collectorNumber, QString *error);
+    static bool moveCardToConsider(Deck &deck, const QString &name, const QString &setCode,
+                                   const QString &collectorNumber);
+    static bool moveConsiderCardToMain(Deck &deck, const QString &name, const QString &setCode,
+                                       const QString &collectorNumber);
+    static bool changeConsiderCardCount(Deck &deck, const QString &name, const QString &setCode,
+                                        const QString &collectorNumber, int delta, QString *error);
     static bool setCardPrinting(Deck &deck, const QString &cardName, bool sideboard,
                                 const QString &localizedName, const QString &typeLine,
                                 const QString &setCode, const QString &collectorNumber,
@@ -38,6 +47,13 @@ class DeckEditor
     static bool isCommander(const Deck &deck, const QString &cardName);
 
   private:
+    static bool addCardToZone(QVector<DeckCard> &cards, const QString &name,
+                              const QString &localizedName, const QString &typeLine,
+                              const QString &setCode, const QString &collectorNumber,
+                              QString *error);
+    static bool moveCardBetweenZones(QVector<DeckCard> &source, QVector<DeckCard> &destination,
+                                     const QString &name, const QString &setCode,
+                                     const QString &collectorNumber);
     static void removeCommander(Deck &deck, const QString &cardName);
     static void touch(Deck &deck);
 };

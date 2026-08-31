@@ -123,30 +123,66 @@ bool DeckEditor::addCard(Deck &deck, const QString &name, const QString &localiz
                          const QString &typeLine, const QString &setCode,
                          const QString &collectorNumber, bool sideboard, QString *error)
 {
-    if (name.simplified().isEmpty()) {
-        if (error)
-            *error = QStringLiteral("Card name is required.");
-        return false;
-    }
-
     QVector<DeckCard> &cards = sideboard ? deck.sideboard : deck.mainboard;
-    const QString key = normalizedCardName(name);
-    const auto existing = std::find_if(cards.begin(), cards.end(), [&key](const DeckCard &card) {
-        return normalizedCardName(card.name) == key;
-    });
-    if (existing != cards.end()) {
-        existing->count++;
-    } else {
-        DeckCard card;
-        card.name = name.simplified();
-        card.localizedName = localizedName.simplified();
-        card.typeLine = typeLine;
-        card.setCode = setCode.toUpper();
-        card.collectorNumber = collectorNumber;
-        cards.append(card);
+    if (!addCardToZone(cards, name, localizedName, typeLine, setCode, collectorNumber, error))
+        return false;
+    touch(deck);
+    return true;
+}
+
+bool DeckEditor::addConsiderCard(Deck &deck, const QString &name, const QString &localizedName,
+                                 const QString &typeLine, const QString &setCode,
+                                 const QString &collectorNumber, QString *error)
+{
+    if (!addCardToZone(deck.consider, name, localizedName, typeLine, setCode, collectorNumber,
+                       error)) {
+        return false;
     }
     touch(deck);
     return true;
+}
+
+bool DeckEditor::moveCardToConsider(Deck &deck, const QString &name, const QString &setCode,
+                                    const QString &collectorNumber)
+{
+    if (!moveCardBetweenZones(deck.mainboard, deck.consider, name, setCode, collectorNumber))
+        return false;
+    removeCommander(deck, name);
+    touch(deck);
+    return true;
+}
+
+bool DeckEditor::moveConsiderCardToMain(Deck &deck, const QString &name, const QString &setCode,
+                                        const QString &collectorNumber)
+{
+    if (!moveCardBetweenZones(deck.consider, deck.mainboard, name, setCode, collectorNumber))
+        return false;
+    touch(deck);
+    return true;
+}
+
+bool DeckEditor::changeConsiderCardCount(Deck &deck, const QString &name, const QString &setCode,
+                                         const QString &collectorNumber, int delta, QString *error)
+{
+    if (delta == 0)
+        return false;
+    const QString key = normalizedCardName(name);
+    for (int index = 0; index < deck.consider.size(); ++index) {
+        DeckCard &card = deck.consider[index];
+        if (normalizedCardName(card.name) != key ||
+            (!setCode.isEmpty() && card.setCode.compare(setCode, Qt::CaseInsensitive) != 0) ||
+            (!collectorNumber.isEmpty() && card.collectorNumber != collectorNumber)) {
+            continue;
+        }
+        card.count = qMax(0, card.count + delta);
+        if (card.count == 0)
+            deck.consider.removeAt(index);
+        touch(deck);
+        return true;
+    }
+    if (error)
+        *error = QStringLiteral("That card is not in Consider.");
+    return false;
 }
 
 bool DeckEditor::setCardPrinting(Deck &deck, const QString &cardName, bool sideboard,
@@ -216,6 +252,7 @@ bool DeckEditor::applyCardMetadata(Deck &deck, const QString &requestedName,
     };
     apply(deck.mainboard);
     apply(deck.sideboard);
+    apply(deck.consider);
     if (changed)
         touch(deck);
     return changed;
@@ -298,6 +335,67 @@ void DeckEditor::removeCommander(Deck &deck, const QString &cardName)
     const QString key = normalizedCardName(cardName);
     deck.commanders.removeIf(
         [&key](const QString &commander) { return normalizedCardName(commander) == key; });
+}
+
+bool DeckEditor::addCardToZone(QVector<DeckCard> &cards, const QString &name,
+                               const QString &localizedName, const QString &typeLine,
+                               const QString &setCode, const QString &collectorNumber,
+                               QString *error)
+{
+    if (name.simplified().isEmpty()) {
+        if (error)
+            *error = QStringLiteral("Card name is required.");
+        return false;
+    }
+
+    const QString key = normalizedCardName(name);
+    const auto existing = std::find_if(cards.begin(), cards.end(), [&key](const DeckCard &card) {
+        return normalizedCardName(card.name) == key;
+    });
+    if (existing != cards.end()) {
+        existing->count++;
+        return true;
+    }
+
+    DeckCard card;
+    card.name = name.simplified();
+    card.localizedName = localizedName.simplified();
+    card.typeLine = typeLine;
+    card.setCode = setCode.toUpper();
+    card.collectorNumber = collectorNumber;
+    cards.append(card);
+    return true;
+}
+
+bool DeckEditor::moveCardBetweenZones(QVector<DeckCard> &source, QVector<DeckCard> &destination,
+                                      const QString &name, const QString &setCode,
+                                      const QString &collectorNumber)
+{
+    const QString key = normalizedCardName(name);
+    for (int index = 0; index < source.size(); ++index) {
+        DeckCard &sourceCard = source[index];
+        if (normalizedCardName(sourceCard.name) != key ||
+            (!setCode.isEmpty() && sourceCard.setCode.compare(setCode, Qt::CaseInsensitive) != 0) ||
+            (!collectorNumber.isEmpty() && sourceCard.collectorNumber != collectorNumber)) {
+            continue;
+        }
+
+        DeckCard moved = sourceCard;
+        moved.count = 1;
+        sourceCard.count--;
+        if (sourceCard.count == 0)
+            source.removeAt(index);
+        const auto existing =
+            std::find_if(destination.begin(), destination.end(), [&moved](const DeckCard &card) {
+                return normalizedCardName(card.name) == normalizedCardName(moved.name);
+            });
+        if (existing == destination.end())
+            destination.append(moved);
+        else
+            existing->count++;
+        return true;
+    }
+    return false;
 }
 
 void DeckEditor::touch(Deck &deck)

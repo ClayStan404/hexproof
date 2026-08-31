@@ -43,8 +43,11 @@ RulesSessionState::RulesSessionState(QObject *parent)
       m_promptOptions(this),
       m_promptChoices(this),
       m_promptCards(this),
+      m_promptContextCards(this),
+      m_promptContextTargets(this),
       m_promptTargets(this),
-      m_promptCombat(this)
+      m_promptCombat(this),
+      m_promptDamageTargets(this)
 {
 }
 
@@ -54,8 +57,11 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
     const QString gameId = prompt.value(u"gameId"_s).toString();
     if (roomId.isEmpty() || gameId.isEmpty() || !prompt.value(u"options"_s).isArray() ||
         !prompt.value(u"choices"_s).isArray() || !prompt.value(u"cards"_s).isArray() ||
-        !prompt.value(u"targets"_s).isArray() || !prompt.value(u"combatSources"_s).isArray() ||
-        !prompt.value(u"combatTargets"_s).isArray())
+        !prompt.value(u"scryDestinations"_s).isArray() || !prompt.value(u"targets"_s).isArray() ||
+        !prompt.value(u"contextCards"_s).isArray() ||
+        !prompt.value(u"contextTargets"_s).isArray() ||
+        !prompt.value(u"combatSources"_s).isArray() ||
+        !prompt.value(u"combatTargets"_s).isArray() || !prompt.value(u"damageTargets"_s).isArray())
         return false;
     if (!m_roomId.isEmpty() && (roomId != m_roomId || gameId != m_gameId))
         return false;
@@ -103,6 +109,47 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         cardIds.insert(row.id);
         cards.append(std::move(row));
     }
+    QVector<RulesPromptCardRow> contextCards;
+    QSet<QString> contextCardIds;
+    const QJsonArray contextCardArray = prompt.value(u"contextCards"_s).toArray();
+    if (contextCardArray.size() > 1)
+        return false;
+    contextCards.reserve(contextCardArray.size());
+    for (const QJsonValue &value : contextCardArray) {
+        const QJsonObject card = value.toObject();
+        RulesPromptCardRow row{card.value(u"id"_s).toString(), card.value(u"name"_s).toString(),
+                               card.value(u"setCode"_s).toString(),
+                               card.value(u"collectorNumber"_s).toString(),
+                               card.value(u"token"_s).toBool()};
+        if (!row.id.startsWith(u"context-card:"_s) || row.name.isEmpty() ||
+            contextCardIds.contains(row.id)) {
+            return false;
+        }
+        contextCardIds.insert(row.id);
+        contextCards.append(std::move(row));
+    }
+    QStringList scryDestinations;
+    QSet<QString> seenScryDestinations;
+    const QSet<QString> supportedScryDestinations{u"libraryTop"_s, u"libraryBottom"_s,
+                                                  u"graveyard"_s, u"exile"_s, u"hand"_s};
+    for (const QJsonValue &value : prompt.value(u"scryDestinations"_s).toArray()) {
+        const QString destination = value.toString();
+        if (!supportedScryDestinations.contains(destination) ||
+            seenScryDestinations.contains(destination) || scryDestinations.size() >= 5) {
+            return false;
+        }
+        seenScryDestinations.insert(destination);
+        scryDestinations.append(destination);
+    }
+    const QString promptKind = prompt.value(u"kind"_s).toString();
+    if ((promptKind == u"scry"_s) != !scryDestinations.isEmpty())
+        return false;
+    if (promptKind == u"scry"_s) {
+        for (const RulesPromptCardRow &card : cards) {
+            if (!card.id.startsWith(u"scry:"_s))
+                return false;
+        }
+    }
     const int requiredSelections = prompt.value(u"requiredSelections"_s).toInt();
     if (requiredSelections < 0 || requiredSelections > cards.size())
         return false;
@@ -145,6 +192,29 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         if (row.responseId.isEmpty() || row.kind.isEmpty() || row.label.isEmpty())
             return false;
         targets.append(std::move(row));
+    }
+    QVector<RulesPromptTargetRow> contextTargets;
+    QSet<QString> contextTargetIds;
+    const QJsonArray contextTargetArray = prompt.value(u"contextTargets"_s).toArray();
+    contextTargets.reserve(contextTargetArray.size());
+    for (const QJsonValue &value : contextTargetArray) {
+        const QJsonObject target = value.toObject();
+        RulesPromptTargetRow row{
+            target.value(u"responseId"_s).toString(),
+            target.value(u"kind"_s).toString(),
+            target.value(u"label"_s).toString(),
+            target.value(u"objectId"_s).toString(),
+            target.value(u"name"_s).toString(),
+            target.value(u"setCode"_s).toString(),
+            target.value(u"collectorNumber"_s).toString(),
+            target.value(u"token"_s).toBool(),
+        };
+        if (!row.responseId.startsWith(u"context-target:"_s) || row.kind.isEmpty() ||
+            row.label.isEmpty() || contextTargetIds.contains(row.responseId)) {
+            return false;
+        }
+        contextTargetIds.insert(row.responseId);
+        contextTargets.append(std::move(row));
     }
     const int minSelections = prompt.value(u"minSelections"_s).toInt();
     const int maxSelections = prompt.value(u"maxSelections"_s).toInt();
@@ -219,12 +289,58 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         combatSourceIds.insert(row.responseId);
         combatSources.append(std::move(row));
     }
+    const bool damagePrompt = promptKind == u"chooseDamageAssignmentOrder"_s ||
+                              promptKind == u"chooseCombatDamageAssignment"_s;
+    QVariantMap damageSource;
+    if (prompt.value(u"damageSource"_s).isObject()) {
+        const QJsonObject source = prompt.value(u"damageSource"_s).toObject();
+        damageSource = {{u"objectId"_s, source.value(u"objectId"_s).toString()},
+                        {u"label"_s, source.value(u"label"_s).toString()},
+                        {u"name"_s, source.value(u"name"_s).toString()},
+                        {u"setCode"_s, source.value(u"setCode"_s).toString()},
+                        {u"collectorNumber"_s, source.value(u"collectorNumber"_s).toString()},
+                        {u"token"_s, source.value(u"token"_s).toBool()}};
+    }
+    QVector<RulesDamageTargetRow> damageTargets;
+    QSet<QString> damageTargetIds;
+    const QJsonArray damageTargetArray = prompt.value(u"damageTargets"_s).toArray();
+    damageTargets.reserve(damageTargetArray.size());
+    for (const QJsonValue &value : damageTargetArray) {
+        const QJsonObject target = value.toObject();
+        RulesDamageTargetRow row{
+            target.value(u"responseId"_s).toString(),
+            target.value(u"kind"_s).toString(),
+            target.value(u"label"_s).toString(),
+            target.value(u"objectId"_s).toString(),
+            target.value(u"name"_s).toString(),
+            target.value(u"setCode"_s).toString(),
+            target.value(u"collectorNumber"_s).toString(),
+            target.value(u"token"_s).toBool(),
+            target.value(u"lethalDamage"_s).toInt(-2),
+        };
+        if (!row.responseId.startsWith(u"damage-target:"_s) || row.kind.isEmpty() ||
+            row.label.isEmpty() || row.lethalDamage < -1 ||
+            damageTargetIds.contains(row.responseId)) {
+            return false;
+        }
+        damageTargetIds.insert(row.responseId);
+        damageTargets.append(std::move(row));
+    }
+    const int totalDamage = prompt.value(u"totalDamage"_s).toInt(-1);
+    if (totalDamage < 0 ||
+        (damagePrompt &&
+         (damageSource.value(u"objectId"_s).toString().isEmpty() ||
+          damageSource.value(u"label"_s).toString().isEmpty() || damageTargets.isEmpty())) ||
+        (!damagePrompt && (!damageSource.isEmpty() || !damageTargets.isEmpty()))) {
+        return false;
+    }
     m_promptPending = prompt.value(u"pending"_s).toBool();
     m_promptId = prompt.value(u"promptId"_s).toInteger();
-    m_promptKind = prompt.value(u"kind"_s).toString();
+    m_promptKind = promptKind;
     m_promptSupported = prompt.value(u"supported"_s).toBool();
     m_promptTitle = prompt.value(u"title"_s).toString();
     m_promptDetail = prompt.value(u"detail"_s).toString();
+    m_promptContextText = prompt.value(u"contextText"_s).toString();
     m_promptRequiredSelections = requiredSelections;
     m_promptMinCardSelections = minCardSelections;
     m_promptMaxCardSelections = maxCardSelections;
@@ -235,6 +351,9 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
     m_promptMaxChoiceTotal = maxChoiceTotal;
     m_promptMinNumber = minNumber;
     m_promptMaxNumber = maxNumber;
+    m_promptDamageSource = std::move(damageSource);
+    m_promptTotalDamage = totalDamage;
+    m_promptDamageDeathtouch = prompt.value(u"damageDeathtouch"_s).toBool();
     if (!m_promptPending) {
         m_promptId = 0;
         m_promptKind.clear();
@@ -254,17 +373,29 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         options.clear();
         choices.clear();
         cards.clear();
+        contextCards.clear();
+        contextTargets.clear();
+        m_promptContextText.clear();
+        scryDestinations.clear();
         orderItems.clear();
         targets.clear();
         combatSources.clear();
         combatTargets.clear();
+        m_promptDamageSource.clear();
+        damageTargets.clear();
+        m_promptTotalDamage = 0;
+        m_promptDamageDeathtouch = false;
     }
     m_promptOptions.replace(std::move(options));
     m_promptChoices.replace(std::move(choices));
     m_promptCards.replace(std::move(cards));
+    m_promptContextCards.replace(std::move(contextCards));
+    m_promptContextTargets.replace(std::move(contextTargets));
+    m_promptScryDestinations = std::move(scryDestinations);
     m_promptOrderItems.replace(std::move(orderItems));
     m_promptTargets.replace(std::move(targets));
     m_promptCombat.replace(std::move(combatSources), std::move(combatTargets));
+    m_promptDamageTargets.replace(std::move(damageTargets));
     emit promptChanged();
     return true;
 }
@@ -407,9 +538,17 @@ void RulesSessionState::clear()
     m_promptOptions.clear();
     m_promptChoices.clear();
     m_promptCards.clear();
+    m_promptContextCards.clear();
+    m_promptContextTargets.clear();
+    m_promptContextText.clear();
+    m_promptScryDestinations.clear();
     m_promptOrderItems.clear();
     m_promptTargets.clear();
     m_promptCombat.clear();
+    m_promptDamageSource.clear();
+    m_promptDamageTargets.clear();
+    m_promptTotalDamage = 0;
+    m_promptDamageDeathtouch = false;
     emit snapshotChanged();
     emit promptChanged();
 }

@@ -210,6 +210,7 @@ class CardCatalog : public QObject
     Q_INVOKABLE QVariantList printings(const QString &name);
     Q_INVOKABLE QVariantList cardFaces(const QString &name, const QString &setCode,
                                        const QString &collectorNumber);
+    QVariantList expandCardFaceRequests(const QVariantList &cards);
     Q_INVOKABLE QString imageSource(const QString &name, const QString &setCode,
                                     const QString &collectorNumber) const;
     Q_INVOKABLE QString printingImageSource(const QString &name, const QString &setCode,

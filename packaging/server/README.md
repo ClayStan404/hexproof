@@ -13,6 +13,20 @@ Run the server directly for a local installation:
 Use `./bin/hexproof-server -help` to review the available retention, capacity,
 rate-limit, and trusted-proxy options before exposing a hub.
 
+Forge rules rooms require the separately built runtime payload. The command
+line flags `-forge-harness`, `-forge-home`, and `-forge-java` take precedence;
+the same values can be persisted in a systemd drop-in as:
+
+```systemd
+[Service]
+Environment="HEXPROOF_FORGE_HARNESS=/srv/hexproof/forge-runtime/current/forge-harness.jar"
+Environment="HEXPROOF_FORGE_HOME=/srv/hexproof/forge-runtime/current/forge-gui"
+Environment="HEXPROOF_FORGE_JAVA=java"
+```
+
+The server probes this runtime before accepting connections. If the runtime is
+absent, leave the variables unset and manual rooms remain available.
+
 For systemd, copy `deploy/hexproof-server.service.in`, replace these
 placeholders, and install the resulting unit using the normal procedure for
 your distribution:

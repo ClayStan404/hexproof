@@ -193,9 +193,16 @@ TLS-capable reverse proxy or tunnel in front of the localhost listener for
 Internet-facing `wss://` service.
 
 Manual rooms require no Java runtime. To enable the optional Forge rules room
-selector, build the pinned payload under `third_party/forge-runtime/` and start
-the server with matching `-forge-harness` and `-forge-home` paths. See
-`docs/rules-engine.md` for the authority and privacy boundary.
+selector, build and extract the pinned payload under `build/forge-runtime/`,
+then start the prepared local runtime and server together:
+
+```sh
+./tools/run-local-forge-server.sh
+```
+
+Additional arguments are passed directly to the server, for example
+`./tools/run-local-forge-server.sh -port 57321`. See `docs/rules-engine.md` for
+the authority and privacy boundary.
 
 ### Client
 

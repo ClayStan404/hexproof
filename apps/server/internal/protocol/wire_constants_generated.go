@@ -310,4 +310,5 @@ const (
 	MatchBO3                        = "bo3"
 	SideboardZoneMain               = "mainboard"
 	SideboardZoneSide               = "sideboard"
+	SideboardZoneBasicLands         = "basic_lands"
 )

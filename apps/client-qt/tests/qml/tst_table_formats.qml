@@ -833,4 +833,81 @@ TestCase {
         compare(mockWs.shuffleLibraryCount, 1)
         table.destroy()
     }
+
+    function test_libraryTopSearchShufflesBeforePlacement() {
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+        mockWs.libraryDumped([{
+            "id": "s0-lib1",
+            "name": "Llanowar Elves",
+            "setCode": "M19",
+            "collectorNumber": "314"
+        }, {
+            "id": "s0-lib2",
+            "name": "Forest",
+            "setCode": "M19",
+            "collectorNumber": "277"
+        }], 0, "", 0)
+        const popup = findChild(table, "librarySearchPopup")
+        const reminder = findChild(table, "shuffleLibraryReminder")
+        verify(popup !== null)
+        verify(reminder !== null)
+        tryVerify(() => popup.opened)
+        popup.toggleCard("s0-lib1")
+        compare(popup.selectedCount, 1)
+        popup.completeSearch("library_top", 0, false)
+
+        tryVerify(() => !popup.opened)
+        tryVerify(() => reminder.opened)
+        compare(mockWs.shuffleLibraryCount, 0)
+        compare(mockWs.searchLibraryCount, 0)
+
+        const confirm = findChild(reminder, "confirmButton")
+        verify(confirm !== null)
+        confirm.clicked()
+        tryCompare(mockWs, "searchLibraryCount", 1)
+        compare(mockWs.shuffleLibraryCount, 1)
+        compare(mockWs.libraryActionOrder.length, 2)
+        compare(mockWs.libraryActionOrder[0], "shuffle")
+        compare(mockWs.libraryActionOrder[1], "search")
+        compare(mockWs.lastLibrarySearch.toZone, "library_top")
+        compare(mockWs.lastLibrarySearch.cardIds.length, 1)
+        compare(mockWs.lastLibrarySearch.cardIds[0], "s0-lib1")
+        table.destroy()
+    }
+
+    function test_libraryTopSearchCanPlaceWithoutShuffle() {
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+        mockWs.libraryDumped([{
+            "id": "s0-lib1",
+            "name": "Llanowar Elves",
+            "setCode": "M19",
+            "collectorNumber": "314"
+        }], 0, "", 0)
+        const popup = findChild(table, "librarySearchPopup")
+        const reminder = findChild(table, "shuffleLibraryReminder")
+        verify(popup !== null)
+        verify(reminder !== null)
+        tryVerify(() => popup.opened)
+        popup.toggleCard("s0-lib1")
+        popup.completeSearch("library_top", 0, false)
+
+        tryVerify(() => reminder.opened)
+        const cancel = findChild(reminder, "cancelButton")
+        verify(cancel !== null)
+        cancel.clicked()
+        tryCompare(mockWs, "searchLibraryCount", 1)
+        compare(mockWs.shuffleLibraryCount, 0)
+        compare(mockWs.libraryActionOrder.length, 1)
+        compare(mockWs.libraryActionOrder[0], "search")
+        compare(mockWs.lastLibrarySearch.toZone, "library_top")
+        table.destroy()
+    }
 }

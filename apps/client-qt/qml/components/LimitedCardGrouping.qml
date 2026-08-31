@@ -69,6 +69,16 @@ QtObject {
         return "unknown"
     }
 
+    function rarityKey(card) {
+        const rarity = card && card.rarity
+                       ? String(card.rarity).toLowerCase() : ""
+        if (rarity === "common" || rarity === "uncommon"
+                || rarity === "rare" || rarity === "mythic") {
+            return rarity
+        }
+        return "unknown"
+    }
+
     function groupingKey(card) {
         if (mode === "mana")
             return manaKey(card)
@@ -122,19 +132,25 @@ QtObject {
         return String(left.name || "").localeCompare(String(right.name || ""))
     }
 
-    function matchesFilters(card, colorFilter, typeFilter, manaFilter) {
+    function matchesFilters(card, colorFilter, typeFilter, manaFilter,
+                            rarityFilter) {
         if (colorFilter !== "all" && colorKey(card) !== colorFilter)
             return false
         if (typeFilter !== "all" && typeKey(card) !== typeFilter)
             return false
-        return manaFilter === "all" || manaKey(card) === manaFilter
+        if (manaFilter !== "all" && manaKey(card) !== manaFilter)
+            return false
+        return rarityFilter === "all" || rarityKey(card) === rarityFilter
     }
 
-    function filterCards(cards, colorFilter, typeFilter, manaFilter) {
+    function filterCards(cards, colorFilter, typeFilter, manaFilter,
+                         rarityFilter) {
         const result = []
         for (let index = 0; index < cards.length; ++index) {
-            if (matchesFilters(cards[index], colorFilter, typeFilter, manaFilter))
+            if (matchesFilters(cards[index], colorFilter, typeFilter,
+                               manaFilter, rarityFilter)) {
                 result.push(cards[index])
+            }
         }
         return result
     }

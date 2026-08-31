@@ -11,12 +11,14 @@ Surface {
     required property var card
     property bool sideboard: false
     property bool sideboardEnabled: true
+    property bool considerEnabled: false
     property bool commanderEnabled: false
     property bool printingEnabled: false
     property bool incrementEnabled: true
     property Item dropTarget: null
     property var catalogModel: null
     signal moveRequested()
+    signal considerRequested()
     signal incrementRequested()
     signal decrementRequested()
     signal commanderRequested()
@@ -265,6 +267,16 @@ Surface {
             Layout.preferredWidth: Theme.size(34)
             enabled: root.incrementEnabled
             onClicked: root.incrementRequested()
+        }
+
+        AppButton {
+            objectName: "considerCardButton"
+            visible: !root.sideboard && root.considerEnabled
+            compact: true
+            variant: "ghost"
+            text: qsTr("Consider")
+            Layout.preferredWidth: Theme.size(86)
+            onClicked: root.considerRequested()
         }
 
         AppButton {

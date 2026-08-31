@@ -157,18 +157,20 @@ int main(int argc, char *argv[])
                      &hexproof::client::DeckLibraryModel::refreshDeckValidation);
     QTimer::singleShot(0, deckLibrary, &hexproof::client::DeckLibraryModel::refreshDeckValidation);
     QObject::connect(ws, &hexproof::client::WsClient::loadRequired, matchLoader,
-                     [ws, matchLoader](qint64 loadId, const QVariantList &cardKeys) {
+                     [ws, matchLoader, cardCatalog](qint64 loadId, const QVariantList &cardKeys) {
                          if (ws->cardLoadMode() == hexproof::protocol::kCardLoadPreload) {
-                             matchLoader->beginLoad(loadId, cardKeys);
+                             matchLoader->beginLoad(loadId,
+                                                    cardCatalog->expandCardFaceRequests(cardKeys));
                              return;
                          }
                          // Let match.started construct and paint the table before
                          // background metadata/image work begins on the GUI thread.
-                         QTimer::singleShot(500, matchLoader,
-                                            [ws, matchLoader, loadId, cardKeys]() {
-                                                if (ws->inRoom() && ws->loadId() == loadId)
-                                                    matchLoader->beginLoad(loadId, cardKeys);
-                                            });
+                         QTimer::singleShot(
+                             500, matchLoader, [ws, matchLoader, cardCatalog, loadId, cardKeys]() {
+                                 if (ws->inRoom() && ws->loadId() == loadId)
+                                     matchLoader->beginLoad(
+                                         loadId, cardCatalog->expandCardFaceRequests(cardKeys));
+                             });
                      });
     QObject::connect(ws, &hexproof::client::WsClient::gameSnapshotDataChanged, gameTable,
                      &hexproof::client::GameTableModel::applySnapshot);

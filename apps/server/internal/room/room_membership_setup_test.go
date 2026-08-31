@@ -107,6 +107,44 @@ func TestCompleteRulesGameCreatesOnlyTerminalMatchShell(t *testing.T) {
 	}
 }
 
+func TestApplyRulesConcedeKeepsMultiplayerInForgeUntilTerminal(t *testing.T) {
+	r, err := NewWithRulesMode("FORGE4", "Rules Commander", protocol.FormatEDH,
+		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge,
+		4, true, false, "Host", "host-conn", testNow)
+	if err != nil {
+		t.Fatalf("NewWithRulesMode: %v", err)
+	}
+	for index, connectionID := range []string{"guest-1", "guest-2"} {
+		if _, err := r.Join(connectionID, "Guest", false, ""); err != nil {
+			t.Fatalf("Join(%d): %v", index, err)
+		}
+	}
+	r.Phase = protocol.RoomPhaseStarted
+	result, err := r.ApplyRulesConcede(0, -1, false, testNow.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("ApplyRulesConcede(non-terminal): %v", err)
+	}
+	var reply protocol.GameConceded
+	if result.Reply == nil || result.Reply.DecodePayload(&reply) != nil ||
+		reply.ConcededSeat != 0 || reply.WinnerSeat != -1 || reply.MatchFinished ||
+		r.Game != nil || len(result.Broadcast) != 0 {
+		t.Fatalf("non-terminal concede = room game %+v reply %+v result %+v",
+			r.Game, reply, result)
+	}
+
+	result, err = r.ApplyRulesConcede(1, 2, true, testNow.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ApplyRulesConcede(terminal): %v", err)
+	}
+	if result.Reply == nil || result.Reply.DecodePayload(&reply) != nil ||
+		!reply.MatchFinished || reply.WinnerSeat != 2 || r.Game == nil ||
+		r.Game.Result == nil || r.Game.Result.Reason != protocol.GameResultConcede ||
+		r.Game.Result.ConcededSeat != 1 || r.Score[2] != 1 || len(result.Broadcast) != 1 {
+		t.Fatalf("terminal concede = room game %+v reply %+v result %+v",
+			r.Game, reply, result)
+	}
+}
+
 func TestForgePreloadStartDefersGameStateToExternalEngine(t *testing.T) {
 	r, err := NewWithRulesMode("FORGE1", "Rules table", protocol.FormatModern,
 		protocol.MatchBO1, protocol.CardLoadPreload, protocol.RulesModeForge,

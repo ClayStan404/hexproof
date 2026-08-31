@@ -25,9 +25,9 @@ Page {
     ]
     property string pendingDeckFilterQuery: ""
     property string deckFilterQuery: ""
+    property string searchTarget: "deck"
     property string pendingDeckFormat: ""
     property bool deckScrollRestorePending: false
-    property real savedMainDeckContentY: 0
     property real savedSideboardContentY: 0
     readonly property var filteredMainCards:
         filterDeckCards(deckLibrary.mainCards)
@@ -180,9 +180,18 @@ Page {
                             objectName: "cacheCurrentDeckArtButton"
                             compact: true
                             text: qsTr("Cache art")
-                            enabled: deckLibrary.currentMissingImageCount > 0
+                            enabled: (deckLibrary.currentMissingImageCount > 0
+                                      || deckLibrary.currentConsiderMissingImageCount > 0)
                                      && !cardCatalog.busy
                             onClicked: deckLibrary.cacheCurrentDeckArt()
+                        }
+
+                        AppButton {
+                            objectName: "manageConsiderButton"
+                            compact: true
+                            text: qsTr("Consider (%1)").arg(
+                                      deckLibrary.currentConsiderCount)
+                            onClicked: considerManager.open()
                         }
 
                         AppTextField {
@@ -216,68 +225,19 @@ Page {
 
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
 
-                ListView {
-                    id: mainList
-                    objectName: "mainDeckList"
+                DeckMainCollection {
+                    id: mainCollection
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     Layout.fillHeight: true
-                    model: root.filteredMainCards
-                    spacing: Theme.size(7)
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    section.property: "category"
-                    section.criteria: ViewSection.FullString
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                    section.delegate: Item {
-                        required property string section
-                        width: mainList.width
-                        height: Theme.size(34)
-                        Text {
-                            textFormat: Text.PlainText
-                            anchors.left: parent.left
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: Theme.size(7)
-                            text: I18n.cardCategory(
-                                      parent.section).toUpperCase()
-                            color: Theme.primary
-                            font.pixelSize: Theme.fontSize(10)
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1.1
-                        }
-                    }
-
-                    delegate: DeckCardRow {
-                        required property var modelData
-                        width: mainList.width
-                        card: modelData
-                        sideboard: false
-                        sideboardEnabled: !root.commanderFormat && !root.cubeFormat
-                        commanderEnabled: root.commanderFormat
-                        printingEnabled: cardCatalog.installed
-                        catalogModel: cardCatalog
-                        incrementEnabled: deckLibrary.canAddCard(
-                                              modelData.name,
-                                              modelData.typeLine)
-                        dropTarget: sideboardSurface
-                        onMoveRequested: deckLibrary.moveCard(modelData.name, true)
-                        onIncrementRequested: deckLibrary.changeCardCount(modelData.name, false, 1)
-                        onDecrementRequested: deckLibrary.changeCardCount(modelData.name, false, -1)
-                        onCommanderRequested: deckLibrary.setCommander(modelData.name)
-                        onPrintingRequested: printingPicker.showFor(modelData, false)
-                    }
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    visible: root.filteredMainCards.length === 0
-                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                    text: root.deckFilterQuery.trim().length > 0
-                          ? qsTr("No cards match this deck search.")
-                          : qsTr("Add cards from search or drag them back from the sideboard.")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(12)
+                    cards: root.filteredMainCards
+                    deckLibraryModel: deckLibrary
+                    catalogModel: cardCatalog
+                    commanderFormat: root.commanderFormat
+                    cubeFormat: root.cubeFormat
+                    searchActive: root.deckFilterQuery.trim().length > 0
+                    sideboardDropTarget: sideboardSurface
+                    onPrintingRequested: card => printingPicker.showFor(card, false)
                 }
             }
         }
@@ -329,7 +289,7 @@ Page {
                         leadingText: "⌕"
                         text: qsTr("Search card names…")
                         enabled: cardCatalog.installed
-                        onClicked: searchPopup.openSearch()
+                        onClicked: root.openCardSearch("deck")
                     }
 
                     Text {
@@ -646,7 +606,9 @@ Page {
         results: cardCatalog.searchResults
         searching: cardCatalog.searching
         deckLibraryModel: deckLibrary
-        allowSideboard: !root.commanderFormat && !root.cubeFormat
+        allowSideboard: root.searchTarget === "deck"
+                        && !root.commanderFormat && !root.cubeFormat
+        considerOnly: root.searchTarget === "consider"
         filtersAvailable: cardCatalog.enhancedIndexInstalled
         onSearchRequested: function(query, typeFilter, setFilter,
                                     languageFilter, colorFilter,
@@ -654,9 +616,16 @@ Page {
             cardCatalog.search(query, typeFilter, setFilter, languageFilter,
                                colorFilter, rarityFilter, legalityFilter)
         }
-        onAddRequested: (card, sideboard) => deckLibrary.addCard(
-            card.name, card.displayName, card.typeLine,
-            card.setCode, card.collectorNumber, sideboard)
+        onAddRequested: (card, sideboard) => {
+            if (root.searchTarget === "consider") {
+                deckLibrary.addConsiderCard(card.name, card.displayName,
+                                            card.typeLine, card.setCode,
+                                            card.collectorNumber)
+            } else {
+                deckLibrary.addCard(card.name, card.displayName, card.typeLine,
+                                    card.setCode, card.collectorNumber, sideboard)
+            }
+        }
     }
 
     TokenPicker {
@@ -675,6 +644,14 @@ Page {
         deckLibraryModel: deckLibrary
         catalogModel: cardCatalog
         onAddRequested: deckTokenPicker.open()
+    }
+
+    DeckConsiderManager {
+        id: considerManager
+        objectName: "deckConsiderManager"
+        deckLibraryModel: deckLibrary
+        catalogModel: cardCatalog
+        onAddRequested: root.openCardSearch("consider")
     }
 
     Timer {
@@ -706,6 +683,11 @@ Page {
     function applyDeckFilter() {
         deckFilterTimer.stop()
         deckFilterQuery = pendingDeckFilterQuery
+    }
+
+    function openCardSearch(target) {
+        searchTarget = target
+        searchPopup.openSearch()
     }
 
     function commanderCards() {
@@ -829,7 +811,6 @@ Page {
     function restoreDeckScrollPositions() {
         if (!deckScrollRestorePending)
             return
-        restoreListContentY(mainList, savedMainDeckContentY)
         restoreListContentY(sideboardList, savedSideboardContentY)
         deckScrollRestorePending = false
     }
@@ -845,7 +826,6 @@ Page {
         function onCurrentDeckCardsAboutToChange() {
             if (root.deckScrollRestorePending)
                 return
-            root.savedMainDeckContentY = mainList.contentY
             root.savedSideboardContentY = sideboardList.contentY
             root.deckScrollRestorePending = true
         }

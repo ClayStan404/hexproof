@@ -198,6 +198,29 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
                                                ? u"https://cards.scryfall.io/normal/wear-tear.jpg"_s
                                                : u"https://images.test/wear-tear.png"_s}}},
             };
+            if (request.url().path() == u"/cards/mid/47"_s) {
+                card = QJsonObject{
+                    {u"name"_s, u"Delver of Secrets // Insectile Aberration"_s},
+                    {u"oracle_id"_s, u"delver-oracle"_s},
+                    {u"type_line"_s, u"Creature — Human Wizard // Creature — Human Insect"_s},
+                    {u"layout"_s, u"transform"_s},
+                    {u"set"_s, u"MID"_s},
+                    {u"collector_number"_s, u"47"_s},
+                    {u"card_faces"_s,
+                     QJsonArray{
+                         QJsonObject{{u"name"_s, u"Delver of Secrets"_s},
+                                     {u"type_line"_s, u"Creature — Human Wizard"_s},
+                                     {u"image_uris"_s,
+                                      QJsonObject{{u"normal"_s,
+                                                   u"https://images.test/delver-front.png"_s}}}},
+                         QJsonObject{{u"name"_s, u"Insectile Aberration"_s},
+                                     {u"type_line"_s, u"Creature — Human Insect"_s},
+                                     {u"image_uris"_s,
+                                      QJsonObject{{u"normal"_s,
+                                                   u"https://images.test/delver-back.png"_s}}}},
+                     }},
+                };
+            }
             if (request.url().path().endsWith(u"/zhs"_s) ||
                 request.url().path() == u"/cards/search"_s) {
                 card = QJsonObject{
@@ -336,6 +359,7 @@ class TestCardCatalog : public QObject
     void exactArtRequestDoesNotCoalesceWithNormalRequest() const;
     void exactArtUsesSamePrintingProviderFallback() const;
     void exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() const;
+    void cachesEveryFaceOfDoubleFacedPrinting() const;
     void mtgchPreferenceBypassesCatalogScryfallFastPath() const;
     void reusesNameOnlyCacheForResolvedPrinting() const;
     void reusesLocalArtAcrossPrintings() const;

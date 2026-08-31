@@ -9,6 +9,12 @@
     },
     {
       "url": "wss://server-3.invalid/ws"
+    },
+    {
+      "url": "wss://server-4.invalid/ws"
+    },
+    {
+      "url": "wss://test-server.invalid/test/ws"
     }
   ]
 }

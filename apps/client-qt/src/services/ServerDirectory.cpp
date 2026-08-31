@@ -151,10 +151,11 @@ ServerDirectoryConfig configuredServers()
 
 QString environmentServerUrl(int serverIndex)
 {
-    const char *name = serverIndex == 2   ? "HEXPROOF_SERVER_3_URL"
-                       : serverIndex == 1 ? "HEXPROOF_SERVER_2_URL"
-                                          : "HEXPROOF_SERVER_1_URL";
-    return qEnvironmentVariable(name).trimmed();
+    static constexpr std::array names{
+        "HEXPROOF_SERVER_1_URL", "HEXPROOF_SERVER_2_URL", "HEXPROOF_SERVER_3_URL",
+        "HEXPROOF_SERVER_4_URL", "HEXPROOF_SERVER_5_URL",
+    };
+    return qEnvironmentVariable(names.at(static_cast<std::size_t>(serverIndex))).trimmed();
 }
 
 QUrl serverHealthUrl(const QString &serverUrl)
@@ -164,7 +165,14 @@ QUrl serverHealthUrl(const QString &serverUrl)
         url.setScheme(u"https"_s);
     else
         url.setScheme(u"http"_s);
-    url.setPath(u"/healthz"_s);
+    QString healthPath = url.path();
+    if (healthPath.endsWith(u"/ws"_s)) {
+        healthPath.chop(3);
+        healthPath += u"/healthz"_s;
+    } else {
+        healthPath = u"/healthz"_s;
+    }
+    url.setPath(healthPath);
     url.setQuery(QString{});
     url.setFragment(QString{});
     return url;
@@ -177,6 +185,7 @@ ServerDirectory::ServerDirectory(QObject *parent)
     ServerDirectoryConfig config = configuredServers();
     m_configuredServerUrls = std::move(config.urls);
     m_legacyServerUrls = std::move(config.legacyUrls);
+    m_latencyMs.fill(-2);
     for (int index = 0; index < ConfiguredServerCount; ++index) {
         const QString overrideUrl = environmentServerUrl(index);
         if (!overrideUrl.isEmpty())

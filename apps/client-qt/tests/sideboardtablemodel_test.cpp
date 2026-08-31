@@ -15,6 +15,7 @@ class TestSideboardTableModel : public QObject
 
   private slots:
     void groupsBilingualTypesAndStacksPrintings() const;
+    void separatesVirtualBasicsFromPoolPrintings() const;
     void skipsEquivalentSnapshots() const;
     void benchmarkCommanderDeckGrouping() const;
 };
@@ -59,6 +60,33 @@ void TestSideboardTableModel::groupsBilingualTypesAndStacksPrintings() const
     QCOMPARE(instantCards[0].toMap().value(u"pileCount"_s).toInt(), 3);
     QCOMPARE(groups[2].toMap().value(u"category"_s).toString(), u"Land"_s);
     QCOMPARE(model.cardCategory(u"生物 ～ 地精"_s), u"Creature"_s);
+}
+
+void TestSideboardTableModel::separatesVirtualBasicsFromPoolPrintings() const
+{
+    SideboardTableModel model;
+    model.setMainboardCards(QVariantList{
+        QVariantMap{
+            {u"name"_s, u"Island"_s},
+            {u"count"_s, 17},
+            {u"typeLine"_s, u"Basic Land"_s},
+        },
+        QVariantMap{
+            {u"name"_s, u"Island"_s},
+            {u"count"_s, 1},
+            {u"setCode"_s, u"TST"_s},
+            {u"collectorNumber"_s, u"2"_s},
+            {u"typeLine"_s, u"Basic Land — Island"_s},
+        },
+    });
+
+    QCOMPARE(model.mainboardCount(), 18);
+    const QVariantList groups = model.mainboardGroups();
+    QCOMPARE(groups.size(), 1);
+    const QVariantList cards = groups.first().toMap().value(u"cards"_s).toList();
+    QCOMPARE(cards.size(), 2);
+    QVERIFY(cards[0].toMap().value(u"virtualCard"_s).toBool() !=
+            cards[1].toMap().value(u"virtualCard"_s).toBool());
 }
 
 void TestSideboardTableModel::skipsEquivalentSnapshots() const

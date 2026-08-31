@@ -114,22 +114,21 @@ QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &vali
 
 int DeckLibraryQueries::missingImageCount(const Deck &deck)
 {
-    int count = 0;
-    const auto inspect = [&count](const QVector<DeckCard> &cards) {
-        for (const DeckCard &card : cards) {
-            if (card.imagePath.isEmpty() || !QFileInfo::exists(card.imagePath))
-                ++count;
-        }
-    };
-    inspect(deck.mainboard);
-    inspect(deck.sideboard);
-    return count;
+    return missingImageCount(deck.mainboard) + missingImageCount(deck.sideboard);
+}
+
+int DeckLibraryQueries::missingImageCount(const QVector<DeckCard> &cards)
+{
+    return static_cast<int>(std::count_if(cards.cbegin(), cards.cend(), [](const DeckCard &card) {
+        return card.imagePath.isEmpty() || !QFileInfo::exists(card.imagePath);
+    }));
 }
 
 bool DeckLibraryQueries::hasMissingArt(const QVector<Deck> &decks)
 {
-    return std::any_of(decks.cbegin(), decks.cend(),
-                       [](const Deck &deck) { return missingImageCount(deck) > 0; });
+    return std::any_of(decks.cbegin(), decks.cend(), [](const Deck &deck) {
+        return missingImageCount(deck) > 0 || missingImageCount(deck.consider) > 0;
+    });
 }
 
 bool DeckLibraryQueries::hasExactPrintings(const Deck &deck)
@@ -211,6 +210,8 @@ QVariantList DeckLibraryQueries::cardVariants(const QVector<DeckCard> &cards, co
             {QStringLiteral("collectorNumber"), card.collectorNumber},
             {QStringLiteral("typeLine"), card.typeLine},
             {QStringLiteral("category"), cardCategory(card.typeLine)},
+            {QStringLiteral("colors"), card.colors},
+            {QStringLiteral("manaValue"), card.manaValue},
             {QStringLiteral("commander"), DeckEditor::isCommander(deck, card.name)},
             {QStringLiteral("imageSource"),
              card.imagePath.isEmpty() ? QString{} : QUrl::fromLocalFile(card.imagePath).toString()},
@@ -331,6 +332,7 @@ QVariantList DeckLibraryQueries::cacheRequestsForDeck(const Deck &deck, bool inc
     };
     append(deck.mainboard);
     append(deck.sideboard);
+    append(deck.consider);
     return requests;
 }
 

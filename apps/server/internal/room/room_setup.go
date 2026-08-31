@@ -624,11 +624,23 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 }
 
 func isOrdinaryBasicLand(name string) bool {
+	return ordinaryBasicLandName(name) != ""
+}
+
+func ordinaryBasicLandName(name string) string {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "plains", "island", "swamp", "mountain", "forest":
-		return true
+	case "plains":
+		return "Plains"
+	case "island":
+		return "Island"
+	case "swamp":
+		return "Swamp"
+	case "mountain":
+		return "Mountain"
+	case "forest":
+		return "Forest"
 	default:
-		return false
+		return ""
 	}
 }
 

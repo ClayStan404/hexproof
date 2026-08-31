@@ -64,7 +64,9 @@ void TestReconnectController::loadsPersistedResumeState() const
       "legacyUrls": ["ws://retired-primary.example:57320/ws"]
     },
     {"url": "wss://secondary.example/ws"},
-    {"url": "wss://tertiary.example/ws"}
+    {"url": "wss://tertiary.example/ws"},
+    {"url": "wss://quaternary.example/ws"},
+    {"url": "wss://test.example/test/ws"}
   ]
 })";
     QCOMPARE(directoryFile.write(directoryPayload), directoryPayload.size());

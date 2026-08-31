@@ -118,6 +118,10 @@ QJsonObject deckCardToJson(const DeckCard &card)
         object.insert(QStringLiteral("typeLine"), card.typeLine);
     if (!card.imagePath.isEmpty())
         object.insert(QStringLiteral("imagePath"), card.imagePath);
+    if (!card.colors.isEmpty())
+        object.insert(QStringLiteral("colors"), card.colors);
+    if (card.manaValue >= 0.0)
+        object.insert(QStringLiteral("manaValue"), card.manaValue);
     return object;
 }
 
@@ -130,6 +134,9 @@ DeckCard deckCardFromJson(const QJsonObject &object)
     card.collectorNumber = object.value(QStringLiteral("collectorNumber")).toString();
     card.typeLine = object.value(QStringLiteral("typeLine")).toString();
     card.imagePath = object.value(QStringLiteral("imagePath")).toString();
+    card.colors = object.value(QStringLiteral("colors")).toString().toUpper();
+    if (object.value(QStringLiteral("manaValue")).isDouble())
+        card.manaValue = qMax(0.0, object.value(QStringLiteral("manaValue")).toDouble());
     card.count = qMax(1, object.value(QStringLiteral("count")).toInt(1));
     return card;
 }
@@ -178,6 +185,10 @@ QJsonObject deckToJson(const Deck &deck)
     for (const DeckCard &card : deck.sideboard)
         sideboard.append(deckCardToJson(card));
 
+    QJsonArray consider;
+    for (const DeckCard &card : deck.consider)
+        consider.append(deckCardToJson(card));
+
     QJsonObject object{
         {QStringLiteral("id"), deck.id},
         {QStringLiteral("name"), deck.name},
@@ -188,6 +199,8 @@ QJsonObject deckToJson(const Deck &deck)
         {QStringLiteral("mainboard"), mainboard},
         {QStringLiteral("sideboard"), sideboard},
     };
+    if (!consider.isEmpty())
+        object.insert(QStringLiteral("consider"), consider);
     if (!deck.commanders.isEmpty()) {
         QJsonArray commanders;
         for (const QString &commander : deck.commanders)
@@ -239,6 +252,13 @@ Deck deckFromJson(const QJsonObject &object)
         const DeckCard card = deckCardFromJson(value.toObject());
         if (!card.name.isEmpty())
             deck.sideboard.append(card);
+    }
+
+    const QJsonArray consider = object.value(QStringLiteral("consider")).toArray();
+    for (const QJsonValue &value : consider) {
+        const DeckCard card = deckCardFromJson(value.toObject());
+        if (!card.name.isEmpty())
+            deck.consider.append(card);
     }
 
     const QJsonArray tokens = object.value(QStringLiteral("tokens")).toArray();

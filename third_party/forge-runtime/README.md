@@ -16,14 +16,22 @@ checks out source under `build/forge-runtime/source`, runs upstream protocol
 generation and harness tests, and writes a versioned runtime archive under
 `build/forge-runtime/`. Override those locations with
 `HEXPROOF_FORGE_SOURCE_DIR` and `HEXPROOF_FORGE_OUTPUT_DIR`.
+Packaging also restores Forge's language bundles and deck-generation matrices,
+which the upstream desktop staging allow-list omits, and restores Forge's
+custom Tinylog writer registration after the fat-JAR assembly. It cold-starts
+the packaged Java runtime and rejects known initialization errors before
+creating the archive.
 
 After extracting the archive, enable the runtime on the Hexproof server with:
 
 ```sh
-hexproof-server \
-  -forge-harness /path/to/forge-harness.jar \
-  -forge-home /path/to/forge-gui
+./tools/run-local-forge-server.sh
 ```
+
+The local launcher derives the pinned versioned runtime directory, sets the
+three `HEXPROOF_FORGE_*` variables, and passes any arguments directly to the
+server. Override `HEXPROOF_FORGE_LOCAL_ROOT` when extracting somewhere other
+than the default `build/forge-runtime/local-<revision>/hexproof-forge-runtime`.
 
 The server probes the configured runtime at startup. Internally it launches:
 

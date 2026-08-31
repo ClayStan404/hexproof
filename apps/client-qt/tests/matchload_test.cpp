@@ -15,6 +15,7 @@ class TestMatchLoadCoordinator : public QObject
 
   private slots:
     void completesOnlyAfterEveryCardSucceeds() const;
+    void tracksBothFacesOfOnePrinting() const;
     void retriesOnlyFailedCards() const;
     void cancelIgnoresLateResults() const;
 };
@@ -72,6 +73,26 @@ void TestMatchLoadCoordinator::retriesOnlyFailedCards() const
     loader.handleCardCacheFinished(u"Sol Ring"_s, u"CMM"_s, u"396"_s, true);
     QCOMPARE(completed.count(), 1);
     QVERIFY(loader.ready());
+}
+
+void TestMatchLoadCoordinator::tracksBothFacesOfOnePrinting() const
+{
+    MatchLoadCoordinator loader;
+    QSignalSpy completed(&loader, &MatchLoadCoordinator::loadComplete);
+    loader.beginLoad(10, {
+                             QVariantMap{{u"name"_s, u"Delver of Secrets"_s},
+                                         {u"setCode"_s, u"MID"_s},
+                                         {u"collectorNumber"_s, u"47"_s}},
+                             QVariantMap{{u"name"_s, u"Insectile Aberration"_s},
+                                         {u"setCode"_s, u"MID"_s},
+                                         {u"collectorNumber"_s, u"47"_s}},
+                         });
+
+    QCOMPARE(loader.total(), 2);
+    loader.handleCardCacheFinished(u"Delver of Secrets"_s, u"MID"_s, u"47"_s, true);
+    QCOMPARE(completed.count(), 0);
+    loader.handleCardCacheFinished(u"Insectile Aberration"_s, u"MID"_s, u"47"_s, true);
+    QCOMPARE(completed.count(), 1);
 }
 
 void TestMatchLoadCoordinator::cancelIgnoresLateResults() const

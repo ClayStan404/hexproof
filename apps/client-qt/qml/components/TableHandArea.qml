@@ -22,7 +22,7 @@ Surface {
     TapHandler {
         acceptedButtons: Qt.RightButton
         enabled: root.tableController.canAct
-                 && !root.tableController.sessionUi.counterShortcutBlocked()
+                 && !root.tableController.tableModalOpen
         onTapped: function(point) {
             const position = root.mapToItem(
                 root.tableController, point.position.x, point.position.y)

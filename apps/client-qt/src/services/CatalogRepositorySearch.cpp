@@ -34,6 +34,13 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
             const QString typeExpression = language == QStringLiteral("zh") && hasAliases
                                                ? localizedTypeExpression(QStringLiteral("c"))
                                                : QStringLiteral("c.type_line");
+            const QString colorsExpression = m_schema.cardColumns.contains(QStringLiteral("colors"))
+                                                 ? QStringLiteral("c.colors")
+                                                 : QStringLiteral("''");
+            const QString manaValueExpression =
+                m_schema.cardColumns.contains(QStringLiteral("mana_value"))
+                    ? QStringLiteral("c.mana_value")
+                    : QStringLiteral("-1");
             QSqlQuery query(database);
             QString statement =
                 QStringLiteral(
@@ -42,9 +49,10 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                     "c.set_code, c.collector_number, c.image_url, c.lang, row_number() OVER ("
                     "PARTITION BY name COLLATE NOCASE ORDER BY "
                     "CASE WHEN c.lang = ? THEN 0 WHEN c.lang = 'en' THEN 1 ELSE 2 END, c.rowid) "
-                    "choice "
+                    "choice, %3 AS colors, %4 AS mana_value "
                     "FROM cards c WHERE ")
-                    .arg(localizedExpression, typeExpression);
+                    .arg(localizedExpression, typeExpression, colorsExpression,
+                         manaValueExpression);
             if (text.isEmpty()) {
                 statement += QStringLiteral("1 = 1 ");
             } else {
@@ -84,7 +92,7 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                 ") SELECT c.name, c.localized_name, c.type_line, c.set_code, "
                 "c.collector_number, c.image_url, "
                 "(SELECT count(DISTINCT v.set_code || char(31) || v.collector_number) "
-                " FROM cards v WHERE v.name = c.name COLLATE NOCASE) "
+                " FROM cards v WHERE v.name = c.name COLLATE NOCASE), c.colors, c.mana_value "
                 "FROM matching_cards c WHERE c.choice = 1 ");
             if (text.isEmpty()) {
                 statement += QStringLiteral("ORDER BY c.name LIMIT 40");
@@ -149,6 +157,8 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                         {QStringLiteral("collectorNumber"), query.value(4).toString()},
                         {QStringLiteral("imageUrl"), query.value(5).toString()},
                         {QStringLiteral("versionCount"), query.value(6).toInt()},
+                        {QStringLiteral("colors"), query.value(7).toString().toUpper()},
+                        {QStringLiteral("manaValue"), query.value(8).toDouble()},
                     });
                 }
             } else {

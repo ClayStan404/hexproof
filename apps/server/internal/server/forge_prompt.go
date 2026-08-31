@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,8 +38,7 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 		return nil, err
 	}
 	var promptGameView *forge.GameView
-	if view != nil && (len(view.Targets) > 0 || len(view.CombatSources) > 0 ||
-		len(view.CombatTargets) > 0) {
+	if view != nil && promptNeedsSnapshot(*view) {
 		ctx, cancel = context.WithTimeout(context.Background(), forgeSnapshotTimeout)
 		snapshot, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, view.PlayerIndex)
 		cancel()
@@ -92,10 +92,20 @@ func emptyRulesPrompt(roomID, gameID string) protocol.RulesPrompt {
 		RoomID: roomID, GameID: gameID, Options: []protocol.RulesPromptOption{},
 		Choices: []protocol.RulesPromptChoice{},
 		Cards:   []protocol.RulesPromptCard{}, Targets: []protocol.RulesPromptTarget{},
-		OrderItems:    []protocol.RulesPromptOrderItem{},
-		CombatSources: []protocol.RulesPromptCombatSource{},
-		CombatTargets: []protocol.RulesPromptCombatTarget{},
+		ScryDestinations: []string{},
+		OrderItems:       []protocol.RulesPromptOrderItem{},
+		ContextCards:     []protocol.RulesPromptCard{},
+		ContextTargets:   []protocol.RulesPromptTarget{},
+		CombatSources:    []protocol.RulesPromptCombatSource{},
+		CombatTargets:    []protocol.RulesPromptCombatTarget{},
+		DamageTargets:    []protocol.RulesPromptDamageTarget{},
 	}
+}
+
+func promptNeedsSnapshot(view forge.PromptView) bool {
+	return len(view.Targets) > 0 || len(view.CombatSources) > 0 ||
+		len(view.CombatTargets) > 0 || view.DamageSource != nil ||
+		len(view.DamageTargets) > 0 || len(view.ContextTargets) > 0
 }
 
 func projectedRulesPrompt(roomID, gameID string,
@@ -129,6 +139,7 @@ func projectedRulesPrompt(roomID, gameID string,
 			CollectorNumber: card.CollectorNumber, Token: card.Token,
 		})
 	}
+	prompt.ScryDestinations = append([]string(nil), view.ScryDestinations...)
 	prompt.OrderItems = make([]protocol.RulesPromptOrderItem, 0, len(view.OrderItems))
 	for _, item := range view.OrderItems {
 		prompt.OrderItems = append(prompt.OrderItems, protocol.RulesPromptOrderItem{
@@ -136,6 +147,14 @@ func projectedRulesPrompt(roomID, gameID string,
 			CollectorNumber: item.CollectorNumber, Token: item.Token, Oracle: item.Oracle,
 		})
 	}
+	prompt.ContextCards = make([]protocol.RulesPromptCard, 0, len(view.ContextCards))
+	for _, card := range view.ContextCards {
+		prompt.ContextCards = append(prompt.ContextCards, protocol.RulesPromptCard{
+			ID: card.ID, Name: card.Name, SetCode: card.SetCode,
+			CollectorNumber: card.CollectorNumber, Token: card.Token,
+		})
+	}
+	prompt.ContextText = view.ContextText
 	prompt.Required = view.Required
 	prompt.CardMinimum = view.CardMinimum
 	prompt.CardMaximum = view.CardMaximum
@@ -146,6 +165,8 @@ func projectedRulesPrompt(roomID, gameID string,
 	prompt.ChoiceMaximum = view.ChoiceMaximum
 	prompt.NumberMinimum = view.NumberMinimum
 	prompt.NumberMaximum = view.NumberMaximum
+	prompt.TotalDamage = view.TotalDamage
+	prompt.DamageDeathtouch = view.DamageDeathtouch
 	if len(view.Targets) > 0 {
 		if gameView == nil {
 			return protocol.RulesPrompt{}, errors.New("Forge target prompt has no viewer snapshot")
@@ -155,6 +176,16 @@ func projectedRulesPrompt(roomID, gameID string,
 			return protocol.RulesPrompt{}, err
 		}
 		prompt.Targets = projectedTargets
+	}
+	if len(view.ContextTargets) > 0 {
+		if gameView == nil {
+			return protocol.RulesPrompt{}, errors.New("Forge prompt context has no viewer snapshot")
+		}
+		contextTargets, err := projectedRulesTargets(view.ContextTargets, game, *gameView)
+		if err != nil {
+			return protocol.RulesPrompt{}, err
+		}
+		prompt.ContextTargets = contextTargets
 	}
 	if len(view.CombatSources) > 0 || len(view.CombatTargets) > 0 {
 		if gameView == nil {
@@ -168,7 +199,97 @@ func projectedRulesPrompt(roomID, gameID string,
 		prompt.CombatSources = combatSources
 		prompt.CombatTargets = combatTargets
 	}
+	if view.DamageSource != nil || len(view.DamageTargets) > 0 {
+		if gameView == nil {
+			return protocol.RulesPrompt{}, errors.New("Forge damage prompt has no viewer snapshot")
+		}
+		damageSource, damageTargets, err := projectedRulesDamage(
+			view.DamageSource, view.DamageTargets, view.DamageDeathtouch, game, *gameView)
+		if err != nil {
+			return protocol.RulesPrompt{}, err
+		}
+		prompt.DamageSource = damageSource
+		prompt.DamageTargets = damageTargets
+	}
 	return prompt, nil
+}
+
+func projectedRulesDamage(source *forge.PromptDamageSource,
+	targets []forge.PromptDamageTarget, deathtouch bool, game forgeRoomGame,
+	view forge.GameView) (*protocol.RulesPromptDamageSource,
+	[]protocol.RulesPromptDamageTarget, error) {
+	if source == nil {
+		return nil, nil, errors.New("Forge damage source is missing")
+	}
+	sourceCard, exists := forgeCardByID(view.Zones, source.ID)
+	if !exists || sourceCard.Visibility != "visible" || sourceCard.Identity == nil {
+		return nil, nil, errors.New("Forge damage source is missing from the viewer snapshot")
+	}
+	projectedSource := &protocol.RulesPromptDamageSource{
+		ObjectID: sourceCard.ID, Label: sourceCard.Identity.Name,
+		Name: sourceCard.Identity.Name, SetCode: sourceCard.Identity.SetCode,
+		CollectorNumber: sourceCard.Identity.CardNumber, Token: sourceCard.Identity.Token,
+	}
+	projectedTargets := make([]protocol.RulesPromptDamageTarget, 0, len(targets))
+	for _, target := range targets {
+		projected := protocol.RulesPromptDamageTarget{
+			ResponseID: target.ResponseID, Kind: target.Kind, LethalDamage: -1,
+		}
+		switch target.Kind {
+		case "player":
+			playerIndex, err := forge.PlayerIndexFromID(target.ID)
+			if err != nil {
+				return nil, nil, err
+			}
+			seat, exists := game.playerToSeat[playerIndex]
+			if !exists {
+				return nil, nil, errors.New("Forge damage defender has no room seat")
+			}
+			player, exists := forgePlayerByID(view.Players, target.ID)
+			if !exists {
+				return nil, nil, errors.New("Forge damage defender is missing from the viewer snapshot")
+			}
+			projected.Label = fmt.Sprintf("Seat %d", seat+1)
+			if strings.TrimSpace(player.Name) != "" {
+				projected.Label = fmt.Sprintf("%s · Seat %d", player.Name, seat+1)
+			}
+		case "card":
+			card, exists := forgeCardByID(view.Zones, target.ID)
+			if !exists || card.Visibility != "visible" || card.Identity == nil {
+				return nil, nil, errors.New("Forge damage target is missing from the viewer snapshot")
+			}
+			projected.ObjectID = card.ID
+			applyRulesPromptDamageTargetIdentity(&projected, *card.Identity)
+			if !target.Defender {
+				lethal, err := rulesLethalDamage(card, deathtouch)
+				if err != nil {
+					return nil, nil, err
+				}
+				projected.LethalDamage = lethal
+			}
+		case "defender":
+			projected.Label = "Defender"
+		default:
+			return nil, nil, errors.New("Forge damage target has an unsupported kind")
+		}
+		projectedTargets = append(projectedTargets, projected)
+	}
+	return projectedSource, projectedTargets, nil
+}
+
+func rulesLethalDamage(card forge.CardView, deathtouch bool) (int, error) {
+	if deathtouch {
+		return 1, nil
+	}
+	toughness, err := strconv.Atoi(strings.TrimSpace(card.Toughness))
+	if err != nil || toughness < 0 || card.Damage < 0 {
+		return 0, errors.New("Forge damage target has invalid toughness or marked damage")
+	}
+	lethal := toughness - card.Damage
+	if lethal < 0 {
+		lethal = 0
+	}
+	return lethal, nil
 }
 
 func projectedRulesCombat(sources []forge.PromptCombatSource,
@@ -335,6 +456,15 @@ func applyRulesPromptCombatTargetIdentity(target *protocol.RulesPromptCombatTarg
 	if strings.TrimSpace(identity.Name) != "" {
 		target.Label = identity.Name
 	}
+	target.Name = identity.Name
+	target.SetCode = identity.SetCode
+	target.CollectorNumber = identity.CardNumber
+	target.Token = identity.Token
+}
+
+func applyRulesPromptDamageTargetIdentity(target *protocol.RulesPromptDamageTarget,
+	identity forge.CardIdentityView) {
+	target.Label = identity.Name
 	target.Name = identity.Name
 	target.SetCode = identity.SetCode
 	target.CollectorNumber = identity.CardNumber

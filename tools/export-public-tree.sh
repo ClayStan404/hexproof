@@ -43,6 +43,7 @@ public_paths=(
     README.md
     THIRD-PARTY-NOTICES.md
     apps
+    docs/rules-engine.md
     packaging
     protocol
     testdata

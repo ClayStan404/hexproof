@@ -1,11 +1,12 @@
 # Client server directory
 
-Hexproof embeds exactly three operator-managed public WebSocket endpoints in
+Hexproof embeds exactly five operator-managed WebSocket endpoints in
 each client build. Real endpoint values are deployment data and are not tracked
-in Git.
+in Git. The fifth entry is the pre-release test server shown with a distinct
+localized label.
 
 For a local build, copy `servers.example.json` to the ignored `servers.json`
-and replace all three example URLs:
+and replace all five example URLs:
 
 ```sh
 cp apps/client-qt/config/servers.example.json \
@@ -35,7 +36,9 @@ matching a legacy entry migrates to that object's current URL:
       "legacyUrls": ["ws://retired-server-1.example:57320/ws"]
     },
     {"url": "wss://server-2.example/ws"},
-    {"url": "wss://server-3.example/ws"}
+    {"url": "wss://server-3.example/ws"},
+    {"url": "wss://server-4.example/ws"},
+    {"url": "wss://server-1.example/test/ws"}
   ]
 }
 ```

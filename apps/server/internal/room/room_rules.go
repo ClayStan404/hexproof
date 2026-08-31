@@ -14,26 +14,75 @@ import (
 // sideboard, retention, and return-to-room flows; no Forge card state is copied
 // into the manual tabletop reducer.
 func (r *Room) CompleteRulesGame(winnerSeat int, now time.Time) (Result, error) {
-	if r.RulesMode != protocol.RulesModeForge || r.Phase != protocol.RoomPhaseStarted ||
-		r.Game != nil || now.IsZero() {
-		return Result{}, newError(protocol.ErrGameNotStarted)
+	if err := r.validateRulesResult(winnerSeat, now); err != nil {
+		return Result{}, err
 	}
-	if winnerSeat >= 0 && (winnerSeat >= len(r.Seats) || !r.Seats[winnerSeat].Occupied) {
+	return r.completeRulesGame(winnerSeat, protocol.GameResultRules, -1), nil
+}
+
+// ApplyRulesConcede records the public acknowledgement for an authoritative
+// Forge concession. Multiplayer concessions keep the engine game live; only a
+// terminal projection creates the ordinary Hexproof result shell.
+func (r *Room) ApplyRulesConcede(concededSeat, winnerSeat int, matchFinished bool,
+	now time.Time) (Result, error) {
+	if err := r.validateRulesResult(winnerSeat, now); err != nil {
+		return Result{}, err
+	}
+	if concededSeat < 0 || concededSeat >= len(r.Seats) ||
+		!r.Seats[concededSeat].Occupied || winnerSeat == concededSeat {
 		return Result{}, newError(protocol.ErrInvalidTarget)
 	}
+	if !matchFinished {
+		if r.Format != protocol.FormatEDH || winnerSeat >= 0 {
+			return Result{}, newError(protocol.ErrUnsupportedFormat)
+		}
+	}
+	gameNumber := r.rulesGameNumber()
+	result := Result{}
+	if matchFinished {
+		result = r.completeRulesGame(
+			winnerSeat, protocol.GameResultConcede, concededSeat)
+	}
+	reply, _ := protocol.NewEnvelope(protocol.TypeGameConceded,
+		protocol.GameConceded{
+			RoomID: r.ID, GameNumber: gameNumber, ConcededSeat: concededSeat,
+			WinnerSeat: winnerSeat, Score: append([]int{}, r.Score...),
+			MatchFinished: matchFinished,
+		})
+	result.Reply = &reply
+	return result, nil
+}
+
+func (r *Room) validateRulesResult(winnerSeat int, now time.Time) error {
+	if r.RulesMode != protocol.RulesModeForge || r.Phase != protocol.RoomPhaseStarted ||
+		r.Game != nil || now.IsZero() {
+		return newError(protocol.ErrGameNotStarted)
+	}
+	if winnerSeat < -1 ||
+		(winnerSeat >= 0 && (winnerSeat >= len(r.Seats) || !r.Seats[winnerSeat].Occupied)) {
+		return newError(protocol.ErrInvalidTarget)
+	}
+	return nil
+}
+
+func (r *Room) rulesGameNumber() int {
 	gameNumber := r.DrawnGames + 1
 	for _, wins := range r.Score {
 		gameNumber += wins
 	}
+	return gameNumber
+}
+
+func (r *Room) completeRulesGame(winnerSeat int, reason string, concededSeat int) Result {
+	gameNumber := r.rulesGameNumber()
 	if len(r.Score) != len(r.Seats) {
 		r.Score = make([]int, len(r.Seats))
 	}
 	if winnerSeat >= 0 {
 		r.Score[winnerSeat]++
-	} else {
+	} else if reason == protocol.GameResultRules {
 		r.DrawnGames++
 	}
-	matchFinished := true
 
 	game := &GameState{
 		Number: gameNumber, StartingSeat: -1, TurnOrder: []int{}, ActiveSeat: -1,
@@ -44,8 +93,8 @@ func (r *Room) CompleteRulesGame(winnerSeat int, now time.Time) (Result, error) 
 		CommanderDamage: make(map[string]map[int]int), Log: []protocol.GameLogEntry{},
 		NextLogID: 1, NextTokenID: 1, NextCardCounterID: 1,
 		Result: &protocol.GameResult{
-			Reason: protocol.GameResultRules, WinnerSeat: winnerSeat,
-			ConcededSeat: -1, MatchFinished: matchFinished,
+			Reason: reason, WinnerSeat: winnerSeat,
+			ConcededSeat: concededSeat, MatchFinished: true,
 		},
 	}
 	for seatIndex, seat := range r.Seats {
@@ -55,5 +104,5 @@ func (r *Room) CompleteRulesGame(winnerSeat int, now time.Time) (Result, error) 
 		}
 	}
 	r.Game = game
-	return Result{Broadcast: []protocol.Envelope{r.snapshotEnvelope()}}, nil
+	return Result{Broadcast: []protocol.Envelope{r.snapshotEnvelope()}}
 }

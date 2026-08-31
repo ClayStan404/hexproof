@@ -25,6 +25,9 @@ func (h *Hub) RulesPlayerTargets(r *room.Room) (map[string]int, error) {
 		r.Phase != protocol.RoomPhaseStarted {
 		return nil, &protocolError{code: protocol.ErrGameNotStarted, message: "game not started"}
 	}
+	if r.Game != nil {
+		return nil, &protocolError{code: protocol.ErrGameFinished, message: "game already finished"}
+	}
 	targets := make(map[string]int, r.PlayerCount())
 	for seatIndex, seat := range r.Seats {
 		if seat.Occupied {

@@ -9,6 +9,10 @@ import (
 )
 
 func (h *Handler) handleGameConcede(sess *Session, env protocol.Envelope) error {
+	r := sess.Room()
+	if r != nil && r.RulesMode == protocol.RulesModeForge {
+		return h.handleForgeConcede(sess, env, r)
+	}
 	var request protocol.GameConcede
 	return h.handleGameCommand(sess, env, &request,
 		func(r *room.Room) (room.Result, error) {

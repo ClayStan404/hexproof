@@ -347,6 +347,28 @@ func (client *Client) SubmitAction(ctx context.Context, sessionID string,
 	return err
 }
 
+// Concede submits Forge's out-of-band directive for one authenticated engine
+// player. It is deliberately separate from prompt answers because a player may
+// concede while another player's decision is open.
+func (client *Client) Concede(ctx context.Context, sessionID string, playerIndex int) error {
+	if playerIndex < 0 || playerIndex >= maxPlayers {
+		return fmt.Errorf("player index must be between 0 and %d", maxPlayers-1)
+	}
+	action, err := json.Marshal(struct {
+		Type      string `json:"type"`
+		Directive struct {
+			Type string `json:"type"`
+		} `json:"directive"`
+		Player int `json:"player"`
+	}{Type: "directive", Directive: struct {
+		Type string `json:"type"`
+	}{Type: "concede"}, Player: playerIndex})
+	if err != nil {
+		return fmt.Errorf("encode Forge concede directive: %w", err)
+	}
+	return client.SubmitAction(ctx, sessionID, action)
+}
+
 // Prompt asks for the current canonical prompt using one engine player index.
 // The pinned harness currently returns a session-global prompt, so callers
 // must still validate decidingPlayerId before projecting it. A nil result

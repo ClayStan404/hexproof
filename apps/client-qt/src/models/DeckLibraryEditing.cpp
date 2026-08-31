@@ -211,6 +211,107 @@ bool DeckLibraryModel::addCard(const QString &name, const QString &localizedName
         {QStringLiteral("collectorNumber"), collectorNumber},
         {QStringLiteral("exactArt"), true},
     }});
+    emit cardsNeedMetadata(QVariantList{QVariantMap{
+        {QStringLiteral("name"), name},
+        {QStringLiteral("setCode"), setCode},
+        {QStringLiteral("collectorNumber"), collectorNumber},
+    }});
+    return true;
+}
+
+bool DeckLibraryModel::addConsiderCard(const QString &name, const QString &localizedName,
+                                       const QString &typeLine, const QString &setCode,
+                                       const QString &collectorNumber)
+{
+    Deck *deck = currentDeck();
+    if (!deck)
+        return false;
+    const Deck previous = *deck;
+    QString error;
+    if (!DeckEditor::addConsiderCard(*deck, name, localizedName, typeLine, setCode, collectorNumber,
+                                     &error)) {
+        if (!error.isEmpty())
+            setLastError(error);
+        return false;
+    }
+    if (!save()) {
+        *deck = previous;
+        return false;
+    }
+    rebuildCardDeckIndex();
+    notifyAllChanged();
+    emit cardsNeedCaching(QVariantList{QVariantMap{
+        {QStringLiteral("name"), name},
+        {QStringLiteral("setCode"), setCode},
+        {QStringLiteral("collectorNumber"), collectorNumber},
+        {QStringLiteral("exactArt"), true},
+    }});
+    emit cardsNeedMetadata(QVariantList{QVariantMap{
+        {QStringLiteral("name"), name},
+        {QStringLiteral("setCode"), setCode},
+        {QStringLiteral("collectorNumber"), collectorNumber},
+    }});
+    return true;
+}
+
+bool DeckLibraryModel::moveCardToConsider(const QString &name, const QString &setCode,
+                                          const QString &collectorNumber)
+{
+    Deck *deck = currentDeck();
+    if (!deck)
+        return false;
+    const Deck previous = *deck;
+    if (!DeckEditor::moveCardToConsider(*deck, name, setCode, collectorNumber))
+        return false;
+    if (!save()) {
+        *deck = previous;
+        return false;
+    }
+    scheduleDeckValidation(deck->id);
+    rebuildCardDeckIndex();
+    notifyAllChanged();
+    return true;
+}
+
+bool DeckLibraryModel::moveConsiderCardToMain(const QString &name, const QString &setCode,
+                                              const QString &collectorNumber)
+{
+    Deck *deck = currentDeck();
+    if (!deck)
+        return false;
+    const Deck previous = *deck;
+    if (!DeckEditor::moveConsiderCardToMain(*deck, name, setCode, collectorNumber))
+        return false;
+    if (!save()) {
+        *deck = previous;
+        return false;
+    }
+    scheduleDeckValidation(deck->id);
+    rebuildCardDeckIndex();
+    notifyAllChanged();
+    return true;
+}
+
+bool DeckLibraryModel::changeConsiderCardCount(const QString &name, const QString &setCode,
+                                               const QString &collectorNumber, int delta)
+{
+    Deck *deck = currentDeck();
+    if (!deck)
+        return false;
+    const Deck previous = *deck;
+    QString error;
+    if (!DeckEditor::changeConsiderCardCount(*deck, name, setCode, collectorNumber, delta,
+                                             &error)) {
+        if (!error.isEmpty())
+            setLastError(error);
+        return false;
+    }
+    if (!save()) {
+        *deck = previous;
+        return false;
+    }
+    rebuildCardDeckIndex();
+    notifyAllChanged();
     return true;
 }
 

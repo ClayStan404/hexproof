@@ -62,6 +62,19 @@ func TestClientInteractiveLifecycle(t *testing.T) {
 	}
 }
 
+func TestClientConcedeUsesCanonicalDirective(t *testing.T) {
+	client := newHelperClient(t, "concede")
+	defer client.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := client.Concede(ctx, "forge-session-1", 1); err != nil {
+		t.Fatalf("Concede() error = %v", err)
+	}
+	if err := client.Concede(ctx, "forge-session-1", -1); err == nil {
+		t.Fatal("Concede() accepted an invalid player index")
+	}
+}
+
 func TestDecodeOptionalJSONAcceptsEmptyAndNull(t *testing.T) {
 	for _, value := range []string{"", "  ", "null", "\nnull\t"} {
 		decoded, err := decodeOptionalJSON(value, nil)
@@ -163,8 +176,15 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 		}
 		response := rpcResponse{OK: true}
 		switch request.Command {
-		case "reset", "submitAction", "endGame", "abortGame":
+		case "reset", "endGame", "abortGame":
 			response.Result = ""
+		case "submitAction":
+			if mode == "concede" && request.Payload !=
+				`{"type":"directive","directive":{"type":"concede"},"player":1}` {
+				response = rpcResponse{Error: "invalid concede directive"}
+			} else {
+				response.Result = ""
+			}
 		case "startGame":
 			var startRequest StartGameRequest
 			if err := json.Unmarshal([]byte(request.Payload), &startRequest); err != nil {

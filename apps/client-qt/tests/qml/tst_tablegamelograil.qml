@@ -54,6 +54,11 @@ TestCase {
         fakeTable.canChat = true
         fakeActions.submitCalls = 0
         rail.chatInput.clear()
+        gameLogModel.clear()
+        gameLogModel.append({"entryText": "Alice joined",
+                             "entryKind": "system"})
+        gameLogModel.append({"entryText": "Hello",
+                             "entryKind": "chat"})
     }
 
     function test_exposesChatInputAndLog() {
@@ -67,6 +72,19 @@ TestCase {
         rail.chatInput.text = "hello"
         rail.chatInput.accepted()
         compare(fakeActions.submitCalls, 1)
+    }
+
+    function test_showsInteractiveScrollBarForOverflowingLog() {
+        const scrollBar = findChild(rail, "gameLogScrollBar")
+        verify(scrollBar !== null)
+        compare(scrollBar.policy, ScrollBar.AsNeeded)
+        verify(scrollBar.interactive)
+
+        for (let index = 0; index < 80; ++index) {
+            gameLogModel.append({"entryText": "Long game log entry " + index,
+                                 "entryKind": "system"})
+        }
+        tryVerify(() => scrollBar.visible && scrollBar.size < 1)
     }
 
     function test_tracksVisibilityAndChatAvailability() {

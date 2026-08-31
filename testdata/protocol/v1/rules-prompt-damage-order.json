@@ -1,0 +1,65 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 81,
+    "kind": "chooseDamageAssignmentOrder",
+    "supported": true,
+    "title": "Choose combat damage order",
+    "detail": "The first permanent must receive lethal damage before the next one.",
+    "options": [],
+    "choices": [],
+    "cards": [],
+    "scryDestinations": [],
+    "orderItems": [],
+    "contextCards": [],
+    "contextTargets": [],
+    "contextText": "",
+    "requiredSelections": 0,
+    "minCardSelections": 0,
+    "maxCardSelections": 0,
+    "targets": [],
+    "combatSources": [],
+    "combatTargets": [],
+    "damageSource": {
+      "objectId": "attacker-1",
+      "label": "Colossal Dreadmaw",
+      "name": "Colossal Dreadmaw",
+      "setCode": "M19",
+      "collectorNumber": "172"
+    },
+    "damageTargets": [
+      {
+        "responseId": "damage-target:0",
+        "kind": "card",
+        "label": "Bear Cub",
+        "objectId": "blocker-1",
+        "name": "Bear Cub",
+        "setCode": "P02",
+        "collectorNumber": "120",
+        "lethalDamage": 2
+      },
+      {
+        "responseId": "damage-target:1",
+        "kind": "card",
+        "label": "Hill Giant",
+        "objectId": "blocker-2",
+        "name": "Hill Giant",
+        "setCode": "M10",
+        "collectorNumber": "143",
+        "lethalDamage": 3
+      }
+    ],
+    "totalDamage": 0,
+    "damageDeathtouch": false,
+    "minSelections": 0,
+    "maxSelections": 0,
+    "cancellable": false,
+    "minChoiceTotal": 0,
+    "maxChoiceTotal": 0,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

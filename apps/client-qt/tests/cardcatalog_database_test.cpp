@@ -204,6 +204,7 @@ void TestCardCatalog::importsAndSearchesBulkData() const
             {u"lang"_s, u"en"_s},
             {u"color_identity"_s, QJsonArray{u"R"_s}},
             {u"cmc"_s, 1.0},
+            {u"rarity"_s, u"common"_s},
             {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://example.test/bolt.jpg"_s}}},
         },
         QJsonObject{
@@ -324,6 +325,7 @@ void TestCardCatalog::importsAndSearchesBulkData() const
     QCOMPARE(limitedBolt.value(u"typeLine"_s).toString(), u"Instant"_s);
     QCOMPARE(limitedBolt.value(u"colors"_s).toString(), u"R"_s);
     QCOMPARE(limitedBolt.value(u"manaValue"_s).toDouble(), 1.0);
+    QCOMPARE(limitedBolt.value(u"rarity"_s).toString(), u"common"_s);
     QVERIFY(limitedBolt.value(u"limitedMetadataResolved"_s).toBool());
     QVERIFY(!limitedCards.at(1).toMap().contains(u"limitedMetadataResolved"_s));
     QSignalSpy metadataSpy(&catalog, &CardCatalog::cardMetadataAvailable);
@@ -686,6 +688,45 @@ bool writeBoltCatalog(const QString &storagePath)
     return CardCatalog::importBulkFile(sourcePath, databasePath, u"default_cards"_s).ok;
 }
 
+bool writeDoubleFacedCatalog(const QString &storagePath)
+{
+    const QString sourcePath = storagePath + QStringLiteral("/bulk.json");
+    const QString databasePath = storagePath + QStringLiteral("/cards.sqlite");
+    const QJsonArray cards{
+        QJsonObject{
+            {u"id"_s, u"delver-1"_s},
+            {u"oracle_id"_s, u"delver-oracle"_s},
+            {u"name"_s, u"Delver of Secrets // Insectile Aberration"_s},
+            {u"type_line"_s, u"Creature — Human Wizard // Creature — Human Insect"_s},
+            {u"set"_s, u"MID"_s},
+            {u"collector_number"_s, u"47"_s},
+            {u"lang"_s, u"en"_s},
+            {u"layout"_s, u"transform"_s},
+            {u"card_faces"_s,
+             QJsonArray{
+                 QJsonObject{
+                     {u"name"_s, u"Delver of Secrets"_s},
+                     {u"type_line"_s, u"Creature — Human Wizard"_s},
+                     {u"image_uris"_s,
+                      QJsonObject{{u"normal"_s, u"https://images.test/delver-front.png"_s}}}},
+                 QJsonObject{
+                     {u"name"_s, u"Insectile Aberration"_s},
+                     {u"type_line"_s, u"Creature — Human Insect"_s},
+                     {u"image_uris"_s,
+                      QJsonObject{{u"normal"_s, u"https://images.test/delver-back.png"_s}}}},
+             }},
+        },
+    };
+    QFile source(sourcePath);
+    if (!source.open(QIODevice::WriteOnly))
+        return false;
+    const QByteArray payload = QJsonDocument(cards).toJson(QJsonDocument::Compact);
+    if (source.write(payload) != payload.size())
+        return false;
+    source.close();
+    return CardCatalog::importBulkFile(sourcePath, databasePath, u"default_cards"_s).ok;
+}
+
 const auto kCardsTableSql = u"CREATE TABLE cards ("
                             "id TEXT PRIMARY KEY, oracle_id TEXT, name TEXT NOT NULL, "
                             "printed_name TEXT, type_line TEXT, set_code TEXT, "
@@ -783,6 +824,33 @@ bool restoreBoltAndTokenCardsTable(const QString &databasePath)
 }
 
 } // namespace
+
+void TestCardCatalog::cachesEveryFaceOfDoubleFacedPrinting() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY2(writeDoubleFacedCatalog(storage.path()), "test catalog import failed");
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    const QVariantList printing{
+        QVariantMap{{u"name"_s, u"Delver of Secrets"_s},
+                    {u"setCode"_s, u"MID"_s},
+                    {u"collectorNumber"_s, u"47"_s}},
+    };
+
+    const QVariantList expanded = catalog.expandCardFaceRequests(printing);
+    QCOMPARE(expanded.size(), 2);
+    QCOMPARE(expanded.at(0).toMap().value(u"name"_s).toString(), u"Delver of Secrets"_s);
+    QCOMPARE(expanded.at(1).toMap().value(u"name"_s).toString(), u"Insectile Aberration"_s);
+
+    QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
+    catalog.cacheCards(printing);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 3'000);
+    QVERIFY(catalog.imageSource(u"Delver of Secrets"_s, u"MID"_s, u"47"_s).startsWith(u"file:"_s));
+    QVERIFY(
+        catalog.imageSource(u"Insectile Aberration"_s, u"MID"_s, u"47"_s).startsWith(u"file:"_s));
+    QVERIFY(network.requestedUrls.contains(QUrl(u"https://images.test/delver-back.png"_s)));
+}
 
 void TestCardCatalog::exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() const
 {

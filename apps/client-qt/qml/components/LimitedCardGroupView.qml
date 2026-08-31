@@ -18,6 +18,8 @@ Item {
     property real cardWidth: Theme.size(116)
     property real cardHeight: Theme.size(168)
     signal cardActivated(string instanceId)
+    signal cardInspected(var card, var sourceItem)
+    signal cardInspectionEnded(var sourceItem)
 
     Text {
         textFormat: Text.PlainText
@@ -85,7 +87,11 @@ Item {
                             model: groupColumn.modelData.cards
 
                             delegate: LimitedCardTile {
+                                id: cardTile
+
                                 required property var modelData
+                                objectName: "limitedCardTile-"
+                                            + modelData.instanceId
                                 width: root.cardWidth
                                 height: root.cardHeight
                                 card: modelData
@@ -93,6 +99,10 @@ Item {
                                 emphasized: root.emphasized
                                 actionText: root.actionText
                                 onActivated: root.cardActivated(modelData.instanceId)
+                                onInspectionRequested:
+                                    root.cardInspected(modelData, cardTile)
+                                onInspectionEnded:
+                                    root.cardInspectionEnded(cardTile)
                             }
                         }
                     }

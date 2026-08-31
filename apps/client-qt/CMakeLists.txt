@@ -156,6 +156,7 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/RoomSessionState.cpp
     src/services/RulesChoiceModel.cpp
     src/services/RulesCombatModel.cpp
+    src/services/RulesDamageModel.cpp
     src/services/RulesOrderModel.cpp
     src/services/RulesSessionState.cpp
     src/services/RulesStateModels.cpp
@@ -303,6 +304,9 @@ qt_add_resources(hexproof "app_qml"
         qml/components/HandView.qml
         qml/components/SpectatorHandView.qml
         qml/components/DeckCardRow.qml
+        qml/components/DeckVisualCard.qml
+        qml/components/DeckMainCollection.qml
+        qml/components/DeckConsiderManager.qml
         qml/components/DeckPicker.qml
         qml/components/DeckTokenManager.qml
         qml/components/DiceRollPopup.qml
@@ -321,17 +325,31 @@ qt_add_resources(hexproof "app_qml"
         qml/components/LimitedDraftSeatMap.qml
         qml/components/LimitedDraftView.qml
         qml/components/LimitedSetPicker.qml
+        qml/components/LimitedSideboardBasicLandsPanel.qml
+        qml/components/LimitedSideboardFilters.qml
         qml/components/LifeEditorPopup.qml
         qml/components/NumberInputPopup.qml
         qml/components/PackOpeningOverlay.qml
         qml/components/PlayerCounterPip.qml
         qml/components/PrintingPicker.qml
         qml/components/RoomListQuery.qml
+        qml/components/RulesBattlefieldView.qml
         qml/components/RulesCardSelectionPrompt.qml
+        qml/components/RulesCardSurface.qml
         qml/components/RulesCombatAssignmentPrompt.qml
+        qml/components/RulesDamageAssignmentPrompt.qml
+        qml/components/RulesHandArea.qml
         qml/components/RulesNumberPrompt.qml
+        qml/components/RulesOpponentZoneDock.qml
         qml/components/RulesOrderPrompt.qml
+        qml/components/RulesScryPrompt.qml
+        qml/components/RulesPromptPanel.qml
+        qml/components/RulesPromptContext.qml
+        qml/components/RulesRevealPrompt.qml
         qml/components/RulesScalarChoicePrompt.qml
+        qml/components/RulesStackRail.qml
+        qml/components/RulesStateRail.qml
+        qml/components/RulesTableActionRail.qml
         qml/components/RulesTargetSelectionPrompt.qml
         qml/components/ScreenHeader.qml
         qml/components/SegmentedControl.qml

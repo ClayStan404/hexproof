@@ -92,7 +92,8 @@ func (e *Event) SubmitDeck(participantID string, request protocol.LimitedSubmitD
 		}
 		mainboard[key] += basic.Count
 	}
-	if mainboardCount < 40 || mainboardCount > protocol.MaxDeckCards {
+	if mainboardCount < protocol.MinLimitedMainboardCards ||
+		mainboardCount > protocol.MaxDeckCards {
 		return nil, fail(ErrDeckInvalid, "limited main deck must contain at least 40 cards")
 	}
 	sideboard := make(map[cardKey]int)

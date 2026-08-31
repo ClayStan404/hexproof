@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
 )
 
@@ -170,5 +171,166 @@ func TestProjectedRulesPromptHidesReorderItemIDs(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "secret-trigger") {
 		t.Fatalf("reorder prompt leaked upstream item id: %s", encoded)
+	}
+}
+
+func TestProjectedRulesPromptKeepsOpaqueScryCardsAndDestinations(t *testing.T) {
+	prompt, err := projectedRulesPrompt("ROOM", "game-1", forge.PromptView{
+		PromptID: 13, PlayerIndex: 0, Kind: "scry", Supported: true,
+		Title: "Scry", ScryDestinations: []string{"libraryTop", "libraryBottom"},
+		Cards: []forge.PromptCard{
+			{ID: "scry:0", Name: "Island", SetCode: "M21", CollectorNumber: "310"},
+		},
+	}, forgeRoomGame{}, nil)
+	if err != nil {
+		t.Fatalf("projectedRulesPrompt: %v", err)
+	}
+	if len(prompt.Cards) != 1 || prompt.Cards[0].ID != "scry:0" ||
+		len(prompt.ScryDestinations) != 2 || prompt.ScryDestinations[1] != "libraryBottom" {
+		t.Fatalf("scry prompt = %+v", prompt)
+	}
+}
+
+func TestProjectedRulesPromptDamageUsesViewerProjection(t *testing.T) {
+	game := forgeRoomGame{
+		gameID: "game-1", playerToSeat: map[int]int{0: 2, 1: 0},
+	}
+	prompt, err := projectedRulesPrompt("ROOM", "game-1", forge.PromptView{
+		PromptID: 14, PlayerIndex: 0, Kind: "chooseCombatDamageAssignment", Supported: true,
+		DamageSource: &forge.PromptDamageSource{ID: "attacker"}, TotalDamage: 7,
+		DamageTargets: []forge.PromptDamageTarget{
+			{ResponseID: "damage-target:0", Kind: "card", ID: "blocker"},
+			{ResponseID: "damage-target:1", Kind: "player", ID: "player-1", Defender: true},
+		},
+	}, game, &forge.GameView{
+		Players: []forge.PlayerView{{ID: "player-0", Name: "Alice"},
+			{ID: "player-1", Name: "Bob"}},
+		Zones: []forge.ZoneView{{Zone: "battlefield", OwnerID: "player-0",
+			Cards: []forge.CardView{
+				{Visibility: "visible", ID: "attacker", Identity: &forge.CardIdentityView{
+					Name: "Colossal Dreadmaw", SetCode: "M19", CardNumber: "172",
+				}},
+				{Visibility: "visible", ID: "blocker", Toughness: "4", Damage: 1,
+					Identity: &forge.CardIdentityView{
+						Name: "Hill Giant", SetCode: "M10", CardNumber: "143",
+					}},
+			}}},
+	})
+	if err != nil {
+		t.Fatalf("projectedRulesPrompt: %v", err)
+	}
+	if prompt.DamageSource == nil || prompt.DamageSource.Name != "Colossal Dreadmaw" ||
+		len(prompt.DamageTargets) != 2 || prompt.DamageTargets[0].Name != "Hill Giant" ||
+		prompt.DamageTargets[0].LethalDamage != 3 ||
+		prompt.DamageTargets[1].Label != "Bob · Seat 1" ||
+		prompt.DamageTargets[1].LethalDamage != -1 || prompt.TotalDamage != 7 {
+		t.Fatalf("damage prompt = %+v", prompt)
+	}
+	encoded, err := json.Marshal(prompt)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(encoded), "player-1") {
+		t.Fatalf("damage prompt leaked Forge player id: %s", encoded)
+	}
+}
+
+func TestProjectedRulesPromptContextUsesViewerProjection(t *testing.T) {
+	game := forgeRoomGame{
+		gameID: "game-1", playerToSeat: map[int]int{0: 2, 1: 0},
+	}
+	prompt, err := projectedRulesPrompt("ROOM", "game-1", forge.PromptView{
+		PromptID: 15, PlayerIndex: 0, Kind: "chooseBoolean", Supported: true,
+		ContextText: `otherwise: "3 damage is dealt."`,
+		ContextCards: []forge.PromptCard{{
+			ID: "context-card:0", Name: "Circle of Protection: Red",
+			SetCode: "4ED", CollectorNumber: "17",
+		}},
+		ContextTargets: []forge.PromptTarget{
+			{ResponseID: "context-target:0", Kind: "card", ID: "card-a"},
+			{ResponseID: "context-target:1", Kind: "player", ID: "player-1"},
+		},
+	}, game, &forge.GameView{
+		Players: []forge.PlayerView{{ID: "player-0", Name: "Alice"},
+			{ID: "player-1", Name: "Bob"}},
+		Zones: []forge.ZoneView{{Zone: "battlefield", OwnerID: "player-0",
+			Cards: []forge.CardView{{
+				Visibility: "visible", ID: "card-a", Identity: &forge.CardIdentityView{
+					Name: "Ball Lightning", SetCode: "4ED", CardNumber: "174",
+				},
+			}}}},
+	})
+	if err != nil {
+		t.Fatalf("projectedRulesPrompt: %v", err)
+	}
+	if len(prompt.ContextCards) != 1 ||
+		prompt.ContextCards[0].Name != "Circle of Protection: Red" ||
+		len(prompt.ContextTargets) != 2 ||
+		prompt.ContextTargets[0].Name != "Ball Lightning" ||
+		prompt.ContextTargets[1].Label != "Bob · Seat 1" ||
+		prompt.ContextText != `otherwise: "3 damage is dealt."` {
+		t.Fatalf("prompt context = %+v", prompt)
+	}
+	encoded, err := json.Marshal(prompt)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(encoded), "secret-source") ||
+		strings.Contains(string(encoded), "player-1") {
+		t.Fatalf("prompt context leaked Forge ids: %s", encoded)
+	}
+}
+
+func TestValidRulesDamageDistribution(t *testing.T) {
+	targets := []protocol.RulesPromptDamageTarget{
+		{ResponseID: "damage-target:0", LethalDamage: 3},
+		{ResponseID: "damage-target:1", LethalDamage: 2},
+		{ResponseID: "damage-target:2", LethalDamage: -1},
+	}
+	valid := []protocol.RulesPromptDamageAssignment{
+		{TargetID: "damage-target:0", Damage: 3},
+		{TargetID: "damage-target:1", Damage: 2},
+		{TargetID: "damage-target:2", Damage: 2},
+	}
+	if !validRulesDamageDistribution(targets, 7, valid) {
+		t.Fatal("valid combat damage was rejected")
+	}
+	for _, assignments := range [][]protocol.RulesPromptDamageAssignment{
+		valid[:2],
+		{{TargetID: "damage-target:0", Damage: 2},
+			{TargetID: "damage-target:1", Damage: 3},
+			{TargetID: "damage-target:2", Damage: 2}},
+		{{TargetID: "damage-target:0", Damage: 3},
+			{TargetID: "damage-target:1", Damage: 1},
+			{TargetID: "damage-target:2", Damage: 3}},
+		{{TargetID: "damage-target:0", Damage: 3},
+			{TargetID: "damage-target:0", Damage: 2},
+			{TargetID: "damage-target:2", Damage: 2}},
+	} {
+		if validRulesDamageDistribution(targets, 7, assignments) {
+			t.Fatalf("invalid combat damage accepted: %+v", assignments)
+		}
+	}
+}
+
+func TestValidRulesPromptScryPiles(t *testing.T) {
+	valid := []protocol.RulesPromptScryPile{
+		{Destination: "libraryTop", CardIDs: []string{"scry:0"}},
+		{Destination: "graveyard", CardIDs: []string{"scry:1"}},
+	}
+	if !validRulesPromptScryPiles(valid) {
+		t.Fatal("valid scry piles were rejected")
+	}
+	for _, piles := range [][]protocol.RulesPromptScryPile{
+		{{Destination: "battlefield", CardIDs: []string{"scry:0"}}},
+		{{Destination: "libraryTop", CardIDs: []string{"card-a"}}},
+		{{Destination: "libraryTop", CardIDs: []string{"scry:0"}},
+			{Destination: "graveyard", CardIDs: []string{"scry:0"}}},
+		{{Destination: "libraryTop", CardIDs: []string{"scry:0"}},
+			{Destination: "libraryTop", CardIDs: []string{"scry:1"}}},
+	} {
+		if validRulesPromptScryPiles(piles) {
+			t.Fatalf("invalid scry piles accepted: %+v", piles)
+		}
 	}
 }

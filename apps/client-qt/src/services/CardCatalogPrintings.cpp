@@ -55,6 +55,47 @@ QVariantList CardCatalog::cardFaces(const QString &name, const QString &setCode,
     return result;
 }
 
+QVariantList CardCatalog::expandCardFaceRequests(const QVariantList &cards)
+{
+    QVariantList result;
+    QSet<QString> requestKeys;
+    const auto appendRequest = [&result, &requestKeys](QVariantMap request) {
+        const QString name = request.value(QStringLiteral("name")).toString().simplified();
+        if (name.isEmpty())
+            return;
+        request.insert(QStringLiteral("name"), name);
+        const QString key =
+            name.toCaseFolded() + QChar(0x1f) +
+            request.value(QStringLiteral("setCode")).toString().toUpper() + QChar(0x1f) +
+            request.value(QStringLiteral("collectorNumber")).toString() + QChar(0x1f) +
+            (request.value(QStringLiteral("exactArt")).toBool() ? QLatin1Char('1')
+                                                                : QLatin1Char('0'));
+        if (requestKeys.contains(key))
+            return;
+        requestKeys.insert(key);
+        result.append(request);
+    };
+
+    for (const QVariant &value : cards) {
+        const QVariantMap request = value.toMap();
+        const QString name = request.value(QStringLiteral("name")).toString().simplified();
+        const QString setCode = request.value(QStringLiteral("setCode")).toString().toUpper();
+        const QString collectorNumber = request.value(QStringLiteral("collectorNumber")).toString();
+        const QVariantList faces = cardFaces(name, setCode, collectorNumber);
+        if (faces.size() < 2) {
+            appendRequest(request);
+            continue;
+        }
+        for (const QVariant &faceValue : faces) {
+            QVariantMap faceRequest = request;
+            faceRequest.insert(QStringLiteral("name"),
+                               faceValue.toMap().value(QStringLiteral("name")));
+            appendRequest(faceRequest);
+        }
+    }
+    return result;
+}
+
 QString CardCatalog::imageSource(const QString &name, const QString &setCode,
                                  const QString &collectorNumber) const
 {

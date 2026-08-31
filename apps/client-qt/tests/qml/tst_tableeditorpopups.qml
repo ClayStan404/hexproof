@@ -100,6 +100,49 @@ TestCase {
         ]
     }
 
+    QtObject {
+        id: compactLibraryController
+        property bool reorderMode: true
+        property bool topCardMode: false
+        property int selectedIndex: 0
+        property var cards: [{
+            "id": "top-1",
+            "name": "Expressive Iteration",
+            "setCode": "STX",
+            "collectorNumber": "186"
+        }, {
+            "id": "top-2",
+            "name": "Island",
+            "setCode": "M21",
+            "collectorNumber": "265"
+        }]
+        property var visibleCards: cards
+        property var cardCatalogModel: fakeCatalog
+        property var topCardDestinations: [{
+            "label": "You · Hand",
+            "value": "hand"
+        }, {
+            "label": "You · Top of library",
+            "value": "library_top"
+        }]
+        function cardSelected() { return false }
+        function topCardDestinationIndex() { return 0 }
+        function setTopCardDestination() { }
+        function moveCardInOrder() { }
+    }
+
+    QtObject {
+        id: compactLibraryMenu
+        property real x: 0
+        property real y: 0
+        function open() { }
+    }
+
+    Component {
+        id: compactLibraryListComponent
+        LibrarySearchCardList { }
+    }
+
     Item {
         id: fakeTable
         property var wsModel: fakeWs
@@ -241,6 +284,36 @@ TestCase {
         compare(fakeWs.dumpSeat, 1)
         compare(fakeWs.dumpTopCount, 3)
         editors.libraryTopCountEditor.close()
+    }
+
+    function test_topCardAssignmentsUseCompactRowsAtMinimumWidth() {
+        const cardList = compactLibraryListComponent.createObject(testCase, {
+            "width": Theme.size(435),
+            "height": Theme.size(300),
+            "popupController": compactLibraryController,
+            "cardMenu": compactLibraryMenu
+        })
+        verify(cardList !== null)
+        waitForRendering(cardList)
+        tryVerify(() => findChild(cardList, "librarySearchCard0") !== null)
+
+        const row = findChild(cardList, "librarySearchCard0")
+        const identity = findChild(cardList, "libraryCardIdentity0")
+        const destination = findChild(cardList, "topCardDestination0")
+        const moveDown = findChild(cardList, "topCardMoveDown0")
+        verify(row !== null)
+        verify(identity !== null)
+        verify(destination !== null)
+        verify(moveDown !== null)
+        tryVerify(() => row.width > 0 && destination.width > 0)
+
+        verify(row.compactAssignmentLayout)
+        verify(row.height > Theme.size(76))
+        verify(identity.width >= Theme.size(100))
+        verify(destination.width >= Theme.size(220))
+        verify(moveDown.width >= Theme.size(40))
+        verify(destination.y > identity.y)
+        cardList.destroy()
     }
 
     function test_deckTokensAppearBeforeCatalogTokens() {

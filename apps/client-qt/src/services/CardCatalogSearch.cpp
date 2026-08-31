@@ -19,7 +19,8 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
 {
     QVariantList enriched;
     const CatalogRepository repository(databasePath);
-    for (const QVariant &value : cards) {
+    const QVariantList cardsWithDeckMetadata = repository.enrichLimitedCards(cards);
+    for (const QVariant &value : cardsWithDeckMetadata) {
         const QVariantMap requested = value.toMap();
         const QString name = requested.value(QStringLiteral("name")).toString().simplified();
         const QString setCode = requested.value(QStringLiteral("setCode")).toString().toUpper();
@@ -47,13 +48,19 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
         }
         if (record.localizedName.isEmpty() && record.typeLine.isEmpty())
             continue;
-        enriched.append(QVariantMap{
+        QVariantMap metadata{
             {QStringLiteral("requestedName"), name},
             {QStringLiteral("requestedSetCode"), setCode},
             {QStringLiteral("requestedCollectorNumber"), collectorNumber},
             {QStringLiteral("localizedName"), record.localizedName},
             {QStringLiteral("typeLine"), record.typeLine},
-        });
+        };
+        if (requested.contains(QStringLiteral("colors")))
+            metadata.insert(QStringLiteral("colors"), requested.value(QStringLiteral("colors")));
+        if (requested.contains(QStringLiteral("manaValue")))
+            metadata.insert(QStringLiteral("manaValue"),
+                            requested.value(QStringLiteral("manaValue")));
+        enriched.append(metadata);
     }
     return enriched;
 }

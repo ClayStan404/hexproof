@@ -167,6 +167,79 @@ void WsClient::respondRulesPromptWithOrder(qint64 promptId, const QVariantList &
                                         {u"orderedIds"_s, order}});
 }
 
+void WsClient::respondRulesPromptWithDamageOrder(qint64 promptId, const QVariantList &orderedIds)
+{
+    if (promptId <= 0)
+        return;
+    QJsonArray order;
+    QSet<QString> seen;
+    for (const QVariant &value : orderedIds) {
+        const QString targetId = value.toString();
+        if (!targetId.startsWith(u"damage-target:"_s) || seen.contains(targetId))
+            return;
+        seen.insert(targetId);
+        order.append(targetId);
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"damageOrderIds"_s, order}});
+}
+
+void WsClient::respondRulesPromptWithDamage(qint64 promptId, const QVariantList &assignments)
+{
+    if (promptId <= 0 || assignments.size() > 512)
+        return;
+    QJsonArray encodedAssignments;
+    QSet<QString> seen;
+    for (const QVariant &value : assignments) {
+        const QVariantMap assignment = value.toMap();
+        const QString targetId = assignment.value(u"targetId"_s).toString();
+        bool validDamage = false;
+        const int damage = assignment.value(u"damage"_s).toInt(&validDamage);
+        if (!targetId.startsWith(u"damage-target:"_s) || seen.contains(targetId) || !validDamage ||
+            damage < 0) {
+            return;
+        }
+        seen.insert(targetId);
+        encodedAssignments.append(QJsonObject{{u"targetId"_s, targetId}, {u"damage"_s, damage}});
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"damageAssignments"_s, encodedAssignments}});
+}
+
+void WsClient::respondRulesPromptWithScry(qint64 promptId, const QVariantList &piles)
+{
+    if (promptId <= 0 || piles.isEmpty() || piles.size() > 5)
+        return;
+    const QSet<QString> supportedDestinations{u"libraryTop"_s, u"libraryBottom"_s, u"graveyard"_s,
+                                              u"exile"_s, u"hand"_s};
+    QSet<QString> destinations;
+    QSet<QString> seenCards;
+    QJsonArray encodedPiles;
+    for (const QVariant &value : piles) {
+        const QVariantMap pile = value.toMap();
+        const QString destination = pile.value(u"destination"_s).toString();
+        if (!supportedDestinations.contains(destination) || destinations.contains(destination))
+            return;
+        destinations.insert(destination);
+        QJsonArray cardIds;
+        for (const QVariant &cardValue : pile.value(u"cardIds"_s).toList()) {
+            const QString cardId = cardValue.toString();
+            if (!cardId.startsWith(u"scry:"_s) || seenCards.contains(cardId) ||
+                seenCards.size() >= 512) {
+                return;
+            }
+            seenCards.insert(cardId);
+            cardIds.append(cardId);
+        }
+        encodedPiles.append(QJsonObject{{u"destination"_s, destination}, {u"cardIds"_s, cardIds}});
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"scryPiles"_s, encodedPiles}});
+}
+
 void WsClient::respondRulesPromptWithAssignments(qint64 promptId, const QVariantList &assignments)
 {
     if (promptId <= 0)

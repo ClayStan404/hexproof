@@ -130,6 +130,8 @@ bool DeckLibraryStorage::loadDecks(QVector<Deck> *decks, QString *error)
                 tableModeForDeckFormat(deck.deckFormat) != deck.format ||
                 !validCards(object.value(QStringLiteral("mainboard"))) ||
                 !validCards(object.value(QStringLiteral("sideboard"))) ||
+                (!object.value(QStringLiteral("consider")).isUndefined() &&
+                 !validCards(object.value(QStringLiteral("consider")))) ||
                 !validTokens(object.value(QStringLiteral("tokens")))) {
                 damaged = true;
                 break;

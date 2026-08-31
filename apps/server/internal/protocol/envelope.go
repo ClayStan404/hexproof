@@ -14,32 +14,33 @@ import "encoding/json"
 // rules; the manual-tabletop product deliberately does not enforce format
 // legality.
 const (
-	MaxDisplayNameRunes     = 64
-	MaxRoomNameRunes        = 128
-	MaxPasswordBytes        = 72 // bcrypt's effective input limit
-	MinMainboardCards       = 7  // enough to produce the opening hand
-	MaxDeckCards            = 1000
-	MaxDeckEntries          = 500
-	MaxDeckNameRunes        = 128
-	MaxCardNameRunes        = 256
-	MaxCommanders           = 2
-	MaxSetCodeRunes         = 16
-	MaxCollectorNumberRunes = 32
-	MaxTypeLineRunes        = 256
-	MaxGameSayRunes         = 500
-	MaxTokenNameRunes       = 256
-	MaxTokensPerSeat        = 256
-	MaxResumeTokenBytes     = 128
-	MaxDiceSides            = 1000
-	MaxDiceCount            = 20
-	MaxRandomCardCandidates = 100
-	MaxCombatArrowSources   = 100
-	MaxRetainedGameLog      = 10000
-	MaxProjectedGameLog     = 500
-	MaxLimitedProductCards  = 5000
-	MaxLimitedProductSheets = 64
-	MaxLimitedVariants      = 64
-	MaxLimitedSlots         = 64
+	MaxDisplayNameRunes      = 64
+	MaxRoomNameRunes         = 128
+	MaxPasswordBytes         = 72 // bcrypt's effective input limit
+	MinMainboardCards        = 7  // enough to produce the opening hand
+	MinLimitedMainboardCards = 40
+	MaxDeckCards             = 1000
+	MaxDeckEntries           = 500
+	MaxDeckNameRunes         = 128
+	MaxCardNameRunes         = 256
+	MaxCommanders            = 2
+	MaxSetCodeRunes          = 16
+	MaxCollectorNumberRunes  = 32
+	MaxTypeLineRunes         = 256
+	MaxGameSayRunes          = 500
+	MaxTokenNameRunes        = 256
+	MaxTokensPerSeat         = 256
+	MaxResumeTokenBytes      = 128
+	MaxDiceSides             = 1000
+	MaxDiceCount             = 20
+	MaxRandomCardCandidates  = 100
+	MaxCombatArrowSources    = 100
+	MaxRetainedGameLog       = 10000
+	MaxProjectedGameLog      = 500
+	MaxLimitedProductCards   = 5000
+	MaxLimitedProductSheets  = 64
+	MaxLimitedVariants       = 64
+	MaxLimitedSlots          = 64
 )
 
 // Player counter identifiers are stable wire names. Life remains separate from

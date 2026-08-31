@@ -26,6 +26,25 @@ Item {
     property alias handLibraryPositionEditor: handLibraryPositionEditor
     property alias tokenPicker: tokenPicker
     property alias commanderDamagePopup: commanderDamagePopup
+    property var pendingLibraryPlacement: null
+
+    function submitLibrarySearch(request) {
+        root.tableController.wsModel.searchLibraryCards(
+                    request.cardIds, request.destination, request.reveal,
+                    request.randomize, request.position, request.sourceSeat,
+                    request.approvalId, request.destinationSeat,
+                    request.faceDown)
+    }
+
+    function completePendingLibraryPlacement(shuffleFirst) {
+        const request = pendingLibraryPlacement
+        pendingLibraryPlacement = null
+        if (!request || !root.tableController.canAct)
+            return
+        if (shuffleFirst)
+            root.tableController.wsModel.shuffleLibrary()
+        submitLibrarySearch(request)
+    }
 
     function libraryCardsForIds(cardIds, faceDown) {
         const requested = cardIds ? cardIds : []
@@ -85,10 +104,39 @@ Item {
                                            root.libraryCardsForIds(
                                                cardIds, faceDown))
                                      : position
-            root.tableController.wsModel.searchLibraryCards(
-                        cardIds, destination, reveal, randomize,
-                        resolvedPosition,
-                        sourceSeat, approvalId, destinationSeat, faceDown)
+            const request = {
+                "cardIds": cardIds,
+                "destination": destination,
+                "reveal": reveal,
+                "randomize": randomize,
+                "position": resolvedPosition,
+                "sourceSeat": sourceSeat,
+                "approvalId": approvalId,
+                "destinationSeat": destinationSeat,
+                "faceDown": faceDown
+            }
+            const placementNeedsShuffleDecision =
+                librarySearchPopup.offerShuffleOnClose
+                && sourceSeat === root.tableController.roomSession.seatIndex
+                && (destination === "library_top"
+                    || destination === "library_bottom")
+            if (!placementNeedsShuffleDecision) {
+                root.submitLibrarySearch(request)
+                return
+            }
+
+            // Defer placement until the owner chooses whether to shuffle,
+            // then preserve shuffle-before-placement order on this socket.
+            librarySearchPopup.offerShuffleOnClose = false
+            root.pendingLibraryPlacement = request
+            Qt.callLater(function() {
+                if (root.pendingLibraryPlacement
+                    && root.tableController.canAct) {
+                    shuffleReminder.open()
+                } else {
+                    root.pendingLibraryPlacement = null
+                }
+            })
         }
         onResolveAssignmentsRequested: function(assignments, randomizeTop,
                                                 randomizeBottom, position,
@@ -105,6 +153,7 @@ Item {
                         resolvedPosition, sourceSeat, approvalId)
         }
         onShuffleReminderRequested: {
+            root.pendingLibraryPlacement = null
             Qt.callLater(function() {
                 if (root.tableController.canAct)
                     shuffleReminder.open()
@@ -115,10 +164,25 @@ Item {
     ConfirmDialog {
         id: shuffleReminder
         objectName: "shuffleLibraryReminder"
-        titleText: qsTr("Shuffle your library?")
-        message: qsTr("Searching a library does not shuffle it automatically. Shuffle now if the card effect requires it.")
-        confirmText: qsTr("Shuffle")
-        onConfirmed: root.tableController.wsModel.shuffleLibrary()
+        titleText: root.pendingLibraryPlacement
+                   ? qsTr("Shuffle before placing cards?")
+                   : qsTr("Shuffle your library?")
+        message: root.pendingLibraryPlacement
+                 ? qsTr("The selected cards will be placed at the chosen end of the library after the shuffle. Cancel to place them without shuffling.")
+                 : qsTr("Searching a library does not shuffle it automatically. Shuffle now if the card effect requires it.")
+        confirmText: root.pendingLibraryPlacement
+                     ? qsTr("Shuffle, then place") : qsTr("Shuffle")
+        onConfirmed: {
+            if (root.pendingLibraryPlacement) {
+                root.completePendingLibraryPlacement(true)
+                return
+            }
+            root.tableController.wsModel.shuffleLibrary()
+        }
+        onCancelled: {
+            if (root.pendingLibraryPlacement)
+                root.completePendingLibraryPlacement(false)
+        }
     }
 
     ZoneBrowserPopup {

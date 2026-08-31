@@ -109,6 +109,10 @@ func (view GameView) validate() error {
 		if _, duplicate := playerIDs[player.ID]; duplicate {
 			return fmt.Errorf("duplicate player id %q", player.ID)
 		}
+		if player.Status != "playing" && player.Status != "lost" &&
+			player.Status != "conceded" {
+			return fmt.Errorf("player %d has invalid status %q", index, player.Status)
+		}
 		playerIDs[player.ID] = struct{}{}
 	}
 	for label, playerID := range map[string]string{

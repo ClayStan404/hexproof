@@ -47,11 +47,24 @@ func TestGameViewRejectsUnknownAuthorizationReferences(t *testing.T) {
 		GameID: "game-1", ActivePlayerID: "player-0",
 		PriorityPlayerID: "player-7",
 		Players: []PlayerView{
-			{ID: "player-0", Name: "Alice"},
-			{ID: "player-1", Name: "Bob"},
+			{ID: "player-0", Name: "Alice", Status: "playing"},
+			{ID: "player-1", Name: "Bob", Status: "playing"},
 		},
 	}
 	if err := view.validate(); err == nil || !strings.Contains(err.Error(), "priority player") {
+		t.Fatalf("validate error = %v", err)
+	}
+}
+
+func TestGameViewRejectsUnknownPlayerStatus(t *testing.T) {
+	view := GameView{
+		GameID: "game-1", ActivePlayerID: "player-0", PriorityPlayerID: "player-0",
+		Players: []PlayerView{
+			{ID: "player-0", Status: "playing"},
+			{ID: "player-1", Status: "waiting"},
+		},
+	}
+	if err := view.validate(); err == nil || !strings.Contains(err.Error(), "invalid status") {
 		t.Fatalf("validate error = %v", err)
 	}
 }

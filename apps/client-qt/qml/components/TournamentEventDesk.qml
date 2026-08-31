@@ -15,6 +15,10 @@ Surface {
     required property var wsModel
     required property var cancelDialogTarget
     readonly property bool isCasual: tournamentModel.coordinator === "casual"
+    readonly property int minimumCheckedIn:
+        tournamentModel.eventType === "set_draft"
+        ? 8 : (tournamentModel.eventType === "cube_draft"
+               ? 4 : (isCasual ? 2 : 4))
     readonly property var casualReadyPlayers: buildCasualReadyPlayers()
     Layout.preferredWidth: Theme.size(330)
     Layout.fillHeight: true
@@ -132,15 +136,13 @@ Surface {
         }
 
         AppButton {
+            objectName: "startTournamentButton"
             Layout.fillWidth: true
             visible: root.lobbyController.isOrganizer
                      && root.tournamentModel.status === "registration"
             variant: "primary"
             text: root.isCasual ? qsTr("Start room") : qsTr("Start tournament")
-            enabled: root.tournamentModel.checkedIn
-                     >= (root.tournamentModel.eventType === "set_draft"
-                         || root.tournamentModel.eventType === "cube_draft"
-                         ? 8 : (root.isCasual ? 2 : 4))
+            enabled: root.tournamentModel.checkedIn >= root.minimumCheckedIn
             onClicked: root.wsModel.startTournament()
         }
 

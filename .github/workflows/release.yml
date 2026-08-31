@@ -141,6 +141,9 @@ jobs:
           if [[ -f deploy/deploy-release-server.sh ]]; then
             scripts+=(deploy/deploy-release-server.sh)
           fi
+          if [[ -f deploy/deploy-forge-runtime.sh ]]; then
+            scripts+=(deploy/deploy-forge-runtime.sh)
+          fi
           python3 -m unittest "${tests[@]}"
           shellcheck "${scripts[@]}"
       - name: Verify stable card database compatibility

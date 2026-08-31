@@ -108,7 +108,8 @@ owner-only permissions under the runner's temporary directory, and embeds it
 through `HEXPROOF_SERVER_DIRECTORY_FILE`. Ordinary CI deliberately builds with
 the tracked example directory and never receives this secret. Endpoint values
 are absent from Git and logs, but remain observable in published binaries and
-their network traffic.
+their network traffic. The directory contains four stable public hubs plus
+the path-scoped pre-release test server as its fifth entry.
 
 macOS packages remain unsigned when release secrets are absent. To sign and
 notarize them, configure all of the following GitHub Actions secrets:

@@ -1,0 +1,12 @@
+{
+  "type": "rules.respond",
+  "id": "req-rules-damage-assignment-1",
+  "payload": {
+    "promptId": 82,
+    "responseId": "$submit",
+    "damageAssignments": [
+      {"targetId": "damage-target:0", "damage": 1},
+      {"targetId": "damage-target:1", "damage": 5}
+    ]
+  }
+}

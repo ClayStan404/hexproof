@@ -20,7 +20,7 @@ constexpr int kCachedHydrationIntervalMs = 16;
 void CardCatalog::cacheCards(const QVariantList &cards)
 {
     clearOperationError();
-    enqueueCards(cards, m_language);
+    enqueueCards(expandCardFaceRequests(cards), m_language);
 }
 
 void CardCatalog::cacheCardsIncrementally(const QVariantList &cards)
@@ -137,7 +137,7 @@ void CardCatalog::processIncrementalCacheBatch()
         m_incrementalQueuedKeys.remove(item.key);
         batch.append(item.card);
     }
-    enqueueCards(batch, language);
+    enqueueCards(expandCardFaceRequests(batch), language);
 
     if (m_incrementalCacheQueue.isEmpty())
         return;
@@ -147,7 +147,8 @@ void CardCatalog::processIncrementalCacheBatch()
 
 void CardCatalog::retryCards(const QVariantList &cards)
 {
-    for (const QVariant &value : cards) {
+    const QVariantList expandedCards = expandCardFaceRequests(cards);
+    for (const QVariant &value : expandedCards) {
         const QVariantMap map = value.toMap();
         const QString name = map.value(QStringLiteral("name")).toString().simplified();
         if (name.isEmpty())
@@ -160,15 +161,16 @@ void CardCatalog::retryCards(const QVariantList &cards)
     if (m_cardResolver)
         m_cardResolver->clearCooldowns();
     clearOperationError();
-    enqueueCards(cards, m_language);
+    enqueueCards(expandedCards, m_language);
 }
 
 void CardCatalog::prioritizeCards(const QVariantList &cards)
 {
-    enqueueCards(cards, m_language);
+    const QVariantList expandedCards = expandCardFaceRequests(cards);
+    enqueueCards(expandedCards, m_language);
 
     QList<CardRequest> prioritized;
-    for (const QVariant &value : cards) {
+    for (const QVariant &value : expandedCards) {
         const QVariantMap map = value.toMap();
         const QString key =
             cacheKey(map.value(QStringLiteral("name")).toString().simplified(), m_language,

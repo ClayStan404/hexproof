@@ -131,6 +131,8 @@ done
 
 section "Static quality gates"
 check_clang_format
+bash -n deploy/deploy-release-server.sh deploy/deploy-forge-runtime.sh \
+    deploy/deploy-test-server.sh tools/run-local-forge-server.sh
 ./tools/check-license-headers.sh
 ./tools/check-qml-text-safety.sh
 python3 tools/check-protocol-parity.py

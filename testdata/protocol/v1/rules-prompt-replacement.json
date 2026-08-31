@@ -1,0 +1,72 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 91,
+    "kind": "chooseBoolean",
+    "supported": true,
+    "title": "Pay {1} to prevent damage?",
+    "detail": "Choose whether to pay the prevention cost.",
+    "options": [],
+    "choices": [
+      {
+        "responseId": "choice:0",
+        "label": "Decline",
+        "weight": 1,
+        "canRepeat": false
+      },
+      {
+        "responseId": "choice:1",
+        "label": "Pay",
+        "weight": 1,
+        "canRepeat": false
+      }
+    ],
+    "cards": [],
+    "scryDestinations": [],
+    "orderItems": [],
+    "contextCards": [
+      {
+        "id": "context-card:0",
+        "name": "Circle of Protection: Red",
+        "setCode": "4ED",
+        "collectorNumber": "17"
+      }
+    ],
+    "contextTargets": [
+      {
+        "responseId": "context-target:0",
+        "kind": "card",
+        "label": "Ball Lightning",
+        "objectId": "target-card-1",
+        "name": "Ball Lightning",
+        "setCode": "4ED",
+        "collectorNumber": "174"
+      },
+      {
+        "responseId": "context-target:1",
+        "kind": "player",
+        "label": "Alice · Seat 1"
+      }
+    ],
+    "contextText": "otherwise: \"3 damage is dealt.\"",
+    "requiredSelections": 0,
+    "minCardSelections": 0,
+    "maxCardSelections": 0,
+    "targets": [],
+    "combatSources": [],
+    "combatTargets": [],
+    "damageTargets": [],
+    "totalDamage": 0,
+    "damageDeathtouch": false,
+    "minSelections": 0,
+    "maxSelections": 0,
+    "cancellable": false,
+    "minChoiceTotal": 1,
+    "maxChoiceTotal": 1,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

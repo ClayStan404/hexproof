@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 
 SECRET_NAME = "HEXPROOF_PUBLIC_SERVERS_JSON"
-SERVER_COUNT = 3
+SERVER_COUNT = 5
 
 
 def validate_directory(document: object) -> dict[str, object]:

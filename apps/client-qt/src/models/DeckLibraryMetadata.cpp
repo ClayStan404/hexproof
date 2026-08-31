@@ -31,10 +31,10 @@ QString metadataIdentity(const QString &name, const QString &setCode,
 void appendCatalogMetadataRequests(const Deck &deck, bool refreshExisting, QVariantList *requests,
                                    QSet<QString> *seen)
 {
-    const QVector<DeckCard> *const zones[] = {&deck.mainboard, &deck.sideboard};
+    const QVector<DeckCard> *const zones[] = {&deck.mainboard, &deck.sideboard, &deck.consider};
     for (const QVector<DeckCard> *zone : zones) {
         for (const DeckCard &card : *zone) {
-            if (!refreshExisting && !card.typeLine.isEmpty())
+            if (!refreshExisting && !card.typeLine.isEmpty() && card.manaValue >= 0.0)
                 continue;
             const QString key = metadataIdentity(card.name, card.setCode, card.collectorNumber);
             if (normalizedCardName(card.name).isEmpty() || seen->contains(key))
@@ -166,7 +166,7 @@ void DeckLibraryModel::applyCatalogMetadata(const QVariantList &cards)
     QSet<QString> changedDeckIds;
     for (Deck &deck : m_decks) {
         bool deckChanged = false;
-        QVector<DeckCard> *const zones[] = {&deck.mainboard, &deck.sideboard};
+        QVector<DeckCard> *const zones[] = {&deck.mainboard, &deck.sideboard, &deck.consider};
         for (QVector<DeckCard> *zone : zones) {
             for (DeckCard &card : *zone) {
                 const auto metadata = metadataByIdentity.constFind(
@@ -176,12 +176,23 @@ void DeckLibraryModel::applyCatalogMetadata(const QVariantList &cards)
                 const QString localizedName =
                     metadata->value(QStringLiteral("localizedName")).toString();
                 const QString typeLine = metadata->value(QStringLiteral("typeLine")).toString();
+                const QString colors = metadata->value(QStringLiteral("colors")).toString();
+                const double manaValue =
+                    metadata->value(QStringLiteral("manaValue"), -1.0).toDouble();
                 if (!localizedName.isEmpty() && card.localizedName != localizedName) {
                     card.localizedName = localizedName;
                     deckChanged = true;
                 }
                 if (!typeLine.isEmpty() && card.typeLine != typeLine) {
                     card.typeLine = typeLine;
+                    deckChanged = true;
+                }
+                if (metadata->contains(QStringLiteral("colors")) && card.colors != colors) {
+                    card.colors = colors;
+                    deckChanged = true;
+                }
+                if (manaValue >= 0.0 && card.manaValue != manaValue) {
+                    card.manaValue = manaValue;
                     deckChanged = true;
                 }
             }

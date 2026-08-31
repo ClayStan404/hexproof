@@ -38,13 +38,21 @@ type PromptChoice struct {
 }
 
 // PromptCard is the smallest card identity needed to present a private Forge
-// selection. Rules text and other engine-owned state stay behind the server.
+// decision or disclosure. Rules text and other engine-owned state stay behind
+// the server.
 type PromptCard struct {
 	ID              string
 	Name            string
 	SetCode         string
 	CollectorNumber string
 	Token           bool
+}
+
+// PromptScryPile is one ordered destination pile submitted with opaque card
+// ids from the current scry prompt.
+type PromptScryPile struct {
+	Destination string
+	CardIDs     []string
 }
 
 // PromptOrderItem is one sortable card or trigger. ID and any upstream item
@@ -99,82 +107,125 @@ type PromptAssignment struct {
 	TargetID string
 }
 
+// PromptDamageSource is the permanent assigning combat damage. ID remains
+// private and is joined to the deciding player's current snapshot before the
+// public prompt is emitted.
+type PromptDamageSource struct {
+	ID string
+}
+
+// PromptDamageTarget is one permanent or defending player in Forge's required
+// assignment order. Defender distinguishes the final trample destination from
+// permanents that must receive lethal damage before later entries.
+type PromptDamageTarget struct {
+	ResponseID string
+	Kind       string
+	ID         string
+	Defender   bool
+}
+
+// PromptDamageAssignment is one exact amount assigned to a prompt-local
+// damage target.
+type PromptDamageAssignment struct {
+	TargetID string
+	Damage   int
+}
+
 // PromptView is the normalized, privacy-safe subset of one Forge prompt.
 type PromptView struct {
-	PromptID      int64
-	PlayerIndex   int
-	Kind          string
-	Supported     bool
-	Title         string
-	Detail        string
-	Options       []PromptOption
-	Choices       []PromptChoice
-	Cards         []PromptCard
-	OrderItems    []PromptOrderItem
-	Required      int
-	CardMinimum   int
-	CardMaximum   int
-	Targets       []PromptTarget
-	CombatSources []PromptCombatSource
-	CombatTargets []PromptCombatTarget
-	MinSelected   int
-	MaxSelected   int
-	Cancellable   bool
-	ChoiceMinimum int
-	ChoiceMaximum int
-	NumberMinimum int
-	NumberMaximum int
+	PromptID         int64
+	PlayerIndex      int
+	Kind             string
+	Supported        bool
+	Title            string
+	Detail           string
+	Options          []PromptOption
+	Choices          []PromptChoice
+	Cards            []PromptCard
+	ScryDestinations []string
+	OrderItems       []PromptOrderItem
+	ContextCards     []PromptCard
+	ContextTargets   []PromptTarget
+	ContextText      string
+	Required         int
+	CardMinimum      int
+	CardMaximum      int
+	Targets          []PromptTarget
+	CombatSources    []PromptCombatSource
+	CombatTargets    []PromptCombatTarget
+	DamageSource     *PromptDamageSource
+	DamageTargets    []PromptDamageTarget
+	TotalDamage      int
+	DamageDeathtouch bool
+	MinSelected      int
+	MaxSelected      int
+	Cancellable      bool
+	ChoiceMinimum    int
+	ChoiceMaximum    int
+	NumberMinimum    int
+	NumberMaximum    int
 }
 
 // PromptResponse is the typed Hexproof-side answer to one current prompt.
 // Each prompt family accepts only its corresponding payload field.
 type PromptResponse struct {
-	ResponseID   string
-	CardIDs      []string
-	TargetIDs    []string
-	Assignments  []PromptAssignment
-	ChoiceIDs    []string
-	OrderedIDs   []string
-	ChosenNumber *int
+	ResponseID        string
+	CardIDs           []string
+	TargetIDs         []string
+	Assignments       []PromptAssignment
+	ChoiceIDs         []string
+	OrderedIDs        []string
+	ScryPiles         []PromptScryPile
+	DamageOrderIDs    []string
+	DamageAssignments []PromptDamageAssignment
+	ChosenNumber      *int
 }
 
 type promptEnvelope struct {
 	PromptID       int64           `json:"promptId"`
 	DecidingPlayer string          `json:"decidingPlayerId"`
+	SourceCard     *promptCard     `json:"sourceCard"`
 	Input          json.RawMessage `json:"input"`
 }
 
 type promptInput struct {
-	Type                string                  `json:"type"`
-	Actions             []promptAction          `json:"actions"`
-	Presentation        promptPresentation      `json:"presentation"`
-	CardName            string                  `json:"cardName"`
-	ManaCost            string                  `json:"manaCost"`
-	CanConfirmFromPool  bool                    `json:"canConfirmFromPool"`
-	MulliganCount       int                     `json:"mulliganCount"`
-	HandCardIDs         []string                `json:"handCardIds"`
-	Cards               []promptCard            `json:"cards"`
-	Items               []promptOrderItem       `json:"items"`
-	Count               int                     `json:"count"`
-	Candidates          []promptTargetRef       `json:"candidates"`
-	MinTargets          int                     `json:"minTargets"`
-	MaxTargets          int                     `json:"maxTargets"`
-	ChosenTargets       int                     `json:"chosenTargets"`
-	Cancellable         bool                    `json:"cancellable"`
-	Attackers           []promptCombatant       `json:"attackers"`
-	AttackTargets       []promptAttackTarget    `json:"attackTargets"`
-	AvailableBlockerIDs []string                `json:"availableBlockerIds"`
-	Error               string                  `json:"error"`
-	ConfirmLabel        string                  `json:"confirmLabel"`
-	DenyLabel           string                  `json:"denyLabel"`
-	Min                 *int                    `json:"min"`
-	Max                 *int                    `json:"max"`
-	ValidColors         []string                `json:"validColors"`
-	Amount              *int                    `json:"amount"`
-	RepeatAllowed       bool                    `json:"repeatAllowed"`
-	SelectionOptions    []promptSelectionOption `json:"options"`
-	MinTotal            *int                    `json:"minTotal"`
-	MaxTotal            *int                    `json:"maxTotal"`
+	Type                  string                  `json:"type"`
+	Actions               []promptAction          `json:"actions"`
+	Presentation          promptPresentation      `json:"presentation"`
+	CardName              string                  `json:"cardName"`
+	ManaCost              string                  `json:"manaCost"`
+	CanConfirmFromPool    bool                    `json:"canConfirmFromPool"`
+	MulliganCount         int                     `json:"mulliganCount"`
+	HandCardIDs           []string                `json:"handCardIds"`
+	Cards                 []promptCard            `json:"cards"`
+	Zones                 []string                `json:"zones"`
+	Items                 []promptOrderItem       `json:"items"`
+	Count                 int                     `json:"count"`
+	Candidates            []promptTargetRef       `json:"candidates"`
+	MinTargets            int                     `json:"minTargets"`
+	MaxTargets            int                     `json:"maxTargets"`
+	ChosenTargets         int                     `json:"chosenTargets"`
+	Cancellable           bool                    `json:"cancellable"`
+	Attackers             []promptCombatant       `json:"attackers"`
+	AttackTargets         []promptAttackTarget    `json:"attackTargets"`
+	AvailableBlockerIDs   []string                `json:"availableBlockerIds"`
+	Error                 string                  `json:"error"`
+	ConfirmLabel          string                  `json:"confirmLabel"`
+	DenyLabel             string                  `json:"denyLabel"`
+	Min                   *int                    `json:"min"`
+	Max                   *int                    `json:"max"`
+	ValidColors           []string                `json:"validColors"`
+	Amount                *int                    `json:"amount"`
+	RepeatAllowed         bool                    `json:"repeatAllowed"`
+	SelectionOptions      []promptSelectionOption `json:"options"`
+	MinTotal              *int                    `json:"minTotal"`
+	MaxTotal              *int                    `json:"maxTotal"`
+	AttackerID            string                  `json:"attackerId"`
+	BlockerIDs            []string                `json:"blockerIds"`
+	BlockerCards          []promptCard            `json:"blockerCards"`
+	DefenderID            string                  `json:"defenderId"`
+	TotalDamage           *int                    `json:"totalDamage"`
+	AttackerHasDeathtouch bool                    `json:"attackerHasDeathtouch"`
 }
 
 type promptSelectionOption struct {
@@ -184,8 +235,10 @@ type promptSelectionOption struct {
 }
 
 type promptPresentation struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title       string            `json:"title"`
+	Description string            `json:"description"`
+	Text        string            `json:"text"`
+	Targets     []promptTargetRef `json:"targets"`
 }
 
 type promptAction struct {
@@ -247,15 +300,24 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 	}
 	view := PromptView{
 		PromptID: envelope.PromptID, PlayerIndex: playerIndex, Kind: input.Type,
-		Title:         boundedPromptText(input.Presentation.Title),
-		Detail:        boundedPromptText(input.Presentation.Description),
-		Options:       []PromptOption{},
-		Choices:       []PromptChoice{},
-		Cards:         []PromptCard{},
-		OrderItems:    []PromptOrderItem{},
-		Targets:       []PromptTarget{},
-		CombatSources: []PromptCombatSource{},
-		CombatTargets: []PromptCombatTarget{},
+		Title:            boundedPromptText(input.Presentation.Title),
+		Detail:           boundedPromptText(input.Presentation.Description),
+		Options:          []PromptOption{},
+		Choices:          []PromptChoice{},
+		Cards:            []PromptCard{},
+		ScryDestinations: []string{},
+		OrderItems:       []PromptOrderItem{},
+		ContextCards:     []PromptCard{},
+		ContextTargets:   []PromptTarget{},
+		Targets:          []PromptTarget{},
+		CombatSources:    []PromptCombatSource{},
+		CombatTargets:    []PromptCombatTarget{},
+		DamageTargets:    []PromptDamageTarget{},
+	}
+	view.ContextCards, view.ContextTargets, view.ContextText, err =
+		normalizePromptContext(envelope.SourceCard, input.Presentation)
+	if err != nil {
+		return PromptView{}, err
 	}
 	switch input.Type {
 	case "diceRolled":
@@ -304,6 +366,13 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		if view.Detail == "" && err == nil {
 			view.Detail = cardSelectionRangeDetail(view.CardMinimum, view.CardMaximum)
 		}
+	case "revealCards":
+		view.Supported = true
+		view.Title = firstPromptText(view.Title, "Look at these cards")
+		view.Cards, err = normalizeRevealedCards(input.Cards)
+		view.Options = []PromptOption{
+			{ResponseID: "$ack", Kind: "acknowledge", Label: "Continue"},
+		}
 	case "reorder":
 		view.Supported = true
 		view.Title = firstPromptText(view.Title, "Choose an order")
@@ -311,6 +380,10 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		if view.Detail == "" {
 			view.Detail = "Item 1 goes first; the remaining items follow in order."
 		}
+	case "scry":
+		view.Supported = true
+		view.Title = firstPromptText(view.Title, "Sort cards into zones")
+		view.Cards, view.ScryDestinations, err = normalizeScry(input)
 	case "chooseBoardTargets":
 		view.Supported = true
 		if view.Title == "" {
@@ -331,6 +404,19 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		view.Title = "Declare blockers"
 		view.Detail = firstPromptText(input.Error, "Assign each blocker to at most one attacker.")
 		view.CombatSources, view.CombatTargets, err = normalizeBlockers(input)
+	case "chooseDamageAssignmentOrder":
+		view.Supported = true
+		view.Title = firstPromptText(view.Title, "Choose combat damage order")
+		view.Detail = firstPromptText(view.Detail,
+			"The first permanent must receive lethal damage before the next one.")
+		view.DamageSource, view.DamageTargets, err = normalizeDamageOrder(input)
+	case "chooseCombatDamageAssignment":
+		view.Supported = true
+		view.Title = firstPromptText(view.Title, "Assign combat damage")
+		view.Detail = firstPromptText(view.Detail,
+			"Assign all combat damage in order.")
+		view.DamageSource, view.DamageTargets, view.TotalDamage,
+			view.DamageDeathtouch, err = normalizeCombatDamage(input)
 	case "chooseBoolean":
 		view.Supported = true
 		view.Title = firstPromptText(view.Title, "Choose yes or no")
@@ -395,6 +481,15 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 	if view.Kind != "reorder" && len(answer.OrderedIDs) != 0 {
 		return nil, errors.New("prompt response contains an unexpected order")
 	}
+	if view.Kind != "scry" && len(answer.ScryPiles) != 0 {
+		return nil, errors.New("prompt response contains unexpected scry piles")
+	}
+	if view.Kind != "chooseDamageAssignmentOrder" && len(answer.DamageOrderIDs) != 0 {
+		return nil, errors.New("prompt response contains an unexpected damage order")
+	}
+	if view.Kind != "chooseCombatDamageAssignment" && len(answer.DamageAssignments) != 0 {
+		return nil, errors.New("prompt response contains unexpected damage assignments")
+	}
 	var output any
 	switch view.Kind {
 	case "diceRolled":
@@ -434,11 +529,23 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 		} else {
 			output, err = chooseCardsOutput(raw, answer.ResponseID, answer.CardIDs)
 		}
+	case "revealCards":
+		if answer.ResponseID == "$ack" && answer.emptySelections() {
+			output = map[string]any{"type": "revealCardsAcknowledged"}
+		} else {
+			err = errors.New("unknown reveal-cards response")
+		}
 	case "reorder":
 		if answer.hasNonOrderSelections() {
 			err = errors.New("reorder response contains unexpected selections")
 		} else {
 			output, err = reorderOutput(raw, answer.ResponseID, answer.OrderedIDs)
+		}
+	case "scry":
+		if answer.hasNonScrySelections() {
+			err = errors.New("scry response contains unexpected selections")
+		} else {
+			output, err = scryOutput(raw, answer.ResponseID, answer.ScryPiles)
 		}
 	case "chooseBoardTargets":
 		if len(answer.CardIDs) != 0 {
@@ -451,6 +558,18 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 			err = errors.New("combat response contains unexpected selections")
 		} else {
 			output, err = combatAssignmentsOutput(raw, answer.ResponseID, answer.Assignments)
+		}
+	case "chooseDamageAssignmentOrder":
+		if answer.hasNonDamageOrderSelections() {
+			err = errors.New("damage-order response contains unexpected selections")
+		} else {
+			output, err = damageOrderOutput(raw, answer.ResponseID, answer.DamageOrderIDs)
+		}
+	case "chooseCombatDamageAssignment":
+		if answer.hasNonDamageAssignmentSelections() {
+			err = errors.New("damage response contains unexpected selections")
+		} else {
+			output, err = combatDamageOutput(raw, answer.ResponseID, answer.DamageAssignments)
 		}
 	case "chooseBoolean", "chooseColor", "chooseFromSelection":
 		if len(answer.CardIDs) != 0 || len(answer.TargetIDs) != 0 ||
@@ -488,20 +607,41 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 func (answer PromptResponse) emptySelections() bool {
 	return len(answer.CardIDs) == 0 && len(answer.TargetIDs) == 0 &&
 		len(answer.Assignments) == 0 && len(answer.ChoiceIDs) == 0 &&
-		len(answer.OrderedIDs) == 0 &&
+		len(answer.OrderedIDs) == 0 && len(answer.ScryPiles) == 0 &&
+		len(answer.DamageOrderIDs) == 0 && len(answer.DamageAssignments) == 0 &&
 		answer.ChosenNumber == nil
 }
 
 func (answer PromptResponse) hasNonCardSelections() bool {
 	return len(answer.TargetIDs) != 0 || len(answer.Assignments) != 0 ||
 		len(answer.ChoiceIDs) != 0 || len(answer.OrderedIDs) != 0 ||
-		answer.ChosenNumber != nil
+		len(answer.ScryPiles) != 0 || answer.ChosenNumber != nil
+}
+
+func (answer PromptResponse) hasNonDamageOrderSelections() bool {
+	return len(answer.CardIDs) != 0 || len(answer.TargetIDs) != 0 ||
+		len(answer.Assignments) != 0 || len(answer.ChoiceIDs) != 0 ||
+		len(answer.OrderedIDs) != 0 || len(answer.ScryPiles) != 0 ||
+		len(answer.DamageAssignments) != 0 || answer.ChosenNumber != nil
+}
+
+func (answer PromptResponse) hasNonDamageAssignmentSelections() bool {
+	return len(answer.CardIDs) != 0 || len(answer.TargetIDs) != 0 ||
+		len(answer.Assignments) != 0 || len(answer.ChoiceIDs) != 0 ||
+		len(answer.OrderedIDs) != 0 || len(answer.ScryPiles) != 0 ||
+		len(answer.DamageOrderIDs) != 0 || answer.ChosenNumber != nil
 }
 
 func (answer PromptResponse) hasNonOrderSelections() bool {
 	return len(answer.CardIDs) != 0 || len(answer.TargetIDs) != 0 ||
 		len(answer.Assignments) != 0 || len(answer.ChoiceIDs) != 0 ||
-		answer.ChosenNumber != nil
+		len(answer.ScryPiles) != 0 || answer.ChosenNumber != nil
+}
+
+func (answer PromptResponse) hasNonScrySelections() bool {
+	return len(answer.CardIDs) != 0 || len(answer.TargetIDs) != 0 ||
+		len(answer.Assignments) != 0 || len(answer.ChoiceIDs) != 0 ||
+		len(answer.OrderedIDs) != 0 || answer.ChosenNumber != nil
 }
 
 func decodePrompt(raw json.RawMessage) (promptEnvelope, promptInput, int, error) {

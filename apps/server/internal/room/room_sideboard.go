@@ -66,8 +66,9 @@ func (r *Room) SetSideboardCommander(connID string,
 	return Result{Reply: &reply, ProjectGame: true}, nil
 }
 
-// MoveSideboard moves one copy of an already-registered printing between the
-// pending mainboard and sideboard. It never changes the committed match deck
+// MoveSideboard moves one copy between the pending mainboard and sideboard.
+// Limited pairings may also add or remove a virtual ordinary basic land through
+// the unlimited basic-land supply. It never changes the committed match deck
 // until every player locks in.
 func (r *Room) MoveSideboard(connID string, request protocol.SideboardMove) (Result, error) {
 	if err := r.requireStartedGame(); err != nil {
@@ -85,6 +86,10 @@ func (r *Room) MoveSideboard(connID string, request protocol.SideboardMove) (Res
 	// game.
 	if r.Format == protocol.FormatDuel {
 		return Result{}, newError(protocol.ErrInvalidSideboardMove)
+	}
+	if request.FromZone == protocol.SideboardZoneBasicLands ||
+		request.ToZone == protocol.SideboardZoneBasicLands {
+		return r.moveLimitedBasicLand(seat, request)
 	}
 	if request.FromZone == request.ToZone ||
 		!validSideboardZone(request.FromZone) ||
@@ -117,6 +122,70 @@ func (r *Room) MoveSideboard(connID string, request protocol.SideboardMove) (Res
 	return Result{Reply: &reply, ProjectGame: true}, nil
 }
 
+func (r *Room) moveLimitedBasicLand(seat int, request protocol.SideboardMove) (Result, error) {
+	if r.DeckFormat != protocol.DeckFormatLimited ||
+		request.FromZone == request.ToZone ||
+		(request.FromZone != protocol.SideboardZoneBasicLands &&
+			request.ToZone != protocol.SideboardZoneBasicLands) ||
+		(request.FromZone != protocol.SideboardZoneMain &&
+			request.ToZone != protocol.SideboardZoneMain) ||
+		strings.TrimSpace(request.SetCode) != "" ||
+		strings.TrimSpace(request.CollectorNumber) != "" {
+		return Result{}, newError(protocol.ErrInvalidSideboardMove)
+	}
+	name := ordinaryBasicLandName(request.Name)
+	if name == "" {
+		return Result{}, newError(protocol.ErrInvalidSideboardMove)
+	}
+
+	player := &r.Game.Sideboard.Players[seat]
+	card := protocol.DeckCard{Name: name, Count: 1, TypeLine: "Basic Land"}
+	if request.FromZone == protocol.SideboardZoneBasicLands {
+		if deckCardCount(player.Mainboard)+deckCardCount(player.Sideboard) >=
+			protocol.MaxDeckCards {
+			return Result{}, newError(protocol.ErrInvalidSideboardMove)
+		}
+		for index := range player.Mainboard {
+			if deckCardMatches(player.Mainboard[index], card) {
+				player.Mainboard[index].Count++
+				player.Ready = false
+				return r.sideboardMovedResult(seat), nil
+			}
+		}
+		if len(player.Mainboard)+len(player.Sideboard) >= protocol.MaxDeckEntries {
+			return Result{}, newError(protocol.ErrInvalidSideboardMove)
+		}
+		player.Mainboard = append(player.Mainboard, card)
+	} else if !removeVirtualBasicLandCopy(&player.Mainboard, card) {
+		return Result{}, newError(protocol.ErrInvalidSideboardMove)
+	}
+	player.Ready = false
+	return r.sideboardMovedResult(seat), nil
+}
+
+func (r *Room) sideboardMovedResult(seat int) Result {
+	reply, _ := protocol.NewEnvelope(protocol.TypeSideboardMoved,
+		protocol.SideboardMoved{RoomID: r.ID, Seat: seat})
+	return Result{Reply: &reply, ProjectGame: true}
+}
+
+func removeVirtualBasicLandCopy(cards *[]protocol.DeckCard, requested protocol.DeckCard) bool {
+	for index := range *cards {
+		card := (*cards)[index]
+		if strings.TrimSpace(card.SetCode) != "" ||
+			strings.TrimSpace(card.CollectorNumber) != "" ||
+			!deckCardMatches(card, requested) || card.Count <= 0 {
+			continue
+		}
+		(*cards)[index].Count--
+		if (*cards)[index].Count == 0 {
+			*cards = append((*cards)[:index], (*cards)[index+1:]...)
+		}
+		return true
+	}
+	return false
+}
+
 // SetSideboardReady locks or unlocks one pending BO3 deck partition. When both
 // players lock, the pending partitions commit and the previous loser starts.
 func (r *Room) SetSideboardReady(connID string, ready bool) (Result, error) {
@@ -131,7 +200,11 @@ func (r *Room) SetSideboardReady(connID string, ready bool) (Result, error) {
 		return Result{}, err
 	}
 	player := &r.Game.Sideboard.Players[seat]
-	if ready && deckCardCount(player.Mainboard) < protocol.MinMainboardCards {
+	minimumMainboardCards := protocol.MinMainboardCards
+	if r.DeckFormat == protocol.DeckFormatLimited {
+		minimumMainboardCards = protocol.MinLimitedMainboardCards
+	}
+	if ready && deckCardCount(player.Mainboard) < minimumMainboardCards {
 		return Result{}, newError(protocol.ErrInvalidDeck)
 	}
 	if ready && r.Format == protocol.FormatDuel &&
@@ -198,9 +271,13 @@ func (r *Room) completeSideboard(reason string, commit bool) ([]protocol.Envelop
 			return nil, newError(protocol.ErrGameSetupFailed)
 		}
 		for index := range r.Seats {
+			minimumMainboardCards := protocol.MinMainboardCards
+			if r.DeckFormat == protocol.DeckFormatLimited {
+				minimumMainboardCards = protocol.MinLimitedMainboardCards
+			}
 			if r.Seats[index].Deck == nil ||
 				deckCardCount(sideboard.Players[index].Mainboard) <
-					protocol.MinMainboardCards {
+					minimumMainboardCards {
 				return nil, newError(protocol.ErrInvalidDeck)
 			}
 			if r.Format == protocol.FormatDuel &&

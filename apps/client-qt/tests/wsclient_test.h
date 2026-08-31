@@ -105,6 +105,9 @@ class TestWsClient : public QObject
     void initTestCase();
     void cleanup();
     void correlatesCommandOutcomes() const;
+    void sendsTypedScryResponse() const;
+    void sendsTypedDamageResponses() const;
+    void parsesTypedDamagePrompts() const;
     void rollsBackPendingCommandsBeforeRoomIdentityClears() const;
     void destroysParserWorkersDeterministically() const;
     void distinguishesHostKickReplyFromKickedPush() const;

@@ -16,13 +16,30 @@ Item {
     required property var wsModel
     required property var cardCatalogModel
     property string selectedInstanceId: ""
+    property int pickedRarityFilterIndex: 0
+    property var inspectedCard: ({})
+    property var inspectedSource: null
+    property bool hoverPreviewVisible: false
+    property real hoverPreviewX: 0
+    property real hoverPreviewY: 0
     readonly property string participantId: tournamentModel.participantId || ""
+    readonly property var rarityFilterKeys: ["all", "common", "uncommon", "rare",
+                                              "mythic", "unknown"]
+    readonly property var rarityFilterOptions: [qsTr("All rarities"), qsTr("Common"),
+                                                 qsTr("Uncommon"), qsTr("Rare"),
+                                                 qsTr("Mythic rare"), qsTr("Unknown")]
+    readonly property string pickedRarityFilter:
+        rarityFilterKeys[pickedRarityFilterIndex]
+    readonly property var visiblePickedCards: filterPickedCards()
 
     Component.onCompleted: root.cacheVisibleCards()
 
     Connections {
         target: root.limitedModel
-        function onSnapshotChanged() { root.cacheVisibleCards() }
+        function onSnapshotChanged() {
+            root.hideCardPreview()
+            root.cacheVisibleCards()
+        }
     }
 
     ColumnLayout {
@@ -62,6 +79,7 @@ Item {
                 text: qsTr("Confirm pick")
                 enabled: root.selectedInstanceId.length > 0
                 onClicked: {
+                    root.hideCardPreview()
                     root.wsModel.pickLimitedCard(root.selectedInstanceId)
                     root.selectedInstanceId = ""
                 }
@@ -135,7 +153,11 @@ Item {
                                     model: root.limitedModel.currentPack
 
                                     delegate: LimitedCardTile {
+                                        id: packCard
+
                                         required property var modelData
+                                        objectName: "limitedDraftPackCard-"
+                                                    + modelData.instanceId
                                         width: Theme.size(142)
                                         height: Theme.size(204)
                                         card: modelData
@@ -144,6 +166,10 @@ Item {
                                                     === modelData.instanceId
                                         actionText: emphasized ? "✓" : "+"
                                         onActivated: root.selectedInstanceId = modelData.instanceId
+                                        onInspectionRequested:
+                                            root.inspectCard(modelData, packCard)
+                                        onInspectionEnded:
+                                            root.hideCardPreview(packCard)
                                     }
                                 }
                             }
@@ -189,6 +215,19 @@ Item {
                                 font.weight: Font.DemiBold
                             }
 
+                            AppComboBox {
+                                id: pickedRarityFilterControl
+
+                                objectName: "limitedDraftPickedRarityFilter"
+                                Layout.preferredWidth: Theme.size(132)
+                                implicitHeight: Theme.size(36)
+                                model: root.rarityFilterOptions
+                                currentIndex: root.pickedRarityFilterIndex
+                                displayText: qsTr("Rarity: %1").arg(currentText)
+                                onActivated: index =>
+                                    root.pickedRarityFilterIndex = index
+                            }
+
                             StatusPill {
                                 objectName: "limitedPickedCount"
                                 text: String(root.limitedModel.pool.length)
@@ -206,10 +245,21 @@ Item {
                             wrapMode: Text.WordWrap
                         }
 
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            visible: root.limitedModel.pool.length > 0
+                                     && root.visiblePickedCards.length === 0
+                            text: qsTr("No picked cards match this rarity.")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(10)
+                            wrapMode: Text.WordWrap
+                        }
+
                         ScrollView {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            visible: root.limitedModel.pool.length > 0
+                            visible: root.visiblePickedCards.length > 0
                             contentWidth: availableWidth
                             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -219,14 +269,22 @@ Item {
                                 spacing: Theme.size(7)
 
                                 Repeater {
-                                    model: root.limitedModel.pool
+                                    model: root.visiblePickedCards
 
                                     delegate: LimitedCardTile {
+                                        id: pickedCard
+
                                         required property var modelData
+                                        objectName: "limitedDraftPickedCard-"
+                                                    + modelData.instanceId
                                         width: Theme.size(92)
                                         height: Theme.size(132)
                                         card: modelData
                                         catalogModel: root.cardCatalogModel
+                                        onInspectionRequested:
+                                            root.inspectCard(modelData, pickedCard)
+                                        onInspectionEnded:
+                                            root.hideCardPreview(pickedCard)
                                     }
                                 }
                             }
@@ -235,6 +293,114 @@ Item {
                 }
             }
         }
+    }
+
+    Item {
+        id: hoverPreview
+
+        objectName: "limitedDraftCardHoverPreview"
+        x: root.hoverPreviewX
+        y: root.hoverPreviewY
+        width: Math.min(Theme.size(340), root.width * 0.3)
+        height: Math.round(width * 88 / 63)
+        z: 500
+        visible: root.hoverPreviewVisible && !!root.inspectedCard.name
+        enabled: false
+
+        Image {
+            id: hoverPreviewArt
+
+            objectName: "limitedDraftCardHoverPreviewArt"
+            anchors.fill: parent
+            source: root.previewImageSource(root.inspectedCard)
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            smooth: true
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: hoverPreviewArt.status !== Image.Ready
+            color: Theme.backgroundRaised
+            radius: Theme.radiusMedium
+            border.width: 1
+            border.color: Theme.borderStrong
+
+            Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                width: parent.width - Theme.size(24)
+                text: root.inspectedCard.name ? root.inspectedCard.name : ""
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(15)
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+    }
+
+    function rarityKey(card) {
+        const rarity = card && card.rarity
+                       ? String(card.rarity).toLowerCase() : ""
+        if (rarity === "common" || rarity === "uncommon"
+                || rarity === "rare" || rarity === "mythic") {
+            return rarity
+        }
+        return "unknown"
+    }
+
+    function filterPickedCards() {
+        const cards = limitedModel.pool || []
+        if (pickedRarityFilter === "all")
+            return cards
+        const result = []
+        for (let index = 0; index < cards.length; ++index) {
+            if (rarityKey(cards[index]) === pickedRarityFilter)
+                result.push(cards[index])
+        }
+        return result
+    }
+
+    function previewImageSource(card) {
+        if (!card || !card.name || !cardCatalogModel
+                || typeof cardCatalogModel.imageSource !== "function") {
+            return ""
+        }
+        void cardCatalogModel.imageRevision
+        return cardCatalogModel.imageSource(
+                    card.name, card.setCode || "",
+                    card.collectorNumber || "")
+    }
+
+    function inspectCard(card, sourceItem) {
+        if (!card || !card.name || !sourceItem)
+            return
+        inspectedCard = card
+        inspectedSource = sourceItem
+        const previewWidth = Math.min(Theme.size(340), root.width * 0.3)
+        const previewHeight = Math.round(previewWidth * 88 / 63)
+        const margin = Theme.size(12)
+        const right = sourceItem.mapToItem(root, sourceItem.width, 0)
+        const left = sourceItem.mapToItem(root, 0, 0)
+        let x = right.x + margin
+        if (x + previewWidth > root.width - margin)
+            x = left.x - previewWidth - margin
+        hoverPreviewX = Math.max(
+                            margin,
+                            Math.min(root.width - previewWidth - margin, x))
+        hoverPreviewY = Math.max(
+                            margin,
+                            Math.min(root.height - previewHeight - margin,
+                                     left.y))
+        hoverPreviewVisible = true
+    }
+
+    function hideCardPreview(sourceItem) {
+        if (sourceItem && inspectedSource && sourceItem !== inspectedSource)
+            return
+        hoverPreviewVisible = false
+        inspectedSource = null
     }
 
     function cacheVisibleCards() {

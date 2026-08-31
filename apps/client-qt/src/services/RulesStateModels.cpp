@@ -114,6 +114,15 @@ QHash<int, QByteArray> RulesZoneModel::roleNames() const
     return {{ZoneRole, "zone"}, {OwnerSeatRole, "ownerSeat"}, {CountRole, "count"}};
 }
 
+int RulesZoneModel::countFor(int ownerSeat, const QString &zone) const
+{
+    for (const RulesZoneRow &row : m_rows) {
+        if (row.ownerSeat == ownerSeat && row.zone == zone)
+            return row.count;
+    }
+    return 0;
+}
+
 void RulesZoneModel::replace(QVector<RulesZoneRow> rows)
 {
     beginResetModel();
@@ -318,6 +327,20 @@ QHash<int, QByteArray> RulesPromptOptionModel::roleNames() const
             {CardIdRole, "cardId"}};
 }
 
+QVariantList RulesPromptOptionModel::castActionsForCard(const QString &cardId) const
+{
+    QVariantList actions;
+    if (cardId.isEmpty())
+        return actions;
+    for (const RulesPromptOptionRow &row : m_rows) {
+        if (row.kind != u"cast"_s || row.cardId != cardId)
+            continue;
+        actions.append(QVariantMap{
+            {u"responseId"_s, row.responseId}, {u"kind"_s, row.kind}, {u"label"_s, row.label}});
+    }
+    return actions;
+}
+
 void RulesPromptOptionModel::replace(QVector<RulesPromptOptionRow> rows)
 {
     beginResetModel();
@@ -368,6 +391,20 @@ QHash<int, QByteArray> RulesPromptCardModel::roleNames() const
             {SetCodeRole, "setCode"},
             {CollectorNumberRole, "collectorNumber"},
             {TokenRole, "token"}};
+}
+
+QVariantList RulesPromptCardModel::items() const
+{
+    QVariantList result;
+    result.reserve(m_rows.size());
+    for (const RulesPromptCardRow &row : m_rows) {
+        result.append(QVariantMap{{u"cardId"_s, row.id},
+                                  {u"name"_s, row.name},
+                                  {u"setCode"_s, row.setCode},
+                                  {u"collectorNumber"_s, row.collectorNumber},
+                                  {u"token"_s, row.token}});
+    }
+    return result;
 }
 
 void RulesPromptCardModel::replace(QVector<RulesPromptCardRow> rows)

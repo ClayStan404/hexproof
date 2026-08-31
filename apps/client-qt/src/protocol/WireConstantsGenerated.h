@@ -320,5 +320,6 @@ inline const QString kMatchBO1 = QStringLiteral("bo1");
 inline const QString kMatchBO3 = QStringLiteral("bo3");
 inline const QString kSideboardZoneMain = QStringLiteral("mainboard");
 inline const QString kSideboardZoneSide = QStringLiteral("sideboard");
+inline const QString kSideboardZoneBasicLands = QStringLiteral("basic_lands");
 
 } // namespace hexproof::protocol

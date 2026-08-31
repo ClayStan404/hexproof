@@ -75,6 +75,16 @@ func (h *Hub) CompleteRulesGame(r *room.Room, winnerSeat int) (room.Result, erro
 	})
 }
 
+// ApplyRulesConcede records Forge's authoritative concession outcome without
+// importing any engine card state into the manual reducer.
+func (h *Hub) ApplyRulesConcede(r *room.Room, concededSeat, winnerSeat int,
+	matchFinished bool) (room.Result, error) {
+	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
+		return locked.ApplyRulesConcede(
+			concededSeat, winnerSeat, matchFinished, time.Now().UTC())
+	})
+}
+
 // Draw moves one or more cards into the acting player's private hand.
 func (h *Hub) Draw(connID string, count int, r *room.Room) (room.Result, error) {
 	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) {

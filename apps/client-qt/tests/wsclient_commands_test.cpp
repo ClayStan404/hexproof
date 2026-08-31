@@ -3,6 +3,154 @@
 
 #include "wsclient_test.h"
 
+void TestWsClient::sendsTypedScryResponse() const
+{
+    QWebSocketServer server(u"Hexproof scry response server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"conn-scry"_s},
+                                  {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    client.respondRulesPromptWithScry(72,
+                                      QVariantList{
+                                          QVariantMap{{u"destination"_s, u"libraryTop"_s},
+                                                      {u"cardIds"_s, QVariantList{u"scry:1"_s}}},
+                                          QVariantMap{{u"destination"_s, u"libraryBottom"_s},
+                                                      {u"cardIds"_s, QVariantList{u"scry:0"_s}}},
+                                      });
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    bool ok = false;
+    const Envelope request =
+        hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.type, hexproof::protocol::kTypeRulesRespond);
+    QCOMPARE(request.payload.value(u"promptId"_s).toInteger(), 72);
+    QCOMPARE(request.payload.value(u"responseId"_s).toString(), u"$submit"_s);
+    const QJsonArray piles = request.payload.value(u"scryPiles"_s).toArray();
+    QCOMPARE(piles.size(), 2);
+    QCOMPARE(piles.at(0).toObject().value(u"destination"_s).toString(), u"libraryTop"_s);
+    QCOMPARE(piles.at(0).toObject().value(u"cardIds"_s).toArray().at(0).toString(), u"scry:1"_s);
+
+    client.respondRulesPromptWithScry(72,
+                                      QVariantList{
+                                          QVariantMap{{u"destination"_s, u"libraryTop"_s},
+                                                      {u"cardIds"_s, QVariantList{u"scry:0"_s}}},
+                                          QVariantMap{{u"destination"_s, u"graveyard"_s},
+                                                      {u"cardIds"_s, QVariantList{u"scry:0"_s}}},
+                                      });
+    QTest::qWait(50);
+    QCOMPARE(outbound.count(), 0);
+}
+
+void TestWsClient::sendsTypedDamageResponses() const
+{
+    QWebSocketServer server(u"Hexproof damage response server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"conn-damage"_s},
+                                  {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    client.respondRulesPromptWithDamageOrder(
+        81, QVariantList{u"damage-target:1"_s, u"damage-target:0"_s});
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    bool ok = false;
+    Envelope request =
+        hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.payload.value(u"damageOrderIds"_s).toArray().at(0).toString(),
+             u"damage-target:1"_s);
+
+    client.respondRulesPromptWithDamage(
+        82, QVariantList{QVariantMap{{u"targetId"_s, u"damage-target:0"_s}, {u"damage"_s, 3}},
+                         QVariantMap{{u"targetId"_s, u"damage-target:1"_s}, {u"damage"_s, 4}}});
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    request = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.payload.value(u"promptId"_s).toInteger(), 82);
+    const QJsonArray assignments = request.payload.value(u"damageAssignments"_s).toArray();
+    QCOMPARE(assignments.size(), 2);
+    QCOMPARE(assignments.at(1).toObject().value(u"damage"_s).toInt(), 4);
+
+    client.respondRulesPromptWithDamage(
+        82, QVariantList{QVariantMap{{u"targetId"_s, u"damage-target:0"_s}, {u"damage"_s, 3}},
+                         QVariantMap{{u"targetId"_s, u"damage-target:0"_s}, {u"damage"_s, 4}}});
+    QTest::qWait(50);
+    QCOMPARE(outbound.count(), 0);
+}
+
+void TestWsClient::parsesTypedDamagePrompts() const
+{
+    bool ok = false;
+    RulesSessionState session;
+    const Envelope damageOrderPrompt = sharedFixture(u"rules-prompt-damage-order.json"_s, &ok);
+    QVERIFY(ok);
+    QVERIFY(session.applyPrompt(damageOrderPrompt.payload));
+    QCOMPARE(session.promptKind(), u"chooseDamageAssignmentOrder"_s);
+    QCOMPARE(session.promptDamageTargets()->rowCount(), 2);
+    QCOMPARE(session.promptDamageSource().value(u"name"_s).toString(), u"Colossal Dreadmaw"_s);
+    const QVariantList damageOrderItems = session.promptDamageTargets()->items();
+    QCOMPARE(damageOrderItems.at(1).toMap().value(u"responseId"_s).toString(),
+             u"damage-target:1"_s);
+
+    const Envelope damagePrompt = sharedFixture(u"rules-prompt-damage-assignment.json"_s, &ok);
+    QVERIFY(ok);
+    QVERIFY(session.applyPrompt(damagePrompt.payload));
+    QCOMPARE(session.promptKind(), u"chooseCombatDamageAssignment"_s);
+    QCOMPARE(session.promptTotalDamage(), 6);
+    QVERIFY(session.promptDamageDeathtouch());
+    QCOMPARE(session.promptDamageTargets()->rowCount(), 2);
+    const QVariantList damageItems = session.promptDamageTargets()->items();
+    QCOMPARE(damageItems.at(0).toMap().value(u"lethalDamage"_s).toInt(), 1);
+    QCOMPARE(damageItems.at(1).toMap().value(u"lethalDamage"_s).toInt(), -1);
+
+    const Envelope replacementPrompt = sharedFixture(u"rules-prompt-replacement.json"_s, &ok);
+    QVERIFY(ok);
+    QVERIFY(session.applyPrompt(replacementPrompt.payload));
+    QCOMPARE(session.promptKind(), u"chooseBoolean"_s);
+    QCOMPARE(session.promptContextCards()->rowCount(), 1);
+    QCOMPARE(session.promptContextTargets()->rowCount(), 2);
+    QCOMPARE(session.promptContextText(), u"otherwise: \"3 damage is dealt.\""_s);
+    const auto contextCardNameRole =
+        session.promptContextCards()->roleNames().key(QByteArrayLiteral("name"));
+    QCOMPARE(session.promptContextCards()
+                 ->data(session.promptContextCards()->index(0), contextCardNameRole)
+                 .toString(),
+             u"Circle of Protection: Red"_s);
+
+    session.clear();
+    QCOMPARE(session.promptDamageTargets()->rowCount(), 0);
+    QVERIFY(session.promptDamageSource().isEmpty());
+    QCOMPARE(session.promptContextCards()->rowCount(), 0);
+    QCOMPARE(session.promptContextTargets()->rowCount(), 0);
+    QVERIFY(session.promptContextText().isEmpty());
+}
+
 void TestWsClient::sendsDeckAndReadyCommands() const
 {
     QWebSocketServer server(u"Hexproof test server"_s, QWebSocketServer::NonSecureMode);

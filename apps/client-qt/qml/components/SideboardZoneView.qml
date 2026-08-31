@@ -17,6 +17,8 @@ Surface {
     required property string title
     required property string zoneName
     required property int totalCount
+    property int visibleCount: totalCount
+    property bool filtersActive: false
     required property var groups
     required property string destinationName
     readonly property var categoryGroups: groups
@@ -53,7 +55,10 @@ Surface {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: zone.title + ": " + zone.totalCount
+                text: zone.title + ": "
+                      + (zone.filtersActive
+                         ? zone.visibleCount + " / " + zone.totalCount
+                         : zone.totalCount)
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
@@ -80,8 +85,12 @@ Surface {
                 anchors.centerIn: parent
                 visible: zone.categoryGroups.length === 0
                 text: zone.zoneName === "mainboard"
-                      ? qsTr("No mainboard cards")
-                      : qsTr("No sideboard cards")
+                      ? (zone.filtersActive && zone.totalCount > 0
+                         ? qsTr("No mainboard cards match all active filters.")
+                         : qsTr("No mainboard cards"))
+                      : (zone.filtersActive && zone.totalCount > 0
+                         ? qsTr("No sideboard cards match all active filters.")
+                         : qsTr("No sideboard cards"))
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
             }
@@ -190,6 +199,7 @@ Surface {
                                     required property string collectorNumber
                                     required property string typeLine
                                     required property string category
+                                    required property bool virtualCard
                                     required property int tableIndex
                                     readonly property var cardData: ({
                                         "name": name,
@@ -199,6 +209,7 @@ Surface {
                                         "collectorNumber": collectorNumber,
                                         "typeLine": typeLine,
                                         "category": category,
+                                        "virtualCard": virtualCard,
                                         "tableIndex": tableIndex
                                     })
                                     readonly property string zoneName:

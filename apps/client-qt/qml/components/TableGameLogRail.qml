@@ -64,6 +64,11 @@ Surface {
             spacing: Theme.size(7)
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar {
+                objectName: "gameLogScrollBar"
+                policy: ScrollBar.AsNeeded
+                interactive: true
+            }
             onCountChanged: Qt.callLater(function() {
                 if (gameLogList)
                     gameLogList.positionViewAtEnd()

@@ -24,6 +24,7 @@ import (
 )
 
 func main() {
+	forgeHarnessDefault, forgeHomeDefault, forgeJavaDefault := forgeRuntimeDefaults()
 	showVersion := flag.Bool("version", false, "print version and exit")
 	bind := flag.String("bind", "127.0.0.1", "bind address")
 	port := flag.Int("port", 57320, "listen port")
@@ -67,11 +68,12 @@ func main() {
 		"per-IP protected-room join rate")
 	maxConcurrentPasswordChecks := flag.Int("max-concurrent-password-checks", 8,
 		"maximum concurrent bcrypt password checks")
-	forgeHarness := flag.String("forge-harness", "",
-		"path to forge-harness.jar (empty disables Forge rules rooms)")
-	forgeHome := flag.String("forge-home", "",
-		"path to the Forge runtime home containing card scripts")
-	forgeJava := flag.String("forge-java", "java", "Java command for the Forge runtime")
+	forgeHarness := flag.String("forge-harness", forgeHarnessDefault,
+		"path to forge-harness.jar (defaults to HEXPROOF_FORGE_HARNESS; empty disables Forge rules rooms)")
+	forgeHome := flag.String("forge-home", forgeHomeDefault,
+		"path to the Forge runtime home containing card scripts (defaults to HEXPROOF_FORGE_HOME)")
+	forgeJava := flag.String("forge-java", forgeJavaDefault,
+		"Java command for the Forge runtime (defaults to HEXPROOF_FORGE_JAVA or java)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintf(os.Stdout, "hexproof-server %s\n", buildinfo.Version)
@@ -165,6 +167,15 @@ func main() {
 		log.Fatalf("hexproof-server: %v", err)
 	}
 	log.Printf("hexproof-server: stopped")
+}
+
+func forgeRuntimeDefaults() (string, string, string) {
+	javaCommand := os.Getenv("HEXPROOF_FORGE_JAVA")
+	if javaCommand == "" {
+		javaCommand = "java"
+	}
+	return os.Getenv("HEXPROOF_FORGE_HARNESS"),
+		os.Getenv("HEXPROOF_FORGE_HOME"), javaCommand
 }
 
 func splitCommaSeparated(value string) []string {

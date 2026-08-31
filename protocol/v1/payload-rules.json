@@ -107,6 +107,14 @@
       ]
     },
     {
+      "name": "RulesPromptScryPile",
+      "goType": "RulesPromptScryPile",
+      "fields": [
+        {"name": "destination", "type": "string", "required": true},
+        {"name": "cardIds", "type": "array", "required": true, "items": {"type": "string"}}
+      ]
+    },
+    {
       "name": "RulesPromptChoice",
       "goType": "RulesPromptChoice",
       "fields": [
@@ -169,6 +177,41 @@
         {"name": "sourceId", "type": "string", "required": true},
         {"name": "targetId", "type": "string", "required": true}
       ]
+    },
+    {
+      "name": "RulesPromptDamageSource",
+      "goType": "RulesPromptDamageSource",
+      "fields": [
+        {"name": "objectId", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "token", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "RulesPromptDamageTarget",
+      "goType": "RulesPromptDamageTarget",
+      "fields": [
+        {"name": "responseId", "type": "string", "required": true},
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "objectId", "type": "string", "required": false},
+        {"name": "name", "type": "string", "required": false},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "collectorNumber", "type": "string", "required": false},
+        {"name": "token", "type": "boolean", "required": false},
+        {"name": "lethalDamage", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "name": "RulesPromptDamageAssignment",
+      "goType": "RulesPromptDamageAssignment",
+      "fields": [
+        {"name": "targetId", "type": "string", "required": true},
+        {"name": "damage", "type": "integer", "required": true}
+      ]
     }
   ],
   "messages": [
@@ -206,13 +249,21 @@
         {"name": "options", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptOption"}},
         {"name": "choices", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptChoice"}},
         {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCard"}},
+        {"name": "scryDestinations", "type": "array", "required": true, "items": {"type": "string"}},
         {"name": "orderItems", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptOrderItem"}},
+        {"name": "contextCards", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCard"}},
+        {"name": "contextTargets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptTarget"}},
+        {"name": "contextText", "type": "string", "required": true},
         {"name": "requiredSelections", "type": "integer", "required": true},
         {"name": "minCardSelections", "type": "integer", "required": true},
         {"name": "maxCardSelections", "type": "integer", "required": true},
         {"name": "targets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptTarget"}},
         {"name": "combatSources", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCombatSource"}},
         {"name": "combatTargets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptCombatTarget"}},
+        {"name": "damageSource", "type": "object", "required": false, "ref": "RulesPromptDamageSource", "goType": "*RulesPromptDamageSource"},
+        {"name": "damageTargets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptDamageTarget"}},
+        {"name": "totalDamage", "type": "integer", "required": true},
+        {"name": "damageDeathtouch", "type": "boolean", "required": true},
         {"name": "minSelections", "type": "integer", "required": true},
         {"name": "maxSelections", "type": "integer", "required": true},
         {"name": "cancellable", "type": "boolean", "required": true},
@@ -234,6 +285,9 @@
         {"name": "assignments", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesPromptAssignment"}},
         {"name": "choiceIds", "type": "array", "required": false, "items": {"type": "string"}},
         {"name": "orderedIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "scryPiles", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesPromptScryPile"}},
+        {"name": "damageOrderIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "damageAssignments", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesPromptDamageAssignment"}},
         {"name": "chosenNumber", "type": "integer", "required": false, "goType": "*int"}
       ]
     },

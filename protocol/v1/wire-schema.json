@@ -1217,6 +1217,10 @@
     {
       "name": "SideboardZoneSide",
       "value": "sideboard"
+    },
+    {
+      "name": "SideboardZoneBasicLands",
+      "value": "basic_lands"
     }
   ]
 }

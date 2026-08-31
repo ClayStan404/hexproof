@@ -36,7 +36,10 @@ class DeckLibraryModel : public QAbstractListModel
     Q_PROPERTY(int currentMainCount READ currentMainCount NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(
         int currentMissingImageCount READ currentMissingImageCount NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(int currentConsiderMissingImageCount READ currentConsiderMissingImageCount NOTIFY
+                   currentDeckCardsChanged)
     Q_PROPERTY(int currentSideboardCount READ currentSideboardCount NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(int currentConsiderCount READ currentConsiderCount NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(bool currentReady READ currentReady NOTIFY currentDeckChanged)
     Q_PROPERTY(QString currentStatus READ currentStatus NOTIFY currentDeckChanged)
     Q_PROPERTY(
@@ -47,6 +50,7 @@ class DeckLibraryModel : public QAbstractListModel
                    currentDeckChanged)
     Q_PROPERTY(QVariantList mainCards READ mainCards NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(QVariantList sideboardCards READ sideboardCards NOTIFY currentDeckCardsChanged)
+    Q_PROPERTY(QVariantList considerCards READ considerCards NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(QVariantList currentTokens READ currentTokens NOTIFY currentDeckCardsChanged)
     Q_PROPERTY(
         QVariantList activeMatchTokens READ activeMatchTokens NOTIFY activeMatchTokensChanged)
@@ -101,7 +105,9 @@ class DeckLibraryModel : public QAbstractListModel
     QString currentCommander() const;
     int currentMainCount() const;
     int currentMissingImageCount() const;
+    int currentConsiderMissingImageCount() const;
     int currentSideboardCount() const;
+    int currentConsiderCount() const;
     bool currentReady() const;
     QString currentStatus() const;
     bool currentValidationVerified() const;
@@ -109,6 +115,7 @@ class DeckLibraryModel : public QAbstractListModel
     QStringList currentValidationWarnings() const;
     QVariantList mainCards() const;
     QVariantList sideboardCards() const;
+    QVariantList considerCards() const;
     QVariantList currentTokens() const;
     QVariantList activeMatchTokens() const;
     QString lastError() const
@@ -152,6 +159,15 @@ class DeckLibraryModel : public QAbstractListModel
     Q_INVOKABLE bool addCard(const QString &name, const QString &localizedName,
                              const QString &typeLine, const QString &setCode,
                              const QString &collectorNumber, bool sideboard);
+    Q_INVOKABLE bool addConsiderCard(const QString &name, const QString &localizedName,
+                                     const QString &typeLine, const QString &setCode,
+                                     const QString &collectorNumber);
+    Q_INVOKABLE bool moveCardToConsider(const QString &name, const QString &setCode,
+                                        const QString &collectorNumber);
+    Q_INVOKABLE bool moveConsiderCardToMain(const QString &name, const QString &setCode,
+                                            const QString &collectorNumber);
+    Q_INVOKABLE bool changeConsiderCardCount(const QString &name, const QString &setCode,
+                                             const QString &collectorNumber, int delta);
     Q_INVOKABLE bool setCardPrinting(const QString &cardName, bool sideboard,
                                      const QString &localizedName, const QString &typeLine,
                                      const QString &setCode, const QString &collectorNumber);

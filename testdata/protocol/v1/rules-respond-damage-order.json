@@ -1,0 +1,9 @@
+{
+  "type": "rules.respond",
+  "id": "req-rules-damage-order-1",
+  "payload": {
+    "promptId": 81,
+    "responseId": "$submit",
+    "damageOrderIds": ["damage-target:1", "damage-target:0"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "rules.respond",
+  "id": "req-rules-scry-1",
+  "payload": {
+    "promptId": 72,
+    "responseId": "$submit",
+    "scryPiles": [
+      {
+        "destination": "libraryTop",
+        "cardIds": ["scry:1"]
+      },
+      {
+        "destination": "libraryBottom",
+        "cardIds": ["scry:0"]
+      }
+    ]
+  }
+}

@@ -227,9 +227,19 @@ int DeckLibraryModel::currentMissingImageCount() const
     return currentDeck() ? DeckLibraryQueries::missingImageCount(*currentDeck()) : 0;
 }
 
+int DeckLibraryModel::currentConsiderMissingImageCount() const
+{
+    return currentDeck() ? DeckLibraryQueries::missingImageCount(currentDeck()->consider) : 0;
+}
+
 int DeckLibraryModel::currentSideboardCount() const
 {
     return currentDeck() ? cardCount(currentDeck()->sideboard) : 0;
+}
+
+int DeckLibraryModel::currentConsiderCount() const
+{
+    return currentDeck() ? cardCount(currentDeck()->consider) : 0;
 }
 
 bool DeckLibraryModel::currentReady() const
@@ -277,6 +287,13 @@ QVariantList DeckLibraryModel::sideboardCards() const
 {
     return currentDeck()
                ? DeckLibraryQueries::cardVariants(currentDeck()->sideboard, *currentDeck(), false)
+               : QVariantList{};
+}
+
+QVariantList DeckLibraryModel::considerCards() const
+{
+    return currentDeck()
+               ? DeckLibraryQueries::cardVariants(currentDeck()->consider, *currentDeck(), false)
                : QVariantList{};
 }
 
@@ -352,6 +369,7 @@ void DeckLibraryModel::rebuildCardDeckIndex()
         };
         append(deck.mainboard);
         append(deck.sideboard);
+        append(deck.consider);
     }
 }
 

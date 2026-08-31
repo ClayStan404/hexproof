@@ -1,0 +1,57 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 71,
+    "kind": "revealCards",
+    "supported": true,
+    "title": "Reveal your hand",
+    "detail": "These cards are revealed to you.",
+    "options": [
+      {
+        "responseId": "$ack",
+        "kind": "acknowledge",
+        "label": "Continue"
+      }
+    ],
+    "choices": [],
+    "cards": [
+      {
+        "id": "reveal:0",
+        "name": "Plains",
+        "setCode": "M21",
+        "collectorNumber": "309"
+      },
+      {
+        "id": "reveal:1",
+        "name": "Soldier",
+        "setCode": "TM21",
+        "collectorNumber": "1",
+        "token": true
+      }
+    ],
+    "scryDestinations": [],
+    "orderItems": [],
+    "contextCards": [],
+    "contextTargets": [],
+    "contextText": "",
+    "requiredSelections": 0,
+    "minCardSelections": 0,
+    "maxCardSelections": 0,
+    "targets": [],
+    "combatSources": [],
+    "combatTargets": [],
+    "damageTargets": [],
+    "totalDamage": 0,
+    "damageDeathtouch": false,
+    "minSelections": 0,
+    "maxSelections": 0,
+    "cancellable": false,
+    "minChoiceTotal": 0,
+    "maxChoiceTotal": 0,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

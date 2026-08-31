@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
@@ -67,7 +68,7 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 		}
 	})
 
-	host := &Session{ConnectionID: "host-conn", DisplayName: "Alice"}
+	host := &Session{ConnectionID: "host-conn", DisplayName: "Alice", Send: make(chan []byte, 16)}
 	r, _, _, createdEntry, err := handler.hub.CreateRoomWithRulesMode(
 		"Rules table", protocol.FormatModern, protocol.DeckFormatCustom,
 		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge,
@@ -77,7 +78,7 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 	}
 	createdEntry.opMu.Unlock()
 
-	guest := &Session{ConnectionID: "guest-conn", DisplayName: "Bob"}
+	guest := &Session{ConnectionID: "guest-conn", DisplayName: "Bob", Send: make(chan []byte, 16)}
 	joinEntry, err := handler.hub.beginJoin(r.ID, "")
 	if err != nil {
 		t.Fatalf("beginJoin: %v", err)
@@ -123,7 +124,7 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 	assertRulesPromptOwner(t, state.prompts, host.ConnectionID, guest.ConnectionID)
 	operation.opMu.Unlock()
 
-	spectator := &Session{ConnectionID: "spectator-conn", DisplayName: "Observer"}
+	spectator := &Session{ConnectionID: "spectator-conn", DisplayName: "Observer", Send: make(chan []byte, 16)}
 	joinSpectator, err := handler.hub.beginJoin(r.ID, "")
 	if err != nil {
 		t.Fatalf("beginJoin(spectator): %v", err)
@@ -139,6 +140,82 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 	}
 	assertRulesProjectionVisibility(t,
 		spectatorProjections[spectator.ConnectionID], -1, false, false)
+
+	for _, session := range []*Session{host, guest, spectator} {
+		session.setRoom(r)
+		handler.sessions[session.ConnectionID] = session
+	}
+	concede, _ := protocol.NewEnvelope(protocol.TypeGameConcede, protocol.GameConcede{})
+	concede.ID = "forge-concede"
+	if err := handler.handleGameConcede(host, concede); err != nil {
+		t.Fatalf("handleGameConcede: %v", err)
+	}
+	hostEvents := receiveForgeSessionEnvelopes(t, host, 4)
+	guestEvents := receiveForgeSessionEnvelopes(t, guest, 3)
+	spectatorEvents := receiveForgeSessionEnvelopes(t, spectator, 2)
+	if hostEvents[0].Type != protocol.TypeGameConceded ||
+		hostEvents[0].ID != concede.ID ||
+		hostEvents[1].Type != protocol.TypeRulesSnapshot ||
+		hostEvents[2].Type != protocol.TypeRulesPrompt ||
+		hostEvents[3].Type != protocol.TypeRoomSnapshot ||
+		guestEvents[0].Type != protocol.TypeRulesSnapshot ||
+		guestEvents[1].Type != protocol.TypeRulesPrompt ||
+		guestEvents[2].Type != protocol.TypeRoomSnapshot ||
+		spectatorEvents[0].Type != protocol.TypeRulesSnapshot ||
+		spectatorEvents[1].Type != protocol.TypeRoomSnapshot {
+		t.Fatalf("Forge concede events host=%v guest=%v spectator=%v",
+			envelopeTypes(hostEvents), envelopeTypes(guestEvents), envelopeTypes(spectatorEvents))
+	}
+	var conceded protocol.GameConceded
+	if err := hostEvents[0].DecodePayload(&conceded); err != nil ||
+		conceded.ConcededSeat != 0 || conceded.WinnerSeat != 1 ||
+		!conceded.MatchFinished || r.Game == nil || r.Game.Result == nil ||
+		r.Game.Result.Reason != protocol.GameResultConcede || r.Score[1] != 1 {
+		t.Fatalf("Forge concede result = %+v room=%+v err=%v", conceded, r.Game, err)
+	}
+	if _, exists := handler.forgeGame(r.ID); exists {
+		t.Fatal("completed Forge concession kept the engine session registered")
+	}
+	duplicate, _ := protocol.NewEnvelope(protocol.TypeGameConcede, protocol.GameConcede{})
+	duplicate.ID = "forge-concede-again"
+	if err := handler.handleGameConcede(host, duplicate); err != nil {
+		t.Fatalf("handleGameConcede(duplicate): %v", err)
+	}
+	duplicateError := receiveForgeSessionEnvelopes(t, host, 1)[0]
+	var duplicatePayload protocol.ErrorPayload
+	if err := duplicateError.DecodePayload(&duplicatePayload); err != nil ||
+		duplicateError.Type != protocol.TypeError || duplicateError.ID != duplicate.ID ||
+		duplicatePayload.Code != protocol.ErrGameFinished {
+		t.Fatalf("duplicate Forge concede = %+v payload=%+v err=%v",
+			duplicateError, duplicatePayload, err)
+	}
+}
+
+func receiveForgeSessionEnvelopes(t *testing.T, session *Session,
+	count int) []protocol.Envelope {
+	t.Helper()
+	result := make([]protocol.Envelope, 0, count)
+	for len(result) < count {
+		select {
+		case data := <-session.Send:
+			envelope, err := protocol.ParseEnvelope(data)
+			if err != nil {
+				t.Fatalf("parse Forge session envelope: %v", err)
+			}
+			result = append(result, envelope)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out after %d/%d Forge session envelopes", len(result), count)
+		}
+	}
+	return result
+}
+
+func envelopeTypes(envelopes []protocol.Envelope) []string {
+	result := make([]string, 0, len(envelopes))
+	for _, envelope := range envelopes {
+		result = append(result, envelope.Type)
+	}
+	return result
 }
 
 func assertRulesProjectionVisibility(t *testing.T, envelope protocol.Envelope,
@@ -201,6 +278,7 @@ func runForgeLifecycleHelper(t *testing.T) {
 	scanner := bufio.NewScanner(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)
 	gameID := ""
+	concededPlayer := -1
 	for scanner.Scan() {
 		var request helperRequest
 		if err := json.Unmarshal(scanner.Bytes(), &request); err != nil {
@@ -230,7 +308,7 @@ func runForgeLifecycleHelper(t *testing.T) {
 				response = helperResponse{Error: "invalid snapshot request"}
 				break
 			}
-			snapshot := forgeLifecycleSnapshot(gameID, *request.Viewer)
+			snapshot := forgeLifecycleSnapshot(gameID, *request.Viewer, concededPlayer)
 			encoded, err := json.Marshal(snapshot)
 			if err != nil {
 				response = helperResponse{Error: "encode snapshot"}
@@ -246,6 +324,23 @@ func runForgeLifecycleHelper(t *testing.T) {
 			// ignores playerIndex. Hexproof must project it only to its owner.
 			response.Result = `{"promptId":1,"decidingPlayerId":"player-0",` +
 				`"input":{"type":"mulligan","mulliganCount":0}}`
+		case "submitAction":
+			var action struct {
+				Type      string `json:"type"`
+				Directive struct {
+					Type string `json:"type"`
+				} `json:"directive"`
+				Player int `json:"player"`
+			}
+			if err := json.Unmarshal([]byte(request.Payload), &action); err != nil ||
+				action.Type != "directive" || action.Directive.Type != "concede" ||
+				action.Player != 0 {
+				response = helperResponse{Error: "invalid concede directive"}
+			} else {
+				concededPlayer = action.Player
+			}
+		case "getGameOver":
+			response.Result = fmt.Sprintf("%t", concededPlayer >= 0)
 		default:
 			response = helperResponse{Error: fmt.Sprintf("unknown command %s", request.Command)}
 		}
@@ -255,7 +350,7 @@ func runForgeLifecycleHelper(t *testing.T) {
 	}
 }
 
-func forgeLifecycleSnapshot(gameID string, viewer int) map[string]any {
+func forgeLifecycleSnapshot(gameID string, viewer, concededPlayer int) map[string]any {
 	handZone := func(player int, name string) map[string]any {
 		cards := []any{}
 		if viewer == player {
@@ -273,14 +368,23 @@ func forgeLifecycleSnapshot(gameID string, viewer int) map[string]any {
 			"cards": cards, "count": 1,
 		}
 	}
-	return map[string]any{
+	players := []any{
+		map[string]any{"id": "player-0", "name": "Alice", "status": "playing", "life": 20, "counters": map[string]int{}, "manaPool": map[string]int{}},
+		map[string]any{"id": "player-1", "name": "Bob", "status": "playing", "life": 20, "counters": map[string]int{}, "manaPool": map[string]int{}},
+	}
+	gameOver := concededPlayer >= 0
+	if concededPlayer >= 0 {
+		players[concededPlayer].(map[string]any)["status"] = "conceded"
+	}
+	snapshot := map[string]any{
 		"gameId": gameID, "turn": 1, "step": "main1",
 		"activePlayerId": "player-0", "priorityPlayerId": "player-0",
-		"players": []any{
-			map[string]any{"id": "player-0", "name": "Alice", "status": "playing", "life": 20, "counters": map[string]int{}, "manaPool": map[string]int{}},
-			map[string]any{"id": "player-1", "name": "Bob", "status": "playing", "life": 20, "counters": map[string]int{}, "manaPool": map[string]int{}},
-		},
-		"zones": []any{handZone(0, "Private Alice"), handZone(1, "Private Bob")},
-		"stack": []any{}, "gameOver": false,
+		"players": players,
+		"zones":   []any{handZone(0, "Private Alice"), handZone(1, "Private Bob")},
+		"stack":   []any{}, "gameOver": gameOver,
 	}
+	if gameOver {
+		snapshot["winnerId"] = "player-1"
+	}
+	return snapshot
 }
