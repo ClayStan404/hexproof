@@ -13,7 +13,7 @@ Hexproof keeps both experiences focused and native without accounts,
 matchmaking, or a browser shell. The client supports English and Simplified
 Chinese on Linux, Windows, and macOS.
 
-Current version: **1.0.3**. Client and server application versions must match
+Current version: **1.0.5**. Client and server application versions must match
 exactly.
 
 Hexproof is still in active development: features may change and releases can
