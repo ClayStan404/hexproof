@@ -349,10 +349,8 @@ class VerificationScriptTests(unittest.TestCase):
             "          - arch: arm64\n            runner: macos-15",
             macos_job,
         )
-        self.assertIn(
-            "          - arch: x86_64\n            runner: macos-15-intel",
-            macos_job,
-        )
+        self.assertNotIn("arch: x86_64", macos_job)
+        self.assertNotIn("macos-15-intel", macos_job)
         self.assertIn("      - name: Import signing certificate", macos_job)
         self.assertIn("      - name: Build package", macos_job)
         self.assertIn("MACOS_RELEASE_NOTARIZED:", workflow)

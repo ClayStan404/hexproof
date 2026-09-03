@@ -37,7 +37,6 @@ The supported release matrix is:
 |----------|--------|--------|
 | Client | Windows 10/11 x64 | Portable `.zip` |
 | Client | macOS 12+ Apple Silicon | Zipped `.app` |
-| Client | macOS 12+ Intel | Zipped `.app` |
 | Client | Linux x86_64, Ubuntu 24.04 runtime baseline | `.tar.gz` |
 | Server | Linux amd64 | Static-binary `.tar.gz` |
 | Server | Linux arm64 | Static-binary `.tar.gz` |
@@ -95,7 +94,7 @@ and may be made explicit with `HEXPROOF_GOOS=linux`.
 
 ## GitHub release workflow
 
-`.github/workflows/release.yml` builds the six platform archives without
+`.github/workflows/release.yml` builds the five platform archives without
 rebuilding or attaching card data. Its quality gate checks that the stable
 `card-data` manifest uses the catalog schema expected by the client. A manual
 run creates Actions artifacts only. A tag named exactly `vMAJOR.MINOR.PATCH`

@@ -22,8 +22,8 @@ complete.
 
 ## Download
 
-Prebuilt client packages for Windows x64, macOS (Apple Silicon and Intel),
-and Linux x86_64 are published on the
+Prebuilt client packages for Windows x64, macOS Apple Silicon, and Linux
+x86_64 are published on the
 [Releases page](https://github.com/ClayStan404/hexproof/releases). The
 in-client update check offers the same packages automatically at most once
 per 24 hours. The card database is a separate download installed through
@@ -279,9 +279,7 @@ The repository contains three GitHub Actions workflows:
   A manual run additionally enables Go race/fuzz checks, Linux ASan/UBSan,
   and Windows/macOS build-and-test jobs.
 - [`release.yml`](.github/workflows/release.yml) produces portable Windows x64,
-  macOS Apple Silicon and Intel, Linux x86_64, and Linux amd64/arm64 server
-  archives, and packages the latest official card database into the same
-  versioned release.
+  macOS Apple Silicon, Linux x86_64, and Linux amd64/arm64 server archives.
 - [`card-database.yml`](.github/workflows/card-database.yml) rebuilds and
   publishes the official card database weekly or on demand.
 
