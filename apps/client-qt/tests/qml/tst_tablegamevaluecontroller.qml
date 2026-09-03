@@ -79,6 +79,7 @@ TestCase {
         property int lastCounterDelta: 0
         property string lastTappedCard: ""
         property bool lastTappedValue: false
+        property var tappedCalls: []
         property string lastCommanderId: ""
         property int lastCommanderDelta: 0
         property string lastPhase: ""
@@ -97,6 +98,10 @@ TestCase {
         function setCardTapped(cardId, tapped) {
             lastTappedCard = cardId
             lastTappedValue = tapped
+            tappedCalls = tappedCalls.concat([{
+                "cardId": cardId,
+                "tapped": tapped
+            }])
         }
 
         function adjustCommanderTax(commanderId, delta) {
@@ -204,6 +209,7 @@ TestCase {
         mockWs.lastCounterDelta = 0
         mockWs.lastTappedCard = ""
         mockWs.lastTappedValue = false
+        mockWs.tappedCalls = []
         mockWs.lastCommanderId = ""
         mockWs.lastCommanderDelta = 0
         mockWs.lastPhase = ""
@@ -289,5 +295,93 @@ TestCase {
                    optimisticModel.counterValues, "0:energy"))
         verify(!Object.prototype.hasOwnProperty.call(
                    optimisticModel.commanderTaxValues, "0:commander-1"))
+    }
+
+    function test_reconcileDropsTappedOverlayWhenCardLeavesBattlefield() {
+        optimisticModel.tappedValues = ({"card-1": false, "card-2": true})
+        fakeTable.battlefieldCards = []
+
+        controller.reconcile()
+
+        verify(!Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+        verify(!Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-2"))
+    }
+
+    function test_reconcileKeepsTappedOverlayWhenFlagStillDiffers() {
+        optimisticModel.tappedValues = ({"card-1": false})
+
+        controller.reconcile()
+
+        verify(Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+    }
+
+    function test_untapBatchFailureDropsWholeBatchOverlay() {
+        fakeTable.battlefieldCards = [
+            {"id": "card-1", "ownerSeat": 0, "tapped": true},
+            {"id": "card-2", "ownerSeat": 0, "tapped": true}
+        ]
+
+        controller.untapOwnBattlefield()
+
+        compare(mockWs.tappedCalls.length, 2)
+        compare(optimisticModel.tappedValues["card-1"], false)
+        compare(optimisticModel.tappedValues["card-2"], false)
+
+        // One member's rejection must not leave a mixed board: drop the tap
+        // overlay for every id in the batch so snapshot flags show through.
+        controller.reconcileUntapBatchFailure(
+                    "game.set_tapped", {"cardId": "card-2"})
+
+        verify(!Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+        verify(!Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-2"))
+    }
+
+    function test_nonBatchTapFailureKeepsOtherOverlays() {
+        optimisticModel.tappedValues = ({"card-1": false})
+
+        controller.reconcileUntapBatchFailure(
+                    "game.set_tapped", {"cardId": "other-9"})
+
+        verify(Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+    }
+
+    function test_untapBatchClearsOnceEveryOverlayReconciled() {
+        fakeTable.battlefieldCards = [
+            {"id": "card-1", "ownerSeat": 0, "tapped": true},
+            {"id": "card-2", "ownerSeat": 0, "tapped": true}
+        ]
+        controller.untapOwnBattlefield()
+        verify(Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+        verify(Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-2"))
+
+        // Full success: the snapshot shows every member untapped and the
+        // overlays reconcile away; the batch membership must not linger.
+        fakeTable.battlefieldCards = [
+            {"id": "card-1", "ownerSeat": 0, "tapped": false},
+            {"id": "card-2", "ownerSeat": 0, "tapped": false}
+        ]
+        controller.reconcile()
+        verify(!Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+        verify(!Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-2"))
+
+        // A later single-card tap failure on a former batch member must not
+        // drop the other card's fresh overlay.
+        optimisticModel.tappedValues = ({"card-1": true, "card-2": true})
+        controller.reconcileUntapBatchFailure(
+                    "game.set_tapped", {"cardId": "card-1"})
+        verify(Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-1"))
+        verify(Object.prototype.hasOwnProperty.call(
+                   optimisticModel.tappedValues, "card-2"))
     }
 }

@@ -149,6 +149,7 @@ QVariantMap validateOne(QSqlDatabase *database, bool catalogCurrent, const QVari
     const QVariantList sideboard = deck.value(QStringLiteral("sideboard")).toList();
     const QStringList commanders = deck.value(QStringLiteral("commanders")).toStringList();
     QStringList errors;
+    QStringList warnings;
 
     const auto countCards = [](const QVariantList &cards) {
         int count = 0;
@@ -160,6 +161,7 @@ QVariantMap validateOne(QSqlDatabase *database, bool catalogCurrent, const QVari
     const int sideboardCount = countCards(sideboard);
     const bool commanderFormat = format == QString::fromLatin1(kDeckFormatDuel) ||
                                  format == QString::fromLatin1(kDeckFormatCommander);
+    const bool advisoryCardPool = format == QString::fromLatin1(kDeckFormatCommander);
 
     if (format == QString::fromLatin1(kDeckFormatCustom)) {
         return {{QStringLiteral("deckId"), deckId},
@@ -172,8 +174,11 @@ QVariantMap validateOne(QSqlDatabase *database, bool catalogCurrent, const QVari
     }
 
     if (commanderFormat) {
-        if (mainCount != 100)
-            errors.append(QStringLiteral("Commander decks require exactly 100 main-deck cards."));
+        if (mainCount != 100) {
+            const QString issue =
+                QStringLiteral("Commander decks require exactly 100 main-deck cards.");
+            (format == QString::fromLatin1(kDeckFormatCommander) ? warnings : errors).append(issue);
+        }
         if (sideboardCount != 0)
             errors.append(QStringLiteral("Commander decks cannot use a sideboard."));
         if (commanders.isEmpty() || commanders.size() > 2)
@@ -189,13 +194,15 @@ QVariantMap validateOne(QSqlDatabase *database, bool catalogCurrent, const QVari
     if (!catalogCurrent || !database) {
         if (errors.isEmpty())
             errors.append(QStringLiteral("Card database required to verify deck legality."));
+        QStringList issues = errors;
+        issues.append(warnings);
         return {{QStringLiteral("deckId"), deckId},
                 {QStringLiteral("validationRevision"), validationRevision},
                 {QStringLiteral("valid"), structureValid},
                 {QStringLiteral("verified"), false},
                 {QStringLiteral("status"), errors.first()},
-                {QStringLiteral("issues"), errors},
-                {QStringLiteral("warnings"), QStringList{}}};
+                {QStringLiteral("issues"), issues},
+                {QStringLiteral("warnings"), warnings}};
     }
 
     QHash<QString, int> copies;
@@ -237,20 +244,23 @@ QVariantMap validateOne(QSqlDatabase *database, bool catalogCurrent, const QVari
 
     QStringList identities = copies.keys();
     identities.sort(Qt::CaseInsensitive);
+    QStringList warningDetails;
     QStringList colorIdentityCardNames;
     for (const QString &identity : std::as_const(identities)) {
         const CatalogCard card = catalogCards.value(identity);
         const QString displayName = card.name.isEmpty() ? displayNames.value(identity) : card.name;
         const int copyCount = copies.value(identity);
         if (!card.found) {
-            errors.append(
-                QStringLiteral("%1 is missing from the local card database.").arg(displayName));
+            const QString issue =
+                QStringLiteral("%1 is missing from the local card database.").arg(displayName);
+            (advisoryCardPool ? warnings : errors).append(issue);
             continue;
         }
         const QString status = legalityStatus(card.legalityStatuses, format);
         if (status != QStringLiteral("legal") && status != QStringLiteral("restricted")) {
-            errors.append(
-                QStringLiteral("%1 is not legal in %2.").arg(displayName, formatName(format)));
+            const QString issue =
+                QStringLiteral("%1 is not legal in %2.").arg(displayName, formatName(format));
+            (advisoryCardPool ? warnings : errors).append(issue);
         }
         if (status == QStringLiteral("restricted") && copyCount > 1) {
             errors.append(
@@ -271,8 +281,6 @@ QVariantMap validateOne(QSqlDatabase *database, bool catalogCurrent, const QVari
     }
 
     colorIdentityCardNames.sort(Qt::CaseInsensitive);
-    QStringList warnings;
-    QStringList warningDetails;
     if (!colorIdentityCardNames.isEmpty()) {
         const int count = colorIdentityCardNames.size();
         warnings.append(

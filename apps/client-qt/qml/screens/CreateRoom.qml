@@ -10,18 +10,11 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
-    readonly property var formatOptions: [
-        {"label": I18n.formatLabel("custom"), "value": "custom", "tableMode": "modern"},
-        {"label": I18n.formatLabel("standard"), "value": "standard", "tableMode": "modern"},
-        {"label": I18n.formatLabel("pioneer"), "value": "pioneer", "tableMode": "modern"},
-        {"label": I18n.formatLabel("modern"), "value": "modern", "tableMode": "modern"},
-        {"label": I18n.formatLabel("legacy"), "value": "legacy", "tableMode": "modern"},
-        {"label": I18n.formatLabel("vintage"), "value": "vintage", "tableMode": "modern"},
-        {"label": I18n.formatLabel("pauper"), "value": "pauper", "tableMode": "modern"},
-        {"label": I18n.formatLabel("duel"), "value": "duel", "tableMode": "duel"},
-        {"label": I18n.formatLabel("commander"), "value": "commander", "tableMode": "edh"},
-        {"label": I18n.formatLabel("cube"), "value": "cube", "tableMode": "modern"}
-    ]
+    readonly property var formatOptions: I18n.deckFormatOptions()
+    readonly property var selectableFormatOptions:
+        root.playtestMode
+        ? root.formatOptions.filter(option => option.value !== "cube")
+        : root.formatOptions
     readonly property bool isCubeFormat: root.deckFormat === "cube"
     property var wsModel
     property var deckLibraryModel
@@ -38,7 +31,7 @@ Page {
     property bool playtestMode: false
     property string roomName: ""
     property string roomFormat: "modern"
-    property string deckFormat: "custom"
+    property string deckFormat: "modern"
     property bool allowSpectators: true
     property bool spectatorsSeeHands: false
     property string matchMode: "bo1"
@@ -198,15 +191,14 @@ Page {
                         AppComboBox {
                             id: formatSelector
                             Layout.fillWidth: true
-                            model: root.playtestMode
-                                   ? root.formatOptions.slice(0, 9)
-                                   : root.formatOptions
+                            model: root.selectableFormatOptions
                             textRole: "label"
                             valueRole: "value"
                             currentIndex: 0
                             onActivated: index => {
-                                root.deckFormat = root.formatOptions[index].value
-                                root.roomFormat = root.formatOptions[index].tableMode
+                                const option = root.selectableFormatOptions[index]
+                                root.deckFormat = option.value
+                                root.roomFormat = option.tableMode
                                 if (root.roomFormat === "edh")
                                     root.matchMode = "bo1"
                                 if (root.isCubeFormat)
@@ -400,7 +392,7 @@ Page {
                                 Layout.preferredWidth: Theme.size(110)
                                 text: "8"
                                 inputMethodHints: Qt.ImhDigitsOnly
-                                validator: IntValidator { bottom: 4; top: 8 }
+                                validator: IntValidator { bottom: 2; top: 8 }
                             }
                         }
 
@@ -409,7 +401,7 @@ Page {
                             Layout.fillWidth: true
                             text: !root.selectedCube.deckId
                                   ? qsTr("Import a Cube-format deck before creating this room.")
-                                  : qsTr("A Cube draft starts with at least four checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.")
+                                  : qsTr("A Cube draft starts with at least two checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.")
                                     .arg(root.cubePlayerCap())
                                     .arg(root.cubeCardsRequired())
                                     .arg(root.selectedCube.mainCount)
@@ -676,7 +668,7 @@ Page {
         if (root.isCubeFormat && !root.selectedCube.exactPrintings)
             return qsTr("Every Cube card needs an exact printing")
         if (root.isCubeFormat && !cubePlayerCapField.acceptableInput)
-            return qsTr("Choose a Cube player cap from 4 to 8")
+            return qsTr("Choose a Cube player cap from 2 to 8")
         if (root.isCubeFormat
                 && Number(root.selectedCube.mainCount) < root.cubeCardsRequired())
             return qsTr("A %1-player Cube draft needs at least %2 cards")

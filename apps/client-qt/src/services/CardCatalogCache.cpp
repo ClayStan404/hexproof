@@ -202,6 +202,8 @@ void CardCatalog::cacheToken(const QVariantMap &token)
 
 void CardCatalog::enqueueCards(const QVariantList &cards, const QString &language)
 {
+    QList<CardRequest> requests;
+    requests.reserve(cards.size());
     for (const QVariant &value : cards) {
         const QVariantMap map = value.toMap();
         CardRequest request{
@@ -213,6 +215,14 @@ void CardCatalog::enqueueCards(const QVariantList &cards, const QString &languag
         request.exactArt = map.value(QStringLiteral("exactArt")).toBool();
         if (request.name.isEmpty())
             continue;
+        requests.append(request);
+    }
+    enqueueRequests(requests);
+}
+
+void CardCatalog::enqueueRequests(const QList<CardRequest> &requests)
+{
+    for (const CardRequest &request : requests) {
         const QString key =
             cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
         const QString pendingKey = queuedRequestKey(request);

@@ -2991,5 +2991,149 @@ your way.</source>
             <source>简体中文</source>
             <translation>简体中文</translation>
         </message>
+        <message>
+            <source>Another card art operation is already running.</source>
+            <translation>另一项卡图操作正在进行。</translation>
+        </message>
+        <message>
+            <source>Wait for the current card operation to finish.</source>
+            <translation>请等待当前卡牌操作完成。</translation>
+        </message>
+        <message>
+            <source>Scanning the local card art cache…</source>
+            <translation>正在扫描本地卡图缓存…</translation>
+        </message>
+        <message>
+            <source>Inspecting card art pack…</source>
+            <translation>正在检查卡图包…</translation>
+        </message>
+        <message>
+            <source>Choose a readable local card art pack.</source>
+            <translation>请选择可读取的本地卡图包。</translation>
+        </message>
+        <message>
+            <source>Choose a writable local destination for the card art pack.</source>
+            <translation>请选择可写入的本地位置来保存卡图包。</translation>
+        </message>
+        <message>
+            <source>Exporting card art pack…</source>
+            <translation>正在导出卡图包…</translation>
+        </message>
+        <message>
+            <source>Card art pack exported.</source>
+            <translation>卡图包已导出。</translation>
+        </message>
+        <message>
+            <source>Card art pack exported with unavailable entries skipped.</source>
+            <translation>卡图包已导出，并跳过了不可用的条目。</translation>
+        </message>
+        <message>
+            <source>Importing card art pack…</source>
+            <translation>正在导入卡图包…</translation>
+        </message>
+        <message>
+            <source>Card art pack imported.</source>
+            <translation>卡图包已导入。</translation>
+        </message>
+        <message>
+            <source>Every image in this pack is already cached.</source>
+            <translation>此卡图包中的所有图片都已缓存。</translation>
+        </message>
+        <message>
+            <source>Could not update the local card art cache.</source>
+            <translation>无法更新本地卡图缓存。</translation>
+        </message>
+        <message>
+            <source>Removing unused card image files…</source>
+            <translation>正在删除未使用的卡图文件…</translation>
+        </message>
+        <message>
+            <source>Unused card image files removed.</source>
+            <translation>未使用的卡图文件已删除。</translation>
+        </message>
+        <message>
+            <source>Removing selected card art…</source>
+            <translation>正在删除所选卡图…</translation>
+        </message>
+        <message>
+            <source>Selected card art removed.</source>
+            <translation>所选卡图已删除。</translation>
+        </message>
+        <message>
+            <source>No cached card images match this selection.</source>
+            <translation>没有缓存的卡图符合此选择。</translation>
+        </message>
+        <message>
+            <source>The selected card art pack is damaged or unsupported.</source>
+            <translation>所选卡图包已损坏或不受支持。</translation>
+        </message>
+        <message>
+            <source>The card art pack contains invalid image data.</source>
+            <translation>卡图包包含无效的图片数据。</translation>
+        </message>
+        <message>
+            <source>Could not open the selected card art pack.</source>
+            <translation>无法打开所选卡图包。</translation>
+        </message>
+        <message>
+            <source>Choose an export location outside the card image cache.</source>
+            <translation>请选择卡图缓存目录之外的位置进行导出。</translation>
+        </message>
+        <message>
+            <source>The card art selection is too large to export.</source>
+            <translation>所选卡图过多，无法导出。</translation>
+        </message>
+        <message>
+            <source>Could not write the card art pack.</source>
+            <translation>无法写入卡图包。</translation>
+        </message>
+        <message>
+            <source>Could not write imported card images.</source>
+            <translation>无法写入导入的卡图。</translation>
+        </message>
+        <message>
+            <source>Could not remove one or more card image files.</source>
+            <translation>无法删除一个或多个卡图文件。</translation>
+        </message>
+        <message>
+            <source>Install the card database before checking card art.</source>
+            <translation>请先安装卡牌数据库，再检查卡图。</translation>
+        </message>
+        <message>
+            <source>Checking cached card faces…</source>
+            <translation>正在检查已缓存的牌面…</translation>
+        </message>
+        <message>
+            <source>Card art issues were found.</source>
+            <translation>发现需要处理的卡图问题。</translation>
+        </message>
+        <message>
+            <source>No card art repairs are needed.</source>
+            <translation>卡图无需修复。</translation>
+        </message>
+        <message>
+            <source>Check the local card art before repairing it.</source>
+            <translation>请先检查本地卡图，再进行修复。</translation>
+        </message>
+        <message>
+            <source>Repairing cached card faces…</source>
+            <translation>正在修复已缓存的牌面…</translation>
+        </message>
+        <message>
+            <source>Local card art mappings repaired.</source>
+            <translation>本地卡图映射已修复。</translation>
+        </message>
+        <message>
+            <source>Local repairs completed; downloading missing card faces…</source>
+            <translation>本地修复已完成；正在下载缺失牌面…</translation>
+        </message>
+        <message>
+            <source>Checking repaired card faces…</source>
+            <translation>正在复查修复后的牌面…</translation>
+        </message>
+        <message>
+            <source>Could not read card faces.</source>
+            <translation>无法读取卡牌牌面。</translation>
+        </message>
     </context>
 </TS>

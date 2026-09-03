@@ -10,6 +10,9 @@ QtObject {
     id: root
 
     required property var tableRoot
+    // Card ids of the most recent untap-all batch; a member failure drops the
+    // whole batch's tap overlays (see reconcileUntapBatchFailure).
+    property var untapBatchCardIds: []
     readonly property var phaseOrder: [
         "untap", "upkeep", "draw", "main_1", "begin_combat",
         "declare_attackers", "declare_blockers", "combat_damage",
@@ -82,9 +85,30 @@ QtObject {
         }
         if (trackedCardIds.length === 0)
             return
+        // Untap-all is a batch of independent game.set_tapped commands; a
+        // partial rejection must not leave a mixed board. Remember the batch
+        // so any member failure drops the whole batch's tap overlays.
+        untapBatchCardIds = trackedCardIds.slice()
         tableRoot.optimisticCommands.trackOptimisticValues("tapped", trackedCardIds)
         for (let index = 0; index < trackedCardIds.length; ++index)
             tableRoot.wsModel.setCardTapped(trackedCardIds[index], false)
+    }
+
+    function reconcileUntapBatchFailure(commandType, payload) {
+        const commandPayload = payload ? payload : ({})
+        if (commandType !== "game.set_tapped"
+                || untapBatchCardIds.length === 0
+                || untapBatchCardIds.indexOf(commandPayload.cardId) < 0) {
+            return
+        }
+        // One member failed: the "everything untapped" projection is no longer
+        // trustworthy for any member. Drop every batch overlay so the
+        // snapshot flags (and later replies) reconcile the board.
+        const batchIds = untapBatchCardIds
+        untapBatchCardIds = []
+        for (let index = 0; index < batchIds.length; ++index)
+            tableRoot.optimisticCommandModel.removeValue(
+                        "tapped", batchIds[index])
     }
 
     function declaredAttackers() {
@@ -292,6 +316,7 @@ QtObject {
     function reconcile() {
         reconcileLife()
         reconcileTapped()
+        clearReconciledUntapBatch()
         reconcileCounters()
         reconcileCommanderTax()
         if (tableRoot.optimisticPhase.length > 0
@@ -299,6 +324,21 @@ QtObject {
                    === tableRoot.optimisticPhase) {
             tableRoot.optimisticCommands.clearOptimisticPhase()
         }
+    }
+
+    function clearReconciledUntapBatch() {
+        if (untapBatchCardIds.length === 0)
+            return
+        for (let index = 0; index < untapBatchCardIds.length; ++index) {
+            if (Object.prototype.hasOwnProperty.call(
+                        tableRoot.optimisticTappedCards,
+                        untapBatchCardIds[index])) {
+                return
+            }
+        }
+        // Every batch member's overlay reconciled away (success) or expired;
+        // later single-card tap failures must no longer match this batch.
+        untapBatchCardIds = []
     }
 
     function reconcileLife() {
@@ -315,10 +355,10 @@ QtObject {
         const cardIds = Object.keys(tableRoot.optimisticTappedCards)
         for (let index = 0; index < cardIds.length; ++index) {
             const cardId = cardIds[index]
+            let onBattlefield = false
             let reconciled = false
             for (let seatIndex = 0;
-                 seatIndex < tableRoot.authoritativeSeats.length
-                 && !reconciled;
+                 seatIndex < tableRoot.authoritativeSeats.length;
                  ++seatIndex) {
                 const cards = tableRoot.zoneState.zoneCardsForSeat(
                                   tableRoot.authoritativeSeats[seatIndex].seat,
@@ -326,16 +366,24 @@ QtObject {
                 for (let cardIndex = 0;
                      cardIndex < cards.length;
                      ++cardIndex) {
-                    if (cards[cardIndex].id === cardId
-                            && (cards[cardIndex].tapped === true)
-                               === tableRoot.optimisticTappedCards[cardId]) {
+                    if (cards[cardIndex].id !== cardId)
+                        continue
+                    onBattlefield = true
+                    if ((cards[cardIndex].tapped === true)
+                            === tableRoot.optimisticTappedCards[cardId]) {
                         tableRoot.optimisticCommandModel.removeValue(
                                     "tapped", cardId)
                         reconciled = true
                         break
                     }
                 }
+                if (reconciled)
+                    break
             }
+            // The card left every battlefield (destroyed, exiled, bounced);
+            // the tap overlay no longer projects onto anything.
+            if (!onBattlefield)
+                tableRoot.optimisticCommandModel.removeValue("tapped", cardId)
         }
     }
 

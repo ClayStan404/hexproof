@@ -78,4 +78,27 @@ TestCase {
         verify(buttonTop + button.height <= body.height + 1)
         verify(buttonTop >= -1)
     }
+
+    function test_formatsUsePopularOrderAndCustomLast() {
+        compare(page.formatOptions[0].value, "modern")
+        compare(page.formatOptions[1].value, "commander")
+        compare(page.formatOptions[2].value, "duel")
+        compare(page.formatOptions[3].value, "legacy")
+        compare(page.formatOptions[page.formatOptions.length - 1].value,
+                "custom")
+        compare(page.deckFormat, "modern")
+    }
+
+    function test_playtestKeepsCustomAndExcludesCube() {
+        page.playtestMode = true
+        compare(page.selectableFormatOptions.length,
+                page.formatOptions.length - 1)
+        compare(page.selectableFormatOptions[
+                    page.selectableFormatOptions.length - 1].value,
+                "custom")
+        for (let index = 0;
+             index < page.selectableFormatOptions.length; ++index) {
+            verify(page.selectableFormatOptions[index].value !== "cube")
+        }
+    }
 }

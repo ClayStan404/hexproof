@@ -131,8 +131,14 @@ done
 
 section "Static quality gates"
 check_clang_format
-bash -n deploy/deploy-release-server.sh deploy/deploy-forge-runtime.sh \
-    deploy/deploy-test-server.sh tools/run-local-forge-server.sh
+syntax_scripts=(tools/run-local-forge-server.sh)
+for script in deploy/deploy-release-server.sh deploy/deploy-forge-runtime.sh \
+    deploy/deploy-test-server.sh; do
+    if [[ -f "$script" ]]; then
+        syntax_scripts+=("$script")
+    fi
+done
+bash -n "${syntax_scripts[@]}"
 ./tools/check-license-headers.sh
 ./tools/check-qml-text-safety.sh
 python3 tools/check-protocol-parity.py

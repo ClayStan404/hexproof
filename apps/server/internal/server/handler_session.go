@@ -412,10 +412,18 @@ func (h *Handler) failClosedSession(sess *Session, cause error) {
 
 // sendError builds and queues an error envelope (echoes id when present).
 func (h *Handler) sendError(sess *Session, id, code, message string) {
+	h.sendErrorDetail(sess, id, code, message, 0)
+}
+
+// sendErrorDetail additionally carries a structured minimumPlayers detail for
+// tournament not-ready failures so clients do not parse the English message.
+func (h *Handler) sendErrorDetail(sess *Session, id, code, message string, minimumPlayers int) {
 	if code != "" {
 		message = strings.TrimPrefix(message, code+": ")
 	}
-	env, _ := protocol.NewEnvelope(protocol.TypeError, protocol.ErrorPayload{Code: code, Message: message})
+	env, _ := protocol.NewEnvelope(protocol.TypeError, protocol.ErrorPayload{
+		Code: code, Message: message, MinimumPlayers: minimumPlayers,
+	})
 	env.ID = id
 	h.send(sess, env)
 }

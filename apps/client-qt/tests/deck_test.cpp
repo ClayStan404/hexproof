@@ -527,6 +527,34 @@ void TestDeckLibrary::keepsDistinctPrintingCacheRequests() const
     QVERIFY(printingKeys.contains(u"Lightning Bolt|2X2|117"_s));
 }
 
+void TestDeckLibrary::recachesExistingDeckEntriesToExpandFaces() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QSignalSpy cachingSpy(&model, &DeckLibraryModel::cardsNeedCaching);
+    const QString cardName = u"Delver of Secrets // Insectile Aberration"_s;
+    QVERIFY(model.importDeck(u"Existing DFC art"_s, u"modern"_s,
+                             u"1 Delver of Secrets // Insectile Aberration (MID) 47\n"_s));
+    const QString deckId = model.data(model.index(0, 0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(deckId));
+
+    const QString imagePath = storage.filePath(u"delver-front.jpg"_s);
+    QFile image(imagePath);
+    QVERIFY(image.open(QIODevice::WriteOnly));
+    QVERIFY(image.write("image") > 0);
+    image.close();
+    model.applyCardMetadata(cardName, cardName, u"Creature — Human Wizard"_s, imagePath, u"MID"_s,
+                            u"47"_s);
+    QCOMPARE(model.currentMissingImageCount(), 0);
+
+    model.cacheCurrentDeckArt();
+    QCOMPARE(cachingSpy.count(), 1);
+    const QVariantList requests = cachingSpy.first().first().toList();
+    QCOMPARE(requests.size(), 1);
+    QCOMPARE(requests.first().toMap().value(u"name"_s).toString(), cardName);
+}
+
 void TestDeckLibrary::doesNotCacheArtOnImportUntilRequested() const
 {
     QTemporaryDir storage;

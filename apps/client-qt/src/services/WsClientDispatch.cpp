@@ -70,6 +70,8 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleReplayListed(env);
     else if (env.type == kTypeReplayLoaded)
         handleReplayLoaded(env);
+    else if (env.type == kTypeSideboardCompleted)
+        handleSideboardCompleted(env);
     else if (env.type == kTypeRoomLeft)
         handleLeft(env);
     else if (env.type == kTypeRoomKicked) {
@@ -382,16 +384,30 @@ void WsClient::handleDisbanded(const Envelope &env)
     (void)env;
 }
 
+void WsClient::handleSideboardCompleted(const Envelope &env)
+{
+    // Explicit sideboard.completed handling: the sideboard view must close on
+    // this push alone instead of relying on the server also projecting a
+    // game.snapshot, and the reason (ready/timeout) becomes observable.
+    m_gameSession->clearSideboard();
+    emit sideboardCompleted(env.payload.value(u"reason"_s).toString());
+}
+
 void WsClient::handleError(const Envelope &env)
 {
     m_roomSession->discardPendingDeck(env.id);
     const QString code = env.payload.value(u"code"_s).toString();
-    const QString msg = env.payload.value(u"message"_s).toString();
+    QString msg = env.payload.value(u"message"_s).toString();
     if (code == kErrClientVersionMismatch) {
         setVersionMismatch(env.payload.value(u"requiredVersion"_s).toString().trimmed());
         m_intentionalDisconnect = true;
         m_reconnectController->stopRetry();
     }
+    // Rebuild the not-ready message from the structured count so client-side
+    // localization matches this client's template, not the server's wording.
+    const int minimumPlayers = env.payload.value(u"minimumPlayers"_s).toInt(0);
+    if (code == kErrTournamentNotReady && minimumPlayers > 0)
+        msg = u"at least %1 checked-in players are required"_s.arg(minimumPlayers);
     setLastError(code, msg);
     m_protocolSession->resolveFailure(env.id, m_lastError);
     if (m_state == Connecting || m_state == Reconnecting) {

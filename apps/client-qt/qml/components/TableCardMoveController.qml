@@ -122,6 +122,25 @@ QtObject {
         const cardIds = Object.keys(tableRoot.selectedBattlefieldCardIds)
         if (!tableRoot.canAct || cardIds.length < 2)
             return
+        // Capture each card record and battlefield seat before the command is
+        // queued: battlefield bindings change once the source cards hide.
+        const pendingMoves = []
+        for (let index = 0; index < cardIds.length; ++index) {
+            const cardId = cardIds[index]
+            const card = tableRoot.zoneState.cardDataForId(cardId)
+            pendingMoves.push({
+                "cardId": cardId,
+                "card": card,
+                "fromZone": "battlefield",
+                "fromSeat": tableRoot.zoneState.visibleZoneSeatForCard(
+                                cardId, "battlefield"),
+                "toZone": toZone,
+                "toSeat": card && card.ownerSeat !== undefined
+                          ? card.ownerSeat
+                          : tableRoot.roomSession.seatIndex
+            })
+        }
+        tableRoot.optimisticCommands.beginPendingCardMoves(pendingMoves)
         tableRoot.wsModel.moveCards(
                     cardIds, "battlefield", toZone,
                     libraryPlacement ? libraryPlacement : "",
@@ -272,7 +291,7 @@ QtObject {
     function beginBattlefieldPreviewForCard(cardId, fromZone, fromSeat, card,
                                             targetSeat,
                                             normalizedX, normalizedY) {
-        tableRoot.optimisticCommandModel.setBattlefieldMove({
+        const preview = {
             "cardId": cardId,
             "fromZone": fromZone,
             "name": card.name ? card.name : "",
@@ -286,8 +305,8 @@ QtObject {
             "toSeat": targetSeat,
             "x": normalizedX,
             "y": normalizedY
-        })
-        tableRoot.optimisticCommands.beginPendingCardMoves([{
+        }
+        const pendingMove = {
             "cardId": cardId,
             "card": card,
             "fromZone": fromZone,
@@ -297,7 +316,38 @@ QtObject {
             "x": normalizedX,
             "y": normalizedY,
             "tapped": card.tapped === true
-        }])
+        }
+        if (fromZone === "library") {
+            // The server assigns a new instance id when the library top enters
+            // play, so reconcile matches on "a permanent that was not on the
+            // battlefield when the move began" rather than the pending id or
+            // exact coordinates (auto-slot can shift them).
+            const knownCardIds = battlefieldCardIdsForSeat(targetSeat)
+            preview.knownCardIds = knownCardIds
+            pendingMove.knownCardIds = knownCardIds
+        }
+        tableRoot.optimisticCommandModel.setBattlefieldMove(preview)
+        tableRoot.optimisticCommands.beginPendingCardMoves([pendingMove])
+    }
+
+    function battlefieldCardIdsForSeat(seatIndex) {
+        const ids = []
+        const cards = tableRoot.zoneState.zoneCardsForSeat(
+                          seatIndex, "battlefield")
+        for (let index = 0; index < cards.length; ++index) {
+            if (cards[index].id)
+                ids.push(cards[index].id)
+        }
+        return ids
+    }
+
+    function battlefieldGainedNewCard(cards, knownCardIds) {
+        const known = knownCardIds ? knownCardIds : []
+        for (let index = 0; index < cards.length; ++index) {
+            if (cards[index].id && known.indexOf(cards[index].id) < 0)
+                return true
+        }
+        return false
     }
 
     function pendingBattlefieldMoveCommitted() {
@@ -306,15 +356,17 @@ QtObject {
             return false
         const cards = tableRoot.zoneState.zoneCardsForSeat(
                           pendingMove.toSeat, "battlefield")
+        if (pendingMove.fromZone === "library") {
+            return battlefieldGainedNewCard(cards, pendingMove.knownCardIds)
+        }
         for (let index = 0; index < cards.length; ++index) {
             const card = cards[index]
             const position = card.position ? card.position : ({})
-            if ((card.id === pendingMove.cardId
-                 || pendingMove.fromZone === "library")
-                && position.x !== undefined
-                && position.y !== undefined
-                && Math.abs(position.x - pendingMove.x) < 0.001
-                && Math.abs(position.y - pendingMove.y) < 0.001) {
+            if (card.id === pendingMove.cardId
+                    && position.x !== undefined
+                    && position.y !== undefined
+                    && Math.abs(position.x - pendingMove.x) < 0.001
+                    && Math.abs(position.y - pendingMove.y) < 0.001) {
                 return true
             }
         }

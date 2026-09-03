@@ -21,9 +21,11 @@ struct DeckLibraryPreferences
 {
     QString uiLanguage = QStringLiteral("en");
     QString cardLanguage = QStringLiteral("en");
-    QString cardArtProvider = QStringLiteral("scryfall");
+    QString cardArtProvider = QStringLiteral("auto");
     bool reuseLocalCardArt = true;
     bool animatePackOpenings = true;
+    QString sponsorAnnouncementId;
+    int cardArtRepairNoticeVersion = 0;
     qreal interfaceScale = 1.0;
     bool tableShowPlayers = true;
     bool tableShowShared = true;

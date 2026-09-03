@@ -153,6 +153,7 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
     bool invalidImageResponse = false;
     bool serveScryfallCdnImages = false;
     bool missMtgchRequests = false;
+    bool missMtgchSetRequests = false;
     int scryfallRequestCount = 0;
     int scryfallImageRequestCount = 0;
     int scryfallImageTimeoutsRemaining = 0;
@@ -246,6 +247,26 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
                                           QByteArrayLiteral("application/json"), this);
         }
         if (request.url().host() == u"mtgch.com"_s) {
+            if (request.url().path().startsWith(u"/api/v1/set/"_s)) {
+                if (missMtgchSetRequests) {
+                    return new StaticNetworkReply(request, QByteArrayLiteral("{}"),
+                                                  QByteArrayLiteral("application/json"), this, 404,
+                                                  QNetworkReply::ContentNotFoundError);
+                }
+                const QJsonObject card{
+                    {u"display_name"_s, u"Lightning Bolt"_s},
+                    {u"display_name_zh"_s, u"闪电击"_s},
+                    {u"display_type_line"_s, u"瞬间"_s},
+                    {u"set"_s, u"M11"_s},
+                    {u"collector_number"_s, u"149"_s},
+                    {u"image_url"_s, u"https://images.mtgch.com/test/bolt.png"_s},
+                    {u"other_faces"_s, QJsonArray{}},
+                };
+                const QJsonObject page{{u"count"_s, 1}, {u"items"_s, QJsonArray{card}}};
+                return new StaticNetworkReply(request,
+                                              QJsonDocument(page).toJson(QJsonDocument::Compact),
+                                              QByteArrayLiteral("application/json"), this);
+            }
             if (missMtgchRequests) {
                 return new StaticNetworkReply(request, QByteArrayLiteral("{}"),
                                               QByteArrayLiteral("application/json"), this, 404,
@@ -342,6 +363,7 @@ class TestCardCatalog : public QObject
     void rejectsScryfallPlaceholderImages() const;
     void filtersPlaceholderImagesFromBulkCatalog() const;
     void usesWholeCardImageForAdventureFace() const;
+    void usesWholeCardImageForPrepareCard() const;
     void usesRequestedMtgchDoubleFace() const;
     void preservesScryfallFlavorName() const;
     void importsAndSearchesBulkData() const;
@@ -349,9 +371,11 @@ class TestCardCatalog : public QObject
     void rejectsTruncatedBulkData() const;
     void recoversInterruptedDatabaseReplacement() const;
     void prefersScryfallBeforeMtgchFallback() const;
+    void automaticProviderUsesLanguagePriority() const;
     void prefersMtgchBeforeScryfallFallback() const;
     void prefersMtgchForEnglishArt() const;
     void positiveCacheHitDoesNotBumpImageRevision() const;
+    void setLanguageBumpsImageRevision() const;
     void providerFallbackSurvivesDisabledLocalReuse() const;
     void migratesUsablePreviousPolicyCache() const;
     void resolvedPrintingAliasBumpsImageRevision() const;
@@ -360,6 +384,7 @@ class TestCardCatalog : public QObject
     void exactArtUsesSamePrintingProviderFallback() const;
     void exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() const;
     void cachesEveryFaceOfDoubleFacedPrinting() const;
+    void cachesLimitedProductWithMtgchSetIndex() const;
     void mtgchPreferenceBypassesCatalogScryfallFastPath() const;
     void reusesNameOnlyCacheForResolvedPrinting() const;
     void reusesLocalArtAcrossPrintings() const;

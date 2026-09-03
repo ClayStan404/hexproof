@@ -65,10 +65,12 @@ type Event struct {
 const (
 	setSealedPacksPerPlayer = 6
 	draftPacksPerPlayer     = 3
-	draftSeats              = 8
 	cubeDraftCardsPerPack   = 15
 
-	MinCubeDraftPlayers = 4
+	MinSetSealedPlayers = 2
+	MinSetDraftPlayers  = 2
+	MaxSetDraftPlayers  = 8
+	MinCubeDraftPlayers = 2
 	MaxCubeDraftPlayers = 8
 )
 
@@ -95,13 +97,14 @@ func New(config Config, seed int64) (*Event, error) {
 		return nil, fail(ErrInvalid, "invalid limited participant count")
 	}
 	if config.EventType == protocol.LimitedEventSetDraft &&
-		len(config.Participants) != draftSeats {
-		return nil, fail(ErrInvalid, "draft requires exactly eight players")
+		(len(config.Participants) < MinSetDraftPlayers ||
+			len(config.Participants) > MaxSetDraftPlayers) {
+		return nil, fail(ErrInvalid, "draft requires two to eight players")
 	}
 	if config.EventType == protocol.LimitedEventCubeDraft &&
 		(len(config.Participants) < MinCubeDraftPlayers ||
 			len(config.Participants) > MaxCubeDraftPlayers) {
-		return nil, fail(ErrInvalid, "Cube draft requires four to eight players")
+		return nil, fail(ErrInvalid, "Cube draft requires two to eight players")
 	}
 	product, err := NewProduct(config.Product)
 	if err != nil {

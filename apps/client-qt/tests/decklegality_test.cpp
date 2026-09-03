@@ -67,7 +67,7 @@ void createCatalog(const QString &path)
             QVERIFY(query.exec());
         };
         insert(QStringLiteral("Plains"), QStringLiteral("Basic Land — Plains"), {},
-               QStringLiteral("|commander:legal|modern:legal|vintage:legal|"));
+               QStringLiteral("|commander:legal|duel:legal|modern:legal|vintage:legal|"));
         insert(QStringLiteral("Snow-Covered Plains"), QStringLiteral("Basic Snow Land — Plains"),
                QStringLiteral("W"), QStringLiteral("|modern:legal|"));
         insert(QStringLiteral("Lightning Bolt"), QStringLiteral("Instant"), QStringLiteral("R"),
@@ -75,11 +75,13 @@ void createCatalog(const QString &path)
         insert(QStringLiteral("Counterspell"), QStringLiteral("Instant"), QStringLiteral("U"),
                QStringLiteral("|commander:legal|legacy:legal|vintage:legal|"));
         insert(QStringLiteral("Banned Card"), QStringLiteral("Sorcery"), {},
-               QStringLiteral("|modern:banned|"));
+               QStringLiteral("|commander:banned|duel:banned|modern:banned|"));
+        insert(QStringLiteral("Preview Card"), QStringLiteral("Sorcery"), {},
+               QStringLiteral("|commander:not_legal|duel:not_legal|"));
         insert(QStringLiteral("Black Lotus"), QStringLiteral("Artifact"), {},
                QStringLiteral("|vintage:restricted|"));
         insert(QStringLiteral("White Commander"), QStringLiteral("Legendary Creature — Human"),
-               QStringLiteral("W"), QStringLiteral("|commander:legal|"));
+               QStringLiteral("W"), QStringLiteral("|commander:legal|duel:legal|"));
         insert(QStringLiteral("Esika, God of the Tree // Esika, God of the Tree"),
                QStringLiteral("Card"), {}, QStringLiteral("|commander:not_legal|"),
                QStringLiteral("art_series"), QStringLiteral("esika-art"));
@@ -105,6 +107,10 @@ class TestDeckLegality : public QObject
   private slots:
     void acceptsLegalModernDeck() const;
     void rejectsBannedAndRestrictedCards() const;
+    void warnsAboutCommanderDeckSize() const;
+    void keepsDuelCommanderDeckSizeBlocking() const;
+    void warnsAboutCommanderCardPoolViolations() const;
+    void keepsDuelCommanderCardPoolViolationsBlocking() const;
     void warnsAboutCommanderColorIdentity() const;
     void resolvesDoubleFacedFrontFaceNames() const;
     void degradesWhenCatalogIsMissing() const;
@@ -154,6 +160,92 @@ void TestDeckLegality::rejectsBannedAndRestrictedCards() const
                 .toStringList()
                 .join(QLatin1Char(' '))
                 .contains(QStringLiteral("restricted")));
+}
+
+void TestDeckLegality::warnsAboutCommanderDeckSize() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(QStringLiteral("cards.sqlite"));
+    createCatalog(databasePath);
+    const QVariantList results = DeckLegalityService::validate(
+        databasePath,
+        {deck(QStringLiteral("commander"),
+              {card(QStringLiteral("White Commander"), 1), card(QStringLiteral("Plains"), 98)}, {},
+              {QStringLiteral("White Commander")})});
+    const QVariantMap result = results.first().toMap();
+    const QString sizeWarning =
+        QStringLiteral("Commander decks require exactly 100 main-deck cards.");
+    QVERIFY(result.value(QStringLiteral("valid")).toBool());
+    QVERIFY(result.value(QStringLiteral("verified")).toBool());
+    QCOMPARE(result.value(QStringLiteral("status")).toString(), sizeWarning);
+    QCOMPARE(result.value(QStringLiteral("warnings")).toStringList(), QStringList{sizeWarning});
+    QVERIFY(result.value(QStringLiteral("issues")).toStringList().contains(sizeWarning));
+}
+
+void TestDeckLegality::keepsDuelCommanderDeckSizeBlocking() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(QStringLiteral("cards.sqlite"));
+    createCatalog(databasePath);
+    const QVariantList results = DeckLegalityService::validate(
+        databasePath,
+        {deck(QStringLiteral("duel"),
+              {card(QStringLiteral("White Commander"), 1), card(QStringLiteral("Plains"), 98)}, {},
+              {QStringLiteral("White Commander")})});
+    const QVariantMap result = results.first().toMap();
+    const QString sizeError =
+        QStringLiteral("Commander decks require exactly 100 main-deck cards.");
+    QVERIFY(!result.value(QStringLiteral("valid")).toBool());
+    QVERIFY(result.value(QStringLiteral("verified")).toBool());
+    QCOMPARE(result.value(QStringLiteral("status")).toString(), sizeError);
+    QVERIFY(result.value(QStringLiteral("warnings")).toStringList().isEmpty());
+    QVERIFY(result.value(QStringLiteral("issues")).toStringList().contains(sizeError));
+}
+
+void TestDeckLegality::warnsAboutCommanderCardPoolViolations() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(QStringLiteral("cards.sqlite"));
+    createCatalog(databasePath);
+    const QVariantList results = DeckLegalityService::validate(
+        databasePath,
+        {deck(QStringLiteral("commander"),
+              {card(QStringLiteral("White Commander"), 1), card(QStringLiteral("Plains"), 96),
+               card(QStringLiteral("Banned Card"), 1), card(QStringLiteral("Preview Card"), 1),
+               card(QStringLiteral("Uncatalogued Preview"), 1)},
+              {}, {QStringLiteral("White Commander")})});
+    const QVariantMap result = results.first().toMap();
+    QVERIFY(result.value(QStringLiteral("valid")).toBool());
+    QVERIFY(result.value(QStringLiteral("verified")).toBool());
+    const QStringList warnings = result.value(QStringLiteral("warnings")).toStringList();
+    QCOMPARE(warnings.size(), 3);
+    QVERIFY(warnings.contains(QStringLiteral("Banned Card is not legal in Commander.")));
+    QVERIFY(warnings.contains(QStringLiteral("Preview Card is not legal in Commander.")));
+    QVERIFY(warnings.contains(
+        QStringLiteral("Uncatalogued Preview is missing from the local card database.")));
+}
+
+void TestDeckLegality::keepsDuelCommanderCardPoolViolationsBlocking() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(QStringLiteral("cards.sqlite"));
+    createCatalog(databasePath);
+    const QVariantList results = DeckLegalityService::validate(
+        databasePath,
+        {deck(QStringLiteral("duel"),
+              {card(QStringLiteral("White Commander"), 1), card(QStringLiteral("Plains"), 98),
+               card(QStringLiteral("Banned Card"), 1)},
+              {}, {QStringLiteral("White Commander")})});
+    const QVariantMap result = results.first().toMap();
+    QVERIFY(!result.value(QStringLiteral("valid")).toBool());
+    QVERIFY(result.value(QStringLiteral("warnings")).toStringList().isEmpty());
+    QVERIFY(result.value(QStringLiteral("issues"))
+                .toStringList()
+                .contains(QStringLiteral("Banned Card is not legal in Duel Commander.")));
 }
 
 void TestDeckLegality::warnsAboutCommanderColorIdentity() const

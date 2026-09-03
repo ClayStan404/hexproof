@@ -53,6 +53,7 @@ class GameSessionState : public QObject
     bool finished() const { return !m_result.isEmpty(); }
 
     void applySnapshot(const QVariantMap &snapshot);
+    void clearSideboard();
     void clear();
 
   signals:

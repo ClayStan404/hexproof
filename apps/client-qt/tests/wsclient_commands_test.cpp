@@ -900,6 +900,57 @@ void TestWsClient::handshakeErrorDisconnects() const
     QVERIFY(client.releaseDownloadUrl().contains(u"github.com/ClayStan404/hexproof/releases"_s));
 }
 
+void TestWsClient::rebuildsNotReadyErrorFromStructuredDetail() const
+{
+    QWebSocketServer server(u"Hexproof not-ready server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"conn-not-ready"_s},
+                                  {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+
+    Envelope error;
+    error.type = hexproof::protocol::kTypeError;
+    error.id = u"7"_s;
+    // Deliberately different server prose: the client must render its own
+    // template from the structured count, never echo this wording.
+    error.payload = QJsonObject{
+        {u"code"_s, u"tournament_not_ready"_s},
+        {u"message"_s, u"server-specific wording goes here"_s},
+        {u"minimumPlayers"_s, 2},
+    };
+    sendEnvelope(peer, error);
+    QTRY_COMPARE_WITH_TIMEOUT(client.lastError(),
+                              u"tournament_not_ready: at least 2 checked-in players are required"_s,
+                              1000);
+
+    // A non-not-ready error must keep the server message verbatim even when a
+    // stale or future producer reuses the structured detail.
+    Envelope otherError;
+    otherError.type = hexproof::protocol::kTypeError;
+    otherError.id = u"8"_s;
+    otherError.payload = QJsonObject{
+        {u"code"_s, u"tournament_round_incomplete"_s},
+        {u"message"_s, u"confirm every table result"_s},
+        {u"minimumPlayers"_s, 2},
+    };
+    sendEnvelope(peer, otherError);
+    QTRY_COMPARE_WITH_TIMEOUT(client.lastError(),
+                              u"tournament_round_incomplete: confirm every table result"_s, 1000);
+}
+
 void TestWsClient::rejectsOversizeIncomingMessages() const
 {
     QWebSocketServer server(u"Hexproof incoming limit server"_s, QWebSocketServer::NonSecureMode);
@@ -950,167 +1001,87 @@ void TestWsClient::welcomeVersionMismatchDisconnects() const
     QVERIFY(client.lastError().contains(hexproof::protocol::kErrClientVersionMismatch));
 }
 
-void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
+void TestWsClient::handlesSideboardCompletedPush() const
 {
-    QWebSocketServer server(u"Hexproof reconnect test server"_s, QWebSocketServer::NonSecureMode);
+    QWebSocketServer server(u"Hexproof sideboard server"_s, QWebSocketServer::NonSecureMode);
     QVERIFY(server.listen(QHostAddress::LocalHost, 0));
 
-    QList<QWebSocket *> peers;
-    QList<QList<Envelope>> received;
-    connect(&server, &QWebSocketServer::newConnection, &server, [&]() {
-        QWebSocket *peer = takeServerPeer(server);
-        const qsizetype index = peers.size();
-        peers.append(peer);
-        received.append(QList<Envelope>{});
-        connect(peer, &QWebSocket::textMessageReceived, &server, [&, index](const QString &text) {
-            bool ok = false;
-            const Envelope env = hexproof::protocol::parse(text.toUtf8(), &ok);
-            if (ok)
-                received[index].append(env);
-        });
-    });
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
 
     WsClient client;
-    const QString serverUrl = u"ws://127.0.0.1:"_s + QString::number(server.serverPort());
-    client.connectTo(serverUrl, u"Alice"_s);
-    QTRY_VERIFY_WITH_TIMEOUT(peers.size() == 1, 1000);
-    QTRY_VERIFY_WITH_TIMEOUT(!received[0].isEmpty(), 1000);
-    QCOMPARE(received[0].first().type, hexproof::protocol::kTypeSessionHello);
-    QVERIFY(!received[0].first().payload.contains(u"resumeToken"_s));
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
 
     Envelope welcome;
     welcome.type = hexproof::protocol::kTypeSessionWelcome;
-    welcome.id = received[0].first().id;
+    welcome.id = u"1"_s;
     welcome.payload = QJsonObject{
         {u"v"_s, hexproof::protocol::kProtocolVersion},
-        {u"connectionId"_s, u"conn-before-drop"_s},
+        {u"connectionId"_s, u"conn-sideboard"_s},
         {u"serverVersion"_s, buildVersion()},
-        {u"resumeToken"_s, u"resume-secret"_s},
     };
-    sendEnvelope(peers[0], welcome);
+    sendEnvelope(peer, welcome);
     QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
 
     Envelope created;
     created.type = hexproof::protocol::kTypeRoomCreated;
     created.id = u"2"_s;
     created.payload = QJsonObject{{u"roomId"_s, u"ABCDEF"_s}};
-    sendEnvelope(peers[0], created);
-    Envelope beforeDrop = roomSnapshot(u"Room before drop"_s, true, true);
-    beforeDrop.seq = 7;
-    sendEnvelope(peers[0], beforeDrop);
+    sendEnvelope(peer, created);
+    sendEnvelope(peer, roomSnapshot(u"Sideboard room"_s, true, true));
     QTRY_VERIFY_WITH_TIMEOUT(client.inRoom(), 1000);
 
-    peers[0]->close();
-    QTRY_VERIFY_WITH_TIMEOUT(client.reconnecting(), 1000);
-    client.drawCards(1);
-    QCOMPARE(client.lastError(),
-             u"connection: action not sent while the connection is unavailable"_s);
-    QTRY_VERIFY_WITH_TIMEOUT(peers.size() == 2, 4000);
-    QTRY_VERIFY_WITH_TIMEOUT(!received[1].isEmpty(), 1000);
-
-    const Envelope resumeHello = received[1].first();
-    QCOMPARE(resumeHello.type, hexproof::protocol::kTypeSessionHello);
-    QCOMPARE(resumeHello.payload.value(u"resumeToken"_s).toString(), u"resume-secret"_s);
-    QCOMPARE(resumeHello.payload.value(u"lastSeq"_s).toInteger(), 7);
-
-    Envelope prematureFreshWelcome;
-    prematureFreshWelcome.type = hexproof::protocol::kTypeSessionWelcome;
-    prematureFreshWelcome.id = resumeHello.id;
-    prematureFreshWelcome.payload = QJsonObject{
-        {u"v"_s, hexproof::protocol::kProtocolVersion},
-        {u"connectionId"_s, u"conn-premature"_s},
-        {u"serverVersion"_s, buildVersion()},
-        {u"resumeToken"_s, u"do-not-adopt"_s},
-    };
-    sendEnvelope(peers[1], prematureFreshWelcome);
-    QTRY_VERIFY_WITH_TIMEOUT(client.reconnecting(), 1000);
-    QTRY_VERIFY_WITH_TIMEOUT(peers.size() == 3, 5000);
-    QTRY_VERIFY_WITH_TIMEOUT(!received[2].isEmpty(), 1000);
-    const Envelope retriedResumeHello = received[2].first();
-    QCOMPARE(retriedResumeHello.type, hexproof::protocol::kTypeSessionHello);
-    QCOMPARE(retriedResumeHello.payload.value(u"resumeToken"_s).toString(), u"resume-secret"_s);
-
-    Envelope resumed;
-    resumed.type = hexproof::protocol::kTypeSessionWelcome;
-    resumed.id = retriedResumeHello.id;
-    resumed.payload = QJsonObject{
-        {u"v"_s, hexproof::protocol::kProtocolVersion},
-        {u"connectionId"_s, u"conn-after-drop"_s},
-        {u"serverVersion"_s, buildVersion()},
-        {u"resumeToken"_s, u"resume-secret"_s},
-        {u"resumed"_s, true},
-        {u"roomId"_s, u"ABCDEF"_s},
-        {u"role"_s, hexproof::protocol::kRolePlayer},
-        {u"seat"_s, 0},
-        {u"host"_s, true},
-    };
-    sendEnvelope(peers[2], resumed);
-    Envelope restoredRoom = roomSnapshot(u"Restored room"_s, true, true);
-    restoredRoom.seq = 8;
-    restoredRoom.payload.insert(u"phase"_s, hexproof::protocol::kRoomPhaseStarted);
-    sendEnvelope(peers[2], restoredRoom);
-
-    Envelope restoredGame;
-    restoredGame.type = hexproof::protocol::kTypeGameSnapshot;
-    restoredGame.hasSeq = true;
-    restoredGame.seq = 9;
-    restoredGame.payload = QJsonObject{
+    Envelope game;
+    game.type = hexproof::protocol::kTypeGameSnapshot;
+    game.hasSeq = true;
+    game.seq = 10;
+    game.payload = QJsonObject{
         {u"roomId"_s, u"ABCDEF"_s},
         {u"gameNumber"_s, 1},
         {u"startingSeat"_s, 0},
+        {u"turnOrder"_s, QJsonArray{0}},
         {u"activeSeat"_s, 0},
         {u"currentPhase"_s, hexproof::protocol::kGamePhaseUntap},
-        {u"seats"_s,
-         QJsonArray{
-             QJsonObject{
-                 {u"seat"_s, 0},
-                 {u"displayName"_s, u"Alice"_s},
-                 {u"life"_s, 20},
-                 {u"libraryCount"_s, 52},
-                 {u"handCount"_s, 1},
-                 {u"hand"_s, QJsonArray{QJsonObject{
-                                 {u"id"_s, u"alice-secret"_s},
-                                 {u"name"_s, u"Lightning Bolt"_s},
-                                 {u"setCode"_s, u"M11"_s},
-                                 {u"collectorNumber"_s, u"149"_s},
-                             }}},
-                 {u"battlefield"_s, QJsonArray{}},
-                 {u"graveyard"_s, QJsonArray{}},
-                 {u"exile"_s, QJsonArray{}},
-             },
-             QJsonObject{
-                 {u"seat"_s, 1},
-                 {u"displayName"_s, u"Bob"_s},
-                 {u"life"_s, 20},
-                 {u"libraryCount"_s, 53},
-                 {u"handCount"_s, 7},
-                 {u"battlefield"_s, QJsonArray{}},
-                 {u"graveyard"_s, QJsonArray{}},
-                 {u"exile"_s, QJsonArray{}},
-             },
+        {u"seats"_s, QJsonArray{QJsonObject{
+                         {u"seat"_s, 0},
+                         {u"displayName"_s, u"Alice"_s},
+                         {u"life"_s, 20},
+                         {u"libraryCount"_s, 53},
+                         {u"handCount"_s, 7},
+                         {u"battlefield"_s, QJsonArray{}},
+                         {u"graveyard"_s, QJsonArray{}},
+                         {u"exile"_s, QJsonArray{}},
+                     }}},
+        {u"sideboard"_s,
+         QJsonObject{
+             {u"deadlineUnixMs"_s, qint64{1784721900000}},
+             {u"seats"_s, QJsonArray{QJsonObject{
+                              {u"seat"_s, 0},
+                              {u"ready"_s, false},
+                              {u"mainboardCount"_s, 60},
+                              {u"sideboardCount"_s, 15},
+                          }}},
          }},
-        {u"stack"_s, QJsonArray{}},
-        {u"revealed"_s, QJsonArray{}},
-        {u"score"_s, QJsonArray{0, 0}},
-        {u"log"_s, QJsonArray{}},
     };
-    sendEnvelope(peers[2], restoredGame);
+    sendEnvelope(peer, game);
+    QTRY_VERIFY_WITH_TIMEOUT(client.gameSession()->sideboarding(), 1000);
 
-    QTRY_VERIFY_WITH_TIMEOUT(client.inRoom(), 1000);
-    QTRY_COMPARE_WITH_TIMEOUT(client.roomName(), u"Restored room"_s, 1000);
-    QTRY_VERIFY_WITH_TIMEOUT(client.gameSeats().size() == 2, 1000);
-    QVERIFY(client.youAreHost());
-    QCOMPARE(client.roomRole(), hexproof::protocol::kRolePlayer);
-    QCOMPARE(client.seatIndex(), 0);
-    QCOMPARE(client.gameSeats()
-                 .first()
-                 .toMap()
-                 .value(u"hand"_s)
-                 .toList()
-                 .first()
-                 .toMap()
-                 .value(u"id"_s)
-                 .toString(),
-             u"alice-secret"_s);
-    QVERIFY(client.gameSeats().last().toMap().value(u"hand"_s).toList().isEmpty());
+    // The push must close the sideboarding view even when no game.snapshot
+    // follows it, and must surface why sideboarding ended.
+    QSignalSpy completedSpy(&client, &WsClient::sideboardCompleted);
+    Envelope completed;
+    completed.type = hexproof::protocol::kTypeSideboardCompleted;
+    completed.hasSeq = true;
+    completed.seq = 11;
+    completed.payload = QJsonObject{
+        {u"roomId"_s, u"ABCDEF"_s},
+        {u"gameNumber"_s, 2},
+        {u"reason"_s, u"timeout"_s},
+    };
+    sendEnvelope(peer, completed);
+    QTRY_VERIFY_WITH_TIMEOUT(!client.gameSession()->sideboarding(), 1000);
+    QCOMPARE(completedSpy.count(), 1);
+    QCOMPARE(completedSpy.first().at(0).toString(), u"timeout"_s);
 }

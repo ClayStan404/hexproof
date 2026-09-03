@@ -193,13 +193,48 @@ func TestCubeDraftsPhysicalCardsWithoutReplacement(t *testing.T) {
 	}
 }
 
+func TestDraftSupportsTwoPlayers(t *testing.T) {
+	event, err := New(Config{
+		TournamentID: "event-2p", EventType: protocol.LimitedEventSetDraft,
+		Product: testProduct(3, 20), Participants: testParticipants(2),
+	}, 13)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	for steps := 0; event.Stage == protocol.LimitedStageDraft && steps < 100; steps++ {
+		picked := false
+		for _, player := range event.Players {
+			if len(player.Inbox) == 0 || len(player.Inbox[0].Cards) == 0 {
+				continue
+			}
+			if _, err := event.Pick(player.ID, player.Inbox[0].Cards[0].ID); err != nil {
+				t.Fatalf("Pick(%s): %v", player.ID, err)
+			}
+			picked = true
+		}
+		if !picked && event.Stage == protocol.LimitedStageDraft {
+			t.Fatal("two-player draft stalled with no available pack")
+		}
+	}
+	if event.Stage != protocol.LimitedStageDeckBuilding {
+		t.Fatalf("two-player draft stage = %q", event.Stage)
+	}
+	for _, player := range event.Players {
+		if got, want := len(player.Pool), 9; got != want {
+			t.Fatalf("%s pool = %d, want %d", player.ID, got, want)
+		}
+	}
+}
+
 func TestLimitedModeInvariants(t *testing.T) {
 	product := testProduct(3, 20)
-	if _, err := New(Config{
-		TournamentID: "bad-draft", EventType: protocol.LimitedEventSetDraft,
-		Product: product, Participants: testParticipants(7),
-	}, 1); ErrorCode(err) != ErrInvalid {
-		t.Fatalf("seven-seat draft error = %v", err)
+	for _, players := range []int{1, 9} {
+		if _, err := New(Config{
+			TournamentID: "bad-draft", EventType: protocol.LimitedEventSetDraft,
+			Product: product, Participants: testParticipants(players),
+		}, 1); ErrorCode(err) != ErrInvalid {
+			t.Fatalf("%d-seat draft error = %v", players, err)
+		}
 	}
 	cube := testProduct(1, 359)
 	cube.ProductType = ProductTypeCube
@@ -217,7 +252,7 @@ func TestLimitedModeInvariants(t *testing.T) {
 	cube.Authentic = false
 	cube.CardsPerPack = 0
 	cube.Variants = nil
-	for _, players := range []int{3, 9} {
+	for _, players := range []int{1, 9} {
 		if _, err := New(Config{
 			TournamentID: "bad-cube-seats", EventType: protocol.LimitedEventCubeDraft,
 			Product: cube, Participants: testParticipants(players),

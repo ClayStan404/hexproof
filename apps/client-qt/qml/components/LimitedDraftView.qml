@@ -11,6 +11,15 @@ import QtQuick.Layouts
 Item {
     id: root
 
+    // Intrinsic size gives the lobby layout a real preferred size before the
+    // first resize when this view flips from hidden to visible at the draft
+    // stage. Explicit zero minimums keep that preferred size from turning into
+    // a hard constraint when the lobby or a test host is narrower.
+    implicitWidth: Theme.size(720)
+    implicitHeight: Theme.size(560)
+    Layout.minimumWidth: 0
+    Layout.minimumHeight: 0
+
     required property var limitedModel
     required property var tournamentModel
     required property var wsModel
@@ -23,6 +32,13 @@ Item {
     property real hoverPreviewX: 0
     property real hoverPreviewY: 0
     readonly property string participantId: tournamentModel.participantId || ""
+    readonly property int horizontalColumnsMinimumWidth:
+        Theme.size(166) + Theme.size(280) + Theme.size(12)
+    readonly property bool compactColumns:
+        width < horizontalColumnsMinimumWidth
+    // Both pass directions resolve to the same opponent in a two-seat draft.
+    readonly property bool twoPlayer:
+        root.limitedModel.participants.length === 2
     readonly property var rarityFilterKeys: ["all", "common", "uncommon", "rare",
                                               "mythic", "unknown"]
     readonly property var rarityFilterOptions: [qsTr("All rarities"), qsTr("Common"),
@@ -51,25 +67,34 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 spacing: Theme.size(2)
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("Draft pack %1 · %2")
-                          .arg(root.limitedModel.packRound)
-                          .arg(root.limitedModel.direction > 0
-                               ? qsTr("pass left") : qsTr("pass right"))
+                    Layout.fillWidth: true
+                    objectName: "limitedDraftPackHeader"
+                    text: root.twoPlayer
+                          ? qsTr("Draft pack %1")
+                            .arg(root.limitedModel.packRound)
+                          : qsTr("Draft pack %1 · %2")
+                            .arg(root.limitedModel.packRound)
+                            .arg(root.limitedModel.direction > 0
+                                 ? qsTr("pass left") : qsTr("pass right"))
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(18)
                     font.weight: Font.DemiBold
+                    elide: Text.ElideRight
                 }
                 Text {
                     textFormat: Text.PlainText
+                    Layout.fillWidth: true
                     text: root.participantId.length > 0
                           ? qsTr("Choose one card. The rest of this pack goes to %1.")
                             .arg(seatMap.outgoingName)
                           : qsTr("Draft progress is private to participants.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
+                    elide: Text.ElideRight
                 }
             }
 
@@ -86,14 +111,28 @@ Item {
             }
         }
 
-        RowLayout {
+        GridLayout {
+            id: draftColumns
+
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: Theme.size(12)
+            columns: root.compactColumns ? 1 : 2
+            rows: root.compactColumns ? 2 : 1
+            columnSpacing: Theme.size(12)
+            rowSpacing: Theme.size(12)
 
             Surface {
+                objectName: "limitedDraftPackColumn"
+                Layout.row: 0
+                Layout.column: 0
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                // Preserve one 142 px card plus the surface margins while the
+                // columns are side by side. Below that combined width the grid
+                // stacks both regions so neither one can overflow the view.
+                Layout.minimumWidth: root.compactColumns ? 0 : Theme.size(166)
+                Layout.preferredHeight: root.compactColumns
+                                        ? Theme.size(300) : implicitHeight
                 color: Theme.surfaceMuted
 
                 ColumnLayout {
@@ -179,9 +218,21 @@ Item {
             }
 
             ColumnLayout {
-                Layout.preferredWidth: Math.min(Theme.size(370), root.width * 0.34)
-                Layout.minimumWidth: Theme.size(300)
+                objectName: "limitedDraftSideColumn"
+                Layout.row: root.compactColumns ? 1 : 0
+                Layout.column: root.compactColumns ? 0 : 1
+                // fillWidth defaults to true for layouts, which would let
+                // this column eat the pack column's share; the side column
+                // must stay at its preferred width.
+                Layout.fillWidth: root.compactColumns
+                Layout.preferredWidth: root.compactColumns
+                                       ? draftColumns.width
+                                       : Math.min(Theme.size(370),
+                                                  root.width * 0.34)
+                Layout.minimumWidth: root.compactColumns ? 0 : Theme.size(280)
                 Layout.fillHeight: true
+                Layout.preferredHeight: root.compactColumns
+                                        ? Theme.size(260) : implicitHeight
                 spacing: Theme.size(12)
 
                 LimitedDraftSeatMap {

@@ -7,12 +7,23 @@ import QtQuick.Controls.Basic
 ComboBox {
     id: control
 
+    property var textForIndex: null
+
     implicitHeight: Theme.size(44)
     leftPadding: Theme.size(13)
     rightPadding: Theme.size(34)
     font.pixelSize: Theme.fontSize(13)
     font.weight: Font.Medium
     hoverEnabled: true
+    displayText: typeof control.textForIndex === "function"
+                 ? optionText(currentIndex) : currentText
+
+    function optionText(index) {
+        if (index < 0)
+            return ""
+        return typeof control.textForIndex === "function"
+                ? control.textForIndex(index) : control.textAt(index)
+    }
 
     contentItem: Text {
         textFormat: Text.PlainText
@@ -46,7 +57,7 @@ ComboBox {
         id: delegateItem
         required property int index
         width: ListView.view ? ListView.view.width : control.width
-        text: control.textAt(index)
+        text: control.optionText(index)
         highlighted: control.highlightedIndex === index
         font: control.font
 

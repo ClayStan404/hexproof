@@ -41,6 +41,31 @@ QtObject {
         }
     }
 
+    function deckFormatOptions() {
+        return [
+            {"label": formatLabel("modern"), "value": "modern",
+             "tableMode": "modern"},
+            {"label": formatLabel("commander"), "value": "commander",
+             "tableMode": "edh"},
+            {"label": formatLabel("duel"), "value": "duel",
+             "tableMode": "duel"},
+            {"label": formatLabel("legacy"), "value": "legacy",
+             "tableMode": "modern"},
+            {"label": formatLabel("standard"), "value": "standard",
+             "tableMode": "modern"},
+            {"label": formatLabel("pioneer"), "value": "pioneer",
+             "tableMode": "modern"},
+            {"label": formatLabel("pauper"), "value": "pauper",
+             "tableMode": "modern"},
+            {"label": formatLabel("vintage"), "value": "vintage",
+             "tableMode": "modern"},
+            {"label": formatLabel("cube"), "value": "cube",
+             "tableMode": "modern"},
+            {"label": formatLabel("custom"), "value": "custom",
+             "tableMode": "modern"}
+        ]
+    }
+
     function tournamentFormatLabel(format) {
         switch (String(format).toLowerCase()) {
         case "standard":
@@ -132,8 +157,6 @@ QtObject {
             return qsTr("Main deck requires at least 60 cards.")
         if (source === "Sideboard can contain at most 15 cards.")
             return qsTr("Sideboard can contain at most 15 cards.")
-        if (source === "The Cube needs at least 180 physical cards for a four-player draft.")
-            return qsTr("The Cube needs at least 180 physical cards for a four-player draft.")
         if (source === "Cube cards must stay in the main pool.")
             return qsTr("Cube cards must stay in the main pool.")
         if (source === "Every Cube card needs an exact printing.")
@@ -146,7 +169,13 @@ QtObject {
             return qsTr("A legacy Cube conflicts with an existing deck and was left unchanged.")
         if (source === "Legacy Cubes were imported, but their source file could not be archived.")
             return qsTr("Legacy Cubes were imported, but their source file could not be archived.")
-        let match = source.match(/^(.+) is missing from the local card database\.$/)
+        let match = source.match(
+                    /^The Cube needs at least (\d+) physical cards for a two-player draft\.$/)
+        if (match) {
+            return qsTr("The Cube needs at least %1 physical cards for a two-player draft.")
+                    .arg(match[1])
+        }
+        match = source.match(/^(.+) is missing from the local card database\.$/)
         if (match)
             return qsTr("%1 is missing from the local card database.").arg(match[1])
         match = source.match(/^(.+) is not legal in (.+)\.$/)
@@ -199,7 +228,11 @@ QtObject {
             case "tournament_registration_closed":
                 return qsTr("Tournament registration is closed.")
             case "tournament_not_ready":
-                return qsTr("At least four checked-in players are required.")
+                var countMatch = source.match(/at least (\d+) checked-in players/)
+                if (countMatch)
+                    return qsTr("At least %1 checked-in players are required.")
+                            .arg(countMatch[1])
+                return qsTr("The tournament is not ready for that action.")
             case "tournament_round_incomplete":
                 return qsTr("Confirm every table result before advancing the round.")
             case "tournament_result_invalid":

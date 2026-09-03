@@ -111,6 +111,7 @@ class TestWsClient : public QObject
     void rollsBackPendingCommandsBeforeRoomIdentityClears() const;
     void destroysParserWorkersDeterministically() const;
     void distinguishesHostKickReplyFromKickedPush() const;
+    void handlesSideboardCompletedPush() const;
     void exposesJoinedRoomRole() const;
     void roomSessionStateExposesQmlBindableIdentity() const;
     void roomSessionStateExposesQmlBindableSnapshot() const;
@@ -122,6 +123,7 @@ class TestWsClient : public QObject
     void hidesMirroredSessionPropertiesFromQml() const;
     void updatesHostAuthorityFromRoomSnapshots() const;
     void handshakeErrorDisconnects() const;
+    void rebuildsNotReadyErrorFromStructuredDetail() const;
     void rejectsOversizeIncomingMessages() const;
     void welcomeVersionMismatchDisconnects() const;
     void handlesP7DiscoveryReplayAndTableCommands() const;
@@ -133,6 +135,7 @@ class TestWsClient : public QObject
     void exposesInitialServerLatencyState() const;
     void processesFinalMessageBeforeDisconnect() const;
     void resumesRoomAfterUnexpectedDisconnect() const;
+    void keepsPendingCommandsWhenTransportDropsMidCommand() const;
     void sendsDeckAndReadyCommands() const;
 
   private:

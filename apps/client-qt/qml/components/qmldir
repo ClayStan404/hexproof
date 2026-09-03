@@ -1,5 +1,6 @@
 singleton Theme 1.0 Theme.qml
 singleton I18n 1.0 I18n.qml
+singleton SponsorCatalog 1.0 SponsorCatalog.qml
 PrintingPicker 1.0 PrintingPicker.qml
 CardSearchPopup 1.0 CardSearchPopup.qml
 CounterLabelPopup 1.0 CounterLabelPopup.qml
@@ -12,6 +13,7 @@ LibrarySearchPopup 1.0 LibrarySearchPopup.qml
 LimitedCardGrouping 1.0 LimitedCardGrouping.qml
 LimitedCardGroupView 1.0 LimitedCardGroupView.qml
 LimitedSetPicker 1.0 LimitedSetPicker.qml
+LimitedProductArtPanel 1.0 LimitedProductArtPanel.qml
 PackOpeningOverlay 1.0 PackOpeningOverlay.qml
 LifeEditorPopup 1.0 LifeEditorPopup.qml
 NumberInputPopup 1.0 NumberInputPopup.qml
@@ -49,6 +51,9 @@ ScreenHeader 1.0 ScreenHeader.qml
 SegmentedControl 1.0 SegmentedControl.qml
 SideboardPanel 1.0 SideboardPanel.qml
 StatusPill 1.0 StatusPill.qml
+SponsorAnnouncementPopup 1.0 SponsorAnnouncementPopup.qml
+SponsorList 1.0 SponsorList.qml
+SponsorSupportPopup 1.0 SponsorSupportPopup.qml
 ShortcutActionCatalog 1.0 ShortcutActionCatalog.qml
 Surface 1.0 Surface.qml
 TokenPicker 1.0 TokenPicker.qml

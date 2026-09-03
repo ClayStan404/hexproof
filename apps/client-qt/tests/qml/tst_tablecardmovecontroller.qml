@@ -85,6 +85,8 @@ TestCase {
 
     QtObject {
         id: fakeZones
+        property var battlefieldCards: []
+
         function visibleZoneSeatForCard(cardId, zone) {
             return 0
         }
@@ -96,6 +98,12 @@ TestCase {
                 "ownerSeat": 0,
                 "typeLine": "Instant"
             }
+        }
+
+        function zoneCardsForSeat(seatIndex, zone) {
+            if (seatIndex === 0 && zone === "battlefield")
+                return battlefieldCards
+            return []
         }
     }
 
@@ -127,6 +135,7 @@ TestCase {
         property var selectedBattlefieldCardIds: ({ "card-1": true, "card-2": true })
         property var selectedSharedCard: ({})
         property string selectedSharedZone: ""
+        property var pendingBattlefieldMove: ({})
     }
 
     TableCardMoveController {
@@ -144,6 +153,8 @@ TestCase {
         fakeTable.canAct = true
         fakeTable.selectedBattlefieldCardId = "card-1"
         fakeTable.selectedBattlefieldOwnerSeat = 0
+        fakeTable.pendingBattlefieldMove = ({})
+        fakeZones.battlefieldCards = []
     }
 
     function test_canManageSelectedBattlefieldRequiresLocalControl() {
@@ -170,6 +181,35 @@ TestCase {
         compare(fakeSelection.clearCalls, 1)
     }
 
+    function test_moveSelectedBattlefieldCardsBeginsPendingMoves() {
+        controller.moveSelectedBattlefieldCards("graveyard")
+        compare(fakeWs.moveCalls.length, 1)
+        compare(fakeWs.moveCalls[0].cardIds, ["card-1", "card-2"])
+        compare(fakeWs.moveCalls[0].fromZone, "battlefield")
+        compare(fakeWs.moveCalls[0].toZone, "graveyard")
+        compare(fakeOptimistic.pendingMoves.length, 2)
+        compare(fakeOptimistic.pendingMoves[0].cardId, "card-1")
+        compare(fakeOptimistic.pendingMoves[0].card.id, "card-1")
+        compare(fakeOptimistic.pendingMoves[0].fromZone, "battlefield")
+        compare(fakeOptimistic.pendingMoves[0].fromSeat, 0)
+        compare(fakeOptimistic.pendingMoves[0].toZone, "graveyard")
+        compare(fakeOptimistic.pendingMoves[0].toSeat, 0)
+        compare(fakeOptimistic.pendingMoves[1].cardId, "card-2")
+        compare(fakeOptimistic.pendingMoves[1].toZone, "graveyard")
+        compare(fakeSelection.clearCalls, 1)
+    }
+
+    function test_moveSelectedBattlefieldCardsToLibraryBeginsPendingMoves() {
+        controller.moveSelectedBattlefieldCards("library", "top", true)
+        compare(fakeWs.moveCalls.length, 1)
+        compare(fakeWs.moveCalls[0].cardIds, ["card-1", "card-2"])
+        compare(fakeWs.moveCalls[0].toZone, "library")
+        compare(fakeOptimistic.pendingMoves.length, 2)
+        compare(fakeOptimistic.pendingMoves[0].toZone, "library")
+        compare(fakeOptimistic.pendingMoves[1].toZone, "library")
+        compare(fakeSelection.clearCalls, 1)
+    }
+
     function test_handDropOntoBattlefieldDoesNotRecordALandPlay() {
         controller.moveCardToBattlefield("card-1", "hand", 0, 0.4, 0.6)
         compare(fakeWs.playLandCalls.length, 0)
@@ -177,5 +217,50 @@ TestCase {
         compare(fakeWs.moveCalls[0].fromZone, "hand")
         compare(fakeWs.moveCalls[0].toZone, "battlefield")
         compare(fakeWs.moveCalls[0].toSeat, 0)
+    }
+
+    function test_beginLibraryBattlefieldPreviewCapturesKnownCards() {
+        fakeZones.battlefieldCards = [
+            {"id": "battlefield-1", "ownerSeat": 0},
+            {"id": "battlefield-2", "ownerSeat": 0}
+        ]
+
+        controller.beginBattlefieldPreviewForCard(
+                    "library-top", "library", 0, ({}), 0, 0.4, 0.5)
+
+        compare(fakeOptimistic.pendingMoves.length, 1)
+        compare(fakeOptimistic.pendingMoves[0].fromZone, "library")
+        compare(fakeOptimistic.pendingMoves[0].knownCardIds,
+                ["battlefield-1", "battlefield-2"])
+        compare(fakeOptimistic.battlefieldMoves.length, 1)
+        compare(fakeOptimistic.battlefieldMoves[0].knownCardIds,
+                ["battlefield-1", "battlefield-2"])
+    }
+
+    function test_libraryBattlefieldPreviewCommitsOnlyOnNewCard() {
+        fakeZones.battlefieldCards = [
+            {"id": "battlefield-1", "ownerSeat": 0,
+             "position": {"x": 0.4, "y": 0.5}}
+        ]
+        fakeTable.pendingBattlefieldMove = ({
+            "cardId": "library-top",
+            "fromZone": "library",
+            "toSeat": 0,
+            "x": 0.4,
+            "y": 0.5,
+            "knownCardIds": ["battlefield-1"]
+        })
+
+        // A permanent already sitting at the exact drop coordinates must not
+        // steal the commit.
+        verify(!controller.pendingBattlefieldMoveCommitted())
+
+        // The server instance arrives with a new id and an auto-adjusted
+        // position; that commits the preview.
+        fakeZones.battlefieldCards = fakeZones.battlefieldCards.concat([
+            {"id": "instance-9", "ownerSeat": 0,
+             "position": {"x": 0.72, "y": 0.81}}
+        ])
+        verify(controller.pendingBattlefieldMoveCommitted())
     }
 }

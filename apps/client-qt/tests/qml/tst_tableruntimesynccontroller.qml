@@ -143,7 +143,15 @@ TestCase {
     QtObject {
         id: gameValueController
         property int reconcileCount: 0
+        property int untapFailureCount: 0
+        property var untapFailureCommandType: ""
+        property var untapFailurePayload: ({})
         function reconcile() { ++reconcileCount }
+        function reconcileUntapBatchFailure(commandType, payload) {
+            ++untapFailureCount
+            untapFailureCommandType = commandType
+            untapFailurePayload = payload
+        }
     }
 
     QtObject {
@@ -232,6 +240,9 @@ TestCase {
         projectionController.handCount = 0
         zoneController.reconcileCount = 0
         gameValueController.reconcileCount = 0
+        gameValueController.untapFailureCount = 0
+        gameValueController.untapFailureCommandType = ""
+        gameValueController.untapFailurePayload = ({})
         sceneController.refreshCount = 0
         sessionController.resultCount = 0
         sessionController.counterCount = 0
@@ -298,6 +309,8 @@ TestCase {
                                        "failed")
         compare(optimisticController.queuedCount, 1)
         compare(optimisticController.failedCount, 1)
+        compare(gameValueController.untapFailureCount, 1)
+        compare(gameValueController.untapFailureCommandType, "game.draw")
         compare(fakeWindow.banner, "failed")
     }
 

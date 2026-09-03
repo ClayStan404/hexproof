@@ -55,6 +55,10 @@ type ErrorPayload struct {
 	Message         string `json:"message"`
 	ClientVersion   string `json:"clientVersion,omitempty"`
 	RequiredVersion string `json:"requiredVersion,omitempty"`
+	// MinimumPlayers is a structured detail on tournament_not_ready errors:
+	// the checked-in count the tournament needs before it can start. Clients
+	// localize from it instead of parsing Message.
+	MinimumPlayers int `json:"minimumPlayers,omitempty"`
 }
 
 // RoomCreate is the payload of room.create (C->S).

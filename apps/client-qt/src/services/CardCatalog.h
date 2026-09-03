@@ -23,6 +23,7 @@ class QNetworkReply;
 namespace hexproof::client {
 
 class CardArtCache;
+class CardArtManager;
 class CardImageProvider;
 class CardResolver;
 class CatalogInstaller;
@@ -68,6 +69,11 @@ class CardCatalog : public QObject
     Q_PROPERTY(bool reuseLocalCardArt READ reuseLocalCardArt WRITE setReuseLocalCardArt NOTIFY
                    reuseLocalCardArtChanged)
     Q_PROPERTY(int imageRevision READ imageRevision NOTIFY imageRevisionChanged)
+    Q_PROPERTY(bool limitedArtCaching READ limitedArtCaching NOTIFY limitedArtCacheChanged)
+    Q_PROPERTY(QString limitedArtProductId READ limitedArtProductId NOTIFY limitedArtCacheChanged)
+    Q_PROPERTY(int limitedArtTotal READ limitedArtTotal NOTIFY limitedArtCacheChanged)
+    Q_PROPERTY(int limitedArtCompleted READ limitedArtCompleted NOTIFY limitedArtCacheChanged)
+    Q_PROPERTY(int limitedArtFailed READ limitedArtFailed NOTIFY limitedArtCacheChanged)
 
   public:
     using CardRecord = hexproof::client::CardRecord;
@@ -129,7 +135,8 @@ class CardCatalog : public QObject
     }
     bool busy() const
     {
-        return m_catalogBusy || m_resolving || m_searching || m_tokenSearching;
+        return m_catalogBusy || m_resolving || m_searching || m_tokenSearching ||
+               m_limitedArtCaching || m_artCacheBusy;
     }
     qreal progress() const
     {
@@ -194,6 +201,27 @@ class CardCatalog : public QObject
     {
         return m_imageRevision;
     }
+    bool limitedArtCaching() const
+    {
+        return m_limitedArtCaching;
+    }
+    QString limitedArtProductId() const
+    {
+        return m_limitedArtProductId;
+    }
+    int limitedArtTotal() const
+    {
+        return m_limitedArtTotal;
+    }
+    int limitedArtCompleted() const
+    {
+        return m_limitedArtCompleted;
+    }
+    int limitedArtFailed() const
+    {
+        return m_limitedArtFailed;
+    }
+    CardArtManager *artManager() const;
 
     void setLanguage(const QString &language);
     void setCardArtProvider(const QString &provider);
@@ -231,6 +259,7 @@ class CardCatalog : public QObject
     Q_INVOKABLE QVariantList limitedProducts() const;
     Q_INVOKABLE QVariantList limitedSets() const;
     Q_INVOKABLE QVariantMap limitedProduct(const QString &productId) const;
+    Q_INVOKABLE void cacheLimitedProductArt(const QString &productId);
     Q_INVOKABLE QVariantList simulateLimitedPacks(const QVariantMap &product, int packCount) const;
     Q_INVOKABLE QVariantList enrichLimitedCards(const QVariantList &cards) const;
 
@@ -270,6 +299,8 @@ class CardCatalog : public QObject
     void cardArtProviderChanged();
     void reuseLocalCardArtChanged();
     void imageRevisionChanged();
+    void limitedArtCacheChanged();
+    void artCacheContentsChanged();
     void cardAvailable(const QString &requestedName, const QString &localizedName,
                        const QString &typeLine, const QString &imagePath, const QString &setCode,
                        const QString &collectorNumber);
@@ -351,6 +382,11 @@ class CardCatalog : public QObject
                                        const QString &legalityFilter);
     static SearchResult searchTokenDatabase(const QString &databasePath, const QString &query);
     void enqueueCards(const QVariantList &cards, const QString &language);
+    void enqueueRequests(const QList<CardRequest> &requests);
+    void requestNextLimitedArtSetIndex();
+    void finishLimitedArtIndexing();
+    void handleLimitedArtCacheResult(const QString &requestedName, const QString &setCode,
+                                     const QString &collectorNumber, bool success);
     void processCachedHydrationBatch();
     void processIncrementalCacheBatch();
     void processCardMetadataBatch();
@@ -365,7 +401,7 @@ class CardCatalog : public QObject
     QString m_latestCatalogGeneratedAt;
     QString m_catalogVersionError;
     QString m_language = QStringLiteral("en");
-    QString m_cardArtProvider = QStringLiteral("scryfall");
+    QString m_cardArtProvider = QStringLiteral("auto");
     QString m_status;
     QString m_lastError;
     QString m_cardSearchError;
@@ -404,6 +440,7 @@ class CardCatalog : public QObject
     std::unique_ptr<QNetworkAccessManager> m_ownedNetwork;
     QNetworkAccessManager *m_network = nullptr;
     std::unique_ptr<CardArtCache> m_artCache;
+    std::unique_ptr<CardArtManager> m_artManager;
     std::unique_ptr<CatalogInstaller> m_catalogInstaller;
     std::unique_ptr<CardResolver> m_cardResolver;
     mutable std::unique_ptr<CatalogRepository> m_guiCatalog;
@@ -413,6 +450,10 @@ class CardCatalog : public QObject
     CardImageProvider *m_cardImageProvider = nullptr;
     QQueue<CardRequest> m_cardQueue;
     QQueue<CardRequest> m_fallbackQueue;
+    QList<CardRequest> m_limitedArtRequests;
+    QQueue<QString> m_limitedArtSetQueue;
+    QHash<QString, QJsonObject> m_limitedArtMtgchCards;
+    QSet<QString> m_limitedArtPendingKeys;
     QQueue<IncrementalCacheItem> m_cachedHydrationQueue;
     QSet<QString> m_cachedHydrationQueuedKeys;
     QQueue<IncrementalCacheItem> m_incrementalCacheQueue;
@@ -427,6 +468,13 @@ class CardCatalog : public QObject
     bool m_incrementalCacheScheduled = false;
     bool m_metadataEnrichmentRunning = false;
     bool m_checkingCatalogVersion = false;
+    bool m_limitedArtCaching = false;
+    bool m_artCacheBusy = false;
+    bool m_cardArtRepairAuditPending = false;
+    QString m_limitedArtProductId;
+    int m_limitedArtTotal = 0;
+    int m_limitedArtCompleted = 0;
+    int m_limitedArtFailed = 0;
 };
 
 } // namespace hexproof::client

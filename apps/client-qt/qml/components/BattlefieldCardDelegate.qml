@@ -424,6 +424,7 @@ Item {
                 root.tableController.presentation.hideCardPreview(
                     battlefieldDragCard)
             onPressed: {
+                root.forceActiveFocus(Qt.MouseFocusReason)
                 root.tableController.presentation.hideCardPreview()
                 if (root.tableController.cardMoveCommands.canDragBattlefieldCard(
                         battlefieldDragCard)) {

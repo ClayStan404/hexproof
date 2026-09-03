@@ -121,7 +121,14 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 	if err := openedEnvelope.DecodePayload(&opened); err != nil {
 		t.Fatalf("decode first match open: %v", err)
 	}
-	firstPlayer.recvType(protocol.TypeRoomCreated)
+	createdRoomEnvelope := firstPlayer.recvType(protocol.TypeRoomCreated)
+	var createdRoom protocol.RoomCreated
+	if err := createdRoomEnvelope.DecodePayload(&createdRoom); err != nil {
+		t.Fatalf("decode tournament room: %v", err)
+	}
+	if !createdRoom.Settings.AllowSpectators || createdRoom.Settings.SpectatorsSeeHands {
+		t.Fatalf("tournament spectator policy = %+v", createdRoom.Settings)
+	}
 	firstPlayer.recvType(protocol.TypeRoomSnapshot)
 	if opened.RoomID == "" {
 		t.Fatal("pairing room id is empty")
@@ -177,8 +184,9 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 		t.Fatalf("tournament room leaked into room list: %+v", roomList.Rooms)
 	}
 
-	// Knowing the pairing room id, including from a tournament snapshot, must
-	// not admit a viewer through the public room.join path.
+	// A room code cannot claim a tournament player seat. Paired players still
+	// enter through tournament.open_match so their credential selects the
+	// correct seat.
 	sendTournamentCommand(t, browser, protocol.TypeRoomJoin, "join-pairing-room",
 		protocol.RoomJoin{RoomID: opened.RoomID})
 	joinError := browser.recvType(protocol.TypeError)
@@ -189,6 +197,28 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 	if joinPayload.Code != protocol.ErrTournamentForbidden {
 		t.Fatalf("room.join pairing room code = %q, want %q",
 			joinPayload.Code, protocol.ErrTournamentForbidden)
+	}
+
+	// The same code is a valid spectator entrance, including for somebody who
+	// has not entered the tournament view.
+	sendTournamentCommand(t, browser, protocol.TypeRoomJoin, "watch-pairing-room",
+		protocol.RoomJoin{RoomID: opened.RoomID, AsSpectator: true})
+	joinedSpectatorEnvelope := browser.recvType(protocol.TypeRoomJoined)
+	var joinedSpectator protocol.RoomJoined
+	if err := joinedSpectatorEnvelope.DecodePayload(&joinedSpectator); err != nil {
+		t.Fatalf("decode spectator join: %v", err)
+	}
+	if joinedSpectator.Role != protocol.RoleSpectator || joinedSpectator.Seat != nil {
+		t.Fatalf("tournament spectator join = %+v", joinedSpectator)
+	}
+	spectatorSnapshotEnvelope := browser.recvType(protocol.TypeRoomSnapshot)
+	var spectatorSnapshot protocol.RoomSnapshot
+	if err := spectatorSnapshotEnvelope.DecodePayload(&spectatorSnapshot); err != nil {
+		t.Fatalf("decode spectator room snapshot: %v", err)
+	}
+	if !spectatorSnapshot.AllowSpectators || spectatorSnapshot.SpectatorsSeeHands ||
+		len(spectatorSnapshot.Spectators) != 1 {
+		t.Fatalf("tournament spectator snapshot = %+v", spectatorSnapshot)
 	}
 
 	sendTournamentCommand(t, secondPlayer, protocol.TypeTournamentOpenMatch, "open-match-b",
@@ -245,5 +275,41 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 	if strings.Contains(raw, "Alice") || strings.Contains(raw, "participantToken") ||
 		strings.Contains(raw, created.OrganizerToken) {
 		t.Fatalf("public tournament list leaked private data: %s", raw)
+	}
+}
+
+func TestTournamentStartErrorCarriesStructuredMinimumPlayers(t *testing.T) {
+	server, _ := newTestServer(t)
+	organizer := dial(t, server)
+	defer organizer.close()
+	organizer.hello("Judge")
+
+	sendTournamentCommand(t, organizer, protocol.TypeTournamentCreate, "create-tournament",
+		protocol.TournamentCreate{
+			Name: "Friday Swiss", Format: protocol.FormatModern,
+			MatchMode: protocol.MatchBO3, RoundMinutes: 50, MaxPlayers: 16,
+		})
+	createdEnvelope := organizer.recvType(protocol.TypeTournamentCreated)
+	var created protocol.TournamentCreated
+	if err := createdEnvelope.DecodePayload(&created); err != nil {
+		t.Fatalf("decode tournament.created: %v", err)
+	}
+	snapshot := drainTournamentSnapshots(t, organizer)[0]
+	if snapshot.MinimumPlayers != 4 {
+		t.Fatalf("constructed snapshot minimumPlayers = %d, want 4",
+			snapshot.MinimumPlayers)
+	}
+
+	sendTournamentCommand(t, organizer, protocol.TypeTournamentStart, "start-tournament",
+		protocol.EmptyPayload{})
+	errorEnvelope := organizer.recvType(protocol.TypeError)
+	var errorPayload protocol.ErrorPayload
+	if err := errorEnvelope.DecodePayload(&errorPayload); err != nil {
+		t.Fatalf("decode start error: %v", err)
+	}
+	if errorPayload.Code != protocol.ErrTournamentNotReady ||
+		errorPayload.MinimumPlayers != 4 {
+		t.Fatalf("start error = %+v, want %q with minimumPlayers 4",
+			errorPayload, protocol.ErrTournamentNotReady)
 	}
 }

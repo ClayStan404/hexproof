@@ -117,7 +117,16 @@ Page {
                         model: root.eventOptions
                         textRole: "label"
                         valueRole: "value"
-                        onActivated: playerCapField.text = "8"
+                        onActivated: {
+                            // Keep a valid in-range cap across mode switches;
+                            // clamp out-of-range values instead of discarding input.
+                            var parsed = parseInt(playerCapField.text)
+                            if (isNaN(parsed))
+                                parsed = 8
+                            parsed = Math.max(2, Math.min(
+                                parsed, root.isDraft ? 8 : 64))
+                            playerCapField.text = String(parsed)
+                        }
                     }
 
                     Text {
@@ -187,10 +196,9 @@ Page {
                                 id: playerCapField
                                 Layout.fillWidth: true
                                 text: "8"
-                                enabled: !root.isDraft
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 validator: IntValidator {
-                                    bottom: root.isDraft ? 8 : 4
+                                    bottom: 2
                                     top: root.isDraft ? 8 : 64
                                 }
                             }
@@ -202,8 +210,8 @@ Page {
                         Layout.topMargin: Theme.size(8)
                         tone: "success"
                         message: root.isDraft
-                                 ? qsTr("Eight checked-in players draft three packs, then play three Swiss rounds with standings.")
-                                 : qsTr("Players receive six boosters, build decks, then play the recommended number of Swiss rounds.")
+                                 ? qsTr("Two or more checked-in players draft three packs, then play Swiss rounds with standings. Capacity is two to eight seats.")
+                                 : qsTr("Players receive six boosters, build decks, then play the recommended number of Swiss rounds. Two checked-in players are required to start.")
                     }
 
                     RowLayout {

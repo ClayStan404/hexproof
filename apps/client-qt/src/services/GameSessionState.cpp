@@ -38,6 +38,14 @@ void GameSessionState::applySnapshot(const QVariantMap &snapshot)
     emit snapshotChanged();
 }
 
+void GameSessionState::clearSideboard()
+{
+    if (m_sideboard.isEmpty())
+        return;
+    m_sideboard.clear();
+    emit snapshotChanged();
+}
+
 void GameSessionState::clear()
 {
     m_gameNumber = 0;

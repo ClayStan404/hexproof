@@ -183,9 +183,9 @@ func (h *Handler) handleRoomJoin(sess *Session, env protocol.Envelope) error {
 		return nil
 	}
 	defer operation.opMu.Unlock()
-	if operation.tournamentID != "" {
+	if operation.tournamentID != "" && !rj.AsSpectator {
 		h.sendError(sess, env.ID, protocol.ErrTournamentForbidden,
-			"join this match from the tournament")
+			"paired players must join this match from the tournament")
 		return nil
 	}
 	res, r, err := h.hub.joinRoom(operation, sess, rj.AsSpectator)
@@ -647,10 +647,22 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 	return cleanup
 }
 
-// fanout sends each broadcast envelope to every member of the room. Membership
-// is snapshotted under the hub's room entry lock via the room state.
+// fanout sends public broadcasts to every room member. Tournament deck-art
+// manifests are player-only because their union of printing identities reveals
+// unpublished deck contents. Membership is snapshotted under the room lock.
 func (h *Handler) fanout(r *room.Room, envelopes []protocol.Envelope) {
-	h.fanoutTo(h.membersOf(r), envelopes)
+	members, players := h.roomAudiences(r)
+	if h.hub.TournamentForRoom(r) == "" {
+		h.fanoutTo(members, envelopes)
+		return
+	}
+	for _, envelope := range envelopes {
+		targets := members
+		if envelope.Type == protocol.TypeMatchLoadRequired {
+			targets = players
+		}
+		h.fanoutTo(targets, []protocol.Envelope{envelope})
+	}
 }
 
 func (h *Handler) fanoutGameProjections(r *room.Room) {
@@ -763,29 +775,40 @@ func (h *Handler) fanoutTo(members []*Session, envelopes []protocol.Envelope) {
 // queries the hub's session registry; at P1 sessions are tracked via the room
 // state's ConnectionIDs, so we map back through the hub.
 func (h *Handler) membersOf(r *room.Room) []*Session {
+	members, _ := h.roomAudiences(r)
+	return members
+}
+
+// roomAudiences returns all live members plus the player-only subset from one
+// room-state read. Tournament pairing rooms use the latter for deck-art load
+// manifests, which identify every registered printing and are not public
+// spectator data while an event is running.
+func (h *Handler) roomAudiences(r *room.Room) ([]*Session, []*Session) {
 	h.hub.mu.Lock()
 	entry := h.hub.rooms[r.ID]
 	h.hub.mu.Unlock()
 	if entry == nil {
-		return nil
+		return nil, nil
 	}
 	entry.mu.Lock()
 	defer entry.mu.Unlock()
 
-	var out []*Session
+	var members []*Session
+	var players []*Session
 	for i := range entry.room.Seats {
 		if entry.room.Seats[i].Occupied {
 			if s := h.sessionByConn(entry.room.Seats[i].ConnectionID); s != nil {
-				out = append(out, s)
+				members = append(members, s)
+				players = append(players, s)
 			}
 		}
 	}
 	for _, sp := range entry.room.Spectators {
 		if s := h.sessionByConn(sp.ConnectionID); s != nil {
-			out = append(out, s)
+			members = append(members, s)
 		}
 	}
-	return out
+	return members, players
 }
 
 func remoteIP(remoteAddress string) string {

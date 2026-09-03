@@ -58,6 +58,8 @@ void CardArtCache::load()
     m_oracleIndex.clear();
     m_canonicalNameIndex.clear();
     m_requestedNameIndex.clear();
+    m_faceAuditVersion = 0;
+    m_faceRepairNeeded = false;
     m_dirty = false;
 
     QFile file(m_metadataPath);
@@ -77,6 +79,8 @@ void CardArtCache::load()
         return;
     }
     const QJsonObject root = document.object();
+    m_faceAuditVersion = qMax(0, root.value(QStringLiteral("faceAuditVersion")).toInt());
+    m_faceRepairNeeded = root.value(QStringLiteral("faceRepairNeeded")).toBool();
     const QJsonObject positive = root.value(QStringLiteral("positive")).toObject();
     for (auto it = positive.begin(); it != positive.end(); ++it)
         m_positive.insert(it.key(), recordFromJson(it.value().toObject()));
@@ -106,6 +110,8 @@ bool CardArtCache::save()
     const QJsonObject root{
         {QStringLiteral("version"), kCardResolutionVersion},
         {QStringLiteral("negativeVersion"), kNegativeCacheVersion},
+        {QStringLiteral("faceAuditVersion"), m_faceAuditVersion},
+        {QStringLiteral("faceRepairNeeded"), m_faceRepairNeeded},
         {QStringLiteral("positive"), positive},
         {QStringLiteral("negative"), negative},
     };
@@ -115,13 +121,20 @@ bool CardArtCache::save()
     return true;
 }
 
+void CardArtCache::setFaceAuditState(int version, bool repairNeeded)
+{
+    const int normalizedVersion = qMax(0, version);
+    if (m_faceAuditVersion == normalizedVersion && m_faceRepairNeeded == repairNeeded)
+        return;
+    m_faceAuditVersion = normalizedVersion;
+    m_faceRepairNeeded = repairNeeded;
+    m_dirty = true;
+}
+
 QString CardArtCache::key(const QString &name, const QString &language, const QString &setCode,
                           const QString &collectorNumber) const
 {
-    QString result = language + QLatin1Char('|') + normalizedCardName(name);
-    if (!setCode.isEmpty() && !collectorNumber.isEmpty())
-        result += QLatin1Char('|') + setCode.toUpper() + QLatin1Char('|') + collectorNumber;
-    return result;
+    return cardArtCacheKey(language, name, setCode, collectorNumber);
 }
 
 CardRecord CardArtCache::exactRecord(const QString &cacheKey) const
@@ -140,7 +153,7 @@ bool CardArtCache::matchesRequestedFace(const CardRequest &request, const CardRe
     const QString backName = normalizedCardName(faces.last());
     const QString recordFace = normalizedCardName(record.faceName);
     if (requestedName == frontName)
-        return recordFace == frontName;
+        return recordFace.isEmpty() || recordFace == frontName;
     if (requestedName == backName)
         return recordFace == backName;
 
@@ -221,8 +234,14 @@ CardRecord CardArtCache::reusableArt(const CardRequest &request,
         }
 
         if (requestsFace) {
-            if (candidateFace != requestedName && candidateRequest != requestedName)
+            const QStringList candidateFaces = candidateName.split(QStringLiteral(" // "));
+            const bool inferredFront = candidateFace.isEmpty() && candidateFaces.size() == 2 &&
+                                       normalizedCardName(candidateFaces.first()) == requestedName;
+            const bool standaloneFace =
+                candidateFaces.size() == 1 && candidateName == requestedName;
+            if (candidateFace != requestedName && !inferredFront && !standaloneFace) {
                 continue;
+            }
         } else {
             if (!candidateFace.isEmpty())
                 continue;
@@ -301,6 +320,12 @@ void CardArtCache::addToIndexes(const QString &cacheKey, const CardRecord &recor
     const QString language = cacheLanguage(cacheKey);
     const QString requestedName = normalizedCardName(record.requestedName);
     const QString canonicalName = normalizedCardName(record.name);
+    QString inferredFaceName = normalizedCardName(record.faceName);
+    if (inferredFaceName.isEmpty()) {
+        const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+        if (faces.size() == 2)
+            inferredFaceName = normalizedCardName(faces.first());
+    }
     if (!record.setCode.isEmpty() && !record.collectorNumber.isEmpty()) {
         const QString printingPrefix =
             joinedIndexKey({language, record.setCode.toUpper(), record.collectorNumber});
@@ -308,6 +333,8 @@ void CardArtCache::addToIndexes(const QString &cacheKey, const CardRecord &recor
             m_printingIndex[printingPrefix + kIndexSeparator + requestedName].insert(cacheKey);
         if (!canonicalName.isEmpty())
             m_printingIndex[printingPrefix + kIndexSeparator + canonicalName].insert(cacheKey);
+        if (!inferredFaceName.isEmpty())
+            m_printingIndex[printingPrefix + kIndexSeparator + inferredFaceName].insert(cacheKey);
     }
     if (!record.imageLanguage.isEmpty()) {
         if (!record.oracleId.isEmpty()) {
@@ -330,6 +357,12 @@ void CardArtCache::removeFromIndexes(const QString &cacheKey, const CardRecord &
     const QString language = cacheLanguage(cacheKey);
     const QString requestedName = normalizedCardName(record.requestedName);
     const QString canonicalName = normalizedCardName(record.name);
+    QString inferredFaceName = normalizedCardName(record.faceName);
+    if (inferredFaceName.isEmpty()) {
+        const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+        if (faces.size() == 2)
+            inferredFaceName = normalizedCardName(faces.first());
+    }
     if (!record.setCode.isEmpty() && !record.collectorNumber.isEmpty()) {
         const QString printingPrefix =
             joinedIndexKey({language, record.setCode.toUpper(), record.collectorNumber});
@@ -339,6 +372,10 @@ void CardArtCache::removeFromIndexes(const QString &cacheKey, const CardRecord &
         }
         if (!canonicalName.isEmpty()) {
             removeIndexEntry(&m_printingIndex, printingPrefix + kIndexSeparator + canonicalName,
+                             cacheKey);
+        }
+        if (!inferredFaceName.isEmpty()) {
+            removeIndexEntry(&m_printingIndex, printingPrefix + kIndexSeparator + inferredFaceName,
                              cacheKey);
         }
     }
@@ -381,6 +418,65 @@ bool CardArtCache::failedRecently(const QString &cacheKey, const QDateTime &now,
         return false;
     const qint64 age = failure->secsTo(now);
     return age >= 0 && age < maximumAgeSeconds;
+}
+
+QList<CardArtCacheEntry> CardArtCache::entries() const
+{
+    QList<CardArtCacheEntry> result;
+    result.reserve(m_positive.size());
+    for (auto it = m_positive.cbegin(); it != m_positive.cend(); ++it)
+        result.append({it.key(), it.value()});
+    return result;
+}
+
+QSet<QString> CardArtCache::referencedImagePaths() const
+{
+    QSet<QString> paths;
+    for (const CardRecord &record : m_positive) {
+        if (!record.imagePath.isEmpty())
+            paths.insert(QFileInfo(record.imagePath).absoluteFilePath());
+    }
+    return paths;
+}
+
+QList<CardArtCacheEntry> CardArtCache::removeEntries(bool selectionOnly, const QString &setCode,
+                                                     const QString &imageLanguage)
+{
+    const QString normalizedSet = setCode.toUpper();
+    const QString normalizedLanguage = imageLanguage.toLower();
+    QList<CardArtCacheEntry> removed;
+    for (auto it = m_positive.begin(); it != m_positive.end();) {
+        const CardRecord &record = it.value();
+        const bool matches =
+            !selectionOnly ||
+            (record.setCode.compare(normalizedSet, Qt::CaseInsensitive) == 0 &&
+             record.imageLanguage.compare(normalizedLanguage, Qt::CaseInsensitive) == 0);
+        if (!matches) {
+            ++it;
+            continue;
+        }
+        const QString cacheKey = it.key();
+        const CardRecord removedRecord = it.value();
+        removeFromIndexes(cacheKey, removedRecord);
+        it = m_positive.erase(it);
+        removed.append({cacheKey, removedRecord});
+    }
+    if (!removed.isEmpty()) {
+        m_negative.clear();
+        m_dirty = true;
+    }
+    return removed;
+}
+
+void CardArtCache::replaceEntries(const QList<CardArtCacheEntry> &entries)
+{
+    m_positive.clear();
+    for (const CardArtCacheEntry &entry : entries) {
+        if (!entry.cacheKey.isEmpty())
+            m_positive.insert(entry.cacheKey, entry.record);
+    }
+    rebuildIndexes();
+    m_dirty = true;
 }
 
 } // namespace hexproof::client

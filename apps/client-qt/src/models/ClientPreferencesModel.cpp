@@ -156,9 +156,11 @@ void ClientPreferencesModel::setCardLanguage(const QString &language)
 
 void ClientPreferencesModel::setCardArtProvider(const QString &provider)
 {
-    const QString normalized = provider.toLower() == QStringLiteral("mtgch")
-                                   ? QStringLiteral("mtgch")
-                                   : QStringLiteral("scryfall");
+    const QString lowered = provider.toLower();
+    const QString normalized =
+        lowered == QStringLiteral("mtgch") || lowered == QStringLiteral("scryfall")
+            ? lowered
+            : QStringLiteral("auto");
     if (normalized == m_preferences.cardArtProvider)
         return;
     const QString previous = m_preferences.cardArtProvider;
@@ -339,6 +341,48 @@ void ClientPreferencesModel::setTableBattlefieldControlPosition(qreal x, qreal y
 void ClientPreferencesModel::clearLastError()
 {
     setLastError({});
+}
+
+bool ClientPreferencesModel::sponsorAnnouncementSeen(const QString &announcementId) const
+{
+    const QString normalized = announcementId.trimmed().left(128);
+    return !normalized.isEmpty() && normalized == m_preferences.sponsorAnnouncementId;
+}
+
+bool ClientPreferencesModel::acknowledgeSponsorAnnouncement(const QString &announcementId)
+{
+    const QString normalized = announcementId.trimmed().left(128);
+    if (normalized.isEmpty())
+        return false;
+    if (normalized == m_preferences.sponsorAnnouncementId)
+        return true;
+    const QString previous = m_preferences.sponsorAnnouncementId;
+    m_preferences.sponsorAnnouncementId = normalized;
+    if (!save()) {
+        m_preferences.sponsorAnnouncementId = previous;
+        return false;
+    }
+    return true;
+}
+
+bool ClientPreferencesModel::cardArtRepairNoticeSeen(int version) const
+{
+    return version > 0 && m_preferences.cardArtRepairNoticeVersion >= version;
+}
+
+bool ClientPreferencesModel::acknowledgeCardArtRepairNotice(int version)
+{
+    if (version <= 0)
+        return false;
+    if (m_preferences.cardArtRepairNoticeVersion >= version)
+        return true;
+    const int previous = m_preferences.cardArtRepairNoticeVersion;
+    m_preferences.cardArtRepairNoticeVersion = version;
+    if (!save()) {
+        m_preferences.cardArtRepairNoticeVersion = previous;
+        return false;
+    }
+    return true;
 }
 
 void ClientPreferencesModel::setShortcutCaptureActive(bool active)

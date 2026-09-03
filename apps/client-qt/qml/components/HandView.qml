@@ -14,6 +14,9 @@ Item {
     required property var tableController
     required property var cardMenu
     readonly property var cardItems: new Map()
+    readonly property real handScrollMinimum: handList.originX
+    readonly property real handScrollMaximum:
+        handScrollMinimum + Math.max(0, handList.contentWidth - handList.width)
 
     function registerCard(cardId, item) {
         cardItems.set(cardId, item)
@@ -49,9 +52,7 @@ Item {
     }
 
     function scrollByWheel(wheel) {
-        const maximumX = Math.max(
-            0, handList.contentWidth - handList.width)
-        if (maximumX <= 0) {
+        if (handScrollMaximum <= handScrollMinimum) {
             wheel.accepted = false
             return
         }
@@ -74,8 +75,15 @@ Item {
 
         const previousX = handList.contentX
         handList.contentX = Math.max(
-            0, Math.min(maximumX, previousX - delta))
+            handScrollMinimum, Math.min(handScrollMaximum, previousX - delta))
         wheel.accepted = handList.contentX !== previousX
+    }
+
+    function clampHandScrollPosition() {
+        const boundedX = Math.max(
+            handScrollMinimum, Math.min(handScrollMaximum, handList.contentX))
+        if (handList.contentX !== boundedX)
+            handList.contentX = boundedX
     }
 
     DropArea {
@@ -104,6 +112,7 @@ Item {
             const targetIndex = Math.max(
                         0, Math.min(handVisualModel.count - 1,
                                     Math.round((contentCenter
+                                                - handList.originX
                                                 - root.tableController.handCardWidth
                                                   / 2) / stride)))
             const sourceIndex = source.visualIndex
@@ -180,10 +189,10 @@ Item {
                 objectName: "handScrollSlider"
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.size(14)
-                from: 0
-                to: Math.max(0, handList.contentWidth - handList.width)
+                from: root.handScrollMinimum
+                to: root.handScrollMaximum
                 value: handList.contentX
-                enabled: to > 0
+                enabled: to > from
                 onMoved: handList.contentX = value
                 ToolTip.visible: hovered && enabled
                 ToolTip.text: qsTr("Scroll hand")
@@ -346,6 +355,7 @@ Item {
                     onExited: root.tableController.presentation.hideCardPreview(
                                   handCard)
                     onPressed: {
+                        handCard.forceActiveFocus(Qt.MouseFocusReason)
                         root.tableController.presentation.hideCardPreview()
                         handCard.dragStartVisualIndex = handCard.visualIndex
                         root.tableController.activeHandDragCardId =
@@ -407,8 +417,17 @@ Item {
             clip: true
             model: handVisualModel
             boundsBehavior: Flickable.StopAtBounds
-            onCountChanged: forceLayout()
-            Component.onCompleted: forceLayout()
+            onCountChanged: {
+                forceLayout()
+                Qt.callLater(root.clampHandScrollPosition)
+            }
+            onContentWidthChanged: Qt.callLater(root.clampHandScrollPosition)
+            onOriginXChanged: Qt.callLater(root.clampHandScrollPosition)
+            onWidthChanged: Qt.callLater(root.clampHandScrollPosition)
+            Component.onCompleted: {
+                forceLayout()
+                Qt.callLater(root.clampHandScrollPosition)
+            }
 
             moveDisplaced: Transition {
                 NumberAnimation {

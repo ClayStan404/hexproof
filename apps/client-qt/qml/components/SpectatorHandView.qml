@@ -10,6 +10,7 @@ import QtQuick.Layouts
 Item {
     id: root
 
+    objectName: "spectatorHandView"
     required property var tableController
     property int selectedSeat: -1
     readonly property var seats: tableController.authoritativeSeats
@@ -19,6 +20,9 @@ Item {
         selectedSeat >= 0
         ? tableController.zoneState.zoneDelegateModel(selectedSeat, "hand")
         : []
+    readonly property real handScrollMinimum: handList.originX
+    readonly property real handScrollMaximum:
+        handScrollMinimum + Math.max(0, handList.contentWidth - handList.width)
 
     function seatData(seatIndex) {
         for (let index = 0; index < seats.length; ++index) {
@@ -35,8 +39,7 @@ Item {
     }
 
     function scrollByWheel(wheel) {
-        const maximumX = Math.max(0, handList.contentWidth - handList.width)
-        if (maximumX <= 0) {
+        if (handScrollMaximum <= handScrollMinimum) {
             wheel.accepted = false
             return
         }
@@ -55,8 +58,16 @@ Item {
         }
         const previousX = handList.contentX
         handList.contentX = Math.max(
-                    0, Math.min(maximumX, previousX - delta))
+                    handScrollMinimum,
+                    Math.min(handScrollMaximum, previousX - delta))
         wheel.accepted = handList.contentX !== previousX
+    }
+
+    function clampHandScrollPosition() {
+        const boundedX = Math.max(
+                    handScrollMinimum, Math.min(handScrollMaximum, handList.contentX))
+        if (handList.contentX !== boundedX)
+            handList.contentX = boundedX
     }
 
     Component.onCompleted: ensureSelectedSeat()
@@ -128,6 +139,11 @@ Item {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 model: root.selectedHandModel
+                onCountChanged: Qt.callLater(root.clampHandScrollPosition)
+                onContentWidthChanged:
+                    Qt.callLater(root.clampHandScrollPosition)
+                onOriginXChanged: Qt.callLater(root.clampHandScrollPosition)
+                onWidthChanged: Qt.callLater(root.clampHandScrollPosition)
 
                 delegate: Item {
                     id: spectatorHandCard

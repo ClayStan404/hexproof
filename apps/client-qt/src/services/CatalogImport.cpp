@@ -26,19 +26,32 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
     QJsonObject selectedFace;
     QString selectedFaceName;
     bool selectedNestedFace = false;
+    const QStringList canonicalFaces =
+        record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
     const auto selectMatchingFace = [&](const QJsonObject &face) {
-        const QStringList candidates{
-            face.value(QStringLiteral("face_name")).toString().simplified(),
-            face.value(QStringLiteral("name")).toString().simplified(),
-        };
-        for (const QString &candidate : candidates) {
-            if (!candidate.isEmpty() &&
-                candidate.compare(normalizedRequest, Qt::CaseInsensitive) == 0) {
-                selectedFace = face;
-                selectedFaceName = candidate;
-                selectedNestedFace = true;
-                return true;
-            }
+        const QString explicitFaceName =
+            face.value(QStringLiteral("face_name")).toString().simplified();
+        if (!explicitFaceName.isEmpty() &&
+            explicitFaceName.compare(normalizedRequest, Qt::CaseInsensitive) == 0) {
+            selectedFace = face;
+            selectedFaceName = explicitFaceName;
+            selectedNestedFace = true;
+            return true;
+        }
+
+        const QString nestedName = face.value(QStringLiteral("name")).toString().simplified();
+        // MTGCH face objects repeat the whole card name in `name` and carry
+        // the actual face identity in `face_name`. A whole-card request must
+        // therefore stay on the top-level image instead of becoming an alias
+        // for whichever nested face happened to be inspected first.
+        const bool repeatsWholeCard = !explicitFaceName.isEmpty() &&
+                                      nestedName.compare(record.name, Qt::CaseInsensitive) == 0;
+        if (!nestedName.isEmpty() && !repeatsWholeCard &&
+            nestedName.compare(normalizedRequest, Qt::CaseInsensitive) == 0) {
+            selectedFace = face;
+            selectedFaceName = explicitFaceName.isEmpty() ? nestedName : explicitFaceName;
+            selectedNestedFace = true;
+            return true;
         }
         return false;
     };
@@ -56,7 +69,6 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
             break;
     }
     if (selectedFace.isEmpty()) {
-        const QStringList canonicalFaces = record.name.split(QStringLiteral(" // "));
         if (canonicalFaces.size() == 2 && canonicalFaces.first().simplified().compare(
                                               normalizedRequest, Qt::CaseInsensitive) == 0) {
             selectedFace = object;
@@ -71,9 +83,13 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
         QStringLiteral("double_faced_token"),
         QStringLiteral("reversible_card"),
     };
+    const bool requestsIndependentBack =
+        canonicalFaces.size() == 2 &&
+        canonicalFaces.last().simplified().compare(normalizedRequest, Qt::CaseInsensitive) == 0;
     const bool requiresFaceSpecificImage =
-        selectedNestedFace &&
-        independentFaceLayouts.contains(object.value(QStringLiteral("layout")).toString());
+        independentFaceLayouts.contains(object.value(QStringLiteral("layout")).toString()) &&
+        (selectedNestedFace || requestsIndependentBack);
+    const bool hasUsableFaceMetadata = !requiresFaceSpecificImage || !selectedFace.isEmpty();
     record.typeLine = language == QStringLiteral("zh")
                           ? metadata.value(QStringLiteral("zhs_type_line")).toString()
                           : QString{};
@@ -115,13 +131,14 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
                 break;
             }
         }
-        record.imageUrl = localizedImageUrl(metadata);
+        if (hasUsableFaceMetadata)
+            record.imageUrl = localizedImageUrl(metadata);
         if (record.imageUrl.isEmpty() && !selectedFace.isEmpty() && !requiresFaceSpecificImage)
             record.imageUrl = localizedImageUrl(object);
         const QString sourceLanguage = object.value(QStringLiteral("lang")).toString().toLower();
         if (record.imageUrl.isEmpty() &&
             (sourceLanguage == QStringLiteral("zhs") || sourceLanguage == QStringLiteral("zh")) &&
-            imageStatusAllowsArt(object)) {
+            imageStatusAllowsArt(object) && hasUsableFaceMetadata) {
             record.imageUrl = normalImageUrl(metadata);
             if (record.imageUrl.isEmpty() && !selectedFace.isEmpty() && !requiresFaceSpecificImage)
                 record.imageUrl = normalImageUrl(object);
@@ -129,7 +146,7 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
         if (!record.imageUrl.isEmpty())
             record.imageLanguage = QStringLiteral("zh");
     } else {
-        if (imageStatusAllowsArt(object)) {
+        if (imageStatusAllowsArt(object) && hasUsableFaceMetadata) {
             record.imageUrl = normalImageUrl(metadata);
             if (record.imageUrl.isEmpty() && !selectedFace.isEmpty() && !requiresFaceSpecificImage)
                 record.imageUrl = normalImageUrl(object);

@@ -117,6 +117,8 @@ Item {
     function handleCommandFailed(requestId, commandType, payload, error) {
         optimisticController.rollbackFailedCommand(
                     requestId, commandType, payload)
+        gameValueController.reconcileUntapBatchFailure(
+                    commandType, payload)
         if (tableRoot.appWindow
                 && typeof tableRoot.appWindow.showBanner === "function"
                 && error && String(error).length > 0) {

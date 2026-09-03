@@ -76,7 +76,7 @@ void DeckLibraryModel::hydrateCatalogMetadata(bool refreshExisting)
 
 void DeckLibraryModel::refreshMissingArt()
 {
-    emit cardsNeedCaching(DeckLibraryQueries::cacheRequestsForLibrary(m_decks));
+    emit cardsNeedCaching(DeckLibraryQueries::cacheRequestsForLibrary(m_decks, true));
 }
 
 void DeckLibraryModel::cacheCurrentDeckArt()
@@ -84,7 +84,7 @@ void DeckLibraryModel::cacheCurrentDeckArt()
     const Deck *deck = currentDeck();
     if (!deck)
         return;
-    emit cardsNeedCaching(DeckLibraryQueries::cacheRequestsForDeck(*deck));
+    emit cardsNeedCaching(DeckLibraryQueries::cacheRequestsForDeck(*deck, true));
 }
 
 void DeckLibraryModel::refreshTokenMetadata()
@@ -116,6 +116,16 @@ void DeckLibraryModel::refreshTokenMetadata()
 void DeckLibraryModel::refreshCardArt()
 {
     emit cardsNeedCaching(DeckLibraryQueries::cacheRequestsForLibrary(m_decks, true));
+}
+
+void DeckLibraryModel::refreshCachedCardArt()
+{
+    emit cardsNeedCachedArtLookup(DeckLibraryQueries::cacheRequestsForLibrary(m_decks, true));
+}
+
+QVariantList DeckLibraryModel::cardArtAuditRequests() const
+{
+    return DeckLibraryQueries::cacheRequestsForLibrary(m_decks, true);
 }
 
 void DeckLibraryModel::retryMissingArt()

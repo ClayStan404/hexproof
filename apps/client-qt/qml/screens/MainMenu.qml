@@ -14,6 +14,11 @@ Page {
 
     background: AppBackground { }
 
+    Component.onCompleted: Qt.callLater(function() {
+        sponsorAnnouncement.openIfNeeded()
+        cardArtRepairNoticeTimer.restart()
+    })
+
     RowLayout {
         id: topBar
         anchors.top: parent.top
@@ -57,6 +62,13 @@ Page {
             statusColor: ws.connected ? Theme.success : Theme.textMuted
         }
 
+        StatusPill {
+            objectName: "connectedServerStatus"
+            visible: ws.connected
+            text: root.connectedServerLabel()
+            statusColor: Theme.accent
+        }
+
         AppButton {
             visible: ws.connected
             variant: "ghost"
@@ -64,6 +76,15 @@ Page {
             text: qsTr("Disconnect")
             onClicked: ws.disconnectFromHub()
         }
+    }
+
+    function connectedServerLabel() {
+        const index = ws.serverIndex
+        if (index >= 0 && index <= 3)
+            return qsTr("Server %1").arg(index + 1)
+        if (index === 4)
+            return qsTr("Test server")
+        return qsTr("Custom server")
     }
 
     Flickable {
@@ -335,6 +356,15 @@ Page {
                     onClicked: root.appWindow.pushScreen("screens/LimitedRoomCreate.qml")
                 }
 
+                AppButton {
+                    Layout.fillWidth: true
+                    variant: "ghost"
+                    compact: true
+                    text: qsTr("Sponsors & thanks")
+                    leadingText: "♥"
+                    onClicked: root.appWindow.pushScreen("screens/Sponsors.qml")
+                }
+
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
@@ -393,5 +423,43 @@ Page {
         if (ws.inRoom)
             return qsTr("Leave the current room first")
         return ""
+    }
+
+    SponsorAnnouncementPopup {
+        id: sponsorAnnouncement
+        preferencesModel: preferences
+        onViewSponsorsRequested: root.appWindow.pushScreen(
+                                     "screens/Sponsors.qml")
+    }
+
+    CardArtRepairNoticePopup {
+        id: cardArtRepairNotice
+        preferencesModel: preferences
+        artManagerModel: cardArtManager
+        onReviewRequested: root.appWindow.pushScreen(
+                               "screens/CardArtManager.qml")
+    }
+
+    Timer {
+        id: cardArtRepairNoticeTimer
+        interval: 200
+        onTriggered: {
+            if (!sponsorAnnouncement.opened)
+                cardArtRepairNotice.openIfNeeded()
+        }
+    }
+
+    Connections {
+        target: cardArtManager
+        function onRepairNeededChanged() {
+            cardArtRepairNoticeTimer.restart()
+        }
+    }
+
+    Connections {
+        target: sponsorAnnouncement
+        function onClosed() {
+            cardArtRepairNoticeTimer.restart()
+        }
     }
 }

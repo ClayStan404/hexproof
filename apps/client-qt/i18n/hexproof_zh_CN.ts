@@ -305,7 +305,7 @@
     </message>
     <message>
         <location line="+84"/>
-        <location filename="../qml/components/I18n.qml" line="+648"/>
+        <location filename="../qml/components/I18n.qml" line="+656"/>
         <source>Command</source>
         <translation>指挥官区</translation>
     </message>
@@ -341,6 +341,354 @@
         <location filename="../qml/components/BattlefieldOpponentZoneDock.qml" line="-274"/>
         <source>Drag to move; right-click to reset position</source>
         <translation>拖动可移动；右键恢复默认位置</translation>
+    </message>
+</context>
+<context>
+    <name>CardArtManager</name>
+    <message>
+        <location filename="../qml/screens/CardArtManager.qml" line="+34"/>
+        <source>Card art storage</source>
+        <translation>卡图存储</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Inspect, clean up, import, and share downloaded card images</source>
+        <translation>查看、清理、导入和分享已下载的卡图</translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>Local card art</source>
+        <translation>本地卡图</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Disk usage</source>
+        <translation>占用空间</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Image files</source>
+        <translation>图片文件</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Indexed entries</source>
+        <translation>索引记录</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Unused files</source>
+        <translation>未使用文件</translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>Cache folder: %1</source>
+        <translation>缓存目录：%1</translation>
+    </message>
+    <message>
+        <location line="+114"/>
+        <source>Import and share</source>
+        <translation>导入与分享</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Hexproof card art packs contain a versioned manifest and SHA-256 verified images. Existing valid images are kept when importing.</source>
+        <translation>Hexproof 卡图包包含带版本的清单及经过 SHA-256 校验的图片；导入时会保留本地已有的有效图片。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Import pack…</source>
+        <translation>导入卡图包…</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Export all…</source>
+        <translation>全部导出…</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Card images come from third-party sources. Keep the source metadata in the pack and share only where you are permitted to do so.</source>
+        <translation>卡图来自第三方来源。请保留卡图包中的来源信息，并仅在获得允许的情况下分享。</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Cached sets and languages</source>
+        <translation>已缓存的系列与语言</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Each row can be exported or removed independently.</source>
+        <translation>每一组都可以单独导出或删除。</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>%1 group(s)</source>
+        <translation>%1 组</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Filter by set code, language, or source</source>
+        <translation>按系列代码、语言或来源筛选</translation>
+    </message>
+    <message>
+        <location line="+290"/>
+        <source>%1 image(s) · %2 entries · %3 · %4</source>
+        <translation>%1 张图片 · %2 条记录 · %3 · %4</translation>
+    </message>
+    <message>
+        <location line="-237"/>
+        <source>Export…</source>
+        <translation>导出…</translation>
+    </message>
+    <message>
+        <location line="-287"/>
+        <source>Missing files</source>
+        <translation>缺失文件</translation>
+    </message>
+    <message>
+        <location line="+83"/>
+        <source>Check and repair deck art</source>
+        <translation>检查并修复套牌卡图</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Repair recommended</source>
+        <translation>建议修复</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Check previously cached deck printings for missing double-faced card backs and outdated special-card mappings. The check is local and does not download anything.</source>
+        <translation>检查之前缓存过的套牌版本是否缺少双面牌背面，或含有过时的特殊牌映射。检查仅在本地进行，不会下载任何内容。</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>An older card art cache needs attention. Hexproof will reuse valid local images before offering to download missing faces.</source>
+        <translation>旧版卡图缓存需要处理。Hexproof 会优先复用有效的本地图片，再提示下载缺失牌面。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Review repair…</source>
+        <translation>查看修复…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Check and repair…</source>
+        <translation>检查并修复…</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Checked %1 cached printing(s) and %2 expected face(s).</source>
+        <translation>已检查 %1 个缓存版本及其 %2 个应有牌面。</translation>
+    </message>
+    <message>
+        <location line="+167"/>
+        <location line="+134"/>
+        <source>Delete</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <location line="-122"/>
+        <source>No cached group matches this filter</source>
+        <translation>没有符合筛选条件的缓存组</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No indexed card images are cached</source>
+        <translation>尚未缓存任何有索引的卡图</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Clean up</source>
+        <translation>清理</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Unused files are images in the cache folder that are no longer referenced by the card-art index.</source>
+        <translation>未使用文件是缓存目录中已不再被卡图索引引用的图片。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Remove %1 unused file(s) · %2</source>
+        <translation>清理 %1 个未使用文件 · %2</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Delete all card art</source>
+        <translation>删除全部卡图</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Import card art pack</source>
+        <translation>导入卡图包</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+13"/>
+        <source>Hexproof card art packs</source>
+        <translation>Hexproof 卡图包</translation>
+    </message>
+    <message>
+        <location line="-12"/>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Export card art pack</source>
+        <translation>导出卡图包</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Repair cached deck art?</source>
+        <translation>修复已缓存的套牌卡图？</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hexproof can repair %1 local cache mapping(s) and download %2 missing card face(s). Existing valid images will be reused. Continue?</source>
+        <translation>Hexproof 可以修复 %1 个本地缓存映射，并下载 %2 个缺失牌面。现有有效图片会被复用。是否继续？</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Repair</source>
+        <translation>修复</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Import this card art pack?</source>
+        <translation>导入这个卡图包？</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Version %1 · %2 image(s) · %3 new entries · %4 already cached · %5. Existing valid images will not be replaced.</source>
+        <translation>版本 %1 · %2 张图片 · %3 条新记录 · %4 条已缓存 · %5。不会替换本地已有的有效图片。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Delete all downloaded card art?</source>
+        <translation>删除全部已下载卡图？</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Delete this cached group?</source>
+        <translation>删除这个缓存组？</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Remove unused files?</source>
+        <translation>清理未使用文件？</translation>
+    </message>
+    <message>
+        <location line="+58"/>
+        <source>%1 B</source>
+        <translation>%1 B</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>KiB</source>
+        <translation>KiB</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>MiB</source>
+        <translation>MiB</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>GiB</source>
+        <translation>GiB</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>%1 %2</source>
+        <translation>%1 %2</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Chinese art</source>
+        <translation>中文卡图</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>English art</source>
+        <translation>英文卡图</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Unspecified art language</source>
+        <translation>未指定卡图语言</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Unassigned printing</source>
+        <translation>未指定印刷版本</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Scryfall</source>
+        <translation>Scryfall</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>MTGCH</source>
+        <translation>MTGCH</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Imported/other</source>
+        <translation>导入/其他</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source> · %1 missing</source>
+        <translation> · 缺失 %1 项</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>This removes all indexed and unused image files. Card metadata and deck lists are preserved; images can be downloaded again later.</source>
+        <translation>这会删除全部有索引和未使用的图片文件。卡牌元数据与套牌列表会保留，之后仍可重新下载卡图。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>This removes the selected set/language group. Shared files still referenced by another group are preserved.</source>
+        <translation>这会删除所选的系列/语言组。仍被其他组引用的共享文件会保留。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>This removes %1 unreferenced file(s) and frees up to %2. Indexed card images are preserved.</source>
+        <translation>这会删除 %1 个未被引用的文件，最多释放 %2；有索引的卡图会保留。</translation>
+    </message>
+</context>
+<context>
+    <name>CardArtRepairNoticePopup</name>
+    <message>
+        <location filename="../qml/components/CardArtRepairNoticePopup.qml" line="+47"/>
+        <source>Some deck card art needs repair</source>
+        <translation>部分套牌卡图需要修复</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Hexproof found an older cache that may be missing double-faced card backs or contain outdated special-card mappings. You can review the local check before downloading anything.</source>
+        <translation>Hexproof 发现旧版缓存可能缺少双面牌背面，或含有过时的特殊牌映射。下载任何内容前，你可以先查看本地检查结果。</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Later</source>
+        <translation>稍后处理</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Review repair</source>
+        <translation>查看修复</translation>
     </message>
 </context>
 <context>
@@ -733,7 +1081,7 @@
 <context>
     <name>Connect</name>
     <message>
-        <location filename="../qml/screens/Connect.qml" line="+34"/>
+        <location filename="../qml/screens/Connect.qml" line="+31"/>
         <source>Connect to server</source>
         <translation>连接服务器</translation>
     </message>
@@ -743,7 +1091,7 @@
         <translation>昵称仅在本次会话中使用，无需账号</translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+52"/>
         <source>Enter the tabletop</source>
         <translation>进入牌桌</translation>
     </message>
@@ -758,7 +1106,7 @@
         <translation>服务器</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+26"/>
         <source>Auto refresh</source>
         <translation>自动刷新</translation>
     </message>
@@ -788,7 +1136,7 @@
         <translation>其他玩家看到的名字</translation>
     </message>
     <message>
-        <location line="+226"/>
+        <location line="+228"/>
         <source>Checking matching version…</source>
         <translation>正在查找匹配版本…</translation>
     </message>
@@ -818,7 +1166,7 @@
         <translation>正在建立连接…</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
         <source>Connecting</source>
         <translation>连接中</translation>
     </message>
@@ -828,7 +1176,7 @@
         <translation>连接</translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+43"/>
         <source>One connection,
 many tables.</source>
         <translation>一次连接，
@@ -1192,8 +1540,8 @@ many tables.</source>
     </message>
     <message>
         <location line="+1"/>
-        <source>A Cube draft starts with at least four checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.</source>
-        <translation>Cube 轮抓至少有 4 名已签到玩家即可开始。每人轮抓 3 包、每包 15 张，并按左、右、左传包。满员 %1 人需要 %2 张牌；当前 Cube 有 %3 张。</translation>
+        <source>A Cube draft starts with at least two checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.</source>
+        <translation>Cube 轮抓至少有 2 名已签到玩家即可开始。每人轮抓 3 包、每包 15 张，并按左、右、左传包。满员 %1 人需要 %2 张牌；当前 Cube 有 %3 张。</translation>
     </message>
     <message>
         <location line="+16"/>
@@ -1288,8 +1636,8 @@ many tables.</source>
     </message>
     <message>
         <location line="+4"/>
-        <source>Choose a Cube player cap from 4 to 8</source>
-        <translation>请选择 4 至 8 人的 Cube 人数上限</translation>
+        <source>Choose a Cube player cap from 2 to 8</source>
+        <translation>请选择 2 至 8 人的 Cube 人数上限</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -1584,7 +1932,7 @@ many tables.</source>
         </translation>
     </message>
     <message>
-        <location line="+68"/>
+        <location line="+67"/>
         <source>Search this deck…</source>
         <translation>在套牌内搜索…</translation>
     </message>
@@ -1759,7 +2107,7 @@ many tables.</source>
         <translation>点击主牌卡牌旁的星标，最多指定两位指挥官。</translation>
     </message>
     <message>
-        <location line="-379"/>
+        <location line="-378"/>
         <source>Export</source>
         <translation>导出</translation>
     </message>
@@ -1769,7 +2117,7 @@ many tables.</source>
         <translation>缓存卡图</translation>
     </message>
     <message>
-        <location line="+671"/>
+        <location line="+670"/>
         <source>Change format to %1?</source>
         <translation>将赛制改为 %1？</translation>
     </message>
@@ -1857,7 +2205,7 @@ many tables.</source>
         <translation>导入套牌</translation>
     </message>
     <message>
-        <location line="+42"/>
+        <location line="+44"/>
         <source>Retry failed downloads</source>
         <translation>重试失败项</translation>
     </message>
@@ -2259,7 +2607,7 @@ many tables.</source>
 <context>
     <name>HandView</name>
     <message>
-        <location filename="../qml/components/HandView.qml" line="+165"/>
+        <location filename="../qml/components/HandView.qml" line="+174"/>
         <source>Your hand</source>
         <translation>你的手牌</translation>
     </message>
@@ -2287,7 +2635,7 @@ many tables.</source>
 <context>
     <name>I18n</name>
     <message>
-        <location filename="../qml/components/I18n.qml" line="-615"/>
+        <location filename="../qml/components/I18n.qml" line="-623"/>
         <location line="+26"/>
         <source>Duel Commander</source>
         <translation>法禁</translation>
@@ -2351,14 +2699,14 @@ many tables.</source>
     </message>
     <message numerus="yes">
         <location line="+2"/>
-        <location line="+538"/>
+        <location line="+546"/>
         <source>%n card(s)</source>
         <translation>
             <numerusform>%n 张牌</numerusform>
         </translation>
     </message>
     <message numerus="yes">
-        <location line="-536"/>
+        <location line="-544"/>
         <source>%n seat(s)</source>
         <translation>
             <numerusform>%n 个座位</numerusform>
@@ -2379,17 +2727,17 @@ many tables.</source>
         </translation>
     </message>
     <message>
-        <location line="+54"/>
-        <source>The Cube needs at least 180 physical cards for a four-player draft.</source>
-        <translation>4 人 Cube 轮抓至少需要 180 张实体牌。</translation>
+        <location line="+68"/>
+        <source>The Cube needs at least %1 physical cards for a two-player draft.</source>
+        <translation>2 人 Cube 轮抓至少需要 %1 张实体牌。</translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+36"/>
         <source>The selected card database uses schema version %1, but this Hexproof version requires schema version %2.</source>
         <translation>所选卡牌数据库使用结构版本 %1，但当前 Hexproof 需要结构版本 %2。</translation>
     </message>
     <message>
-        <location line="+179"/>
+        <location line="+183"/>
         <source>%1 is searching %2 library.</source>
         <translation>%1 正在搜寻%2牌库。</translation>
     </message>
@@ -2479,7 +2827,7 @@ many tables.</source>
         <translation>%1 请求牌桌等待。</translation>
     </message>
     <message>
-        <location line="-426"/>
+        <location line="-434"/>
         <source>Artifact</source>
         <translation>神器</translation>
     </message>
@@ -2574,7 +2922,7 @@ many tables.</source>
         <translation type="vanished">用于八人轮抓的 Cube 至少需要 360 张实体牌。</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+2"/>
         <source>Cube cards must stay in the main pool.</source>
         <translation>Cube 卡牌必须全部放在主牌池中。</translation>
     </message>
@@ -2604,7 +2952,7 @@ many tables.</source>
         <translation>旧版 Cube 已导入，但无法归档其源文件。</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+9"/>
         <source>%1 is missing from the local card database.</source>
         <translation>本地卡牌数据库中没有 %1。</translation>
     </message>
@@ -2648,7 +2996,7 @@ many tables.</source>
         </translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+37"/>
         <source>%1 main · %2 side</source>
         <translation>%1 张主牌 · %2 张备牌</translation>
     </message>
@@ -3313,7 +3661,7 @@ many tables.</source>
         <translation>协议不兼容</translation>
     </message>
     <message>
-        <location line="-527"/>
+        <location line="-531"/>
         <source>That action is not valid in the tournament&apos;s current state.</source>
         <translation>当前比赛状态不允许执行此操作。</translation>
     </message>
@@ -3343,9 +3691,14 @@ many tables.</source>
         <translation>比赛报名已经关闭。</translation>
     </message>
     <message>
+        <location line="+4"/>
+        <source>At least %1 checked-in players are required.</source>
+        <translation>至少需要 %1 名已签到选手。</translation>
+    </message>
+    <message>
         <location line="+2"/>
-        <source>At least four checked-in players are required.</source>
-        <translation>至少需要 4 名已签到选手。</translation>
+        <source>The tournament is not ready for that action.</source>
+        <translation>比赛当前还不能执行该操作。</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -3478,8 +3831,8 @@ many tables.</source>
     </message>
     <message>
         <location line="+104"/>
-        <source>Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a four-to-eight-player draft.</source>
-        <translation>Cube 会将所有导入卡牌作为同一个牌池。创建 4 至 8 人轮抓前，每张牌都必须有准确的系列和收藏编号。</translation>
+        <source>Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a two-to-eight-player draft.</source>
+        <translation>Cube 会将所有导入卡牌作为同一个牌池。创建 2 至 8 人轮抓前，每张牌都必须有准确的系列和收藏编号。</translation>
     </message>
     <message>
         <location line="+133"/>
@@ -4141,7 +4494,7 @@ many tables.</source>
     </message>
     <message>
         <location line="-14"/>
-        <location line="+177"/>
+        <location line="+185"/>
         <source>Create Limited tournament</source>
         <translation>创建限制赛比赛</translation>
     </message>
@@ -4150,7 +4503,7 @@ many tables.</source>
         <translation type="vanished">开启牌池、构筑 40 张套牌，然后进行瑞士轮比赛并查看排名</translation>
     </message>
     <message>
-        <location line="-176"/>
+        <location line="-184"/>
         <source>Open pools, build 40-card decks, then play Swiss rounds with standings</source>
         <translation>开启牌池、构筑 40 张套牌，然后进行瑞士轮比赛并查看排名</translation>
     </message>
@@ -4170,7 +4523,7 @@ many tables.</source>
         <translation>限制赛模式</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+27"/>
         <source>LIMITED SET</source>
         <translation>限制赛系列</translation>
     </message>
@@ -4205,14 +4558,14 @@ many tables.</source>
         <translation>人数上限</translation>
     </message>
     <message>
-        <location line="+24"/>
-        <source>Eight checked-in players draft three packs, then play three Swiss rounds with standings.</source>
-        <translation>8 名已签到玩家轮抓 3 包，然后进行 3 轮瑞士轮比赛并查看排名。</translation>
+        <location line="+23"/>
+        <source>Two or more checked-in players draft three packs, then play Swiss rounds with standings. Capacity is two to eight seats.</source>
+        <translation>至少 2 名已签到玩家即可轮抓 3 包，然后进行瑞士轮比赛并查看排名。人数上限为 2 至 8 人。</translation>
     </message>
     <message>
         <location line="+1"/>
-        <source>Players receive six boosters, build decks, then play the recommended number of Swiss rounds.</source>
-        <translation>参赛者获得 6 包补充包并完成组牌，然后按推荐轮数进行瑞士轮比赛。</translation>
+        <source>Players receive six boosters, build decks, then play the recommended number of Swiss rounds. Two checked-in players are required to start.</source>
+        <translation>参赛者获得 6 包补充包并完成组牌，然后按推荐轮数进行瑞士轮比赛。至少 2 名已签到玩家即可开始。</translation>
     </message>
     <message>
         <source>The room starts with exactly eight checked-in players and runs a three-pack left/right/left draft.</source>
@@ -4287,7 +4640,7 @@ many tables.</source>
 <context>
     <name>MainMenu</name>
     <message>
-        <location filename="../qml/screens/MainMenu.qml" line="+44"/>
+        <location filename="../qml/screens/MainMenu.qml" line="+49"/>
         <source>Update %1 available</source>
         <translation>发现更新 %1</translation>
     </message>
@@ -4302,12 +4655,27 @@ many tables.</source>
         <translation>离线</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+23"/>
+        <source>Server %1</source>
+        <translation>服务器 %1</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Test server</source>
+        <translation>测试服务器</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Custom server</source>
+        <translation>自定义服务器</translation>
+    </message>
+    <message>
+        <location line="-11"/>
         <source>Disconnect</source>
         <translation>断开连接</translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+62"/>
         <source>MANUAL TABLETOP · NATIVE DESKTOP</source>
         <translation>手动规则牌桌 · 原生桌面端</translation>
     </message>
@@ -4432,6 +4800,11 @@ your way.</source>
         <location line="+7"/>
         <source>Limited play</source>
         <translation>限制赛玩法</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Sponsors &amp; thanks</source>
+        <translation>赞助与鸣谢</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -5961,17 +6334,16 @@ your way.</source>
         <translation>卡图首选下载源</translation>
     </message>
     <message>
-        <location line="+7"/>
         <source>Scryfall (default)</source>
-        <translation>Scryfall（默认）</translation>
+        <translation type="vanished">Scryfall（默认）</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+7"/>
         <source>MTGCH</source>
         <translation>MTGCH</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>The preferred source is tried first for uncached art. Missing or unavailable images automatically fall back to the other source.</source>
         <translation>尚未缓存的卡图会优先从所选来源下载；缺图或连接失败时会自动尝试另一个来源。</translation>
     </message>
@@ -5994,7 +6366,7 @@ your way.</source>
         <translation type="vanished">英文卡牌元数据与图片优先使用 Scryfall，网络不可用时回退到 MTGCH。</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+78"/>
         <source>Interface scale</source>
         <translation>界面缩放</translation>
     </message>
@@ -6118,12 +6490,27 @@ your way.</source>
         <translation>安装后可在套牌编辑器中完整离线搜索；卡图仍只会在实际使用时下载。</translation>
     </message>
     <message>
-        <location line="-414"/>
+        <location line="-460"/>
         <source>Language, updates, and local card data</source>
         <translation>语言、更新与本地卡牌数据</translation>
     </message>
     <message>
-        <location line="+131"/>
+        <location line="+95"/>
+        <source>Automatic (default)</source>
+        <translation>自动（默认）</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Scryfall</source>
+        <translation>Scryfall</translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.</source>
+        <translation>始终优先使用本地卡图。自动模式下，中文卡牌优先 MTGCH，英文卡牌优先 Scryfall，并在需要时自动回退。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Local art remains first. MTGCH is preferred for new downloads; Scryfall remains the automatic fallback.</source>
         <translation>本地卡图始终优先；新下载优先使用 MTGCH，并自动回退到 Scryfall。</translation>
     </message>
@@ -6133,7 +6520,27 @@ your way.</source>
         <translation>本地卡图始终优先；新下载优先使用 Scryfall，并自动回退到 MTGCH。</translation>
     </message>
     <message>
-        <location line="+218"/>
+        <location line="+21"/>
+        <source>Card art storage</source>
+        <translation>卡图存储</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>View disk usage, remove cached images, or import and export shareable card art packs.</source>
+        <translation>查看磁盘占用、删除缓存图片，或导入和导出可分享的卡图包。</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Repair recommended</source>
+        <translation>建议修复</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Manage…</source>
+        <translation>管理…</translation>
+    </message>
+    <message>
+        <location line="+220"/>
         <source>Installed version</source>
         <translation>已安装版本</translation>
     </message>
@@ -7114,6 +7521,147 @@ your way.</source>
     </message>
 </context>
 <context>
+    <name>SponsorAnnouncementPopup</name>
+    <message>
+        <location filename="../qml/components/SponsorAnnouncementPopup.qml" line="+42"/>
+        <source>Thank you to our sponsors</source>
+        <translation>感谢赞助人的支持</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Your support helps keep Hexproof servers running and development moving forward.</source>
+        <translation>你们的支持帮助 Hexproof 维持服务器运行，并推动项目持续开发。</translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>View full sponsor list</source>
+        <translation>查看完整赞助名单</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+</context>
+<context>
+    <name>SponsorList</name>
+    <message>
+        <location filename="../qml/components/SponsorList.qml" line="+78"/>
+        <source>Hexproof sponsor</source>
+        <translation>Hexproof 赞助人</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Visit profile</source>
+        <translation>访问主页</translation>
+    </message>
+</context>
+<context>
+    <name>SponsorSupportCard</name>
+    <message>
+        <source>Support Hexproof</source>
+        <translation type="vanished">支持 Hexproof</translation>
+    </message>
+    <message>
+        <source>Scan a code to sponsor with WeChat or Alipay, or become a recurring sponsor on Afdian.</source>
+        <translation type="vanished">扫码通过微信或支付宝赞助，或到爱发电成为持续赞助者。</translation>
+    </message>
+    <message>
+        <source>Become a recurring sponsor on Afdian, or scan a one-time payment code below.</source>
+        <translation type="vanished">到爱发电成为持续赞助者，或展开下方收款码进行一次性赞助。</translation>
+    </message>
+    <message>
+        <source>Hide payment codes</source>
+        <translation type="vanished">收起收款码</translation>
+    </message>
+    <message>
+        <source>Show payment codes</source>
+        <translation type="vanished">显示收款码</translation>
+    </message>
+    <message>
+        <source>WeChat</source>
+        <translation type="vanished">微信</translation>
+    </message>
+    <message>
+        <source>Alipay</source>
+        <translation type="vanished">支付宝</translation>
+    </message>
+    <message>
+        <source>Prefer recurring support?</source>
+        <translation type="vanished">想要持续支持？</translation>
+    </message>
+    <message>
+        <source>Sponsor on Afdian</source>
+        <translation type="vanished">到爱发电赞助</translation>
+    </message>
+</context>
+<context>
+    <name>SponsorSupportPopup</name>
+    <message>
+        <location filename="../qml/components/SponsorSupportPopup.qml" line="+37"/>
+        <source>Support Hexproof</source>
+        <translation>支持 Hexproof</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Scan a code to sponsor with WeChat or Alipay, or become a recurring sponsor on Afdian.</source>
+        <translation>扫码通过微信或支付宝赞助，或到爱发电成为持续赞助者。</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>WeChat</source>
+        <translation>微信</translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Alipay</source>
+        <translation>支付宝</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Sponsor on Afdian</source>
+        <translation>到爱发电赞助</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+</context>
+<context>
+    <name>Sponsors</name>
+    <message>
+        <location filename="../qml/screens/Sponsors.qml" line="+30"/>
+        <source>Sponsors &amp; thanks</source>
+        <translation>赞助与鸣谢</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The people helping Hexproof stay online and keep improving</source>
+        <translation>感谢帮助 Hexproof 保持在线并持续改进的人们</translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Thank you for supporting Hexproof</source>
+        <translation>感谢你对 Hexproof 的支持</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Sponsor support helps cover public server costs and gives the project room to keep growing.</source>
+        <translation>赞助支持帮助承担公共服务器费用，也让项目有更多空间持续成长。</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Sponsor Hexproof</source>
+        <translation>赞助支持 Hexproof</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>With sincere thanks from the Hexproof project.</source>
+        <translation>Hexproof 项目向各位致以诚挚谢意。</translation>
+    </message>
+</context>
+<context>
     <name>Table</name>
     <message>
         <location filename="../qml/components/TableActionRail.qml" line="+56"/>
@@ -7202,7 +7750,7 @@ your way.</source>
         <translation>税</translation>
     </message>
     <message>
-        <location filename="../qml/components/TableGameValueController.qml" line="+217"/>
+        <location filename="../qml/components/TableGameValueController.qml" line="+241"/>
         <location filename="../qml/components/TableOwnCommandZonePile.qml" line="-61"/>
         <source>Commander</source>
         <translation>指挥官</translation>
@@ -7596,7 +8144,7 @@ your way.</source>
         <translation>继续</translation>
     </message>
     <message>
-        <location filename="../qml/components/SpectatorHandView.qml" line="+83"/>
+        <location filename="../qml/components/SpectatorHandView.qml" line="+94"/>
         <source>Spectator hand view</source>
         <translation>观战手牌</translation>
     </message>
@@ -8093,7 +8641,7 @@ your way.</source>
 <context>
     <name>TableCardMoveController</name>
     <message>
-        <location filename="../qml/components/TableCardMoveController.qml" line="+334"/>
+        <location filename="../qml/components/TableCardMoveController.qml" line="+386"/>
         <source>That card cannot move to this zone.</source>
         <translation>该牌无法移入此区域。</translation>
     </message>
@@ -8772,7 +9320,7 @@ your way.</source>
 <context>
     <name>TableRuntimeSyncController</name>
     <message>
-        <location filename="../qml/components/TableRuntimeSyncController.qml" line="+151"/>
+        <location filename="../qml/components/TableRuntimeSyncController.qml" line="+153"/>
         <source>A change could not be synchronized and was restored.</source>
         <translation>一项更改未能同步，已还原。</translation>
     </message>
@@ -8996,7 +9544,12 @@ your way.</source>
         <translation>开放</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
+        <source>Event history (%1)</source>
+        <translation>历史赛事（%1）</translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
@@ -9010,7 +9563,7 @@ your way.</source>
         <translation type="vanished">此服务器暂无公开比赛。</translation>
     </message>
     <message>
-        <location line="-35"/>
+        <location line="-44"/>
         <source>Events</source>
         <translation>赛事</translation>
     </message>
@@ -9029,17 +9582,17 @@ your way.</source>
         <translation>赛事代码</translation>
     </message>
     <message>
-        <location line="+42"/>
-        <source>No public events are available on this hub.</source>
-        <translation>此服务器暂无公开赛事。</translation>
+        <location line="+51"/>
+        <source>No active events are available on this hub.</source>
+        <translation>此服务器暂无进行中的赛事。</translation>
     </message>
     <message>
         <location line="+8"/>
-        <source>Create an event, or refresh after an organizer publishes one.</source>
-        <translation>现在创建赛事，或在主办方发布后刷新。</translation>
+        <source>Create an event, refresh, or open Event history.</source>
+        <translation>可以创建赛事、刷新列表或打开历史赛事。</translation>
     </message>
     <message>
-        <location line="+79"/>
+        <location line="+83"/>
         <source>%1 registered · %2 checked in · no standings</source>
         <translation>已报名 %1 人 · 已签到 %2 人 · 无排名</translation>
     </message>
@@ -9064,7 +9617,27 @@ your way.</source>
         <translation>查看</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+43"/>
+        <source>Event history</source>
+        <translation>历史赛事</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Completed and cancelled events retained by this server.</source>
+        <translation>此服务器保留的已完成和已取消赛事。</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>No completed or cancelled events are available.</source>
+        <translation>暂无已完成或已取消的赛事。</translation>
+    </message>
+    <message>
+        <location line="+41"/>
         <source>BO 3</source>
         <translation>BO 3</translation>
     </message>
@@ -9139,12 +9712,12 @@ your way.</source>
     <name>TournamentCreate</name>
     <message>
         <location filename="../qml/screens/TournamentCreate.qml" line="+57"/>
-        <location line="+255"/>
+        <location line="+263"/>
         <source>Create tournament</source>
         <translation>创建比赛</translation>
     </message>
     <message>
-        <location line="-254"/>
+        <location line="-262"/>
         <source>Individual Swiss · manual tabletop rules enforcement</source>
         <translation>个人瑞士轮 · 牌桌规则由玩家手动执行</translation>
     </message>
@@ -9159,7 +9732,7 @@ your way.</source>
         <translation>周六瑞士轮</translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+39"/>
         <source>FORMAT LABEL</source>
         <translation>赛制名称</translation>
     </message>
@@ -9172,7 +9745,7 @@ your way.</source>
         <translation type="vanished">标准、先驱、摩登、薪传……</translation>
     </message>
     <message>
-        <location line="-100"/>
+        <location line="-109"/>
         <source>Constructed</source>
         <translation>构筑赛</translation>
     </message>
@@ -9199,7 +9772,7 @@ your way.</source>
         <translation>赛事类型</translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+54"/>
         <source>Limited pools and drafting are server-authoritative. Tabletop game rules remain manual.</source>
         <translation>限制赛牌池和轮抓由服务器管理；牌桌游戏规则仍由玩家手动执行。</translation>
     </message>
@@ -9221,12 +9794,12 @@ your way.</source>
         <translation type="vanished">按产品规则精确生成</translation>
     </message>
     <message>
-        <location line="-121"/>
+        <location line="-130"/>
         <source>Set draft</source>
         <translation>系列轮抓</translation>
     </message>
     <message>
-        <location line="+135"/>
+        <location line="+144"/>
         <source>LIMITED SET</source>
         <translation>限制赛系列</translation>
     </message>
@@ -9276,19 +9849,19 @@ your way.</source>
         <translation>人数上限</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+22"/>
         <source>SWISS ROUNDS</source>
         <translation>瑞士轮轮数</translation>
     </message>
     <message>
         <location line="+20"/>
-        <source>Set draft requires exactly eight checked-in players, three packs each, and passes left, right, then left.</source>
-        <translation>系列轮抓要求恰好 8 名已签到玩家，每人 3 包，依次向左、向右、向左传递。</translation>
+        <source>Set draft starts with at least two checked-in players, three packs each, and passes left, right, then left. Capacity is two to eight seats.</source>
+        <translation>系列轮抓至少有 2 名已签到玩家即可开始，每人 3 包，依次向左、向右、向左传递。人数上限为 2 至 8 人。</translation>
     </message>
     <message>
         <location line="+2"/>
-        <source>Set sealed gives every player exactly six boosters before deck building.</source>
-        <translation>系列现开会在组牌前为每位玩家发放恰好 6 包补充包。</translation>
+        <source>Set sealed gives every player exactly six boosters before deck building. Two checked-in players are required to start.</source>
+        <translation>系列现开会在组牌前为每位玩家发放恰好 6 包补充包。至少 2 名已签到玩家即可开始。</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -9339,12 +9912,12 @@ your way.</source>
 <context>
     <name>TournamentLobby</name>
     <message>
-        <location filename="../qml/screens/TournamentLobby.qml" line="+116"/>
+        <location filename="../qml/screens/TournamentLobby.qml" line="+126"/>
         <source>Decklists</source>
         <translation>牌表</translation>
     </message>
     <message>
-        <location line="+410"/>
+        <location line="+422"/>
         <source>%1 main · %2 side</source>
         <translation>主牌 %1 张 · 备牌 %2 张</translation>
     </message>
@@ -9359,7 +9932,7 @@ your way.</source>
         <translation>查看牌表</translation>
     </message>
     <message>
-        <location line="-499"/>
+        <location line="-522"/>
         <source>Leave view</source>
         <translation>离开比赛页面</translation>
     </message>
@@ -9374,7 +9947,7 @@ your way.</source>
         <translation>%1 分钟</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+40"/>
         <location line="+3"/>
         <source>Current pairings</source>
         <translation>本轮对阵</translation>
@@ -9393,7 +9966,7 @@ your way.</source>
         <translation>玩家</translation>
     </message>
     <message>
-        <location line="-59"/>
+        <location line="-70"/>
         <source>Limited room</source>
         <translation>限制赛房间</translation>
     </message>
@@ -9408,7 +9981,32 @@ your way.</source>
         <translation>瑞士轮比赛</translation>
     </message>
     <message>
-        <location line="+32"/>
+        <location filename="../qml/components/LimitedProductArtPanel.qml" line="+38"/>
+        <source>Offline product art · %1</source>
+        <translation>离线产品卡图 · %1</translation>
+    </message>
+    <message>
+        <location line="+50"/>
+        <source>Update the card database to install this product.</source>
+        <translation>请更新卡牌数据库以安装此产品。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Another product download is running.</source>
+        <translation>另一个产品卡图下载正在进行中。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Downloading %1 / %2</source>
+        <translation>正在下载 %1 / %2</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Download product art</source>
+        <translation>下载产品卡图</translation>
+    </message>
+    <message>
+        <location filename="../qml/screens/TournamentLobby.qml" line="+43"/>
         <source>Tables</source>
         <translation>牌桌</translation>
     </message>
@@ -9438,7 +10036,12 @@ your way.</source>
         <translation>打开对局</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+11"/>
+        <source>Watch match</source>
+        <translation>观战对局</translation>
+    </message>
+    <message>
+        <location line="+15"/>
         <source>Report</source>
         <translation>提报赛果</translation>
     </message>
@@ -9489,12 +10092,12 @@ your way.</source>
     </message>
     <message>
         <location line="+34"/>
-        <location line="+286"/>
+        <location line="+279"/>
         <source>Dropped</source>
         <translation>已退赛</translation>
     </message>
     <message>
-        <location line="-84"/>
+        <location line="-77"/>
         <source>Close limited room?</source>
         <translation>关闭限制赛房间？</translation>
     </message>
@@ -9504,7 +10107,7 @@ your way.</source>
         <translation>房间将被关闭，之后不能再创建新的私人牌桌。</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+32"/>
         <source>Set draft</source>
         <translation>系列轮抓</translation>
     </message>
@@ -9514,12 +10117,47 @@ your way.</source>
         <translation>Cube</translation>
     </message>
     <message>
+        <location filename="../qml/components/LimitedProductArtPanel.qml" line="+8"/>
+        <source>This product is missing locally; update the card database first.</source>
+        <translation>本地缺少此产品；请先更新卡牌数据库。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Finished · %1 unavailable image(s)</source>
+        <translation>已完成 · %1 张卡图不可用</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>All %1 card image(s) are cached</source>
+        <translation>已缓存全部 %1 张卡图</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Automatic source · MTGCH first, Scryfall fallback</source>
+        <translation>自动来源 · 优先 MTGCH，回退 Scryfall</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Automatic source · Scryfall first, MTGCH fallback</source>
+        <translation>自动来源 · 优先 Scryfall，回退 MTGCH</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>MTGCH first · Scryfall fallback</source>
+        <translation>优先 MTGCH · 回退 Scryfall</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Scryfall first · MTGCH fallback</source>
+        <translation>优先 Scryfall · 回退 MTGCH</translation>
+    </message>
+    <message>
         <source>Custom Cube</source>
         <translation type="vanished">自定义 Cube</translation>
     </message>
     <message>
-        <location filename="../qml/components/TournamentEventDesk.qml" line="+123"/>
-        <location filename="../qml/screens/TournamentLobby.qml" line="-171"/>
+        <location filename="../qml/components/TournamentEventDesk.qml" line="+141"/>
+        <location filename="../qml/screens/TournamentLobby.qml" line="-164"/>
         <source>Undo check-in</source>
         <translation>取消签到</translation>
     </message>
@@ -9551,7 +10189,7 @@ your way.</source>
     </message>
     <message>
         <location line="+19"/>
-        <location filename="../qml/screens/TournamentLobby.qml" line="+151"/>
+        <location filename="../qml/screens/TournamentLobby.qml" line="+144"/>
         <source>Registration</source>
         <translation>报名中</translation>
     </message>
@@ -9662,7 +10300,7 @@ your way.</source>
     </message>
     <message>
         <location line="+14"/>
-        <location filename="../qml/screens/TournamentLobby.qml" line="-44"/>
+        <location filename="../qml/screens/TournamentLobby.qml" line="-37"/>
         <source>Cancel tournament</source>
         <translation>取消比赛</translation>
     </message>
@@ -9728,7 +10366,7 @@ your way.</source>
         <translation>比赛将立即停止，之后不能再创建新的轮次。</translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+24"/>
         <source>BO 3</source>
         <translation>BO 3</translation>
     </message>
@@ -9822,7 +10460,7 @@ your way.</source>
         <translation>已报名</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location filename="../qml/components/TournamentEventDesk.qml" line="-244"/>
         <source>Time expired</source>
         <translation>时间已到</translation>
     </message>
@@ -9872,7 +10510,7 @@ your way.</source>
     </message>
     <message>
         <location line="+5"/>
-        <location filename="../qml/components/LimitedDraftView.qml" line="+28"/>
+        <location filename="../qml/components/LimitedDraftView.qml" line="+44"/>
         <source>All rarities</source>
         <translation>全部稀有度</translation>
     </message>
@@ -9960,7 +10598,7 @@ your way.</source>
     </message>
     <message>
         <location line="+11"/>
-        <location filename="../qml/components/LimitedDraftView.qml" line="+196"/>
+        <location filename="../qml/components/LimitedDraftView.qml" line="+231"/>
         <source>Rarity: %1</source>
         <translation>稀有度：%1</translation>
     </message>
@@ -10170,7 +10808,7 @@ your way.</source>
         <location filename="../qml/components/LimitedDeckBuilder.qml" line="-8"/>
         <location line="+13"/>
         <location line="+5"/>
-        <location filename="../qml/components/LimitedDraftView.qml" line="-196"/>
+        <location filename="../qml/components/LimitedDraftView.qml" line="-231"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
@@ -10210,12 +10848,17 @@ your way.</source>
         <translation>限制赛套牌</translation>
     </message>
     <message>
-        <location filename="../qml/components/LimitedDraftView.qml" line="+27"/>
+        <location filename="../qml/components/LimitedDraftView.qml" line="+33"/>
         <source>Draft pack %1 · %2</source>
         <translation>轮抓第 %1 包 · %2</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="-2"/>
+        <source>Draft pack %1</source>
+        <translation>轮抓第 %1 包</translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>pass left</source>
         <translation>向左传</translation>
     </message>
@@ -10225,12 +10868,12 @@ your way.</source>
         <translation>向右传</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+10"/>
         <source>Choose one card. The rest of this pack goes to %1.</source>
         <translation>选择一张牌，这包剩余的牌将传给 %1。</translation>
     </message>
     <message>
-        <location line="+144"/>
+        <location line="+171"/>
         <source>Your picks</source>
         <translation>你已抓的牌</translation>
     </message>
@@ -10249,12 +10892,12 @@ your way.</source>
         <translation type="vanished">选择一张牌，然后确认这次不可撤销的选牌。</translation>
     </message>
     <message>
-        <location line="-174"/>
+        <location line="-200"/>
         <source>Confirm pick</source>
         <translation>确认选牌</translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+45"/>
         <source>Current pack · %1 cards</source>
         <translation>当前牌包 · %1 张</translation>
     </message>
@@ -10269,8 +10912,8 @@ your way.</source>
         <translation>正在等待下一包……</translation>
     </message>
     <message>
-        <location line="-65"/>
-        <location line="+66"/>
+        <location line="-80"/>
+        <location line="+81"/>
         <source>Draft progress is private to participants.</source>
         <translation>轮抓进度仅对参赛者可见。</translation>
     </message>
@@ -10279,12 +10922,12 @@ your way.</source>
         <translation type="vanished">你的牌池：%1 张牌</translation>
     </message>
     <message>
-        <location filename="../qml/components/LimitedDraftSeatMap.qml" line="+35"/>
+        <location filename="../qml/components/LimitedDraftSeatMap.qml" line="+38"/>
         <source>Draft seats</source>
         <translation>轮抓座位</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+11"/>
         <source>Pass left · clockwise</source>
         <translation>向左传 · 顺时针</translation>
     </message>
@@ -10294,7 +10937,12 @@ your way.</source>
         <translation>向右传 · 逆时针</translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="-3"/>
+        <source>Two-player draft</source>
+        <translation>双人对局轮抓</translation>
+    </message>
+    <message>
+        <location line="+31"/>
         <source>Pass to %1</source>
         <translation>传给 %1</translation>
     </message>
@@ -10807,7 +11455,7 @@ your way.</source>
 <context>
     <name>hexproof::client::ClientPreferencesModel</name>
     <message>
-        <location filename="../src/models/ClientPreferencesModel.cpp" line="+364"/>
+        <location filename="../src/models/ClientPreferencesModel.cpp" line="+408"/>
         <source>Unassigned</source>
         <translation>未分配</translation>
     </message>

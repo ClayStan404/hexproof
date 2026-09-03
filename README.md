@@ -13,7 +13,7 @@ Hexproof keeps both experiences focused and native without accounts,
 matchmaking, or a browser shell. The client supports English and Simplified
 Chinese on Linux, Windows, and macOS.
 
-Current version: **1.0.5**. Client and server application versions must match
+Current version: **1.0.6**. Client and server application versions must match
 exactly.
 
 Hexproof is still in active development: features may change and releases can
@@ -57,11 +57,12 @@ screens show plain-text import and per-card printing selection.
 
 ### Limited play: draft, sealed, and Cube
 
-- Set draft with exactly eight checked-in players, three packs each, passing
+- Set draft for two to eight checked-in players, three packs each, passing
   left, then right, then left again, with server-authoritative pools and card
   movement.
-- Set sealed gives every player exactly six boosters before deck building.
-- Cube draft for four to eight players from a Cube deck registered in the
+- Set sealed gives every player exactly six boosters before deck building and
+  can start with two checked-in players.
+- Cube draft for two to eight players from a Cube deck registered in the
   local deck library; the Cube contents are locked when the draft starts.
 - Authentic booster collation from installed set definitions where available,
   with approximate rarity collation otherwise; every participant sees which

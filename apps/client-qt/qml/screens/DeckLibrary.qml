@@ -13,19 +13,9 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
-    readonly property var formatOptions: [
-        {"label": qsTr("All formats"), "value": "all"},
-        {"label": I18n.formatLabel("custom"), "value": "custom"},
-        {"label": I18n.formatLabel("standard"), "value": "standard"},
-        {"label": I18n.formatLabel("pioneer"), "value": "pioneer"},
-        {"label": I18n.formatLabel("modern"), "value": "modern"},
-        {"label": I18n.formatLabel("legacy"), "value": "legacy"},
-        {"label": I18n.formatLabel("vintage"), "value": "vintage"},
-        {"label": I18n.formatLabel("pauper"), "value": "pauper"},
-        {"label": I18n.formatLabel("duel"), "value": "duel"},
-        {"label": I18n.formatLabel("commander"), "value": "commander"},
-        {"label": I18n.formatLabel("cube"), "value": "cube"}
-    ]
+    readonly property var formatOptions:
+        [{"label": qsTr("All formats"), "value": "all"}]
+        .concat(I18n.deckFormatOptions())
     property string pendingDeckId: ""
     property string pendingDeckName: ""
 
@@ -125,12 +115,14 @@ Page {
                     readonly property string statusMessage:
                         I18n.status(deckLibrary.lastError.length > 0
                                     ? deckLibrary.lastError : cardCatalog.lastError)
+                    readonly property bool cacheAvailable:
+                        deckLibrary.count > 0 && !cardCatalog.busy
                     readonly property bool retryAvailable:
                         deckLibrary.hasMissingArt && !cardCatalog.busy
 
                     Layout.fillWidth: true
                     spacing: Theme.size(10)
-                    visible: statusMessage.length > 0 || retryAvailable
+                    visible: statusMessage.length > 0 || cacheAvailable || retryAvailable
 
                     InfoBanner {
                         Layout.fillWidth: true
@@ -140,7 +132,7 @@ Page {
                     AppButton {
                         objectName: "cacheDeckArtButton"
                         compact: true
-                        visible: deckStatusRow.retryAvailable
+                        visible: deckStatusRow.cacheAvailable
                         text: qsTr("Cache art")
                         onClicked: deckLibrary.refreshMissingArt()
                     }

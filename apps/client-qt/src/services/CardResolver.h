@@ -27,6 +27,7 @@ class CardResolver final : public QObject
   public:
     enum class ArtProvider
     {
+        Auto,
         Scryfall,
         Mtgch,
     };
@@ -139,7 +140,7 @@ class CardResolver final : public QObject
     ArtStage m_currentArtStage = ArtStage::None;
     Phase m_currentPhase = Phase::None;
     int m_currentPhaseRetries = 0;
-    ArtProvider m_configuredProvider = ArtProvider::Scryfall;
+    ArtProvider m_configuredProvider = ArtProvider::Auto;
     ArtProvider m_currentProvider = ArtProvider::Scryfall;
     bool m_currentMtgchTried = false;
     bool m_currentScryfallEnglishTried = false;

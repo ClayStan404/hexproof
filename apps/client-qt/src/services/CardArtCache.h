@@ -7,10 +7,17 @@
 
 #include <QDateTime>
 #include <QHash>
+#include <QList>
 #include <QSet>
 #include <QString>
 
 namespace hexproof::client {
+
+struct CardArtCacheEntry
+{
+    QString cacheKey;
+    CardRecord record;
+};
 
 class CardArtCache
 {
@@ -23,6 +30,15 @@ class CardArtCache
     {
         return m_dirty;
     }
+    int faceAuditVersion() const
+    {
+        return m_faceAuditVersion;
+    }
+    bool faceRepairNeeded() const
+    {
+        return m_faceRepairNeeded;
+    }
+    void setFaceAuditState(int version, bool repairNeeded);
 
     bool reuseLocalArt() const
     {
@@ -50,6 +66,16 @@ class CardArtCache
     bool failedRecently(const QString &key, const QDateTime &now = QDateTime::currentDateTimeUtc(),
                         qint64 maximumAgeSeconds = 24 * 60 * 60) const;
 
+    QString imageRoot() const
+    {
+        return m_imageRoot;
+    }
+    QList<CardArtCacheEntry> entries() const;
+    QSet<QString> referencedImagePaths() const;
+    QList<CardArtCacheEntry> removeEntries(bool selectionOnly, const QString &setCode = {},
+                                           const QString &imageLanguage = {});
+    void replaceEntries(const QList<CardArtCacheEntry> &entries);
+
   private:
     void rebuildIndexes();
     void addToIndexes(const QString &cacheKey, const CardRecord &record);
@@ -64,6 +90,8 @@ class CardArtCache
     QHash<QString, QSet<QString>> m_canonicalNameIndex;
     QHash<QString, QSet<QString>> m_requestedNameIndex;
     bool m_reuseLocalArt = true;
+    int m_faceAuditVersion = 0;
+    bool m_faceRepairNeeded = false;
     bool m_dirty = false;
 };
 

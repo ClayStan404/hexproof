@@ -2,18 +2,21 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardArtCache.h"
+#include "CardArtManager.h"
 #include "CardCatalog.h"
 #include "CardCatalogCommon.h"
 #include "CardImageProvider.h"
 #include "CardResolver.h"
 #include "CatalogStorage.h"
 
+#include <QTimer>
+
 namespace hexproof::client {
 using namespace catalog_internal;
 
 void CardCatalog::scheduleResolutionWork()
 {
-    if (m_shuttingDown || QCoreApplication::closingDown() || m_catalogBusy)
+    if (m_shuttingDown || QCoreApplication::closingDown() || m_catalogBusy || m_artCacheBusy)
         return;
 
     const bool resolverActive = m_cardResolver && m_cardResolver->active();
@@ -45,9 +48,15 @@ void CardCatalog::scheduleResolutionWork()
                                    canonicalName.compare(request.name, Qt::CaseInsensitive) != 0 &&
                                    canonicalName.split(QStringLiteral(" // "), Qt::SkipEmptyParts)
                                        .contains(request.name, Qt::CaseInsensitive);
+        const QString hintHost = QUrl(request.catalogHint.imageUrl).host().toLower();
+        const bool mtgchFaceHint =
+            requestedFace &&
+            request.catalogHint.faceName.compare(request.name, Qt::CaseInsensitive) == 0 &&
+            (hintHost == QStringLiteral("images.mtgch.com") ||
+             hintHost.endsWith(QStringLiteral(".mtgch.com")));
 
         CardRecord directRecord;
-        if (!requestedFace && request.language == QStringLiteral("zh")) {
+        if ((!requestedFace || mtgchFaceHint) && request.language == QStringLiteral("zh")) {
             if (request.catalogHint.imageLanguage == QStringLiteral("zh") &&
                 !request.catalogHint.imageUrl.isEmpty()) {
                 directRecord = request.catalogHint;
@@ -74,9 +83,13 @@ void CardCatalog::scheduleResolutionWork()
         }
 
         directRecord.requestedName = request.name;
-        // Catalog image records are sourced from Scryfall. MTGCH-first requests
-        // must enter the resolver instead of taking this concurrent fast path.
-        const bool directRecordUsesPreferredProvider = m_cardArtProvider != QStringLiteral("mtgch");
+        const bool prefersMtgch = m_cardArtProvider == QStringLiteral("mtgch") ||
+                                  (m_cardArtProvider == QStringLiteral("auto") &&
+                                   request.language == QStringLiteral("zh"));
+        const QString imageHost = QUrl(directRecord.imageUrl).host().toLower();
+        const bool recordUsesMtgch = imageHost == QStringLiteral("images.mtgch.com") ||
+                                     imageHost.endsWith(QStringLiteral(".mtgch.com"));
+        const bool directRecordUsesPreferredProvider = prefersMtgch == recordUsesMtgch;
         if (directRecordUsesPreferredProvider && directRecord.valid() &&
             !directRecord.imageUrl.isEmpty() && startDirectImageDownload({request, directRecord})) {
             continue;
@@ -91,21 +104,25 @@ void CardCatalog::scheduleResolutionWork()
 
 void CardCatalog::finishResolutionIfIdle()
 {
-    if (m_catalogBusy || (m_cardResolver && m_cardResolver->active()) || !m_cardQueue.isEmpty() ||
-        !m_fallbackQueue.isEmpty() || !m_directImageJobs.isEmpty() ||
+    if (m_catalogBusy || m_artCacheBusy || (m_cardResolver && m_cardResolver->active()) ||
+        !m_cardQueue.isEmpty() || !m_fallbackQueue.isEmpty() || !m_directImageJobs.isEmpty() ||
         !m_cachedHydrationQueue.isEmpty() || m_cachedHydrationScheduled ||
         !m_incrementalCacheQueue.isEmpty() || m_incrementalCacheScheduled) {
         return;
     }
     if (m_artCache->dirty() && !saveResolutionCache())
         setLastError(QStringLiteral("Could not save the card image cache."));
-    if (!m_resolving)
-        return;
-    setResolving(false);
-    setStatus(QStringLiteral("Card images are up to date."));
-    m_totalRequests = 0;
-    m_completedRequests = 0;
-    setProgress(0.0);
+    if (m_resolving) {
+        setResolving(false);
+        setStatus(QStringLiteral("Card images are up to date."));
+        m_totalRequests = 0;
+        m_completedRequests = 0;
+        setProgress(0.0);
+    }
+    if (m_cardArtRepairAuditPending) {
+        m_cardArtRepairAuditPending = false;
+        QTimer::singleShot(0, m_artManager.get(), &CardArtManager::repeatAuditAfterRepair);
+    }
 }
 
 bool CardCatalog::startDirectImageDownload(const DirectImageJob &job)

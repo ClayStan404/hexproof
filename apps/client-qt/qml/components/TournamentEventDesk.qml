@@ -15,11 +15,29 @@ Surface {
     required property var wsModel
     required property var cancelDialogTarget
     readonly property bool isCasual: tournamentModel.coordinator === "casual"
+    // Server snapshots carry the authoritative floor; 4 is the pre-1.0.6
+    // constructed fallback for servers that do not send minimumPlayers.
     readonly property int minimumCheckedIn:
-        tournamentModel.eventType === "set_draft"
-        ? 8 : (tournamentModel.eventType === "cube_draft"
-               ? 4 : (isCasual ? 2 : 4))
+        tournamentModel.minimumPlayers > 0 ? tournamentModel.minimumPlayers : 4
     readonly property var casualReadyPlayers: buildCasualReadyPlayers()
+    property double clockNow: Date.now()
+    readonly property int roundSecondsRemaining: {
+        const duration = Math.max(0, root.tournamentModel.roundMinutes) * 60
+        if (!root.tournamentModel.roundStartedAt)
+            return duration
+        const started = Date.parse(root.tournamentModel.roundStartedAt)
+        if (isNaN(started))
+            return duration
+        return Math.max(0, Math.ceil(
+                            (started + duration * 1000 - root.clockNow) / 1000))
+    }
+    readonly property string roundClock: {
+        if (root.roundSecondsRemaining <= 0)
+            return qsTr("Time expired")
+        const minutes = Math.floor(root.roundSecondsRemaining / 60)
+        const seconds = root.roundSecondsRemaining % 60
+        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds
+    }
     Layout.preferredWidth: Theme.size(330)
     Layout.fillHeight: true
     elevated: true
@@ -98,8 +116,8 @@ Surface {
                     visible: !root.isCasual
                              && root.tournamentModel.status === "running"
                              && root.tournamentModel.stage === "competition"
-                    text: qsTr("Round clock: %1").arg(root.lobbyController.roundClock())
-                    color: root.lobbyController.roundSecondsRemaining() > 0
+                    text: qsTr("Round clock: %1").arg(root.roundClock)
+                    color: root.roundSecondsRemaining > 0
                            ? Theme.accent : Theme.warning
                     font.pixelSize: Theme.fontSize(12)
                     font.weight: Font.DemiBold
@@ -262,6 +280,15 @@ Surface {
             text: root.isCasual ? qsTr("Close room") : qsTr("Cancel tournament")
             onClicked: root.cancelDialogTarget.open()
         }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: !root.isCasual
+                 && root.tournamentModel.status === "running"
+                 && root.tournamentModel.stage === "competition"
+        onTriggered: root.clockNow = Date.now()
     }
 
     required property var limitedModel

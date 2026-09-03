@@ -107,6 +107,10 @@ ColumnLayout {
         model: root.filteredSets
         textRole: "name"
         valueRole: "id"
+        textForIndex: function(index) {
+            const entry = root.filteredSets[index]
+            return entry && entry.name ? String(entry.name) : ""
+        }
         currentIndex: root.indexOfSet(root.filteredSets, root.selectedId)
         onActivated: root.selectedId = String(currentValue)
     }

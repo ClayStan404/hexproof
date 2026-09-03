@@ -11,18 +11,7 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
-    readonly property var formatOptions: [
-        {"label": I18n.formatLabel("custom"), "value": "custom"},
-        {"label": I18n.formatLabel("standard"), "value": "standard"},
-        {"label": I18n.formatLabel("pioneer"), "value": "pioneer"},
-        {"label": I18n.formatLabel("modern"), "value": "modern"},
-        {"label": I18n.formatLabel("legacy"), "value": "legacy"},
-        {"label": I18n.formatLabel("vintage"), "value": "vintage"},
-        {"label": I18n.formatLabel("pauper"), "value": "pauper"},
-        {"label": I18n.formatLabel("duel"), "value": "duel"},
-        {"label": I18n.formatLabel("commander"), "value": "commander"},
-        {"label": I18n.formatLabel("cube"), "value": "cube"}
-    ]
+    readonly property var formatOptions: I18n.deckFormatOptions()
     property string pendingDeckFilterQuery: ""
     property string deckFilterQuery: ""
     property string searchTarget: "deck"
@@ -180,8 +169,7 @@ Page {
                             objectName: "cacheCurrentDeckArtButton"
                             compact: true
                             text: qsTr("Cache art")
-                            enabled: (deckLibrary.currentMissingImageCount > 0
-                                      || deckLibrary.currentConsiderMissingImageCount > 0)
+                            enabled: deckLibrary.currentDeckId.length > 0
                                      && !cardCatalog.busy
                             onClicked: deckLibrary.cacheCurrentDeckArt()
                         }

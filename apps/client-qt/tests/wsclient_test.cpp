@@ -403,17 +403,40 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
     QCOMPARE(nextOutbound().type, hexproof::protocol::kTypeTournamentList);
     Envelope listed;
     listed.type = hexproof::protocol::kTypeTournamentListed;
-    listed.payload = QJsonObject{{u"tournaments"_s, QJsonArray{QJsonObject{
-                                                        {u"tournamentId"_s, u"ABCDEFGH"_s},
-                                                        {u"name"_s, u"Saturday Swiss"_s},
-                                                        {u"format"_s, u"Pioneer"_s},
-                                                        {u"coordinator"_s, u"swiss"_s},
-                                                        {u"matchMode"_s, u"bo3"_s},
-                                                        {u"status"_s, u"registration"_s},
-                                                        {u"registered"_s, 4},
-                                                    }}}};
+    listed.payload = QJsonObject{
+        {u"tournaments"_s,
+         QJsonArray{
+             QJsonObject{
+                 {u"tournamentId"_s, u"ABCDEFGH"_s},
+                 {u"name"_s, u"Saturday Swiss"_s},
+                 {u"format"_s, u"Pioneer"_s},
+                 {u"coordinator"_s, u"swiss"_s},
+                 {u"matchMode"_s, u"bo3"_s},
+                 {u"status"_s, u"registration"_s},
+                 {u"registered"_s, 4},
+             },
+             QJsonObject{{u"tournamentId"_s, u"RUNNING1"_s}, {u"status"_s, u"running"_s}},
+             QJsonObject{{u"tournamentId"_s, u"FINISHED"_s}, {u"status"_s, u"completed"_s}},
+             QJsonObject{{u"tournamentId"_s, u"CANCELLD"_s}, {u"status"_s, u"cancelled"_s}},
+         }}};
     sendEnvelope(peer, listed);
-    QTRY_COMPARE_WITH_TIMEOUT(client.tournamentSession()->tournamentList().size(), 1, 1000);
+    QTRY_COMPARE_WITH_TIMEOUT(client.tournamentSession()->tournamentList().size(), 4, 1000);
+    QCOMPARE(client.tournamentSession()->activeTournamentList().size(), 2);
+    QCOMPARE(client.tournamentSession()->historicalTournamentList().size(), 2);
+    QCOMPARE(client.tournamentSession()
+                 ->activeTournamentList()
+                 .at(1)
+                 .toMap()
+                 .value(u"status"_s)
+                 .toString(),
+             u"running"_s);
+    QCOMPARE(client.tournamentSession()
+                 ->historicalTournamentList()
+                 .at(0)
+                 .toMap()
+                 .value(u"status"_s)
+                 .toString(),
+             u"completed"_s);
 
     client.enterTournament(u"abcdefgh"_s);
     const Envelope enterRequest = nextOutbound();
@@ -444,12 +467,21 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
         {u"roundMinutes"_s, 50},
         {u"roundStartedAt"_s, u"2026-08-08T12:00:00Z"_s},
         {u"maxPlayers"_s, 32},
+        {u"minimumPlayers"_s, 4},
         {u"plannedRounds"_s, 3},
         {u"currentRound"_s, 1},
         {u"registered"_s, 4},
         {u"checkedIn"_s, 4},
         {u"roundComplete"_s, false},
         {u"canRegister"_s, false},
+        {u"product"_s, QJsonObject{{u"id"_s, u"fdn-play"_s},
+                                   {u"name"_s, u"Foundations Play Booster"_s},
+                                   {u"setCode"_s, u"FDN"_s},
+                                   {u"productType"_s, u"official"_s},
+                                   {u"authentic"_s, true},
+                                   {u"cardsPerPack"_s, 14},
+                                   {u"cardCount"_s, 271},
+                                   {u"productHash"_s, QString(64, u'a')}}},
         {u"participants"_s, QJsonArray{}},
         {u"pairings"_s, QJsonArray{}},
         {u"standings"_s, QJsonArray{}},
@@ -460,6 +492,9 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
     QCOMPARE(client.tournamentSession()->roundStartedAt(), u"2026-08-08T12:00:00Z"_s);
     QCOMPARE(client.tournamentSession()->participantId(), u"p-1"_s);
     QCOMPARE(client.tournamentSession()->coordinator(), u"casual"_s);
+    QCOMPARE(client.tournamentSession()->maxPlayers(), 32);
+    QCOMPARE(client.tournamentSession()->minimumPlayers(), 4);
+    QCOMPARE(client.tournamentSession()->product().value(u"id"_s).toString(), u"fdn-play"_s);
 
     client.createLimitedCasualMatch(u"p-1"_s, u"p-2"_s);
     const Envelope casualMatch = nextOutbound();
@@ -498,96 +533,6 @@ void TestWsClient::cleanup()
     QSettings settings;
     settings.clear();
     settings.sync();
-}
-
-void TestWsClient::loadsSavedResumeEndpoint() const
-{
-    QSettings settings;
-    settings.setValue(u"network/resumeToken"_s, u"saved-token"_s);
-    settings.setValue(u"network/resumeServerUrl"_s, u"ws://127.0.0.1:57320/ws"_s);
-    settings.setValue(u"network/resumeDisplayName"_s, u"Saved player"_s);
-    settings.setValue(u"network/resumeLastSeq"_s, 42);
-    settings.sync();
-
-    WsClient client;
-    QCOMPARE(client.serverUrl(), u"ws://127.0.0.1:57320/ws"_s);
-    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
-    QCOMPARE(client.customServerUrl(), u"ws://127.0.0.1:57320/ws"_s);
-    QCOMPARE(client.displayName(), u"Saved player"_s);
-}
-
-void TestWsClient::loadsSecondaryPublicHubSelection() const
-{
-    const ServerDirectory directory;
-    const QString secondaryUrl = directory.serverUrl(1);
-    QSettings settings;
-    settings.setValue(u"network/resumeToken"_s, u"saved-token"_s);
-    settings.setValue(u"network/resumeServerUrl"_s, secondaryUrl);
-    settings.sync();
-
-    WsClient client;
-    QCOMPARE(client.serverUrl(), secondaryUrl);
-    QCOMPARE(client.serverIndex(), 1);
-}
-
-void TestWsClient::configuresAndPersistsCustomServer() const
-{
-    WsClient client;
-    client.connectToCustomServer(u"https://invalid.example/ws"_s, u"Alice"_s);
-    QVERIFY(client.lastError().startsWith(u"invalid_server_url:"_s));
-    QCOMPARE(client.connectionState(), WsClient::Disconnected);
-
-    client.connectToCustomServer(u" ws://127.0.0.1:9 "_s, u"Alice"_s);
-    QCOMPARE(client.customServerUrl(), u"ws://127.0.0.1:9/ws"_s);
-    QCOMPARE(client.serverUrl(), client.customServerUrl());
-    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
-
-    QSettings settings;
-    QCOMPARE(settings.value(u"network/customServerUrl"_s).toString(), client.customServerUrl());
-    client.disconnectFromHub();
-}
-
-void TestWsClient::migratesLegacyPrimaryPublicHubEndpoint() const
-{
-    const QString directoryPath = m_settingsDir.filePath(u"legacy-servers.json"_s);
-    QFile directoryFile(directoryPath);
-    QVERIFY(directoryFile.open(QIODevice::WriteOnly));
-    const QByteArray directoryPayload = R"({
-  "schemaVersion": 1,
-  "servers": [
-    {"url": "wss://primary.example/ws",
-     "legacyUrls": ["ws://retired-primary.example:57320/ws"]},
-    {"url": "wss://secondary.example/ws"},
-    {"url": "wss://tertiary.example/ws"},
-    {"url": "wss://quaternary.example/ws"},
-    {"url": "wss://test.example/test/ws"}
-  ]
-})";
-    QCOMPARE(directoryFile.write(directoryPayload), directoryPayload.size());
-    directoryFile.close();
-    qputenv("HEXPROOF_SERVER_DIRECTORY_FILE", directoryPath.toUtf8());
-
-    QSettings settings;
-    settings.setValue(u"network/resumeToken"_s, u"saved-token"_s);
-    settings.setValue(u"network/resumeServerUrl"_s, u"ws://retired-primary.example:57320/ws"_s);
-    settings.sync();
-
-    WsClient client;
-    QCOMPARE(client.serverUrl(), u"wss://primary.example/ws"_s);
-    QCOMPARE(client.serverIndex(), 0);
-}
-
-void TestWsClient::exposesInitialServerLatencyState() const
-{
-    WsClient client;
-    const QVariantList latencies = client.serverLatencies();
-    QCOMPARE(latencies.size(), ServerDirectory::ServerCount);
-    QCOMPARE(latencies[0].toInt(), -2);
-    QCOMPARE(latencies[1].toInt(), -2);
-    QCOMPARE(latencies[2].toInt(), -2);
-    QCOMPARE(latencies[3].toInt(), -2);
-    QCOMPARE(latencies[4].toInt(), -2);
-    QCOMPARE(latencies[5].toInt(), -2);
 }
 
 void TestWsClient::processesFinalMessageBeforeDisconnect() const

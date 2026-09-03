@@ -5,6 +5,7 @@
 
 #include "CatalogCancellation.h"
 #include "CatalogTypes.h"
+#include "deck/Deck.h"
 #include <QBuffer>
 #include <QByteArrayView>
 #include <QCoreApplication>
@@ -40,6 +41,7 @@ namespace catalog_internal {
 inline constexpr auto kScryfallNamedUrl = "https://api.scryfall.com/cards/named";
 inline constexpr auto kScryfallSearchUrl = "https://api.scryfall.com/cards/search";
 inline constexpr auto kMtgchCardBaseUrl = "https://mtgch.com/api/v1/card/";
+inline constexpr auto kMtgchSetBaseUrl = "https://mtgch.com/api/v1/set/";
 inline constexpr auto kOfficialCatalogManifestUrl =
     "https://github.com/ClayStan404/hexproof/releases/download/card-data/"
     "card-database-manifest.json";
@@ -53,7 +55,32 @@ inline constexpr qint64 kMaximumOfficialCatalogExpandedBytes = 1024LL * 1024 * 1
 inline constexpr qint64 kMaximumBulkRecordBytes = 4LL * 1024 * 1024;
 inline constexpr qint64 kMaximumChineseNameFileBytes = 96LL * 1024 * 1024;
 inline constexpr int kCardResolutionVersion = 6;
+// Single source of truth for the positive card-art cache key format
+// `language|normalizedName[|SET|collector]`. The runtime cache
+// (CardArtCache::key) and the pack import/export paths
+// (cacheKeyForObject / parsePack duplicate detection) must build byte-identical
+// keys or imported packs drift from the live cache.
+inline QString cardArtCacheKey(const QString &language, const QString &name, const QString &setCode,
+                               const QString &collectorNumber)
+{
+    QString result = language + QLatin1Char('|') + normalizedCardName(name);
+    if (!setCode.isEmpty() && !collectorNumber.isEmpty())
+        result += QLatin1Char('|') + setCode.toUpper() + QLatin1Char('|') + collectorNumber;
+    return result;
+}
+inline constexpr int kCardFaceAuditVersion = 1;
+// kScryfallPlaceholderPolicyVersion records the resolution version that
+// introduced the current Scryfall placeholder policy. The legacy-cache
+// migration in CardCatalogLookup.cpp applies only that policy's check and
+// stamps the record with kCardResolutionVersion, so it is valid only while
+// the two constants are equal. When kCardResolutionVersion advances,
+// extend migrateLegacyCacheRecord with the new migration step (or update
+// this constant with a comment explaining why the v5 migration still holds).
 inline constexpr int kScryfallPlaceholderPolicyVersion = 6;
+static_assert(kCardResolutionVersion == kScryfallPlaceholderPolicyVersion,
+              "the legacy cache migration assumes the current resolution "
+              "version introduced the Scryfall placeholder policy; extend "
+              "migrateLegacyCacheRecord before advancing past it");
 inline constexpr int kCompatibleResolutionVersionBeforePlaceholderPolicy = 5;
 inline constexpr int kNegativeCacheVersion = 2;
 inline constexpr int kMaximumConcurrentImageDownloads = 6;

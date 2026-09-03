@@ -4,11 +4,13 @@
 package tournament
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"testing"
 	"time"
 
+	"hexproof/server/internal/limited"
 	"hexproof/server/internal/protocol"
 )
 
@@ -62,6 +64,27 @@ func tournamentLimitedProduct() protocol.LimitedProductDefinition {
 			Weight: 1,
 			Slots:  []protocol.LimitedSlotDefinition{{Sheet: "main", Count: 15}},
 		}},
+	}
+}
+
+func TestLimitedProductSummaryIsAvailableDuringRegistration(t *testing.T) {
+	product := tournamentLimitedProduct()
+	event, err := New("LIM123", Config{
+		Name: "Draft", Format: "Limited", EventType: protocol.LimitedEventSetDraft,
+		MatchMode: "bo3", RoundMinutes: 50, MaxPlayers: 8, Product: &product,
+	}, "Judge", "organizer", CredentialHash("organizer-token"), testNow)
+	if err != nil {
+		t.Fatalf("new limited tournament: %v", err)
+	}
+	view := event.LimitedProductView()
+	if view == nil || view.ID != product.ID || view.Name != product.Name ||
+		view.SetCode != product.SetCode || view.CardCount != len(product.Sheets[0].Cards) ||
+		view.ProductHash == "" {
+		t.Fatalf("limited product view = %+v", view)
+	}
+	view.Name = "mutated"
+	if event.LimitedProductView().Name != product.Name {
+		t.Fatal("limited product view aliases tournament state")
 	}
 }
 
@@ -258,14 +281,14 @@ func TestCubeDraftRejectsSmallProduct(t *testing.T) {
 	}
 }
 
-func TestFourPlayerCubeDraftStartsAtMinimumAttendance(t *testing.T) {
+func TestTwoPlayerCubeDraftStartsAtMinimumAttendance(t *testing.T) {
 	product := tournamentLimitedProduct()
 	product.ProductType = "cube"
 	product.Authentic = false
 	product.CardsPerPack = 0
 	product.Variants = nil
 	for index := range product.Sheets[0].Cards {
-		product.Sheets[0].Cards[index].Weight = 3
+		product.Sheets[0].Cards[index].Weight = 2
 	}
 	if _, err := New("TOOBIG", Config{
 		Name: "Oversized Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
@@ -274,44 +297,171 @@ func TestFourPlayerCubeDraftStartsAtMinimumAttendance(t *testing.T) {
 	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow); ErrorCode(err) != ErrInvalid {
 		t.Fatalf("nine-seat Cube error = %v", err)
 	}
-	event, err := New("CUBE04", Config{
-		Name: "Four-player Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
+	event, err := New("CUBE02", Config{
+		Name: "Two-player Cube", Format: "Cube", EventType: protocol.LimitedEventCubeDraft,
 		Coordinator: protocol.LimitedCoordinatorSwiss, MatchMode: "bo1",
-		RoundMinutes: 50, MaxPlayers: 4, Product: &product,
+		RoundMinutes: 50, MaxPlayers: 2, Product: &product,
 	}, "Owner", "owner-conn", CredentialHash("owner-token"), testNow)
 	if err != nil {
-		t.Fatalf("new four-player Cube: %v", err)
-	}
-	for index := 0; index < 3; index++ {
-		participant, registerErr := event.Register(
-			fmt.Sprintf("Player %d", index+1), fmt.Sprintf("conn-%d", index+1),
-			CredentialHash(fmt.Sprintf("token-%d", index+1)), testNow)
-		if registerErr != nil {
-			t.Fatalf("register: %v", registerErr)
-		}
-		participant.CheckedIn = true
-	}
-	organizer := Actor{ConnectionID: "owner-conn", Role: RoleOrganizer}
-	if err := event.Start(organizer, 47, testNow); ErrorCode(err) != ErrNotReady {
-		t.Fatalf("three-player Cube start error = %v", err)
+		t.Fatalf("new two-player Cube: %v", err)
 	}
 	participant, registerErr := event.Register(
-		"Player 4", "conn-4", CredentialHash("token-4"), testNow)
+		"Player 1", "conn-1", CredentialHash("token-1"), testNow)
 	if registerErr != nil {
-		t.Fatalf("register fourth player: %v", registerErr)
+		t.Fatalf("register: %v", registerErr)
+	}
+	participant.CheckedIn = true
+	organizer := Actor{ConnectionID: "owner-conn", Role: RoleOrganizer}
+	if err := event.Start(organizer, 47, testNow); ErrorCode(err) != ErrNotReady {
+		t.Fatalf("one-player Cube start error = %v", err)
+	}
+	participant, registerErr = event.Register(
+		"Player 2", "conn-2", CredentialHash("token-2"), testNow)
+	if registerErr != nil {
+		t.Fatalf("register second player: %v", registerErr)
 	}
 	participant.CheckedIn = true
 	if err := event.Start(organizer, 47, testNow); err != nil {
-		t.Fatalf("start four-player Cube: %v", err)
+		t.Fatalf("start two-player Cube: %v", err)
 	}
-	if event.Stage != protocol.LimitedStageDraft || len(event.Limited.Players) != 4 {
-		t.Fatalf("four-player Cube stage=%q players=%d", event.Stage, len(event.Limited.Players))
+	if event.Stage != protocol.LimitedStageDraft || len(event.Limited.Players) != 2 {
+		t.Fatalf("two-player Cube stage=%q players=%d", event.Stage, len(event.Limited.Players))
+	}
+}
+
+func TestTwoPlayerSealedStartsAtMinimumAttendance(t *testing.T) {
+	product := tournamentLimitedProduct()
+	event, err := New("SEAL02", Config{
+		Name: "Two-player Sealed", Format: "Limited", EventType: protocol.LimitedEventSetSealed,
+		MatchMode: "bo1", RoundMinutes: 50, MaxPlayers: 2, Product: &product,
+	}, "Judge", "organizer-conn", CredentialHash("organizer-token"), testNow)
+	if err != nil {
+		t.Fatalf("new two-player Sealed: %v", err)
+	}
+	participant, registerErr := event.Register(
+		"Player 1", "conn-1", CredentialHash("token-1"), testNow)
+	if registerErr != nil {
+		t.Fatalf("register: %v", registerErr)
+	}
+	participant.CheckedIn = true
+	organizer := Actor{ConnectionID: "organizer-conn", Role: RoleOrganizer}
+	if err := event.Start(organizer, 51, testNow); ErrorCode(err) != ErrNotReady {
+		t.Fatalf("one-player Sealed start error = %v", err)
+	}
+	participant, registerErr = event.Register(
+		"Player 2", "conn-2", CredentialHash("token-2"), testNow)
+	if registerErr != nil {
+		t.Fatalf("register second player: %v", registerErr)
+	}
+	participant.CheckedIn = true
+	if err := event.Start(organizer, 51, testNow); err != nil {
+		t.Fatalf("start two-player Sealed: %v", err)
+	}
+	if event.Stage != protocol.LimitedStageDeckBuilding || len(event.Limited.Players) != 2 {
+		t.Fatalf("two-player Sealed stage=%q players=%d", event.Stage, len(event.Limited.Players))
+	}
+}
+
+func TestStartNotReadyErrorCarriesMinimumPlayers(t *testing.T) {
+	event, organizer := newTestTournament(t, 2, "bo3")
+	err := event.Start(organizer, 7, testNow)
+	if ErrorCode(err) != ErrNotReady {
+		t.Fatalf("start with two checked in = %v", err)
+	}
+	var domainErr *Error
+	if !errors.As(err, &domainErr) || domainErr.MinimumPlayers != MinParticipants {
+		t.Fatalf("start error = %v, want structured MinimumPlayers %d",
+			err, MinParticipants)
+	}
+}
+
+func TestDefaultCapacityPerEventType(t *testing.T) {
+	product := tournamentLimitedProduct()
+	// A default-cap Cube (eight seats) needs 8*3*15 cards in its list.
+	cubeProduct := tournamentLimitedProduct()
+	cubeProduct.ProductType = "cube"
+	cubeProduct.Authentic = false
+	cubeProduct.CardsPerPack = 0
+	cubeProduct.Variants = nil
+	for index := range cubeProduct.Sheets[0].Cards {
+		cubeProduct.Sheets[0].Cards[index].Weight = 6
+	}
+	tests := []struct {
+		name      string
+		eventType string
+		product   *protocol.LimitedProductDefinition
+		want      int
+	}{
+		{"constructed", protocol.LimitedEventConstructed, nil, 64},
+		{"set sealed", protocol.LimitedEventSetSealed, &product, 64},
+		{"set draft", protocol.LimitedEventSetDraft, &product,
+			limited.MaxSetDraftPlayers},
+		{"cube draft", protocol.LimitedEventCubeDraft, &cubeProduct,
+			limited.MaxCubeDraftPlayers},
+	}
+	for _, test := range tests {
+		event, err := New("CAP-"+test.name, Config{
+			Name: "Capacity " + test.name, Format: "modern",
+			EventType: test.eventType, MatchMode: "bo1", RoundMinutes: 50,
+			Product: test.product,
+		}, "Judge", "organizer-conn", CredentialHash("organizer-token"), testNow)
+		if err != nil {
+			t.Fatalf("new %s tournament: %v", test.name, err)
+		}
+		if event.MaxPlayers != test.want {
+			t.Errorf("%s default capacity = %d, want %d",
+				test.name, event.MaxPlayers, test.want)
+		}
+	}
+}
+
+func TestMinimumPlayersPerEventType(t *testing.T) {
+	product := tournamentLimitedProduct()
+	// Two-seat Cube list: weight 2 doubles the physical card count to 120.
+	cubeProduct := tournamentLimitedProduct()
+	cubeProduct.ProductType = "cube"
+	cubeProduct.Authentic = false
+	cubeProduct.CardsPerPack = 0
+	cubeProduct.Variants = nil
+	for index := range cubeProduct.Sheets[0].Cards {
+		cubeProduct.Sheets[0].Cards[index].Weight = 2
+	}
+	tests := []struct {
+		eventType   string
+		coordinator string
+		maxPlayers  int
+		product     *protocol.LimitedProductDefinition
+		want        int
+	}{
+		{protocol.LimitedEventConstructed, "", 64, nil, MinParticipants},
+		{protocol.LimitedEventSetSealed, "", 2, &product,
+			limited.MinSetSealedPlayers},
+		{protocol.LimitedEventSetDraft, "", 2, &product,
+			limited.MinSetDraftPlayers},
+		{protocol.LimitedEventCubeDraft, "", 2, &cubeProduct,
+			limited.MinCubeDraftPlayers},
+		{protocol.LimitedEventSetSealed, protocol.LimitedCoordinatorCasual, 2,
+			&product, 2},
+	}
+	for index, test := range tests {
+		event, err := New(fmt.Sprintf("MIN-%d", index), Config{
+			Name: "Minimum " + test.eventType, Format: "modern",
+			EventType: test.eventType, Coordinator: test.coordinator,
+			MatchMode: "bo1", RoundMinutes: 50,
+			MaxPlayers: test.maxPlayers, Product: test.product,
+		}, "Judge", "organizer-conn", CredentialHash("organizer-token"), testNow)
+		if err != nil {
+			t.Fatalf("new %s tournament: %v", test.eventType, err)
+		}
+		if got := event.MinimumPlayers(); got != test.want {
+			t.Errorf("%s minimum players = %d, want %d", test.eventType, got, test.want)
+		}
 	}
 }
 
 func TestRecommendedRounds(t *testing.T) {
 	tests := []struct{ players, rounds int }{
-		{3, 0}, {4, 3}, {8, 3}, {9, 5}, {32, 5}, {33, 6},
+		{1, 0}, {2, 1}, {3, 3}, {4, 3}, {8, 3}, {9, 5}, {32, 5}, {33, 6},
 		{64, 6}, {65, 7}, {128, 7}, {129, 8}, {226, 8},
 		{227, 9}, {409, 9}, {410, 10},
 	}
@@ -639,5 +789,98 @@ func TestDropExcludesPlayerFromLaterPairings(t *testing.T) {
 		if pairing.PlayerAID == dropped.ID || pairing.PlayerBID == dropped.ID {
 			t.Fatalf("dropped participant paired: %+v", pairing)
 		}
+	}
+}
+
+func TestSecondReportDoesNotReplacePendingResult(t *testing.T) {
+	event, organizer := newTestTournament(t, 4, "bo3")
+	if err := event.Start(organizer, 3, testNow); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	pairing := &event.Rounds[0].Pairings[0]
+	left := event.participantByID[pairing.PlayerAID]
+	right := event.participantByID[pairing.PlayerBID]
+	leftActor := Actor{ConnectionID: left.ConnectionID, Role: RoleParticipant,
+		ParticipantID: left.ID}
+	rightActor := Actor{ConnectionID: right.ConnectionID, Role: RoleParticipant,
+		ParticipantID: right.ID}
+
+	if err := event.Report(leftActor, pairing.ID,
+		MatchScore{PlayerAWins: 2}, testNow); err != nil {
+		t.Fatalf("first report: %v", err)
+	}
+	if err := event.Report(rightActor, pairing.ID,
+		MatchScore{PlayerBWins: 2}, testNow); ErrorCode(err) != ErrResultInvalid {
+		t.Fatalf("second report = %v, want ErrResultInvalid", err)
+	}
+	if err := event.Report(leftActor, pairing.ID,
+		MatchScore{PlayerAWins: 1}, testNow); ErrorCode(err) != ErrResultInvalid {
+		t.Fatalf("re-report by the original reporter = %v, want ErrResultInvalid", err)
+	}
+	if pairing.Pending == nil || pairing.Pending.ReporterID != left.ID ||
+		pairing.Pending.Score.PlayerAWins != 2 {
+		t.Fatalf("pending = %+v, want the original report by %s",
+			pairing.Pending, left.ID)
+	}
+	if err := event.Confirm(rightActor, pairing.ID, testNow); err != nil {
+		t.Fatalf("confirm by the non-reporter: %v", err)
+	}
+	if pairing.Result == nil || pairing.Result.Score.PlayerAWins != 2 {
+		t.Fatalf("confirmed result = %+v, want the original 2-0", pairing.Result)
+	}
+}
+
+func TestCorrectRequiresRunningTournament(t *testing.T) {
+	event, organizer := newTestTournament(t, 4, "bo3")
+	if err := event.Start(organizer, 3, testNow); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	event.PlannedRounds = 1
+	pairing := &event.Rounds[0].Pairings[0]
+	for index := range event.Rounds[0].Pairings {
+		current := &event.Rounds[0].Pairings[index]
+		left := event.participantByID[current.PlayerAID]
+		right := event.participantByID[current.PlayerBID]
+		if err := event.Report(Actor{ConnectionID: left.ConnectionID,
+			Role: RoleParticipant, ParticipantID: left.ID}, current.ID,
+			MatchScore{PlayerAWins: 2}, testNow); err != nil {
+			t.Fatalf("report %d: %v", index, err)
+		}
+		if err := event.Confirm(Actor{ConnectionID: right.ConnectionID,
+			Role: RoleParticipant, ParticipantID: right.ID}, current.ID,
+			testNow); err != nil {
+			t.Fatalf("confirm %d: %v", index, err)
+		}
+	}
+	if err := event.Advance(organizer, testNow); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	if event.Status != StatusCompleted {
+		t.Fatalf("status = %q, want completed", event.Status)
+	}
+	if err := event.Correct(organizer, pairing.ID,
+		MatchScore{PlayerBWins: 2}, testNow); ErrorCode(err) != ErrInvalid {
+		t.Fatalf("correct on completed tournament = %v, want ErrInvalid", err)
+	}
+	if pairing.Result.Score.PlayerAWins != 2 {
+		t.Fatalf("result = %+v, want the recorded 2-0", pairing.Result)
+	}
+}
+
+func TestCorrectAfterCancelRejected(t *testing.T) {
+	event, organizer := newTestTournament(t, 4, "bo3")
+	if err := event.Start(organizer, 3, testNow); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	pairing := &event.Rounds[0].Pairings[0]
+	if err := event.Cancel(organizer, testNow); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if err := event.Correct(organizer, pairing.ID,
+		MatchScore{PlayerBWins: 2}, testNow); ErrorCode(err) != ErrInvalid {
+		t.Fatalf("correct on cancelled tournament = %v, want ErrInvalid", err)
+	}
+	if pairing.Result != nil {
+		t.Fatalf("result = %+v, want untouched nil", pairing.Result)
 	}
 }

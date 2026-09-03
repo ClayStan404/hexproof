@@ -124,7 +124,16 @@ Page {
                         textRole: "label"
                         valueRole: "value"
                         onActivated: {
-                            capField.text = root.isDraft ? "8" : "32"
+                            // Keep a valid in-range cap across event-type switches;
+                            // clamp out-of-range values instead of discarding input.
+                            var parsed = parseInt(capField.text)
+                            if (isNaN(parsed))
+                                parsed = root.isDraft ? 8 : 32
+                            parsed = Math.max(
+                                root.isLimited ? 2 : 4,
+                                Math.min(parsed, root.isDraft ? 8
+                                                : (root.isLimited ? 64 : 512)))
+                            capField.text = String(parsed)
                         }
                     }
 
@@ -262,10 +271,9 @@ Page {
                                 id: capField
                                 Layout.fillWidth: true
                                 text: "32"
-                                enabled: !root.isDraft
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 validator: IntValidator {
-                                    bottom: root.isDraft ? 8 : 4
+                                    bottom: root.isLimited ? 2 : 4
                                     top: root.isDraft ? 8 : (root.isLimited ? 64 : 512)
                                 }
                             }
@@ -296,9 +304,9 @@ Page {
                         Layout.topMargin: Theme.size(10)
                         tone: "success"
                         message: root.isDraft
-                                 ? qsTr("Set draft requires exactly eight checked-in players, three packs each, and passes left, right, then left.")
+                                 ? qsTr("Set draft starts with at least two checked-in players, three packs each, and passes left, right, then left. Capacity is two to eight seats.")
                                  : root.isLimited
-                                   ? qsTr("Set sealed gives every player exactly six boosters before deck building.")
+                                   ? qsTr("Set sealed gives every player exactly six boosters before deck building. Two checked-in players are required to start.")
                                    : qsTr("Use 0 rounds for the recommended Swiss count based on checked-in attendance. Four checked-in players are required to start.")
                     }
 

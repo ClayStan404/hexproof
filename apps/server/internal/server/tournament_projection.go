@@ -184,13 +184,15 @@ func tournamentSnapshot(event *tournament.Tournament,
 		EventType: event.EventType, Coordinator: event.Coordinator, Stage: event.Stage,
 		MatchMode: event.MatchMode, Status: event.Status,
 		RoundMinutes: event.RoundMinutes, RoundStartedAt: roundStartedAt,
-		MaxPlayers:    event.MaxPlayers,
-		PlannedRounds: event.PlannedRounds, CurrentRound: len(event.Rounds),
+		MaxPlayers:     event.MaxPlayers,
+		MinimumPlayers: event.MinimumPlayers(),
+		PlannedRounds:  event.PlannedRounds, CurrentRound: len(event.Rounds),
 		Registered: len(event.Participants), CheckedIn: checkedIn,
 		RoundComplete: event.RoundComplete(), OrganizerName: event.OrganizerName,
 		Role: binding.Role, ParticipantID: binding.ParticipantID,
 		CanRegister: event.Status == tournament.StatusRegistration &&
 			binding.ParticipantID == "" && len(event.Participants) < event.MaxPlayers,
+		Product:      event.LimitedProductView(),
 		Participants: participants, Pairings: pairings, Standings: standingViews,
 	}
 }

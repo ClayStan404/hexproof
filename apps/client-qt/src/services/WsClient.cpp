@@ -348,12 +348,15 @@ void WsClient::onDisconnected()
 {
     m_helloTimer.stop();
     m_reconnectController->flush();
-    m_protocolSession->failAll(u"connection closed before the server replied"_s);
     const bool hadRoom = m_state == InRoom || m_state == Reconnecting ||
                          m_roomSession->pendingEntry() || !roomId().isEmpty();
     const bool hadTournament = m_tournamentSession->inTournament();
     if (!m_intentionalDisconnect && (hadRoom || hadTournament) &&
         m_reconnectController->hasCredentials()) {
+        // Transport loss is not an authoritative rejection: keep pending
+        // command correlation so optimistic overlays survive until the
+        // post-resume snapshot (or replayed reply) reconciles them. A
+        // room-ending failure still rolls back via clearRoomState().
         if (m_state != Reconnecting)
             m_reconnectController->beginReconnectWindow();
         setState(Reconnecting);
@@ -361,6 +364,7 @@ void WsClient::onDisconnected()
         m_reconnectController->scheduleRetry();
         return;
     }
+    m_protocolSession->failAll(u"connection closed before the server replied"_s);
     setState(Disconnected);
     setForgeRulesAvailable(false);
     if (hadRoom) {

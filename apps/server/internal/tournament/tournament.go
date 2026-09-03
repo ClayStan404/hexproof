@@ -144,6 +144,7 @@ type Tournament struct {
 	nextPairing             int
 	Limited                 *limited.Event
 	limitedProduct          *protocol.LimitedProductDefinition
+	limitedProductView      *protocol.LimitedProductView
 }
 
 func New(id string, config Config, organizerName, organizerConnectionID string,
@@ -171,12 +172,16 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		return nil, fail(ErrInvalid, "round time is outside the supported range")
 	}
 	if config.MaxPlayers == 0 {
-		config.MaxPlayers = 64
+		switch config.EventType {
+		case protocol.LimitedEventSetDraft:
+			config.MaxPlayers = limited.MaxSetDraftPlayers
+		case protocol.LimitedEventCubeDraft:
+			config.MaxPlayers = limited.MaxCubeDraftPlayers
+		default:
+			config.MaxPlayers = 64
+		}
 	}
-	minimumCapacity := MinParticipants
-	if config.Coordinator == protocol.LimitedCoordinatorCasual {
-		minimumCapacity = 2
-	}
+	minimumCapacity := minimumPlayersFor(config.EventType, config.Coordinator)
 	if config.MaxPlayers < minimumCapacity || config.MaxPlayers > MaxParticipants {
 		return nil, fail(ErrInvalid, "participant capacity is outside the supported range")
 	}
@@ -207,15 +212,18 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	if config.EventType != protocol.LimitedEventConstructed && config.MaxPlayers > 64 {
 		return nil, fail(ErrInvalid, "limited tournaments support at most 64 players")
 	}
-	if config.EventType == protocol.LimitedEventSetDraft && config.MaxPlayers != 8 {
-		return nil, fail(ErrInvalid, "draft requires exactly eight seats")
+	if config.EventType == protocol.LimitedEventSetDraft &&
+		(config.MaxPlayers < limited.MinSetDraftPlayers ||
+			config.MaxPlayers > limited.MaxSetDraftPlayers) {
+		return nil, fail(ErrInvalid, "draft supports two to eight seats")
 	}
 	if config.EventType == protocol.LimitedEventCubeDraft &&
 		(config.MaxPlayers < limited.MinCubeDraftPlayers ||
 			config.MaxPlayers > limited.MaxCubeDraftPlayers) {
-		return nil, fail(ErrInvalid, "Cube draft supports four to eight seats")
+		return nil, fail(ErrInvalid, "Cube draft supports two to eight seats")
 	}
 	var product *protocol.LimitedProductDefinition
+	var productView *protocol.LimitedProductView
 	if config.Product != nil {
 		cloned := cloneLimitedProduct(*config.Product)
 		validated, validationErr := limited.NewProduct(cloned)
@@ -231,6 +239,8 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 			}
 		}
 		product = &cloned
+		view := validated.View()
+		productView = &view
 	}
 	return &Tournament{
 		ID:                    id,
@@ -251,7 +261,43 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		LastActivityAt:        now.UTC(),
 		participantByID:       make(map[string]*Participant),
 		limitedProduct:        product,
+		limitedProductView:    productView,
 	}, nil
+}
+
+// LimitedProductView exposes the immutable, public product summary without
+// disclosing collation sheets before the event starts.
+func (t *Tournament) LimitedProductView() *protocol.LimitedProductView {
+	if t.limitedProductView == nil {
+		return nil
+	}
+	view := *t.limitedProductView
+	return &view
+}
+
+// minimumPlayersFor is the single source of truth for the checked-in count a
+// tournament needs before it can start. New() enforces it as the capacity
+// floor and Start() enforces it against checked-in players, so the two
+// validations can never drift apart. Casual coordination always allows two.
+func minimumPlayersFor(eventType, coordinator string) int {
+	if coordinator == protocol.LimitedCoordinatorCasual {
+		return 2
+	}
+	switch eventType {
+	case protocol.LimitedEventSetSealed:
+		return limited.MinSetSealedPlayers
+	case protocol.LimitedEventSetDraft:
+		return limited.MinSetDraftPlayers
+	case protocol.LimitedEventCubeDraft:
+		return limited.MinCubeDraftPlayers
+	default:
+		return MinParticipants
+	}
+}
+
+// MinimumPlayers reports the checked-in count this tournament needs to start.
+func (t *Tournament) MinimumPlayers() int {
+	return minimumPlayersFor(t.EventType, t.Coordinator)
 }
 
 func validText(value string, maxRunes int) bool {
@@ -268,8 +314,10 @@ func validText(value string, maxRunes int) bool {
 
 func RecommendedRounds(players int) int {
 	switch {
-	case players < MinParticipants:
+	case players < 2:
 		return 0
+	case players == 2:
+		return 1
 	case players <= 8:
 		return 3
 	case players <= 32:
@@ -477,18 +525,9 @@ func (t *Tournament) Start(actor Actor, seed int64, now time.Time) error {
 			competing = append(competing, participant)
 		}
 	}
-	minimumPlayers := MinParticipants
-	if t.Coordinator == protocol.LimitedCoordinatorCasual {
-		minimumPlayers = 2
-	}
-	if t.EventType == protocol.LimitedEventSetDraft {
-		minimumPlayers = 8
-	} else if t.EventType == protocol.LimitedEventCubeDraft {
-		minimumPlayers = limited.MinCubeDraftPlayers
-	}
+	minimumPlayers := t.MinimumPlayers()
 	if len(competing) < minimumPlayers {
-		return fail(ErrNotReady, fmt.Sprintf(
-			"at least %d checked-in players are required", minimumPlayers))
+		return failMinimumPlayers(minimumPlayers)
 	}
 	if t.Coordinator == protocol.LimitedCoordinatorSwiss && t.PlannedRounds == 0 {
 		t.PlannedRounds = RecommendedRounds(len(competing))
@@ -788,7 +827,7 @@ func (t *Tournament) Report(actor Actor, pairingID string, score MatchScore,
 	if err != nil {
 		return err
 	}
-	if pairing.Bye() || pairing.Result != nil {
+	if pairing.Bye() || pairing.Result != nil || pairing.Pending != nil {
 		return fail(ErrResultInvalid, "pairing does not accept a report")
 	}
 	if actor.ParticipantID != pairing.PlayerAID && actor.ParticipantID != pairing.PlayerBID {
@@ -866,6 +905,9 @@ func (t *Tournament) Correct(actor Actor, pairingID string, score MatchScore,
 	now time.Time) error {
 	if actor.Role != RoleOrganizer || !t.actorIsCurrent(actor) {
 		return fail(ErrForbidden, "only the organizer can correct a result")
+	}
+	if t.Status != StatusRunning {
+		return fail(ErrInvalid, "tournament is not running")
 	}
 	if t.Coordinator != protocol.LimitedCoordinatorSwiss {
 		return fail(ErrInvalid, "casual matches do not report standings")

@@ -28,6 +28,17 @@ TestCase {
             "Scryfall 返回了无效的 default_cards 批量数据包信息（download URL, compressed size）。")
     }
 
+    function test_translatesTournamentNotReadyCount() {
+        // Mirrors the template WsClientDispatch builds for the
+        // tournament_not_ready error; keep both in sync.
+        compare(
+            I18n.status("tournament_not_ready: at least 2 checked-in players are required"),
+            "至少需要 2 名已签到选手。")
+        compare(
+            I18n.status("tournament_not_ready: server-specific wording"),
+            "比赛当前还不能执行该操作。")
+    }
+
     function test_translatesDeckImportWarnings() {
         compare(
             I18n.status("Line 2 was ignored: not a card"),

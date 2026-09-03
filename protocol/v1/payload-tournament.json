@@ -253,6 +253,7 @@
         {"name": "roundMinutes", "type": "integer", "required": true},
         {"name": "roundStartedAt", "type": "string", "required": false},
         {"name": "maxPlayers", "type": "integer", "required": true},
+        {"name": "minimumPlayers", "type": "integer", "required": true},
         {"name": "plannedRounds", "type": "integer", "required": true},
         {"name": "currentRound", "type": "integer", "required": true},
         {"name": "registered", "type": "integer", "required": true},
@@ -262,6 +263,7 @@
         {"name": "role", "type": "string", "required": true},
         {"name": "participantId", "type": "string", "required": false},
         {"name": "canRegister", "type": "boolean", "required": true},
+        {"name": "product", "type": "object", "required": false, "ref": "LimitedProductView", "goType": "*LimitedProductView"},
         {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentParticipantView"}},
         {"name": "pairings", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentPairingView"}},
         {"name": "standings", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentStandingView"}}

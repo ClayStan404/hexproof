@@ -453,6 +453,39 @@ TestCase {
         table.destroy()
     }
 
+    function test_cardClicksReleaseChatFocus() {
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+        const chatInput = findChild(table, "gameChatInput")
+        const handCard = findChild(table, "handCard0")
+        const battlefieldCard = findChild(table, "battlefieldCards1-c1")
+        verify(chatInput !== null)
+        verify(handCard !== null)
+        verify(battlefieldCard !== null)
+
+        chatInput.text = "Keep this draft"
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
+        chatInput.forceActiveFocus()
+        tryVerify(() => chatInput.activeFocus)
+        mouseClick(handCard, handCard.width / 2, handCard.height / 2,
+                   Qt.LeftButton)
+        tryVerify(() => handCard.activeFocus)
+        verify(!chatInput.activeFocus)
+
+        chatInput.forceActiveFocus()
+        tryVerify(() => chatInput.activeFocus)
+        mouseClick(battlefieldCard, battlefieldCard.width / 2,
+                   battlefieldCard.height / 2, Qt.LeftButton)
+        tryVerify(() => battlefieldCard.activeFocus)
+        verify(!chatInput.activeFocus)
+        compare(chatInput.text, "Keep this draft")
+        table.destroy()
+    }
+
     function test_spectatorHandViewerIsReadOnlyAndSeatScoped() {
         mockWs.roomRole = "spectator"
         mockWs.seatIndex = -1
@@ -488,6 +521,77 @@ TestCase {
         mouseClick(card, card.width / 2, card.height / 2,
                    Qt.RightButton)
         verify(!handCardMenu.opened)
+    }
+
+    function test_spectatorHandScrollClampsToOriginRelativeBounds() {
+        mockWs.roomRole = "spectator"
+        mockWs.seatIndex = -1
+        mockRoomSession.spectatorsSeeHands = true
+        const cards = []
+        for (let index = 0; index < 27; ++index) {
+            cards.push({
+                "id": "s1-hand-" + index,
+                "name": "Card " + index
+            })
+        }
+        mockWs.gameSeats[1].hand = cards
+        mockWs.gameSeats[1].handCount = cards.length
+        syncTestGameTable()
+
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+        const handView = findChild(table, "spectatorHandView")
+        const handList = findChild(table, "spectatorHandList")
+        verify(handView !== null)
+        verify(handList !== null)
+        const bobTab = findChild(table, "spectatorHandSeat1")
+        verify(bobTab !== null)
+        bobTab.clicked()
+        tryCompare(handList, "count", cards.length)
+        tryVerify(() => handList.contentWidth > handList.width)
+
+        compare(handView.handScrollMinimum, handList.originX)
+        compare(handView.handScrollMaximum,
+                handList.originX
+                + Math.max(0, handList.contentWidth - handList.width))
+
+        // A mirrored layout gives the list a non-zero originX; the scroll
+        // bounds must stay relative to it, not to zero.
+        handList.LayoutMirroring.enabled = true
+        handList.LayoutMirroring.childrenInherit = true
+        tryVerify(() => handList.originX !== 0)
+        compare(handView.handScrollMinimum, handList.originX)
+        compare(handView.handScrollMaximum,
+                handList.originX
+                + Math.max(0, handList.contentWidth - handList.width))
+
+        handList.contentX = handView.handScrollMaximum + 100
+        handView.clampHandScrollPosition()
+        compare(handList.contentX, handView.handScrollMaximum)
+
+        handList.contentX = handView.handScrollMinimum - 100
+        handView.clampHandScrollPosition()
+        compare(handList.contentX, handView.handScrollMinimum)
+
+        // Wheel scrolling past either edge clamps to the same bounds.
+        handList.contentX = handView.handScrollMaximum - 4
+        handView.scrollByWheel({
+            "pixelDelta": Qt.point(0, 0),
+            "angleDelta": Qt.point(0, -120),
+            "accepted": false
+        })
+        compare(handList.contentX, handView.handScrollMaximum)
+        handList.contentX = handView.handScrollMinimum + 4
+        handView.scrollByWheel({
+            "pixelDelta": Qt.point(0, 0),
+            "angleDelta": Qt.point(0, 120),
+            "accepted": false
+        })
+        compare(handList.contentX, handView.handScrollMinimum)
+        table.destroy()
     }
 
     function test_handAreaOffersRandomAndWholeHandDiscard() {

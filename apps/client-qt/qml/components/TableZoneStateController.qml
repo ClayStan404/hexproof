@@ -87,14 +87,32 @@ QtObject {
         return tableRoot.gameTableModel.visibleZoneSeat(cardId, zone)
     }
 
+    function battlefieldGainedNewCard(cards, knownCardIds) {
+        const known = knownCardIds ? knownCardIds : []
+        for (let index = 0; index < cards.length; ++index) {
+            if (cards[index].id && known.indexOf(cards[index].id) < 0)
+                return true
+        }
+        return false
+    }
+
     function reconcilePendingCardMoves() {
         const moveIds = Object.keys(tableRoot.pendingCardMoves)
         for (let index = 0; index < moveIds.length; ++index) {
             const cardId = moveIds[index]
             const move = tableRoot.pendingCardMoves[cardId]
             if (move.toZone === "battlefield") {
-                if (move.fromZone !== "library"
-                    && cardInZone(cardId, "battlefield", move.toSeat)) {
+                if (move.fromZone === "library") {
+                    // The server assigns a new instance id when the library
+                    // top enters play: commit when a permanent absent at move
+                    // start has arrived at the target seat.
+                    if (battlefieldGainedNewCard(
+                                zoneCardsForSeat(move.toSeat, "battlefield"),
+                                move.knownCardIds)) {
+                        tableRoot.optimisticCommandModel.removeValue(
+                                    "move", cardId)
+                    }
+                } else if (cardInZone(cardId, "battlefield", move.toSeat)) {
                     tableRoot.optimisticCommandModel.removeValue(
                                 "move", cardId)
                 }

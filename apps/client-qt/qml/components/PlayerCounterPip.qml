@@ -95,6 +95,7 @@ Item {
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
             onClicked: function(mouse) {
+                root.forceActiveFocus(Qt.MouseFocusReason)
                 if (!root.selected) {
                     root.selectedRequested()
                     return
@@ -130,7 +131,10 @@ Item {
             anchors.fill: parent
             enabled: root.editable
             cursorShape: Qt.IBeamCursor
-            onClicked: root.selectedRequested()
+            onClicked: {
+                root.forceActiveFocus(Qt.MouseFocusReason)
+                root.selectedRequested()
+            }
         }
     }
 

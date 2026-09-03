@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QVariantMap>
 
+#include <utility>
+
 namespace hexproof::client {
 
 using namespace Qt::StringLiterals;
@@ -46,6 +48,15 @@ QVariantMap TournamentSessionState::tabletopScoreForRoom(const QString &roomId) 
 void TournamentSessionState::applyList(const QJsonObject &payload)
 {
     m_tournamentList = arrayToVariantList(payload.value(u"tournaments"_s));
+    m_activeTournamentList.clear();
+    m_historicalTournamentList.clear();
+    for (const QVariant &entry : std::as_const(m_tournamentList)) {
+        const QString status = entry.toMap().value(u"status"_s).toString();
+        if (status == u"completed"_s || status == u"cancelled"_s)
+            m_historicalTournamentList.append(entry);
+        else
+            m_activeTournamentList.append(entry);
+    }
     emit tournamentListChanged();
 }
 
@@ -86,12 +97,14 @@ void TournamentSessionState::applySnapshot(const QJsonObject &payload)
     m_roundMinutes = payload.value(u"roundMinutes"_s).toInt();
     m_roundStartedAt = payload.value(u"roundStartedAt"_s).toString();
     m_maxPlayers = payload.value(u"maxPlayers"_s).toInt();
+    m_minimumPlayers = payload.value(u"minimumPlayers"_s).toInt();
     m_plannedRounds = payload.value(u"plannedRounds"_s).toInt();
     m_currentRound = payload.value(u"currentRound"_s).toInt();
     m_registered = payload.value(u"registered"_s).toInt();
     m_checkedIn = payload.value(u"checkedIn"_s).toInt();
     m_roundComplete = payload.value(u"roundComplete"_s).toBool();
     m_canRegister = payload.value(u"canRegister"_s).toBool();
+    m_product = payload.value(u"product"_s).toObject().toVariantMap();
     m_participants = arrayToVariantList(payload.value(u"participants"_s));
     m_pairings = arrayToVariantList(payload.value(u"pairings"_s));
     m_standings = arrayToVariantList(payload.value(u"standings"_s));
@@ -117,12 +130,14 @@ void TournamentSessionState::clear()
     m_roundMinutes = 0;
     m_roundStartedAt.clear();
     m_maxPlayers = 0;
+    m_minimumPlayers = 0;
     m_plannedRounds = 0;
     m_currentRound = 0;
     m_registered = 0;
     m_checkedIn = 0;
     m_roundComplete = false;
     m_canRegister = false;
+    m_product.clear();
     m_participants.clear();
     m_pairings.clear();
     m_standings.clear();

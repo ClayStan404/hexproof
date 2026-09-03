@@ -298,6 +298,13 @@ TestCase {
         verify(!opponentPip.editable)
         verify(ownPip.activeFocusOnTab)
         compare(ownPip.accessibleSummary, "Counter · 0")
+        const chatInput = findChild(table, "gameChatInput")
+        verify(chatInput !== null)
+        chatInput.text = "Keep this draft"
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
+        chatInput.forceActiveFocus()
+        tryVerify(() => chatInput.activeFocus)
         const ownPipLabel = findChild(ownPip, "playerCounterLabel")
         verify(ownPipLabel !== null)
         compare(ownPipLabel.text, "")
@@ -308,6 +315,7 @@ TestCase {
         compare(mockWs.adjustCounterCount, 0)
         compare(table.selectedCounterKey, "counter-1")
         compare(table.selectedCounterSeat, 0)
+        tryVerify(() => !chatInput.activeFocus)
         compare(ownPipLabel.text, "I rename · S set")
 
         mouseClick(ownPip, ownPip.width * 0.18, ownPip.height / 2,
@@ -325,6 +333,7 @@ TestCase {
         compare(table.selectedCounterKey, "counter-1")
         compare(table.selectedCounterSeat, 0)
         keyClick(Qt.Key_I)
+        compare(chatInput.text, "Keep this draft")
         const popup = findChild(table, "counterLabelPopup")
         verify(popup !== null)
         const field = findChild(popup, "counterLabelField")

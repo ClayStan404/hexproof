@@ -57,6 +57,8 @@ class TestDeckLibrary : public QObject
     void storesCardArtProviderPreference() const;
     void storesLocalArtReusePreference() const;
     void storesPackOpeningAnimationPreference() const;
+    void storesSponsorAnnouncementAcknowledgement() const;
+    void storesCardArtRepairNoticeAcknowledgement() const;
     void storesAndClampsInterfaceScale() const;
     void storesTableLayoutPreferences() const;
     void storesCustomShortcutPreferences() const;
@@ -65,6 +67,7 @@ class TestDeckLibrary : public QObject
     void buildsPrivateMatchDeckPayload() const;
     void categorizesLocalizedTypeLines() const;
     void keepsDistinctPrintingCacheRequests() const;
+    void recachesExistingDeckEntriesToExpandFaces() const;
     void doesNotCacheArtOnImportUntilRequested() const;
     void hydratesTypeLineFromCatalogWithoutCachingArt() const;
     void appliesDoubleFacedPrintingUnderFaceName() const;

@@ -91,9 +91,15 @@ QVariantList CatalogRepository::printings(const QString &name, const QString &la
 }
 
 QVariantList CatalogRepository::cardFaces(const QString &name, const QString &setCode,
-                                          const QString &collectorNumber, QString *error) const
+                                          const QString &collectorNumber, QString *error,
+                                          QString *resolvedLayout,
+                                          QString *resolvedCanonicalName) const
 {
     QVariantList result;
+    if (resolvedLayout)
+        resolvedLayout->clear();
+    if (resolvedCanonicalName)
+        resolvedCanonicalName->clear();
     if (!installed() || name.simplified().isEmpty())
         return result;
 
@@ -136,6 +142,10 @@ QVariantList CatalogRepository::cardFaces(const QString &name, const QString &se
         layout = query.value(1).toString();
         typeLine = query.value(2).toString();
     }
+    if (resolvedLayout)
+        *resolvedLayout = layout;
+    if (resolvedCanonicalName)
+        *resolvedCanonicalName = cardName;
 
     static const QSet<QString> doubleFacedLayouts{
         QStringLiteral("transform"),

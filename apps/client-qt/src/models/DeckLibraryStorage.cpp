@@ -344,7 +344,8 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
         preferences.cardLanguage = cardLanguage;
     const QString cardArtProvider =
         settings.value(QStringLiteral("cardArtProvider")).toString().toLower();
-    if (cardArtProvider == QStringLiteral("scryfall") ||
+    if (cardArtProvider == QStringLiteral("auto") ||
+        cardArtProvider == QStringLiteral("scryfall") ||
         cardArtProvider == QStringLiteral("mtgch")) {
         preferences.cardArtProvider = cardArtProvider;
     }
@@ -354,6 +355,10 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
     const QJsonValue animatePackOpenings = settings.value(QStringLiteral("animatePackOpenings"));
     if (animatePackOpenings.isBool())
         preferences.animatePackOpenings = animatePackOpenings.toBool();
+    preferences.sponsorAnnouncementId =
+        settings.value(QStringLiteral("sponsorAnnouncementId")).toString().trimmed().left(128);
+    preferences.cardArtRepairNoticeVersion =
+        qMax(0, settings.value(QStringLiteral("cardArtRepairNoticeVersion")).toInt());
     const QJsonValue interfaceScale = settings.value(QStringLiteral("interfaceScale"));
     if (interfaceScale.isDouble())
         preferences.interfaceScale = normalizedInterfaceScale(interfaceScale.toDouble());
@@ -434,12 +439,14 @@ bool DeckLibraryStorage::savePreferences(const DeckLibraryPreferences &preferenc
         shortcuts.insert(actionId, sequences);
     }
     const QJsonObject settings{
-        {QStringLiteral("version"), 10},
+        {QStringLiteral("version"), 12},
         {QStringLiteral("uiLanguage"), preferences.uiLanguage},
         {QStringLiteral("cardLanguage"), preferences.cardLanguage},
         {QStringLiteral("cardArtProvider"), preferences.cardArtProvider},
         {QStringLiteral("reuseLocalCardArt"), preferences.reuseLocalCardArt},
         {QStringLiteral("animatePackOpenings"), preferences.animatePackOpenings},
+        {QStringLiteral("sponsorAnnouncementId"), preferences.sponsorAnnouncementId},
+        {QStringLiteral("cardArtRepairNoticeVersion"), preferences.cardArtRepairNoticeVersion},
         {QStringLiteral("interfaceScale"), preferences.interfaceScale},
         {QStringLiteral("tableShowPlayers"), preferences.tableShowPlayers},
         {QStringLiteral("tableShowShared"), preferences.tableShowShared},

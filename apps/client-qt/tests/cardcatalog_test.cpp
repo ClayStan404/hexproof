@@ -3,6 +3,8 @@
 
 #include "cardcatalog_test.h"
 
+#include "services/CardArtCache.h"
+
 void TestCardCatalog::prefersMtgchChineseFields() const
 {
     const QJsonObject object{
@@ -177,6 +179,55 @@ void TestCardCatalog::usesWholeCardImageForAdventureFace() const
     QCOMPARE(record.imageUrl, u"https://images.test/murderous-rider.png"_s);
 }
 
+void TestCardCatalog::usesWholeCardImageForPrepareCard() const
+{
+    const QJsonObject object{
+        {u"name"_s, u"Emeritus of Truce // Swords to Plowshares"_s},
+        {u"face_name"_s, u"Emeritus of Truce"_s},
+        {u"oracle_id"_s, u"emeritus-oracle"_s},
+        {u"layout"_s, u"prepare"_s},
+        {u"set"_s, u"SOS"_s},
+        {u"collector_number"_s, u"13"_s},
+        {u"type_line"_s, u"Creature — Cat Cleric"_s},
+        {u"atomic_translated_name"_s, u"止战尊贤"_s},
+        {u"zhs_image_uris"_s,
+         QJsonObject{{u"normal"_s, u"https://images.test/emeritus-zh.webp"_s}}},
+        {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://images.test/emeritus-en.webp"_s}}},
+        {u"other_faces"_s,
+         QJsonArray{QJsonObject{
+             {u"name"_s, u"Emeritus of Truce // Swords to Plowshares"_s},
+             {u"face_name"_s, u"Swords to Plowshares"_s},
+             {u"type_line"_s, u"Instant"_s},
+             {u"atomic_translated_name"_s, u"化剑为犁"_s},
+             {u"zhs_image_uris"_s,
+              QJsonObject{{u"normal"_s, u"https://images.test/emeritus-zh.webp"_s}}},
+             {u"image_uris"_s,
+              QJsonObject{{u"normal"_s, u"https://images.test/emeritus-en.webp"_s}}},
+         }}},
+    };
+
+    const CardCatalog::CardRecord wholeCard = CardCatalog::parseCardObject(
+        object, u"zh"_s, u"Emeritus of Truce // Swords to Plowshares"_s);
+    QVERIFY(wholeCard.faceName.isEmpty());
+    QCOMPARE(wholeCard.typeLine, u"Creature — Cat Cleric"_s);
+    QCOMPARE(wholeCard.localizedName, u"止战尊贤"_s);
+    QCOMPARE(wholeCard.imageUrl, u"https://images.test/emeritus-zh.webp"_s);
+    QTemporaryDir cacheStorage;
+    QVERIFY(cacheStorage.isValid());
+    hexproof::client::CardArtCache cache(cacheStorage.path());
+    QVERIFY(cache.matchesRequestedFace(
+        hexproof::client::CardRequest{u"Emeritus of Truce // Swords to Plowshares"_s, u"SOS"_s,
+                                      u"13"_s, u"zh"_s},
+        wholeCard));
+
+    const CardCatalog::CardRecord prepareSpell =
+        CardCatalog::parseCardObject(object, u"zh"_s, u"Swords to Plowshares"_s);
+    QCOMPARE(prepareSpell.faceName, u"Swords to Plowshares"_s);
+    QCOMPARE(prepareSpell.typeLine, u"Instant"_s);
+    QCOMPARE(prepareSpell.localizedName, u"化剑为犁"_s);
+    QCOMPARE(prepareSpell.imageUrl, u"https://images.test/emeritus-zh.webp"_s);
+}
+
 void TestCardCatalog::usesRequestedMtgchDoubleFace() const
 {
     const QJsonObject object{
@@ -221,6 +272,13 @@ void TestCardCatalog::usesRequestedMtgchDoubleFace() const
     QCOMPARE(english.faceName, u"Ajani, Nacatl Avenger"_s);
     QCOMPARE(english.typeLine, u"Legendary Planeswalker — Ajani"_s);
     QCOMPARE(english.imageUrl, u"https://images.test/back-en.webp"_s);
+
+    QJsonObject missingBack = object;
+    missingBack.remove(u"other_faces"_s);
+    const CardCatalog::CardRecord unidentifiedBack =
+        CardCatalog::parseCardObject(missingBack, u"zh"_s, u"Ajani, Nacatl Avenger"_s);
+    QVERIFY(unidentifiedBack.faceName.isEmpty());
+    QVERIFY(unidentifiedBack.imageUrl.isEmpty());
 }
 
 void TestCardCatalog::preservesScryfallFlavorName() const
@@ -293,6 +351,7 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
     FakeNetworkAccessManager network;
     CardCatalog catalog(storage.path(), &network);
     catalog.setLanguage(u"zh"_s);
+    catalog.setCardArtProvider(u"scryfall"_s);
     QSignalSpy availableSpy(&catalog, &CardCatalog::cardAvailable);
     QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
 
@@ -332,6 +391,33 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
     }});
     QCOMPARE(cacheSpy.count(), 3);
     QCOMPARE(network.requestedUrls.size(), 2);
+}
+
+void TestCardCatalog::automaticProviderUsesLanguagePriority() const
+{
+    QTemporaryDir chineseStorage;
+    QVERIFY(chineseStorage.isValid());
+    FakeNetworkAccessManager chineseNetwork;
+    CardCatalog chineseCatalog(chineseStorage.path(), &chineseNetwork);
+    chineseCatalog.setLanguage(u"zh"_s);
+    QCOMPARE(chineseCatalog.cardArtProvider(), u"auto"_s);
+    QSignalSpy chineseSpy(&chineseCatalog, &CardCatalog::cardCacheFinished);
+    chineseCatalog.cacheCards({QVariantMap{{u"name"_s, u"Lightning Bolt"_s},
+                                           {u"setCode"_s, u"M11"_s},
+                                           {u"collectorNumber"_s, u"146"_s}}});
+    QTRY_COMPARE_WITH_TIMEOUT(chineseSpy.count(), 1, 2'000);
+    QCOMPARE(chineseNetwork.requestedUrls.constFirst().host(), u"mtgch.com"_s);
+
+    QTemporaryDir englishStorage;
+    QVERIFY(englishStorage.isValid());
+    FakeNetworkAccessManager englishNetwork;
+    CardCatalog englishCatalog(englishStorage.path(), &englishNetwork);
+    QSignalSpy englishSpy(&englishCatalog, &CardCatalog::cardCacheFinished);
+    englishCatalog.cacheCards({QVariantMap{{u"name"_s, u"Lightning Bolt"_s},
+                                           {u"setCode"_s, u"M11"_s},
+                                           {u"collectorNumber"_s, u"146"_s}}});
+    QTRY_COMPARE_WITH_TIMEOUT(englishSpy.count(), 1, 2'000);
+    QCOMPARE(englishNetwork.requestedUrls.constFirst().host(), u"api.scryfall.com"_s);
 }
 
 void TestCardCatalog::prefersMtgchBeforeScryfallFallback() const
@@ -435,6 +521,32 @@ void TestCardCatalog::positiveCacheHitDoesNotBumpImageRevision() const
     QCOMPARE(catalog.imageRevision(), revisionAfterDownload);
     QCOMPARE(revisionSpy.count(), revisionSignalsAfterDownload);
     QCOMPARE(network.requestedUrls.size(), 2);
+}
+
+void TestCardCatalog::setLanguageBumpsImageRevision() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    QCOMPARE(catalog.language(), u"en"_s);
+    QSignalSpy revisionSpy(&catalog, &CardCatalog::imageRevisionChanged);
+    const int initialRevision = catalog.imageRevision();
+
+    catalog.setLanguage(u"zh"_s);
+
+    QCOMPARE(catalog.language(), u"zh"_s);
+    QCOMPARE(catalog.imageRevision(), initialRevision + 1);
+    QCOMPARE(revisionSpy.count(), 1);
+
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.imageRevision(), initialRevision + 1);
+    QCOMPARE(revisionSpy.count(), 1);
+
+    catalog.setLanguage(u"en"_s);
+    QCOMPARE(catalog.language(), u"en"_s);
+    QCOMPARE(catalog.imageRevision(), initialRevision + 2);
+    QCOMPARE(revisionSpy.count(), 2);
 }
 
 void TestCardCatalog::providerFallbackSurvivesDisabledLocalReuse() const
@@ -675,6 +787,7 @@ void TestCardCatalog::exactArtUsesSamePrintingProviderFallback() const
     network.missFirstScryfallRequest = true;
     CardCatalog catalog(storage.path(), &network);
     catalog.setLanguage(u"zh"_s);
+    catalog.setCardArtProvider(u"scryfall"_s);
     QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
 
     catalog.cacheCards({QVariantMap{

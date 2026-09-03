@@ -4,6 +4,7 @@
 #include "CardCatalog.h"
 #include "ApplicationPaths.h"
 #include "CardArtCache.h"
+#include "CardArtManager.h"
 #include "CardCatalogCommon.h"
 #include "CardImageProvider.h"
 #include "CardResolver.h"
@@ -84,6 +85,7 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
             QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
     };
     m_cardResolver = std::make_unique<CardResolver>(m_network, std::move(resolverCallbacks));
+    connect(this, &CardCatalog::cardCacheFinished, this, &CardCatalog::handleLimitedArtCacheResult);
 
     CatalogInstaller *installer = m_catalogInstaller.get();
     installer->onBusyChanged = [this](bool busy) {
@@ -107,11 +109,34 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
     installer->onImportFinished = [this](const CatalogImportResult &result) {
         finishCatalogOperation(result);
     };
+
+    m_artManager = std::make_unique<CardArtManager>(m_storageRoot, m_artCache.get());
+    m_artManager->setOperationGuard([this]() {
+        return !m_shuttingDown && !m_catalogBusy && !m_resolving && !m_searching &&
+               !m_tokenSearching && !m_limitedArtCaching;
+    });
+    connect(m_artManager.get(), &CardArtManager::busyChanged, this, [this]() {
+        m_artCacheBusy = m_artManager && m_artManager->busy();
+        emit busyChanged();
+        if (!m_artCacheBusy && !QCoreApplication::closingDown())
+            QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
+    });
+    connect(m_artManager.get(), &CardArtManager::contentsChanged, this, [this]() {
+        ++m_imageRevision;
+        emit imageRevisionChanged();
+        emit artCacheContentsChanged();
+    });
+    connect(m_artManager.get(), &CardArtManager::repairDownloadsRequested, this,
+            [this](const QVariantList &cards) {
+                m_cardArtRepairAuditPending = true;
+                retryCards(cards);
+            });
 }
 
 CardCatalog::~CardCatalog()
 {
     m_shuttingDown = true;
+    m_artManager.reset();
     m_guiCatalog.reset();
     const auto directReplies = m_directImageJobs.keys();
     for (QNetworkReply *reply : directReplies)
@@ -128,6 +153,11 @@ CardCatalog::~CardCatalog()
     }
     if (m_artCache->dirty())
         saveResolutionCache();
+}
+
+CardArtManager *CardCatalog::artManager() const
+{
+    return m_artManager.get();
 }
 
 bool CardCatalog::installed() const
@@ -148,6 +178,8 @@ void CardCatalog::setLanguage(const QString &language)
         return;
     m_language = normalized;
     clearGuiQueryCaches();
+    ++m_imageRevision;
+    emit imageRevisionChanged();
     emit languageChanged();
     if (installed() && (!m_lastSearchQuery.isEmpty() || !m_lastTypeFilter.isEmpty() ||
                         !m_lastSetFilter.isEmpty() || !m_lastLanguageFilter.isEmpty() ||
@@ -160,16 +192,21 @@ void CardCatalog::setLanguage(const QString &language)
 
 void CardCatalog::setCardArtProvider(const QString &provider)
 {
-    const QString normalized = provider.toLower() == QStringLiteral("mtgch")
-                                   ? QStringLiteral("mtgch")
-                                   : QStringLiteral("scryfall");
+    const QString lowered = provider.toLower();
+    const QString normalized =
+        lowered == QStringLiteral("mtgch") || lowered == QStringLiteral("scryfall")
+            ? lowered
+            : QStringLiteral("auto");
     if (normalized == m_cardArtProvider)
         return;
     m_cardArtProvider = normalized;
     if (m_cardResolver) {
-        m_cardResolver->setPreferredProvider(normalized == QStringLiteral("mtgch")
-                                                 ? CardResolver::ArtProvider::Mtgch
-                                                 : CardResolver::ArtProvider::Scryfall);
+        const CardResolver::ArtProvider resolverProvider =
+            normalized == QStringLiteral("mtgch")
+                ? CardResolver::ArtProvider::Mtgch
+                : (normalized == QStringLiteral("scryfall") ? CardResolver::ArtProvider::Scryfall
+                                                            : CardResolver::ArtProvider::Auto);
+        m_cardResolver->setPreferredProvider(resolverProvider);
     }
     emit cardArtProviderChanged();
 }

@@ -188,6 +188,8 @@ class DeckLibraryModel : public QAbstractListModel
     Q_INVOKABLE void refreshDeckValidation();
     Q_INVOKABLE void clearLastError();
     void hydrateCatalogMetadata(bool refreshExisting = false);
+    void refreshCachedCardArt();
+    QVariantList cardArtAuditRequests() const;
 
 #ifdef HEXPROOF_TESTING
     void flushMetadataCommitForTest()

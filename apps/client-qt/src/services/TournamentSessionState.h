@@ -17,6 +17,10 @@ class TournamentSessionState : public QObject
     Q_OBJECT
     Q_PROPERTY(bool inTournament READ inTournament NOTIFY inTournamentChanged)
     Q_PROPERTY(QVariantList tournamentList READ tournamentList NOTIFY tournamentListChanged)
+    Q_PROPERTY(
+        QVariantList activeTournamentList READ activeTournamentList NOTIFY tournamentListChanged)
+    Q_PROPERTY(QVariantList historicalTournamentList READ historicalTournamentList NOTIFY
+                   tournamentListChanged)
     Q_PROPERTY(QString tournamentId READ tournamentId NOTIFY snapshotChanged)
     Q_PROPERTY(QString name READ name NOTIFY snapshotChanged)
     Q_PROPERTY(QString format READ format NOTIFY snapshotChanged)
@@ -31,12 +35,14 @@ class TournamentSessionState : public QObject
     Q_PROPERTY(int roundMinutes READ roundMinutes NOTIFY snapshotChanged)
     Q_PROPERTY(QString roundStartedAt READ roundStartedAt NOTIFY snapshotChanged)
     Q_PROPERTY(int maxPlayers READ maxPlayers NOTIFY snapshotChanged)
+    Q_PROPERTY(int minimumPlayers READ minimumPlayers NOTIFY snapshotChanged)
     Q_PROPERTY(int plannedRounds READ plannedRounds NOTIFY snapshotChanged)
     Q_PROPERTY(int currentRound READ currentRound NOTIFY snapshotChanged)
     Q_PROPERTY(int registered READ registered NOTIFY snapshotChanged)
     Q_PROPERTY(int checkedIn READ checkedIn NOTIFY snapshotChanged)
     Q_PROPERTY(bool roundComplete READ roundComplete NOTIFY snapshotChanged)
     Q_PROPERTY(bool canRegister READ canRegister NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantMap product READ product NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList participants READ participants NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList pairings READ pairings NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList standings READ standings NOTIFY snapshotChanged)
@@ -51,6 +57,14 @@ class TournamentSessionState : public QObject
     QVariantList tournamentList() const
     {
         return m_tournamentList;
+    }
+    QVariantList activeTournamentList() const
+    {
+        return m_activeTournamentList;
+    }
+    QVariantList historicalTournamentList() const
+    {
+        return m_historicalTournamentList;
     }
     QString tournamentId() const
     {
@@ -108,6 +122,10 @@ class TournamentSessionState : public QObject
     {
         return m_maxPlayers;
     }
+    int minimumPlayers() const
+    {
+        return m_minimumPlayers;
+    }
     int plannedRounds() const
     {
         return m_plannedRounds;
@@ -131,6 +149,10 @@ class TournamentSessionState : public QObject
     bool canRegister() const
     {
         return m_canRegister;
+    }
+    QVariantMap product() const
+    {
+        return m_product;
     }
     QVariantList participants() const
     {
@@ -162,6 +184,8 @@ class TournamentSessionState : public QObject
 
   private:
     QVariantList m_tournamentList;
+    QVariantList m_activeTournamentList;
+    QVariantList m_historicalTournamentList;
     QString m_tournamentId;
     QString m_name;
     QString m_format;
@@ -176,12 +200,14 @@ class TournamentSessionState : public QObject
     int m_roundMinutes = 0;
     QString m_roundStartedAt;
     int m_maxPlayers = 0;
+    int m_minimumPlayers = 0;
     int m_plannedRounds = 0;
     int m_currentRound = 0;
     int m_registered = 0;
     int m_checkedIn = 0;
     bool m_roundComplete = false;
     bool m_canRegister = false;
+    QVariantMap m_product;
     QVariantList m_participants;
     QVariantList m_pairings;
     QVariantList m_standings;

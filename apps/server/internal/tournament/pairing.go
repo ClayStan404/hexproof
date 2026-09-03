@@ -64,8 +64,9 @@ func (t *Tournament) pairCost(left, right *Participant, ranks,
 	if t.havePlayed(left.ID, right.ID) {
 		cost += 1_000_000
 	}
-	// Stable initial order is only a deterministic final preference.
-	cost += abs(left.InitialOrder-right.InitialOrder) % 10
+	// Stable initial order is only a deterministic final preference. The term
+	// must stay monotonic and below the rank weight so it only breaks ties.
+	cost += min(abs(left.InitialOrder-right.InitialOrder), 9)
 	return cost
 }
 

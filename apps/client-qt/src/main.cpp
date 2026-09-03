@@ -8,6 +8,7 @@
 #include "models/SideboardTableModel.h"
 #include "protocol/Message.h"
 #include "services/AppUpdateService.h"
+#include "services/CardArtManager.h"
 #include "services/CardCatalog.h"
 #include "services/CardImageProvider.h"
 #include "services/DeckLegalityService.h"
@@ -107,6 +108,10 @@ int main(int argc, char *argv[])
     auto *appUpdater = new hexproof::client::AppUpdateService(&runtimeOwner);
     auto *deckLegality = new hexproof::client::DeckLegalityService(&runtimeOwner);
     auto *matchLoader = new hexproof::client::MatchLoadCoordinator(&runtimeOwner);
+    auto *cardArtManager = cardCatalog->artManager();
+    cardArtManager->setAuditRequestProvider(
+        [deckLibrary]() { return deckLibrary->cardArtAuditRequests(); },
+        [preferences]() { return preferences->cardLanguage(); });
     cardCatalog->setLanguage(preferences->cardLanguage());
     cardCatalog->setCardArtProvider(preferences->cardArtProvider());
     cardCatalog->setReuseLocalCardArt(preferences->reuseLocalCardArt());
@@ -148,6 +153,8 @@ int main(int argc, char *argv[])
                      [deckLibrary]() { deckLibrary->hydrateCatalogMetadata(true); });
     QObject::connect(cardCatalog, &hexproof::client::CardCatalog::languageChanged, deckLibrary,
                      [deckLibrary]() { deckLibrary->hydrateCatalogMetadata(true); });
+    QObject::connect(cardCatalog, &hexproof::client::CardCatalog::artCacheContentsChanged,
+                     deckLibrary, &hexproof::client::DeckLibraryModel::refreshCachedCardArt);
     deckLibrary->hydrateCatalogMetadata();
     QObject::connect(cardCatalog, &hexproof::client::CardCatalog::tokenMetadataAvailable,
                      deckLibrary, &hexproof::client::DeckLibraryModel::applyTokenMetadata);
@@ -218,6 +225,7 @@ int main(int argc, char *argv[])
                                              optimisticCommands);
     engine.rootContext()->setContextProperty(QStringLiteral("sideboardTable"), sideboardTable);
     engine.rootContext()->setContextProperty(QStringLiteral("cardCatalog"), cardCatalog);
+    engine.rootContext()->setContextProperty(QStringLiteral("cardArtManager"), cardArtManager);
     engine.rootContext()->setContextProperty(QStringLiteral("appUpdater"), appUpdater);
     engine.rootContext()->setContextProperty(QStringLiteral("matchLoader"), matchLoader);
     QObject::connect(&engine, &QQmlApplicationEngine::warnings,
@@ -236,6 +244,14 @@ int main(int argc, char *argv[])
 
     QTimer::singleShot(1'500, appUpdater, &hexproof::client::AppUpdateService::checkAutomatically);
     QTimer::singleShot(2'000, cardCatalog, &hexproof::client::CardCatalog::checkCatalogUpdateIfDue);
+    QTimer::singleShot(750, cardArtManager,
+                       [cardArtManager]() { cardArtManager->auditCardArt(false); });
+    QObject::connect(cardCatalog, &hexproof::client::CardCatalog::catalogChanged, cardArtManager,
+                     [cardArtManager]() {
+                         QTimer::singleShot(250, cardArtManager, [cardArtManager]() {
+                             cardArtManager->auditCardArt(false);
+                         });
+                     });
     QTimer::singleShot(0, deckLibrary, &hexproof::client::DeckLibraryModel::refreshTokenMetadata);
 
     const int exitCode = app.exec();

@@ -13,6 +13,9 @@ Surface {
     required property var participants
     required property string participantId
     property int direction: 1
+    // With two seats both neighbors resolve to the same opponent, so the
+    // alternating left/right pass label would be misleading.
+    readonly property bool twoPlayer: participants.length === 2
     readonly property int selfIndex: findParticipantIndex(participantId)
     readonly property var viewerRelativeSeats: buildViewerRelativeSeats()
     readonly property string outgoingName: neighborName(direction)
@@ -39,9 +42,12 @@ Surface {
             }
 
             StatusPill {
-                text: root.direction > 0
-                      ? qsTr("Pass left · clockwise")
-                      : qsTr("Pass right · counter-clockwise")
+                objectName: "draftDirectionPill"
+                text: root.twoPlayer
+                      ? qsTr("Two-player draft")
+                      : root.direction > 0
+                        ? qsTr("Pass left · clockwise")
+                        : qsTr("Pass right · counter-clockwise")
                 statusColor: Theme.accent
             }
         }

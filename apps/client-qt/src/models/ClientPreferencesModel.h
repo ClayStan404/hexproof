@@ -142,6 +142,10 @@ class ClientPreferencesModel final : public QObject
     void setShortcutCaptureActive(bool active);
 
     Q_INVOKABLE void clearLastError();
+    Q_INVOKABLE bool sponsorAnnouncementSeen(const QString &announcementId) const;
+    Q_INVOKABLE bool acknowledgeSponsorAnnouncement(const QString &announcementId);
+    Q_INVOKABLE bool cardArtRepairNoticeSeen(int version) const;
+    Q_INVOKABLE bool acknowledgeCardArtRepairNotice(int version);
     Q_INVOKABLE void setTableBattlefieldControlPosition(qreal x, qreal y);
     Q_INVOKABLE QStringList shortcutSequences(const QString &actionId) const;
     Q_INVOKABLE QString shortcutDisplay(const QString &actionId) const;

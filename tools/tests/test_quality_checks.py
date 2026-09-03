@@ -504,6 +504,11 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn('git cat-file -e "$base^{commit}"', ci)
         self.assertIn("git rev-parse --verify --quiet HEAD^", ci)
 
+    def test_ci_shellchecks_test_server_deployment(self) -> None:
+        expected = "scripts+=(deploy/deploy-test-server.sh)"
+        self.assertIn(expected, self.source(".github/workflows/ci.yml"))
+        self.assertIn(expected, self.source(".github/workflows/release.yml"))
+
     def test_retention_rejects_and_removes_invalid_archives(self) -> None:
         retention = self.source("apps/server/internal/server/retention.go")
         self.assertIn("decoder.Decode(&struct{}{})", retention)

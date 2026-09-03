@@ -16,7 +16,10 @@ namespace hexproof::client {
 
 namespace {
 
-constexpr int kMinimumCubeDraftCards = 4 * 3 * 15;
+// Cards for the smallest possible draft: 2 seats x 3 packs x 15 cards. The
+// user-facing status text below names the "two-player draft" this floor
+// describes; update both together if the seat minimum ever changes.
+constexpr int kMinimumCubeDraftCards = 2 * 3 * 15;
 
 qsizetype categoryOrder(const QString &category)
 {
@@ -79,7 +82,8 @@ QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &vali
             return QStringLiteral("Every Cube card needs an exact printing.");
         if (cardCount(deck.mainboard) < kMinimumCubeDraftCards) {
             return QStringLiteral(
-                "The Cube needs at least 180 physical cards for a four-player draft.");
+                       "The Cube needs at least %1 physical cards for a two-player draft.")
+                .arg(kMinimumCubeDraftCards);
         }
         const int missing = missingImageCount(deck);
         if (missing > 0) {

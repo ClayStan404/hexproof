@@ -13,7 +13,11 @@ void CardResolver::resolve(CardRequest request)
         return;
     m_active = true;
     m_currentRequest = std::move(request);
-    m_currentProvider = m_configuredProvider;
+    m_currentProvider =
+        m_configuredProvider == ArtProvider::Auto
+            ? (m_currentRequest.language == QStringLiteral("zh") ? ArtProvider::Mtgch
+                                                                 : ArtProvider::Scryfall)
+            : m_configuredProvider;
     m_currentMtgchTried = false;
     m_currentScryfallEnglishTried = false;
     m_currentMtgchEnglishImageTried = false;

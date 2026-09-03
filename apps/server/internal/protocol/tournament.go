@@ -162,6 +162,7 @@ type TournamentSnapshot struct {
 	RoundMinutes   int                         `json:"roundMinutes"`
 	RoundStartedAt string                      `json:"roundStartedAt,omitempty"`
 	MaxPlayers     int                         `json:"maxPlayers"`
+	MinimumPlayers int                         `json:"minimumPlayers"`
 	PlannedRounds  int                         `json:"plannedRounds"`
 	CurrentRound   int                         `json:"currentRound"`
 	Registered     int                         `json:"registered"`
@@ -171,6 +172,7 @@ type TournamentSnapshot struct {
 	Role           string                      `json:"role"`
 	ParticipantID  string                      `json:"participantId,omitempty"`
 	CanRegister    bool                        `json:"canRegister"`
+	Product        *LimitedProductView         `json:"product,omitempty"`
 	Participants   []TournamentParticipantView `json:"participants"`
 	Pairings       []TournamentPairingView     `json:"pairings"`
 	Standings      []TournamentStandingView    `json:"standings"`

@@ -42,7 +42,8 @@ class CatalogRepository
     QVariantList printings(const QString &name, const QString &language,
                            QString *error = nullptr) const;
     QVariantList cardFaces(const QString &name, const QString &setCode,
-                           const QString &collectorNumber, QString *error = nullptr) const;
+                           const QString &collectorNumber, QString *error = nullptr,
+                           QString *layout = nullptr, QString *canonicalName = nullptr) const;
     QVariantList limitedProducts(QString *error = nullptr) const;
     QVariantMap limitedProduct(const QString &productId, QString *error = nullptr) const;
     QVariantList enrichLimitedCards(const QVariantList &cards, QString *error = nullptr) const;

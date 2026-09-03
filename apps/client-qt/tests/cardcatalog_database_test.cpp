@@ -860,6 +860,7 @@ void TestCardCatalog::exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() c
     FakeNetworkAccessManager network;
     CardCatalog catalog(storage.path(), &network);
     catalog.setLanguage(u"zh"_s);
+    catalog.setCardArtProvider(u"scryfall"_s);
     QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
 
     catalog.cacheCards({QVariantMap{

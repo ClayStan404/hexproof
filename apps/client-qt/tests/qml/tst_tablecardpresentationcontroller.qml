@@ -59,6 +59,34 @@ TestCase {
         }
     }
 
+    // Mirrors CardCatalog's contract that a language change also bumps
+    // imageRevision, so table image bindings re-resolve.
+    QtObject {
+        id: fakeRevisionCatalog
+        property int imageRevision: 1
+        property string language: "en"
+
+        function tableImageSource(name, setCode, collectorNumber) {
+            return "table:" + language + ":" + name + ":" + imageRevision
+        }
+    }
+
+    Item {
+        id: revisionTable
+        property var cardCatalogModel: fakeRevisionCatalog
+        property url cardBackSource: "back.jpg"
+    }
+
+    TableCardPresentationController {
+        id: revisionController
+        tableRoot: revisionTable
+    }
+
+    property var revisionCard: ({"name": "Front", "setCode": "abc",
+                                 "collectorNumber": "7"})
+    property string revisionBoundSource: revisionController.tableCardImageSource(
+                                             revisionCard)
+
     Item {
         id: sourceItem
         parent: fakeTable
@@ -88,12 +116,30 @@ TestCase {
         fakeCatalog.prioritizeCalls = 0
         fakeCatalog.prioritizedCards = []
         fakeCatalog.reenterOnPrioritize = false
+        fakeRevisionCatalog.imageRevision = 1
+        fakeRevisionCatalog.language = "en"
         fakeTable.authoritativeOwnHand = []
         fakeTable.authoritativeSeats = []
         fakeTable.stackCards = []
         fakeTable.revealedCards = []
         fakeTable.zones = ({})
         controller.reset()
+    }
+
+    function test_boundTableSourceRefreshesOnImageRevision() {
+        compare(revisionBoundSource, "table:en:Front:1")
+
+        fakeRevisionCatalog.imageRevision = 2
+        compare(revisionBoundSource, "table:en:Front:2")
+    }
+
+    function test_tableSourceTracksImageRevisionSentinel() {
+        fakeRevisionCatalog.imageRevision = -1
+        compare(revisionController.tableCardImageSource(revisionCard), "")
+
+        fakeRevisionCatalog.imageRevision = 3
+        compare(revisionController.tableCardImageSource(revisionCard),
+                "table:en:Front:3")
     }
 
     function test_resolvesFacesAndTableImages() {

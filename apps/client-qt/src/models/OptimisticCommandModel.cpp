@@ -214,6 +214,10 @@ void OptimisticCommandModel::beginCardMoves(const QVariantList &moves)
             {u"x"_s, move.value(u"x"_s, 0)},
             {u"y"_s, move.value(u"y"_s, 0)},
             {u"tapped"_s, move.value(u"tapped"_s, false).toBool()},
+            // Library tops carry the ids already on the target battlefield so
+            // reconcile can recognize the newly placed permanent (the server
+            // assigns a fresh instance id).
+            {u"knownCardIds"_s, move.value(u"knownCardIds"_s)},
         };
         m_cardMoves.insert(cardId, normalized);
         const QString composite = compositeKey(u"move"_s, cardId);

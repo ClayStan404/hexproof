@@ -10,17 +10,13 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
-    readonly property int customServerIndex: ws.customServerIndex
-    property int selectedServerIndex: ws.serverIndex
+    property var wsModel
+    property var updaterModel
+    readonly property var hub: wsModel ? wsModel : ws
+    readonly property var updater: updaterModel ? updaterModel : appUpdater
+    readonly property int customServerIndex: root.hub.customServerIndex
+    property int selectedServerIndex: root.hub.serverIndex
     property int latencyRefreshCountdown: 0
-    readonly property var serverOptions: [
-        {"label": root.serverLabel(0)},
-        {"label": root.serverLabel(1)},
-        {"label": root.serverLabel(2)},
-        {"label": root.serverLabel(3)},
-        {"label": root.serverLabel(4)},
-        {"label": root.serverLabel(root.customServerIndex)}
-    ]
 
     background: AppBackground { }
 
@@ -37,24 +33,48 @@ Page {
         onBackRequested: root.appWindow.popScreen()
     }
 
-    RowLayout {
+    Flickable {
+        id: connectBody
+        objectName: "connectBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.topMargin: Theme.size(18)
-        anchors.bottomMargin: Theme.size(42)
-        width: Math.min(parent.width - Theme.size(80), Theme.size(980))
+        anchors.bottomMargin: Theme.size(24)
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        contentWidth: width
+        contentHeight: Math.max(height,
+                                contentRow.y + contentRow.height
+                                + Theme.size(24))
+        ScrollBar.vertical: ScrollBar {
+            policy: connectBody.contentHeight > connectBody.height
+                    ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+        }
+    }
+
+    RowLayout {
+        id: contentRow
+        parent: connectBody.contentItem
+        width: Math.min(connectBody.width - Theme.size(80), Theme.size(980))
+        height: implicitHeight
+        x: Math.max(0, Math.round((connectBody.width - width) / 2))
+        y: Math.max(0, Math.round((connectBody.height - height) / 2))
         spacing: Theme.size(24)
 
         Surface {
+            id: formCard
+            objectName: "connectCard"
             Layout.fillWidth: true
             Layout.preferredWidth: Theme.size(570)
-            Layout.fillHeight: true
-            Layout.maximumHeight: Theme.size(570)
-            Layout.alignment: Qt.AlignVCenter
+            Layout.preferredHeight: Math.max(Theme.size(570),
+                                             form.implicitHeight
+                                             + Theme.size(64))
             elevated: true
 
             ColumnLayout {
+                id: form
                 anchors.fill: parent
                 anchors.margins: Theme.size(32)
                 spacing: Theme.size(10)
@@ -91,11 +111,15 @@ Page {
                     id: serverSelector
                     objectName: "serverSelector"
                     Layout.fillWidth: true
-                    model: root.serverOptions
-                    textRole: "label"
+                    model: root.customServerIndex + 1
+                    textForIndex: function(index) {
+                        return root.serverLabel(index)
+                    }
                     currentIndex: root.selectedServerIndex
-                    enabled: !ws.connecting
-                    onActivated: root.selectedServerIndex = currentIndex
+                    enabled: !root.hub.connecting
+                    onActivated: function(index) {
+                        root.selectedServerIndex = index
+                    }
                 }
 
                 Text {
@@ -130,9 +154,9 @@ Page {
                         objectName: "customServerField"
                         Layout.fillWidth: true
                         placeholderText: "wss://example.com/ws"
-                        enabled: !ws.connecting
+                        enabled: !root.hub.connecting
                         onAccepted: root.submit()
-                        Component.onCompleted: text = ws.customServerUrl
+                        Component.onCompleted: text = root.hub.customServerUrl
                     }
 
                     Text {
@@ -160,9 +184,9 @@ Page {
                     Layout.fillWidth: true
                     placeholderText: qsTr("How other players will see you")
                     maximumLength: 40
-                    enabled: !ws.connecting
+                    enabled: !root.hub.connecting
                     onAccepted: root.submit()
-                    Component.onCompleted: text = ws.displayName
+                    Component.onCompleted: text = root.hub.displayName
                 }
 
                 InfoBanner {
@@ -174,26 +198,28 @@ Page {
 
                 AppButton {
                     Layout.fillWidth: true
-                    visible: ws.versionMismatch
+                    visible: root.hub.versionMismatch
                     text: root.matchingUpdateButtonText()
                     variant: "secondary"
-                    enabled: !appUpdater.checking && !appUpdater.downloading
+                    enabled: !root.updater.checking && !root.updater.downloading
                     onClicked: root.handleMatchingUpdate()
                 }
 
                 InfoBanner {
                     Layout.fillWidth: true
-                    visible: ws.versionMismatch && appUpdater.lastError.length > 0
+                    visible: root.hub.versionMismatch
+                             && root.updater.lastError.length > 0
                     tone: "warning"
-                    message: I18n.status(appUpdater.lastError)
+                    message: I18n.status(root.updater.lastError)
                 }
 
                 AppButton {
                     Layout.fillWidth: true
-                    visible: ws.versionMismatch && appUpdater.lastError.length > 0
+                    visible: root.hub.versionMismatch
+                             && root.updater.lastError.length > 0
                     variant: "ghost"
                     text: qsTr("View releases")
-                    onClicked: Qt.openUrlExternally(ws.releaseDownloadUrl)
+                    onClicked: Qt.openUrlExternally(root.hub.releaseDownloadUrl)
                 }
 
                 Item { Layout.fillHeight: true; Layout.minimumHeight: 8 }
@@ -205,14 +231,14 @@ Page {
                     AppButton {
                         variant: "ghost"
                         text: qsTr("Cancel")
-                        enabled: !ws.connecting
+                        enabled: !root.hub.connecting
                         onClicked: root.appWindow.popScreen()
                     }
 
                     Item { Layout.fillWidth: true }
 
                     Row {
-                        visible: ws.connecting
+                        visible: root.hub.connecting
                         spacing: Theme.size(9)
 
                         ActivityRing {
@@ -228,15 +254,16 @@ Page {
                     }
 
                     AppButton {
+                        objectName: "connectSubmitButton"
                         variant: "primary"
-                        text: ws.connecting ? qsTr("Connecting") : qsTr("Connect")
-                        leadingText: ws.connecting ? "" : "→"
-                        enabled: serverSelector.currentIndex >= 0
+                        text: root.hub.connecting ? qsTr("Connecting") : qsTr("Connect")
+                        leadingText: root.hub.connecting ? "" : "→"
+                        enabled: root.selectedServerIndex >= 0
                                  && (root.selectedServerIndex
                                      !== root.customServerIndex
                                      || customServerField.text.trim().length > 0)
                                  && nameField.text.trim().length > 0
-                                 && !ws.connecting
+                                 && !root.hub.connecting
                         onClicked: root.submit()
                     }
                 }
@@ -246,8 +273,6 @@ Page {
         Surface {
             Layout.preferredWidth: Theme.size(300)
             Layout.fillHeight: true
-            Layout.maximumHeight: Theme.size(570)
-            Layout.alignment: Qt.AlignVCenter
             visible: root.width >= 1000
             color: Theme.surfaceMuted
 
@@ -315,10 +340,10 @@ Page {
         interval: 1000
         repeat: true
         triggeredOnStart: true
-        running: root.visible && !ws.connecting
+        running: root.visible && !root.hub.connecting
         onTriggered: {
             if (root.latencyRefreshCountdown <= 1) {
-                ws.refreshServerLatencies()
+                root.hub.refreshServerLatencies()
                 root.latencyRefreshCountdown = 5
             } else {
                 root.latencyRefreshCountdown -= 1
@@ -334,10 +359,10 @@ Page {
                    : index === 4 ? qsTr("Test server")
                                  : qsTr("Custom server")
         if (index === root.customServerIndex
-            && ws.customServerUrl.length === 0) {
+            && root.hub.customServerUrl.length === 0) {
             return name
         }
-        const latencies = ws.serverLatencies
+        const latencies = root.hub.serverLatencies
         const latency = latencies.length > index ? latencies[index] : -2
         if (latency >= 0)
             return name + " · " + latency + " ms"
@@ -349,91 +374,91 @@ Page {
     function submit() {
         if (root.selectedServerIndex < 0
                 || nameField.text.trim().length === 0
-                || ws.connecting)
+                || root.hub.connecting)
             return
         errorBanner.message = ""
         if (root.selectedServerIndex === root.customServerIndex) {
-            ws.connectToCustomServer(customServerField.text.trim(),
-                                     nameField.text.trim())
+            root.hub.connectToCustomServer(customServerField.text.trim(),
+                                           nameField.text.trim())
         } else {
-            ws.connectToServer(root.selectedServerIndex,
-                               nameField.text.trim())
+            root.hub.connectToServer(root.selectedServerIndex,
+                                     nameField.text.trim())
         }
     }
 
     function refreshConnectionError() {
-        if (ws.connected) {
+        if (root.hub.connected) {
             errorBanner.message = ""
             return
         }
-        if (ws.versionMismatch) {
-            const versions = ws.requiredVersion.length > 0
-                ? qsTr("Required version") + ": " + ws.requiredVersion
-                  + "\n" + qsTr("Installed version") + ": " + ws.clientVersion
+        if (root.hub.versionMismatch) {
+            const versions = root.hub.requiredVersion.length > 0
+                ? qsTr("Required version") + ": " + root.hub.requiredVersion
+                  + "\n" + qsTr("Installed version") + ": " + root.hub.clientVersion
                 : qsTr("The server and client versions do not match.")
             errorBanner.message = versions + "\n"
                 + qsTr("Download and install the matching version before reconnecting.")
             return
         }
-        errorBanner.message = I18n.status(ws.lastError)
+        errorBanner.message = I18n.status(root.hub.lastError)
     }
 
     function matchingUpdateReady() {
-        return appUpdater.releaseAvailable && appUpdater.exactVersion
-                && appUpdater.targetVersion === ws.requiredVersion
+        return root.updater.releaseAvailable && root.updater.exactVersion
+                && root.updater.targetVersion === root.hub.requiredVersion
     }
 
     function matchingUpdateButtonText() {
-        if (appUpdater.checking)
+        if (root.updater.checking)
             return qsTr("Checking matching version…")
-        if (matchingUpdateReady() && appUpdater.downloadReady)
+        if (matchingUpdateReady() && root.updater.downloadReady)
             return qsTr("Open download folder")
-        if (matchingUpdateReady() && appUpdater.downloading)
+        if (matchingUpdateReady() && root.updater.downloading)
             return qsTr("Downloading update…")
         if (matchingUpdateReady())
             return qsTr("Download matching version")
-        if (appUpdater.lastError.length > 0)
+        if (root.updater.lastError.length > 0)
             return qsTr("Retry matching version")
         return qsTr("Find matching version")
     }
 
     function handleMatchingUpdate() {
-        if (matchingUpdateReady() && appUpdater.downloadReady) {
-            appUpdater.openDownloadLocation()
+        if (matchingUpdateReady() && root.updater.downloadReady) {
+            root.updater.openDownloadLocation()
         } else if (matchingUpdateReady()) {
-            appUpdater.downloadUpdate()
-        } else if (ws.requiredVersion.length > 0) {
-            appUpdater.clearLastError()
-            appUpdater.checkForVersion(ws.requiredVersion)
+            root.updater.downloadUpdate()
+        } else if (root.hub.requiredVersion.length > 0) {
+            root.updater.clearLastError()
+            root.updater.checkForVersion(root.hub.requiredVersion)
         } else {
-            appUpdater.openReleasePage()
+            root.updater.openReleasePage()
         }
     }
 
     Connections {
-        target: ws
+        target: root.hub
         function onLastErrorChanged() {
             root.refreshConnectionError()
         }
         function onVersionMismatchChanged() {
             root.refreshConnectionError()
-            if (ws.versionMismatch && ws.requiredVersion.length > 0
-                    && (!appUpdater.exactVersion
-                        || appUpdater.targetVersion !== ws.requiredVersion)) {
-                appUpdater.checkForVersion(ws.requiredVersion)
+            if (root.hub.versionMismatch && root.hub.requiredVersion.length > 0
+                    && (!root.updater.exactVersion
+                        || root.updater.targetVersion !== root.hub.requiredVersion)) {
+                root.updater.checkForVersion(root.hub.requiredVersion)
             }
         }
     }
 
     Connections {
-        target: appUpdater
+        target: root.updater
         function onStateChanged() {
-            if (ws.versionMismatch && ws.requiredVersion.length > 0
-                    && !appUpdater.checking && !appUpdater.downloading
-                    && appUpdater.lastError.length === 0
-                    && (!appUpdater.exactVersion
-                        || appUpdater.targetVersion !== ws.requiredVersion)) {
-                appUpdater.checkForVersion(ws.requiredVersion)
+            if (root.hub.versionMismatch && root.hub.requiredVersion.length > 0
+                    && !root.updater.checking && !root.updater.downloading
+                    && root.updater.lastError.length === 0
+                    && (!root.updater.exactVersion
+                        || root.updater.targetVersion !== root.hub.requiredVersion)) {
+                root.updater.checkForVersion(root.hub.requiredVersion)
             }
         }
     }

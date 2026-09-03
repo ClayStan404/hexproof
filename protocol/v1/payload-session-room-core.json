@@ -115,7 +115,8 @@
         },
         {"name": "message", "type": "string", "required": true},
         {"name": "clientVersion", "type": "string", "required": false},
-        {"name": "requiredVersion", "type": "string", "required": false}
+        {"name": "requiredVersion", "type": "string", "required": false},
+        {"name": "minimumPlayers", "type": "integer", "required": false}
       ]
     }
   ]

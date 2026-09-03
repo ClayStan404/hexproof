@@ -1,0 +1,9 @@
+{
+  "type": "error",
+  "id": "req-47",
+  "payload": {
+    "code": "tournament_not_ready",
+    "message": "at least 2 checked-in players are required",
+    "minimumPlayers": 2
+  }
+}

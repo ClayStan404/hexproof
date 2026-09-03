@@ -727,7 +727,7 @@ void TestDeckLibrary::storesCardArtProviderPreference() const
     QVERIFY(storage.isValid());
     {
         ClientPreferencesModel model(storage.path());
-        QCOMPARE(model.cardArtProvider(), u"scryfall"_s);
+        QCOMPARE(model.cardArtProvider(), u"auto"_s);
         QSignalSpy preferenceSpy(&model, &ClientPreferencesModel::cardArtProviderChanged);
         model.setCardArtProvider(u"mtgch"_s);
         QCOMPARE(model.cardArtProvider(), u"mtgch"_s);
@@ -737,7 +737,7 @@ void TestDeckLibrary::storesCardArtProviderPreference() const
     ClientPreferencesModel restored(storage.path());
     QCOMPARE(restored.cardArtProvider(), u"mtgch"_s);
     restored.setCardArtProvider(u"unsupported"_s);
-    QCOMPARE(restored.cardArtProvider(), u"scryfall"_s);
+    QCOMPARE(restored.cardArtProvider(), u"auto"_s);
 }
 
 void TestDeckLibrary::storesLocalArtReusePreference() const
@@ -772,6 +772,40 @@ void TestDeckLibrary::storesPackOpeningAnimationPreference() const
 
     ClientPreferencesModel restored(storage.path());
     QVERIFY(!restored.animatePackOpenings());
+}
+
+void TestDeckLibrary::storesSponsorAnnouncementAcknowledgement() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        QVERIFY(!model.sponsorAnnouncementSeen(u"founding-sponsors-2026-09"_s));
+        QVERIFY(!model.acknowledgeSponsorAnnouncement({}));
+        QVERIFY(model.acknowledgeSponsorAnnouncement(u" founding-sponsors-2026-09 "_s));
+        QVERIFY(model.sponsorAnnouncementSeen(u"founding-sponsors-2026-09"_s));
+    }
+
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(restored.sponsorAnnouncementSeen(u"founding-sponsors-2026-09"_s));
+    QVERIFY(!restored.sponsorAnnouncementSeen(u"future-sponsor-announcement"_s));
+}
+
+void TestDeckLibrary::storesCardArtRepairNoticeAcknowledgement() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        QVERIFY(!model.cardArtRepairNoticeSeen(1));
+        QVERIFY(!model.acknowledgeCardArtRepairNotice(0));
+        QVERIFY(model.acknowledgeCardArtRepairNotice(1));
+        QVERIFY(model.cardArtRepairNoticeSeen(1));
+    }
+
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(restored.cardArtRepairNoticeSeen(1));
+    QVERIFY(!restored.cardArtRepairNoticeSeen(2));
 }
 
 void TestDeckLibrary::storesAndClampsInterfaceScale() const

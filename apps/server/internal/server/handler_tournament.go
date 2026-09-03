@@ -26,8 +26,10 @@ func tournamentActor(sess *Session) tournament.Actor {
 func sendTournamentError(h *Handler, sess *Session, id string, err error) {
 	code := tournament.ErrorCode(err)
 	message := err.Error()
+	minimumPlayers := 0
 	if domainError, ok := err.(*tournament.Error); ok {
 		message = domainError.Message
+		minimumPlayers = domainError.MinimumPlayers
 	}
 	if code == "" {
 		if protocolCode, ok := ErrCode(err); ok {
@@ -37,7 +39,7 @@ func sendTournamentError(h *Handler, sess *Session, id string, err error) {
 	if code == "" {
 		code = protocol.ErrInternal
 	}
-	h.sendError(sess, id, code, message)
+	h.sendErrorDetail(sess, id, code, message, minimumPlayers)
 }
 
 func (h *Handler) handleTournamentList(sess *Session, env protocol.Envelope) error {
@@ -545,7 +547,7 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			Settings: protocol.RoomSettings{
 				Name: r.Name, Format: r.Format, DeckFormat: r.DeckFormat,
 				MaxSeats:        r.MaxSeats,
-				AllowSpectators: false, MatchMode: r.MatchMode,
+				AllowSpectators: true, MatchMode: r.MatchMode,
 				CardLoadMode: r.CardLoadMode, HasPassword: false,
 			},
 			HostSeat: r.HostSeat,

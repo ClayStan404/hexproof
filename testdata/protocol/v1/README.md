@@ -19,7 +19,7 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `session-resume-hello.json` | C -> S | Reconnect offer with the opaque credential and last observed room sequence |
 | `session-resumed.json` | S -> C | Accepted reconnect with role and seat metadata; fresh room/game projections follow |
 | `session-ping.json` / `session-pong.json` | both | Correlated transport heartbeat envelopes |
-| `error.json` / `room-full-error.json` / `wrong-password-error.json` | S -> C | Correlated generic and room-entry errors with echoed `id` |
+| `error.json` / `room-full-error.json` / `wrong-password-error.json` / `tournament-not-ready-error.json` | S -> C | Correlated generic, room-entry, and structured tournament-start errors with echoed `id`; the not-ready error carries a machine-readable `minimumPlayers` detail |
 | `room-create.json` / `room-created.json` | both | Ordinary room creation request and host acknowledgement |
 | `room-join-player.json` / `room-join-spectator.json` / `room-joined.json` | both | Player/spectator entry requests and correlated membership acknowledgement |
 | `room-leave.json` / `room-left.json` | both | Explicit leave request and correlated acknowledgement |

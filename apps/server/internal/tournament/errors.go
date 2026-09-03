@@ -18,10 +18,13 @@ const (
 )
 
 // Error is a stable domain error that the server maps onto the wire error
-// envelope without exposing implementation details.
+// envelope without exposing implementation details. MinimumPlayers is a
+// structured detail carried on not-ready start failures: the checked-in count
+// the tournament needs before it can start.
 type Error struct {
-	Code    string
-	Message string
+	Code           string
+	Message        string
+	MinimumPlayers int
 }
 
 func (e *Error) Error() string {
@@ -30,6 +33,14 @@ func (e *Error) Error() string {
 
 func fail(code, message string) error {
 	return &Error{Code: code, Message: message}
+}
+
+func failMinimumPlayers(count int) error {
+	return &Error{
+		Code:           ErrNotReady,
+		Message:        fmt.Sprintf("at least %d checked-in players are required", count),
+		MinimumPlayers: count,
+	}
 }
 
 // ErrorCode extracts the stable tournament error code.

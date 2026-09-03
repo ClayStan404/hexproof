@@ -143,6 +143,50 @@ TestCase {
                    "move:graveyard-1") >= 0)
     }
 
+    function test_reconcileLibraryToBattlefieldByNewCard() {
+        fakeTable.pendingCardMoves = ({
+            "library-top": {
+                "cardId": "library-top",
+                "card": {"id": "library-top", "name": ""},
+                "fromZone": "library",
+                "fromSeat": 0,
+                "toZone": "battlefield",
+                "toSeat": 0,
+                "x": 0.4,
+                "y": 0.5,
+                "knownCardIds": ["battlefield-1"]
+            }
+        })
+
+        // Only the permanent that was already on the battlefield: no new
+        // instance has arrived, so the optimistic overlay must survive.
+        controller.reconcilePendingCardMoves()
+        verify(optimisticModel.removed.indexOf("move:library-top") < 0)
+
+        // The server assigns a new instance id (and may auto-adjust the
+        // position), so a previously unseen permanent at the target seat
+        // commits the overlay.
+        testGameTable.applySnapshot({"seats": [{
+            "seat": 0,
+            "hand": [{"id": "hand-1", "ownerSeat": 0}],
+            "battlefield": [{"id": "battlefield-1", "ownerSeat": 0},
+                            {"id": "instance-9", "ownerSeat": 0,
+                             "position": {"x": 0.72, "y": 0.81}}],
+            "graveyard": [],
+            "exile": [],
+            "commandZone": []
+        }, {
+            "seat": 1,
+            "hand": [],
+            "battlefield": [],
+            "graveyard": [],
+            "exile": [],
+            "commandZone": []
+        }]})
+        controller.reconcilePendingCardMoves()
+        verify(optimisticModel.removed.indexOf("move:library-top") >= 0)
+    }
+
     function test_handRevealTransitionDetection() {
         fakeTable.pendingCardMoves = ({
             "hand-1": {

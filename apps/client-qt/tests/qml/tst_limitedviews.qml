@@ -3,6 +3,7 @@
 
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Layouts
 import QtTest
 import "../../qml/components"
 
@@ -16,6 +17,10 @@ TestCase {
         {"participantId": "p2", "displayName": "Bob"},
         {"participantId": "p3", "displayName": "Carol"},
         {"participantId": "p4", "displayName": "Dan"}
+    ]
+    readonly property var twoSeats: [
+        {"participantId": "p1", "displayName": "Alice"},
+        {"participantId": "p2", "displayName": "Bob"}
     ]
 
     ApplicationWindow {
@@ -104,10 +109,59 @@ TestCase {
             wsModel: mockWs
             cardCatalogModel: mockCatalog
         }
+
+        // Mirrors TournamentLobby: the draft view lives in a ColumnLayout
+        // and flips from hidden to visible when the draft stage starts.
+        Item {
+            id: squeezeHost
+            width: 300
+            height: 640
+
+            ColumnLayout {
+                anchors.fill: parent
+
+                LimitedDraftView {
+                    id: squeezedDraftView
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: false
+                    limitedModel: mockLimited
+                    tournamentModel: mockTournament
+                    wsModel: mockWs
+                    cardCatalogModel: mockCatalog
+                }
+            }
+        }
+
+        // Wide variant of the same hidden-to-visible flip: the pack column
+        // must take the fill space, not just survive at its minimum width.
+        Item {
+            id: wideHost
+            width: 1200
+            height: 800
+
+            ColumnLayout {
+                anchors.fill: parent
+
+                LimitedDraftView {
+                    id: revealedDraftView
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: false
+                    limitedModel: mockLimited
+                    tournamentModel: mockTournament
+                    wsModel: mockWs
+                    cardCatalogModel: mockCatalog
+                }
+            }
+        }
     }
 
     function init() {
         seatMap.direction = 1
+        seatMap.participants = testCase.seats
+        seatMap.participantId = "p3"
+        mockLimited.participants = testCase.seats
         deckBuilder.selectedCards = ({})
         deckBuilder.selectionRevision++
         deckBuilder.basics = ({"Plains": 0, "Island": 0, "Swamp": 0,
@@ -120,6 +174,9 @@ TestCase {
         draftView.pickedRarityFilterIndex = 0
         draftView.hoverPreviewVisible = false
         draftView.visible = false
+        squeezeHost.width = 300
+        squeezedDraftView.visible = false
+        revealedDraftView.visible = false
     }
 
     function test_seatMapUsesViewerRelativePhysicalOrder() {
@@ -134,6 +191,34 @@ TestCase {
         seatMap.direction = -1
         compare(seatMap.outgoingName, "Bob")
         compare(seatMap.incomingName, "Dan")
+    }
+
+    function test_seatMapTwoPlayerDraftHidesPassDirection() {
+        const pill = findChild(seatMap, "draftDirectionPill")
+        verify(pill)
+        compare(pill.text, "Pass left · clockwise")
+
+        seatMap.participants = testCase.twoSeats
+        seatMap.participantId = "p1"
+        verify(seatMap.twoPlayer)
+        compare(pill.text, "Two-player draft")
+        // Both neighbors resolve to the same opponent in a two-seat draft.
+        compare(seatMap.outgoingName, "Bob")
+        compare(seatMap.incomingName, "Bob")
+
+        seatMap.direction = -1
+        compare(pill.text, "Two-player draft")
+    }
+
+    function test_draftViewTwoPlayerHeaderOmitsDirection() {
+        const header = findChild(draftView, "limitedDraftPackHeader")
+        verify(header)
+        verify(!draftView.twoPlayer)
+        compare(header.text, "Draft pack 1 · pass left")
+
+        mockLimited.participants = testCase.twoSeats
+        verify(draftView.twoPlayer)
+        compare(header.text, "Draft pack 1")
     }
 
     function test_deckBuilderMovesVisibleCardsBetweenAreas() {
@@ -248,5 +333,91 @@ TestCase {
         compare(draftView.inspectedCard.instanceId, "card-2")
         draftView.hideCardPreview()
         verify(!draftView.hoverPreviewVisible)
+    }
+
+    function test_draftViewKeepsPackColumnVisibleWhenSqueezed() {
+        // Regression: the seat/picks column's fixed minimumWidth used to
+        // squeeze the pack column to zero width, so dealt cards never
+        // rendered even though the snapshot carried them. A narrow view now
+        // stacks both columns, and both regions must remain inside its bounds.
+        squeezedDraftView.visible = true
+        tryVerify(function() {
+            const packGrid = findChild(squeezedDraftView,
+                                       "limitedCurrentPackGrid")
+            return packGrid && packGrid.visible && packGrid.width > 0
+        })
+        tryVerify(function() {
+            return squeezedDraftView.compactColumns
+                   && squeezedDraftView.width <= squeezeHost.width
+        })
+
+        const packColumn = findChild(squeezedDraftView,
+                                     "limitedDraftPackColumn")
+        const sideColumn = findChild(squeezedDraftView,
+                                     "limitedDraftSideColumn")
+        verify(packColumn)
+        verify(sideColumn)
+
+        const packTopLeft = packColumn.mapToItem(squeezedDraftView, 0, 0)
+        const packBottomRight = packColumn.mapToItem(
+                                  squeezedDraftView,
+                                  packColumn.width, packColumn.height)
+        const sideTopLeft = sideColumn.mapToItem(squeezedDraftView, 0, 0)
+        const sideBottomRight = sideColumn.mapToItem(
+                                  squeezedDraftView,
+                                  sideColumn.width, sideColumn.height)
+        verify(packTopLeft.x >= 0)
+        verify(packBottomRight.x <= squeezedDraftView.width)
+        verify(sideTopLeft.x >= 0)
+        verify(sideBottomRight.x <= squeezedDraftView.width)
+        verify(sideTopLeft.y >= packBottomRight.y)
+        verify(sideBottomRight.y <= squeezedDraftView.height)
+        squeezedDraftView.visible = false
+    }
+
+    function test_draftViewFirstShowGivesPackColumnTheRow() {
+        // Regression companion: in a wide lobby the first hidden-to-visible
+        // flip must hand the fill space to the pack column, so it stays
+        // clearly wider than the seat column, not just at its minimum.
+        revealedDraftView.visible = true
+        tryVerify(function() {
+            const packGrid = findChild(revealedDraftView,
+                                       "limitedCurrentPackGrid")
+            const seatMap = findChild(revealedDraftView,
+                                      "limitedDraftSeatMap")
+            return packGrid && packGrid.visible && seatMap
+                   && packGrid.width > seatMap.width
+        })
+        verify(!revealedDraftView.compactColumns)
+        revealedDraftView.visible = false
+    }
+
+    function test_draftViewFitsMinimumTwoColumnWidth() {
+        squeezeHost.width = squeezedDraftView.horizontalColumnsMinimumWidth
+        squeezedDraftView.visible = true
+        tryVerify(function() {
+            return !squeezedDraftView.compactColumns
+                   && squeezedDraftView.width <= squeezeHost.width
+        })
+
+        const packColumn = findChild(squeezedDraftView,
+                                     "limitedDraftPackColumn")
+        const sideColumn = findChild(squeezedDraftView,
+                                     "limitedDraftSideColumn")
+        verify(packColumn)
+        verify(sideColumn)
+
+        const packBottomRight = packColumn.mapToItem(
+                                  squeezedDraftView,
+                                  packColumn.width, packColumn.height)
+        const sideTopLeft = sideColumn.mapToItem(squeezedDraftView, 0, 0)
+        const sideBottomRight = sideColumn.mapToItem(
+                                  squeezedDraftView,
+                                  sideColumn.width, sideColumn.height)
+        verify(packBottomRight.x <= squeezedDraftView.width)
+        verify(sideTopLeft.x >= packBottomRight.x)
+        verify(sideBottomRight.x <= squeezedDraftView.width)
+        verify(sideBottomRight.y <= squeezedDraftView.height)
+        squeezedDraftView.visible = false
     }
 }

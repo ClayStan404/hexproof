@@ -294,6 +294,66 @@ TestCase {
         table.destroy()
     }
 
+    function test_reorderingLargeHandKeepsBothScrollEdgesVisible() {
+        const handSeats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        handSeats[0].hand = []
+        for (let index = 0; index < 27; ++index) {
+            handSeats[0].hand.push({
+                "id": "s0-large-hand-" + index,
+                "name": "Card " + index,
+                "ownerSeat": 0
+            })
+        }
+        handSeats[0].handCount = handSeats[0].hand.length
+        mockWs.gameSeats = handSeats
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+
+        const handList = findChild(table, "ownHand")
+        const slider = findChild(table, "handScrollSlider")
+        verify(handList !== null)
+        verify(slider !== null)
+        tryCompare(handList, "count", handSeats[0].hand.length)
+        tryVerify(() => handList.contentWidth > handList.width)
+        handList.contentX = slider.to
+        wait(0)
+
+        const movedCard = handList.itemAtIndex(20)
+        const targetCard = handList.itemAtIndex(25)
+        verify(movedCard !== null)
+        verify(targetCard !== null)
+        const pressPoint = movedCard.mapToItem(
+                             table, movedCard.width / 2,
+                             movedCard.height / 2)
+        const dropPoint = targetCard.mapToItem(
+                            table, targetCard.width / 2,
+                            targetCard.height / 2)
+        mouseDrag(table, pressPoint.x, pressPoint.y,
+                  dropPoint.x - pressPoint.x, dropPoint.y - pressPoint.y,
+                  Qt.LeftButton, Qt.NoModifier, 30)
+
+        tryVerify(() => table.ownHand[20].id !== "s0-large-hand-20")
+        compare(slider.from, handList.originX)
+        compare(slider.to, handList.originX
+                + Math.max(0, handList.contentWidth - handList.width))
+
+        handList.contentX = slider.from
+        wait(0)
+        const leftCard = handList.itemAtIndex(0)
+        const leftPosition = leftCard.mapToItem(handList, 0, 0)
+        verify(leftPosition.x >= -1)
+
+        handList.contentX = slider.to
+        wait(0)
+        const rightCard = handList.itemAtIndex(handList.count - 1)
+        const rightPosition = rightCard.mapToItem(handList, 0, 0)
+        verify(rightPosition.x + rightCard.width <= handList.width + 1)
+        table.destroy()
+    }
+
     function test_handContextBattlefieldMovesUseDistinctPositions() {
         const contextSeats = JSON.parse(JSON.stringify(mockWs.gameSeats))
         contextSeats[0].hand = [{

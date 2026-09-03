@@ -499,6 +499,7 @@ class WsClient : public QObject
     void loadCancelled();
     void matchStarted();
     void matchReturnedToRoom();
+    void sideboardCompleted(const QString &reason);
     void libraryDumped(const QVariantList &cards, int sourceSeat, const QString &approvalId,
                        int topCount);
     void libraryAccessRequested(const QString &approvalId, const QString &requesterName,
@@ -545,6 +546,7 @@ class WsClient : public QObject
     void handleLeft(const protocol::Envelope &env);
     void handleKicked(const protocol::Envelope &env);
     void handleDisbanded(const protocol::Envelope &env);
+    void handleSideboardCompleted(const protocol::Envelope &env);
     void handleError(const protocol::Envelope &env);
     void setLastError(const QString &code, const QString &message);
     void clearLastError();

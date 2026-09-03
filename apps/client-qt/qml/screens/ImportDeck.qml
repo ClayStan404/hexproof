@@ -11,20 +11,9 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
-    readonly property var formatOptions: [
-        {"label": I18n.formatLabel("custom"), "value": "custom"},
-        {"label": I18n.formatLabel("standard"), "value": "standard"},
-        {"label": I18n.formatLabel("pioneer"), "value": "pioneer"},
-        {"label": I18n.formatLabel("modern"), "value": "modern"},
-        {"label": I18n.formatLabel("legacy"), "value": "legacy"},
-        {"label": I18n.formatLabel("vintage"), "value": "vintage"},
-        {"label": I18n.formatLabel("pauper"), "value": "pauper"},
-        {"label": I18n.formatLabel("duel"), "value": "duel"},
-        {"label": I18n.formatLabel("commander"), "value": "commander"},
-        {"label": I18n.formatLabel("cube"), "value": "cube"}
-    ]
+    readonly property var formatOptions: I18n.deckFormatOptions()
 
-    property string deckFormat: "custom"
+    property string deckFormat: "modern"
     property bool importCompleted: false
     property string importWarningMessage: ""
 
@@ -194,7 +183,7 @@ Page {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
                 visible: root.deckFormat === "cube"
-                text: qsTr("Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a four-to-eight-player draft.")
+                text: qsTr("Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a two-to-eight-player draft.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(11)
                 wrapMode: Text.WordWrap

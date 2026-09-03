@@ -120,10 +120,11 @@ Page {
                     }
                     SegmentedControl {
                         Layout.fillWidth: true
-                        options: [qsTr("Scryfall (default)"), qsTr("MTGCH")]
-                        currentIndex: preferences.cardArtProvider === "mtgch" ? 1 : 0
+                        options: [qsTr("Automatic (default)"), qsTr("Scryfall"), qsTr("MTGCH")]
+                        currentIndex: preferences.cardArtProvider === "scryfall" ? 1
+                                      : preferences.cardArtProvider === "mtgch" ? 2 : 0
                         onActivated: index => preferences.cardArtProvider = index === 1
-                                              ? "mtgch" : "scryfall"
+                                              ? "scryfall" : index === 2 ? "mtgch" : "auto"
                     }
                     Text {
                         textFormat: Text.PlainText
@@ -155,9 +156,54 @@ Page {
                     InfoBanner {
                         Layout.fillWidth: true
                         tone: "warning"
-                        message: preferences.cardArtProvider === "mtgch"
+                        message: preferences.cardArtProvider === "auto"
+                                 ? qsTr("Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.")
+                                 : preferences.cardArtProvider === "mtgch"
                                  ? qsTr("Local art remains first. MTGCH is preferred for new downloads; Scryfall remains the automatic fallback.")
                                  : qsTr("Local art remains first. Scryfall is preferred for new downloads; MTGCH remains the automatic fallback.")
+                    }
+                }
+            }
+
+            Surface {
+                Layout.fillWidth: true
+                implicitHeight: artStorageContent.implicitHeight + Theme.size(48)
+                elevated: true
+
+                RowLayout {
+                    id: artStorageContent
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(24)
+                    spacing: Theme.size(18)
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.size(4)
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("Card art storage")
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSize(20)
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: qsTr("View disk usage, remove cached images, or import and export shareable card art packs.")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(12)
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                    StatusPill {
+                        visible: cardArtManager.repairNeeded
+                        text: qsTr("Repair recommended")
+                        statusColor: Theme.warning
+                    }
+                    AppButton {
+                        text: qsTr("Manage…")
+                        onClicked: root.appWindow.pushScreen(
+                                       "screens/CardArtManager.qml")
                     }
                 }
             }

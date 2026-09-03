@@ -20,7 +20,6 @@ Page {
     readonly property bool selfCheckedIn: selfParticipant
                                           ? selfParticipant.checkedIn : false
     property int selectedTab: 0
-    property double clockNow: Date.now()
 
     background: AppBackground { }
 
@@ -88,6 +87,17 @@ Page {
                     elide: Text.ElideRight
                 }
             }
+        }
+
+        LimitedProductArtPanel {
+            Layout.fillWidth: true
+            visible: tournament.stage === "registration"
+                     && (tournament.eventType === "set_sealed"
+                         || tournament.eventType === "set_draft")
+                     && tournament.product.id
+            tournamentModel: tournament
+            cardCatalogModel: cardCatalog
+            preferencesModel: preferences
         }
 
         RowLayout {
@@ -252,6 +262,18 @@ Page {
                                               : qsTr("Open match")
                                         onClicked: ws.openTournamentMatch(
                                                        pairingRow.modelData.pairingId)
+                                    }
+
+                                    AppButton {
+                                        objectName: "watchTournamentMatchButton"
+                                        visible: !pairingRow.ownPairing
+                                                 && !pairingRow.modelData.bye
+                                                 && !!pairingRow.modelData.roomId
+                                        compact: true
+                                        text: qsTr("Watch match")
+                                        onClicked: ws.joinRoom(
+                                                       pairingRow.modelData.roomId,
+                                                       true, "")
                                     }
 
                                     AppButton {
@@ -584,13 +606,6 @@ Page {
         onConfirmed: ws.cancelTournament()
     }
 
-    Timer {
-        interval: 1000
-        repeat: true
-        running: tournament.status === "running"
-        onTriggered: root.clockNow = Date.now()
-    }
-
     Connections {
         target: ws
         function onLastErrorChanged() {
@@ -677,23 +692,4 @@ Page {
         return count
     }
 
-    function roundSecondsRemaining() {
-        if (!tournament.roundStartedAt)
-            return tournament.roundMinutes * 60
-        const started = Date.parse(tournament.roundStartedAt)
-        if (isNaN(started))
-            return tournament.roundMinutes * 60
-        return Math.max(0, Math.ceil(
-                            (started + tournament.roundMinutes * 60000
-                             - clockNow) / 1000))
-    }
-
-    function roundClock() {
-        const remaining = roundSecondsRemaining()
-        if (remaining <= 0)
-            return qsTr("Time expired")
-        const minutes = Math.floor(remaining / 60)
-        const seconds = remaining % 60
-        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds
-    }
 }

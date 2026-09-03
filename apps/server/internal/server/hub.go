@@ -224,7 +224,7 @@ func (h *Hub) createTournamentRoom(name, format, deckFormat, matchMode, cardLoad
 	maxSeats int, tournamentID, tournamentPairing, tournamentParticipantID string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
 	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode,
-		protocol.RulesModeManual, maxSeats, false,
+		protocol.RulesModeManual, maxSeats, true,
 		false, "", tournamentID, tournamentPairing, tournamentParticipantID, host)
 }
 
@@ -320,6 +320,15 @@ func (h *Hub) ResumeRoom(oldConnID string, sess *Session,
 				}
 		}
 		return room.ReconnectInfo{}, nil, mapRoomError(err)
+	}
+	if entry.tournamentID != "" && info.Role == protocol.RoleSpectator {
+		publicEnvelopes := make([]protocol.Envelope, 0, len(envelopes))
+		for _, envelope := range envelopes {
+			if envelope.Type != protocol.TypeMatchLoadRequired {
+				publicEnvelopes = append(publicEnvelopes, envelope)
+			}
+		}
+		envelopes = publicEnvelopes
 	}
 	sess.setRoom(r)
 	return info, envelopes, nil

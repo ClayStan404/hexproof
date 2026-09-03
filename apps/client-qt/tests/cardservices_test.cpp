@@ -468,6 +468,10 @@ void TestCardServices::artCacheRejectsCachedWrongDoubleFace() const
     const CardRequest backRequest{u"Ajani, Nacatl Avenger"_s, u"MH3"_s, u"237"_s, u"zh"_s};
     QVERIFY(!cache.matchesRequestedFace(backRequest, stale));
     QVERIFY(!cache.resolvedPrinting(backRequest).valid());
+    QVERIFY(!cache.reusableArt(backRequest, stale).valid());
+    const CardRequest frontRequest{u"Ajani, Nacatl Pariah"_s, u"MH3"_s, u"237"_s, u"zh"_s};
+    QVERIFY(cache.matchesRequestedFace(frontRequest, stale));
+    QVERIFY(cache.resolvedPrinting(frontRequest).valid());
 
     stale.faceName = u"Ajani, Nacatl Avenger"_s;
     QVERIFY(cache.matchesRequestedFace(backRequest, stale));

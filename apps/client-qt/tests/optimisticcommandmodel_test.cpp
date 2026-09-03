@@ -17,6 +17,7 @@ class TestOptimisticCommandModel : public QObject
     void expiresValuesIndependently() const;
     void rollsBackOnlyTheCorrelatedRequest() const;
     void ownsCardMoveAndBattlefieldPreview() const;
+    void preservesKnownCardIdsForLibraryMoves() const;
     void ownsPhasePreviewAndRequest() const;
     void ownsLandPlayPreviewAndRequest() const;
 };
@@ -107,6 +108,28 @@ void TestOptimisticCommandModel::ownsCardMoveAndBattlefieldPreview() const
     model.rollback(u"move"_s, u"card-a"_s, u"move-request"_s);
     QVERIFY(!model.contains(u"move"_s, u"card-a"_s));
     QVERIFY(model.battlefieldMove().isEmpty());
+}
+
+void TestOptimisticCommandModel::preservesKnownCardIdsForLibraryMoves() const
+{
+    OptimisticCommandModel model;
+    model.beginCardMoves({QVariantMap{
+        {u"cardId"_s, u"library-top"_s},
+        {u"card"_s, QVariantMap{}},
+        {u"fromZone"_s, u"library"_s},
+        {u"fromSeat"_s, 0},
+        {u"toZone"_s, u"battlefield"_s},
+        {u"toSeat"_s, 0},
+        {u"x"_s, 0.4},
+        {u"y"_s, 0.6},
+        {u"knownCardIds"_s, QVariantList{u"battlefield-1"_s, u"battlefield-2"_s}},
+    }});
+
+    const QVariantMap move = model.cardMoves().value(u"library-top"_s).toMap();
+    const QVariantList knownCardIds = move.value(u"knownCardIds"_s).toList();
+    QCOMPARE(knownCardIds.size(), 2);
+    QCOMPARE(knownCardIds.at(0).toString(), u"battlefield-1"_s);
+    QCOMPARE(knownCardIds.at(1).toString(), u"battlefield-2"_s);
 }
 
 void TestOptimisticCommandModel::ownsPhasePreviewAndRequest() const
