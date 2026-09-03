@@ -65,7 +65,9 @@ Chinese name export. It publishes `hexproof-default-cards.sqlite.gz`,
 `card-database-manifest.json`, and `SHA256SUMS` to the stable `card-data`
 GitHub Release. The client verifies the manifest, compressed payload, expanded
 size, and expanded SHA-256 before the existing atomic database installer
-replaces a user's catalog.
+replaces a user's catalog. Each workflow run also exposes the manifest's
+`generatedAt` value in its job summary and versioned Actions artifact name;
+the stable Release tag and asset names remain unchanged for client updates.
 
 The workflow and local database builds share
 `tools/card-database-builder/build-latest.sh`. Every invocation resolves and

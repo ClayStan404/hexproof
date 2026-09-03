@@ -384,6 +384,24 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn('! -name SHA256SUMS', assemble_job)
         self.assertIn('sha256sum "${assets[@]}" > SHA256SUMS', assemble_job)
 
+    def test_card_database_workflow_reports_generated_version(self) -> None:
+        workflow = (TOOLS_DIR.parent / ".github/workflows/card-database.yml").read_text(
+            encoding="utf-8"
+        )
+        packager = (
+            TOOLS_DIR.parent / "packaging/card-database/build-release-assets.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Report card database version", workflow)
+        self.assertIn(".generatedAt | strings", workflow)
+        self.assertIn('>> "$GITHUB_STEP_SUMMARY"', workflow)
+        self.assertIn(
+            "name: hexproof-card-database-${{ steps.metadata.outputs.artifact_version }}",
+            workflow,
+        )
+        self.assertIn("gh release upload card-data --clobber", workflow)
+        self.assertIn('manifest_name="card-database-manifest.json"', packager)
+        self.assertIn('asset_name="hexproof-default-cards.sqlite.gz"', packager)
+
 
 class CardServiceBoundaryTests(unittest.TestCase):
     @staticmethod

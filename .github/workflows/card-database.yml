@@ -38,10 +38,32 @@ jobs:
       - name: Download, build, and package latest database
         shell: bash
         run: ./tools/card-database-builder/build-latest.sh build/card-database
+      - name: Report card database version
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="build/card-database/release/card-database-manifest.json"
+          generated_at="$(jq -er '.generatedAt | strings' "$manifest")"
+          schema_version="$(jq -er '.schemaVersion | numbers' "$manifest")"
+          card_count="$(jq -er '.cardCount | numbers' "$manifest")"
+          if [[ ! "$generated_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+            echo "Invalid card database generatedAt: $generated_at" >&2
+            exit 1
+          fi
+          artifact_version="${generated_at//-/}"
+          artifact_version="${artifact_version//:/}"
+          printf 'artifact_version=%s\n' "$artifact_version" >> "$GITHUB_OUTPUT"
+          {
+            printf '## Card database build\n\n'
+            printf -- '- Data version: `%s`\n' "$generated_at"
+            printf -- '- Schema version: `%s`\n' "$schema_version"
+            printf -- '- Cards: `%s`\n' "$card_count"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: hexproof-card-database
+          name: hexproof-card-database-${{ steps.metadata.outputs.artifact_version }}
           path: build/card-database/release/
           if-no-files-found: error
           compression-level: 0
