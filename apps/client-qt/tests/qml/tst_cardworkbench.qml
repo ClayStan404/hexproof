@@ -41,6 +41,10 @@ TestCase {
     SignalSpy { id: activate; target: list; signalName: "cardActivated" }
     CardManaCost { id: costSymbols }
     CardListRow { id: presentation; width: 320 }
+    Component {
+        id: visibleRowComponent
+        CardListRow { }
+    }
     LimitedCardTile { id: rarityTile; card: ({}); catalogModel: null }
     function test_knownRarityLabels_data() {
         return [
@@ -62,11 +66,15 @@ TestCase {
         verify(rarityTile.ToolTip.text.endsWith(data.label))
     }
     function init() {
+        Theme.uiScale = 1
         filters.reset()
         filters.query = ""
         activate.clear()
         window.width = 900
         window.height = 600
+    }
+    function cleanup() {
+        Theme.uiScale = 1
     }
     function test_categoriesUseUnionWithinAndIntersectionBetween() {
         filters.colors = ["U", "G"]
@@ -138,22 +146,43 @@ TestCase {
         compare(findChild(unknown, "manaGlyph-0").text, "?")
         verify(findChild(unknown, "manaGlyph-0").font.family !== ManaSymbols.name)
     }
-    function test_compactFrameReservesNameAndCostAtNarrowWidths() {
-        presentation.card = {name: "Long canonical card name", displayName: "储电袭客电光人",
-            cardColors: "WU", manaCost: "{X}{2}{W/U}{W/U}{U}{U}{U}"}
-        presentation.quantity = 100
-        for (const width of [240, 320, 440]) {
-            presentation.width = width
-            wait(0)
-            const name = findChild(presentation, "compactCardName")
-            const cost = findChild(presentation, "compactCardManaCost")
-            const quantity = findChild(presentation, "compactCardQuantity")
+    function test_compactFrameReservesNameAndCostAtNarrowWidths_data() {
+        return [{tag: "normal", scale: 1}, {tag: "maximum", scale: 1.8}]
+    }
+    function test_compactFrameReservesNameAndCostAtNarrowWidths(data) {
+        Theme.uiScale = data.scale
+        // TestCase is invisible. Geometry fixtures must belong to the visible
+        // window so nested layouts are polished as they are in the application.
+        const row = createTemporaryObject(visibleRowComponent, window.contentItem, {
+            width: 320, quantity: 100,
+            card: {name: "Long canonical card name", displayName: "储电袭客电光人",
+                cardColors: "WU", manaCost: "{X}{2}{W/U}{W/U}{U}{U}{W}"}
+        })
+        verify(row !== null)
+        verify(row.visible)
+        for (const width of [240, 320, 440, 240]) {
+            row.width = width
+            verify(waitForPolish(window))
+            const name = findChild(row, "compactCardName")
+            const cost = findChild(row, "compactCardManaCost")
+            const quantity = findChild(row, "compactCardQuantity")
+            const bounds = "row width=" + row.width + ", scale=" + data.scale
+                + ", cost right=" + cost.mapToItem(row, cost.width, 0).x
             compare(name.text, "储电袭客电光人")
             compare(quantity.text, "100×")
-            verify(name.width > 0)
-            verify(name.x + name.width <= cost.x)
-            verify(cost.mapToItem(presentation, cost.width, 0).x <= presentation.width)
-            verify(quantity.mapToItem(presentation, quantity.width, 0).x < name.mapToItem(presentation, 0, 0).x)
+            verify(name.width > 0, bounds)
+            verify(cost.width > 0, bounds)
+            verify(name.x + name.width <= cost.x, bounds)
+            verify(Math.abs(cost.x + cost.width - cost.parent.width) <= Theme.size(1), bounds)
+            verify(cost.mapToItem(row, cost.width, 0).x <= row.width, bounds)
+            verify(quantity.mapToItem(row, quantity.width, 0).x
+                   < name.mapToItem(row, 0, 0).x, bounds)
+            const firstSymbol = findChild(cost, "manaSymbol-X")
+            const lastSymbol = findChild(cost, "manaSymbol-W")
+            verify(firstSymbol !== null && lastSymbol !== null)
+            verify(firstSymbol.mapToItem(row, 0, 0).x
+                   >= name.mapToItem(row, name.width, 0).x, bounds)
+            verify(lastSymbol.mapToItem(row, lastSymbol.width, 0).x <= row.width, bounds)
         }
     }
     function test_printingRowsRetainOnePhysicalInstance() {
