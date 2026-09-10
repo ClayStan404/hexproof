@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "CardCatalogQueryInternal.h"
 #include "CatalogRepository.h"
 
 #include <QHash>
@@ -32,6 +33,13 @@ QVariantMap cardFromQuery(const QSqlQuery &query, int weight)
                        {QStringLiteral("finish"), QStringLiteral("nonfoil")},
                        {QStringLiteral("weight"), weight}};
 }
+
+bool isExactLimitedProductId(const QString &productId)
+{
+    const QString id = productId.toLower();
+    return id.endsWith(QStringLiteral("-play")) || id.endsWith(QStringLiteral("-play-arena")) ||
+           id.endsWith(QStringLiteral("-draft")) || id.endsWith(QStringLiteral("-default"));
+}
 } // namespace
 
 QVariantList CatalogRepository::limitedProducts(QString *error) const
@@ -50,12 +58,14 @@ QVariantList CatalogRepository::limitedProducts(QString *error) const
             return {};
         }
         while (query.next()) {
-            result.append(QVariantMap{{QStringLiteral("id"), query.value(0).toString()},
+            const QString productId = query.value(0).toString();
+            result.append(QVariantMap{{QStringLiteral("id"), productId},
                                       {QStringLiteral("name"), query.value(1).toString()},
                                       {QStringLiteral("setCode"), query.value(2).toString()},
                                       {QStringLiteral("productType"), query.value(3).toString()},
                                       {QStringLiteral("authentic"), query.value(4).toBool()}});
-            exactSetCodes.insert(query.value(2).toString().toUpper());
+            if (isExactLimitedProductId(productId))
+                exactSetCodes.insert(query.value(2).toString().toUpper());
         }
     }
 
@@ -182,7 +192,8 @@ QVariantMap CatalogRepository::limitedProduct(const QString &productId, QString 
     };
 }
 
-QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QString *error) const
+QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QString *error,
+                                                   const QString &language) const
 {
     if (cards.isEmpty() || !ensureOpen(error))
         return cards;
@@ -196,6 +207,9 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
     const bool hasManaValue = m_schema.cardColumns.contains(QStringLiteral("mana_value"));
     const bool hasRarity = m_schema.cardColumns.contains(QStringLiteral("rarity"));
     const bool hasLanguage = m_schema.cardColumns.contains(QStringLiteral("lang"));
+    const bool hasOracleText = m_schema.cardColumns.contains(QStringLiteral("oracle_text"));
+    const bool hasPresentation = m_schema.cardColumns.contains(QStringLiteral("card_colors")) &&
+                                 m_schema.cardColumns.contains(QStringLiteral("mana_cost"));
     QStringList columns{QStringLiteral("type_line")};
     if (hasColors)
         columns.append(QStringLiteral("colors"));
@@ -203,12 +217,27 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
         columns.append(QStringLiteral("mana_value"));
     if (hasRarity)
         columns.append(QStringLiteral("rarity"));
+    if (hasPresentation) {
+        columns.append(QStringLiteral("card_colors"));
+        columns.append(QStringLiteral("mana_cost"));
+    }
+    if (hasOracleText)
+        columns.append(QStringLiteral("oracle_text"));
+    columns.append(m_schema.hasAliases
+                       ? catalog_internal::localizedNameExpression(QStringLiteral("c"))
+                   : m_schema.cardColumns.contains(QStringLiteral("printed_name"))
+                       ? QStringLiteral("c.printed_name")
+                       : QStringLiteral("NULL"));
 
-    QString statement = QStringLiteral("SELECT %1 FROM cards WHERE set_code = ? COLLATE NOCASE "
+    QString statement = QStringLiteral("SELECT %1 FROM cards c WHERE set_code = ? COLLATE NOCASE "
                                        "AND collector_number = ? COLLATE NOCASE")
                             .arg(columns.join(QStringLiteral(", ")));
     if (hasLanguage)
-        statement += QStringLiteral(" ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END");
+        statement +=
+            language == QStringLiteral("zh")
+                ? QStringLiteral(
+                      " ORDER BY CASE WHEN lang = 'zhs' THEN 0 WHEN lang = 'en' THEN 1 ELSE 2 END")
+                : QStringLiteral(" ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END");
     statement += QStringLiteral(" LIMIT 1");
 
     const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
@@ -252,6 +281,25 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
                     if (hasRarity)
                         metadata.insert(QStringLiteral("rarity"),
                                         query.value(column++).toString().toLower());
+                    if (hasPresentation) {
+                        if (!query.value(column).isNull())
+                            metadata.insert(QStringLiteral("cardColors"),
+                                            query.value(column).toString());
+                        ++column;
+                        if (!query.value(column).isNull())
+                            metadata.insert(QStringLiteral("manaCost"),
+                                            query.value(column).toString());
+                        ++column;
+                    }
+                    if (hasOracleText && !query.value(column).isNull())
+                        metadata.insert(QStringLiteral("oracleText"),
+                                        query.value(column).toString());
+                    if (hasOracleText)
+                        ++column;
+                    if (language == QStringLiteral("zh") &&
+                        !query.value(column).toString().isEmpty())
+                        metadata.insert(QStringLiteral("displayName"),
+                                        query.value(column).toString());
                     metadata.insert(QStringLiteral("limitedMetadataResolved"), true);
                 }
                 metadataByPrinting.insert(key, metadata);
@@ -259,6 +307,14 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
         }
 
         if (!metadata.isEmpty()) {
+            card.insert(
+                QStringLiteral("displayName"),
+                metadata.value(QStringLiteral("displayName"), card.value(QStringLiteral("name"))));
+            for (const QString &field : {QStringLiteral("cardColors"), QStringLiteral("manaCost"),
+                                         QStringLiteral("oracleText")}) {
+                if (metadata.contains(field))
+                    card.insert(field, metadata.value(field));
+            }
             if (card.value(QStringLiteral("typeLine")).toString().isEmpty())
                 card.insert(QStringLiteral("typeLine"), metadata.value(QStringLiteral("typeLine")));
             if (metadata.contains(QStringLiteral("colors")))
@@ -266,10 +322,11 @@ QVariantList CatalogRepository::enrichLimitedCards(const QVariantList &cards, QS
             if (metadata.contains(QStringLiteral("manaValue")))
                 card.insert(QStringLiteral("manaValue"),
                             metadata.value(QStringLiteral("manaValue")));
-            if (card.value(QStringLiteral("rarity")).toString().isEmpty() &&
-                metadata.contains(QStringLiteral("rarity"))) {
-                card.insert(QStringLiteral("rarity"), metadata.value(QStringLiteral("rarity")));
-            }
+            // Exact-printing metadata also repairs legacy Cube snapshots whose
+            // rarity was unconditionally set to "special". This is display-only.
+            const QString rarity = metadata.value(QStringLiteral("rarity")).toString().trimmed();
+            if (!rarity.isEmpty())
+                card.insert(QStringLiteral("rarity"), rarity);
             card.insert(QStringLiteral("limitedMetadataResolved"), true);
         }
         result.append(card);

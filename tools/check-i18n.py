@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-"""Audit literal QML qsTr() calls against the Simplified Chinese TS catalogs."""
+"""Audit literal QML translation calls against the Simplified Chinese TS catalogs."""
 
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ from pathlib import Path
 
 JSON_STRING = r'"(?:\\.|[^"\\])*"'
 TRANSLATION_CALL = re.compile(rf"qsTr\(\s*(?P<literal>{JSON_STRING})", re.DOTALL)
+EXPLICIT_TRANSLATION_CALL = re.compile(
+    rf"qsTranslate\(\s*(?P<context>{JSON_STRING})\s*,\s*(?P<literal>{JSON_STRING})",
+    re.DOTALL,
+)
 TRANSLATOR_PRAGMA = re.compile(rf"pragma\s+Translator:\s*(?P<literal>{JSON_STRING})")
 
 MessageKey = tuple[str, str]
@@ -59,6 +63,10 @@ def used_literals(qml_root: Path) -> set[MessageKey]:
         used.update(
             (context, decode_literal(match.group("literal")))
             for match in TRANSLATION_CALL.finditer(text)
+        )
+        used.update(
+            (decode_literal(match.group("context")), decode_literal(match.group("literal")))
+            for match in EXPLICIT_TRANSLATION_CALL.finditer(text)
         )
     return used
 

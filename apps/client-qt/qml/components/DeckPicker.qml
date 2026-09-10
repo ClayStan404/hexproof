@@ -132,6 +132,7 @@ Popup {
 
                         Text {
                             textFormat: Text.PlainText
+                            objectName: "matchDeckName"
                             Layout.fillWidth: true
                             text: deckRow.modelData.deckName
                             color: Theme.text
@@ -154,6 +155,7 @@ Popup {
 
                     StatusPill {
                         objectName: "deckAvailabilityStatus"
+                        maximumWidth: Math.min(Theme.size(220), deckRow.width * 0.3)
                         text: I18n.status(deckRow.modelData.status)
                         statusColor: deckRow.modelData.ready
                                      && deckRow.modelData.artReady !== false
@@ -161,6 +163,10 @@ Popup {
                                      && (!deckRow.modelData.legalityWarnings
                                          || deckRow.modelData.legalityWarnings.length === 0)
                                      ? Theme.success : Theme.warning
+                        ToolTip.visible: statusHover.hovered
+                        ToolTip.text: text
+                        ToolTip.delay: 350
+                        HoverHandler { id: statusHover }
                     }
 
                     AppButton {

@@ -23,19 +23,21 @@ Item {
     required property real positionX
     required property real positionY
     required property var counters
+    // Seat state objects can be destroyed before their retiring delegates.
+    readonly property int battlefieldSeat: seatData ? seatData.seat : -1
     readonly property var modelData:
         cardData
     readonly property int cardOwnerSeat:
         ownerSeat >= 0
         ? ownerSeat
-        : root.seatData.seat
+        : root.battlefieldSeat
     readonly property var cardCounters:
         counters ? counters : []
     readonly property bool hiddenAsCrossLaneAttachment: {
         void root.tableController.tableAttachments
         return !!(root.tableController.attachmentUi
                   && root.tableController.attachmentUi.hidesHomeLaneCard(
-                         cardId, root.seatData.seat))
+                         cardId, root.battlefieldSeat))
     }
     objectName: "battlefieldCard" + cardId
     // Hidden delegates are already skipped by focus
@@ -46,19 +48,22 @@ Item {
     Accessible.role: Accessible.Button
     Accessible.name: modelData.name
                      ? modelData.name
-                     : qsTr("Card")
+                     : qsTranslate("BattlefieldView", "Card")
     visible:
         root.tableController.pendingBattlefieldMove.cardId
         !== cardId
         && !root.tableController.optimisticCommands.isCardPendingFrom(
             cardId,
             "battlefield",
-            root.seatData.seat)
+            root.battlefieldSeat)
         && !hiddenAsCrossLaneAttachment
-    width: root.tableController.battlefieldCardWidth
-    height: root.tableController.battlefieldCardHeight
-    x: Math.max(0, Math.min(
-                    root.zoneArea.width - width,
+    readonly property real tappedEdgeInset:
+        root.tableController.gameValues.displayedTapped(root.modelData)
+        ? Math.max(0, (height - width) / 2) : 0
+    width: root.zoneArea.cardWidth
+    height: root.zoneArea.cardHeight
+    x: Math.max(tappedEdgeInset, Math.min(
+                    root.zoneArea.width - width - tappedEdgeInset,
                     (hasPosition
                      ? positionX : 0.08)
                     * Math.max(
@@ -67,7 +72,7 @@ Item {
     y: Math.max(0, Math.min(
                     root.zoneArea.height - height,
                     root.tableController.battlefieldLayout.yForView(
-                        root.seatData.seat,
+                        root.battlefieldSeat,
                         hasPosition
                         ? positionY
                         : undefined,
@@ -80,7 +85,7 @@ Item {
        : (root.tableController.cardMoveCommands
           .battlefieldCardNeedsPriority(
               root.modelData,
-              root.seatData.seat)
+              root.battlefieldSeat)
           ? 10 : 0)
     onXChanged:
         root.tableController.battlefieldScene.schedulePointRefresh()
@@ -98,7 +103,7 @@ Item {
         root.tableController.selectedHandCard = ({})
         root.tableController.selection.selectCardForMenu(
             root.modelData,
-            root.seatData.seat)
+            root.battlefieldSeat)
         const position = battlefieldDragCard.mapToItem(
             root.tableController, localX, localY)
         root.cardMenu.x = position.x
@@ -128,7 +133,7 @@ Item {
         readonly property int ownerSeat:
             root.cardOwnerSeat
         readonly property int zoneSeat:
-            root.seatData.seat
+            root.battlefieldSeat
         property var modelData:
             root.modelData
         width: root.width
@@ -271,7 +276,7 @@ Item {
             anchors.top: parent.top
             anchors.margins: Theme.size(5)
             visible: root.modelData.token === true
-            text: qsTr("Token")
+            text: qsTranslate("BattlefieldView", "Token")
             statusColor: Theme.warning
         }
         Rectangle {
@@ -309,7 +314,7 @@ Item {
             ToolTip.visible:
                 commanderBadgeHover.hovered
             ToolTip.text:
-                qsTr("Commander")
+                qsTranslate("BattlefieldView", "Commander")
         }
         Rectangle {
             anchors.left: parent.left
@@ -358,7 +363,7 @@ Item {
                 "battlefieldOwnerBadge"
                 + root.modelData.id
             readonly property string toolTipText:
-                qsTr("Owner") + " · "
+                qsTranslate("BattlefieldView", "Owner") + " · "
                 + root.tableController.sharedZones.displayNameForSeat(
                     root.cardOwnerSeat)
             anchors.right: parent.right
@@ -370,7 +375,7 @@ Item {
             z: 5
             visible:
                 root.cardOwnerSeat
-                !== root.seatData.seat
+                !== root.battlefieldSeat
             color: "#287CEAF2"
             border.width: 1
             border.color: "#DCEBFF"
@@ -436,7 +441,7 @@ Item {
                 root.tableController.selectedHandCard = ({})
                 root.tableController.selection.selectCard(
                     root.modelData,
-                    root.seatData.seat,
+                    root.battlefieldSeat,
                     (mouse.modifiers
                      & Qt.ControlModifier)
                     || (mouse.modifiers
@@ -508,7 +513,7 @@ Item {
             anchors.fill: parent
             anchors.leftMargin: Theme.size(5)
             anchors.rightMargin: Theme.size(5)
-            text: qsTr("Attacking %1").arg(
+            text: qsTranslate("BattlefieldView", "Attacking %1").arg(
                       root.playerAttackTargetName)
             color: "white"
             font.pixelSize: Theme.fontSize(8)

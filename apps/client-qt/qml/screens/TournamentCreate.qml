@@ -10,10 +10,26 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
+    property bool limitedOnly: false
     property var wsModel
     property var cardCatalogModel
+    property var deckLibraryModel
     readonly property var hub: wsModel ? wsModel : ws
     readonly property var catalog: cardCatalogModel ? cardCatalogModel : cardCatalog
+    readonly property var decks: deckLibraryModel ? deckLibraryModel
+                                : (typeof deckLibrary !== "undefined" ? deckLibrary : null)
+    readonly property var cubeDecks: {
+        if (!root.decks)
+            return []
+        void root.decks.count
+        void root.decks.currentDeckId
+        return root.decks.matchDecks("cube", true)
+    }
+    readonly property var selectedCube: cubeSelector.currentIndex >= 0
+                                       ? root.cubeDecks[cubeSelector.currentIndex] || ({}) : ({})
+    readonly property bool cubeReady: !!root.selectedCube.deckId
+                                     && root.selectedCube.exactPrintings === true
+                                     && Number(root.selectedCube.mainCount) >= capField.numberValue() * 45
 
     readonly property var formatOptions: [
         {"label": I18n.tournamentFormatLabel("Standard"),
@@ -31,13 +47,18 @@ Page {
         {"label": I18n.tournamentFormatLabel("Duel Commander"),
          "value": "Duel Commander"}
     ]
-    readonly property var eventOptions: [
-        {"label": qsTr("Constructed"), "value": "constructed"},
+    readonly property var eventOptions: limitedOnly ? [
         {"label": qsTr("Set sealed"), "value": "set_sealed"},
         {"label": qsTr("Set draft"), "value": "set_draft"}
+    ] : [
+        {"label": qsTr("Constructed"), "value": "constructed"},
+        {"label": qsTr("Set sealed"), "value": "set_sealed"},
+        {"label": qsTr("Set draft"), "value": "set_draft"},
+        {"label": qsTr("Cube draft"), "value": "cube_draft"}
     ]
     readonly property bool isLimited: eventSelector.currentValue !== "constructed"
-    readonly property bool isDraft: eventSelector.currentValue === "set_draft"
+    readonly property bool isCube: eventSelector.currentValue === "cube_draft"
+    readonly property bool isDraft: eventSelector.currentValue === "set_draft" || isCube
     property var limitedSets: []
     property string matchMode: "bo3"
 
@@ -54,14 +75,28 @@ Page {
 
         ScreenHeader {
             Layout.fillWidth: true
-            title: qsTr("Create tournament")
-            subtitle: qsTr("Individual Swiss · manual tabletop rules enforcement")
+            title: root.limitedOnly ? qsTr("Create Limited tournament") : qsTr("Create tournament")
+            subtitle: root.limitedOnly
+                      ? qsTr("Open pools, build 40-card decks, then play Swiss rounds with standings")
+                      : qsTr("Individual Swiss · manual tabletop rules enforcement")
             onBackRequested: root.appWindow.popScreen()
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.isLimited
+            Item { Layout.fillWidth: true }
+            AppButton {
+                compact: true
+                variant: "ghost"
+                text: qsTr("Pack simulator")
+                onClicked: root.appWindow.pushScreen("screens/LimitedHub.qml")
+            }
         }
 
         Flickable {
             id: formBody
-            objectName: "tournamentCreateBody"
+            objectName: root.limitedOnly ? "limitedRoomCreateBody" : "tournamentCreateBody"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -75,7 +110,7 @@ Page {
 
             Surface {
                 id: formCard
-                objectName: "tournamentCreateCard"
+                objectName: root.limitedOnly ? "limitedRoomCreateCard" : "tournamentCreateCard"
                 width: Math.min(Theme.size(720), formBody.width - Theme.size(48))
                 implicitHeight: form.implicitHeight + Theme.size(60)
                 height: implicitHeight
@@ -101,8 +136,9 @@ Page {
 
                     AppTextField {
                         id: nameField
+                        objectName: "tournamentNameField"
                         Layout.fillWidth: true
-                        placeholderText: qsTr("Saturday Swiss")
+                        placeholderText: root.limitedOnly ? qsTr("Friday Limited tournament") : qsTr("Saturday Swiss")
                         maximumLength: 128
                     }
 
@@ -118,7 +154,7 @@ Page {
 
                     AppComboBox {
                         id: eventSelector
-                        objectName: "tournamentEventTypeSelector"
+                        objectName: root.limitedOnly ? "limitedEventTypeSelector" : "tournamentEventTypeSelector"
                         Layout.fillWidth: true
                         model: root.eventOptions
                         textRole: "label"
@@ -126,7 +162,7 @@ Page {
                         onActivated: {
                             // Keep a valid in-range cap across event-type switches;
                             // clamp out-of-range values instead of discarding input.
-                            var parsed = parseInt(capField.text)
+                            var parsed = capField.numberValue()
                             if (isNaN(parsed))
                                 parsed = root.isDraft ? 8 : 32
                             parsed = Math.max(
@@ -173,7 +209,7 @@ Page {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.topMargin: Theme.size(10)
-                        visible: root.isLimited
+                        visible: root.isLimited && !root.isCube
                         spacing: Theme.size(7)
 
                         Text {
@@ -205,6 +241,41 @@ Page {
                                    ? Theme.success : Theme.warning
                             font.pixelSize: Theme.fontSize(11)
                             wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: root.isCube
+                        spacing: Theme.size(8)
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("CUBE POOL")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            font.weight: Font.Bold
+                        }
+                        AppComboBox {
+                            id: cubeSelector
+                            objectName: "tournamentCubeSelector"
+                            Layout.fillWidth: true
+                            model: root.cubeDecks
+                            textRole: "deckName"
+                            valueRole: "deckId"
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: qsTr("Select a saved Cube with exact printings and at least %1 cards (%2 per seat).")
+                                  .arg(capField.numberValue() * 45).arg(45)
+                            color: root.cubeReady ? Theme.textMuted : Theme.warning
+                            font.pixelSize: Theme.fontSize(11)
+                            wrapMode: Text.WordWrap
+                        }
+                        AppButton {
+                            compact: true
+                            text: qsTr("Open deck library")
+                            onClicked: root.appWindow.pushScreen("screens/DeckLibrary.qml")
                         }
                     }
 
@@ -244,6 +315,7 @@ Page {
                             }
                             AppTextField {
                                 id: minutesField
+                                objectName: "tournamentRoundMinutesField"
                                 Layout.fillWidth: true
                                 text: "50"
                                 inputMethodHints: Qt.ImhDigitsOnly
@@ -269,32 +341,14 @@ Page {
                             }
                             AppTextField {
                                 id: capField
+                                objectName: "tournamentPlayerCapField"
                                 Layout.fillWidth: true
-                                text: "32"
+                                text: root.limitedOnly ? "8" : "32"
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 validator: IntValidator {
                                     bottom: root.isLimited ? 2 : 4
                                     top: root.isDraft ? 8 : (root.isLimited ? 64 : 512)
                                 }
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(7)
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("SWISS ROUNDS")
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(11)
-                                font.weight: Font.Bold
-                            }
-                            AppTextField {
-                                id: roundsField
-                                Layout.fillWidth: true
-                                text: "0"
-                                inputMethodHints: Qt.ImhDigitsOnly
-                                validator: IntValidator { bottom: 0; top: 20 }
                             }
                         }
                     }
@@ -303,11 +357,13 @@ Page {
                         Layout.fillWidth: true
                         Layout.topMargin: Theme.size(10)
                         tone: "success"
-                        message: root.isDraft
+                        message: root.isCube
+                                 ? qsTr("Draft the Cube, build decks, then play Swiss rounds with standings")
+                                 : root.isDraft
                                  ? qsTr("Set draft starts with at least two checked-in players, three packs each, and passes left, right, then left. Capacity is two to eight seats.")
                                  : root.isLimited
                                    ? qsTr("Set sealed gives every player exactly six boosters before deck building. Two checked-in players are required to start.")
-                                   : qsTr("Use 0 rounds for the recommended Swiss count based on checked-in attendance. Four checked-in players are required to start.")
+                                   : qsTr("The server chooses the Swiss round count from checked-in attendance. Four checked-in players are required to start.")
                     }
 
                     RowLayout {
@@ -315,35 +371,34 @@ Page {
                         Layout.topMargin: Theme.size(18)
                         Item { Layout.fillWidth: true }
                         AppButton {
-                            objectName: "tournamentCreateSubmitButton"
+                            objectName: root.limitedOnly ? "limitedRoomCreateSubmitButton" : "tournamentCreateSubmitButton"
                             variant: "primary"
-                            text: qsTr("Create tournament")
-                            enabled: nameField.text.trim().length > 0
+                            text: root.isLimited ? qsTr("Create Limited tournament") : qsTr("Create tournament")
+                            enabled: root.hub.connected && !root.hub.inRoom
+                                     && nameField.text.trim().length > 0
                                      && formatSelector.currentIndex >= 0
                                      && minutesField.acceptableInput
                                      && capField.acceptableInput
-                                     && roundsField.acceptableInput
-                                     && (!root.isLimited
-                                         || setPicker.hasSelection)
+                                     && (root.isCube ? root.cubeReady
+                                         : (!root.isLimited || setPicker.hasSelection))
                             onClicked: {
                                 if (!root.isLimited) {
                                     root.hub.createTournament(nameField.text.trim(),
                                                                formatSelector.currentValue,
                                                                root.matchMode,
-                                                               Number(minutesField.text),
-                                                               Number(capField.text),
-                                                               Number(roundsField.text))
+                                                               minutesField.numberValue(),
+                                                               capField.numberValue())
                                     return
                                 }
-                                const selectedSet = setPicker.selectedSet
-                                const product = root.catalog.limitedProduct(selectedSet.productId)
+                                const product = root.isCube
+                                                ? root.decks.cubeProduct(root.selectedCube.deckId)
+                                                : root.catalog.limitedProduct(setPicker.selectedSet.productId)
                                 root.hub.createLimitedTournament(
                                             nameField.text.trim(),
                                             eventSelector.currentValue,
                                             root.matchMode,
-                                            Number(minutesField.text),
-                                            Number(capField.text),
-                                            Number(roundsField.text),
+                                            minutesField.numberValue(),
+                                            capField.numberValue(),
                                             product)
                             }
                         }

@@ -60,6 +60,12 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
         if (requested.contains(QStringLiteral("manaValue")))
             metadata.insert(QStringLiteral("manaValue"),
                             requested.value(QStringLiteral("manaValue")));
+        if (requested.contains(QStringLiteral("rarity")))
+            metadata.insert(QStringLiteral("rarity"), requested.value(QStringLiteral("rarity")));
+        for (const QString &field : {QStringLiteral("cardColors"), QStringLiteral("manaCost")}) {
+            if (requested.contains(field))
+                metadata.insert(field, requested.value(field));
+        }
         enriched.append(metadata);
     }
     return enriched;
@@ -67,10 +73,14 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
 
 } // namespace
 
-void CardCatalog::searchTokens(const QString &queryText)
+void CardCatalog::searchTokens(const QString &queryText, const QString &kind)
 {
     const QString text = queryText.simplified();
+    m_tokenSearchRequested = true;
     m_lastTokenSearchQuery = text;
+    m_lastTokenSearchKind = kind == QStringLiteral("token") || kind == QStringLiteral("emblem")
+                                ? kind
+                                : QStringLiteral("all");
     ++m_tokenSearchGeneration;
     if (!tokenCatalogInstalled() || m_catalogBusy) {
         if (m_tokenSearching) {
@@ -128,9 +138,10 @@ void CardCatalog::startLatestTokenSearch()
     const QString databasePath = m_databasePath;
     const QString language = m_language;
     const QString text = m_lastTokenSearchQuery;
-    watcher->setFuture(
-        QtConcurrent::run(BackgroundTaskPools::catalogSearch(), [databasePath, text, language]() {
-            return CatalogRepository(databasePath).searchTokens(text, language);
+    const QString kind = m_lastTokenSearchKind;
+    watcher->setFuture(QtConcurrent::run(
+        BackgroundTaskPools::catalogSearch(), [databasePath, text, language, kind]() {
+            return CatalogRepository(databasePath).searchTokens(text, language, kind);
         }));
 }
 
@@ -214,12 +225,12 @@ void CardCatalog::processCardMetadataBatch()
 
 void CardCatalog::enrichTokens(const QVariantList &tokens)
 {
-    if (!tokenCatalogInstalled() || tokens.isEmpty())
-        return;
     // Discard superseded results the same way search() does. Without this a
     // late reply from an earlier deck or language can overwrite token metadata
     // with values that no longer match the request.
     const int generation = ++m_tokenEnrichGeneration;
+    if (!tokenCatalogInstalled() || m_catalogBusy || tokens.isEmpty())
+        return;
     auto *watcher = new QFutureWatcher<QVariantList>(this);
     connect(watcher, &QFutureWatcher<QVariantList>::finished, this, [this, watcher, generation]() {
         const QVariantList enriched = watcher->result();
@@ -284,7 +295,7 @@ void CardCatalog::enrichTokens(const QVariantList &tokens)
 void CardCatalog::search(const QString &queryText, const QString &typeFilter,
                          const QString &setFilter, const QString &languageFilter,
                          const QString &colorFilter, const QString &rarityFilter,
-                         const QString &legalityFilter)
+                         const QString &legalityFilter, const QString &manaFilter)
 {
     const QString text = queryText.simplified();
     m_lastSearchQuery = text;
@@ -294,11 +305,13 @@ void CardCatalog::search(const QString &queryText, const QString &typeFilter,
     m_lastColorFilter = colorFilter.simplified().toUpper();
     m_lastRarityFilter = rarityFilter.simplified().toLower();
     m_lastLegalityFilter = legalityFilter.simplified().toLower();
+    m_lastManaFilter = manaFilter.simplified();
     if (m_catalogBusy)
         return;
     const bool hasFilter = !m_lastTypeFilter.isEmpty() || !m_lastSetFilter.isEmpty() ||
                            !m_lastLanguageFilter.isEmpty() || !m_lastColorFilter.isEmpty() ||
-                           !m_lastRarityFilter.isEmpty() || !m_lastLegalityFilter.isEmpty();
+                           !m_lastRarityFilter.isEmpty() || !m_lastLegalityFilter.isEmpty() ||
+                           !m_lastManaFilter.isEmpty();
     if (!installed() || (text.isEmpty() && !hasFilter)) {
         ++m_searchGeneration;
         if (m_searching) {
@@ -364,14 +377,15 @@ void CardCatalog::startLatestCardSearch()
     const QString normalizedColor = m_lastColorFilter;
     const QString normalizedRarity = m_lastRarityFilter;
     const QString normalizedLegality = m_lastLegalityFilter;
+    const QString normalizedMana = m_lastManaFilter;
     const QString text = m_lastSearchQuery;
     watcher->setFuture(QtConcurrent::run(
         BackgroundTaskPools::catalogSearch(),
         [databasePath, text, language, normalizedType, normalizedSet, normalizedLanguage,
-         normalizedColor, normalizedRarity, normalizedLegality]() {
+         normalizedColor, normalizedRarity, normalizedLegality, normalizedMana]() {
             return CatalogRepository(databasePath)
                 .search(text, language, normalizedType, normalizedSet, normalizedLanguage,
-                        normalizedColor, normalizedRarity, normalizedLegality);
+                        normalizedColor, normalizedRarity, normalizedLegality, normalizedMana);
         }));
 }
 

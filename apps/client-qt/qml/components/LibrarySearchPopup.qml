@@ -97,6 +97,19 @@ Popup {
             cardBrowser.focusFilter()
     }
 
+    function invalidate() {
+        // A grant belongs to one game. Invalidation is not a completed search
+        // and must not offer to shuffle the replacement game's library.
+        offerShuffleOnClose = false
+        cards = []
+        approvalId = ""
+        selectedIndex = -1
+        selectedOrder = []
+        topCardAssignments = ({})
+        contextCardId = ""
+        close()
+    }
+
     function filterCards() {
         const query = filterQuery
         if (query.length === 0)
@@ -199,39 +212,39 @@ Popup {
     function destinationOptions() {
         const options = [
             {"value": "hand",
-             "label": localDisplayName + " · " + qsTr("Hand"),
+             "label": qsTr("Hand") + " · " + localDisplayName,
              "seat": localSeat},
             {"value": "battlefield",
-             "label": localDisplayName + " · " + qsTr("Battlefield"),
+             "label": qsTr("Battlefield") + " · " + localDisplayName,
              "seat": localSeat},
             {"value": "graveyard",
-             "label": localDisplayName + " · " + qsTr("Graveyard"),
+             "label": qsTr("Graveyard") + " · " + localDisplayName,
              "seat": localSeat},
             {"value": "exile",
-             "label": localDisplayName + " · " + qsTr("Exile"),
+             "label": qsTr("Exile") + " · " + localDisplayName,
              "seat": localSeat}
         ]
         if (remoteSource) {
             options.push(
                 {"value": "hand",
-                 "label": sourceDisplayName + " · " + qsTr("Hand"),
+                 "label": qsTr("Hand") + " · " + sourceDisplayName,
                  "seat": sourceSeat},
                 {"value": "battlefield",
-                 "label": sourceDisplayName + " · " + qsTr("Battlefield"),
+                 "label": qsTr("Battlefield") + " · " + sourceDisplayName,
                  "seat": sourceSeat},
                 {"value": "graveyard",
-                 "label": sourceDisplayName + " · " + qsTr("Graveyard"),
+                 "label": qsTr("Graveyard") + " · " + sourceDisplayName,
                  "seat": sourceSeat},
                 {"value": "exile",
-                 "label": sourceDisplayName + " · " + qsTr("Exile"),
+                 "label": qsTr("Exile") + " · " + sourceDisplayName,
                  "seat": sourceSeat})
         }
         options.push(
             {"value": "library_top",
-             "label": sourceDisplayName + " · " + qsTr("Top of library"),
+             "label": qsTr("Top of library") + " · " + sourceDisplayName,
              "seat": sourceSeat},
             {"value": "library_bottom",
-             "label": sourceDisplayName + " · " + qsTr("Bottom of library"),
+             "label": qsTr("Bottom of library") + " · " + sourceDisplayName,
              "seat": sourceSeat})
         return options
     }
@@ -239,17 +252,17 @@ Popup {
     function topCardDestinationOptions() {
         return [
             {"value": "hand",
-             "label": localDisplayName + " · " + qsTr("Hand")},
+             "label": qsTr("Hand") + " · " + localDisplayName},
             {"value": "battlefield",
-             "label": localDisplayName + " · " + qsTr("Battlefield")},
+             "label": qsTr("Battlefield") + " · " + localDisplayName},
             {"value": "graveyard",
-             "label": sourceDisplayName + " · " + qsTr("Graveyard")},
+             "label": qsTr("Graveyard") + " · " + sourceDisplayName},
             {"value": "exile",
-             "label": sourceDisplayName + " · " + qsTr("Exile")},
+             "label": qsTr("Exile") + " · " + sourceDisplayName},
             {"value": "library_top",
-             "label": sourceDisplayName + " · " + qsTr("Top of library")},
+             "label": qsTr("Top of library") + " · " + sourceDisplayName},
             {"value": "library_bottom",
-             "label": sourceDisplayName + " · " + qsTr("Bottom of library")}
+             "label": qsTr("Bottom of library") + " · " + sourceDisplayName}
         ]
     }
 
@@ -384,6 +397,7 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
+                    elide: Text.ElideRight
                     text: root.reorderMode
                           ? qsTr("Arrange top cards")
                           : (root.topCardMode
@@ -393,21 +407,30 @@ Popup {
                     font.pixelSize: Theme.fontSize(20)
                     font.weight: Font.DemiBold
                 }
-                Text {
-                    textFormat: Text.PlainText
+                ScrollView {
+                    id: instructionsScroll
                     Layout.fillWidth: true
-                    text: root.reorderMode
-                          ? qsTr("Choose a destination for every viewed card. Use the arrows to set the relative order of cards returning to the same end of the library.")
-                          : (root.topCardMode
-                             ? qsTr("Only you can see this card. Right-click it to move it.")
-                             : qsTr("Only you can see these cards. Use the checkboxes to select cards; click elsewhere on a card to preview it.")
-                               + " " + qsTr("Right-click a card for move actions.")
-                               + (root.offerShuffleOnClose
-                                  ? " " + qsTr("Hexproof will remind you to shuffle after this search if the card effect requires it.")
-                                  : ""))
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(11)
-                    wrapMode: Text.WordWrap
+                    Layout.preferredHeight: Math.min(instructions.implicitHeight, Theme.size(40))
+                    contentWidth: availableWidth
+                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    Text {
+                        id: instructions
+                        textFormat: Text.PlainText
+                        width: instructionsScroll.availableWidth
+                        text: root.reorderMode
+                              ? qsTr("Choose a destination for every viewed card. Use the arrows to set the relative order of cards returning to the same end of the library.")
+                              : (root.topCardMode
+                                 ? qsTr("Only you can see this card. Right-click it to move it.")
+                                 : qsTr("Only you can see these cards. Use the checkboxes to select cards; click elsewhere on a card to preview it.")
+                                   + " " + qsTr("Right-click a card for move actions.")
+                                   + (root.offerShuffleOnClose
+                                      ? " " + qsTr("Hexproof will remind you to shuffle after this search if the card effect requires it.")
+                                      : ""))
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(11)
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
 

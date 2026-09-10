@@ -103,21 +103,21 @@ QtObject {
 
     function groupLabel(key) {
         const labels = {
-            "0": qsTr("Mana value 0"), "1": qsTr("Mana value 1"),
-            "2": qsTr("Mana value 2"), "3": qsTr("Mana value 3"),
-            "4": qsTr("Mana value 4"), "5": qsTr("Mana value 5"),
-            "6": qsTr("Mana value 6"), "7+": qsTr("Mana value 7+"),
-            "W": qsTr("White"), "U": qsTr("Blue"), "B": qsTr("Black"),
-            "R": qsTr("Red"), "G": qsTr("Green"),
-            "multicolor": qsTr("Multicolor"),
-            "colorless": qsTr("Colorless"),
-            "creature": qsTr("Creatures"),
-            "planeswalker": qsTr("Planeswalkers"),
-            "battle": qsTr("Battles"), "instant": qsTr("Instants"),
-            "sorcery": qsTr("Sorceries"), "artifact": qsTr("Artifacts"),
-            "enchantment": qsTr("Enchantments"), "land": qsTr("Lands"),
-            "other": qsTr("Other"), "unknown": qsTr("Unknown"),
-            "all": qsTr("All cards")
+            "0": qsTranslate("TournamentLobby", "Mana value 0"), "1": qsTranslate("TournamentLobby", "Mana value 1"),
+            "2": qsTranslate("TournamentLobby", "Mana value 2"), "3": qsTranslate("TournamentLobby", "Mana value 3"),
+            "4": qsTranslate("TournamentLobby", "Mana value 4"), "5": qsTranslate("TournamentLobby", "Mana value 5"),
+            "6": qsTranslate("TournamentLobby", "Mana value 6"), "7+": qsTranslate("TournamentLobby", "Mana value 7+"),
+            "W": qsTranslate("TournamentLobby", "White"), "U": qsTranslate("TournamentLobby", "Blue"), "B": qsTranslate("TournamentLobby", "Black"),
+            "R": qsTranslate("TournamentLobby", "Red"), "G": qsTranslate("TournamentLobby", "Green"),
+            "multicolor": qsTranslate("TournamentLobby", "Multicolor"),
+            "colorless": qsTranslate("TournamentLobby", "Colorless"),
+            "creature": qsTranslate("TournamentLobby", "Creatures"),
+            "planeswalker": qsTranslate("TournamentLobby", "Planeswalkers"),
+            "battle": qsTranslate("TournamentLobby", "Battles"), "instant": qsTranslate("TournamentLobby", "Instants"),
+            "sorcery": qsTranslate("TournamentLobby", "Sorceries"), "artifact": qsTranslate("TournamentLobby", "Artifacts"),
+            "enchantment": qsTranslate("TournamentLobby", "Enchantments"), "land": qsTranslate("TournamentLobby", "Lands"),
+            "other": qsTranslate("TournamentLobby", "Other"), "unknown": qsTranslate("TournamentLobby", "Unknown"),
+            "all": qsTranslate("TournamentLobby", "All cards")
         }
         return labels[key] || key
     }

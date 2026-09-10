@@ -67,7 +67,7 @@ Popup {
     function submit() {
         if (!valueField.acceptableInput)
             return
-        const value = Number(valueField.text)
+        const value = valueField.numberValue()
         if (mode === "newAbility") {
             const label = labelField.text.trim()
             if (label.length === 0 || label.length > 24)
@@ -139,6 +139,7 @@ Popup {
 
         AppTextField {
             id: valueField
+            objectName: "cardCounterValueField"
             Layout.fillWidth: true
             placeholderText: qsTr("Counter value")
             inputMethodHints: Qt.ImhDigitsOnly

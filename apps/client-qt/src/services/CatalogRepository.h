@@ -36,8 +36,10 @@ class CatalogRepository
     CatalogSearchResult search(const QString &text, const QString &language,
                                const QString &typeFilter, const QString &setFilter,
                                const QString &languageFilter, const QString &colorFilter,
-                               const QString &rarityFilter, const QString &legalityFilter) const;
-    CatalogSearchResult searchTokens(const QString &text, const QString &language) const;
+                               const QString &rarityFilter, const QString &legalityFilter,
+                               const QString &manaFilter = {}) const;
+    CatalogSearchResult searchTokens(const QString &text, const QString &language,
+                                     const QString &kind = QStringLiteral("all")) const;
 
     QVariantList printings(const QString &name, const QString &language,
                            QString *error = nullptr) const;
@@ -46,7 +48,8 @@ class CatalogRepository
                            QString *layout = nullptr, QString *canonicalName = nullptr) const;
     QVariantList limitedProducts(QString *error = nullptr) const;
     QVariantMap limitedProduct(const QString &productId, QString *error = nullptr) const;
-    QVariantList enrichLimitedCards(const QVariantList &cards, QString *error = nullptr) const;
+    QVariantList enrichLimitedCards(const QVariantList &cards, QString *error = nullptr,
+                                    const QString &language = QStringLiteral("en")) const;
     CardRecord lookup(const CatalogCardQuery &request) const;
     CardRecord lookupLocalizedPrinting(const CatalogCardQuery &request,
                                        const CardRecord &catalogIdentity, int indexVersion) const;

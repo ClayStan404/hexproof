@@ -21,6 +21,12 @@ Qt 6.5 or newer with the WebSockets and Image Formats modules, CMake, a C++20
 compiler, and zlib. The server script requires the Go version declared by
 `apps/server/go.mod`.
 
+CI, application releases, and card-database builds share the pinned Qt 6.11.2
+toolchain in [setup-qt](../.github/actions/setup-qt/action.yml). Upgrade this
+explicit version after validation, rather than following a moving `latest`.
+Official macOS packages require macOS 13 or newer with this Qt toolchain; the
+macOS bundle script defaults to the same deployment target.
+
 Client builds select their bundled public-server directory in this order:
 
 1. `-DHEXPROOF_SERVER_DIRECTORY_FILE=/path/to/servers.json`;
@@ -36,7 +42,7 @@ The supported release matrix is:
 | Artifact | Target | Format |
 |----------|--------|--------|
 | Client | Windows 10/11 x64 | Portable `.zip` |
-| Client | macOS 12+ Apple Silicon | Zipped `.app` |
+| Client | macOS 13+ Apple Silicon | Zipped `.app` |
 | Client | Linux x86_64, Ubuntu 24.04 runtime baseline | `.tar.gz` |
 | Server | Linux amd64 | Static-binary `.tar.gz` |
 | Server | Linux arm64 | Static-binary `.tar.gz` |

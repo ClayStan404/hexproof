@@ -1,0 +1,5 @@
+{
+  "type": "limited.set_participation",
+  "id": "cube-participation-1",
+  "payload": {"participating": false}
+}

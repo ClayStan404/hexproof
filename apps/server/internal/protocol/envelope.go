@@ -30,6 +30,7 @@ const (
 	MaxGameSayRunes          = 500
 	MaxTokenNameRunes        = 256
 	MaxTokensPerSeat         = 256
+	MaxEmblemsPerSeat        = 128
 	MaxResumeTokenBytes      = 128
 	MaxDiceSides             = 1000
 	MaxDiceCount             = 20
@@ -137,7 +138,7 @@ func ValidDeckFormat(format string) bool {
 	switch format {
 	case DeckFormatCustom, DeckFormatStandard, DeckFormatPioneer, DeckFormatModern,
 		DeckFormatLegacy, DeckFormatVintage, DeckFormatPauper, DeckFormatDuel,
-		DeckFormatCommander, DeckFormatLimited:
+		DeckFormatCommander, DeckFormatLimited, DeckFormatCommanderLimited:
 		return true
 	default:
 		return false
@@ -149,7 +150,7 @@ func TableModeForDeckFormat(format string) string {
 	switch format {
 	case DeckFormatDuel:
 		return FormatDuel
-	case DeckFormatCommander:
+	case DeckFormatCommander, DeckFormatCommanderLimited:
 		return FormatEDH
 	case DeckFormatCustom, DeckFormatStandard, DeckFormatPioneer, DeckFormatModern,
 		DeckFormatLegacy, DeckFormatVintage, DeckFormatPauper, DeckFormatLimited:
@@ -172,6 +173,11 @@ func DefaultDeckFormatForTableMode(format string) string {
 	default:
 		return ""
 	}
+}
+
+// IsCubeEventType identifies draft events backed by a saved exact-printing Cube.
+func IsCubeEventType(eventType string) bool {
+	return eventType == LimitedEventCubeDraft || eventType == LimitedEventCommanderCube
 }
 
 // Sideboard phase constants.

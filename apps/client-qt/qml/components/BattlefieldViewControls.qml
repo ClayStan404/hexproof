@@ -118,7 +118,7 @@ Item {
         signal clicked()
         signal resetRequested()
         readonly property string accessibleLabel:
-            qsTr("Battlefield card size · %1%")
+            qsTranslate("Table", "Battlefield card size · %1%")
                 .arg(Math.round(root.tableController
                                 .battlefieldLayout.cardScale * 100))
 
@@ -135,7 +135,7 @@ Item {
         border.color: root.panelOpen ? Theme.primary : Theme.borderStrong
         Accessible.role: Accessible.Button
         Accessible.name: accessibleLabel
-        Accessible.description: qsTr("Drag to move; right-click to reset position")
+        Accessible.description: qsTranslate("Table", "Drag to move; right-click to reset position")
         onClicked: root.togglePanel()
         onResetRequested: root.resetPosition()
 
@@ -258,7 +258,7 @@ Item {
                 compact: true
                 variant: "ghost"
                 text: "−"
-                accessibleName: qsTr("Decrease battlefield card size")
+                accessibleName: qsTranslate("Table", "Decrease battlefield card size")
                 enabled: root.tableController.battlefieldLayout.cardScale > 0.5
                 onClicked:
                     root.tableController.battlefieldLayout.adjustCardScale(-0.05)
@@ -272,13 +272,13 @@ Item {
                          ? "ghost" : "highlight"
                 text: root.tableController.battlefieldLayout
                            .automaticCardScaleEnabled
-                      ? qsTr("Auto %1%").arg(
+                      ? qsTranslate("Table", "Auto %1%").arg(
                             Math.round(root.tableController
                                        .battlefieldLayout.cardScale * 100))
-                      : qsTr("%1%").arg(
+                      : qsTranslate("Table", "%1%").arg(
                             Math.round(root.tableController
                                        .battlefieldLayout.cardScale * 100))
-                accessibleName: qsTr("Reset battlefield card size to automatic")
+                accessibleName: qsTranslate("Table", "Reset battlefield card size to automatic")
                 onClicked:
                     root.tableController.battlefieldLayout.resetCardScale()
             }
@@ -288,7 +288,7 @@ Item {
                 compact: true
                 variant: "ghost"
                 text: "+"
-                accessibleName: qsTr("Increase battlefield card size")
+                accessibleName: qsTranslate("Table", "Increase battlefield card size")
                 enabled: root.tableController.battlefieldLayout.cardScale < 1.25
                 onClicked:
                     root.tableController.battlefieldLayout.adjustCardScale(0.05)

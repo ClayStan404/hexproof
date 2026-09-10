@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Forge runtime (optional)
+
+# Deliberately independent of ordinary CI, releases and deployment. Dispatching
+# this workflow creates test artifacts only, never a release or remote service.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: Build and exercise Forge (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            machine: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            machine: aarch64
+            runner: ubuntu-24.04-arm
+    env:
+      CARGO_BUILD_JOBS: '2'
+      MAVEN_OPTS: -Xmx2g
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Verify native runner and build tools
+        env:
+          EXPECTED_MACHINE: ${{ matrix.machine }}
+        run: |
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = "$EXPECTED_MACHINE"
+          . /etc/os-release
+          test "$ID" = ubuntu
+          sudo apt-get update
+          sudo apt-get install -y openjdk-21-jdk-headless maven
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+          "$JAVA_HOME/bin/java" -version
+          node --version
+          cargo --version
+          python3 --version
+      - name: Test packaging helpers
+        run: |
+          python3 -m unittest discover -s tools/tests -p test_forge_source_package.py
+          node --test third_party/forge-runtime/patches/source.test.mjs
+      - name: Build paired runtime and source archives
+        run: ./third_party/forge-runtime/build.sh
+      - name: Verify source package rebuild and archive checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          source third_party/forge-runtime/VERSIONS.env
+          package_dir="$PWD/build/forge-runtime"
+          checksum="hexproof-forge-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.sha256"
+          (cd "$package_dir" && sha256sum -c "$checksum")
+          mkdir -p build/forge-source-check
+          tar -xzf "$package_dir/hexproof-forge-source-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.tar.gz" \
+            -C build/forge-source-check
+          source_root="$PWD/build/forge-source-check/hexproof-forge-source"
+          HEXPROOF_FORGE_OUTPUT_DIR="$PWD/build/forge-rebuilt" \
+            bash "$source_root/hexproof-build/build.sh" --from-source "$source_root"
+          cmp "$package_dir/hexproof-forge-source-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.tar.gz" \
+            "build/forge-rebuilt/hexproof-forge-source-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.tar.gz"
+          mkdir -p build/forge-runtime-check
+          tar -xzf "build/forge-rebuilt/hexproof-forge-runtime-${MANABREW_REVISION}.tar.gz" \
+            -C build/forge-runtime-check
+          echo "HEXPROOF_REAL_FORGE_ROOT=$PWD/build/forge-runtime-check/hexproof-forge-runtime" >> "$GITHUB_ENV"
+      - name: Run native Go-to-Java real-game conformance
+        working-directory: apps/server
+        run: >-
+          go test -p 1 -race -tags engineintegration -count=1 -timeout 10m
+          ./internal/rulesengine/forge ./internal/server -run '^TestLiveForge' -v
+      - name: Retain paired development artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-forge-linux-${{ matrix.arch }}
+          path: |
+            build/forge-runtime/*.tar.gz
+            build/forge-runtime/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

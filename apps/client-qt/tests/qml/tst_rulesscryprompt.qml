@@ -62,6 +62,12 @@ TestCase {
         }
     }
 
+    function initTestCase() {
+        compare(prompt.piles.length, 2)
+        compare(prompt.cardsForPile(0).length, 2)
+        compare(prompt.cardsForPile(1).length, 0)
+    }
+
     function init() {
         fakeWs.responseCount = 0
         fakeWs.lastPromptId = 0

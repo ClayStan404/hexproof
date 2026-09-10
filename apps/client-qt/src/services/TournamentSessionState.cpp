@@ -4,6 +4,7 @@
 #include "TournamentSessionState.h"
 
 #include <QJsonArray>
+#include <QSignalBlocker>
 #include <QVariantMap>
 
 #include <utility>
@@ -64,6 +65,14 @@ void TournamentSessionState::enter(const QString &tournamentId, const QString &r
                                    const QString &participantId)
 {
     const bool wasInTournament = inTournament();
+    if (tournamentId != m_tournamentId) {
+        // Do not route a new session using the previous lobby's kind or stage.
+        {
+            const QSignalBlocker blocker(this);
+            clear();
+        }
+        emit chatChanged();
+    }
     m_tournamentId = tournamentId;
     m_role = role;
     m_participantId = participantId;
@@ -141,10 +150,48 @@ void TournamentSessionState::clear()
     m_participants.clear();
     m_pairings.clear();
     m_standings.clear();
+    m_chatMessages.clear();
+    emit chatChanged();
     m_tabletopScores.clear();
     if (wasInTournament)
         emit inTournamentChanged();
     emit snapshotChanged();
+}
+
+void TournamentSessionState::applyChatMessage(const QJsonObject &payload)
+{
+    if (!inTournament() || payload.value(u"tournamentId"_s).toString() != m_tournamentId)
+        return;
+    const int sequence = payload.value(u"sequence"_s).toInt();
+    if (sequence <= 0)
+        return;
+    qsizetype position = 0;
+    while (position < m_chatMessages.size()) {
+        const int existing = m_chatMessages.at(position).toMap().value(u"sequence"_s).toInt();
+        if (existing == sequence)
+            return;
+        if (existing > sequence)
+            break;
+        ++position;
+    }
+    m_chatMessages.insert(position, payload.toVariantMap());
+    while (m_chatMessages.size() > 100)
+        m_chatMessages.removeFirst();
+    emit chatChanged();
+}
+
+void TournamentSessionState::applyChatHistory(const QJsonObject &payload)
+{
+    if (payload.value(u"tournamentId"_s).toString() != m_tournamentId)
+        return;
+    const QVariantList previous = m_chatMessages;
+    {
+        const QSignalBlocker blocker(this);
+        for (const QJsonValue &value : payload.value(u"messages"_s).toArray())
+            applyChatMessage(value.toObject());
+    }
+    if (previous != m_chatMessages)
+        emit chatChanged();
 }
 
 } // namespace hexproof::client

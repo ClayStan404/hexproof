@@ -149,6 +149,7 @@ TestCase {
                                         ? optimisticPhase
                                         : mockWs.currentPhase
         property var authoritativeSeats: [{"seat": 0}, {"seat": 1}]
+        property var tableCommanders: []
         property var players: [{
             "seat": 0,
             "life": 20,
@@ -196,6 +197,7 @@ TestCase {
     }
 
     function init() {
+        fakeTable.tableCommanders = []
         optimisticModel.lifeValues = ({})
         optimisticModel.tappedValues = ({})
         optimisticModel.counterValues = ({})
@@ -258,6 +260,27 @@ TestCase {
                     fakeTable.players[0], "commander-1"), 3)
         compare(mockWs.lastCommanderId, "commander-1")
         compare(mockWs.lastCommanderDelta, 1)
+    }
+
+    function test_duplicatePipersKeepIndependentColorLabelsAndTaxes() {
+        fakeTable.tableCommanders = [
+            {cardId: "piper-1", name: "The Prismatic Piper", ownerSeat: 0, chosenColor: "U"},
+            {cardId: "piper-2", name: "The Prismatic Piper", ownerSeat: 0, chosenColor: "G"},
+            {cardId: "opponent-piper", name: "The Prismatic Piper", ownerSeat: 1, chosenColor: "R"}
+        ]
+        fakeTable.battlefieldCards = []
+        const player = {seat: 0, commanderTaxes: {"piper-1": 1, "piper-2": 3}}
+        const cards = controller.commanderCards(player)
+        compare(cards.length, 2)
+        compare(cards[0].chosenColor, "U")
+        compare(cards[1].chosenColor, "G")
+        compare(controller.commanderTaxDisplayName(cards[0], 0), "The Prismatic Piper #1 · Blue")
+        compare(controller.commanderDisplayName(fakeTable.tableCommanders[1], 1), "The Prismatic Piper #2 · Green")
+        compare(controller.commanderTaxSummary(player), "+2 / +6")
+        // Equal color choices still have distinguishable physical identities.
+        const sameColor = Object.assign({}, cards[1], {chosenColor: "U"})
+        compare(controller.commanderDisplayName(sameColor, 1), "The Prismatic Piper #2 · Blue")
+        compare(controller.commanderTaxDisplayName({name: "Falthis, Shadowcat Familiar"}, 0), "Falthis")
     }
 
     function test_phaseCommandsAndReconciliation() {

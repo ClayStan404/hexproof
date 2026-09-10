@@ -1,0 +1,5 @@
+{
+  "type": "limited.participation_set",
+  "id": "cube-participation-1",
+  "payload": {"tournamentId": "CUBE42"}
+}

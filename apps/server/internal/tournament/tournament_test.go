@@ -238,30 +238,65 @@ func TestSwissCubeDraftBuildsRankedRound(t *testing.T) {
 	}
 }
 
-func TestCasualCubeDraftsAndOrganizerCreatesPrivateMatch(t *testing.T) {
+func TestCasualCubeDraftsAndPlayersChoosePrivateMatch(t *testing.T) {
 	event, organizer := cubeDraftThroughDeckBuilding(t, protocol.LimitedCoordinatorCasual)
-	if err := event.Start(organizer, 43, testNow); err != nil {
-		t.Fatalf("enter casual competition: %v", err)
+	if event.Stage != protocol.LimitedStageCompetition {
+		t.Fatal("last deck submission did not open free play automatically")
 	}
 	if event.CurrentRound() != nil || len(event.Standings()) != 0 {
 		t.Fatal("casual Cube unexpectedly created Swiss state")
 	}
 	pairing, err := event.CreateCasualMatch(
-		organizer, event.Participants[0].ID, event.Participants[1].ID)
+		actorFor(event, 0), event.Participants[0].ID, event.Participants[1].ID)
 	if err != nil {
 		t.Fatalf("create casual match: %v", err)
 	}
-	if pairing.ID == "" || event.CurrentPairing(event.Participants[0].ID) != pairing {
+	if pairing.ID == "" || !pairing.Invited || event.CurrentPairing(event.Participants[0].ID) != pairing {
 		t.Fatalf("casual pairing = %+v", pairing)
 	}
-	if _, err := event.CreateCasualMatch(actorFor(event, 0),
-		event.Participants[0].ID, event.Participants[1].ID); ErrorCode(err) != ErrForbidden {
-		t.Fatalf("participant-created casual match error = %v", err)
-	}
-	pairing.RoomID = "ROOM12"
 	if _, err := event.CreateCasualMatch(organizer,
+		event.Participants[0].ID, event.Participants[1].ID); ErrorCode(err) != ErrForbidden {
+		t.Fatalf("organizer cannot arrange other players' matches: %v", err)
+	}
+	firstID := pairing.ID
+	if _, err := event.CreateCasualMatch(actorFor(event, 0),
+		event.Participants[0].ID, event.Participants[2].ID); ErrorCode(err) != ErrNotReady {
+		t.Fatalf("duplicate pending casual match error = %v", err)
+	}
+	event.ClearRoom("")
+	if len(event.VisiblePairings()) != 1 {
+		t.Fatal("empty cleanup discarded a pending table")
+	}
+	if err := event.SetPairingRoom(actorFor(event, 0), firstID, "ROOM12"); err == nil {
+		t.Fatal("unaccepted invitation opened a table")
+	}
+	accepted, err := event.CreateCasualMatch(actorFor(event, 1),
+		event.Participants[1].ID, event.Participants[0].ID)
+	if err != nil || accepted.Invited || accepted.ID != firstID {
+		t.Fatalf("reciprocal invitation did not consent: %+v / %v", accepted, err)
+	}
+	if err := event.SetPairingRoom(actorFor(event, 0), firstID, "ROOM12"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := event.CreateCasualMatch(actorFor(event, 0),
 		event.Participants[0].ID, event.Participants[1].ID); ErrorCode(err) != ErrNotReady {
 		t.Fatalf("duplicate open casual match error = %v", err)
+	}
+	if _, err := event.CreateCasualMatch(actorFor(event, 2),
+		event.Participants[2].ID, event.Participants[3].ID); err != nil {
+		t.Fatalf("independent concurrent table: %v", err)
+	}
+	event.ClearRoom("ROOM12")
+	if event.CurrentPairing(event.Participants[0].ID) != nil || len(event.VisiblePairings()) != 1 {
+		t.Fatal("closed table still reserves its players or removed an unrelated table")
+	}
+	second, err := event.CreateCasualMatch(actorFor(event, 0),
+		event.Participants[0].ID, event.Participants[4].ID)
+	if err != nil || second.ID == firstID || second.Table != 3 {
+		t.Fatalf("new opponent after closing table: pairing=%+v error=%v", second, err)
+	}
+	if event.PlannedRounds != 0 || event.CurrentRound() != nil || len(event.Standings()) != 0 {
+		t.Fatal("free play acquired Swiss state")
 	}
 }
 

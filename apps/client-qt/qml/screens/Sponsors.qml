@@ -33,6 +33,7 @@ Page {
     }
 
     ScrollView {
+        objectName: "sponsorsScreenScroll"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left

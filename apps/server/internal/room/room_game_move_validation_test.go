@@ -4,10 +4,71 @@
 package room
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"hexproof/server/internal/protocol"
 )
+
+func TestBattlefieldMovesRejectEmptyAndEliminatedSeatsAtomically(t *testing.T) {
+	for _, targetSeat := range []int{2, 3} {
+		for _, sourceZone := range []string{protocol.ZoneHand, protocol.ZoneLibrary,
+			protocol.ZoneBattlefield, protocol.ZoneGraveyard} {
+			t.Run(fmt.Sprintf("seat%d/%s", targetSeat, sourceZone), func(t *testing.T) {
+				r := newTestRoom(t, 4, true)
+				r.Phase = protocol.RoomPhaseStarted
+				card := protocol.GameCard{ID: "source-card", Name: "Visible card", OwnerSeat: 0}
+				actor := PlayerGameState{Seat: 0, DisplayName: "Host"}
+				switch sourceZone {
+				case protocol.ZoneHand:
+					actor.Hand = []protocol.GameCard{card}
+				case protocol.ZoneLibrary:
+					actor.Library = []protocol.GameCard{card}
+				case protocol.ZoneBattlefield:
+					actor.Battlefield = []protocol.GameCard{card}
+				case protocol.ZoneGraveyard:
+					actor.Graveyard = []protocol.GameCard{card}
+				}
+				r.Game = &GameState{ActiveSeat: 0, Seats: []PlayerGameState{
+					actor,
+					{Seat: 1, DisplayName: "Guest"},
+					{Seat: 2, DisplayName: "Eliminated player", Eliminated: true},
+					{Seat: 3, Eliminated: true},
+				}, NextLogID: 1}
+				before, _ := json.Marshal(r.Game)
+				cardID := card.ID
+				if sourceZone == protocol.ZoneLibrary {
+					cardID = ""
+				}
+				_, err := r.MoveCard("host-conn", protocol.GameMoveCard{
+					CardID: cardID, FromZone: sourceZone, ToZone: protocol.ZoneBattlefield,
+					ToSeat: &targetSeat, Position: &protocol.CardPosition{X: 0.5, Y: 0.5},
+				})
+				if err == nil || err.Error() != protocol.ErrInvalidTarget {
+					t.Errorf("move into an unavailable battlefield: %v", err)
+				}
+				after, _ := json.Marshal(r.Game)
+				if string(before) != string(after) {
+					t.Fatal("rejected move changed zones/logs or lost a card")
+				}
+				if sourceZone == protocol.ZoneGraveyard {
+					_, err = r.MoveCards("host-conn", protocol.GameMoveCards{
+						CardIDs: []string{card.ID}, FromZone: sourceZone, ToZone: protocol.ZoneBattlefield,
+						ToSeat: &targetSeat, Position: &protocol.CardPosition{X: 0.5, Y: 0.5},
+					})
+					if err == nil || err.Error() != protocol.ErrInvalidTarget {
+						t.Errorf("batch move into an unavailable battlefield: %v", err)
+					}
+					after, _ = json.Marshal(r.Game)
+					if string(before) != string(after) {
+						t.Fatal("rejected batch move changed zones/logs or lost cards")
+					}
+				}
+			})
+		}
+	}
+}
 
 func TestNormalizeLibraryPlacementSharesSingleAndBatchPolicy(t *testing.T) {
 	t.Parallel()

@@ -177,18 +177,35 @@ Surface {
                     onHeightChanged:
                         root.tableController.battlefieldScene.schedulePointRefresh()
 
+                    AppButton {
+                        objectName: "emblemZoneButton" + battlefieldZone.modelData.seat
+                        anchors.left: parent.left
+                        anchors.bottom: parent.bottom
+                        anchors.margins: Theme.size(6)
+                        z: 220
+                        visible: (battlefieldZone.modelData.emblems || []).length > 0
+                        compact: true
+                        implicitHeight: Theme.size(26)
+                        implicitWidth: Math.min(parent.width - Theme.size(12), Theme.size(112))
+                        font.pixelSize: Theme.fontSize(10)
+                        text: qsTr("Emblems · %1").arg((battlefieldZone.modelData.emblems || []).length)
+                        onClicked: root.tableController.emblemBrowser.showSeat(battlefieldZone.modelData.seat)
+                    }
+
                     Text {
                         textFormat: Text.PlainText
                         id: battlefieldPlayerName
                         objectName: "battlefieldPlayerName"
                                     + battlefieldZone.modelData.seat
                         anchors.left: parent.left
-                        anchors.right: battlefieldHeader.left
+                        anchors.right: battlefieldHeader.compactHeader
+                                       ? battlefieldHeaderControls.left
+                                       : battlefieldHeader.left
                         anchors.top: parent.top
                         anchors.leftMargin: Theme.size(9)
                         anchors.rightMargin: Theme.size(8)
                         anchors.topMargin: Theme.size(7)
-                        height: Theme.size(24)
+                        height: Theme.size(battlefieldHeader.shortLane ? 18 : 24)
                         z: 220
                         text: battlefieldZone.modelData.displayName
                               ? battlefieldZone.modelData.displayName
@@ -200,13 +217,24 @@ Surface {
                         font.weight: Font.Bold
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
+                        HoverHandler { id: playerNameHover }
+                        ToolTip.visible: truncated && playerNameHover.hovered
+                        ToolTip.text: text
                     }
 
                     RowLayout {
                         id: battlefieldHeader
-                        anchors.right: parent.right
+                        readonly property bool compactHeader:
+                            battlefieldZone.width < Theme.size(440)
+                        readonly property bool shortLane:
+                            compactHeader && battlefieldZone.height < Theme.size(140)
+                        anchors.right: compactHeader ? parent.right
+                                                    : battlefieldHeaderControls.left
                         anchors.top: parent.top
-                        anchors.margins: Theme.size(7)
+                        anchors.rightMargin: Theme.size(7)
+                        anchors.topMargin: Theme.size(shortLane ? 26 : (compactHeader ? 34 : 7))
+                        width: compactHeader ? Math.max(0, parent.width - Theme.size(18))
+                                             : implicitWidth
                         spacing: Theme.size(8)
                         z: 220
 
@@ -225,6 +253,7 @@ Surface {
                         StatusPill {
                             objectName: "responseStatusBadge"
                                         + battlefieldZone.modelData.seat
+                            Layout.preferredHeight: battlefieldHeader.shortLane ? Theme.size(18) : -1
                             visible: battlefieldZone.modelData.responseStatus
                                      === "pass"
                                      || battlefieldZone.modelData.responseStatus
@@ -241,6 +270,9 @@ Surface {
                             objectName: "battlefieldPlayerSummary"
                                         + battlefieldZone.modelData.seat
                             visible: !battlefieldZone.isOwn
+                            Layout.fillWidth: battlefieldHeader.compactHeader
+                            Layout.minimumWidth: 0
+                            elide: Text.ElideRight
                             text: root.tableController.gameValues.displayedLife(
                                       battlefieldZone.modelData)
                                   + qsTr("HP") + " / "
@@ -264,6 +296,15 @@ Surface {
                             font.pixelSize: Theme.fontSize(11)
                             font.weight: Font.DemiBold
                         }
+                    }
+
+                    RowLayout {
+                        id: battlefieldHeaderControls
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: Theme.size(7)
+                        spacing: Theme.size(8)
+                        z: 220
                         AppButton {
                             objectName: "focusBattlefieldButton"
                                         + battlefieldZone.modelData.seat
@@ -272,7 +313,7 @@ Surface {
                             compact: true
                             Layout.preferredWidth:
                                 Theme.size(30)
-                            implicitHeight: Theme.size(24)
+                            implicitHeight: Theme.size(battlefieldHeader.shortLane ? 18 : 24)
                             variant: battlefieldZone.isPrimaryBattlefield
                                      ? "primary" : "ghost"
                             text: battlefieldZone.isPrimaryBattlefield
@@ -296,7 +337,7 @@ Surface {
                             visible: !battlefieldZone.isOwn
                             compact: true
                             Layout.preferredWidth: Theme.size(30)
-                            implicitHeight: Theme.size(24)
+                            implicitHeight: Theme.size(battlefieldHeader.shortLane ? 18 : 24)
                             text: battlefieldZone.zonePanelExpanded
                                   ? "▴" : "▾"
                             onClicked:
@@ -313,6 +354,7 @@ Surface {
 
                     Item {
                         id: battlefieldSeatTarget
+                        readonly property Item cardViewport: battlefieldZoneArea
                         x: parent.width / 2
                         y: Theme.size(8)
                         width: 1
@@ -323,6 +365,15 @@ Surface {
                         id: battlefieldZoneArea
                         anchors.fill: parent
                         anchors.margins: Theme.size(6)
+                        // Player/status chrome floats above the card area; it
+                        // must not reserve a row or change normalized positions.
+                        readonly property real cardFitScale: Math.max(0, Math.min(
+                            1, width / Math.max(1, root.tableController.battlefieldCardHeight),
+                            height / Math.max(1, root.tableController.battlefieldCardHeight)))
+                        readonly property real cardWidth:
+                            root.tableController.battlefieldCardWidth * cardFitScale
+                        readonly property real cardHeight:
+                            root.tableController.battlefieldCardHeight * cardFitScale
 
                     MouseArea {
                         objectName: "battlefieldBackgroundMouseArea"
@@ -382,9 +433,9 @@ Surface {
                                 return
                             }
                             const cardWidth =
-                                root.tableController.battlefieldCardWidth
+                                battlefieldZoneArea.cardWidth
                             const cardHeight =
-                                root.tableController.battlefieldCardHeight
+                                battlefieldZoneArea.cardHeight
                             const viewX = Math.max(
                                 0, Math.min(
                                     1,
@@ -458,17 +509,20 @@ Surface {
                                    : "opponentPendingBattlefieldCard"
                                      + battlefieldZone.modelData.seat
                                      + "-" + modelData.cardId)
-                            width: root.tableController.battlefieldCardWidth
-                            height: root.tableController.battlefieldCardHeight
+                            width: battlefieldZoneArea.cardWidth
+                            height: battlefieldZoneArea.cardHeight
+                            readonly property real tappedEdgeInset:
+                                modelData.tapped === true
+                                ? Math.max(0, (height - width) / 2) : 0
                             // Optimistic cards are visual feedback only. If they
                             // participate in hit testing, several pending moves
                             // can cover both real cards and the battlefield
                             // DropArea until their snapshots arrive.
                             enabled: false
                             x: Math.max(
-                                   0, Math.min(
+                                   tappedEdgeInset, Math.min(
                                        battlefieldZoneArea.width
-                                       - width,
+                                       - width - tappedEdgeInset,
                                        modelData.x
                                        * Math.max(
                                            0,

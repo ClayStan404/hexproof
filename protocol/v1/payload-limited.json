@@ -90,7 +90,17 @@
         {"name": "picked", "type": "integer", "required": true},
         {"name": "packCards", "type": "integer", "required": true},
         {"name": "queuedPacks", "type": "integer", "required": true},
-        {"name": "deckSubmitted", "type": "boolean", "required": true}
+        {"name": "deckSubmitted", "type": "boolean", "required": true},
+        {"name": "autoDraft", "type": "boolean", "required": false},
+        {"name": "withdrawn", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "LimitedCommanderColor",
+      "goType": "LimitedCommanderColor",
+      "fields": [
+        {"name": "instanceId", "type": "string", "required": true},
+        {"name": "color", "type": "string", "required": true}
       ]
     },
     {
@@ -107,12 +117,48 @@
   ],
   "messages": [
     {
+      "type": "limited.set_draft_control",
+      "direction": "clientToServer",
+      "goType": "LimitedSetDraftControl",
+      "fields": [
+        {"name": "participantId", "type": "string", "required": false},
+        {"name": "automatic", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "type": "limited.draft_control_set",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "limited.set_participation",
+      "direction": "clientToServer",
+      "goType": "LimitedSetParticipation",
+      "fields": [
+        {"name": "participating", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "type": "limited.participation_set",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true}
+      ]
+    },
+    {
       "type": "limited.create_casual_match",
       "direction": "clientToServer",
       "goType": "LimitedCreateCasualMatch",
       "fields": [
-        {"name": "playerAId", "type": "string", "required": true},
-        {"name": "playerBId", "type": "string", "required": true}
+        {"name": "playerAId", "type": "string", "required": false},
+        {"name": "playerBId", "type": "string", "required": false},
+        {"name": "playerIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "pairingId", "type": "string", "required": false},
+        {"name": "action", "type": "string", "required": false}
       ]
     },
     {
@@ -127,7 +173,10 @@
       "type": "limited.pick",
       "direction": "clientToServer",
       "goType": "LimitedPick",
-      "fields": [{"name": "instanceId", "type": "string", "required": true}]
+      "fields": [
+        {"name": "instanceId", "type": "string", "required": false},
+        {"name": "instanceIds", "type": "array", "required": false, "items": {"type": "string"}}
+      ]
     },
     {
       "type": "limited.picked",
@@ -145,6 +194,8 @@
       "fields": [
         {"name": "name", "type": "string", "required": true},
         {"name": "mainboardInstanceIds", "type": "array", "required": true, "items": {"type": "string"}},
+        {"name": "commanderInstanceIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "commanderColors", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCommanderColor"}},
         {"name": "basicLands", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedBasicLand"}}
       ]
     },
@@ -156,6 +207,15 @@
         {"name": "tournamentId", "type": "string", "required": true},
         {"name": "mainboardCount", "type": "integer", "required": true},
         {"name": "sideboardCount", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "limited.progress",
+      "direction": "serverToClient",
+      "goType": "LimitedProgress",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedParticipantView"}}
       ]
     },
     {
@@ -171,7 +231,13 @@
         {"name": "direction", "type": "integer", "required": true},
         {"name": "currentPack", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
         {"name": "pool", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "fallbackCommanders", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardView"}},
         {"name": "mainboardInstanceIds", "type": "array", "required": true, "items": {"type": "string"}},
+        {"name": "commanderInstanceIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "commanderColors", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCommanderColor"}},
+        {"name": "picksRequired", "type": "integer", "required": false},
+        {"name": "packsPerPlayer", "type": "integer", "required": false},
+        {"name": "minimumDeckCards", "type": "integer", "required": false},
         {"name": "basicLands", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedBasicLand"}},
         {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedParticipantView"}},
         {"name": "deckSubmitted", "type": "boolean", "required": true},

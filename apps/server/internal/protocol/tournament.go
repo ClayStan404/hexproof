@@ -99,13 +99,14 @@ type TournamentMatchOpened struct {
 }
 
 type TournamentParticipantView struct {
-	ParticipantID string              `json:"participantId"`
-	DisplayName   string              `json:"displayName"`
-	CheckedIn     bool                `json:"checkedIn"`
-	Competing     bool                `json:"competing"`
-	Dropped       bool                `json:"dropped"`
-	Online        bool                `json:"online"`
-	Deck          *TournamentDeckView `json:"deck,omitempty"`
+	ParticipantID  string              `json:"participantId"`
+	DisplayName    string              `json:"displayName"`
+	CheckedIn      bool                `json:"checkedIn"`
+	Competing      bool                `json:"competing"`
+	Dropped        bool                `json:"dropped"`
+	Online         bool                `json:"online"`
+	DisconnectedAt string              `json:"disconnectedAt,omitempty"`
+	Deck           *TournamentDeckView `json:"deck,omitempty"`
 }
 
 // TournamentDeckView is published only after a tournament completes.
@@ -119,20 +120,24 @@ type TournamentDeckView struct {
 }
 
 type TournamentPairingView struct {
-	PairingID   string `json:"pairingId"`
-	Table       int    `json:"table"`
-	PlayerAID   string `json:"playerAId"`
-	PlayerAName string `json:"playerAName"`
-	PlayerBID   string `json:"playerBId,omitempty"`
-	PlayerBName string `json:"playerBName,omitempty"`
-	Bye         bool   `json:"bye"`
-	RoomID      string `json:"roomId,omitempty"`
-	Status      string `json:"status"`
-	PlayerAWins int    `json:"playerAWins"`
-	PlayerBWins int    `json:"playerBWins"`
-	DrawnGames  int    `json:"drawnGames"`
-	ReporterID  string `json:"reporterId,omitempty"`
-	Corrected   bool   `json:"corrected,omitempty"`
+	PairingID         string   `json:"pairingId"`
+	Table             int      `json:"table"`
+	PlayerAID         string   `json:"playerAId"`
+	PlayerAName       string   `json:"playerAName"`
+	PlayerBID         string   `json:"playerBId,omitempty"`
+	PlayerBName       string   `json:"playerBName,omitempty"`
+	PlayerIDs         []string `json:"playerIds,omitempty"`
+	PlayerNames       []string `json:"playerNames,omitempty"`
+	AcceptedPlayerIDs []string `json:"acceptedPlayerIds,omitempty"`
+	AutoEnter         bool     `json:"autoEnter,omitempty"`
+	Bye               bool     `json:"bye"`
+	RoomID            string   `json:"roomId,omitempty"`
+	Status            string   `json:"status"`
+	PlayerAWins       int      `json:"playerAWins"`
+	PlayerBWins       int      `json:"playerBWins"`
+	DrawnGames        int      `json:"drawnGames"`
+	ReporterID        string   `json:"reporterId,omitempty"`
+	Corrected         bool     `json:"corrected,omitempty"`
 }
 
 type TournamentStandingView struct {

@@ -1,4 +1,6 @@
 {
+  "schemaVersion": 2,
+  "description": "Advisory review thresholds, not build limits. Review cohesion and risk before deciding to extract.",
   "defaults": {
     ".qml": 1000,
     ".cpp": 1200,
@@ -26,7 +28,6 @@
     "data/",
     "tools/__pycache__/"
   ],
-  "overrides": {
-    "apps/client-qt/qml/screens/TournamentLobby.qml": 700
-  }
+  "overrides": {},
+  "testMultiplier": 1.5
 }

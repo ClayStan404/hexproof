@@ -15,27 +15,27 @@ Menu {
 
     MenuItem {
         objectName: "libraryContextLocalHand"
-        text: root.popupController.localDisplayName + " · " + qsTr("Hand")
+        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Hand")
         onTriggered: root.popupController.completeContextSearch("hand", root.popupController.localSeat, false)
     }
     MenuItem {
         objectName: "libraryContextLocalBattlefieldFaceDown"
-        text: root.popupController.localDisplayName + " · " + qsTr("Battlefield face down")
+        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Battlefield face down")
         onTriggered: root.popupController.completeContextSearch("battlefield", root.popupController.localSeat, false, true)
     }
     MenuItem {
         objectName: "libraryContextLocalBattlefield"
-        text: root.popupController.localDisplayName + " · " + qsTr("Battlefield")
+        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Battlefield")
         onTriggered: root.popupController.completeContextSearch("battlefield", root.popupController.localSeat, false)
     }
     MenuItem {
         objectName: "libraryContextLocalGraveyard"
-        text: root.popupController.localDisplayName + " · " + qsTr("Graveyard")
+        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Graveyard")
         onTriggered: root.popupController.completeContextSearch("graveyard", root.popupController.localSeat, false)
     }
     MenuItem {
         objectName: "libraryContextLocalExile"
-        text: root.popupController.localDisplayName + " · " + qsTr("Exile")
+        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Exile")
         onTriggered: root.popupController.completeContextSearch("exile", root.popupController.localSeat, false)
     }
     ConditionalMenuSeparator {
@@ -44,48 +44,48 @@ Menu {
     ConditionalMenuItem {
         objectName: "libraryContextSourceHand"
         visible: root.popupController.remoteSource
-        text: root.popupController.sourceDisplayName + " · " + qsTr("Hand")
+        text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Hand")
         onTriggered: root.popupController.completeContextSearch("hand", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceBattlefield"
         visible: root.popupController.remoteSource
-        text: root.popupController.sourceDisplayName + " · " + qsTr("Battlefield")
+        text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Battlefield")
         onTriggered: root.popupController.completeContextSearch("battlefield", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceGraveyard"
         visible: root.popupController.remoteSource
-        text: root.popupController.sourceDisplayName + " · " + qsTr("Graveyard")
+        text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Graveyard")
         onTriggered: root.popupController.completeContextSearch("graveyard", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceExile"
         visible: root.popupController.remoteSource
-        text: root.popupController.sourceDisplayName + " · " + qsTr("Exile")
+        text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Exile")
         onTriggered: root.popupController.completeContextSearch("exile", root.popupController.sourceSeat, false)
     }
     MenuSeparator { }
     MenuItem {
         objectName: "libraryContextSourceTopOrdered"
-        text: qsTr("Top of library · in order")
+        text: qsTranslate("LibrarySearchPopup", "Top of library · in order")
         onTriggered: root.popupController.completeContextSearch("library_top", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceTopRandom"
         visible: !root.popupController.topCardMode
-        text: qsTr("Top of library · random order")
+        text: qsTranslate("LibrarySearchPopup", "Top of library · random order")
         onTriggered: root.popupController.completeContextSearch("library_top", root.popupController.sourceSeat, true)
     }
     MenuItem {
         objectName: "libraryContextSourceBottomOrdered"
-        text: qsTr("Bottom of library · in order")
+        text: qsTranslate("LibrarySearchPopup", "Bottom of library · in order")
         onTriggered: root.popupController.completeContextSearch("library_bottom", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceBottomRandom"
         visible: !root.popupController.topCardMode
-        text: qsTr("Bottom of library · random order")
+        text: qsTranslate("LibrarySearchPopup", "Bottom of library · random order")
         onTriggered: root.popupController.completeContextSearch("library_bottom", root.popupController.sourceSeat, true)
     }
 }

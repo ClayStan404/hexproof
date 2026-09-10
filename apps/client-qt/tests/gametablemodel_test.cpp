@@ -17,15 +17,98 @@ class TestGameTableModel : public QObject
     Q_OBJECT
 
   private slots:
+    void snapshotReadiness() const;
+    void emptySnapshotSentinelClearsReadiness() const;
+    void keepsEmblemsPublicAndSeparateFromCards() const;
     void indexesSnapshotDomainData() const;
     void replacesIndexesOnSubsequentSnapshots() const;
     void keepsSeatLookupConsistentDuringZoneSignals() const;
     void skipsCardReindexForMetadataOnlySnapshots() const;
+    void emitsOnlyChangedPropertySignals() const;
     void reconcilesZoneCardsById() const;
     void keepsOpponentHandAndFaceDownIdentitiesRedacted() const;
     void consumesSharedOwnerAndOpponentSnapshots() const;
     void benchmarkFourPlayerBattlefieldSnapshot() const;
 };
+
+void TestGameTableModel::snapshotReadiness() const
+{
+    GameTableModel model;
+    QSignalSpy snapshotSpy(&model, &GameTableModel::snapshotChanged);
+
+    QVERIFY(model.property("hasSnapshot").isValid());
+    QVERIFY(!model.hasSnapshot());
+
+    model.applySnapshot({{u"seats"_s, QVariantList{}}});
+    QVERIFY(model.hasSnapshot());
+    QCOMPARE(snapshotSpy.count(), 1);
+
+    model.clear();
+    QVERIFY(!model.hasSnapshot());
+    QCOMPARE(snapshotSpy.count(), 2);
+}
+
+void TestGameTableModel::emptySnapshotSentinelClearsReadiness() const
+{
+    GameTableModel model;
+    QSignalSpy snapshotSpy(&model, &GameTableModel::snapshotChanged);
+
+    model.applySnapshot({
+        {u"seats"_s, QVariantList{QVariantMap{
+                         {u"seat"_s, 0},
+                         {u"displayName"_s, u"Alice"_s},
+                     }}},
+    });
+    QVERIFY(model.hasSnapshot());
+    QCOMPARE(model.rowCount(), 1);
+
+    model.applySnapshot({});
+
+    QVERIFY(!model.hasSnapshot());
+    QCOMPARE(model.rowCount(), 0);
+    QCOMPARE(snapshotSpy.count(), 2);
+}
+
+void TestGameTableModel::keepsEmblemsPublicAndSeparateFromCards() const
+{
+    GameTableModel model;
+    QVariantMap seat{
+        {u"seat"_s, 1},
+        {u"displayName"_s, u"Bob"_s},
+        {u"battlefield"_s, QVariantList{QVariantMap{{u"id"_s, u"s1-c1"_s}}}},
+        {u"commandZone"_s, QVariantList{}},
+    };
+    model.applySnapshot({{u"seats"_s, QVariantList{seat}}});
+    const quint64 cardRevision = model.cardIndexRevision();
+    QSignalSpy rowSpy(&model, &QAbstractItemModel::dataChanged);
+    QSignalSpy seatsSpy(&model, &GameTableModel::seatsChanged);
+    const QVariantList emblems{QVariantMap{
+        {u"id"_s, u"s1-e1"_s},
+        {u"name"_s, u"Chandra, Torch of Defiance Emblem"_s},
+        {u"setCode"_s, u"TCMM"_s},
+        {u"collectorNumber"_s, u"79"_s},
+    }};
+    seat.insert(u"emblems"_s, emblems);
+    model.applySnapshot({{u"seats"_s, QVariantList{seat}}});
+
+    QCOMPARE(model.roleNames().value(GameTableModel::EmblemsRole), QByteArray("emblems"));
+    QCOMPARE(model.data(model.index(0), GameTableModel::EmblemsRole).toList(), emblems);
+    QCOMPARE(model.seatData(1).value(u"emblems"_s).toList(), emblems);
+    QCOMPARE(rowSpy.count(), 1);
+    QCOMPARE(seatsSpy.count(), 1);
+    QCOMPARE(model.cardIndexRevision(), cardRevision);
+    QVERIFY(model.cardData(u"s1-e1"_s).isEmpty());
+    QVERIFY(!model.cardInZone(u"s1-e1"_s, u"command"_s, 1));
+    QVERIFY(model.commanders().isEmpty());
+
+    seat.insert(u"emblems"_s, QVariantList{});
+    model.applySnapshot({{u"seats"_s, QVariantList{seat}}});
+    QVERIFY(model.data(model.index(0), GameTableModel::EmblemsRole).toList().isEmpty());
+    QCOMPARE(rowSpy.count(), 2);
+    QCOMPARE(seatsSpy.count(), 2);
+    model.clear();
+    QVERIFY(model.seatData(1).isEmpty());
+}
 
 void TestGameTableModel::benchmarkFourPlayerBattlefieldSnapshot() const
 {
@@ -260,6 +343,128 @@ void TestGameTableModel::skipsCardReindexForMetadataOnlySnapshots() const
     QCOMPARE(model.cardIndexRevision(), initialIndexRevision + 1);
     QVERIFY(model.cardData(u"card-1"_s).isEmpty());
     QCOMPARE(model.cardData(u"card-2"_s).value(u"name"_s).toString(), u"Replacement"_s);
+}
+
+void TestGameTableModel::emitsOnlyChangedPropertySignals() const
+{
+    GameTableModel model;
+    QSignalSpy countSpy(&model, SIGNAL(countChanged()));
+    QSignalSpy readinessSpy(&model, SIGNAL(hasSnapshotChanged()));
+    QSignalSpy seatsSpy(&model, SIGNAL(seatsChanged()));
+    QSignalSpy arrowsSpy(&model, SIGNAL(arrowsChanged()));
+    QSignalSpy attachmentsSpy(&model, SIGNAL(attachmentsChanged()));
+    QSignalSpy commandersSpy(&model, SIGNAL(commandersChanged()));
+    QSignalSpy commanderDamageSpy(&model, SIGNAL(commanderDamageChanged()));
+    QSignalSpy logSpy(&model, SIGNAL(gameLogChanged()));
+    QSignalSpy landPlaysSpy(&model, SIGNAL(landPlaysThisTurnChanged()));
+    QSignalSpy cardIndexSpy(&model, SIGNAL(cardIndexRevisionChanged()));
+    QSignalSpy snapshotSpy(&model, &GameTableModel::snapshotChanged);
+
+    QVERIFY(countSpy.isValid());
+    QVERIFY(readinessSpy.isValid());
+    QVERIFY(seatsSpy.isValid());
+    QVERIFY(arrowsSpy.isValid());
+    QVERIFY(attachmentsSpy.isValid());
+    QVERIFY(commandersSpy.isValid());
+    QVERIFY(commanderDamageSpy.isValid());
+    QVERIFY(logSpy.isValid());
+    QVERIFY(landPlaysSpy.isValid());
+    QVERIFY(cardIndexSpy.isValid());
+    QVERIFY(model.property("cardIndexRevision").isValid());
+
+    QVariantMap snapshot{
+        {u"seats"_s, QVariantList{QVariantMap{
+                         {u"seat"_s, 0},
+                         {u"displayName"_s, u"Alice"_s},
+                         {u"life"_s, 20},
+                         {u"hand"_s, QVariantList{QVariantMap{{u"id"_s, u"card-1"_s}}}},
+                     }}},
+        {u"arrows"_s, QVariantList{QVariantMap{{u"sourceCardId"_s, u"card-1"_s}}}},
+        {u"attachments"_s, QVariantList{QVariantMap{{u"sourceCardId"_s, u"card-1"_s},
+                                                    {u"targetCardId"_s, u"target-1"_s}}}},
+        {u"commanders"_s,
+         QVariantList{QVariantMap{{u"cardId"_s, u"commander-1"_s}, {u"chosenColor"_s, u"U"_s}}}},
+        {u"commanderDamage"_s,
+         QVariantList{
+             QVariantMap{{u"cardId"_s, u"commander-1"_s}, {u"targetSeat"_s, 0}, {u"damage"_s, 2}}}},
+        {u"log"_s, QVariantList{QVariantMap{
+                       {u"id"_s, 1}, {u"kind"_s, u"system"_s}, {u"text"_s, u"Game started"_s}}}},
+        {u"landPlaysThisTurn"_s, 1},
+    };
+    model.applySnapshot(snapshot);
+
+    QCOMPARE(model.commanders().first().toMap().value(u"chosenColor"_s).toString(), u"U"_s);
+    countSpy.clear();
+    readinessSpy.clear();
+    seatsSpy.clear();
+    arrowsSpy.clear();
+    attachmentsSpy.clear();
+    commandersSpy.clear();
+    commanderDamageSpy.clear();
+    logSpy.clear();
+    landPlaysSpy.clear();
+    cardIndexSpy.clear();
+    snapshotSpy.clear();
+
+    QVariantList seats = snapshot.value(u"seats"_s).toList();
+    QVariantMap seat = seats.first().toMap();
+    seat[u"life"_s] = 19;
+    seats[0] = seat;
+    snapshot[u"seats"_s] = seats;
+    model.applySnapshot(snapshot);
+
+    QCOMPARE(seatsSpy.count(), 1);
+    QCOMPARE(snapshotSpy.count(), 1);
+    QCOMPARE(logSpy.count(), 0);
+    QCOMPARE(cardIndexSpy.count(), 0);
+    QCOMPARE(arrowsSpy.count(), 0);
+    QCOMPARE(attachmentsSpy.count(), 0);
+    QCOMPARE(commandersSpy.count(), 0);
+    QCOMPARE(commanderDamageSpy.count(), 0);
+    QCOMPARE(landPlaysSpy.count(), 0);
+    QCOMPARE(countSpy.count(), 0);
+    QCOMPARE(readinessSpy.count(), 0);
+
+    seatsSpy.clear();
+    snapshotSpy.clear();
+    snapshot[u"log"_s] = QVariantList{
+        QVariantMap{{u"id"_s, 2}, {u"kind"_s, u"system"_s}, {u"text"_s, u"Life changed"_s}}};
+    model.applySnapshot(snapshot);
+    QCOMPARE(logSpy.count(), 1);
+    QCOMPARE(snapshotSpy.count(), 1);
+    QCOMPARE(seatsSpy.count(), 0);
+    QCOMPARE(cardIndexSpy.count(), 0);
+
+    logSpy.clear();
+    snapshotSpy.clear();
+    seat[u"hand"_s] = QVariantList{QVariantMap{{u"id"_s, u"card-2"_s}}};
+    seats[0] = seat;
+    snapshot[u"seats"_s] = seats;
+    model.applySnapshot(snapshot);
+    QCOMPARE(cardIndexSpy.count(), 1);
+    QCOMPARE(snapshotSpy.count(), 1);
+    QCOMPARE(seatsSpy.count(), 0);
+    QCOMPARE(logSpy.count(), 0);
+
+    cardIndexSpy.clear();
+    snapshotSpy.clear();
+    snapshot[u"arrows"_s] = QVariantList{};
+    snapshot[u"attachments"_s] = QVariantList{};
+    snapshot[u"commanders"_s] = QVariantList{};
+    snapshot[u"commanderDamage"_s] = QVariantList{};
+    snapshot[u"landPlaysThisTurn"_s] = 2;
+    model.applySnapshot(snapshot);
+    QCOMPARE(arrowsSpy.count(), 1);
+    QCOMPARE(attachmentsSpy.count(), 1);
+    QCOMPARE(commandersSpy.count(), 1);
+    QCOMPARE(commanderDamageSpy.count(), 1);
+    QCOMPARE(landPlaysSpy.count(), 1);
+    QCOMPARE(snapshotSpy.count(), 1);
+    QCOMPARE(cardIndexSpy.count(), 0);
+
+    model.clear();
+    QCOMPARE(countSpy.count(), 1);
+    QCOMPARE(readinessSpy.count(), 1);
 }
 
 void TestGameTableModel::reconcilesZoneCardsById() const

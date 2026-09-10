@@ -8,7 +8,9 @@ import "../components"
 
 Page {
     id: root
+    objectName: "createRoomPage"
 
+    readonly property bool wideLayout: width >= Theme.size(1000)
     readonly property var appWindow: ApplicationWindow.window
     readonly property var formatOptions: I18n.deckFormatOptions()
     readonly property var selectableFormatOptions:
@@ -39,10 +41,16 @@ Page {
     property string rulesMode: "manual"
     property string roomPassword: ""
     property string selectedCubeDeckId: ""
+    property bool commanderCube: false
+
+    onCommanderCubeChanged: Qt.callLater(limitCubePlayerCap)
 
     background: AppBackground { }
 
-    Component.onCompleted: root.ensureSelectedCube()
+    Component.onCompleted: {
+        root.ensureSelectedCube()
+        root.limitCubePlayerCap()
+    }
 
     ScreenHeader {
         id: header
@@ -53,12 +61,12 @@ Page {
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
         title: root.playtestMode ? qsTr("Playtest")
-               : root.isCubeFormat ? qsTr("Create Cube tournament")
+               : root.isCubeFormat ? (root.commanderCube ? qsTr("Create Commander Cube room") : qsTr("Create Cube room"))
                : qsTr("Create room")
         subtitle: root.playtestMode
                   ? qsTr("Practice alone on a full tabletop")
                   : root.isCubeFormat
-                    ? qsTr("Draft the Cube, build decks, then play Swiss rounds with standings")
+                    ? qsTr("Draft the Cube, build decks, then play together")
                   : qsTr("Set the table, then share its room code")
         onBackRequested: root.appWindow.popScreen()
     }
@@ -84,8 +92,8 @@ Page {
         Surface {
             id: formCard
             objectName: "createRoomCard"
-            width: Math.min(Theme.size(650), formBody.width - Theme.size(72))
-            implicitHeight: form.implicitHeight + Theme.size(60)
+            width: Math.min(Theme.size(1120), formBody.width - 2 * Theme.pageMargin)
+            implicitHeight: form.implicitHeight + Theme.size(48)
             height: implicitHeight
             x: Math.max(0, Math.round((formBody.width - width) / 2))
             elevated: true
@@ -95,484 +103,451 @@ Page {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.margins: Theme.size(30)
+                anchors.margins: Theme.size(24)
                 spacing: Theme.size(10)
 
-                RowLayout {
+                GridLayout {
+                    objectName: "createRoomColumns"
                     Layout.fillWidth: true
+                    columns: root.wideLayout ? 2 : 1
+                    columnSpacing: Theme.size(28)
+                    rowSpacing: Theme.size(16)
+                    uniformCellWidths: true
 
                     ColumnLayout {
-                        spacing: Theme.size(3)
-                        Text {
-                            textFormat: Text.PlainText
-                            text: root.playtestMode
-                                  ? qsTr("Solo tabletop")
-                                  : qsTr("New tabletop")
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(26)
-                            font.weight: Font.DemiBold
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            text: root.playtestMode
-                                  ? qsTr("Choose a format, then select any ready deck.")
-                                  : root.isCubeFormat
-                                    ? qsTr("You will enter as organizer; register if you also want to draft.")
-                                    : qsTr("You will enter as the host in seat one.")
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSize(13)
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    StatusPill {
-                        text: root.playtestMode
-                              ? qsTr("One player")
-                              : qsTr("Connected")
-                        statusColor: Theme.success
-                    }
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.topMargin: Theme.size(16)
-                    visible: !root.playtestMode
-                    text: root.isCubeFormat ? qsTr("EVENT NAME")
-                                            : qsTr("ROOM NAME")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(11)
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.1
-                }
-
-                AppTextField {
-                    id: nameField
-                    Layout.fillWidth: true
-                    visible: !root.playtestMode
-                    placeholderText: root.isCubeFormat
-                                     ? qsTr("Friday Cube Draft")
-                                     : qsTr("Friday game night")
-                    maximumLength: 80
-                    text: root.roomName
-                    onTextEdited: root.roomName = text
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    visible: !root.playtestMode
-                    text: root.isCubeFormat
-                          ? qsTr("The selected Cube is locked when the draft starts.")
-                          : qsTr("Include the exact format in the room name so players know which card pool to bring.")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(10)
-                    wrapMode: Text.WordWrap
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: Theme.size(10)
-                    spacing: Theme.size(20)
-
-                    ColumnLayout {
+                        objectName: "createRoomDetails"
                         Layout.fillWidth: true
-                        spacing: Theme.size(8)
+                        Layout.alignment: Qt.AlignTop
+                        spacing: Theme.size(12)
 
                         Text {
                             textFormat: Text.PlainText
-                            text: qsTr("FORMAT")
+                            visible: !root.playtestMode
+                            text: qsTr("ROOM NAME")
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(11)
                             font.weight: Font.Bold
                             font.letterSpacing: 1.1
                         }
 
-                        AppComboBox {
-                            id: formatSelector
+                        AppTextField {
+                            id: nameField
+                            objectName: "roomNameField"
                             Layout.fillWidth: true
-                            model: root.selectableFormatOptions
-                            textRole: "label"
-                            valueRole: "value"
-                            currentIndex: 0
+                            visible: !root.playtestMode
+                            maximumLength: 80
+                            text: root.roomName
+                            onTextEdited: root.roomName = text
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.size(20)
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.size(8)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("FORMAT")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(11)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 1.1
+                                }
+
+                                AppComboBox {
+                                    id: formatSelector
+                                    objectName: "roomFormatSelector"
+                                    Layout.fillWidth: true
+                                    model: root.selectableFormatOptions
+                                    textRole: "label"
+                                    valueRole: "value"
+                                    currentIndex: 0
+                                    onActivated: index => {
+                                        const option = root.selectableFormatOptions[index]
+                                        root.deckFormat = option.value
+                                        root.roomFormat = option.tableMode
+                                        if (root.roomFormat === "edh")
+                                            root.matchMode = "bo1"
+                                        if (root.isCubeFormat)
+                                            root.ensureSelectedCube()
+                                    }
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    visible: root.deckFormat === "custom"
+                                    text: qsTr("Custom 1v1 keeps manual deck construction and card-pool decisions.")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    visible: root.roomFormat === "duel"
+                                    text: qsTr("A two-player commander table at 20 life with command zones and manual commander tax.")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    visible: root.roomFormat === "edh"
+                                    text: qsTr("A four-seat Commander table that can start with three or four players.")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.preferredWidth: Theme.size(170)
+                                visible: !root.playtestMode
+                                spacing: Theme.size(8)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("MATCH")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(11)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 1.1
+                                }
+
+                                SegmentedControl {
+                                    objectName: "roomMatchModeControl"
+                                    Layout.fillWidth: true
+                                    options: root.roomFormat === "edh" || (root.isCubeFormat && root.commanderCube)
+                                             ? [qsTr("BO 1")]
+                                             : [qsTr("BO 1"),
+                                                qsTr("BO 3")]
+                                    currentIndex: root.isCubeFormat && root.commanderCube ? 0 : root.matchMode === "bo3" ? 1 : 0
+                                    onActivated: index => root.matchMode = index === 1 ? "bo3" : "bo1"
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    visible: root.roomFormat === "edh"
+                                    text: qsTr("Commander is a single multiplayer game.")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+
+                        Surface {
+                            Layout.fillWidth: true
+                            visible: !root.playtestMode && !root.isCubeFormat
+                            implicitHeight: rulesModeColumn.implicitHeight + Theme.size(28)
+                            radius: Theme.radiusMedium
+                            color: Theme.surfaceMuted
+
+                            ColumnLayout {
+                                id: rulesModeColumn
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Theme.size(14)
+                                spacing: Theme.size(8)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("GAMEPLAY RULES")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 1.0
+                                }
+
+                                SegmentedControl {
+                                    Layout.fillWidth: true
+                                    options: [qsTr("Manual tabletop"),
+                                              qsTr("Forge rules")]
+                                    currentIndex: root.rulesMode === "forge" ? 1 : 0
+                                    onActivated: index => {
+                                        root.rulesMode = index === 1 ? "forge" : "manual"
+                                    }
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    text: root.rulesMode === "forge"
+                                          ? (root.hub.forgeRulesAvailable
+                                             ? qsTr("Forge validates legal actions, priority, the stack, triggers, combat, and state-based actions. Two-player rooms support BO1 and BO3.")
+                                             : qsTr("This server does not provide the Forge rules runtime."))
+                                          : qsTr("Players control every move and resolve unusual interactions together.")
+                                    color: root.rulesMode === "forge" && !root.hub.forgeRulesAvailable
+                                           ? Theme.warning : Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        objectName: "createRoomOptions"
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        spacing: Theme.size(12)
+
+                        SegmentedControl {
+                            objectName: "cubeVariantControl"
+                            Layout.fillWidth: true
+                            visible: root.isCubeFormat
+                            options: [qsTr("Regular Cube"), qsTr("Commander Cube")]
+                            currentIndex: root.commanderCube ? 1 : 0
                             onActivated: index => {
-                                const option = root.selectableFormatOptions[index]
-                                root.deckFormat = option.value
-                                root.roomFormat = option.tableMode
-                                if (root.roomFormat === "edh")
-                                    root.matchMode = "bo1"
-                                if (root.isCubeFormat)
-                                    root.ensureSelectedCube()
+                                root.commanderCube = index === 1
+                                if (root.commanderCube) root.matchMode = "bo1"
+                            }
+                        }
+
+                        Surface {
+                            Layout.fillWidth: true
+                            implicitHeight: cubeSelection.implicitHeight + Theme.size(28)
+                            visible: root.isCubeFormat
+                            color: Theme.surfaceMuted
+
+                            ColumnLayout {
+                                id: cubeSelection
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Theme.size(14)
+                                spacing: Theme.size(8)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("CUBE POOL")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 1.0
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.size(8)
+
+                                    AppComboBox {
+                                        id: cubeSelector
+                                        Layout.fillWidth: true
+                                        model: root.cubeDecks
+                                        textRole: "deckName"
+                                        valueRole: "deckId"
+                                        onActivated: root.selectedCubeDeckId = currentValue
+                                    }
+
+                                    AppButton {
+                                        compact: true
+                                        variant: "ghost"
+                                        text: qsTr("Open deck library")
+                                        onClicked: root.appWindow.pushScreen(
+                                                       "screens/DeckLibrary.qml")
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.size(8)
+
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        Layout.fillWidth: true
+                                        text: qsTr("PLAYER CAP")
+                                        color: Theme.textMuted
+                                        font.pixelSize: Theme.fontSize(10)
+                                        font.weight: Font.Bold
+                                    }
+
+                                    AppTextField {
+                                        id: cubePlayerCapField
+                                        objectName: "cubePlayerCapField"
+                                        Layout.preferredWidth: Theme.size(110)
+                                        text: "8"
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        validator: IntValidator { bottom: 2; top: root.commanderCube ? 4 : 8 }
+                                    }
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    text: !root.selectedCube.deckId
+                                          ? qsTr("Import a Cube-format deck before creating this room.")
+                                          : (root.commanderCube
+                                             ? qsTr("Draft three 20-card packs, picking two cards each time. Build at least 60 cards including commanders. Once everyone submits, all 2–4 players enter the same room to ready up. A %1-seat room needs %2 Cube cards; this Cube contains %3.")
+                                             : qsTr("Start when everyone is ready (at least two players). Each player drafts three 15-card packs. A %1-seat room needs %2 Cube cards; this Cube contains %3."))
+                                            .arg(root.cubePlayerCap())
+                                            .arg(root.cubeCardsRequired())
+                                            .arg(root.selectedCube.mainCount)
+                                    color: root.cubeReady() ? Theme.textMuted : Theme.warning
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+
+                        InfoBanner {
+                            Layout.fillWidth: true
+                            visible: root.playtestMode
+                            tone: "success"
+                            message: qsTr("Playtest uses one private seat with no opponent or spectators. Commander-free 1v1 and Duel Commander start at 20 life; commander formats include a command zone.")
+                        }
+
+                        Surface {
+                            Layout.fillWidth: true
+                            visible: !root.playtestMode && !root.isCubeFormat
+                            implicitHeight: Theme.size(52)
+                            radius: Theme.radiusMedium
+                            color: Theme.surfaceMuted
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.size(16)
+                                anchors.rightMargin: Theme.size(14)
+
+                                ColumnLayout {
+                                    spacing: Theme.size(2)
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: qsTr("Allow spectators")
+                                        color: Theme.text
+                                        font.pixelSize: Theme.fontSize(14)
+                                        font.weight: Font.Medium
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
+
+                                AppToggle {
+                                    objectName: "allowSpectatorsToggle"
+                                    checked: root.allowSpectators
+                                    onToggled: {
+                                        root.allowSpectators = checked
+                                        if (!checked)
+                                            root.spectatorsSeeHands = false
+                                    }
+                                }
+                            }
+                        }
+
+                        Surface {
+                            Layout.fillWidth: true
+                            visible: !root.playtestMode && !root.isCubeFormat
+                                     && root.allowSpectators
+                            implicitHeight: Theme.size(52)
+                            radius: Theme.radiusMedium
+                            color: Theme.surfaceMuted
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.size(16)
+                                anchors.rightMargin: Theme.size(14)
+
+                                ColumnLayout {
+                                    spacing: Theme.size(2)
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: qsTr("Spectators can see hands")
+                                        color: Theme.text
+                                        font.pixelSize: Theme.fontSize(14)
+                                        font.weight: Font.Medium
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
+
+                                AppToggle {
+                                    objectName: "spectatorsSeeHandsToggle"
+                                    checked: root.spectatorsSeeHands
+                                    onToggled: root.spectatorsSeeHands = checked
+                                }
+                            }
+                        }
+
+                        Surface {
+                            Layout.fillWidth: true
+                            visible: !root.isCubeFormat
+                            implicitHeight: cardLoadingColumn.implicitHeight + Theme.size(28)
+                            radius: Theme.radiusMedium
+                            color: Theme.surfaceMuted
+
+                            ColumnLayout {
+                                id: cardLoadingColumn
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Theme.size(14)
+                                spacing: Theme.size(8)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("CARD IMAGES")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 1.0
+                                }
+
+                                SegmentedControl {
+                                    Layout.fillWidth: true
+                                    options: [qsTr("Preload before game"),
+                                              qsTr("Load in background")]
+                                    currentIndex: root.cardLoadMode === "background" ? 1 : 0
+                                    onActivated: index => root.cardLoadMode =
+                                                                 index === 1 ? "background" : "preload"
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    text: root.cardLoadMode === "background"
+                                          ? qsTr("Enter immediately. Visible cards load first while the rest download in the background.")
+                                          : qsTr("Wait until every player has downloaded all match card images.")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    wrapMode: Text.WordWrap
+                                }
                             }
                         }
 
                         Text {
                             textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            visible: root.deckFormat === "custom"
-                            text: qsTr("Custom 1v1 keeps manual deck construction and card-pool decisions.")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            visible: root.roomFormat === "duel"
-                            text: qsTr("A two-player commander table at 20 life with command zones and manual commander tax.")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            visible: root.roomFormat === "edh"
-                            text: qsTr("A four-seat Commander table that can start with three or four players.")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.preferredWidth: Theme.size(170)
-                        visible: !root.playtestMode
-                        spacing: Theme.size(8)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("MATCH")
+                            visible: !root.playtestMode && !root.isCubeFormat
+                            text: qsTr("ROOM PASSWORD · OPTIONAL")
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(11)
                             font.weight: Font.Bold
                             font.letterSpacing: 1.1
                         }
 
-                        SegmentedControl {
+                        AppTextField {
+                            id: passwordField
+                            objectName: "roomPasswordField"
                             Layout.fillWidth: true
-                            options: root.roomFormat === "edh"
-                                     || root.rulesMode === "forge"
-                                     ? [qsTr("BO 1")]
-                                     : [qsTr("BO 1"),
-                                        qsTr("BO 3")]
-                            currentIndex: root.matchMode === "bo3" ? 1 : 0
-                            onActivated: index => root.matchMode = index === 1 ? "bo3" : "bo1"
+                            visible: !root.playtestMode && !root.isCubeFormat
+                            placeholderText: qsTr("Leave blank for code-only access")
+                            echoMode: TextInput.Password
+                            maximumLength: 72
+                            maximumUtf8Bytes: 72
+                            text: root.roomPassword
+                            onTextEdited: root.roomPassword = text
+                            onAccepted: root.submit()
                         }
 
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            visible: root.roomFormat === "edh"
-                            text: qsTr("Commander is a single multiplayer game.")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
                     }
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    Layout.topMargin: Theme.size(8)
-                    visible: !root.playtestMode && !root.isCubeFormat
-                    implicitHeight: rulesModeColumn.implicitHeight + Theme.size(28)
-                    radius: Theme.radiusMedium
-                    color: Theme.surfaceMuted
-
-                    ColumnLayout {
-                        id: rulesModeColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.size(14)
-                        spacing: Theme.size(8)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("GAMEPLAY RULES")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1.0
-                        }
-
-                        SegmentedControl {
-                            Layout.fillWidth: true
-                            options: [qsTr("Manual tabletop"),
-                                      qsTr("Forge rules")]
-                            currentIndex: root.rulesMode === "forge" ? 1 : 0
-                            onActivated: index => {
-                                root.rulesMode = index === 1 ? "forge" : "manual"
-                                if (root.rulesMode === "forge")
-                                    root.matchMode = "bo1"
-                            }
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: root.rulesMode === "forge"
-                                  ? (root.hub.forgeRulesAvailable
-                                     ? qsTr("Forge validates legal actions, priority, the stack, triggers, combat, and state-based actions. The current preview supports BO1 only.")
-                                     : qsTr("This server does not provide the Forge rules runtime."))
-                                  : qsTr("Players control every move and resolve unusual interactions together.")
-                            color: root.rulesMode === "forge" && !root.hub.forgeRulesAvailable
-                                   ? Theme.warning : Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    Layout.topMargin: Theme.size(8)
-                    implicitHeight: cubeSelection.implicitHeight + Theme.size(28)
-                    visible: root.isCubeFormat
-                    color: Theme.surfaceMuted
-
-                    ColumnLayout {
-                        id: cubeSelection
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.size(14)
-                        spacing: Theme.size(8)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("CUBE POOL")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1.0
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(8)
-
-                            AppComboBox {
-                                id: cubeSelector
-                                Layout.fillWidth: true
-                                model: root.cubeDecks
-                                textRole: "deckName"
-                                valueRole: "deckId"
-                                onActivated: root.selectedCubeDeckId = currentValue
-                            }
-
-                            AppButton {
-                                compact: true
-                                variant: "ghost"
-                                text: qsTr("Open deck library")
-                                onClicked: root.appWindow.pushScreen(
-                                               "screens/DeckLibrary.qml")
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(8)
-
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: qsTr("PLAYER CAP")
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(10)
-                                font.weight: Font.Bold
-                            }
-
-                            AppTextField {
-                                id: cubePlayerCapField
-                                objectName: "cubePlayerCapField"
-                                Layout.preferredWidth: Theme.size(110)
-                                text: "8"
-                                inputMethodHints: Qt.ImhDigitsOnly
-                                validator: IntValidator { bottom: 2; top: 8 }
-                            }
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: !root.selectedCube.deckId
-                                  ? qsTr("Import a Cube-format deck before creating this room.")
-                                  : qsTr("A Cube draft starts with at least two checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.")
-                                    .arg(root.cubePlayerCap())
-                                    .arg(root.cubeCardsRequired())
-                                    .arg(root.selectedCube.mainCount)
-                            color: root.cubeReady() ? Theme.textMuted : Theme.warning
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-
-                InfoBanner {
-                    Layout.fillWidth: true
-                    Layout.topMargin: Theme.size(8)
-                    visible: root.playtestMode
-                    tone: "success"
-                    message: qsTr("Playtest uses one private seat with no opponent or spectators. Commander-free 1v1 and Duel Commander start at 20 life; commander formats include a command zone.")
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    Layout.topMargin: Theme.size(12)
-                    visible: !root.playtestMode && !root.isCubeFormat
-                    implicitHeight: Theme.size(64)
-                    radius: Theme.radiusMedium
-                    color: Theme.surfaceMuted
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: Theme.size(16)
-                        anchors.rightMargin: Theme.size(14)
-
-                        ColumnLayout {
-                            spacing: Theme.size(2)
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Allow spectators")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(14)
-                                font.weight: Font.Medium
-                            }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Up to eight people can watch public information.")
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(11)
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        AppToggle {
-                            checked: root.allowSpectators
-                            onToggled: {
-                                root.allowSpectators = checked
-                                if (!checked)
-                                    root.spectatorsSeeHands = false
-                            }
-                        }
-                    }
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    visible: !root.playtestMode && !root.isCubeFormat
-                             && root.allowSpectators
-                    implicitHeight: Theme.size(68)
-                    radius: Theme.radiusMedium
-                    color: Theme.surfaceMuted
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: Theme.size(16)
-                        anchors.rightMargin: Theme.size(14)
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(2)
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Spectators can see hands")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(14)
-                                font.weight: Font.Medium
-                            }
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: qsTr("All spectators can continuously inspect every player's hand. Players still cannot see each other's hands.")
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(11)
-                                wrapMode: Text.WordWrap
-                            }
-                        }
-
-                        AppToggle {
-                            objectName: "spectatorsSeeHandsToggle"
-                            checked: root.spectatorsSeeHands
-                            onToggled: root.spectatorsSeeHands = checked
-                        }
-                    }
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    Layout.topMargin: Theme.size(4)
-                    visible: !root.isCubeFormat
-                    implicitHeight: cardLoadingColumn.implicitHeight + Theme.size(28)
-                    radius: Theme.radiusMedium
-                    color: Theme.surfaceMuted
-
-                    ColumnLayout {
-                        id: cardLoadingColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.size(14)
-                        spacing: Theme.size(8)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("CARD IMAGES")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1.0
-                        }
-
-                        SegmentedControl {
-                            Layout.fillWidth: true
-                            options: [qsTr("Preload before game"),
-                                      qsTr("Load in background")]
-                            currentIndex: root.cardLoadMode === "background" ? 1 : 0
-                            onActivated: index => root.cardLoadMode =
-                                                         index === 1 ? "background" : "preload"
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: root.cardLoadMode === "background"
-                                  ? qsTr("Enter immediately. Visible cards load first while the rest download in the background.")
-                                  : qsTr("Wait until every player has downloaded all match card images.")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.topMargin: Theme.size(10)
-                    visible: !root.playtestMode && !root.isCubeFormat
-                    text: qsTr("ROOM PASSWORD · OPTIONAL")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(11)
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.1
-                }
-
-                AppTextField {
-                    id: passwordField
-                    Layout.fillWidth: true
-                    visible: !root.playtestMode && !root.isCubeFormat
-                    placeholderText: qsTr("Leave blank for code-only access")
-                    echoMode: TextInput.Password
-                    maximumLength: 72
-                    maximumUtf8Bytes: 72
-                    text: root.roomPassword
-                    onTextEdited: root.roomPassword = text
-                    onAccepted: root.submit()
                 }
 
                 InfoBanner {
@@ -611,7 +586,7 @@ Page {
                         variant: "primary"
                         text: root.playtestMode ? qsTr("Create playtest")
                               : root.isCubeFormat
-                                ? qsTr("Create Cube tournament")
+                                ? (root.commanderCube ? qsTr("Create Commander Cube room") : qsTr("Create Cube room"))
                                 : qsTr("Create room")
                         leadingText: root.playtestMode ? "▶" : "+"
                         enabled: root.playtestMode
@@ -627,7 +602,7 @@ Page {
     function submit() {
         if (!playtestMode && roomName.trim().length === 0)
             return
-        if (!playtestMode && !passwordField.withinUtf8ByteLimit) {
+        if (!playtestMode && !root.isCubeFormat && !passwordField.withinUtf8ByteLimit) {
             errorBanner.message =
                 qsTr("Password cannot exceed 72 UTF-8 bytes.")
             return
@@ -641,13 +616,13 @@ Page {
                                 root.selectedCubeDeckId)
             if (!product.id)
                 return
-            root.hub.createLimitedTournament(
-                        submittedName, "cube_draft", matchMode,
-                        50, root.cubePlayerCap(), 0, product)
+            root.hub.createCasualLimitedEvent(
+                        submittedName, root.commanderCube ? "commander_cube" : "cube_draft",
+                        root.commanderCube ? "bo1" : matchMode,
+                        root.cubePlayerCap(), product)
             return
         }
-        const submittedMatchMode = root.rulesMode === "forge"
-                                   ? "bo1" : matchMode
+        const submittedMatchMode = root.roomFormat === "edh" ? "bo1" : matchMode
         root.hub.createRoom(submittedName, roomFormat, deckFormat,
                       playtestMode ? false : allowSpectators,
                       playtestMode ? false : spectatorsSeeHands,
@@ -668,16 +643,17 @@ Page {
         if (root.isCubeFormat && !root.selectedCube.exactPrintings)
             return qsTr("Every Cube card needs an exact printing")
         if (root.isCubeFormat && !cubePlayerCapField.acceptableInput)
-            return qsTr("Choose a Cube player cap from 2 to 8")
+            return root.commanderCube ? qsTr("Choose a Commander Cube player cap from 2 to 4")
+                                      : qsTr("Choose a Cube player cap from 2 to 8")
         if (root.isCubeFormat
                 && Number(root.selectedCube.mainCount) < root.cubeCardsRequired())
             return qsTr("A %1-player Cube draft needs at least %2 cards")
                 .arg(root.cubePlayerCap()).arg(root.cubeCardsRequired())
         if (root.isCubeFormat && Number(root.selectedCube.sideboardCount) > 0)
             return qsTr("Move every Cube card into the main pool")
-        if (root.rulesMode === "forge" && !root.hub.forgeRulesAvailable)
+        if (!root.isCubeFormat && root.rulesMode === "forge" && !root.hub.forgeRulesAvailable)
             return qsTr("Forge rules are unavailable on this server")
-        if (!passwordField.withinUtf8ByteLimit)
+        if (!root.isCubeFormat && !passwordField.withinUtf8ByteLimit)
             return qsTr("Password cannot exceed 72 UTF-8 bytes.")
         return ""
     }
@@ -691,11 +667,16 @@ Page {
     }
 
     function cubePlayerCap() {
-        return Number(cubePlayerCapField.text)
+        return cubePlayerCapField.numberValue()
+    }
+
+    function limitCubePlayerCap() {
+        if (root.commanderCube && root.cubePlayerCap() > 4)
+            cubePlayerCapField.text = "4"
     }
 
     function cubeCardsRequired() {
-        return root.cubePlayerCap() * 3 * 15
+        return root.cubePlayerCap() * (root.commanderCube ? 60 : 45)
     }
 
     function ensureSelectedCube() {

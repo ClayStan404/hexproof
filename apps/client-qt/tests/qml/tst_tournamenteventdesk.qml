@@ -53,6 +53,7 @@ TestCase {
         property bool canRegister: false
         property bool roundComplete: false
         property var participants: []
+        property var pairings: []
     }
 
     QtObject {
@@ -64,13 +65,14 @@ TestCase {
     QtObject {
         id: mockWs
         property int startCalls: 0
+        property var chosenPlayers: []
         function registerTournament() { }
         function setTournamentCheckedIn() { }
         function unregisterTournament() { }
         function startTournament() { ++startCalls }
         function startNextTournamentRound() { }
         function dropTournament() { }
-        function createLimitedCasualMatch() { }
+        function createLimitedCasualMatch(a, b) { chosenPlayers = [a, b] }
     }
 
     QtObject {
@@ -81,6 +83,11 @@ TestCase {
     function init() {
         mockTournament.coordinator = "swiss"
         mockTournament.status = "registration"
+        mockTournament.stage = "registration"
+        mockTournament.participants = []
+        mockTournament.pairings = []
+        mockLimited.allDecksSubmitted = false
+        mockLimited.participants = []
         mockTournament.eventType = "cube_draft"
         mockTournament.registered = 4
         mockTournament.checkedIn = 4
@@ -88,6 +95,7 @@ TestCase {
         mockTournament.roundStartedAt = ""
         mockTournament.roundMinutes = 50
         mockWs.startCalls = 0
+        mockWs.chosenPlayers = []
     }
 
     function test_cubeDraftStartsWithTwoCheckedInPlayers() {
@@ -102,6 +110,39 @@ TestCase {
         verify(startButton.enabled)
         startButton.clicked()
         compare(mockWs.startCalls, 1)
+    }
+
+    function test_casualCompetitionRequiresAllDecksAndExcludesReservedPlayers() {
+        mockTournament.coordinator = "casual"
+        mockTournament.status = "running"
+        mockTournament.stage = "deck_building"
+        const open = findChild(eventDesk, "openLimitedCompetitionButton")
+        verify(!open.visible)
+        mockLimited.allDecksSubmitted = true
+        verify(open.visible)
+        open.clicked()
+        compare(mockWs.startCalls, 1)
+
+        mockTournament.stage = "competition"
+        mockTournament.participants = [1, 2, 3, 4].map(n => ({
+            participantId: "p" + n, displayName: "Player " + n,
+            online: n !== 4, competing: true, dropped: false
+        }))
+        mockLimited.participants = [1, 2, 3, 4].map(n => ({
+            participantId: "p" + n, deckSubmitted: true
+        }))
+        compare(eventDesk.casualReadyPlayers.length, 3)
+        const create = findChild(eventDesk, "createCasualTableButton")
+        tryVerify(() => create.enabled)
+        create.clicked()
+        compare(mockWs.chosenPlayers, ["p1", "p2"])
+        mockTournament.pairings = [{playerAId: "p1", playerBId: "p2", roomId: ""}]
+        compare(eventDesk.casualReadyPlayers.length, 1)
+        compare(eventDesk.casualReadyPlayers[0].participantId, "p3")
+        tryVerify(() => !create.enabled)
+        mockTournament.pairings = []
+        compare(eventDesk.casualReadyPlayers.length, 3)
+        tryVerify(() => create.enabled)
     }
 
     function test_setDraftStartsWithTwoCheckedInPlayers() {

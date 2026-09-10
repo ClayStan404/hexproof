@@ -1,16 +1,28 @@
 singleton Theme 1.0 Theme.qml
 singleton I18n 1.0 I18n.qml
 singleton SponsorCatalog 1.0 SponsorCatalog.qml
+singleton ManaSymbols 1.0 ManaSymbols.qml
+singleton ShortcutHints 1.0 ShortcutHints.qml
 PrintingPicker 1.0 PrintingPicker.qml
 CardSearchPopup 1.0 CardSearchPopup.qml
 CounterLabelPopup 1.0 CounterLabelPopup.qml
 CommanderDamagePopup 1.0 CommanderDamagePopup.qml
 GameResultPopup 1.0 GameResultPopup.qml
 CardCounterEditor 1.0 CardCounterEditor.qml
+CardCacheProgress 1.0 CardCacheProgress.qml
 CardFacePicker 1.0 CardFacePicker.qml
 ConfigurableShortcut 1.0 ConfigurableShortcut.qml
 LibrarySearchPopup 1.0 LibrarySearchPopup.qml
 LimitedCardGrouping 1.0 LimitedCardGrouping.qml
+LimitedBasicLandPlan 1.0 LimitedBasicLandPlan.qml
+CommanderDraftPlan 1.0 CommanderDraftPlan.qml
+CubeRoomRules 1.0 CubeRoomRules.qml
+CubeRoomSeats 1.0 CubeRoomSeats.qml
+CubeRoomMatches 1.0 CubeRoomMatches.qml
+CommanderCubeMatches 1.0 CommanderCubeMatches.qml
+LimitedCommanderSelection 1.0 LimitedCommanderSelection.qml
+LimitedCommanderPicker 1.0 LimitedCommanderPicker.qml
+EventScreenRouter 1.0 EventScreenRouter.qml
 LimitedCardGroupView 1.0 LimitedCardGroupView.qml
 LimitedSetPicker 1.0 LimitedSetPicker.qml
 LimitedProductArtPanel 1.0 LimitedProductArtPanel.qml
@@ -38,6 +50,11 @@ ConfirmDialog 1.0 ConfirmDialog.qml
 ConditionalMenuItem 1.0 ConditionalMenuItem.qml
 ConditionalMenuSeparator 1.0 ConditionalMenuSeparator.qml
 ExportDeckDialog 1.0 ExportDeckDialog.qml
+DeckArtExportDialog 1.0 DeckArtExportDialog.qml
+DeckCardActionsMenu 1.0 DeckCardActionsMenu.qml
+CustomCardArtDialog 1.0 CustomCardArtDialog.qml
+CustomArtImportDialog 1.0 CustomArtImportDialog.qml
+StorageLocationPanel 1.0 StorageLocationPanel.qml
 DeckCardRow 1.0 DeckCardRow.qml
 DeckVisualCard 1.0 DeckVisualCard.qml
 DeckMainCollection 1.0 DeckMainCollection.qml
@@ -48,6 +65,7 @@ DiceRollPopup 1.0 DiceRollPopup.qml
 InfoBanner 1.0 InfoBanner.qml
 RoomListQuery 1.0 RoomListQuery.qml
 ScreenHeader 1.0 ScreenHeader.qml
+ScrollChainHandler 1.0 ScrollChainHandler.qml
 SegmentedControl 1.0 SegmentedControl.qml
 SideboardPanel 1.0 SideboardPanel.qml
 StatusPill 1.0 StatusPill.qml
@@ -57,6 +75,8 @@ SponsorSupportPopup 1.0 SponsorSupportPopup.qml
 ShortcutActionCatalog 1.0 ShortcutActionCatalog.qml
 Surface 1.0 Surface.qml
 TokenPicker 1.0 TokenPicker.qml
+EmblemBrowser 1.0 EmblemBrowser.qml
+TokenDetailsPopup 1.0 TokenDetailsPopup.qml
 TournamentDecklistPopup 1.0 TournamentDecklistPopup.qml
 TableSettingsPopup 1.0 TableSettingsPopup.qml
 TableBattlefieldGeometry 1.0 TableBattlefieldGeometry.qml

@@ -207,6 +207,7 @@ QtObject {
                             "id": identity.cardId,
                             "name": identity.name,
                             "ownerSeat": identity.ownerSeat,
+                            "chosenColor": identity.chosenColor || "",
                             "commander": true
                         })
         }
@@ -237,11 +238,29 @@ QtObject {
     }
 
     function commanderTaxDisplayName(card, index) {
+        return commanderDisplayName(card, index, true)
+    }
+
+    function commanderDisplayName(card, index, shorten = false) {
         if (!card || !card.name)
-            return qsTr("Commander") + " " + (index + 1)
+            return qsTranslate("Table", "Commander") + " " + (index + 1)
         const name = String(card.name)
         const separator = name.indexOf(",")
-        return separator > 0 ? name.slice(0, separator) : name
+        let label = shorten && separator > 0 ? name.slice(0, separator) : name
+        const identities = tableRoot.tableCommanders || []
+        const copies = identities.filter(identity => identity.ownerSeat === card.ownerSeat
+            && String(identity.name).toLowerCase() === name.toLowerCase())
+        if (copies.length > 1) {
+            const copyIndex = copies.findIndex(identity => identity.cardId === (card.id || card.cardId))
+            label += " #" + (copyIndex >= 0 ? copyIndex + 1 : index + 1)
+        }
+        const colors = {
+            W: qsTranslate("CardWorkbench", "White"), U: qsTranslate("CardWorkbench", "Blue"),
+            B: qsTranslate("CardWorkbench", "Black"), R: qsTranslate("CardWorkbench", "Red"),
+            G: qsTranslate("CardWorkbench", "Green")
+        }
+        if (colors[card.chosenColor]) label += " · " + colors[card.chosenColor]
+        return label
     }
 
     function displayedCommanderTax(player, commanderId) {

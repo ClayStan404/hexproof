@@ -144,7 +144,7 @@ func (r *Room) planCardMove(connID string, move *protocol.GameMoveCard) (cardMov
 		if move.ToSeat != nil {
 			targetSeat = *move.ToSeat
 		}
-		if targetSeat < 0 || targetSeat >= len(r.Game.Seats) {
+		if !r.validBattlefieldDestination(targetSeat) {
 			return cardMovePlan{}, newError(protocol.ErrInvalidTarget)
 		}
 	} else if publicPlayerZone(move.ToZone) {
@@ -217,6 +217,9 @@ func (r *Room) planCardBatchMove(connID string,
 			if move.ToSeat != nil {
 				targetSeat = *move.ToSeat
 			}
+			if !r.validBattlefieldDestination(targetSeat) {
+				return cardBatchMovePlan{}, newError(protocol.ErrInvalidTarget)
+			}
 		case protocol.ZoneHand, protocol.ZoneLibrary:
 			if move.Position != nil || move.ToSeat != nil {
 				return cardBatchMovePlan{}, newError(protocol.ErrInvalidMove)
@@ -270,4 +273,11 @@ func (r *Room) planCardBatchMove(connID string,
 		targetSeat: targetSeat,
 		cardIDs:    cardIDs,
 	}, nil
+}
+
+func (r *Room) validBattlefieldDestination(seat int) bool {
+	// Empty starting seats are represented by eliminated game states and are
+	// omitted entirely from public projections. Moving there would hide a card
+	// on an unreachable board; eliminated players cannot operate it either.
+	return seat >= 0 && seat < len(r.Game.Seats) && !r.Game.Seats[seat].Eliminated
 }

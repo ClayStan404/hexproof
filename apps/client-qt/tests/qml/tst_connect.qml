@@ -32,9 +32,19 @@ TestCase {
         property string releaseDownloadUrl: "https://example.com/releases"
         property string lastError: ""
         property var serverLatencies: [-2, -2, -2, -2, -2, -2]
+        property int customConnectCalls: 0
+        property int configuredConnectCalls: 0
+        property string lastConnectedUrl: ""
+        property int lastConnectedIndex: -1
         function refreshServerLatencies() { }
-        function connectToCustomServer(url, name) { }
-        function connectToServer(index, name) { }
+        function connectToCustomServer(url, name) {
+            customConnectCalls += 1
+            lastConnectedUrl = url
+        }
+        function connectToServer(index, name) {
+            configuredConnectCalls += 1
+            lastConnectedIndex = index
+        }
     }
 
     QtObject {
@@ -65,6 +75,12 @@ TestCase {
     }
 
     function init() {
+        mockWs.serverIndex = 5
+        mockWs.customConnectCalls = 0
+        mockWs.configuredConnectCalls = 0
+        mockWs.lastConnectedUrl = ""
+        mockWs.lastConnectedIndex = -1
+        mockWs.serverLatencies = [-2, -2, -2, -2, -2, -2]
         page = pageComponent.createObject(testWindow.contentItem)
         verify(page !== null)
         page.anchors.fill = testWindow.contentItem
@@ -76,6 +92,53 @@ TestCase {
         if (page !== null)
             page.destroy()
         page = null
+    }
+
+    function test_coldStartKeepsCustomEndpointSelected() {
+        const selector = findChild(page, "serverSelector")
+        const customField = findChild(page, "customServerField")
+        verify(selector !== null)
+        verify(customField !== null)
+
+        tryCompare(selector, "currentIndex", mockWs.customServerIndex)
+        verify(selector.displayText.startsWith("Custom server"))
+        verify(customField.visible)
+
+        page.submit()
+        compare(mockWs.customConnectCalls, 1)
+        compare(mockWs.configuredConnectCalls, 0)
+        compare(mockWs.lastConnectedUrl, mockWs.customServerUrl)
+    }
+
+    function test_minimumWindowShowsNormalConnectionActionsWithoutScrolling() {
+        testWindow.width = 900
+        testWindow.height = 620
+        mockWs.versionMismatch = false
+        try {
+            page.refreshConnectionError()
+            waitForRendering(page)
+            const button = findChild(page, "connectSubmitButton")
+            verify(button !== null)
+            const position = button.mapToItem(page, 0, 0)
+            verify(position.y >= 0)
+            verify(position.y + button.height <= page.height)
+        } finally {
+            mockWs.versionMismatch = true
+            testWindow.width = 1280
+            testWindow.height = 720
+        }
+    }
+
+    function test_latencyRefreshDoesNotChangeColdStartSelection() {
+        const selector = findChild(page, "serverSelector")
+        verify(selector !== null)
+        tryCompare(selector, "currentIndex", mockWs.customServerIndex)
+
+        mockWs.serverLatencies = [34, 48, -1, 72, 15, 1]
+
+        tryCompare(selector, "displayText", "Custom server · 1 ms")
+        compare(selector.currentIndex, mockWs.customServerIndex)
+        compare(page.selectedServerIndex, mockWs.customServerIndex)
     }
 
     function test_connectButtonStaysInsideCardAndReachable() {

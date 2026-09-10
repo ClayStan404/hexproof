@@ -360,21 +360,53 @@ void DeckLibraryModel::rebuildVisibleRows()
 
 void DeckLibraryModel::rebuildCardDeckIndex()
 {
-    m_cardDeckIndex.clear();
+    ++m_cardLocationRevision;
+    m_cardLocationsByName.clear();
     for (int deckIndex = 0; deckIndex < m_decks.size(); ++deckIndex) {
         const Deck &deck = m_decks.at(deckIndex);
-        const auto append = [this, deckIndex](const QVector<DeckCard> &cards) {
-            for (const DeckCard &card : cards)
-                m_cardDeckIndex[normalizedCardName(card.name)].insert(deckIndex);
+        const auto append = [this, deckIndex](const QVector<DeckCard> &cards, CardSection section) {
+            for (int cardIndex = 0; cardIndex < cards.size(); ++cardIndex) {
+                m_cardLocationsByName[normalizedCardName(cards.at(cardIndex).name)].append(
+                    CardLocation{deckIndex, section, cardIndex});
+            }
         };
-        append(deck.mainboard);
-        append(deck.sideboard);
-        append(deck.consider);
+        append(deck.mainboard, CardSection::Mainboard);
+        append(deck.sideboard, CardSection::Sideboard);
+        append(deck.consider, CardSection::Consider);
     }
+}
+
+DeckCard *DeckLibraryModel::cardAt(const CardLocation &location)
+{
+    if (location.deckIndex < 0 || location.deckIndex >= m_decks.size())
+        return nullptr;
+    Deck &deck = m_decks[location.deckIndex];
+    QVector<DeckCard> *cards = nullptr;
+    switch (location.section) {
+    case CardSection::Mainboard:
+        cards = &deck.mainboard;
+        break;
+    case CardSection::Sideboard:
+        cards = &deck.sideboard;
+        break;
+    case CardSection::Consider:
+        cards = &deck.consider;
+        break;
+    default:
+        return nullptr;
+    }
+    if (location.cardIndex < 0 || location.cardIndex >= cards->size())
+        return nullptr;
+    return &(*cards)[location.cardIndex];
 }
 
 void DeckLibraryModel::notifyAllChanged()
 {
+    // Editing one deck must not repeat catalog and filesystem lookups for the
+    // entire library. Existing presentation stays valid until an art revision
+    // or a change to that card's printing/image invalidates it.
+    if (!m_currentDeckId.isEmpty())
+        resolveDisplayPaths({m_currentDeckId});
     emit currentDeckCardsAboutToChange();
     beginResetModel();
     rebuildVisibleRows();
@@ -384,8 +416,16 @@ void DeckLibraryModel::notifyAllChanged()
     emit currentDeckChanged();
 }
 
+void DeckLibraryModel::notifyCardStructureChanged()
+{
+    rebuildCardDeckIndex();
+    notifyAllChanged();
+}
+
 void DeckLibraryModel::notifyDecksChanged(const QSet<QString> &deckIds, bool cardsChanged)
 {
+    if (cardsChanged)
+        resolveDisplayPaths(deckIds);
     static const QList<int> changedRoles{
         ReadyRole,
         StatusRole,

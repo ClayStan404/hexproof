@@ -107,11 +107,7 @@
           "type": "integer",
           "required": false
         }
-      ],
-      "qtBuilder": {
-        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
-        "function": "WsClient::requestReplayPage"
-      }
+      ]
     },
     {
       "type": "replay.listed",
@@ -159,11 +155,7 @@
           "type": "string",
           "required": true
         }
-      ],
-      "qtBuilder": {
-        "file": "apps/client-qt/src/services/WsClientCommands.cpp",
-        "function": "WsClient::loadReplay"
-      }
+      ]
     },
     {
       "type": "replay.loaded",

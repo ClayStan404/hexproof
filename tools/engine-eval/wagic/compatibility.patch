@@ -1,0 +1,598 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+# Mechanical Qt macro namespace, explicit C++11, diagnostics retained as warnings,
+# and test-only profile isolation. No rule algorithms are changed.
+diff --git a/JGE/include/DebugRoutines.h b/JGE/include/DebugRoutines.h
+index a3cf611..537af27 100644
+--- a/JGE/include/DebugRoutines.h
++++ b/JGE/include/DebugRoutines.h
+@@ -30,7 +30,7 @@ std::string ToHex(T* pointer)
+ #ifdef _DEBUG
+ #if defined (WIN32) || defined (LINUX)
+ 
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ 
+ #ifdef CAPTURE_STDERR
+ #define DebugTrace(inString)								\
+@@ -63,7 +63,7 @@ std::string ToHex(T* pointer)
+ 	stream << inString << std::endl;					    \
+ 	OutputDebugStringA(stream.str().c_str());  \
+ }
+-#endif // QT_CONFIG
++#endif // WAGIC_QT_CONFIG
+ #endif // Win32, Linux
+ #endif //#ifdef _DEBUG
+ 
+diff --git a/JGE/include/Downloader.h b/JGE/include/Downloader.h
+index 96c643a..1d226cc 100644
+--- a/JGE/include/Downloader.h
++++ b/JGE/include/Downloader.h
+@@ -21,7 +21,7 @@
+ #include <fstream>
+ #include <map>
+ #include "Threading.h"
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ #include <QObject>
+ #include <QNetworkRequest>
+ #include <QNetworkReply>
+@@ -31,11 +31,11 @@
+ using namespace std;
+ 
+ class DownloadRequest
+-        #ifdef QT_CONFIG
++        #ifdef WAGIC_QT_CONFIG
+         : public QObject
+         #endif
+ {
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+     Q_OBJECT
+ 
+ private slots:
+@@ -43,7 +43,7 @@ private slots:
+     void fileDownloaded();
+     void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
+ 
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ signals:
+     void percentChanged(int percent);
+     void statusChanged(int);
+@@ -68,7 +68,7 @@ protected:
+     size_t mTotalSize;
+     size_t mCurrentSize;
+     ofstream mFile;
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+     QNetworkReply* mNetworkReply;
+     static QNetworkAccessManager networkAccessManager;
+ #endif
+diff --git a/JGE/include/JGE.h b/JGE/include/JGE.h
+index aefae78..ec48e8d 100644
+--- a/JGE/include/JGE.h
++++ b/JGE/include/JGE.h
+@@ -24,7 +24,7 @@
+ 
+ #define DEBUG_PRINT
+ 
+-#if defined(QT_CONFIG)
++#if defined(WAGIC_QT_CONFIG)
+ #include <Qt>
+ typedef u32 LocalKeySym;
+ #define LOCAL_KEY_NONE Qt::Key_unknown
+diff --git a/JGE/include/JRenderer.h b/JGE/include/JRenderer.h
+index 452ac49..db11cc7 100644
+--- a/JGE/include/JRenderer.h
++++ b/JGE/include/JRenderer.h
+@@ -16,7 +16,7 @@
+ #include <string.h>
+ #include <stdarg.h>
+ 
+-#if (!defined IOS) && (!defined ANDROID) && (!defined QT_CONFIG)
++#if (!defined IOS) && (!defined ANDROID) && (!defined WAGIC_QT_CONFIG)
+ #include <gif_lib.h>
+ #endif //IOS ANDROID
+ 
+@@ -564,10 +564,10 @@ private:
+ 		bool mVRAM;
+ 	};
+ 
+-#if (!defined IOS) && (!defined QT_CONFIG)
++#if (!defined IOS) && (!defined WAGIC_QT_CONFIG)
+ 	void LoadJPG(TextureInfo &textureInfo, const char *filename, int mode = 0, int TextureFormat = TEXTURE_FORMAT);
+ 	int LoadPNG(TextureInfo &textureInfo, const char *filename, int mode = 0, int TextureFormat = TEXTURE_FORMAT);
+-#if (!defined ANDROID) && (!defined QT_CONFIG)
++#if (!defined ANDROID) && (!defined WAGIC_QT_CONFIG)
+ 	void LoadGIF(TextureInfo &textureInfo, const char *filename, int mode = 0, int TextureFormat = TEXTURE_FORMAT);
+ 	int image_readgif(void * handle, TextureInfo &textureInfo, DWORD * bgcolor, InputFunc readFunc,int mode = 0, int TextureFormat = TEXTURE_FORMAT);
+ #endif // (ANDROID) How can we get gif support for android ?
+diff --git a/JGE/include/JSoundSystem.h b/JGE/include/JSoundSystem.h
+index 50771a6..c21e848 100644
+--- a/JGE/include/JSoundSystem.h
++++ b/JGE/include/JSoundSystem.h
+@@ -25,7 +25,7 @@
+ #elif defined USE_PHONON
+ #include <phonon/AudioOutput>
+ #include <phonon/MediaObject>
+-#elif (defined QT_CONFIG)
++#elif (defined WAGIC_QT_CONFIG)
+ #include "QMediaPlayer"
+ #include "QMediaPlaylist"
+ #include "QSoundEffect"
+@@ -86,7 +86,7 @@ public slots:
+     SLPlayItf playInterface;
+     SLSeekItf seekInterface;
+     SLVolumeItf musicVolumeInterface;
+-#elif (defined QT_CONFIG)
++#elif (defined WAGIC_QT_CONFIG)
+     QMediaPlaylist* playlist;
+     QMediaPlayer* player;
+     string fullpath;
+@@ -105,7 +105,7 @@ public:
+     ~JSample();
+ 
+     unsigned long fileSize();
+-#if (defined QT_CONFIG) && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG) && (!defined USE_PHONON)
+     QMediaPlayer* effect;
+     void* mSample;
+ #elif defined (PSP)
+diff --git a/JGE/include/JTypes.h b/JGE/include/JTypes.h
+index 0a7a237..0cccc68 100644
+--- a/JGE/include/JTypes.h
++++ b/JGE/include/JTypes.h
+@@ -130,7 +130,7 @@ typedef uint32_t u32;
+ 
+ 
+ #ifndef CONSOLE_CONFIG
+-#ifndef QT_CONFIG
++#ifndef WAGIC_QT_CONFIG
+ #if defined (IOS)
+ #import <OpenGLES/ES2/gl.h>
+ #import <OpenGLES/ES2/glext.h>
+diff --git a/JGE/include/OutputCapturer.h b/JGE/include/OutputCapturer.h
+index 4b32e30..e028cf7 100644
+--- a/JGE/include/OutputCapturer.h
++++ b/JGE/include/OutputCapturer.h
+@@ -1,7 +1,7 @@
+ #ifndef OUTPUTCAPTURER_H
+ #define OUTPUTCAPTURER_H
+ 
+-#if defined(QT_CONFIG)
++#if defined(WAGIC_QT_CONFIG)
+ #include <Qt>
+ #include <string>
+ #include <sstream>
+diff --git a/JGE/include/Threading.h b/JGE/include/Threading.h
+index adfe408..729d1eb 100644
+--- a/JGE/include/Threading.h
++++ b/JGE/include/Threading.h
+@@ -1,7 +1,7 @@
+ #ifndef THREADING_H
+ #define THREADING_H
+ 
+-#if !defined(PSP) && !defined(QT_CONFIG) && !(__cplusplus > 199711L)
++#if !defined(PSP) && !defined(WAGIC_QT_CONFIG) && !(__cplusplus > 199711L)
+ #include <boost/date_time.hpp>
+ 
+ #ifdef WIN32
+@@ -307,7 +307,7 @@ namespace boost
+     }
+ }
+ 
+-#elif defined(QT_CONFIG) && (__cplusplus <= 199711L)
++#elif defined(WAGIC_QT_CONFIG) && (__cplusplus <= 199711L)
+ 
+ #include <QMutex>
+ #include <QThread>
+diff --git a/JGE/src/Downloader.cpp b/JGE/src/Downloader.cpp
+index e1ba9eb..23b7cba 100644
+--- a/JGE/src/Downloader.cpp
++++ b/JGE/src/Downloader.cpp
+@@ -4,7 +4,7 @@
+ 
+ #define RECORDS_DEFAULT_FILE "cache/records.txt"
+ 
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ QNetworkAccessManager DownloadRequest::networkAccessManager;
+ #endif
+ 
+@@ -31,7 +31,7 @@ DownloadRequest::~DownloadRequest()
+ 
+ void DownloadRequest::startHead()
+ {
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+     QNetworkRequest request(QUrl(QString(mRequestedRemoteResourceURL.c_str())));
+     request.setRawHeader("If-None-Match", mETag.c_str());
+     mNetworkReply = networkAccessManager.head(request);
+@@ -41,13 +41,13 @@ void DownloadRequest::startHead()
+ 
+ void DownloadRequest::startGet()
+ {
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+     mNetworkReply = networkAccessManager.get(QNetworkRequest(QUrl(QString(mRequestedRemoteResourceURL.c_str()))));
+ #endif
+     mFile.close();
+     JFileSystem::GetInstance()->Remove(getTempLocalPath());
+     JFileSystem::GetInstance()->openForWrite(mFile, getTempLocalPath());
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+     connect(mNetworkReply, SIGNAL(downloadProgress(qint64, qint64)),
+                 SLOT(downloadProgress(qint64, qint64)));
+     connect(mNetworkReply, SIGNAL(finished()), SLOT(fileDownloaded()));
+@@ -170,7 +170,7 @@ bool DownloadRequest::NetworkIsAccessible()
+ {
+     bool result = false;
+ 
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+     networkAccessManager.setNetworkAccessible(QNetworkAccessManager::Accessible);
+     result = networkAccessManager.networkAccessible();
+ #endif
+diff --git a/JGE/src/JFileSystem.cpp b/JGE/src/JFileSystem.cpp
+index fa791cc..9c54dec 100644
+--- a/JGE/src/JFileSystem.cpp
++++ b/JGE/src/JFileSystem.cpp
+@@ -39,7 +39,7 @@ The content that users should not be touching.
+ #include "../include/JLogger.h"
+ #include <dirent.h>
+ 
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ #include <QDir>
+ #endif
+ 
+@@ -136,12 +136,22 @@ JFileSystem::JFileSystem(const string & _userPath, const string & _systemPath)
+ 
+     DebugTrace("User path " << userPath);
+     DebugTrace("System path " << systemPath);
+-#elif defined (QT_CONFIG)
++#elif defined (WAGIC_QT_CONFIG)
+ 
+     QDir sysDir(RESDIR);
+-    QDir dir(QDir::homePath());
+-    dir.mkdir(USERDIR);
+-    dir.cd(USERDIR);
++    QString evaluationProfile;
++#ifdef TESTSUITE
++    // Test-only isolation is chosen before touching any desktop profile path.
++    evaluationProfile = QString::fromLocal8Bit(qgetenv("WAGIC_EVAL_PROFILE"));
++#endif
++    QDir dir(evaluationProfile.isEmpty() ? QDir::homePath() : evaluationProfile);
++    if (evaluationProfile.isEmpty())
++    {
++        dir.mkdir(USERDIR);
++        dir.cd(USERDIR);
++    }
++    else
++        dir.mkpath(".");
+ 
+     userPath = QDir::toNativeSeparators(dir.absolutePath()).toStdString();
+     systemPath = QDir::toNativeSeparators(sysDir.absolutePath()).toStdString();
+diff --git a/JGE/src/pc/JGfx.cpp b/JGE/src/pc/JGfx.cpp
+index 926845c..bff50f2 100644
+--- a/JGE/src/pc/JGfx.cpp
++++ b/JGE/src/pc/JGfx.cpp
+@@ -9,7 +9,7 @@
+ //-------------------------------------------------------------------------------------
+ #define GL_GLEXT_PROTOTYPES
+ 
+-#if (!defined IOS) && (!defined QT_CONFIG)
++#if (!defined IOS) && (!defined WAGIC_QT_CONFIG)
+ #ifdef WIN32
+ #pragma warning(disable : 4786)
+ #pragma comment( lib, "giflib.lib" )
+@@ -35,7 +35,7 @@ extern "C" {
+ #include "../../include/JFileSystem.h"
+ #include "../../include/JAssert.h"
+ 
+-#if (defined WIN32) && (!defined QT_CONFIG)
++#if (defined WIN32) && (!defined WAGIC_QT_CONFIG)
+ #ifndef __attribute__
+ #define __attribute__((a))
+ #endif
+@@ -1634,7 +1634,7 @@ static int getNextPower2(int width)
+ }
+ 
+ 
+-#if (!defined IOS) && (!defined QT_CONFIG)
++#if (!defined IOS) && (!defined WAGIC_QT_CONFIG)
+ static void jpg_null(j_decompress_ptr cinfo __attribute__((unused)))
+ {
+ }
+@@ -1822,7 +1822,7 @@ JTexture* JRenderer::LoadTexture(const char* filename, int mode, int TextureForm
+ 
+     if (strstr(filename, ".jpg")!=NULL || strstr(filename, ".JPG")!=NULL)
+         LoadJPG(textureInfo, filename);
+-#if (!defined IOS) && (!defined QT_CONFIG) && (!defined SDL_CONFIG)
++#if (!defined IOS) && (!defined WAGIC_QT_CONFIG) && (!defined SDL_CONFIG)
+     else if(strstr(filename, ".gif")!=NULL || strstr(filename, ".GIF")!=NULL)
+         LoadGIF(textureInfo,filename);
+ #endif
+@@ -1985,7 +1985,7 @@ int JRenderer::LoadPNG(TextureInfo &textureInfo, const char *filename, int mode
+ // }
+ 
+ 
+-#if (!defined IOS) && (!defined QT_CONFIG) && (!defined SDL_CONFIG)
++#if (!defined IOS) && (!defined WAGIC_QT_CONFIG) && (!defined SDL_CONFIG)
+ //////////////////////////////////////////////////////////////////////////
+ /// GIF Support
+ int JRenderer::image_readgif(void * handle, TextureInfo &textureInfo, DWORD * bgcolor, InputFunc readFunc, int mode __attribute__((unused)), int TextureFormat __attribute__((unused)))
+@@ -2190,7 +2190,7 @@ void JRenderer::LoadGIF(TextureInfo &textureInfo, const char *filename, int mode
+     fileSys->CloseFile();
+     return ;//*/
+ }
+-#endif //(!defined IOS) && (!defined QT_CONFIG) && (!defined SDL_CONFIG)
++#endif //(!defined IOS) && (!defined WAGIC_QT_CONFIG) && (!defined SDL_CONFIG)
+ 
+ #elif (defined IOS)
+ 
+@@ -2292,7 +2292,7 @@ JTexture* JRenderer::LoadTexture(const char* filename, int mode, int TextureForm
+ 
+     return tex;
+ }
+-#elif (defined QT_CONFIG)
++#elif (defined WAGIC_QT_CONFIG)
+ JTexture* JRenderer::LoadTexture(const char* filename, int, int)
+ {
+     JTexture *tex = NULL;
+diff --git a/JGE/src/pc/JSfx.cpp b/JGE/src/pc/JSfx.cpp
+index c92a6fb..f588e5c 100644
+--- a/JGE/src/pc/JSfx.cpp
++++ b/JGE/src/pc/JSfx.cpp
+@@ -22,7 +22,7 @@
+ JMusic::JMusic()
+ #ifdef USE_PHONON
+   : mOutput(0), mMediaObject(0)
+-#elif defined QT_CONFIG
++#elif defined WAGIC_QT_CONFIG
+     : playlist(0), player(0)
+ #endif
+ {
+@@ -47,7 +47,7 @@ JMusic::~JMusic()
+     delete mOutput;
+   if(mMediaObject)
+     delete mMediaObject;
+-#elif defined QT_CONFIG
++#elif defined WAGIC_QT_CONFIG
+     if(player)
+         delete player;
+     if(playlist)
+@@ -76,7 +76,7 @@ JSample::JSample()
+ 
+ JSample::~JSample()
+ {
+-#if (defined QT_CONFIG) && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG) && (!defined USE_PHONON)
+     if(effect)
+         delete effect;
+ #elif USE_PHONON
+@@ -155,7 +155,7 @@ void JSoundSystem::DestroySoundSystem()
+ JMusic *JSoundSystem::LoadMusic(const char *fileName)
+ {
+     JMusic* music = NULL;
+-#if (defined QT_CONFIG)  && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG)  && (!defined USE_PHONON)
+     music = new JMusic();
+     if (music)
+     {
+@@ -202,7 +202,7 @@ JMusic *JSoundSystem::LoadMusic(const char *fileName)
+ 
+ void JSoundSystem::PlayMusic(JMusic *music, bool looping)
+ {
+-#if (defined QT_CONFIG)  && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG)  && (!defined USE_PHONON)
+     if(music && music->player && music->playlist)
+     {
+         if(looping)
+@@ -242,7 +242,7 @@ void JSoundSystem::PlayMusic(JMusic *music, bool looping)
+ 
+ void JSoundSystem::StopMusic(JMusic *music)
+ {
+-#if (defined QT_CONFIG) && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG) && (!defined USE_PHONON)
+     if (music && music->player && music->playlist)
+     {
+         music->player->stop();
+@@ -299,7 +299,7 @@ void JSoundSystem::SetSfxVolume(int volume){
+ JSample *JSoundSystem::LoadSample(const char *fileName)
+ {
+     JSample* sample = NULL;
+-#if (defined QT_CONFIG) && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG) && (!defined USE_PHONON)
+     sample = new JSample();
+     if (sample)
+     {
+@@ -347,7 +347,7 @@ JSample *JSoundSystem::LoadSample(const char *fileName)
+ 
+ void JSoundSystem::PlaySample(JSample *sample)
+ {
+-#if (defined QT_CONFIG) && (!defined USE_PHONON)
++#if (defined WAGIC_QT_CONFIG) && (!defined USE_PHONON)
+     if(sample)
+     {
+         sample->effect->play();
+diff --git a/projects/mtg/include/PrecompiledHeader.h b/projects/mtg/include/PrecompiledHeader.h
+index 97df7a3..2cd4c18 100644
+--- a/projects/mtg/include/PrecompiledHeader.h
++++ b/projects/mtg/include/PrecompiledHeader.h
+@@ -21,12 +21,12 @@
+ 
+ #include "GameOptions.h"
+ 
+-#if !defined(WP8) && !defined(QT_CONFIG)
++#if !defined(WP8) && !defined(WAGIC_QT_CONFIG)
+ #include <boost/shared_ptr.hpp>
+ #include <boost/scoped_ptr.hpp>
+ #endif
+ 
+-#if defined (WP8) || defined (IOS) || defined (ANDROID) || defined (QT_CONFIG) || defined (SDL_CONFIG)
++#if defined (WP8) || defined (IOS) || defined (ANDROID) || defined (WAGIC_QT_CONFIG) || defined (SDL_CONFIG)
+ #define TOUCH_ENABLED
+ #endif
+ 
+diff --git a/projects/mtg/include/WResource_Fwd.h b/projects/mtg/include/WResource_Fwd.h
+index 096f4df..a7c6afc 100644
+--- a/projects/mtg/include/WResource_Fwd.h
++++ b/projects/mtg/include/WResource_Fwd.h
+@@ -4,7 +4,7 @@
+ #if (__cplusplus > 199711L)
+ #include <memory>
+ typedef std::shared_ptr<JQuad> JQuadPtr;
+-#elif defined(QT_CONFIG)
++#elif defined(WAGIC_QT_CONFIG)
+ #include <QSharedPointer>
+ class JQuadPtr : public QSharedPointer<JQuad>
+ {
+diff --git a/projects/mtg/src/ExtraCost.cpp b/projects/mtg/src/ExtraCost.cpp
+index f523cd9..965ceed 100644
+--- a/projects/mtg/src/ExtraCost.cpp
++++ b/projects/mtg/src/ExtraCost.cpp
+@@ -8,7 +8,7 @@
+ #include "Counters.h"
+ #include "AllAbilities.h"
+ 
+-#if !defined(QT_CONFIG)
++#if !defined(WAGIC_QT_CONFIG)
+ #include <boost/scoped_ptr.hpp>
+ typedef boost::scoped_ptr<ManaCost> ManaCostPtr;
+ #else
+diff --git a/projects/mtg/src/GameApp.cpp b/projects/mtg/src/GameApp.cpp
+index d029ef4..e567e6b 100644
+--- a/projects/mtg/src/GameApp.cpp
++++ b/projects/mtg/src/GameApp.cpp
+@@ -90,14 +90,14 @@ GameApp::~GameApp()
+ void GameApp::Create()
+ {
+     srand((unsigned int) time(0)); // initialize random
+-#if !defined(QT_CONFIG) && !defined(IOS)
++#if !defined(WAGIC_QT_CONFIG) && !defined(IOS)
+ #if defined (WIN32)
+     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+ #elif defined (PSP)
+     pspFpuSetEnable(0); //disable FPU Exceptions until we find where the FPU errors come from
+     pspDebugScreenPrintf("Wagic:Loading resources...");
+ #endif
+-#endif //QT_CONFIG
++#endif //WAGIC_QT_CONFIG
+     //_CrtSetBreakAlloc(368);
+     LOG("starting Game");
+ 
+diff --git a/projects/mtg/src/GameOptions.cpp b/projects/mtg/src/GameOptions.cpp
+index cd023ed..d2e896b 100644
+--- a/projects/mtg/src/GameOptions.cpp
++++ b/projects/mtg/src/GameOptions.cpp
+@@ -43,7 +43,7 @@ const string Options::optionNames[] = {
+   "interruptSeconds",
+ #if defined(SDL_CONFIG)
+   "keybindings_sdl",
+-#elif defined(QT_CONFIG)
++#elif defined(WAGIC_QT_CONFIG)
+   "keybindings_qt",
+ #elif defined(WIN32)
+   "keybindings_win",
+diff --git a/projects/mtg/src/GameStateDuel.cpp b/projects/mtg/src/GameStateDuel.cpp
+index 8251a21..ee50d88 100644
+--- a/projects/mtg/src/GameStateDuel.cpp
++++ b/projects/mtg/src/GameStateDuel.cpp
+@@ -929,7 +929,7 @@ void GameStateDuel::Update(float dt)
+                         size_t thread_count = 1;
+                         startTime = JGEGetTime();
+ 
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+                         thread_count = QThread::idealThreadCount();
+ 
+ #else
+diff --git a/projects/mtg/src/TestSuiteAI.cpp b/projects/mtg/src/TestSuiteAI.cpp
+index 1b75c94..3f2cb01 100644
+--- a/projects/mtg/src/TestSuiteAI.cpp
++++ b/projects/mtg/src/TestSuiteAI.cpp
+@@ -8,7 +8,7 @@
+ #include "Rules.h"
+ #include "GameObserver.h"
+ #include "GameStateShop.h"
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ #include <QThread>
+ #endif
+ 
+@@ -577,7 +577,7 @@ int TestSuite::loadNext()
+         }
+ 
+         size_t thread_count = 1;
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+         thread_count = QThread::idealThreadCount();
+ #elif defined(IOS)
+         thread_count = 6;
+diff --git a/projects/mtg/src/TranslateKeys.cpp b/projects/mtg/src/TranslateKeys.cpp
+index b502575..3d5db90 100644
+--- a/projects/mtg/src/TranslateKeys.cpp
++++ b/projects/mtg/src/TranslateKeys.cpp
+@@ -6,7 +6,7 @@
+ #ifdef SDL_CONFIG
+ #include <SDL.h>
+ #endif
+-#ifdef QT_CONFIG
++#ifdef WAGIC_QT_CONFIG
+ #include <QKeySequence>
+ #endif
+ using std::string;
+@@ -15,7 +15,7 @@ using std::map;
+ static map<const LocalKeySym, KeyRep> fattable;
+ static map<const JButton, KeyRep> slimtable;
+ 
+-#if defined(LINUX) || defined (IOS) || defined (ANDROID) || defined (SDL_CONFIG) || defined (QT_CONFIG)
++#if defined(LINUX) || defined (IOS) || defined (ANDROID) || defined (SDL_CONFIG) || defined (WAGIC_QT_CONFIG)
+ const KeyRep& translateKey(LocalKeySym key)
+ {
+     {
+@@ -26,11 +26,11 @@ const KeyRep& translateKey(LocalKeySym key)
+ 
+     char* str = NULL;
+ 
+-#if !defined(QT_CONFIG) && !defined(IOS) && !defined (SDL_CONFIG)
++#if !defined(WAGIC_QT_CONFIG) && !defined(IOS) && !defined (SDL_CONFIG)
+     str = XKeysymToString(key);
+ #elif defined (SDL_CONFIG)
+     str = (char*)SDL_GetKeyName(key);
+-#elif defined (QT_CONFIG)
++#elif defined (WAGIC_QT_CONFIG)
+     str = (char*)QKeySequence(key).toString().toUtf8().constData();
+ #endif
+     if (!str)
+diff --git a/projects/mtg/wagic-qt.pro b/projects/mtg/wagic-qt.pro
+index 1aec3a9..4e81d14 100644
+--- a/projects/mtg/wagic-qt.pro
++++ b/projects/mtg/wagic-qt.pro
+@@ -1,5 +1,9 @@
+ include(wagic.pri)
+ 
++# Evaluation-only build compatibility and isolated profile; no rules changes.
++CONFIG += c++11
++QMAKE_CXXFLAGS -= -Werror
++
+ # Add more folders to ship with the application, here
+ addExclusiveBuilds(graphics, Graphics, console, Console)
+ 
+@@ -30,7 +34,7 @@ else:CONFIG(graphics, graphics|console){
+ #!android:!symbian:QT += phonon
+ maemo5:QT += dbus
+ 
+-DEFINES += QT_CONFIG
++DEFINES += WAGIC_QT_CONFIG
+ #!android:!symbian:DEFINES += USE_PHONON
+ android:INCLUDEPATH += $$ANDROID_NDK_ROOT/platforms/android-9/arch-arm/usr/include
+ #DEFINES += QT_NO_DEBUG_OUTPUT
+@@ -278,5 +282,3 @@ OTHER_FILES += \
+     android/res/values-el/strings.xml
+ 
+ 
+-
+-

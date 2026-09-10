@@ -1,0 +1,5 @@
+{
+  "type": "game.emblem_created",
+  "id": "emblem-create-1",
+  "payload": {"roomId": "ABCDEF", "seat": 1, "emblemId": "s1-e1"}
+}

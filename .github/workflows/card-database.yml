@@ -16,9 +16,6 @@ concurrency:
   group: card-database
   cancel-in-progress: false
 
-env:
-  QT_VERSION: '6.8.3'
-
 jobs:
   build:
     name: Build official card database
@@ -30,11 +27,7 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y cmake curl gzip jq ninja-build python3 sqlite3 zlib1g-dev
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: qtwebsockets qtimageformats
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Download, build, and package latest database
         shell: bash
         run: ./tools/card-database-builder/build-latest.sh build/card-database

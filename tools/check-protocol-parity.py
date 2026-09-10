@@ -101,11 +101,6 @@ def main() -> int:
         if cpp_constants != expected:
             problems.append("generated Qt constants do not match the wire schema")
         problems.extend(manual_declarations(root, set(expected)))
-        codegen_source = (root / "tools/protocol_codegen.py").read_text(encoding="utf-8")
-        if "from payload_go_structs import verify_go_payload_structs" not in codegen_source:
-            problems.append(
-                "protocol_codegen.py does not use package-wide Go payload validation"
-            )
         message_header = (root / "apps/client-qt/src/protocol/Message.h").read_text(
             encoding="utf-8"
         )

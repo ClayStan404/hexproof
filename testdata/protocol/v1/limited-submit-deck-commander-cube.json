@@ -1,0 +1,20 @@
+{
+  "type": "limited.submit_deck",
+  "id": "commander-submit",
+  "payload": {
+    "name": "Commander Draft",
+    "mainboardInstanceIds": [
+      "limited-1",
+      "limited-2"
+    ],
+    "commanderInstanceIds": [
+      "limited-2"
+    ],
+    "basicLands": [
+      {
+        "name": "Island",
+        "count": 58
+      }
+    ]
+  }
+}

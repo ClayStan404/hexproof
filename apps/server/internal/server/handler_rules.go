@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"strings"
+	"time"
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
@@ -72,7 +73,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		return nil
 	}
 	promptView, err := forge.NormalizePrompt(rawPrompt)
-	if err != nil {
+	if err != nil || !game.promptState.matches(request.PromptID, promptView.PromptID) {
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 			"The Forge decision is stale or no longer available")
 		return nil
@@ -95,7 +96,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			return nil
 		}
 	}
-	response, err := forge.BuildPromptResponse(rawPrompt, playerIndex, request.PromptID,
+	response, err := forge.BuildPromptResponse(rawPrompt, playerIndex, promptView.PromptID,
 		forge.PromptResponse{
 			ResponseID: request.ResponseID, CardIDs: request.CardIDs,
 			TargetIDs: request.TargetIDs, Assignments: forgePromptAssignments(request.Assignments),
@@ -118,7 +119,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			"Forge rejected the decision")
 		return nil
 	}
-	if err := waitForForgePromptChange(game, request.PromptID); err != nil {
+	if err := waitForForgePromptChange(game, promptView.PromptID); err != nil {
 		h.failClosedGameProjections(r, err)
 		return nil
 	}
@@ -135,12 +136,14 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 	}
 	var prompts map[string]protocol.Envelope
 	var resultBroadcast []protocol.Envelope
+	var resultDeadline time.Time
 	if gameOver {
 		prompts, err = h.clearedRulesPrompts(r, game)
 		if err == nil {
 			var result room.Result
 			result, err = h.hub.CompleteRulesGame(r, winnerSeat)
 			resultBroadcast = result.Broadcast
+			resultDeadline = result.SideboardDeadline
 		}
 		if err != nil {
 			h.failClosedGameProjections(r, err)
@@ -162,6 +165,9 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 	h.sendRulesPrompts(prompts)
 	if gameOver {
 		h.fanout(r, resultBroadcast)
+		if !resultDeadline.IsZero() {
+			h.scheduleSideboardExpiration(r, resultDeadline)
+		}
 	}
 	return nil
 }

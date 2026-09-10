@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"hexproof/server/internal/protocol"
@@ -64,6 +65,7 @@ type Handler struct {
 	sideboardTimers         map[string]*time.Timer
 	roomCreateLimiter       *fixedWindowLimiter
 	tournamentCreateLimiter *fixedWindowLimiter
+	tournamentChatLimiter   *fixedWindowLimiter
 	passwordJoinLimiter     *fixedWindowLimiter
 	replayRequestLimiter    *fixedWindowLimiter
 	tournaments             *tournamentRegistry
@@ -71,7 +73,13 @@ type Handler struct {
 	forgeMu                 sync.Mutex
 	forgeClient             *forge.Client
 	forgeGames              map[string]forgeRoomGame
+	forgePromptSequence     atomic.Int64
 	forgeClosed             bool
+	forgeStarting           chan struct{}
+	forgeStartCancel        context.CancelFunc
+	forgeRetryAfter         time.Time
+	forgeCloseOnce          sync.Once
+	forgeCloseErr           error
 	// marshalEnvelope, when set, replaces Envelope.Marshal for send/fan-out tests.
 	marshalEnvelope func(protocol.Envelope) ([]byte, error)
 }
@@ -125,6 +133,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		sideboardTimers:         make(map[string]*time.Timer),
 		roomCreateLimiter:       newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournamentCreateLimiter: newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
+		tournamentChatLimiter:   newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		passwordJoinLimiter:     newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		replayRequestLimiter:    newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournaments:             newTournamentRegistry(config.MaxTournaments),
@@ -134,5 +143,9 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 }
 
 func (h *Handler) forgeRulesAvailable() bool {
-	return h.forgeRuntime != nil
+	h.forgeMu.Lock()
+	defer h.forgeMu.Unlock()
+	return !h.forgeClosed && h.forgeRuntime != nil &&
+		!time.Now().Before(h.forgeRetryAfter) &&
+		(h.forgeClient == nil || h.forgeClient.Healthy())
 }

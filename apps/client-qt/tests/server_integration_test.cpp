@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "models/GameTableModel.h"
 #include "protocol/Message.h"
 #include "services/WsClient.h"
 
@@ -219,8 +220,78 @@ void TestServerIntegration::realServerSupportsRoomAndGameFlow() const
     QCOMPARE(zoneForSeat(host, 0, hexproof::protocol::kZoneHand).size(), 6);
     QCOMPARE(zoneForSeat(guest, 0, hexproof::protocol::kZoneHand).size(), 0);
 
+    GameTableModel spectatorTable;
+    WsClient spectator;
+    QObject::connect(&spectator, &WsClient::gameSnapshotDataChanged, &spectatorTable,
+                     &GameTableModel::applySnapshot);
+    spectator.connectTo(webSocketUrl, u"Carol"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(spectator.connected(), 5000);
+    spectator.joinRoom(roomId, true, {});
+    QTRY_VERIFY_WITH_TIMEOUT(spectator.inRoom(), 5000);
+    QCOMPARE(spectator.roomRole(), hexproof::protocol::kRoleSpectator);
+    QTRY_VERIFY_WITH_TIMEOUT(spectatorTable.hasSnapshot(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        spectatorTable.cardInZone(cardId, hexproof::protocol::kZoneBattlefield, 0), 5000);
+
+    const QVariantMap publicCard = spectatorTable.cardData(cardId);
+    QCOMPARE(publicCard.value(u"name"_s).toString(), u"Lightning Bolt"_s);
+    QCOMPARE(publicCard.value(u"setCode"_s).toString(), u"M11"_s);
+    QCOMPARE(publicCard.value(u"collectorNumber"_s).toString(), u"149"_s);
+    QCOMPARE(publicCard.value(u"ownerSeat"_s).toInt(), 0);
+    const QVariantMap position = publicCard.value(u"position"_s).toMap();
+    QCOMPARE(position.value(u"x"_s).toDouble(), 0.25);
+    QCOMPARE(position.value(u"y"_s).toDouble(), 0.5);
+
+    auto *hostHand =
+        qobject_cast<ZoneCardModel *>(spectatorTable.zoneModel(0, hexproof::protocol::kZoneHand));
+    auto *guestHand =
+        qobject_cast<ZoneCardModel *>(spectatorTable.zoneModel(1, hexproof::protocol::kZoneHand));
+    QVERIFY(hostHand);
+    QVERIFY(guestHand);
+    QCOMPARE(hostHand->rowCount(), 0);
+    QCOMPARE(guestHand->rowCount(), 0);
+    QCOMPARE(spectatorTable.seatData(0).value(u"handCount"_s).toInt(), 6);
+    QCOMPARE(spectatorTable.seatData(1).value(u"handCount"_s).toInt(), 7);
+
+    const QVariantMap emblem{
+        {u"name"_s, u"Chandra, Torch of Defiance Emblem"_s},
+        {u"setCode"_s, u"TCMM"_s},
+        {u"collectorNumber"_s, u"79"_s},
+        {u"typeLine"_s, u"Emblem — Chandra"_s},
+    };
+    host.createEmblem(1, emblem);
+    QTRY_COMPARE_WITH_TIMEOUT(zoneForSeat(host, 1, u"emblems"_s).size(), 1, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(zoneForSeat(guest, 1, u"emblems"_s).size(), 1, 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(spectatorTable.seatData(1).value(u"emblems"_s).toList().size(), 1,
+                              5000);
+    const QVariantMap publicEmblem = zoneForSeat(guest, 1, u"emblems"_s).first().toMap();
+    QCOMPARE(publicEmblem.value(u"name"_s), emblem.value(u"name"_s));
+    const QString emblemId = publicEmblem.value(u"id"_s).toString();
+    QVERIFY(!emblemId.isEmpty());
+    QVERIFY(spectatorTable.cardData(emblemId).isEmpty());
+    QCOMPARE(hostHand->rowCount(), 0);
+    QCOMPARE(guestHand->rowCount(), 0);
+
+    QSignalSpy spectatorErrors(&spectator, &WsClient::commandFailed);
+    spectator.createEmblem(1, emblem);
+    QTRY_COMPARE_WITH_TIMEOUT(spectatorErrors.count(), 1, 5000);
+    spectator.removeEmblem(emblemId);
+    QTRY_COMPARE_WITH_TIMEOUT(spectatorErrors.count(), 2, 5000);
+    QSignalSpy hostErrors(&host, &WsClient::commandFailed);
+    host.removeEmblem(emblemId);
+    QTRY_COMPARE_WITH_TIMEOUT(hostErrors.count(), 1, 5000);
+    QCOMPARE(zoneForSeat(host, 1, u"emblems"_s).size(), 1);
+
+    guest.removeEmblem(emblemId);
+    QTRY_VERIFY_WITH_TIMEOUT(zoneForSeat(host, 1, u"emblems"_s).isEmpty(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(zoneForSeat(guest, 1, u"emblems"_s).isEmpty(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(spectatorTable.seatData(1).value(u"emblems"_s).toList().isEmpty(),
+                             5000);
+
+    spectator.disconnectFromHub();
     host.disconnectFromHub();
     guest.disconnectFromHub();
+    QTRY_VERIFY_WITH_TIMEOUT(!spectator.connected(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(!host.connected(), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(!guest.connected(), 5000);
 }

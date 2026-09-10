@@ -86,6 +86,8 @@ Popup {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.preferredWidth: root.availableWidth * 0.62
+                Layout.minimumWidth: 0
                 spacing: Theme.size(8)
 
                 Text {
@@ -98,6 +100,7 @@ Popup {
                 }
 
                 ListView {
+                    objectName: "tournamentMainboardList"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     model: root.deck.mainboard || []
@@ -115,6 +118,8 @@ Popup {
                 // layout result back into its own size hint and makes Qt Quick
                 // Layouts recursively rearrange the row.
                 Layout.preferredWidth: root.availableWidth * 0.38
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.fillHeight: true
                 spacing: Theme.size(8)
 
@@ -128,6 +133,7 @@ Popup {
                 }
 
                 ListView {
+                    objectName: "tournamentSideboardList"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     model: root.deck.sideboard || []
@@ -169,8 +175,8 @@ Popup {
                         source: root.cardCatalogModel
                                 ? root.cardCatalogModel.imageSource(
                                       deckCardRow.modelData.name,
-                                      deckCardRow.modelData.setCode,
-                                      deckCardRow.modelData.collectorNumber)
+                                      deckCardRow.modelData.setCode || "",
+                                      deckCardRow.modelData.collectorNumber || "")
                                 : ""
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
@@ -216,8 +222,11 @@ Popup {
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        text: deckCardRow.modelData.setCode.toUpperCase()
-                              + " #" + deckCardRow.modelData.collectorNumber
+                        text: deckCardRow.modelData.setCode
+                              ? String(deckCardRow.modelData.setCode).toUpperCase()
+                                + (deckCardRow.modelData.collectorNumber
+                                   ? " #" + deckCardRow.modelData.collectorNumber : "")
+                              : ""
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(9)
                         elide: Text.ElideRight

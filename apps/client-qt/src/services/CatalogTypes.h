@@ -16,6 +16,11 @@ struct CardRecord
     QString faceName;
     QString localizedName;
     QString typeLine;
+    QString oracleText;
+    // Rules and artwork can come from different languages after provider fallback.
+    // An empty language identifies legacy metadata that has not resolved rules yet.
+    QString oracleTextLanguage;
+    bool localizedRulesChecked = false;
     QString setCode;
     QString collectorNumber;
     QString illustrationId;
@@ -43,7 +48,8 @@ struct CardRequest
         : name(requestName),
           setCode(requestSetCode),
           collectorNumber(requestCollectorNumber),
-          language(requestLanguage)
+          language(requestLanguage),
+          priorityName(requestName)
     {
     }
 
@@ -51,7 +57,10 @@ struct CardRequest
     QString setCode;
     QString collectorNumber;
     QString language;
+    QString priorityName;
     bool exactArt = false;
+    bool supportCard = false;
+    bool highPriority = false;
     CardRecord catalogHint;
 
     bool specifiesPrinting() const

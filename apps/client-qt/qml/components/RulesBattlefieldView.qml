@@ -115,6 +115,7 @@ Surface {
 
                 Text {
                     textFormat: Text.PlainText
+                    objectName: "rulesBattlefieldSummary" + lane.seat
                     anchors.left: parent.left
                     anchors.right: laneBadges.left
                     anchors.top: parent.top
@@ -124,9 +125,9 @@ Surface {
                     height: Theme.size(24)
                     z: 20
                     text: lane.name + " · " + qsTr("Life %1").arg(lane.life)
-                          + " · " + root.tableController.rulesSession.zoneCount(
+                          + " · " + root.tableController.zoneCount(
                               lane.seat, "hand") + qsTr("H")
-                          + " / " + root.tableController.rulesSession.zoneCount(
+                          + " / " + root.tableController.zoneCount(
                               lane.seat, "library") + qsTr("D")
                     color: lane.isOwn ? Theme.primary : Theme.text
                     font.pixelSize: Theme.fontSize(11)
@@ -142,6 +143,16 @@ Surface {
                     anchors.margins: Theme.size(7)
                     spacing: Theme.size(5)
                     z: 20
+
+                    AppButton {
+                        objectName: "rulesViewHandButton" + lane.seat
+                        visible: root.tableController.canViewSpectatorHands
+                        compact: true
+                        variant: root.tableController.handOwnerSeat === lane.seat
+                                 ? "primary" : "secondary"
+                        text: qsTr("View hand")
+                        onClicked: root.tableController.spectatedHandSeat = lane.seat
+                    }
 
                     StatusPill {
                         visible: lane.isActive
@@ -184,7 +195,8 @@ Surface {
                 Text {
                     textFormat: Text.PlainText
                     anchors.centerIn: parent
-                    visible: root.tableController.rulesSession.zoneCount(
+                    objectName: "rulesBattlefieldEmpty" + lane.seat
+                    visible: root.tableController.zoneCount(
                                  lane.seat, "battlefield") === 0
                     text: lane.isOwn
                           && root.tableController.rulesSession.promptPending

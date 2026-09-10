@@ -17,7 +17,7 @@ source_version="$(
 )"
 version="${HEXPROOF_VERSION:-${source_version}}"
 arch="${HEXPROOF_ARCH:-$(uname -m)}"
-deployment_target="${HEXPROOF_MACOS_DEPLOYMENT_TARGET:-12.0}"
+deployment_target="${HEXPROOF_MACOS_DEPLOYMENT_TARGET:-13.0}"
 build_dir="${repo_root}/build/package-macos"
 output_dir="${HEXPROOF_OUTPUT_DIR:-${repo_root}/build/packages}"
 server_directory_args=()

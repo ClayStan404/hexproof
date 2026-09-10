@@ -124,7 +124,8 @@ int DeckLibraryQueries::missingImageCount(const Deck &deck)
 int DeckLibraryQueries::missingImageCount(const QVector<DeckCard> &cards)
 {
     return static_cast<int>(std::count_if(cards.cbegin(), cards.cend(), [](const DeckCard &card) {
-        return card.imagePath.isEmpty() || !QFileInfo::exists(card.imagePath);
+        const QString path = card.displayImagePathResolved ? card.displayImagePath : card.imagePath;
+        return path.isEmpty() || !QFileInfo::exists(path);
     }));
 }
 
@@ -164,7 +165,7 @@ QVariantMap DeckLibraryQueries::cubeProduct(const Deck &deck)
             {QStringLiteral("setCode"), card.setCode.toUpper()},
             {QStringLiteral("collectorNumber"), card.collectorNumber},
             {QStringLiteral("typeLine"), card.typeLine},
-            {QStringLiteral("rarity"), QStringLiteral("special")},
+            {QStringLiteral("rarity"), card.rarity.trimmed().toLower()},
             {QStringLiteral("finish"), QStringLiteral("nonfoil")},
             {QStringLiteral("weight"), card.count},
         });
@@ -187,6 +188,12 @@ QVariantMap DeckLibraryQueries::cubeProduct(const Deck &deck)
 QVariantList DeckLibraryQueries::cardVariants(const QVector<DeckCard> &cards, const Deck &deck,
                                               bool grouped)
 {
+    QHash<QString, int> copyTotals;
+    for (const DeckCard &card : deck.mainboard)
+        copyTotals[normalizedCardName(card.name)] += card.count;
+    for (const DeckCard &card : deck.sideboard)
+        copyTotals[normalizedCardName(card.name)] += card.count;
+
     QVector<DeckCard> sorted = cards;
     if (grouped) {
         std::sort(sorted.begin(), sorted.end(), [](const DeckCard &left, const DeckCard &right) {
@@ -205,21 +212,30 @@ QVariantList DeckLibraryQueries::cardVariants(const QVector<DeckCard> &cards, co
     QVariantList result;
     for (const DeckCard &card : sorted) {
         const QString displayName = card.localizedName.isEmpty() ? card.name : card.localizedName;
+        const QString path = card.displayImagePathResolved ? card.displayImagePath : card.imagePath;
         result.append(QVariantMap{
             {QStringLiteral("name"), card.name},
             {QStringLiteral("displayName"), displayName},
             {QStringLiteral("count"), card.count},
-            {QStringLiteral("totalCount"), DeckEditor::cardCopies(deck, card.name)},
+            {QStringLiteral("totalCount"), copyTotals.value(normalizedCardName(card.name))},
             {QStringLiteral("setCode"), card.setCode},
             {QStringLiteral("collectorNumber"), card.collectorNumber},
             {QStringLiteral("typeLine"), card.typeLine},
             {QStringLiteral("category"), cardCategory(card.typeLine)},
             {QStringLiteral("colors"), card.colors},
             {QStringLiteral("manaValue"), card.manaValue},
+            {QStringLiteral("rarity"), card.rarity},
             {QStringLiteral("commander"), DeckEditor::isCommander(deck, card.name)},
             {QStringLiteral("imageSource"),
-             card.imagePath.isEmpty() ? QString{} : QUrl::fromLocalFile(card.imagePath).toString()},
+             path.isEmpty() ? QString{} : QUrl::fromLocalFile(path).toString()},
+            {QStringLiteral("imageSourceResolved"), card.displayImagePathResolved},
         });
+        QVariantMap projected = result.last().toMap();
+        if (!card.cardColors.isNull())
+            projected.insert(QStringLiteral("cardColors"), card.cardColors);
+        if (!card.manaCost.isNull())
+            projected.insert(QStringLiteral("manaCost"), card.manaCost);
+        result.last() = projected;
     }
     return result;
 }
@@ -239,6 +255,7 @@ QVariantList DeckLibraryQueries::tokenVariants(const QVector<DeckToken> &tokens)
             {QStringLiteral("power"), token.power},
             {QStringLiteral("toughness"), token.toughness},
             {QStringLiteral("oracleText"), token.oracleText},
+            {QStringLiteral("kind"), normalizedDeckTokenKind(token.kind, token.typeLine)},
         });
     }
     return result;
@@ -337,6 +354,19 @@ QVariantList DeckLibraryQueries::cacheRequestsForDeck(const Deck &deck, bool inc
     append(deck.mainboard);
     append(deck.sideboard);
     append(deck.consider);
+    for (const DeckToken &token : deck.tokens) {
+        const QString key = cardRequestKey(token.name, token.setCode, token.collectorNumber) +
+                            QStringLiteral("|support");
+        if (requestedKeys.contains(key))
+            continue;
+        requestedKeys.insert(key);
+        requests.append(QVariantMap{
+            {QStringLiteral("name"), token.name},
+            {QStringLiteral("setCode"), token.setCode},
+            {QStringLiteral("collectorNumber"), token.collectorNumber},
+            {QStringLiteral("kind"), normalizedDeckTokenKind(token.kind, token.typeLine)},
+        });
+    }
     return requests;
 }
 
@@ -352,7 +382,9 @@ QVariantList DeckLibraryQueries::cacheRequestsForLibrary(const QVector<Deck> &de
             const QString key =
                 cardRequestKey(candidateMap.value(QStringLiteral("name")).toString(),
                                candidateMap.value(QStringLiteral("setCode")).toString(),
-                               candidateMap.value(QStringLiteral("collectorNumber")).toString());
+                               candidateMap.value(QStringLiteral("collectorNumber")).toString()) +
+                (candidateMap.contains(QStringLiteral("kind")) ? QStringLiteral("|support")
+                                                               : QString{});
             if (requestedKeys.contains(key))
                 continue;
             requestedKeys.insert(key);

@@ -18,34 +18,114 @@ qreal MatchLoadCoordinator::progress() const
                                 : static_cast<qreal>(completed()) / m_requests.size();
 }
 
-void MatchLoadCoordinator::beginLoad(qint64 loadId, const QVariantList &cardKeys)
+void MatchLoadCoordinator::preparePreload(qint64 loadId, const QVariantList &cardKeys)
+{
+    prepareLoad(loadId, cardKeys, false);
+}
+
+void MatchLoadCoordinator::prepareBackground(qint64 loadId, const QVariantList &cardKeys)
+{
+    prepareLoad(loadId, cardKeys, true);
+}
+
+void MatchLoadCoordinator::prepareLoad(qint64 loadId, const QVariantList &cardKeys,
+                                       bool waitForTableSnapshot)
 {
     if (loadId <= 0 || (loadId == m_loadId && (m_active || m_ready)))
         return;
 
+    invalidateCurrentSubscriptions();
+    ++m_generation;
     m_loadId = loadId;
     m_active = true;
     m_ready = false;
+    m_expansionPending = true;
+    m_backgroundLoad = waitForTableSnapshot;
+    m_waitingForTableSnapshot = waitForTableSnapshot && !m_tableSnapshotReady;
+    m_expansionScheduled = false;
+    m_cardKeys = cardKeys;
     m_requests.clear();
+    m_requestOrder.clear();
     m_pending.clear();
     m_failed.clear();
     m_lastError.clear();
 
-    for (const QVariant &value : cardKeys) {
+    emit stateChanged();
+    if (!m_waitingForTableSnapshot)
+        scheduleExpansion();
+}
+
+void MatchLoadCoordinator::handleTableSnapshotStateChanged(bool ready)
+{
+    m_tableSnapshotReady = ready;
+    if (!m_active || !m_backgroundLoad)
+        return;
+    m_waitingForTableSnapshot = !ready;
+    if (ready && m_expansionPending)
+        scheduleExpansion();
+}
+
+void MatchLoadCoordinator::handleCardLanguageChanged()
+{
+    if (!m_active)
+        return;
+
+    invalidateCurrentSubscriptions();
+    ++m_generation;
+    m_ready = false;
+    m_expansionPending = true;
+    m_expansionScheduled = false;
+    m_requests.clear();
+    m_requestOrder.clear();
+    m_pending.clear();
+    m_failed.clear();
+    m_lastError.clear();
+    emit stateChanged();
+    if (!m_waitingForTableSnapshot)
+        scheduleExpansion();
+}
+
+void MatchLoadCoordinator::scheduleExpansion()
+{
+    if (!m_active || !m_expansionPending || m_waitingForTableSnapshot || m_expansionScheduled)
+        return;
+    m_expansionScheduled = true;
+    const qint64 loadId = m_loadId;
+    const quint64 generation = m_generation;
+    QTimer::singleShot(0, this, [this, loadId, generation]() {
+        if (m_loadId != loadId || m_generation != generation)
+            return;
+        m_expansionScheduled = false;
+        if (!m_active || !m_expansionPending || m_waitingForTableSnapshot)
+            return;
+        emit cardFaceExpansionRequested(loadId, generation, m_cardKeys);
+    });
+}
+
+void MatchLoadCoordinator::adoptExpandedCards(qint64 loadId, quint64 generation,
+                                              const QVariantList &cards)
+{
+    if (!m_active || !m_expansionPending || loadId != m_loadId || generation != m_generation)
+        return;
+
+    m_expansionPending = false;
+    for (const QVariant &value : cards) {
         const QVariantMap request = value.toMap();
         const QString name = request.value(QStringLiteral("name")).toString().simplified();
         const QString setCode = request.value(QStringLiteral("setCode")).toString().toUpper();
         const QString collector = request.value(QStringLiteral("collectorNumber")).toString();
         if (name.isEmpty())
             continue;
-        const QString key = requestKey(name, setCode, collector);
+        const bool exactArt = request.value(QStringLiteral("exactArt")).toBool();
+        const QString key = requestKey(name, setCode, collector, exactArt);
         if (m_requests.contains(key))
             continue;
-        m_requests.insert(key, QVariantMap{
-                                   {QStringLiteral("name"), name},
-                                   {QStringLiteral("setCode"), setCode},
-                                   {QStringLiteral("collectorNumber"), collector},
-                               });
+        QVariantMap normalizedRequest = request;
+        normalizedRequest.insert(QStringLiteral("name"), name);
+        normalizedRequest.insert(QStringLiteral("setCode"), setCode);
+        normalizedRequest.insert(QStringLiteral("collectorNumber"), collector);
+        m_requests.insert(key, normalizedRequest);
+        m_requestOrder.append(key);
         m_pending.insert(key);
     }
 
@@ -54,17 +134,21 @@ void MatchLoadCoordinator::beginLoad(qint64 loadId, const QVariantList &cardKeys
         QTimer::singleShot(0, this, [this]() { finishIfSettled(); });
         return;
     }
-    QTimer::singleShot(0, this, [this, loadId]() {
-        if (m_active && m_loadId == loadId && !m_pending.isEmpty())
-            emit cardsRequested(requestsFor(m_pending));
-    });
+    emit cardsRequested(m_loadId, m_generation, requestsFor(m_pending));
 }
 
-void MatchLoadCoordinator::handleCardCacheFinished(const QString &name, const QString &setCode,
-                                                   const QString &collectorNumber, bool success)
+void MatchLoadCoordinator::handleMatchCardCacheFinished(qint64 loadId, quint64 generation,
+                                                        const QString &requestIdentity,
+                                                        const QString &name, const QString &setCode,
+                                                        const QString &collectorNumber,
+                                                        bool exactArt, bool success)
 {
-    const QString key = requestKey(name, setCode, collectorNumber);
-    if (!m_active || !m_pending.remove(key))
+    if (!m_active || loadId != m_loadId || generation != m_generation ||
+        requestIdentity.isEmpty()) {
+        return;
+    }
+    const QString key = requestKey(name, setCode, collectorNumber, exactArt);
+    if (!m_pending.remove(key))
         return;
     if (success)
         m_failed.remove(key);
@@ -82,17 +166,25 @@ void MatchLoadCoordinator::retry()
     m_failed.clear();
     m_lastError.clear();
     emit stateChanged();
-    emit cardsRequested(requestsFor(m_pending));
+    emit cardsRetryRequested(m_loadId, m_generation, requestsFor(m_pending));
 }
 
 void MatchLoadCoordinator::cancel()
 {
     if (m_loadId == 0 && !m_active && !m_ready)
         return;
+    invalidateCurrentSubscriptions();
+    ++m_generation;
     m_loadId = 0;
     m_active = false;
     m_ready = false;
+    m_expansionPending = false;
+    m_backgroundLoad = false;
+    m_waitingForTableSnapshot = false;
+    m_expansionScheduled = false;
+    m_cardKeys.clear();
     m_requests.clear();
+    m_requestOrder.clear();
     m_pending.clear();
     m_failed.clear();
     m_lastError.clear();
@@ -100,15 +192,24 @@ void MatchLoadCoordinator::cancel()
 }
 
 QString MatchLoadCoordinator::requestKey(const QString &name, const QString &setCode,
-                                         const QString &collectorNumber)
+                                         const QString &collectorNumber, bool exactArt)
 {
-    return name.simplified().toCaseFolded() + QLatin1Char('|') + setCode.simplified().toUpper() +
-           QLatin1Char('|') + collectorNumber.simplified();
+    QString key = name.simplified().toCaseFolded() + QLatin1Char('|') +
+                  setCode.simplified().toUpper() + QLatin1Char('|') + collectorNumber.simplified();
+    if (exactArt)
+        key += QStringLiteral("|exact-art");
+    return key;
+}
+
+void MatchLoadCoordinator::invalidateCurrentSubscriptions()
+{
+    if (m_loadId > 0 && m_generation > 0)
+        emit matchCardSubscriptionsInvalidated(m_loadId, m_generation);
 }
 
 void MatchLoadCoordinator::finishIfSettled()
 {
-    if (!m_active || !m_pending.isEmpty())
+    if (!m_active || m_expansionPending || !m_pending.isEmpty())
         return;
     if (!m_failed.isEmpty()) {
         m_lastError = QStringLiteral("Some card images could not be loaded.");
@@ -124,8 +225,10 @@ void MatchLoadCoordinator::finishIfSettled()
 QVariantList MatchLoadCoordinator::requestsFor(const QSet<QString> &keys) const
 {
     QVariantList result;
-    for (const QString &key : keys)
-        result.append(m_requests.value(key));
+    for (const QString &key : m_requestOrder) {
+        if (keys.contains(key))
+            result.append(m_requests.value(key));
+    }
     return result;
 }
 

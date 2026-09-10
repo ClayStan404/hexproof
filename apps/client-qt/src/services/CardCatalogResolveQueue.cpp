@@ -11,12 +11,29 @@
 
 #include <QTimer>
 
+#include <algorithm>
+
 namespace hexproof::client {
 using namespace catalog_internal;
 
+void CardCatalog::enqueueFallbackRequest(const CardRequest &request)
+{
+    if (request.highPriority) {
+        // Preserve explicit demand when metadata discovery changes the queue
+        // lane; background prefetch must not move back ahead of a hovered card.
+        const auto position =
+            std::find_if(m_fallbackQueue.cbegin(), m_fallbackQueue.cend(),
+                         [](const CardRequest &queued) { return !queued.highPriority; });
+        m_fallbackQueue.insert(position, request);
+    } else {
+        m_fallbackQueue.enqueue(request);
+    }
+}
+
 void CardCatalog::scheduleResolutionWork()
 {
-    if (m_shuttingDown || QCoreApplication::closingDown() || m_catalogBusy || m_artCacheBusy)
+    if (m_shuttingDown || QCoreApplication::closingDown() || m_catalogBusy || m_artCacheBusy ||
+        !artWritesAllowed())
         return;
 
     const bool resolverActive = m_cardResolver && m_cardResolver->active();
@@ -90,11 +107,14 @@ void CardCatalog::scheduleResolutionWork()
         const bool recordUsesMtgch = imageHost == QStringLiteral("images.mtgch.com") ||
                                      imageHost.endsWith(QStringLiteral(".mtgch.com"));
         const bool directRecordUsesPreferredProvider = prefersMtgch == recordUsesMtgch;
-        if (directRecordUsesPreferredProvider && directRecord.valid() &&
+        const bool needsLocalizedRules = request.supportCard &&
+                                         request.language == QStringLiteral("zh") &&
+                                         !directRecord.localizedRulesChecked;
+        if (!needsLocalizedRules && directRecordUsesPreferredProvider && directRecord.valid() &&
             !directRecord.imageUrl.isEmpty() && startDirectImageDownload({request, directRecord})) {
             continue;
         }
-        m_fallbackQueue.enqueue(request);
+        enqueueFallbackRequest(request);
     }
 
     if (m_cardResolver && !m_cardResolver->active() && !m_fallbackQueue.isEmpty())
@@ -110,8 +130,7 @@ void CardCatalog::finishResolutionIfIdle()
         !m_incrementalCacheQueue.isEmpty() || m_incrementalCacheScheduled) {
         return;
     }
-    if (m_artCache->dirty() && !saveResolutionCache())
-        setLastError(QStringLiteral("Could not save the card image cache."));
+    m_artCache->saveAsync();
     if (m_resolving) {
         setResolving(false);
         setStatus(QStringLiteral("Card images are up to date."));
@@ -196,7 +215,7 @@ void CardCatalog::handleDirectImageReply(QNetworkReply *reply)
                 if (QCoreApplication::closingDown())
                     return;
                 if (!startDirectImageDownload(retryJob)) {
-                    m_fallbackQueue.enqueue(retryJob.request);
+                    enqueueFallbackRequest(retryJob.request);
                     QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
                 }
             });
@@ -209,7 +228,7 @@ void CardCatalog::handleDirectImageReply(QNetworkReply *reply)
         CardRequest fallback = job.request;
         if (fallback.catalogHint.imageUrl == job.record.imageUrl)
             fallback.catalogHint.imageUrl.clear();
-        m_fallbackQueue.enqueue(fallback);
+        enqueueFallbackRequest(fallback);
         qCDebug(cardCatalogLog).noquote()
             << "Concurrent card image download interrupted; continuing with fallback providers"
             << "card=" + job.request.name << QStringLiteral("http=%1").arg(httpStatus)

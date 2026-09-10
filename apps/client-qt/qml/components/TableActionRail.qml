@@ -5,6 +5,7 @@ pragma ComponentBehavior: Bound
 pragma Translator: "Table"
 
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Surface {
@@ -12,6 +13,19 @@ Surface {
 
     required property var tableController
     required property var leaveRoomConfirmation
+    readonly property bool compactNavigation: height < Theme.size(700)
+
+    component NavigationButton: AppButton {
+        Layout.fillWidth: true
+        Layout.preferredWidth: root.compactNavigation ? Theme.size(26) : implicitWidth
+        Layout.minimumWidth: 0
+        compact: true
+        implicitHeight: Theme.size(root.compactNavigation ? 30 : 38)
+        leftPadding: Theme.size(root.compactNavigation ? 2 : 12)
+        rightPadding: leftPadding
+        ToolTip.visible: hovered
+        ToolTip.text: accessibleName
+    }
 
     objectName: "tableActionRail"
     Layout.minimumWidth: root.tableController.actionRailWidth
@@ -53,7 +67,7 @@ Surface {
             objectName: "tableRoomCode"
             Layout.fillWidth: true
             visible: !root.tableController.isPlaytest
-            text: qsTr("ROOM CODE") + " · "
+            text: qsTranslate("Table", "ROOM CODE") + " · "
                   + root.tableController.roomSession.roomId
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(9)
@@ -80,10 +94,10 @@ Surface {
                 const seat = root.tableController.seatState.seatData(
                                  root.tableController.gameSession.startingSeat)
                 const name = seat.displayName ? seat.displayName
-                                             : qsTr("Seat %1").arg(
+                                             : qsTranslate("Table", "Seat %1").arg(
                                                    root.tableController
                                                    .gameSession.startingSeat + 1)
-                return qsTr("First player · %1").arg(name)
+                return qsTranslate("Table", "First player · %1").arg(name)
             }
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(9)
@@ -102,22 +116,43 @@ Surface {
             font.weight: Font.Bold
             horizontalAlignment: Text.AlignHCenter
         }
-        AppButton {
-            objectName: "tableSettingsButton"
+        GridLayout {
             Layout.fillWidth: true
-            compact: true
-            variant: "secondary"
-            text: "⚙ " + qsTr("Settings")
-            onClicked: root.tableController.sessionUi.openTableSettings()
-        }
-        AppButton {
-            objectName: "tableShortcutHelpButton"
-            Layout.fillWidth: true
-            compact: true
-            variant: "ghost"
-            text: root.tableController.compactLayout
-                  ? "?" : "? " + qsTr("Shortcuts")
-            onClicked: root.tableController.shortcutHelp.open()
+            columns: root.compactNavigation ? 4 : 1
+            columnSpacing: Theme.size(2)
+            rowSpacing: Theme.size(2)
+
+            NavigationButton {
+                objectName: "tableSettingsButton"
+                variant: "secondary"
+                accessibleName: qsTranslate("Table", "Settings")
+                text: root.compactNavigation ? "⚙" : "⚙ " + accessibleName
+                onClicked: root.tableController.sessionUi.openTableSettings()
+            }
+            NavigationButton {
+                objectName: "tableShortcutHelpButton"
+                variant: "ghost"
+                accessibleName: qsTranslate("Table", "Shortcuts")
+                text: root.compactNavigation || root.tableController.compactLayout
+                      ? "?" : "? " + qsTranslate("Table", "Shortcuts")
+                onClicked: root.tableController.shortcutHelp.open()
+            }
+            NavigationButton {
+                objectName: "restoreGameLogRailButton"
+                visible: !root.tableController.showGameLogRail
+                accessibleName: qsTranslate("Table", "Show game log")
+                text: root.compactNavigation ? "☷" : accessibleName
+                onClicked: root.tableController.sessionUi.setGameLogRailVisible(true)
+            }
+            NavigationButton {
+                objectName: "leaveRoomButton"
+                variant: "secondary"
+                accessibleName: root.tableController.isPlaytest
+                                ? qsTranslate("Table", "End playtest")
+                                : qsTranslate("Table", "Leave room")
+                text: root.compactNavigation ? "↩" : accessibleName
+                onClicked: root.leaveRoomConfirmation.open()
+            }
         }
         AppButton {
             objectName: "commanderDamageButton"
@@ -125,7 +160,7 @@ Surface {
             compact: true
             variant: "secondary"
             visible: root.tableController.isCommanderFormat
-            text: qsTr("Commander damage")
+            text: qsTranslate("Table", "Commander damage")
             onClicked: root.tableController.commanderDamagePopup.open()
         }
         AppButton {
@@ -133,22 +168,12 @@ Surface {
             Layout.fillWidth: true
             compact: true
             variant: "primary"
-            text: qsTr("Return to room")
+            text: qsTranslate("Table", "Return to room")
             visible: root.tableController.gameFinished
                      && root.tableController.gameSession.result.matchFinished === true
                      && !root.tableController.gameSession.sideboarding
             enabled: visible
             onClicked: root.tableController.wsModel.returnToRoom()
-        }
-        AppButton {
-            objectName: "leaveRoomButton"
-            Layout.fillWidth: true
-            compact: true
-            variant: "secondary"
-            text: root.tableController.isPlaytest
-                  ? qsTr("End playtest")
-                  : qsTr("Leave room")
-            onClicked: root.leaveRoomConfirmation.open()
         }
         Rectangle {
             Layout.fillWidth: true

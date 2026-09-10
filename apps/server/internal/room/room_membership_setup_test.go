@@ -64,8 +64,8 @@ func TestNewWithRulesModeKeepsAuthorityInPublicProjections(t *testing.T) {
 	bo3, err := NewWithRulesMode("FORGE3", "Rules table", protocol.FormatModern,
 		protocol.MatchBO3, protocol.CardLoadPreload, protocol.RulesModeForge,
 		2, true, false, "Host", "host-conn", testNow)
-	if err != nil || bo3.MatchMode != protocol.MatchBO1 {
-		t.Fatalf("Forge BO3 normalization = %+v, %v", bo3, err)
+	if err != nil || bo3.MatchMode != protocol.MatchBO3 {
+		t.Fatalf("Forge BO3 setting = %+v, %v", bo3, err)
 	}
 
 	if _, err := NewWithRulesMode("BADMOD", "Bad rules", protocol.FormatModern,

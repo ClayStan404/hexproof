@@ -150,19 +150,22 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 	if err := handler.handleGameConcede(host, concede); err != nil {
 		t.Fatalf("handleGameConcede: %v", err)
 	}
-	hostEvents := receiveForgeSessionEnvelopes(t, host, 4)
-	guestEvents := receiveForgeSessionEnvelopes(t, guest, 3)
-	spectatorEvents := receiveForgeSessionEnvelopes(t, spectator, 2)
+	hostEvents := receiveForgeSessionEnvelopes(t, host, 5)
+	guestEvents := receiveForgeSessionEnvelopes(t, guest, 4)
+	spectatorEvents := receiveForgeSessionEnvelopes(t, spectator, 3)
 	if hostEvents[0].Type != protocol.TypeGameConceded ||
 		hostEvents[0].ID != concede.ID ||
 		hostEvents[1].Type != protocol.TypeRulesSnapshot ||
-		hostEvents[2].Type != protocol.TypeRulesPrompt ||
-		hostEvents[3].Type != protocol.TypeRoomSnapshot ||
+		hostEvents[2].Type != protocol.TypeGameSnapshot ||
+		hostEvents[3].Type != protocol.TypeRulesPrompt ||
+		hostEvents[4].Type != protocol.TypeRoomSnapshot ||
 		guestEvents[0].Type != protocol.TypeRulesSnapshot ||
-		guestEvents[1].Type != protocol.TypeRulesPrompt ||
-		guestEvents[2].Type != protocol.TypeRoomSnapshot ||
+		guestEvents[1].Type != protocol.TypeGameSnapshot ||
+		guestEvents[2].Type != protocol.TypeRulesPrompt ||
+		guestEvents[3].Type != protocol.TypeRoomSnapshot ||
 		spectatorEvents[0].Type != protocol.TypeRulesSnapshot ||
-		spectatorEvents[1].Type != protocol.TypeRoomSnapshot {
+		spectatorEvents[1].Type != protocol.TypeGameSnapshot ||
+		spectatorEvents[2].Type != protocol.TypeRoomSnapshot {
 		t.Fatalf("Forge concede events host=%v guest=%v spectator=%v",
 			envelopeTypes(hostEvents), envelopeTypes(guestEvents), envelopeTypes(spectatorEvents))
 	}

@@ -1,0 +1,51 @@
+{
+  "type": "room.snapshot",
+  "payload": {
+    "roomId": "TABLE4",
+    "name": "Commander Table 1",
+    "format": "edh",
+    "deckFormat": "commander_limited",
+    "maxSeats": 4,
+    "matchMode": "bo1",
+    "cardLoadMode": "background",
+    "rulesMode": "manual",
+    "allowSpectators": true,
+    "spectatorsSeeHands": false,
+    "hasPassword": false,
+    "hostSeat": 0,
+    "phase": "started",
+    "seats": [
+      {
+        "occupied": true,
+        "displayName": "Alice",
+        "host": true,
+        "deckSelected": true,
+        "ready": true
+      },
+      {
+        "occupied": true,
+        "displayName": "Bob",
+        "deckSelected": true,
+        "ready": true
+      },
+      {
+        "occupied": true,
+        "displayName": "Carol",
+        "deckSelected": true,
+        "ready": true
+      },
+      {
+        "occupied": true,
+        "displayName": "Dan",
+        "deckSelected": true,
+        "ready": true
+      }
+    ],
+    "spectators": [
+      {
+        "displayName": "Observer"
+      }
+    ]
+  },
+  "seq": 8
+}

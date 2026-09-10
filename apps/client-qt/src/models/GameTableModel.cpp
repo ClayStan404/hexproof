@@ -55,6 +55,8 @@ QVariant GameTableModel::data(const QModelIndex &index, int role) const
         return seat.value(u"commanderTax"_s);
     case CommanderTaxesRole:
         return seat.value(u"commanderTaxes"_s);
+    case EmblemsRole:
+        return listValue(seat, u"emblems"_s);
     case EliminatedRole:
         return seat.value(u"eliminated"_s);
     case ModelRevisionRole:
@@ -96,6 +98,7 @@ QHash<int, QByteArray> GameTableModel::roleNames() const
         {SideboardCountRole, "sideboardCount"},
         {CommanderTaxRole, "commanderTax"},
         {CommanderTaxesRole, "commanderTaxes"},
+        {EmblemsRole, "emblems"},
         {EliminatedRole, "eliminated"},
         {ModelRevisionRole, "modelRevision"},
         {HandModelRole, "handModel"},
@@ -105,6 +108,11 @@ QHash<int, QByteArray> GameTableModel::roleNames() const
         {ExileModelRole, "exileModel"},
         {CommandZoneModelRole, "commandZoneModel"},
     };
+}
+
+bool GameTableModel::hasSnapshot() const
+{
+    return m_hasSnapshot;
 }
 
 QVariantList GameTableModel::seats() const
@@ -214,7 +222,17 @@ QVariantMap GameTableModel::arrowForSource(const QString &cardId) const
 
 void GameTableModel::applySnapshot(const QVariantMap &snapshot)
 {
-    if (snapshot == m_snapshot)
+    replaceSnapshot(snapshot, !snapshot.isEmpty());
+}
+
+void GameTableModel::clear()
+{
+    replaceSnapshot({}, false);
+}
+
+void GameTableModel::replaceSnapshot(const QVariantMap &snapshot, bool hasSnapshot)
+{
+    if (snapshot == m_snapshot && hasSnapshot == m_hasSnapshot)
         return;
 
     const QVariantList rawSeats = listValue(snapshot, u"seats"_s);
@@ -268,6 +286,23 @@ void GameTableModel::applySnapshot(const QVariantMap &snapshot)
     appendZoneUpdate(zoneUpdates, -1, u"stack"_s, nextStack, m_stackModel);
     appendZoneUpdate(zoneUpdates, -1, u"reveal"_s, nextRevealed, m_revealedModel);
 
+    const QVariantList nextAttachments = listValue(snapshot, u"attachments"_s);
+    const QVariantList nextArrows = listValue(snapshot, u"arrows"_s);
+    const QVariantList nextLog = listValue(snapshot, u"log"_s);
+    const QVariantList nextCommanders = listValue(snapshot, u"commanders"_s);
+    const QVariantList nextCommanderDamage = listValue(snapshot, u"commanderDamage"_s);
+    const int nextLandPlaysThisTurn = snapshot.value(u"landPlaysThisTurn"_s).toInt();
+    const bool countValueChanged = nextSeats.size() != m_seats.size();
+    const bool hasSnapshotValueChanged = hasSnapshot != m_hasSnapshot;
+    const bool seatsValueChanged = nextSeats != m_seats;
+    const bool attachmentsValueChanged = nextAttachments != m_attachments;
+    const bool arrowsValueChanged = nextArrows != m_arrows;
+    const bool logValueChanged = nextLog != m_gameLog;
+    const bool commandersValueChanged = nextCommanders != m_commanders;
+    const bool commanderDamageValueChanged = nextCommanderDamage != m_commanderDamage;
+    const bool landPlaysValueChanged = nextLandPlaysThisTurn != m_landPlaysThisTurn;
+    const bool cardIndexValueChanged = !zoneUpdates.isEmpty();
+
     bool seatStructureChanged = nextSeats.size() != m_seats.size();
     if (!seatStructureChanged) {
         for (int row = 0; row < nextSeats.size(); ++row) {
@@ -283,6 +318,7 @@ void GameTableModel::applySnapshot(const QVariantMap &snapshot)
 
     const QVariantList previousSeats = m_seats;
     m_snapshot = snapshot;
+    m_hasSnapshot = hasSnapshot;
     m_seats = nextSeats;
     m_stackCards = nextStack;
     m_revealedCards = nextRevealed;
@@ -300,22 +336,22 @@ void GameTableModel::applySnapshot(const QVariantMap &snapshot)
     // own reset bracket; do not reorder these three steps independently.
     applyZoneUpdates(zoneUpdates);
 
-    const QVariantList nextAttachments = listValue(snapshot, u"attachments"_s);
-    if (m_attachments != nextAttachments) {
+    if (attachmentsValueChanged) {
         m_attachments = nextAttachments;
         rebuildAttachmentIndex();
     }
-    const QVariantList nextArrows = listValue(snapshot, u"arrows"_s);
-    if (m_arrows != nextArrows) {
+    if (arrowsValueChanged) {
         m_arrows = nextArrows;
         rebuildArrowIndex();
     }
-    const QVariantList nextLog = listValue(snapshot, u"log"_s);
-    if (m_gameLog != nextLog)
+    if (logValueChanged)
         m_gameLog = nextLog;
-    m_landPlaysThisTurn = snapshot.value(u"landPlaysThisTurn"_s).toInt();
-    m_commanders = listValue(snapshot, u"commanders"_s);
-    m_commanderDamage = listValue(snapshot, u"commanderDamage"_s);
+    if (landPlaysValueChanged)
+        m_landPlaysThisTurn = nextLandPlaysThisTurn;
+    if (commandersValueChanged)
+        m_commanders = nextCommanders;
+    if (commanderDamageValueChanged)
+        m_commanderDamage = nextCommanderDamage;
 
     if (seatStructureChanged) {
         endResetModel();
@@ -325,12 +361,27 @@ void GameTableModel::applySnapshot(const QVariantMap &snapshot)
                 emit dataChanged(index(row), index(row));
         }
     }
+    if (countValueChanged)
+        emit countChanged();
+    if (hasSnapshotValueChanged)
+        emit hasSnapshotChanged();
+    if (seatsValueChanged)
+        emit seatsChanged();
+    if (arrowsValueChanged)
+        emit arrowsChanged();
+    if (attachmentsValueChanged)
+        emit attachmentsChanged();
+    if (commandersValueChanged)
+        emit commandersChanged();
+    if (commanderDamageValueChanged)
+        emit commanderDamageChanged();
+    if (logValueChanged)
+        emit gameLogChanged();
+    if (landPlaysValueChanged)
+        emit landPlaysThisTurnChanged();
+    if (cardIndexValueChanged)
+        emit cardIndexRevisionChanged();
     emit snapshotChanged();
-}
-
-void GameTableModel::clear()
-{
-    applySnapshot({});
 }
 
 QVariantList GameTableModel::listValue(const QVariantMap &map, const QString &key)

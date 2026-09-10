@@ -236,6 +236,8 @@ Item {
                             spacing: Theme.size(3)
 
                             AppButton {
+                                objectName: "rulesDamageDecrement-" + damageTile.responseId
+                                Layout.preferredWidth: Theme.size(32)
                                 compact: true
                                 text: "−"
                                 enabled: root.assignedTo(damageTile.responseId) > 0
@@ -253,6 +255,8 @@ Item {
                             }
 
                             AppButton {
+                                objectName: "rulesDamageIncrement-" + damageTile.responseId
+                                Layout.preferredWidth: Theme.size(32)
                                 compact: true
                                 text: "+"
                                 enabled: root.remainingDamage > 0
@@ -265,6 +269,7 @@ Item {
         }
 
         ColumnLayout {
+            Layout.fillWidth: false
             Layout.preferredWidth: Theme.size(176)
             spacing: Theme.size(6)
 
@@ -293,6 +298,7 @@ Item {
                 Layout.fillWidth: true
 
                 AppButton {
+                    objectName: "rulesAutoAssignDamage"
                     Layout.fillWidth: true
                     compact: true
                     text: qsTr("Auto")
@@ -308,6 +314,7 @@ Item {
             }
 
             AppButton {
+                objectName: "rulesConfirmDamage"
                 Layout.fillWidth: true
                 compact: true
                 variant: "primary"

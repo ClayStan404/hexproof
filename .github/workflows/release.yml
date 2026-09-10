@@ -21,9 +21,6 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
-env:
-  QT_VERSION: '6.8.3'
-
 jobs:
   prepare:
     name: Prepare release metadata
@@ -89,11 +86,7 @@ jobs:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: qtwebsockets qtimageformats
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Check formatting
         shell: bash
         run: |
@@ -106,8 +99,10 @@ jobs:
           fi
           formatting_patch="$(
             git diff --unified=0 "$base" HEAD -- \
+              ':(glob)apps/client-qt/**/*.c' \
               ':(glob)apps/client-qt/**/*.cpp' \
               ':(glob)apps/client-qt/**/*.h' \
+              ':(glob)tools/ui-automation/x11/**/*.c' \
               ':(glob)tools/ui-automation/x11/**/*.cpp' \
               ':(glob)tools/ui-automation/x11/**/*.h' |
               clang-format-diff-18 -p1 -style=file
@@ -129,15 +124,7 @@ jobs:
           python3 tools/check-protocol-parity.py
           python3 tools/check-i18n.py --strict
           python3 tools/check-module-size.py
-          tests=(
-            tools.tests.test_limited_product_builder
-            tools.tests.test_quality_checks
-            tools.tests.test_table_architecture
-          )
           scripts=(tools/card-database-builder/build-latest.sh)
-          if [[ -f tools/tests/test_deploy_script.py ]]; then
-            tests+=(tools.tests.test_deploy_script)
-          fi
           if [[ -f deploy/deploy-release-server.sh ]]; then
             scripts+=(deploy/deploy-release-server.sh)
           fi
@@ -147,7 +134,7 @@ jobs:
           if [[ -f deploy/deploy-test-server.sh ]]; then
             scripts+=(deploy/deploy-test-server.sh)
           fi
-          python3 -m unittest "${tests[@]}"
+          python3 -m unittest discover -s tools/tests
           shellcheck "${scripts[@]}"
       - name: Verify stable card database compatibility
         shell: bash
@@ -216,11 +203,7 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y cmake ninja-build xvfb zlib1g-dev
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: qtwebsockets qtimageformats
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Build package
         env:
           HEXPROOF_ARCH: x86_64
@@ -304,11 +287,7 @@ jobs:
           "HEXPROOF_SERVER_DIRECTORY_FILE=$serverDirectory" | Out-File `
               -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: qtwebsockets qtimageformats
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Install zlib
         shell: pwsh
         run: vcpkg install zlib:x64-windows
@@ -397,11 +376,7 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(uname -m)" = "$EXPECTED_ARCH"
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: qtwebsockets qtimageformats
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Import signing certificate
         shell: bash
         env:
@@ -444,7 +419,7 @@ jobs:
       - name: Build package
         env:
           HEXPROOF_ARCH: ${{ matrix.arch }}
-          HEXPROOF_MACOS_DEPLOYMENT_TARGET: '12.0'
+          HEXPROOF_MACOS_DEPLOYMENT_TARGET: '13.0'
           HEXPROOF_VERSION: ${{ needs.prepare.outputs.version }}
           HEXPROOF_MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           HEXPROOF_MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}

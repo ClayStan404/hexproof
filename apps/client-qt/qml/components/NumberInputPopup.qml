@@ -44,7 +44,7 @@ Popup {
     function submit() {
         if (!valueField.acceptableInput)
             return
-        const value = Number(valueField.text)
+        const value = valueField.numberValue()
         valueRequested(value)
         close()
     }

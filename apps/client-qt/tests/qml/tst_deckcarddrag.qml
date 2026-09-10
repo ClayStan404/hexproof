@@ -29,10 +29,13 @@ TestCase {
         QtObject {
             id: fakeCatalog
             property int imageRevision: 0
+            // Mutate a plain array so instrumentation cannot invalidate the caller's binding.
+            property var cachedTypeLineRequests: []
             function imageSource(name, setCode, collectorNumber) {
                 return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
             }
-            function cardTypeLine(name, setCode, collectorNumber) {
+            function cachedCardTypeLine(name, setCode, collectorNumber) {
+                cachedTypeLineRequests.push([name, setCode, collectorNumber])
                 return "Instant"
             }
         }
@@ -83,9 +86,47 @@ TestCase {
         testWindow.printingClicks = 0
         cardRow.sideboard = false
         cardRow.printingEnabled = false
+        cardRow.customArtEnabled = false
+        cardRow.considerEnabled = false
+        cardRow.commanderEnabled = false
         cardRow.catalogModel = null
+        fakeCatalog.cachedTypeLineRequests = []
         cardRow.card = sampleCard()
         cardRow.width = 900
+    }
+
+    function cleanup() { Theme.uiScale = 1 }
+
+    function test_scaledActionsStayWithinRow_data() {
+        return [{tag: "main-large", scale: 1.5, width: 740, sideboard: false},
+                {tag: "main-maximum", scale: 1.8, width: 720, sideboard: false},
+                {tag: "side-large", scale: 1.5, width: 390, sideboard: true},
+                {tag: "side-maximum", scale: 1.8, width: 390, sideboard: true}]
+    }
+
+    function test_scaledActionsStayWithinRow(data) {
+        Theme.uiScale = data.scale
+        cardRow.width = data.width
+        cardRow.sideboard = data.sideboard
+        cardRow.printingEnabled = true
+        cardRow.considerEnabled = true
+        cardRow.customArtEnabled = true
+        waitForRendering(cardRow)
+        function inspect(item) {
+            if (item.visible && typeof item.clicked === "function") {
+                const point = item.mapToItem(cardRow, 0, 0)
+                verify(point.x >= -1 && point.x + item.width <= cardRow.width + 1,
+                       String(item.objectName || item.text))
+                verify(point.y >= -1 && point.y + item.height <= cardRow.height + 1,
+                       String(item.objectName || item.text))
+            }
+            for (const child of item.children || [])
+                inspect(child)
+        }
+        inspect(cardRow)
+        const printing = findChild(cardRow, data.sideboard ? "sideboardPrintingButton" : "printingButton")
+        mouseClick(printing)
+        compare(testWindow.printingClicks, 1)
     }
 
     function test_dragAcrossPanels() {
@@ -101,9 +142,18 @@ TestCase {
         tryCompare(testWindow, "dropCount", 1)
     }
 
+    function test_dragMimeCarriesPrintingIdentity() {
+        compare(cardRow.Drag.mimeData["application/x-hexproof-card"], "Lightning Bolt")
+        compare(cardRow.Drag.mimeData["application/x-hexproof-set-code"], "M11")
+        compare(cardRow.Drag.mimeData["application/x-hexproof-collector-number"], "149")
+        compare(cardRow.Drag.mimeData["application/x-hexproof-sideboard"], "false")
+    }
+
     function test_rowsStayCompact() {
+        waitForRendering(cardRow)
         compare(cardRow.implicitHeight, Theme.size(66))
         cardRow.sideboard = true
+        waitForRendering(cardRow)
         compare(cardRow.implicitHeight, Theme.size(68))
         cardRow.sideboard = false
     }
@@ -135,9 +185,11 @@ TestCase {
         compare(testWindow.printingClicks, 1)
     }
 
-    function test_typeLineFallsBackToCatalogWhenDeckHasNone() {
+    function test_typeLineUsesCacheOnlyLookupWhenDeckHasNone() {
         cardRow.catalogModel = fakeCatalog
         cardRow.card = sampleCard({ "typeLine": "" })
         compare(cardRow.resolvedTypeLine, "Instant")
+        verify(fakeCatalog.cachedTypeLineRequests.length > 0)
+        compare(fakeCatalog.cachedTypeLineRequests[0], ["Lightning Bolt", "M11", "149"])
     }
 }

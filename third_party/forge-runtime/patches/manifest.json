@@ -1,0 +1,7 @@
+{
+  "patchRevision": "2",
+  "manabrewRevision": "143a6b556ac365cea97929ffcebb48eed03ecde8",
+  "forgeRevision": "753b3dd544d6f02061d796ff7a0b54806631edcb",
+  "patch": "0001-stable-hosted-session.patch",
+  "sha256": "805a35b862456c7f0a2836de5169c1c150c069f7584328565a44b3e59a53391d"
+}

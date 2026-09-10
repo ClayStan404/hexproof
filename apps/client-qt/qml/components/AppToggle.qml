@@ -10,7 +10,7 @@ CheckBox {
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
     spacing: Theme.size(12)
-    implicitHeight: Theme.size(32)
+    implicitHeight: Math.max(Theme.size(32), implicitContentHeight + topPadding + bottomPadding)
 
     indicator: Rectangle {
         implicitWidth: Theme.size(42)
@@ -47,5 +47,6 @@ CheckBox {
         color: control.enabled ? Theme.textSecondary : Theme.textDisabled
         font.pixelSize: Theme.fontSize(14)
         verticalAlignment: Text.AlignVCenter
+        wrapMode: Text.WordWrap
     }
 }

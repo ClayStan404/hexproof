@@ -58,9 +58,10 @@ Popup {
 
         Flickable {
             id: sponsorScroller
+            objectName: "sponsorAnnouncementScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: Theme.size(180)
+            Layout.minimumHeight: 0
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             contentWidth: width
@@ -72,7 +73,8 @@ Popup {
 
             SponsorList {
                 id: sponsorList
-                width: sponsorScroller.width
+                // Keep names, tier counts and links clear of the scrollbar.
+                width: Math.max(0, sponsorScroller.width - Theme.size(14))
                 compact: true
                 onProfileRequested: url => Qt.openUrlExternally(url)
             }

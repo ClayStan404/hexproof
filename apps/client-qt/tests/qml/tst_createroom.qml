@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtTest
 import "../../qml/screens"
+import "../../qml/components"
 
 TestCase {
     name: "CreateRoom"
@@ -25,8 +26,27 @@ TestCase {
         property bool inRoom: false
         property string lastError: ""
         property int createCount: 0
-        function createRoom() { ++createCount }
-        function createLimitedTournament() { }
+        property string submittedMatchMode: ""
+        property string submittedRulesMode: ""
+        property var submittedRoom: ({})
+        function createRoom(name, format, deckFormat, spectators, hands, matchMode,
+                            loadMode, password, playtest, rulesMode) {
+            ++createCount
+            submittedMatchMode = matchMode
+            submittedRulesMode = rulesMode
+            submittedRoom = {name, format, deckFormat, spectators, hands, matchMode,
+                             loadMode, password, playtest, rulesMode}
+        }
+        property var submittedLimited: []
+        property string submittedCoordinator: ""
+        function createLimitedTournament() {
+            submittedLimited = Array.from(arguments)
+            submittedCoordinator = "swiss"
+        }
+        function createCasualLimitedEvent() {
+            submittedLimited = Array.from(arguments)
+            submittedCoordinator = "casual"
+        }
     }
 
     QtObject {
@@ -34,8 +54,9 @@ TestCase {
         property int count: 0
         property string currentDeckId: ""
         signal currentDeckChanged()
-        function matchDecks() { return [] }
-        function cubeProduct() { return ({}) }
+        property var cubes: []
+        function matchDecks() { return cubes }
+        function cubeProduct(id) { return ({id: id, productType: "cube"}) }
     }
 
     property var page: null
@@ -50,10 +71,18 @@ TestCase {
 
     function init() {
         mockWs.createCount = 0
+        mockWs.forgeRulesAvailable = true
+        mockWs.lastError = ""
+        mockWs.submittedLimited = []
+        mockWs.submittedCoordinator = ""
+        mockDecks.cubes = []
+        testWindow.width = 1280
+        testWindow.height = 720
+        Theme.uiScale = 1
+        testTranslations.setLanguage("en")
         page = pageComponent.createObject(testWindow.contentItem)
         verify(page !== null)
         page.anchors.fill = testWindow.contentItem
-        page.roomName = "Friday night"
         waitForRendering(page)
     }
 
@@ -61,6 +90,160 @@ TestCase {
         if (page !== null)
             page.destroy()
         page = null
+        Theme.uiScale = 1
+        testTranslations.setLanguage("en")
+    }
+
+    function test_nameStartsEmptyWithoutExample() {
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
+        const field = findChild(page, "roomNameField")
+        compare(page.roomName, "")
+        compare(field.text, "")
+        compare(field.placeholderText, "")
+        verify(!findChild(page, "createRoomSubmitButton").enabled)
+        mouseClick(field)
+        tryVerify(() => field.activeFocus)
+        for (const character of "table1")
+            keyClick(character)
+        compare(page.roomName, "table1")
+        verify(findChild(page, "createRoomSubmitButton").enabled)
+    }
+
+    function test_cubeDefaultsToDraftBuildAndFreePlay() {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Test Cube", mainCount: 360,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Cube night"
+        page.deckFormat = "cube"
+        page.matchMode = "bo3"
+        // Hidden ordinary-room settings must not block the Cube coordinator.
+        page.rulesMode = "forge"
+        mockWs.forgeRulesAvailable = false
+        page.roomPassword = "界".repeat(30)
+        const button = findChild(page, "createRoomSubmitButton")
+        verify(findChild(page, "cubePlayModeControl") === null)
+        compare(button.text, "Create Cube room")
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedCoordinator, "casual")
+        compare(mockWs.submittedLimited.length, 5)
+        compare(mockWs.submittedLimited[0], "Cube night")
+        compare(mockWs.submittedLimited[1], "cube_draft")
+        compare(mockWs.submittedLimited[2], "bo3")
+        compare(mockWs.submittedLimited[3], 8)
+        compare(mockWs.submittedLimited[4].id, "cube-1")
+        compare(mockWs.createCount, 0)
+
+        findChild(page, "cubePlayerCapField").text = "9"
+        verify(!button.enabled)
+    }
+
+    function test_wideFormFitsOnePage_data() {
+        return [{tag: "en-modern", language: "en", format: "modern", rules: "manual"},
+                {tag: "zh-modern", language: "zh", format: "modern", rules: "manual"},
+                {tag: "en-commander", language: "en", format: "edh", rules: "manual"},
+                {tag: "zh-forge", language: "zh", format: "modern", rules: "forge"},
+                {tag: "zh-cube", language: "zh", format: "modern", deckFormat: "cube", rules: "manual"}]
+    }
+    function test_commanderCubeCapacityAndSingleMultiplayerGame() {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Commander Cube", mainCount: 240,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Commander night"
+        page.deckFormat = "cube"
+        page.matchMode = "bo3"
+        const variant = findChild(page, "cubeVariantControl")
+        verify(variant.visible)
+        variant.activated(1)
+        verify(page.commanderCube)
+        compare(page.matchMode, "bo1")
+        compare(findChild(page, "roomMatchModeControl").options.length, 1)
+        const button = findChild(page, "createRoomSubmitButton")
+        const cap = findChild(page, "cubePlayerCapField")
+        tryCompare(cap, "text", "4")
+        compare(page.cubeCardsRequired(), 240)
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedCoordinator, "casual")
+        compare(mockWs.submittedLimited[1], "commander_cube")
+        compare(mockWs.submittedLimited[2], "bo1")
+        compare(mockWs.submittedLimited[3], 4)
+        compare(mockWs.createCount, 0)
+        cap.text = "5"
+        verify(!button.enabled, "Commander Cube never splits into multiple tables")
+        compare(page.createBlockerReason(), "Choose a Commander Cube player cap from 2 to 4")
+        cap.text = "3"
+        verify(button.enabled)
+        cap.text = "2"
+        verify(button.enabled)
+        variant.activated(0)
+        variant.activated(1)
+        verify(waitForPolish(testWindow))
+        compare(cap.text, "2", "Changing variants preserves a valid smaller table")
+        cap.text = "4"
+        variant.activated(0)
+        compare(page.cubeCardsRequired(), 180)
+    }
+    function test_wideFormFitsOnePage(data) {
+        testTranslations.setLanguage(data.language)
+        page.roomFormat = data.format
+        page.deckFormat = data.deckFormat || (data.format === "edh" ? "commander" : data.format)
+        page.rulesMode = data.rules
+        waitForRendering(page)
+        const details = findChild(page, "createRoomDetails")
+        const options = findChild(page, "createRoomOptions")
+        const body = findChild(page, "createRoomBody")
+        const button = findChild(page, "createRoomSubmitButton")
+        compare(findChild(page, "createRoomColumns").columns, 2)
+        verify(options.x >= details.x + details.width)
+        compare(details.y, options.y)
+        verify(Math.abs(details.width - options.width) <= 1)
+        verify(body.contentHeight <= body.height + 1,
+               "All fields and actions should fit at 1280x720: " + body.contentHeight + "/" + body.height)
+        const bottom = button.mapToItem(body, 0, button.height)
+        verify(bottom.y <= body.height + 1)
+    }
+
+    function test_narrowScaledFormStacksAndScrolls() {
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
+        testWindow.width = 900
+        testWindow.height = 620
+        Theme.uiScale = 1.25
+        testTranslations.setLanguage("zh")
+        waitForRendering(page)
+        const details = findChild(page, "createRoomDetails")
+        const options = findChild(page, "createRoomOptions")
+        const body = findChild(page, "createRoomBody")
+        compare(findChild(page, "createRoomColumns").columns, 1)
+        verify(options.y >= details.y + details.height)
+        const field = findChild(page, "roomNameField")
+        const position = field.mapToItem(body, 0, 0)
+        verify(position.x >= 0 && position.x + field.width <= body.width)
+        verify(body.contentHeight > body.height)
+        mouseWheel(body, 10, 40, 0, -120)
+        tryVerify(() => body.contentY > 0, 1000)
+        test_createButtonStaysReachableOnLaptopHeight()
+    }
+
+    function test_spectatorTogglesKeepPrivacyAndSubmittedSettings() {
+        page.roomName = "Spectator test"
+        const hands = findChild(page, "spectatorsSeeHandsToggle")
+        const spectators = findChild(page, "allowSpectatorsToggle")
+        verify(!hands.checked)
+        mouseClick(hands)
+        verify(page.spectatorsSeeHands)
+        mouseClick(spectators)
+        verify(!page.allowSpectators)
+        verify(!page.spectatorsSeeHands)
+        verify(!hands.visible)
+        page.submit()
+        verify(!mockWs.submittedRoom.spectators)
+        verify(!mockWs.submittedRoom.hands)
+        mouseClick(spectators)
+        verify(hands.visible)
+        verify(!hands.checked)
     }
 
     function test_createButtonStaysReachableOnLaptopHeight() {
@@ -100,5 +283,20 @@ TestCase {
              index < page.selectableFormatOptions.length; ++index) {
             verify(page.selectableFormatOptions[index].value !== "cube")
         }
+    }
+
+    function test_forgeSupportsBo3ButCommanderRemainsBo1() {
+        page.roomName = "Forge test"
+        page.rulesMode = "forge"
+        page.matchMode = "bo3"
+        const modes = findChild(page, "roomMatchModeControl")
+        compare(modes.options.length, 2)
+        page.submit()
+        compare(mockWs.submittedMatchMode, "bo3")
+        compare(mockWs.submittedRulesMode, "forge")
+        page.roomFormat = "edh"
+        compare(modes.options.length, 1)
+        page.submit()
+        compare(mockWs.submittedMatchMode, "bo1")
     }
 }

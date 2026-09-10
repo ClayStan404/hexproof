@@ -36,6 +36,9 @@ QtObject {
             return qsTr("Commander")
         case "cube":
             return qsTr("Cube")
+        case "commander_cube":
+        case "commander_limited":
+            return qsTr("Commander Cube")
         default:
             return format
         }
@@ -129,7 +132,7 @@ QtObject {
         case "Other":
             return qsTr("Other")
         default:
-            return category
+            return tr(category)
         }
     }
 
@@ -142,7 +145,142 @@ QtObject {
         return patternedStatus(source)
     }
 
+    // Log kind is server-owned. Never reinterpret user chat as an engine
+    // event, even when its text happens to look exactly like a rules message.
+    function gameLog(kind, source) {
+        if (kind === "chat" || !source)
+            return source
+        if (kind === "create_emblem") {
+            const match = source.match(/^(.+) created a (.+) emblem for (.+)\.$/)
+            return match ? formatRulesLog(qsTr("%1 created a %2 emblem for %3."),
+                                         [match[1], match[2], match[3]]) : source
+        }
+        if (kind === "remove_emblem") {
+            const match = source.match(/^(.+) removed their (.+) emblem\.$/)
+            return match ? formatRulesLog(qsTr("%1 removed their %2 emblem."),
+                                         [match[1], match[2]]) : source
+        }
+        if (kind === "commander_color") {
+            const match = source.match(/^(.+) chose ([WUBRG]) for (.+) \((s\d+-c\d+)\)\.$/)
+            if (!match) return source
+            const colors = {
+                W: qsTranslate("CardWorkbench", "White"), U: qsTranslate("CardWorkbench", "Blue"),
+                B: qsTranslate("CardWorkbench", "Black"), R: qsTranslate("CardWorkbench", "Red"),
+                G: qsTranslate("CardWorkbench", "Green")
+            }
+            return formatRulesLog(qsTr("%1 chose %2 for %3 (%4)."),
+                                  [match[1], colors[match[2]], match[3], match[4]])
+        }
+        if (String(kind).startsWith("rules_"))
+            return rulesGameLog(kind, source)
+        return status(source)
+    }
+
+    function rulesGameLog(kind, source) {
+        let match
+        switch (kind) {
+        case "rules_start":
+            match = source.match(/^Game (\d+) started \(Forge rules\)\.$/)
+            if (match)
+                return qsTr("Game %1 started (Forge rules).").arg(match[1])
+            break
+        case "rules_phase":
+            match = source.match(/^Turn (\d+): (.+) \((untap|upkeep|draw|main1|begin_combat|declare_attackers|declare_blockers|combat_damage|end_combat|main2|end|cleanup)\)\.$/)
+            if (match)
+                return formatRulesLog(qsTr("Turn %1: %2 (%3)."),
+                                      [match[1], match[2], gamePhaseLabel(match[3])])
+            break
+        case "rules_life":
+            match = source.match(/^(.+): life (-?\d+) → (-?\d+)\.$/)
+            if (match)
+                return formatRulesLog(qsTr("%1: life %2 → %3."), match.slice(1))
+            break
+        case "rules_status":
+            match = source.match(/^(.+): (playing|lost|conceded)\.$/)
+            if (match)
+                return formatRulesLog(qsTr("%1: %2."),
+                                      [match[1], rulesPlayerStatusLabel(match[2])])
+            break
+        case "rules_zone_count":
+            match = source.match(/^(.+): (hand|library) count (\d+) → (\d+)\.$/)
+            if (match)
+                return formatRulesLog(qsTr("%1: %2 count %3 → %4."),
+                                      [match[1], zoneLabel(match[2]), match[3], match[4]])
+            break
+        case "rules_card":
+            // Keep the whole actor/card prefix intact: both names may contain
+            // colons, so splitting that prefix would alter legitimate names.
+            match = source.match(/^(.+) (in|left) (battlefield|graveyard|exile|command)\.$/)
+            if (match) {
+                const prefix = rulesCardDescription(match[1])
+                return formatRulesLog(match[2] === "in" ? qsTr("%1 is in %2.")
+                                                       : qsTr("%1 left %2."),
+                                      [prefix, zoneLabel(match[3])])
+            }
+            break
+        case "rules_tap":
+            match = source.match(/^(.+) (tapped|untapped)\.$/)
+            if (match) {
+                const prefix = rulesCardDescription(match[1])
+                return match[2] === "tapped" ? qsTr("%1 tapped.").arg(prefix)
+                                             : qsTr("%1 untapped.").arg(prefix)
+            }
+            break
+        case "rules_stack":
+            match = source.match(/^(.+) put a spell or ability on the stack\.$/)
+            if (match)
+                return qsTr("%1 put a spell or ability on the stack.").arg(match[1])
+            match = source.match(/^A spell or ability controlled by (.+) left the stack\.$/)
+            if (match)
+                return qsTr("A spell or ability controlled by %1 left the stack.").arg(match[1])
+            break
+        case "rules_result":
+            if (source === "Game ended without a winner.")
+                return qsTr("Game ended without a winner.")
+            match = source.match(/^(.+) won the game\.$/)
+            if (match)
+                return qsTr("%1 won the game.").arg(match[1])
+            break
+        }
+        return source
+    }
+
+    function rulesCardDescription(prefix) {
+        const hidden = ": a face-down card"
+        return prefix.endsWith(hidden)
+                ? prefix.slice(0, -hidden.length) + ": " + qsTr("a face-down card")
+                : prefix
+    }
+
+    function formatRulesLog(template, values) {
+        // A player's literal "%2" is a name, not another formatting token.
+        return template.replace(/%([1-4])/g, function(token, index) {
+            return values[Number(index) - 1]
+        })
+    }
+
+    function rulesPlayerStatusLabel(playerStatus) {
+        switch (playerStatus) {
+        case "playing": return qsTr("Playing")
+        case "lost": return qsTr("Lost")
+        case "conceded": return qsTr("Conceded")
+        default: return playerStatus
+        }
+    }
+
+    function formatStatus(template, values) {
+        // Replace template tokens once so literal tokens in names stay intact.
+        return template.replace(/%([1-9][0-9]*)/g, function(token, index) {
+            const position = Number(index) - 1
+            return position < values.length ? String(values[position]) : token
+        })
+    }
+
     function patternedStatus(source) {
+        const artLocation = source.match(/^Card images were copied and verified\. Restart Hexproof to use the new location\. Original files were kept at ([\s\S]+)\.$/)
+        if (artLocation) {
+            return formatStatus(tr("Card images were copied and verified. Restart Hexproof to use the new location. Original files were kept at %1."), [artLocation[1]])
+        }
         if (source === "Checking deck legality…")
             return qsTr("Checking deck legality…")
         if (source === "Card database required to verify deck legality.")
@@ -180,19 +318,20 @@ QtObject {
             return qsTr("%1 is missing from the local card database.").arg(match[1])
         match = source.match(/^(.+) is not legal in (.+)\.$/)
         if (match)
-            return qsTr("%1 is not legal in %2.").arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 is not legal in %2."),
+                    [match[1], match[2]])
         match = source.match(/^(.+) is restricted to one copy in Vintage\.$/)
         if (match)
             return qsTr("%1 is restricted to one copy in Vintage.").arg(match[1])
         match = source.match(/^(.+) has (\d+) copies; commander formats are singleton\.$/)
         if (match) {
-            return qsTr("%1 has %2 copies; commander formats are singleton.")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 has %2 copies; commander formats are singleton."),
+                    [match[1], match[2]])
         }
         match = source.match(/^(.+) has (\d+) copies; this format allows at most four\.$/)
         if (match) {
-            return qsTr("%1 has %2 copies; this format allows at most four.")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 has %2 copies; this format allows at most four."),
+                    [match[1], match[2]])
         }
         match = source.match(/^(.+) is outside the commanders' color identity\.$/)
         if (match)
@@ -241,7 +380,8 @@ QtObject {
         }
         match = source.match(/^(\d+) main · (\d+) side(?: · (.+))?$/)
         if (match) {
-            return qsTr("%1 main · %2 side").arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 main · %2 side"),
+                    [match[1], match[2]])
                    + (match[3] ? " · " + match[3] : "")
         }
         match = source.match(
@@ -262,7 +402,8 @@ QtObject {
             return qsTr("%1 installed locally").arg(match[1])
         match = source.match(/^(\d+) of (\d+) seats filled$/)
         if (match)
-            return qsTr("%1 of %2 seats filled").arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 of %2 seats filled"),
+                    [match[1], match[2]])
         match = source.match(/^Remove (.+)\?$/)
         if (match)
             return qsTr("Remove %1?").arg(match[1])
@@ -283,7 +424,8 @@ QtObject {
             return qsTr("%n room(s) available", "", Number(match[1]))
         match = source.match(/^Line (\d+) was ignored: (.+)$/)
         if (match)
-            return qsTr("Line %1 was ignored: %2").arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("Line %1 was ignored: %2"),
+                    [match[1], match[2]])
         match = source.match(
                     /^Line (\d+) did not contain a usable card\.$/)
         if (match) {
@@ -295,7 +437,8 @@ QtObject {
             return qsTr("Game %1").arg(match[1])
         match = source.match(/^(.+) wins Game (\d+)$/)
         if (match)
-            return qsTr("%1 wins Game %2").arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 wins Game %2"),
+                    [match[1], match[2]])
         match = source.match(/^(.+) wins the match$/)
         if (match)
             return qsTr("%1 wins the match").arg(match[1])
@@ -303,8 +446,8 @@ QtObject {
         if (match) {
             const detail = qsTr("%1 conceded").arg(match[1])
             return match[2]
-                    ? qsTr("%1 · Score %2–%3")
-                      .arg(detail).arg(match[2]).arg(match[3])
+                    ? formatStatus(qsTr("%1 · Score %2–%3"),
+                    [detail, match[2], match[3]])
                     : detail
         }
         match = source.match(
@@ -312,8 +455,8 @@ QtObject {
         if (match) {
             const detail = qsTr("%1 left the match").arg(match[1])
             return match[2]
-                    ? qsTr("%1 · Score %2–%3")
-                      .arg(detail).arg(match[2]).arg(match[3])
+                    ? formatStatus(qsTr("%1 · Score %2–%3"),
+                    [detail, match[2], match[3]])
                     : detail
         }
         match = source.match(/^Caching (.+)…$/)
@@ -325,17 +468,14 @@ QtObject {
         match = source.match(
                     /^Catalog ready · (\d+) cards · (\d+) Chinese printings$/)
         if (match) {
-            return qsTr("Catalog ready · %1 cards · %2 Chinese printings")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("Catalog ready · %1 cards · %2 Chinese printings"),
+                    [match[1], match[2]])
         }
         match = source.match(
                     /^Could not cache (.+): (Scryfall Chinese metadata|Scryfall English metadata|MTGCH metadata|card image|card data) via ([^:]+): (.+)$/)
         if (match) {
-            return qsTr("Could not cache %1: %2 via %3: %4")
-                    .arg(match[1])
-                    .arg(cachePhaseLabel(match[2]))
-                    .arg(match[3])
-                    .arg(cacheReasonLabel(match[4]))
+            return formatStatus(qsTr("Could not cache %1: %2 via %3: %4"),
+                    [match[1], cachePhaseLabel(match[2]), match[3], cacheReasonLabel(match[4])])
         }
         match = source.match(/^Could not cache (.+)\.$/)
         if (match)
@@ -368,22 +508,23 @@ QtObject {
         match = source.match(
                     /^(.+) drew an opening hand of (\d+) cards\.$/)
         if (match) {
-            return qsTr("%1 drew an opening hand of %2 cards.")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 drew an opening hand of %2 cards."),
+                    [match[1], match[2]])
         }
         match = source.match(/^(.+) drew a card\.$/)
         if (match)
             return qsTr("%1 drew a card.").arg(match[1])
         match = source.match(/^(.+) drew (\d+) cards\.$/)
         if (match)
-            return qsTr("%1 drew %2 cards.").arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 drew %2 cards."),
+                    [match[1], match[2]])
         match = source.match(/^(.+) shuffled their library\.$/)
         if (match)
             return qsTr("%1 shuffled their library.").arg(match[1])
         match = source.match(/^(.+) left the match\. (.+) wins\.$/)
         if (match) {
-            return qsTr("%1 left the match. %2 wins.")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 left the match. %2 wins."),
+                    [match[1], match[2]])
         }
         match = source.match(/^(.+) left the game and was eliminated\.$/)
         if (match)
@@ -391,15 +532,14 @@ QtObject {
         match = source.match(
                     /^(.+) is searching (their|.+\'s) library\.$/)
         if (match) {
-            return qsTr("%1 is searching %2 library.")
-                    .arg(match[1]).arg(libraryOwnerLabel(match[2]))
+            return formatStatus(qsTr("%1 is searching %2 library."),
+                    [match[1], libraryOwnerLabel(match[2])])
         }
         match = source.match(
                     /^(.+) looked at the top (\d+) card\(s\) of (their|.+\'s) library\.$/)
         if (match) {
-            return qsTr("%1 looked at the top %2 card(s) of %3 library.")
-                    .arg(match[1]).arg(match[2])
-                    .arg(libraryOwnerLabel(match[3]))
+            return formatStatus(qsTr("%1 looked at the top %2 card(s) of %3 library."),
+                    [match[1], match[2], libraryOwnerLabel(match[3])])
         }
         match = source.match(/^(.+) attached a permanent\.$/)
         if (match)
@@ -410,82 +550,71 @@ QtObject {
         match = source.match(
                     /^(.+) took mulligan (\d+) and drew (\d+) cards\.$/)
         if (match) {
-            return qsTr("%1 took mulligan %2 and drew %3 cards.")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
+            return formatStatus(qsTr("%1 took mulligan %2 and drew %3 cards."),
+                    [match[1], match[2], match[3]])
         }
         match = source.match(
                     /^(.+) revealed (\d+) card\(s\) from hand\.$/)
         if (match) {
-            return qsTr("%1 revealed %2 card(s) from hand.")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 revealed %2 card(s) from hand."),
+                    [match[1], match[2]])
         }
         match = source.match(
                     /^(.+) searched (their|.+\'s) library and put (.+?) (face down onto .+|into .+|onto .+|on top of .+|on bottom of .+)\.$/)
         if (match) {
-            return qsTr("%1 searched %2 library and put %3 %4.")
-                    .arg(match[1])
-                    .arg(libraryOwnerLabel(match[2]))
-                    .arg(libraryCardDescriptionLabel(match[3]))
-                    .arg(searchDestinationLabel(match[4]))
+            return formatStatus(qsTr("%1 searched %2 library and put %3 %4."),
+                    [match[1], libraryOwnerLabel(match[2]), libraryCardDescriptionLabel(match[3]), searchDestinationLabel(match[4])])
         }
         match = source.match(
                     /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library and put (\d+) card\(s\) (face down onto .+|onto .+|into .+|on top of .+|on bottom of .+)\.$/)
         if (match) {
-            return qsTr("%1 resolved the top %2 card(s) of %3 library and put %4 card(s) %5.")
-                    .arg(match[1]).arg(match[2])
-                    .arg(libraryOwnerLabel(match[3])).arg(match[4])
-                    .arg(searchDestinationLabel(match[5]))
+            return formatStatus(qsTr("%1 resolved the top %2 card(s) of %3 library and put %4 card(s) %5."),
+                    [match[1], match[2], libraryOwnerLabel(match[3]), match[4], searchDestinationLabel(match[5])])
         }
         match = source.match(
                     /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library across (\d+) destination\(s\)\.$/)
         if (match) {
-            return qsTr("%1 resolved the top %2 card(s) of %3 library across %4 destination(s).")
-                    .arg(match[1]).arg(match[2])
-                    .arg(libraryOwnerLabel(match[3])).arg(match[4])
+            return formatStatus(qsTr("%1 resolved the top %2 card(s) of %3 library across %4 destination(s)."),
+                    [match[1], match[2], libraryOwnerLabel(match[3]), match[4]])
         }
         match = source.match(
                     /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library\.$/)
         if (match) {
-            return qsTr("%1 resolved the top %2 card(s) of %3 library.")
-                    .arg(match[1]).arg(match[2])
-                    .arg(libraryOwnerLabel(match[3]))
+            return formatStatus(qsTr("%1 resolved the top %2 card(s) of %3 library."),
+                    [match[1], match[2], libraryOwnerLabel(match[3])])
         }
         match = source.match(
                     /^(.+) moved (.+) from (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|.+\'s (?:graveyard|exile)) to (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|.+\'s battlefield)\.$/)
         if (match) {
-            return qsTr("%1 moved %2 from %3 to %4.")
-                    .arg(match[1]).arg(libraryCardDescriptionLabel(match[2]))
-                    .arg(libraryTargetLabel(match[3]))
-                    .arg(moveDestinationLabel(match[4]))
+            return formatStatus(qsTr("%1 moved %2 from %3 to %4."),
+                    [match[1], libraryCardDescriptionLabel(match[2]), libraryTargetLabel(match[3]), moveDestinationLabel(match[4])])
         }
         match = source.match(/^(.+) set (.+) on (.+) to (\d+)\.$/)
         if (match) {
-            return qsTr("%1 set %2 on %3 to %4.")
-                    .arg(match[1]).arg(match[2])
-                    .arg(match[3]).arg(match[4])
+            return formatStatus(qsTr("%1 set %2 on %3 to %4."),
+                    [match[1], match[2], match[3], match[4]])
         }
         match = source.match(
                     /^(.+) set life to (-?\d+) \(([+-]\d+)\)\.$/)
         if (match) {
-            return qsTr("%1 set life to %2 (%3).")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
+            return formatStatus(qsTr("%1 set life to %2 (%3)."),
+                    [match[1], match[2], match[3]])
         }
         match = source.match(
                     /^(.+) set (.+) to (-?\d+) \(([+-]\d+)\)\.$/)
         if (match) {
-            return qsTr("%1 set %2 to %3 (%4).")
-                    .arg(match[1]).arg(match[2])
-                    .arg(match[3]).arg(match[4])
+            return formatStatus(qsTr("%1 set %2 to %3 (%4)."),
+                    [match[1], match[2], match[3], match[4]])
         }
         match = source.match(/^(.+) renamed counter (.+) to (.+)\.$/)
         if (match) {
-            return qsTr("%1 renamed counter %2 to %3.")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
+            return formatStatus(qsTr("%1 renamed counter %2 to %3."),
+                    [match[1], match[2], match[3]])
         }
         match = source.match(/^(.+) advanced to the (.+) step\.$/)
         if (match) {
-            return qsTr("%1 advanced to the %2 step.")
-                    .arg(match[1]).arg(gamePhaseLabel(match[2]))
+            return formatStatus(qsTr("%1 advanced to the %2 step."),
+                    [match[1], gamePhaseLabel(match[2])])
         }
         match = source.match(/^(.+) began their turn\.$/)
         if (match)
@@ -493,52 +622,49 @@ QtObject {
         match = source.match(
                     /^(.+) recorded (.+) as land play (\d+) this turn\.$/)
         if (match) {
-            return qsTr("%1 recorded %2 as land play %3 this turn.")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
+            return formatStatus(qsTr("%1 recorded %2 as land play %3 this turn."),
+                    [match[1], match[2], match[3]])
         }
         match = source.match(
                     /^(.+) set recorded land plays this turn to (\d+)\.$/)
         if (match) {
-            return qsTr("%1 set recorded land plays this turn to %2.")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 set recorded land plays this turn to %2."),
+                    [match[1], match[2]])
         }
         match = source.match(
                     /^(.+) declared (\d+) attacker\(s\) toward (.+)\.$/)
         if (match) {
-            return qsTr("%1 declared %2 attacker(s) toward %3.")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
+            return formatStatus(qsTr("%1 declared %2 attacker(s) toward %3."),
+                    [match[1], match[2], match[3]])
         }
         match = source.match(/^(.+) declared (\d+) blocker\(s\)\.$/)
         if (match) {
-            return qsTr("%1 declared %2 blocker(s).")
-                    .arg(match[1]).arg(match[2])
+            return formatStatus(qsTr("%1 declared %2 blocker(s)."),
+                    [match[1], match[2]])
         }
         match = source.match(
                     /^(.+) cast (.+) from the command zone; the next additional cost is \+(\d+)\.$/)
         if (match) {
-            return qsTr("%1 cast %2 from the command zone; the next additional cost is +%3.")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
+            return formatStatus(qsTr("%1 cast %2 from the command zone; the next additional cost is +%3."),
+                    [match[1], match[2], match[3]])
         }
         match = source.match(
                     /^(.+) set (.+) command-zone cast count to (\d+); additional cost is \+(\d+)\.$/)
         if (match) {
-            return qsTr("%1 set %2 command-zone cast count to %3; additional cost is +%4.")
-                    .arg(match[1]).arg(match[2])
-                    .arg(match[3]).arg(match[4])
+            return formatStatus(qsTr("%1 set %2 command-zone cast count to %3; additional cost is +%4."),
+                    [match[1], match[2], match[3], match[4]])
         }
         match = source.match(
                     /^(.+) recorded (\d+) combat damage from (.+) to (.+); commander damage is now (\d+)\.$/)
         if (match) {
-            return qsTr("%1 recorded %2 combat damage from %3 to %4; commander damage is now %5.")
-                    .arg(match[1]).arg(match[2]).arg(match[3])
-                    .arg(match[4]).arg(match[5])
+            return formatStatus(qsTr("%1 recorded %2 combat damage from %3 to %4; commander damage is now %5."),
+                    [match[1], match[2], match[3], match[4], match[5]])
         }
         match = source.match(
                     /^(.+) set commander damage from (.+) to (.+) to (\d+)\.$/)
         if (match) {
-            return qsTr("%1 set commander damage from %2 to %3 to %4.")
-                    .arg(match[1]).arg(match[2])
-                    .arg(match[3]).arg(match[4])
+            return formatStatus(qsTr("%1 set commander damage from %2 to %3 to %4."),
+                    [match[1], match[2], match[3], match[4]])
         }
         match = source.match(/^(.+) has no response\.$/)
         if (match)
@@ -550,6 +676,17 @@ QtObject {
     }
 
     function gamePhaseLabel(phase) {
+        const phaseNames = {
+            "untap": "Untap", "upkeep": "Upkeep", "draw": "Draw",
+            "main1": "Main 1", "begin_combat": "Begin combat",
+            "declare_attackers": "Attackers", "declare_blockers": "Blockers",
+            "combat_damage": "Damage", "end_combat": "End combat",
+            "main2": "Main 2", "end": "End"
+        }
+        if (Object.prototype.hasOwnProperty.call(phaseNames, phase))
+            return tr(phaseNames[phase])
+        if (phase === "cleanup")
+            return qsTranslate("RulesTable", "Cleanup")
         switch (phase) {
         case "Untap":
         case "Upkeep":
@@ -633,8 +770,8 @@ QtObject {
         const ownedZone = target.match(
                               /^(.+)\'s (hand|battlefield|graveyard|exile)$/)
         if (ownedZone) {
-            return qsTr("%1's %2").arg(ownedZone[1])
-                    .arg(zoneLabel(ownedZone[2]))
+            return formatStatus(qsTr("%1's %2"),
+                    [ownedZone[1], zoneLabel(ownedZone[2])])
         }
         return zoneLabel(target)
     }

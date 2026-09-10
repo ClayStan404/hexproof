@@ -5,12 +5,15 @@
 #include "ApplicationPaths.h"
 #include "CardArtCache.h"
 #include "CardArtManager.h"
+#include "CardArtStorage.h"
 #include "CardCatalogCommon.h"
+#include "CardCatalogFaceExpansionState.h"
 #include "CardImageProvider.h"
 #include "CardResolver.h"
 #include "CatalogInstaller.h"
 #include "CatalogRepository.h"
 #include "CatalogStorage.h"
+#include "CustomCardArtStore.h"
 
 namespace hexproof::client {
 using namespace catalog_internal;
@@ -31,7 +34,12 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
       m_storageRoot(storageRoot),
       m_databasePath(QDir(storageRoot).filePath(QStringLiteral("cards.sqlite"))),
       m_catalogMetadataPath(QDir(storageRoot).filePath(QStringLiteral("catalog.json"))),
-      m_artCache(std::make_unique<CardArtCache>(storageRoot))
+      m_artStorage(std::make_unique<CardArtStorage>(storageRoot)),
+      m_customArt(
+          std::make_unique<CustomCardArtStore>(storageRoot, m_artStorage->customImageRoot())),
+      m_artCache(std::make_unique<CardArtCache>(storageRoot, m_artStorage->imageRoot(),
+                                                m_artStorage->previousImageRoots(),
+                                                m_artStorage->available()))
 {
     if (network) {
         m_network = network;
@@ -63,6 +71,10 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
     CardResolver::Callbacks resolverCallbacks;
     resolverCallbacks.lookupCatalog = [this](const CardRequest &request) {
         return lookupCatalog(request);
+    };
+    resolverCallbacks.metadataAvailable = [this](const CardRequest &request,
+                                                 const CardRecord &record) {
+        cacheResolvedMetadata(request, record);
     };
     resolverCallbacks.lookupLocalizedPrinting = [this](const CardRequest &request,
                                                        const CardRecord &identity) {
@@ -98,6 +110,11 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
             clearGuiQueryCaches();
         }
         m_catalogBusy = busy;
+        if (busy) {
+            ++m_tokenEnrichGeneration;
+            if (m_tokenSearchRequested)
+                searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind);
+        }
         emit busyChanged();
     };
     installer->onProgressChanged = [this](qreal progress) { setProgress(progress); };
@@ -111,10 +128,43 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
     };
 
     m_artManager = std::make_unique<CardArtManager>(m_storageRoot, m_artCache.get());
-    m_artManager->setOperationGuard([this]() {
-        return !m_shuttingDown && !m_catalogBusy && !m_resolving && !m_searching &&
-               !m_tokenSearching && !m_limitedArtCaching;
+    m_artCache->onSaveFinished = [this](bool success) {
+        if (!success)
+            setLastError(QStringLiteral("Could not save the card image cache."));
+    };
+    m_artManager->setOperationGuard([this]() { return artOperationsIdle() && artWritesAllowed(); });
+    m_customArt->setOperationGuard([this]() {
+        // Custom mappings and blobs do not share the ordinary cache's files.
+        // Downloads, cache hydration and searches must not prevent a restore.
+        // Only identity-database replacement and image-storage migration
+        // conflict with a custom operation.
+        return !m_shuttingDown && !m_catalogBusy && m_artStorage->writesAllowed();
     });
+    m_artStorage->setOperationGuard([this]() {
+        return artOperationsIdle() && !m_customArt->busy() && !m_artManager->busy() &&
+               (!m_artCache->dirty() || saveResolutionCache());
+    });
+    const auto storageStateChanged = [this]() {
+        m_artStorageBusy = m_artStorage->busy();
+        m_artCache->setWritable(m_artStorage->writesAllowed());
+        emit busyChanged();
+        if (m_artStorage->writesAllowed() && !QCoreApplication::closingDown())
+            QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
+    };
+    connect(m_artStorage.get(), &CardArtStorage::busyChanged, this, storageStateChanged);
+    connect(m_artStorage.get(), &CardArtStorage::restartRequiredChanged, this, storageStateChanged);
+    connect(m_customArt.get(), &CustomCardArtStore::busyChanged, this, [this]() {
+        m_customArtBusy = m_customArt->busy();
+        emit busyChanged();
+        if (!m_customArt->busy() && !QCoreApplication::closingDown())
+            QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
+    });
+    connect(m_customArt.get(), &CustomCardArtStore::bindingsChanged, this,
+            [this](const QVariantList &bindings) {
+                ++m_imageRevision;
+                emit imageRevisionChanged();
+                emit customArtContentsChanged(bindings);
+            });
     connect(m_artManager.get(), &CardArtManager::busyChanged, this, [this]() {
         m_artCacheBusy = m_artManager && m_artManager->busy();
         emit busyChanged();
@@ -136,6 +186,10 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
 CardCatalog::~CardCatalog()
 {
     m_shuttingDown = true;
+    ++m_faceExpansionSerial;
+    m_faceExpansion.reset();
+    ++m_limitedArtFaceExpansionSerial;
+    m_limitedArtFaceExpansion.reset();
     m_artManager.reset();
     m_guiCatalog.reset();
     const auto directReplies = m_directImageJobs.keys();
@@ -177,16 +231,21 @@ void CardCatalog::setLanguage(const QString &language)
     if (normalized == m_language)
         return;
     m_language = normalized;
+    ++m_tokenEnrichGeneration;
     clearGuiQueryCaches();
+    restartCardFaceExpansion();
+    restartLimitedArtFaceExpansion();
     ++m_imageRevision;
     emit imageRevisionChanged();
     emit languageChanged();
+    if (m_tokenSearchRequested)
+        searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind);
     if (installed() && (!m_lastSearchQuery.isEmpty() || !m_lastTypeFilter.isEmpty() ||
                         !m_lastSetFilter.isEmpty() || !m_lastLanguageFilter.isEmpty() ||
                         !m_lastColorFilter.isEmpty() || !m_lastRarityFilter.isEmpty() ||
-                        !m_lastLegalityFilter.isEmpty())) {
+                        !m_lastLegalityFilter.isEmpty() || !m_lastManaFilter.isEmpty())) {
         search(m_lastSearchQuery, m_lastTypeFilter, m_lastSetFilter, m_lastLanguageFilter,
-               m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter);
+               m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter, m_lastManaFilter);
     }
 }
 

@@ -25,6 +25,7 @@ Item {
     property alias libraryPositionEditor: libraryPositionEditor
     property alias handLibraryPositionEditor: handLibraryPositionEditor
     property alias tokenPicker: tokenPicker
+    property alias emblemBrowser: emblemBrowser
     property alias commanderDamagePopup: commanderDamagePopup
     property var pendingLibraryPlacement: null
 
@@ -165,13 +166,13 @@ Item {
         id: shuffleReminder
         objectName: "shuffleLibraryReminder"
         titleText: root.pendingLibraryPlacement
-                   ? qsTr("Shuffle before placing cards?")
-                   : qsTr("Shuffle your library?")
+                   ? qsTranslate("Table", "Shuffle before placing cards?")
+                   : qsTranslate("Table", "Shuffle your library?")
         message: root.pendingLibraryPlacement
-                 ? qsTr("The selected cards will be placed at the chosen end of the library after the shuffle. Cancel to place them without shuffling.")
-                 : qsTr("Searching a library does not shuffle it automatically. Shuffle now if the card effect requires it.")
+                 ? qsTranslate("Table", "The selected cards will be placed at the chosen end of the library after the shuffle. Cancel to place them without shuffling.")
+                 : qsTranslate("Table", "Searching a library does not shuffle it automatically. Shuffle now if the card effect requires it.")
         confirmText: root.pendingLibraryPlacement
-                     ? qsTr("Shuffle, then place") : qsTr("Shuffle")
+                     ? qsTranslate("Table", "Shuffle, then place") : qsTranslate("Table", "Shuffle")
         onConfirmed: {
             if (root.pendingLibraryPlacement) {
                 root.completePendingLibraryPlacement(true)
@@ -221,10 +222,10 @@ Item {
     NumberInputPopup {
         id: drawCardsEditor
         objectName: "drawCardsPopup"
-        titleText: qsTr("Draw multiple cards")
-        message: qsTr("Enter how many cards to draw from your library.")
-        placeholderText: qsTr("Number of cards")
-        confirmText: qsTr("Draw")
+        titleText: qsTranslate("Table", "Draw multiple cards")
+        message: qsTranslate("Table", "Enter how many cards to draw from your library.")
+        placeholderText: qsTranslate("Table", "Number of cards")
+        confirmText: qsTranslate("Table", "Draw")
         minimumValue: 1
         maximumValue: Math.max(1, Math.min(
                                    1000, root.tableController.ownSeatData.libraryCount))
@@ -243,10 +244,10 @@ Item {
             showFor(value)
         }
 
-        titleText: qsTr("View top cards")
-        message: qsTr("Enter how many cards to view.")
-        placeholderText: qsTr("Number of cards")
-        confirmText: qsTr("View")
+        titleText: qsTranslate("Table", "View top cards")
+        message: qsTranslate("Table", "Enter how many cards to view.")
+        placeholderText: qsTranslate("Table", "Number of cards")
+        confirmText: qsTranslate("Table", "View")
         minimumValue: 1
         maximumValue: Math.max(1, Math.min(
                                    1000, sourceLibraryCount))
@@ -258,11 +259,11 @@ Item {
         id: libraryMoveCardsEditor
         objectName: "libraryMoveCardsPopup"
         titleText: root.tableController.libraryMoveDestination === "exile"
-                   ? qsTr("Put cards into exile")
-                   : qsTr("Put cards into graveyard")
-        message: qsTr("Enter how many cards to move from the top of your library.")
-        placeholderText: qsTr("Number of cards")
-        confirmText: qsTr("Move")
+                   ? qsTranslate("Table", "Put cards into exile")
+                   : qsTranslate("Table", "Put cards into graveyard")
+        message: qsTranslate("Table", "Enter how many cards to move from the top of your library.")
+        placeholderText: qsTranslate("Table", "Number of cards")
+        confirmText: qsTranslate("Table", "Move")
         minimumValue: 1
         maximumValue: Math.max(1, Math.min(
                                    1000, root.tableController.ownSeatData.libraryCount))
@@ -284,10 +285,10 @@ Item {
     NumberInputPopup {
         id: playerCounterValueEditor
         objectName: "playerCounterValuePopup"
-        titleText: qsTr("Set counter value")
-        message: qsTr("Enter an exact number for the selected counter.")
-        placeholderText: qsTr("Counter value")
-        confirmText: qsTr("Set")
+        titleText: qsTranslate("Table", "Set counter value")
+        message: qsTranslate("Table", "Enter an exact number for the selected counter.")
+        placeholderText: qsTranslate("Table", "Counter value")
+        confirmText: qsTranslate("Table", "Set")
         minimumValue: -2147483648
         maximumValue: 2147483647
         onValueRequested: value =>
@@ -338,6 +339,15 @@ Item {
         catalogModel: root.tableController.cardCatalogModel
         preferredTokens: root.tableController.deckLibraryModel
                          ? root.tableController.deckLibraryModel.activeMatchTokens : []
+        allowEmblemRecipient: true
+        defaultRecipientSeat: root.tableController.roomSession.seatIndex
+        players: (root.tableController.battlefieldSeats || [])
+                 .filter(seat => !seat.eliminated)
+                 .map(seat => ({seat: seat.seat, label: seat.displayName || qsTr("Seat %1").arg(seat.seat + 1)}))
+        onEmblemSelected: function(emblem, seat) {
+            if (root.tableController.canAct)
+                root.tableController.wsModel.createEmblem(seat, emblem)
+        }
         onTokenSelected: function(token) {
             const seat = root.tableController.roomSession.seatIndex
             root.tableController.wsModel.createToken(
@@ -345,5 +355,11 @@ Item {
                         root.tableController.cardMoveCommands.smartBattlefieldPosition(
                             seat, token, ""))
         }
+    }
+
+    EmblemBrowser {
+        id: emblemBrowser
+        objectName: "emblemBrowser"
+        tableController: root.tableController
     }
 }

@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+package tournament
+
+import (
+	"fmt"
+	"testing"
+
+	"hexproof/server/internal/protocol"
+)
+
+func TestCubeInitialTableFollowsCompleteConstructionOnce(t *testing.T) {
+	for _, profile := range []struct {
+		eventType string
+		seats     int
+		wantTable bool
+	}{
+		{protocol.LimitedEventCubeDraft, 2, true},
+		{protocol.LimitedEventCubeDraft, 3, false},
+		{protocol.LimitedEventCubeDraft, 4, false},
+		{protocol.LimitedEventCubeDraft, 8, false},
+		{protocol.LimitedEventCommanderCube, 2, true},
+		{protocol.LimitedEventCommanderCube, 3, true},
+		{protocol.LimitedEventCommanderCube, 4, true},
+	} {
+		t.Run(fmt.Sprintf("%s_%d", profile.eventType, profile.seats), func(t *testing.T) {
+			event, _ := seatControlDraft(t, profile.eventType, protocol.LimitedCoordinatorCasual, profile.seats)
+			finishSeatControlDraft(t, event)
+			for index := range event.Participants {
+				if event.Stage != protocol.LimitedStageDeckBuilding || len(event.CasualPairings) != 0 {
+					t.Fatal("table opened before every active player submitted")
+				}
+				submitSeatControlDeck(t, event, index)
+			}
+			if event.Stage != protocol.LimitedStageCompetition || !event.Limited.AllDecksSubmitted() {
+				t.Fatal("complete construction did not enter free play")
+			}
+			if !profile.wantTable {
+				if len(event.CasualPairings) != 0 {
+					t.Fatal("normal multiplayer pod silently selected opponents")
+				}
+				return
+			}
+			if len(event.CasualPairings) != 1 {
+				t.Fatal("complete pod did not receive one initial table")
+			}
+			pair := &event.CasualPairings[0]
+			if pair.Invited || pair.Bye() || pair.RoomID != "" || !pair.InitialCubeTable ||
+				len(pair.ParticipantIDs()) != profile.seats {
+				t.Fatal("initial table unexpectedly needs invitation consent or lost a participant")
+			}
+			for _, participant := range event.Participants {
+				if !pair.AutoEntryPending(participant.ID) || event.CurrentPairing(participant.ID) != pair {
+					t.Fatal("participant lacks a reserved initial seat and entry request")
+				}
+			}
+			if event.IsCommanderCube() && len(pair.Group.AcceptedPlayerIDs) != profile.seats {
+				t.Fatal("initial Commander table was not accepted for its whole pod")
+			}
+			if err := event.SetPairingRoom(actorFor(event, 0), pair.ID, "FIRST1"); err != nil {
+				t.Fatal(err)
+			}
+			event.MarkCubeTableEntered(event.Participants[0].ID, pair.ID)
+			if pair.AutoEntryPending(event.Participants[0].ID) || !pair.AutoEntryPending(event.Participants[1].ID) {
+				t.Fatal("one entry consumed another player's request")
+			}
+			event.ClearRoom("FIRST1")
+			submitSeatControlDeck(t, event, 0)
+			if len(event.CasualPairings) != 0 {
+				t.Fatal("editing after leaving recreated the initial table")
+			}
+		})
+	}
+}
+
+func TestCubeInitialTableExcludesWithdrawnSeatsAndSurvivesOfflineSeats(t *testing.T) {
+	for _, eventType := range []string{protocol.LimitedEventCubeDraft, protocol.LimitedEventCommanderCube} {
+		t.Run(eventType, func(t *testing.T) {
+			event, _ := seatControlDraft(t, eventType, protocol.LimitedCoordinatorCasual, 3)
+			finishSeatControlDraft(t, event)
+			submitSeatControlDeck(t, event, 0)
+			submitSeatControlDeck(t, event, 1)
+			first, second, withdrawn := actorFor(event, 0), actorFor(event, 1), actorFor(event, 2)
+			event.Disconnect(second.ConnectionID, testNow)
+			if err := event.SetCubeParticipation(withdrawn, false); err != nil {
+				t.Fatal(err)
+			}
+			pair := event.CurrentPairing(first.ParticipantID)
+			if pair == nil || len(pair.ParticipantIDs()) != 2 || !pair.HasParticipant(second.ParticipantID) ||
+				pair.HasParticipant(withdrawn.ParticipantID) {
+				t.Fatal("withdrawal transition omitted a submitted offline seat or included a withdrawn seat")
+			}
+			event.Disconnect(first.ConnectionID, testNow)
+			if len(event.CasualPairings) != 1 || !pair.AutoEntryPending(first.ParticipantID) ||
+				!pair.AutoEntryPending(second.ParticipantID) {
+				t.Fatal("short disconnect discarded the initial table")
+			}
+			if _, _, ok := event.BindCredential(CredentialHash("token-0"), "replacement", testNow); !ok {
+				t.Fatal("rebind failed")
+			}
+			first.ConnectionID = "replacement"
+			var err error
+			if event.IsCommanderCube() {
+				err = event.CommanderCubeMatch(first, protocol.LimitedCreateCasualMatch{Action: "cancel", PairingID: pair.ID})
+			} else {
+				err = event.CancelCubeMatch(first, first.ParticipantID, second.ParticipantID)
+			}
+			if err != nil || len(event.CasualPairings) != 0 {
+				t.Fatal("explicit cancellation could not release the initial table")
+			}
+			submitSeatControlDeck(t, event, 0)
+			if len(event.CasualPairings) != 0 {
+				t.Fatal("cancelled initial table reappeared")
+			}
+		})
+	}
+}
+
+func TestCommanderCubeCapacityIsOneTwoToFourPlayerTable(t *testing.T) {
+	product := tournamentLimitedProduct()
+	product.ProductType, product.CardsPerPack, product.Variants, product.Authentic = "cube", 0, nil, false
+	for index := range product.Sheets[0].Cards {
+		product.Sheets[0].Cards[index].Weight = 8
+	}
+	for _, seats := range []int{0, 1, 2, 3, 4, 5, 8} {
+		event, err := New("CAPCMD", Config{Name: "Commander", Format: protocol.FormatEDH, EventType: protocol.LimitedEventCommanderCube,
+			Coordinator: protocol.LimitedCoordinatorCasual, MatchMode: protocol.MatchBO1, MaxPlayers: seats,
+			Product: &product}, "Host", "host", CredentialHash("token"), testNow)
+		if seats == 1 || seats > 4 {
+			if err == nil {
+				t.Fatalf("accepted %d Commander Cube seats", seats)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := seats
+		if want == 0 {
+			want = 4
+		}
+		if event.MaxPlayers != want {
+			t.Fatalf("capacity=%d, want %d", event.MaxPlayers, want)
+		}
+	}
+}

@@ -17,7 +17,12 @@ and every matching shared fixture; transport messages with an empty payload use
 the shared `EmptyPayload` contract. Core Qt command builders are also statically
 checked so their emitted field names cannot drift independently.
 
-Regenerate both language bindings after changing it:
+The `replay.*` messages remain server compatibility endpoints after removal of
+the client replay UI. Their wire constants, payload schemas, Go mappings, privacy
+checks, and fixtures stay intact; they no longer have Qt command builders.
+
+Update affected schemas, fixtures, and handwritten Go/Qt payload mappings
+together, then regenerate both language bindings:
 
 ```sh
 python3 tools/protocol_codegen.py
@@ -35,3 +40,9 @@ payload fields, required/optional tags, nested object types, controlled string
 values, and unknown fields. Payload coverage is complete except the reserved,
 unused `room.event` type; every other registered message has a payload schema
 and shared fixture.
+
+The generator validates schemas, fixtures, and handwritten payload mappings
+before writing generated files. Validation failure leaves previous bindings
+untouched. Parity checks inspect the resulting contracts, not the spelling of
+an import in the generator; package-local source organization may change while
+the wire shape stays identical.

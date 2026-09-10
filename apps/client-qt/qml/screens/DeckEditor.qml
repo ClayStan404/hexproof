@@ -11,9 +11,13 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
+    readonly property var customArtStore: typeof customCardArtStore !== "undefined"
+                                         ? customCardArtStore : null
     readonly property var formatOptions: I18n.deckFormatOptions()
-    property string pendingDeckFilterQuery: ""
-    property string deckFilterQuery: ""
+    readonly property string deckFilterQuery: localFilters.query
+    property alias cardFilters: localFilters
+    CardFilterState { id: localFilters }
+    readonly property bool compactLayout: width < Theme.size(1000)
     property string searchTarget: "deck"
     property string pendingDeckFormat: ""
     property bool deckScrollRestorePending: false
@@ -30,7 +34,7 @@ Page {
 
     background: AppBackground { }
 
-    ScreenHeader {
+    RowLayout {
         id: header
         anchors.top: parent.top
         anchors.left: parent.left
@@ -38,26 +42,30 @@ Page {
         anchors.topMargin: Theme.size(22)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        title: deckLibrary.currentDeckName.length > 0 ? deckLibrary.currentDeckName : qsTr("Deck editor")
-        subtitle: qsTr("Changes save automatically")
-        onBackRequested: root.closeEditor()
+        spacing: Theme.size(16)
+        ScreenHeader {
+            Layout.fillWidth: true
+            title: deckLibrary.currentDeckName.length > 0 ? deckLibrary.currentDeckName : qsTr("Deck editor")
+            subtitle: qsTr("Changes save automatically")
+            onBackRequested: root.closeEditor()
+        }
+
+        AppComboBox {
+            id: formatSelector
+            objectName: "deckFormatSelector"
+            Layout.preferredWidth: Theme.size(190)
+            model: root.formatOptions
+            textRole: "label"
+            valueRole: "value"
+            currentIndex: root.formatIndex(deckLibrary.currentDeckFormat)
+            onActivated: index => root.requestFormatChange(index)
+        }
+
     }
 
-    AppComboBox {
-        id: formatSelector
-        objectName: "deckFormatSelector"
-        anchors.right: header.right
-        anchors.verticalCenter: header.verticalCenter
-        width: Theme.size(190)
-        z: 1
-        model: root.formatOptions
-        textRole: "label"
-        valueRole: "value"
-        currentIndex: root.formatIndex(deckLibrary.currentDeckFormat)
-        onActivated: index => root.requestFormatChange(index)
-    }
-
-    RowLayout {
+    Flickable {
+        id: editorBody
+        objectName: "deckEditorBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -66,531 +74,545 @@ Page {
         anchors.bottomMargin: Theme.size(24)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        spacing: Theme.size(16)
+        contentWidth: width
+        contentHeight: editorContent.height
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-        Surface {
-            id: mainSurface
-            objectName: "deckEditorMainSurface"
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            Layout.fillHeight: true
-            elevated: true
-            clip: true
-
-            DropArea {
-                anchors.fill: parent
-                keys: ["application/x-hexproof-card"]
-                onDropped: drop => {
-                    const name = drop.getDataAsString("application/x-hexproof-card")
-                    const fromSideboard = drop.getDataAsString("application/x-hexproof-sideboard") === "true"
-                    if (fromSideboard && deckLibrary.moveCard(name, false))
-                        drop.acceptProposedAction()
-                }
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: Theme.size(20)
-                spacing: Theme.size(10)
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    spacing: Theme.size(8)
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        spacing: Theme.size(10)
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            spacing: Theme.size(2)
-
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.cubeFormat ? qsTr("Cube pool") : qsTr("Main deck")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(18)
-                                font.weight: Font.DemiBold
-                            }
-
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: root.cubeFormat
-                                      ? qsTr("%n physical card(s) · Exact printings required",
-                                             "", deckLibrary.currentMainCount)
-                                      : qsTr(
-                                          "%n cards · Drag a card here from the sideboard",
-                                          "", deckLibrary.currentMainCount)
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(11)
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        StatusPill {
-                            text: I18n.status(deckLibrary.currentStatus)
-                            statusColor: deckLibrary.currentReady
-                                         && deckLibrary.currentValidationVerified
-                                         && deckLibrary.currentValidationWarnings.length === 0
-                                         ? Theme.success
-                                         : (!deckLibrary.currentValidationVerified
-                                            || deckLibrary.currentValidationWarnings.indexOf(
-                                                deckLibrary.currentStatus) >= 0
-                                            ? Theme.warning
-                                         : (deckLibrary.currentStatus === "Commander required"
-                                            ? Theme.warning : Theme.textMuted))
-                            ToolTip.visible: legalityStatusHover.hovered
-                                             && deckLibrary.currentValidationIssues.length > 0
-                            ToolTip.delay: 350
-                            ToolTip.text: deckLibrary.currentValidationIssues
-                                          .map(issue => I18n.status(issue)).join("\n")
-                            HoverHandler { id: legalityStatusHover }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        spacing: Theme.size(10)
-
-                        AppButton {
-                            objectName: "exportCurrentDeckButton"
-                            compact: true
-                            text: qsTr("Export")
-                            enabled: deckLibrary.currentDeckId.length > 0
-                            onClicked: exportDialog.open()
-                        }
-
-                        AppButton {
-                            objectName: "cacheCurrentDeckArtButton"
-                            compact: true
-                            text: qsTr("Cache art")
-                            enabled: deckLibrary.currentDeckId.length > 0
-                                     && !cardCatalog.busy
-                            onClicked: deckLibrary.cacheCurrentDeckArt()
-                        }
-
-                        AppButton {
-                            objectName: "manageConsiderButton"
-                            compact: true
-                            text: qsTr("Consider (%1)").arg(
-                                      deckLibrary.currentConsiderCount)
-                            onClicked: considerManager.open()
-                        }
-
-                        AppTextField {
-                            id: deckFilterField
-                            objectName: "deckFilterField"
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: Theme.size(100)
-                            Layout.preferredWidth: Theme.size(240)
-                            implicitHeight: Theme.size(40)
-                            placeholderText: qsTr("Search this deck…")
-                            onTextEdited: {
-                                root.pendingDeckFilterQuery = text
-                                deckFilterTimer.restart()
-                            }
-                            onAccepted: root.applyDeckFilter()
-                        }
-
-                        AppTextField {
-                            id: nameField
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: Theme.size(100)
-                            Layout.preferredWidth: Theme.size(240)
-                            implicitHeight: Theme.size(40)
-                            placeholderText: qsTr("Deck name")
-                            onAccepted: deckLibrary.renameCurrentDeck(text)
-                            onEditingFinished: deckLibrary.renameCurrentDeck(text)
-                            Component.onCompleted: text = deckLibrary.currentDeckName
-                        }
-                    }
-                }
-
-                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
-
-                DeckMainCollection {
-                    id: mainCollection
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.fillHeight: true
-                    cards: root.filteredMainCards
-                    deckLibraryModel: deckLibrary
-                    catalogModel: cardCatalog
-                    commanderFormat: root.commanderFormat
-                    cubeFormat: root.cubeFormat
-                    searchActive: root.deckFilterQuery.trim().length > 0
-                    sideboardDropTarget: sideboardSurface
-                    onPrintingRequested: card => printingPicker.showFor(card, false)
-                }
-            }
-        }
-
-        ColumnLayout {
-            Layout.preferredWidth: root.width < Theme.size(1050)
-                                   ? Theme.size(310) : Theme.size(390)
-            Layout.minimumWidth: Theme.size(280)
-            Layout.maximumWidth: Theme.size(420)
-            Layout.fillHeight: true
-            spacing: Theme.size(16)
+        GridLayout {
+            id: editorContent
+            width: editorBody.width
+            height: Math.max(editorBody.height, implicitHeight)
+            columns: root.compactLayout ? 1 : 2
+            columnSpacing: Theme.size(16)
+            rowSpacing: Theme.size(16)
 
             Surface {
+                id: mainSurface
+                objectName: "deckEditorMainSurface"
                 Layout.fillWidth: true
-                Layout.preferredHeight: cardCatalog.installed ? Theme.size(138) : Theme.size(230)
-                elevated: true
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(18)
-                    spacing: Theme.size(9)
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Card search")
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(16)
-                            font.weight: Font.DemiBold
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        StatusPill {
-                            text: !cardCatalog.installed ? qsTr("Database needed")
-                                  : (cardCatalog.enhancedIndexInstalled
-                                     && cardCatalog.chineseIndexInstalled
-                                     ? qsTr("Offline catalog") : qsTr("Update needed"))
-                            statusColor: cardCatalog.enhancedIndexInstalled
-                                         && cardCatalog.chineseIndexInstalled
-                                         ? Theme.success : Theme.warning
-                        }
-                    }
-
-                    AppButton {
-                        Layout.fillWidth: true
-                        leadingText: "⌕"
-                        text: qsTr("Search card names…")
-                        enabled: cardCatalog.installed
-                        onClicked: root.openCardSearch("deck")
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        visible: !cardCatalog.installed
-                        Layout.fillWidth: true
-                        text: qsTr("Download a metadata package to search every card while offline.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(11)
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                    }
-
-                    AppButton {
-                        visible: !cardCatalog.installed
-                        Layout.alignment: Qt.AlignHCenter
-                        compact: true
-                        text: qsTr("Database settings")
-                        onClicked: root.appWindow.pushScreen("screens/Settings.qml")
-                    }
-                }
-            }
-
-            Surface {
-                id: tokenSurface
-                objectName: "deckTokenSurface"
-                Layout.fillWidth: true
-                Layout.preferredHeight: Theme.size(138)
-                elevated: true
-                visible: !root.cubeFormat
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(16)
-                    spacing: Theme.size(10)
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.size(10)
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(2)
-
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Deck tokens")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(16)
-                                font.weight: Font.DemiBold
-                            }
-
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: deckLibrary.currentTokens.length > 0
-                                      ? root.deckTokenSummary()
-                                      : qsTr("No saved tokens")
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(10)
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        StatusPill {
-                            text: qsTr("%1 saved").arg(
-                                      deckLibrary.currentTokens.length)
-                            statusColor: deckLibrary.currentTokens.length > 0
-                                         ? Theme.primary : Theme.textMuted
-                        }
-                    }
-
-                    AppButton {
-                        objectName: "manageDeckTokensButton"
-                        Layout.fillWidth: true
-                        variant: "ghost"
-                        text: qsTr("Manage deck tokens")
-                        onClicked: deckTokenManager.open()
-                    }
-                }
-            }
-
-            Surface {
-                id: sideboardSurface
-                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.fillHeight: true
-                visible: !root.commanderFormat && !root.cubeFormat
+                implicitHeight: mainContent.implicitHeight + Theme.size(40)
                 elevated: true
+                clip: true
 
                 DropArea {
                     anchors.fill: parent
                     keys: ["application/x-hexproof-card"]
-                    onDropped: drop => {
-                        const name = drop.getDataAsString("application/x-hexproof-card")
-                        const fromSideboard = drop.getDataAsString("application/x-hexproof-sideboard") === "true"
-                        if (!fromSideboard && deckLibrary.moveCard(name, true))
-                            drop.acceptProposedAction()
-                    }
+                    onDropped: drop => root.forwardDeckCardDrop(drop, false)
                 }
 
                 ColumnLayout {
+                    id: mainContent
                     anchors.fill: parent
-                    anchors.margins: Theme.size(18)
-                    spacing: Theme.size(9)
+                    anchors.margins: Theme.size(20)
+                    spacing: Theme.size(10)
 
-                    RowLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        ColumnLayout {
-                            spacing: Theme.size(2)
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Sideboard")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(16)
-                                font.weight: Font.DemiBold
+                        Layout.minimumWidth: 0
+                        spacing: Theme.size(8)
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: Theme.size(10)
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                spacing: Theme.size(2)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: root.cubeFormat ? qsTr("Cube pool") : qsTr("Main deck")
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(18)
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    text: root.cubeFormat
+                                          ? qsTr("%n physical card(s) · Exact printings required",
+                                                 "", deckLibrary.currentMainCount)
+                                          : qsTr(
+                                              "%n cards · Drag a card here from the sideboard",
+                                              "", deckLibrary.currentMainCount)
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(11)
+                                    elide: Text.ElideRight
+                                }
                             }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr(
-                                          "%n cards · Drop main-deck cards here",
-                                          "",
-                                          deckLibrary.currentSideboardCount)
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(10)
+
+                            StatusPill {
+                                maximumWidth: Math.min(Theme.size(220), mainSurface.width * 0.4)
+                                text: I18n.status(deckLibrary.currentStatus)
+                                statusColor: deckLibrary.currentReady
+                                             && deckLibrary.currentValidationVerified
+                                             && deckLibrary.currentValidationWarnings.length === 0
+                                             ? Theme.success
+                                             : (!deckLibrary.currentValidationVerified
+                                                || deckLibrary.currentValidationWarnings.indexOf(
+                                                    deckLibrary.currentStatus) >= 0
+                                                ? Theme.warning
+                                             : (deckLibrary.currentStatus === "Commander required"
+                                                ? Theme.warning : Theme.textMuted))
+                                ToolTip.visible: legalityStatusHover.hovered
+                                                 && deckLibrary.currentValidationIssues.length > 0
+                                ToolTip.delay: 350
+                                ToolTip.text: deckLibrary.currentValidationIssues
+                                              .map(issue => I18n.status(issue)).join("\n")
+                                HoverHandler { id: legalityStatusHover }
                             }
                         }
-                        Item { Layout.fillWidth: true }
+
+                        GridLayout {
+                            id: deckActions
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            columns: width >= Theme.size(600) ? 4 : (width >= Theme.size(310) ? 3 : 1)
+                            columnSpacing: Theme.size(10)
+                            rowSpacing: Theme.size(8)
+
+                            AppButton {
+                                objectName: "exportCurrentDeckButton"
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                compact: true
+                                text: qsTr("Export")
+                                enabled: deckLibrary.currentDeckId.length > 0
+                                onClicked: exportDialog.open()
+                            }
+
+                            AppButton {
+                                objectName: "cacheCurrentDeckArtButton"
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                compact: true
+                                text: qsTr("Cache art")
+                                enabled: deckLibrary.currentDeckId.length > 0
+                                         && !cardCatalog.busy
+                                onClicked: deckLibrary.cacheCurrentDeckArt()
+                            }
+
+                            AppButton {
+                                objectName: "manageConsiderButton"
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                compact: true
+                                text: qsTr("Consider (%1)").arg(
+                                          deckLibrary.currentConsiderCount)
+                                onClicked: considerManager.open()
+                            }
+
+                            AppTextField {
+                                id: nameField
+                                objectName: "deckNameField"
+                                Layout.columnSpan: deckActions.columns === 4 ? 1 : deckActions.columns
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredWidth: Theme.size(240)
+                                implicitHeight: Theme.size(40)
+                                placeholderText: qsTr("Deck name")
+                                onAccepted: deckLibrary.renameCurrentDeck(text)
+                                onEditingFinished: deckLibrary.renameCurrentDeck(text)
+                                Component.onCompleted: text = deckLibrary.currentDeckName
+                            }
+                        }
                     }
 
-                    ListView {
-                        id: sideboardList
+                    CardCacheProgress {
+                        objectName: "deckEditorCacheProgress"
+                        Layout.fillWidth: true
+                        catalogModel: cardCatalog
+                    }
+
+                    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
+
+                    CardFilterBar {
+                        Layout.fillWidth: true
+                        filters: localFilters
+                        placeholderText: qsTr("Search this deck…")
+                    }
+
+                    DeckMainCollection {
+                        id: mainCollection
+                        outerFlickable: editorBody
+                        Layout.minimumHeight: Theme.size(350)
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         Layout.fillHeight: true
-                        model: root.filteredSideboardCards
-                        spacing: Theme.size(7)
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                        delegate: DeckCardRow {
-                            required property var modelData
-                            width: sideboardList.width
-                            card: modelData
-                            sideboard: true
-                            printingEnabled: cardCatalog.installed
-                            catalogModel: cardCatalog
-                            incrementEnabled: deckLibrary.canAddCard(
-                                                  modelData.name,
-                                                  modelData.typeLine)
-                            dropTarget: mainSurface
-                            onMoveRequested: deckLibrary.moveCard(modelData.name, false)
-                            onIncrementRequested: deckLibrary.changeCardCount(modelData.name, true, 1)
-                            onDecrementRequested: deckLibrary.changeCardCount(modelData.name, true, -1)
-                            onPrintingRequested: printingPicker.showFor(modelData, true)
-                        }
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        visible: root.filteredSideboardCards.length === 0
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        text: qsTr("No sideboard cards")
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontSize(11)
+                        cards: root.filteredMainCards
+                        deckLibraryModel: deckLibrary
+                        catalogModel: cardCatalog
+                        commanderFormat: root.commanderFormat
+                        cubeFormat: root.cubeFormat
+                        customArtEnabled: root.customArtStore !== null
+                        searchActive: root.deckFilterQuery.trim().length > 0
+                        sideboardDropTarget: sideboardSurface
+                        onPrintingRequested: card => printingPicker.showFor(card, false)
+                        onCustomArtRequested: card => customArtDialog.showFor(card)
                     }
                 }
             }
 
-            Surface {
-                objectName: "commanderSurface"
-                Layout.fillWidth: true
+            ColumnLayout {
+                Layout.fillWidth: root.compactLayout
+                Layout.preferredWidth: root.compactLayout ? -1 : Theme.size(390)
+                Layout.minimumWidth: 0
+                Layout.maximumWidth: root.compactLayout ? Number.POSITIVE_INFINITY : Theme.size(420)
                 Layout.fillHeight: true
-                visible: root.commanderFormat
-                elevated: true
+                spacing: Theme.size(16)
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(18)
-                    spacing: Theme.size(10)
+                Surface {
+                    Layout.fillWidth: true
+                    implicitHeight: searchContent.implicitHeight + Theme.size(36)
+                    elevated: true
 
-                    RowLayout {
-                        Layout.fillWidth: true
+                    ColumnLayout {
+                        id: searchContent
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(18)
+                        spacing: Theme.size(9)
 
-                        ColumnLayout {
-                            spacing: Theme.size(2)
+                        RowLayout {
+                            Layout.fillWidth: true
+
                             Text {
                                 textFormat: Text.PlainText
-                                text: qsTr("Commander")
+                                text: qsTr("Card search")
                                 color: Theme.text
                                 font.pixelSize: Theme.fontSize(16)
                                 font.weight: Font.DemiBold
                             }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.currentCommanderCards.length > 0
-                                      ? root.commanderNames()
-                                      : qsTr("No commander selected")
-                                color: root.currentCommanderCards.length > 0
-                                       ? Theme.primary : Theme.warning
-                                font.pixelSize: Theme.fontSize(10)
-                                elide: Text.ElideRight
+
+                            Item { Layout.fillWidth: true }
+
+                            StatusPill {
+                                text: !cardCatalog.installed ? qsTr("Database needed")
+                                      : (cardCatalog.enhancedIndexInstalled
+                                         && cardCatalog.chineseIndexInstalled
+                                         ? qsTr("Offline catalog") : qsTr("Update needed"))
+                                statusColor: cardCatalog.enhancedIndexInstalled
+                                             && cardCatalog.chineseIndexInstalled
+                                             ? Theme.success : Theme.warning
                             }
                         }
-                        Item { Layout.fillWidth: true }
+
+                        AppButton {
+                            Layout.fillWidth: true
+                            leadingText: "⌕"
+                            text: qsTr("Search card names…")
+                            enabled: cardCatalog.installed
+                            onClicked: root.openCardSearch("deck")
+                        }
+
+                        Text {
+                            textFormat: Text.PlainText
+                            visible: !cardCatalog.installed
+                            Layout.fillWidth: true
+                            text: qsTr("Download a metadata package to search every card while offline.")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(11)
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                        }
+
+                        AppButton {
+                            visible: !cardCatalog.installed
+                            Layout.alignment: Qt.AlignHCenter
+                            compact: true
+                            text: qsTr("Database settings")
+                            onClicked: root.appWindow.pushScreen("screens/Settings.qml")
+                        }
+                    }
+                }
+
+                Surface {
+                    id: tokenSurface
+                    objectName: "deckTokenSurface"
+                    Layout.fillWidth: true
+                    implicitHeight: tokenContent.implicitHeight + Theme.size(32)
+                    elevated: true
+                    visible: !root.cubeFormat
+
+                    ColumnLayout {
+                        id: tokenContent
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(16)
+                        spacing: Theme.size(10)
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.size(10)
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.size(2)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("Tokens and emblems")
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(16)
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    text: deckLibrary.currentTokens.length > 0
+                                          ? root.deckTokenSummary()
+                                          : qsTr("None saved")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            StatusPill {
+                                text: qsTr("%1 saved").arg(
+                                          deckLibrary.currentTokens.length)
+                                statusColor: deckLibrary.currentTokens.length > 0
+                                             ? Theme.primary : Theme.textMuted
+                            }
+                        }
+
+                        AppButton {
+                            objectName: "manageDeckTokensButton"
+                            Layout.fillWidth: true
+                            variant: "ghost"
+                            text: qsTr("Manage tokens and emblems")
+                            onClicked: deckTokenManager.open()
+                        }
+                    }
+                }
+
+                Surface {
+                    id: sideboardSurface
+                    Layout.minimumHeight: Theme.size(240)
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: !root.commanderFormat && !root.cubeFormat
+                    elevated: true
+
+                    DropArea {
+                        anchors.fill: parent
+                        keys: ["application/x-hexproof-card"]
+                        onDropped: drop => root.forwardDeckCardDrop(drop, true)
                     }
 
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(18)
+                        spacing: Theme.size(9)
 
-                        Row {
-                            id: commanderArtRow
-                            anchors.fill: parent
-                            spacing: Theme.size(8)
-
-                            Repeater {
-                                model: root.currentCommanderCards
-
-                                delegate: Image {
-                                    required property var modelData
-                                    width: (commanderArtRow.width
-                                            - commanderArtRow.spacing
-                                              * Math.max(
-                                                  0,
-                                                  root.currentCommanderCards.length
-                                                  - 1))
-                                           / Math.max(
-                                               1,
-                                               root.currentCommanderCards.length)
-                                    height: commanderArtRow.height
-                                    source: {
-                                        if (modelData.imageSource)
-                                            return modelData.imageSource
-                                        if (!cardCatalog
-                                                || typeof cardCatalog.imageSource
-                                                   !== "function")
-                                            return ""
-                                        if (typeof cardCatalog.imageRevision
-                                                !== "undefined"
-                                                && cardCatalog.imageRevision === -1)
-                                            return ""
-                                        void cardCatalog.imageRevision
-                                        return cardCatalog.imageSource(
-                                            modelData.name || "",
-                                            modelData.setCode || "",
-                                            modelData.collectorNumber || "")
-                                    }
-                                    fillMode: Image.PreserveAspectFit
-                                    asynchronous: true
-                                    smooth: true
+                        RowLayout {
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                spacing: Theme.size(2)
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("Sideboard")
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(16)
+                                    font.weight: Font.DemiBold
                                 }
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr(
+                                              "%n cards · Drop main-deck cards here",
+                                              "",
+                                              deckLibrary.currentSideboardCount)
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                }
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        ListView {
+                            id: sideboardList
+                            objectName: "sideboardList"
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.fillHeight: true
+                            model: root.filteredSideboardCards
+                            spacing: Theme.size(7)
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                            ScrollChainHandler {
+                                innerFlickable: sideboardList
+                                outerFlickable: editorBody
+                            }
+
+                            delegate: DeckCardRow {
+                                required property var modelData
+                                width: sideboardList.width
+                                card: modelData
+                                sideboard: true
+                                printingEnabled: cardCatalog.installed
+                                customArtEnabled: root.customArtStore !== null
+                                catalogModel: cardCatalog
+                                incrementEnabled: deckLibrary.canAddCard(
+                                                      modelData.name,
+                                                      modelData.typeLine)
+                                dropTarget: mainSurface
+                                onMoveRequested: deckLibrary.moveCard(
+                                                     modelData.name,
+                                                     modelData.setCode,
+                                                     modelData.collectorNumber,
+                                                     false)
+                                onIncrementRequested: deckLibrary.changeCardCount(
+                                                          modelData.name,
+                                                          modelData.setCode,
+                                                          modelData.collectorNumber,
+                                                          true, 1)
+                                onDecrementRequested: deckLibrary.changeCardCount(
+                                                          modelData.name,
+                                                          modelData.setCode,
+                                                          modelData.collectorNumber,
+                                                          true, -1)
+                                onPrintingRequested: printingPicker.showFor(modelData, true)
+                                onCustomArtRequested: customArtDialog.showFor(modelData)
                             }
                         }
 
                         Text {
                             textFormat: Text.PlainText
-                            anchors.centerIn: parent
-                            width: parent.width - Theme.size(24)
-                            visible: root.currentCommanderCards.length === 0
-                            text: qsTr("Choose up to two commanders using the stars beside main-deck cards.")
+                            visible: root.filteredSideboardCards.length === 0
+                            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                            text: qsTr("No sideboard cards")
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(11)
-                            wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignHCenter
                         }
                     }
                 }
-            }
-        }
-    }
 
-    Rectangle {
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: Theme.size(8)
-        visible: cardCatalog.busy && !cardCatalog.searching
-        width: cachingRow.implicitWidth + Theme.size(24)
-        height: Theme.size(30)
-        radius: Theme.size(15)
-        color: Theme.surfaceElevated
-        border.width: 1
-        border.color: Theme.borderStrong
+                Surface {
+                    objectName: "commanderSurface"
+                    Layout.minimumHeight: Theme.size(240)
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: root.commanderFormat
+                    elevated: true
 
-        Row {
-            id: cachingRow
-            anchors.centerIn: parent
-            spacing: Theme.size(8)
-            ActivityRing {
-                width: Theme.size(14)
-                height: Theme.size(14)
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Text {
-                textFormat: Text.PlainText
-                text: I18n.status(cardCatalog.status)
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSize(10)
-                anchors.verticalCenter: parent.verticalCenter
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(18)
+                        spacing: Theme.size(10)
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            ColumnLayout {
+                                spacing: Theme.size(2)
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("Commander")
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(16)
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: root.currentCommanderCards.length > 0
+                                          ? root.commanderNames()
+                                          : qsTr("No commander selected")
+                                    color: root.currentCommanderCards.length > 0
+                                           ? Theme.primary : Theme.warning
+                                    font.pixelSize: Theme.fontSize(10)
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            Row {
+                                id: commanderArtRow
+                                anchors.fill: parent
+                                spacing: Theme.size(8)
+
+                                Repeater {
+                                    model: root.currentCommanderCards
+
+                                    delegate: Image {
+                                        required property var modelData
+                                        width: (commanderArtRow.width
+                                                - commanderArtRow.spacing
+                                                  * Math.max(
+                                                      0,
+                                                      root.currentCommanderCards.length
+                                                      - 1))
+                                               / Math.max(
+                                                   1,
+                                                   root.currentCommanderCards.length)
+                                        height: commanderArtRow.height
+                                        source: {
+                                            if (modelData.imageSource)
+                                                return modelData.imageSource
+                                            if (!cardCatalog
+                                                    || typeof cardCatalog.imageSource
+                                                       !== "function")
+                                                return ""
+                                            if (typeof cardCatalog.imageRevision
+                                                    !== "undefined"
+                                                    && cardCatalog.imageRevision === -1)
+                                                return ""
+                                            void cardCatalog.imageRevision
+                                            return cardCatalog.imageSource(
+                                                modelData.name || "",
+                                                modelData.setCode || "",
+                                                modelData.collectorNumber || "")
+                                        }
+                                        fillMode: Image.PreserveAspectFit
+                                        asynchronous: true
+                                        smooth: true
+                                    }
+                                }
+                            }
+
+                            Text {
+                                textFormat: Text.PlainText
+                                anchors.centerIn: parent
+                                width: parent.width - Theme.size(24)
+                                visible: root.currentCommanderCards.length === 0
+                                text: qsTr("Choose up to two commanders using the stars beside main-deck cards.")
+                                color: Theme.textMuted
+                                font.pixelSize: Theme.fontSize(11)
+                                wrapMode: Text.WordWrap
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
     PrintingPicker {
         id: printingPicker
+        objectName: "deckPrintingPicker"
         catalogModel: cardCatalog
         onChosen: (printing, isSideboard) => deckLibrary.setCardPrinting(
-            printingPicker.cardName, isSideboard, printing.displayName, printing.typeLine,
+            printingPicker.cardName, printingPicker.currentSetCode,
+            printingPicker.currentCollectorNumber, isSideboard,
+            printing.displayName, printing.typeLine,
             printing.setCode, printing.collectorNumber)
     }
 
     CardSearchPopup {
         id: searchPopup
+        catalogModel: cardCatalog
         results: cardCatalog.searchResults
         searching: cardCatalog.searching
         deckLibraryModel: deckLibrary
@@ -600,9 +622,9 @@ Page {
         filtersAvailable: cardCatalog.enhancedIndexInstalled
         onSearchRequested: function(query, typeFilter, setFilter,
                                     languageFilter, colorFilter,
-                                    rarityFilter, legalityFilter) {
+                                    rarityFilter, legalityFilter, manaFilter) {
             cardCatalog.search(query, typeFilter, setFilter, languageFilter,
-                               colorFilter, rarityFilter, legalityFilter)
+                               colorFilter, rarityFilter, legalityFilter, manaFilter)
         }
         onAddRequested: (card, sideboard) => {
             if (root.searchTarget === "consider") {
@@ -620,7 +642,7 @@ Page {
         id: deckTokenPicker
         catalogModel: cardCatalog
         preferredTokens: deckLibrary.currentTokens
-        titleText: qsTr("Add deck token")
+        titleText: qsTr("Add deck tokens and emblems")
         actionText: qsTr("Add")
         existingTokensDisabled: true
         onTokenSelected: token => deckLibrary.addToken(token)
@@ -640,37 +662,32 @@ Page {
         deckLibraryModel: deckLibrary
         catalogModel: cardCatalog
         onAddRequested: root.openCardSearch("consider")
+        customArtEnabled: root.customArtStore !== null
+        onCustomArtRequested: card => customArtDialog.showFor(card)
     }
 
-    Timer {
-        id: deckFilterTimer
-        interval: 250
-        onTriggered: root.applyDeckFilter()
+    CustomCardArtDialog {
+        id: customArtDialog
+        objectName: "deckCustomCardArtDialog"
+        store: root.customArtStore
+        catalogModel: cardCatalog
     }
 
-    function filterDeckCards(cards) {
-        const query = deckFilterQuery.trim().toLocaleLowerCase()
-        if (query.length === 0)
-            return cards
-        const filtered = []
-        for (let index = 0; index < cards.length; ++index) {
-            const card = cards[index]
-            const haystack = [
-                card.name ? card.name : "",
-                card.displayName ? card.displayName : "",
-                card.typeLine ? card.typeLine : "",
-                card.setCode ? card.setCode : "",
-                card.category ? card.category : ""
-            ].join(" ").toLocaleLowerCase()
-            if (haystack.includes(query))
-                filtered.push(card)
-        }
-        return filtered
-    }
+    function filterDeckCards(cards) { return localFilters.filter(cards) }
 
-    function applyDeckFilter() {
-        deckFilterTimer.stop()
-        deckFilterQuery = pendingDeckFilterQuery
+    function forwardDeckCardDrop(drop, toSideboard) {
+        const name = drop.getDataAsString("application/x-hexproof-card")
+        const setCode = drop.getDataAsString("application/x-hexproof-set-code")
+        const collectorNumber = drop.getDataAsString(
+                                  "application/x-hexproof-collector-number")
+        const fromSideboard = drop.getDataAsString(
+                                  "application/x-hexproof-sideboard") === "true"
+        if (fromSideboard === toSideboard
+                || !deckLibrary.moveCard(name, setCode, collectorNumber,
+                                         toSideboard))
+            return false
+        drop.acceptProposedAction()
+        return true
     }
 
     function openCardSearch(target) {
@@ -853,6 +870,9 @@ Page {
         id: exportDialog
         objectName: "exportCurrentDeckDialog"
         deckName: deckLibrary.currentDeckName
+        onCardArtRequested: deckArtExportDialog.prepare(
+                                deckLibrary.currentDeckName,
+                                deckLibrary.cardArtExportRequests(deckLibrary.currentDeckId))
         onCopyRequested: {
             if (deckLibrary.copyCurrentDeckText())
                 root.appWindow.showBanner(qsTr("Deck list copied"))
@@ -863,6 +883,12 @@ Page {
             exportFileDialog.selectedFile = deckLibrary.suggestedExportUrl("")
             exportFileDialog.open()
         }
+    }
+
+    DeckArtExportDialog {
+        id: deckArtExportDialog
+        objectName: "currentDeckArtExportDialog"
+        manager: typeof cardArtManager !== "undefined" ? cardArtManager : null
     }
 
     FileDialog {

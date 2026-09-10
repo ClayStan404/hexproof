@@ -22,6 +22,7 @@ Rectangle {
     required property string toughness
     required property string countersSummary
     property bool rotateTapped: true
+    property string hiddenLabel: qsTr("Face-down card")
 
     function imageSource() {
         if (!root.visibleIdentity || root.faceDown)
@@ -78,7 +79,7 @@ Rectangle {
             anchors.leftMargin: Theme.size(4)
             anchors.rightMargin: Theme.size(4)
             text: root.visibleIdentity && !root.faceDown
-                  ? root.name : qsTr("Face-down card")
+                  ? root.name : root.hiddenLabel
             color: Theme.text
             font.pixelSize: Theme.fontSize(8)
             elide: Text.ElideRight
@@ -95,14 +96,26 @@ Rectangle {
         statusColor: Theme.primary
     }
 
-    ToolTip.visible: hover.hovered
-    ToolTip.text: root.visibleIdentity && !root.faceDown
-                  ? [root.name,
-                     root.power.length > 0
-                     ? root.power + "/" + root.toughness : "",
-                     root.countersSummary]
-                    .filter(value => value.length > 0).join(" · ")
-                  : qsTr("Face-down card")
+    ToolTip {
+        id: cardTooltip
+        objectName: "rulesCardTooltip"
+        visible: hover.hovered
+        text: root.visibleIdentity && !root.faceDown
+              ? [root.name,
+                 root.power.length > 0
+                 ? root.power + "/" + root.toughness : "",
+                 root.countersSummary]
+                .filter(value => value.length > 0).join(" · ")
+              : root.hiddenLabel
+        contentItem: Text {
+            objectName: "rulesCardTooltipText"
+            textFormat: Text.PlainText
+            text: cardTooltip.text
+            font: cardTooltip.font
+            wrapMode: Text.Wrap
+            color: cardTooltip.palette.toolTipText
+        }
+    }
 
     HoverHandler { id: hover }
 }

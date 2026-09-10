@@ -11,6 +11,7 @@ Popup {
     property string titleText: ""
     property string detailText: ""
     property string outcome: "neutral"
+    property bool returnEnabled: true
     signal stayRequested()
     signal returnRequested()
 
@@ -87,6 +88,7 @@ Popup {
             }
             AppButton {
                 objectName: "resultReturnToRoomButton"
+                enabled: root.returnEnabled
                 Layout.fillWidth: true
                 compact: true
                 variant: "primary"

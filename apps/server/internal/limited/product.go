@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"math/rand"
 	"strings"
 	"unicode"
@@ -20,7 +21,9 @@ const (
 	ProductTypeApproximate = "approximate"
 	ProductTypeCube        = "cube"
 	maxProductText         = 128
-	maxProductWeight       = 1_000_000_000
+	// JSON numbers stay exact only through 2^53-1. MTGJSON Play sheets such as
+	// FIN can exceed 1e9 while remaining inside that bound.
+	maxProductWeight       = 9007199254740991
 	maxCubePhysicalCards   = 10_000
 	maxEncodedProductBytes = 800 * 1024
 )
@@ -66,6 +69,7 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 		if _, duplicate := sheets[sheet.Name]; duplicate {
 			return nil, fail(ErrInvalid, "duplicate product sheet")
 		}
+		totalWeight := int64(0)
 		for cardIndex := range sheet.Cards {
 			card := &sheet.Cards[cardIndex]
 			card.Name = strings.TrimSpace(card.Name)
@@ -83,6 +87,10 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 				card.Weight < 1 || card.Weight > maxProductWeight {
 				return nil, fail(ErrInvalid, "invalid product card")
 			}
+			if int64(card.Weight) > math.MaxInt64-totalWeight {
+				return nil, fail(ErrInvalid, "product sheet total weight is too large")
+			}
+			totalWeight += int64(card.Weight)
 			cardCount++
 			if definition.ProductType == ProductTypeCube {
 				cubeCardCount += int64(card.Weight)
@@ -174,6 +182,9 @@ func (p *Product) View() protocol.LimitedProductView {
 func chooseWeight(random *rand.Rand, weights []int) int {
 	total := int64(0)
 	for _, weight := range weights {
+		if weight < 0 || int64(weight) > math.MaxInt64-total {
+			return -1
+		}
 		total += int64(weight)
 	}
 	if total <= 0 {

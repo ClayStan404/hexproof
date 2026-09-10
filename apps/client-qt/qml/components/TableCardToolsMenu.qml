@@ -140,7 +140,7 @@ Menu {
         objectName: "chooseCardFaceAction"
         visible: root.tableController.selection.selectedCount() === 1
                  && root.tableController.selectedBattlefieldFaces.length > 1
-        text: qsTr("Choose card face…") + " · V"
+        text: qsTr("Choose card face…") + ShortcutHints.suffix("table.selection.chooseFace")
         enabled: root.tableController.cardMoveCommands.canControlSelectedBattlefield()
         onTriggered:
             root.tableController.cardMoveCommands.requestBattlefieldFaceSelection()
@@ -150,7 +150,7 @@ Menu {
         visible: root.tableController.selection.selectedCount() === 1
         text: (root.tableController.selectedBattlefieldCard.faceDown === true
                ? qsTr("Turn face up")
-               : qsTr("Turn face down")) + " · F"
+               : qsTr("Turn face down")) + ShortcutHints.suffix("table.selection.toggleFaceDown")
         enabled: root.tableController.cardMoveCommands.canControlSelectedBattlefield()
         onTriggered: {
             root.tableController.wsModel.setCardFaceDown(
@@ -164,7 +164,7 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "attachToAction"
-        text: qsTr("Attach to…") + " · A"
+        text: qsTr("Attach to…") + ShortcutHints.suffix("table.selection.attach")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.attachmentUi
                  && root.tableController.attachmentUi.canAttachSelected()
@@ -172,7 +172,7 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "detachAttachmentAction"
-        text: qsTr("Detach") + " · Shift+A"
+        text: qsTr("Detach") + ShortcutHints.suffix("table.selection.detach")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.attachmentUi
                  && root.tableController.attachmentUi.canDetachSelected()
@@ -214,14 +214,14 @@ Menu {
         MenuSeparator { }
         MenuItem {
             objectName: "targetBattlefieldCardAction"
-            text: qsTr("Target a battlefield card…") + " · R"
+            text: qsTr("Target a battlefield card…") + ShortcutHints.suffix("table.selection.target")
             onTriggered:
                 root.tableController.selection.beginRelationTarget("arrow")
         }
     }
     MenuItem {
         objectName: "clearTargetAction"
-        text: qsTr("Clear target") + " · Shift+R"
+        text: qsTr("Clear target") + ShortcutHints.suffix("table.selection.clearTarget")
         enabled: root.tableController.canAct
                  && root.selectedSourcesControlledByLocal()
                  && root.selectedHasTarget()
@@ -263,13 +263,13 @@ Menu {
     ConditionalMenuItem {
         objectName: "declareAttackAgainstPermanentAction"
         visible: root.hasEligibleCombatTarget()
-        text: qsTr("Attack a battlefield permanent…") + " · X"
+        text: qsTr("Attack a battlefield permanent…") + ShortcutHints.suffix("table.selection.attack")
         enabled: root.canDeclareAttacks()
         onTriggered: root.tableController.selection.beginRelationTarget("attack")
     }
     MenuItem {
         objectName: "declareBlockAction"
-        text: qsTr("Block an attacker…") + " · Shift+X"
+        text: qsTr("Block an attacker…") + ShortcutHints.suffix("table.selection.block")
         enabled: root.tableController.canAct
                  && root.selectedSourcesControlledByLocal()
                  && root.tableController.gameSession.currentPhase
@@ -279,7 +279,7 @@ Menu {
     }
     MenuItem {
         objectName: "clearCombatDeclarationAction"
-        text: qsTr("Clear combat declaration") + " · Shift+C"
+        text: qsTr("Clear combat declaration") + ShortcutHints.suffix("table.selection.clearCombat")
         enabled: root.tableController.canAct
                  && root.selectedSourcesControlledByLocal()
                  && root.selectedHasCombatDeclaration()
@@ -297,11 +297,11 @@ Menu {
                     === root.tableController.roomSession.seatIndex
 
         MenuItem {
-            text: qsTr("Number counter") + " · N / ="
+            text: qsTr("Number counter") + ShortcutHints.suffix(["table.selection.addNumberCounter", "table.selection.numberCounterIncrease"])
             onTriggered: root.tableController.cardActions.addNumberCounter()
         }
         MenuItem {
-            text: qsTr("Ability counter…") + " · Shift+N"
+            text: qsTr("Ability counter…") + ShortcutHints.suffix("table.selection.addAbilityCounter")
             onTriggered: root.cardCounterEditorPopup.showNewAbility(
                              root.tableController.selectedBattlefieldCard.name)
         }
@@ -313,7 +313,7 @@ Menu {
                     === root.tableController.roomSession.seatIndex
 
         MenuItem {
-            text: qsTr("Number counter…") + " · Ctrl+N"
+            text: qsTr("Number counter…") + ShortcutHints.suffix("table.selection.setNumberCounter")
             onTriggered: root.cardCounterEditorPopup.showNumber(
                              root.tableController.selectedBattlefieldCard.name,
                              root.tableController.cardActions.numberCounterValue(
@@ -346,42 +346,42 @@ Menu {
 
         MenuItem {
             objectName: "moveSelectedBattlefieldToGraveyard"
-            text: qsTr("Move to graveyard") + " · Alt+G"
+            text: qsTr("Move to graveyard") + ShortcutHints.suffix("table.selection.moveGraveyard")
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards(
                     "graveyard")
         }
         MenuItem {
             objectName: "moveSelectedBattlefieldToExile"
-            text: qsTr("Move to exile") + " · Alt+E"
+            text: qsTr("Move to exile") + ShortcutHints.suffix("table.selection.moveExile")
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards("exile")
         }
         MenuSeparator { }
         MenuItem {
             objectName: "moveSelectedBattlefieldToLibraryTopOrdered"
-            text: qsTr("Top of library · in order") + " · Alt+Up"
+            text: qsTr("Top of library · in order") + ShortcutHints.suffix("table.selection.moveLibraryTop")
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards(
                     "library", "top", false)
         }
         MenuItem {
             objectName: "moveSelectedBattlefieldToLibraryTopRandom"
-            text: qsTr("Top of library · random order") + " · Alt+Shift+Up"
+            text: qsTr("Top of library · random order") + ShortcutHints.suffix("table.selection.randomLibraryTop")
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards(
                     "library", "top", true)
         }
         MenuItem {
             objectName: "moveSelectedBattlefieldToLibraryBottomOrdered"
-            text: qsTr("Bottom of library · in order") + " · Alt+Down"
+            text: qsTr("Bottom of library · in order") + ShortcutHints.suffix("table.selection.moveLibraryBottom")
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards(
                     "library", "bottom", false)
         }
         MenuItem {
             objectName: "moveSelectedBattlefieldToLibraryBottomRandom"
-            text: qsTr("Bottom of library · random order") + " · Alt+Shift+Down"
+            text: qsTr("Bottom of library · random order") + ShortcutHints.suffix("table.selection.randomLibraryBottom")
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards(
                     "library", "bottom", true)
@@ -401,7 +401,7 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "moveBattlefieldCardToHand"
-        text: qsTr("Move to hand") + " · Alt+H"
+        text: qsTr("Move to hand") + ShortcutHints.suffix("table.selection.moveHand")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.cardMoveCommands.canManageSelectedBattlefield()
         onTriggered:
@@ -409,7 +409,7 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "moveBattlefieldCardToGraveyard"
-        text: qsTr("Move to graveyard") + " · Alt+G"
+        text: qsTr("Move to graveyard") + ShortcutHints.suffix("table.selection.moveGraveyard")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.cardMoveCommands.canManageSelectedBattlefield()
         onTriggered: root.tableController.cardMoveCommands.moveSelectedBattlefieldToZone(
@@ -417,7 +417,7 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "moveBattlefieldCardToExile"
-        text: qsTr("Move to exile") + " · Alt+E"
+        text: qsTr("Move to exile") + ShortcutHints.suffix("table.selection.moveExile")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.cardMoveCommands.canManageSelectedBattlefield()
         onTriggered:
@@ -425,7 +425,7 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "moveBattlefieldCardToLibraryTop"
-        text: qsTr("Move to top of library") + " · Alt+Up"
+        text: qsTr("Move to top of library") + ShortcutHints.suffix("table.selection.moveLibraryTop")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.cardMoveCommands.canManageSelectedBattlefield()
         onTriggered: root.tableController.cardMoveCommands.moveSelectedBattlefieldToLibrary(
@@ -441,14 +441,14 @@ Menu {
     }
     ConditionalMenuItem {
         objectName: "moveBattlefieldCardToLibraryBottom"
-        text: qsTr("Move to bottom of library") + " · Alt+Down"
+        text: qsTr("Move to bottom of library") + ShortcutHints.suffix("table.selection.moveLibraryBottom")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.cardMoveCommands.canManageSelectedBattlefield()
         onTriggered: root.tableController.cardMoveCommands.moveSelectedBattlefieldToLibrary(
                          "bottom", -1)
     }
     ConditionalMenuItem {
-        text: qsTr("Create token copy") + " · Alt+C"
+        text: qsTr("Create token copy") + ShortcutHints.suffix("table.selection.createTokenCopy")
         visible: root.tableController.selection.selectedCount() === 1
         enabled: root.tableController.canAct
         onTriggered: root.tableController.cardActions.createSelectedTokenCopy()

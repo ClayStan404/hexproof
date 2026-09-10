@@ -28,10 +28,11 @@ void CardResolver::beginChineseAlternate()
         return;
     }
 
-    const CardRecord localized =
+    CardRecord localized =
         m_callbacks.lookupLocalizedPrinting
             ? m_callbacks.lookupLocalizedPrinting(m_currentRequest, m_catalogRecord)
             : CardRecord{};
+    retainMetadata(&localized);
     if (localized.valid() && !localized.imageUrl.isEmpty()) {
         m_currentRecord = localized;
         const bool substitute = m_currentRecord.usesSubstituteArt;
@@ -159,6 +160,26 @@ void CardResolver::beginImageRequest(ArtStage stage)
 {
     if (QCoreApplication::closingDown())
         return;
+    retainMetadata(&m_currentRecord);
+    if (m_currentRequest.supportCard && m_currentRequest.language == QStringLiteral("zh") &&
+        !m_currentRecord.localizedRulesChecked && !m_currentMtgchTried && !m_rulesProbeAttempted &&
+        m_currentRecord.oracleTextLanguage != QStringLiteral("zh")) {
+        const QString set = m_currentRequest.specifiesPrinting() ? m_currentRequest.setCode
+                                                                 : m_currentRecord.setCode;
+        const QString collector = m_currentRequest.specifiesPrinting()
+                                      ? m_currentRequest.collectorNumber
+                                      : m_currentRecord.collectorNumber;
+        if (!set.isEmpty() && !collector.isEmpty()) {
+            // The chosen provider may have a Chinese image but no translated
+            // rules. Probe MTGCH metadata without changing the chosen artwork.
+            m_pendingImageRecord = m_currentRecord;
+            m_pendingImageStage = stage;
+            m_rulesProbeAttempted = true;
+            m_currentMtgchTried = true;
+            beginJsonRequest(mtgchUrl(set, collector), Phase::Mtgch);
+            return;
+        }
+    }
     m_currentArtStage = stage;
     if (m_currentPhase != Phase::Image) {
         m_currentPhase = Phase::Image;
@@ -208,10 +229,27 @@ void CardResolver::beginImageRequest(ArtStage stage)
     connect(reply, &QNetworkReply::finished, this, [this, reply]() { handleImageReply(reply); });
 }
 
+void CardResolver::resumeImageAfterMetadata()
+{
+    const ArtStage stage = m_pendingImageStage;
+    m_currentRecord = m_pendingImageRecord;
+    m_pendingImageRecord = {};
+    m_pendingImageStage = ArtStage::None;
+    // This was a metadata-only probe. If the preferred image later fails,
+    // leave the normal provider fallback order available for image candidates.
+    m_currentMtgchTried = false;
+    beginImageRequest(stage);
+}
+
 void CardResolver::beginJsonRequest(const QUrl &url, Phase phase)
 {
     if (QCoreApplication::closingDown())
         return;
+    if (m_currentRequest.language == QStringLiteral("zh") &&
+        (phase == Phase::ScryfallChineseExact || phase == Phase::ScryfallChineseSearch ||
+         phase == Phase::Mtgch)) {
+        m_localizedRulesAttempted = true;
+    }
     if (m_currentPhase != phase) {
         m_currentPhase = phase;
         m_currentPhaseRetries = 0;

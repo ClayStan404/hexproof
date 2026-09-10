@@ -15,8 +15,10 @@ class DeckEditor
     static bool rename(Deck &deck, const QString &name);
     static bool changeFormat(Deck &deck, const QString &format, QString *error);
     static bool toggleCommander(Deck &deck, const QString &cardName, QString *error);
-    static bool moveCard(Deck &deck, const QString &cardName, bool toSideboard);
-    static bool changeCardCount(Deck &deck, const QString &cardName, bool sideboard, int delta,
+    static bool moveCard(Deck &deck, const QString &cardName, const QString &setCode,
+                         const QString &collectorNumber, bool toSideboard);
+    static bool changeCardCount(Deck &deck, const QString &cardName, const QString &setCode,
+                                const QString &collectorNumber, bool sideboard, int delta,
                                 QString *error);
     static bool addCard(Deck &deck, const QString &name, const QString &localizedName,
                         const QString &typeLine, const QString &setCode,
@@ -30,11 +32,12 @@ class DeckEditor
                                        const QString &collectorNumber);
     static bool changeConsiderCardCount(Deck &deck, const QString &name, const QString &setCode,
                                         const QString &collectorNumber, int delta, QString *error);
-    static bool setCardPrinting(Deck &deck, const QString &cardName, bool sideboard,
+    static bool setCardPrinting(Deck &deck, const QString &cardName, const QString &currentSetCode,
+                                const QString &currentCollectorNumber, bool sideboard,
                                 const QString &localizedName, const QString &typeLine,
                                 const QString &setCode, const QString &collectorNumber,
                                 DeckCard *updatedCard);
-    static bool applyCardMetadata(Deck &deck, const QString &requestedName,
+    static bool applyCardMetadata(DeckCard &card, const QString &requestedName,
                                   const QString &localizedName, const QString &typeLine,
                                   const QString &imagePath, const QString &setCode,
                                   const QString &collectorNumber);

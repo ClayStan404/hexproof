@@ -6,6 +6,7 @@
 
 #include <QMap>
 #include <QRandomGenerator>
+#include <limits>
 
 namespace hexproof::client {
 
@@ -13,8 +14,13 @@ namespace {
 int weightedIndex(const QVariantList &values)
 {
     qint64 total = 0;
-    for (const QVariant &value : values)
-        total += qMax<qint64>(0, value.toMap().value(QStringLiteral("weight"), 1).toLongLong());
+    for (const QVariant &value : values) {
+        const qint64 weight =
+            qMax<qint64>(0, value.toMap().value(QStringLiteral("weight"), 1).toLongLong());
+        if (weight > std::numeric_limits<qint64>::max() - total)
+            return -1;
+        total += weight;
+    }
     if (total <= 0)
         return -1;
     quint64 choice = QRandomGenerator::global()->generate64() % static_cast<quint64>(total);
@@ -60,7 +66,7 @@ QVariantList CardCatalog::limitedSets() const
     QMap<QString, int> rankBySet;
     const auto productRank = [](const QVariantMap &product) {
         const QString id = product.value(QStringLiteral("id")).toString().toLower();
-        if (id.endsWith(QStringLiteral("-play")))
+        if (id.endsWith(QStringLiteral("-play")) || id.endsWith(QStringLiteral("-play-arena")))
             return 400;
         if (id.endsWith(QStringLiteral("-draft")))
             return 350;
@@ -72,7 +78,7 @@ QVariantList CardCatalog::limitedSets() const
         if (id.contains(QStringLiteral("collector")) || id.contains(QStringLiteral("sample")) ||
             id.contains(QStringLiteral("jumpstart")) || id.contains(QStringLiteral("theme")))
             return 0;
-        return 200;
+        return 50;
     };
     for (const QVariant &value : products) {
         QVariantMap product = value.toMap();
@@ -184,7 +190,7 @@ QVariantList CardCatalog::enrichLimitedCards(const QVariantList &cards) const
 {
     if (cards.isEmpty() || m_catalogBusy || !installed())
         return cards;
-    return guiCatalog().enrichLimitedCards(cards);
+    return guiCatalog().enrichLimitedCards(cards, nullptr, m_language);
 }
 
 } // namespace hexproof::client

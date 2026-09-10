@@ -53,6 +53,10 @@ void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
     sendEnvelope(peers[0], beforeDrop);
     QTRY_VERIFY_WITH_TIMEOUT(client.inRoom(), 1000);
 
+    QSettings settings;
+    QCOMPARE(settings.value(u"network/resumeRoomRole"_s).toString(), u"player"_s);
+    QCOMPARE(settings.value(u"network/resumeToken"_s).toString(), u"resume-secret"_s);
+
     peers[0]->close();
     QTRY_VERIFY_WITH_TIMEOUT(client.reconnecting(), 1000);
     client.drawCards(1);

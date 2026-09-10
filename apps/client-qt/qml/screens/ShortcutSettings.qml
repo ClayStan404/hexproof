@@ -112,77 +112,92 @@ Page {
                         Repeater {
                             model: groupSurface.visibleActions
 
-                            delegate: RowLayout {
+                            delegate: GridLayout {
                                 id: actionRow
                                 required property var modelData
                                 Layout.fillWidth: true
+                                objectName: "shortcutAction-" + modelData.id
+                                columns: width < Theme.size(760) ? 1 : 2
+                                columnSpacing: Theme.size(12)
+                                rowSpacing: Theme.size(6)
                                 Layout.minimumHeight: Theme.size(48)
-                                spacing: Theme.size(12)
 
-                                ColumnLayout {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: Theme.size(2)
+                                    spacing: Theme.size(12)
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.size(2)
+                                        Text {
+                                            textFormat: Text.PlainText
+                                            Layout.fillWidth: true
+                                            objectName: "shortcutActionLabel"
+                                            text: actionRow.modelData.label
+                                            color: Theme.text
+                                            font.pixelSize: Theme.fontSize(12)
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            textFormat: Text.PlainText
+                                            Layout.fillWidth: true
+                                            text: actionRow.modelData.id
+                                            color: Theme.textMuted
+                                            font.pixelSize: Theme.fontSize(9)
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+
+                                    StatusPill {
+                                        visible: {
+                                            const revision = preferences.shortcutRevision
+                                            return preferences.shortcutCustomized(
+                                                        actionRow.modelData.id)
+                                        }
+                                        text: qsTr("Custom")
+                                        statusColor: Theme.warning
+                                    }
+
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.size(12)
                                     Text {
                                         textFormat: Text.PlainText
+                                        Layout.preferredWidth: Theme.size(160)
                                         Layout.fillWidth: true
-                                        text: actionRow.modelData.label
-                                        color: Theme.text
+                                        text: {
+                                            const revision = preferences.shortcutRevision
+                                            return preferences.shortcutDisplay(
+                                                actionRow.modelData.id)
+                                        }
+                                        color: Theme.accent
                                         font.pixelSize: Theme.fontSize(12)
+                                        font.weight: Font.DemiBold
+                                        horizontalAlignment: Text.AlignRight
                                         elide: Text.ElideRight
                                     }
-                                    Text {
-                                        textFormat: Text.PlainText
-                                        Layout.fillWidth: true
-                                        text: actionRow.modelData.id
-                                        color: Theme.textMuted
-                                        font.pixelSize: Theme.fontSize(9)
-                                        elide: Text.ElideRight
-                                    }
-                                }
 
-                                StatusPill {
-                                    visible: {
-                                        const revision = preferences.shortcutRevision
-                                        return preferences.shortcutCustomized(
-                                                    actionRow.modelData.id)
+                                    AppButton {
+                                        compact: true
+                                        variant: "ghost"
+                                        objectName: "resetShortcutButton"
+                                        text: qsTr("Reset")
+                                        visible: {
+                                            const revision = preferences.shortcutRevision
+                                            return preferences.shortcutCustomized(
+                                                        actionRow.modelData.id)
+                                        }
+                                        onClicked: preferences.resetShortcut(
+                                                       actionRow.modelData.id)
                                     }
-                                    text: qsTr("Custom")
-                                    statusColor: Theme.warning
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    Layout.preferredWidth: Theme.size(160)
-                                    text: {
-                                        const revision = preferences.shortcutRevision
-                                        return preferences.shortcutDisplay(
-                                            actionRow.modelData.id)
+                                    AppButton {
+                                        compact: true
+                                        objectName: "changeShortcutButton"
+                                        text: qsTr("Change")
+                                        onClicked: capturePopup.startCapture(
+                                                       actionRow.modelData.id,
+                                                       actionRow.modelData.label)
                                     }
-                                    color: Theme.accent
-                                    font.pixelSize: Theme.fontSize(12)
-                                    font.weight: Font.DemiBold
-                                    horizontalAlignment: Text.AlignRight
-                                    elide: Text.ElideRight
-                                }
-
-                                AppButton {
-                                    compact: true
-                                    variant: "ghost"
-                                    text: qsTr("Reset")
-                                    visible: {
-                                        const revision = preferences.shortcutRevision
-                                        return preferences.shortcutCustomized(
-                                                    actionRow.modelData.id)
-                                    }
-                                    onClicked: preferences.resetShortcut(
-                                                   actionRow.modelData.id)
-                                }
-                                AppButton {
-                                    compact: true
-                                    text: qsTr("Change")
-                                    onClicked: capturePopup.startCapture(
-                                                   actionRow.modelData.id,
-                                                   actionRow.modelData.label)
                                 }
                             }
                         }
@@ -218,7 +233,7 @@ Page {
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
         width: Math.min(Theme.size(560), parent.width - Theme.size(48))
-        height: Theme.size(360)
+        height: Math.min(Theme.size(360), parent.height - Theme.size(48))
         padding: Theme.size(22)
         modal: true
         focus: true

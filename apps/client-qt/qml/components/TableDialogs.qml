@@ -145,11 +145,15 @@ Item {
         onOpened: root.libraryApprovalRemaining =
                   root.approvalTimeoutSeconds
         onConfirmed: {
+            if (!root.tableController.transientState.pendingLibraryApprovalId)
+                return
             root.tableController.wsModel.respondZoneDump(
                         root.tableController.transientState.pendingLibraryApprovalId, true)
             root.tableController.transientState.clearPendingLibraryApproval()
         }
         onCancelled: {
+            if (!root.tableController.transientState.pendingLibraryApprovalId)
+                return
             root.tableController.wsModel.respondZoneDump(
                         root.tableController.transientState.pendingLibraryApprovalId, false)
             root.tableController.transientState.clearPendingLibraryApproval()
@@ -176,6 +180,8 @@ Item {
         onOpened: root.publicMoveApprovalRemaining =
                   root.approvalTimeoutSeconds
         onConfirmed: {
+            if (!root.tableController.transientState.pendingPublicZoneMoveApprovalId)
+                return
             root.tableController.wsModel.respondPublicZoneMove(
                         root.tableController.transientState
                         .pendingPublicZoneMoveApprovalId, true)
@@ -183,6 +189,8 @@ Item {
                 .clearPendingPublicZoneMoveApproval()
         }
         onCancelled: {
+            if (!root.tableController.transientState.pendingPublicZoneMoveApprovalId)
+                return
             root.tableController.wsModel.respondPublicZoneMove(
                         root.tableController.transientState
                         .pendingPublicZoneMoveApprovalId, false)

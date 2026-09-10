@@ -1,0 +1,62 @@
+{
+  "type": "limited.snapshot",
+  "payload": {
+    "tournamentId": "CMD234",
+    "eventType": "commander_cube",
+    "stage": "deck_building",
+    "product": {
+      "id": "commander-cube",
+      "name": "Friday Commander Cube",
+      "productType": "cube",
+      "authentic": false,
+      "cardsPerPack": 0,
+      "cardCount": 240,
+      "productHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "packRound": 3,
+    "direction": 1,
+    "currentPack": [],
+    "pool": [],
+    "mainboardInstanceIds": [],
+    "picksRequired": 2,
+    "packsPerPlayer": 3,
+    "minimumDeckCards": 60,
+    "basicLands": [],
+    "participants": [
+      {
+        "participantId": "p-1",
+        "displayName": "Alice",
+        "picked": 60,
+        "packCards": 0,
+        "queuedPacks": 0,
+        "deckSubmitted": true
+      },
+      {
+        "participantId": "p-2",
+        "displayName": "Bob",
+        "picked": 60,
+        "packCards": 0,
+        "queuedPacks": 0,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-3",
+        "displayName": "Carol",
+        "picked": 60,
+        "packCards": 0,
+        "queuedPacks": 0,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-4",
+        "displayName": "Dan",
+        "picked": 60,
+        "packCards": 0,
+        "queuedPacks": 0,
+        "deckSubmitted": false
+      }
+    ],
+    "deckSubmitted": false,
+    "allDecksSubmitted": false
+  }
+}

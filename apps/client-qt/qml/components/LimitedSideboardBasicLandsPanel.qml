@@ -18,17 +18,25 @@ Surface {
     Layout.fillWidth: true
     visible: panel.isPlayer && panel.limitedDeck
              && panel.basicLandsExpanded
-    implicitHeight: Theme.size(62)
+    implicitHeight: basicControls.implicitHeight + Theme.size(18)
     color: Theme.surfaceMuted
 
-    RowLayout {
-        anchors.fill: parent
+    GridLayout {
+        id: basicControls
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
         anchors.margins: Theme.size(9)
-        spacing: Theme.size(6)
+        columns: width < Theme.size(420) ? 1 : width < Theme.size(1000) ? 2 : 5
+        columnSpacing: Theme.size(6)
+        rowSpacing: Theme.size(6)
 
         Text {
+            Layout.columnSpan: basicControls.columns
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
             textFormat: Text.PlainText
-            text: qsTr("Unlimited basic lands")
+            text: qsTranslate("SideboardPanel", "Unlimited basic lands")
             color: Theme.text
             font.pixelSize: Theme.fontSize(11)
             font.weight: Font.DemiBold
@@ -62,6 +70,7 @@ Surface {
                     }
 
                     AppButton {
+                        objectName: "sideboardBasicRemove-" + basicControl.modelData
                         compact: true
                         implicitWidth: Theme.size(34)
                         text: "−"
@@ -73,6 +82,7 @@ Surface {
                     }
 
                     AppButton {
+                        objectName: "sideboardBasicAdd-" + basicControl.modelData
                         compact: true
                         implicitWidth: Theme.size(34)
                         text: "+"
@@ -117,9 +127,9 @@ Surface {
 
     function basicLabel(name) {
         const labels = {
-            "Plains": qsTr("Plains"), "Island": qsTr("Island"),
-            "Swamp": qsTr("Swamp"), "Mountain": qsTr("Mountain"),
-            "Forest": qsTr("Forest")
+            "Plains": qsTranslate("SideboardPanel", "Plains"), "Island": qsTranslate("SideboardPanel", "Island"),
+            "Swamp": qsTranslate("SideboardPanel", "Swamp"), "Mountain": qsTranslate("SideboardPanel", "Mountain"),
+            "Forest": qsTranslate("SideboardPanel", "Forest")
         }
         return labels[name] || name
     }

@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -67,6 +68,7 @@ type Participant struct {
 	DisplayName    string
 	CredentialHash [sha256.Size]byte
 	ConnectionID   string
+	DisconnectedAt time.Time
 	RegisteredAt   time.Time
 	CheckedIn      bool
 	Competing      bool
@@ -101,12 +103,17 @@ type Pairing struct {
 	PlayerAID string
 	PlayerBID string
 	RoomID    string
-	Pending   *PendingResult
-	Result    *ConfirmedResult
+	Invited   bool
+	Group     *CasualGroup
+	// InitialCubeTable survives short disconnects before its room opens.
+	InitialCubeTable    bool
+	AutoEntryPendingIDs []string
+	Pending             *PendingResult
+	Result              *ConfirmedResult
 }
 
 func (p Pairing) Bye() bool {
-	return p.PlayerBID == ""
+	return p.Group == nil && p.PlayerBID == ""
 }
 
 type Round struct {
@@ -175,6 +182,8 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		switch config.EventType {
 		case protocol.LimitedEventSetDraft:
 			config.MaxPlayers = limited.MaxSetDraftPlayers
+		case protocol.LimitedEventCommanderCube:
+			config.MaxPlayers = limited.MaxCommanderCubePlayers
 		case protocol.LimitedEventCubeDraft:
 			config.MaxPlayers = limited.MaxCubeDraftPlayers
 		default:
@@ -191,12 +200,22 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	if config.EventType != protocol.LimitedEventConstructed &&
 		config.EventType != protocol.LimitedEventSetSealed &&
 		config.EventType != protocol.LimitedEventSetDraft &&
-		config.EventType != protocol.LimitedEventCubeDraft {
+		!protocol.IsCubeEventType(config.EventType) {
 		return nil, fail(ErrInvalid, "unsupported tournament event type")
 	}
 	if config.Coordinator != protocol.LimitedCoordinatorSwiss &&
 		config.Coordinator != protocol.LimitedCoordinatorCasual {
 		return nil, fail(ErrInvalid, "unsupported event coordinator")
+	}
+	if config.EventType == protocol.LimitedEventCommanderCube {
+		if config.MaxPlayers > limited.MaxCommanderCubePlayers {
+			return nil, fail(ErrInvalid, "Commander Cube supports two to four seats at one table")
+		}
+		if config.Coordinator != protocol.LimitedCoordinatorCasual {
+			return nil, fail(ErrInvalid, "Commander Cube uses multiplayer free-play rooms")
+		}
+		config.MatchMode = protocol.MatchBO1
+		config.Format = protocol.FormatEDH
 	}
 	if config.EventType == protocol.LimitedEventConstructed {
 		if config.Coordinator != protocol.LimitedCoordinatorSwiss {
@@ -217,7 +236,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 			config.MaxPlayers > limited.MaxSetDraftPlayers) {
 		return nil, fail(ErrInvalid, "draft supports two to eight seats")
 	}
-	if config.EventType == protocol.LimitedEventCubeDraft &&
+	if protocol.IsCubeEventType(config.EventType) &&
 		(config.MaxPlayers < limited.MinCubeDraftPlayers ||
 			config.MaxPlayers > limited.MaxCubeDraftPlayers) {
 		return nil, fail(ErrInvalid, "Cube draft supports two to eight seats")
@@ -230,8 +249,11 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		if validationErr != nil {
 			return nil, fail(ErrInvalid, validationErr.Error())
 		}
-		if config.EventType == protocol.LimitedEventCubeDraft {
-			requiredCards := limited.CubeDraftCardsRequired(config.MaxPlayers)
+		if protocol.IsCubeEventType(config.EventType) {
+			if validated.Definition.ProductType != limited.ProductTypeCube {
+				return nil, fail(ErrInvalid, "Cube rooms require a saved Cube pool")
+			}
+			requiredCards := limited.CubeDraftCardsRequiredForEvent(config.EventType, config.MaxPlayers)
 			if validated.View().CardCount < requiredCards {
 				return nil, fail(ErrInvalid, fmt.Sprintf(
 					"Cube draft requires at least %d physical cards for %d seats",
@@ -408,6 +430,8 @@ func (t *Tournament) RecordDeck(actor Actor, deck protocol.DeckSelect) bool {
 
 func cloneDeck(deck protocol.DeckSelect) protocol.DeckSelect {
 	deck.Commanders = append([]string(nil), deck.Commanders...)
+	deck.CommanderPrintings = append([]protocol.DeckCard(nil), deck.CommanderPrintings...)
+	deck.CommanderColors = append([]string(nil), deck.CommanderColors...)
 	deck.Mainboard = append([]protocol.DeckCard(nil), deck.Mainboard...)
 	deck.Sideboard = append([]protocol.DeckCard(nil), deck.Sideboard...)
 	return deck
@@ -436,12 +460,14 @@ func (t *Tournament) BindCredential(credential [sha256.Size]byte,
 		t.LastActivityAt = now.UTC()
 		if participant := t.participantByID[t.OrganizerParticipantID]; participant != nil {
 			participant.ConnectionID = connectionID
+			participant.DisconnectedAt = time.Time{}
 		}
 		return RoleOrganizer, t.OrganizerParticipantID, true
 	}
 	for _, participant := range t.Participants {
 		if credential == participant.CredentialHash {
 			participant.ConnectionID = connectionID
+			participant.DisconnectedAt = time.Time{}
 			t.LastActivityAt = now.UTC()
 			return RoleParticipant, participant.ID, true
 		}
@@ -449,7 +475,10 @@ func (t *Tournament) BindCredential(credential [sha256.Size]byte,
 	return "", "", false
 }
 
-func (t *Tournament) Disconnect(connectionID string, now time.Time) {
+func (t *Tournament) Disconnect(connectionID string, now time.Time) bool {
+	if connectionID == "" {
+		return false
+	}
 	changed := false
 	if t.OrganizerConnectionID == connectionID {
 		t.OrganizerConnectionID = ""
@@ -458,13 +487,20 @@ func (t *Tournament) Disconnect(connectionID string, now time.Time) {
 	}
 	for _, participant := range t.Participants {
 		if participant.ConnectionID == connectionID {
+			if t.IsCubeRoom() {
+				participant.CheckedIn = false
+				t.clearDisconnectedCubeMatches(participant.ID)
+			}
 			participant.ConnectionID = ""
+			// Retain the server clock's monotonic component for takeover delays.
+			participant.DisconnectedAt = now
 			changed = true
 		}
 	}
 	if changed {
 		t.LastActivityAt = now.UTC()
 	}
+	return changed
 }
 
 // actorIsCurrent revalidates a cached session binding at every mutation
@@ -496,6 +532,9 @@ func (t *Tournament) SetCheckedIn(actor Actor, checkedIn bool) error {
 	if participant == nil {
 		return fail(ErrForbidden, "participant check-in is not owned by this session")
 	}
+	if t.IsCubeRoom() && participant.ConnectionID != actor.ConnectionID {
+		return fail(ErrForbidden, "only the seated player can change readiness")
+	}
 	participant.CheckedIn = checkedIn
 	return nil
 }
@@ -517,6 +556,16 @@ func (t *Tournament) Start(actor Actor, seed int64, now time.Time) error {
 	}
 	if t.Status != StatusRegistration {
 		return fail(ErrInvalid, "tournament has already started")
+	}
+	if t.IsCubeRoom() {
+		if len(t.Participants) < t.MinimumPlayers() {
+			return failMinimumPlayers(t.MinimumPlayers())
+		}
+		for _, participant := range t.Participants {
+			if !participant.CheckedIn || participant.ConnectionID == "" {
+				return fail(ErrNotReady, "every seated player must be online and ready")
+			}
+		}
 	}
 	competing := make([]*Participant, 0, len(t.Participants))
 	for _, participant := range t.Participants {
@@ -581,10 +630,18 @@ func (t *Tournament) activeParticipants() []*Participant {
 }
 
 func (t *Tournament) PickLimited(actor Actor, instanceID string) (int, error) {
-	if !t.actorIsCurrent(actor) || actor.ParticipantID == "" || t.Limited == nil {
+	return t.PickLimitedCards(actor, []string{instanceID})
+}
+
+func (t *Tournament) PickLimitedCards(actor Actor, instanceIDs []string) (int, error) {
+	participant := t.participantByID[actor.ParticipantID]
+	// Organizer authority does not retain a participant seat after its separate
+	// credential has moved to another connection.
+	if !t.actorIsCurrent(actor) || participant == nil ||
+		participant.ConnectionID != actor.ConnectionID || t.Limited == nil {
 		return 0, fail(ErrForbidden, "limited seat is not owned by this session")
 	}
-	remaining, err := t.Limited.Pick(actor.ParticipantID, instanceID)
+	remaining, err := t.Limited.PickCards(actor.ParticipantID, instanceIDs)
 	if err != nil {
 		return 0, err
 	}
@@ -594,19 +651,29 @@ func (t *Tournament) PickLimited(actor Actor, instanceID string) (int, error) {
 
 func (t *Tournament) SubmitLimitedDeck(actor Actor,
 	request protocol.LimitedSubmitDeck) (*protocol.DeckSelect, error) {
-	if !t.actorIsCurrent(actor) || actor.ParticipantID == "" || t.Limited == nil {
+	participant := t.participantByID[actor.ParticipantID]
+	if !t.actorIsCurrent(actor) || participant == nil ||
+		participant.ConnectionID != actor.ConnectionID || t.Limited == nil {
 		return nil, fail(ErrForbidden, "limited pool is not owned by this session")
 	}
-	deck, err := t.Limited.SubmitDeck(actor.ParticipantID, request)
+	var deck *protocol.DeckSelect
+	var err error
+	if t.IsCubeRoom() && t.Stage == protocol.LimitedStageCompetition {
+		if t.CurrentPairing(participant.ID) != nil {
+			return nil, fail(ErrNotReady, "cancel the invitation or leave the table before editing the deck")
+		}
+		deck, err = t.Limited.UpdateCasualDeck(actor.ParticipantID, request)
+	} else {
+		deck, err = t.Limited.SubmitDeck(actor.ParticipantID, request)
+	}
 	if err != nil {
 		return nil, err
 	}
-	participant := t.participantByID[actor.ParticipantID]
-	if participant == nil {
-		return nil, fail(ErrForbidden, "limited participant was not found")
-	}
 	cloned := cloneDeck(*deck)
 	participant.Deck = &cloned
+	if err := t.enterCubeFreePlayIfReady(); err != nil {
+		return nil, err
+	}
 	return &cloned, nil
 }
 
@@ -639,6 +706,12 @@ func (t *Tournament) IsTerminal() bool {
 }
 
 func (t *Tournament) Drop(actor Actor, participantID string) error {
+	if t.IsCubeRoom() {
+		if participantID != "" && participantID != actor.ParticipantID {
+			return fail(ErrForbidden, "only the seated player can withdraw from Cube free play")
+		}
+		return t.SetCubeParticipation(actor, false)
+	}
 	if !t.actorIsCurrent(actor) {
 		return fail(ErrForbidden, "tournament role is not owned by this session")
 	}
@@ -750,7 +823,7 @@ func (t *Tournament) CurrentPairing(participantID string) *Pairing {
 	if t.Coordinator == protocol.LimitedCoordinatorCasual {
 		for index := len(t.CasualPairings) - 1; index >= 0; index-- {
 			pairing := &t.CasualPairings[index]
-			if pairing.PlayerAID == participantID || pairing.PlayerBID == participantID {
+			if pairing.HasParticipant(participantID) {
 				return pairing
 			}
 		}
@@ -770,6 +843,9 @@ func (t *Tournament) CurrentPairing(participantID string) *Pairing {
 }
 
 func (t *Tournament) CreateCasualMatch(actor Actor, playerAID, playerBID string) (*Pairing, error) {
+	if t.IsCubeRoom() {
+		return t.requestCubeMatch(actor, playerAID, playerBID)
+	}
 	if actor.Role != RoleOrganizer || !t.actorIsCurrent(actor) {
 		return nil, fail(ErrForbidden, "only the organizer can create a casual match")
 	}
@@ -788,15 +864,15 @@ func (t *Tournament) CreateCasualMatch(actor Actor, playerAID, playerBID string)
 		}
 		for index := range t.CasualPairings {
 			pairing := &t.CasualPairings[index]
-			if pairing.RoomID != "" &&
-				(pairing.PlayerAID == participantID || pairing.PlayerBID == participantID) {
+			// A pending pairing reserves its players before either opens the room.
+			if pairing.PlayerAID == participantID || pairing.PlayerBID == participantID {
 				return nil, fail(ErrNotReady, "a selected player already has an open table")
 			}
 		}
 	}
 	t.nextPairing++
 	t.CasualPairings = append(t.CasualPairings, Pairing{
-		ID: fmt.Sprintf("casual-%d", t.nextPairing), Table: len(t.CasualPairings) + 1,
+		ID: fmt.Sprintf("casual-%d", t.nextPairing), Table: t.nextPairing,
 		PlayerAID: playerAID, PlayerBID: playerBID,
 	})
 	return &t.CasualPairings[len(t.CasualPairings)-1], nil
@@ -931,6 +1007,8 @@ func (t *Tournament) Correct(actor Actor, pairingID string, score MatchScore,
 
 func (t *Tournament) validateScore(score MatchScore) error {
 	if score.PlayerAWins < 0 || score.PlayerBWins < 0 || score.DrawnGames < 0 ||
+		score.PlayerAWins > MaxReportedGames || score.PlayerBWins > MaxReportedGames ||
+		score.DrawnGames > MaxReportedGames ||
 		score.PlayerAWins+score.PlayerBWins+score.DrawnGames > MaxReportedGames {
 		return fail(ErrResultInvalid, "invalid game score")
 	}
@@ -965,10 +1043,10 @@ func (t *Tournament) SetPairingRoom(actor Actor, pairingID, roomID string) error
 	if err != nil {
 		return err
 	}
-	if actor.ParticipantID != pairing.PlayerAID && actor.ParticipantID != pairing.PlayerBID {
+	if !pairing.HasParticipant(actor.ParticipantID) {
 		return fail(ErrForbidden, "only paired players can open this table")
 	}
-	if pairing.Bye() || pairing.Result != nil {
+	if pairing.Bye() || pairing.Result != nil || pairing.Invited {
 		return fail(ErrInvalid, "pairing does not need a table")
 	}
 	pairing.RoomID = roomID
@@ -976,11 +1054,14 @@ func (t *Tournament) SetPairingRoom(actor Actor, pairingID, roomID string) error
 }
 
 func (t *Tournament) ClearRoom(roomID string) {
-	for index := range t.CasualPairings {
-		if t.CasualPairings[index].RoomID == roomID {
-			t.CasualPairings[index].RoomID = ""
-		}
+	if roomID == "" {
+		return
 	}
+	// Casual tables have no result history. Closing the underlying room retires
+	// the pairing and releases both seats for another match with any opponent.
+	t.CasualPairings = slices.DeleteFunc(t.CasualPairings, func(pairing Pairing) bool {
+		return pairing.RoomID == roomID
+	})
 	for roundIndex := range t.Rounds {
 		for pairingIndex := range t.Rounds[roundIndex].Pairings {
 			pairing := &t.Rounds[roundIndex].Pairings[pairingIndex]

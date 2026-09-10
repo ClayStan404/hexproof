@@ -30,6 +30,7 @@ Page {
     }
 
     ScrollView {
+        objectName: "settingsBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -357,7 +358,7 @@ Page {
                         Text {
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
-                            text: qsTr("Reassign, disable, or restore application, table, and replay actions.")
+                            text: qsTr("Reassign, disable, or restore application and table actions.")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSize(12)
                             wrapMode: Text.WordWrap

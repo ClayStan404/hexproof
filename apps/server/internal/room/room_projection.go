@@ -44,6 +44,7 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 			Graveyard:      cloneGameCards(state.Graveyard),
 			Exile:          cloneGameCards(state.Exile),
 			CommandZone:    cloneGameCards(state.CommandZone),
+			Emblems:        append([]protocol.GameEmblem{}, state.Emblems...),
 			CommanderTax:   state.CommanderTax,
 			CommanderTaxes: cloneCommanderTaxes(state.CommanderTaxes),
 			Eliminated:     state.Eliminated,
@@ -148,6 +149,7 @@ func (r *Room) projectCommanderIdentities() []protocol.GameCommanderIdentity {
 			}
 			identities = append(identities, protocol.GameCommanderIdentity{
 				CardID: commanderID, OwnerSeat: ownerSeat, Name: name,
+				ChosenColor: r.Game.CommanderColors[commanderID],
 			})
 		}
 	}

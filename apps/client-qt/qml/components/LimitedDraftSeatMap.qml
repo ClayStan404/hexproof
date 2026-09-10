@@ -35,7 +35,7 @@ Surface {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: qsTr("Draft seats")
+                text: qsTranslate("TournamentLobby", "Draft seats")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(14)
                 font.weight: Font.DemiBold
@@ -44,10 +44,10 @@ Surface {
             StatusPill {
                 objectName: "draftDirectionPill"
                 text: root.twoPlayer
-                      ? qsTr("Two-player draft")
+                      ? qsTranslate("TournamentLobby", "Two-player draft")
                       : root.direction > 0
-                        ? qsTr("Pass left · clockwise")
-                        : qsTr("Pass right · counter-clockwise")
+                        ? qsTranslate("TournamentLobby", "Pass left · clockwise")
+                        : qsTranslate("TournamentLobby", "Pass right · counter-clockwise")
                 statusColor: Theme.accent
             }
         }
@@ -75,8 +75,8 @@ Surface {
                         textFormat: Text.PlainText
                         width: parent.width
                         text: root.participantId.length > 0
-                              ? qsTr("Pass to %1").arg(root.outgoingName)
-                              : qsTr("Seat order")
+                              ? qsTranslate("TournamentLobby", "Pass to %1").arg(root.outgoingName)
+                              : qsTranslate("TournamentLobby", "Seat order")
                         color: Theme.primary
                         font.pixelSize: Theme.fontSize(11)
                         font.weight: Font.DemiBold
@@ -88,7 +88,7 @@ Surface {
                         textFormat: Text.PlainText
                         width: parent.width
                         visible: root.participantId.length > 0
-                        text: qsTr("Receive from %1").arg(root.incomingName)
+                        text: qsTranslate("TournamentLobby", "Receive from %1").arg(root.incomingName)
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(9)
                         horizontalAlignment: Text.AlignHCenter
@@ -144,8 +144,8 @@ Surface {
                             textFormat: Text.PlainText
                             width: parent.width
                             text: seat.modelData.isSelf
-                                  ? qsTr("Seat %1 · You").arg(seat.modelData.seatNumber)
-                                  : qsTr("Seat %1").arg(seat.modelData.seatNumber)
+                                  ? qsTranslate("TournamentLobby", "Seat %1 · You").arg(seat.modelData.seatNumber)
+                                  : qsTranslate("TournamentLobby", "Seat %1").arg(seat.modelData.seatNumber)
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(7)
                             horizontalAlignment: Text.AlignHCenter

@@ -12,7 +12,8 @@ ApplicationWindow {
     property string notifiedUpdateVersion: ""
     property string notifiedDownloadPath: ""
 
-    title: Qt.application.name
+    property string windowTitle: Qt.application.name
+    title: windowTitle
     width: 1280
     height: 800
     minimumWidth: 900
@@ -123,7 +124,10 @@ ApplicationWindow {
             stack.replace(null, "screens/RulesTable.qml",
                           {
                               "wsModel": ws,
-                              "cardCatalogModel": cardCatalog
+                              "cardCatalogModel": cardCatalog,
+                              "gameTableModel": gameTable,
+                              "sideboardTableModel": sideboardTable,
+                              "preferencesModel": preferences
                           })
         } else {
             stack.replace(null, "screens/Table.qml",
@@ -176,7 +180,7 @@ ApplicationWindow {
             root.showBanner(qsTr("You were removed from the room"))
         }
         function onRoomDisbanded() {
-            root.showBanner(qsTr("The room was disbanded"))
+            root.showBanner(qsTr("The game table was closed"))
         }
         function onLeftRoom() {
             root.showBanner(qsTr("You left the room"))
@@ -190,15 +194,11 @@ ApplicationWindow {
         }
     }
 
-    Connections {
-        target: tournament
-
-        function onInTournamentChanged() {
-            if (tournament.inTournament && ws.connected && !ws.inRoom)
-                stack.replace(null, "screens/TournamentLobby.qml")
-            else if (!tournament.inTournament && ws.connected && !ws.inRoom)
-                stack.replace(null, "screens/MainMenu.qml")
-        }
+    EventScreenRouter {
+        id: eventRouter
+        wsModel: ws
+        tournamentModel: tournament
+        onScreenRequested: screen => stack.replace(null, screen)
     }
 
     Rectangle {
@@ -241,12 +241,16 @@ ApplicationWindow {
 
     Rectangle {
         id: banner
+        objectName: "applicationBanner"
 
         property string message: ""
 
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(Theme.size(520), bannerContent.implicitWidth + Theme.size(34))
-        height: Theme.size(48)
+        width: Math.min(parent.width - Theme.size(48), Theme.size(520),
+                        bannerText.implicitWidth + Theme.size(58))
+        height: Math.min(parent.height - Theme.size(56),
+                         Math.max(Theme.size(48),
+                                  bannerText.implicitHeight + Theme.size(24)))
         radius: Theme.size(14)
         color: Theme.surfaceElevated
         border.width: 1
@@ -257,26 +261,47 @@ ApplicationWindow {
            + (opacity < 0.5 ? Theme.size(10) : 0)
         z: 100
 
-        Row {
-            id: bannerContent
-            anchors.centerIn: parent
-            spacing: Theme.size(10)
+        Rectangle {
+            width: Theme.size(8)
+            height: Theme.size(8)
+            radius: Theme.size(4)
+            color: Theme.primary
+            anchors.left: parent.left
+            anchors.leftMargin: Theme.size(17)
+            anchors.verticalCenter: parent.verticalCenter
+        }
 
-            Rectangle {
-                width: Theme.size(8)
-                height: Theme.size(8)
-                radius: Theme.size(4)
-                color: Theme.primary
-                anchors.verticalCenter: parent.verticalCenter
-            }
+        ScrollView {
+            id: bannerScroll
+            anchors.fill: parent
+            anchors.leftMargin: Theme.size(35)
+            anchors.rightMargin: Theme.size(17)
+            anchors.topMargin: Theme.size(12)
+            anchors.bottomMargin: Theme.size(12)
+            contentWidth: availableWidth
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             Text {
+                id: bannerText
+                objectName: "applicationBannerText"
                 textFormat: Text.PlainText
+                width: bannerScroll.availableWidth
                 text: banner.message
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(13)
                 font.weight: Font.Medium
-                anchors.verticalCenter: parent.verticalCenter
+                wrapMode: Text.Wrap
+            }
+        }
+
+        HoverHandler {
+            id: bannerHover
+            onHoveredChanged: {
+                if (hovered)
+                    hideTimer.stop()
+                else if (banner.opacity > 0)
+                    hideTimer.restart()
             }
         }
 
@@ -291,8 +316,11 @@ ApplicationWindow {
         function show(message, duration) {
             banner.message = message
             banner.opacity = 1
-            hideTimer.interval = duration
-            hideTimer.restart()
+            hideTimer.interval = Math.max(duration, Math.min(10000, message.length * 55))
+            if (bannerHover.hovered)
+                hideTimer.stop()
+            else
+                hideTimer.restart()
         }
     }
 
@@ -305,8 +333,6 @@ ApplicationWindow {
     }
 
     function showTournamentOrMenu() {
-        stack.replace(null, tournament.inTournament
-                      ? "screens/TournamentLobby.qml"
-                      : "screens/MainMenu.qml")
+        eventRouter.showEventOrMenu()
     }
 }

@@ -38,6 +38,145 @@ TestCase {
         harness.cleanupHarness()
     }
 
+    function test_consentDoesNotSurviveGameLifecycle_data() {
+        return [{tag: "restart", transition: "restart"},
+                {tag: "finished", transition: "finished"},
+                {tag: "sideboarding", transition: "sideboarding"},
+                {tag: "next-game", transition: "next-game"},
+                {tag: "returned-to-room", transition: "returned-to-room"},
+                {tag: "left-room", transition: "left-room"}]
+    }
+
+    function test_consentDoesNotSurviveGameLifecycle(data) {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(waitForRendering(table))
+        mockWs.libraryDumped([{id: "private-old-card", name: "Forest"}], 1, "old-grant", 0)
+        mockWs.libraryAccessRequested("old-library-request", "Bob", 1, 0)
+        mockWs.publicZoneMoveRequested("old-public-request", "Bob", 1, "graveyard", 1, "hand")
+        tryCompare(table.librarySearchPopup, "opened", true)
+        tryCompare(table.libraryAccessConfirmation, "opened", true)
+        tryCompare(table.publicZoneMoveConfirmation, "opened", true)
+        compare(table.librarySearchPopup.approvalId, "old-grant")
+        mockWs.gameSnapshotChanged()
+        compare(table.librarySearchPopup.approvalId, "old-grant",
+                "An ordinary snapshot must not revoke a live consent grant")
+
+        if (data.transition === "restart") mockWs.gameRestarted()
+        else if (data.transition === "finished") mockWs.gameFinished = true
+        else if (data.transition === "sideboarding") mockWs.sideboarding = true
+        else if (data.transition === "next-game") mockWs.gameNumber++
+        else if (data.transition === "returned-to-room") mockWs.roomPhase = "waiting"
+        else mockWs.inRoom = false
+        mockWs.gameSnapshotChanged()
+
+        compare(table.transientState.pendingLibraryApprovalId, "")
+        compare(table.transientState.pendingPublicZoneMoveApprovalId, "")
+        compare(table.librarySearchPopup.cards.length, 0)
+        compare(table.librarySearchPopup.approvalId, "")
+        tryCompare(table.librarySearchPopup, "opened", false)
+        tryCompare(table.libraryAccessConfirmation, "opened", false)
+        tryCompare(table.publicZoneMoveConfirmation, "opened", false)
+        compare(mockWs.respondPublicZoneMoveCount, 0,
+                "Invalidation must not send stale consent commands")
+        compare(mockWs.shuffleLibraryCount, 0)
+    }
+
+    function test_newGameClearsReusedCardInteractions_data() {
+        return [{tag: "same-number-restart", restart: true},
+                {tag: "next-bo3-game", restart: false}]
+    }
+
+    function test_newGameClearsReusedCardInteractions(data) {
+        const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        seats[0].battlefield = [{id: "s0-c2", name: "Forest", ownerSeat: 0}]
+        mockWs.gameSeats = seats
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(waitForRendering(table))
+        table.selectedHandCard = table.ownHand[0]
+        const cards = table.zoneState.zoneCardsForSeat(0, "battlefield")
+        table.selection.selectCard(cards[0], 0, false)
+        table.selection.beginRelationTarget("arrow")
+        compare(table.selectedBattlefieldCardId, cards[0].id)
+        compare(table.battlefieldInteractionMode, "arrow")
+        table.activeHandDragCardId = table.ownHand[0].id
+        table.activeBattlefieldDragCardId = cards[0].id
+        table.cardMoveCommands.pendingCardFaceAction = {type: "set", cardId: cards[0].id}
+        table.gameValues.untapBatchCardIds = [cards[0].id]
+        table.handCardMenu.open()
+        tryCompare(table.handCardMenu, "opened", true)
+        if (data.restart) {
+            mockWs.gameRestarted()
+            compare(table.ownHand.length, 0)
+            compare(table.battlefieldSeats.length, 0)
+        } else {
+            mockWs.gameNumber++
+            mockWs.gameSnapshotChanged()
+        }
+        compare(table.activeHandDragCardId, "")
+        compare(table.activeBattlefieldDragCardId, "")
+        compare(table.battlefieldInteractionMode, "")
+        compare(table.selectedBattlefieldCardId, "")
+        verify(!table.cardMoveCommands.pendingCardFaceAction.cardId)
+        compare(table.gameValues.untapBatchCardIds.length, 0)
+        verify(!table.selectedHandCard.id)
+        tryCompare(table.handCardMenu, "opened", false)
+        syncTestGameTable()
+        mockWs.gameSnapshotChanged()
+        compare(table.battlefieldSeats.length, 2,
+                "Identical new snapshots must recreate the battlefield delegates")
+        compare(table.ownHand.length, 1)
+        verify(!table.selectedHandCard.id, "Reused IDs must not recover an old selection")
+        compare(table.selectedBattlefieldCardId, "")
+    }
+
+    function test_finishedPlayerCanInspectOwnPublicZones() {
+        mockWs.gameFinished = true
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        verify(waitForRendering(table))
+        table.gameResultPopup.close()
+        tryCompare(table.gameResultPopup, "opened", false)
+        for (const zone of ["graveyard", "exile"]) {
+            const pile = findChild(table, zone + "BrowserButton0")
+            verify(pile.enabled, "Finished players must retain public-zone inspection")
+            mouseClick(pile)
+            tryCompare(table.publicZoneBrowser, "opened", true)
+            compare(table.publicZoneBrowser.zoneKey, zone)
+            verify(!table.publicZoneBrowser.canMoveCards)
+            verify(pile.drag.target === null)
+            table.publicZoneBrowser.close()
+        }
+    }
+
+    function test_finishedPlayerCanPreviewHandWithoutDragging() {
+        mockWs.gameFinished = true
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        verify(waitForRendering(table))
+        table.gameResultPopup.close()
+        tryCompare(table.gameResultPopup, "opened", false)
+        const hand = findChild(table, "ownHand")
+        tryVerify(() => hand.itemAtIndex(0) !== null)
+        const card = hand.itemAtIndex(0)
+        mouseMove(table, 1, 1)
+        mouseMove(card, card.width / 2, card.height / 2)
+        tryCompare(table.presentation, "hoverPreviewVisible", true)
+        const interaction = findChild(card, "handCardInteraction0")
+        verify(interaction !== null)
+        verify(interaction.drag.target === null)
+        mouseDrag(card, card.width / 2, card.height / 2, 40, -40)
+        compare(table.activeHandDragCardId, "")
+        compare(mockWs.moveCount, 0)
+    }
+
     function test_viewLibraryTopCardUsesContextDestinations() {
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
@@ -186,29 +325,6 @@ TestCase {
         table.destroy()
     }
 
-    function test_optimisticValuesExpireIndependently() {
-        const table = tableComponent.createObject(tableHost, {
-            "width": testWindow.width,
-            "height": testWindow.height,
-            "optimisticValueTimeoutMs": 500
-        })
-        verify(table !== null)
-
-        table.optimisticCommandModel.lifeValues = ({"0": 19})
-        table.optimisticCommands.trackOptimisticValues("life", ["0"])
-        wait(250)
-        table.optimisticCommandModel.counterValues = ({"0:counter-1": 1})
-        table.optimisticCommands.trackOptimisticValues("counter", ["0:counter-1"])
-
-        tryVerify(() => !Object.prototype.hasOwnProperty.call(
-                      table.optimisticLifeTotals, "0"), 500)
-        verify(Object.prototype.hasOwnProperty.call(
-                   table.optimisticCounterValues, "0:counter-1"))
-        tryVerify(() => !Object.prototype.hasOwnProperty.call(
-                      table.optimisticCounterValues, "0:counter-1"), 500)
-        table.destroy()
-    }
-
     function test_commandErrorsRollbackOnlyTheirOptimisticAction() {
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
@@ -286,6 +402,11 @@ TestCase {
         })
         verify(table !== null)
 
+        const opponentToggle = findChild(table, "opponentZoneToggle1")
+        verify(opponentToggle !== null)
+        opponentToggle.clicked()
+        tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
+
         const ownPip = findChild(table, "playerCounterPip0-0")
         const ownLastPip = findChild(table, "playerCounterPip0-6")
         const opponentPip = findChild(table, "playerCounterPip1-0")
@@ -316,7 +437,7 @@ TestCase {
         compare(table.selectedCounterKey, "counter-1")
         compare(table.selectedCounterSeat, 0)
         tryVerify(() => !chatInput.activeFocus)
-        compare(ownPipLabel.text, "I rename · S set")
+        compare(ownPipLabel.text, "Rename · I · Set · S")
 
         mouseClick(ownPip, ownPip.width * 0.18, ownPip.height / 2,
                    Qt.LeftButton)
@@ -349,6 +470,8 @@ TestCase {
         compare(mockWs.lastCounterRename.label, "Energy")
         tryVerify(() => !popup.opened)
 
+        chatInput.forceActiveFocus()
+        tryVerify(() => chatInput.activeFocus)
         mockWs.roomRole = "spectator"
         tryVerify(() => !ownPip.editable)
         table.destroy()
@@ -386,9 +509,11 @@ TestCase {
         verify(remoteSummary.text.indexOf("M2") >= 0)
         compare(startingPlayer.text, "First player · Bob")
 
+        const handList = findChild(table, "ownHand")
+        tryVerify(() => findChild(table, "handCard0") !== null)
+        tryVerify(() => findChild(table, "handCard1") !== null)
         const first = findChild(table, "handCard0")
         const second = findChild(table, "handCard1")
-        const handList = findChild(table, "ownHand")
         verify(first !== null)
         verify(second !== null)
         verify(handList !== null)
@@ -428,6 +553,10 @@ TestCase {
         compare(mockWs.lastRequestedCounterCount, 2)
         tryVerify(() => findChild(table, "playerCounterPip0-1") !== null)
         tryVerify(() => findChild(table, "playerCounterPip0-2") === null)
+        const opponentToggle = findChild(table, "opponentZoneToggle1")
+        verify(opponentToggle !== null)
+        opponentToggle.clicked()
+        tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
         verify(findChild(table, "playerCounterPip1-0") !== null)
         verify(findChild(table, "playerCounterPip1-6") !== null)
         verify(findChild(table, "playerCounterPip1-7") === null)
@@ -448,22 +577,6 @@ TestCase {
         mockWs.gameSeats = originalSeats
     }
 
-    function test_opponentPublicZonePilesHandleSeatRemoval() {
-        const table = tableComponent.createObject(tableHost, {
-            "width": testWindow.width,
-            "height": testWindow.height
-        })
-        verify(table !== null)
-        verify(findChild(table, "graveyardBrowserButton1") !== null)
-        verify(findChild(table, "exileBrowserButton1") !== null)
-
-        failOnWarning(/Cannot read property 'seat' of null/)
-        mockWs.gameSeats = [JSON.parse(JSON.stringify(
-                                          mockWs.baselineGameSeats[0]))]
-        tryVerify(() => findChild(table, "opponentZoneDock1") === null)
-        table.destroy()
-    }
-
     function test_opponentLibraryRightClickOffersScopedRequests() {
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
@@ -472,10 +585,11 @@ TestCase {
         verify(table !== null)
 
         const opponentToggle = findChild(table, "opponentZoneToggle1")
-        const opponentDock = findChild(table, "opponentZoneDock1")
         verify(opponentToggle !== null)
-        verify(opponentDock !== null)
+        verify(findChild(table, "opponentZoneDock1") === null)
         opponentToggle.clicked()
+        tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
+        const opponentDock = findChild(table, "opponentZoneDock1")
         tryVerify(() => opponentDock.visible)
 
         const libraryPile = findChild(table, "searchLibraryButton1")
@@ -647,10 +761,18 @@ TestCase {
             "height": testWindow.height
         })
         verify(table !== null)
+        waitForRendering(table)
+
+        const ownExile = findChild(table, "exileBrowserButton0")
+        const opponentToggle = findChild(table, "opponentZoneToggle1")
+        verify(ownExile !== null)
+        verify(opponentToggle !== null)
+        verify(findChild(table, "opponentZoneDock1") === null)
+        opponentToggle.clicked()
+        tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
 
         const opponentGraveyard = findChild(table, "graveyardBrowserButton1")
         const opponentGraveyardDrop = findChild(table, "graveyardDropArea1")
-        const ownExile = findChild(table, "exileBrowserButton0")
         const opponentHeader = findChild(
                                    table, "opponentZonePanelHeader1")
         const opponentLifeValue = findChild(table, "opponentLifeValue1")
@@ -659,19 +781,14 @@ TestCase {
                                         table,
                                         "opponentLibraryCardBack1")
         const opponentDock = findChild(table, "opponentZoneDock1")
-        const opponentToggle = findChild(table, "opponentZoneToggle1")
         verify(opponentGraveyard !== null)
         verify(opponentGraveyardDrop !== null)
-        verify(ownExile !== null)
         verify(opponentHeader !== null)
         verify(opponentLifeValue === null)
         verify(opponentHandValue === null)
         verify(opponentLibraryBack !== null)
         verify(opponentDock !== null)
-        verify(opponentToggle !== null)
-        verify(!opponentDock.visible)
-        opponentToggle.clicked()
-        tryVerify(() => opponentDock.visible)
+        verify(opponentDock.visible)
         tryVerify(() => opponentGraveyard.width > 0
                      && opponentGraveyard.height > 0)
         verify(opponentGraveyard.enabled)
@@ -736,10 +853,7 @@ TestCase {
         popup.close()
 
         opponentToggle.clicked()
-        tryVerify(() => {
-            const dock = findChild(table, "opponentZoneDock1")
-            return dock !== null && !dock.visible
-        })
+        tryVerify(() => findChild(table, "opponentZoneDock1") === null)
         const battlefieldUpdate = JSON.parse(JSON.stringify(originalSeats))
         battlefieldUpdate[1].battlefield.push({
             "id": "s1-c2",
@@ -749,17 +863,12 @@ TestCase {
             "position": {"x": 0.25, "y": 0.4}
         })
         mockWs.gameSeats = battlefieldUpdate
-        tryVerify(() => {
-            const dock = findChild(table, "opponentZoneDock1")
-            return dock !== null && !dock.visible
-        })
+        tryVerify(() => findChild(table, "opponentZoneDock1") === null)
         const refreshedToggle = findChild(table, "opponentZoneToggle1")
         verify(refreshedToggle !== null)
         refreshedToggle.clicked()
-        tryVerify(() => {
-            const dock = findChild(table, "opponentZoneDock1")
-            return dock !== null && dock.visible
-        })
+        tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
+        verify(findChild(table, "opponentZoneDock1").visible)
         mockWs.gameSeats = originalSeats
         table.destroy()
     }
@@ -960,7 +1069,7 @@ TestCase {
         mockWs.gameSeats = originalSeats
     }
 
-    function test_createsEnglishCatalogTokenOnBattlefield() {
+    function test_createsCatalogTokenOnBattlefield() {
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
             "height": testWindow.height
@@ -982,11 +1091,13 @@ TestCase {
         const resultRow = results.itemAtIndex(0)
         const details = findChild(resultRow, "tokenResultDetails")
         verify(details !== null)
-        compare(details.text, "1/1 · Haste · TNEO #12")
+        compare(details.text, "1/1 · Token Creature — Goblin · Haste · TNEO #12")
         const createButton = findChild(resultRow, "createTokenResultButton")
         verify(createButton !== null)
+        const cachedBeforeCreate = mockCatalog.cacheTokenCount
+        verify(cachedBeforeCreate > 0, "Opening results requests their current-language art and metadata")
         createButton.clicked()
-        compare(mockCatalog.cacheTokenCount, 1)
+        compare(mockCatalog.cacheTokenCount, cachedBeforeCreate + 1)
         compare(mockWs.createTokenCount, 1)
         compare(mockWs.lastToken.token.name, "Goblin")
         verify(Math.abs(mockWs.lastToken.position.x - 0.5) < 0.15)

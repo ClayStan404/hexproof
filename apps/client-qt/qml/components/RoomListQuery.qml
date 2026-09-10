@@ -48,11 +48,15 @@ QtObject {
         if (phaseFilter === "in_game" && room.phase !== "started"
                 && room.phase !== "loading")
             return false
+        if (["draft", "deck_building", "free_play"].indexOf(phaseFilter) >= 0
+                && room.phase !== phaseFilter)
+            return false
         if (accessFilter === "open" && room.hasPassword === true)
             return false
         if (accessFilter === "locked" && room.hasPassword !== true)
             return false
-        if (formatFilter !== "all" && String(room.format || "") !== formatFilter)
+        const format = room.roomKind === "cube" ? "cube" : String(room.format || "")
+        if (formatFilter !== "all" && format !== formatFilter)
             return false
         return true
     }

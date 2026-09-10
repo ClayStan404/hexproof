@@ -109,6 +109,47 @@ void TestWsClient::correlatesCommandOutcomes() const
     QCOMPARE(failed.count(), 1);
 }
 
+void TestWsClient::announcesOnlyCurrentRoomRestartBroadcast() const
+{
+    QWebSocketServer server(u"Hexproof restart broadcast server"_s,
+                            QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, hexproof::protocol::kProtocolVersion},
+                       {u"connectionId"_s, u"restart-client"_s},
+                       {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    Envelope created;
+    created.type = hexproof::protocol::kTypeRoomCreated;
+    created.payload = {{u"roomId"_s, u"ABCDEF"_s}};
+    sendEnvelope(peer, created);
+    sendEnvelope(peer, roomSnapshot(u"Restart room"_s));
+    QTRY_VERIFY_WITH_TIMEOUT(client.inRoom(), 1000);
+    QSignalSpy restarted(&client, &WsClient::gameRestarted);
+    Envelope notification;
+    notification.type = hexproof::protocol::kTypeGameRestarted;
+    notification.payload = {
+        {u"roomId"_s, u"ABCDEF"_s}, {u"gameNumber"_s, 1}, {u"startingSeat"_s, 0}};
+    notification.id = u"request-reply"_s;
+    sendEnvelope(peer, notification);
+    notification.id.clear();
+    notification.payload.insert(u"roomId"_s, u"OTHER1"_s);
+    sendEnvelope(peer, notification);
+    notification.payload.insert(u"roomId"_s, u"ABCDEF"_s);
+    sendEnvelope(peer, notification);
+    QTRY_COMPARE_WITH_TIMEOUT(restarted.count(), 1, 1000);
+    QTest::qWait(20);
+    QCOMPARE(restarted.count(), 1);
+}
+
 void TestWsClient::rollsBackPendingCommandsBeforeRoomIdentityClears() const
 {
     QWebSocketServer server(u"Hexproof room teardown server"_s, QWebSocketServer::NonSecureMode);
@@ -163,7 +204,7 @@ void TestWsClient::rollsBackPendingCommandsBeforeRoomIdentityClears() const
     QVERIFY(!client.inRoom());
 }
 
-void TestWsClient::handlesP7DiscoveryReplayAndTableCommands() const
+void TestWsClient::handlesP7DiscoveryAndTableCommands() const
 {
     QWebSocketServer server(u"Hexproof test server"_s, QWebSocketServer::NonSecureMode);
     QVERIFY(server.listen(QHostAddress::LocalHost, 0));
@@ -216,60 +257,6 @@ void TestWsClient::handlesP7DiscoveryReplayAndTableCommands() const
     QCOMPARE(client.roomList().size(), 1);
     QCOMPARE(client.roomList().first().toMap().value(u"roomId"_s).toString(), u"ABCDEF"_s);
 
-    client.requestReplayList();
-    Envelope listRequest = nextOutbound();
-    QCOMPARE(listRequest.type, hexproof::protocol::kTypeReplayList);
-    QCOMPARE(listRequest.payload.value(u"offset"_s).toInt(), 0);
-    QCOMPARE(listRequest.payload.value(u"limit"_s).toInt(), 50);
-    QSignalSpy replayListSpy(&client, &WsClient::replayListChanged);
-    Envelope replayList;
-    replayList.type = hexproof::protocol::kTypeReplayListed;
-    replayList.payload = QJsonObject{{u"replays"_s, QJsonArray{QJsonObject{
-                                                        {u"replayId"_s, u"ABCDEF-1.json"_s},
-                                                        {u"roomName"_s, u"Archived Table"_s},
-                                                        {u"logEntryCount"_s, 2},
-                                                    }}},
-                                     {u"offset"_s, 50},
-                                     {u"limit"_s, 50},
-                                     {u"total"_s, 101},
-                                     {u"hasMore"_s, true}};
-    sendEnvelope(peer, replayList);
-    QTRY_COMPARE_WITH_TIMEOUT(replayListSpy.count(), 1, 1000);
-    QCOMPARE(client.replayList().size(), 1);
-    QCOMPARE(client.replayOffset(), 50);
-    QCOMPARE(client.replayLimit(), 50);
-    QCOMPARE(client.replayTotal(), 101);
-    QVERIFY(client.replayHasMore());
-
-    client.requestReplayPage(100);
-    listRequest = nextOutbound();
-    QCOMPARE(listRequest.payload.value(u"offset"_s).toInt(), 100);
-    QCOMPARE(listRequest.payload.value(u"limit"_s).toInt(), 50);
-
-    client.loadReplay(u"ABCDEF-1.json"_s);
-    Envelope request = nextOutbound();
-    QCOMPARE(request.type, hexproof::protocol::kTypeReplayGet);
-    QCOMPARE(request.payload.value(u"replayId"_s).toString(), u"ABCDEF-1.json"_s);
-    QSignalSpy replayLoadedSpy(&client, &WsClient::replayLoaded);
-    Envelope replay;
-    replay.type = hexproof::protocol::kTypeReplayLoaded;
-    replay.payload = QJsonObject{
-        {u"replay"_s,
-         QJsonObject{
-             {u"replayId"_s, u"ABCDEF-1.json"_s},
-             {u"roomName"_s, u"Archived Table"_s},
-         }},
-        {u"log"_s, QJsonArray{QJsonObject{
-                       {u"id"_s, 1},
-                       {u"kind"_s, u"draw"_s},
-                       {u"seat"_s, 0},
-                       {u"text"_s, u"Alice drew a card."_s},
-                   }}},
-    };
-    sendEnvelope(peer, replay);
-    QTRY_COMPARE_WITH_TIMEOUT(replayLoadedSpy.count(), 1, 1000);
-    QCOMPARE(client.loadedReplay().value(u"log"_s).toList().size(), 1);
-
     Envelope game;
     game.type = hexproof::protocol::kTypeGameSnapshot;
     game.payload = QJsonObject{
@@ -299,7 +286,7 @@ void TestWsClient::handlesP7DiscoveryReplayAndTableCommands() const
     client.setCardCounter(
         u"s0-c1"_s,
         QVariantMap{{u"kind"_s, u"ability"_s}, {u"label"_s, u"Flying"_s}, {u"value"_s, 1}});
-    request = nextOutbound();
+    Envelope request = nextOutbound();
     QCOMPARE(request.type, hexproof::protocol::kTypeGameSetCardCounter);
     QCOMPARE(request.payload.value(u"cardId"_s).toString(), u"s0-c1"_s);
     QCOMPARE(request.payload.value(u"label"_s).toString(), u"Flying"_s);
@@ -390,7 +377,7 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
     QVERIFY(!createCasual.payload.contains(u"cardsPerPlayer"_s));
 
     client.createLimitedTournament(u"Ranked Cube"_s, hexproof::protocol::kLimitedEventCubeDraft,
-                                   u"bo1"_s, 50, 8, 0, cubeProduct);
+                                   u"bo1"_s, 50, 8, cubeProduct);
     const Envelope createSwissCube = nextOutbound();
     QCOMPARE(createSwissCube.type, hexproof::protocol::kTypeTournamentCreate);
     QCOMPARE(createSwissCube.payload.value(u"eventType"_s).toString(),
@@ -398,6 +385,12 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
     QCOMPARE(createSwissCube.payload.value(u"format"_s).toString(), u"Cube"_s);
     QVERIFY(!createSwissCube.payload.contains(u"coordinator"_s));
     QVERIFY(!createSwissCube.payload.contains(u"plannedRounds"_s));
+
+    client.createTournament(u"Swiss"_s, u"Modern"_s, u"bo3"_s, 75, 16);
+    const Envelope createConstructed = nextOutbound();
+    QCOMPARE(createConstructed.type, hexproof::protocol::kTypeTournamentCreate);
+    QCOMPARE(createConstructed.payload.value(u"roundMinutes"_s).toInt(), 75);
+    QVERIFY(!createConstructed.payload.contains(u"plannedRounds"_s));
 
     client.requestTournamentList();
     QCOMPARE(nextOutbound().type, hexproof::protocol::kTypeTournamentList);
@@ -451,6 +444,24 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
         {u"participantId"_s, u"p-1"_s},
     };
     sendEnvelope(peer, entered);
+
+    QTRY_COMPARE_WITH_TIMEOUT(client.tournamentSession()->tournamentId(), u"ABCDEFGH"_s, 1000);
+    const QString chatId = client.sendTournamentChat(u" Hello event "_s);
+    const Envelope chatRequest = nextOutbound();
+    QCOMPARE(chatRequest.type, hexproof::protocol::kTypeTournamentChatSend);
+    QCOMPARE(chatRequest.id, chatId);
+    QCOMPARE(chatRequest.payload.value(u"tournamentId"_s).toString(), u"ABCDEFGH"_s);
+    QCOMPARE(chatRequest.payload.value(u"text"_s).toString(), u"Hello event"_s);
+    Envelope chatMessage;
+    chatMessage.type = hexproof::protocol::kTypeTournamentChatMessage;
+    chatMessage.id = chatId;
+    chatMessage.payload = QJsonObject{{u"tournamentId"_s, u"ABCDEFGH"_s},
+                                      {u"sequence"_s, 1},
+                                      {u"displayName"_s, u"Judge"_s},
+                                      {u"text"_s, u"Hello event"_s},
+                                      {u"sentAt"_s, u"2026-09-08T10:00:00Z"_s}};
+    sendEnvelope(peer, chatMessage);
+    QTRY_COMPARE_WITH_TIMEOUT(client.tournamentSession()->chatMessages().size(), 1, 1000);
 
     Envelope snapshot;
     snapshot.type = hexproof::protocol::kTypeTournamentSnapshot;
@@ -682,6 +693,7 @@ void TestWsClient::exposesJoinedRoomRole() const
         {u"v"_s, hexproof::protocol::kProtocolVersion},
         {u"connectionId"_s, u"conn-2"_s},
         {u"serverVersion"_s, buildVersion()},
+        {u"resumeToken"_s, u"spectator-resume-secret"_s},
     };
     sendEnvelope(peer, welcome);
     QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
@@ -703,6 +715,10 @@ void TestWsClient::exposesJoinedRoomRole() const
     QCOMPARE(client.roomSession()->role(), u"spectator"_s);
     QCOMPARE(client.roomSession()->seatIndex(), -1);
     QVERIFY(!client.roomSession()->host());
+
+    QSettings settings;
+    QVERIFY(!settings.contains(u"network/resumeRoomRole"_s));
+    QVERIFY(!settings.contains(u"network/resumeToken"_s));
 }
 
 void TestWsClient::roomSessionStateExposesQmlBindableIdentity() const
@@ -782,7 +798,9 @@ void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
 
     RulesSessionState session;
     QSignalSpy changed(&session, &RulesSessionState::snapshotChanged);
+    QCOMPARE(session.snapshotRevision(), quint64{0});
     QVERIFY(session.applySnapshot(snapshot.payload));
+    QCOMPARE(session.snapshotRevision(), quint64{1});
     QCOMPARE(changed.count(), 1);
     QCOMPARE(session.roomId(), u"ABCDEF"_s);
     QCOMPARE(session.gameId(), u"ABCDEF-1"_s);
@@ -950,7 +968,23 @@ void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
     QVERIFY(!zoneCards->data(zoneCards->index(1), visibleRole).toBool());
     QVERIFY(zoneCards->data(zoneCards->index(1), cardNameRole).toString().isEmpty());
 
+    const quint64 previousRevision = session.snapshotRevision();
+    QJsonObject zoneOnlySnapshot = snapshot.payload;
+    QJsonArray nextZones = zoneOnlySnapshot.value(u"zones"_s).toArray();
+    QJsonObject nextZone = nextZones.at(0).toObject();
+    nextZone.insert(u"count"_s, 7);
+    nextZones.replace(0, nextZone);
+    zoneOnlySnapshot.insert(u"zones"_s, nextZones);
+    QVERIFY(session.applySnapshot(zoneOnlySnapshot));
+    QCOMPARE(session.snapshotRevision(), previousRevision + 1);
+    QCOMPARE(session.zoneCount(0, u"hand"_s), 7);
+    QCOMPARE(session.turn(), 1);
+    QCOMPARE(session.players()->data(session.players()->index(0), lifeRole).toInt(), 20);
+    QVERIFY(!session.applySnapshot({}));
+    QCOMPARE(session.snapshotRevision(), previousRevision + 1);
+
     session.clear();
+    QCOMPARE(session.snapshotRevision(), previousRevision + 2);
     QVERIFY(!session.active());
     QCOMPARE(session.players()->rowCount(), 0);
     QCOMPARE(session.zones()->rowCount(), 0);
@@ -1072,7 +1106,10 @@ void TestWsClient::hidesMirroredSessionPropertiesFromQml() const
     QVERIFY(meta->indexOfProperty("connected") >= 0);
     QVERIFY(meta->indexOfProperty("lastError") >= 0);
     QVERIFY(meta->indexOfProperty("roomList") >= 0);
-    QVERIFY(meta->indexOfProperty("replayList") >= 0);
+    QVERIFY(meta->indexOfProperty("replayList") < 0);
+    QVERIFY(meta->indexOfProperty("loadedReplay") < 0);
+    QVERIFY(meta->indexOfMethod("requestReplayList()") < 0);
+    QVERIFY(meta->indexOfMethod("loadReplay(QString)") < 0);
     QVERIFY(meta->indexOfProperty("roomSession") >= 0);
     QVERIFY(meta->indexOfProperty("gameSession") >= 0);
     QVERIFY(meta->indexOfProperty("rulesSession") >= 0);

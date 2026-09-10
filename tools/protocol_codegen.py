@@ -186,6 +186,12 @@ def run(root: Path, check: bool) -> int:
     problems.extend(verify_payload_fixtures(root, payload_schema))
     problems.extend(verify_go_payload_structs(root, payload_schema))
     problems.extend(verify_qt_payload_builders(root, payload_schema))
+    if problems:
+        print("protocol schema validation failed:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+
     outputs = generated_outputs(root, constants)
     for path, expected in outputs.items():
         if check:

@@ -13,8 +13,9 @@ QtObject {
     readonly property var crossLaneStacks: {
         const attachments = tableRoot.tableAttachments
                             ? tableRoot.tableAttachments : []
-        const seats = tableRoot.gameTableModel.seats
-        void seats
+        const cardIndexRevision =
+            tableRoot.gameTableModel.cardIndexRevision
+        void cardIndexRevision
         const stacksByTarget = ({})
         const result = []
         for (let index = 0; index < attachments.length; ++index) {

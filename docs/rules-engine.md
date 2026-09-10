@@ -38,6 +38,12 @@ required together. The handshake exposes
 the immutable `rulesMode` (`manual` or `forge`). The server rejects Forge room
 creation before publishing the room if its startup probe did not succeed.
 
+The 2026-09-09 [backend evaluation](rules-backend-evaluation.md) retains Java
+Forge after source inspection, local builds, and real-game tests of XMage,
+Manabrew Rust, Phase, and mtg-forge-ts. The pinned host includes explicit,
+reproducible Hexproof patches; upgrading the upstream version alone is not the
+complete runtime contract.
+
 Manabrew's Rust rules engine may become another backend later. Hexproof does
 not adopt Manabrew's application UI, accounts, relay, or room service. All
 backends implement the Hexproof-owned engine boundary so replacing or adding a
@@ -64,7 +70,8 @@ requests viewer-specific state, and emits privacy-safe Hexproof projections.
 The initial Forge backend uses the harness `--interactive-server` contract:
 
 - `startGame` receives exact printing identities, player names, commanders,
-  variant, starting life, and a server-generated seed;
+  variant, starting life, a server-generated seed, and an optional explicit
+  starting-player index for later games or a host restart;
 - `getSnapshot` always specifies the authorized viewer index;
 - `getPrompt` reads the current session prompt; the Hexproof coordinator
   validates its declared deciding player and projects it only to that
@@ -78,6 +85,13 @@ time because the upstream JSONL transport has ordered responses but no request
 identifier. Calls have a deadline and bounded response size. A malformed
 response, unexpected exit, or timeout makes affected Forge rooms unavailable;
 it never falls back to manual mutation of a partially resolved game.
+
+The host constructs immutable per-viewer publications on the game thread at
+stable decision boundaries and termination. RPC readers never traverse live
+mutating Forge collections. An out-of-turn concession republishes the updated
+views even when the original decision remains pending. Terminal and failed
+game threads cannot leave an actionable stale prompt. Requested initial life
+overrides the variant default without discarding Commander rules.
 
 ## State and privacy
 
@@ -93,9 +107,19 @@ and converts maps to deterministic arrays. Raw harness JSON never reaches the
 WebSocket or QML layers. A shared room sequence is used for all viewer-specific
 projections produced from one fan-out.
 
+Snapshot step names use the existing rules-table phase keys (`main1`,
+`begin_combat`, `declare_attackers`, `declare_blockers`, `combat_damage`,
+`end_combat`, `main2`, and `end`, alongside the unchanged beginning/cleanup
+steps). First-strike and ordinary combat damage share the `combat_damage`
+display category only; Forge still resolves their distinct rules steps.
+
 - A player's hidden zones and pending prompt are requested only for that seat.
 - Spectators receive an explicit spectator projection; they never receive a
-  player's raw engine snapshot as an implementation shortcut.
+  player's raw engine snapshot as an implementation shortcut. The existing
+  immutable `spectatorsSeeHands` opt-in may overlay current hand zones only
+  from their authorized owner projections. It never overlays libraries,
+  sideboards, prompts or face-down battlefield identities. Public journals
+  always use the original hand-hidden spectator projection, even in these rooms.
 - Engine payloads and deck lists must not enter public logs, error details, or
   diagnostics.
 - Hexproof validates room membership, seat ownership, request bounds, and
@@ -107,12 +131,75 @@ projections produced from one fan-out.
   private prompt under the room operation lock and maps the selected response
   back to the exact upstream action only after revalidating player, prompt id,
   family, and option.
+- Public prompt ids are allocated monotonically by the hub and mapped to the
+  current session's private engine prompt id. Repeated publications of the same
+  decision retain that public id; a new game, restart or replacement JVM gets
+  new ids even if Forge starts its local prompt counter at one again. Late
+  responses from an earlier game cannot answer a decision in its replacement.
 - Reconnect obtains a fresh viewer projection and current prompt. It does not
   replay cached private frames.
 - A spectator joining a running rules room immediately receives the explicit
   Forge spectator projection. A seated player departure aborts the engine game
   and returns the remaining room to the waiting gate; it never leaves an
   engine-controlled ghost player running.
+
+## Multi-game matches and review
+
+Generic 1v1 and Duel Commander rules rooms support BO1 and BO3. Multiplayer EDH
+remains BO1. BO3 is first to two wins, not an unconditional three-game limit;
+drawn games do not add a win. Between games the existing five-minute sideboard
+gate applies: registered mainboard/sideboard cards only, owner-private pending
+partitions, all-ready early completion, and timeout fallback to the previous
+committed partition. Duel Commander permits commander redesignation but no
+card movement. The previous game's loser starts; after a draw Forge selects
+the first player normally.
+
+Every next game is a fresh Forge session built from the committed deck
+partition. The manual zone initializer is never called for a rules room.
+`game.snapshot` supplies only the existing typed match number, score, result,
+owner-authorized sideboard and public-log metadata; live cards, life, phases,
+actions and prompts remain exclusively in `rules.snapshot` / `rules.prompt`.
+This metadata shell does not create a second rules reducer. Spectators see
+readiness/counts, not pending sideboard identities.
+
+The host may explicitly restart a live game after confirmation. It preserves
+game number, score and original starting player while using a fresh session,
+shuffle and opening hand. Restart is unavailable during sideboarding or after
+the match result. If a new/restarted session cannot start, members remain in
+the waiting room with readiness cleared and a non-sensitive failure message.
+
+The final result offers Stay for public-board review/chat and Return to room.
+Return is unavailable between BO3 games; after a finished match it archives the
+public journal and restores the original registered deck partitions. Review
+does not allow further rules responses or restart. Reconnect into sideboarding
+or finished review restores metadata without recreating a completed engine.
+
+## Public activity, chat and replay
+
+The hub derives a bounded public journal from explicit spectator publications:
+game/turn/phase boundaries, life/status changes, public zone and tap changes,
+hidden-zone count changes without identities, generic stack activity, and
+results. It does not infer a cast or resolution from a button click, scrape a
+private prompt, or append raw engine text. Face-down spell/casting projections
+also remove printing metadata and use a public placeholder; face-down casting
+modes have a distinct label in the owner's private action list.
+
+Players and spectators can use the existing `game.say` command during play,
+sideboarding and finished review. The hub validates membership and text and
+broadcasts only metadata; chat does not query or wake the rules engine. The
+client uses the existing scrollable public log/chat rail.
+
+Journal ids remain monotonic through BO3 games and restarts. A new match resets
+them. The existing limits apply: 10,000 retained entries and the newest 500 in
+live projections, with explicit prefix-truncation metadata. Interrupted games
+can also retain their already-public observations, without reconstructing or
+fetching private Forge state for an archive.
+
+The existing `replay.list` / `replay.get` flow exposes public match metadata and
+this journal only. This API remains for compatibility after removal of the
+client replay browser/viewer; it is not deterministic engine replay or
+hidden-state board reconstruction. Existing retention TTL,
+byte/file bounds and private archive permissions remain in force.
 
 ## Availability and failure behavior
 
@@ -123,8 +210,17 @@ error when the runtime is absent or unhealthy.
 
 An engine crash aborts only its active rules games, produces a public
 non-sensitive termination reason, and leaves the hub able to host manual rooms.
-The process supervisor may restart the runtime only for new games; it must not
-attempt to reconstruct an in-progress game from Hexproof's manual reducer.
+The process supervisor observes actual child termination, not only the next
+player action. It returns every rules room using that process to `waiting`,
+retains membership and selected decks, clears readiness, and reports a fixed
+non-sensitive failure. Authoritative-query/projection failures invalidate the
+runtime; ordinary rejected actions and unsupported-deck startup do not abort
+unrelated games.
+
+A subsequent new game can start a replacement process on demand. Concurrent
+requests share a single startup and failed startups have a short retry cooldown.
+There is no automatic reconstruction of an in-progress game and no background
+restart loop. Old-process cleanup cannot reset a game on its replacement.
 
 ## Packaging
 
@@ -133,6 +229,11 @@ and third-party notices are a separate server runtime payload. The pure Go
 `hexproof-server` binary remains usable without Java. Release and deployment
 automation must either install the matching runtime payload or deliberately
 run with Forge capability disabled.
+
+`tools/run-local-forge-server.sh --prepare` builds and starts the local optional
+runtime. It validates the full pin/patch manifest and required resource files,
+and preserves mismatched existing installations. It neither installs system
+packages nor changes production defaults.
 
 Owner-operated deployment automation builds or reuses the pinned payload,
 validates its revisions and checksum, stages all selected hosts, and installs a
@@ -186,6 +287,15 @@ and command-zone card projections enter the card model. Forge prompts appear as
 a decision layer over the battlefield without changing the underlying table
 geometry.
 
+Background card-image preparation is released by a current snapshot from the
+room's selected mode. A manual snapshot cannot release a Forge load or vice
+versa. A coalesced visible-card batch additionally prioritizes only normalized
+authorized identities from the current Forge game, including spectator-visible
+cards and private prompt cards for their owner. It deduplicates exact printings
+and uses the existing incremental catalog queue; delegates remain cache-only.
+Leaving the room invalidates queued readiness and visible-card work. No card
+identity is inferred from a hidden count, object id, or descriptive text.
+
 R2 adds the private normalized `rules.prompt` projection,
 authenticated `rules.respond` command, and typed Qt prompt state. The current
 interactive families are first-player-roll acknowledgement, opening-hand
@@ -205,6 +315,15 @@ Forge snapshot is committed to the ordinary Hexproof result/return-to-room
 lifecycle before the engine session is closed. Private prompt cards expose only
 their object id and printable identity to the authenticated deciding player;
 they do not expose rules text or raw engine state.
+
+Qt correlates an outstanding response with its request, game, and prompt.
+All response paths, including hand-card drops, share the pending guard. A
+transport acknowledgement or duplicate snapshot of the same decision does not
+permit a second answer; a new decision, a matching error, a bounded timeout,
+game termination/change, or disconnect releases the guard. The prompt action
+strip exposes a scrollbar and keyboard-focus reveal when its options overflow.
+The hand strip also exposes a horizontal scrollbar and wheel scrolling when
+cards overflow, without replacing the legal hand-card drag action.
 
 Board-target prompts use their own target-selection component. The server joins
 each legal target against the deciding player's current viewer snapshot to add
@@ -309,7 +428,10 @@ the server closes the engine session and commits a `concede` result through
 the ordinary score and return-to-room lifecycle. The Qt action rail shows
 Concede only for an active local player and requires explicit confirmation.
 
-Forge rooms are currently normalized to BO1. Engine-aware sideboard restart is
-the next product-hardening slice; silently handing a second game to the manual
-reducer would violate the authority boundary. R2 and R3 are complete; R4 is in
-progress.
+Forge BO3 transitions now use the engine-aware restart boundary above. R2 and
+R3 are complete. R4's final validation covers the full multi-game lifecycle,
+public journal/replay, explicit spectator hand permission, hidden stack
+printing, and separately packaged corresponding sources. Default deployment
+still excludes Forge; validation does not imply a public runtime release.
+See `forge-completion-verification.md` for the local acceptance record, paired
+source rebuild, native-client evidence and outstanding release gates.

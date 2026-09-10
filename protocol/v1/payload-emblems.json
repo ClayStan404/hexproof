@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "GameEmblem", "goType": "GameEmblem",
+      "fields": [
+        {"name": "id", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "typeLine", "type": "string", "required": false}
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "game.create_emblem", "direction": "clientToServer", "goType": "GameCreateEmblem",
+      "fields": [
+        {"name": "seat", "type": "integer", "required": true, "goType": "*int"},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "typeLine", "type": "string", "required": false}
+      ],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::createEmblem"}
+    },
+    {
+      "type": "game.emblem_created", "direction": "serverToClient", "goType": "GameEmblemCreated",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "emblemId", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "game.remove_emblem", "direction": "clientToServer", "goType": "GameRemoveEmblem",
+      "fields": [{"name": "emblemId", "type": "string", "required": true}],
+      "qtBuilder": {"file": "apps/client-qt/src/services/WsClientCommands.cpp", "function": "WsClient::removeEmblem"}
+    },
+    {
+      "type": "game.emblem_removed", "direction": "serverToClient", "goType": "GameEmblemRemoved",
+      "fields": [
+        {"name": "roomId", "type": "string", "required": true},
+        {"name": "seat", "type": "integer", "required": true},
+        {"name": "emblemId", "type": "string", "required": true}
+      ]
+    }
+  ]
+}

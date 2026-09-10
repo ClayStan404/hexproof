@@ -23,7 +23,9 @@ class TestReconnectController : public QObject
     void initTestCase();
     void cleanup();
     void loadsPersistedResumeState() const;
+    void rejectsLegacyResumeStateWithoutRole() const;
     void updatesAndPersistsResumeState() const;
+    void keepsDisabledResumeStateInMemoryOnly() const;
     void ignoresOlderSequences() const;
     void clearsResumeState() const;
     void preservesRetryBackoff() const;
@@ -74,6 +76,7 @@ void TestReconnectController::loadsPersistedResumeState() const
     qputenv("HEXPROOF_SERVER_DIRECTORY_FILE", directoryPath.toUtf8());
 
     QSettings settings;
+    settings.setValue(u"network/resumeRoomRole"_s, u"player"_s);
     settings.setValue(u"network/resumeToken"_s, u"saved-token"_s);
     settings.setValue(u"network/resumeServerUrl"_s, u"ws://retired-primary.example:57320/ws"_s);
     settings.setValue(u"network/resumeDisplayName"_s, u"Saved player"_s);
@@ -87,6 +90,29 @@ void TestReconnectController::loadsPersistedResumeState() const
     QCOMPARE(controller.displayName(), u"Saved player"_s);
     QCOMPARE(controller.lastSeq(), 42);
     QVERIFY(controller.matches(directory.serverUrl(0), u"Saved player"_s));
+    QVERIFY(controller.crossLaunchResumeAllowed());
+}
+
+void TestReconnectController::rejectsLegacyResumeStateWithoutRole() const
+{
+    QSettings settings;
+    settings.setValue(u"network/resumeToken"_s, u"legacy-unscoped-token"_s);
+    settings.setValue(u"network/resumeServerUrl"_s, u"ws://127.0.0.1:57320/ws"_s);
+    settings.setValue(u"network/resumeDisplayName"_s, u"Observer"_s);
+    settings.setValue(u"network/resumeLastSeq"_s, 42);
+    settings.sync();
+
+    ServerDirectory directory;
+    ReconnectController controller(&directory);
+    QVERIFY(!controller.hasCredentials());
+    QVERIFY(!controller.crossLaunchResumeAllowed());
+    QVERIFY(controller.serverUrl().isEmpty());
+    QVERIFY(controller.displayName().isEmpty());
+
+    QVERIFY(!settings.contains(u"network/resumeToken"_s));
+    QVERIFY(!settings.contains(u"network/resumeServerUrl"_s));
+    QVERIFY(!settings.contains(u"network/resumeDisplayName"_s));
+    QVERIFY(!settings.contains(u"network/resumeLastSeq"_s));
 }
 
 void TestReconnectController::updatesAndPersistsResumeState() const
@@ -94,14 +120,41 @@ void TestReconnectController::updatesAndPersistsResumeState() const
     ServerDirectory directory;
     ReconnectController controller(&directory);
     controller.updateSession(u"resume-secret"_s, u"ws://127.0.0.1:57320/ws"_s, u"Alice"_s);
+    controller.setCrossLaunchResumeAllowed(true);
     controller.observeSequence(7);
     controller.flush();
 
     QSettings settings;
+    QCOMPARE(settings.value(u"network/resumeRoomRole"_s).toString(), u"player"_s);
     QCOMPARE(settings.value(u"network/resumeToken"_s).toString(), u"resume-secret"_s);
     QCOMPARE(settings.value(u"network/resumeServerUrl"_s).toString(), u"ws://127.0.0.1:57320/ws"_s);
     QCOMPARE(settings.value(u"network/resumeDisplayName"_s).toString(), u"Alice"_s);
     QCOMPARE(settings.value(u"network/resumeLastSeq"_s).toLongLong(), 7);
+}
+
+void TestReconnectController::keepsDisabledResumeStateInMemoryOnly() const
+{
+    ServerDirectory directory;
+    ReconnectController controller(&directory);
+    controller.updateSession(u"resume-secret"_s, directory.serverUrl(0), u"Observer"_s);
+    controller.setCrossLaunchResumeAllowed(true);
+    controller.observeSequence(7);
+    controller.flush();
+
+    QSettings settings;
+    QVERIFY(settings.contains(u"network/resumeToken"_s));
+
+    controller.setCrossLaunchResumeAllowed(false);
+    QVERIFY(controller.hasCredentials());
+    QCOMPARE(controller.lastSeq(), 7);
+    QVERIFY(!controller.crossLaunchResumeAllowed());
+    QVERIFY(!settings.contains(u"network/resumeRoomRole"_s));
+    QVERIFY(!settings.contains(u"network/resumeToken"_s));
+
+    controller.observeSequence(8);
+    controller.flush();
+    QCOMPARE(controller.lastSeq(), 8);
+    QVERIFY(!settings.contains(u"network/resumeToken"_s));
 }
 
 void TestReconnectController::ignoresOlderSequences() const
@@ -132,6 +185,7 @@ void TestReconnectController::clearsResumeState() const
 
     QSettings settings;
     QVERIFY(!settings.contains(u"network/resumeToken"_s));
+    QVERIFY(!settings.contains(u"network/resumeRoomRole"_s));
     QVERIFY(!settings.contains(u"network/resumeServerUrl"_s));
     QVERIFY(!settings.contains(u"network/resumeDisplayName"_s));
     QVERIFY(!settings.contains(u"network/resumeLastSeq"_s));

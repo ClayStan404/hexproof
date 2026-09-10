@@ -67,6 +67,13 @@ TestCase {
     }
 
     QtObject {
+        id: fakeRulesAssist
+        function oversizedHand() { return false }
+        function possibleLoss() { return false }
+        function emptyLibrary() { return false }
+    }
+
+    QtObject {
         id: fakeSession
         function counterShortcutBlocked() { return false }
     }
@@ -146,6 +153,7 @@ TestCase {
         property var cardMoveCommands: fakeMoves
         property var projectionSync: fakeProjection
         property var optimisticCommands: fakeOptimistic
+        property var rulesAssist: fakeRulesAssist
         property var sessionUi: fakeSession
         property var ownLibraryMenu: fakeMenu
         property var handAreaMenu: fakeMenu

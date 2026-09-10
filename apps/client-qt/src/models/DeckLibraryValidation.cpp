@@ -17,7 +17,9 @@ void DeckLibraryModel::scheduleDeckValidation(const QString &deckId)
     if (!deck || !isNamedConstructedFormat(deck->deckFormat))
         return;
 
-    ++m_validationRevisions[deckId];
+    // A deck can leave named formats and return while an older worker finishes.
+    // Revisions must not be reused when its cached validation is removed.
+    m_validationRevisions[deckId] = ++m_nextValidationRevision;
     m_pendingValidationDeckIds.insert(deckId);
     QVariantMap validation = m_deckValidations.value(deckId);
     validation.insert(QStringLiteral("pending"), true);
@@ -47,7 +49,7 @@ void DeckLibraryModel::refreshDeckValidation()
             continue;
         }
         validDeckIds.insert(deck.id);
-        ++m_validationRevisions[deck.id];
+        m_validationRevisions[deck.id] = ++m_nextValidationRevision;
         m_pendingValidationDeckIds.insert(deck.id);
         QVariantMap pending = m_deckValidations.value(deck.id);
         pending.insert(QStringLiteral("pending"), true);

@@ -247,9 +247,19 @@ TestCase {
             mulliganConfirmation: fakeMulligan
             shortcutHelp: fakePopup
         }
+
+        TableLibraryMenus {
+            id: libraryMenus
+            width: testWindow.width
+            tableController: fakeTable
+            drawCardsEditorPopup: fakePopup
+            publicZoneBrowserPopup: fakePopup
+            libraryTopCountEditorPopup: fakePopup
+        }
     }
 
     function init() {
+        preferences.resetAllShortcuts()
         fakeTable.canAct = true
         fakeTable.isPlaytest = false
         fakeTable.isCommanderFormat = true
@@ -287,6 +297,20 @@ TestCase {
         fakePopup.opened = false
         fakeShuffle.opened = false
         fakeMulligan.opened = false
+    }
+
+    function cleanup() { preferences.resetAllShortcuts() }
+
+    function test_menuHintTracksChangedAndUnassignedBinding() {
+        const draw = findChild(libraryMenus, "drawCardsAction")
+        compare(draw.text, "Draw X cards · Ctrl+D")
+        verify(preferences.setShortcutSequence("table.library.drawX", "Ctrl+Alt+J"))
+        compare(draw.text, "Draw X cards · Ctrl+Alt+J")
+        verify(preferences.setShortcutSequence("table.library.drawX", ""))
+        compare(draw.text, "Draw X cards")
+        const sideboard = findChild(libraryMenus, "viewSideboardAction")
+        verify(preferences.setShortcutSequence("table.sideboard.view", ""))
+        compare(sideboard.text, "View sideboard · 2")
     }
 
     function test_enablesAvailableActions() {

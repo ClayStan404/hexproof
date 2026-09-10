@@ -30,18 +30,43 @@ Item {
     property bool autoInitialize: false
     property bool deferInitialReconcile: true
     property int initializationGeneration: 0
+    property int observedGameNumber: -1
+    property bool restartProjectionPending: false
+
+    function invalidateConsent() {
+        transientController.clearPendingLibraryApproval()
+        transientController.clearPendingPublicZoneMoveApproval()
+        transientController.clearLibraryMoveDestination()
+        libraryAccessConfirmation.close()
+        publicZoneMoveConfirmation.close()
+        librarySearchPopup.invalidate()
+    }
+
+    function reconcileConsent() {
+        const game = tableRoot.gameSession
+        const number = game.gameNumber
+        if ((observedGameNumber >= 0 && number !== observedGameNumber)
+                || tableRoot.wsModel.inRoom === false
+                || tableRoot.roomSession.phase !== "started"
+                || game.finished || game.sideboarding || tableRoot.ownEliminated) {
+            invalidateConsent()
+        }
+        observedGameNumber = number
+    }
 
     function initialize() {
         const table = tableRoot
         if (!table || !table.optimisticCommandModel)
             return
+        observedGameNumber = table.gameSession.gameNumber
         table.optimisticCommandModel.clear()
         table.optimisticCommandModel.timeoutMs = table.optimisticValueTimeoutMs
+        const generation = ++initializationGeneration
+        if (!table.gameTableModel || !table.gameTableModel.hasSnapshot)
+            return
         projectionController.syncBattlefieldSeats()
-        projectionController.syncGameLog()
         projectionController.syncDisplayedOwnHand()
 
-        const generation = ++initializationGeneration
         if (!deferInitialReconcile)
             return
         Qt.callLater(function() {
@@ -56,11 +81,12 @@ Item {
     }
 
     function reconcileSnapshot() {
+        ++initializationGeneration
         projectionController.syncBattlefieldSeats()
-        projectionController.syncGameLog()
         if (cardMoveController.pendingBattlefieldMoveCommitted())
             cardMoveController.clearPendingBattlefieldMove()
         zoneController.reconcilePendingCardMoves()
+        tableRoot.selection.reconcileBattlefieldSelection()
         projectionController.syncDisplayedOwnHand()
         gameValueController.reconcile()
         optimisticController.reconcileLandPlayCount(
@@ -78,6 +104,18 @@ Item {
         // into GameTableModel: phase, score, result, sideboarding, and room
         // lifecycle. Its notification follows snapshotDataChanged, so use it
         // as the final synchronization point without rebuilding typed zones.
+        if (observedGameNumber > 0 && tableRoot.gameSession.gameNumber > 0
+                && observedGameNumber !== tableRoot.gameSession.gameNumber) {
+            tableRoot.resetGameInteractions()
+            restartProjectionPending = true
+        }
+        reconcileConsent()
+        if (restartProjectionPending) {
+            restartProjectionPending = false
+            // Identical typed zones may not emit snapshotDataChanged after
+            // restart, but their delegates still need to be recreated.
+            projectionController.syncBattlefieldSeats()
+        }
         projectionController.syncDisplayedOwnHand()
         gameValueController.reconcile()
         sessionController.maybeShowGameResult()
@@ -128,6 +166,7 @@ Item {
 
     function handleCardMovesChanged() {
         projectionController.syncDisplayedOwnHand()
+        tableRoot.selection.reconcileBattlefieldSelection()
         sharedController.reconcileSelection()
         transientController.reconcile()
         presentationController.prioritizeVisibleCards()
@@ -180,6 +219,12 @@ Item {
 
         function onGameSnapshotChanged() {
             root.reconcileSessionSnapshot()
+        }
+
+        function onGameRestarted() {
+            root.invalidateConsent()
+            root.restartProjectionPending = true
+            root.tableRoot.resetGameInteractions()
         }
 
         function onCommandQueued(requestId, commandType, payload) {

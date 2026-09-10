@@ -1,0 +1,665 @@
+{
+  "schemaVersion": 1,
+  "workloadVersion": "2026-09-09.1",
+  "scope": "Synthetic reference gameplay, not owner decks or a format-legality certification; freeze before execution",
+  "terminal": "No artificial concession or turn-cap winner. Actual engine outcome with all registered players, life, loss status, winner, and gameOver must be retained.",
+  "workloads": [
+    {
+      "id": "limited_green_40",
+      "variant": "Constructed",
+      "startingLife": 20,
+      "seed": 42,
+      "startingPlayer": 0,
+      "players": [
+        {
+          "name": "Reference seat 0",
+          "cards": [
+            {
+              "name": "Forest",
+              "count": 17
+            },
+            {
+              "name": "Llanowar Elves",
+              "count": 4
+            },
+            {
+              "name": "Elvish Visionary",
+              "count": 4
+            },
+            {
+              "name": "Grizzly Bears",
+              "count": 4
+            },
+            {
+              "name": "Centaur Courser",
+              "count": 4
+            },
+            {
+              "name": "Garruk's Companion",
+              "count": 4
+            },
+            {
+              "name": "Kalonian Tusker",
+              "count": 3
+            }
+          ],
+          "commanders": []
+        },
+        {
+          "name": "Reference seat 1",
+          "cards": [
+            {
+              "name": "Forest",
+              "count": 17
+            },
+            {
+              "name": "Llanowar Elves",
+              "count": 4
+            },
+            {
+              "name": "Elvish Visionary",
+              "count": 4
+            },
+            {
+              "name": "Grizzly Bears",
+              "count": 4
+            },
+            {
+              "name": "Centaur Courser",
+              "count": 4
+            },
+            {
+              "name": "Garruk's Companion",
+              "count": 4
+            },
+            {
+              "name": "Kalonian Tusker",
+              "count": 3
+            }
+          ],
+          "commanders": []
+        }
+      ],
+      "policy": "proactive_creatures_v1",
+      "notes": "40 cards, 17 lands; mixed mana costs, mana creatures, ETB draw and trample. Not a generated booster pool."
+    },
+    {
+      "id": "burn_red_60",
+      "variant": "Constructed",
+      "startingLife": 20,
+      "seed": 42,
+      "startingPlayer": 0,
+      "players": [
+        {
+          "name": "Reference seat 0",
+          "cards": [
+            {
+              "name": "Mountain",
+              "count": 24
+            },
+            {
+              "name": "Lightning Bolt",
+              "count": 4
+            },
+            {
+              "name": "Shock",
+              "count": 4
+            },
+            {
+              "name": "Lightning Strike",
+              "count": 4
+            },
+            {
+              "name": "Searing Spear",
+              "count": 4
+            },
+            {
+              "name": "Incinerate",
+              "count": 4
+            },
+            {
+              "name": "Volcanic Hammer",
+              "count": 4
+            },
+            {
+              "name": "Lava Spike",
+              "count": 4
+            },
+            {
+              "name": "Lava Axe",
+              "count": 4
+            },
+            {
+              "name": "Firebolt",
+              "count": 4
+            }
+          ],
+          "commanders": []
+        },
+        {
+          "name": "Reference seat 1",
+          "cards": [
+            {
+              "name": "Mountain",
+              "count": 24
+            },
+            {
+              "name": "Lightning Bolt",
+              "count": 4
+            },
+            {
+              "name": "Shock",
+              "count": 4
+            },
+            {
+              "name": "Lightning Strike",
+              "count": 4
+            },
+            {
+              "name": "Searing Spear",
+              "count": 4
+            },
+            {
+              "name": "Incinerate",
+              "count": 4
+            },
+            {
+              "name": "Volcanic Hammer",
+              "count": 4
+            },
+            {
+              "name": "Lava Spike",
+              "count": 4
+            },
+            {
+              "name": "Lava Axe",
+              "count": 4
+            },
+            {
+              "name": "Firebolt",
+              "count": 4
+            }
+          ],
+          "commanders": []
+        }
+      ],
+      "policy": "burn_v1",
+      "notes": "60 cards, 24 lands, nine distinct burn spells including graveyard flashback. No claim of Modern legality."
+    },
+    {
+      "id": "commander_green_100",
+      "variant": "Commander",
+      "startingLife": 40,
+      "seed": 42,
+      "startingPlayer": 0,
+      "players": [
+        {
+          "name": "Reference seat 0",
+          "cards": [
+            {
+              "name": "Forest",
+              "count": 74
+            },
+            {
+              "name": "Llanowar Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Mystic",
+              "count": 1
+            },
+            {
+              "name": "Fyndhorn Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Visionary",
+              "count": 1
+            },
+            {
+              "name": "Grizzly Bears",
+              "count": 1
+            },
+            {
+              "name": "Runeclaw Bear",
+              "count": 1
+            },
+            {
+              "name": "Bear Cub",
+              "count": 1
+            },
+            {
+              "name": "Balduvian Bears",
+              "count": 1
+            },
+            {
+              "name": "Forest Bear",
+              "count": 1
+            },
+            {
+              "name": "Kalonian Tusker",
+              "count": 1
+            },
+            {
+              "name": "Garruk's Companion",
+              "count": 1
+            },
+            {
+              "name": "Centaur Courser",
+              "count": 1
+            },
+            {
+              "name": "Nessian Courser",
+              "count": 1
+            },
+            {
+              "name": "Trained Armodon",
+              "count": 1
+            },
+            {
+              "name": "Elvish Warrior",
+              "count": 1
+            },
+            {
+              "name": "Leatherback Baloth",
+              "count": 1
+            },
+            {
+              "name": "Spined Wurm",
+              "count": 1
+            },
+            {
+              "name": "Craw Wurm",
+              "count": 1
+            },
+            {
+              "name": "Colossal Dreadmaw",
+              "count": 1
+            },
+            {
+              "name": "Rumbling Baloth",
+              "count": 1
+            },
+            {
+              "name": "Gigantosaurus",
+              "count": 1
+            },
+            {
+              "name": "Primordial Wurm",
+              "count": 1
+            },
+            {
+              "name": "Vorstclaw",
+              "count": 1
+            },
+            {
+              "name": "Pheres-Band Centaurs",
+              "count": 1
+            },
+            {
+              "name": "Panther Warriors",
+              "count": 1
+            },
+            {
+              "name": "Ghalta, Primal Hunger",
+              "count": 1
+            }
+          ],
+          "commanders": [
+            "Ghalta, Primal Hunger"
+          ]
+        },
+        {
+          "name": "Reference seat 1",
+          "cards": [
+            {
+              "name": "Forest",
+              "count": 74
+            },
+            {
+              "name": "Llanowar Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Mystic",
+              "count": 1
+            },
+            {
+              "name": "Fyndhorn Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Visionary",
+              "count": 1
+            },
+            {
+              "name": "Grizzly Bears",
+              "count": 1
+            },
+            {
+              "name": "Runeclaw Bear",
+              "count": 1
+            },
+            {
+              "name": "Bear Cub",
+              "count": 1
+            },
+            {
+              "name": "Balduvian Bears",
+              "count": 1
+            },
+            {
+              "name": "Forest Bear",
+              "count": 1
+            },
+            {
+              "name": "Kalonian Tusker",
+              "count": 1
+            },
+            {
+              "name": "Garruk's Companion",
+              "count": 1
+            },
+            {
+              "name": "Centaur Courser",
+              "count": 1
+            },
+            {
+              "name": "Nessian Courser",
+              "count": 1
+            },
+            {
+              "name": "Trained Armodon",
+              "count": 1
+            },
+            {
+              "name": "Elvish Warrior",
+              "count": 1
+            },
+            {
+              "name": "Leatherback Baloth",
+              "count": 1
+            },
+            {
+              "name": "Spined Wurm",
+              "count": 1
+            },
+            {
+              "name": "Craw Wurm",
+              "count": 1
+            },
+            {
+              "name": "Colossal Dreadmaw",
+              "count": 1
+            },
+            {
+              "name": "Rumbling Baloth",
+              "count": 1
+            },
+            {
+              "name": "Gigantosaurus",
+              "count": 1
+            },
+            {
+              "name": "Primordial Wurm",
+              "count": 1
+            },
+            {
+              "name": "Vorstclaw",
+              "count": 1
+            },
+            {
+              "name": "Pheres-Band Centaurs",
+              "count": 1
+            },
+            {
+              "name": "Panther Warriors",
+              "count": 1
+            },
+            {
+              "name": "Ghalta, Primal Hunger",
+              "count": 1
+            }
+          ],
+          "commanders": [
+            "Ghalta, Primal Hunger"
+          ]
+        },
+        {
+          "name": "Reference seat 2",
+          "cards": [
+            {
+              "name": "Forest",
+              "count": 74
+            },
+            {
+              "name": "Llanowar Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Mystic",
+              "count": 1
+            },
+            {
+              "name": "Fyndhorn Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Visionary",
+              "count": 1
+            },
+            {
+              "name": "Grizzly Bears",
+              "count": 1
+            },
+            {
+              "name": "Runeclaw Bear",
+              "count": 1
+            },
+            {
+              "name": "Bear Cub",
+              "count": 1
+            },
+            {
+              "name": "Balduvian Bears",
+              "count": 1
+            },
+            {
+              "name": "Forest Bear",
+              "count": 1
+            },
+            {
+              "name": "Kalonian Tusker",
+              "count": 1
+            },
+            {
+              "name": "Garruk's Companion",
+              "count": 1
+            },
+            {
+              "name": "Centaur Courser",
+              "count": 1
+            },
+            {
+              "name": "Nessian Courser",
+              "count": 1
+            },
+            {
+              "name": "Trained Armodon",
+              "count": 1
+            },
+            {
+              "name": "Elvish Warrior",
+              "count": 1
+            },
+            {
+              "name": "Leatherback Baloth",
+              "count": 1
+            },
+            {
+              "name": "Spined Wurm",
+              "count": 1
+            },
+            {
+              "name": "Craw Wurm",
+              "count": 1
+            },
+            {
+              "name": "Colossal Dreadmaw",
+              "count": 1
+            },
+            {
+              "name": "Rumbling Baloth",
+              "count": 1
+            },
+            {
+              "name": "Gigantosaurus",
+              "count": 1
+            },
+            {
+              "name": "Primordial Wurm",
+              "count": 1
+            },
+            {
+              "name": "Vorstclaw",
+              "count": 1
+            },
+            {
+              "name": "Pheres-Band Centaurs",
+              "count": 1
+            },
+            {
+              "name": "Panther Warriors",
+              "count": 1
+            },
+            {
+              "name": "Ghalta, Primal Hunger",
+              "count": 1
+            }
+          ],
+          "commanders": [
+            "Ghalta, Primal Hunger"
+          ]
+        },
+        {
+          "name": "Reference seat 3",
+          "cards": [
+            {
+              "name": "Forest",
+              "count": 74
+            },
+            {
+              "name": "Llanowar Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Mystic",
+              "count": 1
+            },
+            {
+              "name": "Fyndhorn Elves",
+              "count": 1
+            },
+            {
+              "name": "Elvish Visionary",
+              "count": 1
+            },
+            {
+              "name": "Grizzly Bears",
+              "count": 1
+            },
+            {
+              "name": "Runeclaw Bear",
+              "count": 1
+            },
+            {
+              "name": "Bear Cub",
+              "count": 1
+            },
+            {
+              "name": "Balduvian Bears",
+              "count": 1
+            },
+            {
+              "name": "Forest Bear",
+              "count": 1
+            },
+            {
+              "name": "Kalonian Tusker",
+              "count": 1
+            },
+            {
+              "name": "Garruk's Companion",
+              "count": 1
+            },
+            {
+              "name": "Centaur Courser",
+              "count": 1
+            },
+            {
+              "name": "Nessian Courser",
+              "count": 1
+            },
+            {
+              "name": "Trained Armodon",
+              "count": 1
+            },
+            {
+              "name": "Elvish Warrior",
+              "count": 1
+            },
+            {
+              "name": "Leatherback Baloth",
+              "count": 1
+            },
+            {
+              "name": "Spined Wurm",
+              "count": 1
+            },
+            {
+              "name": "Craw Wurm",
+              "count": 1
+            },
+            {
+              "name": "Colossal Dreadmaw",
+              "count": 1
+            },
+            {
+              "name": "Rumbling Baloth",
+              "count": 1
+            },
+            {
+              "name": "Gigantosaurus",
+              "count": 1
+            },
+            {
+              "name": "Primordial Wurm",
+              "count": 1
+            },
+            {
+              "name": "Vorstclaw",
+              "count": 1
+            },
+            {
+              "name": "Pheres-Band Centaurs",
+              "count": 1
+            },
+            {
+              "name": "Panther Warriors",
+              "count": 1
+            },
+            {
+              "name": "Ghalta, Primal Hunger",
+              "count": 1
+            }
+          ],
+          "commanders": [
+            "Ghalta, Primal Hunger"
+          ]
+        }
+      ],
+      "policy": "proactive_creatures_v1",
+      "notes": "100 including commander, singleton nonbasic entries. Deliberately land-heavy control workload, not a competitive EDH list; verify tax/cost reduction and survival after commander damage."
+    }
+  ]
+}

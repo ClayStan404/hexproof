@@ -1,0 +1,46 @@
+{
+  "type": "tournament.snapshot",
+  "payload": {
+    "tournamentId": "CUB234",
+    "name": "Two-player Cube",
+    "format": "Cube",
+    "eventType": "cube_draft",
+    "coordinator": "casual",
+    "stage": "competition",
+    "matchMode": "bo1",
+    "status": "running",
+    "roundMinutes": 50,
+    "maxPlayers": 2,
+    "minimumPlayers": 2,
+    "plannedRounds": 0,
+    "currentRound": 0,
+    "registered": 2,
+    "checkedIn": 2,
+    "roundComplete": false,
+    "organizerName": "Alice",
+    "role": "participant",
+    "participantId": "p-2",
+    "canRegister": false,
+    "participants": [
+      {"participantId": "p-1", "displayName": "Alice", "checkedIn": true, "competing": true, "dropped": false, "online": true},
+      {"participantId": "p-2", "displayName": "Bob", "checkedIn": true, "competing": true, "dropped": false, "online": true}
+    ],
+    "pairings": [
+      {
+        "pairingId": "casual-1",
+        "table": 1,
+        "playerAId": "p-1",
+        "playerAName": "Alice",
+        "playerBId": "p-2",
+        "playerBName": "Bob",
+        "autoEnter": true,
+        "bye": false,
+        "status": "open",
+        "playerAWins": 0,
+        "playerBWins": 0,
+        "drawnGames": 0
+      }
+    ],
+    "standings": []
+  }
+}

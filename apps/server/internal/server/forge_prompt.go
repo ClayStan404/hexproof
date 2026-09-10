@@ -38,6 +38,13 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 		return nil, err
 	}
 	var promptGameView *forge.GameView
+	var publicPromptID int64
+	if view != nil {
+		publicPromptID, err = h.publicForgePromptID(game, view.PromptID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if view != nil && promptNeedsSnapshot(*view) {
 		ctx, cancel = context.WithTimeout(context.Background(), forgeSnapshotTimeout)
 		snapshot, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, view.PlayerIndex)
@@ -59,6 +66,7 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 			if err != nil {
 				return nil, err
 			}
+			prompt.PromptID = publicPromptID
 		}
 		envelope, err := protocol.NewEnvelope(protocol.TypeRulesPrompt, prompt)
 		if err != nil {
@@ -139,7 +147,9 @@ func projectedRulesPrompt(roomID, gameID string,
 			CollectorNumber: card.CollectorNumber, Token: card.Token,
 		})
 	}
-	prompt.ScryDestinations = append([]string(nil), view.ScryDestinations...)
+	// Empty collections remain JSON arrays: the Qt model rejects null here
+	// for every non-scry decision, including the opening dice/mulligan prompt.
+	prompt.ScryDestinations = append([]string{}, view.ScryDestinations...)
 	prompt.OrderItems = make([]protocol.RulesPromptOrderItem, 0, len(view.OrderItems))
 	for _, item := range view.OrderItems {
 		prompt.OrderItems = append(prompt.OrderItems, protocol.RulesPromptOrderItem{
@@ -304,7 +314,7 @@ func projectedRulesCombat(sources []forge.PromptCombatSource,
 		}
 		projected := protocol.RulesPromptCombatSource{
 			ResponseID: source.ResponseID, ObjectID: card.ID,
-			ValidTargetIDs:   append([]string(nil), source.ValidTargetIDs...),
+			ValidTargetIDs:   append([]string{}, source.ValidTargetIDs...),
 			MustAssignIfAble: source.MustAssignIfAble,
 		}
 		applyRulesPromptCombatSourceIdentity(&projected, *card.Identity)

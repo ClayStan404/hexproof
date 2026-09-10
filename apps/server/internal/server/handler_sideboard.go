@@ -17,37 +17,61 @@ func (h *Handler) scheduleSideboardExpiration(r *room.Room, deadline time.Time) 
 		delay = 0
 	}
 	h.sideboardTimerMu.Lock()
-	if previous := h.sideboardTimers[r.ID]; previous != nil {
-		previous.Stop()
-	}
+	previous := h.sideboardTimers[r.ID]
 	var timer *time.Timer
 	timer = time.AfterFunc(delay, func() {
-		h.sideboardTimerMu.Lock()
-		if h.sideboardTimers[r.ID] != timer {
-			h.sideboardTimerMu.Unlock()
-			return
-		}
-		delete(h.sideboardTimers, r.ID)
-		h.sideboardTimerMu.Unlock()
-
-		operation, err := h.hub.lockRoomOperation(r.ID)
-		if err != nil {
-			log.Printf("expire sideboard: lock room %s: %v", r.ID, err)
-			return
-		}
-		defer operation.opMu.Unlock()
-		res, err := h.hub.ExpireSideboard(r, time.Now().UTC())
-		if err != nil {
-			log.Printf("expire sideboard for room %s: %v", r.ID, err)
-			return
-		}
-		h.fanout(r, res.Broadcast)
-		if res.ProjectGame {
-			h.fanoutGameProjections(r)
-		}
+		h.expireSideboard(r, timer)
 	})
 	h.sideboardTimers[r.ID] = timer
 	h.sideboardTimerMu.Unlock()
+	if previous != nil {
+		previous.Stop()
+	}
+}
+
+func (h *Handler) expireSideboard(r *room.Room, timer *time.Timer) {
+	operation, err := h.hub.lockRoomOperation(r.ID)
+	if err != nil {
+		log.Printf("expire sideboard: lock room %s: %v", r.ID, err)
+		return
+	}
+	defer operation.opMu.Unlock()
+
+	h.sideboardTimerMu.Lock()
+	if h.sideboardTimers[r.ID] != timer {
+		h.sideboardTimerMu.Unlock()
+		return
+	}
+	delete(h.sideboardTimers, r.ID)
+	h.sideboardTimerMu.Unlock()
+
+	res, err := h.hub.ExpireSideboard(r, time.Now().UTC())
+	if err != nil {
+		log.Printf("expire sideboard for room %s: %v", r.ID, err)
+		return
+	}
+	if res.StartRulesGame {
+		if state, ok := h.prepareForgeTransition(r, nil, ""); ok {
+			h.fanout(r, res.Broadcast)
+			h.sendRulesProjections(state.projections)
+			h.sendRulesPrompts(state.prompts)
+		}
+		return
+	}
+	h.fanout(r, res.Broadcast)
+	if res.ProjectGame {
+		h.fanoutGameProjections(r)
+	}
+}
+
+func (h *Handler) cancelSideboardExpiration(roomID string) {
+	h.sideboardTimerMu.Lock()
+	timer := h.sideboardTimers[roomID]
+	delete(h.sideboardTimers, roomID)
+	h.sideboardTimerMu.Unlock()
+	if timer != nil {
+		timer.Stop()
+	}
 }
 
 func (h *Handler) handleSideboardMove(sess *Session, env protocol.Envelope) error {
@@ -147,11 +171,30 @@ func (h *Handler) handleSideboardReady(sess *Session, env protocol.Envelope) err
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
 	}
+	for _, event := range res.Broadcast {
+		if event.Type == protocol.TypeSideboardCompleted {
+			h.cancelSideboardExpiration(r.ID)
+			break
+		}
+	}
+	var started forgeStartState
+	if res.StartRulesGame {
+		var ok bool
+		started, ok = h.prepareForgeTransition(r, sess, env.ID)
+		if !ok {
+			return nil
+		}
+	}
 	if res.Reply != nil {
 		res.Reply.ID = env.ID
 		h.send(sess, *res.Reply)
 	}
 	h.fanout(r, res.Broadcast)
+	if res.StartRulesGame {
+		h.sendRulesProjections(started.projections)
+		h.sendRulesPrompts(started.prompts)
+		return nil
+	}
 	h.fanoutGameProjections(r)
 	return nil
 }

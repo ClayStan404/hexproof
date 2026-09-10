@@ -1,0 +1,10 @@
+{
+  "type": "limited.progress",
+  "payload": {
+    "tournamentId": "CUBE42",
+    "participants": [
+      {"participantId": "p-1", "displayName": "Alice", "picked": 60, "packCards": 0, "queuedPacks": 0, "deckSubmitted": true},
+      {"participantId": "p-2", "displayName": "Bob", "picked": 60, "packCards": 0, "queuedPacks": 0, "deckSubmitted": false, "autoDraft": true, "withdrawn": true}
+    ]
+  }
+}

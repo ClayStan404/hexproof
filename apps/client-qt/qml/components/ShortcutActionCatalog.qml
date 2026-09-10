@@ -51,7 +51,7 @@ QtObject {
             "actions": [
                 action("table.untapAll", qsTr("Untap all own permanents")),
                 action("table.arrangeBattlefield", qsTr("Arrange own battlefield")),
-                action("table.createToken", qsTr("Create token")),
+                action("table.createToken", qsTr("Tokens and emblems")),
                 action("table.mulligan", qsTr("Confirm mulligan")),
                 action("table.toggleHandReveal", qsTr("Reveal or recall hand")),
                 action("table.discardRandom", qsTr("Discard a random card")),
@@ -102,34 +102,18 @@ QtObject {
                 action("table.selection.setNumberCounter", qsTr("Set selected permanent's number counter")),
                 action("table.selection.createTokenCopy", qsTr("Create a token copy of selected permanent"))
             ]
-        },
-        {
-            "id": "replay",
-            "name": qsTr("Replay"),
-            "actions": [
-                action("replay.playPause", qsTr("Play or pause replay")),
-                action("replay.previous", qsTr("Show previous replay event")),
-                action("replay.next", qsTr("Show next replay event")),
-                action("replay.reset", qsTr("Return to first replay event")),
-                action("replay.speedHalf", qsTr("Set replay speed to 0.5×")),
-                action("replay.speedNormal", qsTr("Set replay speed to 1×")),
-                action("replay.speedDouble", qsTr("Set replay speed to 2×")),
-                action("replay.speedQuadruple", qsTr("Set replay speed to 4×"))
-            ]
         }
     ]
 
-    readonly property var tableActions: flattenedActions(false)
+    readonly property var tableActions: flattenedActions()
 
     function action(actionId, label) {
         return {"id": actionId, "label": label}
     }
 
-    function flattenedActions(includeReplay) {
+    function flattenedActions() {
         const result = []
         for (const group of root.groups) {
-            if (!includeReplay && group.id === "replay")
-                continue
             for (const item of group.actions)
                 result.push(item)
         }

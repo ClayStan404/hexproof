@@ -16,6 +16,8 @@ QtObject {
     property int libraryCount: 0
     property int handCount: 0
     property int mulliganCount: 0
+    property string responseStatus: ""
+    property var emblems: []
     property var battlefieldModel: null
     property var graveyardModel: null
     property var exileModel: null
@@ -46,6 +48,8 @@ QtObject {
         handCount = source.handCount !== undefined ? source.handCount : 0
         mulliganCount = source.mulliganCount !== undefined
                       ? source.mulliganCount : 0
+        responseStatus = source.responseStatus ? source.responseStatus : ""
+        emblems = source.emblems ? source.emblems : []
         commanderTax = source.commanderTax !== undefined
                      ? source.commanderTax : 0
         commanderTaxes = source.commanderTaxes ? source.commanderTaxes : ({})

@@ -22,6 +22,18 @@ Every completed database embeds its UTC `generated_at` build timestamp. The
 release manifest copies that value so clients can compare installed and latest
 versions without downloading the database asset.
 
+The current schema-10 builder also retains optional `related_cards` metadata for
+Scryfall meld parts/results, used by independent face selection and local custom
+artwork. Existing catalogs remain valid; rebuild to populate these relationships.
+
+The current schema-10 builder also writes optional `card_colors` and `mana_cost`
+columns for draft/deck presentation. `colors` remains Commander color identity.
+Card-level colors/costs are retained when present (including split cards);
+otherwise the front face supplies them. Empty costs/colors are distinct from
+missing metadata. Older clients can still read these databases, but a client
+upgrade cannot add fields to an already-installed older database. Rebuild and
+publish card-data, then update the client database to enable full presentation.
+
 For a normal local or release build, run this command from the repository root:
 
 ```sh

@@ -31,6 +31,7 @@ type forgeRoomGame struct {
 	gameID       string
 	seatToPlayer map[int]int
 	playerToSeat map[int]int
+	promptState  *forgePromptState
 }
 
 type forgeStartState struct {
@@ -39,20 +40,65 @@ type forgeStartState struct {
 }
 
 func (h *Handler) forgeClientForUse(ctx context.Context) (*forge.Client, error) {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
-	if h.forgeClosed || h.forgeRuntime == nil {
-		return nil, errors.New("Forge rules runtime is unavailable")
+	for {
+		h.forgeMu.Lock()
+		if h.forgeClosed || h.forgeRuntime == nil || time.Now().Before(h.forgeRetryAfter) {
+			h.forgeMu.Unlock()
+			return nil, errors.New("Forge rules runtime is unavailable")
+		}
+		if h.forgeClient != nil && h.forgeClient.Healthy() {
+			client := h.forgeClient
+			h.forgeMu.Unlock()
+			return client, nil
+		}
+		if starting := h.forgeStarting; starting != nil {
+			h.forgeMu.Unlock()
+			select {
+			case <-starting:
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		// The old process watcher still owns its old games. Starting a new
+		// process never transfers any of those session identifiers.
+		h.forgeClient = nil
+		starting := make(chan struct{})
+		h.forgeStarting = starting
+		startCtx, cancel := context.WithCancel(ctx)
+		h.forgeStartCancel = cancel
+		config := *h.forgeRuntime
+		h.forgeMu.Unlock()
+
+		client, err := forge.Start(startCtx, config)
+		cancel()
+		h.forgeMu.Lock()
+		closed := h.forgeClosed
+		if err == nil && !closed && client.Healthy() {
+			h.forgeClient = client
+			go h.watchForgeRuntime(client)
+		} else {
+			if err == nil {
+				err = errors.New("Forge rules runtime is unavailable")
+			}
+			h.forgeRetryAfter = time.Now().Add(forgeRestartCooldown)
+		}
+		if err != nil && client != nil {
+			// Close must not return while a canceled startup still owns a
+			// child. Keep the single-flight notification open until cleanup.
+			h.forgeMu.Unlock()
+			_ = client.Close()
+			h.forgeMu.Lock()
+		}
+		h.forgeStarting = nil
+		h.forgeStartCancel = nil
+		close(starting)
+		h.forgeMu.Unlock()
+		if err != nil {
+			return nil, errors.New("Forge rules runtime is unavailable")
+		}
+		return client, nil
 	}
-	if h.forgeClient != nil {
-		return h.forgeClient, nil
-	}
-	client, err := forge.Start(ctx, *h.forgeRuntime)
-	if err != nil {
-		return nil, fmt.Errorf("start Forge rules runtime: %w", err)
-	}
-	h.forgeClient = client
-	return client, nil
 }
 
 // startForgeGame starts one authoritative engine session and prepares the
@@ -84,7 +130,7 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 	}
 
 	h.forgeMu.Lock()
-	if h.forgeClosed {
+	if h.forgeClosed || h.forgeClient != client || !client.Healthy() {
 		h.forgeMu.Unlock()
 		h.abortUntrackedForgeGame(client, handle.SessionID)
 		return forgeStartState{}, errors.New("Forge rules runtime is shutting down")
@@ -141,6 +187,10 @@ func forgeStartRequest(r *room.Room, players []room.RulesStartPlayer) (
 	}
 	seatOrder := make([]int, 0, len(players))
 	for _, player := range players {
+		if r.RulesStartingSeat != nil && player.Seat == *r.RulesStartingSeat {
+			index := len(request.Players)
+			request.StartingPlayerIndex = &index
+		}
 		cards := make([]forge.CardIdentity, 0)
 		for _, entry := range player.Deck.Mainboard {
 			if entry.Count <= 0 {
@@ -201,6 +251,7 @@ func forgeRoomGameFromHandle(client *forge.Client, gameID string, seatOrder []in
 		gameID:       gameID,
 		seatToPlayer: make(map[int]int, len(seatOrder)),
 		playerToSeat: make(map[int]int, len(seatOrder)),
+		promptState:  &forgePromptState{},
 	}
 	for index, seat := range seatOrder {
 		playerIndex := handle.PlayerIndexes[index]
@@ -223,7 +274,7 @@ func (h *Handler) abortUntrackedForgeGame(client *forge.Client, sessionID string
 	ctx, cancel := context.WithTimeout(context.Background(), forgeCleanupTimeout)
 	defer cancel()
 	if err := client.AbortGame(ctx, sessionID); err != nil {
-		log.Printf("abort untracked Forge game failed: %v", err)
+		log.Print("abort untracked Forge game failed")
 	}
 }
 
@@ -254,25 +305,32 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame) {
 	ctx, cancel := context.WithTimeout(context.Background(), forgeCleanupTimeout)
 	defer cancel()
 	if err := game.client.EndGame(ctx, game.sessionID); err != nil {
-		log.Printf("end completed Forge game %s: %v", roomID, err)
+		log.Printf("end completed Forge game %s failed", roomID)
 	}
 }
 
-// Close releases the optional long-lived Forge process. HTTP shutdown closes
-// WebSocket sessions separately; quit terminates all remaining engine games.
+// Close stops tournament cleanup timers and releases the optional long-lived
+// Forge process. HTTP shutdown closes WebSocket sessions separately; quit
+// terminates all remaining engine games.
 func (h *Handler) Close() error {
-	h.forgeMu.Lock()
-	if h.forgeClosed {
+	h.forgeCloseOnce.Do(func() {
+		h.tournaments.close()
+		h.forgeMu.Lock()
+		h.forgeClosed = true
+		if h.forgeStartCancel != nil {
+			h.forgeStartCancel()
+		}
+		starting := h.forgeStarting
+		client := h.forgeClient
+		h.forgeClient = nil
+		h.forgeGames = make(map[string]forgeRoomGame)
 		h.forgeMu.Unlock()
-		return nil
-	}
-	h.forgeClosed = true
-	client := h.forgeClient
-	h.forgeClient = nil
-	h.forgeGames = make(map[string]forgeRoomGame)
-	h.forgeMu.Unlock()
-	if client == nil {
-		return nil
-	}
-	return client.Close()
+		if starting != nil {
+			<-starting
+		}
+		if client != nil {
+			h.forgeCloseErr = client.Close()
+		}
+	})
+	return h.forgeCloseErr
 }

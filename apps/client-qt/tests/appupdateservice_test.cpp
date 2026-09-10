@@ -14,6 +14,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QVersionNumber>
 
 #include <cstring>
 
@@ -21,6 +22,14 @@ using namespace Qt::StringLiterals;
 using hexproof::client::AppUpdateService;
 
 namespace {
+
+QString nextReleaseVersion(const AppUpdateService &service)
+{
+    const QVersionNumber current = QVersionNumber::fromString(service.currentVersion());
+    return QVersionNumber(current.majorVersion(), current.minorVersion(),
+                          current.microVersion() + 1)
+        .toString();
+}
 
 QString expectedAssetName(const QString &version)
 {
@@ -90,7 +99,7 @@ class StaticReply final : public QNetworkReply
 class UpdateNetworkAccessManager final : public QNetworkAccessManager
 {
   public:
-    QString version = u"1.1.0"_s;
+    QString version;
     QByteArray package = QByteArrayLiteral("portable application package");
     bool wrongChecksum = false;
     QList<QUrl> requestedUrls;
@@ -163,6 +172,8 @@ class TestAppUpdateService final : public QObject
     void initTestCase();
     void cleanup();
     void checksLatestReleaseAndSelectsPlatformPackage() const;
+    void doesNotOfferCurrentOrOlderLatestRelease_data() const;
+    void doesNotOfferCurrentOrOlderLatestRelease() const;
     void downloadsAndVerifiesPackage() const;
     void rejectsPackageWithWrongChecksum() const;
     void requestsExactServerVersion() const;
@@ -194,6 +205,7 @@ void TestAppUpdateService::checksLatestReleaseAndSelectsPlatformPackage() const
     QVERIFY(downloads.isValid());
     UpdateNetworkAccessManager network;
     AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
 
     service.checkForUpdates();
 
@@ -202,10 +214,42 @@ void TestAppUpdateService::checksLatestReleaseAndSelectsPlatformPackage() const
     QVERIFY(service.releaseAvailable());
     QVERIFY(service.updateAvailable());
     QVERIFY(!service.exactVersion());
-    QCOMPARE(service.targetVersion(), u"1.1.0"_s);
+    QCOMPARE(service.targetVersion(), network.version);
     QCOMPARE(network.requestedUrls.size(), 2);
     QCOMPARE(network.requestedUrls.constFirst().path(),
              u"/repos/ClayStan404/hexproof/releases/latest"_s);
+}
+
+void TestAppUpdateService::doesNotOfferCurrentOrOlderLatestRelease_data() const
+{
+    QTest::addColumn<bool>("currentVersion");
+    QTest::newRow("current") << true;
+    QTest::newRow("older") << false;
+}
+
+void TestAppUpdateService::doesNotOfferCurrentOrOlderLatestRelease() const
+{
+    QFETCH(bool, currentVersion);
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager network;
+    AppUpdateService service(downloads.path(), &network);
+    network.version = currentVersion ? service.currentVersion() : u"0.0.0"_s;
+
+    service.checkForUpdates();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
+    QVERIFY2(service.lastError().isEmpty(), qPrintable(service.lastError()));
+    QVERIFY(service.releaseAvailable());
+    QVERIFY(!service.updateAvailable());
+    QCOMPARE(service.targetVersion(), network.version);
+    QCOMPARE(network.requestedUrls.size(), 2);
+
+    service.downloadUpdate();
+
+    QVERIFY(!service.downloading());
+    QVERIFY(!service.downloadReady());
+    QCOMPARE(network.requestedUrls.size(), 2);
 }
 
 void TestAppUpdateService::downloadsAndVerifiesPackage() const
@@ -214,6 +258,7 @@ void TestAppUpdateService::downloadsAndVerifiesPackage() const
     QVERIFY(downloads.isValid());
     UpdateNetworkAccessManager network;
     AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
     service.checkForUpdates();
     QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
 
@@ -235,6 +280,7 @@ void TestAppUpdateService::rejectsPackageWithWrongChecksum() const
     UpdateNetworkAccessManager network;
     network.wrongChecksum = true;
     AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
     service.checkForUpdates();
     QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
 
@@ -271,6 +317,7 @@ void TestAppUpdateService::automaticCheckRunsAtMostOncePerDay() const
     UpdateNetworkAccessManager firstNetwork;
     {
         AppUpdateService first(downloads.path(), &firstNetwork);
+        firstNetwork.version = nextReleaseVersion(first);
         first.checkAutomatically();
         QTRY_VERIFY_WITH_TIMEOUT(!first.checking(), 2'000);
         QCOMPARE(firstNetwork.requestedUrls.size(), 2);

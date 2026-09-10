@@ -13,7 +13,7 @@ Hexproof keeps both experiences focused and native without accounts,
 matchmaking, or a browser shell. The client supports English and Simplified
 Chinese on Linux, Windows, and macOS.
 
-Current version: **1.0.6**. Client and server application versions must match
+Current version: **1.2.0**. Client and server application versions must match
 exactly.
 
 Hexproof is still in active development: features may change and releases can
@@ -53,7 +53,6 @@ screens show plain-text import and per-card printing selection.
 - Player and spectator roles, password-protected rooms, host controls, public
   chat/logs, and same-seat reconnect after a network interruption.
 - Named bundled servers plus a user-defined custom WebSocket server.
-- Public-log replay for matches retained by the connected hub.
 
 ### Limited play: draft, sealed, and Cube
 
@@ -262,26 +261,39 @@ Run the complete local quality and regression suite with:
 ```
 
 It checks formatting, SPDX headers, shell scripts, QML text safety, protocol
-parity, translations, module-size budgets, and quality-tool tests; runs Go
-formatting, vet, tests, and race tests; performs clean server and client builds;
-verifies binary versions; and runs the complete CTest suite. It does not launch
+parity, translations, and quality-tool tests; reports non-blocking module-size
+review hints; runs Go formatting, vet, tests, and race tests; incrementally builds
+both binaries; verifies binary versions; and runs the complete CTest suite. It does not launch
 the interactive client or touch a remote server.
 
-Use `./tools/verify.sh --quick` to skip race tests and CTest, or
-`./tools/verify.sh --help` for build-path and formatting-base options.
+Choose `--scope static`, `--scope client`, or `--scope server` for shared static
+checks plus the relevant domain. Client CTest also builds a matching local
+integration server; server-only checks do not require Qt. Use `--clean` for
+forced rebuilds and uncached Go tests. `--quick` skips race tests and CTest and
+is not a complete regression run. See `--help` for all options.
+
+Select checks by change risk rather than rebuilding or launching a real client
+after every edit. Native GUI verification is allowed when needed for visual or
+interaction changes, using isolated test profiles and local services.
 
 ## Release automation
 
 The repository contains three GitHub Actions workflows:
 
 - [`ci.yml`](.github/workflows/ci.yml) keeps push and pull-request checks lean:
-  static quality gates, Go vet/tests/build, and the Linux Qt build/CTest suite.
+  shared static quality gates always run; application builds are skipped for
+  documentation-only changes. Client-only work runs Qt/CTest with an integration
+  server; server/shared changes or an uncertain comparison run both domains.
   A manual run additionally enables Go race/fuzz checks, Linux ASan/UBSan,
   and Windows/macOS build-and-test jobs.
 - [`release.yml`](.github/workflows/release.yml) produces portable Windows x64,
   macOS Apple Silicon, Linux x86_64, and Linux amd64/arm64 server archives.
 - [`card-database.yml`](.github/workflows/card-database.yml) rebuilds and
   publishes the official card database weekly or on demand.
+
+Application release notes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
+Unpublished work stays under **Unreleased** until the matching
+`vMAJOR.MINOR.PATCH` is published.
 
 Tagged releases use `vMAJOR.MINOR.PATCH`. Release clients embed the server
 directory supplied through the `HEXPROOF_PUBLIC_SERVERS_JSON` Actions secret;
@@ -306,6 +318,7 @@ notarized releases do not require this bypass.
 | `apps/server/` | Go WebSocket room and tournament hub |
 | `protocol/v1/` | Canonical `hexproof.v1` wire schema |
 | `testdata/protocol/v1/` | Shared client/server protocol fixtures |
+| `CHANGELOG.md` | Application release notes; unpublished work under Unreleased |
 | `packaging/` | Client, server, and card-database release tooling |
 | `third_party/forge-runtime/` | Pinned Manabrew/Forge revisions and the optional rules-runtime build |
 | `tools/` | Verification, code generation, database builder, and UI test helpers |
@@ -323,15 +336,18 @@ Rules-engine work must also follow [`docs/rules-engine.md`](docs/rules-engine.md
 Format Go with `gofmt`; follow the existing Qt style; retain SPDX headers; and
 add owner/opponent/spectator tests for hidden-information changes.
 
-Wire changes begin in `protocol/v1/wire-schema.json`, followed by:
+For wire changes, update the relevant `protocol/v1/` constant/payload schemas,
+shared fixtures, and handwritten payload mappings together, then run:
 
 ```sh
 python3 tools/protocol_codegen.py
 python3 tools/check-protocol-parity.py
 ```
 
-Update shared fixtures under `testdata/protocol/v1/` and run
-`./tools/verify.sh` before submitting a change.
+Update shared fixtures under `testdata/protocol/v1/` when the wire contract
+changes. Run relevant tests before submitting a change, and the complete
+`./tools/verify.sh` suite for cross-boundary milestones or releases. Documentation
+and small focused repairs do not require unrelated full rebuilds.
 
 ## License
 

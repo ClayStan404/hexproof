@@ -11,6 +11,7 @@ Surface {
     id: root
 
     required property var tableController
+    readonly property bool compactPhases: height < Theme.size(470)
 
     readonly property var activePlayer:
         tableController.seatState.seatData(
@@ -85,7 +86,7 @@ Surface {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: Theme.size(4)
+        spacing: Theme.size(root.compactPhases ? 2 : 4)
 
         Text {
             textFormat: Text.PlainText
@@ -119,8 +120,28 @@ Surface {
             color: Theme.divider
         }
 
+        AppComboBox {
+            objectName: "compactPhaseSelector"
+            Layout.fillWidth: true
+            implicitHeight: Theme.size(36)
+            visible: root.compactPhases
+            enabled: root.tableController.isActivePlayer
+            model: root.phaseSteps.map(phase => ({label: I18n.tr(phase.label), id: phase.id}))
+            textRole: "label"
+            currentIndex: root.phaseSteps.findIndex(
+                              phase => phase.id === root.tableController.displayedPhase)
+            onActivated: index => root.tableController.rulesAssist.requestSetPhase(
+                                      root.phaseSteps[index].id)
+        }
+
+        Item {
+            visible: root.compactPhases
+            Layout.fillHeight: true
+        }
+
         ScrollView {
             id: phaseScroll
+            visible: !root.compactPhases
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -199,7 +220,7 @@ Surface {
             objectName: "turnAssistButton"
             visible: root.assistKind.length > 0
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? Theme.size(32) : 0
+            Layout.preferredHeight: visible ? Theme.size(root.compactPhases ? 26 : 32) : 0
             compact: true
             text: root.assistLabel()
             enabled: root.assistEnabled()
@@ -211,7 +232,7 @@ Surface {
         RowLayout {
             objectName: "landPlayCountControls"
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.size(30)
+            Layout.preferredHeight: Theme.size(root.compactPhases ? 26 : 30)
             spacing: Theme.size(2)
 
             Text {
@@ -264,7 +285,7 @@ Surface {
             objectName: "responseStatusButton"
             visible: root.tableController.roomSession.seatIndex >= 0
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? Theme.size(32) : 0
+            Layout.preferredHeight: visible ? Theme.size(root.compactPhases ? 26 : 32) : 0
             compact: true
             variant: root.ownPlayer.responseStatus === "hold"
                      ? "highlight"
@@ -288,21 +309,21 @@ Surface {
             id: nextPhaseButton
             objectName: "nextPhaseButton"
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.size(32)
+            Layout.preferredHeight: Theme.size(root.compactPhases ? 26 : 32)
             compact: true
             text: root.atEndStep
                   ? I18n.tr("Next turn") : I18n.tr("Next phase")
             enabled: root.tableController.isActivePlayer
             onClicked: root.tableController.rulesAssist.requestAdvancePhase()
             ToolTip.visible: hovered
-            ToolTip.text: I18n.tr("Advance one step") + " · Ctrl+→"
+            ToolTip.text: I18n.tr("Advance one step") + ShortcutHints.suffix("table.advancePhase")
         }
 
         AppButton {
             id: nextTurnButton
             objectName: "nextTurnButton"
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.size(32)
+            Layout.preferredHeight: Theme.size(root.compactPhases ? 26 : 32)
             compact: true
             variant: root.tableController.isActivePlayer
                      ? "primary" : "secondary"
@@ -310,7 +331,7 @@ Surface {
             enabled: root.tableController.isActivePlayer
             onClicked: root.tableController.rulesAssist.requestAdvanceTurn()
             ToolTip.visible: hovered
-            ToolTip.text: I18n.tr("End turn") + " · Ctrl+Enter"
+            ToolTip.text: I18n.tr("End turn") + ShortcutHints.suffix("table.advanceTurn")
         }
     }
 

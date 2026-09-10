@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "1.0.6")
+set(HEXPROOF_VERSION "1.2.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -151,6 +151,7 @@ target_link_libraries(hexproof_deck_library PUBLIC
 set(HEXPROOF_SESSION_SOURCES
     src/services/GameSessionState.cpp
     src/services/LimitedSessionState.cpp
+    src/services/LimitedDeckDraftStore.cpp
     src/services/ProtocolSession.cpp
     src/services/ReconnectController.cpp
     src/services/RoomSessionState.cpp
@@ -180,6 +181,9 @@ target_link_libraries(hexproof_session PUBLIC
     Qt6::Network
     Qt6::WebSockets)
 
+qt_add_library(hexproof_local_test STATIC src/testing/LocalTestSession.cpp)
+target_link_libraries(hexproof_local_test PUBLIC hexproof_session)
+
 set(HEXPROOF_TABLE_MODEL_SOURCES
     src/models/GameTableModel.cpp
     src/models/OptimisticCommandModel.cpp
@@ -196,9 +200,16 @@ set(HEXPROOF_CARD_SERVICE_SOURCES
     src/services/CardServiceLog.cpp
     src/services/CardArtAudit.cpp
     src/services/CardArtArchive.cpp
+    src/services/CardArtDeckExport.cpp
     src/services/CardArtCache.cpp
     src/services/CardArtManager.cpp
+    src/services/CardArtStorage.cpp
+    src/services/CustomCardArtStore.cpp
+    src/services/CustomCardArtFiles.cpp
+    src/services/CustomCardArtTransfer.cpp
     src/services/CardCatalog.cpp
+    src/services/CardCatalogCustomArt.cpp
+    src/services/CardCatalogFaceExpansion.cpp
     src/services/CardCatalogImportFacade.cpp
     src/services/CatalogImport.cpp
     src/services/CatalogBulkImport.cpp
@@ -209,6 +220,7 @@ set(HEXPROOF_CARD_SERVICE_SOURCES
     src/services/CardCatalogLimited.cpp
     src/services/CardCatalogLimitedArt.cpp
     src/services/CardCatalogCache.cpp
+    src/services/CardCatalogMatch.cpp
     src/services/CardCatalogResolveQueue.cpp
     src/services/CardCatalogResolveCompletion.cpp
     src/services/CardCatalogInstallerOfficial.cpp
@@ -264,6 +276,7 @@ qt_add_executable(hexproof
     ${HEXPROOF_PLATFORM_SOURCES}
     src/main.cpp
     src/models/ClientPreferencesModel.cpp
+    src/services/MatchCardCacheBinding.cpp
     src/services/MatchLoadCoordinator.cpp
     src/services/TranslationController.cpp
 )
@@ -278,6 +291,7 @@ qt_add_resources(hexproof "app_qml"
         "${HEXPROOF_APP_ICON_PNG}"
         "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}"
         qml/Main.qml
+        qml/ProfileUnavailable.qml
         qml/components/qmldir
         qml/components/ActivityRing.qml
         qml/components/AppBackground.qml
@@ -294,8 +308,24 @@ qt_add_resources(hexproof "app_qml"
         qml/components/BattlefieldView.qml
         qml/components/BattlefieldViewControls.qml
         qml/components/CardCounterEditor.qml
+        qml/components/CardCacheProgress.qml
+        qml/components/ScrollChainHandler.qml
+        qml/components/ShortcutHints.qml
         qml/components/CardFacePicker.qml
         qml/components/CardSearchPopup.qml
+        qml/components/CardFilterState.qml
+        qml/components/CardFilterBar.qml
+        qml/components/CardArtGrid.qml
+        qml/components/CompactCardList.qml
+        qml/components/CardManaCurve.qml
+        qml/components/CardManaCost.qml
+        qml/components/CardManaSymbol.qml
+        qml/components/CardListRow.qml
+        qml/components/ManaSymbols.qml
+        qml/components/CardMetadataNotice.qml
+        qml/components/CardHoverPreview.qml
+        qml/components/TokenPresentation.js
+        qml/components/TokenDetailsPopup.qml
         qml/components/CombatDeclarationPopup.qml
         qml/components/CommanderDamagePopup.qml
         qml/components/ConfirmDialog.qml
@@ -303,6 +333,11 @@ qt_add_resources(hexproof "app_qml"
         qml/components/ConditionalMenuItem.qml
         qml/components/ConditionalMenuSeparator.qml
         qml/components/ExportDeckDialog.qml
+        qml/components/DeckArtExportDialog.qml
+        qml/components/CustomCardArtDialog.qml
+        qml/components/DeckCardActionsMenu.qml
+        qml/components/CustomArtImportDialog.qml
+        qml/components/StorageLocationPanel.qml
         qml/components/CounterLabelPopup.qml
         qml/components/GameResultPopup.qml
         qml/components/HandView.qml
@@ -313,6 +348,7 @@ qt_add_resources(hexproof "app_qml"
         qml/components/DeckConsiderManager.qml
         qml/components/DeckPicker.qml
         qml/components/DeckTokenManager.qml
+        qml/components/EmblemBrowser.qml
         qml/components/DiceRollPopup.qml
         qml/components/InfoBanner.qml
         qml/components/I18n.qml
@@ -325,6 +361,15 @@ qt_add_resources(hexproof "app_qml"
         qml/components/LimitedCardGrouping.qml
         qml/components/LimitedCardGroupView.qml
         qml/components/LimitedDeckBuilder.qml
+        qml/components/LimitedCommanderSelection.qml
+        qml/components/CommanderDraftPlan.qml
+        qml/components/CubeRoomRules.qml
+        qml/components/LimitedCommanderPicker.qml
+        qml/components/CommanderCubeMatches.qml
+        qml/components/LimitedBasicLandPlan.qml
+        qml/components/CubeRoomSeats.qml
+        qml/components/CubeRoomMatches.qml
+        qml/components/EventScreenRouter.qml
         qml/components/LimitedCardTile.qml
         qml/components/LimitedDraftSeatMap.qml
         qml/components/LimitedDraftView.qml
@@ -344,6 +389,7 @@ qt_add_resources(hexproof "app_qml"
         qml/components/RulesCombatAssignmentPrompt.qml
         qml/components/RulesDamageAssignmentPrompt.qml
         qml/components/RulesHandArea.qml
+        qml/components/RulesMatchControls.qml
         qml/components/RulesNumberPrompt.qml
         qml/components/RulesOpponentZoneDock.qml
         qml/components/RulesOrderPrompt.qml
@@ -426,9 +472,15 @@ qt_add_resources(hexproof "app_qml"
         assets/sponsors/alipay-pay.png
         assets/sponsors/dodo.jpg
         assets/sponsors/m0nta9e.jpg
+        assets/sponsors/orangezihan.jpeg
+        assets/sponsors/guafu.jpeg
+        assets/sponsors/beidi.jpeg
         assets/sponsors/qingbao.jpg
         assets/sponsors/wechat-pay.png
         qml/assets/card-back.jpg
+        qml/assets/mana/mana.ttf
+        qml/assets/mana/OFL.txt
+        qml/assets/mana/README.md
         qml/screens/MainMenu.qml
         qml/screens/Connect.qml
         qml/screens/CreateRoom.qml
@@ -439,11 +491,10 @@ qt_add_resources(hexproof "app_qml"
         qml/screens/ImportDeck.qml
         qml/screens/JoinRoom.qml
         qml/screens/MatchLoading.qml
-        qml/screens/ReplayBrowser.qml
-        qml/screens/ReplayViewer.qml
         qml/screens/RoomBrowser.qml
         qml/screens/Settings.qml
         qml/screens/CardArtManager.qml
+        qml/screens/CustomCardArtManager.qml
         qml/screens/ShortcutSettings.qml
         qml/screens/Sponsors.qml
         qml/screens/RulesTable.qml
@@ -451,6 +502,11 @@ qt_add_resources(hexproof "app_qml"
         qml/screens/TournamentBrowser.qml
         qml/screens/TournamentCreate.qml
         qml/screens/TournamentLobby.qml
+        qml/screens/CubeRoom.qml
+        qml/components/TournamentChat.qml
+        qml/components/TournamentPlayers.qml
+        qml/components/TournamentSidebar.qml
+        qml/components/LimitedEventProgress.qml
         qml/screens/WaitingRoom.qml)
 
 qt_add_translations(hexproof
@@ -469,6 +525,7 @@ qt_add_resources(hexproof "dynamic_translations"
     FILES ${HEXPROOF_DYNAMIC_QM_FILES})
 
 target_link_libraries(hexproof PRIVATE
+    hexproof_local_test
     hexproof_card_services
     hexproof_deck_library
     hexproof_session
@@ -541,6 +598,10 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../THIRD-PARTY-NOTICES.md"
     DESTINATION .)
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/qml/assets/mana/OFL.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/qml/assets/mana/README.md"
+    DESTINATION licenses/mana)
 
 # Qt 6.8's generic Linux deployment does not select the
 # platforminputcontexts plugin category automatically. Keep the plugins that
@@ -632,6 +693,11 @@ target_link_libraries(hexproof_card_database_builder PRIVATE
 
 enable_testing()
 
+qt_add_executable(hexproof_profilelock_test tests/profilelock_test.cpp)
+target_include_directories(hexproof_profilelock_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(hexproof_profilelock_test PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME profilelock COMMAND hexproof_profilelock_test)
+
 if(UNIX AND NOT APPLE)
     add_test(NAME desktop-install
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/linux/test-install-desktop.sh")
@@ -650,6 +716,7 @@ qt_add_executable(hexproof_wsclient_test
     tests/wsclient_test.cpp
     tests/wsclient_commands_test.cpp
     tests/wsclient_endpoints_test.cpp
+    tests/wsclient_tournament_test.cpp
     tests/wsclient_reconnect_test.cpp
     tests/wsclient_test.h
 )
@@ -669,6 +736,16 @@ qt_add_resources(hexproof_wsclient_test "wsclient_server_directory"
     FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
 add_test(NAME wsclient COMMAND hexproof_wsclient_test)
 
+qt_add_executable(hexproof_localtestsession_test tests/localtestsession_test.cpp)
+target_compile_definitions(hexproof_localtestsession_test PRIVATE
+    HEXPROOF_DEFAULT_SERVER_BINARY="${CMAKE_CURRENT_SOURCE_DIR}/../../build/server/hexproof-server")
+target_link_libraries(hexproof_localtestsession_test PRIVATE hexproof_local_test Qt6::Test)
+qt_add_resources(hexproof_localtestsession_test "localtest_server_directory"
+    PREFIX "/"
+    FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
+add_test(NAME localtestsession COMMAND hexproof_localtestsession_test)
+set_tests_properties(localtestsession PROPERTIES LABELS integration TIMEOUT 45)
+
 qt_add_executable(hexproof_server_integration_test
     tests/server_integration_test.cpp
 )
@@ -679,6 +756,7 @@ target_compile_definitions(hexproof_server_integration_test PRIVATE
     HEXPROOF_DEFAULT_SERVER_BINARY="${CMAKE_CURRENT_SOURCE_DIR}/../../build/server/hexproof-server")
 target_link_libraries(hexproof_server_integration_test PRIVATE
     hexproof_session
+    hexproof_table_models
     Qt6::Core
     Qt6::Gui
     Qt6::Network
@@ -733,9 +811,14 @@ target_link_libraries(hexproof_protocolsession_test PRIVATE
     Qt6::Test)
 add_test(NAME protocolsession COMMAND hexproof_protocolsession_test)
 
+qt_add_executable(hexproof_limiteddeckdraftstore_test tests/limiteddeckdraftstore_test.cpp)
+target_link_libraries(hexproof_limiteddeckdraftstore_test PRIVATE hexproof_session Qt6::Test)
+add_test(NAME limiteddeckdraftstore COMMAND hexproof_limiteddeckdraftstore_test)
+
 qt_add_executable(hexproof_deck_test
     tests/deck_test.cpp
     tests/deck_model_test.cpp
+    tests/deck_printing_identity_test.cpp
     tests/deck_test.h
     src/models/ClientPreferencesModel.cpp
 )
@@ -801,8 +884,11 @@ add_test(NAME sideboardtablemodel COMMAND
 
 qt_add_executable(hexproof_cardcatalog_test
     tests/cardcatalog_test.cpp
+    tests/cardcatalog_cache_priority_test.cpp
     tests/cardcatalog_database_test.cpp
+    tests/cardcatalog_localized_text_test.cpp
     tests/cardcatalog_limited_art_test.cpp
+    tests/cardcatalog_match_expansion_test.cpp
     tests/cardcatalog_test.h
 )
 target_include_directories(hexproof_cardcatalog_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -817,6 +903,10 @@ target_link_libraries(hexproof_cardcatalog_test PRIVATE
     Qt6::Test
     ZLIB::ZLIB)
 add_test(NAME cardcatalog COMMAND hexproof_cardcatalog_test)
+add_test(NAME bounded-catalog-source
+    COMMAND ${CMAKE_COMMAND}
+        -DHEXPROOF_CLIENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/bounded_catalog_source_test.cmake)
 
 qt_add_executable(hexproof_catalogrepository_test
     tests/catalogrepository_test.cpp
@@ -859,6 +949,19 @@ target_link_libraries(hexproof_cardartmanager_test PRIVATE
     Qt6::Test)
 add_test(NAME cardartmanager COMMAND hexproof_cardartmanager_test)
 
+qt_add_executable(hexproof_cardartstorage_test tests/cardartstorage_test.cpp)
+target_link_libraries(hexproof_cardartstorage_test PRIVATE hexproof_card_services Qt6::Test)
+add_test(NAME cardartstorage COMMAND hexproof_cardartstorage_test)
+
+qt_add_executable(hexproof_customcardartstore_test tests/customcardartstore_test.cpp)
+target_link_libraries(hexproof_customcardartstore_test PRIVATE hexproof_card_services Qt6::Test)
+add_test(NAME customcardartstore COMMAND hexproof_customcardartstore_test)
+
+qt_add_executable(hexproof_cardcatalog_customart_test tests/cardcatalog_customart_test.cpp)
+target_link_libraries(hexproof_cardcatalog_customart_test PRIVATE
+    hexproof_card_services hexproof_deck_library Qt6::Test)
+add_test(NAME cardcatalog-customart COMMAND hexproof_cardcatalog_customart_test)
+
 qt_add_executable(hexproof_cardartarchive_test
     tests/cardartarchive_test.cpp
 )
@@ -885,10 +988,15 @@ add_test(NAME appupdate COMMAND hexproof_appupdate_test)
 
 qt_add_executable(hexproof_matchload_test
     tests/matchload_test.cpp
+    src/services/MatchCardCacheBinding.cpp
     src/services/MatchLoadCoordinator.cpp
 )
 target_include_directories(hexproof_matchload_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(hexproof_matchload_test PRIVATE Qt6::Core Qt6::Test)
+target_link_libraries(hexproof_matchload_test PRIVATE
+    hexproof_table_models
+    hexproof_session
+    Qt6::Core
+    Qt6::Test)
 add_test(NAME matchload COMMAND hexproof_matchload_test)
 
 qt_add_executable(hexproof_qml_test
@@ -899,6 +1007,7 @@ qt_add_executable(hexproof_qml_test
 target_include_directories(hexproof_qml_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(hexproof_qml_test PRIVATE
+    hexproof_session
     hexproof_deck_library
     hexproof_table_models
     Qt6::Core

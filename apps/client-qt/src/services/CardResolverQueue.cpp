@@ -27,6 +27,12 @@ void CardResolver::resolve(CardRequest request)
     m_currentConfirmedMissing = false;
     m_currentFailureDetail.clear();
     m_mtgchEnglishRecord = {};
+    m_metadataRecord = {};
+    m_pendingImageRecord = {};
+    m_pendingImageStage = ArtStage::None;
+    m_rulesProbeAttempted = false;
+    m_localizedRulesAttempted = false;
+    m_localizedRulesTransientFailure = false;
     m_catalogRecord = m_currentRequest.catalogHint.valid()
                           ? m_currentRequest.catalogHint
                           : (m_callbacks.lookupCatalog ? m_callbacks.lookupCatalog(m_currentRequest)
@@ -37,8 +43,19 @@ void CardResolver::resolve(CardRequest request)
         m_catalogRecord.name.compare(m_currentRequest.name, Qt::CaseInsensitive) != 0 &&
         m_catalogRecord.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts)
             .contains(m_currentRequest.name, Qt::CaseInsensitive);
-    if (requestedFace)
+    if (requestedFace) {
         m_currentRecord.imageUrl.clear();
+        // Catalog rows describe the whole card. Do not carry a front/combined
+        // rule block into a separately requested back face's resolved metadata.
+        m_catalogRecord.oracleText.clear();
+        m_catalogRecord.oracleTextLanguage.clear();
+        m_catalogRecord.localizedRulesChecked = false;
+        m_currentRecord.oracleText.clear();
+        m_currentRecord.oracleTextLanguage.clear();
+        m_currentRecord.localizedRulesChecked = false;
+    } else {
+        retainMetadata(&m_currentRecord);
+    }
     qCDebug(cardCatalogLog).noquote()
         << "Card cache resolution"
         << "card=" + m_currentRequest.name << "language=" + m_currentRequest.language
@@ -63,7 +80,8 @@ void CardResolver::resolve(CardRequest request)
     if (m_currentRequest.language == QStringLiteral("zh")) {
         if (m_currentProvider == ArtProvider::Mtgch) {
             beginMtgchRequest();
-        } else if (!requestedFace && m_currentRecord.imageLanguage == QStringLiteral("zh") &&
+        } else if (!m_currentRequest.supportCard && !requestedFace &&
+                   m_currentRecord.imageLanguage == QStringLiteral("zh") &&
                    !m_currentRecord.imageUrl.isEmpty()) {
             beginImageRequest(ArtStage::ScryfallChineseExact);
         } else {

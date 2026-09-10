@@ -103,10 +103,23 @@ class TestWsClient : public QObject
 
   private slots:
     void initTestCase();
+    void scopesAndBoundsTournamentChat() const;
+    void ignoresStaleTournamentAndLimitedSnapshots() const;
+    void limitedProgressPreservesPrivateModels() const;
+    void commanderDraftMetadataAndPrivateSelectionResetTogether() const;
+    void commanderProgressCannotReplacePrivateState() const;
+    void sendsCommanderCubeCommandsWithinSizeBounds() const;
+    void rejectsCommanderCubeCommandsWhileDisconnected() const;
+    void distinguishesCubeRoomsAndClearsOldLobbyState() const;
+    void cubeAutoEntryIsReplacedWithItsOwnerSnapshot() const;
+    void sendsCubeJoinCredentialsAndInvitationCancellation() const;
     void cleanup();
     void correlatesCommandOutcomes() const;
+    void announcesOnlyCurrentRoomRestartBroadcast() const;
     void sendsTypedScryResponse() const;
     void sendsTypedDamageResponses() const;
+    void rulesResponsesStayLockedUntilAuthoritativeProgress() const;
+    void rulesResponsesRecoverAfterTimeoutAndDisconnect() const;
     void parsesTypedDamagePrompts() const;
     void rollsBackPendingCommandsBeforeRoomIdentityClears() const;
     void destroysParserWorkersDeterministically() const;
@@ -126,9 +139,12 @@ class TestWsClient : public QObject
     void rebuildsNotReadyErrorFromStructuredDetail() const;
     void rejectsOversizeIncomingMessages() const;
     void welcomeVersionMismatchDisconnects() const;
-    void handlesP7DiscoveryReplayAndTableCommands() const;
+    void handlesP7DiscoveryAndTableCommands() const;
     void handlesTournamentCommandsAndSnapshots() const;
     void loadsSavedResumeEndpoint() const;
+    void prefillsInitialConnection_data();
+    void prefillsInitialConnection() const;
+    void rejectsInvalidInitialConnection() const;
     void loadsSecondaryPublicHubSelection() const;
     void configuresAndPersistsCustomServer() const;
     void migratesLegacyPrimaryPublicHubEndpoint() const;

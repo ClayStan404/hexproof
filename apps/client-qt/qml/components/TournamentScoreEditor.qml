@@ -40,8 +40,8 @@ Popup {
         Text {
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            text: scoreEditor.correction ? qsTr("Correct result")
-                                         : qsTr("Report result")
+            text: scoreEditor.correction ? qsTranslate("TournamentLobby", "Correct result")
+                                         : qsTranslate("TournamentLobby", "Report result")
             color: Theme.text
             font.pixelSize: Theme.fontSize(20)
             font.weight: Font.DemiBold
@@ -62,7 +62,7 @@ Popup {
             objectName: "scorePrefillHint"
             Layout.fillWidth: true
             visible: scoreEditor.prefilledFromTable
-            text: qsTr("Prefills from the finished tabletop match. Edit before submitting.")
+            text: qsTranslate("TournamentLobby", "Prefills from the finished tabletop match. Edit before submitting.")
             color: Theme.accent
             font.pixelSize: Theme.fontSize(12)
             wrapMode: Text.WordWrap
@@ -74,17 +74,17 @@ Popup {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { textFormat: Text.PlainText; text: scoreEditor.pairing.playerAName || qsTr("Player A"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
+                Text { textFormat: Text.PlainText; text: scoreEditor.pairing.playerAName || qsTranslate("TournamentLobby", "Player A"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
                 AppTextField { id: playerAWinsField; objectName: "playerAWinsField"; Layout.fillWidth: true; inputMethodHints: Qt.ImhDigitsOnly; validator: IntValidator { bottom: 0; top: 20 } }
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { textFormat: Text.PlainText; text: scoreEditor.pairing.playerBName || qsTr("Player B"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
+                Text { textFormat: Text.PlainText; text: scoreEditor.pairing.playerBName || qsTranslate("TournamentLobby", "Player B"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
                 AppTextField { id: playerBWinsField; objectName: "playerBWinsField"; Layout.fillWidth: true; inputMethodHints: Qt.ImhDigitsOnly; validator: IntValidator { bottom: 0; top: 20 } }
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { textFormat: Text.PlainText; text: qsTr("Drawn games"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11) }
+                Text { textFormat: Text.PlainText; text: qsTranslate("TournamentLobby", "Drawn games"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11) }
                 AppTextField { id: drawnGamesField; objectName: "drawnGamesField"; Layout.fillWidth: true; inputMethodHints: Qt.ImhDigitsOnly; validator: IntValidator { bottom: 0; top: 20 } }
             }
         }
@@ -95,33 +95,33 @@ Popup {
             AppButton {
                 compact: true
                 variant: "ghost"
-                text: qsTr("Cancel")
+                text: qsTranslate("TournamentLobby", "Cancel")
                 onClicked: scoreEditor.close()
             }
             AppButton {
                 compact: true
                 variant: "primary"
-                text: scoreEditor.correction ? qsTr("Save correction")
-                                             : qsTr("Submit report")
+                text: scoreEditor.correction ? qsTranslate("TournamentLobby", "Save correction")
+                                             : qsTranslate("TournamentLobby", "Submit report")
                 enabled: playerAWinsField.acceptableInput
                          && playerBWinsField.acceptableInput
                          && drawnGamesField.acceptableInput
-                         && Number(playerAWinsField.text)
-                            + Number(playerBWinsField.text)
-                            + Number(drawnGamesField.text) <= 20
+                         && playerAWinsField.numberValue()
+                            + playerBWinsField.numberValue()
+                            + drawnGamesField.numberValue() <= 20
                 onClicked: {
                     if (scoreEditor.correction) {
                         scoreEditor.wsModel.correctTournamentResult(
                                     scoreEditor.pairing.pairingId,
-                                    Number(playerAWinsField.text),
-                                    Number(playerBWinsField.text),
-                                    Number(drawnGamesField.text))
+                                    playerAWinsField.numberValue(),
+                                    playerBWinsField.numberValue(),
+                                    drawnGamesField.numberValue())
                     } else {
                         scoreEditor.wsModel.reportTournamentResult(
                                     scoreEditor.pairing.pairingId,
-                                    Number(playerAWinsField.text),
-                                    Number(playerBWinsField.text),
-                                    Number(drawnGamesField.text))
+                                    playerAWinsField.numberValue(),
+                                    playerBWinsField.numberValue(),
+                                    drawnGamesField.numberValue())
                     }
                     scoreEditor.close()
                 }

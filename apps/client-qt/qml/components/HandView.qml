@@ -341,13 +341,15 @@ Item {
                 }
                 MouseArea {
                     id: handDrag
+                    objectName: "handCardInteraction" + handCard.visualIndex
                     anchors.fill: parent
-                    enabled: root.tableController.canAct
-                             && !root.tableController.tableModalOpen
+                    enabled: !root.tableController.tableModalOpen
                     hoverEnabled: true
                     cursorShape: drag.active
-                                 ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                    drag.target: handCard
+                                 ? Qt.ClosedHandCursor
+                                 : root.tableController.canAct
+                                   ? Qt.OpenHandCursor : Qt.PointingHandCursor
+                    drag.target: root.tableController.canAct ? handCard : null
                     drag.threshold: Theme.size(5)
                     preventStealing: true
                     onEntered: root.tableController.presentation.inspectCard(
@@ -357,11 +359,15 @@ Item {
                     onPressed: {
                         handCard.forceActiveFocus(Qt.MouseFocusReason)
                         root.tableController.presentation.hideCardPreview()
+                        if (!root.tableController.canAct)
+                            return
                         handCard.dragStartVisualIndex = handCard.visualIndex
                         root.tableController.activeHandDragCardId =
                             handCard.cardId
                     }
                     onReleased: {
+                        if (!root.tableController.canAct)
+                            return
                         const cardId = handCard.cardId
                         const targetIndex = handCard.visualIndex
                         handCard.Drag.drop()

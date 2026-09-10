@@ -41,9 +41,9 @@ Popup {
             "action": item.label
         }))
         rows.push(
-            {"keys": "Ctrl + wheel", "action": qsTr("Adjust battlefield card size")},
-            {"keys": "← / → / Home / End", "action": qsTr("Move between hand cards")},
-            {"keys": "Enter", "action": qsTr("Open the focused hand card menu")})
+            {"keys": "Ctrl + wheel", "action": qsTranslate("Table", "Adjust battlefield card size")},
+            {"keys": "← / → / Home / End", "action": qsTranslate("Table", "Move between hand cards")},
+            {"keys": "Enter", "action": qsTranslate("Table", "Open the focused hand card menu")})
         return rows
     }
 
@@ -61,7 +61,7 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Table shortcuts")
+                    text: qsTranslate("Table", "Table shortcuts")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(20)
                     font.weight: Font.DemiBold
@@ -69,7 +69,7 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Shortcuts are paused while a text field or modal editor is open.")
+                    text: qsTranslate("Table", "Shortcuts are paused while a text field or modal editor is open.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(11)
                     wrapMode: Text.WordWrap
@@ -81,7 +81,7 @@ Popup {
                 compact: true
                 variant: "ghost"
                 text: "×"
-                accessibleName: qsTr("Close")
+                accessibleName: qsTranslate("Table", "Close")
                 Layout.preferredWidth: Theme.size(40)
                 onClicked: root.close()
             }

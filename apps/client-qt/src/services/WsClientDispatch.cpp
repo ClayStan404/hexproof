@@ -44,9 +44,16 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleTournamentRegistered(env);
     else if (env.type == kTypeTournamentSnapshot)
         handleTournamentSnapshot(env);
+    else if (env.type == kTypeTournamentChatMessage)
+        m_tournamentSession->applyChatMessage(env.payload);
+    else if (env.type == kTypeTournamentChatHistory)
+        m_tournamentSession->applyChatHistory(env.payload);
     else if (env.type == kTypeLimitedSnapshot)
         handleLimitedSnapshot(env);
-    else if (env.type == kTypeTournamentLeft)
+    else if (env.type == kTypeLimitedProgress) {
+        if (env.payload.value(u"tournamentId"_s).toString() == m_tournamentSession->tournamentId())
+            m_limitedSession->applyProgress(env.payload);
+    } else if (env.type == kTypeTournamentLeft)
         handleTournamentLeft(env);
     else if (env.type == kTypeDeckSelected)
         handleDeckSelected(env);
@@ -56,6 +63,9 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleMatchStarted(env);
     else if (env.type == kTypeGameSnapshot)
         handleGameSnapshot(gameSnapshot);
+    else if (env.type == kTypeGameRestarted && env.id.isEmpty() &&
+             env.payload.value(u"roomId"_s).toString() == roomId())
+        emit gameRestarted();
     else if (env.type == kTypeRulesSnapshot)
         handleRulesSnapshot(env.payload);
     else if (env.type == kTypeRulesPrompt)
@@ -66,10 +76,6 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handlePublicZoneMoveRequested(env);
     else if (env.type == kTypeGameZoneDumped)
         handleZoneDumped(env);
-    else if (env.type == kTypeReplayListed)
-        handleReplayListed(env);
-    else if (env.type == kTypeReplayLoaded)
-        handleReplayLoaded(env);
     else if (env.type == kTypeSideboardCompleted)
         handleSideboardCompleted(env);
     else if (env.type == kTypeRoomLeft)
@@ -102,12 +108,14 @@ void WsClient::handleTournamentListed(const Envelope &env)
 void WsClient::handleTournamentCreated(const Envelope &env)
 {
     const QString tournamentId = env.payload.value(u"tournamentId"_s).toString();
+    m_limitedSession->clear();
     storeTournamentCredential(tournamentId, env.payload.value(u"organizerToken"_s).toString());
     m_tournamentSession->enter(tournamentId, u"organizer"_s);
 }
 
 void WsClient::handleTournamentEntered(const Envelope &env)
 {
+    m_limitedSession->clear();
     m_tournamentSession->enter(env.payload.value(u"tournamentId"_s).toString(),
                                env.payload.value(u"role"_s).toString(),
                                env.payload.value(u"participantId"_s).toString());
@@ -128,6 +136,9 @@ void WsClient::handleTournamentRegistered(const Envelope &env)
 
 void WsClient::handleTournamentSnapshot(const Envelope &env)
 {
+    if (!m_tournamentSession->inTournament() ||
+        env.payload.value(u"tournamentId"_s).toString() != m_tournamentSession->tournamentId())
+        return;
     const bool lostParticipantRegistration =
         !m_tournamentSession->participantId().isEmpty() &&
         env.payload.value(u"participantId"_s).toString().isEmpty();
@@ -140,14 +151,23 @@ void WsClient::handleTournamentSnapshot(const Envelope &env)
 
 void WsClient::handleLimitedSnapshot(const Envelope &env)
 {
+    if (!m_tournamentSession->inTournament() ||
+        env.payload.value(u"tournamentId"_s).toString() != m_tournamentSession->tournamentId())
+        return;
     m_limitedSession->applySnapshot(env.payload);
 }
 
 void WsClient::handleTournamentLeft(const Envelope &env)
 {
+    if (env.payload.value(u"tournamentId"_s).toString() != m_tournamentSession->tournamentId())
+        return;
+    if (m_tournamentSession->cubeRoom() && (m_tournamentSession->stage() == u"registration"_s ||
+                                            m_tournamentSession->role() == u"organizer"_s ||
+                                            m_tournamentSession->status() == u"cancelled"_s)) {
+        removeTournamentCredential(m_tournamentSession->tournamentId());
+    }
     m_tournamentSession->clear();
     m_limitedSession->clear();
-    (void)env;
 }
 
 void WsClient::handleWelcome(const Envelope &env)
@@ -185,15 +205,17 @@ void WsClient::handleWelcome(const Envelope &env)
         return;
     }
     const QString token = env.payload.value(u"resumeToken"_s).toString();
+    const QString resumedRole = env.payload.value(u"role"_s).toString();
     m_reconnectController->updateSession(token, m_serverUrl, m_displayName);
+    m_reconnectController->setCrossLaunchResumeAllowed(resumed && resumedRole == kRolePlayer);
     m_reconnectController->flush();
 
     if (resumed) {
         m_reconnectController->stopRetry();
-        m_roomSession->enter(
-            env.payload.value(u"roomId"_s).toString(), env.payload.value(u"role"_s).toString(),
-            env.payload.contains(u"seat"_s) ? env.payload.value(u"seat"_s).toInt() : -1,
-            env.payload.value(u"host"_s).toBool());
+        m_roomSession->enter(env.payload.value(u"roomId"_s).toString(), resumedRole,
+                             env.payload.contains(u"seat"_s) ? env.payload.value(u"seat"_s).toInt()
+                                                             : -1,
+                             env.payload.value(u"host"_s).toBool());
         return;
     }
 
@@ -223,16 +245,19 @@ void WsClient::handleCreated(const Envelope &env)
     // (no empty-flash).
     m_roomSession->enter(env.payload.value(u"roomId"_s).toString(), kRolePlayer, 0, true);
     m_reconnectController->resetSequence();
+    m_reconnectController->setCrossLaunchResumeAllowed(true);
 }
 
 void WsClient::handleJoined(const Envelope &env)
 {
     // Joiner is not host (regardless of role). Defer InRoom until first
     // snapshot so WaitingRoom renders with seats filled.
+    const QString role = env.payload.value(u"role"_s).toString();
     m_roomSession->enter(
-        env.payload.value(u"roomId"_s).toString(), env.payload.value(u"role"_s).toString(),
+        env.payload.value(u"roomId"_s).toString(), role,
         env.payload.contains(u"seat"_s) ? env.payload.value(u"seat"_s).toInt() : -1, false);
     m_reconnectController->resetSequence();
+    m_reconnectController->setCrossLaunchResumeAllowed(role == kRolePlayer);
 }
 
 void WsClient::handleSnapshot(const Envelope &env)
@@ -292,24 +317,6 @@ void WsClient::handleRulesPrompt(const QJsonObject &prompt)
 {
     if (!m_rulesSession->applyPrompt(prompt))
         setLastError(u"protocol"_s, u"invalid rules prompt"_s);
-}
-
-void WsClient::handleReplayListed(const Envelope &env)
-{
-    m_replayList.clear();
-    for (const QJsonValue &value : env.payload.value(u"replays"_s).toArray())
-        m_replayList.append(value.toObject().toVariantMap());
-    m_replayOffset = env.payload.value(u"offset"_s).toInt();
-    m_replayLimit = qMax(1, env.payload.value(u"limit"_s).toInt(50));
-    m_replayTotal = env.payload.value(u"total"_s).toInt(m_replayList.size());
-    m_replayHasMore = env.payload.value(u"hasMore"_s).toBool();
-    emit replayListChanged();
-}
-
-void WsClient::handleReplayLoaded(const Envelope &env)
-{
-    m_loadedReplay = env.payload.toVariantMap();
-    emit replayLoaded();
 }
 
 void WsClient::handleZoneDumped(const Envelope &env)
@@ -395,6 +402,8 @@ void WsClient::handleSideboardCompleted(const Envelope &env)
 
 void WsClient::handleError(const Envelope &env)
 {
+    if (!env.id.isEmpty() && env.id == m_rulesResponseRequestId)
+        clearRulesResponse();
     m_roomSession->discardPendingDeck(env.id);
     const QString code = env.payload.value(u"code"_s).toString();
     QString msg = env.payload.value(u"message"_s).toString();

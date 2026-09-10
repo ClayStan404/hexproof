@@ -66,13 +66,13 @@ bool DeckEditor::toggleCommander(Deck &deck, const QString &cardName, QString *e
     return true;
 }
 
-bool DeckEditor::moveCard(Deck &deck, const QString &cardName, bool toSideboard)
+bool DeckEditor::moveCard(Deck &deck, const QString &cardName, const QString &setCode,
+                          const QString &collectorNumber, bool toSideboard)
 {
     QVector<DeckCard> &source = toSideboard ? deck.mainboard : deck.sideboard;
     QVector<DeckCard> &destination = toSideboard ? deck.sideboard : deck.mainboard;
-    const QString key = normalizedCardName(cardName);
     for (int index = 0; index < source.size(); ++index) {
-        if (normalizedCardName(source.at(index).name) != key)
+        if (!cardIdentityMatches(source.at(index), cardName, setCode, collectorNumber))
             continue;
         DeckCard moved = source.at(index);
         moved.count = 1;
@@ -80,8 +80,8 @@ bool DeckEditor::moveCard(Deck &deck, const QString &cardName, bool toSideboard)
         if (source.at(index).count == 0)
             source.removeAt(index);
         const auto destinationCard =
-            std::find_if(destination.begin(), destination.end(), [&key](const DeckCard &card) {
-                return normalizedCardName(card.name) == key;
+            std::find_if(destination.begin(), destination.end(), [&moved](const DeckCard &card) {
+                return cardIdentityMatches(card, moved);
             });
         if (destinationCard == destination.end())
             destination.append(moved);
@@ -95,15 +95,15 @@ bool DeckEditor::moveCard(Deck &deck, const QString &cardName, bool toSideboard)
     return false;
 }
 
-bool DeckEditor::changeCardCount(Deck &deck, const QString &cardName, bool sideboard, int delta,
+bool DeckEditor::changeCardCount(Deck &deck, const QString &cardName, const QString &setCode,
+                                 const QString &collectorNumber, bool sideboard, int delta,
                                  QString *error)
 {
     if (delta == 0)
         return false;
     QVector<DeckCard> &cards = sideboard ? deck.sideboard : deck.mainboard;
-    const QString key = normalizedCardName(cardName);
     for (int index = 0; index < cards.size(); ++index) {
-        if (normalizedCardName(cards.at(index).name) != key)
+        if (!cardIdentityMatches(cards.at(index), cardName, setCode, collectorNumber))
             continue;
         cards[index].count = qMax(0, cards.at(index).count + delta);
         if (cards.at(index).count == 0) {
@@ -166,14 +166,10 @@ bool DeckEditor::changeConsiderCardCount(Deck &deck, const QString &name, const 
 {
     if (delta == 0)
         return false;
-    const QString key = normalizedCardName(name);
     for (int index = 0; index < deck.consider.size(); ++index) {
         DeckCard &card = deck.consider[index];
-        if (normalizedCardName(card.name) != key ||
-            (!setCode.isEmpty() && card.setCode.compare(setCode, Qt::CaseInsensitive) != 0) ||
-            (!collectorNumber.isEmpty() && card.collectorNumber != collectorNumber)) {
+        if (!cardIdentityMatches(card, name, setCode, collectorNumber))
             continue;
-        }
         card.count = qMax(0, card.count + delta);
         if (card.count == 0)
             deck.consider.removeAt(index);
@@ -185,7 +181,8 @@ bool DeckEditor::changeConsiderCardCount(Deck &deck, const QString &name, const 
     return false;
 }
 
-bool DeckEditor::setCardPrinting(Deck &deck, const QString &cardName, bool sideboard,
+bool DeckEditor::setCardPrinting(Deck &deck, const QString &cardName, const QString &currentSetCode,
+                                 const QString &currentCollectorNumber, bool sideboard,
                                  const QString &localizedName, const QString &typeLine,
                                  const QString &setCode, const QString &collectorNumber,
                                  DeckCard *updatedCard)
@@ -193,69 +190,79 @@ bool DeckEditor::setCardPrinting(Deck &deck, const QString &cardName, bool sideb
     if (setCode.isEmpty() || collectorNumber.isEmpty())
         return false;
     QVector<DeckCard> &cards = sideboard ? deck.sideboard : deck.mainboard;
-    for (DeckCard &card : cards) {
-        if (!cardNamesMatch(card.name, cardName))
+    for (int sourceIndex = 0; sourceIndex < cards.size(); ++sourceIndex) {
+        if (!cardIdentityMatches(cards.at(sourceIndex), cardName, currentSetCode,
+                                 currentCollectorNumber)) {
             continue;
-        card.localizedName = localizedName.simplified();
-        card.typeLine = typeLine;
-        card.setCode = setCode.toUpper();
-        card.collectorNumber = collectorNumber;
-        card.imagePath.clear();
+        }
+
+        DeckCard destinationIdentity = cards.at(sourceIndex);
+        destinationIdentity.setCode = setCode.toUpper();
+        destinationIdentity.collectorNumber = collectorNumber;
+        int destinationIndex = -1;
+        for (int index = 0; index < cards.size(); ++index) {
+            if (index != sourceIndex && cardIdentityMatches(cards.at(index), destinationIdentity)) {
+                destinationIndex = index;
+                break;
+            }
+        }
+
+        DeckCard &updated = destinationIndex >= 0 ? cards[destinationIndex] : cards[sourceIndex];
+        if (destinationIndex >= 0)
+            updated.count += cards.at(sourceIndex).count;
+        updated.localizedName = localizedName.simplified();
+        updated.typeLine = typeLine;
+        updated.setCode = destinationIdentity.setCode;
+        updated.collectorNumber = collectorNumber;
+        updated.imagePath.clear();
+        updated.rarity.clear();
+        updated.cardColors = QString();
+        updated.manaCost = QString();
         if (updatedCard)
-            *updatedCard = card;
+            *updatedCard = updated;
+        if (destinationIndex >= 0)
+            cards.removeAt(sourceIndex);
         touch(deck);
         return true;
     }
     return false;
 }
 
-bool DeckEditor::applyCardMetadata(Deck &deck, const QString &requestedName,
+bool DeckEditor::applyCardMetadata(DeckCard &card, const QString &requestedName,
                                    const QString &localizedName, const QString &typeLine,
                                    const QString &imagePath, const QString &setCode,
                                    const QString &collectorNumber)
 {
     const QString key = normalizedCardName(requestedName);
-    bool changed = false;
-    const auto apply = [&](QVector<DeckCard> &cards) {
-        for (DeckCard &card : cards) {
-            if (normalizedCardName(card.name) != key)
-                continue;
-            if (!setCode.isEmpty() && !collectorNumber.isEmpty() && !card.setCode.isEmpty() &&
-                !card.collectorNumber.isEmpty() &&
-                (card.setCode.compare(setCode, Qt::CaseInsensitive) != 0 ||
-                 card.collectorNumber != collectorNumber)) {
-                continue;
-            }
-            const bool updateLocalizedName =
-                !localizedName.isEmpty() && card.localizedName != localizedName;
-            const bool updateTypeLine = !typeLine.isEmpty() && card.typeLine != typeLine;
-            const bool updateImagePath = !imagePath.isEmpty() && card.imagePath != imagePath;
-            const bool updateSetCode = card.setCode.isEmpty() && !setCode.isEmpty();
-            const bool updateCollectorNumber =
-                card.collectorNumber.isEmpty() && !collectorNumber.isEmpty();
-            if (!updateLocalizedName && !updateTypeLine && !updateImagePath && !updateSetCode &&
-                !updateCollectorNumber) {
-                continue;
-            }
-            if (updateLocalizedName)
-                card.localizedName = localizedName;
-            if (updateTypeLine)
-                card.typeLine = typeLine;
-            if (updateImagePath)
-                card.imagePath = imagePath;
-            if (updateSetCode)
-                card.setCode = setCode.toUpper();
-            if (updateCollectorNumber)
-                card.collectorNumber = collectorNumber;
-            changed = true;
-        }
-    };
-    apply(deck.mainboard);
-    apply(deck.sideboard);
-    apply(deck.consider);
-    if (changed)
-        touch(deck);
-    return changed;
+    if (normalizedCardName(card.name) != key)
+        return false;
+    if (!setCode.isEmpty() && !collectorNumber.isEmpty() && !card.setCode.isEmpty() &&
+        !card.collectorNumber.isEmpty() &&
+        (card.setCode.compare(setCode, Qt::CaseInsensitive) != 0 ||
+         card.collectorNumber != collectorNumber)) {
+        return false;
+    }
+    const bool updateLocalizedName =
+        !localizedName.isEmpty() && card.localizedName != localizedName;
+    const bool updateTypeLine = !typeLine.isEmpty() && card.typeLine != typeLine;
+    const bool updateImagePath = !imagePath.isEmpty() && card.imagePath != imagePath;
+    const bool updateSetCode = card.setCode.isEmpty() && !setCode.isEmpty();
+    const bool updateCollectorNumber = card.collectorNumber.isEmpty() && !collectorNumber.isEmpty();
+    if (!updateLocalizedName && !updateTypeLine && !updateImagePath && !updateSetCode &&
+        !updateCollectorNumber) {
+        return false;
+    }
+    if (updateLocalizedName)
+        card.localizedName = localizedName;
+    if (updateTypeLine)
+        card.typeLine = typeLine;
+    if (updateImagePath)
+        card.imagePath = imagePath;
+    if (updateSetCode)
+        card.setCode = setCode.toUpper();
+    if (updateCollectorNumber)
+        card.collectorNumber = collectorNumber;
+    return true;
 }
 
 bool DeckEditor::addToken(Deck &deck, const DeckToken &token)
@@ -264,6 +271,7 @@ bool DeckEditor::addToken(Deck &deck, const DeckToken &token)
     normalized.name = normalized.name.simplified();
     normalized.localizedName = normalized.localizedName.simplified();
     normalized.setCode = normalized.setCode.toUpper();
+    normalized.kind = normalizedDeckTokenKind(normalized.kind, normalized.typeLine);
     if (normalized.name.isEmpty() || normalized.setCode.isEmpty() ||
         normalized.collectorNumber.isEmpty()) {
         return false;
@@ -348,21 +356,21 @@ bool DeckEditor::addCardToZone(QVector<DeckCard> &cards, const QString &name,
         return false;
     }
 
-    const QString key = normalizedCardName(name);
-    const auto existing = std::find_if(cards.begin(), cards.end(), [&key](const DeckCard &card) {
-        return normalizedCardName(card.name) == key;
-    });
-    if (existing != cards.end()) {
-        existing->count++;
-        return true;
-    }
-
     DeckCard card;
     card.name = name.simplified();
     card.localizedName = localizedName.simplified();
     card.typeLine = typeLine;
     card.setCode = setCode.toUpper();
     card.collectorNumber = collectorNumber;
+    const auto existing =
+        std::find_if(cards.begin(), cards.end(), [&card](const DeckCard &candidate) {
+            return cardIdentityMatches(candidate, card);
+        });
+    if (existing != cards.end()) {
+        existing->count++;
+        return true;
+    }
+
     cards.append(card);
     return true;
 }
@@ -371,14 +379,10 @@ bool DeckEditor::moveCardBetweenZones(QVector<DeckCard> &source, QVector<DeckCar
                                       const QString &name, const QString &setCode,
                                       const QString &collectorNumber)
 {
-    const QString key = normalizedCardName(name);
     for (int index = 0; index < source.size(); ++index) {
         DeckCard &sourceCard = source[index];
-        if (normalizedCardName(sourceCard.name) != key ||
-            (!setCode.isEmpty() && sourceCard.setCode.compare(setCode, Qt::CaseInsensitive) != 0) ||
-            (!collectorNumber.isEmpty() && sourceCard.collectorNumber != collectorNumber)) {
+        if (!cardIdentityMatches(sourceCard, name, setCode, collectorNumber))
             continue;
-        }
 
         DeckCard moved = sourceCard;
         moved.count = 1;
@@ -387,7 +391,7 @@ bool DeckEditor::moveCardBetweenZones(QVector<DeckCard> &source, QVector<DeckCar
             source.removeAt(index);
         const auto existing =
             std::find_if(destination.begin(), destination.end(), [&moved](const DeckCard &card) {
-                return normalizedCardName(card.name) == normalizedCardName(moved.name);
+                return cardIdentityMatches(card, moved);
             });
         if (existing == destination.end())
             destination.append(moved);

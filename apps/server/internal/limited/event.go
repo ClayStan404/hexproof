@@ -44,7 +44,11 @@ type PlayerState struct {
 	Inbox                []*Pack
 	Deck                 *protocol.DeckSelect
 	MainboardInstanceIDs []string
+	CommanderInstanceIDs []string
+	CommanderColors      []protocol.LimitedCommanderColor
 	BasicLands           []protocol.LimitedBasicLand
+	AutoDraft            bool
+	Withdrawn            bool
 }
 
 type Event struct {
@@ -67,11 +71,12 @@ const (
 	draftPacksPerPlayer     = 3
 	cubeDraftCardsPerPack   = 15
 
-	MinSetSealedPlayers = 2
-	MinSetDraftPlayers  = 2
-	MaxSetDraftPlayers  = 8
-	MinCubeDraftPlayers = 2
-	MaxCubeDraftPlayers = 8
+	MinSetSealedPlayers     = 2
+	MinSetDraftPlayers      = 2
+	MaxSetDraftPlayers      = 8
+	MinCubeDraftPlayers     = 2
+	MaxCubeDraftPlayers     = 8
+	MaxCommanderCubePlayers = 4
 )
 
 func CubeDraftCardsRequired(players int) int {
@@ -90,7 +95,8 @@ func New(config Config, seed int64) (*Event, error) {
 	config.EventType = strings.ToLower(strings.TrimSpace(config.EventType))
 	if config.EventType != protocol.LimitedEventSetSealed &&
 		config.EventType != protocol.LimitedEventSetDraft &&
-		config.EventType != protocol.LimitedEventCubeDraft {
+		config.EventType != protocol.LimitedEventCubeDraft &&
+		config.EventType != protocol.LimitedEventCommanderCube {
 		return nil, fail(ErrInvalid, "unsupported limited event type")
 	}
 	if len(config.Participants) < 2 || len(config.Participants) > 64 {
@@ -101,16 +107,20 @@ func New(config Config, seed int64) (*Event, error) {
 			len(config.Participants) > MaxSetDraftPlayers) {
 		return nil, fail(ErrInvalid, "draft requires two to eight players")
 	}
-	if config.EventType == protocol.LimitedEventCubeDraft &&
+	if isCubeEvent(config.EventType) &&
 		(len(config.Participants) < MinCubeDraftPlayers ||
 			len(config.Participants) > MaxCubeDraftPlayers) {
 		return nil, fail(ErrInvalid, "Cube draft requires two to eight players")
+	}
+	if config.EventType == protocol.LimitedEventCommanderCube &&
+		len(config.Participants) > MaxCommanderCubePlayers {
+		return nil, fail(ErrInvalid, "Commander Cube requires two to four players at one table")
 	}
 	product, err := NewProduct(config.Product)
 	if err != nil {
 		return nil, err
 	}
-	isCube := config.EventType == protocol.LimitedEventCubeDraft
+	isCube := isCubeEvent(config.EventType)
 	if isCube != (product.Definition.ProductType == ProductTypeCube) {
 		return nil, fail(ErrInvalid, "limited event and product type do not match")
 	}
@@ -139,7 +149,7 @@ func New(config Config, seed int64) (*Event, error) {
 	}
 	if isCube {
 		event.cubeStock = product.cubeStock()
-		required := CubeDraftCardsRequired(len(event.Players))
+		required := CubeDraftCardsRequiredForEvent(event.EventType, len(event.Players))
 		if len(event.cubeStock) < required {
 			return nil, fail(ErrInvalid, "Cube does not contain enough cards")
 		}
@@ -168,12 +178,13 @@ func (e *Event) nextInstanceID() string {
 }
 
 func (e *Event) nextPack() ([]*CardInstance, error) {
-	if e.EventType == protocol.LimitedEventCubeDraft {
-		if len(e.cubeStock) < cubeDraftCardsPerPack {
+	if isCubeEvent(e.EventType) {
+		cardsPerPack := cubeCardsPerPack(e.EventType)
+		if len(e.cubeStock) < cardsPerPack {
 			return nil, fail(ErrInvalid, "Cube cannot fill another draft pack")
 		}
-		cards := append([]*CardInstance(nil), e.cubeStock[:cubeDraftCardsPerPack]...)
-		e.cubeStock = e.cubeStock[cubeDraftCardsPerPack:]
+		cards := append([]*CardInstance(nil), e.cubeStock[:cardsPerPack]...)
+		e.cubeStock = e.cubeStock[cardsPerPack:]
 		for _, card := range cards {
 			card.ID = e.nextInstanceID()
 		}
@@ -200,12 +211,17 @@ func (e *Event) Player(participantID string) *PlayerState {
 }
 
 func (e *Event) AllDecksSubmitted() bool {
+	active := 0
 	for _, player := range e.Players {
+		if player.Withdrawn {
+			continue
+		}
+		active++
 		if player.Deck == nil {
 			return false
 		}
 	}
-	return true
+	return active >= 2
 }
 
 func (e *Event) EnterCompetition() error {

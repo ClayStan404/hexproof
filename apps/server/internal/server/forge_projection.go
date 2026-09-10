@@ -30,12 +30,30 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 	if !ok {
 		return nil, errors.New("Forge game session is unavailable")
 	}
+	// Build the public journal only from an explicit spectator view. Reuse that
+	// same envelope for every spectator rather than repeating engine RPCs.
+	ctx, cancel := context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+	publicView, err := game.client.SnapshotView(ctx, game.sessionID, -1)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	publicSnapshot, err := normalizeForgeSnapshot(r.ID, game, publicView)
+	if err != nil {
+		return nil, err
+	}
+	h.hub.UpdateRulesPublicLog(r, publicSnapshot)
+	h.hub.RecordRulesStartingSeat(r, game, publicView)
 	targets, seq, err := h.hub.RulesProjectionTargets(r)
 	if err != nil {
 		return nil, err
 	}
 	projections := make(map[string]protocol.Envelope, len(targets))
+	ownerSnapshots := make(map[int]protocol.RulesGameSnapshot, len(game.seatToPlayer))
 	for connectionID, seat := range targets {
+		if seat < 0 {
+			continue
+		}
 		viewer := -1
 		if seat >= 0 {
 			mapped, exists := game.seatToPlayer[seat]
@@ -54,13 +72,51 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 		if err != nil {
 			return nil, err
 		}
+		ownerSnapshots[seat] = snapshot
 		envelope, err := protocol.NewEnvelope(protocol.TypeRulesSnapshot, snapshot)
 		if err != nil {
 			return nil, err
 		}
 		projections[connectionID] = envelope.WithSeq(seq)
 	}
+	spectatorSnapshot := rulesSpectatorSnapshot(publicSnapshot, ownerSnapshots, r.SpectatorsSeeHands)
+	publicEnvelope, err := protocol.NewEnvelope(protocol.TypeRulesSnapshot, spectatorSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	for connectionID, seat := range targets {
+		if seat < 0 {
+			projections[connectionID] = publicEnvelope.WithSeq(seq)
+		}
+	}
 	return projections, nil
+}
+
+// The room's existing opt-in permits current hands only. The base remains the
+// explicit spectator view, and the unmodified base alone feeds public logs.
+func rulesSpectatorSnapshot(public protocol.RulesGameSnapshot,
+	owners map[int]protocol.RulesGameSnapshot, showHands bool) protocol.RulesGameSnapshot {
+	if !showHands {
+		return public
+	}
+	result := public
+	result.Zones = append([]protocol.RulesZoneState(nil), public.Zones...)
+	for index, zone := range result.Zones {
+		if zone.Zone != "hand" {
+			continue
+		}
+		owner, found := owners[zone.OwnerSeat]
+		if !found || owner.GameID != public.GameID || owner.RoomID != public.RoomID {
+			continue
+		}
+		for _, privateZone := range owner.Zones {
+			if privateZone.Zone == "hand" && privateZone.OwnerSeat == zone.OwnerSeat {
+				result.Zones[index].Cards = append([]protocol.RulesCardState{}, privateZone.Cards...)
+				break
+			}
+		}
+	}
+	return result
 }
 
 func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
@@ -91,7 +147,7 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 		RoomID:       roomID,
 		GameID:       view.GameID,
 		Turn:         view.Turn,
-		Step:         view.Step,
+		Step:         normalizedRulesStep(view.Step),
 		ActiveSeat:   activeSeat,
 		PrioritySeat: prioritySeat,
 		Players:      make([]protocol.RulesPlayerState, 0, len(view.Players)),
@@ -177,6 +233,30 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 	return snapshot, nil
 }
 
+// normalizedRulesStep adapts the pinned harness names to the existing rules
+// table's display keys. Both damage steps highlight the same rail category;
+// Forge still owns and resolves the distinct first-strike and normal steps.
+func normalizedRulesStep(step string) string {
+	switch step {
+	case "combatBegin":
+		return protocol.GamePhaseBeginningCombat
+	case "combatDeclareAttackers":
+		return protocol.GamePhaseDeclareAttackers
+	case "combatDeclareBlockers":
+		return protocol.GamePhaseDeclareBlockers
+	case "combatFirstStrikeDamage", "combatDamage":
+		return protocol.GamePhaseCombatDamage
+	case "combatEnd":
+		return protocol.GamePhaseEndCombat
+	case "endOfTurn":
+		return protocol.GamePhaseEnd
+	default:
+		// Untap, upkeep, draw, main1, main2, and cleanup already match the
+		// rules UI. Its main-phase keys intentionally differ from manual DTOs.
+		return step
+	}
+}
+
 func optionalForgeSeat(playerID string, fallback int,
 	seatForID func(string) (int, error)) (int, error) {
 	if playerID == "" {
@@ -232,10 +312,18 @@ func rulesProjectionResult(projections map[string]protocol.Envelope) (bool, int,
 }
 
 func (h *Handler) sendRulesProjections(projections map[string]protocol.Envelope) {
-	for connectionID, envelope := range projections {
-		if session := h.sessionByConn(connectionID); session != nil {
-			h.send(session, envelope)
+	roomID := ""
+	for _, envelope := range projections {
+		if roomID == "" {
+			var snapshot protocol.RulesGameSnapshot
+			if envelope.DecodePayload(&snapshot) == nil {
+				roomID = snapshot.RoomID
+			}
 		}
+	}
+	h.sendProjectionSet(projections)
+	if r := h.hub.FindRoom(roomID); r != nil {
+		h.fanoutRulesMetadata(r)
 	}
 }
 

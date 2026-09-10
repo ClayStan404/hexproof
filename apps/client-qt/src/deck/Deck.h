@@ -21,6 +21,13 @@ struct DeckCard
     int count = 1;
     QString colors;
     double manaValue = -1.0;
+    QString rarity;
+    QString cardColors;
+    QString manaCost;
+    // Session-only presentation. These fields are not serialized or sent to peers.
+    QString displayImagePath{};
+    bool displayImagePathResolved = false;
+    bool displayImagePathPending = false;
 };
 
 struct DeckToken
@@ -33,6 +40,7 @@ struct DeckToken
     QString power;
     QString toughness;
     QString oracleText;
+    QString kind = QStringLiteral("token");
 };
 
 struct Deck
@@ -57,6 +65,9 @@ struct Deck
 
 QString normalizedCardName(const QString &name);
 bool cardNamesMatch(const QString &left, const QString &right);
+bool cardIdentityMatches(const DeckCard &card, const QString &name, const QString &setCode,
+                         const QString &collectorNumber);
+bool cardIdentityMatches(const DeckCard &left, const DeckCard &right);
 QString cardCategory(const QString &typeLine);
 int cardCount(const QVector<DeckCard> &cards);
 void mergeSideboardIntoMain(Deck &deck);
@@ -64,6 +75,8 @@ void mergeSideboardIntoMain(Deck &deck);
 QJsonObject deckCardToJson(const DeckCard &card);
 DeckCard deckCardFromJson(const QJsonObject &object);
 QJsonObject deckTokenToJson(const DeckToken &token);
+QString normalizedDeckTokenKind(const QString &kind, const QString &typeLine,
+                                const QString &layout = {});
 DeckToken deckTokenFromJson(const QJsonObject &object);
 QJsonObject deckToJson(const Deck &deck);
 Deck deckFromJson(const QJsonObject &object);

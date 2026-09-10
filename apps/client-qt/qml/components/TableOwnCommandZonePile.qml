@@ -97,7 +97,7 @@ Item {
                 text:
                     root.topCard.name
                     ? root.topCard.name
-                    : qsTr("Commander")
+                    : qsTranslate("Table", "Commander")
                 color: Theme.textSecondary
                 font.pixelSize:
                     Theme.fontSize(8)
@@ -158,7 +158,7 @@ Item {
                     + root.tableController.roomSession.seatIndex
                 anchors.centerIn: parent
                 text:
-                    qsTr("Command")
+                    qsTranslate("Table", "Command")
                     + " "
                     + root.tableController.zoneState.zoneCardCount(
                         root.tableController.roomSession.seatIndex,

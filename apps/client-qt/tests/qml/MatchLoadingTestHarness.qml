@@ -114,6 +114,9 @@ Item {
         property int returnToRoomCount: 0
         property int sayCount: 0
         property int createTokenCount: 0
+        property int createEmblemCount: 0
+        property var lastCreatedEmblem: ({})
+        property string lastRemovedEmblem: ""
         property var lastToken: ({})
         property int commanderTaxCount: 0
         property int lastCommanderTaxDelta: 0
@@ -155,6 +158,7 @@ Item {
         signal commandFailed(string requestId, string commandType,
                              var payload, string error)
         signal gameSnapshotChanged()
+        signal gameRestarted()
         property var seats: [{
             "occupied": true,
             "displayName": "Alice",
@@ -357,6 +361,8 @@ Item {
             ++createTokenCount
             lastToken = {"token": token, "position": position}
         }
+        function createEmblem(seat, emblem) { ++createEmblemCount; lastCreatedEmblem = {seat,emblem} }
+        function removeEmblem(id) { lastRemovedEmblem = id }
         function adjustCommanderTax(commanderId, delta) {
             ++commanderTaxCount
             lastCommanderTaxDelta = delta
@@ -557,6 +563,8 @@ Item {
         property bool tokenSearching: false
         property bool busy: false
         property string status: ""
+        property string language: "en"
+        property int imageRevision: 0
         property var tokenSearchResults: [{
             "name": "Goblin",
             "typeLine": "Token Creature — Goblin",
@@ -570,11 +578,27 @@ Item {
         property int cacheTokenCount: 0
         property var typeLines: ({})
         property var faces: ({})
-        function imageSource(name, setCode, collectorNumber) { return "" }
+        signal cardTypeLineRequested()
+        signal cachedCardTypeLineRequested()
+        signal imageSourceRequested()
+        signal tableImageSourceRequested()
+        function imageSource(name, setCode, collectorNumber) {
+            imageSourceRequested()
+            return ""
+        }
+        function tableImageSource(name, setCode, collectorNumber) {
+            tableImageSourceRequested()
+            return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        }
         function cardFaces(name, setCode, collectorNumber) {
             return faces[name] ? faces[name] : []
         }
         function cardTypeLine(name, setCode, collectorNumber) {
+            cardTypeLineRequested()
+            return typeLines[name] ? typeLines[name] : ""
+        }
+        function cachedCardTypeLine(name, setCode, collectorNumber) {
+            cachedCardTypeLineRequested()
             return typeLines[name] ? typeLines[name] : ""
         }
         function enrichLimitedCards(cards) { return cards }
@@ -695,6 +719,8 @@ Item {
         mockRoomSession.playtest = Qt.binding(() => mockWs.playtest)
         mockRoomSession.spectatorsSeeHands = false
         mockWs.inRoom = true
+        mockWs.roomPhase = "started"
+        mockWs.gameNumber = 1
         mockWs.format = "modern"
         mockWs.matchMode = "bo3"
         mockWs.turnOrder = [1, 0]
@@ -752,6 +778,9 @@ Item {
         mockWs.gameSeats =
             JSON.parse(JSON.stringify(mockWs.baselineGameSeats))
         mockWs.createTokenCount = 0
+        mockWs.createEmblemCount = 0
+        mockWs.lastCreatedEmblem = ({})
+        mockWs.lastRemovedEmblem = ""
         mockWs.lastToken = ({})
         mockWs.commanderTaxCount = 0
         mockWs.lastCommanderTaxDelta = 0

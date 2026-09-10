@@ -17,157 +17,176 @@ Page {
 
     background: AppBackground { }
 
-    ColumnLayout {
-        anchors.centerIn: parent
-        width: Math.min(Theme.size(760), parent.width - Theme.size(48))
-        spacing: Theme.size(18)
+    Flickable {
+        id: loadingBody
+        objectName: "matchLoadingBody"
+        anchors.fill: parent
+        anchors.margins: Theme.size(24)
+        contentHeight: Math.max(height, loadingLayout.implicitHeight)
+        contentWidth: width
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-        BrandMark {
-            Layout.alignment: Qt.AlignHCenter
-            markSize: Theme.size(54)
-        }
+        ColumnLayout {
+            id: loadingLayout
+            x: (loadingBody.width - width) / 2
+            y: Math.max(0, (loadingBody.height - height) / 2)
+            width: Math.min(Theme.size(760), loadingBody.width)
+            spacing: Theme.size(18)
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.alignment: Qt.AlignHCenter
-            text: root.loaderModel.ready
-                  ? (root.roomSession.playtest
-                     ? qsTr("Opening playtest table")
-                     : qsTr("Waiting for other players"))
-                  : qsTr("Preparing the match")
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(25)
-            font.weight: Font.DemiBold
-        }
+            BrandMark {
+                Layout.alignment: Qt.AlignHCenter
+                markSize: Theme.size(54)
+            }
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.alignment: Qt.AlignHCenter
-            Layout.maximumWidth: Theme.size(620)
-            text: root.loaderModel.ready
-                  ? (root.roomSession.playtest
-                     ? qsTr("Your card assets are ready. The playtest table is opening.")
-                     : qsTr("Your card assets are ready. The table opens when every player finishes loading."))
-                  : qsTr("Downloading missing card information and art for this match.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(13)
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-        }
+            Text {
+                textFormat: Text.PlainText
+                Layout.alignment: Qt.AlignHCenter
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: root.loaderModel.ready
+                      ? (root.roomSession.playtest
+                         ? qsTr("Opening playtest table")
+                         : qsTr("Waiting for other players"))
+                      : qsTr("Preparing the match")
+                color: Theme.text
+                font.pixelSize: Theme.fontSize(25)
+                font.weight: Font.DemiBold
+            }
 
-        Surface {
-            Layout.fillWidth: true
-            implicitHeight: loadingContent.implicitHeight + Theme.size(44)
-            elevated: true
+            Text {
+                textFormat: Text.PlainText
+                Layout.alignment: Qt.AlignHCenter
+                Layout.maximumWidth: Theme.size(620)
+                Layout.fillWidth: true
+                text: root.loaderModel.ready
+                      ? (root.roomSession.playtest
+                         ? qsTr("Your card assets are ready. The playtest table is opening.")
+                         : qsTr("Your card assets are ready. The table opens when every player finishes loading."))
+                      : qsTr("Downloading missing card information and art for this match.")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(13)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
 
-            ColumnLayout {
-                id: loadingContent
-                anchors.fill: parent
-                anchors.margins: Theme.size(22)
-                spacing: Theme.size(14)
+            Surface {
+                Layout.fillWidth: true
+                implicitHeight: loadingContent.implicitHeight + Theme.size(44)
+                elevated: true
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Match assets")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(15)
-                        font.weight: Font.DemiBold
-                    }
-                    Item { Layout.fillWidth: true }
-                    Text {
-                        textFormat: Text.PlainText
-                        text: root.loaderModel.completed + " / " + root.loaderModel.total
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontSize(12)
-                    }
-                }
+                ColumnLayout {
+                    id: loadingContent
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(22)
+                    spacing: Theme.size(14)
 
-                ProgressBar {
-                    id: loadProgress
-                    objectName: "matchLoadProgress"
-                    Layout.fillWidth: true
-                    implicitHeight: Theme.size(12)
-                    from: 0
-                    to: 1
-                    value: root.loaderModel.progress
-
-                    background: Rectangle {
-                        color: Theme.disabled
-                        radius: height / 2
-                    }
-                    contentItem: Item {
-                        Rectangle {
-                            width: parent.width * loadProgress.visualPosition
-                            height: parent.height
-                            radius: height / 2
-                            color: root.loaderModel.failed > 0 ? Theme.warning : Theme.primary
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("Match assets")
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSize(15)
+                            font.weight: Font.DemiBold
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            textFormat: Text.PlainText
+                            text: root.loaderModel.completed + " / " + root.loaderModel.total
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(12)
                         }
                     }
-                }
 
-                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
-
-                Repeater {
-                    model: root.roomSession.seats
-
-                    delegate: RowLayout {
-                        id: seatRow
-                        required property var modelData
-                        required property int index
+                    ProgressBar {
+                        id: loadProgress
+                        objectName: "matchLoadProgress"
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Theme.size(34)
+                        implicitHeight: Theme.size(12)
+                        from: 0
+                        to: 1
+                        value: root.loaderModel.progress
+
+                        background: Rectangle {
+                            color: Theme.disabled
+                            radius: height / 2
+                        }
+                        contentItem: Item {
+                            Rectangle {
+                                width: parent.width * loadProgress.visualPosition
+                                height: parent.height
+                                radius: height / 2
+                                color: root.loaderModel.failed > 0 ? Theme.warning : Theme.primary
+                            }
+                        }
+                    }
+
+                    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
+
+                    Repeater {
+                        model: root.roomSession.seats
+
+                        delegate: RowLayout {
+                            id: seatRow
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Theme.size(34)
 
                         Text {
                             textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                             text: (seatRow.index + 1) + ". "
-                                  + (seatRow.modelData.displayName || qsTr("Open seat"))
-                            color: seatRow.modelData.occupied ? Theme.text : Theme.textMuted
-                            font.pixelSize: Theme.fontSize(13)
-                        }
-                        Item { Layout.fillWidth: true }
+                                      + (seatRow.modelData.displayName || qsTr("Open seat"))
+                                color: seatRow.modelData.occupied ? Theme.text : Theme.textMuted
+                                font.pixelSize: Theme.fontSize(13)
+                            }
                         StatusPill {
-                            visible: seatRow.modelData.occupied
-                            text: seatRow.modelData.loaded ? qsTr("Loaded") : qsTr("Loading")
-                            statusColor: seatRow.modelData.loaded ? Theme.success : Theme.warning
+                                visible: seatRow.modelData.occupied
+                                text: seatRow.modelData.loaded ? qsTr("Loaded") : qsTr("Loading")
+                                statusColor: seatRow.modelData.loaded ? Theme.success : Theme.warning
+                            }
                         }
                     }
+
+                    InfoBanner {
+                        Layout.fillWidth: true
+                        message: I18n.status(root.loaderModel.lastError)
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: Theme.size(10)
+
+                AppButton {
+                    objectName: "retryMatchLoadButton"
+                    visible: root.loaderModel.failed > 0
+                    variant: "primary"
+                    text: qsTr("Retry failed downloads")
+                    onClicked: root.loaderModel.retry()
                 }
 
-                InfoBanner {
-                    Layout.fillWidth: true
-                    message: I18n.status(root.loaderModel.lastError)
+                AppButton {
+                    visible: root.roomSession.role === "player"
+                    variant: "ghost"
+                    text: qsTr("Cancel ready")
+                    onClicked: root.wsModel.setReady(false)
                 }
-            }
-        }
 
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: Theme.size(10)
-
-            AppButton {
-                objectName: "retryMatchLoadButton"
-                visible: root.loaderModel.failed > 0
-                variant: "primary"
-                text: qsTr("Retry failed downloads")
-                onClicked: root.loaderModel.retry()
-            }
-
-            AppButton {
-                visible: root.roomSession.role === "player"
-                variant: "ghost"
-                text: qsTr("Cancel ready")
-                onClicked: root.wsModel.setReady(false)
-            }
-
-            AppButton {
-                objectName: "matchLoadingLeaveRoomButton"
-                variant: "ghost"
-                text: root.roomSession.playtest
-                      ? qsTr("End playtest")
-                      : qsTr("Leave room")
-                onClicked: leaveRoomConfirmation.open()
+                AppButton {
+                    objectName: "matchLoadingLeaveRoomButton"
+                    variant: "ghost"
+                    text: root.roomSession.playtest
+                          ? qsTr("End playtest")
+                          : qsTr("Leave room")
+                    onClicked: leaveRoomConfirmation.open()
+                }
             }
         }
     }

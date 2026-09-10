@@ -88,6 +88,25 @@ TestCase {
 
     function cleanup() {
         picker.close()
+        Theme.uiScale = 1
+        testWindow.width = 1100
+        testWindow.height = 760
+    }
+
+    function test_missingArtMessageFitsCompactPreview() {
+        testWindow.width = 900
+        testWindow.height = 620
+        Theme.uiScale = 1.5
+        picker.currentImageSource = ""
+        picker.open()
+        tryVerify(() => picker.opened)
+        waitForRendering(picker.contentItem)
+        const area = findChild(picker, "printingPreviewArea")
+        const message = findChild(picker, "printingPreviewFallback")
+        verify(message.visible)
+        const point = message.mapToItem(area, 0, 0)
+        verify(point.y >= 0)
+        verify(point.y + message.height <= area.height)
     }
 
     function test_previewsVersionBeforeConfirming() {
@@ -209,11 +228,15 @@ TestCase {
         compare(fakeCatalog.cacheRequests[0].collectorNumber, "117")
         verify(fakeCatalog.cacheRequests[0].exactArt)
 
-        const selectedSource = "file:///tmp/hexproof-selected-printing.png"
+        // Use real local art distinct from the current printing. A nonexistent
+        // asynchronous image can emit a warning after this test has returned.
+        const selectedSource = Qt.resolvedUrl("../../assets/icons/hexproof.png").toString()
+        verify(selectedSource !== testImage)
         fakeCatalog.cached = { "2X2/117": selectedSource }
         fakeCatalog.imageRevision++
         compare(picker.previewImageSource, selectedSource)
         verify(!picker.waitingForPreview)
+        tryCompare(findChild(picker, "printingPreviewImage"), "status", Image.Ready)
     }
 
     function test_refreshesPreviewWhenCacheFinishedWithoutRevisionBump() {

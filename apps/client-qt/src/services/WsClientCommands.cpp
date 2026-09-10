@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "TournamentSessionState.h"
 #include "WsClient.h"
 
 #include <QJsonArray>
@@ -53,11 +54,21 @@ void WsClient::requestRoomList()
     send(kTypeRoomList);
 }
 
+bool WsClient::hasCubeRoomCredential(const QString &roomId) const
+{
+    return !tournamentCredential(roomId.trimmed().toUpper()).isEmpty();
+}
+
 void WsClient::joinRoom(const QString &roomId, bool asSpectator, const QString &password)
 {
     QJsonObject p;
     p.insert(u"roomId"_s, roomId);
     p.insert(u"asSpectator"_s, asSpectator);
+    if (!asSpectator) {
+        const QString credential = tournamentCredential(roomId.trimmed().toUpper());
+        if (!credential.isEmpty())
+            p.insert(u"credential"_s, credential);
+    }
     if (!password.isEmpty())
         p.insert(u"password"_s, password);
     send(kTypeRoomJoin, p);
@@ -497,6 +508,16 @@ void WsClient::randomSelectCards(const QVariantList &cardIds)
 
 void WsClient::returnToRoom()
 {
+    if (m_tournamentSession->cubeRoom()) {
+        for (const QVariant &value : m_tournamentSession->pairings()) {
+            if (!roomId().isEmpty() && value.toMap().value(u"roomId"_s).toString() == roomId()) {
+                // Returning from a Cube match means rejoining the draft pod,
+                // not resetting the now-finished two-player table.
+                leaveRoom();
+                return;
+            }
+        }
+    }
     send(kTypeGameReturnToRoom);
 }
 
@@ -521,6 +542,29 @@ void WsClient::createToken(const QVariantMap &token, const QVariantMap &position
              {u"typeLine"_s, token.value(u"typeLine"_s).toString()},
              {u"position"_s, QJsonObject::fromVariantMap(position)},
          });
+}
+
+void WsClient::createEmblem(int seat, const QVariantMap &emblem)
+{
+    const QString name = emblem.value(u"name"_s).toString().trimmed();
+    if (seat < 0 || name.isEmpty())
+        return;
+    send(kTypeGameCreateEmblem,
+         QJsonObject{
+             {u"seat"_s, seat},
+             {u"name"_s, name},
+             {u"setCode"_s, emblem.value(u"setCode"_s).toString()},
+             {u"collectorNumber"_s, emblem.value(u"collectorNumber"_s).toString()},
+             {u"typeLine"_s, emblem.value(u"typeLine"_s).toString()},
+         });
+}
+
+void WsClient::removeEmblem(const QString &emblemId)
+{
+    const QString id = emblemId.trimmed();
+    if (id.isEmpty())
+        return;
+    send(kTypeGameRemoveEmblem, QJsonObject{{u"emblemId"_s, id}});
 }
 
 void WsClient::adjustCommanderTax(const QString &commanderId, int delta)
@@ -844,24 +888,6 @@ void WsClient::reorderLibrary(const QVariantList &cardIds)
         return;
     send(kTypeGameReorderLibrary,
          QJsonObject{{u"cardIds"_s, QJsonArray::fromVariantList(cardIds)}});
-}
-
-void WsClient::requestReplayList()
-{
-    requestReplayPage(0);
-}
-
-void WsClient::requestReplayPage(int offset)
-{
-    send(kTypeReplayList, QJsonObject{{u"offset"_s, qMax(0, offset)}, {u"limit"_s, 50}});
-}
-
-void WsClient::loadReplay(const QString &replayId)
-{
-    const QString id = replayId.trimmed();
-    if (id.isEmpty())
-        return;
-    send(kTypeReplayGet, QJsonObject{{u"replayId"_s, id}});
 }
 
 } // namespace hexproof::client

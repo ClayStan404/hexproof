@@ -97,6 +97,33 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
         record.typeLine = metadata.value(QStringLiteral("printed_type_line")).toString();
     if (record.typeLine.isEmpty())
         record.typeLine = metadata.value(QStringLiteral("type_line")).toString();
+    if (hasUsableFaceMetadata) {
+        const QString oracleText =
+            metadata.value(QStringLiteral("oracle_text")).toString().trimmed();
+        const QString providerText = metadata.value(QStringLiteral("text")).toString().trimmed();
+        record.oracleText = oracleText.isEmpty() ? providerText : oracleText;
+        record.oracleTextLanguage =
+            looksLikeChinese(record.oracleText) ? QStringLiteral("zh") : QStringLiteral("en");
+        if (language == QStringLiteral("zh")) {
+            // MTGCH exposes zhs_text independently of its art. Scryfall's
+            // printed_text is localized; oracle_text remains English even on
+            // a Chinese printing. Never infer the text language from the image.
+            const QStringList localizedTexts{
+                metadata.value(QStringLiteral("zhs_text")).toString().trimmed(),
+                metadata.value(QStringLiteral("printed_text")).toString().trimmed(),
+                providerText,
+            };
+            for (const QString &text : localizedTexts) {
+                if (looksLikeChinese(text)) {
+                    record.oracleText = text;
+                    record.oracleTextLanguage = QStringLiteral("zh");
+                    break;
+                }
+            }
+        }
+        record.localizedRulesChecked =
+            language == QStringLiteral("zh") && record.oracleTextLanguage == QStringLiteral("zh");
+    }
     record.setCode = object.value(QStringLiteral("set")).toString().toUpper();
     record.collectorNumber = object.value(QStringLiteral("collector_number")).toString();
     record.illustrationId = metadata.value(QStringLiteral("illustration_id")).toString();
@@ -288,6 +315,15 @@ CatalogImportResult importDatabaseFile(const QString &sourcePath, const QString 
             result.generatedAt = metadataValue(QStringLiteral("generated_at"));
             const int schemaVersion = metadataValue(QStringLiteral("schema_version")).toInt();
             result.schemaVersion = schemaVersion;
+            if (result.tokenCount == 0) {
+                QSqlQuery supportCount(database);
+                if (supportCount.exec(
+                        QStringLiteral("SELECT count(*) FROM cards WHERE lang = 'en' AND "
+                                       "layout IN ('token', 'double_faced_token', 'emblem')")) &&
+                    supportCount.next()) {
+                    result.tokenCount = supportCount.value(0).toInt();
+                }
+            }
             if (result.packageType != QStringLiteral("default_cards") || result.cardCount <= 0 ||
                 schemaVersion <= 0) {
                 result.error = QStringLiteral("The selected card database has invalid metadata.");

@@ -148,32 +148,30 @@ QtObject {
         tableRoot.selection.clear()
     }
 
-    function moveSelectedBattlefieldToLibrary(placement, index) {
+    function moveSelectedBattlefieldCard(toZone, placement, index) {
         if (!canManageSelectedBattlefield())
             return
+        const cardId = tableRoot.selectedBattlefieldCardId
+        const card = tableRoot.selectedBattlefieldCard
+        const sourceSeat = tableRoot.selectedBattlefieldOwnerSeat
+        const ownerSeat = card.ownerSeat !== undefined
+                        ? card.ownerSeat : tableRoot.roomSession.seatIndex
         tableRoot.optimisticCommands.beginPendingCardMove(
-                    tableRoot.selectedBattlefieldCardId,
-                    tableRoot.selectedBattlefieldCard,
-                    "battlefield", tableRoot.selectedBattlefieldOwnerSeat,
-                    "library", tableRoot.selectedBattlefieldCard.ownerSeat)
+                    cardId, card, "battlefield", sourceSeat,
+                    toZone, ownerSeat)
         tableRoot.wsModel.moveCard(
-                    tableRoot.selectedBattlefieldCardId,
-                    "battlefield", "library", {}, -1, placement, index)
+                    cardId, "battlefield", toZone, {}, -1,
+                    placement ? placement : "",
+                    index !== undefined ? index : -1)
         tableRoot.selection.clear()
     }
 
+    function moveSelectedBattlefieldToLibrary(placement, index) {
+        moveSelectedBattlefieldCard("library", placement, index)
+    }
+
     function moveSelectedBattlefieldToZone(toZone) {
-        if (!canManageSelectedBattlefield())
-            return
-        tableRoot.optimisticCommands.beginPendingCardMove(
-                    tableRoot.selectedBattlefieldCardId,
-                    tableRoot.selectedBattlefieldCard,
-                    "battlefield", tableRoot.selectedBattlefieldOwnerSeat,
-                    toZone, tableRoot.selectedBattlefieldCard.ownerSeat)
-        tableRoot.wsModel.moveCard(
-                    tableRoot.selectedBattlefieldCardId,
-                    "battlefield", toZone, {})
-        tableRoot.selection.clear()
+        moveSelectedBattlefieldCard(toZone, "", -1)
     }
 
     function moveSelectedHandCard(toZone, faceDown) {

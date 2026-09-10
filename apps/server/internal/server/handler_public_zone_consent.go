@@ -160,6 +160,13 @@ func (h *Handler) handleGameRespondPublicZoneMove(sess *Session,
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, err.Error())
 		return nil
 	}
+	operation, err := h.hub.lockRoomOperation(r.ID)
+	if err != nil {
+		code, _ := ErrCode(err)
+		h.sendError(sess, env.ID, code, err.Error())
+		return nil
+	}
+	defer operation.opMu.Unlock()
 	approval, err := h.resolvePublicZoneMoveRequest(
 		sess.ConnectionID, r.ID, response.ApprovalID)
 	if err != nil {
@@ -185,13 +192,6 @@ func (h *Handler) handleGameRespondPublicZoneMove(sess *Session,
 			protocol.ErrPermissionDenied, "public-zone move was denied")
 		return nil
 	}
-	operation, err := h.hub.lockRoomOperation(r.ID)
-	if err != nil {
-		code, _ := ErrCode(err)
-		h.sendError(requester, approval.originalID, code, err.Error())
-		return nil
-	}
-	defer operation.opMu.Unlock()
 	var res room.Result
 	if approval.card != nil {
 		res, err = h.hub.MoveApprovedCard(

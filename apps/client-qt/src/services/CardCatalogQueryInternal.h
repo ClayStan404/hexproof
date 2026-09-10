@@ -33,6 +33,15 @@ inline QString catalogNameMatchesSql(const QString &columnPrefix = QStringLitera
         .arg(columnPrefix);
 }
 
+inline QString catalogExactPrintingSql(const QString &columnPrefix = QStringLiteral("c."))
+{
+    // Match the installed catalog's compound NOCASE index without wrapping
+    // indexed columns in functions that force a full-catalog scan.
+    return QStringLiteral("%1set_code = ? COLLATE NOCASE "
+                          "AND %1collector_number = ? COLLATE NOCASE")
+        .arg(columnPrefix);
+}
+
 inline QString catalogPlayablePrintingSql(const QString &columnPrefix = QStringLiteral("c."))
 {
     return QStringLiteral("COALESCE(%1layout, '') NOT IN "

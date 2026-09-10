@@ -23,6 +23,7 @@ Surface {
     border.color: Theme.borderStrong
 
     Row {
+        id: zoneRow
         anchors.fill: parent
         anchors.margins: Theme.size(5)
         spacing: Theme.size(3)
@@ -36,12 +37,13 @@ Surface {
                 required property int index
 
                 readonly property string zoneKey: modelData
+                objectName: "rulesOpponentZoneTile-" + root.ownerSeat + "-" + zoneKey
                 readonly property int cardCount:
-                    root.tableController.rulesSession.zoneCount(
+                    root.tableController.zoneCount(
                         root.ownerSeat, zoneKey)
 
-                width: (parent.width - Theme.size(9)) / 4
-                height: parent.height
+                width: (zoneRow.width - Theme.size(9)) / 4
+                height: zoneRow.height
                 radius: Theme.radiusSmall
                 color: Theme.surfaceMuted
                 border.width: 1
@@ -72,15 +74,18 @@ Surface {
                         required property string collectorNumber
                         required property bool faceDown
 
-                        objectName: "rulesOpponentZoneCard-"
-                                    + root.ownerSeat + "-" + zoneTile.zoneKey
-                                    + "-" + cardId
+                        // Snapshot resets can destroy the dock before its nested images.
+                        objectName: root && zoneTile
+                                    ? "rulesOpponentZoneCard-" + root.ownerSeat
+                                      + "-" + zoneTile.zoneKey + "-" + cardId
+                                    : ""
                         anchors.fill: parent
                         anchors.margins: Theme.size(2)
-                        visible: zone === zoneTile.zoneKey
+                        visible: root && zoneTile && zone === zoneTile.zoneKey
                                  && zoneOwnerSeat === root.ownerSeat
                         z: index
-                        source: visibleIdentity && !faceDown
+                        source: !root ? ""
+                                : visibleIdentity && !faceDown
                                 ? root.tableController.cardImage(
                                       name, setCode, collectorNumber)
                                 : root.tableController.cardBackSource

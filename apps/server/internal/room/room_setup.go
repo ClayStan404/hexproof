@@ -165,6 +165,12 @@ func (r *Room) beginLoadingIfReady() (bool, error) {
 			return false, nil
 		}
 	}
+	if r.RulesMode == protocol.RulesModeForge {
+		r.Score = make([]int, len(r.Seats))
+		r.DrawnGames = 0
+		r.RulesStartingSeat = nil
+		r.ResetRulesLog()
+	}
 	if r.CardLoadMode == protocol.CardLoadBackground {
 		if r.RulesMode == protocol.RulesModeManual {
 			if err := r.setupGame(); err != nil {
@@ -216,6 +222,9 @@ func (r *Room) ResetRulesStartFailure() Result {
 }
 
 func (r *Room) minimumPlayersToStart() int {
+	if r.DeckFormat == protocol.DeckFormatCommanderLimited && r.LimitedDeckLocked {
+		return r.MaxSeats
+	}
 	if r.Playtest || r.MaxSeats <= 1 {
 		return 1
 	}
@@ -360,9 +369,11 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 		Arrows:            []protocol.GameArrow{},
 		Attachments:       []protocol.GameAttachment{},
 		CommanderDamage:   make(map[string]map[int]int),
+		CommanderColors:   make(map[string]string),
 		Log:               []protocol.GameLogEntry{},
 		NextLogID:         1,
 		NextTokenID:       1,
+		NextEmblemID:      1,
 		NextCardCounterID: 1,
 	}
 	for seatIndex, seat := range r.Seats {
@@ -387,6 +398,7 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 			Graveyard:      []protocol.GameCard{},
 			Exile:          []protocol.GameCard{},
 			CommandZone:    []protocol.GameCard{},
+			Emblems:        []protocol.GameEmblem{},
 			CommanderTaxes: make(map[string]int),
 		}
 		if r.Format == protocol.FormatEDH {
@@ -420,11 +432,11 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 			}
 		}
 		if protocol.IsCommanderFormat(r.Format) {
-			for _, commanderName := range deckCommanderNames(*seat.Deck) {
+			for selectionIndex, commanderName := range deckCommanderNames(*seat.Deck) {
 				commanderIndex := -1
 				for index, card := range state.Library {
-					if strings.EqualFold(strings.TrimSpace(card.Name),
-						commanderName) {
+					if commanderCardMatches(*seat.Deck, selectionIndex, commanderName, card.Name,
+						card.SetCode, card.CollectorNumber) {
 						commanderIndex = index
 						break
 					}
@@ -436,6 +448,9 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 				commander.Commander = true
 				state.CommandZone = append(state.CommandZone, commander)
 				state.CommanderTaxes[commander.ID] = 0
+				if selectionIndex < len(seat.Deck.CommanderColors) && seat.Deck.CommanderColors[selectionIndex] != "" {
+					game.CommanderColors[commander.ID] = seat.Deck.CommanderColors[selectionIndex]
+				}
 				state.Library = append(state.Library[:commanderIndex],
 					state.Library[commanderIndex+1:]...)
 			}
@@ -495,6 +510,14 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 	game.StartingSeat = startingSeat
 	game.ActiveSeat = startingSeat
 	r.Game = game
+	for _, seat := range game.Seats {
+		for _, commander := range seat.CommandZone {
+			if color := game.CommanderColors[commander.ID]; color != "" {
+				r.appendGameLog("commander_color", seat.Seat,
+					fmt.Sprintf("%s chose %s for %s (%s).", seat.DisplayName, color, commander.Name, commander.ID))
+			}
+		}
+	}
 	if len(commanderRolls) > 0 {
 		for _, roll := range commanderRolls {
 			r.appendGameLog("roll", roll.Seats[0],
@@ -540,7 +563,7 @@ func deckCommanderNames(deck protocol.DeckSelect) []string {
 				break
 			}
 		}
-		if !duplicate {
+		if !duplicate || deck.DeckFormat == protocol.DeckFormatCommanderLimited {
 			names = append(names, name)
 		}
 	}
@@ -562,6 +585,7 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 		deck.Format != r.Format || !protocol.ValidDeckFormat(deckFormat) ||
 		protocol.TableModeForDeckFormat(deckFormat) != deck.Format ||
 		deckFormat != roomDeckFormat || len(deck.Mainboard) == 0 ||
+		(roomDeckFormat == protocol.DeckFormatCommanderLimited && !r.LimitedDeckLocked) ||
 		len(deck.Mainboard)+len(deck.Sideboard) > protocol.MaxDeckEntries {
 		return newError(protocol.ErrInvalidDeck)
 	}
@@ -576,6 +600,32 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 			return newError(protocol.ErrInvalidDeck)
 		}
 	}
+	if roomDeckFormat == protocol.DeckFormatCommanderLimited {
+		// These exact printings are derived from owned pool instances by the
+		// limited reducer, never accepted from the deck.select wire command.
+		if len(deck.CommanderPrintings) != len(commanders) ||
+			(len(deck.CommanderColors) != 0 && len(deck.CommanderColors) != len(commanders)) {
+			return newError(protocol.ErrInvalidDeck)
+		}
+		for index, printing := range deck.CommanderPrintings {
+			if !strings.EqualFold(strings.TrimSpace(printing.Name), commanders[index]) ||
+				printing.Count != 1 || strings.TrimSpace(printing.SetCode) == "" ||
+				strings.TrimSpace(printing.CollectorNumber) == "" {
+				return newError(protocol.ErrInvalidDeck)
+			}
+			color := ""
+			if index < len(deck.CommanderColors) {
+				color = deck.CommanderColors[index]
+			}
+			if strings.EqualFold(strings.TrimSpace(printing.Name), "The Prismatic Piper") {
+				if !protocol.ValidCommanderColor(color) {
+					return newError(protocol.ErrInvalidDeck)
+				}
+			} else if color != "" {
+				return newError(protocol.ErrInvalidDeck)
+			}
+		}
+	}
 	mainboardCards := 0
 	totalCards := 0
 	for boardIndex, cards := range [][]protocol.DeckCard{deck.Mainboard, deck.Sideboard} {
@@ -584,7 +634,8 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 			setCode := strings.TrimSpace(card.SetCode)
 			collectorNumber := strings.TrimSpace(card.CollectorNumber)
 			typeLine := strings.TrimSpace(card.TypeLine)
-			virtualLimitedBasic := roomDeckFormat == protocol.DeckFormatLimited &&
+			virtualLimitedBasic := (roomDeckFormat == protocol.DeckFormatLimited ||
+				(roomDeckFormat == protocol.DeckFormatCommanderLimited && r.LimitedDeckLocked)) &&
 				setCode == "" && collectorNumber == "" && isOrdinaryBasicLand(name)
 			if name == "" || utf8.RuneCountInString(name) > protocol.MaxCardNameRunes ||
 				containsControlCharacters(name) ||
@@ -608,11 +659,17 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 	if mainboardCards < protocol.MinMainboardCards {
 		return newError(protocol.ErrInvalidDeck)
 	}
-	for _, commander := range commanders {
+	if roomDeckFormat == protocol.DeckFormatCommanderLimited && mainboardCards < 60 {
+		return newError(protocol.ErrInvalidDeck)
+	}
+	usedCopies := make([]int, len(deck.Mainboard))
+	for selectionIndex, commander := range commanders {
 		commanderFound := false
-		for _, card := range deck.Mainboard {
-			if strings.EqualFold(strings.TrimSpace(card.Name), commander) {
+		for cardIndex, card := range deck.Mainboard {
+			if usedCopies[cardIndex] < card.Count && commanderCardMatches(deck, selectionIndex,
+				commander, card.Name, card.SetCode, card.CollectorNumber) {
 				commanderFound = true
+				usedCopies[cardIndex]++
 				break
 			}
 		}
@@ -621,6 +678,21 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 		}
 	}
 	return nil
+}
+
+func commanderCardMatches(deck protocol.DeckSelect, selectionIndex int, commander, name, setCode, collector string) bool {
+	if !strings.EqualFold(strings.TrimSpace(name), commander) {
+		return false
+	}
+	if selectionIndex < len(deck.CommanderPrintings) {
+		printing := deck.CommanderPrintings[selectionIndex]
+		return strings.EqualFold(strings.TrimSpace(printing.Name), commander) &&
+			strings.EqualFold(strings.TrimSpace(printing.SetCode), strings.TrimSpace(setCode)) &&
+			strings.TrimSpace(printing.CollectorNumber) == strings.TrimSpace(collector)
+	}
+	// Constructed decks designate names. Commander Cube decks additionally
+	// retain an exact printing so other copies of that name remain in the deck.
+	return deck.DeckFormat != protocol.DeckFormatCommanderLimited
 }
 
 func isOrdinaryBasicLand(name string) bool {
@@ -667,5 +739,7 @@ func cloneDeck(deck protocol.DeckSelect) protocol.DeckSelect {
 	}
 	deck.Mainboard = cloneDeckCards(deck.Mainboard)
 	deck.Sideboard = cloneDeckCards(deck.Sideboard)
+	deck.CommanderPrintings = cloneDeckCards(deck.CommanderPrintings)
+	deck.CommanderColors = append([]string(nil), deck.CommanderColors...)
 	return deck
 }

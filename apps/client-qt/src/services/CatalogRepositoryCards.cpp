@@ -110,21 +110,29 @@ QVariantList CatalogRepository::cardFaces(const QString &name, const QString &se
         return result;
     const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
     QSqlQuery query(database);
+    const QString relatedColumn = m_schema.cardColumns.contains(QStringLiteral("related_cards"))
+                                      ? QStringLiteral("related_cards")
+                                      : QStringLiteral("''");
+    const QString select = QStringLiteral("SELECT name, layout, type_line, set_code, "
+                                          "collector_number, %1 FROM cards ")
+                               .arg(relatedColumn);
     if (!setCode.isEmpty() && !collectorNumber.isEmpty()) {
-        query.prepare(QStringLiteral(
-            "SELECT name, layout, type_line FROM cards WHERE lower(set_code) = lower(?) "
-            "AND collector_number = ? ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END "
-            "LIMIT 1"));
+        query.prepare(select +
+                      QStringLiteral("WHERE %1 "
+                                     "ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END LIMIT 1")
+                          .arg(catalogExactPrintingSql(QString{})));
         query.addBindValue(setCode);
         query.addBindValue(collectorNumber);
     } else {
         query.prepare(
-            QStringLiteral(
-                "SELECT name, layout, type_line FROM cards WHERE %1 "
-                "ORDER BY CASE WHEN layout IN ('art_series','token','double_faced_token','emblem') "
-                "THEN 1 ELSE 0 END, CASE WHEN lang = 'en' THEN 0 ELSE 1 END LIMIT 1")
-                .arg(catalogNameMatchesSql(QString{})));
+            select + QStringLiteral(
+                         "WHERE %1 "
+                         "ORDER BY CASE WHEN name = ? COLLATE NOCASE THEN 0 ELSE 1 END, "
+                         "CASE WHEN layout IN ('art_series','token','double_faced_token','emblem') "
+                         "THEN 1 ELSE 0 END, CASE WHEN lang = 'en' THEN 0 ELSE 1 END LIMIT 1")
+                         .arg(catalogNameMatchesSql(QString{})));
         const QString cardName = name.simplified();
+        query.addBindValue(cardName);
         query.addBindValue(cardName);
         query.addBindValue(cardName);
         query.addBindValue(cardName);
@@ -147,6 +155,59 @@ QVariantList CatalogRepository::cardFaces(const QString &name, const QString &se
     if (resolvedCanonicalName)
         *resolvedCanonicalName = cardName;
 
+    if (layout == QStringLiteral("meld")) {
+        const QString resolvedSet = query.value(3).toString();
+        const QString resolvedCollector = query.value(4).toString();
+        const QJsonArray related =
+            QJsonDocument::fromJson(query.value(5).toString().toUtf8()).array();
+        for (const QJsonValue &value : related) {
+            const QJsonObject part = value.toObject();
+            const QString resultName = part.value(QStringLiteral("name")).toString();
+            if (part.value(QStringLiteral("component")).toString() !=
+                    QStringLiteral("meld_result") ||
+                resultName.isEmpty() || resultName == cardName)
+                continue;
+            QSqlQuery target(database);
+            const QString targetSelect =
+                QStringLiteral("SELECT name, type_line, set_code, collector_number FROM cards ");
+            const QString id = part.value(QStringLiteral("id")).toString();
+            bool foundTarget = false;
+            if (!id.isEmpty()) {
+                // Prefer the related printing's primary key without also
+                // collecting every localized/name fallback candidate.
+                target.prepare(targetSelect + QStringLiteral("WHERE id = ? LIMIT 1"));
+                target.addBindValue(id);
+                foundTarget = target.exec() && target.next();
+            }
+            if (!foundTarget) {
+                target.prepare(targetSelect +
+                               QStringLiteral("WHERE name = ? COLLATE NOCASE "
+                                              "AND set_code = ? COLLATE NOCASE "
+                                              "ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END "
+                                              "LIMIT 1"));
+                target.addBindValue(resultName);
+                target.addBindValue(resolvedSet);
+                if (!target.exec() || !target.next())
+                    continue;
+            }
+            result.append(QVariantMap{{QStringLiteral("name"), cardName},
+                                      {QStringLiteral("faceName"), QString{}},
+                                      {QStringLiteral("displayName"), cardName},
+                                      {QStringLiteral("typeLine"), typeLine},
+                                      {QStringLiteral("setCode"), resolvedSet},
+                                      {QStringLiteral("collectorNumber"), resolvedCollector}});
+            result.append(QVariantMap{{QStringLiteral("name"), target.value(0)},
+                                      {QStringLiteral("faceName"), target.value(0)},
+                                      {QStringLiteral("displayName"), target.value(0)},
+                                      {QStringLiteral("typeLine"), target.value(1)},
+                                      {QStringLiteral("setCode"), target.value(2)},
+                                      {QStringLiteral("collectorNumber"), target.value(3)},
+                                      {QStringLiteral("relatedCard"), true}});
+            return result;
+        }
+        return {};
+    }
+
     static const QSet<QString> doubleFacedLayouts{
         QStringLiteral("transform"),
         QStringLiteral("modal_dfc"),
@@ -163,8 +224,13 @@ QVariantList CatalogRepository::cardFaces(const QString &name, const QString &se
         typeLines.size() == names.size() ? typeLines.at(0).simplified() : QString{};
     const QString backTypeLine =
         typeLines.size() == names.size() ? typeLines.at(1).simplified() : QString{};
+    // Same-named double-faced tokens still have two independently selectable
+    // images. Keep their whole identity for the front and explicit face for back.
+    const QString frontRequestName = names.at(0).compare(names.at(1), Qt::CaseInsensitive) == 0
+                                         ? cardName
+                                         : names.at(0).simplified();
     result.append(QVariantMap{
-        {QStringLiteral("name"), names.at(0).simplified()},
+        {QStringLiteral("name"), frontRequestName},
         {QStringLiteral("faceName"), QString{}},
         {QStringLiteral("displayName"), names.at(0).simplified()},
         {QStringLiteral("typeLine"), frontTypeLine},

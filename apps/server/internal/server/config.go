@@ -59,8 +59,8 @@ func DefaultConfig() Config {
 		RoomCreatesPerMinute:        6,
 		TournamentCreatesPerMinute:  3,
 		TournamentClosedTTL:         24 * time.Hour,
-		TournamentInactiveTTL:       2 * time.Hour,
-		TournamentAbandonedTTL:      24 * time.Hour,
+		TournamentInactiveTTL:       5 * time.Minute,
+		TournamentAbandonedTTL:      5 * time.Minute,
 		PasswordJoinsPerMinute:      20,
 		MaxConcurrentPasswordChecks: 8,
 	}

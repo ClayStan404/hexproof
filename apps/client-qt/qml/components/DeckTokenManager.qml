@@ -6,13 +6,25 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import "TokenPresentation.js" as TokenPresentation
 
 Popup {
     id: root
 
     required property var deckLibraryModel
     required property var catalogModel
+    readonly property string cardLanguage: catalogModel && catalogModel.language || "en"
+    readonly property var currentTokens: deckLibraryModel.currentTokens
+    property alias detailsPopup: detailsPopup
     signal addRequested()
+    onOpened: cacheDisplayedTokens()
+    onCardLanguageChanged: if (opened) cacheDisplayedTokens()
+    onCurrentTokensChanged: if (opened) Qt.callLater(cacheDisplayedTokens)
+
+    function cacheDisplayedTokens() {
+        if (!opened || !catalogModel || typeof catalogModel.cacheToken !== "function") return
+        for (const token of currentTokens.slice(0, 60)) catalogModel.cacheToken(token)
+    }
 
     parent: Overlay.overlay
     x: Math.round((parent.width - width) / 2)
@@ -47,7 +59,8 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Manage deck tokens")
+                    text: qsTr("Deck tokens and emblems")
+                    elide: Text.ElideRight
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(22)
                     font.weight: Font.DemiBold
@@ -56,7 +69,7 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Saved tokens appear first in the in-game token picker.")
+                    text: qsTr("Saved tokens and emblems appear first in the in-game picker. Click art for rules.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(13)
                     wrapMode: Text.WordWrap
@@ -72,7 +85,7 @@ Popup {
             AppButton {
                 objectName: "managerAddDeckTokenButton"
                 variant: "primary"
-                text: qsTr("Add token")
+                text: qsTr("Add")
                 enabled: root.catalogModel.tokenCatalogInstalled
                 onClicked: root.addRequested()
             }
@@ -109,6 +122,7 @@ Popup {
             delegate: Item {
                 id: tokenCell
                 required property var modelData
+                readonly property var details: TokenPresentation.details(root.catalogModel, modelData)
                 width: tokenGrid.cellWidth
                 height: tokenGrid.cellHeight
 
@@ -128,11 +142,14 @@ Popup {
                             Layout.fillHeight: true
 
                             Image {
+                                id: managedTokenImage
                                 objectName: "managedDeckTokenImage"
                                 anchors.centerIn: parent
                                 width: Math.min(parent.width, Theme.size(160))
                                 height: Math.min(parent.height, Theme.size(224))
-                                source: root.catalogModel
+                                source: {
+                                    void root.cardLanguage
+                                    return root.catalogModel
                                         && (root.catalogModel.imageRevision
                                             === undefined
                                             || root.catalogModel.imageRevision >= 0)
@@ -141,9 +158,23 @@ Popup {
                                               tokenCell.modelData.setCode,
                                               tokenCell.modelData.collectorNumber)
                                         : ""
+                                }
                                 fillMode: Image.PreserveAspectFit
                                 asynchronous: true
                                 smooth: true
+                                HoverHandler {
+                                    onHoveredChanged: {
+                                        if (hovered) preview.inspect(tokenCell.modelData, managedTokenImage)
+                                        else preview.hide(managedTokenImage)
+                                    }
+                                }
+                                TapHandler {
+                                    acceptedButtons: Qt.LeftButton
+                                    onTapped: {
+                                        preview.hide()
+                                        detailsPopup.showCard(tokenCell.modelData)
+                                    }
+                                }
                             }
 
                             AppButton {
@@ -153,7 +184,7 @@ Popup {
                                 variant: "ghost"
                                 text: "×"
                                 accessibleName: qsTr("Remove %1").arg(
-                                                    tokenCell.modelData.displayName)
+                                                    tokenCell.details.displayName)
                                 onClicked: root.deckLibraryModel.removeToken(
                                                tokenCell.modelData.name,
                                                tokenCell.modelData.setCode,
@@ -163,14 +194,22 @@ Popup {
 
                         Text {
                             textFormat: Text.PlainText
+                            objectName: "managedDeckTokenName"
                             Layout.fillWidth: true
-                            text: tokenCell.modelData.displayName
+                            text: tokenCell.details.displayName
                             color: Theme.text
                             font.pixelSize: Theme.fontSize(13)
                             font.weight: Font.DemiBold
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                             maximumLineCount: 2
+                            TapHandler {
+                                acceptedButtons: Qt.LeftButton
+                                onTapped: {
+                                    preview.hide()
+                                    detailsPopup.showCard(tokenCell.modelData)
+                                }
+                            }
                         }
 
                         Text {
@@ -183,6 +222,13 @@ Popup {
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                             maximumLineCount: 2
+                            TapHandler {
+                                acceptedButtons: Qt.LeftButton
+                                onTapped: {
+                                    preview.hide()
+                                    detailsPopup.showCard(tokenCell.modelData)
+                                }
+                            }
                         }
 
                         Text {
@@ -210,7 +256,7 @@ Popup {
             Text {
                 textFormat: Text.PlainText
                 Layout.alignment: Qt.AlignHCenter
-                text: qsTr("No deck tokens saved")
+                text: qsTr("No deck tokens or emblems saved")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(17)
                 font.weight: Font.DemiBold
@@ -221,8 +267,8 @@ Popup {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.maximumWidth: Theme.size(480)
                 text: root.catalogModel.tokenCatalogInstalled
-                      ? qsTr("Add the tokens this deck commonly creates.")
-                      : qsTr("Install the card database to choose deck tokens.")
+                      ? qsTr("Add the tokens and emblems this deck commonly creates.")
+                      : qsTr("Install the card database to choose tokens and emblems.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
                 horizontalAlignment: Text.AlignHCenter
@@ -232,7 +278,7 @@ Popup {
             AppButton {
                 Layout.alignment: Qt.AlignHCenter
                 variant: "primary"
-                text: qsTr("Add token")
+                text: qsTr("Add")
                 enabled: root.catalogModel.tokenCatalogInstalled
                 onClicked: root.addRequested()
             }
@@ -241,18 +287,31 @@ Popup {
         }
     }
 
+    onClosed: {
+        preview.hide()
+        detailsPopup.close()
+    }
+    TokenDetailsPopup {
+        id: detailsPopup
+        catalogModel: root.catalogModel
+    }
+    Item {
+        parent: root.contentItem ? root.contentItem.parent : null
+        anchors.fill: parent
+        anchors.margins: Theme.size(12)
+        visible: root.opened
+        enabled: false
+        z: 1000
+        // Keep the preview outside the manager's ColumnLayout.
+        CardHoverPreview {
+            id: preview
+            objectName: "managedTokenArtPreview"
+            catalogModel: root.catalogModel
+            tokenArt: true
+        }
+    }
+
     function tokenDetails(token) {
-        const details = []
-        const power = String(token.power ? token.power : "").trim()
-        const toughness = String(token.toughness ? token.toughness : "").trim()
-        if (power.length > 0 && toughness.length > 0)
-            details.push(power + "/" + toughness)
-        const oracleText = String(token.oracleText ? token.oracleText : "")
-                           .trim().replace(/\s*\n\s*/g, " · ")
-        if (oracleText.length > 0)
-            details.push(oracleText)
-        else if (details.length === 0 && token.typeLine)
-            details.push(token.typeLine)
-        return details.join(" · ")
+        return TokenPresentation.summary(catalogModel, token, false)
     }
 }

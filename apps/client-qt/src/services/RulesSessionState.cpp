@@ -481,6 +481,10 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
         stack.append(std::move(row));
     }
 
+    // Prompt ids are scoped to a game. Never expose a previous game's decision
+    // alongside the first snapshot of its replacement.
+    if (!m_gameId.isEmpty() && (roomId != m_roomId || gameId != m_gameId))
+        clear();
     m_roomId = roomId;
     m_gameId = gameId;
     m_turn = snapshot.value(u"turn"_s).toInt();
@@ -497,6 +501,7 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
     m_battlefieldCards.replace(std::move(battlefieldCards));
     m_zoneCards.replace(std::move(zoneCards));
     m_stack.replace(std::move(stack));
+    ++m_snapshotRevision;
     emit snapshotChanged();
     return true;
 }
@@ -549,6 +554,7 @@ void RulesSessionState::clear()
     m_promptDamageTargets.clear();
     m_promptTotalDamage = 0;
     m_promptDamageDeathtouch = false;
+    ++m_snapshotRevision;
     emit snapshotChanged();
     emit promptChanged();
 }

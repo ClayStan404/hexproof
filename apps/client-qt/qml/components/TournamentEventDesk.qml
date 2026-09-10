@@ -33,7 +33,7 @@ Surface {
     }
     readonly property string roundClock: {
         if (root.roundSecondsRemaining <= 0)
-            return qsTr("Time expired")
+            return qsTranslate("TournamentLobby", "Time expired")
         const minutes = Math.floor(root.roundSecondsRemaining / 60)
         const seconds = root.roundSecondsRemaining % 60
         return minutes + ":" + (seconds < 10 ? "0" : "") + seconds
@@ -41,15 +41,17 @@ Surface {
     Layout.preferredWidth: Theme.size(330)
     Layout.fillHeight: true
     elevated: true
+    implicitHeight: deskContent.implicitHeight + Theme.size(44)
 
     ColumnLayout {
+        id: deskContent
         anchors.fill: parent
         anchors.margins: Theme.size(22)
         spacing: Theme.size(12)
 
         Text {
             textFormat: Text.PlainText
-            text: qsTr("Event desk")
+            text: qsTranslate("TournamentLobby", "Event desk")
             color: Theme.text
             font.pixelSize: Theme.fontSize(19)
             font.weight: Font.DemiBold
@@ -58,7 +60,7 @@ Surface {
         Text {
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            text: qsTr("Organizer: %1").arg(
+            text: qsTranslate("TournamentLobby", "Organizer: %1").arg(
                       root.tournamentModel.organizerName)
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(12)
@@ -77,14 +79,14 @@ Surface {
                 Text {
                     textFormat: Text.PlainText
                     text: root.tournamentModel.status === "registration"
-                          ? qsTr("Registration")
+                          ? qsTranslate("TournamentLobby", "Registration")
                           : (root.tournamentModel.stage === "draft"
-                             ? qsTr("Drafting")
+                             ? qsTranslate("TournamentLobby", "Drafting")
                              : (root.tournamentModel.stage === "deck_building"
-                                ? qsTr("Deck building")
+                                ? qsTranslate("TournamentLobby", "Deck building")
                                 : (root.isCasual
-                                   ? qsTr("Casual tables")
-                                   : qsTr("Round %1 of %2")
+                                   ? qsTranslate("TournamentLobby", "Casual tables")
+                                   : qsTranslate("TournamentLobby", "Round %1 of %2")
                                      .arg(root.tournamentModel.currentRound)
                                      .arg(root.tournamentModel.plannedRounds))))
                     color: Theme.text
@@ -93,7 +95,7 @@ Surface {
                 }
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("%1 registered · %2 checked in")
+                    text: qsTranslate("TournamentLobby", "%1 registered · %2 checked in")
                           .arg(root.tournamentModel.registered)
                           .arg(root.tournamentModel.checkedIn)
                     color: Theme.textMuted
@@ -105,8 +107,8 @@ Surface {
                              && root.tournamentModel.status === "running"
                              && root.tournamentModel.stage === "competition"
                     text: root.tournamentModel.roundComplete
-                          ? qsTr("All results confirmed")
-                          : qsTr("Results in progress")
+                          ? qsTranslate("TournamentLobby", "All results confirmed")
+                          : qsTranslate("TournamentLobby", "Results in progress")
                     color: root.tournamentModel.roundComplete
                            ? Theme.success : Theme.warning
                     font.pixelSize: Theme.fontSize(11)
@@ -116,7 +118,7 @@ Surface {
                     visible: !root.isCasual
                              && root.tournamentModel.status === "running"
                              && root.tournamentModel.stage === "competition"
-                    text: qsTr("Round clock: %1").arg(root.roundClock)
+                    text: qsTranslate("TournamentLobby", "Round clock: %1").arg(root.roundClock)
                     color: root.roundSecondsRemaining > 0
                            ? Theme.accent : Theme.warning
                     font.pixelSize: Theme.fontSize(12)
@@ -126,11 +128,22 @@ Surface {
         }
 
         AppButton {
+            objectName: "registerLimitedPlayerButton"
             Layout.fillWidth: true
             visible: root.tournamentModel.canRegister
             variant: "primary"
-            text: qsTr("Register")
+            text: root.lobbyController.isOrganizer ? qsTranslate("TournamentLobby", "Register as a player") : qsTranslate("TournamentLobby", "Register")
             onClicked: root.wsModel.registerTournament()
+        }
+
+        Text {
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            visible: root.lobbyController.isOrganizer && !root.lobbyController.isParticipant
+            text: qsTranslate("TournamentLobby", "You are organizing only. You do not take a player seat or receive a pool.")
+            color: Theme.textMuted
+            font.pixelSize: Theme.fontSize(11)
+            wrapMode: Text.WordWrap
         }
 
         AppButton {
@@ -138,8 +151,8 @@ Surface {
             visible: root.lobbyController.isParticipant
                      && root.tournamentModel.status === "registration"
             variant: root.lobbyController.selfCheckedIn ? "secondary" : "primary"
-            text: root.lobbyController.selfCheckedIn ? qsTr("Undo check-in")
-                                     : qsTr("Check in")
+            text: root.lobbyController.selfCheckedIn ? qsTranslate("TournamentLobby", "Undo check-in")
+                                     : qsTranslate("TournamentLobby", "Check in")
             onClicked: root.wsModel.setTournamentCheckedIn(
                            !root.lobbyController.selfCheckedIn)
         }
@@ -149,7 +162,7 @@ Surface {
             visible: root.lobbyController.isParticipant
                      && root.tournamentModel.status === "registration"
             variant: "danger"
-            text: qsTr("Withdraw registration")
+            text: qsTranslate("TournamentLobby", "Withdraw registration")
             onClicked: root.wsModel.unregisterTournament()
         }
 
@@ -159,20 +172,21 @@ Surface {
             visible: root.lobbyController.isOrganizer
                      && root.tournamentModel.status === "registration"
             variant: "primary"
-            text: root.isCasual ? qsTr("Start room") : qsTr("Start tournament")
+            text: root.isCasual ? qsTranslate("TournamentLobby", "Start room") : qsTranslate("TournamentLobby", "Start tournament")
             enabled: root.tournamentModel.checkedIn >= root.minimumCheckedIn
             onClicked: root.wsModel.startTournament()
         }
 
         AppButton {
+            objectName: "openLimitedCompetitionButton"
             Layout.fillWidth: true
             visible: root.lobbyController.isOrganizer
                      && root.tournamentModel.status === "running"
                      && root.tournamentModel.stage === "deck_building"
                      && root.limitedModel.allDecksSubmitted
             variant: "primary"
-            text: root.isCasual ? qsTr("Open casual tables")
-                                : qsTr("Publish round one")
+            text: root.isCasual ? qsTranslate("TournamentLobby", "Open casual tables")
+                                : qsTranslate("TournamentLobby", "Publish round one")
             onClicked: root.wsModel.startTournament()
         }
 
@@ -184,8 +198,8 @@ Surface {
                      && root.tournamentModel.stage === "competition"
             variant: "primary"
             text: root.tournamentModel.currentRound >= root.tournamentModel.plannedRounds
-                  ? qsTr("Finish tournament")
-                  : qsTr("Publish next round")
+                  ? qsTranslate("TournamentLobby", "Finish tournament")
+                  : qsTranslate("TournamentLobby", "Publish next round")
             enabled: root.tournamentModel.roundComplete
             onClicked: root.wsModel.startNextTournamentRound()
         }
@@ -200,7 +214,7 @@ Surface {
                      && root.lobbyController.selfParticipant.competing
                      && !root.lobbyController.selfParticipant.dropped
             variant: "danger"
-            text: qsTr("Drop from tournament")
+            text: qsTranslate("TournamentLobby", "Drop from tournament")
             onClicked: root.wsModel.dropTournament()
         }
 
@@ -222,13 +236,14 @@ Surface {
 
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("CREATE PRIVATE TABLE")
+                    text: qsTranslate("TournamentLobby", "CREATE PRIVATE TABLE")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(10)
                     font.weight: Font.Bold
                 }
                 AppComboBox {
                     id: casualPlayerA
+                    objectName: "casualPlayerASelector"
                     Layout.fillWidth: true
                     model: root.casualReadyPlayers
                     textRole: "displayName"
@@ -236,6 +251,7 @@ Surface {
                 }
                 AppComboBox {
                     id: casualPlayerB
+                    objectName: "casualPlayerBSelector"
                     Layout.fillWidth: true
                     model: root.casualReadyPlayers
                     textRole: "displayName"
@@ -243,9 +259,10 @@ Surface {
                     currentIndex: root.casualReadyPlayers.length > 1 ? 1 : 0
                 }
                 AppButton {
+                    objectName: "createCasualTableButton"
                     Layout.fillWidth: true
                     variant: "primary"
-                    text: qsTr("Create table")
+                    text: qsTranslate("TournamentLobby", "Create table")
                     enabled: casualPlayerA.currentIndex >= 0
                              && casualPlayerB.currentIndex >= 0
                              && casualPlayerA.currentValue !== casualPlayerB.currentValue
@@ -262,8 +279,8 @@ Surface {
             textFormat: Text.PlainText
             Layout.fillWidth: true
             text: root.isCasual
-                  ? qsTr("The organizer chooses any two online players with submitted decks. Tables are private and do not affect standings.")
-                  : qsTr("Standings use match points, OMW%, GW%, then OGW%. Pairing rooms are private and hidden from the ordinary room list.")
+                  ? qsTranslate("TournamentLobby", "The organizer chooses any two online players with submitted decks. Tables are private and do not affect standings.")
+                  : qsTranslate("TournamentLobby", "Standings use match points, OMW%, GW%, then OGW%. Pairing rooms are private and hidden from the ordinary room list.")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSize(10)
             lineHeight: 1.35
@@ -277,7 +294,7 @@ Surface {
                      && root.tournamentModel.status !== "completed"
             variant: "danger"
             compact: true
-            text: root.isCasual ? qsTr("Close room") : qsTr("Cancel tournament")
+            text: root.isCasual ? qsTranslate("TournamentLobby", "Close room") : qsTranslate("TournamentLobby", "Cancel tournament")
             onClicked: root.cancelDialogTarget.open()
         }
     }
@@ -301,10 +318,16 @@ Surface {
                 submitted[participant.participantId] = true
         }
         const result = []
+        const busy = ({})
+        for (const pairing of root.tournamentModel.pairings || []) {
+            busy[pairing.playerAId] = true
+            busy[pairing.playerBId] = true
+        }
         for (let index = 0; index < root.tournamentModel.participants.length; ++index) {
             const participant = root.tournamentModel.participants[index]
             if (participant.online && participant.competing && !participant.dropped
-                    && submitted[participant.participantId]) {
+                    && submitted[participant.participantId]
+                    && !busy[participant.participantId]) {
                 result.push({"participantId": participant.participantId,
                              "displayName": participant.displayName})
             }

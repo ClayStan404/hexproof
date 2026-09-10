@@ -76,14 +76,6 @@ const QVector<ShortcutDefinition> &shortcutDefinitions()
         {QStringLiteral("table.selection.addAbilityCounter"), {QStringLiteral("Shift+N")}},
         {QStringLiteral("table.selection.setNumberCounter"), {QStringLiteral("Ctrl+N")}},
         {QStringLiteral("table.selection.createTokenCopy"), {QStringLiteral("Alt+C")}},
-        {QStringLiteral("replay.playPause"), {QStringLiteral("Space")}},
-        {QStringLiteral("replay.previous"), {QStringLiteral("Left")}},
-        {QStringLiteral("replay.next"), {QStringLiteral("Right")}},
-        {QStringLiteral("replay.reset"), {QStringLiteral("Home")}},
-        {QStringLiteral("replay.speedHalf"), {QStringLiteral("1")}},
-        {QStringLiteral("replay.speedNormal"), {QStringLiteral("2")}},
-        {QStringLiteral("replay.speedDouble"), {QStringLiteral("3")}},
-        {QStringLiteral("replay.speedQuadruple"), {QStringLiteral("4")}},
     };
     return definitions;
 }

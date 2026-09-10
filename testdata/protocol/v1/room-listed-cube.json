@@ -1,0 +1,27 @@
+{
+  "type": "room.listed",
+  "id": "cube-list",
+  "payload": {
+    "rooms": [
+      {
+        "roomId": "CUBE23",
+        "roomKind": "cube",
+        "name": "Friday Cube",
+        "format": "modern",
+        "deckFormat": "cube",
+        "matchMode": "bo1",
+        "cardLoadMode": "background",
+        "rulesMode": "manual",
+        "maxSeats": 8,
+        "playerCount": 4,
+        "spectatorCount": 0,
+        "allowSpectators": true,
+        "spectatorsSeeHands": false,
+        "hasPassword": false,
+        "phase": "free_play",
+        "playerJoinable": true,
+        "spectatorJoinable": true
+      }
+    ]
+  }
+}

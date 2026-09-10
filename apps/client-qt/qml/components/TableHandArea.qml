@@ -26,30 +26,51 @@ Surface {
         onTapped: function(point) {
             const position = root.mapToItem(
                 root.tableController, point.position.x, point.position.y)
-            if (handView.cardAtTablePoint(position.x, position.y))
+            const handItem = handViewLoader.item as HandView
+            if (handItem
+                    && handItem.cardAtTablePoint(position.x, position.y)) {
                 return
+            }
             root.tableController.handAreaMenu.x = position.x
             root.tableController.handAreaMenu.y = position.y
             root.tableController.handAreaMenu.open()
         }
     }
 
-    HandView {
-        id: handView
+    Loader {
+        id: handViewLoader
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.right: ownZoneDock.left
-        visible: root.tableController.roomSession.role === "player"
-        tableController: root.tableController
-        cardMenu: root.tableController.handCardMenu
+        anchors.right:
+            root.tableController.roomSession.role === "player"
+            ? ownZoneDock.left : parent.right
+        sourceComponent:
+            root.tableController.roomSession.role === "player"
+            ? playerHandComponent
+            : root.tableController.roomSession.role === "spectator"
+              ? spectatorHandComponent : null
     }
 
-    SpectatorHandView {
-        anchors.fill: parent
-        visible: root.tableController.roomSession.role === "spectator"
-                 && root.tableController.roomSession.spectatorsSeeHands === true
-        tableController: root.tableController
+    Component {
+        id: playerHandComponent
+
+        HandView {
+            anchors.fill: parent
+            tableController: root.tableController
+            cardMenu: root.tableController.handCardMenu
+        }
+    }
+
+    Component {
+        id: spectatorHandComponent
+
+        SpectatorHandView {
+            anchors.fill: parent
+            visible:
+                root.tableController.roomSession.spectatorsSeeHands === true
+            tableController: root.tableController
+        }
     }
 
     Text {
@@ -57,7 +78,7 @@ Surface {
         anchors.centerIn: parent
         visible: root.tableController.roomSession.role === "spectator"
                  && root.tableController.roomSession.spectatorsSeeHands !== true
-        text: qsTr("Hands are hidden from spectators in this room")
+        text: qsTranslate("Table", "Hands are hidden from spectators in this room")
         color: Theme.textMuted
         font.pixelSize: Theme.fontSize(12)
     }

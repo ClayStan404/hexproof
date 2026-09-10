@@ -1,0 +1,16 @@
+{
+  "type": "limited.submit_deck",
+  "payload": {
+    "name": "Blue-green Piper deck",
+    "mainboardInstanceIds": ["limited-1"],
+    "commanderInstanceIds": ["piper-a", "piper-b"],
+    "commanderColors": [
+      {"instanceId": "piper-a", "color": "U"},
+      {"instanceId": "piper-b", "color": "G"}
+    ],
+    "basicLands": [
+      {"name": "Island", "count": 28},
+      {"name": "Forest", "count": 29}
+    ]
+  }
+}

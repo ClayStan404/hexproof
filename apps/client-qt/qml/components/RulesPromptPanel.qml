@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Surface {
@@ -24,13 +25,45 @@ Surface {
     color: Theme.surfaceElevated
     border.color: rulesSession.promptPending ? Theme.primary : Theme.borderStrong
 
-    ColumnLayout {
-        id: promptContent
+    Flickable {
+        id: promptScroll
+        objectName: "rulesPromptScroll"
         anchors.fill: parent
         anchors.margins: Theme.size(11)
+        contentWidth: width
+        contentHeight: promptContent.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+    }
+
+    Connections {
+        target: root.rulesSession
+        function onPromptChanged() { promptScroll.contentY = 0 }
+    }
+
+    ColumnLayout {
+        id: promptContent
+        parent: promptScroll.contentItem
+        width: promptScroll.width
         spacing: Theme.size(7)
 
         RowLayout {
+            visible: root.tableController.rulesResponsePending
+            BusyIndicator {
+                Layout.preferredWidth: Theme.size(18)
+                Layout.preferredHeight: Theme.size(18)
+                running: parent.visible
+            }
+            Text {
+                text: root.tableController.stepLabel("")
+                textFormat: Text.PlainText
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(9)
+            }
+        }
+
+        ColumnLayout {
             Layout.fillWidth: true
             spacing: Theme.size(10)
 
@@ -39,6 +72,7 @@ Surface {
                 spacing: Theme.size(2)
 
                 Text {
+                    id: promptTitle
                     textFormat: Text.PlainText
                     objectName: "rulesPromptTitle"
                     Layout.fillWidth: true
@@ -55,10 +89,25 @@ Surface {
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(12)
                     font.weight: Font.DemiBold
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 3
                     elide: Text.ElideRight
+
+                    HoverHandler { id: titleHover }
+                    ToolTip {
+                        visible: titleHover.hovered && promptTitle.truncated
+                        contentItem: Text {
+                            text: promptTitle.text
+                            textFormat: Text.PlainText
+                            color: Theme.text
+                            wrapMode: Text.Wrap
+                        }
+                        width: Math.min(root.width, Theme.size(560))
+                    }
                 }
 
                 Text {
+                    id: promptDetail
                     textFormat: Text.PlainText
                     objectName: "rulesPromptDetail"
                     Layout.fillWidth: true
@@ -77,18 +126,35 @@ Surface {
                            || rulesSession.promptSupported
                            ? Theme.textSecondary : Theme.warning
                     font.pixelSize: Theme.fontSize(9)
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 4
                     elide: Text.ElideRight
+
+                    HoverHandler { id: detailHover }
+                    ToolTip {
+                        visible: detailHover.hovered && promptDetail.truncated
+                        contentItem: Text {
+                            text: promptDetail.text
+                            textFormat: Text.PlainText
+                            color: Theme.text
+                            wrapMode: Text.Wrap
+                        }
+                        width: Math.min(root.width, Theme.size(560))
+                    }
                 }
             }
 
             ListView {
+                id: actionOptions
                 objectName: "rulesPromptOptions"
-                Layout.preferredWidth: Math.min(contentWidth, Theme.size(560))
+                Layout.fillWidth: true
                 Layout.preferredHeight: Theme.size(38)
+                                        + (contentWidth > width ? Theme.size(14) : 0)
                 orientation: ListView.Horizontal
                 spacing: Theme.size(7)
                 clip: true
                 model: rulesSession.promptOptions
+                enabled: !root.tableController.rulesResponsePending
                 visible: rulesSession.promptPending
                          && rulesSession.promptSupported
                          && rulesSession.promptKind !== "mulliganPutBack"
@@ -107,15 +173,38 @@ Surface {
                          && rulesSession.promptKind !== "chooseFromSelection"
 
                 delegate: AppButton {
+                    required property int index
                     required property string responseId
                     required property string label
 
                     objectName: "rulesPromptOption-" + responseId
                     compact: true
+                    onActiveFocusChanged: {
+                        if (activeFocus)
+                            actionOptions.positionViewAtIndex(index, ListView.Contain)
+                    }
                     text: root.tableController.promptOptionLabel(
                               rulesSession.promptKind, responseId, label)
                     onClicked: root.tableController.wsModel.respondRulesPrompt(
                                    rulesSession.promptId, responseId)
+                }
+
+                ScrollBar.horizontal: ScrollBar {
+                    id: actionScrollBar
+                    objectName: "rulesPromptOptionsScrollBar"
+                    policy: actionOptions.contentWidth > actionOptions.width
+                            ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    active: true
+                }
+
+                WheelHandler {
+                    onWheel: event => {
+                        const delta = event.angleDelta.x || event.angleDelta.y
+                        actionOptions.contentX = Math.max(0, Math.min(
+                            actionOptions.contentWidth - actionOptions.width,
+                            actionOptions.contentX - delta))
+                        event.accepted = true
+                    }
                 }
             }
         }
@@ -134,6 +223,7 @@ Surface {
                      && rulesSession.promptSupported
                      && (rulesSession.promptKind === "mulliganPutBack"
                          || rulesSession.promptKind === "chooseCards")
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             cardModel: rulesSession.promptCards
@@ -150,6 +240,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "revealCards"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             cardModel: rulesSession.promptCards
@@ -161,6 +252,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "reorder"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             orderModel: rulesSession.promptOrderItems
@@ -172,6 +264,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "scry"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             cardModel: rulesSession.promptCards
@@ -184,6 +277,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseDamageAssignmentOrder"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             orderModel: rulesSession.promptDamageTargets
@@ -196,6 +290,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseCombatDamageAssignment"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             targetModel: rulesSession.promptDamageTargets
@@ -210,6 +305,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseBoardTargets"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             targetModel: rulesSession.promptTargets
@@ -224,6 +320,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseAttackers"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             sourceModel: rulesSession.promptCombat
@@ -236,6 +333,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseBlockers"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             sourceModel: rulesSession.promptCombat
@@ -250,6 +348,7 @@ Surface {
                      && (rulesSession.promptKind === "chooseBoolean"
                          || rulesSession.promptKind === "chooseColor"
                          || rulesSession.promptKind === "chooseFromSelection")
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             choiceModel: rulesSession.promptChoices
             promptId: rulesSession.promptId
@@ -262,6 +361,7 @@ Surface {
             visible: rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseNumber"
+            enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             promptId: rulesSession.promptId
             minimum: rulesSession.promptMinNumber

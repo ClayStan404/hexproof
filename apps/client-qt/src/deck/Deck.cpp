@@ -38,6 +38,19 @@ bool cardNamesMatch(const QString &left, const QString &right)
     return false;
 }
 
+bool cardIdentityMatches(const DeckCard &card, const QString &name, const QString &setCode,
+                         const QString &collectorNumber)
+{
+    return cardNamesMatch(card.name, name) &&
+           card.setCode.compare(setCode, Qt::CaseInsensitive) == 0 &&
+           card.collectorNumber == collectorNumber;
+}
+
+bool cardIdentityMatches(const DeckCard &left, const DeckCard &right)
+{
+    return cardIdentityMatches(left, right.name, right.setCode, right.collectorNumber);
+}
+
 QString cardCategory(const QString &typeLine)
 {
     QString type = typeLine.toCaseFolded();
@@ -86,14 +99,10 @@ int cardCount(const QVector<DeckCard> &cards)
 void mergeSideboardIntoMain(Deck &deck)
 {
     for (const DeckCard &sideboardCard : std::as_const(deck.sideboard)) {
-        const QString key = normalizedCardName(sideboardCard.name);
-        const auto mainboardCard = std::find_if(
-            deck.mainboard.begin(), deck.mainboard.end(),
-            [&key, &sideboardCard](const DeckCard &card) {
-                return normalizedCardName(card.name) == key &&
-                       card.setCode.compare(sideboardCard.setCode, Qt::CaseInsensitive) == 0 &&
-                       card.collectorNumber == sideboardCard.collectorNumber;
-            });
+        const auto mainboardCard = std::find_if(deck.mainboard.begin(), deck.mainboard.end(),
+                                                [&sideboardCard](const DeckCard &card) {
+                                                    return cardIdentityMatches(card, sideboardCard);
+                                                });
         if (mainboardCard == deck.mainboard.end())
             deck.mainboard.append(sideboardCard);
         else
@@ -122,6 +131,12 @@ QJsonObject deckCardToJson(const DeckCard &card)
         object.insert(QStringLiteral("colors"), card.colors);
     if (card.manaValue >= 0.0)
         object.insert(QStringLiteral("manaValue"), card.manaValue);
+    if (!card.rarity.isEmpty())
+        object.insert(QStringLiteral("rarity"), card.rarity);
+    if (!card.cardColors.isNull())
+        object.insert(QStringLiteral("cardColors"), card.cardColors);
+    if (!card.manaCost.isNull())
+        object.insert(QStringLiteral("manaCost"), card.manaCost);
     return object;
 }
 
@@ -135,10 +150,29 @@ DeckCard deckCardFromJson(const QJsonObject &object)
     card.typeLine = object.value(QStringLiteral("typeLine")).toString();
     card.imagePath = object.value(QStringLiteral("imagePath")).toString();
     card.colors = object.value(QStringLiteral("colors")).toString().toUpper();
+    card.rarity = object.value(QStringLiteral("rarity")).toString().toLower();
+    if (object.contains(QStringLiteral("cardColors")))
+        card.cardColors = object.value(QStringLiteral("cardColors")).toString();
+    if (object.contains(QStringLiteral("manaCost")))
+        card.manaCost = object.value(QStringLiteral("manaCost")).toString();
     if (object.value(QStringLiteral("manaValue")).isDouble())
         card.manaValue = qMax(0.0, object.value(QStringLiteral("manaValue")).toDouble());
     card.count = qMax(1, object.value(QStringLiteral("count")).toInt(1));
     return card;
+}
+
+QString normalizedDeckTokenKind(const QString &kind, const QString &typeLine, const QString &layout)
+{
+    // Legacy preferences did not store a kind. Preserve identifiable emblems
+    // even when an older consumer supplied the generic token discriminator.
+    const QString type = typeLine.simplified();
+    if (kind.compare(QStringLiteral("emblem"), Qt::CaseInsensitive) == 0 ||
+        layout.compare(QStringLiteral("emblem"), Qt::CaseInsensitive) == 0 ||
+        type.startsWith(QStringLiteral("Emblem"), Qt::CaseInsensitive) ||
+        type.startsWith(QStringLiteral("徽记")) || type.startsWith(QStringLiteral("徽記"))) {
+        return QStringLiteral("emblem");
+    }
+    return QStringLiteral("token");
 }
 
 QJsonObject deckTokenToJson(const DeckToken &token)
@@ -147,6 +181,7 @@ QJsonObject deckTokenToJson(const DeckToken &token)
         {QStringLiteral("name"), token.name},
         {QStringLiteral("setCode"), token.setCode},
         {QStringLiteral("collectorNumber"), token.collectorNumber},
+        {QStringLiteral("kind"), normalizedDeckTokenKind(token.kind, token.typeLine)},
     };
     if (!token.localizedName.isEmpty())
         object.insert(QStringLiteral("localizedName"), token.localizedName);
@@ -172,6 +207,9 @@ DeckToken deckTokenFromJson(const QJsonObject &object)
     token.power = object.value(QStringLiteral("power")).toString();
     token.toughness = object.value(QStringLiteral("toughness")).toString();
     token.oracleText = object.value(QStringLiteral("oracleText")).toString();
+    token.kind =
+        normalizedDeckTokenKind(object.value(QStringLiteral("kind")).toString(), token.typeLine,
+                                object.value(QStringLiteral("layout")).toString());
     return token;
 }
 

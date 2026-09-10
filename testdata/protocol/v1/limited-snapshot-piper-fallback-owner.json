@@ -1,0 +1,57 @@
+{
+  "type": "limited.snapshot",
+  "payload": {
+    "tournamentId": "CMD234",
+    "eventType": "commander_cube",
+    "stage": "deck_building",
+    "product": {
+      "id": "commander-cube",
+      "name": "Friday Commander Cube",
+      "productType": "cube",
+      "authentic": false,
+      "cardsPerPack": 0,
+      "cardCount": 240,
+      "productHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "packRound": 3,
+    "direction": 1,
+    "currentPack": [],
+    "pool": [],
+    "fallbackCommanders": [
+      {
+        "instanceId": "piper-a",
+        "name": "The Prismatic Piper",
+        "setCode": "CMR",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Shapeshifter",
+        "rarity": "special",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "piper-b",
+        "name": "The Prismatic Piper",
+        "setCode": "CMR",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Shapeshifter",
+        "rarity": "special",
+        "finish": "nonfoil"
+      }
+    ],
+    "mainboardInstanceIds": [],
+    "commanderInstanceIds": ["piper-a", "piper-b"],
+    "commanderColors": [
+      {"instanceId": "piper-a", "color": "U"},
+      {"instanceId": "piper-b", "color": "G"}
+    ],
+    "picksRequired": 2,
+    "packsPerPlayer": 3,
+    "minimumDeckCards": 60,
+    "basicLands": [
+      {"name": "Island", "count": 29},
+      {"name": "Forest", "count": 29}
+    ],
+    "participants": [],
+    "deckSubmitted": true,
+    "allDecksSubmitted": false
+  }
+}

@@ -20,6 +20,9 @@ Page {
     property url pendingImportUrl
     property var pendingImportSummary: ({})
     property bool auditRequestedByUser: false
+    property bool inventoryRefreshPending: false
+    property int inventoryRefreshRetries: 0
+    readonly property var storageService: typeof cardArtStorage !== "undefined" ? cardArtStorage : null
 
     background: AppBackground { }
 
@@ -52,6 +55,21 @@ Page {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.size(16)
 
+            StorageLocationPanel {
+                Layout.fillWidth: true
+                visible: root.storageService !== null
+                service: root.storageService
+                operationsBusy: cardArtManager.busy || cardCatalog.busy
+                                || (typeof customCardArtStore !== "undefined" && customCardArtStore.busy)
+            }
+
+            AppButton {
+                objectName: "manageCustomCardArtButton"
+                visible: typeof customCardArtStore !== "undefined"
+                text: qsTr("Manage custom card art…")
+                onClicked: root.appWindow.pushScreen("screens/CustomCardArtManager.qml")
+            }
+
             Surface {
                 Layout.fillWidth: true
                 implicitHeight: overviewContent.implicitHeight + Theme.size(48)
@@ -81,7 +99,7 @@ Page {
                             variant: "ghost"
                             text: qsTr("Refresh")
                             enabled: !cardArtManager.busy && !cardCatalog.busy
-                            onClicked: cardArtManager.refresh()
+                            onClicked: root.requestInventoryRefresh()
                         }
                     }
 
@@ -567,7 +585,54 @@ Page {
 
     Component.onCompleted: {
         root.rebuildGroups()
+        root.requestInventoryRefresh()
+    }
+
+    onVisibleChanged: {
+        if (visible && inventoryRefreshPending)
+            inventoryRefreshRetry.restart()
+        else if (!visible)
+            inventoryRefreshRetry.stop()
+    }
+
+    Timer {
+        id: inventoryRefreshRetry
+        interval: 500
+        onTriggered: root.refreshInventoryWhenReady()
+    }
+
+    function requestInventoryRefresh() {
+        inventoryRefreshPending = true
+        inventoryRefreshRetries = 0
+        refreshInventoryWhenReady()
+    }
+
+    function refreshInventoryWhenReady() {
+        if (!inventoryRefreshPending || !visible)
+            return
+        if (storageService && (storageService.restartRequired || storageService.available === false)) {
+            inventoryRefreshPending = false
+            inventoryRefreshRetry.stop()
+            return
+        }
+        if (cardArtManager.busy || cardCatalog.busy
+                || (typeof customCardArtStore !== "undefined" && customCardArtStore.busy)) {
+            inventoryRefreshRetry.restart()
+            return
+        }
         cardArtManager.refresh()
+        // Queued cache work can still hold the backend guard after busy clears.
+        // Retry only that transient rejection; actual storage errors stay visible.
+        if (!cardArtManager.busy
+                && cardArtManager.lastError === "Wait for the current card operation to finish."
+                && inventoryRefreshRetries < 10) {
+            ++inventoryRefreshRetries
+            cardArtManager.clearMessages()
+            inventoryRefreshRetry.restart()
+        } else {
+            inventoryRefreshPending = false
+            inventoryRefreshRetry.stop()
+        }
     }
 
     function rebuildGroups() {

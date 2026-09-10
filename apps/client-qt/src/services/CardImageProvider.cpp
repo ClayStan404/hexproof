@@ -3,7 +3,6 @@
 
 #include "CardImageProvider.h"
 
-#include <QFileInfo>
 #include <QImageReader>
 #include <QMutexLocker>
 
@@ -21,14 +20,15 @@ constexpr int kImageCacheKiB = 128 * 1024;
 } // namespace
 
 CardImageProvider::CardImageProvider()
-    : QQuickImageProvider(QQuickImageProvider::Image),
+    : QQuickImageProvider(QQuickImageProvider::Image,
+                          QQuickImageProvider::ForceAsynchronousImageLoading),
       m_images(kImageCacheKiB)
 {
 }
 
 QString CardImageProvider::sourceForPath(const QString &path)
 {
-    if (path.isEmpty() || !QFileInfo::exists(path))
+    if (path.isEmpty())
         return {};
 
     const QString id = idForPath(path);

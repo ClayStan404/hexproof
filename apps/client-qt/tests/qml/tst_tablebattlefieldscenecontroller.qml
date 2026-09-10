@@ -115,6 +115,8 @@ TestCase {
         controller.refreshCardPoints()
 
         compare(controller.cardItems.size, 2)
+        compare(controller.cardPoints["card-1"].width, cardOne.width)
+        compare(controller.cardPoints["card-1"].height, cardOne.height)
         compare(controller.cardPoints["card-1"].x,
                 cardOne.x + cardOne.width / 2)
         compare(controller.cardPoints["card-1"].y,
@@ -143,6 +145,24 @@ TestCase {
         compare(controller.arrowForSource("card-2").seat, 2)
         compare(Object.keys(controller.selectedAttachment("missing")).length,
                 0)
+    }
+
+    function test_battlefieldSizeUsesActualCardViewport() {
+        const viewport = Qt.createQmlObject(
+            'import QtQuick; Item { width: 310; height: 94; property real cardWidth: 60; property real cardHeight: 84 }',
+            battlefieldSurface)
+        const target = Qt.createQmlObject(
+            'import QtQuick; Item { property Item cardViewport }', battlefieldSurface)
+        target.cardViewport = viewport
+        controller.registerSeat(0, target)
+        const size = controller.battlefieldSize(0)
+        compare(size.width, viewport.width)
+        compare(size.height, viewport.height)
+        compare(size.cardWidth, viewport.cardWidth)
+        compare(size.cardHeight, viewport.cardHeight)
+        controller.unregisterSeat(0, target)
+        target.destroy()
+        viewport.destroy()
     }
 
     function test_hiddenCardsAreExcludedFromPointCache() {

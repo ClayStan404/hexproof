@@ -54,6 +54,7 @@ type PlayerGameState struct {
 	Graveyard      []protocol.GameCard
 	Exile          []protocol.GameCard
 	CommandZone    []protocol.GameCard
+	Emblems        []protocol.GameEmblem
 	CommanderTax   int
 	CommanderTaxes map[string]int
 	Eliminated     bool
@@ -92,9 +93,11 @@ type GameState struct {
 	Arrows            []protocol.GameArrow
 	Attachments       []protocol.GameAttachment
 	CommanderDamage   map[string]map[int]int
+	CommanderColors   map[string]string
 	Log               []protocol.GameLogEntry
 	NextLogID         int64
 	NextTokenID       int
+	NextEmblemID      int
 	NextCardCounterID int
 	Sideboard         *SideboardState
 }
@@ -102,10 +105,12 @@ type GameState struct {
 // Room is the authoritative room state. The server holds one per room id.
 // All mutating methods are called under the Hub's per-room lock.
 type Room struct {
-	ID                 string
-	Name               string
-	Format             string
-	DeckFormat         string
+	ID         string
+	Name       string
+	Format     string
+	DeckFormat string
+	// LimitedDeckLocked is set only by the server's pool-contained table installer.
+	LimitedDeckLocked  bool
 	MaxSeats           int
 	Playtest           bool
 	AllowSpectators    bool
@@ -113,6 +118,9 @@ type Room struct {
 	MatchMode          string
 	CardLoadMode       string
 	RulesMode          string
+	RulesLog           []protocol.GameLogEntry
+	RulesNextLogID     int64
+	rulesPublicLog     *rulesPublicLogState
 	HasPassword        bool // password hash lives in the server room entry
 	HostSeat           int
 	Seats              []Seat
@@ -122,7 +130,8 @@ type Room struct {
 	LoadID             int64
 	Game               *GameState
 	Score              []int
-	DrawnGames         int // match-level draw count; reset with Score on a new match
+	DrawnGames         int  // match-level draw count; reset with Score on a new match
+	RulesStartingSeat  *int // public lifecycle metadata; nil until the engine selects the first player
 	randomIndex        func(int) (int, error)
 	// NextSeq is the per-room monotonic seq counter, 1-based. Mutate only via
 	// allocSeq / AllocSeq to keep accounting centralized in this package.
@@ -162,12 +171,6 @@ func NewWithRulesMode(id, name, format, matchMode, cardLoadMode, rulesMode strin
 		allowSpectators = false
 	}
 	if format == protocol.FormatEDH {
-		matchMode = protocol.MatchBO1
-	}
-	// Multi-game Forge matches need an engine-aware sideboard restart, which is
-	// deliberately deferred until the core prompt families are complete. Keep
-	// the current integration honest and playable as BO1 in the meantime.
-	if rulesMode == protocol.RulesModeForge {
 		matchMode = protocol.MatchBO1
 	}
 	r := &Room{

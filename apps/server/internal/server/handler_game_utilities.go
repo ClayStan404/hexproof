@@ -19,6 +19,9 @@ func (h *Handler) handleGameDeclareDraw(sess *Session,
 
 func (h *Handler) handleGameRestart(sess *Session,
 	env protocol.Envelope) error {
+	if r := sess.Room(); r != nil && r.RulesMode == protocol.RulesModeForge {
+		return h.handleForgeRestart(sess, env, r)
+	}
 	var request protocol.GameRestart
 	return h.handleGameCommand(sess, env, &request,
 		func(r *room.Room) (room.Result, error) {
@@ -57,6 +60,7 @@ type gameCommandOptions struct {
 	broadcast         bool
 	projectAlways     bool
 	scheduleSideboard bool
+	rulesMetadataOnly bool
 }
 
 func (h *Handler) handleGameCommand(sess *Session, env protocol.Envelope,
@@ -78,6 +82,8 @@ func (h *Handler) handleGameCommand(sess *Session, env protocol.Envelope,
 		return nil
 	}
 	defer operation.opMu.Unlock()
+	previousGame := r.Game
+	wasFinished := previousGame != nil && previousGame.Result != nil
 	res, err := reduce(r)
 	if err != nil {
 		code, _ := ErrCode(err)
@@ -87,6 +93,9 @@ func (h *Handler) handleGameCommand(sess *Session, env protocol.Envelope,
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
 	}
+	if r.Game != previousGame || (!wasFinished && r.Game != nil && r.Game.Result != nil) {
+		h.discardRoomConsentRequests(r.ID)
+	}
 	if res.Reply != nil {
 		res.Reply.ID = env.ID
 		h.send(sess, *res.Reply)
@@ -95,7 +104,11 @@ func (h *Handler) handleGameCommand(sess *Session, env protocol.Envelope,
 		h.fanout(r, res.Broadcast)
 	}
 	if options.projectAlways || res.ProjectGame {
-		h.fanoutGameProjections(r)
+		if options.rulesMetadataOnly && r.RulesMode == protocol.RulesModeForge {
+			h.fanoutRulesMetadata(r)
+		} else {
+			h.fanoutGameProjections(r)
+		}
 	}
 	if options.scheduleSideboard && !res.SideboardDeadline.IsZero() {
 		h.scheduleSideboardExpiration(r, res.SideboardDeadline)

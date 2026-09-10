@@ -50,7 +50,8 @@ Item {
 
     function resetPiles() {
         const next = []
-        for (let index = 0; index < destinations.length; ++index)
+        const pileCount = destinations ? destinations.length : 0
+        for (let index = 0; index < pileCount; ++index)
             next.push([])
         if (next.length > 0 && cardModel
                 && typeof cardModel.items === "function") {

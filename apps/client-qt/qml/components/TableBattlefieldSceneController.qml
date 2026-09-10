@@ -64,6 +64,11 @@ QtObject {
         const item = seatItems.get(seat)
         if (!item || !item.parent)
             return ({"width": 0, "height": 0})
+        if (item.cardViewport) {
+            const viewport = item.cardViewport
+            return {"width": viewport.width, "height": viewport.height,
+                    "cardWidth": viewport.cardWidth, "cardHeight": viewport.cardHeight}
+        }
         return {
             "width": Math.max(0, item.parent.width - Theme.size(12)),
             "height": Math.max(0, item.parent.height - Theme.size(12))
@@ -105,7 +110,8 @@ QtObject {
                 return
             const point = sceneView.mapFromItem(
                               item, item.width / 2, item.height / 2)
-            points[cardId] = {"x": point.x, "y": point.y}
+            points[cardId] = {"x": point.x, "y": point.y,
+                              "width": item.width, "height": item.height}
         })
         seatItems.forEach(function(item, seat) {
             if (!item || !item.visible || !item.parent)

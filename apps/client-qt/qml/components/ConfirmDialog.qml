@@ -20,6 +20,7 @@ Popup {
     x: Math.round((parent.width - width) / 2)
     y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(420), parent.width - Theme.size(48))
+    height: Math.min(implicitHeight, parent.height - Theme.size(48))
     padding: Theme.size(24)
     modal: true
     focus: true
@@ -53,14 +54,26 @@ Popup {
             wrapMode: Text.WordWrap
         }
 
-        Text {
-            textFormat: Text.PlainText
+        ScrollView {
             Layout.fillWidth: true
-            text: root.message
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(14)
-            lineHeight: 1.35
-            wrapMode: Text.WordWrap
+            Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            implicitHeight: messageText.implicitHeight
+            clip: true
+            contentWidth: availableWidth
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+            Text {
+                id: messageText
+                textFormat: Text.PlainText
+                width: parent.width
+                text: root.message
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(14)
+                lineHeight: 1.35
+                wrapMode: Text.WordWrap
+            }
         }
 
         RowLayout {

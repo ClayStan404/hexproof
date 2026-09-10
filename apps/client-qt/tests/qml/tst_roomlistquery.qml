@@ -93,6 +93,28 @@ TestCase {
         compare(query.visibleRooms.length, 3)
     }
 
+    function test_cubePodsHaveSeparateFormatAndPreparationFilters() {
+        query.rooms = sampleRooms.concat([
+            {roomId: "CUBE01", name: "Cube night", roomKind: "cube", format: "modern",
+             deckFormat: "cube", phase: "draft", playerJoinable: false},
+            {roomId: "CUBE02", name: "Free play", roomKind: "cube", format: "modern",
+             deckFormat: "cube", phase: "free_play", playerJoinable: true}
+        ])
+        query.formatFilter = "cube"
+        compare(query.visibleRooms.length, 2)
+        query.phaseFilter = "draft"
+        compare(query.visibleRooms.length, 1)
+        compare(query.visibleRooms[0].roomId, "CUBE01")
+        query.phaseFilter = "free_play"
+        compare(query.visibleRooms[0].roomId, "CUBE02")
+        query.phaseFilter = "deck_building"
+        compare(query.visibleRooms.length, 0)
+        query.clearFilters()
+        query.formatFilter = "modern"
+        compare(query.visibleRooms.length, 1)
+        compare(query.visibleRooms[0].roomId, "WAIT01")
+    }
+
     function test_copiesBoundCppRoomLists() {
         verify(!Array.isArray(testRoomList.roomList))
         compare(testRoomList.roomList.length, 1)

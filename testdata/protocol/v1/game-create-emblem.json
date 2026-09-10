@@ -1,0 +1,5 @@
+{
+  "type": "game.create_emblem",
+  "id": "emblem-create-1",
+  "payload": {"seat": 1, "name": "Chandra, Awakened Inferno Emblem", "setCode": "TM20", "collectorNumber": "1", "typeLine": "Emblem — Chandra"}
+}

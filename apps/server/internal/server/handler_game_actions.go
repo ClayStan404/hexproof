@@ -66,6 +66,7 @@ func (h *Handler) handleGameReturnToRoom(sess *Session, env protocol.Envelope) e
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
 	}
+	h.discardRoomConsentRequests(r.ID)
 	if res.Reply != nil {
 		res.Reply.ID = env.ID
 		h.send(sess, *res.Reply)
@@ -79,7 +80,7 @@ func (h *Handler) handleGameSay(sess *Session, env protocol.Envelope) error {
 	return h.handleGameCommand(sess, env, &request,
 		func(r *room.Room) (room.Result, error) {
 			return h.hub.Say(sess.ConnectionID, request, r)
-		}, gameCommandOptions{})
+		}, gameCommandOptions{rulesMetadataOnly: true})
 }
 
 func (h *Handler) handleGameCreateToken(sess *Session, env protocol.Envelope) error {

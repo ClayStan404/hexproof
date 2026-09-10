@@ -3,9 +3,15 @@
 
 #include "CardArtCache.h"
 
+#include "BackgroundTaskPools.h"
 #include "CardCatalogCommon.h"
 #include "CatalogStorage.h"
 #include "deck/Deck.h"
+
+#include <QMutexLocker>
+#include <QtConcurrentRun>
+
+#include <utility>
 
 namespace hexproof::client {
 using namespace catalog_internal;
@@ -30,6 +36,13 @@ QString cacheLanguage(const QString &cacheKey)
     return cacheKey.left(cacheKey.indexOf(QLatin1Char('|')));
 }
 
+bool hasSameNamedImageFaces(const QString &name)
+{
+    const QStringList faces = name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+    return faces.size() == 2 &&
+           normalizedCardName(faces.first()) == normalizedCardName(faces.last());
+}
+
 void removeIndexEntry(QHash<QString, QSet<QString>> *index, const QString &indexKey,
                       const QString &cacheKey)
 {
@@ -43,15 +56,43 @@ void removeIndexEntry(QHash<QString, QSet<QString>> *index, const QString &index
 
 } // namespace
 
-CardArtCache::CardArtCache(const QString &storageRoot)
-    : m_imageRoot(QDir(storageRoot).filePath(QStringLiteral("images"))),
-      m_metadataPath(QDir(storageRoot).filePath(QStringLiteral("card-cache.json")))
+CardArtCache::CardArtCache(const QString &storageRoot, const QString &imageRoot,
+                           const QStringList &previousImageRoots, bool writable)
+    : m_imageRoot(imageRoot.isEmpty() ? QDir(storageRoot).filePath(QStringLiteral("images"))
+                                      : imageRoot),
+      m_metadataPath(QDir(storageRoot).filePath(QStringLiteral("card-cache.json"))),
+      m_previousImageRoots(previousImageRoots),
+      m_writable(writable)
 {
-    QDir().mkpath(m_imageRoot);
+    // An unavailable configured disk is not an instruction to recreate its
+    // mount point or silently start an empty default cache.
+    if (m_writable)
+        QDir().mkpath(m_imageRoot);
+    QObject::connect(&m_saveWatcher, &QFutureWatcher<bool>::finished, &m_saveWatcher, [this]() {
+        const bool success = m_saveWatcher.result();
+        if (success && m_savingGeneration == m_generation)
+            m_dirty = false;
+        m_saving = false;
+        const bool requested = std::exchange(m_saveRequested, false);
+        if (onSaveFinished)
+            onSaveFinished(success);
+        if (requested && dirty())
+            saveAsync();
+    });
+}
+
+CardArtCache::~CardArtCache()
+{
+    QObject::disconnect(&m_saveWatcher, nullptr, &m_saveWatcher, nullptr);
+    m_saveWatcher.waitForFinished();
+    if (m_writable && dirty() && !save())
+        qWarning("Could not save the card image cache on shutdown.");
 }
 
 void CardArtCache::load()
 {
+    m_saveWatcher.waitForFinished();
+    ++m_generation;
     m_positive.clear();
     m_negative.clear();
     m_printingIndex.clear();
@@ -72,6 +113,8 @@ void CardArtCache::load()
         // overwritten by the next save, discarding every resolved image with no
         // trace of why. Preserve the evidence and rebuild instead.
         file.close();
+        if (!m_writable)
+            return;
         const QString damagedPath = m_metadataPath + QStringLiteral(".corrupt-") +
                                     QString::number(QDateTime::currentMSecsSinceEpoch());
         if (!QFile::rename(m_metadataPath, damagedPath))
@@ -82,9 +125,25 @@ void CardArtCache::load()
     m_faceAuditVersion = qMax(0, root.value(QStringLiteral("faceAuditVersion")).toInt());
     m_faceRepairNeeded = root.value(QStringLiteral("faceRepairNeeded")).toBool();
     const QJsonObject positive = root.value(QStringLiteral("positive")).toObject();
-    for (auto it = positive.begin(); it != positive.end(); ++it)
-        m_positive.insert(it.key(), recordFromJson(it.value().toObject()));
+    bool rebased = false;
+    for (auto it = positive.begin(); it != positive.end(); ++it) {
+        CardRecord record = recordFromJson(it.value().toObject());
+        for (const QString &previous : m_previousImageRoots) {
+            if (previous == m_imageRoot || record.imagePath.isEmpty())
+                continue;
+            const QString relative = QDir(previous).relativeFilePath(record.imagePath);
+            if (relative == QStringLiteral(".") || relative == QStringLiteral("..") ||
+                relative.startsWith(QStringLiteral("../")) || QDir::isAbsolutePath(relative))
+                continue;
+            record.imagePath = QDir(m_imageRoot).filePath(relative);
+            rebased = true;
+            break;
+        }
+        m_positive.insert(it.key(), record);
+    }
     rebuildIndexes();
+    if (rebased && m_writable)
+        markDirty();
 
     // Resolution-policy changes can make an earlier missing result stale.
     if (root.value(QStringLiteral("version")).toInt() == kCardResolutionVersion &&
@@ -101,34 +160,88 @@ void CardArtCache::load()
 
 bool CardArtCache::save()
 {
-    QJsonObject positive;
-    for (auto it = m_positive.cbegin(); it != m_positive.cend(); ++it)
-        positive.insert(it.key(), recordToJson(it.value()));
-    QJsonObject negative;
-    for (auto it = m_negative.cbegin(); it != m_negative.cend(); ++it)
-        negative.insert(it.key(), it.value().toString(Qt::ISODateWithMs));
-    const QJsonObject root{
-        {QStringLiteral("version"), kCardResolutionVersion},
-        {QStringLiteral("negativeVersion"), kNegativeCacheVersion},
-        {QStringLiteral("faceAuditVersion"), m_faceAuditVersion},
-        {QStringLiteral("faceRepairNeeded"), m_faceRepairNeeded},
-        {QStringLiteral("positive"), positive},
-        {QStringLiteral("negative"), negative},
-    };
-    if (!catalogstorage::writeJson(m_metadataPath, root))
+    if (!m_writable)
+        return false;
+    const Snapshot value = snapshot();
+    if (!writeSnapshot(m_metadataPath, value, m_saveState))
         return false;
     m_dirty = false;
     return true;
 }
 
+void CardArtCache::saveAsync()
+{
+    if (!m_writable || !dirty())
+        return;
+    if (m_saving) {
+        m_saveRequested = true;
+        return;
+    }
+    m_saving = true;
+    m_savingGeneration = m_generation;
+    // Qt's implicitly shared containers make this an immutable, cheap snapshot.
+    // JSON conversion and disk I/O both run off the GUI thread.
+    m_saveWatcher.setFuture(
+        QtConcurrent::run(BackgroundTaskPools::cardArtPersistence(),
+                          [path = m_metadataPath, value = snapshot(), state = m_saveState]() {
+                              return writeSnapshot(path, value, state);
+                          }));
+}
+
+CardArtCache::Snapshot CardArtCache::snapshot() const
+{
+    return {m_positive, m_negative, m_faceAuditVersion, m_faceRepairNeeded, m_generation};
+}
+
+bool CardArtCache::writeSnapshot(const QString &path, const Snapshot &snapshot,
+                                 const std::shared_ptr<SaveState> &state)
+{
+    {
+        QMutexLocker lock(&state->mutex);
+        if (state->committedGeneration >= snapshot.generation)
+            return true;
+    }
+    QJsonObject positive;
+    for (auto it = snapshot.positive.cbegin(); it != snapshot.positive.cend(); ++it)
+        positive.insert(it.key(), recordToJson(it.value()));
+    QJsonObject negative;
+    for (auto it = snapshot.negative.cbegin(); it != snapshot.negative.cend(); ++it)
+        negative.insert(it.key(), it.value().toString(Qt::ISODateWithMs));
+    const QJsonObject root{
+        {QStringLiteral("version"), kCardResolutionVersion},
+        {QStringLiteral("negativeVersion"), kNegativeCacheVersion},
+        {QStringLiteral("faceAuditVersion"), snapshot.faceAuditVersion},
+        {QStringLiteral("faceRepairNeeded"), snapshot.faceRepairNeeded},
+        {QStringLiteral("positive"), positive},
+        {QStringLiteral("negative"), negative},
+    };
+    QMutexLocker lock(&state->mutex);
+    // Maintenance/import may synchronously commit a newer generation while a
+    // background writer is serializing. Never resurrect the older mappings.
+    if (state->committedGeneration >= snapshot.generation)
+        return true;
+    if (!catalogstorage::writeJson(path, root))
+        return false;
+    state->committedGeneration = snapshot.generation;
+    return true;
+}
+
+void CardArtCache::markDirty()
+{
+    ++m_generation;
+    m_dirty = true;
+}
+
 void CardArtCache::setFaceAuditState(int version, bool repairNeeded)
 {
+    if (!m_writable)
+        return;
     const int normalizedVersion = qMax(0, version);
     if (m_faceAuditVersion == normalizedVersion && m_faceRepairNeeded == repairNeeded)
         return;
     m_faceAuditVersion = normalizedVersion;
     m_faceRepairNeeded = repairNeeded;
-    m_dirty = true;
+    markDirty();
 }
 
 QString CardArtCache::key(const QString &name, const QString &language, const QString &setCode,
@@ -152,6 +265,12 @@ bool CardArtCache::matchesRequestedFace(const CardRequest &request, const CardRe
     const QString frontName = normalizedCardName(faces.first());
     const QString backName = normalizedCardName(faces.last());
     const QString recordFace = normalizedCardName(record.faceName);
+    if (frontName == backName) {
+        // A shared face name cannot prove which image was cached. Preserve
+        // records requested for this identity, but never alias a canonical
+        // whole-card request to an explicit same-named reverse (or vice versa).
+        return requestedName == normalizedCardName(record.requestedName);
+    }
     if (requestedName == frontName)
         return recordFace.isEmpty() || recordFace == frontName;
     if (requestedName == backName)
@@ -174,17 +293,38 @@ CardRecord CardArtCache::resolvedPrinting(const CardRequest &request) const
     const QSet<QString> candidates = m_printingIndex.value(indexKey);
     for (const QString &candidateKey : candidates) {
         const auto it = m_positive.constFind(candidateKey);
-        if (it == m_positive.cend() || it->resolutionVersion < kCardResolutionVersion) {
-            continue;
-        }
-        if (!matchesRequestedFace(request, *it))
-            continue;
-        if (it->reusesLocalArt && !request.allowsSubstituteArt(m_reuseLocalArt))
+        if (it == m_positive.cend() || !matchesResolvedPrintingRequest(request, *it))
             continue;
         if (QFileInfo::exists(it->imagePath))
             return *it;
     }
     return {};
+}
+
+CardRecord CardArtCache::resolvedPrintingMetadata(const CardRequest &request) const
+{
+    if (request.setCode.isEmpty() || request.collectorNumber.isEmpty())
+        return {};
+    const QString requestedName = normalizedCardName(request.name);
+    const QString indexKey = joinedIndexKey(
+        {request.language, request.setCode.toUpper(), request.collectorNumber, requestedName});
+    const QSet<QString> candidates = m_printingIndex.value(indexKey);
+    for (const QString &candidateKey : candidates) {
+        const auto it = m_positive.constFind(candidateKey);
+        if (it != m_positive.cend() && matchesResolvedPrintingRequest(request, *it))
+            return *it;
+    }
+    return {};
+}
+
+bool CardArtCache::matchesResolvedPrintingRequest(const CardRequest &request,
+                                                  const CardRecord &record) const
+{
+    return record.resolutionVersion >= kCardResolutionVersion &&
+           (!request.supportCard || request.language != QStringLiteral("zh") ||
+            record.localizedRulesChecked) &&
+           matchesRequestedFace(request, record) &&
+           (!record.reusesLocalArt || request.allowsSubstituteArt(m_reuseLocalArt));
 }
 
 CardRecord CardArtCache::reusableArt(const CardRequest &request,
@@ -215,6 +355,8 @@ CardRecord CardArtCache::reusableArt(const CardRequest &request,
     for (const QString &candidateKey : candidates) {
         const auto it = m_positive.constFind(candidateKey);
         if (it == m_positive.cend() || it->resolutionVersion < kCardResolutionVersion ||
+            (request.supportCard && request.language == QStringLiteral("zh") &&
+             !it->localizedRulesChecked) ||
             it->imageLanguage != request.language) {
             continue;
         }
@@ -233,7 +375,10 @@ CardRecord CardArtCache::reusableArt(const CardRequest &request,
             continue;
         }
 
-        if (requestsFace) {
+        if (hasSameNamedImageFaces(catalogIdentity.name) || hasSameNamedImageFaces(it->name)) {
+            if (candidateRequest != requestedName)
+                continue;
+        } else if (requestsFace) {
             const QStringList candidateFaces = candidateName.split(QStringLiteral(" // "));
             const bool inferredFront = candidateFace.isEmpty() && candidateFaces.size() == 2 &&
                                        normalizedCardName(candidateFaces.first()) == requestedName;
@@ -271,6 +416,10 @@ CardRecord CardArtCache::substituteRecord(const CardRequest &request,
             substitute.oracleId = catalogIdentity.oracleId;
             substitute.localizedName = catalogIdentity.localizedName;
             substitute.typeLine = catalogIdentity.typeLine;
+            if (substitute.oracleTextLanguage != request.language) {
+                substitute.oracleText = catalogIdentity.oracleText;
+                substitute.oracleTextLanguage = catalogIdentity.oracleTextLanguage;
+            }
         }
     }
     substitute.resolutionVersion = kCardResolutionVersion;
@@ -296,13 +445,15 @@ QString CardArtCache::imagePath(const QString &name, const QString &imageUrl,
 
 void CardArtCache::rememberSuccess(const QString &cacheKey, const CardRecord &record)
 {
+    if (!m_writable)
+        return;
     const auto existing = m_positive.constFind(cacheKey);
     if (existing != m_positive.cend())
         removeFromIndexes(cacheKey, *existing);
     m_positive.insert(cacheKey, record);
     addToIndexes(cacheKey, record);
     m_negative.remove(cacheKey);
-    m_dirty = true;
+    markDirty();
 }
 
 void CardArtCache::rebuildIndexes()
@@ -398,15 +549,19 @@ void CardArtCache::removeFromIndexes(const QString &cacheKey, const CardRecord &
 
 void CardArtCache::rememberFailure(const QString &cacheKey, const QDateTime &timestamp)
 {
+    if (!m_writable)
+        return;
     m_negative.insert(cacheKey, timestamp);
-    m_dirty = true;
+    markDirty();
 }
 
 bool CardArtCache::forgetFailure(const QString &cacheKey)
 {
+    if (!m_writable)
+        return false;
     if (m_negative.remove(cacheKey) == 0)
         return false;
-    m_dirty = true;
+    markDirty();
     return true;
 }
 
@@ -442,6 +597,8 @@ QSet<QString> CardArtCache::referencedImagePaths() const
 QList<CardArtCacheEntry> CardArtCache::removeEntries(bool selectionOnly, const QString &setCode,
                                                      const QString &imageLanguage)
 {
+    if (!m_writable)
+        return {};
     const QString normalizedSet = setCode.toUpper();
     const QString normalizedLanguage = imageLanguage.toLower();
     QList<CardArtCacheEntry> removed;
@@ -463,20 +620,22 @@ QList<CardArtCacheEntry> CardArtCache::removeEntries(bool selectionOnly, const Q
     }
     if (!removed.isEmpty()) {
         m_negative.clear();
-        m_dirty = true;
+        markDirty();
     }
     return removed;
 }
 
 void CardArtCache::replaceEntries(const QList<CardArtCacheEntry> &entries)
 {
+    if (!m_writable)
+        return;
     m_positive.clear();
     for (const CardArtCacheEntry &entry : entries) {
         if (!entry.cacheKey.isEmpty())
             m_positive.insert(entry.cacheKey, entry.record);
     }
     rebuildIndexes();
-    m_dirty = true;
+    markDirty();
 }
 
 } // namespace hexproof::client

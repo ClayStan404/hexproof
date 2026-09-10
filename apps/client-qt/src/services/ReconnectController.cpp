@@ -66,12 +66,23 @@ void ReconnectController::updateSession(const QString &token, const QString &ser
     m_displayName = displayName;
 }
 
+void ReconnectController::setCrossLaunchResumeAllowed(bool allowed)
+{
+    m_crossLaunchResumeAllowed = allowed;
+    if (!allowed) {
+        m_persistTimer.stop();
+        clearPersisted();
+        return;
+    }
+    persist();
+}
+
 void ReconnectController::observeSequence(qint64 seq)
 {
     if (seq <= m_lastSeq)
         return;
     m_lastSeq = seq;
-    if (hasCredentials())
+    if (hasCredentials() && m_crossLaunchResumeAllowed)
         m_persistTimer.start();
 }
 
@@ -121,17 +132,13 @@ void ReconnectController::clear()
     m_lastSeq = 0;
     m_deadlineMs = 0;
     m_attempt = 0;
+    m_crossLaunchResumeAllowed = false;
     if (m_remainingSeconds != 0) {
         m_remainingSeconds = 0;
         emit remainingSecondsChanged();
     }
 
-    QSettings settings;
-    settings.remove(u"network/resumeToken"_s);
-    settings.remove(u"network/resumeServerUrl"_s);
-    settings.remove(u"network/resumeDisplayName"_s);
-    settings.remove(u"network/resumeLastSeq"_s);
-    settings.sync();
+    clearPersisted();
 }
 
 int ReconnectController::retryDelayMs(int attempt)
@@ -156,22 +163,43 @@ void ReconnectController::updateRemainingSeconds()
 void ReconnectController::load()
 {
     QSettings settings;
+    if (settings.value(u"network/resumeRoomRole"_s).toString() != u"player"_s) {
+        clearPersisted();
+        return;
+    }
+    m_crossLaunchResumeAllowed = true;
     m_token = settings.value(u"network/resumeToken"_s).toString();
     m_serverUrl = m_serverDirectory->normalizePersistedUrl(
         settings.value(u"network/resumeServerUrl"_s).toString());
     m_displayName = settings.value(u"network/resumeDisplayName"_s).toString();
     m_lastSeq = settings.value(u"network/resumeLastSeq"_s).toLongLong();
+    if (!hasCredentials()) {
+        m_crossLaunchResumeAllowed = false;
+        clearPersisted();
+    }
 }
 
 void ReconnectController::persist()
 {
-    if (!hasCredentials())
+    if (!hasCredentials() || !m_crossLaunchResumeAllowed)
         return;
     QSettings settings;
+    settings.setValue(u"network/resumeRoomRole"_s, u"player"_s);
     settings.setValue(u"network/resumeToken"_s, m_token);
     settings.setValue(u"network/resumeServerUrl"_s, m_serverUrl);
     settings.setValue(u"network/resumeDisplayName"_s, m_displayName);
     settings.setValue(u"network/resumeLastSeq"_s, m_lastSeq);
+    settings.sync();
+}
+
+void ReconnectController::clearPersisted()
+{
+    QSettings settings;
+    settings.remove(u"network/resumeRoomRole"_s);
+    settings.remove(u"network/resumeToken"_s);
+    settings.remove(u"network/resumeServerUrl"_s);
+    settings.remove(u"network/resumeDisplayName"_s);
+    settings.remove(u"network/resumeLastSeq"_s);
     settings.sync();
 }
 

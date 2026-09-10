@@ -16,6 +16,10 @@ from typing import Any
 
 
 MAX_ENCODED_PRODUCT_BYTES = 800 * 1024
+# JSON numbers stay exact only through 2^53 - 1. FIN Play wildcard weights
+# exceed 1e9 but remain inside this bound.
+MAX_PRODUCT_WEIGHT = 9_007_199_254_740_991
+MAX_TOTAL_WEIGHT = (1 << 63) - 1
 
 
 def load_set(archive: zipfile.ZipFile, member: str) -> dict[str, Any] | None:
@@ -79,6 +83,8 @@ def build_product(
             weight = int(booster.get("weight", 0))
         except (TypeError, ValueError):
             weight = 0
+        if weight > MAX_PRODUCT_WEIGHT:
+            return None
         if not slots or not 1 <= size <= 30 or weight < 1:
             continue
         if cards_per_pack == 0:
@@ -104,10 +110,12 @@ def build_product(
                 weight = int(raw_weight)
             except (TypeError, ValueError):
                 return None
-            if weight < 1 or weight > 1_000_000_000:
+            if weight < 1 or weight > MAX_PRODUCT_WEIGHT:
                 return None
             cards.append({**identity, "finish": finish, "weight": weight})
         if not cards:
+            return None
+        if sum(card["weight"] for card in cards) > MAX_TOTAL_WEIGHT:
             return None
         sheets.append(
             {

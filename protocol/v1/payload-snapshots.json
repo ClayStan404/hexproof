@@ -118,6 +118,11 @@
           "name": "name",
           "type": "string",
           "required": true
+        },
+        {
+          "name": "chosenColor",
+          "type": "string",
+          "required": false
         }
       ]
     },
@@ -253,6 +258,12 @@
             "type": "object",
             "ref": "GameCard"
           }
+        },
+        {
+          "name": "emblems",
+          "type": "array",
+          "required": false,
+          "items": {"type": "object", "ref": "GameEmblem"}
         },
         {
           "name": "commanderTax",
@@ -719,7 +730,9 @@
             "DeckFormatVintage",
             "DeckFormatPauper",
             "DeckFormatDuel",
-            "DeckFormatCommander"
+            "DeckFormatCommander",
+            "DeckFormatLimited",
+            "DeckFormatCommanderLimited"
           ]
         },
         {

@@ -4,6 +4,9 @@
 #include "cardcatalog_test.h"
 
 #include "services/CardArtCache.h"
+#include "services/CardImageProvider.h"
+
+using hexproof::client::CardImageProvider;
 
 void TestCardCatalog::prefersMtgchChineseFields() const
 {
@@ -372,14 +375,14 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
     QCOMPARE(arguments.at(2).toString(), u"瞬间"_s);
     QVERIFY(QFileInfo::exists(arguments.at(3).toString()));
 
-    // A match prefetch for an already-cached printing completes immediately
-    // without another network request.
+    // A match prefetch for an already-cached printing completes on its queued
+    // incremental batch without another network request.
     catalog.cacheCards({QVariantMap{
         {u"name"_s, u"Lightning Bolt"_s},
         {u"setCode"_s, u"M11"_s},
         {u"collectorNumber"_s, u"146"_s},
     }});
-    QCOMPARE(cacheSpy.count(), 2);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
     QCOMPARE(network.requestedUrls.size(), 2);
     QVERIFY(catalog.imageSource(u"Lightning Bolt"_s, u"M11"_s, u"146"_s).startsWith(u"file:"_s));
 
@@ -389,7 +392,7 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
         {u"setCode"_s, u"M11"_s},
         {u"collectorNumber"_s, u"146"_s},
     }});
-    QCOMPARE(cacheSpy.count(), 3);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 3, 1'000);
     QCOMPARE(network.requestedUrls.size(), 2);
 }
 
@@ -512,7 +515,7 @@ void TestCardCatalog::positiveCacheHitDoesNotBumpImageRevision() const
     QVERIFY(revisionSignalsAfterDownload > 0);
 
     catalog.cacheCards(request);
-    QCOMPARE(cacheSpy.count(), 2);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
     QVERIFY(cacheSpy.at(1).at(3).toBool());
     QCOMPARE(cacheSpy.at(1).at(0).toString(), u"Lightning Bolt"_s);
     QCOMPARE(cacheSpy.at(1).at(1).toString(), u"M11"_s);
@@ -547,6 +550,14 @@ void TestCardCatalog::setLanguageBumpsImageRevision() const
     QCOMPARE(catalog.language(), u"en"_s);
     QCOMPARE(catalog.imageRevision(), initialRevision + 2);
     QCOMPARE(revisionSpy.count(), 2);
+}
+
+void TestCardCatalog::imageProviderForcesAsyncLoads() const
+{
+    CardImageProvider provider;
+    QVERIFY(provider.flags().testFlag(QQuickImageProvider::ForceAsynchronousImageLoading));
+    QVERIFY(provider.sourceForPath(QStringLiteral("/definitely/missing/card.jpg"))
+                .startsWith(QStringLiteral("image://card-table/")));
 }
 
 void TestCardCatalog::providerFallbackSurvivesDisabledLocalReuse() const
@@ -727,7 +738,7 @@ void TestCardCatalog::resolvedPrintingAliasBumpsImageRevision() const
         {u"setCode"_s, u"M11"_s},
         {u"collectorNumber"_s, u"146"_s},
     }});
-    QCOMPARE(cacheSpy.count(), 2);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
     QVERIFY(cacheSpy.at(1).at(3).toBool());
     QCOMPARE(catalog.imageRevision(), revisionAfterNameOnly + 1);
     QCOMPARE(revisionSpy.count(), revisionSignalsAfterNameOnly + 1);
@@ -812,29 +823,31 @@ void TestCardCatalog::reusesNameOnlyCacheForResolvedPrinting() const
 {
     QTemporaryDir storage;
     QVERIFY(storage.isValid());
-    FakeNetworkAccessManager network;
-    CardCatalog catalog(storage.path(), &network);
-    catalog.setLanguage(u"zh"_s);
-    QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
+    {
+        FakeNetworkAccessManager network;
+        CardCatalog catalog(storage.path(), &network);
+        catalog.setLanguage(u"zh"_s);
+        QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
 
-    // Deck import starts with a name-only identity. Resolution adds the exact
-    // printing to the deck while retaining the original name-only cache key.
-    catalog.cacheCards({QVariantMap{{u"name"_s, u"Lightning Bolt"_s}}});
-    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 1, 2'000);
-    QVERIFY(cacheSpy.first().at(3).toBool());
-    const qsizetype initialRequests = network.requestedUrls.size();
-    QVERIFY(initialRequests > 0);
+        // Deck import starts with a name-only identity. Resolution adds the exact
+        // printing to the deck while retaining the original name-only cache key.
+        catalog.cacheCards({QVariantMap{{u"name"_s, u"Lightning Bolt"_s}}});
+        QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 1, 2'000);
+        QVERIFY(cacheSpy.first().at(3).toBool());
+        const qsizetype initialRequests = network.requestedUrls.size();
+        QVERIFY(initialRequests > 0);
 
-    // Match prefetch sends that resolved printing identity. It must alias the
-    // existing record and image without issuing metadata or image requests.
-    catalog.cacheCards({QVariantMap{
-        {u"name"_s, u"Lightning Bolt"_s},
-        {u"setCode"_s, u"M11"_s},
-        {u"collectorNumber"_s, u"146"_s},
-    }});
-    QCOMPARE(cacheSpy.count(), 2);
-    QVERIFY(cacheSpy.at(1).at(3).toBool());
-    QCOMPARE(network.requestedUrls.size(), initialRequests);
+        // Match prefetch sends that resolved printing identity. It must alias the
+        // existing record and image without issuing metadata or image requests.
+        catalog.cacheCards({QVariantMap{
+            {u"name"_s, u"Lightning Bolt"_s},
+            {u"setCode"_s, u"M11"_s},
+            {u"collectorNumber"_s, u"146"_s},
+        }});
+        QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
+        QVERIFY(cacheSpy.at(1).at(3).toBool());
+        QCOMPARE(network.requestedUrls.size(), initialRequests);
+    } // Close and flush the first process before reacquiring its image directory.
 
     // The exact alias is persisted, so a fresh client process also hits it.
     FakeNetworkAccessManager restartedNetwork;
@@ -846,7 +859,7 @@ void TestCardCatalog::reusesNameOnlyCacheForResolvedPrinting() const
         {u"setCode"_s, u"M11"_s},
         {u"collectorNumber"_s, u"146"_s},
     }});
-    QCOMPARE(restartedSpy.count(), 1);
+    QTRY_COMPARE_WITH_TIMEOUT(restartedSpy.count(), 1, 1'000);
     QVERIFY(restartedSpy.first().at(3).toBool());
     QCOMPARE(restartedNetwork.requestedUrls.size(), 0);
 }
@@ -872,7 +885,7 @@ void TestCardCatalog::reusesLocalArtAcrossPrintings() const
         {u"setCode"_s, u"CMM"_s},
         {u"collectorNumber"_s, u"1"_s},
     }});
-    QCOMPARE(cacheSpy.count(), 2);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
     QCOMPARE(network.requestedUrls.size(), 2);
     QVERIFY(catalog.imageSource(u"Wear // Tear"_s, u"CMM"_s, u"1"_s).startsWith(u"file:"_s));
     QVERIFY(catalog.printingImageSource(u"Wear // Tear"_s, u"CMM"_s, u"1"_s).isEmpty());
@@ -1114,7 +1127,7 @@ void TestCardCatalog::manualRetryBypassesNegativeCache() const
     QCOMPARE(network.scryfallRequestCount, 1);
 
     catalog.cacheCards(cards);
-    QCOMPARE(cacheSpy.count(), 2);
+    QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
     QCOMPARE(network.scryfallRequestCount, 1);
 
     catalog.retryCards(cards);

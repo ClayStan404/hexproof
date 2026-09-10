@@ -18,7 +18,8 @@ Surface {
     anchors.bottom: parent.bottom
     anchors.margins: Theme.size(4)
     width: visible
-           ? Math.min(
+           ? Math.min(parent.width - Theme.size(8), Math.max(
+                 Theme.size(tableController.isCommanderFormat ? 244 : 190), Math.min(
                  Theme.size(
                      (tableController.hasPartnerCommanders
                       ? 430
@@ -28,7 +29,7 @@ Surface {
                  parent.width
                  * (tableController.hasPartnerCommanders
                     ? 0.52
-                    : (tableController.isCommanderFormat ? 0.46 : 0.40)))
+                    : (tableController.isCommanderFormat ? 0.46 : 0.40)))))
            : 0
     visible: tableController.roomSession.role === "player"
     z: 180
@@ -42,13 +43,14 @@ Surface {
         spacing: Theme.size(4)
 
         TableOwnPlayerStatus {
+            Layout.maximumHeight: Math.max(Theme.size(60), root.height - Theme.size(74))
             tableController: root.tableController
         }
 
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: Theme.size(92)
+            Layout.minimumHeight: Theme.size(54)
             spacing: Theme.size(4)
 
             TableOwnLibraryPile {

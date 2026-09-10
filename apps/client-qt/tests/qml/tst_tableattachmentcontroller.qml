@@ -104,6 +104,27 @@ TestCase {
         tableRoot: fakeTable
     }
 
+    QtObject {
+        id: typedTable
+
+        property var tableAttachments: testGameTable.attachments
+        property var gameTableModel: testGameTable
+        property var zoneState: typedZones
+    }
+
+    QtObject {
+        id: typedZones
+
+        function cardDataForId(cardId) {
+            return testGameTable.cardData(cardId)
+        }
+    }
+
+    TableAttachmentController {
+        id: typedController
+        tableRoot: typedTable
+    }
+
     function init() {
         fakeTable.tableAttachments = []
         fakeTable.selectedBattlefieldCard = ({
@@ -114,6 +135,11 @@ TestCase {
         fakeSelection.count = 1
         fakeSelection.lastMode = ""
         fakeWs.lastAttachment = ({})
+        testGameTable.clear()
+    }
+
+    function cleanup() {
+        testGameTable.clear()
     }
 
     function test_hidesHomeLaneCardOnlyWhenTargetIsOnAnotherSeat() {
@@ -138,6 +164,65 @@ TestCase {
         compare(controller.crossLaneStacks[0].sourceCardId, "s0-aura")
         compare(controller.crossLaneStacks[0].targetCardId, "s1-bear")
         compare(controller.crossLaneStacks[0].stackIndex, 0)
+    }
+
+    function test_crossLaneStackReplacesVisibleCardWithRedactedSnapshot() {
+        const attachments = [{
+            "sourceCardId": "s0-aura",
+            "targetCardId": "s1-bear"
+        }]
+        testGameTable.applySnapshot({
+            "seats": [{
+                "seat": 0,
+                "displayName": "Alice",
+                "battlefield": [{
+                    "id": "s0-aura",
+                    "name": "Visible Aura",
+                    "artUrl": "visible-art",
+                    "ownerSeat": 0
+                }]
+            }, {
+                "seat": 1,
+                "displayName": "Bob",
+                "battlefield": [{
+                    "id": "s1-bear",
+                    "name": "Target Bear",
+                    "ownerSeat": 1
+                }]
+            }],
+            "attachments": attachments
+        })
+        compare(typedController.crossLaneStacks.length, 1)
+        compare(typedController.crossLaneStacks[0].card.name,
+                "Visible Aura")
+        compare(typedController.crossLaneStacks[0].card.artUrl,
+                "visible-art")
+
+        testGameTable.applySnapshot({
+            "seats": [{
+                "seat": 0,
+                "displayName": "Alice",
+                "battlefield": [{
+                    "id": "s0-aura",
+                    "faceDown": true,
+                    "ownerSeat": 0
+                }]
+            }, {
+                "seat": 1,
+                "displayName": "Bob",
+                "battlefield": [{
+                    "id": "s1-bear",
+                    "name": "Target Bear",
+                    "ownerSeat": 1
+                }]
+            }],
+            "attachments": attachments
+        })
+
+        tryVerify(() => typedController.crossLaneStacks[0].card.faceDown
+                         === true)
+        verify(typedController.crossLaneStacks[0].card.name === undefined)
+        verify(typedController.crossLaneStacks[0].card.artUrl === undefined)
     }
 
     function test_beginAttachAndDetachUseExistingCommands() {

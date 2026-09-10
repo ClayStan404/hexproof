@@ -188,6 +188,20 @@ QString validateImage(const QByteArray &bytes, const QString &declaredSuffix = {
     return suffix;
 }
 
+bool verifiedExistingImage(const QString &path, QHash<QString, bool> *verifiedPaths)
+{
+    if (path.isEmpty())
+        return false;
+    const auto existing = verifiedPaths->constFind(path);
+    if (existing != verifiedPaths->cend())
+        return *existing;
+    QString error;
+    const QByteArray bytes = readImage(path, &error);
+    const bool valid = error.isEmpty() && !validateImage(bytes).isEmpty();
+    verifiedPaths->insert(path, valid);
+    return valid;
+}
+
 bool validText(const QString &value, qsizetype maximum, bool required = false)
 {
     return value.size() <= maximum && (!required || !value.simplified().isEmpty());
@@ -208,7 +222,19 @@ bool validEntryObject(const QJsonObject &object)
         (imageLang == QStringLiteral("en") || imageLang == QStringLiteral("zh"));
     const QString setCode = object.value(QStringLiteral("setCode")).toString();
     const QString collector = object.value(QStringLiteral("collectorNumber")).toString();
-    return languagesValid &&
+    const QJsonValue rules = object.value(QStringLiteral("oracleText"));
+    const QJsonValue rulesLanguage = object.value(QStringLiteral("oracleTextLanguage"));
+    const QJsonValue rulesChecked = object.value(QStringLiteral("localizedRulesChecked"));
+    const QString rulesLang = rulesLanguage.toString();
+    const bool rulesValid = (rules.isUndefined() || rules.isString()) &&
+                            (rulesLanguage.isUndefined() || rulesLanguage.isString()) &&
+                            (rulesChecked.isUndefined() || rulesChecked.isBool()) &&
+                            (rulesLang.isEmpty() || rulesLang == QStringLiteral("en") ||
+                             rulesLang == QStringLiteral("zh")) &&
+                            (rules.toString().isEmpty() || !rulesLang.isEmpty()) &&
+                            validText(rules.toString(), 16'384) &&
+                            !rules.toString().contains(QChar::Null);
+    return languagesValid && rulesValid &&
            validKeyText(object.value(QStringLiteral("requestedName")).toString(), 512, true) &&
            validText(object.value(QStringLiteral("name")).toString(), 512, true) &&
            validText(object.value(QStringLiteral("oracleId")).toString(), 128) &&
@@ -220,6 +246,36 @@ bool validEntryObject(const QJsonObject &object)
            validText(object.value(QStringLiteral("illustrationId")).toString(), 128) &&
            validText(object.value(QStringLiteral("imageUrl")).toString(), 4096) &&
            validText(object.value(QStringLiteral("blobSha256")).toString(), 64, true);
+}
+
+bool existingImageWins(const CardRecord &existing, const CardRecord &incoming,
+                       const QString &requestLanguage)
+{
+    const int incomingVersion = qBound(0, incoming.resolutionVersion, kCardResolutionVersion);
+    if (existing.resolutionVersion != incomingVersion)
+        return existing.resolutionVersion > incomingVersion;
+    // A completed English fallback is usable, but importing real Chinese art
+    // must upgrade it even when both mappings use the current resolver version.
+    return existing.imageLanguage == requestLanguage || incoming.imageLanguage != requestLanguage;
+}
+
+void mergeRulesMetadata(CardRecord *record, const CardRecord &other, const QString &language)
+{
+    record->localizedRulesChecked = record->localizedRulesChecked || other.localizedRulesChecked;
+    if (!other.oracleTextLanguage.isEmpty() &&
+        (record->oracleTextLanguage.isEmpty() ||
+         (other.oracleTextLanguage == language && record->oracleTextLanguage != language) ||
+         (record->oracleTextLanguage == other.oracleTextLanguage &&
+          record->oracleText.isEmpty()))) {
+        record->oracleText = other.oracleText;
+        record->oracleTextLanguage = other.oracleTextLanguage;
+    }
+    if (language == QStringLiteral("zh")) {
+        if (!looksLikeChinese(record->localizedName) && looksLikeChinese(other.localizedName))
+            record->localizedName = other.localizedName;
+        if (!looksLikeChinese(record->typeLine) && looksLikeChinese(other.typeLine))
+            record->typeLine = other.typeLine;
+    }
 }
 
 ParsedPack parsePack(QFile *file)
@@ -313,19 +369,29 @@ ParsedPack parsePack(QFile *file)
 QVariantMap summaryMap(const ParsedPack &pack, const QList<CardArtCacheEntry> &existingEntries,
                        const QString &imageRoot)
 {
-    QSet<QString> existingKeys;
+    QHash<QString, CardRecord> existingRecords;
     for (const CardArtCacheEntry &entry : existingEntries) {
         const bool fileExists = imageRoot.isEmpty()
                                     ? QFileInfo::exists(entry.record.imagePath)
                                     : !managedFilePath(imageRoot, entry.record.imagePath).isEmpty();
         if (fileExists)
-            existingKeys.insert(entry.cacheKey);
+            existingRecords.insert(entry.cacheKey, entry.record);
     }
     int existingCount = 0;
     const QJsonArray entries = pack.manifest.value(QStringLiteral("entries")).toArray();
+    QHash<QString, bool> verifiedPaths;
     for (const QJsonValue &value : entries) {
-        if (existingKeys.contains(cacheKeyForObject(value.toObject())))
-            ++existingCount;
+        const QJsonObject object = value.toObject();
+        const CardRecord existing = existingRecords.value(cacheKeyForObject(object));
+        const CardRecord incoming = recordFromJson(object);
+        const QString language = object.value(QStringLiteral("requestLanguage")).toString();
+        if (existing.valid() && existingImageWins(existing, incoming, language) &&
+            verifiedExistingImage(existing.imagePath, &verifiedPaths)) {
+            CardRecord merged = existing;
+            mergeRulesMetadata(&merged, incoming, language);
+            if (recordToJson(merged) == recordToJson(existing))
+                ++existingCount;
+        }
     }
     return {
         {QStringLiteral("ok"), pack.ok},
@@ -484,6 +550,9 @@ OperationResult exportPack(const QString &path, const QString &imageRoot,
               [](const auto &left, const auto &right) { return left.cacheKey < right.cacheKey; });
 
     QHash<QString, BlobInput> blobsByHash;
+    QHash<QString, BlobInput> verifiedPaths;
+    QSet<QString> invalidPaths;
+    QSet<QString> exportedLookupKeys;
     QJsonArray exportedEntries;
     for (const CardArtCacheEntry &entry : selected) {
         const QString imagePath = managedFilePath(imageRoot, entry.record.imagePath);
@@ -491,37 +560,53 @@ OperationResult exportPack(const QString &path, const QString &imageRoot,
             ++result.skippedCount;
             continue;
         }
-        QString readError;
-        const QByteArray bytes = readImage(imagePath, &readError);
-        const QString suffix = bytes.isEmpty() ? QString{} : validateImage(bytes);
-        if (suffix.isEmpty()) {
+        if (invalidPaths.contains(imagePath)) {
             ++result.skippedCount;
             continue;
         }
-        const QString sha256 = QString::fromLatin1(
-            QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
+        if (!verifiedPaths.contains(imagePath)) {
+            QString readError;
+            const QByteArray bytes = readImage(imagePath, &readError);
+            const QString suffix = bytes.isEmpty() ? QString{} : validateImage(bytes);
+            if (suffix.isEmpty()) {
+                invalidPaths.insert(imagePath);
+                ++result.skippedCount;
+                continue;
+            }
+            BlobInput blob;
+            blob.sha256 = QString::fromLatin1(
+                QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
+            blob.suffix = suffix;
+            blob.size = bytes.size();
+            blob.path = imagePath;
+            verifiedPaths.insert(imagePath, blob);
+        }
+        const BlobInput blob = verifiedPaths.value(imagePath);
+        const QString sha256 = blob.sha256;
+        QJsonObject object = recordToJson(entry.record);
+        object.remove(QStringLiteral("imagePath"));
+        object.insert(QStringLiteral("requestLanguage"), requestLanguage(entry.cacheKey));
+        object.insert(QStringLiteral("blobSha256"), sha256);
+        object.insert(QStringLiteral("source"), imageSource(entry.record.imageUrl));
+        const QString lookupKey = cacheKeyForObject(object);
+        if (!validEntryObject(object) || exportedLookupKeys.contains(lookupKey)) {
+            ++result.skippedCount;
+            continue;
+        }
         if (!blobsByHash.contains(sha256)) {
             if (blobsByHash.size() >= kMaximumImages) {
                 result.error = QStringLiteral("The card art selection is too large to export.");
                 return result;
             }
-            BlobInput blob;
-            blob.sha256 = sha256;
-            blob.suffix = suffix;
-            blob.size = bytes.size();
-            blob.path = imagePath;
             blobsByHash.insert(sha256, blob);
         }
         if (exportedEntries.size() >= kMaximumEntries) {
             result.error = QStringLiteral("The card art selection is too large to export.");
             return result;
         }
-        QJsonObject object = recordToJson(entry.record);
-        object.remove(QStringLiteral("imagePath"));
-        object.insert(QStringLiteral("requestLanguage"), requestLanguage(entry.cacheKey));
-        object.insert(QStringLiteral("blobSha256"), sha256);
-        object.insert(QStringLiteral("source"), imageSource(entry.record.imageUrl));
         exportedEntries.append(object);
+        exportedLookupKeys.insert(lookupKey);
+        result.exportedEntryKeys.insert(entry.cacheKey);
     }
     if (exportedEntries.isEmpty()) {
         result.error = QStringLiteral("No cached card images match this selection.");
@@ -597,7 +682,8 @@ OperationResult exportPack(const QString &path, const QString &imageRoot,
     return result;
 }
 
-OperationResult importPack(const QString &path, const QString &imageRoot)
+OperationResult importPack(const QString &path, const QString &imageRoot,
+                           const QList<CardArtCacheEntry> &existingEntries)
 {
     OperationResult result;
     QFile input(path);
@@ -615,6 +701,33 @@ OperationResult importPack(const QString &path, const QString &imageRoot)
         return result;
     }
 
+    const QJsonArray entries = pack.manifest.value(QStringLiteral("entries")).toArray();
+    QHash<QString, CardRecord> existingByKey;
+    for (const CardArtCacheEntry &entry : existingEntries) {
+        if (entry.record.valid() && !managedFilePath(imageRoot, entry.record.imagePath).isEmpty())
+            existingByKey.insert(entry.cacheKey, entry.record);
+    }
+    QSet<QString> retainedKeys;
+    QHash<QString, bool> verifiedPaths;
+    QSet<QString> neededBlobs;
+    QHash<QString, QString> reuseCandidates;
+    for (const QJsonValue &value : entries) {
+        const QJsonObject object = value.toObject();
+        const QString key = cacheKeyForObject(object);
+        const QString blob = object.value(QStringLiteral("blobSha256")).toString();
+        const auto existing = existingByKey.constFind(key);
+        if (existing != existingByKey.constEnd()) {
+            reuseCandidates.insert(blob, existing->imagePath);
+            if (existingImageWins(*existing, recordFromJson(object),
+                                  object.value(QStringLiteral("requestLanguage")).toString()) &&
+                verifiedExistingImage(existing->imagePath, &verifiedPaths)) {
+                retainedKeys.insert(key);
+                continue;
+            }
+        }
+        neededBlobs.insert(blob);
+    }
+
     QHash<QString, QString> importedPaths;
     for (const BlobSpec &blob : pack.blobs) {
         const QByteArray bytes = input.read(blob.size);
@@ -624,6 +737,21 @@ OperationResult importPack(const QString &path, const QString &imageRoot)
             validateImage(bytes, blob.suffix).isEmpty()) {
             result.error = QStringLiteral("The card art pack contains invalid image data.");
             return result;
+        }
+        // Validate every payload, including entries whose current local image wins.
+        // Do not create an unreferenced content-hash copy for retained mappings.
+        if (!neededBlobs.contains(blob.sha256))
+            continue;
+        const QString candidate = reuseCandidates.value(blob.sha256);
+        if (!candidate.isEmpty()) {
+            QString readError;
+            const QByteArray existing = readImage(candidate, &readError);
+            if (readError.isEmpty() &&
+                QCryptographicHash::hash(existing, QCryptographicHash::Sha256).toHex() ==
+                    blob.sha256.toLatin1()) {
+                importedPaths.insert(blob.sha256, candidate);
+                continue;
+            }
         }
         const QString destination =
             QDir(imageRoot).filePath(blob.sha256 + QLatin1Char('.') + blob.suffix);
@@ -650,8 +778,8 @@ OperationResult importPack(const QString &path, const QString &imageRoot)
         importedPaths.insert(blob.sha256, QFileInfo(destination).absoluteFilePath());
     }
 
-    const QJsonArray entries = pack.manifest.value(QStringLiteral("entries")).toArray();
     QSet<QString> importedKeys;
+    QSet<QString> unchangedKeys;
     for (const QJsonValue &value : entries) {
         const QJsonObject object = value.toObject();
         const QString cacheKey = cacheKeyForObject(object);
@@ -661,7 +789,20 @@ OperationResult importPack(const QString &path, const QString &imageRoot)
             return result;
         }
         importedKeys.insert(cacheKey);
+        if (retainedKeys.contains(cacheKey)) {
+            const CardRecord previous = existingByKey.value(cacheKey);
+            CardRecord merged = previous;
+            mergeRulesMetadata(&merged, recordFromJson(object),
+                               object.value(QStringLiteral("requestLanguage")).toString());
+            if (recordToJson(merged) == recordToJson(previous))
+                unchangedKeys.insert(cacheKey);
+            result.importedEntries.append({cacheKey, merged});
+            continue;
+        }
         CardRecord record = recordFromJson(object);
+        if (existingByKey.contains(cacheKey))
+            mergeRulesMetadata(&record, existingByKey.value(cacheKey),
+                               object.value(QStringLiteral("requestLanguage")).toString());
         record.imageUrl = safeImportedImageUrl(record.imageUrl);
         record.imagePath =
             importedPaths.value(object.value(QStringLiteral("blobSha256")).toString());
@@ -675,6 +816,7 @@ OperationResult importPack(const QString &path, const QString &imageRoot)
     }
 
     result.ok = true;
+    result.retainedEntryKeys = unchangedKeys;
     result.entryCount = result.importedEntries.size();
     result.imageCount = pack.blobs.size();
     result.bytes = pack.payloadBytes;

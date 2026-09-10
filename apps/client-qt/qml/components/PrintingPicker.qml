@@ -134,6 +134,7 @@ Popup {
 
                     Item {
                         id: previewArea
+                        objectName: "printingPreviewArea"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
 
@@ -168,37 +169,25 @@ Popup {
                                          || (root.previewImageSource.length > 0
                                              && previewImage.status === Image.Null)
                             }
+                        }
 
-                            Column {
-                                anchors.centerIn: parent
-                                width: parent.width - Theme.size(32)
-                                spacing: Theme.size(8)
-                                visible: !root.waitingForPreview
-                                         && previewImage.status !== Image.Loading
-                                         && previewImage.status !== Image.Ready
-                                         && (previewImage.status === Image.Error
-                                             || root.previewImageSource.length === 0)
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "◇"
-                                    color: Theme.borderStrong
-                                    font.pixelSize: Theme.fontSize(38)
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    width: parent.width
-                                    text: root.previewImageSource.length > 0
-                                          ? qsTr("Could not load this card image.")
-                                          : qsTr("No card image is available for this version.")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(11)
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.WordWrap
-                                }
-                            }
+                        Text {
+                            textFormat: Text.PlainText
+                            objectName: "printingPreviewFallback"
+                            anchors.centerIn: parent
+                            width: parent.width
+                            visible: !root.waitingForPreview
+                                     && previewImage.status !== Image.Loading
+                                     && previewImage.status !== Image.Ready
+                                     && (previewImage.status === Image.Error
+                                         || root.previewImageSource.length === 0)
+                            text: root.previewImageSource.length > 0
+                                  ? qsTr("Could not load this card image.")
+                                  : qsTr("No card image is available for this version.")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                         }
                     }
 

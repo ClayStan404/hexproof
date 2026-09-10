@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Unified patches use a single context-marker space for unchanged blank lines,
+# including the last context line. Removing it corrupts the patch's hunk count.
+*.patch whitespace=-blank-at-eol,-blank-at-eof

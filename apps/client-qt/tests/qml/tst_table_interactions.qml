@@ -222,8 +222,9 @@ TestCase {
         verify(table !== null)
 
         const sharedDropArea = findChild(table, "sharedDropArea")
-        const handCard = findChild(table, "handCard0")
         verify(sharedDropArea !== null)
+        tryVerify(() => findChild(table, "handCard0") !== null)
+        const handCard = findChild(table, "handCard0")
         verify(handCard !== null)
         tryVerify(() => sharedDropArea.width > 0 && sharedDropArea.height > 0)
         verify(sharedDropArea.enabled)
@@ -272,6 +273,8 @@ TestCase {
         })
         verify(table !== null)
 
+        tryVerify(() => findChild(table, "handCard0") !== null
+                        && findChild(table, "handCard2") !== null)
         const firstCard = findChild(table, "handCard0")
         const thirdCard = findChild(table, "handCard2")
         verify(firstCard !== null)

@@ -55,6 +55,7 @@ inline constexpr qint64 kMaximumOfficialCatalogExpandedBytes = 1024LL * 1024 * 1
 inline constexpr qint64 kMaximumBulkRecordBytes = 4LL * 1024 * 1024;
 inline constexpr qint64 kMaximumChineseNameFileBytes = 96LL * 1024 * 1024;
 inline constexpr int kCardResolutionVersion = 6;
+inline const QString kCardFacesExpandedKey = QStringLiteral("_hexproofCardFacesExpanded");
 // Single source of truth for the positive card-art cache key format
 // `language|normalizedName[|SET|collector]`. The runtime cache
 // (CardArtCache::key) and the pack import/export paths
@@ -68,7 +69,14 @@ inline QString cardArtCacheKey(const QString &language, const QString &name, con
         result += QLatin1Char('|') + setCode.toUpper() + QLatin1Char('|') + collectorNumber;
     return result;
 }
-inline constexpr int kCardFaceAuditVersion = 1;
+inline bool isSupportCardRequest(const QVariantMap &card)
+{
+    const QString kind = card.value(QStringLiteral("kind")).toString();
+    return kind == QStringLiteral("token") || kind == QStringLiteral("emblem") ||
+           card.value(QStringLiteral("token")).toBool();
+}
+
+inline constexpr int kCardFaceAuditVersion = 3;
 // kScryfallPlaceholderPolicyVersion records the resolution version that
 // introduced the current Scryfall placeholder policy. The legacy-cache
 // migration in CardCatalogLookup.cpp applies only that policy's check and
@@ -316,6 +324,9 @@ inline QJsonObject recordToJson(const CardRecord &record)
         {QStringLiteral("faceName"), record.faceName},
         {QStringLiteral("localizedName"), record.localizedName},
         {QStringLiteral("typeLine"), record.typeLine},
+        {QStringLiteral("oracleText"), record.oracleText},
+        {QStringLiteral("oracleTextLanguage"), record.oracleTextLanguage},
+        {QStringLiteral("localizedRulesChecked"), record.localizedRulesChecked},
         {QStringLiteral("setCode"), record.setCode},
         {QStringLiteral("collectorNumber"), record.collectorNumber},
         {QStringLiteral("illustrationId"), record.illustrationId},
@@ -337,6 +348,9 @@ inline CardRecord recordFromJson(const QJsonObject &object)
     record.faceName = object.value(QStringLiteral("faceName")).toString();
     record.localizedName = object.value(QStringLiteral("localizedName")).toString();
     record.typeLine = object.value(QStringLiteral("typeLine")).toString();
+    record.oracleText = object.value(QStringLiteral("oracleText")).toString();
+    record.oracleTextLanguage = object.value(QStringLiteral("oracleTextLanguage")).toString();
+    record.localizedRulesChecked = object.value(QStringLiteral("localizedRulesChecked")).toBool();
     record.setCode = object.value(QStringLiteral("setCode")).toString();
     record.collectorNumber = object.value(QStringLiteral("collectorNumber")).toString();
     record.illustrationId = object.value(QStringLiteral("illustrationId")).toString();

@@ -24,6 +24,10 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
     const bool hasImageStatus = m_schema.cardColumns.contains(QStringLiteral("image_status"));
     const QString imageStatusExpression =
         hasImageStatus ? QStringLiteral("c.image_status") : QStringLiteral("''");
+    const QString oracleTextExpression =
+        m_schema.cardColumns.contains(QStringLiteral("oracle_text"))
+            ? QStringLiteral("c.oracle_text")
+            : QStringLiteral("''");
     const QString imageUsabilityOrder =
         hasImageStatus
             ? QStringLiteral("CASE WHEN lower(c.image_status) IN ('missing', 'placeholder') "
@@ -32,8 +36,8 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
     QSqlQuery query(database);
     const QString select =
         QStringLiteral("SELECT c.name, c.oracle_id, %1, %2, c.set_code, c.collector_number, "
-                       "c.image_url, c.lang, c.illustration_id, %3 FROM cards c ")
-            .arg(localizedExpression, typeExpression, imageStatusExpression);
+                       "c.image_url, c.lang, c.illustration_id, %3, %4 FROM cards c ")
+            .arg(localizedExpression, typeExpression, imageStatusExpression, oracleTextExpression);
     const QString preferredLanguage =
         request.language == QStringLiteral("zh") ? QStringLiteral("zhs") : QStringLiteral("en");
     const QString resultOrder =
@@ -126,6 +130,9 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
             record.localizedName = requestedDisplayName;
         }
         record.typeLine = query.value(3).toString();
+        // Scryfall oracle_text is canonical English even on localized printings.
+        record.oracleText = query.value(10).toString();
+        record.oracleTextLanguage = QStringLiteral("en");
         record.setCode = query.value(4).toString();
         record.collectorNumber = query.value(5).toString();
         record.imageUrl = upgradeLegacySmallImageUrl(query.value(6).toString());
@@ -188,6 +195,8 @@ CardRecord CatalogRepository::lookupLocalizedPrinting(const CatalogCardQuery &re
         record.localizedName = query.value(2).toString();
         if (record.localizedName.isEmpty())
             record.localizedName = catalogIdentity.localizedName;
+        record.oracleText = catalogIdentity.oracleText;
+        record.oracleTextLanguage = catalogIdentity.oracleTextLanguage;
         record.typeLine = query.value(3).toString();
         if (record.typeLine.isEmpty())
             record.typeLine = catalogIdentity.typeLine;

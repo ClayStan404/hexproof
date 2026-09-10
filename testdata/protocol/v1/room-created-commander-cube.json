@@ -1,0 +1,19 @@
+{
+  "type": "room.created",
+  "payload": {
+    "roomId": "TABLE4",
+    "settings": {
+      "name": "Commander Table 1",
+      "format": "edh",
+      "deckFormat": "commander_limited",
+      "maxSeats": 4,
+      "matchMode": "bo1",
+      "cardLoadMode": "background",
+      "rulesMode": "manual",
+      "allowSpectators": true,
+      "spectatorsSeeHands": false,
+      "hasPassword": false
+    },
+    "hostSeat": 0
+  }
+}

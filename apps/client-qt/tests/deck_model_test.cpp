@@ -13,6 +13,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDevice>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QScopeGuard>
 #include <QSemaphore>
 #include <QSet>
@@ -31,6 +33,602 @@ using hexproof::client::ClientPreferencesModel;
 using hexproof::client::DeckLibraryModel;
 using hexproof::client::DeckLibraryStorage;
 using hexproof::client::DeckParser;
+
+namespace {
+
+QString startupDeckText(int count, bool sameName = false)
+{
+    QString text;
+    for (int i = 0; i < count; ++i)
+        text +=
+            u"1 %1 (TST) %2\n"_s.arg(sameName ? u"Shared"_s : u"Startup %1"_s.arg(i)).arg(i + 1);
+    return text;
+}
+
+QVariantMap customPrintingBinding(const QString &name, const QString &set, const QString &collector)
+{
+    return {{u"scope"_s, u"printing"_s},
+            {u"name"_s, name},
+            {u"setCode"_s, set},
+            {u"collectorNumber"_s, collector}};
+}
+
+} // namespace
+
+void TestDeckLibrary::defersInitialDisplayPathsInBoundedBatches_data() const
+{
+    QTest::addColumn<bool>("sameName");
+    QTest::newRow("distinct-names") << false;
+    QTest::newRow("many-printings-for-one-name") << true;
+}
+
+void TestDeckLibrary::defersInitialDisplayPathsInBoundedBatches() const
+{
+    QFETCH(bool, sameName);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QFile image(storage.filePath(u"existing.png"_s));
+    QVERIFY(image.open(QIODevice::WriteOnly));
+    QCOMPARE(image.write("image"), qint64(5));
+    image.close();
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Startup"_s, u"custom"_s, startupDeckText(96, sameName)));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    for (int i = 0; i < 96; ++i)
+        model.applyCardMetadata(sameName ? u"Shared"_s : u"Startup %1"_s.arg(i), {}, {},
+                                image.fileName(), u"TST"_s, QString::number(i + 1));
+    QVERIFY(model.currentReady());
+    int calls = 0;
+    model.setImagePathResolver(
+        [&](const hexproof::client::DeckCard &) {
+            ++calls;
+            return image.fileName();
+        },
+        true);
+    QCOMPARE(calls, 0);
+    QCOMPARE(model.currentMissingImageCount(), 96);
+    QVERIFY(!model.currentReady());
+    for (const QVariant &value : model.mainCards()) {
+        QVERIFY(value.toMap().value(u"imageSource"_s).toString().isEmpty());
+        QVERIFY(value.toMap().value(u"imageSourceResolved"_s).toBool());
+    }
+    int firstBatch = 0;
+    int callsAtYield = 0;
+    connect(&model, &DeckLibraryModel::currentDeckCardsChanged, &model, [&]() {
+        if (firstBatch != 0 || calls == 0)
+            return;
+        firstBatch = calls;
+        QTimer::singleShot(0, &model, [&]() { callsAtYield = calls; });
+    });
+    QTRY_COMPARE(calls, 96);
+    QVERIFY(firstBatch > 0);
+    QVERIFY(firstBatch <= 32);
+    QCOMPARE(callsAtYield, firstBatch);
+    QVERIFY(model.currentReady());
+    QCOMPARE(model.currentMissingImageCount(), 0);
+}
+
+void TestDeckLibrary::deferredDisplayPathsFollowCurrentEditedRows() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Edited"_s, u"custom"_s, startupDeckText(70)));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Deleted"_s, u"custom"_s, u"1 Deleted (TST) 999\n"_s));
+    const QString deletedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(editedId));
+    QStringList lookedUp;
+    model.setImagePathResolver(
+        [&](const hexproof::client::DeckCard &card) {
+            lookedUp.append(card.name + u"/"_s + card.collectorNumber);
+            return storage.filePath(card.name + u"-"_s + card.collectorNumber + u".png"_s);
+        },
+        true);
+    QVERIFY(lookedUp.isEmpty());
+    QVERIFY(model.deleteDeck(deletedId));
+    QVERIFY(model.changeCardCount(u"Startup 1"_s, u"TST"_s, u"2"_s, false, -1));
+    QVERIFY(model.moveCardToConsider(u"Startup 2"_s, u"TST"_s, u"3"_s));
+    QVERIFY(
+        model.setCardPrinting(u"Startup 0"_s, u"TST"_s, u"1"_s, false, {}, {}, u"TST"_s, u"100"_s));
+    QVERIFY(model.addCard(u"Added"_s, {}, {}, u"TST"_s, u"200"_s, false));
+    QCOMPARE(lookedUp.size(), 2); // Only the explicitly edited/new rows resolve synchronously.
+    bool renamedBetweenBatches = false;
+    connect(&model, &DeckLibraryModel::currentDeckCardsChanged, &model, [&]() {
+        if (renamedBetweenBatches || lookedUp.size() <= 2)
+            return;
+        renamedBetweenBatches = true;
+        QVERIFY(model.renameCurrentDeck(u"Renamed while loading"_s));
+    });
+    QTRY_COMPARE(lookedUp.size(), 70);
+    QVERIFY(renamedBetweenBatches);
+    QVERIFY(!lookedUp.contains(u"Deleted/999"_s));
+    QVERIFY(!lookedUp.contains(u"Startup 1/2"_s));
+    QVERIFY(!lookedUp.contains(u"Startup 0/1"_s));
+    QCOMPARE(lookedUp.count(u"Startup 0/100"_s), 1);
+    QCOMPARE(lookedUp.count(u"Added/200"_s), 1);
+    QCOMPARE(lookedUp.count(u"Startup 2/3"_s), 1);
+    const QVariantMap moved = model.considerCards().first().toMap();
+    QVERIFY(QUrl(moved.value(u"imageSource"_s).toString())
+                .toLocalFile()
+                .endsWith(u"Startup 2-3.png"_s));
+}
+
+void TestDeckLibrary::cancelsDeferredDisplayPathsWhenResolverChanges() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Startup"_s, u"custom"_s, startupDeckText(70)));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    int oldCalls = 0;
+    int newCalls = 0;
+    const auto oldResolver = [&](const hexproof::client::DeckCard &) {
+        ++oldCalls;
+        return storage.filePath(u"old.png"_s);
+    };
+    const auto newResolver = [&](const hexproof::client::DeckCard &) {
+        ++newCalls;
+        return storage.filePath(u"new.png"_s);
+    };
+    model.setImagePathResolver(oldResolver, true);
+    model.setImagePathResolver(newResolver, true);
+    QCOMPARE(oldCalls, 0);
+    QCOMPARE(newCalls, 0);
+    QTRY_COMPARE(newCalls, 70);
+    QCOMPARE(oldCalls, 0);
+
+    model.setImagePathResolver(oldResolver, true);
+    model.setImagePathResolver(newResolver);
+    QCOMPARE(newCalls, 140);
+    QTest::qWait(60);
+    QCOMPARE(oldCalls, 0);
+    QCOMPARE(newCalls, 140);
+    model.setImagePathResolver(oldResolver, true);
+    model.setImagePathResolver({});
+    QTest::qWait(60);
+    QCOMPARE(oldCalls, 0);
+    for (const QVariant &value : model.mainCards())
+        QVERIFY(!value.toMap().value(u"imageSourceResolved"_s).toBool());
+
+    model.setImagePathResolver(oldResolver, true);
+    model.refreshDisplayedCardArt();
+    QCOMPARE(oldCalls, 70);
+    QTest::qWait(60);
+    QCOMPARE(oldCalls, 70);
+    {
+        auto temporary = std::make_unique<DeckLibraryModel>(storage.filePath(u"temporary"_s));
+        QVERIFY(temporary->importDeck(u"Destroyed before callback"_s, u"custom"_s,
+                                      startupDeckText(70)));
+        temporary->setImagePathResolver(oldResolver, true);
+    }
+    QTest::qWait(60);
+    QCOMPARE(oldCalls, 70);
+}
+
+void TestDeckLibrary::refreshesOnlyChangedCustomArtPrintingsWithoutHydrationOrSaving() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Edited"_s, u"custom"_s,
+                             u"1 Alpha (TST) 1\n1 Beta (TST) 2\nSideboard\n1 Alpha (TST) 1\n"
+                             u"Consider\n1 中文别名 (TST) 1\n"_s));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(
+        model.importDeck(u"Unrelated"_s, u"custom"_s, u"1 Alpha (OTHER) 1\n1 Gamma (TST) 3\n"_s));
+    QVERIFY(model.openDeck(editedId));
+    bool changed = false;
+    QStringList lookedUp;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        lookedUp.append(card.name + u"/"_s + card.setCode + u"/"_s + card.collectorNumber);
+        return storage.filePath(changed && card.setCode == u"TST"_s &&
+                                        card.collectorNumber == u"1"_s
+                                    ? u"custom.png"_s
+                                    : u"official.png"_s);
+    });
+    QTRY_VERIFY(!model.backgroundSaveRunningForTest());
+    const quint64 generation = model.persistenceGenerationForTest();
+    QFile library(storage.filePath(u"decks.json"_s));
+    QVERIFY(library.open(QIODevice::ReadOnly));
+    const QByteArray before = library.readAll();
+    library.close();
+    QSignalSpy hydration(&model, &DeckLibraryModel::cardsNeedCachedArtLookup);
+    QSignalSpy downloads(&model, &DeckLibraryModel::cardsNeedCaching);
+    QSignalSpy gridChanged(&model, &DeckLibraryModel::currentDeckCardsChanged);
+    lookedUp.clear();
+    changed = true;
+    const QVariantList bindings{
+        customPrintingBinding(u"Different official title"_s, u"tst"_s, u"1"_s)};
+    model.refreshCustomCardArt(bindings);
+    QVERIFY(lookedUp.isEmpty());
+    QTRY_COMPARE(lookedUp.size(), 3);
+    QCOMPARE(gridChanged.size(), 1);
+    QCOMPARE(lookedUp.count(u"Alpha/TST/1"_s), 2);
+    QCOMPARE(lookedUp.count(u"中文别名/TST/1"_s), 1);
+    QVERIFY(!lookedUp.contains(u"Alpha/OTHER/1"_s));
+    QVERIFY(!lookedUp.contains(u"Beta/TST/2"_s));
+    gridChanged.clear();
+    lookedUp.clear();
+    model.refreshCustomCardArt(bindings);
+    QTRY_COMPARE(lookedUp.size(), 3);
+    QVERIFY(gridChanged.isEmpty()); // A repeated revision cannot recreate the card grid.
+    lookedUp.clear();
+    model.refreshCustomCardArt({customPrintingBinding(u"Alpha"_s, u"NOPE"_s, u"9"_s)});
+    QTest::qWait(60);
+    QVERIFY(lookedUp.isEmpty());
+    QVERIFY(gridChanged.isEmpty());
+    QVERIFY(hydration.isEmpty());
+    QVERIFY(downloads.isEmpty());
+    QCOMPARE(model.persistenceGenerationForTest(), generation);
+    QVERIFY(!model.metadataCommitPendingForTest());
+    QVERIFY(library.open(QIODevice::ReadOnly));
+    QCOMPARE(library.readAll(), before);
+}
+
+void TestDeckLibrary::refreshesCardWideCustomArtInPrioritizedBoundedBatches() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QString currentText = startupDeckText(96);
+    currentText.replace(u"Startup"_s, u"Current"_s);
+    QVERIFY(model.importDeck(u"Current"_s, u"custom"_s, currentText));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Other"_s, u"custom"_s, startupDeckText(96, true)));
+    QVERIFY(model.openDeck(editedId));
+    int revision = 0;
+    QStringList lookedUp;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        lookedUp.append(card.name);
+        return storage.filePath(u"revision-%1.png"_s.arg(revision));
+    });
+    lookedUp.clear();
+    ++revision;
+    int firstBatch = 0;
+    int callsAtYield = 0;
+    connect(&model, &DeckLibraryModel::currentDeckCardsChanged, &model, [&]() {
+        if (firstBatch == 0 && !lookedUp.isEmpty()) {
+            firstBatch = lookedUp.size();
+            QTimer::singleShot(0, &model, [&]() { callsAtYield = lookedUp.size(); });
+        }
+    });
+    // The card-wide binding deliberately has a name absent from the deck. A
+    // localized row cannot be excluded without a verified per-row Oracle ID.
+    model.refreshCustomCardArt({QVariantMap{{u"scope"_s, u"card"_s},
+                                            {u"name"_s, u"Unrepresented canonical name"_s},
+                                            {u"oracleId"_s, u"oracle-id"_s}}});
+    QVERIFY(lookedUp.isEmpty());
+    QTRY_COMPARE(lookedUp.size(), 192);
+    QVERIFY(firstBatch > 0);
+    QVERIFY(firstBatch <= 32);
+    QCOMPARE(callsAtYield, firstBatch);
+    for (int i = 0; i < 96; ++i)
+        QVERIFY(lookedUp.at(i).startsWith(u"Current "_s));
+    for (int i = 96; i < 192; ++i)
+        QCOMPARE(lookedUp.at(i), u"Shared"_s);
+    QSignalSpy gridChanged(&model, &DeckLibraryModel::currentDeckCardsChanged);
+    lookedUp.clear();
+    model.refreshCustomCardArt({});
+    QVERIFY(lookedUp.isEmpty());
+    QTRY_COMPARE(lookedUp.size(), 192);
+    QVERIFY(gridChanged.isEmpty());
+}
+
+void TestDeckLibrary::mergesCustomArtRefreshWithPendingStartupAndEdits() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Startup"_s, u"custom"_s, startupDeckText(96, true)));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Deleted"_s, u"custom"_s, u"1 Deleted (TST) 1000\n"_s));
+    const QString deletedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(editedId));
+    QStringList lookedUp;
+    bool restored = false;
+    model.setImagePathResolver(
+        [&](const hexproof::client::DeckCard &card) {
+            lookedUp.append(card.collectorNumber);
+            return storage.filePath(restored && card.collectorNumber == u"1"_s ? u"restored.png"_s
+                                                                               : u"initial.png"_s);
+        },
+        true);
+    model.refreshCustomCardArt({customPrintingBinding(u"Shared"_s, u"TST"_s, u"2"_s)});
+    QVERIFY(lookedUp.isEmpty());
+    connect(&model, &DeckLibraryModel::currentDeckCardsChanged, &model, [&]() {
+        if (restored || lookedUp.isEmpty())
+            return;
+        restored = true;
+        QVERIFY(model.deleteDeck(deletedId));
+        QVERIFY(model.moveCardToConsider(u"Shared"_s, u"TST"_s, u"80"_s));
+        model.refreshCustomCardArt({customPrintingBinding(u"Shared"_s, u"TST"_s, u"1"_s)});
+    });
+    QTRY_COMPARE(lookedUp.size(), 97);
+    QVERIFY(restored);
+    QCOMPARE(lookedUp.count(u"1"_s), 2);
+    QCOMPARE(lookedUp.count(u"80"_s), 1);
+    QVERIFY(!lookedUp.contains(u"1000"_s));
+    for (int i = 2; i <= 96; ++i)
+        QCOMPARE(lookedUp.count(QString::number(i)), 1);
+    for (const QVariant &value : model.mainCards()) {
+        const QVariantMap card = value.toMap();
+        QVERIFY(card.value(u"imageSourceResolved"_s).toBool());
+        QVERIFY(!card.value(u"imageSource"_s).toString().isEmpty());
+        if (card.value(u"collectorNumber"_s).toString() == u"1"_s)
+            QVERIFY(card.value(u"imageSource"_s).toString().endsWith(u"restored.png"_s));
+    }
+    QVERIFY(!model.considerCards().first().toMap().value(u"imageSource"_s).toString().isEmpty());
+}
+
+void TestDeckLibrary::customArtRestorePreservesOfficialReadinessAndCancelsSafely() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QFile image(storage.filePath(u"custom.png"_s));
+    QVERIFY(image.open(QIODevice::WriteOnly));
+    QCOMPARE(image.write("image"), qint64(5));
+    image.close();
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Custom ready"_s, u"custom"_s, u"7 Alpha (TST) 1\n"_s));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    int calls = 0;
+    bool custom = true;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &) {
+        ++calls;
+        return custom ? image.fileName() : QString{};
+    });
+    QVERIFY(model.currentReady());
+    const quint64 generation = model.persistenceGenerationForTest();
+    custom = false;
+    model.refreshCustomCardArt({customPrintingBinding(u"Alpha"_s, u"TST"_s, u"1"_s)});
+    QTRY_COMPARE(calls, 2);
+    QVERIFY(!model.currentReady());
+    QCOMPARE(model.currentMissingImageCount(), 1);
+    // The old custom file still exists, but must not count as an official
+    // successful download after its mapping has been restored.
+    QVERIFY(QFile::exists(image.fileName()));
+    QVERIFY(model.mainCards().first().toMap().value(u"imageSource"_s).toString().isEmpty());
+    QCOMPARE(model.persistenceGenerationForTest(), generation);
+    model.refreshCustomCardArt({});
+    model.setImagePathResolver({});
+    QTest::qWait(60);
+    QCOMPARE(calls, 2);
+    QVERIFY(!model.currentReady());
+    QVERIFY(!model.mainCards().first().toMap().value(u"imageSourceResolved"_s).toBool());
+    {
+        auto temporary = std::make_unique<DeckLibraryModel>(storage.filePath(u"temporary"_s));
+        QVERIFY(temporary->importDeck(u"Destroyed"_s, u"custom"_s, startupDeckText(96)));
+        temporary->setImagePathResolver(
+            [&](const hexproof::client::DeckCard &) {
+                ++calls;
+                return image.fileName();
+            },
+            true);
+        temporary->refreshCustomCardArt({});
+    }
+    QTest::qWait(60);
+    QCOMPARE(calls, 2);
+}
+
+void TestDeckLibrary::customArtRefreshResolvesSeparateMeldAliases() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(
+        model.importDeck(u"Meld"_s, u"custom"_s,
+                         u"1 Bruna, the Fading Light // Brisela, Voice of Nightmares (EMN) 15a\n"
+                         u"1 Other (EMN) 15b\n1 Bruna, the Fading Light (OTHER) 20\n"_s));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    QStringList lookedUp;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        lookedUp.append(card.collectorNumber);
+        return storage.filePath(u"official.png"_s);
+    });
+    lookedUp.clear();
+    model.refreshCustomCardArt(
+        {customPrintingBinding(u"Brisela, Voice of Nightmares"_s, u"emn"_s, u"15B"_s)});
+    QTRY_COMPARE(lookedUp.size(), 2);
+    QVERIFY(lookedUp.contains(u"15a"_s));
+    QVERIFY(lookedUp.contains(u"15b"_s));
+    QVERIFY(!lookedUp.contains(u"20"_s));
+}
+
+void TestDeckLibrary::limitsDisplayPathResolutionToChangedCards() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Edited"_s, u"commander"_s,
+                             u"1 Alpha (TST) 1\n1 Beta (TST) 2\nConsider\n1 Delta (TST) 4\n"_s));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Unrelated"_s, u"custom"_s, u"1 Gamma (TST) 3\n"_s));
+    QVERIFY(model.openDeck(editedId));
+    QStringList lookedUp;
+    const auto resolver = [&](const hexproof::client::DeckCard &card) {
+        lookedUp.append(card.name);
+        return storage.filePath(card.name + u"-"_s + card.collectorNumber + u".png"_s);
+    };
+    model.setImagePathResolver(resolver);
+    QCOMPARE(lookedUp.size(), 4);
+    lookedUp.clear();
+    QVERIFY(model.renameCurrentDeck(u"Renamed"_s));
+    QVERIFY(model.setCommander(u"Alpha"_s));
+    QVERIFY(model.changeCardCount(u"Alpha"_s, u"TST"_s, u"1"_s, false, 1));
+    QVERIFY(model.moveCardToConsider(u"Beta"_s, u"TST"_s, u"2"_s));
+    QVERIFY(model.moveConsiderCardToMain(u"Beta"_s, u"TST"_s, u"2"_s));
+    QVERIFY(model.changeCurrentDeckFormat(u"custom"_s));
+    QVERIFY(lookedUp.isEmpty());
+
+    QVERIFY(model.addCard(u"Epsilon"_s, {}, u"Creature"_s, u"TST"_s, u"5"_s, false));
+    QCOMPARE(lookedUp, QStringList{u"Epsilon"_s});
+    lookedUp.clear();
+    QVERIFY(model.addConsiderCard(u"Zeta"_s, {}, u"Creature"_s, u"TST"_s, u"6"_s));
+    QCOMPARE(lookedUp, QStringList{u"Zeta"_s});
+    lookedUp.clear();
+    QVERIFY(model.importDeck(u"New import"_s, u"custom"_s, u"1 Eta (TST) 7\n"_s));
+    QCOMPARE(lookedUp, QStringList{u"Eta"_s});
+
+    // Only an explicit artwork revision or a new resolver refreshes the library.
+    lookedUp.clear();
+    model.refreshDisplayedCardArt();
+    QCOMPARE(lookedUp.size(), 7);
+    lookedUp.clear();
+    model.setImagePathResolver(resolver);
+    QCOMPARE(lookedUp.size(), 7);
+    lookedUp.clear();
+    model.setImagePathResolver({});
+    QVERIFY(lookedUp.isEmpty());
+    for (const QVariant &entry : model.mainCards()) {
+        QVERIFY(!entry.toMap().value(u"imageSourceResolved"_s).toBool());
+        QVERIFY(entry.toMap().value(u"imageSource"_s).toString().isEmpty());
+    }
+}
+
+void TestDeckLibrary::invalidatesDisplayPathsOnlyForArtOrPrintingMetadata() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Edited"_s, u"custom"_s, u"1 Alpha\n1 Beta (TST) 2\n"_s));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Unrelated"_s, u"custom"_s, u"1 Gamma (TST) 3\n"_s));
+    QVERIFY(model.openDeck(editedId));
+    QStringList lookedUp;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        lookedUp.append(card.name + u"/"_s + card.setCode + u"/"_s + card.collectorNumber);
+        return card.imagePath;
+    });
+    QCOMPARE(lookedUp.size(), 3);
+    lookedUp.clear();
+    model.applyCatalogMetadata({QVariantMap{{u"requestedName"_s, u"Beta"_s},
+                                            {u"requestedSetCode"_s, u"TST"_s},
+                                            {u"requestedCollectorNumber"_s, u"2"_s},
+                                            {u"localizedName"_s, u"贝塔"_s},
+                                            {u"manaValue"_s, 2},
+                                            {u"cardColors"_s, u"U"_s}}});
+    QVERIFY(lookedUp.isEmpty());
+    QSignalSpy changed(&model, &DeckLibraryModel::currentDeckChanged);
+    model.applyCardMetadata(u"Beta"_s, u"新贝塔"_s, u"Creature"_s, {}, u"TST"_s, u"2"_s);
+    QTRY_VERIFY(!changed.isEmpty());
+    QVERIFY(lookedUp.isEmpty());
+
+    const QString imagePath = storage.filePath(u"official.png"_s);
+    model.applyCardMetadata(u"Beta"_s, {}, {}, imagePath, u"TST"_s, u"2"_s);
+    QTRY_COMPARE(lookedUp, QStringList{u"Beta/TST/2"_s});
+    lookedUp.clear();
+    model.applyCardMetadata(u"Alpha"_s, {}, {}, {}, u"TST"_s, u"1"_s);
+    QTRY_COMPARE(lookedUp, QStringList{u"Alpha/TST/1"_s});
+    model.setImagePathResolver({});
+    for (const QVariant &entry : model.mainCards()) {
+        const QVariantMap card = entry.toMap();
+        if (card.value(u"name"_s).toString() == u"Beta"_s) {
+            QCOMPARE(QUrl(card.value(u"imageSource"_s).toString()).toLocalFile(), imagePath);
+            QVERIFY(!card.value(u"imageSourceResolved"_s).toBool());
+        }
+    }
+}
+
+void TestDeckLibrary::refreshesDisplayPathsAndMetadataAfterPrintingMerge() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Edited"_s, u"custom"_s,
+                             u"1 Alpha (TST) 1\n1 Alpha (TST) 2\n1 Beta (TST) 3\n"_s));
+    const QString editedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Unrelated"_s, u"custom"_s, u"1 Gamma (TST) 4\n"_s));
+    QVERIFY(model.openDeck(editedId));
+    QStringList lookedUp;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        lookedUp.append(card.name + u"/"_s + card.collectorNumber);
+        return storage.filePath(card.name + u"-"_s + card.collectorNumber + u".png"_s);
+    });
+    lookedUp.clear();
+    QVERIFY(model.setCardPrinting(u"Alpha"_s, u"TST"_s, u"1"_s, false, {}, {}, u"TST"_s, u"5"_s));
+    QCOMPARE(lookedUp, QStringList{u"Alpha/5"_s});
+    lookedUp.clear();
+    QVERIFY(model.setCardPrinting(u"Alpha"_s, u"TST"_s, u"5"_s, false, {}, {}, u"TST"_s, u"2"_s));
+    QCOMPARE(lookedUp, QStringList{u"Alpha/2"_s});
+    QCOMPARE(model.mainCards().size(), 2);
+    lookedUp.clear();
+    // Merging removed the first row; the remaining Beta metadata location must
+    // still address Beta, not the old pre-merge vector index.
+    model.applyCardMetadata(u"Beta"_s, u"贝塔"_s, u"Creature"_s,
+                            storage.filePath(u"beta-official.png"_s), u"TST"_s, u"3"_s);
+    QTRY_COMPARE(lookedUp, QStringList{u"Beta/3"_s});
+    for (const QVariant &entry : model.mainCards()) {
+        const QVariantMap card = entry.toMap();
+        if (card.value(u"name"_s).toString() == u"Alpha"_s) {
+            QCOMPARE(card.value(u"count"_s).toInt(), 2);
+            QVERIFY(QUrl(card.value(u"imageSource"_s).toString())
+                        .toLocalFile()
+                        .endsWith(u"Alpha-2.png"_s));
+        } else {
+            QCOMPARE(card.value(u"displayName"_s).toString(), u"贝塔"_s);
+        }
+    }
+}
+
+void TestDeckLibrary::snapshotsArtExportRequestsForOnlyTheSelectedDeck() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Export scope"_s, u"modern"_s, uR"(
+Deck
+4 Lightning Bolt (M11) 146
+1 Sol Ring (CMM) 396
+Sideboard
+2 Lightning Bolt (M11) 146
+1 Lightning Bolt (2XM) 117
+Consider
+1 Plains (M21) 260
+)"_s));
+    const QString selectedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(selectedId));
+    QVERIFY(model.addToken({{u"name"_s, u"Angel"_s},
+                            {u"setCode"_s, u"TM21"_s},
+                            {u"collectorNumber"_s, u"1"_s},
+                            {u"kind"_s, u"token"_s}}));
+    QVERIFY(model.addToken({{u"name"_s, u"Teferi Emblem"_s},
+                            {u"setCode"_s, u"TDOM"_s},
+                            {u"collectorNumber"_s, u"16"_s},
+                            {u"kind"_s, u"emblem"_s}}));
+    QVERIFY(model.importDeck(u"Unrelated"_s, u"modern"_s, u"1 Island (M21) 263\n"_s));
+    QString unrelatedId;
+    for (int row = 0; row < model.rowCount(); ++row) {
+        const QString id = model.data(model.index(row), DeckLibraryModel::IdRole).toString();
+        if (id != selectedId)
+            unrelatedId = id;
+    }
+    QVERIFY(model.openDeck(unrelatedId));
+    model.setFormatFilter(u"cube"_s);
+    QCOMPARE(model.rowCount(), 0);
+    QSignalSpy caching(&model, &DeckLibraryModel::cardsNeedCaching);
+    const QVariantList snapshot = model.cardArtExportRequests(selectedId);
+    QCOMPARE(snapshot.size(), 6); // Copies and duplicate zones share one printing request.
+    QSet<QString> printings;
+    QSet<QString> kinds;
+    for (const QVariant &value : snapshot) {
+        const QVariantMap request = value.toMap();
+        printings.insert(request.value(u"setCode"_s).toString() + QLatin1Char('/') +
+                         request.value(u"collectorNumber"_s).toString());
+        if (request.contains(u"kind"_s))
+            kinds.insert(request.value(u"kind"_s).toString());
+    }
+    QCOMPARE(printings, (QSet<QString>{u"M11/146"_s, u"CMM/396"_s, u"2XM/117"_s, u"M21/260"_s,
+                                       u"TM21/1"_s, u"TDOM/16"_s}));
+    QCOMPARE(kinds, (QSet<QString>{u"token"_s, u"emblem"_s}));
+    QVERIFY(model.cardArtExportRequests({}).isEmpty());
+    QVERIFY(model.cardArtExportRequests(u"missing"_s).isEmpty());
+    QCOMPARE(caching.count(), 0);
+    QCOMPARE(model.currentDeckId(), unrelatedId);
+    QVERIFY(model.deleteDeck(selectedId));
+    QVERIFY(model.cardArtExportRequests(selectedId).isEmpty());
+    QCOMPARE(snapshot.size(), 6);
+}
 
 void TestDeckLibrary::importsFiltersEditsAndPersists() const
 {
@@ -55,12 +653,12 @@ Sideboard
 
         deckId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
         QVERIFY(model.openDeck(deckId));
-        QVERIFY(model.changeCardCount(u"Lightning Bolt"_s, false, 1));
+        QVERIFY(model.changeCardCount(u"Lightning Bolt"_s, {}, {}, false, 1));
         QCOMPARE(model.currentCardCopies(u"Lightning Bolt"_s), 5);
-        QVERIFY(model.moveCard(u"Lightning Bolt"_s, true));
+        QVERIFY(model.moveCard(u"Lightning Bolt"_s, {}, {}, true));
         QCOMPARE(model.currentMainCount(), 8);
         QCOMPARE(model.currentSideboardCount(), 3);
-        QVERIFY(model.changeCardCount(u"Lightning Bolt"_s, true, 1));
+        QVERIFY(model.changeCardCount(u"Lightning Bolt"_s, {}, {}, true, 1));
         QVERIFY(
             model.addCard(u"Sol Ring"_s, u"Sol Ring"_s, u"Artifact"_s, u"CMM"_s, u"396"_s, false));
         QCOMPARE(model.currentMainCount(), 9);
@@ -70,8 +668,8 @@ Sideboard
         QCOMPARE(added.first().toMap().value(u"name"_s).toString(), u"Sol Ring"_s);
         QSignalSpy cardsAboutToChangeSpy(&model, &DeckLibraryModel::currentDeckCardsAboutToChange);
         QSignalSpy cardsChangedSpy(&model, &DeckLibraryModel::currentDeckCardsChanged);
-        QVERIFY(model.setCardPrinting(u"Sol Ring"_s, false, u"阳光戒"_s, u"神器"_s, u"2X2"_s,
-                                      u"308"_s));
+        QVERIFY(model.setCardPrinting(u"Sol Ring"_s, u"CMM"_s, u"396"_s, false, u"阳光戒"_s,
+                                      u"神器"_s, u"2X2"_s, u"308"_s));
         QCOMPARE(cardsAboutToChangeSpy.count(), 1);
         QCOMPARE(cardsChangedSpy.count(), 1);
         QCOMPARE(cachingSpy.count(), 2);
@@ -175,11 +773,51 @@ void TestDeckLibrary::validatesOnlyAffectedDecks() const
     QTest::qWait(150);
     QCOMPARE(validationSpy.count(), 0);
 
-    QVERIFY(model.changeCardCount(u"Forest"_s, false, -1));
+    QVERIFY(model.changeCardCount(u"Forest"_s, {}, {}, false, -1));
     QTRY_COMPARE(validationSpy.count(), 1);
     requests = validationSpy.takeFirst().constFirst().toList();
     QCOMPARE(requests.size(), 1);
     QCOMPARE(requests.constFirst().toMap().value(u"deckId"_s).toString(), secondId);
+}
+
+void TestDeckLibrary::rejectsValidationFromPreviousDeckFormat() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QSignalSpy validationSpy(&model, &DeckLibraryModel::decksNeedValidation);
+    QVERIFY(model.importDeck(u"Format changes"_s, u"modern"_s, u"60 Mountain\n"_s));
+    const QString deckId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(deckId));
+    QTRY_COMPARE(validationSpy.count(), 1);
+    const QVariantMap previous = validationSpy.takeFirst().first().toList().first().toMap();
+
+    QVERIFY(model.changeCurrentDeckFormat(u"custom"_s));
+    model.refreshDeckValidation();
+    QVERIFY(model.changeCurrentDeckFormat(u"pioneer"_s));
+    const QVariantMap staleResult{
+        {u"deckId"_s, deckId},
+        {u"validationRevision"_s, previous.value(u"validationRevision"_s)},
+        {u"valid"_s, false},
+        {u"verified"_s, true},
+        {u"issues"_s, QStringList{u"Old format error"_s}},
+    };
+    // The old worker may finish before the new request's debounce timer fires.
+    model.applyDeckValidation({staleResult});
+    QVERIFY(model.currentValidationIssues().isEmpty());
+    QTRY_COMPARE(validationSpy.count(), 1);
+    const QVariantMap current = validationSpy.takeFirst().first().toList().first().toMap();
+    QCOMPARE(current.value(u"deckFormat"_s).toString(), u"pioneer"_s);
+    model.applyDeckValidation({QVariantMap{
+        {u"deckId"_s, deckId},
+        {u"validationRevision"_s, current.value(u"validationRevision"_s)},
+        {u"valid"_s, true},
+        {u"verified"_s, true},
+        {u"issues"_s, QStringList{}},
+    }});
+    model.applyDeckValidation({staleResult});
+    QVERIFY(model.currentValidationVerified());
+    QVERIFY(model.currentValidationIssues().isEmpty());
 }
 
 void TestDeckLibrary::legalityWarningsDoNotBlockDeckSelection() const
@@ -336,9 +974,9 @@ void TestDeckLibrary::changesDeckToCubeWithoutLosingCards() const
     QCOMPARE(model.currentMainCount(), 360);
     QCOMPARE(model.currentSideboardCount(), 0);
     QVERIFY(model.currentCommander().isEmpty());
-    QVERIFY(!model.moveCard(u"Lightning Bolt"_s, true));
+    QVERIFY(!model.moveCard(u"Lightning Bolt"_s, u"2XM"_s, u"117"_s, true));
     QVERIFY(!model.addCard(u"Island"_s, {}, u"Basic Land — Island"_s, u"M21"_s, u"265"_s, true));
-    QVERIFY(!model.changeCardCount(u"Lightning Bolt"_s, true, 1));
+    QVERIFY(!model.changeCardCount(u"Lightning Bolt"_s, u"2XM"_s, u"117"_s, true, 1));
     QCOMPARE(model.matchDecks(u"cube"_s, true).size(), 1);
     QVERIFY(!model.cubeProduct(deckId).isEmpty());
 
@@ -346,6 +984,74 @@ void TestDeckLibrary::changesDeckToCubeWithoutLosingCards() const
     QCOMPARE(model.currentDeckFormat(), u"standard"_s);
     QCOMPARE(model.currentMainCount(), 360);
     QCOMPARE(model.currentSideboardCount(), 0);
+}
+
+void TestDeckLibrary::appliesMetadataOnlyToMatchingCardLocations() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+
+    QVERIFY(model.importDeck(u"Mixed printings"_s, u"modern"_s,
+                             u"Deck\n"
+                             "1 Lightning Bolt (M11) 149\n"
+                             "1 Lightning Bolt (2XM) 117\n"
+                             "1 Island (M21) 265\n"
+                             "Sideboard\n"
+                             "1 Lightning Bolt (M11) 149\n"_s));
+    const QString mixedId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Matching zones"_s, u"modern"_s,
+                             u"Deck\n"
+                             "1 Lightning Bolt (M11) 149\n"
+                             "1 Mountain (M21) 273\n"
+                             "Consider\n"
+                             "1 Lightning Bolt (M11) 149\n"_s));
+    const QString matchingId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.importDeck(u"Different printing"_s, u"modern"_s,
+                             u"1 Lightning Bolt (2XM) 117\n6 Forest (M21) 272\n"_s));
+    const QString differentId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QTRY_COMPARE_WITH_TIMEOUT(model.persistedGenerationForTest(),
+                              model.persistenceGenerationForTest(), 1'000);
+
+    model.applyCardMetadata(u"Lightning Bolt"_s, u"闪电击"_s, u"Instant"_s, {}, u"M11"_s, u"149"_s);
+
+    const auto cardWithPrinting = [](const QVariantList &cards, const QString &setCode,
+                                     const QString &collectorNumber) {
+        for (const QVariant &value : cards) {
+            const QVariantMap card = value.toMap();
+            if (card.value(u"setCode"_s).toString() == setCode &&
+                card.value(u"collectorNumber"_s).toString() == collectorNumber) {
+                return card;
+            }
+        }
+        return QVariantMap{};
+    };
+    const auto verifyUpdated = [](const QVariantMap &card) {
+        QVERIFY(!card.isEmpty());
+        QCOMPARE(card.value(u"displayName"_s).toString(), u"闪电击"_s);
+        QCOMPARE(card.value(u"typeLine"_s).toString(), u"Instant"_s);
+    };
+    const auto verifyUnchanged = [](const QVariantMap &card) {
+        QVERIFY(!card.isEmpty());
+        QCOMPARE(card.value(u"displayName"_s).toString(), u"Lightning Bolt"_s);
+        QVERIFY(card.value(u"typeLine"_s).toString().isEmpty());
+    };
+
+    QVERIFY(model.openDeck(mixedId));
+    verifyUpdated(cardWithPrinting(model.mainCards(), u"M11"_s, u"149"_s));
+    verifyUpdated(cardWithPrinting(model.sideboardCards(), u"M11"_s, u"149"_s));
+    verifyUnchanged(cardWithPrinting(model.mainCards(), u"2XM"_s, u"117"_s));
+
+    QVERIFY(model.openDeck(matchingId));
+    verifyUpdated(cardWithPrinting(model.mainCards(), u"M11"_s, u"149"_s));
+    verifyUpdated(cardWithPrinting(model.considerCards(), u"M11"_s, u"149"_s));
+
+    QVERIFY(model.openDeck(differentId));
+    verifyUnchanged(cardWithPrinting(model.mainCards(), u"2XM"_s, u"117"_s));
+
+    model.flushMetadataCommitForTest();
+    QTRY_COMPARE_WITH_TIMEOUT(model.persistedGenerationForTest(),
+                              model.persistenceGenerationForTest(), 1'000);
 }
 
 void TestDeckLibrary::coalescesCardMetadataPersistence() const
@@ -774,6 +1480,43 @@ void TestDeckLibrary::storesPackOpeningAnimationPreference() const
     QVERIFY(!restored.animatePackOpenings());
 }
 
+void TestDeckLibrary::ignoresRemovedThemePreferences() const
+{
+    for (const QString &themeId : {u"glass"_s, u"ember"_s}) {
+        QTemporaryDir storage;
+        QVERIFY(storage.isValid());
+        QFile settings(storage.filePath(u"settings.json"_s));
+        QVERIFY(settings.open(QIODevice::WriteOnly));
+        const QJsonObject legacy{{u"version"_s, 13},
+                                 {u"themeId"_s, themeId},
+                                 {u"reducedMotion"_s, true},
+                                 {u"uiLanguage"_s, u"zh"_s},
+                                 {u"cardLanguage"_s, u"en"_s},
+                                 {u"interfaceScale"_s, 1.25},
+                                 {u"animatePackOpenings"_s, false}};
+        QVERIFY(settings.write(QJsonDocument(legacy).toJson()) > 0);
+        settings.close();
+
+        ClientPreferencesModel model(storage.path());
+        QCOMPARE(model.uiLanguage(), u"zh"_s);
+        QCOMPARE(model.cardLanguage(), u"en"_s);
+        QCOMPARE(model.interfaceScale(), 1.25);
+        QVERIFY(!model.animatePackOpenings());
+        QVERIFY(!model.property("themeId").isValid());
+        QVERIFY(!model.property("reducedMotion").isValid());
+        model.setReuseLocalCardArt(false);
+        QVERIFY(model.lastError().isEmpty());
+        QVERIFY(settings.open(QIODevice::ReadOnly));
+        const auto saved = QJsonDocument::fromJson(settings.readAll()).object();
+        QVERIFY(!saved.contains(u"themeId"_s));
+        QVERIFY(!saved.contains(u"reducedMotion"_s));
+        QCOMPARE(saved.value(u"uiLanguage"_s).toString(), u"zh"_s);
+        QCOMPARE(saved.value(u"cardLanguage"_s).toString(), u"en"_s);
+        QCOMPARE(saved.value(u"interfaceScale"_s).toDouble(), 1.25);
+        QCOMPARE(saved.value(u"animatePackOpenings"_s).toBool(), false);
+    }
+}
+
 void TestDeckLibrary::storesSponsorAnnouncementAcknowledgement() const
 {
     QTemporaryDir storage;
@@ -899,18 +1642,18 @@ void TestDeckLibrary::storesCustomShortcutPreferences() const
         QCOMPARE(model.shortcutRevision(), 1);
         QCOMPARE(shortcutSpy.count(), 1);
 
-        QVERIFY(model.setShortcutSequence(u"replay.speedHalf"_s, {}));
-        QVERIFY(model.shortcutSequences(u"replay.speedHalf"_s).isEmpty());
-        QVERIFY(model.shortcutCustomized(u"replay.speedHalf"_s));
+        QVERIFY(model.setShortcutSequence(u"table.help"_s, {}));
+        QVERIFY(model.shortcutSequences(u"table.help"_s).isEmpty());
+        QVERIFY(model.shortcutCustomized(u"table.help"_s));
     }
 
     ClientPreferencesModel restored(storage.path());
     QCOMPARE(restored.shortcutSequences(u"app.fullscreen"_s), QStringList{u"Ctrl+Alt+F"_s});
-    QVERIFY(restored.shortcutSequences(u"replay.speedHalf"_s).isEmpty());
+    QVERIFY(restored.shortcutSequences(u"table.help"_s).isEmpty());
     QVERIFY(restored.resetShortcut(u"app.fullscreen"_s));
     QCOMPARE(restored.shortcutSequences(u"app.fullscreen"_s), QStringList{u"F11"_s});
     QVERIFY(restored.resetAllShortcuts());
-    QCOMPARE(restored.shortcutSequences(u"replay.speedHalf"_s), QStringList{u"1"_s});
+    QCOMPARE(restored.shortcutSequences(u"table.help"_s), (QStringList{u"F1"_s, u"?"_s}));
 }
 
 void TestDeckLibrary::rejectsShortcutConflictsAndInvalidSequences() const
@@ -951,7 +1694,7 @@ void TestDeckLibrary::reportsEditorFailuresThroughLastError() const
 
     QVERIFY(!model.addCard({}, {}, {}, {}, {}, false));
     QVERIFY(model.lastError().contains(u"Card name"_s));
-    QVERIFY(!model.changeCardCount(u"Missing Card"_s, false, 1));
+    QVERIFY(!model.changeCardCount(u"Missing Card"_s, {}, {}, false, 1));
     QVERIFY(model.lastError().contains(u"not in the deck"_s));
 }
 

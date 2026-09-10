@@ -17,7 +17,7 @@ Item {
         tableController.zoneState.displayedPublicZoneTopCard(
             tableController.roomSession.seatIndex, zoneKey)
     readonly property string zoneTitle:
-        zoneKey === "graveyard" ? qsTr("Graveyard") : qsTr("Exile")
+        zoneKey === "graveyard" ? qsTranslate("Table", "Graveyard") : qsTranslate("Table", "Exile")
 
     Layout.fillWidth: true
     Layout.fillHeight: true
@@ -59,7 +59,8 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Theme.size(4)
-            width: zoneLabel.implicitWidth + Theme.size(14)
+            width: Math.min(parent.width - Theme.size(4),
+                            zoneLabel.implicitWidth + Theme.size(14))
             height: Theme.size(22)
             radius: height / 2
             color: Theme.badgeBackground
@@ -70,6 +71,11 @@ Item {
                 textFormat: Text.PlainText
                 id: zoneLabel
                 anchors.centerIn: parent
+                width: parent.width - Theme.size(8)
+                fontSizeMode: Text.Fit
+                minimumPixelSize: Theme.fontSize(6)
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideMiddle
                 text: root.zoneTitle + " "
                       + root.tableController.zoneState.zoneCardCount(
                           root.tableController.roomSession.seatIndex,
@@ -147,13 +153,14 @@ Item {
                     + root.tableController.roomSession.seatIndex
         anchors.fill: parent
         z: 3
-        enabled: root.tableController.canAct
+        enabled: !root.tableController.tableModalOpen
         hoverEnabled: true
         cursorShape: drag.active
                      ? Qt.ClosedHandCursor
-                     : (root.topCard.id
+                     : (root.tableController.canAct && root.topCard.id
                         ? Qt.OpenHandCursor : Qt.PointingHandCursor)
-        drag.target: root.topCard.id ? zoneDragCard : null
+        drag.target: root.tableController.canAct && root.topCard.id
+                     ? zoneDragCard : null
         drag.threshold: Theme.size(5)
         preventStealing: true
         onEntered: root.tableController.presentation.inspectCard(

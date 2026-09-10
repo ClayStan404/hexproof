@@ -91,7 +91,7 @@ Item {
 
             Text {
                 textFormat: Text.PlainText
-                text: qsTr("Spectator hand view")
+                text: qsTranslate("Table", "Spectator hand view")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(12)
                 font.weight: Font.DemiBold
@@ -110,7 +110,7 @@ Item {
                              ? "primary" : "ghost"
                     text: (modelData.displayName
                            ? modelData.displayName
-                           : qsTr("Seat") + " " + (modelData.seat + 1))
+                           : qsTranslate("Table", "Seat") + " " + (modelData.seat + 1))
                           + " · " + modelData.handCount
                     onClicked: root.selectedSeat = modelData.seat
                 }
@@ -125,7 +125,7 @@ Item {
                 textFormat: Text.PlainText
                 anchors.centerIn: parent
                 visible: handList.count === 0
-                text: qsTr("This hand is empty")
+                text: qsTranslate("Table", "This hand is empty")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
             }

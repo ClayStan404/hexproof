@@ -134,7 +134,11 @@ TestCase {
             }
         }
 
-        ListModel { id: emptyModel }
+        ListModel {
+            id: emptyModel
+            function validAssignments() { return true }
+        }
+        ListModel { id: manyPromptOptions }
 
         ListModel {
             id: rollPromptOptions
@@ -179,9 +183,12 @@ TestCase {
 
         QtObject {
             id: rulesSession
+            property string gameId: "rules-match"
             signal promptChanged()
 
             property bool active: true
+            property int snapshotRevision: 0
+            property var zoneCountSnapshot: ({})
             property int turn: 0
             property string step: "reset"
             property int activeSeat: 0
@@ -209,6 +216,13 @@ TestCase {
             property var promptTargets: emptyModel
             property var promptCombat: emptyModel
             property var promptChoices: emptyModel
+            property var promptContextCards: emptyModel
+            property var promptContextTargets: emptyModel
+            property string promptContextText: ""
+            property var promptDamageTargets: emptyModel
+            property var promptDamageSource: ({})
+            property int promptTotalDamage: 0
+            property bool promptDamageDeathtouch: false
             property int promptMinCardSelections: 0
             property int promptMaxCardSelections: 0
             property int promptMinSelections: 0
@@ -220,12 +234,9 @@ TestCase {
             property int promptMaxNumber: 0
 
             function zoneCount(ownerSeat, zone) {
-                for (let index = 0; index < zones.count; ++index) {
-                    const item = zones.get(index)
-                    if (item.ownerSeat === ownerSeat && item.zone === zone)
-                        return item.count
-                }
-                return 0
+                // Mutating this plain object has no QML property notification,
+                // just like data accessed behind the real C++ invokable.
+                return zoneCountSnapshot[ownerSeat + ":" + zone] || 0
             }
 
             function castActionsForCard(cardId) {
@@ -254,26 +265,58 @@ TestCase {
             property string roomId: "ABCDEF"
             property string role: "player"
             property int seatIndex: 0
+            property bool host: true
+            property string phase: "started"
+            property string matchMode: "bo1"
+            property string format: "modern"
+            property string deckFormat: "modern"
+            property bool spectatorsSeeHands: false
+        }
+
+        QtObject {
+            id: gameSession
+            property int gameNumber: 1
+            property var score: [0, 0]
+            property var result: ({})
+            property var sideboard: ({})
+            property bool sideboarding: false
         }
 
         QtObject {
             id: fakeWs
             property var rulesSession: rulesSession
             property var roomSession: roomSession
+            property var gameSession: gameSession
+            property bool inRoom: true
+            property string lastError: ""
+            property bool rulesResponsePending: false
             property int responseCount: 0
             property int concedeCount: 0
             property int lastPromptId: 0
             property string lastResponseId: ""
+            property int restartCount: 0
+            property int leaveCount: 0
+            property int returnCount: 0
+            property int chatCount: 0
+            property string lastChat: ""
+            property int readyCount: 0
+            property int moveCount: 0
 
-            function leaveRoom() {}
+            function leaveRoom() { leaveCount++ }
+            function restartGame() { restartCount++ }
+            function sayGameMessage(message) { chatCount++; lastChat = message }
+            function setSideboardReady(ready) { readyCount++ }
+            function moveSideboardCard(card, from, to) { moveCount++ }
+            function setSideboardCommander(name, designated) {}
             function concede() { concedeCount++ }
             function respondRulesPrompt(promptId, responseId) {
+                rulesResponsePending = true
                 responseCount++
                 lastPromptId = promptId
                 lastResponseId = responseId
             }
             function respondRulesPromptWithScry(promptId, piles) {}
-            function returnToRoom() {}
+            function returnToRoom() { returnCount++ }
         }
 
         QtObject {
@@ -290,11 +333,42 @@ TestCase {
             anchors.fill: parent
             wsModel: fakeWs
             cardCatalogModel: fakeCatalog
+            gameTableModel: testGameTable
+            sideboardTableModel: testSideboardTable
         }
     }
 
-    function initTestCase() {
+    function resetMatchState() {
         Theme.uiScale = 1.0
+        for (const name of ["rulesGameResultPopup", "rulesRestartConfirmation",
+                             "rulesLeaveConfirmation"]) {
+            const dialog = findChild(table, name)
+            if (dialog) dialog.close()
+        }
+        roomSession.host = true
+        roomSession.role = "player"
+        roomSession.seatIndex = 0
+        roomSession.matchMode = "bo1"
+        roomSession.format = "modern"
+        roomSession.spectatorsSeeHands = false
+        gameSession.sideboarding = false
+        gameSession.sideboard = ({})
+        gameSession.result = ({})
+        gameSession.score = [0, 0]
+        gameSession.gameNumber = 1
+        fakeWs.inRoom = true
+        fakeWs.lastError = ""
+        fakeWs.restartCount = 0
+        fakeWs.leaveCount = 0
+        fakeWs.returnCount = 0
+        fakeWs.chatCount = 0
+        fakeWs.lastChat = ""
+        fakeWs.readyCount = 0
+        fakeWs.moveCount = 0
+        table.showGameLogRail = true
+        testGameTable.applySnapshot({gameId: "rules-match", log: [], seats: [
+            {seat: 0, displayName: "Alice"}, {seat: 1, displayName: "Bob"}
+        ]})
     }
 
     function init() {
@@ -307,7 +381,14 @@ TestCase {
         testWindow.width = 1280
         testWindow.height = 800
         Theme.uiScale = 1.0
+        resetMatchState()
         rulesSession.active = true
+        rulesSession.gameId = "rules-match"
+        rulesSession.zoneCountSnapshot = {
+            "0:hand": 1, "0:library": 60, "0:battlefield": 1,
+            "1:hand": 0, "1:library": 60, "1:graveyard": 1, "1:battlefield": 1
+        }
+        rulesSession.snapshotRevision++
         rulesSession.gameOver = false
         rulesSession.promptPending = true
         rulesSession.promptSupported = true
@@ -316,9 +397,81 @@ TestCase {
         rulesSession.promptTitle = "Roll for first player"
         rulesSession.promptDetail = ""
         rulesSession.promptOptions = rollPromptOptions
+        rulesSession.promptContextText = ""
+        rulesSession.stack = emptyModel
         players.setProperty(0, "status", "playing")
         players.setProperty(1, "status", "playing")
         fakeWs.concedeCount = 0
+        fakeWs.responseCount = 0
+        fakeWs.rulesResponsePending = false
+        manyPromptOptions.clear()
+        waitForRendering(table)
+    }
+
+    function test_zoneOnlySnapshotRefreshesCountsAndEmptyLabels() {
+        const ownLibrary = findChild(table, "rulesOwnZoneTile-library")
+        const opponentLibrary = findChild(table, "rulesOpponentZoneTile-1-library")
+        const opponentGraveyard = findChild(table, "rulesOpponentZoneTile-1-graveyard")
+        const ownSummary = findChild(table, "rulesBattlefieldSummary0")
+        const opponentSummary = findChild(table, "rulesBattlefieldSummary1")
+        const emptyHand = findChild(table, "rulesHandEmptyMessage")
+        const emptyBattlefield = findChild(table, "rulesBattlefieldEmpty0")
+        verify(ownLibrary && opponentLibrary && opponentGraveyard)
+        verify(ownSummary && opponentSummary && emptyHand && emptyBattlefield)
+        compare(ownLibrary.cardCount, 60)
+        compare(opponentLibrary.cardCount, 60)
+        compare(emptyHand.visible, false)
+        compare(emptyBattlefield.visible, false)
+        const turn = rulesSession.turn
+        const ownLife = players.get(0).life
+        const opponentLife = players.get(1).life
+
+        rulesSession.zoneCountSnapshot["0:hand"] = 0
+        rulesSession.zoneCountSnapshot["0:library"] = 53
+        rulesSession.zoneCountSnapshot["0:battlefield"] = 0
+        rulesSession.zoneCountSnapshot["1:hand"] = 4
+        rulesSession.zoneCountSnapshot["1:library"] = 56
+        rulesSession.zoneCountSnapshot["1:graveyard"] = 3
+        rulesSession.snapshotRevision++
+
+        tryCompare(ownLibrary, "cardCount", 53)
+        tryCompare(opponentLibrary, "cardCount", 56)
+        tryCompare(opponentGraveyard, "cardCount", 3)
+        verify(ownSummary.text.indexOf("0H / 53D") >= 0)
+        verify(opponentSummary.text.indexOf("4H / 56D") >= 0)
+        compare(emptyHand.visible, true)
+        compare(emptyBattlefield.visible, true)
+
+        rulesSession.zoneCountSnapshot["0:hand"] = 2
+        rulesSession.zoneCountSnapshot["0:battlefield"] = 2
+        rulesSession.snapshotRevision++
+        tryCompare(emptyHand, "visible", false)
+        tryCompare(emptyBattlefield, "visible", false)
+        compare(rulesSession.turn, turn)
+        compare(players.get(0).life, ownLife)
+        compare(players.get(1).life, opponentLife)
+    }
+
+    function test_zoneDockDelegatesDetachWithoutNullParentWarnings() {
+        failOnWarning(/Cannot read property .* of null/)
+        const saved = []
+        for (let index = 0; index < players.count; ++index) {
+            const row = players.get(index)
+            saved.push({ seat: row.seat, name: row.name, status: row.status,
+                         life: row.life, countersSummary: row.countersSummary,
+                         manaSummary: row.manaSummary })
+        }
+        players.clear()
+        wait(0)
+        fakeCatalog.imageRevision++
+        wait(0)
+        for (const row of saved)
+            players.append(row)
+        wait(0)
+        const tile = findChild(table, "rulesOpponentZoneTile-1-library")
+        verify(tile)
+        compare(tile.cardCount, 60)
+        tryVerify(() => tile.width > 0 && tile.height > 0)
     }
 
     function test_primaryPlayAreaDoesNotCollapse() {
@@ -339,7 +492,8 @@ TestCase {
         tryVerify(() => layout.width > 0)
         compare(actionRail.width, 144)
         compare(sharedRail.width, 92)
-        compare(stateRail.width, 176)
+        verify(!stateRail.visible)
+        compare(findChild(table, "gameLogRail").width, table.gameLogRailWidth)
         verify(playArea.width >= layout.width * 0.6,
                "play area " + playArea.width + " / layout " + layout.width)
         verify(battlefield.width >= playArea.width - 1,
@@ -478,6 +632,67 @@ TestCase {
         compare(fakeWs.lastResponseId, "action:0")
     }
 
+    function test_overflowingHandScrollsWithoutStealingPlayableCardDrag() {
+        const viewport = findChild(table, "rulesHandViewport")
+        const scrollbar = findChild(table, "rulesHandScrollBar")
+        verify(viewport && scrollbar)
+        compare(scrollbar.policy, ScrollBar.AlwaysOff)
+        const originalCount = zoneCards.count
+        const template = JSON.parse(JSON.stringify(zoneCards.get(0)))
+        rulesSession.promptKind = "chooseAction"
+        manyPromptOptions.append({ responseId: "action:first", kind: "cast",
+                                   label: "Cast first card", cardId: "hand-card" })
+        rulesSession.promptOptions = manyPromptOptions
+        try {
+            for (let index = 0; index < 20; ++index) {
+                const card = JSON.parse(JSON.stringify(template))
+                card.cardId = "overflow-hand-" + index
+                zoneCards.append(card)
+                manyPromptOptions.append({ responseId: "action:overflow-" + index,
+                                           kind: "cast", label: "Cast card " + index,
+                                           cardId: card.cardId })
+            }
+            waitForRendering(table)
+            tryVerify(() => viewport.contentWidth > viewport.width)
+            compare(scrollbar.policy, ScrollBar.AlwaysOn)
+            verify(scrollbar.visible && scrollbar.interactive)
+            const firstDrag = findChild(table, "rulesHandCardDrag-hand-card")
+            verify(firstDrag.enabled)
+            mouseWheel(firstDrag, firstDrag.width / 2, firstDrag.height / 2, 0, -120)
+            tryVerify(() => viewport.contentX > 0)
+            compare(fakeWs.responseCount, 0)
+
+            viewport.contentX = 0
+            mouseDrag(scrollbar, scrollbar.width * scrollbar.size / 2,
+                      scrollbar.height / 2, scrollbar.width, 0,
+                      Qt.LeftButton, Qt.NoModifier, 30)
+            tryVerify(() => viewport.atXEnd)
+            const lastCard = findChild(table, "rulesHandCard-overflow-hand-19")
+            const lastDrag = findChild(table, "rulesHandCardDrag-overflow-hand-19")
+            verify(lastCard && lastDrag && lastDrag.enabled)
+            const lastPosition = lastCard.mapToItem(viewport, 0, 0)
+            verify(lastPosition.x >= -1)
+            verify(lastPosition.x + lastCard.width <= viewport.width + 1)
+            const barPosition = scrollbar.mapToItem(viewport, 0, 0)
+            verify(lastPosition.y + lastCard.height <= barPosition.y)
+
+            const dropArea = findChild(table, "rulesBattlefieldDropArea0")
+            const dropPoint = dropArea.mapToItem(lastDrag, dropArea.width / 2,
+                                               dropArea.height / 2)
+            mouseDrag(lastDrag, lastDrag.width / 2, lastDrag.height / 2,
+                      dropPoint.x - lastDrag.width / 2,
+                      dropPoint.y - lastDrag.height / 2,
+                      Qt.LeftButton, Qt.NoModifier, 30)
+            tryCompare(fakeWs, "responseCount", 1)
+            compare(fakeWs.lastResponseId, "action:overflow-19")
+        } finally {
+            zoneCards.remove(originalCount, zoneCards.count - originalCount)
+            rulesSession.promptOptions = rollPromptOptions
+            viewport.contentX = 0
+        }
+        tryCompare(scrollbar, "policy", ScrollBar.AlwaysOff)
+    }
+
     function test_multipleCardActionsRequireExplicitChoice() {
         rulesSession.promptId = 10
         rulesSession.promptKind = "chooseAction"
@@ -507,6 +722,111 @@ TestCase {
         compare(fakeWs.lastResponseId, "action:1")
     }
 
+    function test_tallDecisionStaysInsideBattlefieldAndScrolls() {
+        testWindow.width = 900
+        testWindow.height = 620
+        Theme.uiScale = 1.35
+        rulesSession.promptKind = "chooseBoardTargets"
+        rulesSession.promptTitle = "Choose a target for Lightning Bolt"
+        rulesSession.promptDetail = "Choose exactly one target."
+        rulesSession.promptContextText = "Lightning Bolt targets one creature or player."
+        const panel = findChild(table, "rulesPromptPanel")
+        const host = findChild(table, "rulesBattlefieldHost")
+        waitForRendering(table)
+        verify(panel.mapToItem(host, 0, 0).y >= 0,
+               "The decision title must not extend above the battlefield")
+        const body = findChild(table, "rulesPromptScroll")
+        verify(body !== null)
+        verify(body.contentHeight > body.height)
+        mouseWheel(body, body.width / 2, body.height / 2, 0, -480)
+        tryVerify(() => body.contentY > 0)
+        const confirmation = findChild(table, "rulesConfirmTargets")
+        tryVerify(() => confirmation.mapToItem(body, 0, confirmation.height).y <= body.height + 1,
+                  1000, "Confirmation remains reachable by scrolling")
+    }
+
+    function test_manyActionsRemainDiscoverableAtNarrowWidth_data() {
+        return [
+            { tag: "compact", width: 900, scale: 1.0 },
+            { tag: "narrow", width: 700, scale: 1.0 },
+            { tag: "scaled", width: 900, scale: 1.25 }
+        ]
+    }
+
+    function test_manyActionsRemainDiscoverableAtNarrowWidth(data) {
+        testWindow.width = data.width
+        testWindow.height = 620
+        Theme.uiScale = data.scale
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptTitle = "Choose an action while Lightning Bolt waits on the stack"
+        rulesSession.promptDetail = "Choose a spell or activated ability, or pass priority to let the next player respond. This deliberately long instruction must remain readable at narrow widths."
+        for (let index = 0; index < 20; ++index) {
+            manyPromptOptions.append({ responseId: "action:" + index,
+                                       kind: "activate", label: "Activate ability " + index })
+        }
+        rulesSession.promptOptions = manyPromptOptions
+        const panel = findChild(table, "rulesPromptPanel")
+        const title = findChild(table, "rulesPromptTitle")
+        const detail = findChild(table, "rulesPromptDetail")
+        const options = findChild(table, "rulesPromptOptions")
+        const scrollbar = findChild(table, "rulesPromptOptionsScrollBar")
+        waitForRendering(table)
+        tryVerify(() => options.contentWidth > options.width)
+        compare(scrollbar.policy, ScrollBar.AlwaysOn)
+        verify(scrollbar.visible)
+        verify(title.width > panel.width * 0.9)
+        verify(!title.truncated)
+        verify(!detail.truncated)
+        compare(title.textFormat, Text.PlainText)
+        compare(detail.textFormat, Text.PlainText)
+
+        const initialX = options.contentX
+        mouseWheel(options, options.width / 2, 15, 0, -120)
+        tryVerify(() => options.contentX > initialX)
+        for (let index = 0; index < 30; ++index)
+            scrollbar.increase()
+        tryVerify(() => options.atXEnd)
+        const last = findChild(options, "rulesPromptOption-action:19")
+        verify(last !== null)
+        const position = last.mapToItem(options, last.width / 2, last.height / 2)
+        verify(position.x > 0 && position.x < options.width)
+        mouseClick(options, position.x, position.y)
+        compare(fakeWs.responseCount, 1)
+        compare(fakeWs.lastResponseId, "action:19")
+    }
+
+    function test_responsePendingBlocksClicksAndHandActions() {
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = castPromptOptions
+        const options = findChild(table, "rulesPromptOptions")
+        tryVerify(() => options.count === 2)
+        const button = findChild(options, "rulesPromptOption-action:0")
+        verify(button !== null)
+        verify(table.canDragHandCard("hand-card"))
+        mouseClick(button, button.width / 2, button.height / 2)
+        compare(fakeWs.responseCount, 1)
+        verify(!button.enabled)
+        verify(!table.canDragHandCard("hand-card"))
+        verify(!table.playDraggedHandCard("hand-card", "Lightning Bolt"))
+        mouseClick(button, button.width / 2, button.height / 2)
+        compare(fakeWs.responseCount, 1)
+        fakeWs.rulesResponsePending = false
+        tryCompare(button, "enabled", true)
+        verify(table.canDragHandCard("hand-card"))
+    }
+
+    function test_pendingResponseInvalidatesOpenCardActionPicker() {
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = modalCastPromptOptions
+        verify(table.playDraggedHandCard("hand-card", "Lightning Bolt"))
+        const picker = findChild(table, "rulesCardActionPicker")
+        tryCompare(picker, "opened", true)
+        fakeWs.rulesResponsePending = true
+        picker.submit("action:1")
+        compare(fakeWs.responseCount, 0)
+        tryCompare(picker, "opened", false)
+    }
+
     function test_concedeRequiresConfirmationAndHidesAfterConcession() {
         const button = findChild(table, "rulesConcedeButton-0")
         const dialog = findChild(table, "rulesConcedeConfirmation")
@@ -525,5 +845,338 @@ TestCase {
 
         players.setProperty(0, "status", "conceded")
         tryCompare(button, "visible", false)
+    }
+
+    function sideboardProjection(owner) {
+        const state = {
+            deadlineUnixMs: Date.now() + 300000,
+            seats: [{seat: 0, ready: false, mainboardCount: 7, sideboardCount: 1},
+                    {seat: 1, ready: false, mainboardCount: 7, sideboardCount: 1}]
+        }
+        if (owner) {
+            state.mainboard = [{name: "Plains", count: 7, typeLine: "Basic Land"}]
+            state.sideboard = [{name: "Private Sideboard Card", count: 1, typeLine: "Creature"}]
+        }
+        return state
+    }
+
+    function test_faceDownStackUsesCardBackAndPublicLabel() {
+        rulesSession.stack = testRulesSnapshot.stack
+        const list = findChild(table, "rulesStackCards")
+        tryCompare(list, "count", 2)
+        const card = findChild(list, "rulesStackCard-0")
+        verify(card !== null)
+        verify(!card.visibleIdentity)
+        verify(card.faceDown)
+        compare(card.name, "")
+        compare(card.hiddenLabel, "Face-down spell")
+        compare(String(card.imageSource()), String(table.cardBackSource))
+        compare(findChild(card, "rulesCardTooltipText").textFormat, Text.PlainText)
+        const visibleCard = findChild(list, "rulesStackCard-1")
+        verify(visibleCard !== null)
+        verify(visibleCard.visibleIdentity && !visibleCard.faceDown)
+        compare(visibleCard.name, "Lightning Bolt")
+    }
+
+    function test_bo3SideboardUsesOwnerPartitionAndStartsNextGame() {
+        roomSession.matchMode = "bo3"
+        rulesSession.gameOver = true
+        gameSession.score = [1, 0]
+        gameSession.result = {winnerSeat: 0, matchFinished: false, reason: "rules"}
+        gameSession.sideboard = sideboardProjection(true)
+        gameSession.sideboarding = true
+        const loader = findChild(table, "rulesSideboardLoader")
+        tryVerify(() => loader.item !== null)
+        const panel = loader.item
+        verify(panel.isPlayer)
+        compare(panel.mainboard[0].count, 7)
+        compare(panel.sideboard[0].name, "Private Sideboard Card")
+        verify(panel.remainingSeconds > 290)
+        verify(!findChild(table, "rulesReturnToRoomButton").visible)
+        verify(!findChild(table, "rulesGameResultPopup").opened)
+        verify(!table.canDragHandCard("hand-card"))
+        const ready = findChild(panel, "sideboardReadyButton")
+        verify(ready.enabled)
+        mouseClick(ready, ready.width / 2, ready.height / 2)
+        compare(fakeWs.readyCount, 1)
+        panel.moveSideboardCard(panel.sideboard[0], "sideboard", "mainboard")
+        compare(fakeWs.moveCount, 1)
+        const incomplete = sideboardProjection(true)
+        incomplete.mainboard[0].count = 6
+        gameSession.sideboard = incomplete
+        tryCompare(ready, "enabled", false)
+
+        gameSession.sideboarding = false
+        gameSession.sideboard = ({})
+        gameSession.result = ({})
+        gameSession.gameNumber = 2
+        rulesSession.gameOver = false
+        tryVerify(() => loader.item === null)
+        verify(findChild(table, "rulesBattlefieldHost").visible)
+        compare(table.matchUi.scoreSummary(), "1–0")
+        roomSession.seatIndex = 1
+        compare(table.matchUi.scoreSummary(), "0–1")
+        verify(!findChild(table, "rulesReturnToRoomButton").visible)
+    }
+
+    function test_spectatorSideboardDoesNotContainPrivateCards() {
+        roomSession.role = "spectator"
+        roomSession.seatIndex = -1
+        roomSession.host = false
+        gameSession.sideboard = sideboardProjection(false)
+        gameSession.sideboarding = true
+        const loader = findChild(table, "rulesSideboardLoader")
+        tryVerify(() => loader.item !== null)
+        compare(loader.item.mainboard.length, 0)
+        compare(loader.item.sideboard.length, 0)
+        verify(loader.item.remainingSeconds > 290)
+        verify(!findChild(loader.item, "sideboardReadyButton").visible)
+        verify(!findChild(loader.item, "sideboardTables").visible)
+        verify(table.canChat)
+        fakeWs.inRoom = false
+        verify(!loader.item.enabled)
+        verify(!table.canChat)
+    }
+
+    function test_terminalResultStayReviewAndReturnRequireFinishedMatch() {
+        rulesSession.gameOver = true
+        verify(!findChild(table, "rulesReturnToRoomButton").visible)
+        gameSession.score = [2, 1]
+        gameSession.result = {winnerSeat: 0, matchFinished: true, reason: "rules"}
+        const result = findChild(table, "rulesGameResultPopup")
+        tryCompare(result, "opened", true)
+        compare(result.titleText, "Alice wins the match")
+        compare(result.outcome, "win")
+        const stay = findChild(result, "stayAtTableButton")
+        mouseClick(stay, stay.width / 2, stay.height / 2)
+        tryCompare(result, "opened", false)
+        table.matchUi.synchronizeResult()
+        verify(!result.opened)
+        verify(table.canChat)
+        const button = findChild(table, "rulesReturnToRoomButton")
+        verify(button.visible && button.enabled)
+        fakeWs.inRoom = false
+        verify(!button.enabled)
+        table.matchUi.returnToRoom()
+        compare(fakeWs.returnCount, 0)
+        fakeWs.inRoom = true
+        mouseClick(button, button.width / 2, button.height / 2)
+        compare(fakeWs.returnCount, 1)
+    }
+
+    function test_restartAndLeaveConfirmAndRevalidateAuthority() {
+        const restart = findChild(table, "rulesRestartGameButton")
+        const dialog = findChild(table, "rulesRestartConfirmation")
+        verify(restart.visible && restart.enabled)
+        mouseClick(restart, restart.width / 2, restart.height / 2)
+        tryCompare(dialog, "opened", true)
+        compare(fakeWs.restartCount, 0)
+        roomSession.host = false
+        dialog.confirmed()
+        compare(fakeWs.restartCount, 0)
+        dialog.close()
+        roomSession.host = true
+        table.matchUi.openRestartConfirmation()
+        dialog.confirmed()
+        compare(fakeWs.restartCount, 1)
+        dialog.close()
+        const leave = findChild(table, "rulesLeaveConfirmation")
+        table.matchUi.openLeaveConfirmation()
+        tryCompare(leave, "opened", true)
+        fakeWs.inRoom = false
+        tryCompare(leave, "opened", false)
+        leave.confirmed()
+        compare(fakeWs.leaveCount, 0)
+        fakeWs.inRoom = true
+        roomSession.host = false
+        table.matchUi.openLeaveConfirmation()
+        compare(leave.message,
+                "Leaving ends the current rules game and returns the other players to the waiting room.")
+        leave.close()
+        roomSession.role = "spectator"
+        table.matchUi.openLeaveConfirmation()
+        compare(leave.message, "You will leave this room.")
+        leave.close()
+    }
+
+    function test_terminalMetadataRestoresWithoutAnEngineSnapshot() {
+        rulesSession.active = false
+        rulesSession.gameOver = false
+        rulesSession.promptPending = false
+        gameSession.gameNumber = 2
+        gameSession.score = [2, 0]
+        gameSession.result = {winnerSeat: 0, matchFinished: true, reason: "rules"}
+        const result = findChild(table, "rulesGameResultPopup")
+        tryCompare(result, "opened", true)
+        verify(result.titleText.indexOf("Alice") >= 0)
+        verify(findChild(table, "rulesReturnToRoomButton").visible)
+        verify(!findChild(table, "rulesRestartGameButton").visible)
+        verify(!findChild(table, "rulesTurnSummary").visible)
+        verify(!findChild(table, "rulesActiveSeatSummary").visible)
+        verify(!findChild(table, "rulesPhaseScrollView").visible)
+        compare(findChild(table, "rulesSnapshotStatus").text,
+                "The match is complete. Review the public log or return to the room.")
+        verify(table.canChat)
+        verify(!table.matchUi.canRestart)
+        verify(!table.playDraggedHandCard("hand-card", "Lightning Bolt"))
+        result.close()
+
+        gameSession.result = {winnerSeat: 0, matchFinished: false, reason: "rules"}
+        gameSession.sideboard = sideboardProjection(true)
+        gameSession.sideboarding = true
+        const loader = findChild(table, "rulesSideboardLoader")
+        tryVerify(() => loader.item !== null)
+        verify(findChild(loader.item, "sideboardReadyButton").enabled)
+        verify(!findChild(table, "rulesReturnToRoomButton").visible)
+        verify(!findChild(table, "rulesBattlefieldHost").visible)
+    }
+
+    function test_destructiveConfirmationsCannotCrossGameOrConnectionBoundaries() {
+        failOnWarning(/Binding loop/)
+        const concede = findChild(table, "rulesConcedeConfirmation")
+        const restart = findChild(table, "rulesRestartConfirmation")
+        table.openConcedeConfirmation()
+        tryCompare(concede, "opened", true)
+        rulesSession.gameOver = true
+        tryCompare(concede, "opened", false)
+        rulesSession.gameId = "rules-match-2"
+        rulesSession.gameOver = false
+        concede.confirmed()
+        compare(fakeWs.concedeCount, 0)
+
+        table.openConcedeConfirmation()
+        tryCompare(concede, "opened", true)
+        rulesSession.gameId = "rules-match-2-restarted"
+        tryCompare(concede, "opened", false)
+        concede.confirmed()
+        compare(fakeWs.concedeCount, 0)
+
+        table.openConcedeConfirmation()
+        tryCompare(concede, "opened", true)
+        fakeWs.inRoom = false
+        tryCompare(concede, "opened", false)
+        fakeWs.inRoom = true
+        concede.confirmed()
+        compare(fakeWs.concedeCount, 0)
+
+        table.matchUi.openRestartConfirmation()
+        tryCompare(restart, "opened", true)
+        gameSession.sideboarding = true
+        tryCompare(restart, "opened", false)
+        gameSession.sideboarding = false
+        rulesSession.gameId = "rules-match-3"
+        restart.confirmed()
+        compare(fakeWs.restartCount, 0)
+
+        table.matchUi.openRestartConfirmation()
+        tryCompare(restart, "opened", true)
+        rulesSession.gameId = "rules-match-4"
+        tryCompare(restart, "opened", false)
+        restart.confirmed()
+        compare(fakeWs.restartCount, 0)
+
+        table.matchUi.openRestartConfirmation()
+        tryCompare(restart, "opened", true)
+        fakeWs.inRoom = false
+        tryCompare(restart, "opened", false)
+        fakeWs.inRoom = true
+        restart.confirmed()
+        compare(fakeWs.restartCount, 0)
+
+        table.openConcedeConfirmation()
+        tryCompare(concede, "opened", true)
+        const concedeButton = findChild(concede, "confirmButton")
+        mouseClick(concedeButton, concedeButton.width / 2, concedeButton.height / 2)
+        tryCompare(concede, "opened", false)
+        compare(fakeWs.concedeCount, 1)
+        concede.confirmed()
+        compare(fakeWs.concedeCount, 1)
+        table.matchUi.openRestartConfirmation()
+        tryCompare(restart, "opened", true)
+        const restartButton = findChild(restart, "confirmButton")
+        mouseClick(restartButton, restartButton.width / 2, restartButton.height / 2)
+        tryCompare(restart, "opened", false)
+        compare(fakeWs.restartCount, 1)
+        restart.confirmed()
+        compare(fakeWs.restartCount, 1)
+    }
+
+    function test_authorizedSpectatorHandsAreReadOnlyAndRevocable() {
+        const first = findChild(table, "rulesHandCard-hand-card")
+        const viewFirst = findChild(table, "rulesViewHandButton0")
+        const viewSecond = findChild(table, "rulesViewHandButton1")
+        const message = findChild(table, "rulesSpectatorHandMessage")
+        const owner = findChild(table, "rulesSpectatorHandOwner")
+        const card = Object.assign({}, zoneCards.get(0), {
+            cardId: "authorized-second-hand", zoneOwnerSeat: 1,
+            ownerSeat: 1, controllerSeat: 1, name: "Opt"
+        })
+        zoneCards.append(card)
+        try {
+            const second = findChild(table, "rulesHandCard-authorized-second-hand")
+            verify(first.visible && !second.visible)
+            roomSession.spectatorsSeeHands = true
+            verify(!viewFirst.visible && !viewSecond.visible)
+            compare(table.handOwnerSeat, 0)
+            roomSession.role = "spectator"
+            roomSession.seatIndex = -1
+            tryCompare(viewFirst, "visible", true)
+            verify(!message.visible && owner.visible && first.visible)
+            waitForRendering(table)
+            mouseClick(viewSecond, viewSecond.width / 2, viewSecond.height / 2)
+            compare(table.handOwnerSeat, 1)
+            verify(!first.visible && second.visible)
+            verify(owner.text.indexOf("Bob") >= 0)
+            testGameTable.applySnapshot({gameId: "rules-match", seats: [
+                {seat: 0, displayName: "Alice"}, {seat: 1, displayName: "Renamed Bob"}
+            ]})
+            tryVerify(() => owner.text.indexOf("Renamed Bob") >= 0)
+            rulesSession.promptKind = "chooseAction"
+            rulesSession.promptOptions = castPromptOptions
+            verify(!table.canDragHandCard("hand-card"))
+            verify(!table.playDraggedHandCard("hand-card", "Lightning Bolt"))
+            compare(fakeWs.responseCount, 0)
+            roomSession.spectatorsSeeHands = false
+            compare(table.handOwnerSeat, -1)
+            verify(message.visible && !first.visible && !second.visible)
+            verify(!viewFirst.visible && !viewSecond.visible)
+            roomSession.spectatorsSeeHands = true
+            compare(table.handOwnerSeat, 0)
+            fakeWs.inRoom = false
+            compare(table.handOwnerSeat, -1)
+            verify(!first.visible && !second.visible)
+        } finally {
+            zoneCards.remove(zoneCards.count - 1)
+        }
+    }
+
+    function test_publicLogChatAndErrorsRemainUsableAfterGameOver() {
+        const rail = findChild(table, "gameLogRail")
+        const input = findChild(rail, "gameChatInput")
+        const send = findChild(rail, "sendGameChatButton")
+        const toggle = findChild(table, "rulesToggleGameLogButton")
+        testGameTable.applySnapshot({gameId: "rules-match", seats: [], log: [
+            {id: 1, kind: "chat", seat: 1, text: "Bob: <b>hello</b>"}
+        ]})
+        const log = findChild(rail, "gameLog")
+        tryCompare(log, "count", 1)
+        roomSession.role = "spectator"
+        rulesSession.gameOver = true
+        input.text = " Public reply "
+        mouseClick(send, send.width / 2, send.height / 2)
+        compare(fakeWs.chatCount, 1)
+        compare(fakeWs.lastChat, "Public reply")
+        compare(input.text, "")
+        mouseClick(toggle, toggle.width / 2, toggle.height / 2)
+        verify(!rail.visible)
+        mouseClick(toggle, toggle.width / 2, toggle.height / 2)
+        verify(rail.visible)
+        fakeWs.lastError = "invalid_rules_response: Try again"
+        verify(findChild(table, "rulesErrorBanner").visible)
+        fakeWs.inRoom = false
+        input.text = "Do not send"
+        verify(!send.enabled)
+        verify(!table.cardActions.submitChatMessage())
+        compare(fakeWs.chatCount, 1)
     }
 }

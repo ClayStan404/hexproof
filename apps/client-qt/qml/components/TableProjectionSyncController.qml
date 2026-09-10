@@ -10,7 +10,6 @@ QtObject {
 
     required property var tableRoot
     required property var seatStateComponent
-    required property var gameLogModel
 
     property var ownHand: []
     property string ownHandModelSignature: ""
@@ -139,38 +138,6 @@ QtObject {
         ownHand = cards
     }
 
-    function syncGameLog() {
-        const entries = tableRoot.tableGameLog ? tableRoot.tableGameLog : []
-        let prefixMatches = gameLogModel.count <= entries.length
-        if (prefixMatches) {
-            for (let index = 0; index < gameLogModel.count; ++index) {
-                const existing = gameLogModel.get(index)
-                const incoming = entries[index]
-                if (existing.entryId
-                        !== (incoming.id !== undefined ? incoming.id : index)
-                        || existing.entryKind
-                           !== (incoming.kind ? incoming.kind : "")
-                        || existing.entryText
-                           !== (incoming.text ? incoming.text : "")) {
-                    prefixMatches = false
-                    break
-                }
-            }
-        }
-        if (!prefixMatches)
-            gameLogModel.clear()
-        for (let index = gameLogModel.count;
-             index < entries.length; ++index) {
-            const entry = entries[index]
-            gameLogModel.append({
-                "entryId": entry.id !== undefined ? entry.id : index,
-                "entryKind": entry.kind ? entry.kind : "",
-                "entrySeat": entry.seat !== undefined ? entry.seat : -1,
-                "entryText": entry.text ? entry.text : ""
-            })
-        }
-    }
-
     function visibleOwnHandCount() {
         let count = 0
         for (let index = 0; index < ownHand.length; ++index) {
@@ -289,7 +256,6 @@ QtObject {
         ownHand = []
         ownHandModelSignature = ""
         handOrderIds = []
-        gameLogModel.clear()
         activeHandDragCardId = ""
         handModelSyncDeferred = false
         activeBattlefieldDragCardId = ""

@@ -1,0 +1,5 @@
+{
+  "type": "game.remove_emblem",
+  "id": "emblem-remove-1",
+  "payload": {"emblemId": "s1-e1"}
+}

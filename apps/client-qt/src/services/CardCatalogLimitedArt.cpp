@@ -4,10 +4,13 @@
 #include "CardArtCache.h"
 #include "CardCatalog.h"
 #include "CardCatalogCommon.h"
+#include "CardCatalogFaceExpansionState.h"
 #include "CardResolver.h"
 
+#include <QCoreApplication>
 #include <QJsonDocument>
 #include <QNetworkReply>
+#include <QTimer>
 #include <QUrlQuery>
 
 #include <algorithm>
@@ -95,7 +98,93 @@ void CardCatalog::cacheLimitedProductArt(const QString &productId)
         }
     }
 
-    const QVariantList expandedCards = expandCardFaceRequests(cards);
+    if (cards.isEmpty()) {
+        setLastError(QStringLiteral("The Limited product does not contain cacheable cards."));
+        return;
+    }
+
+    auto expansion = std::make_unique<LimitedArtFaceExpansionState>();
+    expansion->serial = ++m_limitedArtFaceExpansionSerial;
+    expansion->productId = productId;
+    expansion->language = m_language;
+    expansion->cards = cards;
+    m_limitedArtFaceExpansion = std::move(expansion);
+    m_limitedArtProductId = productId;
+    m_limitedArtTotal = cards.size();
+    m_limitedArtCompleted = 0;
+    m_limitedArtFailed = 0;
+    m_limitedArtCaching = true;
+    setStatus(QStringLiteral("Expanding Limited product card faces…"));
+    emit limitedArtCacheChanged();
+    emit busyChanged();
+    scheduleLimitedArtFaceExpansion();
+}
+
+void CardCatalog::restartLimitedArtFaceExpansion()
+{
+    if (!m_limitedArtFaceExpansion)
+        return;
+    m_limitedArtFaceExpansion->serial = ++m_limitedArtFaceExpansionSerial;
+    m_limitedArtFaceExpansion->language = m_language;
+    m_limitedArtFaceExpansion->expanded.clear();
+    m_limitedArtFaceExpansion->nextIndex = 0;
+    m_limitedArtFaceExpansion->scheduled = false;
+    scheduleLimitedArtFaceExpansion();
+}
+
+void CardCatalog::scheduleLimitedArtFaceExpansion()
+{
+    if (!m_limitedArtFaceExpansion || m_limitedArtFaceExpansion->scheduled || m_shuttingDown ||
+        QCoreApplication::closingDown()) {
+        return;
+    }
+    m_limitedArtFaceExpansion->scheduled = true;
+    const quint64 serial = m_limitedArtFaceExpansion->serial;
+    QTimer::singleShot(0, this, [this, serial]() {
+        if (!m_limitedArtFaceExpansion || m_limitedArtFaceExpansion->serial != serial)
+            return;
+        m_limitedArtFaceExpansion->scheduled = false;
+        processLimitedArtFaceExpansionBatch();
+    });
+}
+
+void CardCatalog::processLimitedArtFaceExpansionBatch()
+{
+    if (!m_limitedArtFaceExpansion)
+        return;
+    if (m_shuttingDown || QCoreApplication::closingDown()) {
+        m_limitedArtFaceExpansion.reset();
+        return;
+    }
+    if (m_catalogBusy)
+        return;
+    if (m_limitedArtFaceExpansion->language != m_language) {
+        restartLimitedArtFaceExpansion();
+        return;
+    }
+
+    QVariantList batch;
+    while (batch.size() < cardFaceExpansionBatchSize() &&
+           m_limitedArtFaceExpansion->nextIndex < m_limitedArtFaceExpansion->cards.size()) {
+        batch.append(m_limitedArtFaceExpansion->cards.at(m_limitedArtFaceExpansion->nextIndex++));
+    }
+    m_limitedArtFaceExpansion->expanded.append(expandCardFaceRequests(batch));
+    if (m_limitedArtFaceExpansion->nextIndex < m_limitedArtFaceExpansion->cards.size()) {
+        scheduleLimitedArtFaceExpansion();
+        return;
+    }
+
+    const QString productId = m_limitedArtFaceExpansion->productId;
+    const QVariantList expandedCards = m_limitedArtFaceExpansion->expanded;
+    m_limitedArtFaceExpansion.reset();
+    beginLimitedArtCaching(productId, expandedCards);
+}
+
+void CardCatalog::beginLimitedArtCaching(const QString &productId,
+                                         const QVariantList &expandedCards)
+{
+    if (!m_limitedArtCaching || productId != m_limitedArtProductId)
+        return;
     m_limitedArtRequests.clear();
     m_limitedArtMtgchCards.clear();
     m_limitedArtSetQueue.clear();
@@ -122,19 +211,18 @@ void CardCatalog::cacheLimitedProductArt(const QString &productId)
             cacheKey(request.name, request.language, request.setCode, request.collectorNumber));
     }
     if (m_limitedArtRequests.isEmpty()) {
+        m_limitedArtCaching = false;
+        m_limitedArtTotal = 0;
         setLastError(QStringLiteral("The Limited product does not contain cacheable cards."));
+        emit limitedArtCacheChanged();
+        emit busyChanged();
         return;
     }
 
-    m_limitedArtProductId = productId;
     m_limitedArtTotal = m_limitedArtRequests.size();
-    m_limitedArtCompleted = 0;
-    m_limitedArtFailed = 0;
-    m_limitedArtCaching = true;
     if (m_cardResolver)
         m_cardResolver->clearCooldowns();
     emit limitedArtCacheChanged();
-    emit busyChanged();
 
     const bool prefersMtgch =
         m_language == QStringLiteral("zh") && (m_cardArtProvider == QStringLiteral("auto") ||

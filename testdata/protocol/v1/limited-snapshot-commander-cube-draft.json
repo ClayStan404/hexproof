@@ -1,0 +1,243 @@
+{
+  "type": "limited.snapshot",
+  "payload": {
+    "tournamentId": "CMD234",
+    "eventType": "commander_cube",
+    "stage": "draft",
+    "product": {
+      "id": "commander-cube",
+      "name": "Friday Commander Cube",
+      "productType": "cube",
+      "authentic": false,
+      "cardsPerPack": 0,
+      "cardCount": 240,
+      "productHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "packRound": 1,
+    "direction": 1,
+    "currentPack": [
+      {
+        "instanceId": "limited-1",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-2",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-3",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-4",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-5",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-6",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-7",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-8",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-9",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-10",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-11",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-12",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-13",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-14",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-15",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-16",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-17",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-18",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-19",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-20",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      }
+    ],
+    "pool": [],
+    "mainboardInstanceIds": [],
+    "picksRequired": 2,
+    "packsPerPlayer": 3,
+    "minimumDeckCards": 60,
+    "basicLands": [],
+    "participants": [
+      {
+        "participantId": "p-1",
+        "displayName": "Alice",
+        "picked": 0,
+        "packCards": 20,
+        "queuedPacks": 1,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-2",
+        "displayName": "Bob",
+        "picked": 0,
+        "packCards": 20,
+        "queuedPacks": 1,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-3",
+        "displayName": "Carol",
+        "picked": 0,
+        "packCards": 20,
+        "queuedPacks": 1,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-4",
+        "displayName": "Dan",
+        "picked": 0,
+        "packCards": 20,
+        "queuedPacks": 1,
+        "deckSubmitted": false
+      }
+    ],
+    "deckSubmitted": false,
+    "allDecksSubmitted": false
+  }
+}

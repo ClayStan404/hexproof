@@ -1,0 +1,100 @@
+{
+  "type": "tournament.snapshot",
+  "payload": {
+    "tournamentId": "CMD234",
+    "name": "Friday Commander Cube",
+    "format": "edh",
+    "eventType": "commander_cube",
+    "coordinator": "casual",
+    "stage": "competition",
+    "matchMode": "bo1",
+    "status": "running",
+    "roundMinutes": 50,
+    "maxPlayers": 4,
+    "minimumPlayers": 2,
+    "plannedRounds": 0,
+    "currentRound": 0,
+    "registered": 4,
+    "checkedIn": 4,
+    "roundComplete": false,
+    "organizerName": "Alice",
+    "role": "participant",
+    "participantId": "p-2",
+    "canRegister": false,
+    "participants": [
+      {
+        "participantId": "p-1",
+        "displayName": "Alice",
+        "checkedIn": true,
+        "competing": true,
+        "dropped": false,
+        "online": true
+      },
+      {
+        "participantId": "p-2",
+        "displayName": "Bob",
+        "checkedIn": true,
+        "competing": true,
+        "dropped": false,
+        "online": true
+      },
+      {
+        "participantId": "p-3",
+        "displayName": "Carol",
+        "checkedIn": true,
+        "competing": true,
+        "dropped": false,
+        "online": true
+      },
+      {
+        "participantId": "p-4",
+        "displayName": "Dan",
+        "checkedIn": true,
+        "competing": true,
+        "dropped": false,
+        "online": true
+      }
+    ],
+    "pairings": [
+      {
+        "pairingId": "casual-1",
+        "table": 1,
+        "playerAId": "p-1",
+        "playerAName": "Alice",
+        "playerBId": "p-2",
+        "playerBName": "Bob",
+        "playerIds": [
+          "p-1",
+          "p-2",
+          "p-3",
+          "p-4"
+        ],
+        "playerNames": [
+          "Alice",
+          "Bob",
+          "Carol",
+          "Dan"
+        ],
+        "acceptedPlayerIds": [
+          "p-1",
+          "p-2"
+        ],
+        "bye": false,
+        "status": "invited",
+        "playerAWins": 0,
+        "playerBWins": 0,
+        "drawnGames": 0
+      }
+    ],
+    "standings": [],
+    "product": {
+      "id": "commander-cube",
+      "name": "Friday Commander Cube",
+      "productType": "cube",
+      "authentic": false,
+      "cardsPerPack": 0,
+      "cardCount": 240,
+      "productHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    }
+  }
+}

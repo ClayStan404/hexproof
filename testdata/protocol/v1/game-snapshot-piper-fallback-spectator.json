@@ -1,0 +1,23 @@
+{
+  "type": "game.snapshot",
+  "payload": {
+    "roomId": "PIPER2",
+    "gameNumber": 1,
+    "startingSeat": 0,
+    "turnOrder": [0, 1],
+    "activeSeat": 0,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "commanders": [
+      {"cardId": "s0-c1", "ownerSeat": 0, "name": "The Prismatic Piper", "chosenColor": "U"},
+      {"cardId": "s0-c2", "ownerSeat": 0, "name": "The Prismatic Piper", "chosenColor": "G"}
+    ],
+    "log": [],
+    "score": [0, 0]
+  }
+}

@@ -14,7 +14,10 @@ Page {
     readonly property var appWindow: ApplicationWindow.window
 
     background: AppBackground { }
-    Component.onCompleted: ws.requestTournamentList()
+    Component.onCompleted: {
+        if (ws.connected)
+            ws.requestTournamentList()
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -31,29 +34,34 @@ Page {
             onBackRequested: root.appWindow.popScreen()
         }
 
-        RowLayout {
+        Flow {
             Layout.fillWidth: true
             spacing: Theme.size(10)
 
-            AppTextField {
-                id: codeField
-                Layout.preferredWidth: Theme.size(230)
-                placeholderText: qsTr("Event code")
-                maximumLength: 16
-                onAccepted: root.enterByCode()
-            }
+            RowLayout {
+                spacing: Theme.size(10)
 
-            AppButton {
-                compact: true
-                text: qsTr("Open")
-                enabled: codeField.text.trim().length > 0
-                onClicked: root.enterByCode()
-            }
+                AppTextField {
+                    id: codeField
+                    objectName: "tournamentCodeField"
+                    Layout.preferredWidth: Theme.size(230)
+                    placeholderText: qsTr("Event code")
+                    maximumLength: 16
+                    onAccepted: root.enterByCode()
+                }
 
-            Item { Layout.fillWidth: true }
+                AppButton {
+                    objectName: "tournamentOpenButton"
+                    compact: true
+                    text: qsTr("Open")
+                    enabled: ws.connected && codeField.text.trim().length > 0
+                    onClicked: root.enterByCode()
+                }
+            }
 
             AppButton {
                 objectName: "tournamentHistoryButton"
+                enabled: ws.connected
                 compact: true
                 text: qsTr("Event history (%1)").arg(
                           tournament.historicalTournamentList.length)
@@ -62,6 +70,8 @@ Page {
             }
 
             AppButton {
+                objectName: "tournamentRefreshButton"
+                enabled: ws.connected
                 compact: true
                 text: qsTr("Refresh")
                 leadingText: "↻"
@@ -69,6 +79,8 @@ Page {
             }
 
             AppButton {
+                objectName: "tournamentCreateButton"
+                enabled: ws.connected
                 variant: "primary"
                 text: qsTr("Create tournament")
                 leadingText: "+"
@@ -84,23 +96,38 @@ Page {
 
             ColumnLayout {
                 anchors.centerIn: parent
-                visible: tournament.activeTournamentList.length === 0
+                width: Math.max(0, parent.width - Theme.size(48))
+                visible: !ws.connected || tournament.activeTournamentList.length === 0
                 spacing: Theme.size(10)
 
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("No active events are available on this hub.")
+                    Layout.fillWidth: true
+                    text: ws.connected ? qsTr("No active events are available on this hub.")
+                                       : qsTr("You are disconnected from the server.")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(16)
                     font.weight: Font.DemiBold
-                    Layout.alignment: Qt.AlignHCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
                 }
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("Create an event, refresh, or open Event history.")
+                    Layout.fillWidth: true
+                    text: ws.connected ? qsTr("Create an event, refresh, or open Event history.")
+                                       : qsTr("Connect to a server to browse events.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(12)
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    objectName: "tournamentBrowserConnectButton"
                     Layout.alignment: Qt.AlignHCenter
+                    visible: !ws.connected
+                    variant: "primary"
+                    text: qsTr("Connect to server")
+                    onClicked: root.appWindow.pushScreen("screens/Connect.qml")
                 }
             }
 
@@ -110,7 +137,7 @@ Page {
                 anchors.fill: parent
                 anchors.margins: Theme.size(14)
                 model: tournament.activeTournamentList
-                visible: tournament.activeTournamentList.length > 0
+                visible: ws.connected && tournament.activeTournamentList.length > 0
                 spacing: Theme.size(10)
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
@@ -196,6 +223,7 @@ Page {
                 }
 
                 AppButton {
+                    enabled: ws.connected
                     variant: "primary"
                     compact: true
                     text: tournamentRow.modelData.registrationOpen
@@ -312,11 +340,13 @@ Page {
 
     function enterByCode() {
         const code = codeField.text.trim()
-        if (code.length > 0)
+        if (ws.connected && code.length > 0)
             ws.enterTournament(code)
     }
 
     function openEvent(tournamentId) {
+        if (!ws.connected)
+            return
         historyPopup.close()
         ws.enterTournament(tournamentId)
     }

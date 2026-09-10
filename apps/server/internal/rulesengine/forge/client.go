@@ -92,6 +92,7 @@ type Client struct {
 
 	maxResponseBytes int
 	closing          atomic.Bool
+	invalid          atomic.Bool
 	killOnce         sync.Once
 	closeOnce        sync.Once
 	closeErr         error
@@ -169,6 +170,28 @@ func (client *Client) waitError() error {
 	return fmt.Errorf("%w: process exited: %v", ErrRuntime, client.waitErr)
 }
 
+// Done closes only after the child has exited and has been reaped. Supervisors
+// must use this notification instead of assuming that a retained Client is live.
+func (client *Client) Done() <-chan struct{} { return client.done }
+
+// Healthy reports whether the established transport can still accept work.
+// It is not a substitute for handling a failure during the next RPC.
+func (client *Client) Healthy() bool {
+	if client.closing.Load() || client.invalid.Load() {
+		return false
+	}
+	select {
+	case <-client.done:
+		return false
+	default:
+		return true
+	}
+}
+
+// Invalidate permanently stops this runtime after a failed protocol boundary.
+// Existing sessions must never be reconstructed on a replacement process.
+func (client *Client) Invalidate() { client.kill() }
+
 func (client *Client) captureStderr(reader io.Reader, destination io.Writer) {
 	if destination == nil {
 		destination = io.Discard
@@ -197,6 +220,13 @@ func (client *Client) run(stdout io.Reader) {
 				continue
 			}
 			close(job.started)
+			// Close the cancellation race between the first context check and
+			// announcing that the request has started. Either the caller now
+			// kills an in-flight call, or we avoid sending the canceled job.
+			if err := job.ctx.Err(); err != nil {
+				job.result <- rpcResult{err: err}
+				continue
+			}
 			requestBytes, err := json.Marshal(job.request)
 			if err == nil && len(requestBytes) > maxRequestBytes {
 				job.result <- rpcResult{err: errors.New("forge runtime request exceeds the configured limit")}
@@ -212,8 +242,8 @@ func (client *Client) run(stdout io.Reader) {
 				err = writer.Flush()
 			}
 			if err != nil {
-				job.result <- rpcResult{err: fmt.Errorf("%w: write request: %v", ErrRuntime, err)}
 				client.kill()
+				job.result <- rpcResult{err: fmt.Errorf("%w: write request: %v", ErrRuntime, err)}
 				return
 			}
 			if job.noResponse {
@@ -227,19 +257,25 @@ func (client *Client) run(stdout io.Reader) {
 				} else if err == nil {
 					err = io.ErrUnexpectedEOF
 				}
-				job.result <- rpcResult{err: fmt.Errorf("%w: read response: %w", ErrRuntime, err)}
 				client.kill()
+				job.result <- rpcResult{err: fmt.Errorf("%w: read response: %w", ErrRuntime, err)}
 				return
 			}
 			var response rpcResponse
 			if err := json.Unmarshal(scanner.Bytes(), &response); err != nil {
-				job.result <- rpcResult{err: fmt.Errorf("%w: decode response: %v", ErrRuntime, err)}
 				client.kill()
+				job.result <- rpcResult{err: fmt.Errorf("%w: decode response: %v", ErrRuntime, err)}
 				return
 			}
 			if !response.OK {
-				job.result <- rpcResult{err: fmt.Errorf("%w: %s", ErrRuntime,
-					boundedMessage(response.Error, 512))}
+				// Upstream exceptions can contain private card names or decks.
+				// Rejected player actions or decks are recoverable, but failed
+				// authoritative queries leave the shared runtime untrustworthy.
+				switch job.request.Command {
+				case "getSnapshot", "getPrompt", "getGameOver":
+					client.kill()
+				}
+				job.result <- rpcResult{err: fmt.Errorf("%w: request rejected", ErrRuntime)}
 				continue
 			}
 			job.result <- rpcResult{value: response.Result}
@@ -247,18 +283,13 @@ func (client *Client) run(stdout io.Reader) {
 	}
 }
 
-func boundedMessage(value string, limit int) string {
-	value = strings.TrimSpace(value)
-	if len(value) <= limit {
-		return value
-	}
-	return value[:limit] + "…"
-}
-
 func (client *Client) call(ctx context.Context, request rpcRequest, noResponse,
 	allowClosing bool) (string, error) {
 	if client.closing.Load() && !allowClosing {
 		return "", ErrClosed
+	}
+	if client.invalid.Load() {
+		return "", ErrRuntime
 	}
 	job := rpcJob{
 		ctx:        ctx,
@@ -291,6 +322,7 @@ func (client *Client) call(ctx context.Context, request rpcRequest, noResponse,
 }
 
 func (client *Client) kill() {
+	client.invalid.Store(true)
 	client.killOnce.Do(func() {
 		if client.command.Process != nil {
 			_ = client.command.Process.Kill()
@@ -317,11 +349,21 @@ func (client *Client) StartGame(ctx context.Context,
 	}
 	var handle SessionHandle
 	if err := json.Unmarshal([]byte(result), &handle); err != nil {
-		return SessionHandle{}, fmt.Errorf("%w: decode start result: %v", ErrRuntime, err)
+		client.kill()
+		return SessionHandle{}, fmt.Errorf("%w: invalid start result", ErrRuntime)
 	}
 	if strings.TrimSpace(handle.SessionID) == "" ||
 		len(handle.PlayerIndexes) != len(request.Players) {
+		client.kill()
 		return SessionHandle{}, fmt.Errorf("%w: invalid session handle", ErrRuntime)
+	}
+	seen := make(map[int]bool, len(handle.PlayerIndexes))
+	for _, player := range handle.PlayerIndexes {
+		if player < 0 || player >= maxPlayers || seen[player] {
+			client.kill()
+			return SessionHandle{}, fmt.Errorf("%w: invalid session handle", ErrRuntime)
+		}
+		seen[player] = true
 	}
 	return handle, nil
 }
@@ -386,7 +428,11 @@ func (client *Client) Prompt(ctx context.Context, sessionID string,
 		SessionID:   sessionID,
 		PlayerIndex: intPointer(playerIndex),
 	}, false, false)
-	return decodeOptionalJSON(result, err)
+	decoded, decodeErr := decodeOptionalJSON(result, err)
+	if err == nil && decodeErr != nil {
+		client.kill()
+	}
+	return decoded, decodeErr
 }
 
 // Snapshot returns a viewer-specific Forge state. Viewer -1 is the upstream
@@ -408,6 +454,7 @@ func (client *Client) Snapshot(ctx context.Context, sessionID string,
 		return nil, err
 	}
 	if strings.TrimSpace(result) == "" || !json.Valid([]byte(result)) {
+		client.kill()
 		return nil, fmt.Errorf("%w: invalid snapshot JSON", ErrRuntime)
 	}
 	return json.RawMessage(result), nil
@@ -427,6 +474,7 @@ func (client *Client) GameOver(ctx context.Context, sessionID string) (bool, err
 	}
 	gameOver, err := strconv.ParseBool(result)
 	if err != nil {
+		client.kill()
 		return false, fmt.Errorf("%w: invalid game-over result", ErrRuntime)
 	}
 	return gameOver, nil

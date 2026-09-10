@@ -11,70 +11,117 @@ Page {
 
     readonly property var appWindow: ApplicationWindow.window
     readonly property bool compactLayout: Theme.isCompactWidth(width)
+    readonly property bool suppressStartupNotices: typeof localTestMode !== "undefined"
+                                                   && localTestMode
 
     background: AppBackground { }
 
     Component.onCompleted: Qt.callLater(function() {
+        if (root.suppressStartupNotices)
+            return
         sponsorAnnouncement.openIfNeeded()
         cardArtRepairNoticeTimer.restart()
     })
 
-    RowLayout {
+    Item {
         id: topBar
+        objectName: "mainMenuTopBar"
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.topMargin: Theme.size(26)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        spacing: Theme.size(12)
+        readonly property real spacing: Theme.size(12)
+        readonly property real actionsWidth: {
+            let total = 0
+            let count = 0
+            for (const child of headerActions.children) {
+                if (!child.visible)
+                    continue
+                total += child.implicitWidth
+                count += 1
+            }
+            return total + Math.max(0, count - 1) * spacing
+        }
+        readonly property bool inlineActions: brand.implicitWidth + spacing + actionsWidth <= width
+        height: inlineActions ? Math.max(brand.implicitHeight, headerActions.implicitHeight)
+                              : brand.implicitHeight + spacing + headerActions.implicitHeight
 
-        BrandMark { markSize: Theme.size(36) }
+        RowLayout {
+            id: brand
+            objectName: "mainMenuBrand"
+            anchors.left: parent.left
+            y: topBar.inlineActions ? (topBar.height - height) / 2 : 0
+            spacing: Theme.size(12)
+            BrandMark { markSize: Theme.size(36) }
 
-        Text {
-            textFormat: Text.PlainText
-            text: "HEXPROOF"
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(14)
-            font.weight: Font.Bold
-            font.letterSpacing: 2.2
+            Text {
+                textFormat: Text.PlainText
+                text: "HEXPROOF"
+                color: Theme.text
+                font.pixelSize: Theme.fontSize(14)
+                font.weight: Font.Bold
+                font.letterSpacing: 2.2
+            }
         }
 
-        Item { Layout.fillWidth: true }
+        Flow {
+            id: headerActions
+            objectName: "mainMenuHeaderActions"
+            anchors.right: parent.right
+            y: topBar.inlineActions ? (topBar.height - height) / 2
+                                    : brand.height + topBar.spacing
+            width: Math.min(topBar.width, topBar.actionsWidth)
+            spacing: topBar.spacing
+            layoutDirection: Qt.RightToLeft
 
-        AppButton {
-            visible: appUpdater.updateAvailable
-            variant: "secondary"
-            compact: true
-            text: qsTr("Update %1 available").arg(appUpdater.targetVersion)
-            onClicked: root.appWindow.pushScreen("screens/Settings.qml")
-        }
+            // Start with the trailing control so every wrapped row stays
+            // attached to the right edge, including the connection status.
+            AppButton {
+                objectName: "mainMenuDisconnectButton"
+                visible: ws.connected
+                variant: "ghost"
+                compact: true
+                text: qsTr("Disconnect")
+                onClicked: ws.disconnectFromHub()
+            }
 
-        AppButton {
-            variant: "ghost"
-            compact: true
-            text: qsTr("Settings")
-            onClicked: root.appWindow.pushScreen("screens/Settings.qml")
-        }
+            StatusPill {
+                objectName: "connectedServerStatus"
+                visible: ws.connected
+                text: root.connectedServerLabel()
+                statusColor: Theme.accent
+                maximumWidth: topBar.width
+            }
 
-        StatusPill {
-            text: ws.connected ? ws.displayName : qsTr("Offline")
-            statusColor: ws.connected ? Theme.success : Theme.textMuted
-        }
+            StatusPill {
+                objectName: "connectedPlayerStatus"
+                text: ws.connected ? ws.displayName : qsTr("Offline")
+                statusColor: ws.connected ? Theme.success : Theme.textMuted
+                maximumWidth: Math.min(Theme.size(220), topBar.width)
+                ToolTip.visible: playerStatusHover.hovered
+                ToolTip.text: text
+                ToolTip.delay: 350
+                HoverHandler { id: playerStatusHover }
+            }
 
-        StatusPill {
-            objectName: "connectedServerStatus"
-            visible: ws.connected
-            text: root.connectedServerLabel()
-            statusColor: Theme.accent
-        }
+            AppButton {
+                objectName: "mainMenuSettingsButton"
+                variant: "ghost"
+                compact: true
+                text: qsTr("Settings")
+                onClicked: root.appWindow.pushScreen("screens/Settings.qml")
+            }
 
-        AppButton {
-            visible: ws.connected
-            variant: "ghost"
-            compact: true
-            text: qsTr("Disconnect")
-            onClicked: ws.disconnectFromHub()
+            AppButton {
+                objectName: "mainMenuUpdateButton"
+                visible: appUpdater.updateAvailable
+                variant: "secondary"
+                compact: true
+                text: qsTr("Update %1 available").arg(appUpdater.targetVersion)
+                onClicked: root.appWindow.pushScreen("screens/Settings.qml")
+            }
         }
     }
 
@@ -214,7 +261,8 @@ Page {
 
                 Text {
                     textFormat: Text.PlainText
-                    text: ws.connected ? qsTr("Start a room") : qsTr("Start playing")
+                    objectName: "mainMenuHeading"
+                    text: qsTr("Start playing")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(24)
                     font.weight: Font.DemiBold
@@ -224,10 +272,9 @@ Page {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
                     Layout.bottomMargin: Theme.size(10)
-                    text: ws.connected
-                          ? qsTr("Connected as %1. Choose how you want to play.")
-                            .arg(ws.displayName)
-                          : qsTr("Connect to a room hub, or manage your decks locally.")
+                    objectName: "mainMenuIntro"
+                    visible: !ws.connected
+                    text: qsTr("Connect to a room hub, or manage your decks locally.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(13)
                     lineHeight: 1.35
@@ -314,18 +361,18 @@ Page {
                     }
 
                     AppButton {
+                        objectName: "mainMenuPackSimulatorButton"
                         Layout.fillWidth: true
                         compact: true
-                        text: qsTr("Replays")
-                        leadingText: "↺"
-                        enabled: ws.connected && !ws.inRoom
-                        disabledReason: root.serverActionBlockerReason()
+                        text: qsTr("Pack simulator")
+                        leadingText: "✦"
                         onClicked: root.appWindow.pushScreen(
-                                       "screens/ReplayBrowser.qml")
+                                       "screens/LimitedHub.qml")
                     }
                 }
 
                 AppButton {
+                    objectName: "mainMenuEventsButton"
                     Layout.fillWidth: true
                     text: qsTr("Events")
                     enabled: ws.connected && !ws.inRoom
@@ -347,13 +394,6 @@ Page {
                     text: qsTr("Deck library")
                     leadingText: "◇"
                     onClicked: root.appWindow.pushScreen("screens/DeckLibrary.qml")
-                }
-
-                AppButton {
-                    Layout.fillWidth: true
-                    text: qsTr("Limited play")
-                    leadingText: "✦"
-                    onClicked: root.appWindow.pushScreen("screens/LimitedRoomCreate.qml")
                 }
 
                 AppButton {
@@ -444,7 +484,7 @@ Page {
         id: cardArtRepairNoticeTimer
         interval: 200
         onTriggered: {
-            if (!sponsorAnnouncement.opened)
+            if (!root.suppressStartupNotices && !sponsorAnnouncement.opened)
                 cardArtRepairNotice.openIfNeeded()
         }
     }

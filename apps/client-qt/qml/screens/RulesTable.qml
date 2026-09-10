@@ -13,12 +13,43 @@ Page {
 
     required property var wsModel
     required property var cardCatalogModel
+    required property var gameTableModel
+    required property var sideboardTableModel
+    property var preferencesModel: null
     readonly property var rulesSession: wsModel.rulesSession
+    readonly property var gameSession: wsModel.gameSession
+    readonly property bool roomConnected: wsModel.inRoom === true
+    readonly property bool sideboarding: gameSession.sideboarding === true
+    readonly property bool rulesResponsePending: wsModel.rulesResponsePending === true
+    readonly property bool canConcede: roomConnected && localSeat >= 0
+                                       && rulesSession.active && !rulesSession.gameOver
+                                       && !sideboarding && !matchUi.matchFinished
+    readonly property var matchUi: matchControls
+    readonly property var tableGameLog: gameTableModel.gameLog
+    readonly property real gameLogRailWidth: Theme.size(compactLayout ? 180 : 220)
+    property bool showGameLogRail: preferencesModel ? preferencesModel.tableShowGameLog : true
+    readonly property bool canChat: roomConnected && roomSession.phase === "started"
+                                   && (roomSession.role === "player"
+                                       || roomSession.role === "spectator")
+    readonly property var cardActions: chatActions
     readonly property var roomSession: wsModel.roomSession
     readonly property url cardBackSource:
         Qt.resolvedUrl("../assets/card-back.jpg")
     readonly property int localSeat:
         roomSession.role === "player" ? roomSession.seatIndex : -1
+    readonly property bool canViewSpectatorHands:
+        roomConnected && rulesSession.active && !sideboarding
+        && roomSession.role === "spectator"
+        && roomSession.spectatorsSeeHands === true
+    property int spectatedHandSeat: 0
+    readonly property int handOwnerSeat:
+        localSeat >= 0 ? localSeat
+                      : canViewSpectatorHands ? spectatedHandSeat : -1
+
+    onCanViewSpectatorHandsChanged: {
+        if (!canViewSpectatorHands)
+            spectatedHandSeat = 0
+    }
     readonly property bool compactLayout: Theme.isCompactWidth(width)
     readonly property real actionRailWidth:
         Theme.size(compactLayout ? 120 : 144)
@@ -34,6 +65,47 @@ Page {
         Math.round(handCardWidth * 88 / 63)
     readonly property real zoneDockWidth:
         Math.min(Theme.size(270), width * 0.35)
+
+    onRulesResponsePendingChanged: {
+        if (rulesResponsePending)
+            cardActionPicker.close()
+    }
+
+    function setGameLogVisible(show) {
+        showGameLogRail = show
+        if (preferencesModel && !compactLayout)
+            preferencesModel.tableShowGameLog = show
+    }
+
+    onCompactLayoutChanged: {
+        showGameLogRail = compactLayout ? false
+                         : preferencesModel ? preferencesModel.tableShowGameLog : true
+    }
+
+    QtObject {
+        id: chatActions
+        function submitChatMessage() {
+            const message = gameLogRail.chatInput.text.trim()
+            if (!root.canChat || message.length === 0)
+                return false
+            root.wsModel.sayGameMessage(message)
+            gameLogRail.chatInput.clear()
+            gameLogRail.chatInput.forceActiveFocus()
+            return true
+        }
+    }
+
+    RulesMatchControls {
+        id: matchControls
+        tableController: root
+    }
+
+    function zoneCount(ownerSeat, zone) {
+        // Q_INVOKABLE calls do not create dependencies on their C++ model data.
+        // Observe complete snapshots, including zone-only changes in one turn.
+        void rulesSession.snapshotRevision
+        return rulesSession.zoneCount(ownerSeat, zone)
+    }
 
     function zoneLabel(zone) {
         switch (zone) {
@@ -103,7 +175,8 @@ Page {
     }
 
     function handCardActions(cardId) {
-        if (localSeat < 0 || !rulesSession.promptPending
+        if (!roomConnected || sideboarding || rulesSession.gameOver
+                || rulesResponsePending || localSeat < 0 || !rulesSession.promptPending
                 || rulesSession.promptKind !== "chooseAction"
                 || typeof rulesSession.castActionsForCard !== "function") {
             return []
@@ -136,7 +209,11 @@ Page {
     }
 
     function openConcedeConfirmation() {
-        rulesConcedeConfirmation.open()
+        if (!canConcede)
+            return
+        rulesConcedeConfirmation.gameId = rulesSession.gameId
+        if (rulesConcedeConfirmation.validForCurrentGame())
+            rulesConcedeConfirmation.open()
     }
 
     background: Rectangle { color: Theme.surfaceMuted }
@@ -151,7 +228,7 @@ Page {
         }
 
         RulesStackRail {
-            visible: !root.compactLayout
+            visible: !root.compactLayout && !root.sideboarding
             tableController: root
         }
 
@@ -161,8 +238,33 @@ Page {
             Layout.fillHeight: true
             spacing: 0
 
+            InfoBanner {
+                objectName: "rulesErrorBanner"
+                Layout.fillWidth: true
+                message: I18n.status(root.wsModel.lastError || "")
+            }
+
+            Loader {
+                objectName: "rulesSideboardLoader"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                active: root.sideboarding
+                visible: active
+                sourceComponent: Component {
+                    SideboardPanel {
+                        objectName: "rulesSideboardPanel"
+                        enabled: root.roomConnected
+                        wsModel: root.wsModel
+                        gameTableModel: root.gameTableModel
+                        tableModel: root.sideboardTableModel
+                        cardCatalogModel: root.cardCatalogModel
+                    }
+                }
+            }
+
             Item {
                 objectName: "rulesBattlefieldHost"
+                visible: !root.sideboarding
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -173,14 +275,23 @@ Page {
 
                 Text {
                     textFormat: Text.PlainText
+                    objectName: "rulesSnapshotStatus"
                     anchors.centerIn: parent
                     visible: !root.rulesSession.active
-                    text: qsTr("Waiting for the first rules snapshot…")
+                    width: parent.width - Theme.size(32)
+                    text: root.matchUi.matchFinished
+                          ? qsTr("The match is complete. Review the public log or return to the room.")
+                          : qsTr("Waiting for the first rules snapshot…")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(12)
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
                 }
 
                 RulesPromptPanel {
+                    enabled: root.roomConnected
+                    height: Math.min(implicitHeight,
+                                     Math.max(0, parent.height - Theme.size(20)))
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
@@ -191,12 +302,18 @@ Page {
             }
 
             RulesHandArea {
+                visible: !root.sideboarding
                 tableController: root
             }
         }
 
         RulesStateRail {
-            visible: !root.compactLayout
+            visible: !root.compactLayout && !root.sideboarding && !root.showGameLogRail
+            tableController: root
+        }
+
+        TableGameLogRail {
+            id: gameLogRail
             tableController: root
         }
     }
@@ -296,12 +413,28 @@ Page {
 
     ConfirmDialog {
         id: rulesConcedeConfirmation
+        property string gameId: ""
+        readonly property string liveGameId: root.rulesSession.gameId
+        readonly property bool canAct: root.canConcede
+
+        function validForCurrentGame() {
+            return canAct && gameId.length > 0 && gameId === liveGameId
+        }
+        function invalidate() { gameId = ""; close() }
+        onLiveGameIdChanged: invalidate()
+        onCanActChanged: { if (!canAct) invalidate() }
+        onCancelled: gameId = ""
 
         objectName: "rulesConcedeConfirmation"
         titleText: qsTr("Concede this Forge game?")
         message: qsTr("Forge will apply the concession immediately. This cannot be undone.")
         confirmText: qsTr("Concede")
         dangerous: true
-        onConfirmed: root.wsModel.concede()
+        onConfirmed: {
+            const canSend = validForCurrentGame()
+            gameId = ""
+            if (canSend)
+                root.wsModel.concede()
+        }
     }
 }

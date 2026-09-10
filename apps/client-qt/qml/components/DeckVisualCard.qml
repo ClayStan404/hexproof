@@ -4,7 +4,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Surface {
@@ -15,29 +14,41 @@ Surface {
     property bool incrementEnabled: true
     property bool commanderEnabled: false
     property bool printingEnabled: false
+    property bool customArtEnabled: false
     property bool considerEnabled: false
     property string moveText: ""
     signal incrementRequested()
     signal decrementRequested()
     signal commanderRequested()
     signal printingRequested()
+    signal customArtRequested()
     signal considerRequested()
     signal moveRequested()
     signal previewRequested(var card, string imageSource)
+    signal previewEnded()
 
     readonly property string resolvedImageSource: {
         const current = root.card
         if (!current)
             return ""
-        if (current.imageSource && String(current.imageSource).length > 0)
-            return String(current.imageSource)
-        if (!root.catalogModel || typeof root.catalogModel.imageSource !== "function")
-            return ""
-        if (typeof root.catalogModel.imageRevision !== "undefined")
+        if (root.catalogModel && typeof root.catalogModel.customImageSource === "function") {
             void root.catalogModel.imageRevision
-        return root.catalogModel.imageSource(String(current.name || ""),
+            const custom = root.catalogModel.customImageSource(
+                String(current.name || ""), String(current.setCode || ""),
+                String(current.collectorNumber || ""))
+            if (custom)
+                return custom
+        }
+        if (root.catalogModel && typeof root.catalogModel.imageSource === "function") {
+            if (typeof root.catalogModel.imageRevision !== "undefined")
+                void root.catalogModel.imageRevision
+            const resolved = root.catalogModel.imageSource(String(current.name || ""),
                                              String(current.setCode || ""),
                                              String(current.collectorNumber || ""))
+            if (resolved)
+                return resolved
+        }
+        return current.imageSourceResolved ? "" : String(current.imageSource || "")
     }
 
     implicitWidth: Theme.size(184)
@@ -53,6 +64,8 @@ Surface {
         onHoveredChanged: {
             if (hovered)
                 root.previewRequested(root.card, root.resolvedImageSource)
+            else
+                root.previewEnded()
         }
     }
 
@@ -62,6 +75,20 @@ Surface {
             if (root.printingEnabled)
                 root.printingRequested()
         }
+    }
+
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        enabled: root.printingEnabled || root.customArtEnabled
+        onTapped: actionsMenu.popup()
+    }
+
+    DeckCardActionsMenu {
+        id: actionsMenu
+        printingEnabled: root.printingEnabled
+        customArtEnabled: root.customArtEnabled
+        onPrintingRequested: root.printingRequested()
+        onCustomArtRequested: root.customArtRequested()
     }
 
     ColumnLayout {
@@ -81,28 +108,6 @@ Surface {
                 asynchronous: true
                 smooth: true
                 mipmap: false
-            }
-
-            Rectangle {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.margins: Theme.size(5)
-                width: countText.implicitWidth + Theme.size(12)
-                height: Theme.size(28)
-                radius: Theme.size(14)
-                color: "#D9141C18"
-                border.width: 1
-                border.color: Theme.borderStrong
-
-                Text {
-                    textFormat: Text.PlainText
-                    id: countText
-                    anchors.centerIn: parent
-                    text: "×" + root.card.count
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(12)
-                    font.weight: Font.Bold
-                }
             }
 
             Text {
@@ -163,6 +168,17 @@ Surface {
             }
 
             Item { Layout.fillWidth: true }
+
+            AppButton {
+                objectName: "deckCardActionsButton"
+                visible: root.customArtEnabled
+                compact: true
+                variant: "ghost"
+                text: "⋯"
+                accessibleName: qsTr("Card actions")
+                Layout.preferredWidth: Theme.size(30)
+                onClicked: actionsMenu.popup()
+            }
 
             AppButton {
                 visible: root.commanderEnabled

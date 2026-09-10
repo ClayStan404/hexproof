@@ -18,8 +18,9 @@ Page {
     property int pendingSeat: -1
     property int pendingSpectator: -1
     property string pendingName: ""
-    readonly property bool compactLayout: Theme.isCompactWidth(width)
+    readonly property bool compactLayout: width < Theme.size(1100)
     readonly property bool limitedPairing: roomSession.deckFormat === "limited"
+                                          || roomSession.deckFormat === "commander_limited"
 
     background: AppBackground { }
 
@@ -31,509 +32,535 @@ Page {
         anchors.rightMargin: Theme.pageMargin
         spacing: Theme.size(18)
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.size(14)
-
-            BrandMark { markSize: Theme.size(40) }
-
-            ColumnLayout {
-                spacing: Theme.size(2)
-
-                RowLayout {
-                    spacing: Theme.size(10)
-                    Text {
-                        textFormat: Text.PlainText
-                        objectName: "waitingRoomTitle"
-                        text: root.roomSession.roomName.length > 0
-                              ? root.roomSession.roomName : qsTr("Untitled room")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(22)
-                        font.weight: Font.DemiBold
-                    }
-                    StatusPill {
-                        text: root.roomSession.playtest
-                              ? qsTr("Playtest") + " · "
-                                + I18n.formatLabel(root.roomSession.deckFormat)
-                              : I18n.formatLabel(root.roomSession.deckFormat)
-                        statusColor: Theme.accent
-                    }
-                    StatusPill {
-                        visible: root.roomSession.rulesMode === "forge"
-                        text: qsTr("Forge rules")
-                        statusColor: Theme.success
-                    }
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    text: root.roomSession.playtest
-                          ? qsTr("Solo playtest · Select a deck and ready up")
-                          : (root.roomSession.host
-                             ? qsTr("Waiting room · You are the host")
-                             : qsTr("Waiting room"))
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(12)
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Surface {
-                visible: !root.roomSession.playtest
-                implicitWidth: roomCodeRow.implicitWidth + Theme.size(26)
-                implicitHeight: Theme.size(44)
-                radius: Theme.radiusMedium
-                color: Theme.surfaceMuted
-
-                Row {
-                    id: roomCodeRow
-                    anchors.centerIn: parent
-                    spacing: Theme.size(10)
-
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("ROOM CODE")
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontSize(10)
-                        font.weight: Font.Bold
-                        font.letterSpacing: 1.0
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        objectName: "waitingRoomCode"
-                        text: root.roomSession.roomId
-                        color: Theme.primary
-                        font.pixelSize: Theme.fontSize(17)
-                        font.weight: Font.Bold
-                        font.letterSpacing: 2.0
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-            }
-
-            AppButton {
-                objectName: "copyRoomCodeButton"
-                visible: !root.roomSession.playtest
-                compact: true
-                text: qsTr("Copy code")
-                leadingText: "□"
-                enabled: root.roomSession.roomId.length > 0
-                onClicked: {
-                    root.wsModel.copyToClipboard(root.roomSession.roomId)
-                    root.appWindow.showBanner(qsTr("Room code copied"))
-                }
-            }
-        }
-
-        InfoBanner {
-            objectName: "spectatorHandsPolicyBanner"
-            Layout.fillWidth: true
-            visible: !root.roomSession.playtest
-                     && root.roomSession.spectatorsSeeHands === true
-            tone: "warning"
-            message: qsTr("Spectators can continuously inspect every player's hand in this room. Players still cannot see each other's hands.")
-        }
-
         Flickable {
             id: waitingRoomBody
             objectName: "waitingRoomBody"
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            contentWidth: width
+            contentHeight: Math.max(height, waitingRoomScrollContent.implicitHeight)
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            contentWidth: width
-            contentHeight: Math.max(height, waitingRoomContent.implicitHeight)
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-            GridLayout {
-                id: waitingRoomContent
-                objectName: "waitingRoomContent"
+            ColumnLayout {
+                id: waitingRoomScrollContent
                 width: waitingRoomBody.width
-                height: root.compactLayout ? implicitHeight : waitingRoomBody.height
-                columns: root.compactLayout ? 1 : 2
-                columnSpacing: Theme.size(18)
-                rowSpacing: Theme.size(18)
+                height: Math.max(implicitHeight, waitingRoomBody.height)
+                spacing: Theme.size(18)
 
-            Surface {
-                objectName: "waitingRoomSeats"
-                Layout.fillWidth: true
-                Layout.fillHeight: !root.compactLayout
-                Layout.preferredWidth: root.compactLayout ? -1 : Theme.size(720)
-                Layout.preferredHeight: root.compactLayout ? implicitHeight : -1
-                implicitHeight: waitingRoomSeatsColumn.implicitHeight + Theme.size(48)
-                elevated: true
-
-                ColumnLayout {
-                    id: waitingRoomSeatsColumn
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.margins: Theme.size(24)
-                    height: root.compactLayout ? implicitHeight
-                                               : parent.height - Theme.size(48)
-                    spacing: Theme.size(10)
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: root.compactLayout ? 1 : 2
+                    columnSpacing: Theme.size(14)
+                    rowSpacing: Theme.size(10)
 
                     RowLayout {
                         Layout.fillWidth: true
-
+                        spacing: Theme.size(14)
+                        BrandMark { markSize: Theme.size(40) }
                         ColumnLayout {
-                            spacing: Theme.size(3)
+                            Layout.fillWidth: true
+                            spacing: Theme.size(4)
                             Text {
+                                objectName: "waitingRoomTitle"
                                 textFormat: Text.PlainText
-                                text: root.roomSession.playtest
-                                      ? qsTr("Playtest seat")
-                                      : qsTr("Player seats")
+                                Layout.fillWidth: true
+                                text: root.roomSession.roomName.length > 0
+                                      ? root.roomSession.roomName : qsTr("Untitled room")
                                 color: Theme.text
-                                font.pixelSize: Theme.fontSize(18)
+                                font.pixelSize: Theme.fontSize(22)
                                 font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: Theme.size(8)
+                                StatusPill {
+                                    text: root.roomSession.playtest
+                                          ? qsTr("Playtest") + " · "
+                                            + I18n.formatLabel(root.roomSession.deckFormat)
+                                          : I18n.formatLabel(root.roomSession.deckFormat)
+                                    statusColor: Theme.accent
+                                }
+                                StatusPill {
+                                    visible: root.roomSession.rulesMode === "forge"
+                                    text: qsTr("Forge rules")
+                                    statusColor: Theme.success
+                                }
                             }
                             Text {
                                 textFormat: Text.PlainText
+                                Layout.fillWidth: true
                                 text: root.roomSession.playtest
-                                      ? qsTr("No opponent is required")
-                                      : qsTr("%1 of %2 seats filled")
-                                        .arg(root.occupiedSeatCount())
-                                        .arg(root.roomSession.maxSeats)
+                                      ? qsTr("Solo playtest · Select a deck and ready up")
+                                      : (root.roomSession.host
+                                         ? qsTr("Waiting room · You are the host")
+                                         : qsTr("Waiting room"))
                                 color: Theme.textMuted
                                 font.pixelSize: Theme.fontSize(12)
+                                wrapMode: Text.WordWrap
                             }
                         }
+                    }
 
-                        Item { Layout.fillWidth: true }
-
-                        StatusPill {
-                            objectName: "waitingRoomSeatStatus"
-                            text: root.roomSession.playtest
-                                  ? qsTr("Solo table")
-                                  : (root.occupiedSeatCount()
-                                     === root.roomSession.maxSeats
-                                     ? qsTr("Table full")
-                                     : (root.hasEnoughPlayersToStart()
-                                        ? qsTr("Ready to start")
-                                        : qsTr("Waiting for players")))
-                            statusColor: root.hasEnoughPlayersToStart()
-                                         ? Theme.success : Theme.warning
+                    RowLayout {
+                        visible: !root.roomSession.playtest
+                        Layout.alignment: Qt.AlignRight
+                        spacing: Theme.size(10)
+                        Surface {
+                            implicitWidth: roomCodeRow.implicitWidth + Theme.size(26)
+                            implicitHeight: Theme.size(44)
+                            Row {
+                                id: roomCodeRow
+                                anchors.centerIn: parent
+                                spacing: Theme.size(10)
+                                Text {
+                                    textFormat: Text.PlainText
+                                    text: qsTr("ROOM CODE")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Text {
+                                    objectName: "waitingRoomCode"
+                                    textFormat: Text.PlainText
+                                    text: root.roomSession.roomId
+                                    color: Theme.accent
+                                    font.pixelSize: Theme.fontSize(18)
+                                    font.weight: Font.DemiBold
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                        }
+                        AppButton {
+                            objectName: "copyRoomCodeButton"
+                            compact: true
+                            text: qsTr("Copy code")
+                            leadingText: "□"
+                            enabled: root.roomSession.roomId.length > 0
+                            onClicked: {
+                                root.wsModel.copyToClipboard(root.roomSession.roomId)
+                                root.appWindow.showBanner(qsTr("Room code copied"))
+                            }
                         }
                     }
+                }
+                InfoBanner {
+                    objectName: "spectatorHandsPolicyBanner"
+                    Layout.fillWidth: true
+                    visible: !root.roomSession.playtest
+                             && root.roomSession.spectatorsSeeHands === true
+                    tone: "warning"
+                    message: qsTr("Spectators can continuously inspect every player's hand in this room. Players still cannot see each other's hands.")
+                }
 
-                    Rectangle {
+                    GridLayout {
+                        id: waitingRoomContent
+                        objectName: "waitingRoomContent"
                         Layout.fillWidth: true
-                        implicitHeight: 1
-                        Layout.topMargin: Theme.size(4)
-                        Layout.bottomMargin: Theme.size(2)
-                        color: Theme.divider
-                    }
+                        Layout.fillHeight: !root.compactLayout
+                        columns: root.compactLayout ? 1 : 2
+                        columnSpacing: Theme.size(18)
+                        rowSpacing: Theme.size(18)
 
-                    Repeater {
-                        model: root.roomSession.seats
+                    Surface {
+                        objectName: "waitingRoomSeats"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: !root.compactLayout
+                        Layout.preferredWidth: root.compactLayout ? -1 : Theme.size(720)
+                        Layout.preferredHeight: root.compactLayout ? implicitHeight : -1
+                        implicitHeight: waitingRoomSeatsColumn.implicitHeight + Theme.size(48)
+                        elevated: true
 
-                        delegate: Surface {
-                            required property int index
-                            required property var modelData
-                            objectName: "waitingRoomSeatRow"
-
-                            Layout.fillWidth: true
-                            Layout.fillHeight: !root.compactLayout
-                            Layout.minimumHeight: Theme.size(66)
-                            Layout.preferredHeight: Theme.size(66)
-                            Layout.maximumHeight: Theme.size(82)
-                            radius: Theme.radiusMedium
-                            color: modelData.occupied ? Theme.surfaceMuted : "#0B1512"
-                            border.color: modelData.occupied ? Theme.border : Theme.divider
+                        ColumnLayout {
+                            id: waitingRoomSeatsColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: Theme.size(24)
+                            height: root.compactLayout ? implicitHeight
+                                                       : parent.height - Theme.size(48)
+                            spacing: Theme.size(10)
 
                             RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: Theme.size(14)
-                                anchors.rightMargin: Theme.size(12)
-                                spacing: Theme.size(14)
-
-                                Rectangle {
-                                    Layout.preferredWidth: Theme.size(38)
-                                    Layout.preferredHeight: Theme.size(38)
-                                    radius: Theme.size(12)
-                                    color: modelData.occupied ? Theme.primaryMuted : Theme.disabled
-                                    border.width: 1
-                                    border.color: modelData.occupied ? "#2B654E" : Theme.border
-
-                                    Text {
-                                        textFormat: Text.PlainText
-                                        anchors.centerIn: parent
-                                        text: index + 1
-                                        color: modelData.occupied ? Theme.primary : Theme.textMuted
-                                        font.pixelSize: Theme.fontSize(15)
-                                        font.weight: Font.Bold
-                                    }
-                                }
+                                Layout.fillWidth: true
 
                                 ColumnLayout {
-                                    Layout.fillWidth: true
                                     spacing: Theme.size(3)
-
-                                    RowLayout {
-                                        spacing: Theme.size(8)
-                                        Text {
-                                            textFormat: Text.PlainText
-                                            text: modelData.occupied ? modelData.displayName : qsTr("Open seat")
-                                            color: modelData.occupied ? Theme.text : Theme.textMuted
-                                            font.pixelSize: Theme.fontSize(14)
-                                            font.weight: modelData.occupied ? Font.DemiBold : Font.Medium
-                                        }
-                                        Text {
-                                            textFormat: Text.PlainText
-                                            visible: modelData.host
-                                            text: qsTr("HOST")
-                                            color: Theme.accent
-                                            font.pixelSize: Theme.fontSize(9)
-                                            font.weight: Font.Bold
-                                            font.letterSpacing: 1.0
-                                        }
-                                    }
-
                                     Text {
                                         textFormat: Text.PlainText
-                                        text: modelData.occupied
-                                              ? (modelData.ready
-                                                 ? qsTr("Deck selected and ready")
-                                                 : (modelData.deckSelected
-                                                    ? qsTr("Deck selected, not ready")
-                                                    : qsTr("Choosing a deck")))
-                                              : qsTr("Share the room code to invite a player")
+                                        text: root.roomSession.playtest
+                                              ? qsTr("Playtest seat")
+                                              : qsTr("Player seats")
+                                        color: Theme.text
+                                        font.pixelSize: Theme.fontSize(18)
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: root.roomSession.playtest
+                                              ? qsTr("No opponent is required")
+                                              : qsTr("%1 of %2 seats filled")
+                                                .arg(root.occupiedSeatCount())
+                                                .arg(root.roomSession.maxSeats)
                                         color: Theme.textMuted
-                                        font.pixelSize: Theme.fontSize(11)
+                                        font.pixelSize: Theme.fontSize(12)
                                     }
                                 }
+
+                                Item { Layout.fillWidth: true }
 
                                 StatusPill {
-                                    visible: modelData.occupied
-                                    text: modelData.ready ? qsTr("Ready") : qsTr("Not ready")
-                                    statusColor: modelData.ready ? Theme.success : Theme.textMuted
-                                }
-
-                                AppButton {
-                                    visible: root.roomSession.host && modelData.occupied && !modelData.host
-                                    compact: true
-                                    variant: "ghost"
-                                    text: qsTr("Remove")
-                                    onClicked: {
-                                        root.pendingSeat = index
-                                        root.pendingName = modelData.displayName
-                                        kickSeatDialog.open()
-                                    }
+                                    objectName: "waitingRoomSeatStatus"
+                                    text: root.roomSession.playtest
+                                          ? qsTr("Solo table")
+                                          : (root.occupiedSeatCount()
+                                             === root.roomSession.maxSeats
+                                             ? qsTr("Table full")
+                                             : (root.hasEnoughPlayersToStart()
+                                                ? qsTr("Ready to start")
+                                                : qsTr("Waiting for players")))
+                                    statusColor: root.hasEnoughPlayersToStart()
+                                                 ? Theme.success : Theme.warning
                                 }
                             }
-                        }
-                    }
 
-                    Item {
-                        Layout.fillHeight: !root.compactLayout
-                        visible: !root.compactLayout
-                    }
-                }
-            }
-
-            ColumnLayout {
-                id: waitingRoomDetails
-                objectName: "waitingRoomDetails"
-                visible: !root.roomSession.playtest
-                Layout.fillWidth: true
-                Layout.fillHeight: !root.compactLayout
-                Layout.preferredWidth: root.compactLayout ? -1 : Theme.size(330)
-                Layout.maximumWidth: root.compactLayout ? Number.POSITIVE_INFINITY
-                                                        : Theme.size(370)
-                spacing: Theme.size(18)
-
-                Surface {
-                    Layout.fillWidth: true
-                    implicitHeight: Theme.size(260)
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: Theme.size(20)
-                        spacing: Theme.size(13)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Room details")
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(16)
-                            font.weight: Font.DemiBold
-                        }
-
-                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { textFormat: Text.PlainText; text: qsTr("Format"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
-                            Item { Layout.fillWidth: true }
-                            Text { textFormat: Text.PlainText; text: I18n.formatLabel(root.roomSession.deckFormat); color: Theme.text; font.pixelSize: Theme.fontSize(13); font.weight: Font.Medium }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { textFormat: Text.PlainText; text: qsTr("Seats"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
-                            Item { Layout.fillWidth: true }
-                            Text { textFormat: Text.PlainText; text: root.roomSession.maxSeats; color: Theme.text; font.pixelSize: Theme.fontSize(13); font.weight: Font.Medium }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { textFormat: Text.PlainText; text: qsTr("Card images"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
-                            Item { Layout.fillWidth: true }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.roomSession.cardLoadMode === "background"
-                                      ? qsTr("Load in background")
-                                      : qsTr("Preload before game")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(13)
-                                font.weight: Font.Medium
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { textFormat: Text.PlainText; text: qsTr("Your role"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
-                            Item { Layout.fillWidth: true }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.roomSession.host ? qsTr("Host")
-                                                   : (root.roomSession.role === "spectator"
-                                                      ? qsTr("Spectator") : qsTr("Player"))
-                                color: root.roomSession.host ? Theme.accent : Theme.text
-                                font.pixelSize: Theme.fontSize(13)
-                                font.weight: Font.Medium
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { textFormat: Text.PlainText; text: qsTr("Spectator hands"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
-                            Item { Layout.fillWidth: true }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.roomSession.spectatorsSeeHands === true
-                                      ? qsTr("Visible") : qsTr("Hidden")
-                                color: root.roomSession.spectatorsSeeHands === true
-                                       ? Theme.warning : Theme.text
-                                font.pixelSize: Theme.fontSize(13)
-                                font.weight: Font.Medium
-                            }
-                        }
-                    }
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: Theme.size(20)
-                        spacing: Theme.size(10)
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Spectators")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(16)
-                                font.weight: Font.DemiBold
-                            }
-                            Item { Layout.fillWidth: true }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.roomSession.spectators.length + " / 8"
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(12)
-                            }
-                        }
-
-                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            visible: root.roomSession.spectators.length === 0
-                            spacing: Theme.size(8)
-
-                            Item { Layout.fillHeight: true }
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.alignment: Qt.AlignHCenter
-                                text: "○"
-                                color: Theme.borderStrong
-                                font.pixelSize: Theme.fontSize(28)
-                            }
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.alignment: Qt.AlignHCenter
-                                text: qsTr("No one is watching")
-                                color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(12)
-                            }
-                            Item { Layout.fillHeight: true }
-                        }
-
-                        Repeater {
-                            model: root.roomSession.spectators
-
-                            delegate: RowLayout {
-                                required property int index
-                                required property var modelData
-
+                            Rectangle {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Theme.size(40)
-                                spacing: Theme.size(10)
+                                implicitHeight: 1
+                                Layout.topMargin: Theme.size(4)
+                                Layout.bottomMargin: Theme.size(2)
+                                color: Theme.divider
+                            }
 
-                                Rectangle {
-                                    Layout.preferredWidth: Theme.size(28)
-                                    Layout.preferredHeight: Theme.size(28)
-                                    radius: Theme.size(9)
-                                    color: Theme.surfaceHover
-                                    Text {
-                                        textFormat: Text.PlainText
-                                        anchors.centerIn: parent
-                                        text: modelData.displayName.length > 0 ? modelData.displayName.charAt(0).toUpperCase() : "?"
-                                        color: Theme.textSecondary
-                                        font.pixelSize: Theme.fontSize(12)
-                                        font.weight: Font.Bold
+                            Repeater {
+                                model: root.roomSession.seats
+
+                                delegate: Surface {
+                                    required property int index
+                                    required property var modelData
+                                    objectName: "waitingRoomSeatRow"
+
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: !root.compactLayout
+                                    Layout.minimumHeight: Theme.size(66)
+                                    Layout.preferredHeight: Theme.size(66)
+                                    Layout.maximumHeight: Theme.size(82)
+                                    radius: Theme.radiusMedium
+                                    color: modelData.occupied ? Theme.surfaceMuted : "#0B1512"
+                                    border.color: modelData.occupied ? Theme.border : Theme.divider
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: Theme.size(14)
+                                        anchors.rightMargin: Theme.size(12)
+                                        spacing: Theme.size(14)
+
+                                        Rectangle {
+                                            Layout.preferredWidth: Theme.size(38)
+                                            Layout.preferredHeight: Theme.size(38)
+                                            radius: Theme.size(12)
+                                            color: modelData.occupied ? Theme.primaryMuted : Theme.disabled
+                                            border.width: 1
+                                            border.color: modelData.occupied ? "#2B654E" : Theme.border
+
+                                            Text {
+                                                textFormat: Text.PlainText
+                                                anchors.centerIn: parent
+                                                text: index + 1
+                                                color: modelData.occupied ? Theme.primary : Theme.textMuted
+                                                font.pixelSize: Theme.fontSize(15)
+                                                font.weight: Font.DemiBold
+                                            }
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: Theme.size(3)
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: Theme.size(8)
+                                                Text {
+                                                    textFormat: Text.PlainText
+                                                    objectName: "waitingRoomPlayerName"
+                                                    Layout.fillWidth: true
+                                                    elide: Text.ElideRight
+                                                    text: modelData.occupied ? modelData.displayName : qsTr("Open seat")
+                                                    color: modelData.occupied ? Theme.text : Theme.textMuted
+                                                    font.pixelSize: Theme.fontSize(14)
+                                                    font.weight: modelData.occupied ? Font.DemiBold : Font.Medium
+                                                }
+                                                Text {
+                                                    textFormat: Text.PlainText
+                                                    visible: modelData.host
+                                                    text: qsTr("HOST")
+                                                    color: Theme.accent
+                                                    font.pixelSize: Theme.fontSize(9)
+                                                    font.weight: Font.DemiBold
+                                                    font.letterSpacing: 1.0
+                                                }
+                                            }
+
+                                            Text {
+                                                textFormat: Text.PlainText
+                                                Layout.fillWidth: true
+                                                elide: Text.ElideRight
+                                                text: modelData.occupied
+                                                      ? (modelData.ready
+                                                         ? qsTr("Deck selected and ready")
+                                                         : (modelData.deckSelected
+                                                            ? qsTr("Deck selected, not ready")
+                                                            : qsTr("Choosing a deck")))
+                                                      : qsTr("Share the room code to invite a player")
+                                                color: Theme.textMuted
+                                                font.pixelSize: Theme.fontSize(11)
+                                            }
+                                        }
+
+                                        StatusPill {
+                                            visible: modelData.occupied
+                                            text: modelData.ready ? qsTr("Ready") : qsTr("Not ready")
+                                            statusColor: modelData.ready ? Theme.success : Theme.textMuted
+                                        }
+
+                                        AppButton {
+                                            objectName: "waitingRoomRemovePlayerButton"
+                                            visible: root.roomSession.host && modelData.occupied && !modelData.host
+                                            compact: true
+                                            variant: "ghost"
+                                            text: qsTr("Remove")
+                                            onClicked: {
+                                                root.pendingSeat = index
+                                                root.pendingName = modelData.displayName
+                                                kickSeatDialog.open()
+                                            }
+                                        }
                                     }
                                 }
+                            }
+
+                            Item {
+                                Layout.fillHeight: !root.compactLayout
+                                visible: !root.compactLayout
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        id: waitingRoomDetails
+                        objectName: "waitingRoomDetails"
+                        visible: !root.roomSession.playtest
+                        Layout.fillWidth: true
+                        Layout.fillHeight: !root.compactLayout
+                        Layout.preferredWidth: root.compactLayout ? -1 : Theme.size(330)
+                        Layout.maximumWidth: root.compactLayout ? Number.POSITIVE_INFINITY
+                                                                : Theme.size(370)
+                        spacing: Theme.size(18)
+
+                        Surface {
+                            Layout.fillWidth: true
+                            implicitHeight: Math.max(Theme.size(260), roomDetailsContent.implicitHeight + Theme.size(40))
+
+                            ColumnLayout {
+                                id: roomDetailsContent
+                                anchors.fill: parent
+                                anchors.margins: Theme.size(20)
+                                spacing: Theme.size(13)
 
                                 Text {
                                     textFormat: Text.PlainText
-                                    Layout.fillWidth: true
-                                    text: modelData.displayName
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Theme.fontSize(13)
-                                    elide: Text.ElideRight
+                                    text: qsTr("Room details")
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(16)
+                                    font.weight: Font.DemiBold
                                 }
 
-                                AppButton {
-                                    visible: root.roomSession.host
-                                    compact: true
-                                    variant: "ghost"
-                                    text: qsTr("Remove")
-                                    onClicked: {
-                                        root.pendingSpectator = index
-                                        root.pendingName = modelData.displayName
-                                        kickSpectatorDialog.open()
+                                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { textFormat: Text.PlainText; text: qsTr("Format"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
+                                    Item { Layout.fillWidth: true }
+                                    Text { textFormat: Text.PlainText; text: I18n.formatLabel(root.roomSession.deckFormat); color: Theme.text; font.pixelSize: Theme.fontSize(13); font.weight: Font.Medium }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { textFormat: Text.PlainText; text: qsTr("Seats"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
+                                    Item { Layout.fillWidth: true }
+                                    Text { textFormat: Text.PlainText; text: root.roomSession.maxSeats; color: Theme.text; font.pixelSize: Theme.fontSize(13); font.weight: Font.Medium }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { textFormat: Text.PlainText; text: qsTr("Card images"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
+                                    Item { Layout.fillWidth: true }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: root.roomSession.cardLoadMode === "background"
+                                              ? qsTr("Load in background")
+                                              : qsTr("Preload before game")
+                                        color: Theme.text
+                                        font.pixelSize: Theme.fontSize(13)
+                                        font.weight: Font.Medium
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { textFormat: Text.PlainText; text: qsTr("Your role"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
+                                    Item { Layout.fillWidth: true }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: root.roomSession.host ? qsTr("Host")
+                                                           : (root.roomSession.role === "spectator"
+                                                              ? qsTr("Spectator") : qsTr("Player"))
+                                        color: root.roomSession.host ? Theme.accent : Theme.text
+                                        font.pixelSize: Theme.fontSize(13)
+                                        font.weight: Font.Medium
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text { textFormat: Text.PlainText; text: qsTr("Spectator hands"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(12) }
+                                    Item { Layout.fillWidth: true }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: root.roomSession.spectatorsSeeHands === true
+                                              ? qsTr("Visible") : qsTr("Hidden")
+                                        color: root.roomSession.spectatorsSeeHands === true
+                                               ? Theme.warning : Theme.text
+                                        font.pixelSize: Theme.fontSize(13)
+                                        font.weight: Font.Medium
+                                    }
+                                }
+                            }
+                        }
+
+                        Surface {
+                            objectName: "waitingRoomSpectators"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            implicitHeight: Math.max(Theme.size(180), spectatorsContent.implicitHeight + Theme.size(40))
+
+                            ColumnLayout {
+                                id: spectatorsContent
+                                anchors.fill: parent
+                                anchors.margins: Theme.size(20)
+                                spacing: Theme.size(10)
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: qsTr("Spectators")
+                                        color: Theme.text
+                                        font.pixelSize: Theme.fontSize(16)
+                                        font.weight: Font.DemiBold
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: root.roomSession.spectators.length + " / 8"
+                                        color: Theme.textMuted
+                                        font.pixelSize: Theme.fontSize(12)
+                                    }
+                                }
+
+                                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    visible: root.roomSession.spectators.length === 0
+                                    spacing: Theme.size(8)
+
+                                    Item { Layout.fillHeight: true }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: "○"
+                                        color: Theme.borderStrong
+                                        font.pixelSize: Theme.fontSize(28)
+                                    }
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: qsTr("No one is watching")
+                                        color: Theme.textMuted
+                                        font.pixelSize: Theme.fontSize(12)
+                                    }
+                                    Item { Layout.fillHeight: true }
+                                }
+
+                                Repeater {
+                                    model: root.roomSession.spectators
+
+                                    delegate: RowLayout {
+                                        required property int index
+                                        required property var modelData
+
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: Theme.size(40)
+                                        spacing: Theme.size(10)
+
+                                        Rectangle {
+                                            Layout.preferredWidth: Theme.size(28)
+                                            Layout.preferredHeight: Theme.size(28)
+                                            radius: Theme.size(9)
+                                            color: Theme.surfaceHover
+                                            Text {
+                                                textFormat: Text.PlainText
+                                                anchors.centerIn: parent
+                                                text: modelData.displayName.length > 0 ? modelData.displayName.charAt(0).toUpperCase() : "?"
+                                                color: Theme.textSecondary
+                                                font.pixelSize: Theme.fontSize(12)
+                                                font.weight: Font.DemiBold
+                                            }
+                                        }
+
+                                        Text {
+                                            textFormat: Text.PlainText
+                                            Layout.fillWidth: true
+                                            text: modelData.displayName
+                                            color: Theme.textSecondary
+                                            font.pixelSize: Theme.fontSize(13)
+                                            elide: Text.ElideRight
+                                        }
+
+                                        AppButton {
+                                            objectName: "waitingRoomRemoveSpectatorButton"
+                                            visible: root.roomSession.host
+                                            compact: true
+                                            variant: "ghost"
+                                            text: qsTr("Remove")
+                                            onClicked: {
+                                                root.pendingSpectator = index
+                                                root.pendingName = modelData.displayName
+                                                kickSpectatorDialog.open()
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    }
+                InfoBanner {
+                    objectName: "waitingRoomErrorBanner"
+                    Layout.fillWidth: true
+                    message: I18n.status(root.wsModel.lastError)
+                             + (root.roomSession.rulesMode === "forge"
+                                && String(root.wsModel.lastError).indexOf("rules_unavailable:") === 0
+                                ? "\n" + qsTr("Forge could not continue. Your seats and selected decks are kept. Ready again to start a fresh game.")
+                                : "")
                 }
-            }
-            }
-        }
 
-        InfoBanner {
-            Layout.fillWidth: true
-            message: I18n.status(root.wsModel.lastError)
+            }
         }
 
         ColumnLayout {
@@ -542,6 +569,8 @@ Page {
 
             Text {
                 textFormat: Text.PlainText
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
                 text: root.roomSession.playtest
                       ? qsTr("Select a deck and ready up to open the playtest table.")
                       : (root.limitedPairing
@@ -585,6 +614,8 @@ Page {
                         objectName: "waitingRoomSelectDeckButton"
                         visible: root.roomSession.role === "player"
                                  && !root.limitedPairing
+                        width: Math.min(implicitWidth, Math.max(Theme.size(100),
+                                             waitingRoomActionsHost.width - Theme.size(240)))
                         text: root.selectedDeckLabel()
                         leadingText: "◇"
                         onClicked: deckPicker.showForFormat(root.roomSession.format,
@@ -593,6 +624,7 @@ Page {
 
                     StatusPill {
                         objectName: "waitingRoomLimitedDeckStatus"
+                        maximumWidth: Math.max(Theme.size(100), waitingRoomActionsHost.width - Theme.size(240))
                         visible: root.roomSession.role === "player"
                                  && root.limitedPairing
                         text: root.myDeckSelected()
@@ -755,6 +787,8 @@ Page {
     function minimumPlayersToStart() {
         if (root.roomSession.playtest || root.roomSession.maxSeats <= 1)
             return 1
+        if (root.roomSession.deckFormat === "commander_limited")
+            return root.roomSession.maxSeats
         if (root.roomSession.format === "edh"
                 && root.roomSession.maxSeats >= 3) {
             return 3

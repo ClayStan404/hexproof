@@ -11,6 +11,9 @@ Surface {
     id: root
 
     required property var tableController
+    readonly property bool showTurnState: tableController.rulesSession.active
+                                          && !tableController.sideboarding
+                                          && !tableController.matchUi.matchFinished
     readonly property var phaseSteps: [
         "untap", "upkeep", "draw", "main1", "begin_combat",
         "declare_attackers", "declare_blockers", "combat_damage",
@@ -65,7 +68,9 @@ Surface {
 
         Text {
             textFormat: Text.PlainText
+            objectName: "rulesTurnSummary"
             Layout.fillWidth: true
+            visible: root.showTurnState
             text: qsTr("Turn %1 · %2")
                   .arg(root.tableController.rulesSession.turn)
                   .arg(root.tableController.stepLabel(
@@ -81,9 +86,46 @@ Surface {
             Layout.fillWidth: true
             compact: true
             variant: "primary"
-            visible: root.tableController.rulesSession.gameOver
+            visible: root.tableController.matchUi.matchFinished
+            enabled: root.tableController.matchUi.canReturn
             text: qsTr("Return to room")
-            onClicked: root.tableController.wsModel.returnToRoom()
+            onClicked: root.tableController.matchUi.returnToRoom()
+        }
+
+        Text {
+            objectName: "rulesMatchScore"
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            text: qsTr("Game %1 · %2")
+                  .arg(root.tableController.gameSession.gameNumber)
+                  .arg(root.tableController.matchUi.scoreSummary())
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSize(10)
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+        }
+
+        AppButton {
+            objectName: "rulesRestartGameButton"
+            Layout.fillWidth: true
+            compact: true
+            visible: root.tableController.roomSession.host
+                     && !root.tableController.rulesSession.gameOver
+                     && !root.tableController.sideboarding
+                     && !root.tableController.matchUi.matchFinished
+            enabled: root.tableController.matchUi.canRestart
+            text: qsTr("Restart game")
+            onClicked: root.tableController.matchUi.openRestartConfirmation()
+        }
+
+        AppButton {
+            objectName: "rulesToggleGameLogButton"
+            Layout.fillWidth: true
+            compact: true
+            text: root.tableController.showGameLogRail
+                  ? qsTr("Hide log / chat") : qsTr("Show log / chat")
+            onClicked: root.tableController.setGameLogVisible(
+                           !root.tableController.showGameLogRail)
         }
 
         Repeater {
@@ -100,6 +142,9 @@ Surface {
                 visible: seat === root.tableController.localSeat
                          && status === "playing"
                          && !root.tableController.rulesSession.gameOver
+                         && !root.tableController.sideboarding
+                         && !root.tableController.matchUi.matchFinished
+                enabled: root.tableController.roomConnected
                 text: qsTr("Concede")
                 onClicked: root.tableController.openConcedeConfirmation()
             }
@@ -111,7 +156,8 @@ Surface {
             compact: true
             variant: "secondary"
             text: qsTr("Leave room")
-            onClicked: root.tableController.wsModel.leaveRoom()
+            enabled: root.tableController.roomConnected
+            onClicked: root.tableController.matchUi.openLeaveConfirmation()
         }
 
         Rectangle {
@@ -122,7 +168,9 @@ Surface {
 
         Text {
             textFormat: Text.PlainText
+            objectName: "rulesActiveSeatSummary"
             Layout.fillWidth: true
+            visible: root.showTurnState
             text: root.tableController.rulesSession.activeSeat >= 0
                   ? qsTr("Active · Seat %1").arg(
                         root.tableController.rulesSession.activeSeat + 1)
@@ -137,7 +185,8 @@ Surface {
         Text {
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            visible: root.tableController.rulesSession.prioritySeat >= 0
+            visible: root.showTurnState
+                     && root.tableController.rulesSession.prioritySeat >= 0
             text: qsTr("Priority · Seat %1").arg(
                       root.tableController.rulesSession.prioritySeat + 1)
             color: Theme.accent
@@ -153,6 +202,8 @@ Surface {
         }
 
         ScrollView {
+            objectName: "rulesPhaseScrollView"
+            visible: root.showTurnState
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -203,6 +254,11 @@ Surface {
                     }
                 }
             }
+        }
+
+        Item {
+            visible: !root.showTurnState
+            Layout.fillHeight: true
         }
 
         Text {

@@ -43,6 +43,10 @@ class ReconnectController : public QObject
     {
         return !m_token.isEmpty();
     }
+    bool crossLaunchResumeAllowed() const
+    {
+        return m_crossLaunchResumeAllowed;
+    }
     bool matches(const QString &serverUrl, const QString &displayName) const;
     int remainingSeconds() const
     {
@@ -50,6 +54,7 @@ class ReconnectController : public QObject
     }
 
     void updateSession(const QString &token, const QString &serverUrl, const QString &displayName);
+    void setCrossLaunchResumeAllowed(bool allowed);
     void observeSequence(qint64 seq);
     void resetSequence();
 
@@ -68,6 +73,7 @@ class ReconnectController : public QObject
     void remainingSecondsChanged();
 
   private:
+    void clearPersisted();
     void load();
     void persist();
     void updateRemainingSeconds();
@@ -83,6 +89,7 @@ class ReconnectController : public QObject
     qint64 m_deadlineMs = 0;
     int m_attempt = 0;
     int m_remainingSeconds = 0;
+    bool m_crossLaunchResumeAllowed = false;
 };
 
 } // namespace hexproof::client

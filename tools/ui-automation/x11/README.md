@@ -9,6 +9,12 @@ These small tools support real-window visual verification of the Hexproof Qt
 client. They are intentionally separate from the client build and are useful
 only in an active X11 session.
 
+Use these helpers when a requested visual/input behavior needs native
+verification, not after every code edit. Use isolated
+test profiles and a local server, identify the exact test window, and stop only
+the processes started for the check. The helpers do not authorize interaction
+with an existing live game or capture of unrelated desktop content.
+
 ## Build
 
 From the repository root:

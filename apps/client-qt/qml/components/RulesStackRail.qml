@@ -69,17 +69,22 @@ Surface {
                 boundsBehavior: Flickable.StopAtBounds
 
                 delegate: RulesCardSurface {
+                    id: stackCard
                     required property int controllerSeat
                     required property int index
+                    required property string rulesText
 
+                    objectName: "rulesStackCard-" + index
                     width: ListView.view.width
                     height: Math.round(width * 88 / 63)
                     z: index
                     cardCatalogModel: root.tableController.cardCatalogModel
                     cardBackSource: root.tableController.cardBackSource
-                    visibleIdentity: true
+                    visibleIdentity: name.length > 0
+                    hiddenLabel: rulesText === "Face-down spell" || rulesText.length === 0
+                                 ? qsTr("Face-down spell") : rulesText
                     tapped: false
-                    faceDown: false
+                    faceDown: !visibleIdentity
                     attacking: false
                     power: ""
                     toughness: ""

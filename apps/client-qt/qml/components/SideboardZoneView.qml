@@ -46,8 +46,8 @@ Surface {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.size(14)
-        spacing: Theme.size(10)
+        anchors.margins: Theme.size(zone.panel.compactLayout ? 8 : 14)
+        spacing: Theme.size(zone.panel.compactLayout ? 5 : 10)
 
         RowLayout {
             Layout.fillWidth: true
@@ -55,6 +55,7 @@ Surface {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
+                elide: Text.ElideRight
                 text: zone.title + ": "
                       + (zone.filtersActive
                          ? zone.visibleCount + " / " + zone.totalCount
@@ -83,14 +84,17 @@ Surface {
             Text {
                 textFormat: Text.PlainText
                 anchors.centerIn: parent
+                width: parent.width
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
                 visible: zone.categoryGroups.length === 0
                 text: zone.zoneName === "mainboard"
                       ? (zone.filtersActive && zone.totalCount > 0
-                         ? qsTr("No mainboard cards match all active filters.")
-                         : qsTr("No mainboard cards"))
+                         ? qsTranslate("SideboardPanel", "No mainboard cards match all active filters.")
+                         : qsTranslate("SideboardPanel", "No mainboard cards"))
                       : (zone.filtersActive && zone.totalCount > 0
-                         ? qsTr("No sideboard cards match all active filters.")
-                         : qsTr("No sideboard cards"))
+                         ? qsTranslate("SideboardPanel", "No sideboard cards match all active filters.")
+                         : qsTranslate("SideboardPanel", "No sideboard cards"))
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
             }

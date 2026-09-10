@@ -4,6 +4,7 @@
 
 #include "DeckParser.h"
 
+#include <QHash>
 #include <QRegularExpression>
 #include <QSet>
 
@@ -35,21 +36,26 @@ DeckParseLimits limitsForProfile(DeckParseProfile profile)
     return profile == DeckParseProfile::Cube ? kCubeLimits : kConstructedLimits;
 }
 
-bool mergeCard(QVector<DeckCard> &cards, const DeckCard &incoming, const DeckParseLimits &limits)
+QString cardIdentity(const DeckCard &card)
 {
-    const QString key = normalizedCardName(incoming.name);
-    for (DeckCard &card : cards) {
-        if (normalizedCardName(card.name) == key &&
-            card.setCode.compare(incoming.setCode, Qt::CaseInsensitive) == 0 &&
-            card.collectorNumber == incoming.collectorNumber) {
-            if (incoming.count > limits.cards - card.count)
-                return false;
-            card.count += incoming.count;
-            return true;
-        }
+    return normalizedCardName(card.name) + u'\x1f' + card.setCode.toCaseFolded() + u'\x1f' +
+           card.collectorNumber;
+}
+
+bool mergeCard(QVector<DeckCard> &cards, QHash<QString, qsizetype> &rows, const DeckCard &incoming,
+               const DeckParseLimits &limits)
+{
+    const QString key = cardIdentity(incoming);
+    if (const auto it = rows.constFind(key); it != rows.cend()) {
+        DeckCard &card = cards[*it];
+        if (card.count > limits.cards - incoming.count)
+            return false;
+        card.count += incoming.count;
+        return true;
     }
     if (cards.size() >= limits.entries)
         return false;
+    rows.insert(key, cards.size());
     cards.append(incoming);
     return true;
 }
@@ -116,7 +122,7 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
     static const QRegularExpression cardLine(
         QStringLiteral(R"(^\s*[\[(]?[xX]?(\d+)[xX*\])]*\s+(.+?)\s*$)"));
     static const QRegularExpression setSuffix(
-        QStringLiteral(R"(^(.+?)\s+\(([A-Za-z0-9]{2,8})\)\s+([A-Za-z0-9-]+)[★☆]?\s*$)"));
+        QStringLiteral(R"(^(.+?)\s+\(([A-Za-z0-9]{2,8})\)\s+([^\s★☆]+)[★☆]?\s*$)"));
     static const QRegularExpression exportMarker(
         QStringLiteral(R"((?:^|\s)\*(CMDR|F|E)\*(?=\s|$))"),
         QRegularExpression::CaseInsensitiveOption);
@@ -128,6 +134,9 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
     bool sawCard = false;
     bool sawSectionHeading = false;
     bool pendingPlainSideboard = false;
+    QHash<QString, qsizetype> mainboardRows;
+    QHash<QString, qsizetype> sideboardRows;
+    QHash<QString, qsizetype> considerRows;
     const QStringList lines = text.split(QLatin1Char('\n'));
     for (int lineNumber = 0; lineNumber < lines.size(); ++lineNumber) {
         QString line = lines.at(lineNumber).trimmed();
@@ -227,11 +236,11 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
 
         bool merged = false;
         if (section == Section::Consider) {
-            merged = mergeCard(result.deck.consider, card, limits);
+            merged = mergeCard(result.deck.consider, considerRows, card, limits);
         } else if (prefixedSideboard || section == Section::Sideboard) {
-            merged = mergeCard(result.deck.sideboard, card, limits);
+            merged = mergeCard(result.deck.sideboard, sideboardRows, card, limits);
         } else {
-            merged = mergeCard(result.deck.mainboard, card, limits);
+            merged = mergeCard(result.deck.mainboard, mainboardRows, card, limits);
         }
         if (!merged) {
             result.error =

@@ -12,12 +12,58 @@ namespace hexproof::client {
 
 using namespace catalog_internal;
 
-CatalogSearchResult CatalogRepository::search(const QString &text, const QString &language,
-                                              const QString &typeFilter, const QString &setFilter,
-                                              const QString &languageFilter,
-                                              const QString &colorFilter,
-                                              const QString &rarityFilter,
-                                              const QString &legalityFilter) const
+namespace {
+// Alternatives are bound values, never SQL fragments supplied by the UI.
+void appendAlternatives(QString &statement, QVariantList &bindings, const QString &raw,
+                        const QString &kind, bool hasMana = true)
+{
+    if (raw.isEmpty())
+        return;
+    QStringList alternatives;
+    const QStringList values = raw.split(QLatin1Char(','), Qt::SkipEmptyParts);
+    for (const QString &part : values.mid(0, 16)) {
+        const QString value = part.trimmed();
+        if (kind == QStringLiteral("type")) {
+            alternatives.append(QStringLiteral("c.type_line LIKE ? ESCAPE '\\'"));
+            bindings.append(QLatin1Char('%') + escapedLike(value) + QLatin1Char('%'));
+        } else if (kind == QStringLiteral("rarity")) {
+            alternatives.append(QStringLiteral("c.rarity = ? COLLATE NOCASE"));
+            bindings.append(value);
+        } else if (kind == QStringLiteral("color")) {
+            if (value == QStringLiteral("C"))
+                alternatives.append(QStringLiteral("c.colors = ''"));
+            else if (value == QStringLiteral("M"))
+                alternatives.append(QStringLiteral("length(c.colors) > 1"));
+            else {
+                alternatives.append(QStringLiteral("instr(c.colors, ?) > 0"));
+                bindings.append(value);
+            }
+        } else {
+            bool valid = false;
+            const int mana = value.toInt(&valid);
+            if (!hasMana)
+                alternatives.append(QStringLiteral("0"));
+            else if (value == QStringLiteral("7+"))
+                alternatives.append(QStringLiteral("c.mana_value >= 7"));
+            else if (valid && mana >= 0 && mana <= 6) {
+                alternatives.append(QStringLiteral("c.mana_value = ?"));
+                bindings.append(mana);
+            } else
+                alternatives.append(QStringLiteral("0"));
+        }
+    }
+    statement +=
+        QStringLiteral(" AND (") +
+        (alternatives.isEmpty() ? QStringLiteral("0") : alternatives.join(QStringLiteral(" OR "))) +
+        QLatin1Char(')');
+}
+} // namespace
+
+CatalogSearchResult
+CatalogRepository::search(const QString &text, const QString &language, const QString &typeFilter,
+                          const QString &setFilter, const QString &languageFilter,
+                          const QString &colorFilter, const QString &rarityFilter,
+                          const QString &legalityFilter, const QString &manaFilter) const
 {
     CatalogSearchResult result;
     if (!ensureOpen(&result.error)) {
@@ -41,6 +87,9 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                 m_schema.cardColumns.contains(QStringLiteral("mana_value"))
                     ? QStringLiteral("c.mana_value")
                     : QStringLiteral("-1");
+            const QString rarityExpression = m_schema.cardColumns.contains(QStringLiteral("rarity"))
+                                                 ? QStringLiteral("c.rarity")
+                                                 : QStringLiteral("'unknown'");
             QSqlQuery query(database);
             QString statement =
                 QStringLiteral(
@@ -49,10 +98,10 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                     "c.set_code, c.collector_number, c.image_url, c.lang, row_number() OVER ("
                     "PARTITION BY name COLLATE NOCASE ORDER BY "
                     "CASE WHEN c.lang = ? THEN 0 WHEN c.lang = 'en' THEN 1 ELSE 2 END, c.rowid) "
-                    "choice, %3 AS colors, %4 AS mana_value "
+                    "choice, %3 AS colors, %4 AS mana_value, %5 AS rarity "
                     "FROM cards c WHERE ")
-                    .arg(localizedExpression, typeExpression, colorsExpression,
-                         manaValueExpression);
+                    .arg(localizedExpression, typeExpression, colorsExpression, manaValueExpression,
+                         rarityExpression);
             if (text.isEmpty()) {
                 statement += QStringLiteral("1 = 1 ");
             } else {
@@ -72,28 +121,36 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                 }
                 statement += QLatin1Char(')');
             }
-            if (!typeFilter.isEmpty())
-                statement += QStringLiteral(" AND c.type_line LIKE ? ESCAPE '\\' ");
+            if (m_schema.cardColumns.contains(QStringLiteral("layout")))
+                statement += QStringLiteral(" AND ") + catalogPlayablePrintingSql();
+            QVariantList filterBindings;
+            appendAlternatives(statement, filterBindings, typeFilter, QStringLiteral("type"));
             if (!setFilter.isEmpty())
                 statement += QStringLiteral(" AND c.set_code = ? COLLATE NOCASE ");
+            if (!setFilter.isEmpty())
+                filterBindings.append(setFilter);
             if (!languageFilter.isEmpty())
                 statement += QStringLiteral(" AND c.lang = ? COLLATE NOCASE ");
-            if (colorFilter == QStringLiteral("C"))
-                statement += QStringLiteral(" AND c.colors = '' ");
-            else if (colorFilter == QStringLiteral("M"))
-                statement += QStringLiteral(" AND length(c.colors) > 1 ");
-            else if (!colorFilter.isEmpty())
-                statement += QStringLiteral(" AND instr(c.colors, ?) > 0 ");
-            if (!rarityFilter.isEmpty())
-                statement += QStringLiteral(" AND c.rarity = ? COLLATE NOCASE ");
+            if (!languageFilter.isEmpty())
+                filterBindings.append(languageFilter);
+            appendAlternatives(statement, filterBindings, colorFilter, QStringLiteral("color"));
+            appendAlternatives(statement, filterBindings, rarityFilter, QStringLiteral("rarity"));
+            appendAlternatives(statement, filterBindings, manaFilter, QStringLiteral("mana"),
+                               m_schema.cardColumns.contains(QStringLiteral("mana_value")));
             if (!legalityFilter.isEmpty())
                 statement += QStringLiteral(" AND instr(c.legal_formats, ?) > 0 ");
+            if (!legalityFilter.isEmpty())
+                filterBindings.append(QLatin1Char('|') + legalityFilter + QLatin1Char('|'));
             statement += QStringLiteral(
                 ") SELECT c.name, c.localized_name, c.type_line, c.set_code, "
                 "c.collector_number, c.image_url, "
                 "(SELECT count(DISTINCT v.set_code || char(31) || v.collector_number) "
-                " FROM cards v WHERE v.name = c.name COLLATE NOCASE), c.colors, c.mana_value "
-                "FROM matching_cards c WHERE c.choice = 1 ");
+                " FROM cards v WHERE v.name = c.name COLLATE NOCASE");
+            if (m_schema.cardColumns.contains(QStringLiteral("layout")))
+                statement +=
+                    QStringLiteral(" AND ") + catalogPlayablePrintingSql(QStringLiteral("v."));
+            statement += QStringLiteral(
+                "), c.colors, c.mana_value, c.rarity FROM matching_cards c WHERE c.choice = 1 ");
             if (text.isEmpty()) {
                 statement += QStringLiteral("ORDER BY c.name LIMIT 40");
             } else {
@@ -119,19 +176,8 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                 if (hasAliases)
                     query.addBindValue(fuzzy);
             }
-            if (!typeFilter.isEmpty())
-                query.addBindValue(QLatin1Char('%') + escapedLike(typeFilter) + QLatin1Char('%'));
-            if (!setFilter.isEmpty())
-                query.addBindValue(setFilter);
-            if (!languageFilter.isEmpty())
-                query.addBindValue(languageFilter);
-            if (!colorFilter.isEmpty() && colorFilter != QStringLiteral("C") &&
-                colorFilter != QStringLiteral("M"))
-                query.addBindValue(colorFilter);
-            if (!rarityFilter.isEmpty())
-                query.addBindValue(rarityFilter);
-            if (!legalityFilter.isEmpty())
-                query.addBindValue(QLatin1Char('|') + legalityFilter + QLatin1Char('|'));
+            for (const QVariant &value : filterBindings)
+                query.addBindValue(value);
             if (!text.isEmpty()) {
                 const QString escaped = escapedLike(text);
                 const QString prefix = escaped + QLatin1Char('%');
@@ -159,17 +205,19 @@ CatalogSearchResult CatalogRepository::search(const QString &text, const QString
                         {QStringLiteral("versionCount"), query.value(6).toInt()},
                         {QStringLiteral("colors"), query.value(7).toString().toUpper()},
                         {QStringLiteral("manaValue"), query.value(8).toDouble()},
+                        {QStringLiteral("rarity"), query.value(9).toString()},
                     });
                 }
             } else {
                 result.error = QStringLiteral("Could not search the local card catalog.");
             }
     }
+    result.cards = enrichLimitedCards(result.cards, nullptr, language);
     return result;
 }
 
-CatalogSearchResult CatalogRepository::searchTokens(const QString &text,
-                                                    const QString &language) const
+CatalogSearchResult CatalogRepository::searchTokens(const QString &text, const QString &language,
+                                                    const QString &kind) const
 {
     CatalogSearchResult result;
     if (!ensureOpen(&result.error)) {
@@ -178,6 +226,11 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text,
         return result;
     }
     const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
+    const QString layoutFilter =
+        kind == QStringLiteral("emblem") ? QStringLiteral("c.layout = 'emblem'")
+        : kind == QStringLiteral("token")
+            ? QStringLiteral("c.layout IN ('token', 'double_faced_token')")
+            : QStringLiteral("c.layout IN ('token', 'double_faced_token', 'emblem')");
     {
             const bool hasAliases = m_schema.hasAliases;
             const bool hasLocalizedPrintings = m_schema.hasLocalizedPrintings;
@@ -248,6 +301,7 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text,
                         {QStringLiteral("toughness"), query.value(7).toString()},
                         {QStringLiteral("oracleText"), query.value(8).toString()},
                         {QStringLiteral("oracleId"), query.value(9).toString()},
+                        {QStringLiteral("kind"), query.value(10).toString()},
                     });
                 }
             };
@@ -258,24 +312,26 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text,
             const QRegularExpressionMatch exactMatch = exactIdentity.match(text);
             if (exactMatch.hasMatch()) {
                 const QString requestedSet = exactMatch.captured(1).toUpper();
-                const QString tokenSet = requestedSet.startsWith(QLatin1Char('T'))
-                                             ? requestedSet
-                                             : QLatin1Char('T') + requestedSet;
+                // Try both the exact code and its token-set code, including
+                // ordinary expansions whose code itself starts with T.
+                const QString tokenSet = QLatin1Char('T') + requestedSet;
                 const QString collectorNumber = exactMatch.captured(2);
                 QSqlQuery exactQuery(database);
                 exactQuery.prepare(
-                    QStringLiteral("SELECT c.name, %1 AS localized_name, %2 AS type_line, "
-                                   "c.set_code, c.collector_number, c.image_url, %3 AS power, "
-                                   "%4 AS toughness, %5 AS oracle_text, c.oracle_id "
-                                   "FROM cards c WHERE c.layout = 'token' AND c.lang = 'en' "
-                                   "AND (upper(c.set_code) = ? OR upper(c.set_code) = ?) "
-                                   "AND (c.collector_number = ? COLLATE NOCASE OR "
-                                   "ltrim(c.collector_number, '0') = "
-                                   "ltrim(?, '0') COLLATE NOCASE) "
-                                   "ORDER BY CASE WHEN upper(c.set_code) = ? THEN 0 ELSE 1 END, "
-                                   "c.rowid DESC LIMIT 60")
+                    QStringLiteral(
+                        "SELECT c.name, %1 AS localized_name, %2 AS type_line, "
+                        "c.set_code, c.collector_number, c.image_url, %3 AS power, "
+                        "%4 AS toughness, %5 AS oracle_text, c.oracle_id, "
+                        "CASE WHEN c.layout = 'emblem' THEN 'emblem' ELSE 'token' END AS kind "
+                        "FROM cards c WHERE %6 AND c.lang = 'en' "
+                        "AND (upper(c.set_code) = ? OR upper(c.set_code) = ?) "
+                        "AND (c.collector_number = ? COLLATE NOCASE OR "
+                        "ltrim(c.collector_number, '0') = "
+                        "ltrim(?, '0') COLLATE NOCASE) "
+                        "ORDER BY CASE WHEN upper(c.set_code) = ? THEN 0 ELSE 1 END, "
+                        "c.rowid DESC LIMIT 60")
                         .arg(localizedName, localizedType, powerExpression, toughnessExpression,
-                             oracleTextExpression));
+                             oracleTextExpression, layoutFilter));
                 exactQuery.addBindValue(requestedSet);
                 exactQuery.addBindValue(tokenSet);
                 exactQuery.addBindValue(collectorNumber);
@@ -297,12 +353,13 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text,
                         "SELECT c.name, %1 AS localized_name, %2 AS type_line, c.set_code, "
                         "c.collector_number, c.image_url, %3 AS power, %4 AS toughness, "
                         "%5 AS oracle_text, c.oracle_id, "
+                        "CASE WHEN c.layout = 'emblem' THEN 'emblem' ELSE 'token' END AS kind, "
                         "row_number() OVER (PARTITION BY "
                         "COALESCE(NULLIF(c.oracle_id, ''), c.name || char(31) || c.set_code || "
                         "char(31) || c.collector_number) ORDER BY c.rowid DESC) choice "
-                        "FROM cards c WHERE c.layout = 'token' AND c.lang = 'en' ")
+                        "FROM cards c WHERE %6 AND c.lang = 'en' ")
                         .arg(localizedName, localizedType, powerExpression, toughnessExpression,
-                             oracleTextExpression);
+                             oracleTextExpression, layoutFilter);
                 if (!text.isEmpty()) {
                     statement += QStringLiteral(
                         "AND (c.name LIKE ? ESCAPE '\\' OR c.type_line LIKE ? ESCAPE '\\' "
@@ -325,7 +382,7 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text,
                 }
                 statement += QStringLiteral(
                     ") SELECT name, localized_name, type_line, set_code, collector_number, "
-                    "image_url, power, toughness, oracle_text, oracle_id "
+                    "image_url, power, toughness, oracle_text, oracle_id, kind "
                     "FROM token_printings WHERE choice = 1 ");
                 if (text.isEmpty()) {
                     statement += QStringLiteral("ORDER BY name COLLATE NOCASE LIMIT 60");

@@ -334,7 +334,10 @@ func newTestServer(t *testing.T) (*httptest.Server, *Handler) {
 	t.Helper()
 	h := NewHandler()
 	srv := httptest.NewServer(h)
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() {
+		srv.Close()
+		_ = h.Close()
+	})
 	return srv, h
 }
 
@@ -345,7 +348,10 @@ func newConfiguredTestServer(t *testing.T, config Config) (*httptest.Server, *Ha
 		t.Fatalf("new configured handler: %v", err)
 	}
 	srv := httptest.NewServer(h)
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() {
+		srv.Close()
+		_ = h.Close()
+	})
 	return srv, h
 }
 

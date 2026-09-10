@@ -87,6 +87,8 @@ class CardArtManager final : public QObject
                                         const QString &imageLanguage) const;
     Q_INVOKABLE void exportPack(const QUrl &fileUrl, bool selectionOnly,
                                 const QString &setCode = {}, const QString &imageLanguage = {});
+    Q_INVOKABLE QUrl suggestedDeckExportUrl(const QString &deckName) const;
+    Q_INVOKABLE void exportDeckPack(const QUrl &fileUrl, const QVariantList &cards);
     Q_INVOKABLE void importPack(const QUrl &fileUrl);
     Q_INVOKABLE void removeOrphans();
     Q_INVOKABLE void removeSelection(bool selectionOnly, const QString &setCode = {},
@@ -106,6 +108,7 @@ class CardArtManager final : public QObject
     void lastErrorChanged();
     void contentsChanged();
     void repairDownloadsRequested(const QVariantList &cards);
+    void deckExportFinished(const QVariantMap &result);
 
   private:
     bool beginOperation(const QString &status);

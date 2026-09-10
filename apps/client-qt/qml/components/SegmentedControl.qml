@@ -73,12 +73,18 @@ Control {
 
                 contentItem: Text {
                     textFormat: Text.PlainText
+                    id: segmentLabel
+                    elide: Text.ElideRight
                     text: segmentButton.text
                     color: segmentButton.checked ? Theme.text : Theme.textMuted
                     font: segmentButton.font
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+
+                ToolTip.visible: hovered && segmentLabel.truncated
+                ToolTip.text: text
+                ToolTip.delay: 600
 
                 background: Rectangle {
                     radius: Theme.radiusSmall

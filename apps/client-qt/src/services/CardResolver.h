@@ -37,6 +37,7 @@ class CardResolver final : public QObject
         std::function<CardRecord(const CardRequest &)> lookupCatalog;
         std::function<CardRecord(const CardRequest &, const CardRecord &)> lookupLocalizedPrinting;
         std::function<void(const QJsonArray &)> persistLocalizedPrintings;
+        std::function<void(const CardRequest &, const CardRecord &)> metadataAvailable;
         std::function<QString(const CardRequest &, const CardRecord &)> imagePathFor;
         std::function<void(const QString &)> setStatus;
         std::function<void(const CardRequest &, CardRecord, bool, bool, const QString &)> completed;
@@ -127,6 +128,8 @@ class CardResolver final : public QObject
     void setCurrentFailure(const QUrl &url, Phase phase, int httpStatus, int networkErrorCode,
                            const QString &networkError, const QString &validationError = {});
     void finishCurrentCard(bool success, bool cacheFailure = false);
+    void retainMetadata(CardRecord *record, bool publish = false);
+    void resumeImageAfterMetadata();
 
     QNetworkAccessManager *m_network = nullptr;
     Callbacks m_callbacks;
@@ -136,6 +139,12 @@ class CardResolver final : public QObject
     CardRecord m_catalogRecord;
     CardRecord m_currentRecord;
     CardRecord m_mtgchEnglishRecord;
+    CardRecord m_metadataRecord;
+    CardRecord m_pendingImageRecord;
+    ArtStage m_pendingImageStage = ArtStage::None;
+    bool m_rulesProbeAttempted = false;
+    bool m_localizedRulesAttempted = false;
+    bool m_localizedRulesTransientFailure = false;
     QString m_currentFailureDetail;
     ArtStage m_currentArtStage = ArtStage::None;
     Phase m_currentPhase = Phase::None;

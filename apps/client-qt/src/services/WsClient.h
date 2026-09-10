@@ -51,12 +51,6 @@ class WsClient : public QObject
     Q_PROPERTY(QVariantList serverLatencies READ serverLatencies NOTIFY serverLatenciesChanged)
     Q_PROPERTY(QString displayName READ displayName NOTIFY displayNameChanged)
     Q_PROPERTY(QVariantList roomList READ roomList NOTIFY roomListChanged)
-    Q_PROPERTY(QVariantList replayList READ replayList NOTIFY replayListChanged)
-    Q_PROPERTY(int replayOffset READ replayOffset NOTIFY replayListChanged)
-    Q_PROPERTY(int replayLimit READ replayLimit NOTIFY replayListChanged)
-    Q_PROPERTY(int replayTotal READ replayTotal NOTIFY replayListChanged)
-    Q_PROPERTY(bool replayHasMore READ replayHasMore NOTIFY replayListChanged)
-    Q_PROPERTY(QVariantMap loadedReplay READ loadedReplay NOTIFY replayLoaded)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QString clientVersion READ clientVersion CONSTANT)
     Q_PROPERTY(bool versionMismatch READ versionMismatch NOTIFY versionMismatchChanged)
@@ -66,6 +60,8 @@ class WsClient : public QObject
     Q_PROPERTY(RoomSessionState *roomSession READ roomSession CONSTANT)
     Q_PROPERTY(GameSessionState *gameSession READ gameSession CONSTANT)
     Q_PROPERTY(RulesSessionState *rulesSession READ rulesSession CONSTANT)
+    Q_PROPERTY(
+        bool rulesResponsePending READ rulesResponsePending NOTIFY rulesResponsePendingChanged)
     Q_PROPERTY(LimitedSessionState *limitedSession READ limitedSession CONSTANT)
 
   public:
@@ -81,6 +77,11 @@ class WsClient : public QObject
 
     explicit WsClient(QObject *parent = nullptr);
     ~WsClient() override;
+
+    bool rulesResponsePending() const
+    {
+        return !m_rulesResponseRequestId.isEmpty();
+    }
 
     ConnectionState connectionState() const
     {
@@ -139,6 +140,7 @@ class WsClient : public QObject
     {
         return m_serverUrl;
     }
+    bool setInitialConnection(const QString &url, const QString &displayName);
     int serverIndex() const;
     int customServerIndex() const;
     QString customServerUrl() const;
@@ -259,30 +261,6 @@ class WsClient : public QObject
     {
         return m_gameSession->finished();
     }
-    QVariantList replayList() const
-    {
-        return m_replayList;
-    }
-    int replayOffset() const
-    {
-        return m_replayOffset;
-    }
-    int replayLimit() const
-    {
-        return m_replayLimit;
-    }
-    int replayTotal() const
-    {
-        return m_replayTotal;
-    }
-    bool replayHasMore() const
-    {
-        return m_replayHasMore;
-    }
-    QVariantMap loadedReplay() const
-    {
-        return m_loadedReplay;
-    }
     QString lastError() const
     {
         return m_lastError;
@@ -323,18 +301,28 @@ class WsClient : public QObject
                                 const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void requestRoomList();
     Q_INVOKABLE void requestTournamentList();
+    Q_INVOKABLE QString sendTournamentChat(const QString &text);
     Q_INVOKABLE void createTournament(const QString &name, const QString &format,
-                                      const QString &matchMode, int roundMinutes, int maxPlayers,
-                                      int plannedRounds = 0);
+                                      const QString &matchMode, int roundMinutes, int maxPlayers);
     Q_INVOKABLE void createLimitedTournament(const QString &name, const QString &eventType,
                                              const QString &matchMode, int roundMinutes,
-                                             int maxPlayers, int plannedRounds,
-                                             const QVariantMap &product);
+                                             int maxPlayers, const QVariantMap &product);
     Q_INVOKABLE void createCasualLimitedEvent(const QString &name, const QString &eventType,
                                               const QString &matchMode, int maxPlayers,
                                               const QVariantMap &product);
     Q_INVOKABLE void createLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
+    Q_INVOKABLE void cancelLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void pickLimitedCard(const QString &instanceId);
+    Q_INVOKABLE void pickLimitedCards(const QVariantList &instanceIds);
+    Q_INVOKABLE void setLimitedDraftControl(const QString &participantId, bool automatic);
+    Q_INVOKABLE void setLimitedParticipation(bool participating);
+    Q_INVOKABLE void inviteCommanderCubePlayers(const QVariantList &playerIds);
+    Q_INVOKABLE void respondCommanderCubeInvitation(const QString &pairingId, bool accept);
+    Q_INVOKABLE void submitLimitedCommanderDeck(const QString &name,
+                                                const QVariantList &mainboardInstanceIds,
+                                                const QVariantList &basicLands,
+                                                const QVariantList &commanderInstanceIds,
+                                                const QVariantList &commanderColors = {});
     Q_INVOKABLE void submitLimitedDeck(const QString &name,
                                        const QVariantList &mainboardInstanceIds,
                                        const QVariantList &basicLands);
@@ -355,6 +343,7 @@ class WsClient : public QObject
     Q_INVOKABLE void openTournamentMatch(const QString &pairingId);
     Q_INVOKABLE void cancelTournament();
     Q_INVOKABLE void joinRoom(const QString &roomId, bool asSpectator, const QString &password);
+    Q_INVOKABLE bool hasCubeRoomCredential(const QString &roomId) const;
     Q_INVOKABLE void leaveRoom();
     Q_INVOKABLE void kickSeat(int seat);
     Q_INVOKABLE void kickSpectator(int index);
@@ -409,6 +398,8 @@ class WsClient : public QObject
     Q_INVOKABLE void returnToRoom();
     Q_INVOKABLE void sayGameMessage(const QString &message);
     Q_INVOKABLE void createToken(const QVariantMap &token, const QVariantMap &position);
+    Q_INVOKABLE void createEmblem(int seat, const QVariantMap &emblem);
+    Q_INVOKABLE void removeEmblem(const QString &emblemId);
     Q_INVOKABLE void adjustCommanderTax(const QString &commanderId, int delta);
     Q_INVOKABLE void castCommander(const QString &commanderId);
     Q_INVOKABLE void setCommanderDamage(const QString &commanderId, int targetSeat, int amount,
@@ -456,9 +447,6 @@ class WsClient : public QObject
                                                    const QVariantMap &position = {},
                                                    int sourceSeat = -1,
                                                    const QString &approvalId = {});
-    Q_INVOKABLE void requestReplayList();
-    Q_INVOKABLE void requestReplayPage(int offset);
-    Q_INVOKABLE void loadReplay(const QString &replayId);
     Q_INVOKABLE void copyToClipboard(const QString &text);
 
   signals:
@@ -476,12 +464,12 @@ class WsClient : public QObject
     void snapshotChanged();
     void roomListChanged();
     void gameSnapshotChanged();
+    void gameRestarted();
     void gameSnapshotDataChanged(const QVariantMap &snapshot);
-    void replayListChanged();
-    void replayLoaded();
     void lastErrorChanged();
     void versionMismatchChanged();
     void capabilitiesChanged();
+    void rulesResponsePendingChanged();
     void commandQueued(const QString &requestId, const QString &commandType,
                        const QVariantMap &payload);
     void commandSucceeded(const QString &requestId, const QString &commandType,
@@ -538,8 +526,6 @@ class WsClient : public QObject
     void handleGameSnapshot(const QVariantMap &snapshot);
     void handleRulesSnapshot(const QJsonObject &snapshot);
     void handleRulesPrompt(const QJsonObject &prompt);
-    void handleReplayListed(const protocol::Envelope &env);
-    void handleReplayLoaded(const protocol::Envelope &env);
     void handleZoneDumpRequested(const protocol::Envelope &env);
     void handlePublicZoneMoveRequested(const protocol::Envelope &env);
     void handleZoneDumped(const protocol::Envelope &env);
@@ -554,6 +540,8 @@ class WsClient : public QObject
     void clearVersionMismatch();
     void setForgeRulesAvailable(bool available);
     void clearGameState();
+    void clearRulesResponse();
+    void reconcileRulesResponse();
     void clearRoomState();
     QString tournamentCredential(const QString &tournamentId) const;
     void storeTournamentCredential(const QString &tournamentId, const QString &credential);
@@ -581,18 +569,16 @@ class WsClient : public QObject
     ConnectionState m_state = Disconnected;
     QString m_displayName;
     QVariantList m_roomList;
-    QVariantList m_replayList;
-    int m_replayOffset = 0;
-    int m_replayLimit = 50;
-    int m_replayTotal = 0;
-    bool m_replayHasMore = false;
-    QVariantMap m_loadedReplay;
     QString m_lastError;
     QString m_requiredVersion;
     bool m_versionMismatch = false;
     bool m_forgeRulesAvailable = false;
     QTimer m_helloTimer; // handshake timeout while connecting or reconnecting
     QTimer m_keepAliveTimer;
+    QTimer m_rulesResponseTimer;
+    QString m_rulesResponseRequestId;
+    QString m_rulesResponseGameId;
+    qint64 m_rulesResponsePromptId = 0;
     QString m_serverUrl;
     bool m_resumeAttempted = false;
     bool m_intentionalDisconnect = false;

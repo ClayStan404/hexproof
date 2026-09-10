@@ -77,6 +77,7 @@ Item {
 
         ListView {
             id: combatList
+            objectName: "rulesCombatCandidates-" + root.assignmentKind
 
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -176,6 +177,7 @@ Item {
 
                         ComboBox {
                             id: assignmentBox
+                            objectName: "rulesCombatAssignment-" + combatTile.responseId
 
                             Layout.fillWidth: true
                             model: combatTile.choiceModel
@@ -195,6 +197,7 @@ Item {
         }
 
         ColumnLayout {
+            Layout.fillWidth: false
             Layout.preferredWidth: Theme.size(184)
             spacing: Theme.size(8)
 
@@ -210,6 +213,7 @@ Item {
             }
 
             AppButton {
+                objectName: "rulesConfirmCombat-" + root.assignmentKind
                 Layout.fillWidth: true
                 compact: true
                 variant: "primary"

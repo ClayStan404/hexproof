@@ -30,6 +30,7 @@ TestCase {
         property bool playtest: false
         property string matchMode: "bo3"
         property string cardLoadMode: "preload"
+        property string rulesMode: "manual"
         property int maxSeats: 2
         property string phase: "waiting"
         property bool host: true
@@ -50,6 +51,7 @@ TestCase {
             "ready": false
         }]
         property var spectators: []
+        property bool spectatorsSeeHands: false
     }
 
     QtObject {
@@ -67,7 +69,8 @@ TestCase {
         function disbandRoom() { }
         function kickSeat(seat) { }
         function selectDeck(deck) { }
-        function kickSpectator(index) { }
+        property int lastRemovedSpectator: -1
+        function kickSpectator(index) { lastRemovedSpectator = index }
     }
 
     QtObject {
@@ -91,6 +94,11 @@ TestCase {
         testWindow.lastBanner = ""
         mockWs.copyCount = 0
         mockWs.lastCopied = ""
+        mockWs.lastError = ""
+        mockRoomSession.spectators = []
+        mockRoomSession.spectatorsSeeHands = false
+        mockWs.lastRemovedSpectator = -1
+        mockRoomSession.rulesMode = "manual"
         mockRoomSession.roomName = "Friday Night"
         mockRoomSession.roomId = "ABCDEF"
         mockRoomSession.format = "modern"
@@ -116,14 +124,82 @@ TestCase {
         page = pageComponent.createObject(testWindow.contentItem)
         verify(page !== null)
         page.anchors.fill = testWindow.contentItem
+        verify(waitForPolish(testWindow))
     }
 
     function cleanup() {
+        Theme.uiScale = 1
         testWindow.width = 1400
         testWindow.height = 900
         if (page !== null)
             page.destroy()
         page = null
+    }
+
+    function test_longNamesAndFullSpectatorListRemainReachable_data() {
+        return [{tag: "large", scale: 1.5}, {tag: "maximum", scale: 1.8}]
+    }
+
+    function test_longNamesAndFullSpectatorListRemainReachable(data) {
+        testWindow.width = 900
+        testWindow.height = 620
+        Theme.uiScale = data.scale
+        mockRoomSession.roomName = "A long room title WWWWWWWWWWWWWWWWWWWWWWWWWWWW"
+        mockRoomSession.spectatorsSeeHands = true
+        mockRoomSession.format = "edh"
+        mockRoomSession.deckFormat = "commander"
+        mockRoomSession.maxSeats = 4
+        const seats = []
+        const spectators = []
+        for (let index = 0; index < 4; ++index) {
+            seats.push({occupied: true, displayName: "Long player name ".repeat(4),
+                        host: index === 0, deckSelected: true, ready: false})
+        }
+        for (let index = 0; index < 8; ++index)
+            spectators.push({displayName: "Long spectator name ".repeat(4)})
+        mockRoomSession.seats = seats
+        mockRoomSession.spectators = spectators
+        waitForRendering(page)
+        for (const name of ["waitingRoomTitle", "copyRoomCodeButton",
+                            "playerReadyButton", "waitingRoomOverflowButton"]) {
+            const item = findChild(page, name)
+            const point = item.mapToItem(page, 0, 0)
+            verify(point.x >= -1 && point.x + item.width <= page.width + 1, name)
+            verify(point.y >= 0 && point.y + item.height <= page.height,
+                   name + " y=" + point.y + " h=" + item.height + " page=" + page.height)
+        }
+        const copy = findChild(page, "copyRoomCodeButton")
+        mouseClick(copy)
+        compare(mockWs.lastCopied, "ABCDEF")
+        const body = findChild(page, "waitingRoomBody")
+        const spectatorSurface = findChild(page, "waitingRoomSpectators")
+        body.contentY = body.contentHeight - body.height
+        waitForRendering(page)
+        const removeButtons = []
+        function walk(item) {
+            if (item.objectName === "waitingRoomRemoveSpectatorButton")
+                removeButtons.push(item)
+            for (const child of item.children || [])
+                walk(child)
+        }
+        walk(spectatorSurface)
+        compare(removeButtons.length, 8)
+        const last = removeButtons[7]
+        const point = last.mapToItem(body, 0, 0)
+        verify(point.y >= 0 && point.y + last.height <= body.height + 1)
+        mouseClick(last)
+        const confirmations = []
+        function findPopup(item) {
+            if (item.titleText !== undefined && item.confirmText === "Remove spectator")
+                confirmations.push(item)
+            for (const child of item.data || [])
+                findPopup(child)
+        }
+        findPopup(page)
+        compare(confirmations.length, 1)
+        tryVerify(() => confirmations[0].opened)
+        mouseClick(findChild(confirmations[0], "confirmButton"))
+        compare(mockWs.lastRemovedSpectator, 7)
     }
 
     function test_showsRoomNameAndCodeFromSession() {
@@ -145,6 +221,8 @@ TestCase {
     function test_copyRoomCodeUsesSessionId() {
         const copyButton = findChild(page, "copyRoomCodeButton")
         verify(copyButton !== null)
+        verify(copyButton.visible && copyButton.enabled)
+        verify(copyButton.width > 0 && copyButton.height > 0)
         mouseClick(copyButton)
         compare(mockWs.copyCount, 1)
         compare(mockWs.lastCopied, "ABCDEF")
@@ -247,6 +325,23 @@ TestCase {
         tryVerify(() => !page.compactLayout)
         compare(content.columns, 2)
         tryVerify(() => details.x >= seats.x + seats.width - 1)
+    }
+    function test_commanderCubeRequiresEveryInvitedPlayer() {
+        mockRoomSession.format = "edh"
+        mockRoomSession.deckFormat = "commander_limited"
+        mockRoomSession.maxSeats = 4
+        const occupied = {occupied: true, displayName: "Player", host: false,
+                          deckSelected: true, ready: false}
+        mockRoomSession.seats = [occupied, occupied, occupied,
+            {occupied: false, displayName: "", host: false, deckSelected: false, ready: false}]
+        compare(page.minimumPlayersToStart(), 4)
+        verify(!findChild(page, "playerReadyButton").enabled)
+        mockRoomSession.seats = [occupied, occupied, occupied, occupied]
+        tryVerify(() => findChild(page, "playerReadyButton").enabled)
+        mockRoomSession.maxSeats = 2
+        mockRoomSession.seats = [occupied, occupied]
+        compare(page.minimumPlayersToStart(), 2)
+        verify(findChild(page, "playerReadyButton").enabled)
     }
 
     function seatRows(seatsItem) {
@@ -352,8 +447,10 @@ TestCase {
         verify(findChild(page, "waitingRoomSelectDeckButton") !== null)
         verify(findChild(page, "playerReadyButton") !== null)
         verify(findChild(page, "waitingRoomDeckLibraryButton") !== null)
-        tryVerify(() => host.width > actions.width + 40)
-        tryVerify(() => actions.x > host.width / 2)
+        // Font metrics may make the buttons wider than half the window.
+        // Right alignment requires containment and a flush right edge, not a fixed fraction.
+        tryVerify(() => actions.width > 0 && actions.width <= host.width)
+        tryVerify(() => actions.x >= 0)
         tryVerify(() => Math.abs((actions.x + actions.width) - host.width) <= 1)
     }
 
@@ -384,5 +481,18 @@ TestCase {
         tryVerify(() => lockedDeck.visible)
         compare(lockedDeck.text, "Limited deck locked")
         tryVerify(() => ready.enabled)
+    }
+
+    function test_forgeFailureKeepsReadyRecoveryVisible() {
+        mockRoomSession.rulesMode = "forge"
+        mockWs.lastError = "rules_unavailable: runtime stopped"
+        const banner = findChild(page, "waitingRoomErrorBanner")
+        verify(banner.visible)
+        verify(banner.message.indexOf("Your seats and selected decks are kept") >= 0)
+        verify(banner.message.indexOf("Ready again") >= 0)
+        compare(mockRoomSession.selectedDeckName, "Burn")
+        verify(findChild(page, "playerReadyButton").visible)
+        mockWs.lastError = ""
+        verify(!banner.visible)
     }
 }

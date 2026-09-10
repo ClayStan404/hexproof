@@ -3,6 +3,17 @@
   "protocol": "hexproof.v1",
   "definitions": [
     {
+      "name": "TournamentChatMessage",
+      "goType": "TournamentChatMessage",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "sequence", "type": "integer", "required": true},
+        {"name": "displayName", "type": "string", "required": true},
+        {"name": "text", "type": "string", "required": true},
+        {"name": "sentAt", "type": "string", "required": true}
+      ]
+    },
+    {
       "name": "TournamentListEntry",
       "goType": "TournamentListEntry",
       "fields": [
@@ -44,6 +55,7 @@
         {"name": "competing", "type": "boolean", "required": true},
         {"name": "dropped", "type": "boolean", "required": true},
         {"name": "online", "type": "boolean", "required": true},
+        {"name": "disconnectedAt", "type": "string", "required": false},
         {"name": "deck", "type": "object", "required": false, "ref": "TournamentDeckView", "goType": "*TournamentDeckView"}
       ]
     },
@@ -57,6 +69,10 @@
         {"name": "playerAName", "type": "string", "required": true},
         {"name": "playerBId", "type": "string", "required": false},
         {"name": "playerBName", "type": "string", "required": false},
+        {"name": "playerIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "playerNames", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "acceptedPlayerIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "autoEnter", "type": "boolean", "required": false},
         {"name": "bye", "type": "boolean", "required": true},
         {"name": "roomId", "type": "string", "required": false},
         {"name": "status", "type": "string", "required": true},
@@ -87,6 +103,37 @@
     }
   ],
   "messages": [
+    {
+      "type": "tournament.chat.send",
+      "direction": "clientToServer",
+      "goType": "TournamentChatSend",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "text", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "tournament.chat.message",
+      "direction": "serverToClient",
+      "goType": "TournamentChatMessage",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "sequence", "type": "integer", "required": true},
+        {"name": "displayName", "type": "string", "required": true},
+        {"name": "text", "type": "string", "required": true},
+        {"name": "sentAt", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "tournament.chat.history",
+      "direction": "serverToClient",
+      "goType": "TournamentChatHistory",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "messages", "type": "array", "required": true,
+         "items": {"type": "object", "ref": "TournamentChatMessage"}}
+      ]
+    },
     {"type": "tournament.list", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
     {
       "type": "tournament.listed",

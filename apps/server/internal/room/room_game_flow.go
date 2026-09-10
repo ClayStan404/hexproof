@@ -378,6 +378,7 @@ func (r *Room) ConcedeAt(connID string, now time.Time) (Result, error) {
 		winsRequired = 2
 	}
 	matchFinished := r.Score[winnerSeat] >= winsRequired
+	r.Game.Seats[seat].Emblems = nil
 	r.Game.ActiveSeat = -1
 	r.Game.Result = &protocol.GameResult{
 		Reason:        protocol.GameResultConcede,
@@ -427,6 +428,8 @@ func (r *Room) concedeEDH(seat int) (Result, error) {
 	}
 	state := &r.Game.Seats[seat]
 	state.Eliminated = true
+	state.ResponseStatus = ""
+	state.Emblems = nil
 	r.appendGameLog("eliminate", seat,
 		fmt.Sprintf("%s conceded and was eliminated.", state.DisplayName))
 
@@ -461,9 +464,7 @@ func (r *Room) concedeEDH(seat int) (Result, error) {
 				"The Commander game ended with no remaining players.")
 		}
 	} else if r.Game.ActiveSeat == seat {
-		r.Game.ActiveSeat = r.nextActiveSeat(seat)
-		r.Game.CurrentPhase = protocol.GamePhaseUntap
-		r.Game.LandPlaysThisTurn = 0
+		r.advanceTurn()
 	}
 
 	reply, _ := protocol.NewEnvelope(protocol.TypeGameConceded,
@@ -504,6 +505,12 @@ func (r *Room) ReturnToRoom(connID string) (Result, error) {
 	r.Game = nil
 	r.Score = make([]int, len(r.Seats))
 	r.DrawnGames = 0
+	if r.RulesMode == protocol.RulesModeForge {
+		// The handler captured this completed journal before returning. Do not
+		// archive it again as an interrupted game when the waiting room closes.
+		r.ResetRulesLog()
+		r.RulesStartingSeat = nil
+	}
 	for index := range r.Seats {
 		if r.Seats[index].RegisteredDeck != nil {
 			deck := cloneDeck(*r.Seats[index].RegisteredDeck)
@@ -614,6 +621,19 @@ func (r *Room) NextTurn(connID string) (Result, error) {
 		return Result{}, newError(protocol.ErrNotActivePlayer)
 	}
 
+	r.advanceTurn()
+	reply, _ := protocol.NewEnvelope(protocol.TypeGameTurnAdvanced,
+		protocol.GameTurnAdvanced{
+			RoomID:       r.ID,
+			ActiveSeat:   r.Game.ActiveSeat,
+			CurrentPhase: r.Game.CurrentPhase,
+		})
+	return Result{Reply: &reply, ProjectGame: true}, nil
+}
+
+// Turn transitions must reset the same coordination state whether requested
+// explicitly or caused by the active Commander player's elimination.
+func (r *Room) advanceTurn() {
 	r.Game.ActiveSeat = r.nextActiveSeat(r.Game.ActiveSeat)
 	r.Game.CurrentPhase = protocol.GamePhaseUntap
 	r.Game.LandPlaysThisTurn = 0
@@ -624,13 +644,6 @@ func (r *Room) NextTurn(connID string) (Result, error) {
 			fmt.Sprintf("%s began their turn.",
 				r.Game.Seats[r.Game.ActiveSeat].DisplayName))
 	}
-	reply, _ := protocol.NewEnvelope(protocol.TypeGameTurnAdvanced,
-		protocol.GameTurnAdvanced{
-			RoomID:       r.ID,
-			ActiveSeat:   r.Game.ActiveSeat,
-			CurrentPhase: r.Game.CurrentPhase,
-		})
-	return Result{Reply: &reply, ProjectGame: true}, nil
 }
 
 func gamePhaseDisplayName(phase string) string {

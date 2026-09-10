@@ -11,7 +11,6 @@ Item {
     id: root
 
     required property var tableController
-    required property var gameLogModel
 
     property alias battlefieldView: battlefieldView
     property alias chatInput: gameLogRail.chatInput
@@ -30,6 +29,7 @@ Item {
     property alias libraryPositionEditor: editorPopups.libraryPositionEditor
     property alias handLibraryPositionEditor: editorPopups.handLibraryPositionEditor
     property alias tokenPicker: editorPopups.tokenPicker
+    property alias emblemBrowser: editorPopups.emblemBrowser
     property alias commanderDamagePopup: editorPopups.commanderDamagePopup
 
     property alias diceRollPopup: tableDialogs.diceRollPopup
@@ -62,6 +62,16 @@ Item {
         relationLayer.requestPaint()
     }
 
+    function closeGameInteractions() {
+        for (const popup of modalPopups)
+            popup.close()
+        for (const menu of [ownLibraryMenu, opponentLibraryMenu,
+                            battlefieldAreaMenu, handAreaMenu, handCardMenu,
+                            cardToolsMenu]) {
+            menu.close()
+        }
+    }
+
     readonly property var modalPopups: [
         librarySearchPopup,
         shuffleLibraryReminder,
@@ -78,6 +88,7 @@ Item {
         libraryPositionEditor,
         handLibraryPositionEditor,
         tokenPicker,
+        emblemBrowser,
         commanderDamagePopup,
         leaveRoomConfirmation,
         concedeConfirmation,
@@ -146,7 +157,6 @@ Item {
             TableGameLogRail {
                 id: gameLogRail
                 tableController: root.tableController
-                gameLogModel: root.gameLogModel
             }
         }
     }
@@ -234,13 +244,22 @@ Item {
         shortcutHelp: root.shortcutHelp
     }
 
-    SideboardPanel {
-        objectName: "sideboardPanel"
+    Loader {
         anchors.fill: parent
-        visible: root.tableController.gameSession.sideboarding === true
-        wsModel: root.tableController.wsModel
-        gameTableModel: root.tableController.gameTableModel
-        tableModel: root.tableController.sideboardTableModel
-        cardCatalogModel: root.tableController.cardCatalogModel
+        active: root.tableController.gameSession.sideboarding === true
+        sourceComponent: sideboardPanelComponent
+    }
+
+    Component {
+        id: sideboardPanelComponent
+
+        SideboardPanel {
+            objectName: "sideboardPanel"
+            anchors.fill: parent
+            wsModel: root.tableController.wsModel
+            gameTableModel: root.tableController.gameTableModel
+            tableModel: root.tableController.sideboardTableModel
+            cardCatalogModel: root.tableController.cardCatalogModel
+        }
     }
 }

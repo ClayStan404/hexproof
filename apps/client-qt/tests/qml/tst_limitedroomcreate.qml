@@ -24,7 +24,8 @@ TestCase {
         property bool connected: true
         property bool inRoom: false
         property string lastError: ""
-        function createLimitedTournament() { }
+        property var submitted: []
+        function createLimitedTournament() { submitted = Array.from(arguments) }
     }
 
     QtObject {
@@ -81,5 +82,32 @@ TestCase {
         const buttonTop = button.mapToItem(body, 0, 0).y
         verify(buttonTop + button.height <= body.height + 1)
         verify(buttonTop >= -1)
+    }
+
+    function test_sharedSettingsAndDraftCapacity() {
+        const selector = findChild(page, "limitedEventTypeSelector")
+        const name = findChild(page, "tournamentNameField")
+        const minutes = findChild(page, "tournamentRoundMinutesField")
+        const cap = findChild(page, "tournamentPlayerCapField")
+        const button = findChild(page, "limitedRoomCreateSubmitButton")
+        compare(selector.count, 2)
+        compare(selector.currentValue, "set_sealed")
+        compare(minutes.text, "50")
+        compare(cap.text, "8")
+        name.text = "Limited Swiss"
+        minutes.text = "75"
+        cap.text = "12"
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submitted.length, 6)
+        compare(mockWs.submitted[1], "set_sealed")
+        compare(mockWs.submitted[3], 75)
+        compare(mockWs.submitted[4], 12)
+        selector.currentIndex = 1
+        selector.activated(1)
+        compare(cap.text, "8")
+        button.clicked()
+        compare(mockWs.submitted[1], "set_draft")
+        compare(mockWs.submitted[4], 8)
     }
 }

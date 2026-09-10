@@ -1,0 +1,5 @@
+{
+  "type": "limited.set_draft_control",
+  "id": "cube-auto-1",
+  "payload": {"participantId": "p-2", "automatic": true}
+}

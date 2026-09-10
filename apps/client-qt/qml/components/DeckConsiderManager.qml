@@ -13,10 +13,12 @@ Popup {
     required property var deckLibraryModel
     required property var catalogModel
     property string filterText: ""
+    property bool customArtEnabled: false
     property int sortModeIndex: 0
     readonly property var sortOptions: [qsTr("Name"), qsTr("Mana value"), qsTr("Card type")]
     readonly property var visibleCards: sortedCards()
     signal addRequested()
+    signal customArtRequested(var card)
 
     parent: Overlay.overlay
     x: Math.round((parent.width - width) / 2)
@@ -141,6 +143,8 @@ Popup {
                     anchors.margins: Theme.size(5)
                     card: considerCell.modelData
                     catalogModel: root.catalogModel
+                    customArtEnabled: root.customArtEnabled
+                    onCustomArtRequested: root.customArtRequested(considerCell.modelData)
                     incrementEnabled: root.deckLibraryModel.canAddCard(
                                           considerCell.modelData.name,
                                           considerCell.modelData.typeLine)

@@ -35,6 +35,15 @@ void CardResolver::continueAfterImageFailure(bool confirmedMissing)
 
 void CardResolver::continueAfterJsonFailure(Phase phase, bool confirmedMissing)
 {
+    if (m_currentRequest.language == QStringLiteral("zh") && !confirmedMissing &&
+        (phase == Phase::ScryfallChineseExact || phase == Phase::ScryfallChineseSearch ||
+         phase == Phase::Mtgch)) {
+        m_localizedRulesTransientFailure = true;
+    }
+    if (phase == Phase::Mtgch && m_pendingImageStage != ArtStage::None) {
+        resumeImageAfterMetadata();
+        return;
+    }
     if (phase == Phase::ScryfallEnglish && confirmedMissing)
         m_currentConfirmedMissing = true;
     switch (phase) {

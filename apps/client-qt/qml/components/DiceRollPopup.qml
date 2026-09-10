@@ -39,8 +39,8 @@ Popup {
     function submit() {
         if (!sidesField.acceptableInput || !countField.acceptableInput)
             return
-        const sides = Number(sidesField.text)
-        const count = Number(countField.text)
+        const sides = sidesField.numberValue()
+        const count = countField.numberValue()
         close()
         rollRequested(sides, count)
     }

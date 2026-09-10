@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -99,8 +100,91 @@ func TestClientReturnsBoundedRuntimeError(t *testing.T) {
 	client := newHelperClient(t, "runtime-error")
 	defer client.Close()
 	_, err := client.Snapshot(context.Background(), "forge-session-1", 0)
-	if !errors.Is(err, ErrRuntime) || len(err.Error()) > 600 {
+	if !errors.Is(err, ErrRuntime) || len(err.Error()) > 600 ||
+		strings.Contains(err.Error(), "private engine detail") || client.Healthy() {
 		t.Fatalf("Snapshot() error = %v", err)
+	}
+}
+
+func TestClientRejectedActionPreservesHealthyRuntime(t *testing.T) {
+	client := newHelperClient(t, "action-rejected")
+	defer client.Close()
+	err := client.SubmitAction(context.Background(), "forge-session-1", json.RawMessage(`{}`))
+	if !errors.Is(err, ErrRuntime) || strings.Contains(err.Error(), "private engine detail") || !client.Healthy() {
+		t.Fatalf("SubmitAction() error = %v, healthy = %v", err, client.Healthy())
+	}
+	if _, err := client.Snapshot(context.Background(), "forge-session-1", 0); err != nil {
+		t.Fatalf("Snapshot() after a rejected action: %v", err)
+	}
+}
+
+func TestClientInvalidResponsesInvalidateTheRuntime(t *testing.T) {
+	for _, mode := range []string{"malformed", "oversized", "invalid-snapshot", "exit"} {
+		t.Run(mode, func(t *testing.T) {
+			client := newHelperClient(t, mode)
+			defer client.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if _, err := client.Snapshot(ctx, "forge-session-1", 0); err == nil {
+				t.Fatal("invalid runtime response was accepted")
+			}
+			select {
+			case <-client.Done():
+			case <-time.After(2 * time.Second):
+				t.Fatal("failed runtime was not reaped")
+			}
+			if client.Healthy() {
+				t.Fatal("failed runtime still reports healthy")
+			}
+			if _, err := client.StartGame(ctx, validStartRequest()); err == nil {
+				t.Fatal("dead runtime accepted a new game")
+			}
+		})
+	}
+}
+
+func TestClientConcurrentCloseAndInvalidation(t *testing.T) {
+	client := newHelperClient(t, "normal")
+	var callers sync.WaitGroup
+	for range 20 {
+		callers.Add(1)
+		go func() {
+			defer callers.Done()
+			client.Invalidate()
+			_ = client.Close()
+			_ = client.Healthy()
+		}()
+	}
+	callers.Wait()
+	select {
+	case <-client.Done():
+	default:
+		t.Fatal("Close returned before child exit")
+	}
+}
+
+func TestClientInvalidResultSchemasInvalidateTheRuntime(t *testing.T) {
+	for _, mode := range []string{"invalid-handle", "invalid-prompt", "invalid-game-over", "invalid-view"} {
+		t.Run(mode, func(t *testing.T) {
+			client := newHelperClient(t, mode)
+			defer client.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			var err error
+			switch mode {
+			case "invalid-handle":
+				_, err = client.StartGame(ctx, validStartRequest())
+			case "invalid-prompt":
+				_, err = client.Prompt(ctx, "forge-session-1", 0)
+			case "invalid-game-over":
+				_, err = client.GameOver(ctx, "forge-session-1")
+			case "invalid-view":
+				_, err = client.SnapshotView(ctx, "forge-session-1", 0)
+			}
+			if !errors.Is(err, ErrRuntime) || client.Healthy() {
+				t.Fatalf("bad result left runtime healthy: %v", err)
+			}
+		})
 	}
 }
 
@@ -174,12 +258,29 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 			_ = encoder.Encode(rpcResponse{Error: strings.Repeat("private engine detail", 80)})
 			continue
 		}
+		if request.Command == "getSnapshot" {
+			switch mode {
+			case "malformed":
+				_, _ = fmt.Fprintln(os.Stdout, "private invalid JSON")
+				continue
+			case "oversized":
+				_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("x", defaultMaxResponseBytes+1))
+				continue
+			case "invalid-snapshot":
+				_ = encoder.Encode(rpcResponse{OK: true, Result: "not JSON"})
+				continue
+			case "exit":
+				os.Exit(23)
+			}
+		}
 		response := rpcResponse{OK: true}
 		switch request.Command {
 		case "reset", "endGame", "abortGame":
 			response.Result = ""
 		case "submitAction":
-			if mode == "concede" && request.Payload !=
+			if mode == "action-rejected" {
+				response = rpcResponse{Error: "private engine detail"}
+			} else if mode == "concede" && request.Payload !=
 				`{"type":"directive","directive":{"type":"concede"},"player":1}` {
 				response = rpcResponse{Error: "invalid concede directive"}
 			} else {
@@ -192,12 +293,21 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 			} else {
 				response.Result = `{"sessionId":"forge-session-1","playerIndexes":[0,1]}`
 			}
+			if mode == "invalid-handle" {
+				response.Result = `{"sessionId":"forge-session-1","playerIndexes":[0,0]}`
+			}
 		case "getSnapshot":
 			response.Result = fmt.Sprintf(`{"viewer":%d,"players":[]}`, *request.Viewer)
 		case "getPrompt":
 			response.Result = fmt.Sprintf(`{"promptId":7,"player":%d}`, *request.PlayerIndex)
+			if mode == "invalid-prompt" {
+				response.Result = "not JSON"
+			}
 		case "getGameOver":
 			response.Result = "false"
+			if mode == "invalid-game-over" {
+				response.Result = "not a boolean"
+			}
 		default:
 			response = rpcResponse{Error: "unknown command"}
 		}

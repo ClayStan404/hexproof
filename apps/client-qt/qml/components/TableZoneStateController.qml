@@ -11,10 +11,14 @@ QtObject {
     required property var tableRoot
 
     function zoneModelForSeat(seatIndex, zone) {
-        // Make a null-to-model transition observable when Table is created
-        // before the first game snapshot (notably in solo playtest).
-        const snapshotSeats = tableRoot.gameTableModel.seats
-        return tableRoot.gameTableModel.zoneModel(seatIndex, zone)
+        // hasSnapshot observes the first null-to-model transition; later zone
+        // index rebuilds are independent of seat metadata updates.
+        const snapshotReady = tableRoot.gameTableModel.hasSnapshot
+        const indexRevision = tableRoot.gameTableModel.cardIndexRevision
+        const model = tableRoot.gameTableModel.zoneModel(seatIndex, zone)
+        if (!snapshotReady && indexRevision === 0)
+            return model
+        return model
     }
 
     function cardsFromZoneModel(model) {

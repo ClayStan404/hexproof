@@ -5,12 +5,112 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
 )
+
+func TestRulesPromptsKeepRequiredWireArrays(t *testing.T) {
+	for _, kind := range []string{
+		"", "diceRolled", "mulligan", "mulliganPutBack", "chooseAction", "payManaCost",
+		"chooseCards", "revealCards", "chooseBoardTargets", "chooseAttackers", "chooseBlockers",
+		"chooseBoolean", "chooseColor", "chooseFromSelection", "chooseNumber", "reorder", "scry",
+		"chooseDamageAssignmentOrder", "chooseCombatDamageAssignment", "unsupported",
+	} {
+		t.Run(kind, func(t *testing.T) {
+			prompt := emptyRulesPrompt("ROOM", "game-1")
+			if kind != "" {
+				view := forge.PromptView{PromptID: 1, Kind: kind, Supported: kind != "unsupported"}
+				if kind == "scry" {
+					view.ScryDestinations = []string{"libraryTop", "libraryBottom"}
+				}
+				var err error
+				prompt, err = projectedRulesPrompt("ROOM", "game-1", view, forgeRoomGame{}, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			envelope, err := protocol.NewEnvelope(protocol.TypeRulesPrompt, prompt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertNormalizedRulesWireArrays(t, envelope)
+		})
+	}
+}
+
+func TestRulesCombatSourceWithNoTargetsKeepsWireArray(t *testing.T) {
+	prompt, err := projectedRulesPrompt("ROOM", "game-1", forge.PromptView{
+		PromptID: 1, Kind: "chooseBlockers", Supported: true,
+		CombatSources: []forge.PromptCombatSource{{ResponseID: "combat-source:0", ID: "card-a"}},
+	}, forgeRoomGame{}, &forge.GameView{
+		Zones: []forge.ZoneView{{Cards: []forge.CardView{{ID: "card-a", Visibility: "visible",
+			Identity: &forge.CardIdentityView{Name: "Grizzly Bears"}}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope, err := protocol.NewEnvelope(protocol.TypeRulesPrompt, prompt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNormalizedRulesWireArrays(t, envelope)
+}
+
+// Go accepts both null and [] when decoding a slice; Qt's protocol model
+// correctly requires arrays. Check the wire before decoding it into Go DTOs,
+// including nested arrays and any future array fields added to these types.
+func assertNormalizedRulesWireArrays(t *testing.T, envelope protocol.Envelope) {
+	t.Helper()
+	var expected reflect.Type
+	switch envelope.Type {
+	case protocol.TypeRulesPrompt:
+		expected = reflect.TypeOf(protocol.RulesPrompt{})
+	case protocol.TypeRulesSnapshot:
+		expected = reflect.TypeOf(protocol.RulesGameSnapshot{})
+	default:
+		return
+	}
+	var decoded any
+	if err := json.Unmarshal(envelope.Payload, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	assertRulesArrayFields(t, envelope.Type, decoded, expected)
+}
+
+func assertRulesArrayFields(t *testing.T, path string, decoded any, expected reflect.Type) {
+	t.Helper()
+	switch expected.Kind() {
+	case reflect.Pointer:
+		if decoded != nil {
+			assertRulesArrayFields(t, path, decoded, expected.Elem())
+		}
+	case reflect.Struct:
+		object, ok := decoded.(map[string]any)
+		if !ok {
+			t.Fatalf("%s is not an object", path)
+		}
+		for index := 0; index < expected.NumField(); index++ {
+			field := expected.Field(index)
+			name := strings.Split(field.Tag.Get("json"), ",")[0]
+			if name != "" && name != "-" {
+				assertRulesArrayFields(t, path+"."+name, object[name], field.Type)
+			}
+		}
+	case reflect.Slice:
+		array, ok := decoded.([]any)
+		if !ok {
+			t.Fatalf("%s must be a JSON array, not null or absent", path)
+		}
+		for index, item := range array {
+			assertRulesArrayFields(t, fmt.Sprintf("%s[%d]", path, index), item, expected.Elem())
+		}
+	}
+}
 
 func TestProjectedRulesPromptTargetsUseViewerProjection(t *testing.T) {
 	game := forgeRoomGame{

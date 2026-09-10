@@ -12,12 +12,15 @@ Rectangle {
     required property var catalogModel
     property string actionText: ""
     property bool emphasized: false
+    property bool showFooter: true
+    property bool doubleClickEnabled: false
     signal activated()
+    signal doubleActivated()
     signal inspectionRequested()
     signal inspectionEnded()
 
     readonly property string rarity: root.card && root.card.rarity
-                                             ? String(root.card.rarity).toLowerCase()
+                                             ? String(root.card.rarity).trim().toLowerCase()
                                              : "unknown"
 
     readonly property string imageSource: {
@@ -58,6 +61,7 @@ Rectangle {
 
     Rectangle {
         id: footer
+        visible: root.showFooter
 
         anchors.left: parent.left
         anchors.right: parent.right
@@ -121,8 +125,14 @@ Rectangle {
         }
     }
 
-    TapHandler {
-        onTapped: root.activated()
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        onClicked: root.activated()
+        onDoubleClicked: mouse => {
+            if (root.doubleClickEnabled) root.doubleActivated()
+            else mouse.accepted = false
+        }
     }
 
     HoverHandler {
@@ -152,10 +162,18 @@ Rectangle {
             return "R"
         if (rarity === "mythic")
             return "M"
+        if (rarity === "special")
+            return "S"
+        if (rarity === "bonus")
+            return "B"
         return "?"
     }
 
     function rarityColor() {
+        if (rarity === "special")
+            return "#B69CDC"
+        if (rarity === "bonus")
+            return Theme.accent
         if (rarity === "mythic")
             return "#E88943"
         if (rarity === "rare")
@@ -166,6 +184,10 @@ Rectangle {
     }
 
     function rarityLabel() {
+        if (rarity === "special")
+            return qsTr("Special")
+        if (rarity === "bonus")
+            return qsTr("Bonus")
         if (rarity === "mythic")
             return qsTr("Mythic rare")
         if (rarity === "rare")

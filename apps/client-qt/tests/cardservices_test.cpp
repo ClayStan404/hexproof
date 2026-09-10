@@ -16,11 +16,14 @@
 #include <QFile>
 #include <QNetworkReply>
 #include <QReadLocker>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThreadPool>
+#include <QTimer>
 #include <QUrl>
 
 using namespace Qt::StringLiterals;
@@ -31,6 +34,7 @@ class TestCardServices final : public QObject
     Q_OBJECT
 
   private slots:
+    void resolverEncodesSpecialCollectorNumbers() const;
     void resolverOwnsEnglishCompletionState() const;
     void resolverOwnsChinesePrintingFallback() const;
     void installerOwnsAsynchronousImport() const;
@@ -46,7 +50,19 @@ class TestCardServices final : public QObject
     void artCachePersistsPolicyAndReusesOraclePrinting() const;
     void artCacheRejectsCachedWrongDoubleFace() const;
     void artCachePreservesCorruptMetadataBeforeWriting() const;
+    void artCacheSavesWithoutBlockingAndCoalesces() const;
+    void artCacheOldSaveCannotUndoMaintenance() const;
+    void artCacheAsyncFailureRetriesAndShutdownFlushes() const;
 };
+
+void TestCardServices::resolverEncodesSpecialCollectorNumbers() const
+{
+    CardResolver resolver(nullptr, {});
+    QCOMPARE(resolver.englishUrl(u"Gifts Given"_s, u"HHO"_s, u"7†"_s).toEncoded(),
+             QByteArray("https://api.scryfall.com/cards/hho/7%E2%80%A0"));
+    QCOMPARE(resolver.chineseExactUrl(u"HHO"_s, u"7†"_s).toEncoded(),
+             QByteArray("https://api.scryfall.com/cards/hho/7%E2%80%A0/zhs"));
+}
 
 namespace {
 
@@ -514,6 +530,118 @@ void TestCardServices::artCachePreservesCorruptMetadataBeforeWriting() const
     CardArtCache verified(directory.path());
     verified.load();
     QCOMPARE(verified.exactRecord(key).setCode, cached.setCode);
+}
+
+void TestCardServices::artCacheSavesWithoutBlockingAndCoalesces() const
+{
+    QTemporaryDir dir;
+    CardArtCache cache(dir.path());
+    QSemaphore started, release;
+    auto *pool = BackgroundTaskPools::cardArtPersistence();
+    pool->start([&]() {
+        started.release();
+        release.acquire();
+    });
+    const auto cleanup = qScopeGuard([&]() {
+        release.release();
+        pool->waitForDone();
+    });
+    QVERIFY(started.tryAcquire(1, 1000));
+    int completions = 0;
+    bool allSucceeded = true;
+    cache.onSaveFinished = [&](bool ok) {
+        ++completions;
+        allSucceeded &= ok;
+    };
+    CardRecord record;
+    record.name = u"First printing"_s;
+    for (int index = 0; index < 10000; ++index)
+        cache.rememberSuccess(QString::number(index), record);
+    cache.saveAsync();
+    bool heartbeat = false;
+    QTimer::singleShot(0, [&]() { heartbeat = true; });
+    QTRY_VERIFY_WITH_TIMEOUT(heartbeat, 1000);
+    QCOMPARE(completions, 0);
+    for (int index = 0; index < 10; ++index) {
+        cache.rememberFailure(QString::number(index));
+        cache.saveAsync();
+    }
+    release.release();
+    QTRY_COMPARE_WITH_TIMEOUT(completions, 2, 5000);
+    QVERIFY(allSucceeded);
+    QVERIFY(!cache.dirty());
+    CardArtCache reloaded(dir.path());
+    reloaded.load();
+    QCOMPARE(reloaded.entries().size(), 10000);
+    QVERIFY(reloaded.failedRecently(u"9"_s));
+}
+
+void TestCardServices::artCacheOldSaveCannotUndoMaintenance() const
+{
+    QTemporaryDir dir;
+    CardArtCache cache(dir.path());
+    QSemaphore started, release;
+    auto *pool = BackgroundTaskPools::cardArtPersistence();
+    pool->start([&]() {
+        started.release();
+        release.acquire();
+    });
+    const auto cleanup = qScopeGuard([&]() {
+        release.release();
+        pool->waitForDone();
+    });
+    QVERIFY(started.tryAcquire(1, 1000));
+    CardRecord record;
+    record.name = u"Removed printing"_s;
+    cache.rememberSuccess(u"old"_s, record);
+    bool completed = false;
+    cache.onSaveFinished = [&](bool) { completed = true; };
+    cache.saveAsync();
+    cache.removeEntries(false);
+    cache.setFaceAuditState(4, false);
+    QVERIFY(cache.save());
+    release.release();
+    QTRY_VERIFY_WITH_TIMEOUT(completed, 1000);
+    CardArtCache reloaded(dir.path());
+    reloaded.load();
+    QVERIFY(reloaded.entries().isEmpty());
+    QCOMPARE(reloaded.faceAuditVersion(), 4);
+}
+
+void TestCardServices::artCacheAsyncFailureRetriesAndShutdownFlushes() const
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(u"card-cache.json"_s);
+    QVERIFY(QDir().mkpath(path));
+    {
+        CardArtCache cache(dir.path());
+        cache.rememberFailure(u"missing"_s);
+        int completions = 0;
+        bool success = true;
+        cache.onSaveFinished = [&](bool ok) {
+            ++completions;
+            success = ok;
+        };
+        cache.saveAsync();
+        QTRY_COMPARE_WITH_TIMEOUT(completions, 1, 1000);
+        QVERIFY(!success);
+        QVERIFY(cache.dirty());
+        QVERIFY(QDir().rmdir(path));
+        cache.saveAsync();
+        QTRY_COMPARE_WITH_TIMEOUT(completions, 2, 1000);
+        QVERIFY(success);
+        QVERIFY(!cache.dirty());
+        cache.rememberFailure(u"shutdown"_s);
+        cache.saveAsync();
+        cache.setFaceAuditState(4, true);
+        // Destruction waits for the writer and persists the latest, not its
+        // obsolete snapshot, even without another event-loop iteration.
+    }
+    CardArtCache reloaded(dir.path());
+    reloaded.load();
+    QVERIFY(reloaded.failedRecently(u"shutdown"_s));
+    QCOMPARE(reloaded.faceAuditVersion(), 4);
+    QVERIFY(reloaded.faceRepairNeeded());
 }
 
 QTEST_GUILESS_MAIN(TestCardServices)

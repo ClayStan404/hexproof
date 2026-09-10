@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Item {
@@ -26,6 +27,19 @@ Item {
     property real hoverPreviewY: 0
     property var resolvedTypeLineCache: ({})
     property bool basicLandsExpanded: false
+    readonly property bool compactLayout: width < Theme.size(1100)
+                                           || height < Theme.size(700)
+    onBasicLandsExpandedChanged: {
+        if (compactLayout && basicLandsExpanded) {
+            toolsPopup.showBasicLands = true
+            toolsPopup.open()
+        }
+    }
+    onCompactLayoutChanged: {
+        if (toolsPopup)
+            toolsPopup.close()
+        basicLandsExpanded = false
+    }
     readonly property var sideboardData: gameSession.sideboard
                                                    ? gameSession.sideboard : ({})
     readonly property var mainboard: sideboardData.mainboard
@@ -41,6 +55,9 @@ Item {
     readonly property var commanders: sideboardData.commanders
                                       ? sideboardData.commanders : []
 
+    onSideboardDataChanged: updateClock()
+    Component.onCompleted: updateClock()
+
     Binding {
         target: root.tableModel
         property: "mainboardCards"
@@ -51,6 +68,19 @@ Item {
         target: root.tableModel
         property: "sideboardCards"
         value: limitedFilters.visibleSideboard
+    }
+
+    Connections {
+        target: root.cardCatalogModel
+        ignoreUnknownSignals: true
+
+        function onImageRevisionChanged() {
+            root.resolvedTypeLineCache = ({})
+        }
+
+        function onLanguageChanged() {
+            root.resolvedTypeLineCache = ({})
+        }
     }
 
     z: 200
@@ -67,13 +97,13 @@ Item {
 
     Surface {
         anchors.fill: parent
-        anchors.margins: Theme.size(16)
+        anchors.margins: Theme.size(root.compactLayout ? 10 : 16)
         elevated: true
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: Theme.size(20)
-            spacing: Theme.size(12)
+            anchors.margins: Theme.size(root.compactLayout ? 12 : 20)
+            spacing: Theme.size(root.compactLayout ? 6 : 12)
 
             RowLayout {
                 Layout.fillWidth: true
@@ -86,19 +116,23 @@ Item {
                     Text {
                         textFormat: Text.PlainText
                         objectName: "sideboardGameTitle"
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
                         text: (root.deckChangesAllowed
                                ? qsTr("Sideboard · Game ")
                                : qsTr("Between games · Game "))
                               + root.gameSession.gameNumber
                               + " → " + (root.gameSession.gameNumber + 1)
                         color: Theme.text
-                        font.pixelSize: Theme.fontSize(22)
+                        font.pixelSize: Theme.fontSize(root.compactLayout ? 18 : 22)
                         font.weight: Font.DemiBold
                     }
 
                     Text {
                         textFormat: Text.PlainText
                         objectName: "sideboardDeckRulesHint"
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
                         text: root.limitedDeck
                               ? qsTr("Move pool cards between main and sideboard; ordinary basic lands are unlimited.")
                               : root.deckChangesAllowed
@@ -110,6 +144,9 @@ Item {
 
                     Text {
                         textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        visible: !root.compactLayout
+                        wrapMode: Text.WordWrap
                         text: root.deckChangesAllowed
                               ? qsTr("Every card is laid out at once; drag cards between tables.")
                               : qsTr("Use the star on a mainboard card, then confirm Ready.")
@@ -134,19 +171,50 @@ Item {
                     model: root.sideboardData.seats
                            ? root.sideboardData.seats : []
 
-                    StatusPill {
+                    ColumnLayout {
                         required property var modelData
-                        objectName: "sideboardSeatStatus" + modelData.seat
-                        text: root.displayName(modelData.seat) + " · "
-                              + modelData.mainboardCount + "+"
-                              + modelData.sideboardCount + " · "
-                              + (modelData.ready
-                                 ? qsTr("Ready") : qsTr("Editing"))
-                        statusColor: modelData.ready ? Theme.success : Theme.textMuted
+                        id: seatStatus
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        spacing: Theme.size(2)
+
+                        Text {
+                            objectName: "sideboardSeatName" + seatStatus.modelData.seat
+                            Layout.fillWidth: true
+                            textFormat: Text.PlainText
+                            text: root.displayName(seatStatus.modelData.seat)
+                            elide: Text.ElideRight
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(10)
+                        }
+
+                        StatusPill {
+                            objectName: "sideboardSeatStatus" + seatStatus.modelData.seat
+                            maximumWidth: seatStatus.width
+                            text: seatStatus.modelData.mainboardCount + "+"
+                                  + seatStatus.modelData.sideboardCount + " · "
+                                  + (seatStatus.modelData.ready
+                                     ? qsTr("Ready") : qsTr("Editing"))
+                            statusColor: seatStatus.modelData.ready
+                                         ? Theme.success : Theme.textMuted
+                        }
+                        ToolTip.visible: seatHover.hovered
+                        ToolTip.text: root.displayName(modelData.seat)
+                        HoverHandler { id: seatHover }
                     }
                 }
 
-                Item { Layout.fillWidth: true }
+                AppButton {
+                    objectName: "sideboardFiltersButton"
+                    visible: root.compactLayout && root.isPlayer && root.limitedDeck
+                    compact: true
+                    variant: limitedFilters.filtersActive ? "highlight" : "secondary"
+                    text: qsTr("Filter both tables")
+                    onClicked: {
+                        toolsPopup.showBasicLands = false
+                        toolsPopup.open()
+                    }
+                }
 
                 AppButton {
                     objectName: "sideboardBasicLandsButton"
@@ -167,16 +235,19 @@ Item {
                 }
             }
 
-            LimitedSideboardFilters {
-                id: limitedFilters
-
-                panel: root
+            Item {
+                id: filtersSlot
+                Layout.fillWidth: true
+                implicitHeight: limitedFilters.implicitHeight
+                visible: !root.compactLayout && root.isPlayer && root.limitedDeck
             }
 
-            LimitedSideboardBasicLandsPanel {
-                id: basicLandsPanel
-
-                panel: root
+            Item {
+                id: basicLandsSlot
+                Layout.fillWidth: true
+                implicitHeight: basicLandsPanel.implicitHeight
+                visible: !root.compactLayout && root.isPlayer && root.limitedDeck
+                         && root.basicLandsExpanded
             }
 
             GridLayout {
@@ -190,7 +261,7 @@ Item {
                 columnSpacing: Theme.size(10)
                 rowSpacing: Theme.size(10)
                 readonly property bool sideBySide:
-                    width >= Theme.size(1200)
+                    width >= Theme.size(440)
                     && width >= height * 1.55
 
                 SideboardZoneView {
@@ -270,19 +341,82 @@ Item {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
                     text: qsTr("Timeout restores the previous game’s deck partition.")
+                    wrapMode: Text.WordWrap
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
                 }
 
                 AppButton {
                     objectName: "sideboardReadyButton"
+                    compact: root.compactLayout
                     visible: root.isPlayer
                     variant: root.ownReady ? "ghost" : "primary"
                     text: root.ownReady ? qsTr("Cancel ready") : qsTr("Ready for next game")
-                    enabled: root.ownReady || !root.limitedDeck
-                             || limitedFilters.mainboardCount >= 40
+                    enabled: root.ownReady || limitedFilters.mainboardCount
+                             >= (root.limitedDeck ? 40 : 7)
                     onClicked: root.wsModel.setSideboardReady(!root.ownReady)
                 }
+            }
+        }
+    }
+
+    LimitedSideboardFilters {
+        id: limitedFilters
+        panel: root
+        parent: root.compactLayout ? toolsBody : filtersSlot
+        width: parent.width
+        visible: root.isPlayer && root.limitedDeck
+                 && (!root.compactLayout || !toolsPopup.showBasicLands)
+    }
+
+    LimitedSideboardBasicLandsPanel {
+        id: basicLandsPanel
+        panel: root
+        parent: root.compactLayout ? toolsBody : basicLandsSlot
+        width: parent.width
+        visible: root.isPlayer && root.limitedDeck && root.basicLandsExpanded
+                 && (!root.compactLayout || toolsPopup.showBasicLands)
+    }
+
+    Popup {
+        id: toolsPopup
+        property bool showBasicLands: false
+        objectName: "sideboardToolsPopup"
+        parent: Overlay.overlay
+        width: Math.min(Theme.size(680), parent.width - Theme.size(32))
+        height: Math.min(implicitHeight, parent.height - Theme.size(32))
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        padding: Theme.size(14)
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onClosed: root.basicLandsExpanded = false
+        background: Surface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: Theme.size(10)
+            ScrollView {
+                id: toolsScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 0
+                implicitHeight: toolsBody.implicitHeight
+                contentWidth: availableWidth
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                Item {
+                    id: toolsBody
+                    width: toolsScroll.availableWidth
+                    implicitHeight: toolsPopup.showBasicLands
+                                    ? basicLandsPanel.implicitHeight
+                                    : limitedFilters.implicitHeight
+                }
+            }
+            AppButton {
+                objectName: "sideboardToolsCloseButton"
+                Layout.fillWidth: true
+                text: qsTr("Close")
+                onClicked: toolsPopup.close()
             }
         }
     }
@@ -575,6 +709,7 @@ Item {
     function cardImageSource(card) {
         if (!card || !card.name || !cardCatalogModel)
             return ""
+        void cardCatalogModel.imageRevision
         return cardCatalogModel.imageSource(
                     card.name,
                     card.setCode ? card.setCode : "",
@@ -584,6 +719,7 @@ Item {
     function tableCardImageSource(card) {
         if (!card || !card.name || !cardCatalogModel)
             return ""
+        void cardCatalogModel.imageRevision
         if (typeof cardCatalogModel.tableImageSource === "function") {
             return cardCatalogModel.tableImageSource(
                         card.name,
@@ -600,12 +736,15 @@ Item {
         if (supplied.length > 0)
             return supplied
         if (!cardCatalogModel
-                || typeof cardCatalogModel.cardTypeLine !== "function") {
+                || typeof cardCatalogModel.cachedCardTypeLine !== "function") {
             return ""
         }
         const language = typeof cardCatalogModel.language !== "undefined"
                          ? cardCatalogModel.language : ""
-        const key = language + "\u001f"
+        const imageRevision =
+            typeof cardCatalogModel.imageRevision !== "undefined"
+            ? cardCatalogModel.imageRevision : 0
+        const key = language + "\u001f" + imageRevision + "\u001f"
                     + String(card.name ? card.name : "").toLowerCase()
                     + "\u001f"
                     + String(card.setCode ? card.setCode : "").toUpperCase()
@@ -616,7 +755,7 @@ Item {
                     resolvedTypeLineCache, key)) {
             return resolvedTypeLineCache[key]
         }
-        const resolved = cardCatalogModel.cardTypeLine(
+        const resolved = cardCatalogModel.cachedCardTypeLine(
                            card.name ? card.name : "",
                            card.setCode ? card.setCode : "",
                            card.collectorNumber

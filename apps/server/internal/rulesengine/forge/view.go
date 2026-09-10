@@ -20,6 +20,7 @@ type GameView struct {
 	Step             string            `json:"step"`
 	ActivePlayerID   string            `json:"activePlayerId"`
 	PriorityPlayerID string            `json:"priorityPlayerId"`
+	StartingPlayerID string            `json:"startingPlayerId,omitempty"`
 	Players          []PlayerView      `json:"players"`
 	Zones            []ZoneView        `json:"zones"`
 	Stack            []StackObjectView `json:"stack"`
@@ -86,10 +87,12 @@ func (client *Client) SnapshotView(ctx context.Context, sessionID string,
 	}
 	var view GameView
 	if err := json.Unmarshal(raw, &view); err != nil {
-		return GameView{}, fmt.Errorf("%w: decode snapshot view: %v", ErrRuntime, err)
+		client.kill()
+		return GameView{}, fmt.Errorf("%w: invalid snapshot view", ErrRuntime)
 	}
 	if err := view.validate(); err != nil {
-		return GameView{}, fmt.Errorf("%w: invalid snapshot view: %v", ErrRuntime, err)
+		client.kill()
+		return GameView{}, fmt.Errorf("%w: invalid snapshot view", ErrRuntime)
 	}
 	return view, nil
 }

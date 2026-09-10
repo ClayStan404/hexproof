@@ -46,6 +46,23 @@ WsClient::WsClient(QObject *parent)
             &WsClient::gameSnapshotDataChanged);
 
     m_rulesSession = new RulesSessionState(this);
+    connect(m_rulesSession, &RulesSessionState::promptChanged, this,
+            &WsClient::reconcileRulesResponse);
+    connect(m_rulesSession, &RulesSessionState::snapshotChanged, this,
+            &WsClient::reconcileRulesResponse);
+
+    m_rulesResponseTimer.setParent(this);
+    m_rulesResponseTimer.setObjectName(u"rulesResponseTimer"_s);
+    m_rulesResponseTimer.setSingleShot(true);
+    m_rulesResponseTimer.setInterval(30000);
+    connect(&m_rulesResponseTimer, &QTimer::timeout, this, [this]() {
+        const QString requestId = m_rulesResponseRequestId;
+        if (requestId.isEmpty())
+            return;
+        clearRulesResponse();
+        setLastError(u"timeout"_s, u"rules response timed out; retry the decision"_s);
+        m_protocolSession->resolveFailure(requestId, m_lastError);
+    });
 
     m_serverDirectory = new ServerDirectory(this);
     connect(m_serverDirectory, &ServerDirectory::latenciesChanged, this,
@@ -151,6 +168,28 @@ int WsClient::reconnectSecondsRemaining() const
     return m_reconnectController->remainingSeconds();
 }
 
+bool WsClient::setInitialConnection(const QString &url, const QString &displayName)
+{
+    const QString name = displayName.trimmed();
+    if (m_state != Disconnected || name.isEmpty() || url.trimmed().isEmpty() ||
+        !m_serverDirectory->setCustomServerUrl(url))
+        return false;
+
+    const QString serverUrl = m_serverDirectory->customServerUrl();
+    // Launch defaults are not resume credentials. Keep an existing player
+    // identity only when both its endpoint and display name still match.
+    if (!m_reconnectController->matches(serverUrl, name))
+        m_reconnectController->clear();
+    m_serverUrl = serverUrl;
+    m_displayName = name;
+    QSettings settings;
+    settings.setValue(u"network/customServerUrl"_s, serverUrl);
+    settings.sync();
+    emit serverUrlChanged();
+    emit displayNameChanged();
+    return true;
+}
+
 void WsClient::connectTo(const QString &url, const QString &displayName)
 {
     clearLastError();
@@ -249,7 +288,10 @@ void WsClient::disconnectFromHub()
         m_intentionalDisconnect = false;
         return;
     }
-    m_ws.close();
+    if (m_ws.state() == QAbstractSocket::ConnectedState)
+        m_ws.close();
+    else
+        m_ws.abort();
 }
 
 void WsClient::copyToClipboard(const QString &text)
@@ -297,7 +339,11 @@ void WsClient::resumeTournamentView()
         return;
     const QString id = m_tournamentSession->tournamentId();
     QJsonObject payload{{u"tournamentId"_s, id}};
-    const QString credential = tournamentCredential(id);
+    // Reconnecting an explicitly public view must not silently reclaim a
+    // previously saved player identity. A seated player watching another
+    // table still has participant/organizer membership and can restore it.
+    const QString credential =
+        m_tournamentSession->role() == u"viewer"_s ? QString{} : tournamentCredential(id);
     if (!credential.isEmpty())
         payload.insert(u"credential"_s, credential);
     send(kTypeTournamentEnter, payload);
@@ -305,6 +351,14 @@ void WsClient::resumeTournamentView()
 
 QString WsClient::send(const QString &type, const QJsonObject &payload)
 {
+    // Every typed rules response passes here, including hand-card drag actions.
+    // A queued write is not a completed decision: retain the lock until the
+    // authoritative prompt changes, a correlated error arrives, or it times out.
+    if (type == kTypeRulesRespond &&
+        (rulesResponsePending() || !m_rulesSession->active() || !m_rulesSession->promptPending() ||
+         !m_rulesSession->promptSupported() || m_rulesSession->gameOver() ||
+         payload.value(u"promptId"_s).toInteger() != m_rulesSession->promptId()))
+        return {};
     const bool socketConnected = m_ws.state() == QAbstractSocket::ConnectedState;
     const bool sendingHello =
         type == kTypeSessionHello && (m_state == Connecting || m_state == Reconnecting);
@@ -322,6 +376,13 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         setLastError(u"connection"_s, u"action could not be queued for sending"_s);
         m_protocolSession->reportUnqueuedFailure(type, payload, m_lastError);
         return {};
+    }
+    if (type == kTypeRulesRespond) {
+        m_rulesResponseRequestId = command.id;
+        m_rulesResponseGameId = m_rulesSession->gameId();
+        m_rulesResponsePromptId = m_rulesSession->promptId();
+        m_rulesResponseTimer.start();
+        emit rulesResponsePendingChanged();
     }
     m_protocolSession->markQueued(command);
     return command.id;
@@ -346,6 +407,7 @@ void WsClient::onConnected()
 
 void WsClient::onDisconnected()
 {
+    clearRulesResponse();
     m_helloTimer.stop();
     m_reconnectController->flush();
     const bool hadRoom = m_state == InRoom || m_state == Reconnecting ||
@@ -448,8 +510,29 @@ void WsClient::setForgeRulesAvailable(bool available)
 
 void WsClient::clearGameState()
 {
+    clearRulesResponse();
     m_gameSession->clear();
     m_rulesSession->clear();
+}
+
+void WsClient::clearRulesResponse()
+{
+    m_rulesResponseTimer.stop();
+    if (!rulesResponsePending())
+        return;
+    m_rulesResponseRequestId.clear();
+    m_rulesResponseGameId.clear();
+    m_rulesResponsePromptId = 0;
+    emit rulesResponsePendingChanged();
+}
+
+void WsClient::reconcileRulesResponse()
+{
+    if (rulesResponsePending() &&
+        (!m_rulesSession->active() || m_rulesSession->gameOver() ||
+         m_rulesSession->gameId() != m_rulesResponseGameId || !m_rulesSession->promptPending() ||
+         m_rulesSession->promptId() != m_rulesResponsePromptId))
+        clearRulesResponse();
 }
 
 void WsClient::clearRoomState()
@@ -459,6 +542,7 @@ void WsClient::clearRoomState()
     m_protocolSession->discardAll();
     m_roomSession->clear();
     clearGameState();
+    m_reconnectController->setCrossLaunchResumeAllowed(false);
     m_reconnectController->resetSequence();
     m_reconnectController->flush();
 }

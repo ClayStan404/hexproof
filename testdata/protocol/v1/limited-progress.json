@@ -1,0 +1,1 @@
+{"type":"limited.progress","payload":{"tournamentId":"ABC123","participants":[{"participantId":"p-1","displayName":"Alice","picked":2,"packCards":0,"queuedPacks":0,"deckSubmitted":false}]}}

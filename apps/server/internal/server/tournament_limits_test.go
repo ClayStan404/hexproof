@@ -132,7 +132,7 @@ func addClosedTournament(t *testing.T, handler *Handler, id string,
 	return event
 }
 
-func TestExpiredClosedTournamentEvictionWaitsForBoundSessions(t *testing.T) {
+func TestExpiredClosedTournamentEvictionIgnoresViewers(t *testing.T) {
 	config := DefaultConfig()
 	config.MaxTournaments = 4
 	config.TournamentClosedTTL = time.Hour
@@ -149,13 +149,11 @@ func TestExpiredClosedTournamentEvictionWaitsForBoundSessions(t *testing.T) {
 	})
 	handler.registerSession(viewer)
 	handler.evictExpiredTournaments(now)
-	if handler.tournaments.entry(event.ID) == nil {
-		t.Fatal("closed tournament was evicted while a viewer remained bound")
-	}
-
-	handler.unregisterSession(viewer)
 	if handler.tournaments.entry(event.ID) != nil {
-		t.Fatal("expired closed tournament remained after its last viewer disconnected")
+		t.Fatal("viewer extended the closed tournament's retention")
+	}
+	if viewer.Tournament().TournamentID != "" {
+		t.Fatal("expired history left a stale viewer binding")
 	}
 }
 
@@ -190,14 +188,15 @@ func TestOccupiedRunningTournamentIsNeverEvicted(t *testing.T) {
 	now := time.Now().UTC()
 	event := addLiveTournament(t, handler, "ACTIVE", tournament.StatusRunning, now.Add(-48*time.Hour))
 
-	viewer := testTournamentSession("viewer", "192.0.2.21")
-	viewer.setTournament(tournamentBinding{
-		TournamentID: event.ID, Role: tournament.RoleViewer,
+	organizer := testTournamentSession("organizer", "192.0.2.21")
+	event.OrganizerConnectionID = organizer.ConnectionID
+	organizer.setTournament(tournamentBinding{
+		TournamentID: event.ID, Role: tournament.RoleOrganizer,
 	})
-	handler.registerSession(viewer)
+	handler.registerSession(organizer)
 	handler.evictExpiredTournaments(now)
 	if handler.tournaments.entry(event.ID) == nil {
-		t.Fatal("running tournament with a bound session was evicted")
+		t.Fatal("running tournament with its online organizer was evicted")
 	}
 }
 
@@ -239,7 +238,7 @@ func TestRecentRegistrationTournamentIsKept(t *testing.T) {
 	}
 }
 
-func TestAbandonedRegistrationWithViewerIsKept(t *testing.T) {
+func TestAbandonedRegistrationWithViewerIsEvicted(t *testing.T) {
 	config := DefaultConfig()
 	config.MaxTournaments = 4
 	config.TournamentInactiveTTL = time.Hour
@@ -257,8 +256,11 @@ func TestAbandonedRegistrationWithViewerIsKept(t *testing.T) {
 	})
 	handler.registerSession(viewer)
 	handler.evictExpiredTournaments(now)
-	if handler.tournaments.entry(event.ID) == nil {
-		t.Fatal("registration tournament was evicted while a viewer remained bound")
+	if handler.tournaments.entry(event.ID) != nil {
+		t.Fatal("viewer kept abandoned registration alive")
+	}
+	if viewer.Tournament().TournamentID != "" {
+		t.Fatal("evicted registration left a stale viewer binding")
 	}
 }
 

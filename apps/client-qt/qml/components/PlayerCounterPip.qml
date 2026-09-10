@@ -17,6 +17,9 @@ Item {
     readonly property string accessibleSummary:
         (label.length > 0 ? label : qsTr("Counter"))
         + " · " + value
+    readonly property string editHint:
+        qsTr("Rename") + ShortcutHints.suffix(["table.counter.rename"])
+        + " · " + qsTr("Set") + ShortcutHints.suffix(["table.counter.set"])
     signal adjustRequested(int delta)
     signal selectedRequested()
 
@@ -118,7 +121,7 @@ Item {
                ? parent.width - circle.width - Theme.size(4) : parent.width
         text: root.label.length > 0
               ? root.label
-              : (root.selected ? qsTr("I rename · S set") : "")
+              : (root.selected ? root.editHint : "")
         color: root.selected ? Theme.text : Theme.textSecondary
         font.pixelSize: Theme.fontSize(7)
         font.weight: root.selected ? Font.DemiBold : Font.Normal
@@ -142,7 +145,8 @@ Item {
 
     ToolTip.visible: hoverHandler.hovered
     ToolTip.delay: 450
-    ToolTip.text: (root.label.length > 0 ? root.label : qsTr("Counter"))
-                  + " · " + root.value + "\n"
-                  + qsTr("Click to select · selected: left +1 · right -1 · I rename · S set")
+    ToolTip.text: root.accessibleSummary
+                  + (root.editable
+                     ? "\n" + qsTr("Click to select · selected: left +1 · right -1")
+                       + "\n" + root.editHint : "")
 }

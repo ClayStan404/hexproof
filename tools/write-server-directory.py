@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 from urllib.parse import urlsplit
@@ -16,6 +17,27 @@ from urllib.parse import urlsplit
 
 SECRET_NAME = "HEXPROOF_PUBLIC_SERVERS_JSON"
 SERVER_COUNT = 5
+
+
+def validate_server_url(value: object, label: str) -> None:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a string")
+    normalized = value.strip()
+    if (any(character.isspace() or ord(character) < 32 or ord(character) == 127
+            for character in normalized)
+            or re.search(r"%(?![0-9a-fA-F]{2})", normalized)):
+        raise ValueError(f"{label} contains invalid whitespace or URL escaping")
+    try:
+        parsed = urlsplit(normalized)
+        # urlsplit accepts an invalid port until this property is accessed.
+        port = parsed.port
+        valid = (parsed.scheme in {"ws", "wss"} and bool(parsed.hostname)
+                 and (port is None or 1 <= port <= 65535))
+    except ValueError:
+        valid = False
+    if not valid:
+        # Do not echo endpoint values from the private release secret.
+        raise ValueError(f"{label} must use ws:// or wss:// with a valid host and port")
 
 
 def validate_directory(document: object) -> dict[str, object]:
@@ -32,25 +54,12 @@ def validate_directory(document: object) -> dict[str, object]:
             raise ValueError(f"server {index} contains unsupported fields")
         if "url" not in server:
             raise ValueError(f"server {index} must contain url")
-        url = server["url"]
-        if not isinstance(url, str):
-            raise ValueError(f"server {index} url must be a string")
-        parsed = urlsplit(url.strip())
-        if parsed.scheme not in {"ws", "wss"} or not parsed.hostname:
-            raise ValueError(f"server {index} url must use ws:// or wss:// with a host")
+        validate_server_url(server["url"], f"server {index} url")
         legacy_urls = server.get("legacyUrls", [])
         if not isinstance(legacy_urls, list):
             raise ValueError(f"server {index} legacyUrls must be an array")
         for legacy_index, legacy_url in enumerate(legacy_urls, start=1):
-            if not isinstance(legacy_url, str):
-                raise ValueError(
-                    f"server {index} legacy URL {legacy_index} must be a string"
-                )
-            parsed_legacy = urlsplit(legacy_url.strip())
-            if parsed_legacy.scheme not in {"ws", "wss"} or not parsed_legacy.hostname:
-                raise ValueError(
-                    f"server {index} legacy URL {legacy_index} must use ws:// or wss:// with a host"
-                )
+            validate_server_url(legacy_url, f"server {index} legacy URL {legacy_index}")
     return document
 
 

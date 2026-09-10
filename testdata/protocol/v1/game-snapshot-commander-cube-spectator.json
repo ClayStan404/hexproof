@@ -1,0 +1,305 @@
+{
+  "type": "game.snapshot",
+  "payload": {
+    "roomId": "TABLE4",
+    "gameNumber": 1,
+    "startingSeat": 0,
+    "turnOrder": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "activeSeat": 0,
+    "currentPhase": "untap",
+    "landPlaysThisTurn": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "displayName": "Alice",
+        "life": 40,
+        "libraryCount": 52,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "sideboardCount": 58,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": [],
+        "commandZone": [
+          {
+            "id": "s0-c2",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "ownerSeat": 0,
+            "commander": true
+          }
+        ],
+        "commanderTaxes": {
+          "s0-c2": 0
+        },
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "seat": 1,
+        "displayName": "Bob",
+        "life": 40,
+        "libraryCount": 52,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "sideboardCount": 58,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": [],
+        "commandZone": [
+          {
+            "id": "s1-c2",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "ownerSeat": 1,
+            "commander": true
+          }
+        ],
+        "commanderTaxes": {
+          "s1-c2": 0
+        },
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "seat": 2,
+        "displayName": "Carol",
+        "life": 40,
+        "libraryCount": 52,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "sideboardCount": 58,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": [],
+        "commandZone": [
+          {
+            "id": "s2-c2",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "ownerSeat": 2,
+            "commander": true
+          }
+        ],
+        "commanderTaxes": {
+          "s2-c2": 0
+        },
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "seat": 3,
+        "displayName": "Dan",
+        "life": 40,
+        "libraryCount": 52,
+        "handCount": 7,
+        "mulliganCount": 0,
+        "sideboardCount": 58,
+        "battlefield": [],
+        "graveyard": [],
+        "exile": [],
+        "commandZone": [
+          {
+            "id": "s3-c2",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "ownerSeat": 3,
+            "commander": true
+          }
+        ],
+        "commanderTaxes": {
+          "s3-c2": 0
+        },
+        "counters": [
+          {
+            "key": "counter-1",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-2",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-3",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-4",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-5",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-6",
+            "label": "",
+            "value": 0
+          },
+          {
+            "key": "counter-7",
+            "label": "",
+            "value": 0
+          }
+        ]
+      }
+    ],
+    "stack": [],
+    "revealed": [],
+    "arrows": [],
+    "attachments": [],
+    "commanders": [
+      {
+        "cardId": "s0-c2",
+        "ownerSeat": 0,
+        "name": "Draft Legend"
+      },
+      {
+        "cardId": "s1-c2",
+        "ownerSeat": 1,
+        "name": "Draft Legend"
+      },
+      {
+        "cardId": "s2-c2",
+        "ownerSeat": 2,
+        "name": "Draft Legend"
+      },
+      {
+        "cardId": "s3-c2",
+        "ownerSeat": 3,
+        "name": "Draft Legend"
+      }
+    ],
+    "log": [],
+    "score": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "seq": 9
+}

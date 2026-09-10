@@ -103,7 +103,24 @@ func (s *retentionStore) save(r *room.Room, now time.Time) error {
 // state lock. The returned record is independent of live reducer state and can
 // therefore be encoded and written after the room operation lock is released.
 func (s *retentionStore) snapshot(r *room.Room, now time.Time) *retainedRoom {
-	if s == nil || r == nil || r.Game == nil || r.Playtest {
+	if s == nil || r == nil || r.Playtest {
+		return nil
+	}
+	game := r.Game
+	if game == nil && r.RulesMode == protocol.RulesModeForge && len(r.RulesLog) > 0 {
+		// An interrupted rules session still has useful public observations.
+		// Do not fetch or reconstruct private Forge state for an archive.
+		number := r.DrawnGames + 1
+		for _, wins := range r.Score {
+			number += wins
+		}
+		game = &room.GameState{Number: number, Log: r.RulesLog, NextLogID: r.RulesNextLogID,
+			Seats: make([]room.PlayerGameState, len(r.Seats))}
+		for seat, player := range r.Seats {
+			game.Seats[seat] = room.PlayerGameState{Seat: seat, DisplayName: player.DisplayName}
+		}
+	}
+	if game == nil {
 		return nil
 	}
 	seats := make([]retainedSeat, len(r.Seats))
@@ -132,7 +149,7 @@ func (s *retentionStore) snapshot(r *room.Room, now time.Time) *retainedRoom {
 		Seats:         seats,
 		Spectators:    spectators,
 		Score:         append([]int(nil), r.Score...),
-		Game:          cloneRetainedGame(r.Game),
+		Game:          cloneRetainedGame(game),
 	}
 }
 
@@ -202,6 +219,8 @@ func cloneRetainedDeck(deck *protocol.DeckSelect) *protocol.DeckSelect {
 	}
 	cloned := *deck
 	cloned.Commanders = append([]string(nil), deck.Commanders...)
+	cloned.CommanderPrintings = append([]protocol.DeckCard(nil), deck.CommanderPrintings...)
+	cloned.CommanderColors = append([]string(nil), deck.CommanderColors...)
 	cloned.Mainboard = append([]protocol.DeckCard(nil), deck.Mainboard...)
 	cloned.Sideboard = append([]protocol.DeckCard(nil), deck.Sideboard...)
 	return &cloned
@@ -250,6 +269,7 @@ func cloneRetainedPlayerState(state room.PlayerGameState) room.PlayerGameState {
 	cloned.Graveyard = cloneRetainedCards(state.Graveyard)
 	cloned.Exile = cloneRetainedCards(state.Exile)
 	cloned.CommandZone = cloneRetainedCards(state.CommandZone)
+	cloned.Emblems = append([]protocol.GameEmblem(nil), state.Emblems...)
 	if state.CommanderTaxes != nil {
 		cloned.CommanderTaxes = make(map[string]int, len(state.CommanderTaxes))
 		for commanderID, tax := range state.CommanderTaxes {

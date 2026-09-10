@@ -201,8 +201,10 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 					h.fanoutTo([]*Session{sess}, envelopes)
 					if hold.room.RulesMode == protocol.RulesModeForge &&
 						hold.room.Phase == protocol.RoomPhaseStarted {
-						h.fanoutRulesProjections(hold.room)
-						h.fanoutRulesPrompts(hold.room)
+						h.fanoutGameProjections(hold.room)
+						if _, alive := h.forgeGame(hold.room.ID); alive {
+							h.fanoutRulesPrompts(hold.room)
+						}
 					}
 					operation.opMu.Unlock()
 					return nil
@@ -335,6 +337,7 @@ func (h *Handler) expireResumeHold(expected resumeHold) {
 		operation.opMu.Unlock()
 		h.commitPairingRoomCleanup(cleanup)
 		h.saveRoomRetention(retained)
+		h.refreshTournamentRetention(operation.tournamentID)
 	}()
 	operation.mu.Lock()
 	departingForgePlayer := operation.room == expected.room &&
@@ -347,6 +350,7 @@ func (h *Handler) expireResumeHold(expected resumeHold) {
 	if err != nil {
 		return
 	}
+	h.discardFinishedGameConsent(expected.room)
 	if !empty {
 		if departingForgePlayer {
 			h.abortForgeGame(expected.room.ID)
@@ -465,9 +469,8 @@ func (h *Handler) unregisterSession(s *Session) {
 	h.sessionsMu.Unlock()
 	h.discardZoneDumpRequestsForConn(s.ConnectionID)
 	h.discardPublicZoneMoveRequestsForConn(s.ConnectionID)
-	tournamentID := s.Tournament().TournamentID
 	h.disconnectTournamentSession(s)
-	if tournamentID != "" {
-		h.evictExpiredTournaments(time.Now().UTC())
-	}
+	// A resumed pairing-room session may not have rebound its tournament view
+	// yet. Its last player departure must still start unattended-event cleanup.
+	h.evictExpiredTournaments(time.Now().UTC())
 }

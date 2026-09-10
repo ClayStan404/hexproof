@@ -205,6 +205,7 @@ void CardResolver::applyScryfallEnglishJson(const QJsonObject &object)
 {
     CardRecord scryfall =
         catalogimport::parseCardObject(object, QStringLiteral("en"), m_currentRequest.name);
+    retainMetadata(&scryfall, true);
     if (m_currentRequest.language == QStringLiteral("zh") &&
         looksLikeChinese(m_catalogRecord.localizedName)) {
         scryfall.localizedName = m_catalogRecord.localizedName;
@@ -228,6 +229,7 @@ void CardResolver::applyScryfallChineseExactJson(const QJsonObject &object)
         m_callbacks.persistLocalizedPrintings(printings);
     CardRecord scryfall =
         catalogimport::parseCardObject(object, QStringLiteral("zh"), m_currentRequest.name);
+    retainMetadata(&scryfall, true);
     if (looksLikeChinese(m_catalogRecord.localizedName))
         scryfall.localizedName = m_catalogRecord.localizedName;
     if (!m_catalogRecord.typeLine.isEmpty())
@@ -251,6 +253,7 @@ void CardResolver::applyScryfallChineseSearchJson(const QJsonObject &object)
         const QJsonObject candidateObject = value.toObject();
         CardRecord candidate = catalogimport::parseCardObject(candidateObject, QStringLiteral("zh"),
                                                               m_currentRequest.name);
+        retainMetadata(&candidate, true);
         if (candidate.imageUrl.isEmpty())
             continue;
         int score = candidateObject.value(QStringLiteral("digital")).toBool() ? 2 : 1;
@@ -287,6 +290,13 @@ void CardResolver::applyMtgchJson(const QJsonObject &object)
         catalogimport::parseCardObject(object, QStringLiteral("zh"), m_currentRequest.name);
     m_mtgchEnglishRecord =
         catalogimport::parseCardObject(object, QStringLiteral("en"), m_currentRequest.name);
+    if (m_currentRequest.language == QStringLiteral("zh"))
+        retainMetadata(&mtgchChinese, true);
+    retainMetadata(&m_mtgchEnglishRecord, true);
+    if (m_pendingImageStage != ArtStage::None) {
+        resumeImageAfterMetadata();
+        return;
+    }
     if (looksLikeChinese(m_catalogRecord.localizedName)) {
         mtgchChinese.localizedName = m_catalogRecord.localizedName;
         m_mtgchEnglishRecord.localizedName = m_catalogRecord.localizedName;

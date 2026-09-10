@@ -14,6 +14,7 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 
 | File | Direction | Purpose |
 |------|-----------|---------|
+| `tournament-chat-*.json` | both | Event-scoped text messages and bounded history; server-authored names and sequences |
 | `session-hello.json` | C -> S | Handshake offer (no top-level `v`) |
 | `session-welcome.json` | S -> C | Authoritative `v` and opaque resume credential in payload; echoes `id`. No `seq` (session-level, not per-room) |
 | `session-resume-hello.json` | C -> S | Reconnect offer with the opaque credential and last observed room sequence |
@@ -28,6 +29,16 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `room-snapshot-owner.json` / `room-snapshot-opponent.json` | S -> C | Role-neutral waiting-room projections for different viewers |
 | `room-create-playtest.json` / `room-created-playtest.json` / `room-snapshot-playtest.json` | both | Private one-seat Playtest creation and waiting-room projection |
 | `room-list.json` / `room-listed.json` | both | Hub-local room discovery request and public join metadata without member or password data |
+| `room-listed-cube.json` / `room-join-cube-credential.json` | both | Room-oriented Cube discovery and authenticated reentry into the same private draft seat |
+| `tournament-create-commander-cube.json` / `room-listed-commander-cube.json` | both | Commander Cube uses a casual coordinator and EDH-tagged Cube room discovery, not Swiss event listing |
+| `limited-pick-commander-cube.json` / `limited-submit-deck-commander-cube.json` | C -> S | Atomic two-instance pick and a 60-card deck including an exact selected commander instance |
+| `limited-snapshot-commander-cube-draft.json` / `limited-snapshot-commander-cube-owner.json` / `limited-snapshot-commander-cube-spectator.json` | S -> C | Public 2-pick/3-pack/60-card profile; draft pack and submitted commander/pool identities remain owner-only |
+| `limited-create-casual-match-commander-*.json` / `tournament-snapshot-commander-cube.json` | both | Four-player invitation, each invited player's own acceptance/cancellation, and public membership/consent lists |
+| `room-created-commander-cube.json` / `room-snapshot-commander-cube.json` | S -> C | Server-created four-seat EDH BO1 table with locked `commander_limited` decks; ordinary `room.create` cannot create this format |
+| `game-snapshot-commander-cube-spectator.json` | S -> C | Four 40-life seats and exact public commander printings with all hands, libraries, and unused draft-pool identities redacted |
+| `limited-submit-deck-piper-fallback.json` / `limited-snapshot-piper-fallback-owner.json` | both | Commander-only external Piper candidates and private per-instance color choices, separate from drafted pool ownership |
+| `game-snapshot-piper-fallback-spectator.json` | S -> C | Each physical Piper retains an independent public chosen color after game start, including while its card is in a hidden zone |
+| `limited-create-casual-match-cancel.json` | C -> S | Either invited player may decline or withdraw an unopened Cube match |
 | `deck-select.json` | C -> S | Full private deck identity submitted to the trust server |
 | `deck-selected.json` | S -> C | Correlated selection acknowledgement without deck identities |
 | `player-ready.json` | C -> S | Player ready toggle |
@@ -88,6 +99,9 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-snapshot-finished.json` | S -> C | Completed game projection with winner, conceding seat, score, and public log |
 | `game-snapshot-departure.json` | S -> C | Remaining player projection after an opponent leaves an active match |
 | `game-create-token.json` / `game-token-created.json` | both | Create an English-catalog token directly on the battlefield |
+| `game-create-emblem.json` / `game-emblem-created.json` | both | Create a public emblem for an explicitly selected active owner, including an opponent |
+| `game-remove-emblem.json` / `game-emblem-removed.json` | both | Owning player's explicit emblem correction, separate from card/commander movement |
+| `game-snapshot-emblems.json` | S -> C | Emblems are public command-zone objects in the owning seat's independent `emblems` list; both players' hands remain hidden |
 | `game-adjust-commander-tax.json` / `game-commander-tax-adjusted.json` | both | Per-card manual Commander tax control |
 | `game-cast-commander.json` / `game-commander-cast.json` | both | Atomic command-zone cast and per-card cast-count update |
 | `game-set-commander-damage.json` / `game-commander-damage-set.json` | both | Public physical-commander damage update with optional atomic life change |
@@ -129,6 +143,17 @@ the command zone, dedicated commander tax, and token identity. The paired
 sideboard snapshots pin the trust-server boundary: only the seated owner sees
 their pending mainboard and sideboard identities; opponents and spectators see
 aggregate counts and readiness only.
+
+Commander Cube fixtures extend the existing message types rather than creating
+a second protocol. `instanceIds` is the two-card alternative to the ordinary
+single `instanceId`; `commanderInstanceIds` selects physical cards already
+included in `mainboardInstanceIds`. The 60-card threshold includes commanders.
+The owner fixture deliberately chooses the second printing of a repeated name;
+the public game projection retains that printing rather than choosing by name.
+Group invitations use `playerIds` only on `invite`, then `pairingId` on `accept`
+or `cancel`; `acceptedPlayerIds` is public consent state, not permission for a
+viewer to acknowledge on somebody else's behalf. A complete snapshot replaces
+the previous snapshot, including clearing omitted private optional fields.
 
 The P7 fixtures pin hub-local discovery and retained-log replay as public
 projections. Room listings contain join metadata only, and replay loading

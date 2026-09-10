@@ -57,11 +57,11 @@ func (t *Tournament) havePlayed(left, right string) bool {
 	return false
 }
 
-func (t *Tournament) pairCost(left, right *Participant, ranks,
-	points map[string]int) int {
+func pairCost(left, right *Participant, ranks,
+	points map[string]int, rematch bool) int {
 	cost := abs(points[left.ID]-points[right.ID])*1000 +
 		abs(ranks[left.ID]-ranks[right.ID])*10
-	if t.havePlayed(left.ID, right.ID) {
+	if rematch {
 		cost += 1_000_000
 	}
 	// Stable initial order is only a deterministic final preference. The term
@@ -70,16 +70,40 @@ func (t *Tournament) pairCost(left, right *Participant, ranks,
 	return cost
 }
 
-func (t *Tournament) pairingInputs(players []*Participant) (map[string]int, map[string]int) {
+func (t *Tournament) pairingCosts(players []*Participant) func(*Participant, *Participant) int {
+	count := len(players)
 	ranks := make(map[string]int, len(players))
 	for index, participant := range players {
 		ranks[participant.ID] = index
 	}
-	return ranks, t.matchPointsByParticipant()
+	// The search revisits the same opponents many times. Resolve history and
+	// costs once; the matrix is bounded by MaxParticipants (512).
+	costs := make([]int, count*count)
+	for _, round := range t.Rounds {
+		for _, pairing := range round.Pairings {
+			left, leftPresent := ranks[pairing.PlayerAID]
+			right, rightPresent := ranks[pairing.PlayerBID]
+			if leftPresent && rightPresent {
+				costs[left*count+right] = 1
+				costs[right*count+left] = 1
+			}
+		}
+	}
+	points := t.matchPointsByParticipant()
+	for left := 0; left < count; left++ {
+		for right := left + 1; right < count; right++ {
+			cost := pairCost(players[left], players[right], ranks, points,
+				costs[left*count+right] != 0)
+			costs[left*count+right], costs[right*count+left] = cost, cost
+		}
+	}
+	return func(left, right *Participant) int {
+		return costs[ranks[left.ID]*count+ranks[right.ID]]
+	}
 }
 
 func (t *Tournament) minimumCostPairs(players []*Participant) []playerPair {
-	ranks, points := t.pairingInputs(players)
+	costFor := t.pairingCosts(players)
 	type solution struct {
 		cost  int
 		pairs []playerPair
@@ -104,7 +128,7 @@ func (t *Tournament) minimumCostPairs(players []*Participant) []playerPair {
 				continue
 			}
 			remainder := solve(withoutFirst &^ (uint64(1) << second))
-			cost := t.pairCost(players[first], players[second], ranks, points) + remainder.cost
+			cost := costFor(players[first], players[second]) + remainder.cost
 			if cost < best.cost {
 				pairs := make([]playerPair, 1, len(remainder.pairs)+1)
 				pairs[0] = playerPair{players[first], players[second]}
@@ -119,15 +143,14 @@ func (t *Tournament) minimumCostPairs(players []*Participant) []playerPair {
 }
 
 func (t *Tournament) greedyPairs(players []*Participant) []playerPair {
-	ranks, points := t.pairingInputs(players)
+	costFor := t.pairingCosts(players)
 	remaining := append([]*Participant(nil), players...)
 	pairs := make([]playerPair, 0, len(players)/2)
 	for len(remaining) > 0 {
 		left := remaining[0]
 		remaining = remaining[1:]
 		sort.SliceStable(remaining, func(first, second int) bool {
-			return t.pairCost(left, remaining[first], ranks, points) <
-				t.pairCost(left, remaining[second], ranks, points)
+			return costFor(left, remaining[first]) < costFor(left, remaining[second])
 		})
 		pairs = append(pairs, playerPair{left, remaining[0]})
 		remaining = remaining[1:]
@@ -139,10 +162,10 @@ func (t *Tournament) greedyPairs(players []*Participant) []playerPair {
 		improved = false
 		for left := 0; left < len(pairs); left++ {
 			for right := left + 1; right < len(pairs); right++ {
-				current := t.pairCost(pairs[left][0], pairs[left][1], ranks, points) +
-					t.pairCost(pairs[right][0], pairs[right][1], ranks, points)
-				swapped := t.pairCost(pairs[left][0], pairs[right][1], ranks, points) +
-					t.pairCost(pairs[right][0], pairs[left][1], ranks, points)
+				current := costFor(pairs[left][0], pairs[left][1]) +
+					costFor(pairs[right][0], pairs[right][1])
+				swapped := costFor(pairs[left][0], pairs[right][1]) +
+					costFor(pairs[right][0], pairs[left][1])
 				if swapped < current {
 					pairs[left][1], pairs[right][1] = pairs[right][1], pairs[left][1]
 					improved = true

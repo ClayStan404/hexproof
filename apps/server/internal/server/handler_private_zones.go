@@ -117,6 +117,13 @@ func (h *Handler) handleGameRespondZoneDump(sess *Session,
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, err.Error())
 		return nil
 	}
+	operation, err := h.hub.lockRoomOperation(r.ID)
+	if err != nil {
+		code, _ := ErrCode(err)
+		h.sendError(sess, env.ID, code, err.Error())
+		return nil
+	}
+	defer operation.opMu.Unlock()
 	approval, err := h.resolveZoneDumpRequest(
 		sess.ConnectionID, r.ID, response)
 	if err != nil {
@@ -145,14 +152,6 @@ func (h *Handler) handleGameRespondZoneDump(sess *Session,
 		return nil
 	}
 
-	operation, err := h.hub.lockRoomOperation(r.ID)
-	if err != nil {
-		h.discardZoneDumpRequest(approval.approvalID)
-		code, _ := ErrCode(err)
-		h.sendError(requester, approval.originalID, code, err.Error())
-		return nil
-	}
-	defer operation.opMu.Unlock()
 	res, err := h.hub.DumpApprovedZone(
 		approval.requesterConnID, approval.targetSeat,
 		approval.approvalID, approval.topCount, r)

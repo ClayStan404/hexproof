@@ -358,6 +358,7 @@ class TestCardCatalog : public QObject
     Q_OBJECT
 
   private slots:
+    void simulatesLimitedWeightTotalBoundary() const;
     void prefersMtgchChineseFields() const;
     void rejectsUnverifiedChineseFallbacks() const;
     void rejectsScryfallPlaceholderImages() const;
@@ -376,11 +377,31 @@ class TestCardCatalog : public QObject
     void prefersMtgchForEnglishArt() const;
     void positiveCacheHitDoesNotBumpImageRevision() const;
     void setLanguageBumpsImageRevision() const;
+    void imageProviderForcesAsyncLoads() const;
+    void prioritizeCardsDefersCacheDiscovery() const;
+    void prioritizeSupportMetadataAheadOfBackground_data() const;
+    void prioritizeSupportMetadataAheadOfBackground() const;
+    void prioritizeCardsDefersFaceExpansion() const;
     void providerFallbackSurvivesDisabledLocalReuse() const;
     void migratesUsablePreviousPolicyCache() const;
     void resolvedPrintingAliasBumpsImageRevision() const;
     void incrementalCacheCoalescesDuplicateRequests() const;
     void exactArtRequestDoesNotCoalesceWithNormalRequest() const;
+    void prioritizeCardsDistinguishesExactArtQueueEntries() const;
+    void prioritizeRawCardMovesAllQueuedFaces() const;
+    void prioritizeCardsEmitsMultiCardCacheHitsOnce() const;
+    void boundedExpansionPreservesFacesIdentityAndDeduplication() const;
+    void languageChangeRestartsBoundedExpansion() const;
+    void supersededBoundedExpansionDoesNotComplete() const;
+    void incrementalCachingDoesNotReexpandAdoptedFaces() const;
+    void incrementalCachingDoesNotReexpandSingleFace() const;
+    void matchSubscriptionCoalescesWithQueuedWork() const;
+    void matchSubscriptionsSeparateExactArtModes() const;
+    void cancelledMatchSubscriptionCannotAffectReplacement() const;
+    void cacheAndRetryDeferFaceExpansion() const;
+    void retryClearsFailureForEveryExpandedFace() const;
+    void cachedTypeLineNeverQueriesBrokenCatalog() const;
+    void tableImageSourceUsesStaleCacheMetadata() const;
     void exactArtUsesSamePrintingProviderFallback() const;
     void exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() const;
     void cachesEveryFaceOfDoubleFacedPrinting() const;
@@ -409,5 +430,26 @@ class TestCardCatalog : public QObject
     void successfulPrintingsKeepSearchError() const;
     void successfulCardSearchKeepsTokenSearchError() const;
     void successfulTokenSearchKeepsCardSearchError() const;
+    void tokenSearchRefreshesOnLanguageChange() const;
+    void searchesSupportKindsBeforeResultLimit() const;
+    void emblemOnlyCatalogRemainsInstalledAfterLegacyCountRecovery() const;
+    void tokenDisplayNameUsesLocalLanguageWithoutNetwork() const;
+    void cachesSupportCardsAlongsidePreferredLanguage() const;
+    void supportDetailsAndArtSurviveLanguageChangesAndRestart() const;
+    void legacySupportArtDoesNotSuppressChineseMetadata() const;
+    void battlefieldTokensRefreshLegacyChineseMetadata() const;
+    void supportRulesSurviveImageFailures() const;
+    void parsesLocalizedRulesIndependentlyOfArtwork() const;
+    void localizedRulesRespectFaceAndLanguage() const;
+    void localizedRulesSurviveEnglishFallbackAndNextRequest() const;
+    void localizedRulesAvailableWhenEveryImageFails() const;
+    void localizedRulesCacheRoundTrip() const;
+    void localizedRulesProbePreservesScryfallArtwork() const;
+    void localizedRulesRetryAfterTransientMetadataFailure() const;
+    void tokenEnrichmentDiscardsEarlierLanguage() const;
+    void tokenSearchRefreshesAfterCatalogReplacement() const;
+    void emptyTokenRequestInvalidatesEnrichment() const;
+    void boundedExpansionWaitsForCatalogReplacement() const;
+    void limitedArtExpansionWaitsForCatalogReplacement() const;
     void exposesIndependentCatalogErrorsWhenMultipleSubsystemsFail() const;
 };

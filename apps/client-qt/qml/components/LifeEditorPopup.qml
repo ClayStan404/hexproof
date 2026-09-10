@@ -42,7 +42,7 @@ Popup {
     function submit() {
         if (!lifeField.acceptableInput)
             return
-        const value = Number(lifeField.text)
+        const value = lifeField.numberValue()
         close()
         lifeRequested(value)
     }

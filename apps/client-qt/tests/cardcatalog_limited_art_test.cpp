@@ -3,13 +3,40 @@
 
 #include "cardcatalog_test.h"
 
+#include "services/CatalogStorage.h"
+
+void TestCardCatalog::simulatesLimitedWeightTotalBoundary() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    CardCatalog catalog(storage.path());
+    for (const int count : {1024, 1025, 2049}) {
+        QVariantList cards;
+        for (int index = 0; index < count; ++index)
+            cards.append(QVariantMap{{u"name"_s, u"Card %1"_s.arg(index)},
+                                     {u"weight"_s, qint64(9007199254740991)}});
+        const QVariantMap product{
+            {u"cardsPerPack"_s, 1},
+            {u"sheets"_s, QVariantList{QVariantMap{{u"name"_s, u"main"_s}, {u"cards"_s, cards}}}},
+            {u"variants"_s,
+             QVariantList{QVariantMap{{u"weight"_s, 1},
+                                      {u"slots"_s, QVariantList{QVariantMap{{u"sheet"_s, u"main"_s},
+                                                                            {u"count"_s, 1}}}}}}},
+        };
+        const QVariantList packs = catalog.simulateLimitedPacks(product, 1);
+        QCOMPARE(packs.size(), count == 1024 ? 1 : 0);
+        if (!packs.isEmpty())
+            QCOMPARE(packs.first().toMap().value(u"cards"_s).toList().size(), 1);
+    }
+}
+
 namespace {
 
-bool writeLimitedArtCatalog(const QString &storagePath)
+bool writeLimitedArtCatalog(const QString &storagePath, bool doubleFaced = false)
 {
     const QString sourcePath = storagePath + QStringLiteral("/bulk.json");
     const QString databasePath = storagePath + QStringLiteral("/cards.sqlite");
-    const QJsonArray cards{QJsonObject{
+    QJsonObject cardObject{
         {u"id"_s, u"card-1"_s},
         {u"oracle_id"_s, u"oracle-1"_s},
         {u"name"_s, u"Lightning Bolt"_s},
@@ -19,7 +46,21 @@ bool writeLimitedArtCatalog(const QString &storagePath)
         {u"lang"_s, u"en"_s},
         {u"layout"_s, u"normal"_s},
         {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://example.test/bolt.jpg"_s}}},
-    }};
+    };
+    if (doubleFaced) {
+        cardObject.insert(u"name"_s, u"Lightning Bolt // Back Face"_s);
+        cardObject.insert(u"layout"_s, u"transform"_s);
+        cardObject.insert(
+            u"card_faces"_s,
+            QJsonArray{
+                QJsonObject{{u"name"_s, u"Lightning Bolt"_s},
+                            {u"image_uris"_s,
+                             QJsonObject{{u"normal"_s, u"https://example.test/bolt.jpg"_s}}}},
+                QJsonObject{{u"name"_s, u"Back Face"_s},
+                            {u"image_uris"_s,
+                             QJsonObject{{u"normal"_s, u"https://example.test/back.jpg"_s}}}}});
+    }
+    const QJsonArray cards{cardObject};
     QFile source(sourcePath);
     if (!source.open(QIODevice::WriteOnly))
         return false;
@@ -81,6 +122,26 @@ bool writeLimitedArtCatalog(const QString &storagePath)
 }
 
 } // namespace
+
+void TestCardCatalog::limitedArtExpansionWaitsForCatalogReplacement() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(writeLimitedArtCatalog(storage.path(), true));
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.cacheLimitedProductArt(u"mtgjson-m11-play"_s);
+    QReadLocker catalogReader(&hexproof::client::catalogstorage::databaseLock());
+    catalog.importCatalogFile(QUrl::fromLocalFile(storage.filePath(u"bulk.json"_s)),
+                              u"default_cards"_s);
+    QTest::qWait(30);
+    catalogReader.unlock();
+    QTRY_VERIFY_WITH_TIMEOUT(!catalog.busy(), 5'000);
+    QVERIFY2(catalog.lastError().isEmpty(), qPrintable(catalog.lastError()));
+    QCOMPARE(catalog.limitedArtTotal(), 2);
+    QCOMPARE(catalog.limitedArtCompleted(), 2);
+    QCOMPARE(catalog.limitedArtFailed(), 0);
+}
 
 void TestCardCatalog::cachesLimitedProductWithMtgchSetIndex() const
 {

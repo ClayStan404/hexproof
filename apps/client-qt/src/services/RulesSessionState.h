@@ -22,6 +22,7 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(bool active READ active NOTIFY snapshotChanged)
     Q_PROPERTY(QString roomId READ roomId NOTIFY snapshotChanged)
     Q_PROPERTY(QString gameId READ gameId NOTIFY snapshotChanged)
+    Q_PROPERTY(quint64 snapshotRevision READ snapshotRevision NOTIFY snapshotChanged)
     Q_PROPERTY(int turn READ turn NOTIFY snapshotChanged)
     Q_PROPERTY(QString step READ step NOTIFY snapshotChanged)
     Q_PROPERTY(int activeSeat READ activeSeat NOTIFY snapshotChanged)
@@ -81,6 +82,10 @@ class RulesSessionState final : public QObject
     QString gameId() const
     {
         return m_gameId;
+    }
+    quint64 snapshotRevision() const
+    {
+        return m_snapshotRevision;
     }
     int turn() const
     {
@@ -281,6 +286,7 @@ class RulesSessionState final : public QObject
   private:
     QString m_roomId;
     QString m_gameId;
+    quint64 m_snapshotRevision = 0;
     int m_turn = 0;
     QString m_step;
     int m_activeSeat = -1;

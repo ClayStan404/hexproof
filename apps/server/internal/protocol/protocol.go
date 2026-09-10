@@ -103,6 +103,7 @@ type RoomSettings struct {
 // ids, or hidden game state.
 type RoomListEntry struct {
 	RoomID             string `json:"roomId"`
+	RoomKind           string `json:"roomKind,omitempty"`
 	Name               string `json:"name"`
 	Format             string `json:"format"`
 	DeckFormat         string `json:"deckFormat"`
@@ -129,6 +130,7 @@ type RoomJoin struct {
 	RoomID      string `json:"roomId"`
 	AsSpectator bool   `json:"asSpectator"`
 	Password    string `json:"password,omitempty"`
+	Credential  string `json:"credential,omitempty"`
 }
 
 // RoomJoined is the payload of room.joined (S->C).
@@ -153,13 +155,16 @@ type DeckCard struct {
 // DeckSelect is the payload of deck.select (C->S). It carries the complete
 // local deck identity because Hexproof uses a trust-server model.
 type DeckSelect struct {
-	Name       string     `json:"name"`
-	Format     string     `json:"format"`
-	DeckFormat string     `json:"deckFormat"`
-	Commander  string     `json:"commander,omitempty"`
-	Commanders []string   `json:"commanders,omitempty"`
-	Mainboard  []DeckCard `json:"mainboard"`
-	Sideboard  []DeckCard `json:"sideboard"`
+	Name       string   `json:"name"`
+	Format     string   `json:"format"`
+	DeckFormat string   `json:"deckFormat"`
+	Commander  string   `json:"commander,omitempty"`
+	Commanders []string `json:"commanders,omitempty"`
+	// Derived only from an authoritative Limited pool; never accepted on the wire.
+	CommanderPrintings []DeckCard `json:"-"`
+	CommanderColors    []string   `json:"-"`
+	Mainboard          []DeckCard `json:"mainboard"`
+	Sideboard          []DeckCard `json:"sideboard"`
 }
 
 // DeckSelected acknowledges a stored deck selection without echoing hidden
@@ -288,6 +293,7 @@ type GameSeatProjection struct {
 	Graveyard      []GameCard          `json:"graveyard"`
 	Exile          []GameCard          `json:"exile"`
 	CommandZone    []GameCard          `json:"commandZone,omitempty"`
+	Emblems        []GameEmblem        `json:"emblems,omitempty"`
 	CommanderTax   int                 `json:"commanderTax,omitempty"`
 	CommanderTaxes map[string]int      `json:"commanderTaxes,omitempty"`
 	Eliminated     bool                `json:"eliminated,omitempty"`
@@ -298,9 +304,10 @@ type GameSeatProjection struct {
 // available even while the physical card is face down or controlled by
 // another player. Commander status is public game information.
 type GameCommanderIdentity struct {
-	CardID    string `json:"cardId"`
-	OwnerSeat int    `json:"ownerSeat"`
-	Name      string `json:"name"`
+	CardID      string `json:"cardId"`
+	OwnerSeat   int    `json:"ownerSeat"`
+	Name        string `json:"name"`
+	ChosenColor string `json:"chosenColor,omitempty"`
 }
 
 // GameCommanderDamage is one public commander-to-player damage total. The

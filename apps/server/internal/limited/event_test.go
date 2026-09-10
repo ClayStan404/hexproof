@@ -5,6 +5,7 @@ package limited
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"hexproof/server/internal/protocol"
@@ -259,6 +260,39 @@ func TestLimitedModeInvariants(t *testing.T) {
 		}, 1); ErrorCode(err) != ErrInvalid {
 			t.Fatalf("%d-seat Cube draft error = %v", players, err)
 		}
+	}
+}
+
+func TestProductAcceptsJsonSafeSheetWeights(t *testing.T) {
+	product := testProduct(1, 1)
+	product.Sheets[0].Cards[0].Weight = 1534072540000
+	if _, err := NewProduct(product); err != nil {
+		t.Fatalf("JSON-safe FIN-like sheet weight was rejected: %v", err)
+	}
+}
+
+func TestProductSheetWeightTotalBoundary(t *testing.T) {
+	for _, count := range []int{1024, 1025, 2049} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			definition := testProduct(1, count)
+			for index := range definition.Sheets[0].Cards {
+				definition.Sheets[0].Cards[index].Weight = maxProductWeight
+			}
+			product, err := NewProduct(definition)
+			if count > 1024 {
+				if ErrorCode(err) != ErrInvalid {
+					t.Fatalf("overflowing sheet was not rejected: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			cards, err := product.generatePack(rand.New(rand.NewSource(1)), func() string { return "card-1" })
+			if err != nil || len(cards) != 1 {
+				t.Fatalf("valid large sheet failed to generate: %v", err)
+			}
+		})
 	}
 }
 

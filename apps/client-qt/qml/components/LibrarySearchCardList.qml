@@ -15,6 +15,7 @@ ColumnLayout {
     required property var cardMenu
 
     function resetFilter() {
+        filterTimer.stop();
         searchField.text = "";
     }
 
@@ -45,14 +46,14 @@ ColumnLayout {
             objectName: "librarySearchFilter"
             Layout.fillWidth: true
             implicitHeight: Theme.size(44)
-            placeholderText: qsTr("Card name or type, in Chinese or English…")
+            placeholderText: qsTranslate("LibrarySearchPopup", "Card name or type, in Chinese or English…")
             onTextEdited: filterTimer.restart()
         }
         AppButton {
             objectName: "selectAllLibraryCards"
             visible: !root.popupController.reorderMode && !root.popupController.topCardMode
             compact: true
-            text: qsTr("Select all")
+            text: qsTranslate("LibrarySearchPopup", "Select all")
             onClicked: root.popupController.selectAllVisible()
         }
     }
@@ -173,6 +174,8 @@ ColumnLayout {
                     }
                     AppComboBox {
                         objectName: "topCardDestination" + cardRow.index
+                        ToolTip.visible: hovered
+                        ToolTip.text: displayText
                         visible: root.popupController.reorderMode
                         Layout.row: cardRow.compactAssignmentLayout ? 1 : 0
                         Layout.column: cardRow.compactAssignmentLayout ? 1 : 2
@@ -202,7 +205,7 @@ ColumnLayout {
                         compact: true
                         variant: "ghost"
                         text: "↑"
-                        accessibleName: qsTr("Move card up")
+                        accessibleName: qsTranslate("LibrarySearchPopup", "Move card up")
                         Layout.row: 0
                         Layout.column: 3
                         Layout.preferredWidth: Theme.size(40)
@@ -216,7 +219,7 @@ ColumnLayout {
                         compact: true
                         variant: "ghost"
                         text: "↓"
-                        accessibleName: qsTr("Move card down")
+                        accessibleName: qsTranslate("LibrarySearchPopup", "Move card down")
                         Layout.row: 0
                         Layout.column: 4
                         Layout.preferredWidth: Theme.size(40)
@@ -251,8 +254,11 @@ ColumnLayout {
         Text {
             textFormat: Text.PlainText
             anchors.centerIn: parent
+            width: parent.width
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
             visible: cardList.count === 0
-            text: root.popupController.cards.length === 0 ? qsTr("Library is empty") : qsTr("No cards match this filter")
+            text: root.popupController.cards.length === 0 ? qsTranslate("LibrarySearchPopup", "Library is empty") : qsTranslate("LibrarySearchPopup", "No cards match this filter")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSize(11)
         }

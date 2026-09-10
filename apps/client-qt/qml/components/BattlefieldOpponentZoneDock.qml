@@ -271,7 +271,7 @@ Surface {
                         textFormat: Text.PlainText
                         id: libraryLabel
                         anchors.centerIn: parent
-                        text: qsTr("Library") + " "
+                        text: qsTranslate("BattlefieldView", "Library") + " "
                               + root.libraryCount
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(9)
@@ -306,7 +306,7 @@ Surface {
                     menu.open()
                 }
                 ToolTip.visible: containsMouse
-                ToolTip.text: qsTr("Right-click for library actions")
+                ToolTip.text: qsTranslate("BattlefieldView", "Right-click for library actions")
             }
         }
 
@@ -318,7 +318,7 @@ Surface {
             seatData: root.seatData
             isOwn: root.isOwn
             zoneName: "graveyard"
-            zoneLabel: qsTr("GY")
+            zoneLabel: qsTranslate("BattlefieldView", "GY")
             objectNamePrefix: "graveyard"
         }
 
@@ -331,7 +331,7 @@ Surface {
             seatData: root.seatData
             isOwn: root.isOwn
             zoneName: "exile"
-            zoneLabel: qsTr("Exile")
+            zoneLabel: qsTranslate("BattlefieldView", "Exile")
             objectNamePrefix: "exile"
         }
 
@@ -415,8 +415,8 @@ Surface {
                         textFormat: Text.PlainText
                         id: commandLabel
                         anchors.centerIn: parent
-                        text: qsTr("Command") + " " + commandPile.cardCount
-                              + "\n" + qsTr("Tax") + " "
+                        text: qsTranslate("BattlefieldView", "Command") + " " + commandPile.cardCount
+                              + "\n" + qsTranslate("BattlefieldView", "Tax") + " "
                               + (root.hasSeatData
                                  ? root.tableController.gameValues.commanderTaxSummary(
                                        root.seatData) : "")

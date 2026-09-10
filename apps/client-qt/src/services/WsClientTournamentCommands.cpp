@@ -20,9 +20,17 @@ void WsClient::requestTournamentList()
     send(kTypeTournamentList);
 }
 
+QString WsClient::sendTournamentChat(const QString &text)
+{
+    if (!connected() || !m_tournamentSession->inTournament() || text.trimmed().isEmpty())
+        return {};
+    return send(kTypeTournamentChatSend,
+                QJsonObject{{u"tournamentId"_s, m_tournamentSession->tournamentId()},
+                            {u"text"_s, text.trimmed()}});
+}
+
 void WsClient::createTournament(const QString &name, const QString &format,
-                                const QString &matchMode, int roundMinutes, int maxPlayers,
-                                int plannedRounds)
+                                const QString &matchMode, int roundMinutes, int maxPlayers)
 {
     QJsonObject payload{
         {u"name"_s, name},
@@ -31,14 +39,12 @@ void WsClient::createTournament(const QString &name, const QString &format,
         {u"roundMinutes"_s, roundMinutes},
         {u"maxPlayers"_s, maxPlayers},
     };
-    if (plannedRounds > 0)
-        payload.insert(u"plannedRounds"_s, plannedRounds);
     send(kTypeTournamentCreate, payload);
 }
 
 void WsClient::createLimitedTournament(const QString &name, const QString &eventType,
                                        const QString &matchMode, int roundMinutes, int maxPlayers,
-                                       int plannedRounds, const QVariantMap &product)
+                                       const QVariantMap &product)
 {
     QJsonObject payload{
         {u"name"_s, name},
@@ -49,8 +55,6 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},
     };
-    if (plannedRounds > 0)
-        payload.insert(u"plannedRounds"_s, plannedRounds);
     send(kTypeTournamentCreate, payload);
 }
 
@@ -79,10 +83,68 @@ void WsClient::createLimitedCasualMatch(const QString &playerAId, const QString 
          QJsonObject{{u"playerAId"_s, playerAId}, {u"playerBId"_s, playerBId}});
 }
 
+void WsClient::cancelLimitedCasualMatch(const QString &playerAId, const QString &playerBId)
+{
+    if (playerAId.isEmpty() || playerBId.isEmpty() || playerAId == playerBId)
+        return;
+    send(kTypeLimitedCreateCasualMatch, QJsonObject{{u"playerAId"_s, playerAId},
+                                                    {u"playerBId"_s, playerBId},
+                                                    {u"action"_s, u"cancel"_s}});
+}
+
 void WsClient::pickLimitedCard(const QString &instanceId)
 {
     if (!instanceId.isEmpty())
         send(kTypeLimitedPick, QJsonObject{{u"instanceId"_s, instanceId}});
+}
+
+void WsClient::pickLimitedCards(const QVariantList &instanceIds)
+{
+    if (!instanceIds.isEmpty() && instanceIds.size() <= 2)
+        send(kTypeLimitedPick,
+             QJsonObject{{u"instanceIds"_s, QJsonArray::fromVariantList(instanceIds)}});
+}
+
+void WsClient::setLimitedDraftControl(const QString &participantId, bool automatic)
+{
+    if (!participantId.isEmpty())
+        send(kTypeLimitedSetDraftControl,
+             QJsonObject{{u"participantId"_s, participantId}, {u"automatic"_s, automatic}});
+}
+
+void WsClient::setLimitedParticipation(bool participating)
+{
+    send(kTypeLimitedSetParticipation, QJsonObject{{u"participating"_s, participating}});
+}
+
+void WsClient::inviteCommanderCubePlayers(const QVariantList &playerIds)
+{
+    if (playerIds.size() >= 2 && playerIds.size() <= 4)
+        send(kTypeLimitedCreateCasualMatch,
+             QJsonObject{{u"action"_s, u"invite"_s},
+                         {u"playerIds"_s, QJsonArray::fromVariantList(playerIds)}});
+}
+
+void WsClient::respondCommanderCubeInvitation(const QString &pairingId, bool accept)
+{
+    if (!pairingId.isEmpty())
+        send(kTypeLimitedCreateCasualMatch,
+             QJsonObject{{u"pairingId"_s, pairingId},
+                         {u"action"_s, accept ? u"accept"_s : u"cancel"_s}});
+}
+
+void WsClient::submitLimitedCommanderDeck(const QString &name,
+                                          const QVariantList &mainboardInstanceIds,
+                                          const QVariantList &basicLands,
+                                          const QVariantList &commanderInstanceIds,
+                                          const QVariantList &commanderColors)
+{
+    send(kTypeLimitedSubmitDeck,
+         QJsonObject{{u"name"_s, name},
+                     {u"mainboardInstanceIds"_s, QJsonArray::fromVariantList(mainboardInstanceIds)},
+                     {u"basicLands"_s, QJsonArray::fromVariantList(basicLands)},
+                     {u"commanderInstanceIds"_s, QJsonArray::fromVariantList(commanderInstanceIds)},
+                     {u"commanderColors"_s, QJsonArray::fromVariantList(commanderColors)}});
 }
 
 void WsClient::submitLimitedDeck(const QString &name, const QVariantList &mainboardInstanceIds,

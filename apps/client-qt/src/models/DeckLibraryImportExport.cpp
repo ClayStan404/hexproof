@@ -125,6 +125,7 @@ bool DeckLibraryModel::commitDeckImport(const QString &deckName, const QString &
         m_decks.removeFirst();
         return false;
     }
+    resolveDisplayPaths({deck.id});
     beginResetModel();
     rebuildVisibleRows();
     rebuildCardDeckIndex();

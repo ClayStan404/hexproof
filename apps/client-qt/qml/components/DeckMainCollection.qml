@@ -15,9 +15,11 @@ Item {
     required property var catalogModel
     property bool commanderFormat: false
     property bool cubeFormat: false
+    property bool customArtEnabled: false
     property bool searchActive: false
     property Item sideboardDropTarget: null
-    property int viewModeIndex: 0
+    property Flickable outerFlickable: null
+    property int viewModeIndex: 1
     property int groupModeIndex: 0
     property int sortModeIndex: 0
     property var previewCard: null
@@ -25,19 +27,29 @@ Item {
     property real savedListContentY: 0
     property real savedGalleryContentY: 0
     property bool scrollRestorePending: false
+    readonly property int largeGalleryThreshold: 240
     readonly property var viewOptions: [qsTr("List"), qsTr("Visual")]
     readonly property var groupOptions: [qsTr("Card type"), qsTr("Mana value"), qsTr("None")]
     readonly property var sortOptions: [qsTr("Name"), qsTr("Mana value"), qsTr("Card type")]
     readonly property var groups: buildGroups()
     readonly property var flatCards: flattenGroups()
     signal printingRequested(var card)
+    signal customArtRequested(var card)
+
+    CardHoverPreview {
+        id: floatingPreview
+        catalogModel: root.catalogModel
+    }
+    onVisibleChanged: if (!visible) floatingPreview.hide()
 
     Connections {
         target: root.deckLibraryModel
 
         function onCurrentDeckCardsAboutToChange() {
+            floatingPreview.hide()
             root.savedListContentY = mainList.contentY
-            root.savedGalleryContentY = galleryFlick.contentY
+            const gallery = galleryLoader.item as Flickable
+            root.savedGalleryContentY = gallery ? gallery.contentY : 0
             root.scrollRestorePending = true
         }
 
@@ -47,16 +59,145 @@ Item {
         }
     }
 
+    Component {
+        id: visualCardDelegate
+
+        DeckVisualCard {
+            id: visualCard
+            required property var modelData
+            width: Theme.size(184)
+            height: Theme.size(380)
+            card: modelData
+            catalogModel: root.catalogModel
+            incrementEnabled: root.deckLibraryModel.canAddCard(modelData.name,
+                                                               modelData.typeLine)
+            commanderEnabled: root.commanderFormat
+            printingEnabled: root.catalogModel.installed
+            customArtEnabled: root.customArtEnabled
+            considerEnabled: true
+            moveText: !root.commanderFormat && !root.cubeFormat ? qsTr("To side") : ""
+            onPreviewRequested: (card, source) => {
+                root.previewCard = card
+                root.previewImageSource = source
+                floatingPreview.inspect(card, visualCard)
+            }
+            onPreviewEnded: floatingPreview.hide(visualCard)
+            onMoveRequested: root.deckLibraryModel.moveCard(
+                                 modelData.name, modelData.setCode,
+                                 modelData.collectorNumber, true)
+            onConsiderRequested: root.deckLibraryModel.moveCardToConsider(
+                                     modelData.name, modelData.setCode,
+                                     modelData.collectorNumber)
+            onIncrementRequested: root.deckLibraryModel.changeCardCount(
+                                      modelData.name, modelData.setCode,
+                                      modelData.collectorNumber, false, 1)
+            onDecrementRequested: root.deckLibraryModel.changeCardCount(
+                                      modelData.name, modelData.setCode,
+                                      modelData.collectorNumber, false, -1)
+            onCommanderRequested: root.deckLibraryModel.setCommander(modelData.name)
+            onPrintingRequested: root.printingRequested(modelData)
+            onCustomArtRequested: root.customArtRequested(modelData)
+        }
+    }
+
+    Component {
+        id: groupedGalleryComponent
+
+        Flickable {
+            id: groupedDeckGallery
+            objectName: "groupedDeckGallery"
+            contentWidth: width
+            contentHeight: galleryColumn.height
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollChainHandler {
+                enabled: root.outerFlickable !== null
+                innerFlickable: groupedDeckGallery
+                outerFlickable: root.outerFlickable
+            }
+
+            Column {
+                id: galleryColumn
+                width: groupedDeckGallery.width
+                spacing: Theme.size(13)
+
+                Repeater {
+                    model: root.groups
+
+                    delegate: Column {
+                        id: visualGroup
+                        required property var modelData
+                        width: galleryColumn.width
+                        spacing: Theme.size(7)
+
+                        Text {
+                            textFormat: Text.PlainText
+                            width: parent.width
+                            text: visualGroup.modelData.label.toUpperCase()
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSize(11)
+                            font.weight: Font.Bold
+                            font.letterSpacing: 0.8
+                        }
+
+                        Flow {
+                            width: visualGroup.width
+                            height: childrenRect.height
+                            spacing: Theme.size(8)
+
+                            Repeater {
+                                model: visualGroup.modelData.cards
+
+                                delegate: visualCardDelegate
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: virtualizedGalleryComponent
+
+        GridView {
+            id: largeDeckGallery
+            objectName: "largeDeckGallery"
+            model: root.flatCards
+            cellWidth: Theme.size(192)
+            cellHeight: Theme.size(392)
+            cacheBuffer: height * 2
+            reuseItems: true
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollChainHandler {
+                enabled: root.outerFlickable !== null
+                innerFlickable: largeDeckGallery
+                outerFlickable: root.outerFlickable
+            }
+
+            delegate: visualCardDelegate
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: Theme.size(9)
 
-        RowLayout {
+        GridLayout {
+            id: collectionOptions
             Layout.fillWidth: true
-            spacing: Theme.size(7)
+            Layout.minimumWidth: 0
+            columns: width >= Theme.size(480) ? 3 : (width >= Theme.size(280) ? 2 : 1)
+            columnSpacing: Theme.size(7)
+            rowSpacing: Theme.size(7)
 
             AppComboBox {
                 objectName: "deckEditorViewMode"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.preferredWidth: Theme.size(126)
                 model: root.viewOptions
                 currentIndex: root.viewModeIndex
@@ -66,6 +207,8 @@ Item {
 
             AppComboBox {
                 objectName: "deckEditorGroupMode"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.preferredWidth: Theme.size(166)
                 model: root.groupOptions
                 currentIndex: root.groupModeIndex
@@ -75,6 +218,9 @@ Item {
 
             AppComboBox {
                 objectName: "deckEditorSortMode"
+                Layout.fillWidth: true
+                Layout.columnSpan: collectionOptions.columns === 2 ? 2 : 1
+                Layout.minimumWidth: 0
                 Layout.preferredWidth: Theme.size(166)
                 model: root.sortOptions
                 currentIndex: root.sortModeIndex
@@ -82,10 +228,11 @@ Item {
                 onActivated: index => root.sortModeIndex = index
             }
 
-            Item { Layout.fillWidth: true }
-
             Text {
                 textFormat: Text.PlainText
+                Layout.columnSpan: collectionOptions.columns
+                Layout.fillWidth: true
+                visible: root.width >= Theme.size(720)
                 text: qsTr("%1 categories · %2 cards")
                       .arg(root.groups.length)
                       .arg(root.copyCount(root.cards))
@@ -111,6 +258,11 @@ Item {
                     section.property: "groupKey"
                     section.criteria: ViewSection.FullString
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollChainHandler {
+                        enabled: root.outerFlickable !== null
+                        innerFlickable: mainList
+                        outerFlickable: root.outerFlickable
+                    }
 
                     section.delegate: Item {
                         required property string section
@@ -139,20 +291,26 @@ Item {
                         considerEnabled: true
                         commanderEnabled: root.commanderFormat
                         printingEnabled: root.catalogModel.installed
+                        customArtEnabled: root.customArtEnabled
                         catalogModel: root.catalogModel
                         incrementEnabled: root.deckLibraryModel.canAddCard(
                                               modelData.name, modelData.typeLine)
                         dropTarget: root.sideboardDropTarget
-                        onMoveRequested: root.deckLibraryModel.moveCard(modelData.name, true)
+                        onMoveRequested: root.deckLibraryModel.moveCard(
+                                             modelData.name, modelData.setCode,
+                                             modelData.collectorNumber, true)
                         onConsiderRequested: root.deckLibraryModel.moveCardToConsider(
                                                  modelData.name, modelData.setCode,
                                                  modelData.collectorNumber)
                         onIncrementRequested: root.deckLibraryModel.changeCardCount(
-                                                  modelData.name, false, 1)
+                                                  modelData.name, modelData.setCode,
+                                                  modelData.collectorNumber, false, 1)
                         onDecrementRequested: root.deckLibraryModel.changeCardCount(
-                                                  modelData.name, false, -1)
+                                                  modelData.name, modelData.setCode,
+                                                  modelData.collectorNumber, false, -1)
                         onCommanderRequested: root.deckLibraryModel.setCommander(modelData.name)
                         onPrintingRequested: root.printingRequested(modelData)
+                        onCustomArtRequested: root.customArtRequested(modelData)
                     }
                 }
 
@@ -160,6 +318,9 @@ Item {
                     textFormat: Text.PlainText
                     anchors.centerIn: parent
                     visible: root.cards.length === 0
+                    width: parent.width - Theme.size(24)
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
                     text: root.searchActive
                           ? qsTr("No cards match this deck search.")
                           : qsTr("Add cards from search or move them back from the sideboard or Consider.")
@@ -171,131 +332,13 @@ Item {
             RowLayout {
                 spacing: Theme.size(14)
 
-                Surface {
-                    Layout.preferredWidth: Theme.size(238)
-                    Layout.fillHeight: true
-                    visible: root.width >= Theme.size(760)
-                    color: Theme.surfaceMuted
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: Theme.size(10)
-                        spacing: Theme.size(8)
-
-                        Image {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            source: root.effectivePreviewImage()
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true
-                            smooth: true
-                            mipmap: false
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: root.effectivePreviewCard()
-                                  ? root.effectivePreviewCard().displayName : ""
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(13)
-                            font.weight: Font.DemiBold
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: root.effectivePreviewCard()
-                                  ? root.effectivePreviewCard().typeLine : ""
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
-                        }
-                    }
-                }
-
-                Flickable {
-                    id: galleryFlick
+                Loader {
+                    id: galleryLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    contentWidth: width
-                    contentHeight: galleryColumn.height
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                    Column {
-                        id: galleryColumn
-                        width: galleryFlick.width
-                        spacing: Theme.size(13)
-
-                        Repeater {
-                            model: root.groups
-
-                            delegate: Column {
-                                id: visualGroup
-                                required property var modelData
-                                width: galleryColumn.width
-                                spacing: Theme.size(7)
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    width: parent.width
-                                    text: visualGroup.modelData.label.toUpperCase()
-                                    color: Theme.primary
-                                    font.pixelSize: Theme.fontSize(11)
-                                    font.weight: Font.Bold
-                                    font.letterSpacing: 0.8
-                                }
-
-                                Flow {
-                                    width: visualGroup.width
-                                    height: childrenRect.height
-                                    spacing: Theme.size(8)
-
-                                    Repeater {
-                                        model: visualGroup.modelData.cards
-
-                                        delegate: DeckVisualCard {
-                                            required property var modelData
-                                            width: Theme.size(184)
-                                            height: Theme.size(284)
-                                            card: modelData
-                                            catalogModel: root.catalogModel
-                                            incrementEnabled: root.deckLibraryModel.canAddCard(
-                                                                  modelData.name,
-                                                                  modelData.typeLine)
-                                            commanderEnabled: root.commanderFormat
-                                            printingEnabled: root.catalogModel.installed
-                                            considerEnabled: true
-                                            moveText: !root.commanderFormat && !root.cubeFormat
-                                                      ? qsTr("To side") : ""
-                                            onPreviewRequested: (card, source) => {
-                                                root.previewCard = card
-                                                root.previewImageSource = source
-                                            }
-                                            onMoveRequested: root.deckLibraryModel.moveCard(
-                                                                 modelData.name, true)
-                                            onConsiderRequested: root.deckLibraryModel.moveCardToConsider(
-                                                                     modelData.name,
-                                                                     modelData.setCode,
-                                                                     modelData.collectorNumber)
-                                            onIncrementRequested: root.deckLibraryModel.changeCardCount(
-                                                                      modelData.name, false, 1)
-                                            onDecrementRequested: root.deckLibraryModel.changeCardCount(
-                                                                      modelData.name, false, -1)
-                                            onCommanderRequested: root.deckLibraryModel.setCommander(
-                                                                      modelData.name)
-                                            onPrintingRequested: root.printingRequested(modelData)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    sourceComponent: root.flatCards.length > root.largeGalleryThreshold
+                                     ? virtualizedGalleryComponent
+                                     : groupedGalleryComponent
                 }
             }
         }
@@ -484,9 +527,16 @@ Item {
                                      - mainList.height)
         mainList.contentY = Math.max(mainList.originY,
                                      Math.min(savedListContentY, listMaximum))
-        const galleryMaximum = Math.max(0, galleryFlick.contentHeight - galleryFlick.height)
-        galleryFlick.contentY = Math.max(0,
-                                        Math.min(savedGalleryContentY, galleryMaximum))
+        const gallery = galleryLoader.item as Flickable
+        if (gallery) {
+            const galleryMaximum = Math.max(
+                                     gallery.originY,
+                                     gallery.originY + gallery.contentHeight
+                                     - gallery.height)
+            gallery.contentY = Math.max(
+                        gallery.originY,
+                        Math.min(savedGalleryContentY, galleryMaximum))
+        }
         scrollRestorePending = false
     }
 }

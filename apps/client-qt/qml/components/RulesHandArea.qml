@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Surface {
@@ -39,8 +40,9 @@ Surface {
 
             Text {
                 textFormat: Text.PlainText
+                objectName: "rulesSpectatorHandMessage"
                 anchors.centerIn: parent
-                visible: root.tableController.localSeat < 0
+                visible: root.tableController.handOwnerSeat < 0
                 text: qsTr("Hands are hidden from spectators in this room")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(11)
@@ -48,26 +50,68 @@ Surface {
 
             Text {
                 textFormat: Text.PlainText
+                objectName: "rulesSpectatorHandOwner"
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: Theme.size(7)
+                visible: root.tableController.canViewSpectatorHands
+                text: qsTr("%1 — hand (read only)").arg(
+                          root.tableController.matchUi.playerName(
+                              root.tableController.handOwnerSeat))
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(10)
+                elide: Text.ElideRight
+            }
+
+            Text {
+                textFormat: Text.PlainText
                 anchors.centerIn: parent
-                visible: root.tableController.localSeat >= 0
-                         && root.tableController.rulesSession.zoneCount(
-                             root.tableController.localSeat, "hand") === 0
+                objectName: "rulesHandEmptyMessage"
+                visible: root.tableController.handOwnerSeat >= 0
+                         && root.tableController.zoneCount(
+                             root.tableController.handOwnerSeat, "hand") === 0
                 text: qsTr("Hand is empty")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(11)
             }
 
             Flickable {
+                id: handViewport
+                objectName: "rulesHandViewport"
                 anchors.fill: parent
                 anchors.margins: Theme.size(7)
+                anchors.topMargin: root.tableController.canViewSpectatorHands
+                                   ? Theme.size(29) : Theme.size(7)
                 contentWidth: handCards.implicitWidth
                 contentHeight: height
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.HorizontalFlick
+
+                ScrollBar.horizontal: ScrollBar {
+                    id: handScrollBar
+                    objectName: "rulesHandScrollBar"
+                    policy: handViewport.contentWidth > handViewport.width
+                            ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    active: true
+                    interactive: true
+                }
+
+                WheelHandler {
+                    onWheel: event => {
+                        const delta = event.angleDelta.x || event.angleDelta.y
+                        handViewport.contentX = Math.max(0, Math.min(
+                            handViewport.contentWidth - handViewport.width,
+                            handViewport.contentX - delta))
+                        event.accepted = true
+                    }
+                }
 
                 Row {
                     id: handCards
-                    height: parent.height
+                    height: Math.max(0, handViewport.height
+                                     - (handScrollBar.visible ? Theme.size(14) : 0))
                     spacing: Theme.size(6)
 
                     Repeater {
@@ -96,7 +140,7 @@ Surface {
                             objectName: "rulesHandCard-" + cardId
                             visible: zone === "hand"
                                      && zoneOwnerSeat
-                                        === root.tableController.localSeat
+                                        === root.tableController.handOwnerSeat
                             width: visible ? root.tableController.handCardWidth : 0
                             height: visible ? handCards.height : 0
                             opacity: handDrag.drag.active ? 0.45 : 1
@@ -227,9 +271,10 @@ Surface {
                             required property int index
 
                             readonly property string zoneKey: modelData
+                            objectName: "rulesOwnZoneTile-" + zoneKey
                             readonly property int cardCount:
                                 root.tableController.localSeat >= 0
-                                ? root.tableController.rulesSession.zoneCount(
+                                ? root.tableController.zoneCount(
                                       root.tableController.localSeat, zoneKey)
                                 : 0
 

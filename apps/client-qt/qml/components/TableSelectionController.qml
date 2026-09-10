@@ -24,6 +24,77 @@ QtObject {
         return Object.keys(selectedCardIds).length
     }
 
+    function pendingMove(cardId) {
+        const moves = tableRoot.pendingCardMoves
+                      ? tableRoot.pendingCardMoves : ({})
+        return Object.prototype.hasOwnProperty.call(moves, cardId)
+                ? moves[cardId] : null
+    }
+
+    function effectiveBattlefieldSeat(cardId) {
+        const move = pendingMove(cardId)
+        if (move) {
+            if (move.toZone === "battlefield")
+                return Number(move.toSeat)
+            if (move.fromZone === "battlefield")
+                return -1
+        }
+        return tableRoot.zoneState.visibleZoneSeatForCard(
+                    cardId, "battlefield")
+    }
+
+    function interactionSourceValid(cardId) {
+        const stackAllowed = interactionMode === "arrow"
+        const move = pendingMove(cardId)
+        if (move) {
+            if (move.toZone === "battlefield")
+                return true
+            if (move.toZone === "stack")
+                return stackAllowed
+            if (move.fromZone === "battlefield" || move.fromZone === "stack")
+                return false
+        }
+        return effectiveBattlefieldSeat(cardId) >= 0
+                || (stackAllowed
+                    && tableRoot.zoneState.cardInZone(cardId, "stack", -1))
+    }
+
+    function reconcileBattlefieldSelection() {
+        const selectedIds = Object.keys(selectedCardIds)
+        const retained = ({})
+        for (let index = 0; index < selectedIds.length; ++index) {
+            const cardId = selectedIds[index]
+            if (effectiveBattlefieldSeat(cardId) >= 0)
+                retained[cardId] = true
+        }
+        const retainedIds = Object.keys(retained)
+        if (selectedIds.length > 0 && retainedIds.length === 0) {
+            clearBattlefieldSelection()
+        } else if (selectedIds.length > 0) {
+            if (retainedIds.length !== selectedIds.length)
+                selectedCardIds = retained
+            const activeId = retained[selectedCardId] === true
+                           ? selectedCardId
+                           : retainedIds[retainedIds.length - 1]
+            selectedCardId = activeId
+            selectedOwnerSeat = effectiveBattlefieldSeat(activeId)
+            selectedCard = tableRoot.zoneState.cardDataForId(activeId)
+        }
+
+        if (interactionSourceIds.length === 0)
+            return
+        const validSources = []
+        for (let index = 0; index < interactionSourceIds.length; ++index) {
+            if (interactionSourceValid(interactionSourceIds[index]))
+                validSources.push(interactionSourceIds[index])
+        }
+        if (validSources.length === 0) {
+            endRelationTarget()
+        } else if (validSources.length !== interactionSourceIds.length) {
+            interactionSourceIds = validSources
+        }
+    }
+
     function allCardIds() {
         const result = []
         for (let seatIndex = 0;
@@ -138,6 +209,14 @@ QtObject {
         interactionSourceIds = []
     }
 
+    function clearBattlefieldSelection() {
+        selectedCardId = ""
+        selectedOwnerSeat = -1
+        selectedCard = ({})
+        selectedFaces = []
+        selectedCardIds = ({})
+    }
+
     function selectCardForMenu(card, ownerSeat) {
         selectedFaces = tableRoot.presentation.availableCardFaces(card)
         if (cardSelected(card.id)) {
@@ -150,12 +229,7 @@ QtObject {
     }
 
     function clear() {
-        selectedCardId = ""
-        selectedOwnerSeat = -1
-        selectedCard = ({})
-        selectedFaces = []
-        selectedCardIds = ({})
-        interactionMode = ""
-        interactionSourceIds = []
+        clearBattlefieldSelection()
+        endRelationTarget()
     }
 }

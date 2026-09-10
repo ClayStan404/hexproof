@@ -12,6 +12,8 @@ class TestDeckLibrary : public QObject
   private slots:
     void parsesMoxfieldAndPlainSections() const;
     void benchmarkCommanderDeckParsing() const;
+    void benchmarkLargeCubeParsing() const;
+    void benchmarkLargeCubeProjection() const;
     void benchmarkEmptyLibraryStartup() const;
     void importsPersistsAndBuildsCubeProduct() const;
     void keepsIncompleteCubeEditableButUnplayable() const;
@@ -20,12 +22,14 @@ class TestDeckLibrary : public QObject
     void roundTripsFormattedDeckTextThroughTheParser() const;
     void persistsConsiderWithoutRegisteringItForMatches() const;
     void exportsDeckTextAndSavesUtf8File() const;
+    void snapshotsArtExportRequestsForOnlyTheSelectedDeck() const;
     void loadsDeckTextFromUtf8File() const;
     void rejectsInvalidDeckListFiles() const;
     void rejectsNonLocalDeckExportUrl() const;
     void failedDeckExportLeavesExistingTarget() const;
     void replacesExistingDeckExportFile() const;
     void parsesMoxfieldPrintingDecorations() const;
+    void preservesSpecialCollectorNumbers() const;
     void parsesMultipleCommanders() const;
     void parsesSplitCardNames() const;
     void parsesBlankLineSideboard() const;
@@ -37,11 +41,29 @@ class TestDeckLibrary : public QObject
     void allowsInteractiveBasicLandCopies() const;
     void importsFiltersEditsAndPersists() const;
     void validatesOnlyAffectedDecks() const;
+    void rejectsValidationFromPreviousDeckFormat() const;
     void legalityWarningsDoNotBlockDeckSelection() const;
     void edhReadinessRequiresCommanderAndImages() const;
     void duelCommanderImportsFiltersAndBuildsPayload() const;
     void changesDeckFormatWithoutLosingCards() const;
     void changesDeckToCubeWithoutLosingCards() const;
+    void targetsExactPrintingForCountsMovesAndPrintingChanges() const;
+    void mergesCountsWhenChangingToExistingPrinting() const;
+    void keepsDistinctPrintingsAcrossAddAndConsiderMoves() const;
+    void keepsNameOnlyRowsNameKeyedAndDfcAliasesEditable() const;
+    void appliesMetadataOnlyToMatchingCardLocations() const;
+    void limitsDisplayPathResolutionToChangedCards() const;
+    void invalidatesDisplayPathsOnlyForArtOrPrintingMetadata() const;
+    void refreshesDisplayPathsAndMetadataAfterPrintingMerge() const;
+    void defersInitialDisplayPathsInBoundedBatches_data() const;
+    void defersInitialDisplayPathsInBoundedBatches() const;
+    void deferredDisplayPathsFollowCurrentEditedRows() const;
+    void cancelsDeferredDisplayPathsWhenResolverChanges() const;
+    void refreshesOnlyChangedCustomArtPrintingsWithoutHydrationOrSaving() const;
+    void refreshesCardWideCustomArtInPrioritizedBoundedBatches() const;
+    void mergesCustomArtRefreshWithPendingStartupAndEdits() const;
+    void customArtRestorePreservesOfficialReadinessAndCancelsSafely() const;
+    void customArtRefreshResolvesSeparateMeldAliases() const;
     void coalescesCardMetadataPersistence() const;
     void backgroundMetadataSaveCannotOverwriteSynchronousEdit() const;
     void retriesFailedBackgroundMetadataSave() const;
@@ -57,6 +79,7 @@ class TestDeckLibrary : public QObject
     void storesCardArtProviderPreference() const;
     void storesLocalArtReusePreference() const;
     void storesPackOpeningAnimationPreference() const;
+    void ignoresRemovedThemePreferences() const;
     void storesSponsorAnnouncementAcknowledgement() const;
     void storesCardArtRepairNoticeAcknowledgement() const;
     void storesAndClampsInterfaceScale() const;
@@ -74,4 +97,6 @@ class TestDeckLibrary : public QObject
     void reportsImportWarnings() const;
     void storesDeckTokensAndActivatesThemForMatches() const;
     void backfillsLegacyDeckTokenMetadata() const;
+    void persistsEmblemKindsAndIncludesSupportArtRequests() const;
+    void infersLegacySupportKindsFromLayoutAndType() const;
 };

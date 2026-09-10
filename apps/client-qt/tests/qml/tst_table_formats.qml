@@ -3,6 +3,7 @@
 
 import QtQuick
 import QtTest
+import "../../qml/components"
 
 TestCase {
     id: testCase
@@ -35,7 +36,193 @@ TestCase {
     }
 
     function cleanup() {
+        testTranslations.setLanguage("en")
         harness.cleanupHarness()
+        Theme.uiScale = 1
+    }
+
+    function test_zoneTitlesUseChineseTranslations() {
+        testTranslations.setLanguage("zh")
+        const table = tableComponent.createObject(tableHost, {width: 1280, height: 800})
+        waitForRendering(table)
+        compare(findChild(table, "graveyardDropArea0").parent.zoneTitle, "墓地")
+        compare(findChild(table, "exileDropArea0").parent.zoneTitle, "放逐区")
+    }
+
+    function test_emblemsStayPublicAndDoNotReserveBattlefieldSpace_data() {
+        return [{tag:"modern-two",format:"modern",count:2,viewer:0,focus:false},
+                {tag:"commander-two",format:"edh",count:2,viewer:1,focus:false},
+                {tag:"commander-three",format:"edh",count:3,viewer:0,focus:false},
+                {tag:"commander-four-focus",format:"edh",count:4,viewer:0,focus:true},
+                {tag:"spectator",format:"edh",count:4,viewer:-1,focus:false}]
+    }
+
+    function test_emblemsStayPublicAndDoNotReserveBattlefieldSpace(data) {
+        mockWs.format = data.format
+        mockWs.seatIndex = data.viewer
+        mockWs.roomRole = data.viewer < 0 ? "spectator" : "player"
+        const seats = []
+        for (let seat = 0; seat < data.count; ++seat) {
+            const source = JSON.parse(JSON.stringify(mockWs.baselineGameSeats[seat % 2]))
+            source.seat = seat
+            source.displayName = "Player " + seat
+            source.emblems = [{id:"s"+seat+"-e1",name:"Teferi Emblem",setCode:"TCMM",collectorNumber:"79",typeLine:"Emblem"}]
+            source.battlefield = []
+            seats.push(source)
+        }
+        mockWs.turnOrder = seats.map(seat => seat.seat)
+        mockWs.gameSeats = seats
+        const table = createTemporaryObject(tableComponent, tableHost,{width:1000,height:720})
+        verify(table !== null)
+        if (data.focus) table.battlefieldLayout.focusSeat(data.viewer)
+        verify(waitForRendering(table))
+        for (const seat of seats) {
+            const button = findChild(table,"emblemZoneButton"+seat.seat)
+            verify(button !== null && button.visible)
+            const zone = findChild(table,"battlefieldZone"+seat.seat)
+            const point = button.mapToItem(zone,0,0)
+            verify(point.x>=0 && point.y>=0)
+            verify(point.x+button.width<=zone.width+1 && point.y+button.height<=zone.height+1)
+            const size = table.battlefieldScene.battlefieldSize(seat.seat)
+            compare(size.height,zone.height-Theme.size(12))
+            mouseClick(button)
+            tryCompare(table.emblemBrowser,"opened",true)
+            verify(table.tableModalOpen)
+            verify(findChild(table,"tableModalInputShield").visible)
+            const handInteraction = findChild(table,"handCardInteraction0")
+            if (handInteraction !== null) verify(!handInteraction.enabled)
+            compare(table.emblemBrowser.emblems.length,1)
+            compare(table.emblemBrowser.canRemove,data.viewer===seat.seat)
+            table.emblemBrowser.close()
+            tryCompare(table.emblemBrowser,"opened",false)
+        }
+        table.emblemBrowser.showSeat(0)
+        tryCompare(table.emblemBrowser,"opened",true)
+        mockWs.gameRestarted()
+        tryCompare(table.emblemBrowser,"opened",false)
+        if (data.viewer >= 0) {
+            table.tokenPicker.open()
+            tryCompare(table.tokenPicker,"opened",true)
+            table.tokenPicker.detailsPopup.showCard(seats[0].emblems[0])
+            tryCompare(table.tokenPicker.detailsPopup,"opened",true)
+            verify(table.tableModalOpen)
+            verify(findChild(table,"tableModalInputShield").visible)
+            mockWs.gameRestarted()
+            tryCompare(table.tokenPicker,"opened",false)
+            tryCompare(table.tokenPicker.detailsPopup,"opened",false)
+            tryCompare(table,"tableModalOpen",false)
+        }
+    }
+
+    function test_largeScaleTableNavigation_data() {
+        return [{tag: "modern", format: "modern"}, {tag: "commander", format: "edh"}]
+    }
+
+    function test_largeScaleTableNavigation(data) {
+        Theme.uiScale = 1.5
+        mockWs.format = data.format
+        const table = createTemporaryObject(tableComponent, tableHost, {width: 900, height: 620})
+        verify(table !== null)
+        verify(waitForRendering(table))
+        const selector = findChild(table, "compactPhaseSelector")
+        verify(selector.visible)
+        compare(selector.count, 11)
+        for (const name of ["tableSettingsButton", "tableShortcutHelpButton",
+                            "restoreGameLogRailButton", "leaveRoomButton", "nextTurnButton"]) {
+            const control = findChild(table, name)
+            const point = control.mapToItem(table, 0, 0)
+            verify(point.y >= 0 && point.y + control.height <= table.height + 1, name)
+        }
+        const restore = findChild(table, "restoreGameLogRailButton")
+        verify(restore.mapToItem(table, 0, 0).x + restore.width <= table.actionRailWidth)
+        mouseClick(restore)
+        tryCompare(table, "showGameLogRail", true)
+    }
+
+    function test_ownDockControlsFitMinimumWindow_data() {
+        return [{tag: "modern", partner: false}, {tag: "partner-commanders", partner: true}]
+    }
+
+    function test_revealGroupsFitSharedRail() {
+        const originalStack = mockWs.gameStack
+        const originalRevealed = mockWs.gameRevealed
+        try {
+            Theme.uiScale = 1.5
+            mockWs.gameStack = []
+            mockWs.gameRevealed = [
+                {id: "reveal-a", name: "Forest", ownerSeat: 0},
+                {id: "reveal-b", name: "Island", ownerSeat: 1}
+            ]
+            const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+            seats[0].displayName = "Player with a very long display name"
+            mockWs.gameSeats = seats
+            const table = createTemporaryObject(tableComponent, tableHost, {width: 900, height: 620})
+            verify(table !== null)
+            table.showSharedColumn = true
+            verify(waitForRendering(table))
+            const rail = findChild(table, "sharedZonesView")
+            const label = findChild(table, "revealDividerLabel0")
+            verify(label !== null)
+            verify(label.width > 0)
+            const position = label.mapToItem(rail, 0, 0)
+            verify(position.x >= 0 && position.x + label.width <= rail.width)
+            verify(label.lineCount <= 2)
+            table.sharedZones.selectCard(table.revealedCards[0], "reveal")
+            for (const name of ["sharedToBattlefieldButton", "sharedToGraveyardButton", "sharedToHandButton"]) {
+                const button = findChild(table, name)
+                verify(button.visible)
+                verify(button.contentItem.width >= button.contentItem.implicitWidth, name)
+                mouseClick(button)
+                compare(mockWs.lastMove.cardId, "reveal-a")
+                table.optimisticCommandModel.pendingCardMoves = ({})
+                table.sharedZones.selectCard(table.revealedCards[0], "reveal")
+            }
+        } finally {
+            mockWs.gameStack = originalStack
+            mockWs.gameRevealed = originalRevealed
+        }
+    }
+
+    function test_ownDockControlsFitMinimumWindow(data) {
+        if (data.partner) {
+            mockWs.format = "edh"
+            const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+            seats[0].commandZone = [
+                {id: "commander-a", name: "Tymna the Weaver", commander: true},
+                {id: "commander-b", name: "Thrasios, Triton Hero", commander: true}
+            ]
+            seats[0].commanderTaxes = {"commander-a": 0, "commander-b": 0}
+            mockWs.gameSeats = seats
+        }
+        const table = tableComponent.createObject(tableHost, {width: 900, height: 620})
+        verify(table !== null)
+        waitForRendering(table)
+        const dock = findChild(table, "ownZoneDock")
+        for (const name of ["decreaseLifeButton0", "setLifeButton0", "increaseLifeButton0",
+                            "graveyardDropArea0", "exileDropArea0"]) {
+            const control = findChild(table, name)
+            verify(control !== null, name)
+            const origin = control.mapToItem(dock, 0, 0)
+            const end = control.mapToItem(dock, control.width, control.height)
+            verify(origin.x >= 0 && origin.y >= 0 && end.x <= dock.width + 1
+                   && end.y <= dock.height + 1, name + " must fit within the dock")
+            verify(control.mapToItem(table, control.width, 0).x <= table.width)
+        }
+        const counters = findChild(table, "ownPlayerCounters")
+        const library = findChild(table, "ownLibraryZone")
+        verify(counters.visible && counters.height > 0)
+        verify(counters.mapToItem(dock, 0, counters.height).y
+               <= library.mapToItem(dock, 0, 0).y,
+               "Counter controls must not overlap the clickable zone piles")
+        if (data.partner) {
+            counters.contentY = Math.max(0, counters.contentHeight - counters.height)
+            waitForRendering(counters)
+            const tax = findChild(table, "increaseCommanderTaxButton0-1")
+            verify(tax !== null && tax.visible && tax.enabled)
+            verify(tax.mapToItem(counters, 0, 0).y >= 0)
+            verify(tax.mapToItem(counters, 0, tax.height).y <= counters.height + 1,
+                   "Scrolled partner tax controls must be reachable")
+        }
     }
 
     function test_sideboardOverlayMovesCardsAndLocksReady() {
@@ -97,7 +284,8 @@ TestCase {
         verify(panel.visible)
         const sideboardStatus = findChild(panel, "sideboardSeatStatus0")
         verify(sideboardStatus !== null)
-        compare(sideboardStatus.text, "Alice · 60+15 · Editing")
+        compare(findChild(panel, "sideboardSeatName0").text, "Alice")
+        compare(sideboardStatus.text, "60+15 · Editing")
         compare(panel.cardCategory("生物 ～ 地精"), "Creature")
         const cardArt = findChild(panel, "sideboardCardArt-sideboard-0")
         const category = findChild(
@@ -198,6 +386,12 @@ TestCase {
             "sideboard": [],
             "commanders": ["Sol Ring"]
         }
+        // Keep the owner projection consistent with its public 100-card count.
+        const fixedDeck = Object.assign({}, mockWs.sideboardState)
+        fixedDeck.mainboard = fixedDeck.mainboard.concat([{
+            "name": "Plains", "count": 99, "typeLine": "Basic Land"
+        }])
+        mockWs.sideboardState = fixedDeck
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
             "height": testWindow.height
@@ -277,6 +471,74 @@ TestCase {
         table.destroy()
     }
 
+    function test_commanderLayoutFollowsGameSeatCount_data() {
+        return [
+            {tag: "commander-cube-seat-0", count: 2, seat: 0, role: "player", playtest: false},
+            {tag: "commander-cube-seat-1", count: 2, seat: 1, role: "player", playtest: false},
+            {tag: "commander-cube-spectator", count: 2, seat: -1, role: "spectator", playtest: false},
+            {tag: "three-player", count: 3, seat: 1, role: "player", playtest: false},
+            {tag: "four-player", count: 4, seat: 2, role: "player", playtest: false},
+            {tag: "eliminated-seats-stay", count: 4, seat: 0, role: "player", playtest: false,
+                eliminated: true},
+            {tag: "commander-playtest", count: 1, seat: 0, role: "player", playtest: true}
+        ]
+    }
+
+    function test_commanderLayoutFollowsGameSeatCount(data) {
+        mockWs.format = "edh"
+        mockWs.deckFormat = "commander_limited"
+        mockWs.matchMode = "bo1"
+        mockWs.seatIndex = data.seat
+        mockWs.roomRole = data.role
+        mockWs.playtest = data.playtest
+        const seats = []
+        for (let seat = 0; seat < data.count; ++seat) {
+            seats.push({seat: seat, displayName: "Player " + seat, life: 40,
+                counters: [], libraryCount: 53, handCount: 7, hand: [],
+                battlefield: [], graveyard: [], exile: [],
+                commandZone: [{id: "commander-" + seat, name: "The Prismatic Piper",
+                    setCode: "CMR", collectorNumber: "1", commander: true}],
+                commanderTaxes: {}, eliminated: data.eliminated === true && seat >= 2})
+        }
+        mockWs.turnOrder = seats.map(seat => seat.seat).reverse()
+        mockWs.gameSeats = seats
+        const table = createTemporaryObject(tableComponent, tableHost, {width: 1280, height: 800})
+        verify(table !== null)
+        tryCompare(table.battlefieldSeats, "length", data.count)
+        verify(waitForRendering(table))
+        compare(table.usesEDHBattlefieldLayout, data.count >= 3)
+        compare(table.isCommanderFormat, true)
+        for (let seat = 0; seat < data.count; ++seat)
+            compare(table.seatState.seatData(seat).life, 40)
+        if (data.role === "player") {
+            verify(findChild(table, "commandZoneButton" + data.seat).visible)
+            verify(findChild(table, "commanderTaxControls" + data.seat).visible)
+        }
+        if (data.count === 2) {
+            const lowerSeat = data.role === "player" ? data.seat : 1
+            const upperSeat = 1 - lowerSeat
+            const lower = findChild(table, "battlefieldZone" + lowerSeat)
+            const upper = findChild(table, "battlefieldZone" + upperSeat)
+            tryVerify(() => upper.mapToItem(table, 0, upper.height).y
+                            <= lower.mapToItem(table, 0, 0).y)
+            compare(upper.mapToItem(table, 0, 0).x, lower.mapToItem(table, 0, 0).x)
+            compare(upper.width, lower.width)
+            verify(upper.width > table.width / 2)
+            compare(table.battlefieldLayout.cardScale, 1)
+            compare(table.battlefieldLayout.mirrorsSeat(upperSeat), true)
+            compare(table.battlefieldLayout.mirrorsSeat(lowerSeat), false)
+            const focus = findChild(table, "focusBattlefieldButton" + upperSeat)
+            verify(focus === null || !focus.visible)
+        } else if (data.playtest) {
+            compare(table.battlefieldLayout.cardScale, 1)
+            compare(table.battlefieldLayout.mirrorsSeat(0), false)
+            compare(findChild(table, "battlefieldZone1"), null)
+        } else {
+            compare(table.battlefieldLayout.cardScale, data.count === 4 ? 0.7 : 0.8)
+            verify(findChild(table, "focusBattlefieldButton" + data.seat).visible)
+        }
+    }
+
     function test_threePlayerEdhUsesWideLocalBattlefield() {
         const originalSeats = mockWs.gameSeats
         mockWs.format = "edh"
@@ -351,6 +613,117 @@ TestCase {
 
         table.destroy()
         mockWs.gameSeats = originalSeats
+    }
+
+    function test_playerChromeDoesNotReserveBattlefieldSpace_data() {
+        return [
+            {tag: "modern", format: "modern", scale: 1, width: 1280, height: 800},
+            {tag: "two-player-edh", format: "edh", scale: 1, width: 1280, height: 800},
+            {tag: "modern-compact", format: "modern", scale: 1.5, width: 900, height: 620},
+            {tag: "two-player-edh-compact", format: "edh", scale: 1.5, width: 900, height: 620}
+        ]
+    }
+
+    function test_playerChromeDoesNotReserveBattlefieldSpace(data) {
+        Theme.uiScale = data.scale
+        mockWs.format = data.format
+        const table = createTemporaryObject(tableComponent, tableHost,
+                                             {width: data.width, height: data.height})
+        verify(waitForRendering(table))
+        for (const showStatus of [false, true]) {
+            const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+            for (const seat of seats)
+                seat.responseStatus = showStatus ? "hold" : ""
+            mockWs.gameSeats = seats
+            verify(waitForRendering(table))
+            for (const seat of seats) {
+                const zone = findChild(table, "battlefieldZone" + seat.seat)
+                const drop = findChild(table, seat.seat === 0 ? "battlefieldDropArea"
+                                       : "opponentBattlefieldDropArea" + seat.seat)
+                const point = drop.mapToItem(zone, 0, 0)
+                compare(point.x, Theme.size(6))
+                compare(point.y, Theme.size(6),
+                        "Player name, turn and response badges must not reserve a top strip")
+                compare(drop.width, zone.width - Theme.size(12))
+                compare(drop.height, zone.height - Theme.size(12))
+                const size = table.battlefieldScene.battlefieldSize(seat.seat)
+                compare(size.width, drop.width)
+                compare(size.height, drop.height)
+            }
+        }
+    }
+
+    function test_responseSignalsRemainVisibleInCompactMultiplayer() {
+        Theme.uiScale = 1.5
+        mockWs.format = "edh"
+        const seats = []
+        for (let seat = 0; seat < 4; ++seat) {
+            seats.push({seat: seat, displayName: "Player with a long name " + seat,
+                life: 40, handCount: 7, libraryCount: 53, hand: [], battlefield: [],
+                counters: [], graveyard: [], exile: [], commandZone: [],
+                responseStatus: seat % 2 === 0 ? "hold" : "pass"})
+            seats[seat].battlefield = [{id: "lane-card-"+seat, name: "Forest",
+                ownerSeat: seat, tapped: true, position:{x:0,y:seat%2}}]
+        }
+        mockWs.gameSeats = seats
+        mockWs.turnOrder = [0, 1, 2, 3]
+        const table = createTemporaryObject(tableComponent, tableHost, {width: 900, height: 620})
+        verify(waitForRendering(table))
+        for (const focused of [false, true]) {
+            if (focused) table.battlefieldLayout.focusSeat(0)
+            verify(waitForRendering(table))
+            for (const seat of seats) {
+                const zone = findChild(table, "battlefieldZone" + seat.seat)
+                const name = findChild(table, "battlefieldPlayerName" + seat.seat)
+                const signal = findChild(table, "responseStatusBadge" + seat.seat)
+                verify(signal.visible, "Other players must see pass/hold state")
+                compare(signal.text, seat.responseStatus === "hold" ? "Wait" : "Passed")
+                verify(name.width >= Theme.size(24), "Player names retain usable width: "
+                       + name.width + " in " + zone.width + ", focused=" + focused)
+                const signalPoint = signal.mapToItem(zone, 0, 0)
+                verify(signalPoint.x >= 0 && signalPoint.x + signal.width <= zone.width + 1,
+                       "Response signal stays within its own battlefield")
+                verify(name.mapToItem(zone, 0, name.height).y <= signalPoint.y,
+                       "Narrow battlefields place status below player identity")
+                const card = findChild(table, "battlefieldCardlane-card-"+seat.seat)
+                verify(card.height > 0, "A compact lane retains a visible card thumbnail; zone="
+                       + zone.height + ", viewport=" + card.zoneArea.height + ", seat=" + seat.seat)
+                compare(card.width, card.zoneArea.cardWidth,
+                        "Rendering and drop coordinates share the lane's card dimensions")
+                compare(card.height, card.zoneArea.cardHeight)
+                verify(card.height <= card.zoneArea.height + 1,
+                       "Focus-lane cards must not spill into adjacent battlefields")
+                compare(card.zoneArea.mapToItem(zone, 0, 0).y, Theme.size(6),
+                        "Compact headers must also float over the full card viewport")
+                compare(card.zoneArea.height, zone.height - Theme.size(12))
+                verify(card.y >= 0 && card.y + card.height <= card.zoneArea.height + 1,
+                       "Cards may use the top strip but must stay within their lane")
+                const paintedLeft = card.x - (card.height-card.width)/2
+                verify(paintedLeft >= -1 && paintedLeft + card.height <= card.zoneArea.width + 1,
+                       "Tapped cards stay inside their lane even at the left edge")
+            }
+            table.cardMoveCommands.beginBattlefieldPreviewForCard(
+                        "pending-lane-card", "hand", 0, {name: "Forest", tapped: true}, 1, 0, 1)
+            verify(waitForRendering(table))
+            const pending = findChild(table, "opponentPendingBattlefieldCard1")
+            const reference = findChild(table, "battlefieldCardlane-card-1")
+            compare(pending.width, reference.width)
+            compare(pending.height, reference.height)
+            verify(pending.height <= pending.parent.height + 1,
+                   "Slow-network optimistic cards also fit a compact lane")
+            const pendingZone = findChild(table, "battlefieldZone1")
+            compare(pending.parent.mapToItem(pendingZone, 0, 0).y, Theme.size(6))
+            compare(pending.parent.height, pendingZone.height - Theme.size(12))
+            verify(pending.y >= 0 && pending.y + pending.height <= pending.parent.height + 1,
+                   "Optimistic cards share the full lane viewport")
+            verify(pending.x - pending.tappedEdgeInset >= -1
+                   && pending.x + pending.width + pending.tappedEdgeInset <= pending.parent.width + 1,
+                   "Tapped optimistic cards retain their complete rotated bounds")
+            table.optimisticCommandModel.clear()
+        }
+        seats[1].responseStatus = ""
+        mockWs.gameSeats = JSON.parse(JSON.stringify(seats))
+        tryVerify(() => !findChild(table, "responseStatusBadge1").visible)
     }
 
     function test_edhShowsFourBattlefieldsCommandZoneAndTax() {
@@ -442,35 +815,34 @@ TestCase {
             const opponentDock = findChild(
                                      table, "opponentZoneDock" + seat)
             const toggle = findChild(table, "opponentZoneToggle" + seat)
-            verify(opponentDock !== null)
+            verify(opponentDock === null)
             verify(toggle !== null)
-            verify(!opponentDock.visible)
         }
-        const opponentCommand =
-            findChild(table, "commandZoneButton1")
-        const opponentCommanderArt =
-            findChild(table, "opponentCommanderCard1")
-        verify(opponentCommand !== null)
-        verify(opponentCommanderArt !== null)
         const battlefieldCommanderBadge =
             findChild(table, "battlefieldCommanderBadges1-commander")
         verify(battlefieldCommanderBadge !== null)
         verify(battlefieldCommanderBadge.visible)
-        const firstOpponentDock = findChild(table, "opponentZoneDock1")
         const firstOpponentToggle = findChild(table, "opponentZoneToggle1")
-        const secondOpponentDock = findChild(table, "opponentZoneDock2")
         const secondOpponentToggle = findChild(table, "opponentZoneToggle2")
-        const thirdOpponentDock = findChild(table, "opponentZoneDock3")
         const thirdOpponentToggle = findChild(table, "opponentZoneToggle3")
         const panelLayer = findChild(table, "opponentZonePanelLayer")
         verify(panelLayer !== null)
-        verify(firstOpponentDock.parent === panelLayer)
         firstOpponentToggle.clicked()
         secondOpponentToggle.clicked()
         thirdOpponentToggle.clicked()
-        tryVerify(() => firstOpponentDock.visible)
-        tryVerify(() => secondOpponentDock.visible
-                        && thirdOpponentDock.visible)
+        tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
+        tryVerify(() => findChild(table, "opponentZoneDock2") !== null
+                        && findChild(table, "opponentZoneDock3") !== null)
+        const firstOpponentDock = findChild(table, "opponentZoneDock1")
+        const secondOpponentDock = findChild(table, "opponentZoneDock2")
+        const thirdOpponentDock = findChild(table, "opponentZoneDock3")
+        const opponentCommand =
+            findChild(table, "commandZoneButton1")
+        const opponentCommanderArt =
+            findChild(table, "opponentCommanderCard1")
+        verify(firstOpponentDock.parent.parent === panelLayer)
+        verify(opponentCommand !== null)
+        verify(opponentCommanderArt !== null)
         verify(firstOpponentDock.width <= 184)
         verify(firstOpponentDock.height > 100)
         const opponentDocks = [firstOpponentDock, secondOpponentDock,
@@ -516,12 +888,12 @@ TestCase {
         compare(secondOpponentDock.mapToItem(table, 0, 0).x,
                 secondPositionBeforeDrag.x)
         firstOpponentToggle.clicked()
-        tryVerify(() => !firstOpponentDock.visible)
+        tryVerify(() => findChild(table, "opponentZoneDock1") === null)
         verify(secondOpponentDock.visible && thirdOpponentDock.visible)
         secondOpponentToggle.clicked()
         thirdOpponentToggle.clicked()
-        tryVerify(() => !secondOpponentDock.visible
-                        && !thirdOpponentDock.visible)
+        tryVerify(() => findChild(table, "opponentZoneDock2") === null
+                        && findChild(table, "opponentZoneDock3") === null)
 
         const commandButton = findChild(table, "commandZoneButton0")
         const ownCommanderArt = findChild(table, "ownCommanderCard0")
@@ -565,8 +937,9 @@ TestCase {
         verify(commanderZoneBadge !== null)
         verify(commanderZoneBadge.y + commanderZoneBadge.height
                <= commanderZoneBadge.cardVisualBottom + 1)
+        // Compact piles may fit the card by height, without letterboxing.
         verify(commanderZoneBadge.cardVisualBottom
-               < commanderZoneBadge.parent.height)
+               <= commanderZoneBadge.parent.height)
         verify(decreaseTaxButton !== null)
         verify(taxButton !== null)
         verify(decreaseLifeButton !== null)

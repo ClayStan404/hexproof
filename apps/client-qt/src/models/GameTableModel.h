@@ -17,14 +17,16 @@ namespace hexproof::client {
 class GameTableModel : public QAbstractListModel
 {
     Q_OBJECT
-    Q_PROPERTY(int count READ rowCount NOTIFY snapshotChanged)
-    Q_PROPERTY(QVariantList seats READ seats NOTIFY snapshotChanged)
-    Q_PROPERTY(QVariantList arrows READ arrows NOTIFY snapshotChanged)
-    Q_PROPERTY(QVariantList attachments READ attachments NOTIFY snapshotChanged)
-    Q_PROPERTY(QVariantList commanders READ commanders NOTIFY snapshotChanged)
-    Q_PROPERTY(QVariantList commanderDamage READ commanderDamage NOTIFY snapshotChanged)
-    Q_PROPERTY(QVariantList gameLog READ gameLog NOTIFY snapshotChanged)
-    Q_PROPERTY(int landPlaysThisTurn READ landPlaysThisTurn NOTIFY snapshotChanged)
+    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+    Q_PROPERTY(bool hasSnapshot READ hasSnapshot NOTIFY hasSnapshotChanged)
+    Q_PROPERTY(QVariantList seats READ seats NOTIFY seatsChanged)
+    Q_PROPERTY(QVariantList arrows READ arrows NOTIFY arrowsChanged)
+    Q_PROPERTY(QVariantList attachments READ attachments NOTIFY attachmentsChanged)
+    Q_PROPERTY(QVariantList commanders READ commanders NOTIFY commandersChanged)
+    Q_PROPERTY(QVariantList commanderDamage READ commanderDamage NOTIFY commanderDamageChanged)
+    Q_PROPERTY(QVariantList gameLog READ gameLog NOTIFY gameLogChanged)
+    Q_PROPERTY(int landPlaysThisTurn READ landPlaysThisTurn NOTIFY landPlaysThisTurnChanged)
+    Q_PROPERTY(quint64 cardIndexRevision READ cardIndexRevision NOTIFY cardIndexRevisionChanged)
     Q_PROPERTY(ZoneCardModel *stackModel READ stackModel CONSTANT)
     Q_PROPERTY(ZoneCardModel *revealedModel READ revealedModel CONSTANT)
 
@@ -49,7 +51,8 @@ class GameTableModel : public QAbstractListModel
         BattlefieldModelRole,
         GraveyardModelRole,
         ExileModelRole,
-        CommandZoneModelRole
+        CommandZoneModelRole,
+        EmblemsRole
     };
     Q_ENUM(Role)
 
@@ -60,6 +63,7 @@ class GameTableModel : public QAbstractListModel
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
+    bool hasSnapshot() const;
     QVariantList seats() const;
     QVariantList stackCards() const;
     QVariantList revealedCards() const;
@@ -87,6 +91,16 @@ class GameTableModel : public QAbstractListModel
     void clear();
 
   signals:
+    void countChanged();
+    void hasSnapshotChanged();
+    void seatsChanged();
+    void arrowsChanged();
+    void attachmentsChanged();
+    void commandersChanged();
+    void commanderDamageChanged();
+    void gameLogChanged();
+    void landPlaysThisTurnChanged();
+    void cardIndexRevisionChanged();
     void snapshotChanged();
 
   private:
@@ -118,6 +132,7 @@ class GameTableModel : public QAbstractListModel
                           const QVariantList &cards, ZoneCardModel *model);
     void appendSeatZoneUpdates(QVector<ZoneUpdate> &updates, int seat, const QVariantMap &seatData);
     void applyZoneUpdates(const QVector<ZoneUpdate> &updates);
+    void replaceSnapshot(const QVariantMap &snapshot, bool hasSnapshot);
     void indexCards(const QVariantList &cards, const QString &zone, int seat);
     void rebuildAttachmentIndex();
     void rebuildArrowIndex();
@@ -143,6 +158,7 @@ class GameTableModel : public QAbstractListModel
     ZoneCardModel *m_stackModel = nullptr;
     ZoneCardModel *m_revealedModel = nullptr;
     QVariantMap m_snapshot;
+    bool m_hasSnapshot = false;
     quint64 m_cardIndexRevision = 0;
 };
 

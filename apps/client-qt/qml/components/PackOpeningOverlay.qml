@@ -245,12 +245,16 @@ Popup {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.stage === 0
+            clip: true
 
             Rectangle {
                 id: packAura
+                objectName: "packOpeningAura"
+                readonly property real expansion: Math.max(0, Math.min(
+                    Theme.size(72), 2 * packShell.y - Theme.size(8)))
                 anchors.centerIn: packShell
-                width: packShell.width + Theme.size(72)
-                height: packShell.height + Theme.size(72)
+                width: packShell.width + expansion
+                height: packShell.height + expansion
                 radius: width / 2
                 color: "transparent"
                 border.width: Theme.size(2)
@@ -283,7 +287,9 @@ Popup {
                 id: packShell
                 objectName: "packOpeningBooster"
                 anchors.centerIn: parent
-                width: Math.min(Theme.size(270), parent.width * 0.38)
+                anchors.verticalCenterOffset: -Theme.size(26)
+                width: Math.min(Theme.size(270), parent.width * 0.38,
+                                Math.max(1, (parent.height - Theme.size(70)) / 1.38))
                 height: width * 1.38
                 radius: Theme.radiusMedium
                 border.width: Theme.size(2)
@@ -326,6 +332,8 @@ Popup {
                         textFormat: Text.PlainText
                         width: parent.width
                         text: "HEXPROOF"
+                        fontSizeMode: Text.Fit
+                        minimumPixelSize: Theme.fontSize(10)
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(23)
                         font.weight: Font.Bold
@@ -424,6 +432,7 @@ Popup {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: Theme.size(18)
+                objectName: "packOpeningInstruction"
                 text: qsTr("Click the booster to open it")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSize(13)

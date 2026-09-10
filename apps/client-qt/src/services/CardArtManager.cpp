@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QtConcurrent>
@@ -363,6 +364,79 @@ void CardArtManager::exportPack(const QUrl &fileUrl, bool selectionOnly, const Q
                           }));
 }
 
+QUrl CardArtManager::suggestedDeckExportUrl(const QString &deckName) const
+{
+    QString directory = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (directory.isEmpty())
+        directory = QDir::homePath();
+    QString scope = deckName.simplified();
+    scope.replace(QRegularExpression(QStringLiteral("[<>:\"/\\\\|?*\\x00-\\x1f]")),
+                  QStringLiteral("-"));
+    // Leave room for the prefix/suffix within a portable 255-byte filename,
+    // including UTF-8 Chinese names, without splitting a surrogate pair.
+    scope = scope.left(60);
+    if (!scope.isEmpty() && scope.back().isHighSurrogate())
+        scope.chop(1);
+    if (scope.isEmpty())
+        scope = QStringLiteral("deck");
+    const QString name = QStringLiteral("hexproof-card-art-%1-%2.hexproof-artpack")
+                             .arg(scope, QDate::currentDate().toString(QStringLiteral("yyyyMMdd")));
+    return QUrl::fromLocalFile(QDir(directory).filePath(name));
+}
+
+void CardArtManager::exportDeckPack(const QUrl &fileUrl, const QVariantList &cards)
+{
+    const auto reject = [this, fileUrl](const QString &error) {
+        setError(error);
+        emit deckExportFinished({{QStringLiteral("ok"), false},
+                                 {QStringLiteral("error"), error},
+                                 {QStringLiteral("fileUrl"), fileUrl.toString()}});
+    };
+    const QString path = localPath(fileUrl, true);
+    if (path.isEmpty()) {
+        reject(QStringLiteral("Choose a writable local destination for the card art pack."));
+        return;
+    }
+    if (cards.isEmpty()) {
+        reject(QStringLiteral("This deck has no cards to export."));
+        return;
+    }
+    if (!beginOperation(QStringLiteral("Exporting deck card art pack…"))) {
+        emit deckExportFinished({{QStringLiteral("ok"), false},
+                                 {QStringLiteral("error"), m_lastError},
+                                 {QStringLiteral("fileUrl"), fileUrl.toString()}});
+        return;
+    }
+
+    const QString imageRoot = storagePath();
+    const QString databasePath = m_databasePath;
+    const QList<CardArtCacheEntry> entries = m_cache->entries();
+    auto *watcher = new QFutureWatcher<cardart::DeckExportResult>(this);
+    connect(watcher, &QFutureWatcher<cardart::DeckExportResult>::finished, this,
+            [this, watcher, fileUrl]() {
+                const cardart::DeckExportResult result = watcher->result();
+                watcher->deleteLater();
+                if (result.operation.ok) {
+                    setResult(result.missingFaceCount > 0 || result.operation.skippedCount > 0
+                                  ? QStringLiteral(
+                                        "Card art pack exported with unavailable entries skipped.")
+                                  : QStringLiteral("Card art pack exported."));
+                } else {
+                    setError(result.operation.error);
+                }
+                setStatus({});
+                setBusy(false);
+                QVariantMap summary = result.summary();
+                summary.insert(QStringLiteral("fileUrl"), fileUrl.toString());
+                emit deckExportFinished(summary);
+            });
+    watcher->setFuture(QtConcurrent::run(BackgroundTaskPools::catalogMaintenance(),
+                                         [path, imageRoot, databasePath, cards, entries]() {
+                                             return cardart::exportDeckPack(
+                                                 path, imageRoot, databasePath, cards, entries);
+                                         }));
+}
+
 void CardArtManager::importPack(const QUrl &fileUrl)
 {
     const QString path = localPath(fileUrl, false);
@@ -374,6 +448,7 @@ void CardArtManager::importPack(const QUrl &fileUrl)
         return;
 
     const QString imageRoot = storagePath();
+    const QList<CardArtCacheEntry> existingEntries = m_cache->entries();
     auto *watcher = new QFutureWatcher<cardart::OperationResult>(this);
     connect(watcher, &QFutureWatcher<cardart::OperationResult>::finished, this, [this, watcher]() {
         const cardart::OperationResult result = watcher->result();
@@ -389,7 +464,11 @@ void CardArtManager::importPack(const QUrl &fileUrl)
         int imported = 0;
         for (const CardArtCacheEntry &entry : result.importedEntries) {
             const CardRecord existing = m_cache->exactRecord(entry.cacheKey);
-            if (existing.valid() && isManagedCacheFile(storagePath(), existing.imagePath) &&
+            // The worker has decoded retained files. Existence alone would
+            // preserve corrupt images, including repaired content-hash paths.
+            if (result.retainedEntryKeys.contains(entry.cacheKey) && existing.valid() &&
+                existing.imagePath == entry.record.imagePath &&
+                isManagedCacheFile(storagePath(), existing.imagePath) &&
                 existing.resolutionVersion >= entry.record.resolutionVersion) {
                 continue;
             }
@@ -410,9 +489,10 @@ void CardArtManager::importPack(const QUrl &fileUrl)
         setStatus(QStringLiteral("Scanning the local card art cache…"));
         startInventoryScan();
     });
-    watcher->setFuture(
-        QtConcurrent::run(BackgroundTaskPools::catalogMaintenance(),
-                          [path, imageRoot]() { return cardart::importPack(path, imageRoot); }));
+    watcher->setFuture(QtConcurrent::run(
+        BackgroundTaskPools::catalogMaintenance(), [path, imageRoot, existingEntries]() {
+            return cardart::importPack(path, imageRoot, existingEntries);
+        }));
 }
 
 void CardArtManager::removeOrphans()

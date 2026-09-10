@@ -146,6 +146,9 @@
       "name": "TypeTournamentSnapshot",
       "value": "tournament.snapshot"
     },
+    {"name": "TypeTournamentChatSend", "value": "tournament.chat.send"},
+    {"name": "TypeTournamentChatMessage", "value": "tournament.chat.message"},
+    {"name": "TypeTournamentChatHistory", "value": "tournament.chat.history"},
     {
       "name": "TypeTournamentDrop",
       "value": "tournament.drop"
@@ -223,6 +226,22 @@
       "value": "limited.pick"
     },
     {
+      "name": "TypeLimitedSetDraftControl",
+      "value": "limited.set_draft_control"
+    },
+    {
+      "name": "TypeLimitedDraftControlSet",
+      "value": "limited.draft_control_set"
+    },
+    {
+      "name": "TypeLimitedSetParticipation",
+      "value": "limited.set_participation"
+    },
+    {
+      "name": "TypeLimitedParticipationSet",
+      "value": "limited.participation_set"
+    },
+    {
       "name": "TypeLimitedPicked",
       "value": "limited.picked"
     },
@@ -237,6 +256,10 @@
     {
       "name": "TypeLimitedSnapshot",
       "value": "limited.snapshot"
+    },
+    {
+      "name": "TypeLimitedProgress",
+      "value": "limited.progress"
     },
     {
       "name": "TypeDeckSelect",
@@ -590,6 +613,10 @@
       "name": "TypeGameCreateToken",
       "value": "game.create_token"
     },
+    {"name": "TypeGameCreateEmblem", "value": "game.create_emblem"},
+    {"name": "TypeGameEmblemCreated", "value": "game.emblem_created"},
+    {"name": "TypeGameRemoveEmblem", "value": "game.remove_emblem"},
+    {"name": "TypeGameEmblemRemoved", "value": "game.emblem_removed"},
     {
       "name": "TypeGameTokenCreated",
       "value": "game.token_created"
@@ -999,6 +1026,10 @@
       "value": "limited"
     },
     {
+      "name": "DeckFormatCommanderLimited",
+      "value": "commander_limited"
+    },
+    {
       "name": "LimitedEventConstructed",
       "value": "constructed"
     },
@@ -1013,6 +1044,10 @@
     {
       "name": "LimitedEventCubeDraft",
       "value": "cube_draft"
+    },
+    {
+      "name": "LimitedEventCommanderCube",
+      "value": "commander_cube"
     },
     {
       "name": "LimitedCoordinatorSwiss",
@@ -1057,6 +1092,14 @@
     {
       "name": "RoomPhaseWaiting",
       "value": "waiting"
+    },
+    {
+      "name": "RoomPhaseFreePlay",
+      "value": "free_play"
+    },
+    {
+      "name": "DeckFormatCube",
+      "value": "cube"
     },
     {
       "name": "RoomPhaseLoading",

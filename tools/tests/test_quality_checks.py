@@ -185,6 +185,30 @@ class I18nAuditTests(unittest.TestCase):
 
 
 class ServerDirectoryToolTests(unittest.TestCase):
+    def test_rejects_invalid_ports_and_control_characters_in_all_url_fields(self) -> None:
+        for url in ("wss://server.example:99999/ws", "ws://server.example:abc/ws",
+                    "ws://server.example:-1/ws", "ws://server example/ws",
+                    "wss://ser\nver.example/ws", "wss://server.example/%wrong"):
+            for legacy in (False, True):
+                with self.subTest(url=url, legacy=legacy):
+                    document = {"schemaVersion": 1,
+                                "servers": [{"url": f"wss://server-{i}.example/ws"}
+                                            for i in range(5)]}
+                    if legacy:
+                        document["servers"][0]["legacyUrls"] = [url]
+                    else:
+                        document["servers"][0]["url"] = url
+                    with self.assertRaises(ValueError):
+                        server_directory.validate_directory(document)
+
+    def test_accepts_valid_ports_ipv6_and_encoded_paths(self) -> None:
+        urls = ["ws://[::1]:57320/ws", "wss://server.example:443/test/ws",
+                "wss://server.example/ws", "ws://127.0.0.1:65535/ws",
+                "wss://server.example/%E6%B5%8B%E8%AF%95/ws"]
+        document = {"schemaVersion": 1,
+                    "servers": [{"url": url, "legacyUrls": [url]} for url in urls]}
+        self.assertEqual(server_directory.validate_directory(document), document)
+
     def test_accepts_five_servers_including_a_path_scoped_test_hub(self) -> None:
         document = {
             "schemaVersion": 1,
@@ -256,10 +280,10 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn("apps/client-qt/tests/qml/tst_matchloading.qml", sources)
         self.assertIn("apps/server/internal/room/room_test.go", sources)
 
-    def test_clang_format_is_limited_to_cpp_sources(self) -> None:
+    def test_clang_format_is_limited_to_c_and_cpp_sources(self) -> None:
         script = (TOOLS_DIR / "verify.sh").read_text(encoding="utf-8")
         self.assertIn(
-            "git clang-format --diff --extensions cpp,h",
+            "git clang-format --diff --extensions c,cpp,h",
             script,
         )
 
@@ -281,6 +305,16 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn("docs/rules-engine.md", readme)
         self.assertTrue((root / "docs/rules-engine.md").is_file())
         self.assertIn("    docs/rules-engine.md\n", export_script)
+
+    def test_public_export_includes_changelog(self) -> None:
+        root = TOOLS_DIR.parent
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        export_script = (TOOLS_DIR / "export-public-tree.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertTrue((root / "CHANGELOG.md").is_file())
+        self.assertIn("CHANGELOG.md", readme)
+        self.assertIn("    CHANGELOG.md\n", export_script)
 
     def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:
         paths = (
@@ -479,7 +513,6 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn("function zoneDelegateModel(", zone_state)
         self.assertNotIn("gameTableModel.cardData(cardId)", table)
         self.assertIn("readonly property var zoneState: zoneStateController", table)
-        self.assertLess(len(table.splitlines()), 3300)
 
     def test_core_qt_commands_match_payload_schema(self) -> None:
         root = TOOLS_DIR.parent

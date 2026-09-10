@@ -142,6 +142,7 @@ class DeckLibraryModel : public QAbstractListModel
     Q_INVOKABLE QVariantMap loadDeckTextFile(const QUrl &fileUrl);
     Q_INVOKABLE QString exportDeckText(const QString &id) const;
     Q_INVOKABLE QString exportCurrentDeckText() const;
+    Q_INVOKABLE QVariantList cardArtExportRequests(const QString &id) const;
     Q_INVOKABLE QString suggestedExportFileName(const QString &id) const;
     Q_INVOKABLE QUrl suggestedExportUrl(const QString &id) const;
     Q_INVOKABLE bool copyDeckText(const QString &id);
@@ -154,8 +155,10 @@ class DeckLibraryModel : public QAbstractListModel
     Q_INVOKABLE bool renameCurrentDeck(const QString &name);
     Q_INVOKABLE bool changeCurrentDeckFormat(const QString &format);
     Q_INVOKABLE bool setCommander(const QString &cardName);
-    Q_INVOKABLE bool moveCard(const QString &cardName, bool toSideboard);
-    Q_INVOKABLE bool changeCardCount(const QString &cardName, bool sideboard, int delta);
+    Q_INVOKABLE bool moveCard(const QString &cardName, const QString &setCode,
+                              const QString &collectorNumber, bool toSideboard);
+    Q_INVOKABLE bool changeCardCount(const QString &cardName, const QString &setCode,
+                                     const QString &collectorNumber, bool sideboard, int delta);
     Q_INVOKABLE bool addCard(const QString &name, const QString &localizedName,
                              const QString &typeLine, const QString &setCode,
                              const QString &collectorNumber, bool sideboard);
@@ -168,7 +171,8 @@ class DeckLibraryModel : public QAbstractListModel
                                             const QString &collectorNumber);
     Q_INVOKABLE bool changeConsiderCardCount(const QString &name, const QString &setCode,
                                              const QString &collectorNumber, int delta);
-    Q_INVOKABLE bool setCardPrinting(const QString &cardName, bool sideboard,
+    Q_INVOKABLE bool setCardPrinting(const QString &cardName, const QString &currentSetCode,
+                                     const QString &currentCollectorNumber, bool sideboard,
                                      const QString &localizedName, const QString &typeLine,
                                      const QString &setCode, const QString &collectorNumber);
     Q_INVOKABLE bool addToken(const QVariantMap &token);
@@ -189,6 +193,10 @@ class DeckLibraryModel : public QAbstractListModel
     Q_INVOKABLE void clearLastError();
     void hydrateCatalogMetadata(bool refreshExisting = false);
     void refreshCachedCardArt();
+    void refreshCustomCardArt(const QVariantList &bindings);
+    void setImagePathResolver(std::function<QString(const DeckCard &)> resolver,
+                              bool deferInitialRefresh = false);
+    void refreshDisplayedCardArt();
     QVariantList cardArtAuditRequests() const;
 
 #ifdef HEXPROOF_TESTING
@@ -242,7 +250,34 @@ class DeckLibraryModel : public QAbstractListModel
     void decksNeedValidation(const QVariantList &decks);
 
   private:
+    void resolveDisplayPaths(const QSet<QString> &deckIds = {}, bool force = false);
+    void queuePendingDisplayPaths();
+    void resolveDeferredDisplayPaths(quint64 generation);
+    std::function<QString(const DeckCard &)> m_imagePathResolver;
+    QStringList m_pendingDisplayPathNames;
+    qsizetype m_pendingDisplayPathNameIndex = 0;
+    qsizetype m_pendingDisplayPathLocationIndex = 0;
+    qsizetype m_pendingDisplayPathPriorityNameCount = 0;
+    QString m_pendingDisplayPathPriorityDeckId;
+    bool m_resolvingPriorityDisplayPaths = false;
+    quint64 m_cardLocationRevision = 0;
+    quint64 m_pendingDisplayPathLocationRevision = 0;
+    quint64 m_displayPathGeneration = 0;
     static constexpr int kMetadataCommitDelayMs = 250;
+
+    enum class CardSection
+    {
+        Mainboard,
+        Sideboard,
+        Consider
+    };
+
+    struct CardLocation
+    {
+        int deckIndex = -1;
+        CardSection section = CardSection::Mainboard;
+        int cardIndex = -1;
+    };
 
     struct BackgroundSaveResult
     {
@@ -260,7 +295,9 @@ class DeckLibraryModel : public QAbstractListModel
     bool save();
     void rebuildVisibleRows();
     void rebuildCardDeckIndex();
+    DeckCard *cardAt(const CardLocation &location);
     void notifyAllChanged();
+    void notifyCardStructureChanged();
     void notifyDecksChanged(const QSet<QString> &deckIds, bool cardsChanged = false);
     bool validateDeckImport(const QString &name, const QString &format, QString *deckName,
                             QString *deckFormat);
@@ -300,8 +337,9 @@ class DeckLibraryModel : public QAbstractListModel
     QTimer m_validationTimer;
     QHash<QString, QVariantMap> m_deckValidations;
     QHash<QString, quint64> m_validationRevisions;
+    quint64 m_nextValidationRevision = 0;
     QSet<QString> m_pendingValidationDeckIds;
-    QHash<QString, QSet<int>> m_cardDeckIndex;
+    QHash<QString, QVector<CardLocation>> m_cardLocationsByName;
     QSet<QString> m_metadataChangedDeckIds;
     QSet<QString> m_backgroundSaveDeckIds;
     quint64 m_persistenceGeneration = 0;

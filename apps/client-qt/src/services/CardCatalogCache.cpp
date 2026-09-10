@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardArtCache.h"
+#include "CardArtStorage.h"
 #include "CardCatalog.h"
 #include "CardCatalogCommon.h"
 #include "CardImageProvider.h"
@@ -9,6 +10,8 @@
 #include "CatalogStorage.h"
 #include "deck/Deck.h"
 #include <QTimer>
+
+#include <algorithm>
 
 namespace hexproof::client {
 using namespace catalog_internal;
@@ -20,26 +23,71 @@ constexpr int kCachedHydrationIntervalMs = 16;
 void CardCatalog::cacheCards(const QVariantList &cards)
 {
     clearOperationError();
-    enqueueCards(expandCardFaceRequests(cards), m_language);
+    queueCardsIncrementally(cards, false);
 }
 
 void CardCatalog::cacheCardsIncrementally(const QVariantList &cards)
 {
     clearOperationError();
-    for (const QVariant &card : cards) {
+    queueCardsIncrementally(cards, false);
+}
+
+void CardCatalog::queueCardsIncrementally(const QVariantList &cards, bool highPriority, bool retry)
+{
+    if (cards.isEmpty())
+        return;
+    if (!m_artStorage->writesAllowed()) {
+        setLastError(
+            m_artStorage->restartRequired()
+                ? QStringLiteral("Restart Hexproof to use the new card-art directory.")
+                : QStringLiteral("The card-art directory is unavailable or being migrated."));
+        for (const QVariant &value : expandCardFaceRequests(cards)) {
+            const QVariantMap map = value.toMap();
+            CardRequest request{map.value(QStringLiteral("name")).toString(),
+                                map.value(QStringLiteral("setCode")).toString().toUpper(),
+                                map.value(QStringLiteral("collectorNumber")).toString(),
+                                m_language};
+            request.exactArt = map.value(QStringLiteral("exactArt")).toBool();
+            emitCardCacheCompletion(request, false);
+        }
+        return;
+    }
+    const auto queueCard = [this, highPriority, retry](const QVariant &card) {
         const QVariantMap map = card.toMap();
         const QString name = map.value(QStringLiteral("name")).toString().simplified();
         if (name.isEmpty())
-            continue;
+            return;
+        const QString language = m_language;
         QString key =
-            cacheKey(name, m_language, map.value(QStringLiteral("setCode")).toString().toUpper(),
+            cacheKey(name, language, map.value(QStringLiteral("setCode")).toString().toUpper(),
                      map.value(QStringLiteral("collectorNumber")).toString());
         if (map.value(QStringLiteral("exactArt")).toBool())
             key += QStringLiteral("|exact");
-        if (m_incrementalQueuedKeys.contains(key))
-            continue;
-        m_incrementalQueuedKeys.insert(key);
-        m_incrementalCacheQueue.enqueue({card, m_language, key});
+        const bool alreadyQueued = m_incrementalQueuedKeys.contains(key);
+        if (alreadyQueued && retry) {
+            for (auto it = m_incrementalCacheQueue.begin(); it != m_incrementalCacheQueue.end();) {
+                if (it->key == key)
+                    it = m_incrementalCacheQueue.erase(it);
+                else
+                    ++it;
+            }
+        } else if (alreadyQueued && !highPriority) {
+            return;
+        }
+        if (!alreadyQueued)
+            m_incrementalQueuedKeys.insert(key);
+        const IncrementalCacheItem item{card, language, key, retry, highPriority};
+        if (highPriority)
+            m_incrementalCacheQueue.prepend(item);
+        else
+            m_incrementalCacheQueue.enqueue(item);
+    };
+    if (highPriority) {
+        for (auto it = cards.crbegin(); it != cards.crend(); ++it)
+            queueCard(*it);
+    } else {
+        for (const QVariant &card : cards)
+            queueCard(card);
     }
     if (m_incrementalCacheQueue.isEmpty() || m_incrementalCacheScheduled)
         return;
@@ -55,13 +103,14 @@ void CardCatalog::hydrateCachedCards(const QVariantList &cards)
         const QString name = map.value(QStringLiteral("name")).toString().simplified();
         if (name.isEmpty())
             continue;
+        const QString language = m_language;
         const QString key =
-            cacheKey(name, m_language, map.value(QStringLiteral("setCode")).toString().toUpper(),
+            cacheKey(name, language, map.value(QStringLiteral("setCode")).toString().toUpper(),
                      map.value(QStringLiteral("collectorNumber")).toString());
         if (m_cachedHydrationQueuedKeys.contains(key))
             continue;
         m_cachedHydrationQueuedKeys.insert(key);
-        m_cachedHydrationQueue.enqueue({card, m_language, key});
+        m_cachedHydrationQueue.enqueue({card, language, key});
     }
     if (m_cachedHydrationQueue.isEmpty() || m_cachedHydrationScheduled)
         return;
@@ -81,18 +130,29 @@ void CardCatalog::processCachedHydrationBatch()
     }
     if (m_cachedHydrationQueue.isEmpty())
         return;
+    if (!m_artStorage->writesAllowed()) {
+        m_cachedHydrationQueue.clear();
+        m_cachedHydrationQueuedKeys.clear();
+        return;
+    }
+    if (m_customArtBusy || m_artCacheBusy) {
+        m_cachedHydrationScheduled = true;
+        QTimer::singleShot(50, this, &CardCatalog::processCachedHydrationBatch);
+        return;
+    }
 
     bool createdAnyMapping = false;
     const IncrementalCacheItem item = m_cachedHydrationQueue.dequeue();
     m_cachedHydrationQueuedKeys.remove(item.key);
+    const QVariantMap map = item.card.toMap();
     if (item.language == m_language) {
-        const QVariantMap map = item.card.toMap();
         CardRequest request{
             map.value(QStringLiteral("name")).toString().simplified(),
             map.value(QStringLiteral("setCode")).toString().toUpper(),
             map.value(QStringLiteral("collectorNumber")).toString(),
             item.language,
         };
+        request.supportCard = isSupportCardRequest(map);
 
         bool createdMapping = false;
         const CardRecord record = localCachedRecord(request, item.key, &createdMapping);
@@ -127,17 +187,57 @@ void CardCatalog::processIncrementalCacheBatch()
     }
     if (m_incrementalCacheQueue.isEmpty())
         return;
+    if (m_customArtBusy || m_artCacheBusy) {
+        m_incrementalCacheScheduled = true;
+        QTimer::singleShot(50, this, &CardCatalog::processIncrementalCacheBatch);
+        return;
+    }
 
     constexpr int kIncrementalCacheBatchSize = 4;
-    const QString language = m_incrementalCacheQueue.head().language;
-    QVariantList batch;
-    while (batch.size() < kIncrementalCacheBatchSize && !m_incrementalCacheQueue.isEmpty() &&
-           m_incrementalCacheQueue.head().language == language) {
+    QString language;
+    bool highPriority = false;
+    QList<IncrementalCacheItem> items;
+    while (items.size() < kIncrementalCacheBatchSize && !m_incrementalCacheQueue.isEmpty()) {
+        if (!m_incrementalQueuedKeys.contains(m_incrementalCacheQueue.head().key)) {
+            m_incrementalCacheQueue.dequeue();
+            continue;
+        }
+        if (language.isEmpty()) {
+            language = m_incrementalCacheQueue.head().language;
+            highPriority = m_incrementalCacheQueue.head().highPriority;
+        }
+        if (m_incrementalCacheQueue.head().language != language ||
+            m_incrementalCacheQueue.head().highPriority != highPriority)
+            break;
         const IncrementalCacheItem item = m_incrementalCacheQueue.dequeue();
         m_incrementalQueuedKeys.remove(item.key);
-        batch.append(item.card);
+        items.append(item);
     }
-    enqueueCards(expandCardFaceRequests(batch), language);
+    QVariantList batch;
+    for (const IncrementalCacheItem &item : std::as_const(items)) {
+        const QVariantList expanded = item.card.toMap().value(kCardFacesExpandedKey).toBool()
+                                          ? QVariantList{item.card}
+                                          : expandCardFaceRequests({item.card});
+        if (item.retry) {
+            for (const QVariant &value : expanded) {
+                const QVariantMap map = value.toMap();
+                const QString name = map.value(QStringLiteral("name")).toString().simplified();
+                if (name.isEmpty())
+                    continue;
+                const QString key = cacheKey(
+                    name, item.language, map.value(QStringLiteral("setCode")).toString().toUpper(),
+                    map.value(QStringLiteral("collectorNumber")).toString());
+                m_artCache->forgetFailure(key);
+            }
+        }
+        for (const QVariant &value : expanded) {
+            QVariantMap request = value.toMap();
+            request.insert(QStringLiteral("_presentationArtOnly"),
+                           item.highPriority && !item.retry);
+            batch.append(request);
+        }
+    }
+    enqueueCards(batch, language, highPriority);
 
     if (m_incrementalCacheQueue.isEmpty())
         return;
@@ -147,60 +247,73 @@ void CardCatalog::processIncrementalCacheBatch()
 
 void CardCatalog::retryCards(const QVariantList &cards)
 {
-    const QVariantList expandedCards = expandCardFaceRequests(cards);
-    for (const QVariant &value : expandedCards) {
-        const QVariantMap map = value.toMap();
-        const QString name = map.value(QStringLiteral("name")).toString().simplified();
-        if (name.isEmpty())
-            continue;
-        const QString key =
-            cacheKey(name, m_language, map.value(QStringLiteral("setCode")).toString().toUpper(),
-                     map.value(QStringLiteral("collectorNumber")).toString());
-        m_artCache->forgetFailure(key);
-    }
     if (m_cardResolver)
         m_cardResolver->clearCooldowns();
     clearOperationError();
-    enqueueCards(expandedCards, m_language);
+    queueCardsIncrementally(cards, true, true);
 }
 
 void CardCatalog::prioritizeCards(const QVariantList &cards)
 {
-    const QVariantList expandedCards = expandCardFaceRequests(cards);
-    enqueueCards(expandedCards, m_language);
-
     QList<CardRequest> prioritized;
-    for (const QVariant &value : expandedCards) {
+    for (const QVariant &value : cards) {
         const QVariantMap map = value.toMap();
-        const QString key =
-            cacheKey(map.value(QStringLiteral("name")).toString().simplified(), m_language,
-                     map.value(QStringLiteral("setCode")).toString().toUpper(),
-                     map.value(QStringLiteral("collectorNumber")).toString());
-        const auto takeMatchingRequest = [&key, this](QQueue<CardRequest> &queue,
-                                                      QList<CardRequest> *matches) {
-            for (auto it = queue.begin(); it != queue.end(); ++it) {
-                if (cacheKey(it->name, it->language, it->setCode, it->collectorNumber) != key)
-                    continue;
-                matches->append(*it);
-                queue.erase(it);
-                return true;
-            }
-            return false;
+        CardRequest requested{
+            map.value(QStringLiteral("name")).toString().simplified(),
+            map.value(QStringLiteral("setCode")).toString().toUpper(),
+            map.value(QStringLiteral("collectorNumber")).toString(),
+            m_language,
         };
-        if (!takeMatchingRequest(m_cardQueue, &prioritized))
-            takeMatchingRequest(m_fallbackQueue, &prioritized);
+        requested.exactArt = map.value(QStringLiteral("exactArt")).toBool();
+        requested.supportCard = isSupportCardRequest(map);
+        requested.priorityName =
+            map.value(QStringLiteral("priorityName"), requested.name).toString().simplified();
+        const QString pendingKey = queuedRequestKey(requested);
+        const bool explicitFace =
+            !map.value(QStringLiteral("faceName")).toString().simplified().isEmpty();
+        const auto matchesRequest = [&pendingKey, &requested, explicitFace,
+                                     this](const CardRequest &candidate) {
+            if (explicitFace)
+                return queuedRequestKey(candidate) == pendingKey;
+            return normalizedCardName(candidate.priorityName) ==
+                       normalizedCardName(requested.priorityName) &&
+                   candidate.setCode == requested.setCode &&
+                   candidate.collectorNumber == requested.collectorNumber &&
+                   candidate.language == requested.language &&
+                   candidate.exactArt == requested.exactArt;
+        };
+        const auto takeMatchingRequests = [&matchesRequest](QQueue<CardRequest> &queue,
+                                                            QList<CardRequest> *matches) {
+            for (auto it = queue.begin(); it != queue.end();) {
+                if (!matchesRequest(*it)) {
+                    ++it;
+                    continue;
+                }
+                it->highPriority = true;
+                matches->append(*it);
+                it = queue.erase(it);
+            }
+        };
+        takeMatchingRequests(m_cardQueue, &prioritized);
+        takeMatchingRequests(m_fallbackQueue, &prioritized);
     }
     for (auto it = prioritized.crbegin(); it != prioritized.crend(); ++it)
         m_cardQueue.prepend(*it);
-    scheduleResolutionWork();
+    queueCardsIncrementally(cards, true);
 }
 
 void CardCatalog::cacheToken(const QVariantMap &token)
 {
-    enqueueCards(QVariantList{token}, QStringLiteral("en"));
+    QVariantMap request = token;
+    request.insert(QStringLiteral("kind"),
+                   normalizedDeckTokenKind(token.value(QStringLiteral("kind")).toString(),
+                                           token.value(QStringLiteral("typeLine")).toString(),
+                                           token.value(QStringLiteral("layout")).toString()));
+    cacheCardsIncrementally({request});
 }
 
-void CardCatalog::enqueueCards(const QVariantList &cards, const QString &language)
+void CardCatalog::enqueueCards(const QVariantList &cards, const QString &language,
+                               bool highPriority)
 {
     QList<CardRequest> requests;
     requests.reserve(cards.size());
@@ -213,8 +326,17 @@ void CardCatalog::enqueueCards(const QVariantList &cards, const QString &languag
             language,
         };
         request.exactArt = map.value(QStringLiteral("exactArt")).toBool();
+        request.supportCard = isSupportCardRequest(map);
+        request.highPriority = highPriority;
+        request.priorityName =
+            map.value(QStringLiteral("priorityName"), request.name).toString().simplified();
         if (request.name.isEmpty())
             continue;
+        if (map.value(QStringLiteral("_presentationArtOnly")).toBool() && !request.exactArt &&
+            !customImagePath(request).isEmpty()) {
+            emitCardCacheCompletion(request, true);
+            continue;
+        }
         requests.append(request);
     }
     enqueueRequests(requests);
@@ -236,15 +358,22 @@ void CardCatalog::enqueueRequests(const QList<CardRequest> &requests)
                 ++m_imageRevision;
                 emit imageRevisionChanged();
             }
-            emit cardCacheFinished(request.name, request.setCode, request.collectorNumber, true);
+            emitCardCacheCompletion(request, true);
             continue;
         }
         if (m_artCache->failedRecently(key)) {
-            emit cardCacheFinished(request.name, request.setCode, request.collectorNumber, false);
+            emitCardCacheCompletion(request, false);
             continue;
         }
         m_queuedKeys.insert(pendingKey, true);
-        m_cardQueue.enqueue(request);
+        if (request.highPriority) {
+            const auto position =
+                std::find_if(m_cardQueue.cbegin(), m_cardQueue.cend(),
+                             [](const CardRequest &queued) { return !queued.highPriority; });
+            m_cardQueue.insert(position, request);
+        } else {
+            m_cardQueue.enqueue(request);
+        }
         ++m_totalRequests;
     }
     scheduleResolutionWork();
@@ -255,6 +384,12 @@ CardCatalog::CardRecord CardCatalog::localCachedRecord(const CardRequest &reques
 {
     *createdMapping = false;
     const CardRecord positive = m_artCache->exactRecord(key);
+    if (request.supportCard && request.language == QStringLiteral("zh") && positive.valid() &&
+        !positive.localizedRulesChecked) {
+        // Legacy token cache entries predate localized rules text. Keep the
+        // image as a display fallback, but let the resolver refresh metadata.
+        return {};
+    }
     const bool positiveMatchesPolicy =
         positive.valid() && positive.resolutionVersion >= kCardResolutionVersion &&
         m_artCache->matchesRequestedFace(request, positive) &&
@@ -411,6 +546,15 @@ void CardCatalog::loadCatalogMetadata()
                 query.exec(QStringLiteral(
                     "SELECT value FROM metadata WHERE key = 'token_count' LIMIT 1")) &&
                 query.next()) {
+                m_tokenCount = query.value(0).toInt();
+                recovered = true;
+            }
+            if (m_indexVersion >= 3 && m_tokenCount == 0 &&
+                query.exec(QStringLiteral("SELECT count(*) FROM cards WHERE lang = 'en' AND "
+                                          "layout IN ('token', 'double_faced_token', 'emblem')")) &&
+                query.next()) {
+                // Older catalogs counted only single-faced tokens. An emblem-only
+                // database is usable without rebuilding or rewriting its SQLite file.
                 m_tokenCount = query.value(0).toInt();
                 recovered = true;
             }

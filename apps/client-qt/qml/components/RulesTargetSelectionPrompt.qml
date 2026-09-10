@@ -62,6 +62,7 @@ Item {
 
         ListView {
             id: targetList
+            objectName: "rulesTargetCandidates"
 
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -72,6 +73,7 @@ Item {
 
             delegate: Rectangle {
                 id: targetTile
+                objectName: "rulesTarget-" + responseId
 
                 required property string responseId
                 required property string kind
@@ -194,7 +196,8 @@ Item {
         }
 
         ColumnLayout {
-            Layout.preferredWidth: Theme.size(190)
+            Layout.fillWidth: false
+            Layout.preferredWidth: Math.max(Theme.size(190), targetActions.implicitWidth)
             spacing: Theme.size(8)
 
             Text {
@@ -212,6 +215,7 @@ Item {
             }
 
             RowLayout {
+                id: targetActions
                 Layout.fillWidth: true
                 spacing: Theme.size(6)
 
@@ -224,6 +228,7 @@ Item {
                 }
 
                 AppButton {
+                    objectName: "rulesConfirmTargets"
                     Layout.fillWidth: true
                     compact: true
                     variant: "primary"

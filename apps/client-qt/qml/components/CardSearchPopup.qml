@@ -2,65 +2,36 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 pragma ComponentBehavior: Bound
-
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Popup {
     id: root
-
-    property alias query: searchField.text
+    property alias query: filterState.query
+    property alias filters: filterState
     property var results: []
     property bool searching: false
     property var deckLibraryModel: null
+    property var catalogModel: null
     property bool allowSideboard: true
     property bool considerOnly: false
     property bool filtersAvailable: true
     property string typeFilter: ""
-    property alias setFilter: setCodeField.text
+    property string setFilter: ""
     property string languageFilter: ""
     property string colorFilter: ""
     property string rarityFilter: ""
     property string legalityFilter: ""
-    readonly property bool filtersActive:
-        typeFilter.length > 0 || setFilter.trim().length > 0
-        || languageFilter.length > 0 || colorFilter.length > 0
-        || rarityFilter.length > 0 || legalityFilter.length > 0
-    readonly property bool hasSearchCriteria:
-        searchField.text.trim().length > 0 || filtersActive
-    readonly property var typeOptions: [
-        {"label": qsTr("All types"), "value": ""},
-        {"label": qsTr("Creature"), "value": "Creature"},
-        {"label": qsTr("Instant"), "value": "Instant"},
-        {"label": qsTr("Sorcery"), "value": "Sorcery"},
-        {"label": qsTr("Artifact"), "value": "Artifact"},
-        {"label": qsTr("Enchantment"), "value": "Enchantment"},
-        {"label": qsTr("Planeswalker"), "value": "Planeswalker"},
-        {"label": qsTr("Land"), "value": "Land"}
-    ]
-    readonly property var languageOptions: [
-        {"label": qsTr("All printings"), "value": ""},
-        {"label": qsTr("English printings"), "value": "en"},
-        {"label": qsTr("Chinese printings"), "value": "zhs"}
-    ]
-    readonly property var colorOptions: [
-        {"label": qsTr("Any color identity"), "value": ""},
-        {"label": qsTr("White"), "value": "W"},
-        {"label": qsTr("Blue"), "value": "U"},
-        {"label": qsTr("Black"), "value": "B"},
-        {"label": qsTr("Red"), "value": "R"},
-        {"label": qsTr("Green"), "value": "G"},
-        {"label": qsTr("Multicolor"), "value": "M"},
-        {"label": qsTr("Colorless"), "value": "C"}
-    ]
-    readonly property var rarityOptions: [
-        {"label": qsTr("All rarities"), "value": ""},
-        {"label": qsTr("Common"), "value": "common"},
-        {"label": qsTr("Uncommon"), "value": "uncommon"},
-        {"label": qsTr("Rare"), "value": "rare"},
-        {"label": qsTr("Mythic"), "value": "mythic"}
-    ]
+    property string manaFilter: ""
+    property int targetIndex: 0
+    readonly property bool filtersActive: filterState.activeCount > 0
+        || setFilter.trim().length > 0 || languageFilter.length > 0 || legalityFilter.length > 0
+    readonly property bool hasSearchCriteria: query.trim().length > 0 || filtersActive
+    readonly property var deckCards: !deckLibraryModel ? []
+        : considerOnly ? (deckLibraryModel.considerCards || [])
+        : targetIndex === 1 && allowSideboard ? (deckLibraryModel.sideboardCards || [])
+        : (deckLibraryModel.mainCards || [])
     readonly property var legalityOptions: [
         {"label": qsTr("Any format"), "value": ""},
         {"label": qsTr("Standard legal"), "value": "standard"},
@@ -87,457 +58,283 @@ Popup {
         {"label": qsTr("Gladiator legal"), "value": "gladiator"},
         {"label": qsTr("TLR legal"), "value": "tlr"}
     ]
+
     signal searchRequested(string query, string typeFilter, string setFilter,
-                           string languageFilter, string colorFilter,
-                           string rarityFilter, string legalityFilter)
+                           string languageFilter, string colorFilter, string rarityFilter,
+                           string legalityFilter, string manaFilter)
     signal addRequested(var card, bool sideboard)
 
     parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
-    width: Math.min(Theme.size(960), parent.width - Theme.size(48))
-    height: Math.min(Theme.size(720), parent.height - Theme.size(56))
-    padding: Theme.size(24)
+    x: Theme.size(12)
+    y: Theme.size(12)
+    width: parent ? parent.width - Theme.size(24) : Theme.size(1000)
+    height: parent ? parent.height - Theme.size(24) : Theme.size(700)
+    padding: Theme.size(16)
     modal: true
     focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
+    closePolicy: Popup.CloseOnEscape
     background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
+        color: Theme.backgroundRaised
         border.color: Theme.borderStrong
+        radius: Theme.radiusMedium
     }
-
+    CardFilterState {
+        id: filterState
+        onQueryChanged: root.scheduleSearch()
+        onTypesChanged: root.typeFilter = types.join(",")
+        onColorsChanged: root.colorFilter = colors.join(",")
+        onRaritiesChanged: root.rarityFilter = rarities.join(",")
+        onManaValuesChanged: root.manaFilter = manaValues.join(",")
+    }
     contentItem: ColumnLayout {
-        spacing: Theme.size(14)
-
+        spacing: Theme.size(12)
         RowLayout {
             Layout.fillWidth: true
-            spacing: Theme.size(12)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Card search")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Search by English or Chinese card name.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(12)
-                }
-            }
-
-            ActivityRing {
-                visible: root.searching
-                Layout.preferredWidth: Theme.size(18)
-                Layout.preferredHeight: Theme.size(18)
-            }
-
             Text {
                 textFormat: Text.PlainText
-                visible: root.hasSearchCriteria && !root.searching
-                text: I18n.count("result", root.results.length)
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(11)
+                Layout.fillWidth: true
+                text: qsTr("Card search")
+                font.pixelSize: Theme.fontSize(22)
+                font.bold: true
+                color: Theme.text
             }
-
+            Text {
+                textFormat: Text.PlainText
+                text: root.searching ? qsTr("Searching cards…") : I18n.count("result", root.results.length)
+                color: Theme.textMuted
+            }
             AppButton {
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTr("Close")
-                Layout.preferredWidth: Theme.size(40)
+                text: qsTr("Done")
                 onClicked: root.close()
             }
         }
-
-        AppTextField {
-            id: searchField
-            objectName: "cardSearchField"
-            Layout.fillWidth: true
-            implicitHeight: Theme.size(46)
-            placeholderText: qsTr("Search English or Chinese names…")
-            onTextChanged: {
-                if (root.opened)
-                    searchTimer.restart()
-            }
-            onAccepted: root.searchNow()
-        }
-
         GridLayout {
             Layout.fillWidth: true
-            columns: 3
-            columnSpacing: Theme.size(10)
-            rowSpacing: Theme.size(8)
-            enabled: root.filtersAvailable
-
-            AppComboBox {
-                id: typeFilterBox
-                objectName: "cardSearchTypeFilter"
-                Layout.fillWidth: true
-                model: root.typeOptions
-                textRole: "label"
-                valueRole: "value"
-                currentIndex: root.optionIndex(root.typeOptions, root.typeFilter)
-                onActivated: index => root.typeFilter =
-                             root.typeOptions[index].value
-            }
-
-            AppTextField {
-                id: setCodeField
-                objectName: "cardSearchSetFilter"
-                Layout.fillWidth: true
-                placeholderText: qsTr("Set code")
-                maximumLength: 12
-                onTextChanged: {
-                    if (root.opened)
-                        searchTimer.restart()
-                }
-                onAccepted: root.searchNow()
-            }
-
-            AppComboBox {
-                id: languageFilterBox
-                objectName: "cardSearchLanguageFilter"
-                Layout.fillWidth: true
-                model: root.languageOptions
-                textRole: "label"
-                valueRole: "value"
-                currentIndex: root.optionIndex(root.languageOptions,
-                                               root.languageFilter)
-                onActivated: index => root.languageFilter =
-                             root.languageOptions[index].value
-            }
-
-            AppComboBox {
-                id: colorFilterBox
-                objectName: "cardSearchColorFilter"
-                Layout.fillWidth: true
-                model: root.colorOptions
-                textRole: "label"
-                valueRole: "value"
-                currentIndex: root.optionIndex(root.colorOptions, root.colorFilter)
-                onActivated: index => root.colorFilter =
-                             root.colorOptions[index].value
-            }
-
-            AppComboBox {
-                id: rarityFilterBox
-                objectName: "cardSearchRarityFilter"
-                Layout.fillWidth: true
-                model: root.rarityOptions
-                textRole: "label"
-                valueRole: "value"
-                currentIndex: root.optionIndex(root.rarityOptions,
-                                               root.rarityFilter)
-                onActivated: index => root.rarityFilter =
-                             root.rarityOptions[index].value
-            }
-
-            AppComboBox {
-                id: legalityFilterBox
-                objectName: "cardSearchLegalityFilter"
-                Layout.fillWidth: true
-                model: root.legalityOptions
-                textRole: "label"
-                valueRole: "value"
-                currentIndex: root.optionIndex(root.legalityOptions,
-                                               root.legalityFilter)
-                onActivated: index => root.legalityFilter =
-                             root.legalityOptions[index].value
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.size(10)
-
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: root.filtersAvailable
-                      ? qsTr("Filters narrow database results only; deck legality is not enforced.")
-                      : qsTr("Update the local card database to use search filters.")
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(10)
-                wrapMode: Text.WordWrap
-            }
-
-            AppButton {
-                objectName: "cardSearchResetFilters"
-                compact: true
-                variant: "ghost"
-                text: qsTr("Reset filters")
-                enabled: root.filtersActive
-                onClicked: root.resetFilters()
-            }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 1
-            color: Theme.divider
-        }
-
-        Item {
-            Layout.fillWidth: true
             Layout.fillHeight: true
-
-            ListView {
-                id: resultList
-                objectName: "cardSearchResults"
-                anchors.fill: parent
-                visible: root.hasSearchCriteria && !root.searching
-                         && root.results.length > 0
-                model: root.results
-                spacing: Theme.size(7)
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                delegate: Surface {
-                    id: searchResultDelegate
-                    required property var modelData
-                    property bool canIncrement: !root.deckLibraryModel
-                                                || root.deckLibraryModel.canAddCard(
-                                                    modelData.name,
-                                                    modelData.typeLine)
-
-                    width: ListView.view.width
-                    height: Theme.size(72)
-                    radius: Theme.radiusMedium
-                    color: Theme.surfaceMuted
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: Theme.size(14)
-                        anchors.rightMargin: Theme.size(10)
-                        spacing: Theme.size(12)
-
-                        Rectangle {
-                            Layout.preferredWidth: Theme.size(76)
-                            Layout.preferredHeight: Theme.size(40)
-                            radius: Theme.radiusSmall
-                            color: Theme.surfaceElevated
-                            border.width: 1
-                            border.color: Theme.borderStrong
-
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: Theme.size(1)
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: searchResultDelegate.modelData.setCode
-                                    color: Theme.primary
-                                    font.pixelSize: Theme.fontSize(12)
-                                    font.weight: Font.Bold
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "#" + searchResultDelegate.modelData.collectorNumber
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(9)
-                                }
-                            }
-                        }
-
+            Layout.minimumHeight: 0
+            columns: root.width < Theme.size(660) ? 1 : 2
+            columnSpacing: Theme.size(16)
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumWidth: 0
+                Layout.minimumHeight: 0
+                CardFilterBar {
+                    id: filterBar
+                    Layout.fillWidth: true
+                    filters: filterState
+                    filtersAvailable: root.filtersAvailable
+                    onResetRequested: root.resetFilters()
+                    placeholderText: qsTr("Search English or Chinese names…")
+                    extraFilters: Component {
                         ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(3)
-
                             Text {
                                 textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: searchResultDelegate.modelData.displayName
+                                text: qsTr("Printing and format")
                                 color: Theme.text
-                                font.pixelSize: Theme.fontSize(14)
-                                font.weight: Font.Medium
-                                elide: Text.ElideRight
+                                font.pixelSize: Theme.fontSize(17)
                             }
-
+                            AppTextField {
+                                objectName: "cardSearchSetFilter"
+                                Layout.fillWidth: true
+                                placeholderText: qsTr("Set code")
+                                text: root.setFilter
+                                maximumLength: 12
+                                onTextEdited: root.setFilter = text
+                            }
+                            AppComboBox {
+                                objectName: "cardSearchLanguageFilter"
+                                Layout.fillWidth: true
+                                model: [qsTr("All printings"), qsTr("English printings"), qsTr("Chinese printings")]
+                                currentIndex: ["", "en", "zhs"].indexOf(root.languageFilter)
+                                onActivated: index => root.languageFilter = ["", "en", "zhs"][index]
+                            }
+                            AppComboBox {
+                                objectName: "cardSearchLegalityFilter"
+                                Layout.fillWidth: true
+                                model: root.legalityOptions
+                                textRole: "label"
+                                valueRole: "value"
+                                currentIndex: root.optionIndex(root.legalityOptions, root.legalityFilter)
+                                onActivated: index => root.legalityFilter = root.legalityOptions[index].value
+                            }
                             Text {
                                 textFormat: Text.PlainText
                                 Layout.fillWidth: true
-                                text: searchResultDelegate.modelData.displayName
-                                      !== searchResultDelegate.modelData.name
-                                      ? searchResultDelegate.modelData.name + " · "
-                                        + searchResultDelegate.modelData.typeLine
-                                      : searchResultDelegate.modelData.typeLine
+                                text: qsTr("Filters narrow database results only; deck legality is not enforced.")
                                 color: Theme.textMuted
-                                font.pixelSize: Theme.fontSize(10)
-                                elide: Text.ElideRight
+                                wrapMode: Text.WordWrap
                             }
                         }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            visible: searchResultDelegate.modelData.versionCount > 1
-                            text: I18n.count("printing",
-                                             searchResultDelegate.modelData.versionCount)
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(10)
-                        }
-
-                        AppButton {
-                            compact: true
-                            variant: "primary"
-                            text: root.considerOnly ? qsTr("+ Consider") : qsTr("+ Main")
-                            Layout.preferredWidth: Theme.size(82)
-                            enabled: searchResultDelegate.canIncrement
-                            onClicked: root.addRequested(searchResultDelegate.modelData, false)
-                        }
-
-                        AppButton {
-                            visible: root.allowSideboard && !root.considerOnly
-                            compact: true
-                            text: qsTr("+ Side")
-                            Layout.preferredWidth: Theme.size(78)
-                            enabled: searchResultDelegate.canIncrement
-                            onClicked: root.addRequested(searchResultDelegate.modelData, true)
-                        }
-                    }
-
-                    Connections {
-                        target: root.deckLibraryModel
-
-                        function onCurrentDeckChanged() {
-                            searchResultDelegate.canIncrement =
-                                !root.deckLibraryModel
-                                || root.deckLibraryModel.canAddCard(
-                                    searchResultDelegate.modelData.name,
-                                    searchResultDelegate.modelData.typeLine)
-                        }
                     }
                 }
-            }
-
-            Column {
-                anchors.centerIn: parent
-                width: Math.min(parent.width, Theme.size(440))
-                spacing: Theme.size(8)
-                visible: !root.hasSearchCriteria
-
                 Text {
                     textFormat: Text.PlainText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "⌕"
-                    color: Theme.borderStrong
-                    font.pixelSize: Theme.fontSize(38)
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    width: parent.width
-                    text: qsTr("Type a card name or choose filters to see search results.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(13)
-                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                    text: root.filtersAvailable ? qsTr("Click a card to add one copy to the selected section.")
+                         : qsTr("Update the local card database to use search filters.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSize(11)
                     wrapMode: Text.WordWrap
                 }
-            }
-
-            Column {
-                anchors.centerIn: parent
-                spacing: Theme.size(10)
-                visible: root.searching && root.hasSearchCriteria
-
-                ActivityRing {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Theme.size(26)
-                    height: Theme.size(26)
+                CardArtGrid {
+                    id: resultGrid
+                    objectName: "cardSearchResults"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 0
+                    cards: root.hasSearchCriteria && !root.searching ? root.results : []
+                    catalogModel: root.catalogModel
+                    preferredCardWidth: Math.max(Theme.size(150),
+                        Math.min(Theme.size(230), width / 5 - Theme.size(16)))
+                    emptyText: root.searching ? qsTr("Searching cards…")
+                        : !root.hasSearchCriteria ? qsTr("Type a card name or choose filters to see search results.")
+                        : qsTr("No matching cards")
+                    onCardActivated: card => {
+                        if (!root.deckLibraryModel || root.deckLibraryModel.canAddCard(card.name, card.typeLine))
+                            root.addRequested(card, root.allowSideboard && root.targetIndex === 1)
+                    }
+                    onCardInspected: (card, item) => preview.inspect(card, item)
+                    onCardInspectionEnded: item => preview.hide(item)
+                    onMovingChanged: if (moving) preview.hide()
                 }
-
-                Text {
-                    textFormat: Text.PlainText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Searching cards…")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(12)
-                }
             }
-
-            Text {
-                textFormat: Text.PlainText
-                anchors.centerIn: parent
-                visible: root.hasSearchCriteria && !root.searching
-                         && root.results.length === 0
-                text: qsTr("No matching cards")
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(12)
+            Surface {
+                visible: !!root.deckLibraryModel
+                Layout.fillWidth: root.width < Theme.size(660)
+                Layout.preferredWidth: Theme.size(310)
+                Layout.maximumWidth: root.width < Theme.size(660) ? root.width : Theme.size(350)
+                Layout.fillHeight: true
+                Layout.minimumHeight: 0
+                Layout.preferredHeight: root.width < Theme.size(660) ? Theme.size(220) : -1
+                color: Theme.surfaceMuted
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(10)
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: root.considerOnly ? qsTr("Consider")
+                                : root.deckLibraryModel ? (root.deckLibraryModel.currentDeckName || qsTr("Main deck")) : ""
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSize(18)
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+                        CardManaCurve { cards: root.deckCards }
+                    }
+                    Text {
+                        textFormat: Text.PlainText
+                        text: qsTr("%1 cards").arg(root.deckCards.reduce((sum, card) => sum + Number(card.count || 1), 0))
+                        color: Theme.accent
+                    }
+                    SegmentedControl {
+                        visible: root.allowSideboard && !root.considerOnly
+                        Layout.fillWidth: true
+                        options: [qsTr("Main deck"), qsTr("Sideboard")]
+                        currentIndex: root.targetIndex
+                        onActivated: index => root.targetIndex = index
+                    }
+                    CompactCardList {
+                        objectName: "cardSearchDeckList"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 0
+                        cards: root.deckCards
+                        onCardActivated: card => {
+                            if (!root.deckLibraryModel) return
+                            if (root.considerOnly)
+                                root.deckLibraryModel.changeConsiderCardCount(card.name, card.setCode, card.collectorNumber, -1)
+                            else root.deckLibraryModel.changeCardCount(card.name, card.setCode, card.collectorNumber,
+                                                                      root.allowSideboard && root.targetIndex === 1, -1)
+                        }
+                        onCardInspected: (card, item) => preview.inspect(card, item)
+                        onCardInspectionEnded: item => preview.hide(item)
+                        onMovingChanged: if (moving) preview.hide()
+                    }
+                    CardMetadataNotice {
+                        Layout.fillWidth: true
+                        cards: root.deckCards
+                    }
+                    AppButton {
+                        Layout.fillWidth: true
+                        text: qsTr("Done")
+                        variant: "primary"
+                        onClicked: root.close()
+                    }
+                }
             }
         }
     }
-
+    Item {
+        parent: root.contentItem ? root.contentItem.parent : null
+        anchors.fill: parent
+        anchors.margins: Theme.size(12)
+        visible: root.opened
+        enabled: false
+        z: 1000
+        // Hover art is not part of the search/deck ColumnLayout.
+        CardHoverPreview {
+            id: preview
+            catalogModel: root.catalogModel
+        }
+    }
     Timer {
         id: searchTimer
         interval: 220
         onTriggered: root.searchNow()
     }
-
-    onTypeFilterChanged: scheduleSearch()
+    onTypeFilterChanged: {
+        if (filterState.types.join(",") !== typeFilter) filterState.types = typeFilter ? typeFilter.split(",") : []
+        scheduleSearch()
+    }
+    onColorFilterChanged: {
+        if (filterState.colors.join(",") !== colorFilter) filterState.colors = colorFilter ? colorFilter.split(",") : []
+        scheduleSearch()
+    }
+    onRarityFilterChanged: {
+        if (filterState.rarities.join(",") !== rarityFilter) filterState.rarities = rarityFilter ? rarityFilter.split(",") : []
+        scheduleSearch()
+    }
+    onManaFilterChanged: {
+        if (filterState.manaValues.join(",") !== manaFilter) filterState.manaValues = manaFilter ? manaFilter.split(",") : []
+        scheduleSearch()
+    }
+    onSetFilterChanged: scheduleSearch()
     onLanguageFilterChanged: scheduleSearch()
-    onColorFilterChanged: scheduleSearch()
-    onRarityFilterChanged: scheduleSearch()
     onLegalityFilterChanged: scheduleSearch()
-
+    onResultsChanged: {
+        preview.hide()
+        if (opened && catalogModel && typeof catalogModel.cacheCardsIncrementally === "function")
+            catalogModel.cacheCardsIncrementally(results)
+    }
     onOpened: {
-        if (!filtersAvailable)
-            resetFilters()
-        searchField.forceActiveFocus()
-        searchField.selectAll()
+        targetIndex = 0
+        if (!filtersAvailable) resetFilters()
+        filterBar.focusSearch()
         searchTimer.restart()
     }
-
-    onClosed: searchTimer.stop()
-
-    function openSearch() {
-        open()
+    onClosed: {
+        searchTimer.stop()
+        preview.hide()
     }
-
-    function optionIndex(options, value) {
-        for (let index = 0; index < options.length; ++index) {
-            if (options[index].value === value)
-                return index
-        }
-        return 0
-    }
-
-    function scheduleSearch() {
-        if (opened)
-            searchTimer.restart()
-    }
-
+    function openSearch() { open() }
+    function scheduleSearch() { if (opened) searchTimer.restart() }
     function searchNow() {
         searchTimer.stop()
-        searchRequested(searchField.text.trim(), typeFilter,
-                        setFilter.trim(), languageFilter, colorFilter,
-                        rarityFilter, legalityFilter)
+        searchRequested(query.trim(), typeFilter, setFilter.trim(), languageFilter,
+                        colorFilter, rarityFilter, legalityFilter, manaFilter)
     }
-
     function resetFilters() {
-        typeFilter = ""
-        setFilter = ""
-        languageFilter = ""
-        colorFilter = ""
-        rarityFilter = ""
-        legalityFilter = ""
+        filterState.reset()
+        setFilter = ""; languageFilter = ""; legalityFilter = ""
         scheduleSearch()
+    }
+    function optionIndex(options, value) {
+        for (let index = 0; index < options.length; ++index)
+            if (options[index].value === value) return index
+        return 0
     }
 }

@@ -154,115 +154,134 @@ Popup {
             }
         }
 
-        RowLayout {
+        ScrollView {
+            id: detailsScroll
+            objectName: "landPlayDetailsScroll"
             Layout.fillWidth: true
-            spacing: Theme.size(18)
-
-            Surface {
-                Layout.preferredWidth: Theme.size(126)
-                Layout.preferredHeight: Theme.size(176)
-                color: Theme.surfaceMuted
-
-                Image {
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(5)
-                    source: root.cardCatalogModel
-                            && (root.cardCatalogModel.imageRevision
-                                === undefined
-                                || root.cardCatalogModel.imageRevision >= 0)
-                            && root.card.name
-                            ? root.cardCatalogModel.imageSource(
-                                  root.selectedFaceName.length > 0
-                                  ? root.selectedFaceName : root.card.name,
-                                  root.card.setCode ? root.card.setCode : "",
-                                  root.card.collectorNumber
-                                  ? root.card.collectorNumber : "")
-                            : ""
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    smooth: true
-                }
-            }
+            Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            implicitHeight: detailsColumn.implicitHeight
+            contentWidth: availableWidth
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(10)
+                id: detailsColumn
+                width: detailsScroll.availableWidth
+                spacing: Theme.size(16)
 
-                Text {
-                    textFormat: Text.PlainText
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Recorded this turn: %1").arg(root.recordedCount)
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(13)
-                    font.weight: Font.DemiBold
-                }
+                    spacing: Theme.size(18)
 
-                AppComboBox {
-                    id: facePicker
-                    objectName: "landPlayFacePicker"
-                    Layout.fillWidth: true
-                    visible: root.faces.length > 1
-                    model: root.faces
-                    textRole: "displayName"
-                }
+                    Surface {
+                        Layout.preferredWidth: Theme.size(126)
+                        Layout.preferredHeight: Theme.size(176)
+                        color: Theme.surfaceMuted
 
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: root.selectedTypeLine
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(11)
-                    wrapMode: Text.Wrap
-                }
-
-                Surface {
-                    Layout.fillWidth: true
-                    visible: root.warnings.length > 0
-                    implicitHeight: warningColumn.implicitHeight + Theme.size(20)
-                    color: Qt.rgba(Theme.warning.r, Theme.warning.g,
-                                   Theme.warning.b, 0.14)
-                    border.color: Theme.warning
+                        Image {
+                            anchors.fill: parent
+                            anchors.margins: Theme.size(5)
+                            source: root.cardCatalogModel
+                                    && (root.cardCatalogModel.imageRevision
+                                        === undefined
+                                        || root.cardCatalogModel.imageRevision >= 0)
+                                    && root.card.name
+                                    ? root.cardCatalogModel.imageSource(
+                                          root.selectedFaceName.length > 0
+                                          ? root.selectedFaceName : root.card.name,
+                                          root.card.setCode ? root.card.setCode : "",
+                                          root.card.collectorNumber
+                                          ? root.card.collectorNumber : "")
+                                    : ""
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            smooth: true
+                        }
+                    }
 
                     ColumnLayout {
-                        id: warningColumn
-                        anchors.fill: parent
-                        anchors.margins: Theme.size(10)
-                        spacing: Theme.size(5)
+                        Layout.fillWidth: true
+                        spacing: Theme.size(10)
 
                         Text {
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
-                            text: qsTr("Check before continuing")
-                            color: Theme.warning
-                            font.pixelSize: Theme.fontSize(11)
+                            text: qsTr("Recorded this turn: %1").arg(root.recordedCount)
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSize(13)
                             font.weight: Font.DemiBold
                         }
 
-                        Repeater {
-                            model: root.warnings
+                        AppComboBox {
+                            id: facePicker
+                            objectName: "landPlayFacePicker"
+                            Layout.fillWidth: true
+                            visible: root.faces.length > 1
+                            model: root.faces
+                            textRole: "displayName"
+                        }
 
-                            delegate: Text {
-                                textFormat: Text.PlainText
-                                required property string modelData
-                                Layout.fillWidth: true
-                                text: "• " + modelData
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(10)
-                                wrapMode: Text.Wrap
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: root.selectedTypeLine
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(11)
+                            wrapMode: Text.Wrap
+                        }
+
+                        Surface {
+                            Layout.fillWidth: true
+                            visible: root.warnings.length > 0
+                            implicitHeight: warningColumn.implicitHeight + Theme.size(20)
+                            color: Qt.rgba(Theme.warning.r, Theme.warning.g,
+                                           Theme.warning.b, 0.14)
+                            border.color: Theme.warning
+
+                            ColumnLayout {
+                                id: warningColumn
+                                anchors.fill: parent
+                                anchors.margins: Theme.size(10)
+                                spacing: Theme.size(5)
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    text: qsTr("Check before continuing")
+                                    color: Theme.warning
+                                    font.pixelSize: Theme.fontSize(11)
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Repeater {
+                                    model: root.warnings
+
+                                    delegate: Text {
+                                        textFormat: Text.PlainText
+                                        required property string modelData
+                                        Layout.fillWidth: true
+                                        text: "• " + modelData
+                                        color: Theme.text
+                                        font.pixelSize: Theme.fontSize(10)
+                                        wrapMode: Text.Wrap
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("This helper records the move and count only; it does not enforce card rules.")
-            color: Theme.textMuted
-            font.pixelSize: Theme.fontSize(10)
-            wrapMode: Text.Wrap
+                Text {
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    text: qsTr("This helper records the move and count only; it does not enforce card rules.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSize(10)
+                    wrapMode: Text.Wrap
+                }
+
+            }
         }
 
         RowLayout {

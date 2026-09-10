@@ -28,19 +28,13 @@ if [[ -d "${target_dir}" ]] &&
     printf 'Output directory must be empty: %s\n' "${target_dir}" >&2
     exit 2
 fi
-if [[ -n "$(git -C "${repo_root}" status --short)" ]]; then
-    printf 'Commit or stash private working-tree changes before exporting.\n' >&2
-    exit 1
-fi
-
-mkdir -p "${target_dir}"
-
 public_paths=(
     .github
     .clang-format
     .gitignore
     LICENSE
     README.md
+    CHANGELOG.md
     THIRD-PARTY-NOTICES.md
     apps
     docs/rules-engine.md
@@ -50,10 +44,19 @@ public_paths=(
     third_party
     tools
 )
+public_paths+=(':(exclude)tools/tests/test_deploy_script.py')
+
+# The archive reads HEAD, not the working tree. Only changes to exported paths
+# can make that snapshot unexpectedly stale; private notes/images are unrelated.
+if [[ -n "$(git -C "${repo_root}" status --short --untracked-files=all -- "${public_paths[@]}")" ]]; then
+    printf 'Exported paths have uncommitted changes; commit them before exporting HEAD.\n' >&2
+    exit 1
+fi
+
+mkdir -p "${target_dir}"
 
 git -C "${repo_root}" archive --format=tar HEAD -- \
-    "${public_paths[@]}" \
-    ':(exclude)tools/tests/test_deploy_script.py' |
+    "${public_paths[@]}" |
     tar -xf - -C "${target_dir}"
 
 printf 'Exported public source from %s to %s\n' \

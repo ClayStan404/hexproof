@@ -133,10 +133,20 @@ func fixturePayloadForType(messageType string) any {
 		return &TournamentMatchOpened{}
 	case TypeTournamentSnapshot:
 		return &TournamentSnapshot{}
+	case TypeTournamentChatSend:
+		return &TournamentChatSend{}
+	case TypeTournamentChatMessage:
+		return &TournamentChatMessage{}
+	case TypeTournamentChatHistory:
+		return &TournamentChatHistory{}
 	case TypeLimitedCreateCasualMatch:
 		return &LimitedCreateCasualMatch{}
-	case TypeLimitedCasualMatchCreated:
+	case TypeLimitedCasualMatchCreated, TypeLimitedDraftControlSet, TypeLimitedParticipationSet:
 		return &TournamentChanged{}
+	case TypeLimitedSetDraftControl:
+		return &LimitedSetDraftControl{}
+	case TypeLimitedSetParticipation:
+		return &LimitedSetParticipation{}
 	case TypeLimitedPick:
 		return &LimitedPick{}
 	case TypeLimitedPicked:
@@ -147,6 +157,8 @@ func fixturePayloadForType(messageType string) any {
 		return &LimitedDeckSubmitted{}
 	case TypeLimitedSnapshot:
 		return &LimitedSnapshot{}
+	case TypeLimitedProgress:
+		return &LimitedProgress{}
 	case TypeDeckSelect:
 		return &DeckSelect{}
 	case TypeDeckSelected:
@@ -315,6 +327,14 @@ func fixturePayloadForType(messageType string) any {
 		return &GameSaid{}
 	case TypeGameCreateToken:
 		return &GameCreateToken{}
+	case TypeGameCreateEmblem:
+		return &GameCreateEmblem{}
+	case TypeGameEmblemCreated:
+		return &GameEmblemCreated{}
+	case TypeGameRemoveEmblem:
+		return &GameRemoveEmblem{}
+	case TypeGameEmblemRemoved:
+		return &GameEmblemRemoved{}
 	case TypeGameTokenCreated:
 		return &GameTokenCreated{}
 	case TypeGameAdjustCommanderTax:

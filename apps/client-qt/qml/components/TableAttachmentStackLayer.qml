@@ -23,8 +23,10 @@ Item {
                 root.tableController.battlefieldCardPoints[modelData.targetCardId]
             objectName: "attachmentOverlay" + modelData.sourceCardId
             visible: !!targetPoint
-            width: root.tableController.battlefieldCardWidth
-            height: root.tableController.battlefieldCardHeight
+            width: targetPoint ? targetPoint.width
+                               : root.tableController.battlefieldCardWidth
+            height: targetPoint ? targetPoint.height
+                                : root.tableController.battlefieldCardHeight
             x: targetPoint
                ? targetPoint.x - width / 2
                  + modelData.stackIndex * Theme.size(14)

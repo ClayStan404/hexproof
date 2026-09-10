@@ -8,6 +8,11 @@ import "../../qml/components"
 TestCase {
     name: "TableZoneStateController"
 
+    property int battlefieldMaterializations: 0
+    property var observedBattlefieldCards: observeBattlefieldCards()
+    signal battlefieldMaterialized()
+    onBattlefieldMaterialized: ++battlefieldMaterializations
+
     QtObject {
         id: optimisticModel
 
@@ -55,6 +60,11 @@ TestCase {
         tableRoot: fakeTable
     }
 
+    function observeBattlefieldCards() {
+        battlefieldMaterialized()
+        return controller.zoneCardsForSeat(0, "battlefield")
+    }
+
     function init() {
         optimisticModel.removed = []
         fakeTable.pendingCardMoves = ({})
@@ -91,6 +101,57 @@ TestCase {
         compare(controller.visibleZoneSeatForCard(
                     "graveyard-1", "graveyard"), 1)
         compare(controller.revealedCardsForSeat(0).length, 1)
+    }
+
+    function test_metadataOnlySnapshotDoesNotRematerializeZoneArray() {
+        wait(0)
+        battlefieldMaterializations = 0
+
+        testGameTable.applySnapshot({
+            "seats": [{
+                "seat": 0,
+                "life": 19,
+                "hand": [{"id": "hand-1", "ownerSeat": 0}],
+                "battlefield": [{"id": "battlefield-1", "ownerSeat": 0}],
+                "graveyard": [],
+                "exile": [],
+                "commandZone": []
+            }, {
+                "seat": 1,
+                "hand": [],
+                "battlefield": [],
+                "graveyard": [{"id": "graveyard-1", "ownerSeat": 1}],
+                "exile": [],
+                "commandZone": []
+            }],
+            "stack": [{"id": "stack-1", "ownerSeat": 1}],
+            "revealed": [{"id": "reveal-1", "ownerSeat": 0}]
+        })
+        wait(0)
+        compare(battlefieldMaterializations, 0)
+
+        const zoneChanged = JSON.parse(JSON.stringify(testGameTable.seats))
+        zoneChanged[0].hand = [{"id": "hand-1", "ownerSeat": 0}]
+        zoneChanged[0].battlefield = [
+            {"id": "battlefield-1", "ownerSeat": 0},
+            {"id": "battlefield-2", "ownerSeat": 0}
+        ]
+        zoneChanged[0].graveyard = []
+        zoneChanged[0].exile = []
+        zoneChanged[0].commandZone = []
+        zoneChanged[1].hand = []
+        zoneChanged[1].battlefield = []
+        zoneChanged[1].graveyard = [{"id": "graveyard-1", "ownerSeat": 1}]
+        zoneChanged[1].exile = []
+        zoneChanged[1].commandZone = []
+        testGameTable.applySnapshot({
+            "seats": zoneChanged,
+            "stack": [{"id": "stack-1", "ownerSeat": 1}],
+            "revealed": [{"id": "reveal-1", "ownerSeat": 0}]
+        })
+
+        tryVerify(() => battlefieldMaterializations > 0)
+        compare(observedBattlefieldCards.length, 2)
     }
 
     function test_pendingMovesOverlayAndReconcile() {

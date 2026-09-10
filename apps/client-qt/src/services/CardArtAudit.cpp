@@ -80,6 +80,8 @@ bool reusableRecord(const CardRequest &request, const CardRecord &record, const 
                     bool reuseLocalArt)
 {
     return record.valid() && record.resolutionVersion >= kCardResolutionVersion &&
+           (!request.supportCard || request.language != QStringLiteral("zh") ||
+            record.localizedRulesChecked) &&
            (!record.reusesLocalArt || request.allowsSubstituteArt(reuseLocalArt)) &&
            !managedFilePath(imageRoot, record.imagePath).isEmpty();
 }
@@ -116,8 +118,8 @@ QVariantMap AuditResult::summary() const
 }
 
 AuditResult auditDeckArt(const QString &databasePath, const QString &imageRoot,
-                         const QString &language, bool reuseLocalArt, const QVariantList &cards,
-                         const QList<CardArtCacheEntry> &entries)
+                         const QString &preferredLanguage, bool reuseLocalArt,
+                         const QVariantList &cards, const QList<CardArtCacheEntry> &entries)
 {
     AuditResult result;
     CatalogRepository repository(databasePath);
@@ -142,15 +144,17 @@ AuditResult auditDeckArt(const QString &databasePath, const QString &imageRoot,
     QSet<QString> seenRequests;
     for (const QVariant &value : cards) {
         const QVariantMap map = value.toMap();
+        const bool supportCard = isSupportCardRequest(map);
+        const QString language = preferredLanguage;
         const QString name = map.value(QStringLiteral("name")).toString().simplified();
         const QString setCode = map.value(QStringLiteral("setCode")).toString().toUpper();
         const QString collectorNumber = map.value(QStringLiteral("collectorNumber")).toString();
-        const QString baseKey =
-            normalizedCardName(name) + QChar(0x1f) + setCode + QChar(0x1f) + collectorNumber;
+        const QString baseKey = language + QChar(0x1f) + normalizedCardName(name) + QChar(0x1f) +
+                                setCode + QChar(0x1f) + collectorNumber;
         if (name.isEmpty() || seenPrintings.contains(baseKey))
             continue;
         seenPrintings.insert(baseKey);
-        if (!setCode.isEmpty() && !collectorNumber.isEmpty() &&
+        if (!supportCard && !setCode.isEmpty() && !collectorNumber.isEmpty() &&
             !recordsByPrinting.contains(printingKey(language, setCode, collectorNumber)) &&
             !recordsByKey.contains(cacheKey(name, language, setCode, collectorNumber))) {
             continue;
@@ -179,7 +183,7 @@ AuditResult auditDeckArt(const QString &databasePath, const QString &imageRoot,
         }
 
         const QString resolvedName = canonicalName.isEmpty() ? name : canonicalName;
-        if (faces.size() < 2 && !resolvedName.contains(QStringLiteral(" // ")))
+        if (!supportCard && faces.size() < 2 && !resolvedName.contains(QStringLiteral(" // ")))
             continue;
 
         QList<CardArtCacheEntry> printingCandidates;
@@ -197,7 +201,7 @@ AuditResult auditDeckArt(const QString &databasePath, const QString &imageRoot,
             if (recordsByKey.contains(faceKey))
                 printingCandidates.append({faceKey, recordsByKey.value(faceKey)});
         }
-        if (printingCandidates.isEmpty())
+        if (!supportCard && printingCandidates.isEmpty())
             continue;
         ++result.printingCount;
 
@@ -209,6 +213,7 @@ AuditResult auditDeckArt(const QString &databasePath, const QString &imageRoot,
                 collectorNumber,
                 language,
             };
+            request.supportCard = supportCard;
             if (request.name.isEmpty())
                 continue;
             const QString desiredKey = cacheKey(request.name, language, setCode, collectorNumber);
@@ -276,7 +281,10 @@ AuditResult auditDeckArt(const QString &databasePath, const QString &imageRoot,
                 continue;
             }
 
-            result.missingRequests.append(requestMap(request));
+            QVariantMap missing = requestMap(request);
+            if (supportCard)
+                missing.insert(QStringLiteral("kind"), map.value(QStringLiteral("kind")));
+            result.missingRequests.append(missing);
             ++result.missingFaceCount;
         }
     }

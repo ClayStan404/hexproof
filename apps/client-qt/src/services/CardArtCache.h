@@ -6,10 +6,16 @@
 #include "CatalogTypes.h"
 
 #include <QDateTime>
+#include <QFutureWatcher>
 #include <QHash>
 #include <QList>
+#include <QMutex>
 #include <QSet>
 #include <QString>
+#include <QStringList>
+
+#include <functional>
+#include <memory>
 
 namespace hexproof::client {
 
@@ -22,13 +28,25 @@ struct CardArtCacheEntry
 class CardArtCache
 {
   public:
-    explicit CardArtCache(const QString &storageRoot);
+    explicit CardArtCache(const QString &storageRoot, const QString &imageRoot = {},
+                          const QStringList &previousImageRoots = {}, bool writable = true);
+    ~CardArtCache();
 
     void load();
     bool save();
+    void saveAsync();
+    std::function<void(bool)> onSaveFinished;
     bool dirty() const
     {
         return m_dirty;
+    }
+    bool writable() const
+    {
+        return m_writable;
+    }
+    void setWritable(bool writable)
+    {
+        m_writable = writable;
     }
     int faceAuditVersion() const
     {
@@ -54,6 +72,7 @@ class CardArtCache
     CardRecord exactRecord(const QString &key) const;
     bool matchesRequestedFace(const CardRequest &request, const CardRecord &record) const;
     CardRecord resolvedPrinting(const CardRequest &request) const;
+    CardRecord resolvedPrintingMetadata(const CardRequest &request) const;
     CardRecord reusableArt(const CardRequest &request, const CardRecord &catalogIdentity) const;
     CardRecord substituteRecord(const CardRequest &request, const CardRecord &catalogIdentity,
                                 const CardRecord &cachedArt) const;
@@ -77,12 +96,31 @@ class CardArtCache
     void replaceEntries(const QList<CardArtCacheEntry> &entries);
 
   private:
+    struct SaveState
+    {
+        QMutex mutex;
+        quint64 committedGeneration = 0;
+    };
+    struct Snapshot
+    {
+        QHash<QString, CardRecord> positive;
+        QHash<QString, QDateTime> negative;
+        int faceAuditVersion;
+        bool faceRepairNeeded;
+        quint64 generation;
+    };
+    Snapshot snapshot() const;
+    static bool writeSnapshot(const QString &path, const Snapshot &snapshot,
+                              const std::shared_ptr<SaveState> &state);
+    void markDirty();
+    bool matchesResolvedPrintingRequest(const CardRequest &request, const CardRecord &record) const;
     void rebuildIndexes();
     void addToIndexes(const QString &cacheKey, const CardRecord &record);
     void removeFromIndexes(const QString &cacheKey, const CardRecord &record);
 
     QString m_imageRoot;
     QString m_metadataPath;
+    QStringList m_previousImageRoots;
     QHash<QString, CardRecord> m_positive;
     QHash<QString, QDateTime> m_negative;
     QHash<QString, QSet<QString>> m_printingIndex;
@@ -90,9 +128,16 @@ class CardArtCache
     QHash<QString, QSet<QString>> m_canonicalNameIndex;
     QHash<QString, QSet<QString>> m_requestedNameIndex;
     bool m_reuseLocalArt = true;
+    bool m_writable = true;
     int m_faceAuditVersion = 0;
     bool m_faceRepairNeeded = false;
     bool m_dirty = false;
+    quint64 m_generation = 1;
+    quint64 m_savingGeneration = 0;
+    bool m_saving = false;
+    bool m_saveRequested = false;
+    std::shared_ptr<SaveState> m_saveState = std::make_shared<SaveState>();
+    QFutureWatcher<bool> m_saveWatcher;
 };
 
 } // namespace hexproof::client

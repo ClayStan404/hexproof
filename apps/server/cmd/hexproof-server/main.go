@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -59,11 +60,11 @@ func main() {
 	tournamentCreatesPerMinute := flag.Int("tournament-creates-per-minute", 3,
 		"per-IP tournament creation rate")
 	tournamentClosedTTL := flag.Duration("tournament-closed-ttl", 24*time.Hour,
-		"retention for closed tournaments with no connected viewers")
-	tournamentInactiveTTL := flag.Duration("tournament-inactive-ttl", 2*time.Hour,
-		"retention for registration tournaments with no connected sessions")
-	tournamentAbandonedTTL := flag.Duration("tournament-abandoned-ttl", 24*time.Hour,
-		"retention for running tournaments with no connected sessions or pairing rooms")
+		"retention for completed and cancelled tournament history")
+	tournamentInactiveTTL := flag.Duration("tournament-inactive-ttl", 5*time.Minute,
+		"reconnect grace for registration tournaments without an online organizer or participant")
+	tournamentAbandonedTTL := flag.Duration("tournament-abandoned-ttl", 5*time.Minute,
+		"reconnect grace for running tournaments without online organizers or players")
 	passwordJoinsPerMinute := flag.Int("password-joins-per-minute", 20,
 		"per-IP protected-room join rate")
 	maxConcurrentPasswordChecks := flag.Int("max-concurrent-password-checks", 8,
@@ -85,8 +86,7 @@ func main() {
 		log.Fatal("hexproof-server: -forge-harness and -forge-home must be set together")
 	}
 	if *forgeHarness != "" {
-		configured := forge.JavaProcessConfig(*forgeJava, *forgeHarness, *forgeHome)
-		configured.Stderr = os.Stderr
+		configured := hostedForgeRuntimeConfig(*forgeJava, *forgeHarness, *forgeHome)
 		forgeRuntime = &configured
 	}
 
@@ -167,6 +167,15 @@ func main() {
 		log.Fatalf("hexproof-server: %v", err)
 	}
 	log.Printf("hexproof-server: stopped")
+}
+
+func hostedForgeRuntimeConfig(javaCommand, harness, home string) forge.ProcessConfig {
+	configured := forge.JavaProcessConfig(javaCommand, harness, home)
+	// Upstream stderr may contain private card identities, actions, and stack
+	// traces. Hosted games use only Hexproof's fixed, non-sensitive diagnostics.
+	// Isolated synthetic tests can explicitly supply their own diagnostic sink.
+	configured.Stderr = io.Discard
+	return configured
 }
 
 func forgeRuntimeDefaults() (string, string, string) {

@@ -23,6 +23,7 @@ TestCase {
                                        string sourceZone, int cardCount,
                                        string toZone)
         signal gameSnapshotChanged()
+        signal gameRestarted()
         signal commandQueued(string requestId, string commandType,
                              var payload)
         signal commandFailed(string requestId, string commandType,
@@ -32,6 +33,14 @@ TestCase {
     QtObject {
         id: fakeRoomSession
         property int seatIndex: fakeWs.seatIndex
+        property string phase: "started"
+    }
+
+    QtObject {
+        id: fakeGameSession
+        property int gameNumber: 1
+        property bool finished: false
+        property bool sideboarding: false
     }
 
     QtObject {
@@ -51,6 +60,7 @@ TestCase {
 
     QtObject {
         id: fakeGameTable
+        property bool hasSnapshot: true
         property int landPlaysThisTurn: 1
         signal snapshotChanged()
     }
@@ -65,11 +75,16 @@ TestCase {
         id: fakeTable
         property var wsModel: fakeWs
         property var roomSession: fakeRoomSession
+        property var gameSession: fakeGameSession
+        property bool ownEliminated: false
         property var gameTableModel: fakeGameTable
         property var optimisticCommandModel: fakeOptimisticModel
         property var cardCatalogModel: fakeCatalog
         property var appWindow: fakeWindow
+        property var selection: selectionController
         property int optimisticValueTimeoutMs: 2500
+        property int restartResetCount: 0
+        function resetGameInteractions() { ++restartResetCount }
     }
 
     QtObject {
@@ -78,6 +93,8 @@ TestCase {
         property int lastSourceSeat: -1
         property string requesterLabel: ""
         property string sourceLabel: ""
+        property int invalidationCount: 0
+        function invalidate() { ++invalidationCount; lastCards = [] }
         function showCards(cards, sourceSeat, approvalId,
                            requesterSeat, requesterName,
                            sourceName, topCount) {
@@ -91,12 +108,14 @@ TestCase {
     QtObject {
         id: accessPopup
         property int openCount: 0
+        function close() {}
         function open() { ++openCount }
     }
 
     QtObject {
         id: publicZoneMovePopup
         property int openCount: 0
+        function close() {}
         function open() { ++openCount }
     }
 
@@ -127,10 +146,8 @@ TestCase {
     QtObject {
         id: projectionController
         property int battlefieldCount: 0
-        property int logCount: 0
         property int handCount: 0
         function syncBattlefieldSeats() { ++battlefieldCount }
-        function syncGameLog() { ++logCount }
         function syncDisplayedOwnHand() { ++handCount }
     }
 
@@ -176,12 +193,21 @@ TestCase {
     }
 
     QtObject {
+        id: selectionController
+        property int reconcileCount: 0
+        function reconcileBattlefieldSelection() { ++reconcileCount }
+    }
+
+    QtObject {
         id: transientController
         property int reconcileCount: 0
         property string approvalId: ""
         property int topCount: 0
         property string publicMoveApprovalId: ""
         function reconcile() { ++reconcileCount }
+        function clearPendingLibraryApproval() { approvalId = "" }
+        function clearPendingPublicZoneMoveApproval() { publicMoveApprovalId = "" }
+        function clearLibraryMoveDestination() {}
         function setLibraryApproval(id, requester, count) {
             approvalId = id
             topCount = count
@@ -226,6 +252,7 @@ TestCase {
     }
 
     function init() {
+        fakeGameTable.hasSnapshot = true
         fakeOptimisticModel.timeoutMs = 0
         fakeOptimisticModel.clearCount = 0
         fakeWindow.banner = ""
@@ -236,7 +263,6 @@ TestCase {
         optimisticController.reconciledLandPlayCount = -1
         cardMoveController.clearCount = 0
         projectionController.battlefieldCount = 0
-        projectionController.logCount = 0
         projectionController.handCount = 0
         zoneController.reconcileCount = 0
         gameValueController.reconcileCount = 0
@@ -247,6 +273,7 @@ TestCase {
         sessionController.resultCount = 0
         sessionController.counterCount = 0
         sharedController.reconcileCount = 0
+        selectionController.reconcileCount = 0
         transientController.reconcileCount = 0
         transientController.approvalId = ""
         transientController.topCount = 0
@@ -254,12 +281,12 @@ TestCase {
         presentationController.prioritizeCount = 0
         presentationController.invalidateCount = 0
         presentationController.emitRevisionOnPrioritize = false
+        controller.deferInitialReconcile = false
     }
 
     function test_reconcilesSnapshotAcrossControllers() {
         fakeGameTable.snapshotChanged()
         compare(projectionController.battlefieldCount, 1)
-        compare(projectionController.logCount, 1)
         compare(projectionController.handCount, 1)
         compare(cardMoveController.clearCount, 1)
         compare(zoneController.reconcileCount, 1)
@@ -269,6 +296,7 @@ TestCase {
         compare(sessionController.resultCount, 1)
         compare(sessionController.counterCount, 1)
         compare(sharedController.reconcileCount, 1)
+        compare(selectionController.reconcileCount, 1)
         compare(transientController.reconcileCount, 1)
         compare(presentationController.prioritizeCount, 1)
     }
@@ -282,7 +310,6 @@ TestCase {
         compare(sessionController.counterCount, 1)
         compare(transientController.reconcileCount, 1)
         compare(projectionController.battlefieldCount, 0)
-        compare(projectionController.logCount, 0)
         compare(zoneController.reconcileCount, 0)
         compare(sceneController.refreshCount, 0)
     }
@@ -318,6 +345,7 @@ TestCase {
         controller.handleCardMovesChanged()
         compare(projectionController.handCount, 1)
         compare(sharedController.reconcileCount, 1)
+        compare(selectionController.reconcileCount, 1)
         compare(transientController.reconcileCount, 1)
         compare(presentationController.prioritizeCount, 1)
 
@@ -339,8 +367,36 @@ TestCase {
         compare(fakeOptimisticModel.clearCount, 1)
         compare(fakeOptimisticModel.timeoutMs, 2500)
         compare(projectionController.battlefieldCount, 1)
-        compare(projectionController.logCount, 1)
         compare(projectionController.handCount, 1)
+    }
+
+    function test_initializeSkipsProjectionWithoutSnapshot() {
+        fakeGameTable.hasSnapshot = false
+
+        controller.initialize()
+
+        compare(fakeOptimisticModel.clearCount, 1)
+        compare(fakeOptimisticModel.timeoutMs, 2500)
+        compare(projectionController.battlefieldCount, 0)
+        compare(projectionController.handCount, 0)
+        compare(sessionController.resultCount, 0)
+        compare(presentationController.prioritizeCount, 0)
+    }
+
+    function test_snapshotCancelsDeferredInitialReconciliation() {
+        controller.deferInitialReconcile = true
+        controller.initialize()
+        compare(projectionController.battlefieldCount, 1)
+
+        fakeGameTable.snapshotChanged()
+        compare(projectionController.battlefieldCount, 2)
+        compare(sessionController.resultCount, 1)
+
+        wait(1)
+        compare(sessionController.resultCount, 1)
+        compare(sharedController.reconcileCount, 1)
+        compare(transientController.reconcileCount, 1)
+        compare(presentationController.prioritizeCount, 1)
     }
 
     function test_reportsOptimisticTimeoutRollback() {

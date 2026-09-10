@@ -4,6 +4,378 @@
     <context>
         <name>HexproofDynamic</name>
         <message>
+            <source>Card-art migration does not follow symbolic links or special files.</source>
+            <translation>卡图迁移不处理符号链接或特殊文件。</translation>
+        </message>
+        <message>
+            <source>A source image changed after scanning. The original location remains active.</source>
+            <translation>扫描后源图片发生变化，仍使用原目录。</translation>
+        </message>
+        <message>
+            <source>Could not save the new card-art location. The original location remains active.</source>
+            <translation>无法保存新的卡图目录配置，仍使用原目录。</translation>
+        </message>
+        <message>
+            <source>Could not create a private custom artwork preview directory.</source>
+            <translation>无法创建独立的自定义卡图预览目录。</translation>
+        </message>
+        <message>
+            <source>Cannot replace a symbolic link with custom artwork.</source>
+            <translation>不能用自定义卡图替换符号链接。</translation>
+        </message>
+        <message>
+            <source>Could not save custom artwork.</source>
+            <translation>无法保存自定义卡图。</translation>
+        </message>
+        <message>
+            <source>Choose an unambiguous card, printing, and face for custom artwork.</source>
+            <translation>请为自定义卡图选择明确的卡牌、版本和牌面；应用于所有版本需要 Oracle 标识。</translation>
+        </message>
+        <message>
+            <source>The custom artwork metadata is damaged or unsupported.</source>
+            <translation>自定义卡图元数据已损坏或不受支持。</translation>
+        </message>
+        <message>
+            <source>Choose a JPEG, PNG, or WebP image no larger than 32 MiB.</source>
+            <translation>请选择不超过 32 MiB 的 JPG、PNG 或 WebP 图片。</translation>
+        </message>
+        <message>
+            <source>Choose a supported JPEG, PNG, or WebP image.</source>
+            <translation>请选择支持的 JPG、PNG 或 WebP 图片。</translation>
+        </message>
+        <message>
+            <source>Custom artwork must be a still image within 12000 pixels and 40 megapixels.</source>
+            <translation>自定义卡图必须为静态图片，单边不超过 12000 像素，总像素不超过 4000 万。</translation>
+        </message>
+        <message>
+            <source>The selected custom artwork cannot be decoded.</source>
+            <translation>无法解码所选自定义卡图。</translation>
+        </message>
+        <message>
+            <source>Choose a readable local image no larger than 32 MiB.</source>
+            <translation>请选择可读取且不超过 32 MiB 的本地图片。</translation>
+        </message>
+        <message>
+            <source>Could not read the selected custom artwork.</source>
+            <translation>无法读取所选自定义卡图。</translation>
+        </message>
+        <message>
+            <source>Could not read the local custom artwork index.</source>
+            <translation>无法读取本地自定义卡图索引。</translation>
+        </message>
+        <message>
+            <source>The local custom artwork index is damaged; it was left unchanged.</source>
+            <translation>本地自定义卡图索引已损坏，原文件未改动。</translation>
+        </message>
+        <message>
+            <source>The local custom artwork index contains duplicate mappings.</source>
+            <translation>本地自定义卡图索引含有重复映射。</translation>
+        </message>
+        <message>
+            <source>There are too many custom artwork mappings.</source>
+            <translation>自定义卡图映射数量过多。</translation>
+        </message>
+        <message>
+            <source>The custom artwork index contains conflicting mappings.</source>
+            <translation>自定义卡图索引含有冲突映射。</translation>
+        </message>
+        <message>
+            <source>Could not save the local custom artwork index.</source>
+            <translation>无法保存本地自定义卡图索引。</translation>
+        </message>
+        <message>
+            <source>The custom artwork selection has conflicting mappings.</source>
+            <translation>所选自定义卡图含有冲突映射。</translation>
+        </message>
+        <message>
+            <source>The inspected custom artwork is no longer available.</source>
+            <translation>预览过的自定义卡图已不可用。</translation>
+        </message>
+        <message>
+            <source>The inspected custom artwork changed; inspect it again before importing.</source>
+            <translation>自定义卡图已变化，请重新预览后再导入。</translation>
+        </message>
+        <message>
+            <source>Could not create the custom artwork directory.</source>
+            <translation>无法创建自定义卡图目录。</translation>
+        </message>
+        <message>
+            <source>Could not read inspected custom artwork.</source>
+            <translation>无法读取已预览的自定义卡图。</translation>
+        </message>
+        <message>
+            <source>The inspected custom artwork changed.</source>
+            <translation>已预览的自定义卡图发生了变化。</translation>
+        </message>
+        <message>
+            <source>Wait for the current card artwork operation to finish.</source>
+            <translation>请等待当前卡图操作完成。</translation>
+        </message>
+        <message>
+            <source>Wait for the current card-art operation to finish.</source>
+            <translation>请等待当前卡图操作完成。</translation>
+        </message>
+        <message>
+            <source>Processing custom artwork…</source>
+            <translation>正在处理自定义卡图…</translation>
+        </message>
+        <message>
+            <source>Custom artwork operation completed.</source>
+            <translation>自定义卡图操作已完成。</translation>
+        </message>
+        <message>
+            <source>Choose a local custom artwork image.</source>
+            <translation>请选择本地自定义卡图。</translation>
+        </message>
+        <message>
+            <source>Choose a readable local artwork directory.</source>
+            <translation>请选择可读取的本地卡图目录。</translation>
+        </message>
+        <message>
+            <source>Choose a local custom artwork pack.</source>
+            <translation>请选择本地自定义卡图包。</translation>
+        </message>
+        <message>
+            <source>Inspect a custom artwork directory or pack before importing.</source>
+            <translation>请先预览自定义卡图目录或卡图包，再确认导入。</translation>
+        </message>
+        <message>
+            <source>Choose a local destination for the custom artwork pack.</source>
+            <translation>请选择自定义卡图包的本地保存位置。</translation>
+        </message>
+        <message>
+            <source>There is no custom artwork in this selection.</source>
+            <translation>所选范围没有自定义卡图。</translation>
+        </message>
+        <message>
+            <source>Use SET/collector.front|back|face-N.jpg, or an explicit custom-art-map.json.</source>
+            <translation>请按 SET/编号.front|back|face-N.jpg 命名，或提供明确的 custom-art-map.json 映射。</translation>
+        </message>
+        <message>
+            <source>Install the card database or provide an explicit custom-art-map.json.</source>
+            <translation>请安装卡牌数据库，或提供明确的 custom-art-map.json 映射。</translation>
+        </message>
+        <message>
+            <source>The filename does not identify an installed card printing.</source>
+            <translation>文件名无法对应到已安装数据库中的卡牌版本。</translation>
+        </message>
+        <message>
+            <source>The selected printing does not have this independent image face.</source>
+            <translation>所选卡牌版本没有此独立牌面。</translation>
+        </message>
+        <message>
+            <source>The related image face is not present in the installed catalog.</source>
+            <translation>已安装数据库中没有关联的结果牌面。</translation>
+        </message>
+        <message>
+            <source>Install the card database before applying card-wide custom artwork.</source>
+            <translation>应用于卡牌所有版本前，请先安装卡牌数据库。</translation>
+        </message>
+        <message>
+            <source>Card-wide custom artwork requires a verified Oracle card identity.</source>
+            <translation>应用于所有版本需要经数据库验证的 Oracle 卡牌标识。</translation>
+        </message>
+        <message>
+            <source>The manifest card identity conflicts with the installed catalog.</source>
+            <translation>映射清单中的卡牌标识与已安装数据库冲突。</translation>
+        </message>
+        <message>
+            <source>The manifest does not identify an independent back face of this printing.</source>
+            <translation>映射清单没有指向此版本的独立背面。</translation>
+        </message>
+        <message>
+            <source>More than one source image maps to this card face; choose an explicit mapping.</source>
+            <translation>多张源图片对应同一牌面，请提供明确映射。</translation>
+        </message>
+        <message>
+            <source>Could not create a private custom artwork preview.</source>
+            <translation>无法创建自定义卡图的独立预览副本。</translation>
+        </message>
+        <message>
+            <source>Could not read custom-art-map.json.</source>
+            <translation>无法读取 custom-art-map.json。</translation>
+        </message>
+        <message>
+            <source>The custom artwork directory manifest is damaged or unsupported.</source>
+            <translation>自定义卡图目录清单已损坏或不受支持。</translation>
+        </message>
+        <message>
+            <source>The custom artwork directory contains too many images.</source>
+            <translation>自定义卡图目录中的图片过多。</translation>
+        </message>
+        <message>
+            <source>The source image must be an ordinary file inside the selected directory.</source>
+            <translation>源图片必须为所选目录内的普通文件。</translation>
+        </message>
+        <message>
+            <source>The custom artwork selection is larger than 4 GiB.</source>
+            <translation>所选自定义卡图超过 4 GiB。</translation>
+        </message>
+        <message>
+            <source>Choose a valid Hexproof custom artwork pack, not a downloaded card-art pack.</source>
+            <translation>请选择有效的 Hexproof 自定义卡图包，而非普通下载卡图包。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack manifest is damaged or too large.</source>
+            <translation>自定义卡图包清单已损坏或过大。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack is damaged or unsupported.</source>
+            <translation>自定义卡图包已损坏或不受支持。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack contains duplicate mappings.</source>
+            <translation>自定义卡图包含有重复映射。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack contains inconsistent image metadata.</source>
+            <translation>自定义卡图包中的图片元数据不一致。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack image sizes are invalid.</source>
+            <translation>自定义卡图包中的图片大小无效。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack contains unreferenced or duplicate images.</source>
+            <translation>自定义卡图包含有未被引用或重复的图片。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack contains invalid image data.</source>
+            <translation>自定义卡图包含有无效图片数据。</translation>
+        </message>
+        <message>
+            <source>Could not prepare a private custom artwork preview.</source>
+            <translation>无法准备自定义卡图的独立预览副本。</translation>
+        </message>
+        <message>
+            <source>The custom artwork pack has missing images or unexpected trailing data.</source>
+            <translation>自定义卡图包缺少图片，或末尾含有多余数据。</translation>
+        </message>
+        <message>
+            <source>Choose an export location outside the custom artwork directory.</source>
+            <translation>请选择自定义卡图目录以外的导出位置。</translation>
+        </message>
+        <message>
+            <source>No valid custom artwork is available to export.</source>
+            <translation>没有可导出的有效自定义卡图。</translation>
+        </message>
+        <message>
+            <source>The custom artwork selection is too large to export.</source>
+            <translation>所选自定义卡图过大，无法导出。</translation>
+        </message>
+        <message>
+            <source>Could not write the custom artwork pack.</source>
+            <translation>无法写入自定义卡图包。</translation>
+        </message>
+        <message>
+            <source>Custom artwork changed while exporting; try again.</source>
+            <translation>导出期间自定义卡图发生变化，请重试。</translation>
+        </message>
+        <message>
+            <source>The destination contains an unsafe or unavailable image path.</source>
+            <translation>目标目录包含不安全或不可用的图片路径。</translation>
+        </message>
+        <message>
+            <source>Could not copy card images. Check disk space and directory permissions.</source>
+            <translation>无法复制卡图，请检查磁盘空间及目录权限。</translation>
+        </message>
+        <message>
+            <source>A card image changed or could not be saved during migration. The original location remains active.</source>
+            <translation>迁移期间卡图发生变化或无法保存，仍使用原目录。</translation>
+        </message>
+        <message>
+            <source>A copied card image failed verification. The original location remains active.</source>
+            <translation>复制后的卡图校验失败，仍使用原目录。</translation>
+        </message>
+        <message>
+            <source>The card-art location configuration is invalid. No fallback directory was selected.</source>
+            <translation>卡图目录配置无效，未自动切换到其他目录。</translation>
+        </message>
+        <message>
+            <source>The configured card-art directory is unavailable or belongs to another profile. Reconnect its disk and restart Hexproof.</source>
+            <translation>配置的卡图目录不可用或属于其他配置。请重新连接磁盘并重启 Hexproof。</translation>
+        </message>
+        <message>
+            <source>The card-art directory could not be created. Check directory permissions.</source>
+            <translation>无法创建卡图目录，请检查目录权限。</translation>
+        </message>
+        <message>
+            <source>The card-art directory is unavailable or read-only. No fallback directory was selected.</source>
+            <translation>卡图目录不可用或只读，未自动切换到其他目录。</translation>
+        </message>
+        <message>
+            <source>The card-art directory is already in use by another Hexproof process.</source>
+            <translation>卡图目录正被另一个 Hexproof 进程使用。</translation>
+        </message>
+        <message>
+            <source>Choose an existing local folder for card art.</source>
+            <translation>请选择已有的本地目录存放卡图。</translation>
+        </message>
+        <message>
+            <source>Card art already uses this location.</source>
+            <translation>卡图已经存放在此位置。</translation>
+        </message>
+        <message>
+            <source>Choose a directory outside the current image folders.</source>
+            <translation>请选择当前卡图文件夹以外的目录。</translation>
+        </message>
+        <message>
+            <source>The managed destination already exists but is not owned by this profile.</source>
+            <translation>目标托管目录已存在，但不属于当前配置。</translation>
+        </message>
+        <message>
+            <source>The destination folder is not writable.</source>
+            <translation>目标目录不可写。</translation>
+        </message>
+        <message>
+            <source>Wait for migration to finish, then restart Hexproof before changing the location again.</source>
+            <translation>请等待迁移完成并重启 Hexproof，再次更改存储位置。</translation>
+        </message>
+        <message>
+            <source>The current card-art directory is unavailable. Reconnect its disk before migrating.</source>
+            <translation>当前卡图目录不可用，请重新连接磁盘后再迁移。</translation>
+        </message>
+        <message>
+            <source>Wait for the current card-art operation to finish before migrating.</source>
+            <translation>请等待当前卡图操作完成后再迁移。</translation>
+        </message>
+        <message>
+            <source>The destination folder could not be created.</source>
+            <translation>无法创建目标目录。</translation>
+        </message>
+        <message>
+            <source>The destination card-art directory is already in use by another Hexproof process.</source>
+            <translation>目标卡图目录正被另一个 Hexproof 进程使用。</translation>
+        </message>
+        <message>
+            <source>Could not record ownership of the card-art directory.</source>
+            <translation>无法记录卡图目录的归属。</translation>
+        </message>
+        <message>
+            <source>Copying and verifying downloaded and custom card images…</source>
+            <translation>正在复制并校验下载卡图和自定义卡图…</translation>
+        </message>
+        <message>
+            <source>Card images were copied and verified. Restart Hexproof to use the new location. Original files were kept at %1.</source>
+            <translation>卡图已复制并校验。重启 Hexproof 后使用新目录。原文件保留在 %1。</translation>
+        </message>
+        <message>
+            <source>There is not enough free space to safely copy the card images.</source>
+            <translation>磁盘空间不足，无法安全复制卡图。</translation>
+        </message>
+        <message>
+            <source>The destination image folders could not be created safely.</source>
+            <translation>无法安全创建目标卡图文件夹。</translation>
+        </message>
+        <message>
+            <source>Restart Hexproof to use the new card-art directory.</source>
+            <translation>请重启 Hexproof 以使用新的卡图目录。</translation>
+        </message>
+        <message>
+            <source>The card-art directory is unavailable or being migrated.</source>
+            <translation>卡图目录不可用或正在迁移。</translation>
+        </message>
+        <message>
             <source>Application update check failed.</source>
             <translation>应用更新检查失败。</translation>
         </message>
@@ -3018,6 +3390,14 @@ your way.</source>
         <message>
             <source>Exporting card art pack…</source>
             <translation>正在导出卡图包…</translation>
+        </message>
+        <message>
+            <source>Exporting deck card art pack…</source>
+            <translation>正在导出套牌卡图包…</translation>
+        </message>
+        <message>
+            <source>This deck has no cards to export.</source>
+            <translation>这副套牌中没有可导出的卡牌。</translation>
         </message>
         <message>
             <source>Card art pack exported.</source>

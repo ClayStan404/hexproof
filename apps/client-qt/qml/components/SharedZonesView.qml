@@ -157,21 +157,31 @@ Surface {
                             spacing: Theme.size(6)
 
                             Rectangle {
-                                Layout.fillWidth: true
+                                Layout.preferredWidth: Theme.size(6)
                                 implicitHeight: 1
                                 color: Theme.borderStrong
                             }
                             Text {
                                 textFormat: Text.PlainText
+                                objectName: "revealDividerLabel" + sharedCard.index
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
                                 text: sharedCard.modelData.revealDividerLabel
                                       ? sharedCard.modelData.revealDividerLabel
                                       : qsTr("Player")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSize(9)
                                 font.weight: Font.DemiBold
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 2
+                                elide: Text.ElideRight
+                                horizontalAlignment: Text.AlignHCenter
+                                ToolTip.visible: dividerHover.hovered
+                                ToolTip.text: text
+                                HoverHandler { id: dividerHover }
                             }
                             Rectangle {
-                                Layout.fillWidth: true
+                                Layout.preferredWidth: Theme.size(6)
                                 implicitHeight: 1
                                 color: Theme.borderStrong
                             }
@@ -311,6 +321,8 @@ Surface {
                     compact: true
                     implicitWidth: Theme.size(30)
                     implicitHeight: Theme.size(30)
+                    leftPadding: 0
+                    rightPadding: 0
                     visible: root.tableController.selectedSharedZone === "stack"
                     text: "◎"
                     enabled: root.tableController.canAct
@@ -332,6 +344,8 @@ Surface {
                     compact: true
                     implicitWidth: Theme.size(30)
                     implicitHeight: Theme.size(30)
+                    leftPadding: 0
+                    rightPadding: 0
                     text: "↗"
                     enabled: root.tableController.canAct
                     onClicked:
@@ -344,6 +358,8 @@ Surface {
                     compact: true
                     implicitWidth: Theme.size(30)
                     implicitHeight: Theme.size(30)
+                    leftPadding: 0
+                    rightPadding: 0
                     text: "†"
                     enabled: root.tableController.canAct
                     onClicked:
@@ -356,6 +372,8 @@ Surface {
                     compact: true
                     implicitWidth: Theme.size(30)
                     implicitHeight: Theme.size(30)
+                    leftPadding: 0
+                    rightPadding: 0
                     text: "⌂"
                     enabled: root.tableController.canAct
                     onClicked: root.tableController.cardMoveCommands.moveSelectedSharedCard("hand")

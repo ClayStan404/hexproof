@@ -1,0 +1,27 @@
+{
+  "type": "room.listed",
+  "id": "commander-list",
+  "payload": {
+    "rooms": [
+      {
+        "roomId": "CMD234",
+        "roomKind": "cube",
+        "name": "Friday Commander Cube",
+        "format": "edh",
+        "deckFormat": "cube",
+        "maxSeats": 4,
+        "matchMode": "bo1",
+        "cardLoadMode": "background",
+        "rulesMode": "manual",
+        "playerCount": 3,
+        "spectatorCount": 1,
+        "allowSpectators": true,
+        "spectatorsSeeHands": false,
+        "hasPassword": false,
+        "phase": "waiting",
+        "playerJoinable": true,
+        "spectatorJoinable": true
+      }
+    ]
+  }
+}

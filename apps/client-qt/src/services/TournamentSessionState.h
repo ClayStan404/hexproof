@@ -26,6 +26,7 @@ class TournamentSessionState : public QObject
     Q_PROPERTY(QString format READ format NOTIFY snapshotChanged)
     Q_PROPERTY(QString eventType READ eventType NOTIFY snapshotChanged)
     Q_PROPERTY(QString coordinator READ coordinator NOTIFY snapshotChanged)
+    Q_PROPERTY(bool cubeRoom READ cubeRoom NOTIFY snapshotChanged)
     Q_PROPERTY(QString stage READ stage NOTIFY snapshotChanged)
     Q_PROPERTY(QString matchMode READ matchMode NOTIFY snapshotChanged)
     Q_PROPERTY(QString status READ status NOTIFY snapshotChanged)
@@ -46,6 +47,7 @@ class TournamentSessionState : public QObject
     Q_PROPERTY(QVariantList participants READ participants NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList pairings READ pairings NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList standings READ standings NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantList chatMessages READ chatMessages NOTIFY chatChanged)
 
   public:
     explicit TournamentSessionState(QObject *parent = nullptr);
@@ -85,6 +87,12 @@ class TournamentSessionState : public QObject
     QString coordinator() const
     {
         return m_coordinator;
+    }
+    bool cubeRoom() const
+    {
+        return (m_eventType == QStringLiteral("cube_draft") ||
+                m_eventType == QStringLiteral("commander_cube")) &&
+               m_coordinator == QStringLiteral("casual");
     }
     QString stage() const
     {
@@ -172,6 +180,12 @@ class TournamentSessionState : public QObject
     Q_INVOKABLE QVariantMap tabletopScoreForRoom(const QString &roomId) const;
 
     void applyList(const QJsonObject &payload);
+    QVariantList chatMessages() const
+    {
+        return m_chatMessages;
+    }
+    void applyChatMessage(const QJsonObject &payload);
+    void applyChatHistory(const QJsonObject &payload);
     void enter(const QString &tournamentId, const QString &role, const QString &participantId = {});
     void applyRegistration(const QString &participantId);
     void applySnapshot(const QJsonObject &payload);
@@ -181,6 +195,7 @@ class TournamentSessionState : public QObject
     void inTournamentChanged();
     void tournamentListChanged();
     void snapshotChanged();
+    void chatChanged();
 
   private:
     QVariantList m_tournamentList;
@@ -211,6 +226,7 @@ class TournamentSessionState : public QObject
     QVariantList m_participants;
     QVariantList m_pairings;
     QVariantList m_standings;
+    QVariantList m_chatMessages;
     QHash<QString, QVariantMap> m_tabletopScores;
 };
 

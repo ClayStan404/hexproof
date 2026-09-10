@@ -3,6 +3,7 @@
 
 #include "CardArtCache.h"
 #include "CardCatalog.h"
+#include "CardCatalogCommon.h"
 #include "CardCatalogQueryInternal.h"
 #include "CardImageProvider.h"
 #include "CatalogRepository.h"
@@ -64,10 +65,12 @@ QVariantList CardCatalog::expandCardFaceRequests(const QVariantList &cards)
         if (name.isEmpty())
             return;
         request.insert(QStringLiteral("name"), name);
+        request.insert(kCardFacesExpandedKey, true);
         const QString key =
             name.toCaseFolded() + QChar(0x1f) +
             request.value(QStringLiteral("setCode")).toString().toUpper() + QChar(0x1f) +
             request.value(QStringLiteral("collectorNumber")).toString() + QChar(0x1f) +
+            request.value(QStringLiteral("kind")).toString() + QChar(0x1f) +
             (request.value(QStringLiteral("exactArt")).toBool() ? QLatin1Char('1')
                                                                 : QLatin1Char('0'));
         if (requestKeys.contains(key))
@@ -77,8 +80,10 @@ QVariantList CardCatalog::expandCardFaceRequests(const QVariantList &cards)
     };
 
     for (const QVariant &value : cards) {
-        const QVariantMap request = value.toMap();
+        QVariantMap request = value.toMap();
         const QString name = request.value(QStringLiteral("name")).toString().simplified();
+        if (!request.contains(QStringLiteral("priorityName")))
+            request.insert(QStringLiteral("priorityName"), name);
         const QString setCode = request.value(QStringLiteral("setCode")).toString().toUpper();
         const QString collectorNumber = request.value(QStringLiteral("collectorNumber")).toString();
         const QVariantList faces = cardFaces(name, setCode, collectorNumber);
@@ -88,8 +93,15 @@ QVariantList CardCatalog::expandCardFaceRequests(const QVariantList &cards)
         }
         for (const QVariant &faceValue : faces) {
             QVariantMap faceRequest = request;
-            faceRequest.insert(QStringLiteral("name"),
-                               faceValue.toMap().value(QStringLiteral("name")));
+            const QVariantMap face = faceValue.toMap();
+            faceRequest.insert(QStringLiteral("name"), face.value(QStringLiteral("name")));
+            faceRequest.insert(QStringLiteral("faceName"), face.value(QStringLiteral("faceName")));
+            if (face.value(QStringLiteral("relatedCard")).toBool()) {
+                faceRequest.insert(QStringLiteral("setCode"),
+                                   face.value(QStringLiteral("setCode")));
+                faceRequest.insert(QStringLiteral("collectorNumber"),
+                                   face.value(QStringLiteral("collectorNumber")));
+            }
             appendRequest(faceRequest);
         }
     }
@@ -142,7 +154,7 @@ QString CardCatalog::tableImageSource(const QString &name, const QString &setCod
         collectorNumber,
         m_language,
     };
-    const QString path = resolvedImagePath(request);
+    const QString path = resolvedTableImagePath(request);
     if (path.isEmpty())
         return {};
     if (!m_cardImageProvider)
@@ -152,6 +164,12 @@ QString CardCatalog::tableImageSource(const QString &name, const QString &setCod
 
 QString CardCatalog::resolvedImagePath(const CardRequest &request) const
 {
+    const QString custom = customImagePath(request);
+    if (!custom.isEmpty())
+        return custom;
+    const CardRequest related = relatedArtRequest(request);
+    if (related.setCode != request.setCode || related.collectorNumber != request.collectorNumber)
+        return resolvedImagePath(related);
     const QString key =
         cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
     const CardRecord exact = m_artCache->exactRecord(key);
@@ -163,7 +181,70 @@ QString CardCatalog::resolvedImagePath(const CardRequest &request) const
     }
 
     const QString path = cachedResolvedPrinting(request).imagePath;
-    return QFileInfo::exists(path) ? path : QString{};
+    if (QFileInfo::exists(path))
+        return path;
+    return {};
+}
+
+QString CardCatalog::resolvedTableImagePath(const CardRequest &request) const
+{
+    const QString custom = customImagePath(request);
+    if (!custom.isEmpty())
+        return custom;
+    const CardRequest related = relatedArtRequest(request);
+    if (related.setCode != request.setCode || related.collectorNumber != request.collectorNumber)
+        return resolvedTableImagePath(related);
+    const QString key =
+        cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
+    const CardRecord exact = m_artCache->exactRecord(key);
+    if (exact.valid() && exact.resolutionVersion >= kCardResolutionVersion &&
+        m_artCache->matchesRequestedFace(request, exact) &&
+        (!exact.reusesLocalArt || request.allowsSubstituteArt(m_artCache->reuseLocalArt())) &&
+        !exact.imagePath.isEmpty()) {
+        return exact.imagePath;
+    }
+    const QString path = m_artCache->resolvedPrintingMetadata(request).imagePath;
+    if (!path.isEmpty())
+        return path;
+    return {};
+}
+
+QString CardCatalog::cachedTypeLine(const CardRequest &request) const
+{
+    if (request.name.isEmpty())
+        return {};
+
+    const QString key =
+        cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
+    const CardRecord exact = m_artCache->exactRecord(key);
+    if (m_artCache->matchesRequestedFace(request, exact) && !exact.typeLine.isEmpty())
+        return exact.typeLine;
+
+    const CardRecord cached = m_artCache->resolvedPrintingMetadata(request);
+    if (!cached.typeLine.isEmpty())
+        return cached.typeLine;
+    return {};
+}
+
+QString CardCatalog::cachedCardTypeLine(const QString &name, const QString &setCode,
+                                        const QString &collectorNumber) const
+{
+    const CardRequest request{
+        name.simplified(),
+        setCode.toUpper(),
+        collectorNumber,
+        m_language,
+    };
+    const QString cached = cachedTypeLine(request);
+    if (!cached.isEmpty() || request.language == QStringLiteral("en"))
+        return cached;
+
+    return cachedTypeLine(CardRequest{
+        request.name,
+        request.setCode,
+        request.collectorNumber,
+        QStringLiteral("en"),
+    });
 }
 
 QString CardCatalog::cardTypeLine(const QString &name, const QString &setCode,
@@ -178,15 +259,9 @@ QString CardCatalog::cardTypeLine(const QString &name, const QString &setCode,
     if (request.name.isEmpty())
         return {};
 
-    const QString key =
-        cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
-    const CardRecord exact = m_artCache->exactRecord(key);
-    if (m_artCache->matchesRequestedFace(request, exact) && !exact.typeLine.isEmpty())
-        return exact.typeLine;
-
-    const CardRecord cached = cachedResolvedPrinting(request);
-    if (!cached.typeLine.isEmpty())
-        return cached.typeLine;
+    const QString cached = cachedTypeLine(request);
+    if (!cached.isEmpty())
+        return cached;
 
     const CardRecord catalog = lookupCatalog(request);
     if (!catalog.typeLine.isEmpty())
@@ -200,14 +275,9 @@ QString CardCatalog::cardTypeLine(const QString &name, const QString &setCode,
         request.collectorNumber,
         QStringLiteral("en"),
     };
-    const QString englishKey =
-        cacheKey(english.name, english.language, english.setCode, english.collectorNumber);
-    const CardRecord englishExact = m_artCache->exactRecord(englishKey);
-    if (m_artCache->matchesRequestedFace(english, englishExact) && !englishExact.typeLine.isEmpty())
-        return englishExact.typeLine;
-    const CardRecord englishCached = cachedResolvedPrinting(english);
-    if (!englishCached.typeLine.isEmpty())
-        return englishCached.typeLine;
+    const QString englishCached = cachedTypeLine(english);
+    if (!englishCached.isEmpty())
+        return englishCached;
     return lookupCatalog(english).typeLine;
 }
 
@@ -275,6 +345,60 @@ bool CardCatalog::matchesCardQuery(const QString &name, const QString &setCode,
     return false;
 }
 
+QString CardCatalog::tokenDisplayName(const QString &name, const QString &setCode,
+                                      const QString &collectorNumber) const
+{
+    return tokenDetails(name, setCode, collectorNumber)
+        .value(QStringLiteral("displayName"))
+        .toString();
+}
+
+QVariantMap CardCatalog::tokenDetails(const QString &name, const QString &setCode,
+                                      const QString &collectorNumber) const
+{
+    const QString canonicalName = name.simplified();
+    if (canonicalName.isEmpty())
+        return {};
+    const CardRequest request{canonicalName, setCode.toUpper(), collectorNumber, m_language};
+    const auto cachedMetadata = [this](const CardRequest &query) {
+        const CardRecord exact = m_artCache->exactRecord(
+            cacheKey(query.name, query.language, query.setCode, query.collectorNumber));
+        if (exact.valid() && m_artCache->matchesRequestedFace(query, exact))
+            return exact;
+        return m_artCache->resolvedPrintingMetadata(query);
+    };
+    const CardRecord cached = cachedMetadata(request);
+    const CardRecord indexed = lookupCatalog(request);
+    CardRequest englishRequest = request;
+    englishRequest.language = QStringLiteral("en");
+    const CardRecord englishCached =
+        m_language == QStringLiteral("en") ? cached : cachedMetadata(englishRequest);
+    const CardRecord englishIndexed =
+        m_language == QStringLiteral("en") ? indexed : lookupCatalog(englishRequest);
+    QString displayName = canonicalName;
+    QString typeLine;
+    QString oracleText;
+    if (m_language == QStringLiteral("zh")) {
+        for (const CardRecord &candidate : {cached, indexed}) {
+            if (displayName == canonicalName && looksLikeChinese(candidate.localizedName))
+                displayName = candidate.localizedName;
+            if (typeLine.isEmpty() && looksLikeChinese(candidate.typeLine))
+                typeLine = candidate.typeLine;
+            if (oracleText.isEmpty() && candidate.oracleTextLanguage == QStringLiteral("zh"))
+                oracleText = candidate.oracleText;
+        }
+    }
+    for (const CardRecord &candidate : {englishIndexed, englishCached, indexed, cached}) {
+        if (typeLine.isEmpty() && !looksLikeChinese(candidate.typeLine))
+            typeLine = candidate.typeLine;
+        if (oracleText.isEmpty() && candidate.oracleTextLanguage != QStringLiteral("zh"))
+            oracleText = candidate.oracleText;
+    }
+    return {{QStringLiteral("displayName"), displayName},
+            {QStringLiteral("typeLine"), typeLine},
+            {QStringLiteral("oracleText"), oracleText}};
+}
+
 QString CardCatalog::tokenImageSource(const QString &name, const QString &setCode,
                                       const QString &collectorNumber) const
 {
@@ -282,16 +406,16 @@ QString CardCatalog::tokenImageSource(const QString &name, const QString &setCod
         name.simplified(),
         setCode.toUpper(),
         collectorNumber,
-        QStringLiteral("en"),
+        m_language,
     };
-    const QString key =
-        cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
-    const CardRecord exact = m_artCache->exactRecord(key);
-    QString path;
-    if (exact.valid() && QFileInfo::exists(exact.imagePath))
-        path = exact.imagePath;
-    else
-        path = cachedResolvedPrinting(request).imagePath;
+    QString path = resolvedImagePath(request);
+    if (path.isEmpty() && request.language != QStringLiteral("en")) {
+        CardRequest english = request;
+        english.language = QStringLiteral("en");
+        // Display already-downloaded English art while Chinese art is fetched,
+        // without creating a completed Chinese cache mapping from it.
+        path = resolvedImagePath(english);
+    }
     return path.isEmpty() ? QString{} : QUrl::fromLocalFile(path).toString();
 }
 

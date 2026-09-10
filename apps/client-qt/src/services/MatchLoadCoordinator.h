@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QObject>
 #include <QSet>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -16,6 +17,7 @@ class MatchLoadCoordinator : public QObject
     Q_OBJECT
     Q_PROPERTY(bool active READ active NOTIFY stateChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY stateChanged)
+    Q_PROPERTY(bool expansionPending READ expansionPending NOTIFY stateChanged)
     Q_PROPERTY(qint64 loadId READ loadId NOTIFY stateChanged)
     Q_PROPERTY(int total READ total NOTIFY stateChanged)
     Q_PROPERTY(int completed READ completed NOTIFY stateChanged)
@@ -33,6 +35,10 @@ class MatchLoadCoordinator : public QObject
     bool ready() const
     {
         return m_ready;
+    }
+    bool expansionPending() const
+    {
+        return m_expansionPending;
     }
     qint64 loadId() const
     {
@@ -57,27 +63,47 @@ class MatchLoadCoordinator : public QObject
     }
 
   public slots:
-    void beginLoad(qint64 loadId, const QVariantList &cardKeys);
-    void handleCardCacheFinished(const QString &name, const QString &setCode,
-                                 const QString &collectorNumber, bool success);
+    void preparePreload(qint64 loadId, const QVariantList &cardKeys);
+    void prepareBackground(qint64 loadId, const QVariantList &cardKeys);
+    void handleTableSnapshotStateChanged(bool ready);
+    void handleCardLanguageChanged();
+    void adoptExpandedCards(qint64 loadId, quint64 generation, const QVariantList &cards);
+    void handleMatchCardCacheFinished(qint64 loadId, quint64 generation,
+                                      const QString &requestIdentity, const QString &name,
+                                      const QString &setCode, const QString &collectorNumber,
+                                      bool exactArt, bool success);
     Q_INVOKABLE void retry();
     Q_INVOKABLE void cancel();
 
   signals:
     void stateChanged();
-    void cardsRequested(const QVariantList &cards);
+    void cardFaceExpansionRequested(qint64 loadId, quint64 generation, const QVariantList &cards);
+    void cardsRequested(qint64 loadId, quint64 generation, const QVariantList &cards);
+    void cardsRetryRequested(qint64 loadId, quint64 generation, const QVariantList &cards);
+    void matchCardSubscriptionsInvalidated(qint64 loadId, quint64 generation);
     void loadComplete(qint64 loadId);
 
   private:
     static QString requestKey(const QString &name, const QString &setCode,
-                              const QString &collectorNumber);
+                              const QString &collectorNumber, bool exactArt);
+    void invalidateCurrentSubscriptions();
+    void prepareLoad(qint64 loadId, const QVariantList &cardKeys, bool waitForTableSnapshot);
+    void scheduleExpansion();
     void finishIfSettled();
     QVariantList requestsFor(const QSet<QString> &keys) const;
 
     qint64 m_loadId = 0;
+    quint64 m_generation = 0;
     bool m_active = false;
     bool m_ready = false;
+    bool m_expansionPending = false;
+    bool m_tableSnapshotReady = false;
+    bool m_backgroundLoad = false;
+    bool m_waitingForTableSnapshot = false;
+    bool m_expansionScheduled = false;
+    QVariantList m_cardKeys;
     QHash<QString, QVariantMap> m_requests;
+    QStringList m_requestOrder;
     QSet<QString> m_pending;
     QSet<QString> m_failed;
     QString m_lastError;

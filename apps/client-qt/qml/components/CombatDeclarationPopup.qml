@@ -102,7 +102,7 @@ Popup {
             textFormat: Text.PlainText
             Layout.fillWidth: true
             text: root.attackMode
-                  ? qsTr("Declare attackers") : qsTr("Declare blockers")
+                  ? qsTranslate("Table", "Declare attackers") : qsTranslate("Table", "Declare blockers")
             color: Theme.text
             font.pixelSize: Theme.fontSize(20)
             font.weight: Font.DemiBold
@@ -112,7 +112,7 @@ Popup {
         Text {
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            text: (root.attackMode ? qsTr("Attack") : qsTr("Block"))
+            text: (root.attackMode ? qsTranslate("Table", "Attack") : qsTranslate("Table", "Block"))
                   + " · " + root.targetLabel
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(12)
@@ -132,7 +132,7 @@ Popup {
                 id: warningText
                 anchors.fill: parent
                 anchors.margins: Theme.size(9)
-                text: qsTr("Some selected cards are tapped or are not printed as creatures. Card effects may still allow this declaration, so you can continue.")
+                text: qsTranslate("Table", "Some selected cards are tapped or are not printed as creatures. Card effects may still allow this declaration, so you can continue.")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(10)
                 wrapMode: Text.WordWrap
@@ -176,7 +176,7 @@ Popup {
                             Layout.fillWidth: true
                             text: combatCardRow.modelData.name
                                   ? combatCardRow.modelData.name
-                                  : qsTr("Card")
+                                  : qsTranslate("Table", "Card")
                             color: Theme.text
                             font.pixelSize: Theme.fontSize(12)
                             font.weight: Font.DemiBold
@@ -186,10 +186,10 @@ Popup {
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
                             text: combatCardRow.modelData.tapped === true
-                                  ? qsTr("Tapped — review before continuing")
+                                  ? qsTranslate("Table", "Tapped — review before continuing")
                                   : (combatCardRow.modelData.assistCreature === true
                                      ? combatCardRow.modelData.assistTypeLine
-                                     : qsTr("Printed type is not Creature — review before continuing"))
+                                     : qsTranslate("Table", "Printed type is not Creature — review before continuing"))
                             color: combatCardRow.modelData.tapped === true
                                    || combatCardRow.modelData.assistCreature !== true
                                    ? Theme.warning : Theme.textMuted
@@ -201,14 +201,14 @@ Popup {
                     CheckBox {
                         visible: root.attackMode
                         enabled: combatCardRow.modelData.tapped !== true
-                        text: qsTr("Tap")
+                        text: qsTranslate("Table", "Tap")
                         checked: root.tapSelections[
                                      combatCardRow.modelData.id] === true
                         onClicked: root.setTapSelected(
                                        combatCardRow.modelData.id,
                                        checked)
                         ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Clear this for vigilance or another effect that keeps the attacker untapped.")
+                        ToolTip.text: qsTranslate("Table", "Clear this for vigilance or another effect that keeps the attacker untapped.")
                     }
                 }
             }
@@ -224,7 +224,7 @@ Popup {
                 objectName: "cancelCombatDeclarationButton"
                 compact: true
                 variant: "ghost"
-                text: qsTr("Cancel")
+                text: qsTranslate("Table", "Cancel")
                 onClicked: root.close()
             }
 
@@ -233,7 +233,7 @@ Popup {
                 compact: true
                 variant: "primary"
                 text: root.attackMode
-                      ? qsTr("Declare attack") : qsTr("Declare block")
+                      ? qsTranslate("Table", "Declare attack") : qsTranslate("Table", "Declare block")
                 enabled: root.cards.length > 0
                 onClicked: {
                     const kind = root.declarationKind

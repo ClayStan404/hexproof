@@ -145,7 +145,14 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 			Credential:   tokenByParticipant[firstPairing.PlayerAID],
 		})
 	reboundFirstPlayer.recvType(protocol.TypeTournamentEntered)
-	drainTournamentSnapshots(t, append(boundClients, reboundFirstPlayer)...)
+	// The old transport has lost its tournament membership authority. It must
+	// not keep receiving participant projections after the credential transfer.
+	for _, client := range boundClients {
+		if client != firstPlayer {
+			drainTournamentSnapshots(t, client)
+		}
+	}
+	drainTournamentSnapshots(t, reboundFirstPlayer)
 	sendTournamentCommand(t, reboundFirstPlayer, protocol.TypeTournamentOpenMatch,
 		"duplicate-seat", protocol.TournamentPairingCommand{PairingID: firstPairing.PairingID})
 	duplicateSeatError := reboundFirstPlayer.recvType(protocol.TypeError)
@@ -166,7 +173,7 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 			Credential:   tokenByParticipant[firstPairing.PlayerAID],
 		})
 	firstPlayer.recvType(protocol.TypeTournamentEntered)
-	drainTournamentSnapshots(t, append(boundClients, reboundFirstPlayer)...)
+	drainTournamentSnapshots(t, boundClients...)
 	reboundFirstPlayer.close()
 
 	// Pairing rooms must not leak into the ordinary public room browser.

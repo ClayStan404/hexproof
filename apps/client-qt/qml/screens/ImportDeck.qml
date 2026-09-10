@@ -59,237 +59,277 @@ Page {
         }
     }
 
-    Surface {
+    Flickable {
+        id: formBody
+        objectName: "importDeckBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.topMargin: Theme.size(14)
         anchors.bottomMargin: Theme.size(28)
-        width: Math.min(Theme.size(800), parent.width - Theme.size(72))
-        elevated: true
+        anchors.leftMargin: Theme.pageMargin
+        anchors.rightMargin: Theme.pageMargin
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        contentWidth: width
+        contentHeight: formCard.height
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Theme.size(28)
-            spacing: Theme.size(10)
+        Surface {
+            id: formCard
+            objectName: "importDeckFormCard"
+            width: Math.min(Theme.size(800), formBody.width)
+            x: (formBody.width - width) / 2
+            height: Math.max(formBody.height, formContent.implicitHeight + Theme.size(56))
+            elevated: true
 
-            RowLayout {
-                Layout.fillWidth: true
-                ColumnLayout {
-                    spacing: Theme.size(3)
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Build from pasted text or a file")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(24)
-                        font.weight: Font.DemiBold
+            ColumnLayout {
+                id: formContent
+                anchors.fill: parent
+                anchors.margins: Theme.size(28)
+                spacing: Theme.size(10)
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.size(3)
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: qsTr("Build from pasted text or a file")
+                            color: Theme.text
+                            font.pixelSize: Theme.fontSize(24)
+                            font.weight: Font.DemiBold
+                            wrapMode: Text.WordWrap
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: qsTr("Import the list first. Choose printings in the editor, then cache art when the versions look right.")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(12)
+                            wrapMode: Text.WordWrap
+                        }
                     }
+                    Item { Layout.fillWidth: true }
+                    StatusPill {
+                        text: qsTr("Local only")
+                        statusColor: Theme.primary
+                    }
+                }
+
+                GridLayout {
+                    id: deckMetadataFields
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.size(14)
+                    columns: width >= Theme.size(660) ? 2 : 1
+                    columnSpacing: Theme.size(18)
+                    rowSpacing: Theme.size(12)
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.size(8)
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("DECK NAME")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.1
+                        }
+                        AppTextField {
+                            id: nameField
+                            objectName: "importDeckName"
+                            Layout.fillWidth: true
+                            placeholderText: "Izzet Murktide"
+                            maximumLength: 80
+                            enabled: !deckLibrary.importingDeck
+                                     && !root.importCompleted
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: deckMetadataFields.columns === 2 ? Theme.size(330) : -1
+                        spacing: Theme.size(8)
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("FORMAT")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.1
+                        }
+                        AppComboBox {
+                            objectName: "importDeckFormat"
+                            Layout.fillWidth: true
+                            model: root.formatOptions
+                            textRole: "label"
+                            valueRole: "value"
+                            currentIndex: 0
+                            enabled: !deckLibrary.importingDeck
+                                     && !root.importCompleted
+                            onActivated: index => root.deckFormat =
+                                         root.formatOptions[index].value
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.size(10)
+                    spacing: Theme.size(8)
                     Text {
                         textFormat: Text.PlainText
-                        text: qsTr("Import the list first. Choose printings in the editor, then cache art when the versions look right.")
+                        text: qsTr("DECK LIST")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSize(11)
+                        font.weight: Font.Bold
+                        font.letterSpacing: 1.1
+                    }
+                    Item { Layout.fillWidth: true }
+                    Text {
+                        textFormat: Text.PlainText
+                        text: qsTr("Example: 4 Lightning Bolt (M11) 149")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSize(10)
+                    }
+                    AppButton {
+                        objectName: "chooseDeckListFileButton"
+                        compact: true
+                        variant: "secondary"
+                        text: qsTr("Choose file…")
+                        enabled: !deckLibrary.importingDeck
+                                 && !root.importCompleted
+                        onClicked: importFileDialog.open()
+                    }
+                }
+
+                Text {
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    visible: root.deckFormat === "cube"
+                    text: qsTr("Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a two-to-eight-player draft.")
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSize(11)
+                    wrapMode: Text.WordWrap
+                }
+
+                ScrollView {
+                    id: deckTextScroll
+                    objectName: "importDeckTextScroll"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: Theme.size(250)
+                    Layout.preferredHeight: Theme.size(300)
+                    Layout.minimumWidth: 0
+                    clip: true
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+
+                    ScrollChainHandler {
+                        innerFlickable: deckTextScroll.contentItem as Flickable
+                        outerFlickable: formBody
+                    }
+
+                    TextArea {
+                        id: deckText
+                        objectName: "importDeckText"
+                        placeholderText: "Deck\n4 Lightning Bolt\n4 Monastery Swiftspear\n\nSideboard\n2 Smash to Smithereens"
+                        color: Theme.text
+                        placeholderTextColor: Theme.textMuted
+                        selectionColor: Theme.primaryMuted
+                        selectedTextColor: Theme.text
+                        font.pixelSize: Theme.fontSize(13)
+                        font.family: "monospace"
+                        wrapMode: TextArea.NoWrap
+                        enabled: !deckLibrary.importingDeck
+                                 && !root.importCompleted
+                        leftPadding: Theme.size(15)
+                        rightPadding: Theme.size(15)
+                        topPadding: Theme.size(14)
+                        bottomPadding: Theme.size(14)
+                        background: Rectangle {
+                            color: Theme.surfaceMuted
+                            radius: Theme.radiusMedium
+                            border.width: 1
+                            border.color: deckText.activeFocus ? Theme.primary : Theme.border
+                        }
+                    }
+                }
+
+                InfoBanner {
+                    Layout.fillWidth: true
+                    message: root.importCompleted
+                             ? root.importWarningMessage
+                             : I18n.status(deckLibrary.lastError)
+                    tone: root.importCompleted ? "warning" : "error"
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: deckLibrary.importingDeck
+                    spacing: Theme.size(9)
+
+                    ActivityRing { }
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: deckLibrary.importStage === "finalizing"
+                              ? qsTr("Saving deck and queuing card images…")
+                              : qsTr("Parsing deck list…")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSize(12)
                     }
                 }
-                Item { Layout.fillWidth: true }
-                StatusPill {
-                    text: qsTr("Local only")
-                    statusColor: Theme.primary
-                }
-            }
 
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.size(14)
-                spacing: Theme.size(18)
-
-                ColumnLayout {
+                Text {
+                    textFormat: Text.PlainText
+                    objectName: "importDeckBlockerText"
                     Layout.fillWidth: true
-                    spacing: Theme.size(8)
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("DECK NAME")
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontSize(11)
-                        font.weight: Font.Bold
-                        font.letterSpacing: 1.1
-                    }
-                    AppTextField {
-                        id: nameField
-                        Layout.fillWidth: true
-                        placeholderText: "Izzet Murktide"
-                        maximumLength: 80
-                        enabled: !deckLibrary.importingDeck
-                                 && !root.importCompleted
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.preferredWidth: Theme.size(330)
-                    spacing: Theme.size(8)
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("FORMAT")
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontSize(11)
-                        font.weight: Font.Bold
-                        font.letterSpacing: 1.1
-                    }
-                    AppComboBox {
-                        Layout.fillWidth: true
-                        model: root.formatOptions
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: 0
-                        enabled: !deckLibrary.importingDeck
-                                 && !root.importCompleted
-                        onActivated: index => root.deckFormat =
-                                     root.formatOptions[index].value
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.size(10)
-                spacing: Theme.size(8)
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTr("DECK LIST")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(11)
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.1
-                }
-                Item { Layout.fillWidth: true }
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTr("Example: 4 Lightning Bolt (M11) 149")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(10)
-                }
-                AppButton {
-                    objectName: "chooseDeckListFileButton"
-                    compact: true
-                    variant: "secondary"
-                    text: qsTr("Choose file…")
-                    enabled: !deckLibrary.importingDeck
-                             && !root.importCompleted
-                    onClicked: importFileDialog.open()
-                }
-            }
-
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                visible: root.deckFormat === "cube"
-                text: qsTr("Cube uses every imported card as one pool. Exact set and collector numbers are required before creating a two-to-eight-player draft.")
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(11)
-                wrapMode: Text.WordWrap
-            }
-
-            ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: Theme.size(250)
-                clip: true
-                ScrollBar.vertical.policy: ScrollBar.AsNeeded
-                ScrollBar.horizontal.policy: ScrollBar.AsNeeded
-
-                TextArea {
-                    id: deckText
-                    placeholderText: "Deck\n4 Lightning Bolt\n4 Monastery Swiftspear\n\nSideboard\n2 Smash to Smithereens"
-                    color: Theme.text
-                    placeholderTextColor: Theme.textMuted
-                    selectionColor: Theme.primaryMuted
-                    selectedTextColor: Theme.text
-                    font.pixelSize: Theme.fontSize(13)
-                    font.family: "monospace"
-                    wrapMode: TextArea.NoWrap
-                    enabled: !deckLibrary.importingDeck
-                             && !root.importCompleted
-                    leftPadding: Theme.size(15)
-                    rightPadding: Theme.size(15)
-                    topPadding: Theme.size(14)
-                    bottomPadding: Theme.size(14)
-                    background: Rectangle {
-                        color: Theme.surfaceMuted
-                        radius: Theme.radiusMedium
-                        border.width: 1
-                        border.color: deckText.activeFocus ? Theme.primary : Theme.border
-                    }
-                }
-            }
-
-            InfoBanner {
-                Layout.fillWidth: true
-                message: root.importCompleted
-                         ? root.importWarningMessage
-                         : I18n.status(deckLibrary.lastError)
-                tone: root.importCompleted ? "warning" : "error"
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                visible: deckLibrary.importingDeck
-                spacing: Theme.size(9)
-
-                ActivityRing { }
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: deckLibrary.importStage === "finalizing"
-                          ? qsTr("Saving deck and queuing card images…")
-                          : qsTr("Parsing deck list…")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(12)
-                }
-            }
-
-            Text {
-                textFormat: Text.PlainText
-                objectName: "importDeckBlockerText"
-                Layout.fillWidth: true
-                visible: !root.importCompleted
-                         && !deckLibrary.importingDeck
-                         && text.length > 0
-                text: root.importBlockerReason()
-                color: Theme.warning
-                font.pixelSize: Theme.fontSize(12)
-                horizontalAlignment: Text.AlignRight
-                wrapMode: Text.WordWrap
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.size(6)
-                AppButton {
-                    variant: "ghost"
-                    text: root.importCompleted
-                          ? qsTr("Done")
-                          : qsTr("Cancel")
-                    enabled: !deckLibrary.importingDeck
-                    onClicked: root.appWindow.popScreen()
-                }
-                Item { Layout.fillWidth: true }
-                AppButton {
                     visible: !root.importCompleted
-                    variant: "primary"
-                    text: deckLibrary.importingDeck
-                          ? (deckLibrary.importStage === "finalizing"
-                             ? qsTr("Finishing…")
-                             : qsTr("Parsing…"))
-                          : qsTr("Import deck")
-                    leadingText: deckLibrary.importingDeck ? "" : "→"
-                    enabled: !deckLibrary.importingDeck
-                             && nameField.text.trim().length > 0
-                             && deckText.text.trim().length > 0
-                    disabledReason: root.importBlockerReason()
-                    onClicked: {
-                        deckLibrary.importDeckAsync(nameField.text.trim(),
-                                                    root.deckFormat,
-                                                    deckText.text)
+                             && !deckLibrary.importingDeck
+                             && text.length > 0
+                    text: root.importBlockerReason()
+                    color: Theme.warning
+                    font.pixelSize: Theme.fontSize(12)
+                    horizontalAlignment: Text.AlignRight
+                    wrapMode: Text.WordWrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.size(6)
+                    AppButton {
+                        variant: "ghost"
+                        text: root.importCompleted
+                              ? qsTr("Done")
+                              : qsTr("Cancel")
+                        enabled: !deckLibrary.importingDeck
+                        onClicked: root.appWindow.popScreen()
+                    }
+                    Item { Layout.fillWidth: true }
+                    AppButton {
+                        objectName: "importDeckSubmitButton"
+                        visible: !root.importCompleted
+                        variant: "primary"
+                        text: deckLibrary.importingDeck
+                              ? (deckLibrary.importStage === "finalizing"
+                                 ? qsTr("Finishing…")
+                                 : qsTr("Parsing…"))
+                              : qsTr("Import deck")
+                        leadingText: deckLibrary.importingDeck ? "" : "→"
+                        enabled: !deckLibrary.importingDeck
+                                 && nameField.text.trim().length > 0
+                                 && deckText.text.trim().length > 0
+                        disabledReason: root.importBlockerReason()
+                        onClicked: {
+                            deckLibrary.importDeckAsync(nameField.text.trim(),
+                                                        root.deckFormat,
+                                                        deckText.text)
+                        }
                     }
                 }
             }

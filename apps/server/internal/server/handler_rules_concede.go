@@ -120,6 +120,9 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 	h.sendRulesPrompts(prompts)
 	if gameOver {
 		h.fanout(r, result.Broadcast)
+		if !result.SideboardDeadline.IsZero() {
+			h.scheduleSideboardExpiration(r, result.SideboardDeadline)
+		}
 	}
 	return nil
 }

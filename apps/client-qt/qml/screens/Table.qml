@@ -54,7 +54,8 @@ Page {
     readonly property bool hasPartnerCommanders:
         ownCommanderCards.length > 1
     readonly property bool isPlaytest: roomSession.playtest === true
-    readonly property bool usesEDHBattlefieldLayout: isEDH && !isPlaytest
+    readonly property bool usesEDHBattlefieldLayout:
+        isEDH && !isPlaytest && battlefieldSeats.length >= 3
     readonly property url cardBackSource:
         Qt.resolvedUrl("../assets/card-back.jpg")
     readonly property bool ownEliminated: ownSeatData.eliminated === true
@@ -153,6 +154,7 @@ Page {
     readonly property var handLibraryPositionEditor:
         sceneShell.handLibraryPositionEditor
     readonly property var tokenPicker: sceneShell.tokenPicker
+    readonly property var emblemBrowser: sceneShell.emblemBrowser
     readonly property var tableSettingsPopup: sceneShell.tableSettingsPopup
     readonly property var shortcutHelp: sceneShell.shortcutHelp
     property bool suppressBattlefieldAreaMenu: false
@@ -232,6 +234,24 @@ Page {
         sessionUi.applyCompactChrome()
     }
     onCompactLayoutChanged: sessionUi.applyCompactChrome()
+
+    function resetGameInteractions() {
+        // A restart reuses physical card IDs. Destroy drag delegates and clear
+        // old selections before the replacement snapshot can reuse those IDs.
+        optimisticCommandModel.clear()
+        optimisticController.resetCounterCountRequest()
+        cardMoveController.pendingCardFaceAction = ({})
+        gameValueController.untapBatchCardIds = []
+        selectionController.clear()
+        sharedZoneController.clearSelection()
+        transientStateController.reset()
+        cardPresentationController.reset()
+        rulesAssistController.cancelPendingNavigation()
+        landPlayController.cancel()
+        sceneShell.closeGameInteractions()
+        projectionSyncController.reset()
+    }
+
     TableSeatStateController {
         id: seatStateController
         gameTableModel: root.gameTableModel
@@ -302,7 +322,6 @@ Page {
         id: projectionSyncController
         tableRoot: root
         seatStateComponent: battlefieldSeatStateComponent
-        gameLogModel: stableGameLogModel
     }
 
     TableSharedZoneController {
@@ -369,15 +388,9 @@ Page {
         }
     }
 
-    ListModel {
-        id: stableGameLogModel
-        dynamicRoles: true
-    }
-
     TableSceneShell {
         id: sceneShell
         tableController: root
-        gameLogModel: stableGameLogModel
     }
 
 }

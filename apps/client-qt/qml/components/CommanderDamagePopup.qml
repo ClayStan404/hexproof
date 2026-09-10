@@ -80,9 +80,9 @@ Popup {
         pendingCommanderId = commander.cardId
         pendingTargetSeat = targetSeat
         pendingRecordsCombatDamage = false
-        damageEditor.titleText = qsTr("Set commander damage")
-        damageEditor.message = qsTr("This corrects the public damage total without changing life.")
-        damageEditor.confirmText = qsTr("Set")
+        damageEditor.titleText = qsTranslate("Table", "Set commander damage")
+        damageEditor.message = qsTranslate("Table", "This corrects the public damage total without changing life.")
+        damageEditor.confirmText = qsTranslate("Table", "Set")
         damageEditor.showFor(commanderDamage(commander.cardId, targetSeat))
     }
 
@@ -90,9 +90,9 @@ Popup {
         pendingCommanderId = commander.cardId
         pendingTargetSeat = targetSeat
         pendingRecordsCombatDamage = true
-        damageEditor.titleText = qsTr("Record commander combat damage")
-        damageEditor.message = qsTr("The same amount is subtracted from life and added to this commander's public damage total.")
-        damageEditor.confirmText = qsTr("Record")
+        damageEditor.titleText = qsTranslate("Table", "Record commander combat damage")
+        damageEditor.message = qsTranslate("Table", "The same amount is subtracted from life and added to this commander's public damage total.")
+        damageEditor.confirmText = qsTranslate("Table", "Record")
         damageEditor.showFor(1)
     }
 
@@ -110,7 +110,7 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Commander damage")
+                    text: qsTranslate("Table", "Commander damage")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(21)
                     font.weight: Font.DemiBold
@@ -118,7 +118,7 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Totals are tracked per physical commander. Reaching 21 is a reminder, not an automatic loss.")
+                    text: qsTranslate("Table", "Totals are tracked per physical commander. Reaching 21 is a reminder, not an automatic loss.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(10)
                     wrapMode: Text.WordWrap
@@ -129,7 +129,7 @@ Popup {
                 compact: true
                 variant: "ghost"
                 text: "×"
-                accessibleName: qsTr("Close")
+                accessibleName: qsTranslate("Table", "Close")
                 onClicked: root.close()
             }
         }
@@ -157,6 +157,7 @@ Popup {
                     delegate: Surface {
                         id: commanderGroup
                         required property var modelData
+                        required property int index
                         width: parent ? parent.width : 0
                         implicitHeight: commanderContent.implicitHeight
                                         + Theme.size(20)
@@ -175,8 +176,9 @@ Popup {
                             Text {
                                 textFormat: Text.PlainText
                                 Layout.fillWidth: true
-                                text: commanderGroup.modelData.name + " · "
-                                      + qsTr("Owner: %1").arg(
+                                text: root.tableController.gameValues.commanderDisplayName(
+                                          commanderGroup.modelData, commanderGroup.index) + " · "
+                                      + qsTranslate("Table", "Owner: %1").arg(
                                           root.seatData(
                                               commanderGroup.modelData.ownerSeat).displayName)
                                 color: Theme.text
@@ -216,7 +218,7 @@ Popup {
                                                  && root.canCorrect(
                                                      commanderGroup.modelData,
                                                      damageRow.modelData.seat)
-                                        accessibleName: qsTr("Decrease commander damage")
+                                        accessibleName: qsTranslate("Table", "Decrease commander damage")
                                         onClicked:
                                             root.tableController.wsModel.setCommanderDamage(
                                                 commanderGroup.modelData.cardId,
@@ -241,8 +243,8 @@ Popup {
                                                        damageRow.modelData.seat)
                                         ToolTip.visible: hovered
                                         ToolTip.text: damageRow.damage >= 21
-                                                      ? qsTr("21 or more commander combat damage. Check whether this player has lost.")
-                                                      : qsTr("Set exact commander damage")
+                                                      ? qsTranslate("Table", "21 or more commander combat damage. Check whether this player has lost.")
+                                                      : qsTranslate("Table", "Set exact commander damage")
                                     }
 
                                     AppButton {
@@ -253,7 +255,7 @@ Popup {
                                         enabled: root.canCorrect(
                                                      commanderGroup.modelData,
                                                      damageRow.modelData.seat)
-                                        accessibleName: qsTr("Increase commander damage")
+                                        accessibleName: qsTranslate("Table", "Increase commander damage")
                                         onClicked:
                                             root.tableController.wsModel.setCommanderDamage(
                                                 commanderGroup.modelData.cardId,
@@ -265,7 +267,7 @@ Popup {
                                         compact: true
                                         variant: "primary"
                                         Layout.preferredWidth: Theme.size(118)
-                                        text: qsTr("Record damage…")
+                                        text: qsTranslate("Table", "Record damage…")
                                         enabled: root.canRecord(
                                                      commanderGroup.modelData,
                                                      damageRow.modelData.seat)
@@ -287,7 +289,7 @@ Popup {
         objectName: "commanderDamageEditor"
         minimumValue: root.pendingRecordsCombatDamage ? 1 : 0
         maximumValue: 2147483647
-        placeholderText: qsTr("Damage")
+        placeholderText: qsTranslate("Table", "Damage")
         onValueRequested: value => {
             root.tableController.wsModel.setCommanderDamage(
                         root.pendingCommanderId,

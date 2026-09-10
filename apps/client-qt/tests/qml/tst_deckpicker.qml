@@ -75,6 +75,7 @@ TestCase {
 
     function cleanup() {
         picker.close()
+        Theme.uiScale = 1
     }
 
     function test_onlyReadyDeckCanBeSelected() {
@@ -112,5 +113,28 @@ TestCase {
         mouseClick(button)
         compare(openLibrarySpy.count, 1)
         verify(!picker.opened)
+    }
+
+    function test_longWarningPreservesDeckNameAndSelection() {
+        Theme.uiScale = 1.5
+        picker.decks = [{
+            deckId: "warning-deck", deckName: "A deck with a legality warning",
+            mainCount: 60, sideboardCount: 15, ready: true,
+            status: "Card database required to verify deck legality."
+        }]
+        picker.open()
+        tryVerify(() => picker.opened)
+        waitForRendering(picker.contentItem)
+        const list = findChild(picker, "matchDeckOptions")
+        tryVerify(() => list.itemAtIndex(0) !== null)
+        const row = list.itemAtIndex(0)
+        const name = findChild(row, "matchDeckName")
+        const select = findChild(row, "selectMatchDeckButton")
+        verify(name.width >= Theme.size(80))
+        const point = select.mapToItem(row, 0, 0)
+        verify(point.x + select.width <= row.width)
+        mouseClick(select)
+        compare(selectedSpy.count, 1)
+        compare(selectedSpy.signalArguments[0][0], "warning-deck")
     }
 }

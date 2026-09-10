@@ -3,7 +3,23 @@
 
 package main
 
-import "testing"
+import (
+	"io"
+	"reflect"
+	"testing"
+)
+
+func TestHostedForgeRuntimeDiscardsPrivateDiagnostics(t *testing.T) {
+	configured := hostedForgeRuntimeConfig("java", "/runtime/forge-harness.jar", "/runtime/forge-gui")
+	if configured.Stderr != io.Discard {
+		t.Fatal("hosted Forge must not forward raw engine diagnostics")
+	}
+	if configured.Command != "java" || !reflect.DeepEqual(configured.Args, []string{
+		"-jar", "/runtime/forge-harness.jar", "--interactive-server", "--forge-home", "/runtime/forge-gui",
+	}) {
+		t.Fatalf("hosted runtime configuration = %+v", configured)
+	}
+}
 
 func TestForgeRuntimeDefaults(t *testing.T) {
 	t.Setenv("HEXPROOF_FORGE_HARNESS", "/srv/forge/forge-harness.jar")

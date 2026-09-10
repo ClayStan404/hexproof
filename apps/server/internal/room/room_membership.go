@@ -189,16 +189,21 @@ func (r *Room) Leave(connID string) (Result, error) {
 		return Result{}, newError(protocol.ErrNotInRoom)
 	}
 	wasHost := r.IsHost(connID)
+	keepGroup := r.LimitedDeckLocked && r.DeckFormat == protocol.DeckFormatCommanderLimited
 
 	// Remove from seats.
 	wasPlayer := false
 	projectGame := false
 	if i := r.FindSeatByConnection(connID); i >= 0 {
 		wasPlayer = true
-		if !wasHost {
+		if !wasHost || keepGroup {
 			projectGame = r.forfeitDepartedPlayer(i)
 		}
 		r.Seats[i] = Seat{}
+		if wasHost && keepGroup && r.PlayerCount() > 0 {
+			r.transferHost()
+			wasHost = false
+		}
 	}
 	// Remove from spectators.
 	for i, sp := range r.Spectators {
@@ -300,6 +305,8 @@ func (r *Room) forfeitDepartedPlayer(seat int) bool {
 			return false
 		}
 		state.Eliminated = true
+		state.ResponseStatus = ""
+		state.Emblems = nil
 		r.appendGameLog("departure", seat,
 			fmt.Sprintf("%s left the game and was eliminated.", state.DisplayName))
 
@@ -329,9 +336,7 @@ func (r *Room) forfeitDepartedPlayer(seat int) bool {
 				MatchFinished: true,
 			}
 		} else if r.Game.ActiveSeat == seat {
-			r.Game.ActiveSeat = r.nextActiveSeat(seat)
-			r.Game.CurrentPhase = protocol.GamePhaseUntap
-			r.Game.LandPlaysThisTurn = 0
+			r.advanceTurn()
 		}
 		return true
 	}
@@ -352,6 +357,7 @@ func (r *Room) forfeitDepartedPlayer(seat int) bool {
 	}
 	r.Game.ActiveSeat = -1
 	r.Game.Sideboard = nil
+	r.Game.Seats[seat].Emblems = nil
 	r.Game.Result = &protocol.GameResult{
 		Reason:        protocol.GameResultDeparture,
 		WinnerSeat:    winnerSeat,

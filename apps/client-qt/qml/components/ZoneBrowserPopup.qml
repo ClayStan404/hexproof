@@ -348,6 +348,7 @@ Popup {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
                     visible: root.canMoveCards
+                    wrapMode: Text.WordWrap
                     text: root.multiSelectEnabled
                           ? qsTr("Use the checkboxes to select cards, then right-click a selected card to move them together.")
                           : qsTr("Right-click a card for move actions.")
@@ -555,6 +556,9 @@ Popup {
                     Text {
                         textFormat: Text.PlainText
                         anchors.centerIn: parent
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
                         visible: cardList.count === 0
                         text: root.cards.length === 0
                               ? qsTr("This zone is empty")

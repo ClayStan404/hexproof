@@ -40,11 +40,12 @@ type PlayerConfig struct {
 // StartGameRequest is the typed payload accepted by the upstream headless
 // Forge harness.
 type StartGameRequest struct {
-	GameID       string         `json:"gameId"`
-	Variant      string         `json:"variant"`
-	StartingLife int            `json:"startingLife"`
-	Seed         int64          `json:"seed"`
-	Players      []PlayerConfig `json:"players"`
+	GameID              string         `json:"gameId"`
+	Variant             string         `json:"variant"`
+	StartingLife        int            `json:"startingLife"`
+	Seed                int64          `json:"seed"`
+	Players             []PlayerConfig `json:"players"`
+	StartingPlayerIndex *int           `json:"startingPlayerIndex,omitempty"`
 }
 
 func (request StartGameRequest) validate() error {
@@ -56,6 +57,9 @@ func (request StartGameRequest) validate() error {
 	}
 	if request.StartingLife <= 0 || request.StartingLife > 1000 {
 		return errors.New("starting life must be between 1 and 1000")
+	}
+	if request.StartingPlayerIndex != nil && (*request.StartingPlayerIndex < 0 || *request.StartingPlayerIndex >= len(request.Players)) {
+		return errors.New("starting player index is outside the registered players")
 	}
 	for playerIndex, player := range request.Players {
 		if strings.TrimSpace(player.Name) == "" {

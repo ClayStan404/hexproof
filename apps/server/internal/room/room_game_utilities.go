@@ -97,7 +97,10 @@ func (r *Room) RestartGame(connID string) (Result, error) {
 		protocol.GameRestarted{
 			RoomID: r.ID, GameNumber: gameNumber, StartingSeat: startingSeat,
 		})
-	return Result{Reply: &reply, ProjectGame: true}, nil
+	// GameNumber intentionally stays unchanged. Every member needs an explicit
+	// lifecycle event before new snapshots to discard old card IDs and dialogs.
+	return Result{Reply: &reply, Broadcast: []protocol.Envelope{reply.WithSeq(r.allocSeq())},
+		ProjectGame: true}, nil
 }
 
 // RollDice produces public server-generated dice results.

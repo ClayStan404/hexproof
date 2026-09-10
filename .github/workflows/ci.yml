@@ -18,6 +18,29 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Select verification scope
+    runs-on: ubuntu-24.04
+    outputs:
+      client: ${{ steps.scope.outputs.client }}
+      server: ${{ steps.scope.outputs.server }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Select build domains
+        id: scope
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          args=(--base "${PR_BASE_SHA:-$PUSH_BASE_SHA}")
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            args+=(--force-all)
+          fi
+          python3 tools/ci-scope.py "${args[@]}" >> "$GITHUB_OUTPUT"
+
   quality:
     name: Format, protocol, and license headers
     runs-on: ubuntu-24.04
@@ -47,8 +70,10 @@ jobs:
           fi
           formatting_patch="$(
             git diff --unified=0 "$base" HEAD -- \
+              ':(glob)apps/client-qt/**/*.c' \
               ':(glob)apps/client-qt/**/*.cpp' \
               ':(glob)apps/client-qt/**/*.h' \
+              ':(glob)tools/ui-automation/x11/**/*.c' \
               ':(glob)tools/ui-automation/x11/**/*.cpp' \
               ':(glob)tools/ui-automation/x11/**/*.h' |
               clang-format-diff-18 -p1 -style=file
@@ -80,23 +105,16 @@ jobs:
         run: python3 tools/check-protocol-parity.py
       - name: Check Simplified Chinese translations
         run: python3 tools/check-i18n.py --strict
-      - name: Check module size budgets
+      - name: Report module size review hints
         run: python3 tools/check-module-size.py
       - name: Test quality checks
         shell: bash
-        run: |
-          tests=(
-            tools.tests.test_limited_product_builder
-            tools.tests.test_quality_checks
-            tools.tests.test_table_architecture
-          )
-          if [[ -f tools/tests/test_deploy_script.py ]]; then
-            tests+=(tools.tests.test_deploy_script)
-          fi
-          python3 -m unittest "${tests[@]}"
+        run: python3 -m unittest discover -s tools/tests
 
   server:
     name: Go server
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -136,17 +154,15 @@ jobs:
 
   client:
     name: Qt client
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: '6.8.3'
-          modules: 'qtwebsockets qtimageformats'
-          cache: true
+        uses: ./.github/actions/setup-qt
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/server/go.mod
@@ -175,11 +191,7 @@ jobs:
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: '6.8.3'
-          modules: 'qtwebsockets qtimageformats'
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Configure Debug sanitizers
         run: >
           cmake -S apps/client-qt -B build/client-qt-sanitizers -G Ninja
@@ -195,7 +207,7 @@ jobs:
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: >
           ctest --test-dir build/client-qt-sanitizers
-          --output-on-failure -E '^server-integration$'
+          --output-on-failure -LE integration
 
   client-platforms:
     name: Qt client (${{ matrix.name }})
@@ -212,11 +224,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install Qt
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
-        with:
-          version: '6.8.3'
-          modules: 'qtwebsockets qtimageformats'
-          cache: true
+        uses: ./.github/actions/setup-qt
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
         shell: pwsh
@@ -241,7 +249,7 @@ jobs:
         run: |
           set +e
           ctest --test-dir build/client-qt -C Release \
-            --output-on-failure -E '^server-integration$'
+            --output-on-failure -LE integration
           test_exit_code=$?
           set -e
           qml_text_log="build/client-qt/qml-test-results.txt"

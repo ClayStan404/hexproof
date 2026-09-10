@@ -3,6 +3,21 @@
 
 #include "wsclient_test.h"
 
+namespace {
+
+bool applyRulesDecision(WsClient &client, const QString &fixture, qint64 promptId)
+{
+    bool ok = false;
+    const Envelope snapshot = sharedFixture(u"rules-snapshot-owner.json"_s, &ok);
+    if (!ok || !client.rulesSession()->applySnapshot(snapshot.payload))
+        return false;
+    Envelope prompt = sharedFixture(fixture, &ok);
+    prompt.payload.insert(u"promptId"_s, promptId);
+    return ok && client.rulesSession()->applyPrompt(prompt.payload);
+}
+
+} // namespace
+
 void TestWsClient::sendsTypedScryResponse() const
 {
     QWebSocketServer server(u"Hexproof scry response server"_s, QWebSocketServer::NonSecureMode);
@@ -24,6 +39,7 @@ void TestWsClient::sendsTypedScryResponse() const
     QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
 
     QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt-scry.json"_s, 72));
     client.respondRulesPromptWithScry(72,
                                       QVariantList{
                                           QVariantMap{{u"destination"_s, u"libraryTop"_s},
@@ -76,6 +92,7 @@ void TestWsClient::sendsTypedDamageResponses() const
     QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
 
     QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt-damage-order.json"_s, 81));
     client.respondRulesPromptWithDamageOrder(
         81, QVariantList{u"damage-target:1"_s, u"damage-target:0"_s});
     QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
@@ -86,6 +103,7 @@ void TestWsClient::sendsTypedDamageResponses() const
     QCOMPARE(request.payload.value(u"damageOrderIds"_s).toArray().at(0).toString(),
              u"damage-target:1"_s);
 
+    QVERIFY(applyRulesDecision(client, u"rules-prompt-damage-assignment.json"_s, 82));
     client.respondRulesPromptWithDamage(
         82, QVariantList{QVariantMap{{u"targetId"_s, u"damage-target:0"_s}, {u"damage"_s, 3}},
                          QVariantMap{{u"targetId"_s, u"damage-target:1"_s}, {u"damage"_s, 4}}});
@@ -102,6 +120,130 @@ void TestWsClient::sendsTypedDamageResponses() const
                          QVariantMap{{u"targetId"_s, u"damage-target:0"_s}, {u"damage"_s, 4}}});
     QTest::qWait(50);
     QCOMPARE(outbound.count(), 0);
+}
+
+void TestWsClient::rulesResponsesStayLockedUntilAuthoritativeProgress() const
+{
+    QWebSocketServer server(u"Hexproof rules response server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"conn-rules"_s},
+                                  {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 7));
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    QSignalSpy pendingChanged(&client, &WsClient::rulesResponsePendingChanged);
+
+    // Stale ids are not queued, even when there is no response in flight.
+    client.respondRulesPrompt(6, u"$pass"_s);
+    QVERIFY(!client.rulesResponsePending());
+    client.respondRulesPrompt(7, u"action:0"_s);
+    QVERIFY(client.rulesResponsePending());
+    client.respondRulesPrompt(7, u"$pass"_s);
+    client.respondRulesPromptWithNumber(7, 1);
+    client.respondRulesPromptWithCards(7, u"$submit"_s, QVariantList{});
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    QTest::qWait(30);
+    QCOMPARE(outbound.count(), 1);
+    bool ok = false;
+    const Envelope first =
+        hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+
+    // Neither a socket write nor a correlated ack nor the same prompt unlocks it.
+    Envelope ack;
+    ack.type = u"rules.responded"_s;
+    ack.id = first.id;
+    sendEnvelope(peer, ack);
+    QSignalSpy succeeded(&client, &WsClient::commandSucceeded);
+    QTRY_COMPARE_WITH_TIMEOUT(succeeded.count(), 1, 1000);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 7));
+    QVERIFY(client.rulesResponsePending());
+    QCOMPARE(pendingChanged.count(), 1);
+
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 8));
+    QVERIFY(!client.rulesResponsePending());
+    client.respondRulesPrompt(8, u"$pass"_s);
+    QVERIFY(client.rulesResponsePending());
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    const Envelope second =
+        hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    Envelope error;
+    error.type = hexproof::protocol::kTypeError;
+    error.id = first.id;
+    error.payload = QJsonObject{{u"code"_s, u"invalid_rules_response"_s},
+                                {u"message"_s, u"old response rejected"_s}};
+    sendEnvelope(peer, error);
+    QTRY_VERIFY_WITH_TIMEOUT(client.lastError().contains(u"old response"_s), 1000);
+    QVERIFY(client.rulesResponsePending());
+    error.id = second.id;
+    error.payload.insert(u"message"_s, u"current response rejected"_s);
+    sendEnvelope(peer, error);
+    QTRY_VERIFY_WITH_TIMEOUT(!client.rulesResponsePending(), 1000);
+    client.respondRulesPrompt(8, u"$pass"_s);
+    QVERIFY(client.rulesResponsePending());
+
+    // A new game can reuse a prompt id without retaining the old-game lock.
+    Envelope snapshot = sharedFixture(u"rules-snapshot-owner.json"_s, &ok);
+    QVERIFY(ok);
+    snapshot.payload.insert(u"gameId"_s, u"ABCDEF-2"_s);
+    QVERIFY(client.rulesSession()->applySnapshot(snapshot.payload));
+    QVERIFY(!client.rulesResponsePending());
+    QVERIFY(!client.rulesSession()->promptPending());
+    client.respondRulesPrompt(8, u"$pass"_s);
+    QVERIFY(!client.rulesResponsePending());
+}
+
+void TestWsClient::rulesResponsesRecoverAfterTimeoutAndDisconnect() const
+{
+    QWebSocketServer server(u"Hexproof rules timeout server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"conn-rules-timeout"_s},
+                                  {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 7));
+    QTimer *timer = client.findChild<QTimer *>(u"rulesResponseTimer"_s);
+    QVERIFY(timer != nullptr);
+    QCOMPARE(timer->interval(), 30000);
+    timer->setInterval(20);
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QVERIFY(client.rulesResponsePending());
+    QTRY_VERIFY_WITH_TIMEOUT(!client.rulesResponsePending(), 1000);
+    QVERIFY(client.lastError().startsWith(u"timeout:"_s));
+    timer->setInterval(30000);
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QVERIFY(client.rulesResponsePending());
+    client.rulesSession()->clear();
+    QVERIFY(!client.rulesResponsePending());
+    QVERIFY(!timer->isActive());
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 7));
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QVERIFY(client.rulesResponsePending());
+    peer->close();
+    QTRY_VERIFY_WITH_TIMEOUT(!client.connected(), 1000);
+    QVERIFY(!client.rulesResponsePending());
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QVERIFY(!client.rulesResponsePending());
 }
 
 void TestWsClient::parsesTypedDamagePrompts() const
@@ -761,6 +903,37 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.payload.value(u"name"_s).toString(), u"Goblin"_s);
     QCOMPARE(sent.payload.value(u"typeLine"_s).toString(), u"Token Creature — Goblin"_s);
     QCOMPARE(sent.payload.value(u"position"_s).toObject().value(u"y"_s).toDouble(), 0.3);
+
+    const QVariantMap emblem{
+        {u"name"_s, u"  Chandra, Torch of Defiance Emblem  "_s},
+        {u"setCode"_s, u"TCMM"_s},
+        {u"collectorNumber"_s, u"79"_s},
+        {u"typeLine"_s, u"Emblem — Chandra"_s},
+    };
+    client.createEmblem(1, emblem);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.type, hexproof::protocol::kTypeGameCreateEmblem);
+    QCOMPARE(sent.payload.value(u"seat"_s).toInt(), 1);
+    QCOMPARE(sent.payload.value(u"name"_s).toString(), u"Chandra, Torch of Defiance Emblem"_s);
+    QCOMPARE(sent.payload.value(u"setCode"_s).toString(), u"TCMM"_s);
+    QCOMPARE(sent.payload.value(u"collectorNumber"_s).toString(), u"79"_s);
+    QCOMPARE(sent.payload.value(u"typeLine"_s).toString(), u"Emblem — Chandra"_s);
+    QVERIFY(!sent.payload.contains(u"position"_s));
+
+    client.removeEmblem(u"  s1-e1  "_s);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.type, hexproof::protocol::kTypeGameRemoveEmblem);
+    QCOMPARE(sent.payload.value(u"emblemId"_s).toString(), u"s1-e1"_s);
+
+    client.createEmblem(-1, emblem);
+    client.createEmblem(0, {});
+    client.removeEmblem(u"  "_s);
+    QTest::qWait(50);
+    QCOMPARE(outbound.count(), 0);
 
     client.adjustCommanderTax(u"s0-c1"_s, 1);
     QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);

@@ -35,7 +35,7 @@ Surface {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: qsTr("Offline product art · %1").arg(root.tournamentModel.product.name)
+                text: qsTranslate("TournamentLobby", "Offline product art · %1").arg(root.tournamentModel.product.name)
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(13)
                 font.weight: Font.DemiBold
@@ -85,15 +85,15 @@ Surface {
             variant: "highlight"
             enabled: root.hasLocalProduct && !root.cardCatalogModel.limitedArtCaching
             disabledReason: !root.hasLocalProduct
-                            ? qsTr("Update the card database to install this product.")
-                            : qsTr("Another product download is running.")
+                            ? qsTranslate("TournamentLobby", "Update the card database to install this product.")
+                            : qsTranslate("TournamentLobby", "Another product download is running.")
             text: root.cardCatalogModel.limitedArtCaching
                   && root.cardCatalogModel.limitedArtProductId
                      === root.tournamentModel.product.id
-                  ? qsTr("Downloading %1 / %2")
+                  ? qsTranslate("TournamentLobby", "Downloading %1 / %2")
                       .arg(root.cardCatalogModel.limitedArtCompleted)
                       .arg(root.cardCatalogModel.limitedArtTotal)
-                  : qsTr("Download product art")
+                  : qsTranslate("TournamentLobby", "Download product art")
             onClicked: root.cardCatalogModel.cacheLimitedProductArt(
                            root.tournamentModel.product.id)
         }
@@ -101,22 +101,22 @@ Surface {
 
     function description() {
         if (!root.hasLocalProduct)
-            return qsTr("This product is missing locally; update the card database first.")
+            return qsTranslate("TournamentLobby", "This product is missing locally; update the card database first.")
         if (root.cardCatalogModel.limitedArtProductId === root.tournamentModel.product.id
                 && !root.cardCatalogModel.limitedArtCaching
                 && root.cardCatalogModel.limitedArtTotal > 0) {
             if (root.cardCatalogModel.limitedArtFailed > 0)
-                return qsTr("Finished · %1 unavailable image(s)")
+                return qsTranslate("TournamentLobby", "Finished · %1 unavailable image(s)")
                     .arg(root.cardCatalogModel.limitedArtFailed)
-            return qsTr("All %1 card image(s) are cached")
+            return qsTranslate("TournamentLobby", "All %1 card image(s) are cached")
                 .arg(root.cardCatalogModel.limitedArtTotal)
         }
         if (root.preferencesModel.cardArtProvider === "auto")
             return root.preferencesModel.cardLanguage === "zh"
-                    ? qsTr("Automatic source · MTGCH first, Scryfall fallback")
-                    : qsTr("Automatic source · Scryfall first, MTGCH fallback")
+                    ? qsTranslate("TournamentLobby", "Automatic source · MTGCH first, Scryfall fallback")
+                    : qsTranslate("TournamentLobby", "Automatic source · Scryfall first, MTGCH fallback")
         return root.preferencesModel.cardArtProvider === "mtgch"
-                ? qsTr("MTGCH first · Scryfall fallback")
-                : qsTr("Scryfall first · MTGCH fallback")
+                ? qsTranslate("TournamentLobby", "MTGCH first · Scryfall fallback")
+                : qsTranslate("TournamentLobby", "Scryfall first · MTGCH fallback")
     }
 }

@@ -266,6 +266,9 @@ func (h *Hub) ExpireSideboard(r *room.Room, now time.Time) (room.Result, error) 
 // Say appends one server-authoritative public chat entry.
 func (h *Hub) Say(connID string, request protocol.GameSay, r *room.Room) (room.Result, error) {
 	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
+		if locked.RulesMode == protocol.RulesModeForge {
+			return locked.SayRules(connID, request)
+		}
 		return locked.Say(connID, request)
 	})
 }

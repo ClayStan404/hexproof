@@ -44,6 +44,24 @@ class BackgroundTaskPools final
         return &pool;
     }
 
+    static QThreadPool *cardArtPersistence()
+    {
+        static QThreadPool pool;
+        static const bool configured = configure(pool, 1);
+        Q_UNUSED(configured);
+        return &pool;
+    }
+
+    static QThreadPool *customCardArt()
+    {
+        // Interactive override/restore work must not queue behind a complete
+        // catalog's metadata, legality checks, or ordinary image inventory.
+        static QThreadPool pool;
+        static const bool configured = configure(pool, 1);
+        Q_UNUSED(configured);
+        return &pool;
+    }
+
   private:
     static bool configure(QThreadPool &pool, int maximumThreads)
     {

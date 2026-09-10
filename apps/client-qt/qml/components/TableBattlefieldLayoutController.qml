@@ -120,13 +120,15 @@ QtObject {
 
     function battlefieldColumns(seatIndex) {
         const size = tableRoot.battlefieldScene.battlefieldSize(seatIndex)
+        const cardWidth = size && size.cardWidth !== undefined
+                        ? size.cardWidth : tableRoot.battlefieldCardWidth
         const gap = Theme.size(10)
         if (!size || size.width <= 0)
             return 10
         return Math.max(
                     1, Math.floor(
                         (size.width + gap)
-                        / (tableRoot.battlefieldCardWidth + gap)))
+                        / (cardWidth + gap)))
     }
 
     function battlefieldSlot(seatIndex, category, index) {
@@ -159,11 +161,13 @@ QtObject {
         }
         const row = Math.floor(index / clusterColumns)
         const size = tableRoot.battlefieldScene.battlefieldSize(seatIndex)
+        const cardWidth = size && size.cardWidth !== undefined
+                        ? size.cardWidth : tableRoot.battlefieldCardWidth
         let x = columns === 1 ? 0.5 : column / (columns - 1)
-        if (size && size.width > tableRoot.battlefieldCardWidth) {
+        if (size && size.width > cardWidth) {
             const gap = Theme.size(10)
-            const step = (tableRoot.battlefieldCardWidth + gap)
-                         / (size.width - tableRoot.battlefieldCardWidth)
+            const step = (cardWidth + gap)
+                         / (size.width - cardWidth)
             x = column * step
         }
         const compactSupportLayout = columns < 3 && usesSupportCluster
@@ -273,12 +277,16 @@ QtObject {
     function stackedBattlefieldPosition(seatIndex, category, base,
                                         stackIndex) {
         const size = tableRoot.battlefieldScene.battlefieldSize(seatIndex)
+        const cardWidth = size.cardWidth !== undefined
+                        ? size.cardWidth : tableRoot.battlefieldCardWidth
+        const cardHeight = size.cardHeight !== undefined
+                         ? size.cardHeight : tableRoot.battlefieldCardHeight
         const availableWidth = Math.max(
                                    1, size.width
-                                      - tableRoot.battlefieldCardWidth)
+                                      - cardWidth)
         const availableHeight = Math.max(
                                     1, size.height
-                                       - tableRoot.battlefieldCardHeight)
+                                       - cardHeight)
         const xStep = Math.min(0.04, Theme.size(18) / availableWidth)
         const yStep = Math.min(0.025, Theme.size(7) / availableHeight)
         const xDirection = base.x > 0.72 ? -1 : 1

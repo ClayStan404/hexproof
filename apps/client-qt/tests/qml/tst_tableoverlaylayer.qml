@@ -31,19 +31,12 @@ TestCase {
         height: 600
         property var wsModel: fakeWs
         property var gameSession: fakeWs
-        property var sessionUi: fakeTable
         property var presentation: fakeTable
-        property bool showGameLogRail: false
         property bool tableModalOpen: false
         property bool hoverPreviewVisible: true
         property real hoverPreviewX: 120
         property real hoverPreviewY: 80
         property var inspectedCard: ({"name": "Preview card"})
-        property int restoreCalls: 0
-        function setGameLogRailVisible(show) {
-            showGameLogRail = show
-            ++restoreCalls
-        }
         function cardImageSource(card) { return "" }
         function tableCardImageSource(card) {
             if (card && card.faceDown === true)
@@ -65,21 +58,11 @@ TestCase {
 
     function init() {
         fakeWs.sideboarding = false
-        fakeTable.showGameLogRail = false
         fakeTable.tableModalOpen = false
         fakeTable.hoverPreviewVisible = true
         fakeTable.hoverPreviewX = 120
         fakeTable.hoverPreviewY = 80
         fakeTable.inspectedCard = {"name": "Preview card"}
-        fakeTable.restoreCalls = 0
-    }
-
-    function test_restoresGameLogRail() {
-        const button = findChild(layer, "restoreGameLogRailButton")
-        verify(button.visible)
-        button.clicked()
-        verify(fakeTable.showGameLogRail)
-        compare(fakeTable.restoreCalls, 1)
     }
 
     function test_modalShieldAndPreviewFollowTableState() {

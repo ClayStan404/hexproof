@@ -46,6 +46,9 @@ TestCase {
         property string movedDestination: ""
         property int renameCalls: 0
         property int tokenCalls: 0
+        property int emblemCalls: 0
+        property int emblemSeat: -1
+        property var lastEmblem: ({})
         function searchLibraryCards() {}
         function resolveLibraryViewAssignments() {}
         function drawCards(value) { ++drawCalls; drawCount = value }
@@ -61,6 +64,7 @@ TestCase {
         function renameCounter() { ++renameCalls }
         function setCardCounter() {}
         function createToken() { ++tokenCalls }
+        function createEmblem(seat, emblem) { ++emblemCalls; emblemSeat = seat; lastEmblem = emblem }
         function shuffleLibrary() {}
     }
 
@@ -154,6 +158,7 @@ TestCase {
         property var zoneState: fakeTable
         property var gameValues: fakeTable
         property var ownSeatData: ({"libraryCount": 20})
+        property var battlefieldSeats: [{seat:0,displayName:"Alice"},{seat:1,displayName:"Bob"}]
         property string libraryMoveDestination: "graveyard"
         property string selectedCounterKey: "energy"
         property string selectedBattlefieldCardId: "card-1"
@@ -188,6 +193,7 @@ TestCase {
         fakeWs.movedDestination = ""
         fakeWs.renameCalls = 0
         fakeWs.tokenCalls = 0
+        fakeWs.emblemCalls = 0
         fakeMoves.faceCalls = 0
         fakeMoves.battlefieldLibraryCalls = 0
         fakeMoves.handLibraryCalls = 0
@@ -329,5 +335,18 @@ TestCase {
         compare(editors.tokenPicker.displayedTokens[0].name, "Goblin")
         verify(editors.tokenPicker.displayedTokens[0].preferred)
         compare(editors.tokenPicker.displayedTokens[1].name, "Treasure")
+    }
+
+    function test_emblemSelectionUsesRecipientWithoutCreatingPermanent() {
+        const emblem = {kind:"emblem",name:"Teferi Emblem",setCode:"TCMM",collectorNumber:"79",typeLine:"Emblem"}
+        editors.tokenPicker.emblemSelected(emblem,1)
+        compare(fakeWs.emblemCalls,1)
+        compare(fakeWs.emblemSeat,1)
+        compare(fakeWs.lastEmblem.name,"Teferi Emblem")
+        compare(fakeWs.tokenCalls,0)
+        fakeTable.canAct = false
+        editors.tokenPicker.emblemSelected(emblem,0)
+        compare(fakeWs.emblemCalls,1)
+        fakeTable.canAct = true
     }
 }

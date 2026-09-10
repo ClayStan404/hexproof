@@ -18,6 +18,9 @@ Page {
     property int selectedServerIndex: root.hub.serverIndex
     property int latencyRefreshCountdown: 0
 
+    Component.onCompleted: Qt.callLater(root.syncServerSelector)
+    onSelectedServerIndexChanged: Qt.callLater(root.syncServerSelector)
+
     background: AppBackground { }
 
     ScreenHeader {
@@ -68,7 +71,8 @@ Page {
             objectName: "connectCard"
             Layout.fillWidth: true
             Layout.preferredWidth: Theme.size(570)
-            Layout.preferredHeight: Math.max(Theme.size(570),
+            Layout.preferredHeight: Math.max(Theme.isCompactWidth(root.width)
+                                             ? 0 : Theme.size(570),
                                              form.implicitHeight
                                              + Theme.size(64))
             elevated: true
@@ -115,7 +119,7 @@ Page {
                     textForIndex: function(index) {
                         return root.serverLabel(index)
                     }
-                    currentIndex: root.selectedServerIndex
+                    displayText: root.serverLabel(root.selectedServerIndex)
                     enabled: !root.hub.connecting
                     onActivated: function(index) {
                         root.selectedServerIndex = index
@@ -369,6 +373,11 @@ Page {
         if (latency === -1)
             return name + " · " + qsTr("Unavailable")
         return name + " · " + qsTr("Checking…")
+    }
+
+    function syncServerSelector() {
+        if (serverSelector.currentIndex !== root.selectedServerIndex)
+            serverSelector.currentIndex = root.selectedServerIndex
     }
 
     function submit() {

@@ -52,11 +52,13 @@ CatalogImportResult importBulkFile(const QString &jsonPath, const QString &datab
                     "printed_name TEXT, type_line TEXT, set_code TEXT, collector_number TEXT, "
                     "image_url TEXT, image_status TEXT NOT NULL DEFAULT '', lang TEXT, colors "
                     "TEXT, mana_value REAL, rarity TEXT, layout TEXT, "
+                    "card_colors TEXT, mana_cost TEXT, "
                     "legal_formats TEXT NOT NULL DEFAULT '', illustration_id TEXT, "
                     "released_at TEXT, digital INTEGER NOT NULL DEFAULT 0, power TEXT, "
                     "toughness TEXT, oracle_text TEXT, "
                     "legality_statuses TEXT NOT NULL DEFAULT '', "
-                    "booster INTEGER NOT NULL DEFAULT 0)"))) {
+                    "booster INTEGER NOT NULL DEFAULT 0, related_cards TEXT NOT NULL DEFAULT "
+                    "'')"))) {
                 result.error = query.lastError().text();
             } else if (!query.exec(
                            QStringLiteral("CREATE TABLE card_aliases (oracle_id TEXT NOT NULL, "
@@ -99,9 +101,10 @@ CatalogImportResult importBulkFile(const QString &jsonPath, const QString &datab
                                        "image_url, image_status, lang, colors, mana_value, rarity, "
                                        "layout, "
                                        "legal_formats, illustration_id, released_at, digital, "
-                                       "power, toughness, oracle_text, legality_statuses, booster) "
+                                       "power, toughness, oracle_text, legality_statuses, booster, "
+                                       "card_colors, mana_cost, related_cards) "
                                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-                                       "?, ?, ?, ?, ?, ?, ?)"))) {
+                                       "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))) {
                     failed = true;
                     result.error = insert.lastError().text();
                 }

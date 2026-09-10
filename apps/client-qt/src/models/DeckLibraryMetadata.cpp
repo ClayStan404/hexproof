@@ -9,6 +9,7 @@
 #include "models/DeckLibraryQueries.h"
 
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QtConcurrent>
 
 #include <algorithm>
@@ -28,13 +29,37 @@ QString metadataIdentity(const QString &name, const QString &setCode,
            collectorNumber;
 }
 
+QString displayPrintingKey(const QString &setCode, const QString &collectorNumber)
+{
+    return setCode.trimmed().toCaseFolded() + QChar(0x1f) +
+           collectorNumber.trimmed().toCaseFolded();
+}
+
+bool matchesDisplayAliases(const DeckCard &card, const QSet<QString> &aliases)
+{
+    const QString name = normalizedCardName(card.name);
+    QStringList faces = name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+    if (card.setCode.isEmpty() || card.collectorNumber.isEmpty()) {
+        if (aliases.contains(name))
+            return true;
+    } else if (!faces.isEmpty()) {
+        // Exact front printings must not invalidate all editions of that card.
+        // A combined name can nevertheless refer to a separate meld result
+        // whose printing differs from the component stored in the deck.
+        faces.removeFirst();
+    }
+    return std::any_of(faces.cbegin(), faces.cend(),
+                       [&aliases](const QString &face) { return aliases.contains(face); });
+}
+
 void appendCatalogMetadataRequests(const Deck &deck, bool refreshExisting, QVariantList *requests,
                                    QSet<QString> *seen)
 {
     const QVector<DeckCard> *const zones[] = {&deck.mainboard, &deck.sideboard, &deck.consider};
     for (const QVector<DeckCard> *zone : zones) {
         for (const DeckCard &card : *zone) {
-            if (!refreshExisting && !card.typeLine.isEmpty() && card.manaValue >= 0.0)
+            if (!refreshExisting && !card.typeLine.isEmpty() && card.manaValue >= 0.0 &&
+                !card.rarity.isEmpty() && !card.cardColors.isNull() && !card.manaCost.isNull())
                 continue;
             const QString key = metadataIdentity(card.name, card.setCode, card.collectorNumber);
             if (normalizedCardName(card.name).isEmpty() || seen->contains(key))
@@ -93,8 +118,9 @@ void DeckLibraryModel::refreshTokenMetadata()
     QSet<QString> seen;
     for (const Deck &deck : std::as_const(m_decks)) {
         for (const DeckToken &token : deck.tokens) {
-            if (!token.power.isEmpty() || !token.toughness.isEmpty() ||
-                !token.oracleText.isEmpty()) {
+            if (!token.typeLine.isEmpty() &&
+                (!token.power.isEmpty() || !token.toughness.isEmpty() ||
+                 !token.oracleText.isEmpty())) {
                 continue;
             }
             const QString key = normalizedCardName(token.name) + QChar(0x1f) +
@@ -120,12 +146,244 @@ void DeckLibraryModel::refreshCardArt()
 
 void DeckLibraryModel::refreshCachedCardArt()
 {
+    refreshDisplayedCardArt();
     emit cardsNeedCachedArtLookup(DeckLibraryQueries::cacheRequestsForLibrary(m_decks, true));
+}
+
+void DeckLibraryModel::refreshCustomCardArt(const QVariantList &bindings)
+{
+    if (!m_imagePathResolver)
+        return;
+    bool refreshAll = bindings.isEmpty();
+    QSet<QString> printings;
+    QSet<QString> aliases;
+    for (const QVariant &value : bindings) {
+        const QVariantMap binding = value.toMap();
+        const QString set = binding.value(QStringLiteral("setCode")).toString();
+        const QString collector = binding.value(QStringLiteral("collectorNumber")).toString();
+        if (binding.value(QStringLiteral("scope")).toString() != QStringLiteral("printing") ||
+            set.trimmed().isEmpty() || collector.trimmed().isEmpty()) {
+            // Deck entries need not carry Oracle IDs or canonical English
+            // names, so a card-wide change cannot safely be narrowed by name.
+            refreshAll = true;
+            break;
+        }
+        printings.insert(displayPrintingKey(set, collector));
+        for (const QString &field : {QStringLiteral("name"), QStringLiteral("faceName")}) {
+            const QString name = normalizedCardName(binding.value(field).toString());
+            if (!name.isEmpty()) {
+                aliases.insert(name);
+                const QStringList faces = name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+                for (const QString &face : faces)
+                    aliases.insert(face);
+            }
+        }
+    }
+    for (Deck &deck : m_decks) {
+        for (QVector<DeckCard> *zone : {&deck.mainboard, &deck.sideboard, &deck.consider}) {
+            for (DeckCard &card : *zone) {
+                if (refreshAll ||
+                    printings.contains(displayPrintingKey(card.setCode, card.collectorNumber)) ||
+                    matchesDisplayAliases(card, aliases))
+                    card.displayImagePathPending = true;
+            }
+        }
+    }
+    // Preserve unresolved startup/previous-refresh rows as well as this change.
+    // Neither official metadata, persistence nor the download queue is touched.
+    queuePendingDisplayPaths();
+}
+
+void DeckLibraryModel::queuePendingDisplayPaths()
+{
+    const quint64 generation = ++m_displayPathGeneration;
+    QSet<QString> names;
+    m_pendingDisplayPathNames.clear();
+    const auto appendDeck = [this, &names](const Deck &deck) {
+        for (const QVector<DeckCard> *zone : {&deck.mainboard, &deck.sideboard, &deck.consider}) {
+            for (const DeckCard &card : *zone) {
+                if (card.displayImagePathPending) {
+                    const QString name = normalizedCardName(card.name);
+                    if (!names.contains(name)) {
+                        names.insert(name);
+                        m_pendingDisplayPathNames.append(name);
+                    }
+                }
+            }
+        }
+    };
+    if (const Deck *deck = currentDeck())
+        appendDeck(*deck);
+    m_pendingDisplayPathPriorityNameCount = m_pendingDisplayPathNames.size();
+    for (const Deck &deck : std::as_const(m_decks)) {
+        if (deck.id != m_currentDeckId)
+            appendDeck(deck);
+    }
+    m_pendingDisplayPathNameIndex = 0;
+    m_pendingDisplayPathLocationIndex = 0;
+    m_pendingDisplayPathLocationRevision = m_cardLocationRevision;
+    m_pendingDisplayPathPriorityDeckId = m_currentDeckId;
+    m_resolvingPriorityDisplayPaths = !m_pendingDisplayPathPriorityDeckId.isEmpty();
+    if (!m_pendingDisplayPathNames.isEmpty())
+        QTimer::singleShot(16, this,
+                           [this, generation]() { resolveDeferredDisplayPaths(generation); });
+}
+
+void DeckLibraryModel::setImagePathResolver(std::function<QString(const DeckCard &)> resolver,
+                                            bool deferInitialRefresh)
+{
+    m_imagePathResolver = std::move(resolver);
+    if (!deferInitialRefresh || !m_imagePathResolver) {
+        refreshDisplayedCardArt();
+        return;
+    }
+    QSet<QString> ids;
+    for (Deck &deck : m_decks) {
+        ids.insert(deck.id);
+        for (QVector<DeckCard> *zone : {&deck.mainboard, &deck.sideboard, &deck.consider}) {
+            for (DeckCard &card : *zone) {
+                // Never expose a persisted path as ready before checking the
+                // configured storage and current custom-art bindings.
+                card.displayImagePath.clear();
+                card.displayImagePathResolved = true;
+                card.displayImagePathPending = true;
+            }
+        }
+    }
+    queuePendingDisplayPaths();
+    notifyDecksChanged(ids, true);
+}
+
+void DeckLibraryModel::resolveDeferredDisplayPaths(quint64 generation)
+{
+    if (generation != m_displayPathGeneration || !m_imagePathResolver)
+        return;
+    QElapsedTimer budget;
+    budget.start();
+    int resolved = 0;
+    int scanned = 0;
+    QSet<QString> changedIds;
+    if (m_pendingDisplayPathPriorityDeckId != m_currentDeckId) {
+        queuePendingDisplayPaths();
+        return;
+    }
+    if (m_pendingDisplayPathLocationRevision != m_cardLocationRevision) {
+        m_pendingDisplayPathLocationRevision = m_cardLocationRevision;
+        m_pendingDisplayPathLocationIndex = 0;
+    }
+    while (true) {
+        if (resolved >= 32 || scanned >= 256 || (scanned > 0 && budget.elapsed() >= 8))
+            break;
+        const qsizetype nameLimit = m_resolvingPriorityDisplayPaths
+                                        ? m_pendingDisplayPathPriorityNameCount
+                                        : m_pendingDisplayPathNames.size();
+        if (m_pendingDisplayPathNameIndex >= nameLimit) {
+            if (!m_resolvingPriorityDisplayPaths)
+                break;
+            m_resolvingPriorityDisplayPaths = false;
+            m_pendingDisplayPathNameIndex = 0;
+            m_pendingDisplayPathLocationIndex = 0;
+            continue;
+        }
+        const QString name = m_pendingDisplayPathNames.at(m_pendingDisplayPathNameIndex);
+        // Resolve live locations again after every yield. Deleting, importing,
+        // moving or merging rows may have invalidated every previous index.
+        const QVector<CardLocation> locations = m_cardLocationsByName.value(name);
+        if (m_pendingDisplayPathLocationIndex >= locations.size()) {
+            ++m_pendingDisplayPathNameIndex;
+            m_pendingDisplayPathLocationIndex = 0;
+            ++scanned;
+            continue;
+        }
+        const CardLocation location = locations.at(m_pendingDisplayPathLocationIndex++);
+        ++scanned;
+        DeckCard *card = cardAt(location);
+        if (!card || !card->displayImagePathPending ||
+            (m_resolvingPriorityDisplayPaths &&
+             m_decks.at(location.deckIndex).id != m_pendingDisplayPathPriorityDeckId))
+            continue;
+        const DeckCard requestedCard = *card;
+        const QString path = m_imagePathResolver(requestedCard);
+        ++resolved;
+        if (generation != m_displayPathGeneration)
+            return;
+        if (m_pendingDisplayPathLocationRevision != m_cardLocationRevision) {
+            // A resolver callback may change the live deck structure. Do not
+            // publish into a row whose index now identifies a different card.
+            m_pendingDisplayPathLocationRevision = m_cardLocationRevision;
+            m_pendingDisplayPathLocationIndex = 0;
+            continue;
+        }
+        card = cardAt(location);
+        if (!card)
+            continue;
+        const bool changed = !card->displayImagePathResolved || card->displayImagePath != path;
+        card->displayImagePath = path;
+        card->displayImagePathResolved = true;
+        card->displayImagePathPending = false;
+        if (changed)
+            changedIds.insert(m_decks.at(location.deckIndex).id);
+    }
+    if (!changedIds.isEmpty())
+        notifyDecksChanged(changedIds, true);
+    if (generation != m_displayPathGeneration)
+        return;
+    if (m_resolvingPriorityDisplayPaths ||
+        m_pendingDisplayPathNameIndex < m_pendingDisplayPathNames.size()) {
+        QTimer::singleShot(16, this,
+                           [this, generation]() { resolveDeferredDisplayPaths(generation); });
+    } else {
+        m_pendingDisplayPathNames.clear();
+        m_pendingDisplayPathNameIndex = 0;
+        m_pendingDisplayPathLocationIndex = 0;
+    }
+}
+
+void DeckLibraryModel::resolveDisplayPaths(const QSet<QString> &deckIds, bool force)
+{
+    if (!m_imagePathResolver && !force)
+        return;
+    for (Deck &deck : m_decks) {
+        if (!deckIds.isEmpty() && !deckIds.contains(deck.id))
+            continue;
+        for (QVector<DeckCard> *zone : {&deck.mainboard, &deck.sideboard, &deck.consider}) {
+            for (DeckCard &card : *zone) {
+                if (!force && card.displayImagePathResolved)
+                    continue;
+                card.displayImagePath = m_imagePathResolver ? m_imagePathResolver(card) : QString{};
+                card.displayImagePathResolved = bool(m_imagePathResolver);
+                card.displayImagePathPending = false;
+            }
+        }
+    }
+}
+
+void DeckLibraryModel::refreshDisplayedCardArt()
+{
+    ++m_displayPathGeneration;
+    m_pendingDisplayPathNames.clear();
+    m_pendingDisplayPathNameIndex = 0;
+    resolveDisplayPaths({}, true);
+    QSet<QString> ids;
+    for (const Deck &deck : std::as_const(m_decks))
+        ids.insert(deck.id);
+    notifyDecksChanged(ids, true);
 }
 
 QVariantList DeckLibraryModel::cardArtAuditRequests() const
 {
     return DeckLibraryQueries::cacheRequestsForLibrary(m_decks, true);
+}
+
+QVariantList DeckLibraryModel::cardArtExportRequests(const QString &id) const
+{
+    // Use the requested deck, independently of the open editor or library filter.
+    // A stale or empty ID must never widen an export to the complete library.
+    for (const Deck &deck : m_decks) {
+        if (deck.id == id)
+            return DeckLibraryQueries::cacheRequestsForDeck(deck, true);
+    }
+    return {};
 }
 
 void DeckLibraryModel::retryMissingArt()
@@ -140,16 +398,30 @@ void DeckLibraryModel::applyCardMetadata(const QString &requestedName, const QSt
     const QString normalizedName = normalizedCardName(requestedName);
     if (normalizedName.isEmpty())
         return;
-    QSet<QString> changedDeckIds;
-    const QSet<int> deckIndexes = m_cardDeckIndex.value(normalizedName);
-    for (const int deckIndex : deckIndexes) {
-        if (deckIndex < 0 || deckIndex >= m_decks.size())
+    QSet<int> changedDeckIndexes;
+    const QVector<CardLocation> locations = m_cardLocationsByName.value(normalizedName);
+    for (const CardLocation &location : locations) {
+        DeckCard *card = cardAt(location);
+        if (!card)
             continue;
-        Deck &deck = m_decks[deckIndex];
-        if (DeckEditor::applyCardMetadata(deck, requestedName, localizedName, typeLine, imagePath,
+        const QString previousPath = card->imagePath;
+        const QString previousSet = card->setCode;
+        const QString previousCollector = card->collectorNumber;
+        if (DeckEditor::applyCardMetadata(*card, requestedName, localizedName, typeLine, imagePath,
                                           setCode, collectorNumber)) {
-            changedDeckIds.insert(deck.id);
+            if (card->imagePath != previousPath || card->setCode != previousSet ||
+                card->collectorNumber != previousCollector) {
+                card->displayImagePathResolved = false;
+            }
+            changedDeckIndexes.insert(location.deckIndex);
         }
+    }
+    QSet<QString> changedDeckIds;
+    const QString updatedAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    for (const int deckIndex : changedDeckIndexes) {
+        Deck &deck = m_decks[deckIndex];
+        deck.updatedAt = updatedAt;
+        changedDeckIds.insert(deck.id);
     }
     if (changedDeckIds.isEmpty())
         return;
@@ -173,48 +445,71 @@ void DeckLibraryModel::applyCatalogMetadata(const QVariantList &cards)
     if (metadataByIdentity.isEmpty())
         return;
 
-    QSet<QString> changedDeckIds;
-    for (Deck &deck : m_decks) {
-        bool deckChanged = false;
-        QVector<DeckCard> *const zones[] = {&deck.mainboard, &deck.sideboard, &deck.consider};
-        for (QVector<DeckCard> *zone : zones) {
-            for (DeckCard &card : *zone) {
-                const auto metadata = metadataByIdentity.constFind(
-                    metadataIdentity(card.name, card.setCode, card.collectorNumber));
-                if (metadata == metadataByIdentity.cend())
-                    continue;
-                const QString localizedName =
-                    metadata->value(QStringLiteral("localizedName")).toString();
-                const QString typeLine = metadata->value(QStringLiteral("typeLine")).toString();
-                const QString colors = metadata->value(QStringLiteral("colors")).toString();
-                const double manaValue =
-                    metadata->value(QStringLiteral("manaValue"), -1.0).toDouble();
-                if (!localizedName.isEmpty() && card.localizedName != localizedName) {
-                    card.localizedName = localizedName;
-                    deckChanged = true;
-                }
-                if (!typeLine.isEmpty() && card.typeLine != typeLine) {
-                    card.typeLine = typeLine;
-                    deckChanged = true;
-                }
-                if (metadata->contains(QStringLiteral("colors")) && card.colors != colors) {
-                    card.colors = colors;
-                    deckChanged = true;
-                }
-                if (manaValue >= 0.0 && card.manaValue != manaValue) {
-                    card.manaValue = manaValue;
-                    deckChanged = true;
-                }
+    QSet<int> changedDeckIndexes;
+    for (auto metadata = metadataByIdentity.cbegin(); metadata != metadataByIdentity.cend();
+         ++metadata) {
+        const QString requestedName = metadata->value(QStringLiteral("requestedName")).toString();
+        const QVector<CardLocation> locations =
+            m_cardLocationsByName.value(normalizedCardName(requestedName));
+        for (const CardLocation &location : locations) {
+            DeckCard *card = cardAt(location);
+            if (!card || metadataIdentity(card->name, card->setCode, card->collectorNumber) !=
+                             metadata.key()) {
+                continue;
             }
+            bool cardChanged = false;
+            if (metadata->contains(QStringLiteral("cardColors")) &&
+                (card->cardColors.isNull() ||
+                 card->cardColors != metadata->value(QStringLiteral("cardColors")).toString())) {
+                card->cardColors = metadata->value(QStringLiteral("cardColors")).toString();
+                cardChanged = true;
+            }
+            if (metadata->contains(QStringLiteral("manaCost")) &&
+                (card->manaCost.isNull() ||
+                 card->manaCost != metadata->value(QStringLiteral("manaCost")).toString())) {
+                card->manaCost = metadata->value(QStringLiteral("manaCost")).toString();
+                cardChanged = true;
+            }
+            const QString localizedName =
+                metadata->value(QStringLiteral("localizedName")).toString();
+            const QString typeLine = metadata->value(QStringLiteral("typeLine")).toString();
+            const QString colors = metadata->value(QStringLiteral("colors")).toString();
+            const double manaValue = metadata->value(QStringLiteral("manaValue"), -1.0).toDouble();
+            const QString rarity = metadata->value(QStringLiteral("rarity")).toString();
+            if (!rarity.isEmpty() && card->rarity != rarity) {
+                card->rarity = rarity;
+                cardChanged = true;
+            }
+            if (!localizedName.isEmpty() && card->localizedName != localizedName) {
+                card->localizedName = localizedName;
+                cardChanged = true;
+            }
+            if (!typeLine.isEmpty() && card->typeLine != typeLine) {
+                card->typeLine = typeLine;
+                cardChanged = true;
+            }
+            if (metadata->contains(QStringLiteral("colors")) && card->colors != colors) {
+                card->colors = colors;
+                cardChanged = true;
+            }
+            if (manaValue >= 0.0 && card->manaValue != manaValue) {
+                card->manaValue = manaValue;
+                cardChanged = true;
+            }
+            if (cardChanged)
+                changedDeckIndexes.insert(location.deckIndex);
         }
-        if (!deckChanged)
-            continue;
-        deck.updatedAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    }
+
+    QSet<QString> changedDeckIds;
+    const QString updatedAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    for (const int deckIndex : changedDeckIndexes) {
+        Deck &deck = m_decks[deckIndex];
+        deck.updatedAt = updatedAt;
         changedDeckIds.insert(deck.id);
     }
     if (changedDeckIds.isEmpty())
         return;
-    m_metadataChangedDeckIds.unite(changedDeckIds);
     scheduleMetadataCommit();
     notifyDecksChanged(changedDeckIds, true);
 }
@@ -259,6 +554,10 @@ void DeckLibraryModel::applyTokenMetadata(const QVariantList &tokens)
             fill(&token.oracleText, metadata->value(QStringLiteral("oracleText")).toString());
             if (token.typeLine.isEmpty())
                 fill(&token.typeLine, metadata->value(QStringLiteral("typeLine")).toString());
+            fill(&token.kind,
+                 normalizedDeckTokenKind(
+                     metadata->value(QStringLiteral("kind"), token.kind).toString(), token.typeLine,
+                     metadata->value(QStringLiteral("layout")).toString()));
             if (token.localizedName.isEmpty()) {
                 const QString displayName =
                     metadata->value(QStringLiteral("displayName")).toString();

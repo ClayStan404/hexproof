@@ -41,21 +41,36 @@ Item {
         model: root.tableController.battlefieldSeats
                ? root.tableController.battlefieldSeats : []
 
-        delegate: BattlefieldOpponentZoneDock {
+        delegate: Loader {
+            id: opponentDockLoader
             required property var modelData
 
-            tableController: root.tableController
-            publicZoneBrowserPopup: root.publicZoneBrowserPopup
-            seatData: modelData
-            availableWidth: root.width
-            availableHeight: root.height
-            panelSlot: root.panelSlot(modelData.seat)
-            battlefieldBounds: root.battlefieldBounds(modelData.seat)
-            isOwn: modelData.seat
-                   === root.tableController.roomSession.seatIndex
-            expanded: !isOwn
-                      && root.tableController.sharedZones.opponentZoneExpanded(
-                          modelData.seat)
+            readonly property bool isOwn:
+                modelData && modelData.seat
+                === root.tableController.roomSession.seatIndex
+            readonly property bool expanded:
+                modelData && !isOwn
+                && root.tableController.sharedZones.opponentZoneExpanded(
+                    modelData.seat)
+
+            active: modelData && modelData.seat !== undefined
+                    && !isOwn && expanded
+            z: {
+                const dock = item as BattlefieldOpponentZoneDock
+                return dock ? dock.z : 0
+            }
+            sourceComponent: BattlefieldOpponentZoneDock {
+                tableController: root.tableController
+                publicZoneBrowserPopup: root.publicZoneBrowserPopup
+                seatData: opponentDockLoader.modelData
+                availableWidth: root.width
+                availableHeight: root.height
+                panelSlot: root.panelSlot(opponentDockLoader.modelData.seat)
+                battlefieldBounds:
+                    root.battlefieldBounds(opponentDockLoader.modelData.seat)
+                isOwn: opponentDockLoader.isOwn
+                expanded: opponentDockLoader.expanded
+            }
         }
     }
 }

@@ -17,7 +17,7 @@ QtObject {
     property string pendingPhase: ""
     property string warningTitle: ""
     property string warningMessage: ""
-    property string warningConfirmText: qsTr("Continue")
+    property string warningConfirmText: qsTranslate("Table", "Continue")
 
     function possibleLoss(player) {
         return player && player.seat !== undefined
@@ -42,7 +42,7 @@ QtObject {
             if (seats[index].responseStatus === "hold") {
                 result.push(seats[index].displayName
                             ? seats[index].displayName
-                            : qsTr("Seat") + " " + (seats[index].seat + 1))
+                            : qsTranslate("Table", "Seat") + " " + (seats[index].seat + 1))
             }
         }
         return result
@@ -51,16 +51,16 @@ QtObject {
     function navigationWarnings(endingTurn) {
         const warnings = []
         if (tableRoot.stackCards.length > 0) {
-            warnings.push(qsTr("The shared stack still contains %1 card(s).")
+            warnings.push(qsTranslate("Table", "The shared stack still contains %1 card(s).")
                           .arg(tableRoot.stackCards.length))
         }
         const holdNames = holdPlayerNames()
         if (holdNames.length > 0) {
-            warnings.push(qsTr("These players are still waiting: %1.")
+            warnings.push(qsTranslate("Table", "These players are still waiting: %1.")
                           .arg(holdNames.join(", ")))
         }
         if (endingTurn && oversizedHand(tableRoot.ownSeatData)) {
-            warnings.push(qsTr("Your hand contains %1 cards; the usual maximum hand size is 7.")
+            warnings.push(qsTranslate("Table", "Your hand contains %1 cards; the usual maximum hand size is 7.")
                           .arg(tableRoot.ownSeatData.handCount))
         }
         return warnings
@@ -70,13 +70,13 @@ QtObject {
         pendingNavigationAction = action
         pendingPhase = phase ? phase : ""
         warningTitle = action === "turn"
-                     ? qsTr("End the turn anyway?")
-                     : qsTr("Advance the phase anyway?")
+                     ? qsTranslate("Table", "End the turn anyway?")
+                     : qsTranslate("Table", "Advance the phase anyway?")
         warningMessage = warnings.join("\n\n")
                          + "\n\n"
-                         + qsTr("Card effects may override these reminders; Hexproof will not enforce them.")
+                         + qsTranslate("Table", "Card effects may override these reminders; Hexproof will not enforce them.")
         warningConfirmText = action === "turn"
-                           ? qsTr("End turn") : qsTr("Advance")
+                           ? qsTranslate("Table", "End turn") : qsTranslate("Table", "Advance")
         warningDialog.open()
     }
 
@@ -154,10 +154,10 @@ QtObject {
             const player = tableRoot.seatState.seatData(targetSeat)
             return player.displayName
                    ? player.displayName
-                   : qsTr("Seat") + " " + (targetSeat + 1)
+                   : qsTranslate("Table", "Seat") + " " + (targetSeat + 1)
         }
         const card = tableRoot.zoneState.cardDataForId(targetCardId)
-        return card.name ? card.name : qsTr("Battlefield permanent")
+        return card.name ? card.name : qsTranslate("Table", "Battlefield permanent")
     }
 
     function requestCombatDeclaration(kind, sourceCardIds,

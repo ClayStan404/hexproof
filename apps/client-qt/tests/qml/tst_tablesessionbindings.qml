@@ -32,6 +32,7 @@ TestCase {
         property bool host: true
         property string role: "player"
         property int seatIndex: 0
+        property bool spectatorsSeeHands: false
         property string selectedDeckName: "Elves"
         property var seats: []
         property var spectators: []
@@ -80,6 +81,7 @@ TestCase {
                                        string sourceZone, int cardCount,
                                        string toZone)
         signal gameSnapshotChanged()
+        signal gameRestarted()
         signal commandQueued(string requestId, string commandType,
                              var payload)
         signal commandFailed(string requestId, string commandType,
@@ -147,6 +149,7 @@ TestCase {
         mockRoomSession.phase = "started"
         mockRoomSession.role = "player"
         mockRoomSession.seatIndex = 0
+        mockRoomSession.spectatorsSeeHands = false
         mockGameSession.finished = false
         mockGameSession.sideboarding = false
         mockGameSession.currentPhase = "precombat_main"
@@ -229,11 +232,22 @@ TestCase {
     }
 
     function test_sideboardPanelFollowsGameSession() {
-        const panel = findChild(table, "sideboardPanel")
-        verify(panel !== null)
-        verify(!panel.visible)
+        verify(findChild(table, "sideboardPanel") === null)
         mockGameSession.sideboarding = true
-        verify(panel.visible)
+        tryVerify(() => findChild(table, "sideboardPanel") !== null)
+        verify(findChild(table, "sideboardPanel").visible)
+        mockGameSession.sideboarding = false
+        tryVerify(() => findChild(table, "sideboardPanel") === null)
+    }
+
+    function test_constructsOnlyRoleSpecificHandView() {
+        verify(findChild(table, "ownHand") !== null)
+        verify(findChild(table, "spectatorHandView") === null)
+
+        mockRoomSession.role = "spectator"
+        mockRoomSession.spectatorsSeeHands = true
+        tryVerify(() => findChild(table, "ownHand") === null)
+        tryVerify(() => findChild(table, "spectatorHandView") !== null)
     }
 
     function test_responseStatusUsesSessionSeatIndex() {
@@ -255,6 +269,7 @@ TestCase {
     function test_sideboardDeckChangesUsesSessionFormat() {
         mockWs.format = "duel"
         mockRoomSession.format = "edh"
+        mockGameSession.sideboarding = true
         const panel = findChild(table, "sideboardPanel")
         verify(panel !== null)
         verify(panel.deckChangesAllowed)
@@ -277,6 +292,7 @@ TestCase {
         mockWs.sideboardState = {
             "seats": [{"seat": 1, "ready": false}]
         }
+        mockGameSession.sideboarding = true
         mockRoomSession.seatIndex = 0
         mockGameSession.sideboard = {
             "seats": [
@@ -292,6 +308,7 @@ TestCase {
     function test_sideboardTitleUsesSessionGameNumber() {
         mockWs.gameNumber = 99
         mockGameSession.gameNumber = 2
+        mockGameSession.sideboarding = true
         const title = findChild(table, "sideboardGameTitle")
         verify(title !== null)
         compare(title.text, "Sideboard · Game 2 → 3")

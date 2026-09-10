@@ -40,7 +40,7 @@ Popup {
     function submit() {
         if (!positionField.acceptableInput)
             return
-        const position = Number(positionField.text)
+        const position = positionField.numberValue()
         close()
         positionRequested(position)
     }
@@ -68,6 +68,7 @@ Popup {
         }
         AppTextField {
             id: positionField
+            objectName: "libraryPositionField"
             Layout.fillWidth: true
             inputMethodHints: Qt.ImhDigitsOnly
             validator: IntValidator {

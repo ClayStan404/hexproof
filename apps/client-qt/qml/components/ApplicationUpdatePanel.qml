@@ -22,10 +22,12 @@ Surface {
             Layout.fillWidth: true
 
             ColumnLayout {
+                Layout.fillWidth: true
                 spacing: Theme.size(3)
 
                 Text {
                     textFormat: Text.PlainText
+                    Layout.fillWidth: true
                     text: qsTr("Application updates")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(20)
@@ -34,6 +36,7 @@ Surface {
 
                 Text {
                     textFormat: Text.PlainText
+                    Layout.fillWidth: true
                     text: qsTr("Check GitHub Releases and download the verified package for this device.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(12)
@@ -41,9 +44,8 @@ Surface {
                 }
             }
 
-            Item { Layout.fillWidth: true }
-
             StatusPill {
+                objectName: "applicationUpdateStatus"
                 text: root.statusText()
                 statusColor: root.statusColor()
             }
@@ -103,6 +105,7 @@ Surface {
                 }
 
                 AppButton {
+                    objectName: "checkApplicationUpdatesButton"
                     compact: true
                     variant: "ghost"
                     text: qsTr("Check updates")
@@ -188,12 +191,13 @@ Surface {
             message: I18n.status(root.updater.lastError)
         }
 
-        RowLayout {
+        Flow {
             Layout.fillWidth: true
             Layout.topMargin: Theme.size(4)
             spacing: Theme.size(10)
 
             AppButton {
+                objectName: "downloadApplicationUpdateButton"
                 visible: root.updater.updateAvailable && !root.updater.downloadReady
                 text: root.updater.exactVersion
                       ? qsTr("Download matching version") : qsTr("Download update")
@@ -202,21 +206,22 @@ Surface {
             }
 
             AppButton {
+                objectName: "openApplicationUpdateFolderButton"
                 visible: root.updater.downloadReady
                 text: qsTr("Open download folder")
                 onClicked: root.updater.openDownloadLocation()
             }
 
             AppButton {
+                objectName: "cancelApplicationUpdateButton"
                 visible: root.updater.downloading
                 variant: "ghost"
                 text: qsTr("Cancel download")
                 onClicked: root.updater.cancelDownload()
             }
 
-            Item { Layout.fillWidth: true }
-
             AppButton {
+                objectName: "viewApplicationReleaseButton"
                 visible: root.updater.releaseAvailable
                 compact: true
                 variant: "ghost"

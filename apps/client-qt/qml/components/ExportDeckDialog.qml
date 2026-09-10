@@ -11,11 +11,13 @@ Popup {
     property string deckName: ""
     signal copyRequested()
     signal saveRequested()
+    signal cardArtRequested()
 
     parent: Overlay.overlay
     x: Math.round((parent.width - width) / 2)
     y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(440), parent.width - Theme.size(48))
+    height: Math.min(implicitHeight, parent.height - Theme.size(48))
     padding: Theme.size(24)
     modal: true
     focus: true
@@ -43,53 +45,99 @@ Popup {
             font.pixelSize: Theme.fontSize(20)
             font.weight: Font.DemiBold
             wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
         }
 
-        Text {
-            textFormat: Text.PlainText
+        Flickable {
+            id: exportBody
+            objectName: "deckExportBody"
             Layout.fillWidth: true
-            text: qsTr("Copy the list or save a .txt file. The file uses explicit Deck, Sideboard, and Commander headings so it can be imported again.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(14)
-            lineHeight: 1.35
-            wrapMode: Text.WordWrap
+            Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            implicitHeight: exportOptions.implicitHeight
+            contentWidth: width
+            contentHeight: exportOptions.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            ColumnLayout {
+                id: exportOptions
+                width: exportBody.width
+                spacing: Theme.size(16)
+
+                Text {
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    text: qsTr("Copy the list or save a .txt file. The file uses explicit Deck, Sideboard, and Commander headings so it can be imported again.")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSize(14)
+                    lineHeight: 1.35
+                    wrapMode: Text.WordWrap
+                }
+
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: Theme.size(10)
+
+                    AppButton {
+                        objectName: "copyDeckExportButton"
+                        compact: true
+                        text: qsTr("Copy list")
+                        onClicked: {
+                            root.close()
+                            root.copyRequested()
+                        }
+                    }
+
+                    AppButton {
+                        objectName: "saveDeckExportButton"
+                        compact: true
+                        variant: "primary"
+                        text: qsTr("Save as file")
+                        onClicked: {
+                            root.close()
+                            root.saveRequested()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: 1
+                    color: Theme.divider
+                }
+
+                Text {
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    text: qsTr("Share this deck's downloaded card images in a portable .hexproof-artpack file, including available languages and card faces.")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSize(14)
+                    lineHeight: 1.35
+                    wrapMode: Text.WordWrap
+                }
+
+                AppButton {
+                    objectName: "exportDeckArtButton"
+                    Layout.fillWidth: true
+                    text: qsTr("Export card art…")
+                    onClicked: {
+                        root.close()
+                        root.cardArtRequested()
+                    }
+                }
+            }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: Theme.size(4)
-            spacing: Theme.size(10)
-
-            Item { Layout.fillWidth: true }
-
-            AppButton {
-                objectName: "cancelDeckExportButton"
-                compact: true
-                variant: "ghost"
-                text: qsTr("Cancel")
-                onClicked: root.close()
-            }
-
-            AppButton {
-                objectName: "copyDeckExportButton"
-                compact: true
-                text: qsTr("Copy list")
-                onClicked: {
-                    root.close()
-                    root.copyRequested()
-                }
-            }
-
-            AppButton {
-                objectName: "saveDeckExportButton"
-                compact: true
-                variant: "primary"
-                text: qsTr("Save as file")
-                onClicked: {
-                    root.close()
-                    root.saveRequested()
-                }
-            }
+        AppButton {
+            objectName: "cancelDeckExportButton"
+            Layout.alignment: Qt.AlignRight
+            compact: true
+            variant: "ghost"
+            text: qsTr("Cancel")
+            onClicked: root.close()
         }
     }
 }

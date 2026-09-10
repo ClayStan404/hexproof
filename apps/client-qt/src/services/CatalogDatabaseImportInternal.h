@@ -205,12 +205,49 @@ inline bool insertBulkCard(QSqlQuery &insert, const QJsonObject &card, CatalogIm
     insert.bindValue(20, card.value(QStringLiteral("oracle_text")).toString());
     insert.bindValue(21, legalityStatuses(card));
     insert.bindValue(22, card.value(QStringLiteral("booster")).toBool() ? 1 : 0);
+    // Preserve card-level split costs; otherwise display the front face.
+    // Commander color identity remains separate from the card's actual colors.
+    const QJsonArray faces = card.value(QStringLiteral("card_faces")).toArray();
+    const QJsonObject face = faces.isEmpty() ? card : faces.first().toObject();
+    const QJsonValue colors = card.contains(QStringLiteral("colors"))
+                                  ? card.value(QStringLiteral("colors"))
+                                  : face.value(QStringLiteral("colors"));
+    if (colors.isArray()) {
+        QJsonObject displayColors;
+        displayColors.insert(QStringLiteral("color_identity"), colors);
+        const QString actualColors = colorIdentity(displayColors);
+        insert.bindValue(23, actualColors.isEmpty() ? QStringLiteral("") : actualColors);
+    } else {
+        insert.bindValue(23, QVariant());
+    }
+    const QJsonValue cost = card.contains(QStringLiteral("mana_cost"))
+                                ? card.value(QStringLiteral("mana_cost"))
+                                : face.value(QStringLiteral("mana_cost"));
+    insert.bindValue(24, cost.isString() ? QVariant(cost.toString()) : QVariant());
+    // Optional additive metadata: existing schema-10 catalogs remain valid.
+    // Keep only the official meld relation, not arbitrary URLs or related tokens.
+    QJsonArray related;
+    if (layout == QStringLiteral("meld")) {
+        for (const QJsonValue &part : card.value(QStringLiteral("all_parts")).toArray()) {
+            const QJsonObject object = part.toObject();
+            const QString component = object.value(QStringLiteral("component")).toString();
+            if (component != QStringLiteral("meld_part") &&
+                component != QStringLiteral("meld_result"))
+                continue;
+            related.append(
+                QJsonObject{{QStringLiteral("id"), object.value(QStringLiteral("id"))},
+                            {QStringLiteral("name"), object.value(QStringLiteral("name"))},
+                            {QStringLiteral("component"), component}});
+        }
+    }
+    insert.bindValue(25, QString::fromUtf8(QJsonDocument(related).toJson(QJsonDocument::Compact)));
     if (!insert.exec()) {
         result->error = insert.lastError().text();
         return false;
     }
     ++result->cardCount;
-    if (layout == QStringLiteral("token") &&
+    if ((layout == QStringLiteral("token") || layout == QStringLiteral("double_faced_token") ||
+         layout == QStringLiteral("emblem")) &&
         card.value(QStringLiteral("lang")).toString() == QStringLiteral("en")) {
         ++result->tokenCount;
     }

@@ -118,7 +118,7 @@ bool DeckLibraryModel::changeCurrentDeckFormat(const QString &format)
         m_validationRevisions.remove(deckId);
         m_pendingValidationDeckIds.remove(deckId);
     }
-    notifyAllChanged();
+    notifyCardStructureChanged();
     return true;
 }
 
@@ -144,31 +144,34 @@ bool DeckLibraryModel::setCommander(const QString &cardName)
     return true;
 }
 
-bool DeckLibraryModel::moveCard(const QString &cardName, bool toSideboard)
+bool DeckLibraryModel::moveCard(const QString &cardName, const QString &setCode,
+                                const QString &collectorNumber, bool toSideboard)
 {
     Deck *deck = currentDeck();
     if (!deck || (isCubeDeckFormat(deck->deckFormat) && toSideboard))
         return false;
     const Deck previous = *deck;
-    if (!DeckEditor::moveCard(*deck, cardName, toSideboard))
+    if (!DeckEditor::moveCard(*deck, cardName, setCode, collectorNumber, toSideboard))
         return false;
     if (!save()) {
         *deck = previous;
         return false;
     }
     scheduleDeckValidation(deck->id);
-    notifyAllChanged();
+    notifyCardStructureChanged();
     return true;
 }
 
-bool DeckLibraryModel::changeCardCount(const QString &cardName, bool sideboard, int delta)
+bool DeckLibraryModel::changeCardCount(const QString &cardName, const QString &setCode,
+                                       const QString &collectorNumber, bool sideboard, int delta)
 {
     Deck *deck = currentDeck();
     if (!deck || (isCubeDeckFormat(deck->deckFormat) && sideboard))
         return false;
     const Deck previous = *deck;
     QString error;
-    if (!DeckEditor::changeCardCount(*deck, cardName, sideboard, delta, &error)) {
+    if (!DeckEditor::changeCardCount(*deck, cardName, setCode, collectorNumber, sideboard, delta,
+                                     &error)) {
         if (!error.isEmpty())
             setLastError(error);
         return false;
@@ -178,8 +181,7 @@ bool DeckLibraryModel::changeCardCount(const QString &cardName, bool sideboard, 
         return false;
     }
     scheduleDeckValidation(deck->id);
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    notifyCardStructureChanged();
     return true;
 }
 
@@ -203,8 +205,7 @@ bool DeckLibraryModel::addCard(const QString &name, const QString &localizedName
         return false;
     }
     scheduleDeckValidation(deck->id);
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    notifyCardStructureChanged();
     emit cardsNeedCaching(QVariantList{QVariantMap{
         {QStringLiteral("name"), name},
         {QStringLiteral("setCode"), setCode},
@@ -238,8 +239,7 @@ bool DeckLibraryModel::addConsiderCard(const QString &name, const QString &local
         *deck = previous;
         return false;
     }
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    notifyCardStructureChanged();
     emit cardsNeedCaching(QVariantList{QVariantMap{
         {QStringLiteral("name"), name},
         {QStringLiteral("setCode"), setCode},
@@ -268,8 +268,7 @@ bool DeckLibraryModel::moveCardToConsider(const QString &name, const QString &se
         return false;
     }
     scheduleDeckValidation(deck->id);
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    notifyCardStructureChanged();
     return true;
 }
 
@@ -287,8 +286,7 @@ bool DeckLibraryModel::moveConsiderCardToMain(const QString &name, const QString
         return false;
     }
     scheduleDeckValidation(deck->id);
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    notifyCardStructureChanged();
     return true;
 }
 
@@ -310,12 +308,12 @@ bool DeckLibraryModel::changeConsiderCardCount(const QString &name, const QStrin
         *deck = previous;
         return false;
     }
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    notifyCardStructureChanged();
     return true;
 }
 
-bool DeckLibraryModel::setCardPrinting(const QString &cardName, bool sideboard,
+bool DeckLibraryModel::setCardPrinting(const QString &cardName, const QString &currentSetCode,
+                                       const QString &currentCollectorNumber, bool sideboard,
                                        const QString &localizedName, const QString &typeLine,
                                        const QString &setCode, const QString &collectorNumber)
 {
@@ -324,21 +322,34 @@ bool DeckLibraryModel::setCardPrinting(const QString &cardName, bool sideboard,
         return false;
     const Deck previous = *deck;
     DeckCard updatedCard;
-    if (!DeckEditor::setCardPrinting(*deck, cardName, sideboard, localizedName, typeLine, setCode,
-                                     collectorNumber, &updatedCard)) {
+    if (!DeckEditor::setCardPrinting(*deck, cardName, currentSetCode, currentCollectorNumber,
+                                     sideboard, localizedName, typeLine, setCode, collectorNumber,
+                                     &updatedCard)) {
         return false;
+    }
+    QVector<DeckCard> &cards = sideboard ? deck->sideboard : deck->mainboard;
+    for (DeckCard &card : cards) {
+        if (cardIdentityMatches(card, updatedCard))
+            card.displayImagePathResolved = false;
     }
     if (!save()) {
         *deck = previous;
         return false;
     }
     scheduleDeckValidation(deck->id);
-    notifyAllChanged();
+    // Selecting an existing printing can also merge rows and shift the indexed
+    // metadata locations of the remaining cards.
+    notifyCardStructureChanged();
     emit cardsNeedCaching(QVariantList{QVariantMap{
         {QStringLiteral("name"), updatedCard.name},
         {QStringLiteral("setCode"), updatedCard.setCode},
         {QStringLiteral("collectorNumber"), updatedCard.collectorNumber},
         {QStringLiteral("exactArt"), true},
+    }});
+    emit cardsNeedMetadata(QVariantList{QVariantMap{
+        {QStringLiteral("name"), updatedCard.name},
+        {QStringLiteral("setCode"), updatedCard.setCode},
+        {QStringLiteral("collectorNumber"), updatedCard.collectorNumber},
     }});
     return true;
 }
@@ -358,6 +369,9 @@ bool DeckLibraryModel::addToken(const QVariantMap &token)
         token.value(QStringLiteral("power")).toString(),
         token.value(QStringLiteral("toughness")).toString(),
         token.value(QStringLiteral("oracleText")).toString(),
+        normalizedDeckTokenKind(token.value(QStringLiteral("kind")).toString(),
+                                token.value(QStringLiteral("typeLine")).toString(),
+                                token.value(QStringLiteral("layout")).toString()),
     };
     if (!DeckEditor::addToken(*deck, deckToken))
         return false;

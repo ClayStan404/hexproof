@@ -249,6 +249,7 @@ Item {
         }
 
         ColumnLayout {
+            Layout.fillWidth: false
             Layout.preferredWidth: Theme.size(190)
             spacing: Theme.size(8)
 

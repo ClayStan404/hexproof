@@ -46,6 +46,7 @@ type tournamentBinding struct {
 	TournamentID  string
 	Role          string
 	ParticipantID string
+	generation    uint64
 }
 
 func (s *Session) allowMessage(now time.Time, limit int) bool {
@@ -83,6 +84,7 @@ func (s *Session) Tournament() tournamentBinding {
 func (s *Session) setTournament(binding tournamentBinding) {
 	s.tournamentMu.Lock()
 	defer s.tournamentMu.Unlock()
+	binding.generation = s.tournament.generation + 1
 	s.tournament = binding
 }
 
@@ -90,7 +92,7 @@ func (s *Session) clearTournament() tournamentBinding {
 	s.tournamentMu.Lock()
 	defer s.tournamentMu.Unlock()
 	previous := s.tournament
-	s.tournament = tournamentBinding{}
+	s.tournament = tournamentBinding{generation: previous.generation + 1}
 	return previous
 }
 
@@ -142,11 +144,12 @@ func (s *Session) closeLocked() context.CancelFunc {
 
 // Hub owns the room registry and sessions. It is safe for concurrent use.
 type Hub struct {
-	mu            sync.Mutex
-	rooms         map[string]*roomEntry
-	maxRooms      int
-	passwordCheck func([]byte, string) bool
-	passwordSlots chan struct{}
+	mu              sync.Mutex
+	rooms           map[string]*roomEntry
+	reservedRoomIDs map[string]bool
+	maxRooms        int
+	passwordCheck   func([]byte, string) bool
+	passwordSlots   chan struct{}
 }
 
 type roomEntry struct {
@@ -178,10 +181,11 @@ func NewHubWithLimits(maxRooms, maxConcurrentPasswordChecks int) *Hub {
 		maxConcurrentPasswordChecks = 1
 	}
 	return &Hub{
-		rooms:         make(map[string]*roomEntry),
-		maxRooms:      maxRooms,
-		passwordCheck: checkPassword,
-		passwordSlots: make(chan struct{}, maxConcurrentPasswordChecks),
+		rooms:           make(map[string]*roomEntry),
+		reservedRoomIDs: make(map[string]bool),
+		maxRooms:        maxRooms,
+		passwordCheck:   checkPassword,
+		passwordSlots:   make(chan struct{}, maxConcurrentPasswordChecks),
 	}
 }
 
@@ -245,7 +249,7 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.maxRooms > 0 && len(h.rooms) >= h.maxRooms {
+	if h.maxRooms > 0 && len(h.rooms)+len(h.reservedRoomIDs) >= h.maxRooms {
 		return nil, protocol.RoomSnapshot{}, 0, nil,
 			&protocolError{code: protocol.ErrServerLimit, message: "maximum rooms reached"}
 	}
@@ -265,12 +269,16 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 		if _, ok := h.rooms[id]; ok {
 			continue // collision, retry
 		}
+		if h.reservedRoomIDs[id] {
+			continue
+		}
 		r, err = room.NewWithRulesMode(id, name, format, matchMode, cardLoadMode, rulesMode,
 			maxSeats, allowSpectators, len(hash) > 0, host.DisplayName, host.ConnectionID, time.Now())
 		if err != nil {
 			return nil, protocol.RoomSnapshot{}, 0, nil, err
 		}
 		r.DeckFormat = deckFormat
+		r.LimitedDeckLocked = tournamentID != ""
 		r.SpectatorsSeeHands = allowSpectators && spectatorsSeeHands
 		if tournamentParticipantID != "" {
 			r.Seats[r.HostSeat].TournamentParticipantID = tournamentParticipantID
@@ -603,6 +611,28 @@ func (h *Hub) RemoveRoom(id string) {
 	h.removeRoom(id)
 }
 
+// GameProjection builds one role-specific game.snapshot using an existing
+// room sequence. The caller owns sequence allocation.
+func (h *Hub) GameProjection(r *room.Room, connID string,
+	seq int64) (protocol.Envelope, error) {
+	if r == nil {
+		return protocol.Envelope{},
+			&protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	entry := h.roomEntryFor(r.ID)
+	if entry == nil {
+		return protocol.Envelope{},
+			&protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.room != r {
+		return protocol.Envelope{},
+			&protocolError{code: protocol.ErrRoomNotFound, message: "room not found"}
+	}
+	return gameProjectionEnvelope(entry.room, connID, seq)
+}
+
 // GameProjections builds one role-specific game.snapshot per current member.
 // Every projection shares one room sequence number while hidden hands differ.
 func (h *Hub) GameProjections(r *room.Room) (map[string]protocol.Envelope, error) {
@@ -620,32 +650,52 @@ func (h *Hub) GameProjections(r *room.Room) (map[string]protocol.Envelope, error
 	}
 	locked := entry.room
 
-	connectionIDs := make([]string, 0, len(locked.Seats)+len(locked.Spectators))
-	for _, seat := range locked.Seats {
-		if seat.Occupied {
-			connectionIDs = append(connectionIDs, seat.ConnectionID)
-		}
-	}
-	for _, spectator := range locked.Spectators {
-		connectionIDs = append(connectionIDs, spectator.ConnectionID)
-	}
 	seq := locked.AllocSeq()
-	projections := make(map[string]protocol.Envelope, len(connectionIDs))
-	for _, connID := range connectionIDs {
-		snapshot, err := locked.GameSnapshot(connID)
-		if err != nil {
-			return nil, mapRoomError(err)
+	projections := make(map[string]protocol.Envelope,
+		locked.PlayerCount()+len(locked.Spectators))
+	for _, seat := range locked.Seats {
+		if !seat.Occupied {
+			continue
 		}
-		envelope, err := protocol.NewEnvelope(protocol.TypeGameSnapshot, snapshot)
+		envelope, err := gameProjectionEnvelope(locked, seat.ConnectionID, seq)
 		if err != nil {
-			return nil, &protocolError{
-				code:    protocol.ErrInternal,
-				message: "internal server error",
+			return nil, err
+		}
+		projections[seat.ConnectionID] = envelope
+	}
+
+	var spectatorEnvelope protocol.Envelope
+	for index, spectator := range locked.Spectators {
+		if index == 0 {
+			envelope, err := gameProjectionEnvelope(
+				locked, spectator.ConnectionID, seq)
+			if err != nil {
+				return nil, err
 			}
+			spectatorEnvelope = envelope
 		}
-		projections[connID] = envelope.WithSeq(seq)
+		projections[spectator.ConnectionID] = spectatorEnvelope
 	}
 	return projections, nil
+}
+
+func gameProjectionEnvelope(r *room.Room, connID string,
+	seq int64) (protocol.Envelope, error) {
+	snapshot, err := r.GameSnapshot(connID)
+	if r.RulesMode == protocol.RulesModeForge {
+		snapshot, err = r.RulesGameSnapshot(connID)
+	}
+	if err != nil {
+		return protocol.Envelope{}, mapRoomError(err)
+	}
+	envelope, err := protocol.NewEnvelope(protocol.TypeGameSnapshot, snapshot)
+	if err != nil {
+		return protocol.Envelope{}, &protocolError{
+			code:    protocol.ErrInternal,
+			message: "internal server error",
+		}
+	}
+	return envelope.WithSeq(seq), nil
 }
 
 // RulesProjectionTargets snapshots the authenticated viewer seat for each

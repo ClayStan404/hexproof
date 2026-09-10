@@ -13,19 +13,6 @@ Item {
     anchors.fill: parent
     z: 4000
 
-    AppButton {
-        objectName: "restoreGameLogRailButton"
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: Theme.size(8)
-        z: 4000
-        visible: !root.tableController.showGameLogRail && !root.tableController.gameSession.sideboarding
-        compact: true
-        variant: "secondary"
-        text: qsTr("Show game log")
-        onClicked: root.tableController.sessionUi.setGameLogRailVisible(true)
-    }
-
     Rectangle {
         objectName: "tableReconnectOverlay"
         anchors.fill: parent
@@ -52,7 +39,7 @@ Item {
             Text {
                 textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: qsTr("Restoring your seat")
+                text: qsTranslate("Table", "Restoring your seat")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(20)
                 font.weight: Font.DemiBold
@@ -64,12 +51,12 @@ Item {
                     const remaining = root.tableController.wsModel
                                       .reconnectSecondsRemaining
                     if (!remaining || remaining <= 0)
-                        return qsTr("Table actions are paused while reconnecting.")
+                        return qsTranslate("Table", "Table actions are paused while reconnecting.")
                     const minutes = Math.floor(remaining / 60)
                     const seconds = remaining % 60
                     const time = minutes + ":"
                                  + (seconds < 10 ? "0" : "") + seconds
-                    return qsTr("Table actions are paused · %1 remaining")
+                    return qsTranslate("Table", "Table actions are paused · %1 remaining")
                         .arg(time)
                 }
                 color: Theme.textSecondary

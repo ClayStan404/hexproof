@@ -21,7 +21,7 @@ Item {
     ToolTip.visible: emptyLibraryHover.hovered
                      && root.tableController.rulesAssist.emptyLibrary(
                          root.tableController.ownSeatData)
-    ToolTip.text: qsTr("Library empty. Attempting to draw may cause a loss unless a card effect says otherwise.")
+    ToolTip.text: qsTranslate("Table", "Library empty. Attempting to draw may cause a loss unless a card effect says otherwise.")
 
     Action {
         id: ownLibraryDrawAction
@@ -89,8 +89,8 @@ Item {
                 parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Theme.size(4)
-            width: ownLibraryLabel.implicitWidth
-                   + Theme.size(14)
+            width: Math.min(parent.width - Theme.size(4),
+                            ownLibraryLabel.implicitWidth + Theme.size(14))
             height: Theme.size(22)
             radius: height / 2
             color: Theme.badgeBackground
@@ -100,7 +100,12 @@ Item {
                 textFormat: Text.PlainText
                 id: ownLibraryLabel
                 anchors.centerIn: parent
-                text: qsTr("Library") + " "
+                width: parent.width - Theme.size(8)
+                fontSizeMode: Text.Fit
+                minimumPixelSize: Theme.fontSize(6)
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideMiddle
+                text: qsTranslate("Table", "Library") + " "
                       + root.tableController.ownSeatData.libraryCount
                 color: root.tableController.rulesAssist.emptyLibrary(
                            root.tableController.ownSeatData)

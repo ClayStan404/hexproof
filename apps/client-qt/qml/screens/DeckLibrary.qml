@@ -16,6 +16,7 @@ Page {
     readonly property var formatOptions:
         [{"label": qsTr("All formats"), "value": "all"}]
         .concat(I18n.deckFormatOptions())
+    readonly property bool compactLayout: width < Theme.size(1100)
     property string pendingDeckId: ""
     property string pendingDeckName: ""
 
@@ -34,7 +35,9 @@ Page {
         onBackRequested: root.appWindow.popScreen()
     }
 
-    RowLayout {
+    Flickable {
+        id: libraryBody
+        objectName: "deckLibraryBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -43,19 +46,26 @@ Page {
         anchors.bottomMargin: Theme.size(28)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        spacing: Theme.size(18)
+        contentWidth: width
+        contentHeight: librarySurface.height
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
         Surface {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            id: librarySurface
+            width: libraryBody.width
+            height: Math.max(libraryBody.height, libraryContent.implicitHeight + Theme.size(48))
             elevated: true
 
             ColumnLayout {
+                id: libraryContent
                 anchors.fill: parent
                 anchors.margins: Theme.size(24)
                 spacing: Theme.size(14)
 
-                RowLayout {
+                Flow {
+                    objectName: "deckLibraryActions"
                     Layout.fillWidth: true
                     spacing: Theme.size(12)
 
@@ -70,17 +80,15 @@ Page {
                         }
                         Text {
                             textFormat: Text.PlainText
-                            text: cardCatalog.busy ? I18n.status(cardCatalog.status)
-                                                   : qsTr("Double-click a deck to edit it")
-                            color: cardCatalog.busy ? Theme.primary : Theme.textMuted
+                            text: qsTr("Double-click a deck to edit it")
+                            color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(11)
                         }
                     }
 
-                    Item { Layout.fillWidth: true }
-
                     AppComboBox {
-                        Layout.preferredWidth: Theme.size(230)
+                        objectName: "deckLibraryFormatFilter"
+                        width: Math.min(Theme.size(230), parent.width)
                         model: root.formatOptions
                         textRole: "label"
                         valueRole: "value"
@@ -90,12 +98,14 @@ Page {
                     }
 
                     AppButton {
+                        objectName: "deckLibrarySettingsButton"
                         text: qsTr("Settings")
                         leadingText: "⚙"
                         onClicked: root.appWindow.pushScreen("screens/Settings.qml")
                     }
 
                     AppButton {
+                        objectName: "deckLibraryImportButton"
                         variant: "primary"
                         text: qsTr("Import deck")
                         leadingText: "+"
@@ -146,16 +156,28 @@ Page {
                     }
                 }
 
+                CardCacheProgress {
+                    objectName: "deckLibraryCacheProgress"
+                    Layout.fillWidth: true
+                    catalogModel: cardCatalog
+                }
+
                 ListView {
                     id: deckList
+                    objectName: "libraryDeckList"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumHeight: Theme.size(180)
                     model: deckLibrary
                     spacing: Theme.size(10)
                     clip: true
                     visible: deckLibrary.count > 0
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollChainHandler {
+                        innerFlickable: deckList
+                        outerFlickable: libraryBody
+                    }
 
                     delegate: Surface {
                         id: deckRow
@@ -174,7 +196,7 @@ Page {
                         required property var legalityWarnings
 
                         width: ListView.view.width
-                        height: Theme.size(86)
+                        height: Math.max(Theme.size(86), deckRowContent.implicitHeight + Theme.size(24))
                         radius: Theme.radiusMedium
                         color: rowHover.hovered ? Theme.surfaceHover : Theme.surfaceMuted
                         border.color: rowHover.hovered ? Theme.borderStrong : Theme.border
@@ -192,117 +214,139 @@ Page {
                             }
                         }
 
-                        RowLayout {
+                        GridLayout {
+                            id: deckRowContent
                             anchors.fill: parent
-                            anchors.leftMargin: Theme.size(16)
-                            anchors.rightMargin: Theme.size(12)
-                            spacing: Theme.size(14)
+                            anchors.margins: Theme.size(12)
+                            columns: root.compactLayout ? 1 : 2
+                            columnSpacing: Theme.size(14)
+                            rowSpacing: Theme.size(10)
 
-                            Rectangle {
-                                Layout.preferredWidth: Theme.size(50)
-                                Layout.preferredHeight: Theme.size(60)
-                                radius: Theme.size(10)
-                                color: deckRow.tableMode !== "modern" ? Theme.accentMuted : Theme.primaryMuted
-                                border.width: 1
-                                border.color: deckRow.tableMode !== "modern" ? "#695834" : "#2C654E"
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.centerIn: parent
-                                    text: deckRow.deckFormat === "cube" ? "◇"
-                                          : (deckRow.deckFormat === "custom" ? "1"
-                                          : (deckRow.deckFormat === "duel" ? "D"
-                                             : (deckRow.deckFormat === "commander" ? "C"
-                                                : I18n.formatLabel(deckRow.deckFormat).charAt(0))))
-                                    color: deckRow.tableMode !== "modern" ? Theme.accent : Theme.primary
-                                    font.pixelSize: Theme.fontSize(20)
-                                    font.weight: Font.Bold
-                                }
-                            }
-
-                            ColumnLayout {
+                            RowLayout {
+                                id: deckSummary
                                 Layout.fillWidth: true
-                                spacing: Theme.size(5)
+                                spacing: Theme.size(14)
 
-                                RowLayout {
-                                    spacing: Theme.size(10)
+                                Rectangle {
+                                    Layout.preferredWidth: Theme.size(50)
+                                    Layout.preferredHeight: Theme.size(60)
+                                    radius: Theme.size(10)
+                                    color: deckRow.tableMode !== "modern" ? Theme.accentMuted : Theme.primaryMuted
+                                    border.width: 1
+                                    border.color: deckRow.tableMode !== "modern" ? "#695834" : "#2C654E"
+
                                     Text {
                                         textFormat: Text.PlainText
-                                        text: deckRow.deckName
-                                        color: Theme.text
-                                        font.pixelSize: Theme.fontSize(16)
-                                        font.weight: Font.DemiBold
-                                    }
-                                    StatusPill {
-                                        text: I18n.formatLabel(deckRow.deckFormat)
-                                        statusColor: deckRow.tableMode !== "modern" ? Theme.accent : Theme.primary
+                                        anchors.centerIn: parent
+                                        text: deckRow.deckFormat === "cube" ? "◇"
+                                              : (deckRow.deckFormat === "custom" ? "1"
+                                              : (deckRow.deckFormat === "duel" ? "D"
+                                                 : (deckRow.deckFormat === "commander" ? "C"
+                                                    : I18n.formatLabel(deckRow.deckFormat).charAt(0))))
+                                        color: deckRow.tableMode !== "modern" ? Theme.accent : Theme.primary
+                                        font.pixelSize: Theme.fontSize(20)
+                                        font.weight: Font.Bold
                                     }
                                 }
 
-                                Text {
-                                    textFormat: Text.PlainText
-                                    text: deckRow.deckFormat === "cube"
-                                          ? qsTr("%1-card Cube pool").arg(deckRow.mainCount)
-                                          : qsTr("%1 main · %2 side")
-                                            .arg(deckRow.mainCount)
-                                            .arg(deckRow.sideboardCount)
-                                          + (deckRow.tableMode !== "modern"
-                                             && deckRow.commander.length > 0
-                                             ? (" · " + deckRow.commander) : "")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(11)
-                                    elide: Text.ElideRight
+                                ColumnLayout {
                                     Layout.fillWidth: true
+                                    spacing: Theme.size(5)
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.size(5)
+                                        Text {
+                                            textFormat: Text.PlainText
+                                            objectName: "libraryDeckName"
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                            text: deckRow.deckName
+                                            color: Theme.text
+                                            font.pixelSize: Theme.fontSize(16)
+                                            font.weight: Font.DemiBold
+                                        }
+                                        StatusPill {
+                                            maximumWidth: Theme.size(140)
+                                            text: I18n.formatLabel(deckRow.deckFormat)
+                                            statusColor: deckRow.tableMode !== "modern" ? Theme.accent : Theme.primary
+                                        }
+                                    }
+
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: deckRow.deckFormat === "cube"
+                                              ? qsTr("%1-card Cube pool").arg(deckRow.mainCount)
+                                              : qsTr("%1 main · %2 side")
+                                                .arg(deckRow.mainCount)
+                                                .arg(deckRow.sideboardCount)
+                                              + (deckRow.tableMode !== "modern"
+                                                 && deckRow.commander.length > 0
+                                                 ? (" · " + deckRow.commander) : "")
+                                        color: Theme.textMuted
+                                        font.pixelSize: Theme.fontSize(11)
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
                                 }
-                            }
 
-                            StatusPill {
-                                text: I18n.status(deckRow.status)
-                                statusColor: deckRow.ready && deckRow.legalityVerified
-                                             && deckRow.legalityWarnings.length === 0
-                                             ? Theme.success
-                                             : (!deckRow.legalityVerified
-                                                || deckRow.legalityWarnings.indexOf(
-                                                    deckRow.status) >= 0
-                                                ? Theme.warning
-                                             : (deckRow.status === "Commander required"
-                                                ? Theme.warning : Theme.textMuted))
-                                ToolTip.visible: legalityStatusHover.hovered
-                                                 && deckRow.legalityIssues.length > 0
-                                ToolTip.delay: 350
-                                ToolTip.text: deckRow.legalityIssues
-                                              .map(issue => I18n.status(issue)).join("\n")
-                                HoverHandler { id: legalityStatusHover }
-                            }
-
-                            AppButton {
-                                compact: true
-                                text: qsTr("Edit")
-                                onClicked: {
-                                    if (deckLibrary.openDeck(deckRow.deckId))
-                                        root.appWindow.pushScreen("screens/DeckEditor.qml")
+                                StatusPill {
+                                    maximumWidth: Math.min(Theme.size(180), deckRow.width * 0.22)
+                                    text: I18n.status(deckRow.status)
+                                    statusColor: deckRow.ready && deckRow.legalityVerified
+                                                 && deckRow.legalityWarnings.length === 0
+                                                 ? Theme.success
+                                                 : (!deckRow.legalityVerified
+                                                    || deckRow.legalityWarnings.indexOf(
+                                                        deckRow.status) >= 0
+                                                    ? Theme.warning
+                                                 : (deckRow.status === "Commander required"
+                                                    ? Theme.warning : Theme.textMuted))
+                                    ToolTip.visible: legalityStatusHover.hovered
+                                                     && (deckRow.legalityIssues.length > 0 || deckRow.status.length > 0)
+                                    ToolTip.delay: 350
+                                    ToolTip.text: (deckRow.legalityIssues.length > 0
+                                                   ? deckRow.legalityIssues : [deckRow.status])
+                                                  .map(issue => I18n.status(issue)).join("\n")
+                                    HoverHandler { id: legalityStatusHover }
                                 }
+
                             }
 
-                            AppButton {
-                                objectName: "exportDeckButton"
-                                compact: true
-                                text: qsTr("Export")
-                                onClicked: {
-                                    root.pendingDeckId = deckRow.deckId
-                                    root.pendingDeckName = deckRow.deckName
-                                    exportDialog.open()
+                            RowLayout {
+                                Layout.alignment: Qt.AlignRight
+                                spacing: Theme.size(8)
+                                AppButton {
+                                    compact: true
+                                    objectName: "editLibraryDeckButton"
+                                    text: qsTr("Edit")
+                                    onClicked: {
+                                        if (deckLibrary.openDeck(deckRow.deckId))
+                                            root.appWindow.pushScreen("screens/DeckEditor.qml")
+                                    }
                                 }
-                            }
 
-                            AppButton {
-                                compact: true
-                                variant: "ghost"
-                                text: qsTr("Delete")
-                                onClicked: {
-                                    root.pendingDeckId = deckRow.deckId
-                                    root.pendingDeckName = deckRow.deckName
-                                    deleteDialog.open()
+                                AppButton {
+                                    objectName: "exportDeckButton"
+                                    compact: true
+                                    text: qsTr("Export")
+                                    onClicked: {
+                                        root.pendingDeckId = deckRow.deckId
+                                        root.pendingDeckName = deckRow.deckName
+                                        exportDialog.open()
+                                    }
+                                }
+
+                                AppButton {
+                                    compact: true
+                                    variant: "ghost"
+                                    objectName: "deleteLibraryDeckButton"
+                                    text: qsTr("Delete")
+                                    onClicked: {
+                                        root.pendingDeckId = deckRow.deckId
+                                        root.pendingDeckName = deckRow.deckName
+                                        deleteDialog.open()
+                                    }
                                 }
                             }
                         }
@@ -312,10 +356,13 @@ Page {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumHeight: emptyState.implicitHeight
                     visible: deckLibrary.count === 0
 
                     ColumnLayout {
+                        id: emptyState
                         anchors.centerIn: parent
+                        width: parent.width
                         spacing: Theme.size(12)
 
                         Rectangle {
@@ -338,6 +385,9 @@ Page {
                             textFormat: Text.PlainText
                             Layout.alignment: Qt.AlignHCenter
                             text: qsTr("Your library is empty")
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                             color: Theme.text
                             font.pixelSize: Theme.fontSize(19)
                             font.weight: Font.DemiBold
@@ -346,6 +396,9 @@ Page {
                             textFormat: Text.PlainText
                             Layout.alignment: Qt.AlignHCenter
                             text: qsTr("Paste a list from Moxfield or any common plain-text export.")
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(12)
                         }
@@ -384,6 +437,9 @@ Page {
         id: exportDialog
         objectName: "exportDeckDialog"
         deckName: root.pendingDeckName
+        onCardArtRequested: deckArtExportDialog.prepare(
+                                root.pendingDeckName,
+                                deckLibrary.cardArtExportRequests(root.pendingDeckId))
         onCopyRequested: {
             if (deckLibrary.copyDeckText(root.pendingDeckId))
                 root.appWindow.showBanner(qsTr("Deck list copied"))
@@ -395,6 +451,12 @@ Page {
                     deckLibrary.suggestedExportUrl(root.pendingDeckId)
             exportFileDialog.open()
         }
+    }
+
+    DeckArtExportDialog {
+        id: deckArtExportDialog
+        objectName: "libraryDeckArtExportDialog"
+        manager: typeof cardArtManager !== "undefined" ? cardArtManager : null
     }
 
     FileDialog {

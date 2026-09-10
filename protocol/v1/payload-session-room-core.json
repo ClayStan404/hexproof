@@ -7,9 +7,10 @@
       "goType": "RoomListEntry",
       "fields": [
         {"name": "roomId", "type": "string", "required": true},
+        {"name": "roomKind", "type": "string", "required": false},
         {"name": "name", "type": "string", "required": true},
         {"name": "format", "type": "string", "required": true, "enum": ["FormatModern", "FormatDuel", "FormatEDH"]},
-        {"name": "deckFormat", "type": "string", "required": true, "enum": ["DeckFormatCustom", "DeckFormatStandard", "DeckFormatPioneer", "DeckFormatModern", "DeckFormatLegacy", "DeckFormatVintage", "DeckFormatPauper", "DeckFormatDuel", "DeckFormatCommander"]},
+        {"name": "deckFormat", "type": "string", "required": true, "enum": ["DeckFormatCustom", "DeckFormatStandard", "DeckFormatPioneer", "DeckFormatModern", "DeckFormatLegacy", "DeckFormatVintage", "DeckFormatPauper", "DeckFormatDuel", "DeckFormatCommander", "DeckFormatCube"]},
         {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
         {"name": "cardLoadMode", "type": "string", "required": true, "enum": ["CardLoadPreload", "CardLoadBackground"]},
         {"name": "rulesMode", "type": "string", "required": true, "enum": ["RulesModeManual", "RulesModeForge"]},
@@ -19,7 +20,7 @@
         {"name": "allowSpectators", "type": "boolean", "required": true},
         {"name": "spectatorsSeeHands", "type": "boolean", "required": true},
         {"name": "hasPassword", "type": "boolean", "required": true},
-        {"name": "phase", "type": "string", "required": true, "enum": ["RoomPhaseWaiting", "RoomPhaseLoading", "RoomPhaseStarted"]},
+        {"name": "phase", "type": "string", "required": true, "enum": ["RoomPhaseWaiting", "RoomPhaseLoading", "RoomPhaseStarted", "LimitedStageDraft", "LimitedStageDeckBuilding", "RoomPhaseFreePlay"]},
         {"name": "playerJoinable", "type": "boolean", "required": true},
         {"name": "spectatorJoinable", "type": "boolean", "required": true}
       ]

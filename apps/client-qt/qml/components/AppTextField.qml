@@ -12,6 +12,18 @@ TextField {
     readonly property bool withinUtf8ByteLimit:
         maximumUtf8Bytes <= 0 || utf8ByteLength <= maximumUtf8Bytes
 
+    function numberValue() {
+        const integerValidator = validator as IntValidator
+        if (!integerValidator)
+            return NaN
+        // Use the validator's locale, including its digits and group separator.
+        try {
+            return Number.fromLocaleString(Qt.locale(integerValidator.locale), text)
+        } catch (error) {
+            return NaN
+        }
+    }
+
     function encodedUtf8Length(value) {
         let bytes = 0
         for (let index = 0; index < value.length; ++index) {

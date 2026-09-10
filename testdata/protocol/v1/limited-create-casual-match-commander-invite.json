@@ -1,0 +1,13 @@
+{
+  "type": "limited.create_casual_match",
+  "id": "commander-invite",
+  "payload": {
+    "action": "invite",
+    "playerIds": [
+      "p-1",
+      "p-2",
+      "p-3",
+      "p-4"
+    ]
+  }
+}

@@ -31,7 +31,6 @@ TestCase {
         property var pendingCardMoves: ({})
         property var authoritativeSeats: []
         property var turnOrder: []
-        property var tableGameLog: []
         property var pendingFromKeys: ({})
 
         function isCardPendingFrom(cardId, zone, seat) {
@@ -57,13 +56,10 @@ TestCase {
         }
     }
 
-    ListModel { id: fakeGameLogModel }
-
     TableProjectionSyncController {
         id: controller
         tableRoot: fakeTable
         seatStateComponent: seatStateComponent
-        gameLogModel: fakeGameLogModel
     }
 
     function init() {
@@ -75,9 +71,7 @@ TestCase {
         fakeTable.pendingCardMoves = ({})
         fakeTable.authoritativeSeats = []
         fakeTable.turnOrder = []
-        fakeTable.tableGameLog = []
         fakeTable.pendingFromKeys = ({})
-        fakeGameLogModel.clear()
     }
 
     function test_projectsPendingCardsIntoOwnHandWithoutDuplicates() {
@@ -280,23 +274,6 @@ TestCase {
         compare(snapshots[1].seat, 3)
         compare(snapshots[2].seat, 2)
         compare(snapshots[3].seat, 1)
-    }
-
-    function test_gameLogProjectionAppendsAndRebuildsChangedPrefix() {
-        fakeTable.tableGameLog = [
-            {"id": 1, "kind": "move", "seat": 0, "text": "A"},
-            {"id": 2, "kind": "draw", "seat": 1, "text": "B"}
-        ]
-        controller.syncGameLog()
-        compare(fakeGameLogModel.count, 2)
-        compare(fakeGameLogModel.get(1).entryText, "B")
-
-        fakeTable.tableGameLog = [
-            {"id": 1, "kind": "move", "seat": 0, "text": "Changed"}
-        ]
-        controller.syncGameLog()
-        compare(fakeGameLogModel.count, 1)
-        compare(fakeGameLogModel.get(0).entryText, "Changed")
     }
 
 }

@@ -34,7 +34,9 @@
             "DeckFormatVintage",
             "DeckFormatPauper",
             "DeckFormatDuel",
-            "DeckFormatCommander"
+            "DeckFormatCommander",
+            "DeckFormatLimited",
+            "DeckFormatCommanderLimited"
           ]
         },
         {
@@ -384,6 +386,11 @@
         },
         {
           "name": "password",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "credential",
           "type": "string",
           "required": false
         }

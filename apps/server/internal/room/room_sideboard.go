@@ -236,6 +236,8 @@ func (r *Room) SetSideboardReady(connID string, ready bool) (Result, error) {
 			return Result{}, err
 		}
 		result.Broadcast = completed
+		result.StartRulesGame = r.RulesMode == protocol.RulesModeForge
+		result.ProjectGame = !result.StartRulesGame
 	}
 	return result, nil
 }
@@ -256,7 +258,8 @@ func (r *Room) ExpireSideboard(now time.Time) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Broadcast: broadcast, ProjectGame: true}, nil
+	return Result{Broadcast: broadcast, ProjectGame: r.RulesMode != protocol.RulesModeForge,
+		StartRulesGame: r.RulesMode == protocol.RulesModeForge}, nil
 }
 
 func (r *Room) completeSideboard(reason string, commit bool) ([]protocol.Envelope, error) {
@@ -299,7 +302,9 @@ func (r *Room) completeSideboard(reason string, commit bool) ([]protocol.Envelop
 			r.Seats[index].Deck = &deck
 		}
 	}
-	if err := r.setupGameNumber(nextGameNumber, sideboard.PreviousLoser); err != nil {
+	if r.RulesMode == protocol.RulesModeForge {
+		r.prepareNextRulesGame(sideboard.PreviousLoser)
+	} else if err := r.setupGameNumber(nextGameNumber, sideboard.PreviousLoser); err != nil {
 		for index, deck := range previousDecks {
 			r.Seats[index].Deck = deck
 		}
@@ -312,7 +317,11 @@ func (r *Room) completeSideboard(reason string, commit bool) ([]protocol.Envelop
 			Reason:     reason,
 		})
 	event.SeqPtr = seqPtr(r.allocSeq())
-	return []protocol.Envelope{event}, nil
+	broadcast := []protocol.Envelope{event}
+	if r.RulesMode == protocol.RulesModeForge {
+		broadcast = append(broadcast, r.snapshotEnvelope())
+	}
+	return broadcast, nil
 }
 
 func deckContainsCardName(cards []protocol.DeckCard, name string) bool {

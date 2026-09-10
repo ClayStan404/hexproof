@@ -73,6 +73,8 @@ type LimitedParticipantView struct {
 	PackCards     int    `json:"packCards"`
 	QueuedPacks   int    `json:"queuedPacks"`
 	DeckSubmitted bool   `json:"deckSubmitted"`
+	AutoDraft     bool   `json:"autoDraft,omitempty"`
+	Withdrawn     bool   `json:"withdrawn,omitempty"`
 }
 
 type LimitedBasicLand struct {
@@ -84,12 +86,25 @@ type LimitedBasicLand struct {
 }
 
 type LimitedPick struct {
-	InstanceID string `json:"instanceId"`
+	InstanceID  string   `json:"instanceId,omitempty"`
+	InstanceIDs []string `json:"instanceIds,omitempty"`
+}
+
+type LimitedSetDraftControl struct {
+	ParticipantID string `json:"participantId,omitempty"`
+	Automatic     bool   `json:"automatic"`
+}
+
+type LimitedSetParticipation struct {
+	Participating bool `json:"participating"`
 }
 
 type LimitedCreateCasualMatch struct {
-	PlayerAID string `json:"playerAId"`
-	PlayerBID string `json:"playerBId"`
+	PlayerAID string   `json:"playerAId,omitempty"`
+	PlayerBID string   `json:"playerBId,omitempty"`
+	PlayerIDs []string `json:"playerIds,omitempty"`
+	PairingID string   `json:"pairingId,omitempty"`
+	Action    string   `json:"action,omitempty"`
 }
 
 type LimitedPicked struct {
@@ -98,9 +113,17 @@ type LimitedPicked struct {
 }
 
 type LimitedSubmitDeck struct {
-	Name                 string             `json:"name"`
-	MainboardInstanceIDs []string           `json:"mainboardInstanceIds"`
-	BasicLands           []LimitedBasicLand `json:"basicLands"`
+	Name                 string                  `json:"name"`
+	MainboardInstanceIDs []string                `json:"mainboardInstanceIds"`
+	CommanderInstanceIDs []string                `json:"commanderInstanceIds,omitempty"`
+	CommanderColors      []LimitedCommanderColor `json:"commanderColors,omitempty"`
+	BasicLands           []LimitedBasicLand      `json:"basicLands"`
+}
+
+// LimitedCommanderColor chooses exactly one color for a selected Piper instance.
+type LimitedCommanderColor struct {
+	InstanceID string `json:"instanceId"`
+	Color      string `json:"color"`
 }
 
 type LimitedDeckSubmitted struct {
@@ -120,9 +143,22 @@ type LimitedSnapshot struct {
 	Direction            int                      `json:"direction"`
 	CurrentPack          []LimitedCardView        `json:"currentPack"`
 	Pool                 []LimitedCardView        `json:"pool"`
+	FallbackCommanders   []LimitedCardView        `json:"fallbackCommanders,omitempty"`
 	MainboardInstanceIDs []string                 `json:"mainboardInstanceIds"`
+	CommanderInstanceIDs []string                 `json:"commanderInstanceIds,omitempty"`
+	CommanderColors      []LimitedCommanderColor  `json:"commanderColors,omitempty"`
+	PicksRequired        int                      `json:"picksRequired,omitempty"`
+	PacksPerPlayer       int                      `json:"packsPerPlayer,omitempty"`
+	MinimumDeckCards     int                      `json:"minimumDeckCards,omitempty"`
 	BasicLands           []LimitedBasicLand       `json:"basicLands"`
 	Participants         []LimitedParticipantView `json:"participants"`
 	DeckSubmitted        bool                     `json:"deckSubmitted"`
 	AllDecksSubmitted    bool                     `json:"allDecksSubmitted"`
+}
+
+// LimitedProgress replaces only public seat progress, never private cards.
+// Entry, recovery, and changed private state use a full LimitedSnapshot.
+type LimitedProgress struct {
+	TournamentID string                   `json:"tournamentId"`
+	Participants []LimitedParticipantView `json:"participants"`
 }

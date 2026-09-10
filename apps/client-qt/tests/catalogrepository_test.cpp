@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "services/CardCatalogQueryInternal.h"
+#include "services/CatalogImport.h"
 #include "services/CatalogRepository.h"
 #include "services/CatalogStorage.h"
 
@@ -28,7 +30,14 @@ class TestCatalogRepository : public QObject
 
   private slots:
     void queriesCatalog() const;
+    void cardFacesUseIndexedCaseInsensitivePrinting() const;
+    void meldFacesPreferRelatedPrintingAndConstrainFallback() const;
+    void filtersAlternativesBeforeResultLimit() const;
+    void enrichesLocalizedCardPresentation() const;
+    void resolvesRarityFromExactPrintingInsteadOfCubePlaceholder() const;
+    void oldLimitedMetadataDoesNotInventColorsOrCosts() const;
     void readsInstalledLimitedProduct() const;
+    void approximatesWhenSetHasOnlyLeftoverOfficialProducts() const;
     void prefersUsableEnglishOverLocalizedPlaceholder() const;
     void validatesPreviousPolicyScryfallArt() const;
     void reportsPrintingsQueryErrors() const;
@@ -36,6 +45,335 @@ class TestCatalogRepository : public QObject
     void replacementWaitsForActiveRepository() const;
     void failedLocalizedPersistLeavesLookupsWorking() const;
 };
+
+void TestCatalogRepository::cardFacesUseIndexedCaseInsensitivePrinting() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(u"cards.sqlite"_s);
+    const auto card = [](const QString &id, const QString &number, const QString &language,
+                         const QString &typeLine) {
+        return QJsonObject{{u"id"_s, id},
+                           {u"name"_s, u"Front // Back"_s},
+                           {u"set"_s, u"TsT"_s},
+                           {u"collector_number"_s, number},
+                           {u"lang"_s, language},
+                           {u"layout"_s, u"transform"_s},
+                           {u"type_line"_s, typeLine}};
+    };
+    QFile source(storage.filePath(u"source.json"_s));
+    QVERIFY(source.open(QIODevice::WriteOnly));
+    source.write(QJsonDocument(QJsonArray{
+                                   card(u"localized"_s, u"7A"_s, u"zhs"_s,
+                                        u"Localized front // Localized back"_s),
+                                   card(u"english"_s, u"7A"_s, u"en"_s, u"Creature // Land"_s),
+                                   card(u"unicode"_s, u"7†"_s, u"en"_s, u"Creature // Artifact"_s),
+                               })
+                     .toJson());
+    source.close();
+    const auto imported = hexproof::client::catalogimport::importBulkFile(
+        source.fileName(), databasePath, u"default_cards"_s);
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    // Use the production predicate and imported indexes, not a timing threshold
+    // or a second copy of the SQL that could silently diverge from cardFaces().
+    const QString connection = u"card-faces-index-plan"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(databasePath);
+        QVERIFY2(database.open(), qPrintable(database.lastError().text()));
+        QSqlQuery query(database);
+        query.prepare(
+            u"EXPLAIN QUERY PLAN SELECT name, layout, type_line, set_code, collector_number, "
+            "related_cards FROM cards WHERE "_s +
+            hexproof::client::catalog_internal::catalogExactPrintingSql(QString{}) +
+            u" ORDER BY CASE WHEN lang = 'en' THEN 0 ELSE 1 END LIMIT 1"_s);
+        query.addBindValue(u"tst"_s);
+        query.addBindValue(u"7a"_s);
+        QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+        QStringList plan;
+        while (query.next())
+            plan.append(query.value(3).toString());
+        const QString details = plan.join(QLatin1Char('\n'));
+        QVERIFY2(details.contains(u"SEARCH cards USING INDEX cards_printing_idx"_s),
+                 qPrintable(details));
+        QVERIFY2(details.contains(u"set_code=? AND collector_number=?"_s), qPrintable(details));
+        QVERIFY2(!details.contains(u"SCAN cards"_s), qPrintable(details));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    CatalogRepository repository(databasePath);
+    QString error;
+    QString layout;
+    QString canonicalName;
+    const QVariantList faces =
+        repository.cardFaces(u"Front"_s, u"tst"_s, u"7a"_s, &error, &layout, &canonicalName);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(layout, u"transform"_s);
+    QCOMPARE(canonicalName, u"Front // Back"_s);
+    QCOMPARE(faces.size(), 2);
+    QCOMPARE(faces.at(0).toMap().value(u"typeLine"_s).toString(), u"Creature"_s);
+    QCOMPARE(faces.at(1).toMap().value(u"typeLine"_s).toString(), u"Land"_s);
+    const QVariantList unicode = repository.cardFaces(u"Front"_s, u"tst"_s, u"7†"_s, &error);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(unicode.size(), 2);
+    QCOMPARE(unicode.at(1).toMap().value(u"typeLine"_s).toString(), u"Artifact"_s);
+    QCOMPARE(repository.cardFaces(u"Front"_s, u"OTHER"_s, u"7a"_s).size(), 0);
+}
+
+void TestCatalogRepository::meldFacesPreferRelatedPrintingAndConstrainFallback() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(u"cards.sqlite"_s);
+    const auto card = [](const QString &id, const QString &name, const QString &setCode,
+                         const QString &number, const QString &language) {
+        return QJsonObject{{u"id"_s, id},
+                           {u"name"_s, name},
+                           {u"set"_s, setCode},
+                           {u"collector_number"_s, number},
+                           {u"lang"_s, language},
+                           {u"layout"_s, u"meld"_s},
+                           {u"type_line"_s, u"Creature"_s}};
+    };
+    const auto component = [&card](const QString &number, const QString &relatedId,
+                                   const QString &relatedName) {
+        QJsonObject object = card(number, u"Component "_s + number, u"tst"_s, number, u"en"_s);
+        object.insert(u"all_parts"_s, QJsonArray{QJsonObject{{u"id"_s, relatedId},
+                                                             {u"name"_s, relatedName},
+                                                             {u"component"_s, u"meld_result"_s}}});
+        return object;
+    };
+    QFile source(storage.filePath(u"source.json"_s));
+    QVERIFY(source.open(QIODevice::WriteOnly));
+    source.write(QJsonDocument(
+                     QJsonArray{
+                         component(u"1"_s, u"related-printing"_s, u"Meld Result"_s),
+                         component(u"2"_s, u"missing-id"_s, u"mELD rESULT"_s),
+                         component(u"3"_s, QString{}, u"mELD rESULT"_s),
+                         component(u"4"_s, QString{}, u"Other Result"_s),
+                         card(u"related-printing"_s, u"Meld Result"_s, u"ALT"_s, u"99"_s, u"zhs"_s),
+                         card(u"local-result"_s, u"Meld Result"_s, u"TST"_s, u"88"_s, u"zhs"_s),
+                         card(u"english-result"_s, u"Meld Result"_s, u"TST"_s, u"88"_s, u"en"_s),
+                         card(u"other-result"_s, u"Other Result"_s, u"ALT"_s, u"77"_s, u"en"_s),
+                     })
+                     .toJson());
+    source.close();
+    const auto imported = hexproof::client::catalogimport::importBulkFile(
+        source.fileName(), databasePath, u"default_cards"_s);
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    // Make the language winner observable without changing its canonical name.
+    const QString connection = u"meld-result-language"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(databasePath);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(query.exec(u"UPDATE cards SET type_line = 'Artifact Creature' "
+                           "WHERE id = 'english-result'"_s));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    CatalogRepository repository(databasePath);
+    QString error;
+    const QVariantList exact = repository.cardFaces(u"Component 1"_s, u"tst"_s, u"1"_s, &error);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(exact.size(), 2);
+    const QVariantMap front = exact.at(0).toMap();
+    const QVariantMap back = exact.at(1).toMap();
+    QCOMPARE(front.value(u"setCode"_s).toString(), u"TST"_s);
+    QCOMPARE(front.value(u"collectorNumber"_s).toString(), u"1"_s);
+    QCOMPARE(back.value(u"setCode"_s).toString(), u"ALT"_s);
+    QCOMPARE(back.value(u"collectorNumber"_s).toString(), u"99"_s);
+    QVERIFY(back.value(u"relatedCard"_s).toBool());
+    for (const QString &number : {u"2"_s, u"3"_s}) {
+        const QVariantList fallback =
+            repository.cardFaces(u"Component "_s + number, u"tst"_s, number, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(fallback.size(), 2);
+        const QVariantMap result = fallback.at(1).toMap();
+        QCOMPARE(result.value(u"name"_s).toString(), u"Meld Result"_s);
+        QCOMPARE(result.value(u"setCode"_s).toString(), u"TST"_s);
+        QCOMPARE(result.value(u"collectorNumber"_s).toString(), u"88"_s);
+        QCOMPARE(result.value(u"typeLine"_s).toString(), u"Artifact Creature"_s);
+    }
+    QCOMPARE(repository.cardFaces(u"Component 4"_s, u"tst"_s, u"4"_s).size(), 0);
+}
+
+void TestCatalogRepository::enrichesLocalizedCardPresentation() const
+{
+    QTemporaryDir storage;
+    const QString databasePath = storage.filePath(u"cards.sqlite"_s);
+    QJsonArray sourceCards;
+    const auto makeCard = [](QString name, QString number) {
+        return QJsonObject{{u"id"_s, number},
+                           {u"oracle_id"_s, number},
+                           {u"name"_s, name},
+                           {u"set"_s, u"TST"_s},
+                           {u"collector_number"_s, number},
+                           {u"lang"_s, u"en"_s},
+                           {u"type_line"_s, u"Artifact"_s}};
+    };
+    QJsonObject rock = makeCard(u"Mana rock"_s, u"1"_s);
+    rock.insert(u"printed_name"_s, u"法力石"_s);
+    rock.insert(u"colors"_s, QJsonArray{});
+    rock.insert(u"color_identity"_s, QJsonArray{u"U"_s, u"W"_s});
+    rock.insert(u"mana_cost"_s, u"{2}"_s);
+    rock.insert(u"oracle_text"_s, u"{T}: Add {W} or {U}."_s);
+    sourceCards.append(rock);
+    QJsonObject transform = makeCard(u"Front // Back"_s, u"2"_s);
+    transform.insert(
+        u"card_faces"_s,
+        QJsonArray{QJsonObject{{u"colors"_s, QJsonArray{u"W"_s}}, {u"mana_cost"_s, u"{1}{W}"_s}},
+                   QJsonObject{{u"colors"_s, QJsonArray{u"R"_s}}, {u"mana_cost"_s, u""_s}}});
+    sourceCards.append(transform);
+    QJsonObject split = makeCard(u"Split"_s, u"3"_s);
+    split.insert(u"colors"_s, QJsonArray{u"R"_s, u"U"_s});
+    split.insert(u"mana_cost"_s, u"{1}{U} // {1}{R}"_s);
+    split.insert(u"card_faces"_s, transform.value(u"card_faces"_s));
+    sourceCards.append(split);
+    QJsonObject land = makeCard(u"Land"_s, u"4"_s);
+    land.insert(u"colors"_s, QJsonArray{});
+    land.insert(u"mana_cost"_s, u""_s);
+    sourceCards.append(land);
+    QFile source(storage.filePath(u"source.json"_s));
+    QVERIFY(source.open(QIODevice::WriteOnly));
+    source.write(QJsonDocument(sourceCards).toJson());
+    source.close();
+    const auto imported = hexproof::client::catalogimport::importBulkFile(
+        source.fileName(), databasePath, u"default_cards"_s);
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    // A preferred Chinese alias works without a Chinese printing of this set.
+    const QString connection = u"presentation-alias"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(databasePath);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(query.exec(u"INSERT INTO card_aliases VALUES ('2', 'Front', '正面', '', 1, 0)"_s));
+        QVERIFY(query.exec(u"INSERT INTO card_aliases VALUES ('2', 'Back', '背面', '', 1, 1)"_s));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    QVariantList pool;
+    for (int i = 0; i < sourceCards.size(); ++i) {
+        pool.append(QVariantMap{{u"instanceId"_s, QString::number(i)},
+                                {u"name"_s, sourceCards[i].toObject().value(u"name"_s).toString()},
+                                {u"setCode"_s, u"tst"_s},
+                                {u"collectorNumber"_s, QString::number(i + 1)}});
+    }
+    CatalogRepository repository(databasePath);
+    QString error;
+    const QVariantList zh = repository.enrichLimitedCards(pool, &error, u"zh"_s);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    const QVariantMap first = zh.first().toMap();
+    QCOMPARE(first.value(u"displayName"_s).toString(), u"法力石"_s);
+    QCOMPARE(first.value(u"name"_s).toString(), u"Mana rock"_s);
+    QCOMPARE(first.value(u"instanceId"_s).toString(), u"0"_s);
+    QCOMPARE(first.value(u"colors"_s).toString(), u"WU"_s);
+    QVERIFY(first.contains(u"cardColors"_s));
+    QCOMPARE(first.value(u"cardColors"_s).toString(), u""_s);
+    QCOMPARE(first.value(u"manaCost"_s).toString(), u"{2}"_s);
+    QCOMPARE(first.value(u"oracleText"_s).toString(), u"{T}: Add {W} or {U}."_s);
+    QCOMPARE(zh[1].toMap().value(u"cardColors"_s).toString(), u"W"_s);
+    QCOMPARE(zh[1].toMap().value(u"manaCost"_s).toString(), u"{1}{W}"_s);
+    QCOMPARE(zh[1].toMap().value(u"displayName"_s).toString(), u"正面 // 背面"_s);
+    QCOMPARE(zh[2].toMap().value(u"cardColors"_s).toString(), u"UR"_s);
+    QCOMPARE(zh[2].toMap().value(u"manaCost"_s).toString(), u"{1}{U} // {1}{R}"_s);
+    QCOMPARE(zh[2].toMap().value(u"displayName"_s).toString(), u"Split"_s);
+    QVERIFY(zh[3].toMap().contains(u"manaCost"_s));
+    QCOMPARE(zh[3].toMap().value(u"manaCost"_s).toString(), u""_s);
+    QCOMPARE(repository.enrichLimitedCards(zh).first().toMap().value(u"displayName"_s).toString(),
+             u"Mana rock"_s);
+}
+
+void TestCatalogRepository::resolvesRarityFromExactPrintingInsteadOfCubePlaceholder() const
+{
+    QTemporaryDir storage;
+    const QString path = storage.filePath(u"rarity.sqlite"_s);
+    const QString connection = u"cube-printing-rarity"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(path);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(query.exec(u"CREATE TABLE cards (name TEXT, type_line TEXT, set_code TEXT, "
+                           "collector_number TEXT, rarity TEXT)"_s));
+        QVERIFY(query.exec(u"INSERT INTO cards VALUES "
+                           "('Shared name','Creature','TST','1','mythic'),"
+                           "('Shared name','Creature','TST','2','rare'),"
+                           "('Shared name','Creature','TST','3','special'),"
+                           "('Shared name','Creature','TST','4','bonus'),"
+                           "('Shared name','Creature','TST','5',''),"
+                           "('Shared name','Creature','TST','6',NULL)"_s));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    CatalogRepository repository(path);
+    const QVariantMap original{{u"instanceId"_s, u"physical-1"_s}, {u"name"_s, u"Shared name"_s},
+                               {u"setCode"_s, u"tst"_s},           {u"collectorNumber"_s, u"1"_s},
+                               {u"rarity"_s, u"special"_s},        {u"finish"_s, u"foil"_s}};
+    QString error;
+    const QVariantMap enriched = repository.enrichLimitedCards({original}, &error).first().toMap();
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(enriched.value(u"rarity"_s).toString(), u"mythic"_s);
+    QCOMPARE(original.value(u"rarity"_s).toString(), u"special"_s);
+    for (const QString &field :
+         {u"instanceId"_s, u"name"_s, u"setCode"_s, u"collectorNumber"_s, u"finish"_s})
+        QCOMPARE(enriched.value(field), original.value(field));
+
+    const QStringList expected{u"mythic"_s, u"rare"_s,   u"special"_s, u"bonus"_s,
+                               u"common"_s, u"common"_s, u"common"_s};
+    for (int i = 0; i < expected.size(); ++i) {
+        QVariantMap card = original;
+        card.insert(u"collectorNumber"_s, QString::number(i + 1));
+        card.insert(u"rarity"_s, u"common"_s);
+        QCOMPARE(
+            repository.enrichLimitedCards({card}).first().toMap().value(u"rarity"_s).toString(),
+            expected[i]);
+    }
+    QVariantMap otherSet = original;
+    otherSet.insert(u"setCode"_s, u"OTHER"_s);
+    QCOMPARE(
+        repository.enrichLimitedCards({otherSet}).first().toMap().value(u"rarity"_s).toString(),
+        u"special"_s);
+}
+
+void TestCatalogRepository::oldLimitedMetadataDoesNotInventColorsOrCosts() const
+{
+    QTemporaryDir storage;
+    const QString path = storage.filePath(u"old.sqlite"_s);
+    const QString connection = u"old-presentation"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(path);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(
+            query.exec(u"CREATE TABLE cards (name TEXT, printed_name TEXT, type_line TEXT, "
+                       "set_code TEXT, collector_number TEXT, colors TEXT, mana_value REAL)"_s));
+        QVERIFY(query.exec(
+            u"INSERT INTO cards VALUES ('Old rock', '旧法力石', 'Artifact', 'TST', '1', 'WU', 2)"_s));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    const QVariantList pool{QVariantMap{{u"name"_s, u"Old rock"_s},
+                                        {u"setCode"_s, u"TST"_s},
+                                        {u"collectorNumber"_s, u"1"_s},
+                                        {u"instanceId"_s, u"old-1"_s}}};
+    CatalogRepository repository(path);
+    const QVariantMap card = repository.enrichLimitedCards(pool, nullptr, u"zh"_s).first().toMap();
+    QCOMPARE(card.value(u"displayName"_s).toString(), u"旧法力石"_s);
+    QCOMPARE(card.value(u"instanceId"_s).toString(), u"old-1"_s);
+    QCOMPARE(card.value(u"colors"_s).toString(), u"WU"_s);
+    QVERIFY(!card.contains(u"cardColors"_s));
+    QVERIFY(!card.contains(u"manaCost"_s));
+}
 
 void TestCatalogRepository::readsInstalledLimitedProduct() const
 {
@@ -76,6 +414,119 @@ void TestCatalogRepository::readsInstalledLimitedProduct() const
     QCOMPARE(products.first().toMap().value(u"setCode"_s).toString(), u"TST"_s);
     QCOMPARE(repository.limitedProduct(u"mtgjson-tst-play"_s).value(u"name"_s).toString(),
              u"Test Play Booster"_s);
+}
+
+void TestCatalogRepository::approximatesWhenSetHasOnlyLeftoverOfficialProducts() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(u"limited-approx.sqlite"_s);
+    const QString connectionName = u"catalog-limited-approx-fixture"_s;
+    const QJsonObject promo{
+        {u"id"_s, u"mtgjson-fin-bundle-promo"_s},
+        {u"name"_s, u"Final Fantasy — Bundle Promo"_s},
+        {u"setCode"_s, u"FIN"_s},
+        {u"productType"_s, u"official"_s},
+        {u"authentic"_s, true},
+        {u"cardsPerPack"_s, 2},
+        {u"sheets"_s, QJsonArray{}},
+        {u"variants"_s, QJsonArray{}},
+    };
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connectionName);
+        database.setDatabaseName(databasePath);
+        QVERIFY2(database.open(), qPrintable(database.lastError().text()));
+        QSqlQuery query(database);
+        QVERIFY(query.exec(u"CREATE TABLE cards ("
+                           "name TEXT, set_code TEXT, collector_number TEXT, type_line TEXT, "
+                           "rarity TEXT, digital INTEGER, lang TEXT, booster INTEGER)"_s));
+        QVERIFY(query.exec(u"CREATE TABLE limited_products ("
+                           "id TEXT PRIMARY KEY, name TEXT, set_code TEXT, product_type TEXT, "
+                           "authentic INTEGER, definition_json TEXT)"_s));
+        query.prepare(u"INSERT INTO limited_products VALUES (?, ?, ?, ?, ?, ?)"_s);
+        query.addBindValue(u"mtgjson-fin-bundle-promo"_s);
+        query.addBindValue(u"Final Fantasy — Bundle Promo"_s);
+        query.addBindValue(u"FIN"_s);
+        query.addBindValue(u"official"_s);
+        query.addBindValue(1);
+        query.addBindValue(QJsonDocument(promo).toJson(QJsonDocument::Compact));
+        QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+        query.prepare(u"INSERT INTO cards VALUES (?, 'FIN', ?, 'Creature', ?, 0, 'en', 1)"_s);
+        for (int index = 1; index <= 30; ++index) {
+            const QString rarity = index <= 20   ? u"common"_s
+                                   : index <= 28 ? u"uncommon"_s
+                                                 : u"rare"_s;
+            query.addBindValue(u"Card %1"_s.arg(index));
+            query.addBindValue(QString::number(index));
+            query.addBindValue(rarity);
+            QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+        }
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connectionName);
+
+    CatalogRepository repository(databasePath);
+    const QVariantList products = repository.limitedProducts();
+    QStringList ids;
+    for (const QVariant &value : products)
+        ids.append(value.toMap().value(u"id"_s).toString());
+    QVERIFY(ids.contains(u"mtgjson-fin-bundle-promo"_s));
+    QVERIFY(ids.contains(u"approx-fin"_s));
+    QCOMPARE(repository.limitedProduct(u"approx-fin"_s).value(u"cardsPerPack"_s).toInt(), 14);
+}
+
+void TestCatalogRepository::filtersAlternativesBeforeResultLimit() const
+{
+    QTemporaryDir storage;
+    const QString path = storage.filePath(u"filters.sqlite"_s);
+    const QString connection = u"catalog-multiple-filters"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(path);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(query.exec(
+            u"CREATE TABLE cards (oracle_id TEXT, name TEXT, printed_name TEXT, "
+            "type_line TEXT, set_code TEXT, collector_number TEXT, image_url TEXT, "
+            "lang TEXT, colors TEXT, mana_value REAL, rarity TEXT, legal_formats TEXT)"_s));
+        query.prepare(
+            u"INSERT INTO cards VALUES ('id', ?, '', ?, 'TST', ?, '', 'en', ?, ?, ?, '|modern|')"_s);
+        for (int index = 0; index < 53; ++index) {
+            query.bindValue(0,
+                            index < 50 ? u"A filler %1"_s.arg(index) : u"Z target %1"_s.arg(index));
+            query.bindValue(1, index == 51 ? u"Instant"_s : u"Creature"_s);
+            query.bindValue(2, QString::number(index));
+            query.bindValue(3, index < 50    ? u"W"_s
+                               : index == 50 ? u"G"_s
+                               : index == 51 ? u"U"_s
+                                             : u"GU"_s);
+            query.bindValue(4, index < 50 ? 1 : index == 51 ? 8 : 5);
+            query.bindValue(5, index < 50 ? u"common"_s : index == 51 ? u"mythic"_s : u"rare"_s);
+            QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+        }
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    CatalogRepository repository(path);
+    const auto unfiltered = repository.search({}, u"en"_s, {}, {}, {}, {}, {}, {});
+    QVERIFY2(unfiltered.error.isEmpty(), qPrintable(unfiltered.error));
+    QCOMPARE(unfiltered.cards.size(), 40);
+    const auto filtered = repository.search({}, u"en"_s, u"Creature,Instant"_s, {}, {}, u"G,U"_s,
+                                            u"rare,mythic"_s, u"modern"_s, u"5,7+"_s);
+    QVERIFY2(filtered.error.isEmpty(), qPrintable(filtered.error));
+    QCOMPARE(filtered.cards.size(), 3);
+    for (const QVariant &value : filtered.cards) {
+        const QVariantMap card = value.toMap();
+        QVERIFY(card.value(u"name"_s).toString().startsWith(u"Z target"_s));
+        QVERIFY(!card.value(u"rarity"_s).toString().isEmpty());
+        QVERIFY(card.value(u"manaValue"_s).toInt() >= 5);
+    }
+    const auto mono = repository.search({}, u"en"_s, {}, {}, {}, u"U"_s, {}, {}, u"7+"_s);
+    QCOMPARE(mono.cards.size(), 1);
+    const auto unknown =
+        repository.search({}, u"en"_s, {}, {}, {}, {}, {}, {}, u"not a mana value"_s);
+    QVERIFY(unknown.error.isEmpty());
+    QVERIFY(unknown.cards.isEmpty());
 }
 
 void TestCatalogRepository::queriesCatalog() const

@@ -20,8 +20,9 @@ func (h *Handler) handleRoomList(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, protocol.ErrNameRequired, "hello first")
 		return nil
 	}
+	h.evictExpiredTournaments(time.Now().UTC())
 	listed, _ := protocol.NewEnvelope(protocol.TypeRoomListed,
-		protocol.RoomListed{Rooms: h.hub.ListRooms()})
+		protocol.RoomListed{Rooms: h.listRooms(sess)})
 	listed.ID = env.ID
 	h.send(sess, listed)
 	return nil
@@ -33,7 +34,7 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 		return nil
 	}
 	// A connection already in a room cannot create another; leave/disband first.
-	if sess.Room() != nil {
+	if sess.Room() != nil || h.cubeRoomBlocksNavigation(sess, "") {
 		h.sendError(sess, env.ID, protocol.ErrAlreadyInRoom, "leave current room first")
 		return nil
 	}
@@ -56,7 +57,7 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	if rc.DeckFormat == "" {
 		rc.DeckFormat = protocol.DefaultDeckFormatForTableMode(rc.Format)
 	}
-	if !protocol.ValidDeckFormat(rc.DeckFormat) ||
+	if rc.DeckFormat == protocol.DeckFormatCommanderLimited || !protocol.ValidDeckFormat(rc.DeckFormat) ||
 		protocol.TableModeForDeckFormat(rc.DeckFormat) != rc.Format {
 		h.sendError(sess, env.ID, protocol.ErrUnsupportedFormat,
 			"deck format does not match table mode")
@@ -170,6 +171,14 @@ func (h *Handler) handleRoomJoin(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "invalid room id or password")
 		return nil
 	}
+	if h.isCubeRoom(rj.RoomID) {
+		return h.handleCubeRoomJoin(sess, env, rj)
+	}
+	destinationPodID := h.hub.TournamentForRoom(h.hub.FindRoom(rj.RoomID))
+	if h.cubeRoomBlocksNavigation(sess, destinationPodID) {
+		h.sendError(sess, env.ID, protocol.ErrAlreadyInRoom, "leave the current Cube room first")
+		return nil
+	}
 	if protected, exists := h.hub.RoomRequiresPassword(rj.RoomID); exists && protected &&
 		!h.allowPasswordJoin(sess.RemoteIP, time.Now().UTC()) {
 		h.sendError(sess, env.ID, protocol.ErrRateLimited,
@@ -201,6 +210,20 @@ func (h *Handler) handleRoomJoin(sess *Session, env protocol.Envelope) error {
 		res.Reply.ID = env.ID
 		h.send(sess, *res.Reply)
 	}
+	if res.ProjectGame && rj.AsSpectator &&
+		r.RulesMode == protocol.RulesModeManual {
+		roomSnapshotIndex, seq := lastRoomSnapshotSequence(res.Broadcast)
+		if roomSnapshotIndex < 0 || seq <= 0 {
+			h.fanout(r, res.Broadcast)
+			h.failClosedSession(sess,
+				fmt.Errorf("manual spectator join has no sequenced room snapshot"))
+			return nil
+		}
+		h.fanout(r, res.Broadcast[:roomSnapshotIndex+1])
+		h.sendGameProjection(r, sess, seq)
+		h.fanout(r, res.Broadcast[roomSnapshotIndex+1:])
+		return nil
+	}
 	h.fanout(r, res.Broadcast)
 	if res.ProjectGame {
 		h.fanoutGameProjections(r)
@@ -226,18 +249,37 @@ func (h *Handler) handleRoomLeave(sess *Session, env protocol.Envelope) error {
 		operation.opMu.Unlock()
 		h.commitPairingRoomCleanup(cleanup)
 		h.saveRoomRetention(retained)
+		h.refreshTournamentRetention(operation.tournamentID)
 	}()
 	operation.mu.Lock()
+	departingCubePlayer := operation.room == r && operation.tournamentID != "" &&
+		(r.DeckFormat != protocol.DeckFormatCommanderLimited || r.Game == nil || r.Game.Result != nil) &&
+		r.FindSeatByConnection(sess.ConnectionID) >= 0
 	departingForgePlayer := operation.room == r &&
 		r.RulesMode == protocol.RulesModeForge &&
 		r.Phase == protocol.RoomPhaseStarted &&
 		r.FindSeatByConnection(sess.ConnectionID) >= 0
 	operation.mu.Unlock()
+	departingCubePlayer = departingCubePlayer && h.isCubeRoom(operation.tournamentID)
 	res, disbanded, err := h.hub.LeaveRoom(sess.ConnectionID, r)
 	if err != nil {
 		code, _ := ErrCode(err)
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
+	}
+	h.discardFinishedGameConsent(r)
+	if departingCubePlayer && !disbanded {
+		// Either player leaving ordinary Cube closes its two-player table.
+		// Commander Cube closes only before play or after the result; an active
+		// departure forfeits that seat and leaves the other players in the game.
+		// Transport disconnects still use the ordinary reconnect hold.
+		operation.mu.Lock()
+		r.Disbanded = true
+		seq := r.AllocSeq()
+		operation.mu.Unlock()
+		closed, _ := protocol.NewEnvelope(protocol.TypeRoomDisbanded, protocol.RoomLeft{RoomID: r.ID})
+		res.Broadcast = []protocol.Envelope{closed.WithSeq(seq)}
+		disbanded = true
 	}
 	sess.setRoom(nil)
 	h.discardZoneDumpRequestsForConn(sess.ConnectionID)
@@ -302,6 +344,7 @@ func (h *Handler) handleRoomKick(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
 	}
+	h.discardFinishedGameConsent(r)
 	var rulesReset *room.Result
 	if rk.Seat != nil && r.RulesMode == protocol.RulesModeForge &&
 		r.Phase == protocol.RoomPhaseStarted {
@@ -395,7 +438,7 @@ func (h *Handler) handleDeckSelect(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, err.Error())
 		return nil
 	}
-	if r.DeckFormat == protocol.DeckFormatLimited {
+	if r.DeckFormat == protocol.DeckFormatLimited || r.DeckFormat == protocol.DeckFormatCommanderLimited {
 		h.sendError(sess, env.ID, protocol.ErrTournamentForbidden,
 			"limited tournament decks are locked by the event")
 		return nil
@@ -595,6 +638,16 @@ func (h *Handler) commitPairingRoomCleanup(cleanup pairingRoomCleanup) {
 	}
 	defer entry.opMu.Unlock()
 	h.tournaments.clearRoomLocked(entry, cleanup.roomID)
+	entry.mu.Lock()
+	casual := entry.event.Coordinator == protocol.LimitedCoordinatorCasual
+	entry.mu.Unlock()
+	if casual {
+		// Closing a free-play table releases its players. Publish immediately
+		// so the organizer can choose them without leaving/re-entering the lobby.
+		h.fanoutTournament(cleanup.tournamentID)
+	} else {
+		h.reconcileTournamentRetentionLocked(cleanup.tournamentID, entry, time.Now().UTC(), false)
+	}
 }
 
 // removeRoom drops the authoritative room and clears every room-scoped
@@ -612,30 +665,9 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 	}
 	h.hub.RemoveRoom(r.ID)
 	h.abortForgeGame(r.ID)
+	h.cancelSideboardExpiration(r.ID)
 
-	h.sideboardTimerMu.Lock()
-	timer := h.sideboardTimers[r.ID]
-	delete(h.sideboardTimers, r.ID)
-	h.sideboardTimerMu.Unlock()
-	if timer != nil {
-		timer.Stop()
-	}
-
-	h.zoneDumpMu.Lock()
-	for approvalID, request := range h.zoneDumpRequests {
-		if request.roomID == r.ID {
-			delete(h.zoneDumpRequests, approvalID)
-		}
-	}
-	h.zoneDumpMu.Unlock()
-
-	h.publicZoneMoveMu.Lock()
-	for approvalID, request := range h.publicZoneMoveRequests {
-		if request.roomID == r.ID {
-			delete(h.publicZoneMoveRequests, approvalID)
-		}
-	}
-	h.publicZoneMoveMu.Unlock()
+	h.discardRoomConsentRequests(r.ID)
 
 	h.resumeMu.Lock()
 	for token, hold := range h.resumeHolds {
@@ -667,6 +699,10 @@ func (h *Handler) fanout(r *room.Room, envelopes []protocol.Envelope) {
 
 func (h *Handler) fanoutGameProjections(r *room.Room) {
 	if r != nil && r.RulesMode == protocol.RulesModeForge {
+		if _, live := h.forgeGame(r.ID); !live && r.Game != nil {
+			h.fanoutRulesMetadata(r)
+			return
+		}
 		h.fanoutRulesProjections(r)
 		return
 	}
@@ -675,11 +711,25 @@ func (h *Handler) fanoutGameProjections(r *room.Room) {
 		h.failClosedGameProjections(r, err)
 		return
 	}
-	for connID, envelope := range projections {
-		if session := h.sessionByConn(connID); session != nil {
-			h.send(session, envelope)
+	h.sendProjectionSet(projections)
+}
+
+func (h *Handler) sendGameProjection(r *room.Room, sess *Session, seq int64) {
+	projection, err := h.hub.GameProjection(r, sess.ConnectionID, seq)
+	if err != nil {
+		h.failClosedSession(sess, err)
+		return
+	}
+	h.send(sess, projection)
+}
+
+func lastRoomSnapshotSequence(envelopes []protocol.Envelope) (int, int64) {
+	for index := len(envelopes) - 1; index >= 0; index-- {
+		if envelopes[index].Type == protocol.TypeRoomSnapshot {
+			return index, envelopes[index].SeqValue()
 		}
 	}
+	return -1, 0
 }
 
 // failClosedGameProjections is used after the reducer has already committed.
@@ -687,6 +737,10 @@ func (h *Handler) fanoutGameProjections(r *room.Room) {
 // success reply is not rolled back) and are disconnected so reconnect can
 // load a fresh role-specific snapshot.
 func (h *Handler) failClosedGameProjections(r *room.Room, cause error) {
+	if r != nil && r.RulesMode == protocol.RulesModeForge {
+		h.failForgeGame(r)
+		return
+	}
 	if r == nil {
 		log.Printf("game projections failed: %v", cause)
 		return

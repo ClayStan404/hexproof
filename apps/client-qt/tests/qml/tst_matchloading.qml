@@ -3,6 +3,7 @@
 
 import QtQuick
 import QtTest
+import "../../qml/components"
 
 TestCase {
     id: testCase
@@ -51,6 +52,33 @@ TestCase {
         tryVerify(() => retry.visible)
         retry.clicked()
         compare(mockLoader.retryCount, 1)
+    }
+
+    function test_longErrorsRemainScrollableAtLargeInterfaceScale() {
+        testWindow.width = 900
+        testWindow.height = 620
+        Theme.uiScale = 1.5
+        try {
+            page.width = testWindow.width
+            page.height = testWindow.height
+            mockLoader.failed = 1
+            mockLoader.lastError = "Missing card art: network unavailable. ".repeat(30)
+            const body = findChild(page, "matchLoadingBody")
+            verify(body !== null)
+            tryVerify(() => body.contentHeight > body.height)
+            body.contentY = body.contentHeight - body.height
+            waitForRendering(page)
+            const retry = findChild(page, "retryMatchLoadButton")
+            const position = retry.mapToItem(page, 0, 0)
+            verify(position.y >= 0)
+            verify(position.y + retry.height <= page.height)
+            mouseClick(retry)
+            compare(mockLoader.retryCount, 1)
+        } finally {
+            Theme.uiScale = 1
+            testWindow.width = 1400
+            testWindow.height = 800
+        }
     }
 
     function test_matchLoadingLeaveRequiresConfirmation() {
@@ -167,9 +195,10 @@ TestCase {
         compare(matchScore.text, "0–0")
         verify(matchScore.font.pixelSize > gameNumber.font.pixelSize)
         const handSurface = findChild(table, "handSurface")
-        const initialHandCard = findChild(table, "handCard0")
         const battlefieldCard = findChild(table, "battlefieldCards1-c1")
         verify(handSurface !== null)
+        tryVerify(() => findChild(table, "handCard0") !== null)
+        const initialHandCard = findChild(table, "handCard0")
         verify(initialHandCard !== null)
         verify(battlefieldCard !== null)
         const handAreaMenu = findChild(table, "handAreaMenu")
@@ -272,7 +301,7 @@ TestCase {
         compare(stackOwner.text, "Alice")
         verify(stackOwner.visible)
         verify(stackOwner.mapToItem(stackCard, 0, 0).y > 10)
-        mouseClick(stackCard)
+        mouseClick(stackCard, stackCard.width / 2, 8)
         const sharedChooseTarget = findChild(
                                      table, "sharedChooseTargetButton")
         const sharedTargetMenu = findChild(table, "sharedTargetMenu")
@@ -280,6 +309,10 @@ TestCase {
         verify(sharedChooseTarget !== null)
         verify(sharedTargetMenu !== null)
         verify(sharedTargetSeat !== null)
+        compare(table.selectedSharedCard.id, "s0-stack")
+        compare(table.selectedSharedZone, "stack")
+        verify(table.selectedSharedOwned)
+        verify(table.canAct)
         tryVerify(() => sharedChooseTarget.visible)
         sharedChooseTarget.clicked()
         tryVerify(() => sharedTargetMenu.opened)
@@ -288,7 +321,7 @@ TestCase {
         compare(mockWs.lastArrow.sourceCardIds[0], "s0-stack")
         compare(mockWs.lastArrow.kind, "target")
         compare(mockWs.lastArrow.targetSeat, 1)
-        mouseClick(stackCard)
+        mouseClick(stackCard, stackCard.width / 2, 8)
         const toGraveyard = findChild(table, "sharedToGraveyardButton")
         verify(toGraveyard !== null)
         tryVerify(() => toGraveyard.visible)
@@ -432,10 +465,11 @@ TestCase {
         verify(table !== null)
         const chatInput = findChild(table, "gameChatInput")
         const handList = findChild(table, "ownHand")
-        const handCard = findChild(table, "handCard0")
         const handAreaMenu = findChild(table, "handAreaMenu")
         verify(chatInput !== null)
         verify(handList !== null)
+        tryVerify(() => findChild(table, "handCard0") !== null)
+        const handCard = findChild(table, "handCard0")
         verify(handCard !== null)
         verify(handAreaMenu !== null)
 
@@ -460,9 +494,10 @@ TestCase {
         })
         verify(table !== null)
         const chatInput = findChild(table, "gameChatInput")
-        const handCard = findChild(table, "handCard0")
         const battlefieldCard = findChild(table, "battlefieldCards1-c1")
         verify(chatInput !== null)
+        tryVerify(() => findChild(table, "handCard0") !== null)
+        const handCard = findChild(table, "handCard0")
         verify(handCard !== null)
         verify(battlefieldCard !== null)
 
@@ -782,6 +817,9 @@ TestCase {
             "height": testWindow.height
         })
         verify(table !== null)
+        // Nested layouts settle during polish; compute drag coordinates only
+        // after the first rendered frame, as a real pointer interaction does.
+        waitForRendering(table)
 
         const library = findChild(table, "ownLibraryZone")
         const battlefield = findChild(table, "battlefieldDropArea")
@@ -871,6 +909,10 @@ TestCase {
         verify(cardToolsMenu !== null)
         verify(targetBattlefieldCard !== null)
         verify(targetSeat !== null)
+        // Lane-fit geometry is resolved during polish. Pointer input must use
+        // the displayed card bounds, not the initial pre-layout zero size.
+        verify(waitForRendering(table))
+        verify(ownPermanent.width > 0 && ownPermanent.height > 0)
         mouseClick(ownPermanent, ownPermanent.width / 2,
                    ownPermanent.height / 2, Qt.RightButton)
         tryVerify(() => cardToolsMenu.opened)
@@ -973,6 +1015,8 @@ TestCase {
         tryVerify(() => findChild(table, "attachmentOverlays0-permanent") !== null)
         const overlay = findChild(table, "attachmentOverlays0-permanent")
         tryVerify(() => overlay.visible)
+        verify(waitForRendering(table))
+        verify(overlay.width > 0 && overlay.height > 0)
         mouseClick(overlay, overlay.width / 2, overlay.height / 2)
         compare(table.selectedBattlefieldCardId, "s0-permanent")
         verify(detach.enabled)
