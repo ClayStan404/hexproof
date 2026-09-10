@@ -35,6 +35,21 @@ class QtToolchainTests(unittest.TestCase):
                         self.assertLess(job_steps.index("uses: actions/checkout@"),
                                         job_steps.index("uses: " + SETUP_ACTION))
 
+    def test_windows_installer_pins_the_qt_611_repository_fix(self):
+        action = (ROOT / ".github/actions/setup-qt/action.yml").read_text()
+        # Qt 6.11 Windows metadata lives under compiler-specific directories.
+        # Keep this override Windows-only so other validated installers stay put.
+        source = re.search(r"^\s*aqtsource: (.+)$", action, re.MULTILINE)
+        self.assertIsNotNone(source)
+        self.assertEqual(
+            source.group(1),
+            "${{ runner.os == 'Windows' && "
+            "'git+https://github.com/miurahr/aqtinstall.git@"
+            "8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b' || '' }}",
+        )
+        self.assertIn("aqtversion: '==3.3.0'", action)
+        self.assertIn("https://github.com/miurahr/aqtinstall/pull/1000", action)
+
     def test_macos_release_and_local_bundle_share_supported_baseline(self):
         release = (ROOT / ".github/workflows/release.yml").read_text()
         script = (ROOT / "packaging/macos/build-bundle.sh").read_text()

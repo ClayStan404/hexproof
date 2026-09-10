@@ -27,6 +27,14 @@ explicit version after validation, rather than following a moving `latest`.
 Official macOS packages require macOS 13 or newer with this Qt toolchain; the
 macOS bundle script defaults to the same deployment target.
 
+The shared action pins aqtinstall 3.3.0 on Linux/macOS. Windows temporarily
+uses the fixed upstream revision `8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b`
+because 3.3.0 cannot resolve Qt 6.11's compiler-specific Windows repositories
+([upstream fix](https://github.com/miurahr/aqtinstall/pull/1000)). Replace this
+revision with a released installer after validating an uncached Windows SDK
+installation, including `qtwebsockets` and `qtimageformats`; do not use a
+moving branch or downgrade the Qt runtime to work around the installer.
+
 Client builds select their bundled public-server directory in this order:
 
 1. `-DHEXPROOF_SERVER_DIRECTORY_FILE=/path/to/servers.json`;
