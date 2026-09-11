@@ -202,11 +202,13 @@ Surface {
             Layout.fillWidth: true
             spacing: Theme.size(5)
 
-            TextField {
+            AppTextField {
                 id: chatInputField
                 objectName: "gameChatInput"
                 Layout.fillWidth: true
                 implicitHeight: Theme.size(36)
+                leftPadding: Theme.size(5)
+                rightPadding: Theme.size(5)
                 enabled: root.tableController.canChat
                 maximumLength: 500
                 placeholderText: qsTranslate("Table", "Message…")

@@ -2983,6 +2983,26 @@ many tables.</source>
 <context>
     <name>I18n</name>
     <message>
+        <source>%1 conceded. %2 wins Game %3.</source>
+        <translation>%1 已投降。%2 赢得第 %3 局。</translation>
+    </message>
+    <message>
+        <source>%1 conceded and was eliminated.</source>
+        <translation>%1 已投降并被淘汰。</translation>
+    </message>
+    <message>
+        <source>%1 wins the Commander game.</source>
+        <translation>%1 赢得指挥官对局。</translation>
+    </message>
+    <message>
+        <source>%1 goes first after losing Game %2.</source>
+        <translation>%1 在第 %2 局落败后获得先手。</translation>
+    </message>
+    <message>
+        <source>%1 removed %2 token(s) from the battlefield.</source>
+        <translation>%1 从战场移除了 %2 个衍生物。</translation>
+    </message>
+    <message>
         <source>%1 created a %2 emblem for %3.</source>
         <translation>%1 为 %3 创建了徽记：%2。</translation>
     </message>
@@ -4158,6 +4178,26 @@ many tables.</source>
         <location line="+2"/>
         <source>That match result is not valid for this pairing.</source>
         <translation>该赛果不符合此对阵的要求。</translation>
+    </message>
+    <message>
+        <source>library top, in order</source>
+        <translation>牌库顶（按顺序）</translation>
+    </message>
+    <message>
+        <source>library bottom, in order</source>
+        <translation>牌库底（按顺序）</translation>
+    </message>
+    <message>
+        <source>library top, in random order</source>
+        <translation>牌库顶（随机顺序）</translation>
+    </message>
+    <message>
+        <source>library bottom, in random order</source>
+        <translation>牌库底（随机顺序）</translation>
+    </message>
+    <message>
+        <source>library, then shuffled it</source>
+        <translation>牌库并洗牌</translation>
     </message>
 </context>
 <context>
@@ -9125,6 +9165,10 @@ your way.</source>
         <source>Move to bottom of library</source>
         <translation>移到牌库底</translation>
     </message>
+    <message>
+        <source>Select and move hand cards…</source>
+        <translation>选择并批量移动手牌…</translation>
+    </message>
 </context>
 <context>
     <name>TableCardMoveController</name>
@@ -9301,6 +9345,10 @@ your way.</source>
         <location line="+7"/>
         <source>Create token copy</source>
         <translation>创建衍生物复制</translation>
+    </message>
+    <message>
+        <source>Shuffle into library</source>
+        <translation>洗入牌库</translation>
     </message>
 </context>
 <context>
@@ -12292,6 +12340,58 @@ your way.</source>
         <location line="-331"/>
         <source>Close</source>
         <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Hand</source>
+        <translation>手牌</translation>
+    </message>
+    <message>
+        <source>Only authorized viewers can inspect these hand cards.</source>
+        <translation>仅获准的查看者可以查看这些手牌。</translation>
+    </message>
+    <message>
+        <source>Select cards, then choose Move selected. Library order follows your selection order.</source>
+        <translation>勾选牌张后点击“移动所选”。按序放入牌库时采用勾选顺序。</translation>
+    </message>
+    <message>
+        <source>Deselect visible</source>
+        <translation>取消可见牌选择</translation>
+    </message>
+    <message>
+        <source>Select visible</source>
+        <translation>全选可见牌</translation>
+    </message>
+    <message>
+        <source>Individual cards</source>
+        <translation>逐张显示</translation>
+    </message>
+    <message>
+        <source>Move card</source>
+        <translation>移动牌张</translation>
+    </message>
+    <message>
+        <source>Bottom of library · in order</source>
+        <translation>牌库底 · 按顺序</translation>
+    </message>
+    <message>
+        <source>Top of library · random order</source>
+        <translation>牌库顶 · 随机顺序</translation>
+    </message>
+    <message>
+        <source>Bottom of library · random order</source>
+        <translation>牌库底 · 随机顺序</translation>
+    </message>
+    <message>
+        <source>Shuffle into library</source>
+        <translation>洗入牌库</translation>
+    </message>
+    <message>
+        <source>Cards</source>
+        <translation>牌张</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>预览</translation>
     </message>
 </context>
 <context>

@@ -63,9 +63,10 @@ const (
 )
 
 const (
-	LibraryPlacementTop    = "top"
-	LibraryPlacementIndex  = "index"
-	LibraryPlacementBottom = "bottom"
+	LibraryPlacementTop     = "top"
+	LibraryPlacementIndex   = "index"
+	LibraryPlacementBottom  = "bottom"
+	LibraryPlacementShuffle = "shuffle"
 )
 
 // Library search destinations are deliberately narrower than generic move

@@ -529,6 +529,20 @@ QtObject {
         match = source.match(/^(.+) left the game and was eliminated\.$/)
         if (match)
             return qsTr("%1 left the game and was eliminated.").arg(match[1])
+        match = source.match(/^(.+) conceded\. (.+) wins Game (\d+)\.$/)
+        if (match)
+            return formatStatus(qsTr("%1 conceded. %2 wins Game %3."),
+                                [match[1], match[2], match[3]])
+        match = source.match(/^(.+) conceded and was eliminated\.$/)
+        if (match)
+            return qsTr("%1 conceded and was eliminated.").arg(match[1])
+        match = source.match(/^(.+) wins the Commander game\.$/)
+        if (match)
+            return qsTr("%1 wins the Commander game.").arg(match[1])
+        match = source.match(/^(.+) goes first after losing Game (\d+)\.$/)
+        if (match)
+            return formatStatus(qsTr("%1 goes first after losing Game %2."),
+                                [match[1], match[2]])
         match = source.match(
                     /^(.+) is searching (their|.+\'s) library\.$/)
         if (match) {
@@ -584,10 +598,15 @@ QtObject {
                     [match[1], match[2], libraryOwnerLabel(match[3])])
         }
         match = source.match(
-                    /^(.+) moved (.+) from (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|.+\'s (?:graveyard|exile)) to (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|.+\'s battlefield)\.$/)
+                    /^(.+) moved (.+) from (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|.+\'s (?:graveyard|exile)) to (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|library \((?:top|bottom), in (?:random )?order\)|library and shuffled the library|.+\'s battlefield)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 moved %2 from %3 to %4."),
                     [match[1], libraryCardDescriptionLabel(match[2]), libraryTargetLabel(match[3]), moveDestinationLabel(match[4])])
+        }
+        match = source.match(/^(.+) removed (\d+) token\(s\) from the battlefield\.$/)
+        if (match) {
+            return formatStatus(qsTr("%1 removed %2 token(s) from the battlefield."),
+                                [match[1], match[2]])
         }
         match = source.match(/^(.+) set (.+) on (.+) to (\d+)\.$/)
         if (match) {
@@ -786,6 +805,13 @@ QtObject {
     }
 
     function moveDestinationLabel(destination) {
+        switch (destination) {
+        case "library (top, in order)": return qsTr("library top, in order")
+        case "library (bottom, in order)": return qsTr("library bottom, in order")
+        case "library (top, in random order)": return qsTr("library top, in random order")
+        case "library (bottom, in random order)": return qsTr("library bottom, in random order")
+        case "library and shuffled the library": return qsTr("library, then shuffled it")
+        }
         const battlefieldSuffix = "'s battlefield"
         if (destination.endsWith(battlefieldSuffix)) {
             const translatedBattlefield = zoneLabel("battlefield")

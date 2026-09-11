@@ -702,11 +702,13 @@ func battlefieldBatchPosition(anchor protocol.CardPosition, index, count int) *p
 	rows := int(math.Ceil(float64(count) / float64(columns)))
 	column := index % columns
 	row := index / columns
-	xSpacing := 0.09
+	// Separate ordinary-size batches enough to keep earlier card centers
+	// clickable; large batches still compress within the same bounded lane.
+	xSpacing := 0.16
 	if columns > 1 {
 		xSpacing = math.Min(xSpacing, 0.9/float64(columns-1))
 	}
-	ySpacing := 0.09
+	ySpacing := 0.45
 	if rows > 1 {
 		ySpacing = math.Min(ySpacing, 0.9/float64(rows-1))
 	}

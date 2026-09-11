@@ -345,6 +345,11 @@ Menu {
         enabled: root.tableController.selection.selectedCount() > 1
 
         MenuItem {
+            objectName: "moveSelectedBattlefieldToHand"
+            text: qsTr("Move to hand") + ShortcutHints.suffix("table.selection.moveHand")
+            onTriggered: root.tableController.cardMoveCommands.moveSelectedBattlefieldCards("hand")
+        }
+        MenuItem {
             objectName: "moveSelectedBattlefieldToGraveyard"
             text: qsTr("Move to graveyard") + ShortcutHints.suffix("table.selection.moveGraveyard")
             onTriggered:
@@ -385,6 +390,11 @@ Menu {
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedBattlefieldCards(
                     "library", "bottom", true)
+        }
+        MenuItem {
+            objectName: "moveSelectedBattlefieldShuffleIntoLibrary"
+            text: qsTr("Shuffle into library")
+            onTriggered: root.tableController.cardMoveCommands.moveSelectedBattlefieldCards("library", "shuffle", false)
         }
     }
     ConditionalMenuItem {

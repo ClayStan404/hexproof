@@ -711,7 +711,8 @@ void WsClient::recallRevealed()
 }
 
 void WsClient::moveCards(const QVariantList &cardIds, const QString &fromZone,
-                         const QString &toZone, const QString &libraryPlacement, bool randomize)
+                         const QString &toZone, const QString &libraryPlacement, bool randomize,
+                         const QVariantMap &position, int toSeat)
 {
     if (cardIds.isEmpty())
         return;
@@ -724,11 +725,16 @@ void WsClient::moveCards(const QVariantList &cardIds, const QString &fromZone,
         payload.insert(u"libraryPlacement"_s, libraryPlacement);
     if (randomize)
         payload.insert(u"randomize"_s, true);
+    if (!position.isEmpty())
+        payload.insert(u"position"_s, QJsonObject::fromVariantMap(position));
+    if (toSeat >= 0)
+        payload.insert(u"toSeat"_s, toSeat);
     send(kTypeGameMoveCards, payload);
 }
 
 void WsClient::movePublicCards(const QVariantList &cardIds, const QString &fromZone, int fromSeat,
-                               const QString &toZone, int toSeat, const QVariantMap &position)
+                               const QString &toZone, int toSeat, const QVariantMap &position,
+                               const QString &libraryPlacement, bool randomize)
 {
     if (cardIds.isEmpty() || fromSeat < 0)
         return;
@@ -742,6 +748,10 @@ void WsClient::movePublicCards(const QVariantList &cardIds, const QString &fromZ
         payload.insert(u"toSeat"_s, toSeat);
     if (!position.isEmpty())
         payload.insert(u"position"_s, QJsonObject::fromVariantMap(position));
+    if (!libraryPlacement.isEmpty())
+        payload.insert(u"libraryPlacement"_s, libraryPlacement);
+    if (randomize)
+        payload.insert(u"randomize"_s, true);
     send(kTypeGameMoveCards, payload);
 }
 

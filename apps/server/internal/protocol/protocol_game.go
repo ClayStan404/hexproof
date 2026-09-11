@@ -262,11 +262,13 @@ type GameRevealedRecalled struct {
 	Count  int    `json:"count"`
 }
 
-// GameMoveCards applies one atomic batch move from a public battlefield,
+// GameMoveCards applies one atomic batch move from the acting player's hand, battlefield,
 // graveyard, or exile. Public-zone batches carry explicit source/destination
 // seats; battlefield destinations use Position as their layout anchor.
 // A remote graveyard or exile source requires the same exact-request approval
-// as a single public-zone move.
+// as a single public-zone move. LibraryPlacement accepts top (default), bottom,
+// or shuffle. Randomize shuffles only the selection; shuffle randomizes each
+// complete destination library and cannot be combined with Randomize.
 type GameMoveCards struct {
 	CardIDs          []string      `json:"cardIds"`
 	FromZone         string        `json:"fromZone"`

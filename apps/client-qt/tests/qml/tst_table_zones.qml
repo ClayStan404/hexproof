@@ -921,18 +921,21 @@ TestCase {
         compare(popup.selectedCount, 0)
         selectAll.clicked()
         tryCompare(popup, "selectedCount", 3)
-        compare(selectAll.text, "Deselect all")
+        compare(selectAll.text, "Deselect visible")
         selectAll.clicked()
         tryCompare(popup, "selectedCount", 0)
-        compare(selectAll.text, "Select all")
+        compare(selectAll.text, "Select visible")
         selectAll.clicked()
         tryCompare(popup, "selectedCount", 3)
 
         tryVerify(() => cards.itemAtIndex(0) !== null)
         const firstCard = cards.itemAtIndex(0)
+        verify(waitForRendering(firstCard))
         mouseClick(firstCard, firstCard.width / 2,
                    firstCard.height / 2, Qt.RightButton)
-        tryVerify(() => menu.opened)
+        tryVerify(() => menu.opened, 5000, "context=" + popup.contextCardId
+                  + "; row=" + firstCard.width + "x" + firstCard.height
+                  + "; popup=" + popup.opened)
         compare(menu.title, "Move selected · 3")
         verify(libraryAction.enabled)
         exileAction.triggered()
@@ -992,9 +995,12 @@ TestCase {
 
         tryVerify(() => cards.itemAtIndex(0) !== null)
         const firstCard = cards.itemAtIndex(0)
+        verify(waitForRendering(firstCard))
         mouseClick(firstCard, firstCard.width / 2,
                    firstCard.height / 2, Qt.RightButton)
-        tryVerify(() => menu.opened)
+        tryVerify(() => menu.opened, 5000, "context=" + popup.contextCardId
+                  + "; row=" + firstCard.width + "x" + firstCard.height
+                  + "; popup=" + popup.opened)
         compare(menu.title, "Move selected · 2")
         verify(libraryAction.enabled)
         verify(graveyardAction.enabled)

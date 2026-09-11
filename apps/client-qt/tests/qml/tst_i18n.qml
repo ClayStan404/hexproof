@@ -189,6 +189,26 @@ TestCase {
             "指挥官行动顺序：Alice -> Bob -> Carol。")
     }
 
+    function test_batchLibraryLogDistinguishesRandomPlacementAndFullShuffle() {
+        compare(I18n.gameLog("move_cards", "Alice moved 7 card(s) from graveyard to library (bottom, in random order)."),
+                "Alice 将 7 张牌 从墓地移至牌库底（随机顺序）。")
+        compare(I18n.gameLog("move_cards", "Alice moved 3 card(s) from hand to library and shuffled the library."),
+                "Alice 将 3 张牌 从手牌移至牌库并洗牌。")
+        compare(I18n.gameLog("remove_token", "Alice removed 2 token(s) from the battlefield."),
+                "Alice 从战场移除了 2 个衍生物。")
+    }
+
+    function test_manualMatchOutcomeLogsAreTranslated() {
+        compare(I18n.gameLog("concede", "Alice %2 conceded. Bob wins Game 2."),
+                "Alice %2 已投降。Bob 赢得第 2 局。")
+        compare(I18n.gameLog("concede", "Alice conceded and was eliminated."),
+                "Alice 已投降并被淘汰。")
+        compare(I18n.gameLog("result", "Bob wins the Commander game."),
+                "Bob 赢得指挥官对局。")
+        compare(I18n.gameLog("start", "Alice goes first after losing Game 1."),
+                "Alice 在第 1 局落败后获得先手。")
+    }
+
     function test_translatesMoveLogsAcrossAllDestinations() {
         compare(
             I18n.status("Alice moved Lightning Bolt from hand to Bob's battlefield."),

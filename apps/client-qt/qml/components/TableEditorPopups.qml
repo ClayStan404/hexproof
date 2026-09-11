@@ -199,9 +199,9 @@ Item {
                                     toZone, toSeat)
         }
         onMovesRequested: function(cardIds, fromZone, fromSeat,
-                                   toZone, toSeat) {
+                                   toZone, toSeat, libraryPlacement, randomize) {
             root.tableController.cardMoveCommands.movePublicZoneCards(cardIds, fromZone, fromSeat,
-                                     toZone, toSeat)
+                                     toZone, toSeat, libraryPlacement, randomize)
         }
         onCastCommanderRequested: commanderId =>
             root.tableController.wsModel.castCommander(commanderId)

@@ -184,18 +184,32 @@ Item {
                                      root.tableController.ownSeatData)
                 ToolTip.text: qsTr("The usual maximum hand size is 7. Card effects may change it.")
             }
-            Slider {
-                id: handScrollSlider
-                objectName: "handScrollSlider"
+            Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.size(14)
-                from: root.handScrollMinimum
-                to: root.handScrollMaximum
-                value: handList.contentX
-                enabled: to > from
-                onMoved: handList.contentX = value
-                ToolTip.visible: hovered && enabled
-                ToolTip.text: qsTr("Scroll hand")
+                // Keep the header height stable: changing card height changes
+                // card width and can otherwise toggle overflow in a loop.
+                implicitHeight: handScrollSlider.implicitHeight
+
+                Slider {
+                    id: handScrollSlider
+                    objectName: "handScrollSlider"
+                    anchors.fill: parent
+                    from: root.handScrollMinimum
+                    to: root.handScrollMaximum
+                    value: handList.contentX
+                    enabled: to > from
+                    visible: enabled
+                    palette.window: Theme.primary
+                    palette.light: Theme.primaryMuted
+                    palette.mid: Theme.borderStrong
+                    palette.midlight: Theme.border
+                    palette.dark: Theme.primary
+                    palette.highlight: Theme.primary
+                    onMoved: handList.contentX = value
+                    ToolTip.visible: hovered && enabled
+                    ToolTip.text: qsTr("Scroll hand")
+                }
             }
         }
 

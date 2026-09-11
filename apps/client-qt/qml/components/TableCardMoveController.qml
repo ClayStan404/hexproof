@@ -500,11 +500,11 @@ QtObject {
     }
 
     function movePublicZoneCards(cardIds, fromZone, fromSeat,
-                                 toZone, toSeat) {
+                                 toZone, toSeat, libraryPlacement, randomize) {
         const ids = cardIds ? cardIds.slice() : []
-        if (!tableRoot.canAct || ids.length < 2
-                || (fromZone !== "graveyard" && fromZone !== "exile")
-                || fromSeat < 0) {
+        if (!tableRoot.canAct || ids.length < 1
+                || (fromZone !== "graveyard" && fromZone !== "exile" && fromZone !== "hand")
+                || (fromZone !== "hand" && fromSeat < 0)) {
             return
         }
         const sourceCards = []
@@ -530,19 +530,24 @@ QtObject {
                 "cardId": ids[index],
                 "card": card,
                 "fromZone": fromZone,
-                "fromSeat": fromSeat,
+                "fromSeat": fromZone === "hand" ? tableRoot.roomSession.seatIndex : fromSeat,
                 "toZone": toZone,
                 "toSeat": destinationSeat,
                 "x": position.x !== undefined ? position.x : 0,
                 "y": position.y !== undefined ? position.y : 0
             })
         }
-        if (fromSeat === tableRoot.roomSession.seatIndex)
+        if (fromZone === "hand" || fromSeat === tableRoot.roomSession.seatIndex)
             tableRoot.optimisticCommands.beginPendingCardMoves(pendingMoves)
+        if (fromZone === "hand") {
+            tableRoot.wsModel.moveCards(ids, fromZone, toZone, libraryPlacement || "", randomize === true,
+                                        toZone === "battlefield" ? anchor : ({}), toZone === "battlefield" ? toSeat : -1)
+            return
+        }
         const wireTargetSeat = toZone === "exile" ? -1 : toSeat
         tableRoot.wsModel.movePublicCards(
                     ids, fromZone, fromSeat, toZone, wireTargetSeat,
-                    toZone === "battlefield" ? anchor : ({}))
+                    toZone === "battlefield" ? anchor : ({}), libraryPlacement || "", randomize === true)
     }
 
     function moveCardToBattlefield(cardId, fromZone, targetSeat,

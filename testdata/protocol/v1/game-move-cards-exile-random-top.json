@@ -1,0 +1,15 @@
+{
+  "type": "game.move_cards",
+  "id": "batch-exile-random-top",
+  "payload": {
+    "cardIds": [
+      "s0-c1",
+      "s0-c2"
+    ],
+    "fromZone": "exile",
+    "toZone": "library",
+    "libraryPlacement": "top",
+    "randomize": true,
+    "fromSeat": 0
+  }
+}

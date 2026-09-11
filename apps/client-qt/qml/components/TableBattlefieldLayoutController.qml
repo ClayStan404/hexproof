@@ -531,9 +531,9 @@ QtObject {
         const column = index % columns
         const row = Math.floor(index / columns)
         const xSpacing = columns > 1
-                         ? Math.min(0.09, 0.9 / (columns - 1)) : 0.09
+                         ? Math.min(0.16, 0.9 / (columns - 1)) : 0.16
         const ySpacing = rows > 1
-                         ? Math.min(0.09, 0.9 / (rows - 1)) : 0.09
+                         ? Math.min(0.45, 0.9 / (rows - 1)) : 0.45
         const xRadius = (columns - 1) * xSpacing / 2
         const yRadius = (rows - 1) * ySpacing / 2
         const centerX = Math.max(xRadius,

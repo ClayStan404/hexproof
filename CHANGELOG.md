@@ -16,6 +16,17 @@ Follow-up fixes are combined; reverted theme experiments are not included.
 
 ### Added
 
+#### Manual tabletop actions
+
+- Atomic graveyard/exile selections to either library end in chosen or random
+  order, including Endurance and cascade cleanup. The existing library order
+  is preserved; a separate **Shuffle into library** action shuffles the whole
+  library. All affected owners are validated and prepared before any mutation.
+- Private hand selection and batch movement, battlefield batch return to
+  owners' hands, and whole-library recycling. Tokens disappear as appropriate.
+- A visible zone-move menu button, individual-copy selection, explicit filtered
+  selection labels, and compact card/preview switching with pinned actions.
+
 #### Cube, drafting, and deck construction
 
 - Separate free-play Cube rooms with room-browser/code entry, seated players,
@@ -137,11 +148,20 @@ Follow-up fixes are combined; reverted theme experiments are not included.
 - Save card-art indexes through a bounded, coalescing background writer with
   generation-safe maintenance and shutdown. Reuse per-round Swiss pairing costs
   instead of repeatedly scanning match history.
+- Large batch library-top insertion avoids repeated array shifts: the local
+  1000-card benchmark improved from about 2.56 ms to 0.50 ms per operation.
 
 ### Fixed
 
 #### Navigation and tabletop interaction
 
+- Batch battlefield placement no longer covers earlier cards' centers in
+  ordinary small batches; client previews and authoritative placement agree.
+- Compact home pages show play controls before decorative content.
+- Table chat uses the application input styling, and the themed hand scroll
+  control appears only when cards overflow.
+- Chinese game logs translate batch placement, token cleanup, BO3 next-game
+  first player, concession, and Commander outcomes.
 - Keep sponsor profile links within narrow cards at maximum UI scale, including
   longer English button labels.
 - Preserve the saved/custom server selection at cold start and during latency

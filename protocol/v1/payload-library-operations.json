@@ -19,7 +19,7 @@
       "goType": "GameMoveCards",
       "fields": [
         {"name": "cardIds", "type": "array", "required": true, "items": {"type": "string"}},
-        {"name": "fromZone", "type": "string", "required": true, "enum": ["ZoneBattlefield", "ZoneGraveyard"]},
+        {"name": "fromZone", "type": "string", "required": true, "enum": ["ZoneBattlefield", "ZoneGraveyard", "ZoneExile", "ZoneHand"]},
         {"name": "fromSeat", "type": "integer", "required": false, "goType": "*int"},
         {"name": "toZone", "type": "string", "required": true, "enum": ["ZoneLibrary", "ZoneGraveyard", "ZoneExile", "ZoneBattlefield", "ZoneHand"]},
         {"name": "toSeat", "type": "integer", "required": false, "goType": "*int"},

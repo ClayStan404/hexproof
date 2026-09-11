@@ -141,7 +141,7 @@ Item {
             return false
         if (selectedBattlefieldCount() === 1)
             return tableRoot.cardMoveCommands.canManageSelectedBattlefield()
-        return destination !== "hand"
+        return true
     }
 
     function moveSelection(destination, randomize) {

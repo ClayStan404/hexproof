@@ -160,3 +160,7 @@ projections. Room listings contain join metadata only, and replay loading
 returns a public log rather than the full operator archive. Undo availability
 is owner-only and never reveals the returned card identity; battlefield arrows
 and attachments are public coordination state.
+
+`game-move-cards-endurance.json`, `game-move-cards-exile-random-top.json`, and
+`game-move-cards-hand-shuffle.json` cover randomized public-zone placement
+and atomic hand recycling without publishing library order.

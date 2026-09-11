@@ -624,6 +624,25 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.payload.value(u"toSeat"_s).toInt(), 0);
     QCOMPARE(sent.payload.value(u"position"_s).toObject().value(u"y"_s).toDouble(), 0.3);
 
+    client.movePublicCards(QVariantList{u"s0-g1"_s, u"s0-g2"_s}, hexproof::protocol::kZoneGraveyard,
+                           0, hexproof::protocol::kZoneLibrary, -1, {}, u"bottom"_s, true);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.payload.value(u"libraryPlacement"_s).toString(), u"bottom"_s);
+    QVERIFY(sent.payload.value(u"randomize"_s).toBool());
+    QVERIFY(!sent.payload.contains(u"toSeat"_s));
+    QVERIFY(!sent.payload.contains(u"position"_s));
+
+    client.moveCards(QVariantList{u"s0-h1"_s}, hexproof::protocol::kZoneHand,
+                     hexproof::protocol::kZoneLibrary, u"shuffle"_s);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.payload.value(u"libraryPlacement"_s).toString(), u"shuffle"_s);
+    QVERIFY(!sent.payload.contains(u"randomize"_s));
+    QVERIFY(!sent.payload.contains(u"fromSeat"_s));
+
     client.moveLibraryCards(3, hexproof::protocol::kZoneExile);
     QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
     sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);

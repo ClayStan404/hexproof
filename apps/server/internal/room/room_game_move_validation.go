@@ -189,7 +189,8 @@ func (r *Room) planCardBatchMove(connID string,
 	if err != nil {
 		return cardBatchMovePlan{}, err
 	}
-	if move.FromZone != protocol.ZoneBattlefield && !publicPlayerZone(move.FromZone) {
+	if move.FromZone != protocol.ZoneBattlefield && move.FromZone != protocol.ZoneHand &&
+		!publicPlayerZone(move.FromZone) {
 		return cardBatchMovePlan{}, newError(protocol.ErrInvalidZone)
 	}
 	sourceSeat, err := r.moveSource(actorSeat, move.FromZone, move.FromSeat)
@@ -199,7 +200,7 @@ func (r *Room) planCardBatchMove(connID string,
 
 	targetSeat := -1
 	if move.FromZone == protocol.ZoneBattlefield {
-		if move.ToZone != protocol.ZoneLibrary &&
+		if move.ToZone != protocol.ZoneLibrary && move.ToZone != protocol.ZoneHand &&
 			move.ToZone != protocol.ZoneGraveyard &&
 			move.ToZone != protocol.ZoneExile {
 			return cardBatchMovePlan{}, newError(protocol.ErrInvalidZone)
@@ -221,6 +222,9 @@ func (r *Room) planCardBatchMove(connID string,
 				return cardBatchMovePlan{}, newError(protocol.ErrInvalidTarget)
 			}
 		case protocol.ZoneHand, protocol.ZoneLibrary:
+			if move.ToZone == move.FromZone {
+				return cardBatchMovePlan{}, newError(protocol.ErrInvalidMove)
+			}
 			if move.Position != nil || move.ToSeat != nil {
 				return cardBatchMovePlan{}, newError(protocol.ErrInvalidMove)
 			}
@@ -242,11 +246,15 @@ func (r *Room) planCardBatchMove(connID string,
 			(targetSeat < 0 || targetSeat >= len(r.Game.Seats)) {
 			return cardBatchMovePlan{}, newError(protocol.ErrInvalidTarget)
 		}
-		if move.Randomize {
+		if move.Randomize && move.ToZone != protocol.ZoneLibrary {
 			return cardBatchMovePlan{}, newError(protocol.ErrInvalidMove)
 		}
 	}
-	if err := normalizeLibraryPlacement(move.ToZone, &move.LibraryPlacement, nil, false); err != nil {
+	if move.ToZone == protocol.ZoneLibrary && move.LibraryPlacement == protocol.LibraryPlacementShuffle {
+		if move.Randomize {
+			return cardBatchMovePlan{}, newError(protocol.ErrInvalidMove)
+		}
+	} else if err := normalizeLibraryPlacement(move.ToZone, &move.LibraryPlacement, nil, false); err != nil {
 		return cardBatchMovePlan{}, err
 	}
 	if len(move.CardIDs) == 0 || len(move.CardIDs) > protocol.MaxDeckCards {

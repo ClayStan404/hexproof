@@ -1,0 +1,15 @@
+{
+  "type": "game.move_cards",
+  "id": "batch-endurance",
+  "payload": {
+    "cardIds": [
+      "s0-c1",
+      "s0-c2"
+    ],
+    "fromZone": "graveyard",
+    "toZone": "library",
+    "libraryPlacement": "bottom",
+    "randomize": true,
+    "fromSeat": 0
+  }
+}

@@ -104,6 +104,15 @@ Item {
         objectName: "handAreaMenu"
 
         MenuItem {
+            objectName: "manageHandCardsAction"
+            text: qsTr("Select and move hand cards…")
+            enabled: root.tableController.canAct
+                     && root.tableController.projectionSync.visibleOwnHandCount() > 0
+            onTriggered: root.tableController.publicZoneBrowser.showZone(
+                             root.tableController.ownSeatData.displayName || "",
+                             root.tableController.roomSession.seatIndex, "hand")
+        }
+        MenuItem {
             objectName: "revealHandAction"
             text: (root.tableController.ownRevealedCards.length > 0
                    ? qsTr("Recall hand")

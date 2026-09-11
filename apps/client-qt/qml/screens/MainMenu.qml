@@ -174,6 +174,7 @@ Page {
 
             ColumnLayout {
                 objectName: "mainMenuHero"
+                visible: !root.compactLayout
                 Layout.fillWidth: true
                 Layout.fillHeight: !root.compactLayout
                 Layout.maximumWidth: root.compactLayout ? menuBody.width
@@ -315,6 +316,7 @@ Page {
 
                     AppButton {
                         Layout.fillWidth: true
+                        objectName: "mainMenuCreateRoomButton"
                         variant: ws.connected ? "primary" : "secondary"
                         text: qsTr("Create room")
                         leadingText: "+"

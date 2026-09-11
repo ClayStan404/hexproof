@@ -419,10 +419,12 @@ class WsClient : public QObject
     Q_INVOKABLE void recallRevealed();
     Q_INVOKABLE void moveCards(const QVariantList &cardIds, const QString &fromZone,
                                const QString &toZone, const QString &libraryPlacement = {},
-                               bool randomize = false);
+                               bool randomize = false, const QVariantMap &position = {},
+                               int toSeat = -1);
     Q_INVOKABLE void movePublicCards(const QVariantList &cardIds, const QString &fromZone,
                                      int fromSeat, const QString &toZone, int toSeat,
-                                     const QVariantMap &position = {});
+                                     const QVariantMap &position = {},
+                                     const QString &libraryPlacement = {}, bool randomize = false);
     Q_INVOKABLE void moveLibraryCards(int count, const QString &toZone);
     Q_INVOKABLE void dumpLibrary(int sourceSeat = -1, int topCount = 0);
     Q_INVOKABLE void respondZoneDump(const QString &approvalId, bool approved);

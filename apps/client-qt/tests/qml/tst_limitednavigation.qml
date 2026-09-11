@@ -150,6 +150,25 @@ TestCase {
         compare(window.openedScreen, "screens/Settings.qml")
     }
 
+    function test_compactHomeShowsPrimaryActionWithoutScrolling_data() {
+        return [{tag: "english", language: "en"}, {tag: "chinese", language: "zh"}]
+    }
+    function test_compactHomeShowsPrimaryActionWithoutScrolling(data) {
+        window.width = 900
+        window.height = 620
+        Theme.uiScale = 1.5
+        hub.connected = true
+        testTranslations.setLanguage(data.language)
+        const page = createPage(mainMenuComponent)
+        const button = findChild(page, "mainMenuCreateRoomButton")
+        verify(button.visible && button.enabled)
+        const point = button.mapToItem(page, 0, 0)
+        verify(point.y >= 0 && point.y + button.height <= page.height,
+               "Create room remains visible on the initial compact page")
+        mouseClick(button)
+        compare(window.openedScreen, "screens/CreateRoom.qml")
+    }
+
     function verifyHeaderGeometry(page) {
         const bar = findChild(page, "mainMenuTopBar")
         const brand = findChild(page, "mainMenuBrand")

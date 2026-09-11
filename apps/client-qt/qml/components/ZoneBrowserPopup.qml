@@ -21,18 +21,22 @@ Popup {
     property var selectedOrder: []
     property string contextCardId: ""
     property string filterQuery: ""
+    property bool individualCards: false
+    property bool previewRequested: false
+    readonly property bool wideLayout: width >= Theme.size(694)
+    readonly property bool showInspector: wideLayout || previewRequested
     readonly property var groupedCards: groupCards()
     readonly property var visibleCards: filterCards()
     readonly property int selectedCount: selectedOrder.length
     readonly property bool multiSelectEnabled:
-        zoneKey === "graveyard" || zoneKey === "exile"
+        zoneKey === "graveyard" || zoneKey === "exile" || zoneKey === "hand"
     readonly property var selectedCard:
         selectedIndex >= 0 && selectedIndex < visibleCards.length
         ? visibleCards[selectedIndex] : ({})
     signal moveRequested(string cardId, string fromZone, int fromSeat,
                          string toZone, int toSeat)
     signal movesRequested(var cardIds, string fromZone, int fromSeat,
-                          string toZone, int toSeat)
+                          string toZone, int toSeat, string libraryPlacement, bool randomize)
     signal castCommanderRequested(string commanderId)
 
     parent: Overlay.overlay
@@ -40,7 +44,7 @@ Popup {
     y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(960), parent.width - Theme.size(48))
     height: Math.min(Theme.size(680), parent.height - Theme.size(56))
-    padding: Theme.size(22)
+    padding: Theme.size(wideLayout ? 22 : 14)
     modal: true
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -70,6 +74,8 @@ Popup {
     }
 
     function zoneLabel() {
+        if (zoneKey === "hand")
+            return qsTr("Hand")
         if (zoneKey === "sideboard")
             return qsTr("Sideboard")
         if (zoneKey === "exile")
@@ -117,6 +123,8 @@ Popup {
     }
 
     function groupCards() {
+        if (individualCards)
+            return cards.map(card => Object.assign({}, card, {"quantity": 1, "cardIds": [card.id]}))
         const groups = []
         const byKey = ({})
         for (let i = 0; i < cards.length; ++i) {
@@ -254,10 +262,12 @@ Popup {
                || seatIndex === localSeatIndex
     }
 
-    function requestSelectedMove(toZone) {
+    function requestSelectedMove(toZone, libraryPlacement, randomize) {
         const cardIds = requestedCardIdList()
         if (!canMoveCards || cardIds.length === 0
-            || !selectedSourceMovable())
+            || !selectedSourceMovable() || toZone === zoneKey)
+            return
+        if ((toZone === "hand" || toZone === "library") && !requestedCardsOwnedLocally())
             return
         const sourceSeat = zoneKey === "graveyard" || zoneKey === "exile"
                            ? seatIndex : -1
@@ -266,12 +276,12 @@ Popup {
             destinationSeat = localSeatIndex
         else if (toZone === "graveyard" || toZone === "exile")
             destinationSeat = seatIndex
-        if (cardIds.length === 1) {
+        if (cardIds.length === 1 && toZone !== "library") {
             moveRequested(cardIds[0], zoneKey, sourceSeat,
                           toZone, destinationSeat)
         } else {
             movesRequested(cardIds, zoneKey, sourceSeat,
-                           toZone, destinationSeat)
+                           toZone, destinationSeat, libraryPlacement || "", randomize === true)
         }
         close()
     }
@@ -304,6 +314,7 @@ Popup {
 
     onClosed: {
         filterTimer.stop()
+        previewRequested = false
         seatIndex = -1
         ownerDisplayName = ""
         zoneKey = ""
@@ -337,7 +348,10 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: root.zoneKey === "sideboard"
+                    visible: root.wideLayout || root.zoneKey === "hand" || root.zoneKey === "sideboard"
+                    text: root.zoneKey === "hand"
+                          ? qsTr("Only authorized viewers can inspect these hand cards.")
+                          : root.zoneKey === "sideboard"
                           ? qsTr("Only you can inspect these sideboard cards.")
                           : qsTr("All players and spectators can inspect these cards.")
                     color: Theme.textSecondary
@@ -347,10 +361,10 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    visible: root.canMoveCards
+                    visible: root.canMoveCards && root.wideLayout
                     wrapMode: Text.WordWrap
                     text: root.multiSelectEnabled
-                          ? qsTr("Use the checkboxes to select cards, then right-click a selected card to move them together.")
+                          ? qsTr("Select cards, then choose Move selected. Library order follows your selection order.")
                           : qsTr("Right-click a card for move actions.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(10)
@@ -385,35 +399,43 @@ Popup {
             spacing: Theme.size(16)
 
             ColumnLayout {
+                visible: root.wideLayout || !root.previewRequested
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: Theme.size(10)
 
-                RowLayout {
+                AppTextField {
+                    id: searchField
+                    objectName: "zoneBrowserFilter"
                     Layout.fillWidth: true
+                    implicitHeight: Theme.size(44)
+                    placeholderText: qsTr("Filter this zone…")
+                    onTextEdited: filterTimer.restart()
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
                     spacing: Theme.size(8)
+                    visible: root.multiSelectEnabled && root.canMoveCards
 
-                    AppTextField {
-                        id: searchField
-                        objectName: "zoneBrowserFilter"
-                        Layout.fillWidth: true
-                        implicitHeight: Theme.size(44)
-                        placeholderText: qsTr("Filter this zone…")
-                        onTextEdited: filterTimer.restart()
-                    }
                     AppButton {
                         objectName: "selectAllZoneCards"
-                        visible: root.multiSelectEnabled && root.canMoveCards
                         compact: true
                         text: root.allVisibleSelected()
-                              ? qsTr("Deselect all")
-                              : qsTr("Select all")
+                              ? qsTr("Deselect visible") : qsTr("Select visible")
                         onClicked: root.toggleAllVisible()
                     }
+                    AppToggle {
+                        objectName: "zoneIndividualCards"
+                        text: qsTr("Individual cards")
+                        checked: root.individualCards
+                        onToggled: {
+                            root.individualCards = checked
+                            root.selectedIndex = root.visibleCards.length > 0 ? 0 : -1
+                        }
+                    }
                     StatusPill {
-                        visible: root.multiSelectEnabled && root.canMoveCards
-                        text: qsTr("Selected") + " · "
-                              + root.selectedCount
+                        text: qsTr("Selected") + " · " + root.selectedCount
                         statusColor: Theme.primary
                     }
                 }
@@ -438,7 +460,7 @@ Popup {
                             required property int index
                             objectName: "zoneBrowserCard" + index
                             width: ListView.view.width
-                            height: Theme.size(76)
+                            height: Theme.size(root.wideLayout ? 76 : 56)
                             color: root.groupSelected(modelData)
                                    ? Theme.primaryMuted
                                    : (root.selectedIndex === index
@@ -570,13 +592,16 @@ Popup {
             }
 
             Rectangle {
+                visible: root.wideLayout
                 Layout.fillHeight: true
                 implicitWidth: 1
                 color: Theme.divider
             }
 
             ColumnLayout {
-                Layout.preferredWidth: Theme.size(360)
+                visible: root.showInspector
+                Layout.fillWidth: !root.wideLayout
+                Layout.preferredWidth: Math.min(Theme.size(320), root.availableWidth * 0.38)
                 Layout.fillHeight: true
                 spacing: Theme.size(12)
 
@@ -630,12 +655,36 @@ Popup {
                     elide: Text.ElideRight
                 }
 
-                AppButton {
-                    objectName: "doneZoneBrowserButton"
-                    Layout.fillWidth: true
-                    text: qsTr("Done")
-                    onClicked: root.close()
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.size(10)
+            AppButton {
+                id: moveButton
+                objectName: "moveZoneCardsButton"
+                Layout.fillWidth: true
+                visible: root.canMoveCards
+                enabled: root.selectedSourceMovable() && root.requestedCardIdList().length > 0
+                text: root.selectedCount > 0 ? qsTr("Move selected") + " · " + root.selectedCount
+                                            : qsTr("Move card")
+                onClicked: {
+                    root.contextCardId = ""
+                    zoneCardMenu.popup(moveButton, 0, moveButton.height)
                 }
+            }
+            AppButton {
+                objectName: "zonePreviewButton"
+                visible: !root.wideLayout
+                enabled: root.selectedCard.id !== undefined
+                text: root.previewRequested ? qsTr("Cards") : qsTr("Preview")
+                onClicked: root.previewRequested = !root.previewRequested
+            }
+            AppButton {
+                objectName: "doneZoneBrowserButton"
+                Layout.fillWidth: !moveButton.visible
+                text: qsTr("Done")
+                onClicked: root.close()
             }
         }
     }
@@ -674,7 +723,7 @@ Popup {
         MenuItem {
             objectName: "zoneCardToHand"
             text: qsTr("Move to hand")
-            enabled: root.canMoveCards
+            enabled: root.canMoveCards && root.zoneKey !== "hand"
                      && root.requestedCardIdList().length > 0
                      && root.selectedSourceMovable()
                      && root.requestedCardsOwnedLocally()
@@ -683,12 +732,52 @@ Popup {
         ConditionalMenuItem {
             objectName: "zoneCardToLibrary"
             text: qsTr("Move to top of library")
-            visible: root.zoneKey === "graveyard" || root.zoneKey === "exile"
+            visible: root.multiSelectEnabled
             enabled: visible && root.canMoveCards
                      && root.requestedCardIdList().length > 0
                      && root.selectedSourceMovable()
                      && root.requestedCardsOwnedLocally()
-            onTriggered: root.requestSelectedMove("library")
+            onTriggered: root.requestSelectedMove("library", "top", false)
+        }
+        ConditionalMenuItem {
+            objectName: "zoneCardToLibraryBottom"
+            text: qsTr("Bottom of library · in order")
+            visible: root.multiSelectEnabled
+            enabled: visible && root.canMoveCards
+                     && root.requestedCardIdList().length > 0
+                     && root.selectedSourceMovable()
+                     && root.requestedCardsOwnedLocally()
+            onTriggered: root.requestSelectedMove("library", "bottom", false)
+        }
+        ConditionalMenuItem {
+            objectName: "zoneCardToLibraryTopRandom"
+            text: qsTr("Top of library · random order")
+            visible: root.multiSelectEnabled
+            enabled: visible && root.canMoveCards
+                     && root.requestedCardIdList().length > 0
+                     && root.selectedSourceMovable()
+                     && root.requestedCardsOwnedLocally()
+            onTriggered: root.requestSelectedMove("library", "top", true)
+        }
+        ConditionalMenuItem {
+            objectName: "zoneCardToLibraryBottomRandom"
+            text: qsTr("Bottom of library · random order")
+            visible: root.multiSelectEnabled
+            enabled: visible && root.canMoveCards
+                     && root.requestedCardIdList().length > 0
+                     && root.selectedSourceMovable()
+                     && root.requestedCardsOwnedLocally()
+            onTriggered: root.requestSelectedMove("library", "bottom", true)
+        }
+        ConditionalMenuItem {
+            objectName: "zoneCardToLibraryShuffle"
+            text: qsTr("Shuffle into library")
+            visible: root.multiSelectEnabled
+            enabled: visible && root.canMoveCards
+                     && root.requestedCardIdList().length > 0
+                     && root.selectedSourceMovable()
+                     && root.requestedCardsOwnedLocally()
+            onTriggered: root.requestSelectedMove("library", "shuffle", false)
         }
         MenuItem {
             objectName: "zoneCardToGraveyard"
