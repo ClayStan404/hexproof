@@ -1026,7 +1026,7 @@ void TestWsClient::rulesPriorityHintsStayConservative() const
     prompt.insert(u"autoPassEligible"_s, true);
     QVERIFY(session.applyPrompt(prompt));
     QVERIFY(session.promptAutoPassEligible());
-    for (const QJsonValue invalid :
+    for (const QJsonValue &invalid :
          {QJsonValue(u"true"_s), QJsonValue(1), QJsonValue(QJsonValue::Null)}) {
         QJsonObject malformed = prompt;
         malformed.insert(u"autoPassEligible"_s, invalid);
