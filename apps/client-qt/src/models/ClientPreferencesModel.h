@@ -25,6 +25,9 @@ class ClientPreferencesModel final : public QObject
                    animatePackOpeningsChanged)
     Q_PROPERTY(qreal interfaceScale READ interfaceScale WRITE setInterfaceScale NOTIFY
                    interfaceScaleChanged)
+    Q_PROPERTY(QString uiTheme READ uiTheme WRITE setUiTheme NOTIFY uiThemeChanged)
+    Q_PROPERTY(QString tableBackground READ tableBackground WRITE setTableBackground NOTIFY
+                   tableBackgroundChanged)
     Q_PROPERTY(bool tableShowPlayers READ tableShowPlayers WRITE setTableShowPlayers NOTIFY
                    tableLayoutChanged)
     Q_PROPERTY(bool tableShowShared READ tableShowShared WRITE setTableShowShared NOTIFY
@@ -82,6 +85,16 @@ class ClientPreferencesModel final : public QObject
         return m_preferences.interfaceScale;
     }
     void setInterfaceScale(qreal scale);
+    QString uiTheme() const
+    {
+        return m_preferences.uiTheme;
+    }
+    void setUiTheme(const QString &theme);
+    QString tableBackground() const
+    {
+        return m_preferences.tableBackground;
+    }
+    void setTableBackground(const QString &background);
     bool tableShowPlayers() const
     {
         return m_preferences.tableShowPlayers;
@@ -165,6 +178,8 @@ class ClientPreferencesModel final : public QObject
     void reuseLocalCardArtChanged();
     void animatePackOpeningsChanged();
     void interfaceScaleChanged();
+    void uiThemeChanged();
+    void tableBackgroundChanged();
     void tableLayoutChanged();
     void shortcutsChanged();
     void shortcutCaptureActiveChanged();

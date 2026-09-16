@@ -28,6 +28,9 @@ func TestRulesPromptsKeepRequiredWireArrays(t *testing.T) {
 				if kind == "scry" {
 					view.ScryDestinations = []string{"libraryTop", "libraryBottom"}
 				}
+				if kind == "chooseCombatDamageAssignment" {
+					view.DamageAssignmentMode = protocol.RulesDamageUnordered
+				}
 				var err error
 				prompt, err = projectedRulesPrompt("ROOM", "game-1", view, forgeRoomGame{}, nil)
 				if err != nil {
@@ -144,6 +147,8 @@ func TestProjectedRulesPromptTargetsUseViewerProjection(t *testing.T) {
 		t.Fatalf("projectedRulesPrompt: %v", err)
 	}
 	if len(prompt.Targets) != 3 || prompt.Targets[0].Label != "Bob · Seat 1" ||
+		prompt.Targets[0].Seat == nil || *prompt.Targets[0].Seat != 0 ||
+		prompt.Targets[1].Seat != nil || prompt.Targets[2].Seat != nil ||
 		prompt.Targets[1].Name != "Lightning Bolt" ||
 		prompt.Targets[2].Name != "Counterspell" || prompt.Minimum != 1 ||
 		prompt.Maximum != 2 || !prompt.Cancellable {
@@ -155,6 +160,42 @@ func TestProjectedRulesPromptTargetsUseViewerProjection(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "player-1") {
 		t.Fatalf("prompt leaked Forge player id: %s", encoded)
+	}
+	if !strings.Contains(string(encoded), `"seat":0`) {
+		t.Fatalf("zero-based player seat was omitted: %s", encoded)
+	}
+}
+
+func TestProjectedRulesTargetSeatsDoNotDependOnNamesOrPlayerOrder(t *testing.T) {
+	game := forgeRoomGame{playerToSeat: map[int]int{0: 3, 1: 0}}
+	view := forge.GameView{
+		Players: []forge.PlayerView{{ID: "player-1", Name: "Alex"}, {ID: "player-0", Name: "Alex"}},
+		Zones: []forge.ZoneView{{Zone: "battlefield", OwnerID: "player-0", Cards: []forge.CardView{{
+			ID: "face-down-card", Visibility: "hidden",
+		}}}},
+	}
+	targets, err := projectedRulesTargets([]forge.PromptTarget{
+		{ResponseID: "target:0", Kind: "player", ID: "player-0"},
+		{ResponseID: "target:1", Kind: "player", ID: "player-1"},
+		{ResponseID: "target:2", Kind: "card", ID: "face-down-card"},
+	}, game, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 3 || targets[0].Seat == nil || *targets[0].Seat != 3 ||
+		targets[1].Seat == nil || *targets[1].Seat != 0 {
+		t.Fatalf("player target seats do not match public room seats: %+v", targets)
+	}
+	if targets[2].ObjectID != "face-down-card" || targets[2].Label != "Face-down card" ||
+		targets[2].Seat != nil || targets[2].Name != "" || targets[2].SetCode != "" ||
+		targets[2].CollectorNumber != "" {
+		t.Fatalf("hidden target identity changed: %+v", targets[2])
+	}
+	delete(game.playerToSeat, 0)
+	if _, err := projectedRulesTargets([]forge.PromptTarget{{
+		ResponseID: "target:0", Kind: "player", ID: "player-0",
+	}}, game, view); err == nil {
+		t.Fatal("player target without a room seat must not be projected")
 	}
 }
 
@@ -168,6 +209,7 @@ func TestProjectedRulesPromptCombatUsesViewerProjection(t *testing.T) {
 		CombatSources: []forge.PromptCombatSource{{
 			ResponseID: "combat-source:0", ID: "card-a",
 			ValidTargetIDs:   []string{"combat-target:0", "combat-target:1"},
+			Maximum:          1,
 			MustAssignIfAble: true,
 		}},
 		CombatTargets: []forge.PromptCombatTarget{
@@ -192,7 +234,8 @@ func TestProjectedRulesPromptCombatUsesViewerProjection(t *testing.T) {
 	}
 	if len(prompt.CombatSources) != 1 || prompt.CombatSources[0].Name != "Goblin Guide" ||
 		!prompt.CombatSources[0].MustAssignIfAble || len(prompt.CombatTargets) != 2 ||
-		prompt.CombatTargets[0].Label != "Bob · Seat 1" ||
+		prompt.CombatSources[0].Maximum == nil || *prompt.CombatSources[0].Maximum != 1 ||
+		prompt.CombatTargets[0].Label != "Bob · Seat 1" || prompt.CombatTargets[0].Seat == nil || *prompt.CombatTargets[0].Seat != 0 ||
 		prompt.CombatTargets[1].Name != "Jace" {
 		t.Fatalf("combat prompt = %+v", prompt)
 	}
@@ -297,9 +340,10 @@ func TestProjectedRulesPromptDamageUsesViewerProjection(t *testing.T) {
 	}
 	prompt, err := projectedRulesPrompt("ROOM", "game-1", forge.PromptView{
 		PromptID: 14, PlayerIndex: 0, Kind: "chooseCombatDamageAssignment", Supported: true,
-		DamageSource: &forge.PromptDamageSource{ID: "attacker"}, TotalDamage: 7,
+		DamageAssignmentMode: protocol.RulesDamageUnordered,
+		DamageSource:         &forge.PromptDamageSource{ID: "attacker"}, TotalDamage: 7,
 		DamageTargets: []forge.PromptDamageTarget{
-			{ResponseID: "damage-target:0", Kind: "card", ID: "blocker"},
+			{ResponseID: "damage-target:0", Kind: "card", ID: "blocker", LethalDamage: damageInt(3)},
 			{ResponseID: "damage-target:1", Kind: "player", ID: "player-1", Defender: true},
 		},
 	}, game, &forge.GameView{
@@ -332,6 +376,37 @@ func TestProjectedRulesPromptDamageUsesViewerProjection(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "player-1") {
 		t.Fatalf("damage prompt leaked Forge player id: %s", encoded)
+	}
+}
+
+func TestProjectedRulesDamageKeepsFaceDownObjectsActionable(t *testing.T) {
+	view := forge.GameView{Zones: []forge.ZoneView{{Zone: "battlefield", Cards: []forge.CardView{
+		{ID: "attacker", Visibility: "visible", FaceDown: true,
+			Identity: &forge.CardIdentityView{}, Power: "2", Toughness: "2"},
+		{ID: "blocker", Visibility: "visible", FaceDown: true,
+			Identity: &forge.CardIdentityView{}, Power: "2", Toughness: "2", Damage: 1},
+	}}}}
+	source, targets, err := projectedRulesDamage(&forge.PromptDamageSource{ID: "attacker"},
+		[]forge.PromptDamageTarget{{ResponseID: "damage-target:0", Kind: "card", ID: "blocker", LethalDamage: damageInt(1)}},
+		true, forgeRoomGame{}, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.Label != "Face-down card" || source.ObjectID != "attacker" ||
+		source.Name != "" || source.SetCode != "" || source.CollectorNumber != "" {
+		t.Fatalf("face-down damage source must have a public label without identity: %+v", source)
+	}
+	if len(targets) != 1 || targets[0].Label != "Face-down card" ||
+		targets[0].ObjectID != "blocker" || targets[0].ResponseID != "damage-target:0" ||
+		targets[0].Name != "" || targets[0].SetCode != "" || targets[0].CollectorNumber != "" ||
+		targets[0].LethalDamage != 1 {
+		t.Fatalf("face-down blocker must retain public damage and response data: %+v", targets)
+	}
+	view.Zones[0].Cards[1].Visibility = "hidden"
+	if _, _, err := projectedRulesDamage(&forge.PromptDamageSource{ID: "attacker"},
+		[]forge.PromptDamageTarget{{ResponseID: "damage-target:0", Kind: "card", ID: "blocker", LethalDamage: damageInt(1)}},
+		true, forgeRoomGame{}, view); err == nil {
+		t.Fatal("a generic label must not make a hidden-zone object targetable")
 	}
 }
 
@@ -368,6 +443,7 @@ func TestProjectedRulesPromptContextUsesViewerProjection(t *testing.T) {
 		len(prompt.ContextTargets) != 2 ||
 		prompt.ContextTargets[0].Name != "Ball Lightning" ||
 		prompt.ContextTargets[1].Label != "Bob · Seat 1" ||
+		prompt.ContextTargets[1].Seat == nil || *prompt.ContextTargets[1].Seat != 0 ||
 		prompt.ContextText != `otherwise: "3 damage is dealt."` {
 		t.Fatalf("prompt context = %+v", prompt)
 	}
@@ -392,7 +468,7 @@ func TestValidRulesDamageDistribution(t *testing.T) {
 		{TargetID: "damage-target:1", Damage: 2},
 		{TargetID: "damage-target:2", Damage: 2},
 	}
-	if !validRulesDamageDistribution(targets, 7, valid) {
+	if !validRulesDamageDistribution(targets, 7, protocol.RulesDamageOrdered, valid) {
 		t.Fatal("valid combat damage was rejected")
 	}
 	for _, assignments := range [][]protocol.RulesPromptDamageAssignment{
@@ -407,7 +483,7 @@ func TestValidRulesDamageDistribution(t *testing.T) {
 			{TargetID: "damage-target:0", Damage: 2},
 			{TargetID: "damage-target:2", Damage: 2}},
 	} {
-		if validRulesDamageDistribution(targets, 7, assignments) {
+		if validRulesDamageDistribution(targets, 7, protocol.RulesDamageOrdered, assignments) {
 			t.Fatalf("invalid combat damage accepted: %+v", assignments)
 		}
 	}

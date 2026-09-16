@@ -123,12 +123,18 @@ func mulliganPutBackOutput(raw json.RawMessage, responseID string,
 
 func chooseCardsOutput(raw json.RawMessage, responseID string,
 	cardIDs []string) (any, error) {
-	if responseID != "$submit" {
-		return nil, errors.New("unknown card-selection response")
-	}
 	_, input, _, err := decodePrompt(raw)
 	if err != nil || input.Type != "chooseCards" {
 		return nil, errors.New("invalid card-selection prompt")
+	}
+	if responseID == "$cancel" {
+		if !input.Cancellable || len(cardIDs) != 0 {
+			return nil, errors.New("card selection cannot be cancelled")
+		}
+		return map[string]any{"type": "cancel"}, nil
+	}
+	if responseID != "$submit" {
+		return nil, errors.New("unknown card-selection response")
 	}
 	cards, minimum, maximum, err := normalizeChooseCards(input)
 	if err != nil || len(cardIDs) < minimum || len(cardIDs) > maximum {

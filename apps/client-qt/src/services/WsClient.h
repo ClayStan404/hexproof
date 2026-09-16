@@ -36,6 +36,8 @@ class TournamentSessionState;
 // `youAreHost` is derived from create vs join (not display name), per spec.
 class WsClient : public QObject
 {
+    // Native audit fault injection is linked only by the test executable.
+    friend class NativeAudit;
     Q_OBJECT
     Q_PROPERTY(ConnectionState connectionState READ connectionState NOTIFY connectionStateChanged)
     Q_PROPERTY(bool connected READ connected NOTIFY connectionStateChanged)
@@ -309,7 +311,8 @@ class WsClient : public QObject
                                              int maxPlayers, const QVariantMap &product);
     Q_INVOKABLE void createCasualLimitedEvent(const QString &name, const QString &eventType,
                                               const QString &matchMode, int maxPlayers,
-                                              const QVariantMap &product);
+                                              const QVariantMap &product,
+                                              const QVariantMap &draftSettings = {});
     Q_INVOKABLE void createLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void cancelLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void pickLimitedCard(const QString &instanceId);
@@ -365,6 +368,7 @@ class WsClient : public QObject
     Q_INVOKABLE void respondRulesPromptWithDamage(qint64 promptId, const QVariantList &assignments);
     Q_INVOKABLE void respondRulesPromptWithScry(qint64 promptId, const QVariantList &piles);
     Q_INVOKABLE void respondRulesPromptWithNumber(qint64 promptId, int chosenNumber);
+    Q_INVOKABLE void respondRulesPromptWithName(qint64 promptId, const QString &name);
     Q_INVOKABLE void drawCards(int count = 1);
     Q_INVOKABLE void shuffleLibrary();
     Q_INVOKABLE void mulligan();
@@ -500,14 +504,16 @@ class WsClient : public QObject
 
   private slots:
     void onConnected();
-    void onDisconnected();
-    void onMessageParsed(const QString &type, const QString &id, qint64 seq, bool hasSeq,
-                         const QJsonObject &payload, const QVariantMap &gameSnapshot);
-    void onMessageRejected();
+    void onDisconnected(quint64 transportGeneration);
+    void onMessageParsed(quint64 transportGeneration, const QString &type, const QString &id,
+                         qint64 seq, bool hasSeq, const QJsonObject &payload,
+                         const QVariantMap &gameSnapshot);
+    void onMessageRejected(quint64 transportGeneration);
     void onErrorOccurred();
 
   private:
     void setState(ConnectionState s);
+    void openTransport();
     QString send(const QString &type, const QJsonObject &payload = {});
     void dispatch(const protocol::Envelope &env, const QVariantMap &gameSnapshot = {});
     void handleWelcome(const protocol::Envelope &env);
@@ -568,6 +574,7 @@ class WsClient : public QObject
     QWebSocket m_ws;
     QThread m_parserThread;
     WsMessageParser *m_messageParser = nullptr;
+    quint64 m_transportGeneration = 0;
     ConnectionState m_state = Disconnected;
     QString m_displayName;
     QVariantList m_roomList;

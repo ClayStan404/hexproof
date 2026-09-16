@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +18,54 @@ import (
 )
 
 const helperEnvironment = "HEXPROOF_FORGE_TEST_HELPER"
+
+func TestClientOwnsAndReapsIsolatedProfiles(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("TMPDIR", root)
+	config := ProcessConfig{Command: os.Args[0],
+		Args: []string{"-test.run=TestForgeRuntimeHelperProcess"},
+		Env:  []string{helperEnvironment + "=profile"}, IsolatedProfile: true}
+	first, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = first.Close() })
+	second, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = second.Close() })
+	if first.profileDir == "" || first.profileDir == second.profileDir {
+		t.Fatal("processes shared a mutable profile")
+	}
+	for _, client := range []*Client{first, second} {
+		if _, err := os.Stat(filepath.Join(client.profileDir, "nested", "owned")); err != nil {
+			t.Fatalf("child did not use its assigned profile: %v", err)
+		}
+	}
+	first.Invalidate()
+	<-first.Done()
+	if _, err := os.Stat(first.profileDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("killed child retained its profile: %v", err)
+	}
+	if _, err := os.Stat(second.profileDir); err != nil {
+		t.Fatalf("first child's cleanup changed another profile: %v", err)
+	}
+	if err := second.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(second.profileDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("normally closed child retained its profile: %v", err)
+	}
+	config.Env = []string{helperEnvironment + "=profile-probe-failure"}
+	if _, err := Start(context.Background(), config); err == nil {
+		t.Fatal("failed probe was accepted")
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("failed start leaked a profile: %v / %v", entries, err)
+	}
+}
 
 func TestClientInteractiveLifecycle(t *testing.T) {
 	client := newHelperClient(t, "normal")
@@ -250,6 +299,22 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 		}
 		if request.Command == "quit" {
 			return
+		}
+		if strings.HasPrefix(mode, "profile") && request.Command == "reset" {
+			profile := os.Getenv("HEXPROOF_FORGE_PROFILE")
+			if profile == "" {
+				t.Fatal("isolated profile was not assigned")
+			}
+			if err := os.MkdirAll(filepath.Join(profile, "nested"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(profile, "nested", "owned"), []byte("private preferences"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "profile-probe-failure" {
+				_ = encoder.Encode(rpcResponse{Error: "probe failure"})
+				continue
+			}
 		}
 		if mode == "hang" && request.Command == "getSnapshot" {
 			time.Sleep(time.Hour)

@@ -22,6 +22,17 @@
 
 namespace hexproof::client {
 
+QString normalizedTableBackground(const QString &background)
+{
+    const QString normalized = background.trimmed().toLower();
+    static const QSet<QString> backgrounds{
+        QStringLiteral("default"), QStringLiteral("dusk"),     QStringLiteral("forest"),
+        QStringLiteral("astral"),  QStringLiteral("volcanic"), QStringLiteral("frost"),
+        QStringLiteral("ink"),     QStringLiteral("woven"),
+    };
+    return backgrounds.contains(normalized) ? normalized : QStringLiteral("default");
+}
+
 namespace {
 
 qreal normalizedInterfaceScale(qreal scale)
@@ -29,6 +40,13 @@ qreal normalizedInterfaceScale(qreal scale)
     if (!std::isfinite(scale))
         return 1.0;
     return std::clamp(std::round(scale * 20.0) / 20.0, 0.75, 1.5);
+}
+
+QString normalizedUiTheme(const QString &theme)
+{
+    return theme.compare(QStringLiteral("glass"), Qt::CaseInsensitive) == 0
+               ? QStringLiteral("glass")
+               : QStringLiteral("classic");
 }
 
 qreal normalizedTableCardScale(qreal scale)
@@ -346,7 +364,8 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
         settings.value(QStringLiteral("cardArtProvider")).toString().toLower();
     if (cardArtProvider == QStringLiteral("auto") ||
         cardArtProvider == QStringLiteral("scryfall") ||
-        cardArtProvider == QStringLiteral("mtgch")) {
+        cardArtProvider == QStringLiteral("mtgch") ||
+        cardArtProvider == QStringLiteral("parallel")) {
         preferences.cardArtProvider = cardArtProvider;
     }
     const QJsonValue reuseLocalCardArt = settings.value(QStringLiteral("reuseLocalCardArt"));
@@ -362,6 +381,11 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
     const QJsonValue interfaceScale = settings.value(QStringLiteral("interfaceScale"));
     if (interfaceScale.isDouble())
         preferences.interfaceScale = normalizedInterfaceScale(interfaceScale.toDouble());
+    // Legacy themeId / reducedMotion keys are ignored on purpose. Only the
+    // later uiTheme preference may select Apple glass chrome.
+    preferences.uiTheme = normalizedUiTheme(settings.value(QStringLiteral("uiTheme")).toString());
+    preferences.tableBackground =
+        normalizedTableBackground(settings.value(QStringLiteral("tableBackground")).toString());
     const QJsonValue tableShowPlayers = settings.value(QStringLiteral("tableShowPlayers"));
     if (tableShowPlayers.isBool())
         preferences.tableShowPlayers = tableShowPlayers.toBool();
@@ -439,7 +463,7 @@ bool DeckLibraryStorage::savePreferences(const DeckLibraryPreferences &preferenc
         shortcuts.insert(actionId, sequences);
     }
     const QJsonObject settings{
-        {QStringLiteral("version"), 12},
+        {QStringLiteral("version"), 13},
         {QStringLiteral("uiLanguage"), preferences.uiLanguage},
         {QStringLiteral("cardLanguage"), preferences.cardLanguage},
         {QStringLiteral("cardArtProvider"), preferences.cardArtProvider},
@@ -448,6 +472,8 @@ bool DeckLibraryStorage::savePreferences(const DeckLibraryPreferences &preferenc
         {QStringLiteral("sponsorAnnouncementId"), preferences.sponsorAnnouncementId},
         {QStringLiteral("cardArtRepairNoticeVersion"), preferences.cardArtRepairNoticeVersion},
         {QStringLiteral("interfaceScale"), preferences.interfaceScale},
+        {QStringLiteral("uiTheme"), preferences.uiTheme},
+        {QStringLiteral("tableBackground"), preferences.tableBackground},
         {QStringLiteral("tableShowPlayers"), preferences.tableShowPlayers},
         {QStringLiteral("tableShowShared"), preferences.tableShowShared},
         {QStringLiteral("tableShowInspector"), preferences.tableShowInspector},

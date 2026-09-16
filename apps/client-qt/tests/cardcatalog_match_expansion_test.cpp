@@ -120,6 +120,74 @@ void runOneEventLoopTurn()
 
 } // namespace
 
+void TestCardCatalog::matchExpansionRecognizesLocalFaceArt_data() const
+{
+    QTest::addColumn<int>("cachedFaces");
+    QTest::addColumn<QString>("cachedLanguage");
+    QTest::addColumn<bool>("fileExists");
+    QTest::addColumn<int>("expectedLocal");
+    QTest::newRow("cold") << 0 << u"en"_s << true << 0;
+    QTest::newRow("front-only") << 1 << u"en"_s << true << 1;
+    QTest::newRow("both-faces") << 2 << u"en"_s << true << 2;
+    QTest::newRow("different-language") << 2 << u"zh"_s << true << 0;
+    QTest::newRow("missing-files") << 2 << u"en"_s << false << 0;
+}
+
+void TestCardCatalog::matchExpansionRecognizesLocalFaceArt() const
+{
+    QFETCH(int, cachedFaces);
+    QFETCH(QString, cachedLanguage);
+    QFETCH(bool, fileExists);
+    QFETCH(int, expectedLocal);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(writeExpansionCatalog(storage.path(), 1));
+    const QString imagePath = storage.filePath(u"local-art.png"_s);
+    if (fileExists) {
+        QImage image(1, 1, QImage::Format_ARGB32);
+        image.fill(Qt::green);
+        QVERIFY(image.save(imagePath));
+    }
+    hexproof::client::CardArtCache cache(storage.path());
+    for (int index = 0; index < cachedFaces; ++index) {
+        CardCatalog::CardRecord record;
+        record.requestedName = index == 0 ? u"Front 0"_s : u"Back 0"_s;
+        record.name = u"Front 0 // Back 0"_s;
+        record.faceName = record.requestedName;
+        record.localizedName = record.requestedName;
+        record.typeLine = u"Creature"_s;
+        record.setCode = u"TST"_s;
+        record.collectorNumber = u"1"_s;
+        record.imagePath = imagePath;
+        record.imageLanguage = cachedLanguage;
+        record.resolutionVersion = kCardResolutionVersion;
+        cache.rememberSuccess(
+            cache.key(record.requestedName, cachedLanguage, record.setCode, record.collectorNumber),
+            record);
+    }
+    QVERIFY(cache.save());
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    QSignalSpy expanded(&catalog, &CardCatalog::cardFaceRequestsExpanded);
+    catalog.expandCardFaceRequestsIncrementally(61, 4, {printingRequest(0), printingRequest(0)});
+    QTRY_COMPARE(expanded.count(), 1);
+    const QVariantList faces = expanded.first().at(2).toList();
+    QCOMPARE(faces.size(), 2);
+    int localCount = 0;
+    for (const QVariant &value : faces)
+        localCount += value.toMap().value(u"_hexproofLocalArtAvailable"_s).toBool() ? 1 : 0;
+    QCOMPARE(localCount, expectedLocal);
+    QVERIFY(network.requestedUrls.isEmpty());
+    if (expectedLocal == 2) {
+        QSignalSpy completed(&catalog, &CardCatalog::matchCardCacheFinished);
+        catalog.cacheMatchCardsIncrementally(61, 4, faces);
+        QTRY_COMPARE(completed.count(), 2);
+        QVERIFY(network.requestedUrls.isEmpty());
+        QVERIFY(completed.at(0).at(7).toBool());
+        QVERIFY(completed.at(1).at(7).toBool());
+    }
+}
+
 void TestCardCatalog::boundedExpansionPreservesFacesIdentityAndDeduplication() const
 {
     QTemporaryDir storage;

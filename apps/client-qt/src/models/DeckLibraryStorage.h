@@ -17,6 +17,8 @@ class QMutex;
 
 namespace hexproof::client {
 
+QString normalizedTableBackground(const QString &background);
+
 struct DeckLibraryPreferences
 {
     QString uiLanguage = QStringLiteral("en");
@@ -27,6 +29,8 @@ struct DeckLibraryPreferences
     QString sponsorAnnouncementId;
     int cardArtRepairNoticeVersion = 0;
     qreal interfaceScale = 1.0;
+    QString uiTheme = QStringLiteral("classic");
+    QString tableBackground = QStringLiteral("default");
     bool tableShowPlayers = true;
     bool tableShowShared = true;
     bool tableShowInspector = true;

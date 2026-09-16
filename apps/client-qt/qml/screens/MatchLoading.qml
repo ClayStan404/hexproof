@@ -65,7 +65,9 @@ Page {
                       ? (root.roomSession.playtest
                          ? qsTr("Your card assets are ready. The playtest table is opening.")
                          : qsTr("Your card assets are ready. The table opens when every player finishes loading."))
-                      : qsTr("Downloading missing card information and art for this match.")
+                      : root.loaderModel.expansionPending
+                        ? qsTr("Checking local card art for this match…")
+                        : qsTr("Reusing local card art and downloading only missing assets.")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSize(13)
                 horizontalAlignment: Text.AlignHCenter
@@ -95,10 +97,36 @@ Page {
                         Item { Layout.fillWidth: true }
                         Text {
                             textFormat: Text.PlainText
-                            text: root.loaderModel.completed + " / " + root.loaderModel.total
+                            objectName: "matchAssetCount"
+                            text: root.loaderModel.expansionPending ? qsTr("Checking…")
+                                : (root.loaderModel.completed - root.loaderModel.failed)
+                                  + " / " + root.loaderModel.total
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(12)
                         }
+                    }
+
+                    Text {
+                        objectName: "matchLocalArtSummary"
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        visible: !root.loaderModel.expansionPending
+                        text: qsTr("Available locally: %1 · Downloaded: %2 / %3")
+                            .arg(root.loaderModel.localAvailable)
+                            .arg(root.loaderModel.downloaded)
+                            .arg(root.loaderModel.downloadTotal)
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(12)
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: qsTr("Assets include all players' unique printings and separate card faces.")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSize(11)
+                        wrapMode: Text.WordWrap
                     }
 
                     ProgressBar {

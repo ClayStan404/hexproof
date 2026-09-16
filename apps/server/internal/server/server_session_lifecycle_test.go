@@ -797,6 +797,31 @@ func TestConcurrentJoinAndDisbandLeavesSessionReusable(t *testing.T) {
 		host.send(disband)
 		host.recvType(protocol.TypeRoomDisbanded)
 
+		// Each connection must observe its own completed transition. The
+		// host's reply can arrive before remaining members are detached.
+		joined := guest.recvType(protocol.TypeRoomJoined, protocol.TypeError)
+		if joined.ID != join.ID {
+			t.Fatalf("join response id = %q, want %q", joined.ID, join.ID)
+		}
+		if joined.Type == protocol.TypeError {
+			var failure protocol.ErrorPayload
+			if err := joined.DecodePayload(&failure); err != nil {
+				t.Fatalf("decode join error: %v", err)
+			}
+			if failure.Code != protocol.ErrRoomNotFound {
+				t.Fatalf("join lost to disband: %s: %s", failure.Code, failure.Message)
+			}
+		} else {
+			terminal := guest.recvType(protocol.TypeRoomDisbanded)
+			var left protocol.RoomLeft
+			if err := terminal.DecodePayload(&left); err != nil {
+				t.Fatalf("decode guest disband: %v", err)
+			}
+			if terminal.ID != "" || left.RoomID != roomID {
+				t.Fatalf("guest disband id=%q room=%q, want broadcast for %q",
+					terminal.ID, left.RoomID, roomID)
+			}
+		}
 		assertCanCreateRoom(t, guest, roomID)
 		host.close()
 		guest.close()

@@ -54,20 +54,46 @@ TestCase {
         compare(mockLoader.retryCount, 1)
     }
 
-    function test_longErrorsRemainScrollableAtLargeInterfaceScale() {
+    function test_separatesLocalArtFromMissingDownloads() {
+        mockLoader.total = 353
+        mockLoader.completed = 315
+        mockLoader.localAvailable = 100
+        mockLoader.downloadTotal = 253
+        mockLoader.downloaded = 215
+        const summary = findChild(page, "matchLocalArtSummary")
+        compare(summary.text, "Available locally: 100 · Downloaded: 215 / 253")
+        compare(findChild(page, "matchAssetCount").text, "315 / 353")
+        mockLoader.expansionPending = true
+        verify(!summary.visible)
+        compare(findChild(page, "matchAssetCount").text, "Checking…")
+    }
+
+    function test_longErrorsRemainScrollableAtLargeInterfaceScale_data() {
+        return [
+            { tag: "before-initial-layout", polishBeforeError: false },
+            { tag: "after-initial-layout", polishBeforeError: true }
+        ]
+    }
+
+    function test_longErrorsRemainScrollableAtLargeInterfaceScale(data) {
         testWindow.width = 900
         testWindow.height = 620
         Theme.uiScale = 1.5
         try {
             page.width = testWindow.width
             page.height = testWindow.height
+            if (data.polishBeforeError)
+                verify(waitForPolish(testWindow))
             mockLoader.failed = 1
             mockLoader.lastError = "Missing card art: network unavailable. ".repeat(30)
             const body = findChild(page, "matchLoadingBody")
             verify(body !== null)
-            tryVerify(() => body.contentHeight > body.height)
+            // Overflow can precede the error banner's final layout. Scroll only
+            // after every item has updated the content height.
+            verify(waitForPolish(testWindow))
+            verify(body.contentHeight > body.height)
             body.contentY = body.contentHeight - body.height
-            waitForRendering(page)
+            verify(waitForRendering(page))
             const retry = findChild(page, "retryMatchLoadButton")
             const position = retry.mapToItem(page, 0, 0)
             verify(position.y >= 0)

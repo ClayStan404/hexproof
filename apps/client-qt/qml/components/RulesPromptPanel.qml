@@ -11,25 +11,83 @@ Surface {
     id: root
 
     required property var tableController
+    property bool externalCardChoices: false
+    property bool externalDamageChoices: false
     readonly property var rulesSession: tableController.rulesSession
+    readonly property var interaction: tableController.interaction || null
     readonly property bool waitingForDecision:
         rulesSession.active
         && !rulesSession.promptPending
         && !rulesSession.gameOver
 
+    readonly property bool showsActionOptions:
+        rulesSession.promptPending
+        && rulesSession.promptSupported
+        && rulesSession.promptKind !== "mulliganPutBack"
+        && rulesSession.promptKind !== "chooseCards"
+        && rulesSession.promptKind !== "revealCards"
+        && rulesSession.promptKind !== "reorder"
+        && rulesSession.promptKind !== "scry"
+        && rulesSession.promptKind !== "chooseBoardTargets"
+        && rulesSession.promptKind !== "chooseAttackers"
+        && rulesSession.promptKind !== "chooseBlockers"
+        && rulesSession.promptKind !== "chooseDamageAssignmentOrder"
+        && rulesSession.promptKind !== "chooseCombatDamageAssignment"
+        && rulesSession.promptKind !== "chooseBoolean"
+        && rulesSession.promptKind !== "chooseNumber"
+        && rulesSession.promptKind !== "chooseCardName"
+        && rulesSession.promptKind !== "chooseColor"
+        && rulesSession.promptKind !== "chooseFromSelection"
+
+    function isFixedAction(responseId) {
+        return responseId.startsWith("$")
+    }
+
     objectName: "rulesPromptPanel"
     implicitHeight: promptContent.implicitHeight + Theme.size(22)
+                    + (fixedActions.visible ? fixedActions.height + Theme.size(7) : 0)
     visible: rulesSession.promptPending
              || rulesSession.gameOver
              || waitingForDecision
     color: Theme.surfaceElevated
     border.color: rulesSession.promptPending ? Theme.primary : Theme.borderStrong
 
+    Flow {
+        id: fixedActions
+        objectName: "rulesFixedPromptActions"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.size(11)
+        spacing: Theme.size(7)
+        visible: root.showsActionOptions && implicitHeight > 0
+        enabled: !root.tableController.rulesResponsePending
+        z: 1
+
+        Repeater {
+            model: root.rulesSession.promptOptions
+            delegate: AppButton {
+                required property string responseId
+                required property string label
+                objectName: root.isFixedAction(responseId)
+                            ? "rulesPromptOption-" + responseId : ""
+                visible: root.isFixedAction(responseId)
+                compact: true
+                text: root.tableController.promptOptionLabel(
+                          root.rulesSession.promptKind, responseId, label)
+                onClicked: root.tableController.wsModel.respondRulesPrompt(
+                               root.rulesSession.promptId, responseId)
+            }
+        }
+    }
+
     Flickable {
         id: promptScroll
         objectName: "rulesPromptScroll"
         anchors.fill: parent
         anchors.margins: Theme.size(11)
+        anchors.topMargin: Theme.size(11) + (fixedActions.visible
+                           ? fixedActions.height + Theme.size(7) : 0)
         contentWidth: width
         contentHeight: promptContent.implicitHeight
         clip: true
@@ -39,7 +97,10 @@ Surface {
 
     Connections {
         target: root.rulesSession
-        function onPromptChanged() { promptScroll.contentY = 0 }
+        function onPromptChanged() {
+            promptScroll.contentY = 0
+            actionOptions.contentX = 0
+        }
     }
 
     ColumnLayout {
@@ -95,6 +156,12 @@ Surface {
 
                     HoverHandler { id: titleHover }
                     ToolTip {
+                        x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        background: Rectangle {
+                            color: Theme.surfaceElevated
+                            border.color: Theme.borderStrong
+                            radius: Theme.radiusSmall
+                        }
                         visible: titleHover.hovered && promptTitle.truncated
                         contentItem: Text {
                             text: promptTitle.text
@@ -132,6 +199,12 @@ Surface {
 
                     HoverHandler { id: detailHover }
                     ToolTip {
+                        x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        background: Rectangle {
+                            color: Theme.surfaceElevated
+                            border.color: Theme.borderStrong
+                            radius: Theme.radiusSmall
+                        }
                         visible: detailHover.hovered && promptDetail.truncated
                         contentItem: Text {
                             text: promptDetail.text
@@ -148,37 +221,62 @@ Surface {
                 id: actionOptions
                 objectName: "rulesPromptOptions"
                 Layout.fillWidth: true
-                Layout.preferredHeight: Theme.size(38)
+                Layout.preferredHeight: Theme.size(72)
                                         + (contentWidth > width ? Theme.size(14) : 0)
                 orientation: ListView.Horizontal
                 spacing: Theme.size(7)
                 clip: true
                 model: rulesSession.promptOptions
                 enabled: !root.tableController.rulesResponsePending
-                visible: rulesSession.promptPending
-                         && rulesSession.promptSupported
-                         && rulesSession.promptKind !== "mulliganPutBack"
-                         && rulesSession.promptKind !== "chooseCards"
-                         && rulesSession.promptKind !== "revealCards"
-                         && rulesSession.promptKind !== "reorder"
-                         && rulesSession.promptKind !== "scry"
-                         && rulesSession.promptKind !== "chooseBoardTargets"
-                         && rulesSession.promptKind !== "chooseAttackers"
-                         && rulesSession.promptKind !== "chooseBlockers"
-                         && rulesSession.promptKind !== "chooseDamageAssignmentOrder"
-                         && rulesSession.promptKind !== "chooseCombatDamageAssignment"
-                         && rulesSession.promptKind !== "chooseBoolean"
-                         && rulesSession.promptKind !== "chooseNumber"
-                         && rulesSession.promptKind !== "chooseColor"
-                         && rulesSession.promptKind !== "chooseFromSelection"
+                visible: root.showsActionOptions && contentWidth > spacing * count
 
                 delegate: AppButton {
+                    id: actionButton
+                    required property var model
                     required property int index
                     required property string responseId
                     required property string label
+                    readonly property bool onTable: root.interaction !== null
+                        && root.interaction.actionOnTable(model.cardId || "", model.kind || "")
 
-                    objectName: "rulesPromptOption-" + responseId
+                    objectName: root.isFixedAction(responseId)
+                                ? "" : "rulesPromptOption-" + responseId
+                    visible: !root.isFixedAction(responseId) && !onTable
+                    width: !root.isFixedAction(responseId) && !onTable
+                           ? Math.min(Theme.size(260), actionOptions.width) : 0
+                    height: Theme.size(72)
                     compact: true
+                    contentItem: Text {
+                        id: actionLabel
+                        textFormat: Text.PlainText
+                        text: actionButton.text
+                        color: actionButton.foregroundColor
+                        font.pixelSize: Theme.fontSize(11)
+                        font.weight: Font.DemiBold
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                    ToolTip {
+                        x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        background: Rectangle {
+                            color: Theme.surfaceElevated
+                            border.color: Theme.borderStrong
+                            radius: Theme.radiusSmall
+                        }
+                        objectName: "rulesPromptActionTooltip-" + actionButton.responseId
+                        visible: actionButton.hovered && actionLabel.truncated
+                        delay: 500
+                        width: Math.min(Theme.size(480), root.width)
+                        contentItem: Text {
+                            textFormat: Text.PlainText
+                            text: actionButton.text
+                            color: Theme.text
+                            wrapMode: Text.Wrap
+                        }
+                    }
                     onActiveFocusChanged: {
                         if (activeFocus)
                             actionOptions.positionViewAtIndex(index, ListView.Contain)
@@ -207,10 +305,32 @@ Surface {
                     }
                 }
             }
+
+            Text {
+                objectName: "rulesDirectActionHint"
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                visible: root.interaction !== null && root.showsActionOptions
+                    && (rulesSession.promptKind === "chooseAction"
+                        || rulesSession.promptKind === "payManaCost")
+                text: rulesSession.promptKind === "payManaCost"
+                    ? qsTr("Click highlighted mana sources to pay.")
+                    : qsTr("Click a highlighted card to play it or use an ability. Right-click to inspect.")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(10)
+                wrapMode: Text.WordWrap
+            }
         }
 
         RulesPromptContext {
             Layout.fillWidth: true
+            promptId: rulesSession.promptId
+            previewBoundary: root
+            contextEnabled: root.interaction === null || root.interaction.contextActive
+            expandedCard: ["chooseBoolean", "chooseFromSelection", "chooseColor", "chooseNumber"].includes(rulesSession.promptKind)
+            cardHeight: typeof root.tableController.height === "number"
+                ? Math.min(Theme.size(280), Math.max(Theme.size(100), root.tableController.height - Theme.size(400)))
+                : Theme.size(280)
             cardCatalogModel: root.tableController.cardCatalogModel
             sourceCardModel: rulesSession.promptContextCards
             targetModel: rulesSession.promptContextTargets
@@ -219,7 +339,7 @@ Surface {
 
         RulesCardSelectionPrompt {
             Layout.fillWidth: true
-            visible: rulesSession.promptPending
+            visible: !root.externalCardChoices && rulesSession.promptPending
                      && rulesSession.promptSupported
                      && (rulesSession.promptKind === "mulliganPutBack"
                          || rulesSession.promptKind === "chooseCards")
@@ -230,6 +350,8 @@ Surface {
             promptId: rulesSession.promptId
             minimumSelections: rulesSession.promptMinCardSelections
             maximumSelections: rulesSession.promptMaxCardSelections
+            cancellable: rulesSession.promptKind === "chooseCards"
+                         && rulesSession.promptCancellable
             confirmationText: rulesSession.promptKind === "mulliganPutBack"
                               ? qsTr("Put on library bottom")
                               : qsTr("Confirm cards")
@@ -237,7 +359,7 @@ Surface {
 
         RulesRevealPrompt {
             Layout.fillWidth: true
-            visible: rulesSession.promptPending
+            visible: !root.externalCardChoices && rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "revealCards"
             enabled: !root.tableController.rulesResponsePending
@@ -280,14 +402,14 @@ Surface {
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            orderModel: rulesSession.promptDamageTargets
+            orderModel: visible ? rulesSession.promptDamageTargets : null
             promptId: rulesSession.promptId
             damageOrder: true
         }
 
         RulesDamageAssignmentPrompt {
             Layout.fillWidth: true
-            visible: rulesSession.promptPending
+            visible: !root.externalDamageChoices && rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseCombatDamageAssignment"
             enabled: !root.tableController.rulesResponsePending
@@ -298,6 +420,8 @@ Surface {
             promptId: rulesSession.promptId
             totalDamage: rulesSession.promptTotalDamage
             deathtouch: rulesSession.promptDamageDeathtouch
+            assignmentMode: rulesSession.promptDamageAssignmentMode === undefined
+                            ? "ordered" : rulesSession.promptDamageAssignmentMode
         }
 
         RulesTargetSelectionPrompt {
@@ -309,6 +433,7 @@ Surface {
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
             targetModel: rulesSession.promptTargets
+            interaction: root.interaction
             promptId: rulesSession.promptId
             minimumSelections: rulesSession.promptMinSelections
             maximumSelections: rulesSession.promptMaxSelections
@@ -326,6 +451,7 @@ Surface {
             sourceModel: rulesSession.promptCombat
             promptId: rulesSession.promptId
             assignmentKind: "attackers"
+            selectionState: root.tableController.combatInteraction || null
         }
 
         RulesCombatAssignmentPrompt {
@@ -339,6 +465,7 @@ Surface {
             sourceModel: rulesSession.promptCombat
             promptId: rulesSession.promptId
             assignmentKind: "blockers"
+            selectionState: root.tableController.combatInteraction || null
         }
 
         RulesScalarChoicePrompt {
@@ -352,8 +479,23 @@ Surface {
             wsModel: root.tableController.wsModel
             choiceModel: rulesSession.promptChoices
             promptId: rulesSession.promptId
+            promptKind: rulesSession.promptKind
+            promptTitle: rulesSession.promptTitle
+            promptDetail: rulesSession.promptDetail
             minimumTotal: rulesSession.promptMinChoiceTotal
             maximumTotal: rulesSession.promptMaxChoiceTotal
+        }
+
+        RulesCardNamePrompt {
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseCardName"
+            enabled: !root.tableController.rulesResponsePending
+            wsModel: root.tableController.wsModel
+            cardCatalogModel: root.tableController.cardCatalogModel
+            promptId: rulesSession.promptId
+            cancellable: rulesSession.promptCancellable
         }
 
         RulesNumberPrompt {

@@ -59,6 +59,8 @@ type GameHandDiscarded struct {
 // battlefield, graveyard, or exile destination; it is invalid for hidden/shared
 // destinations. LibraryPlacement defaults to top. Index is a zero-based
 // insertion position and is required only for the "index" placement.
+// FaceDown permits hand/library entry onto the battlefield (controller can
+// inspect) or into exile (identity withheld from every viewer).
 type GameMoveCard struct {
 	CardID           string        `json:"cardId"`
 	FromZone         string        `json:"fromZone"`

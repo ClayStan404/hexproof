@@ -49,6 +49,7 @@ Item {
     onCardInspectionEnded: sourceItem => candidatePreview.hide(sourceItem)
     onPreviewDismissed: candidatePreview.hide()
     implicitHeight: planContent.implicitHeight
+    LimitedCommanderSelection { id: commanderSelection }
 
     ColumnLayout {
         id: planContent
@@ -252,10 +253,7 @@ Item {
     }
 
     function possibleCommander(card) {
-        const type = String(card.typeLine || "")
-        if (!type) return true
-        return (/legendary/i.test(type) && /creature|background/i.test(type))
-            || /can be your commander/i.test(String(card.oracleText || ""))
+        return commanderSelection.possibleCommander(card)
     }
     function candidateHint(card) {
         if (!card.typeLine) return qsTranslate("TournamentLobby", "Commander eligibility is unknown; check this card manually.")

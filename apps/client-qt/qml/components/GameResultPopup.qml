@@ -16,9 +16,9 @@ Popup {
     signal returnRequested()
 
     parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
-    width: Math.min(Theme.size(520), parent.width - Theme.size(48))
+    x: parent ? Math.round((parent.width - width) / 2) : 0
+    y: parent ? Math.round((parent.height - height) / 2) : 0
+    width: parent ? Math.min(Theme.size(520), Math.max(0, parent.width - Theme.size(48))) : 0
     padding: Theme.size(28)
     modal: true
     focus: true

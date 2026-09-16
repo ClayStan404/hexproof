@@ -40,6 +40,7 @@ Page {
     }
 
     ScrollView {
+        objectName: "cardArtManagerBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -95,6 +96,7 @@ Page {
                             visible: cardArtManager.busy
                         }
                         AppButton {
+                            objectName: "refreshArtInventoryButton"
                             compact: true
                             variant: "ghost"
                             text: qsTr("Refresh")
@@ -291,6 +293,7 @@ Page {
                         Layout.fillWidth: true
                         spacing: Theme.size(10)
                         AppButton {
+                            objectName: "importArtPackButton"
                             text: qsTr("Import pack…")
                             enabled: !cardArtManager.busy && !cardCatalog.busy
                             onClicked: importFileDialog.open()
@@ -497,6 +500,7 @@ Page {
 
     FileDialog {
         id: importFileDialog
+        objectName: "cardArtImportFileDialog"
         title: qsTr("Import card art pack")
         fileMode: FileDialog.OpenFile
         nameFilters: [
@@ -531,6 +535,7 @@ Page {
 
     ConfirmDialog {
         id: importDialog
+        objectName: "confirmArtPackImportDialog"
         titleText: qsTr("Import this card art pack?")
         message: qsTr("Version %1 · %2 image(s) · %3 new entries · %4 already cached · %5. Existing valid images will not be replaced.")
                  .arg(root.pendingImportSummary.formatVersion || "?")

@@ -8,6 +8,13 @@
 
 namespace hexproof::client {
 
+enum class CardArtProvider
+{
+    Auto,
+    Scryfall,
+    Mtgch,
+};
+
 struct CardRecord
 {
     QString requestedName;
@@ -61,6 +68,8 @@ struct CardRequest
     bool exactArt = false;
     bool supportCard = false;
     bool highPriority = false;
+    // Assigned only while a parallel download owns a provider slot.
+    CardArtProvider artProvider = CardArtProvider::Auto;
     CardRecord catalogHint;
 
     bool specifiesPrinting() const

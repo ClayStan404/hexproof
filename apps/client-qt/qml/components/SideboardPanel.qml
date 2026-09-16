@@ -50,6 +50,9 @@ Item {
     readonly property var sideboardGroups: tableModel.sideboardGroups
     readonly property bool isPlayer: roomSession.role === "player"
     readonly property bool ownReady: playerReady(roomSession.seatIndex)
+    property bool readyPending: false
+    onOwnReadyChanged: readyPending = false
+    onEnabledChanged: if (!enabled) readyPending = false
     readonly property bool deckChangesAllowed: roomSession.format !== "duel"
     readonly property bool limitedDeck: roomSession.deckFormat === "limited"
     readonly property var commanders: sideboardData.commanders
@@ -57,6 +60,13 @@ Item {
 
     onSideboardDataChanged: updateClock()
     Component.onCompleted: updateClock()
+
+    Connections {
+        target: root.wsModel
+        ignoreUnknownSignals: true
+        function onLastErrorChanged() { if (root.wsModel.lastError) root.readyPending = false }
+        function onInRoomChanged() { if (!root.wsModel.inRoom) root.readyPending = false }
+    }
 
     Binding {
         target: root.tableModel
@@ -351,10 +361,14 @@ Item {
                     compact: root.compactLayout
                     visible: root.isPlayer
                     variant: root.ownReady ? "ghost" : "primary"
-                    text: root.ownReady ? qsTr("Cancel ready") : qsTr("Ready for next game")
-                    enabled: root.ownReady || limitedFilters.mainboardCount
-                             >= (root.limitedDeck ? 40 : 7)
-                    onClicked: root.wsModel.setSideboardReady(!root.ownReady)
+                    text: root.readyPending ? qsTr("Waiting…")
+                          : root.ownReady ? qsTr("Cancel ready") : qsTr("Ready for next game")
+                    enabled: !root.readyPending && (root.ownReady || limitedFilters.mainboardCount
+                             >= (root.limitedDeck ? 40 : 7))
+                    onClicked: {
+                        root.readyPending = true
+                        root.wsModel.setSideboardReady(!root.ownReady)
+                    }
                 }
             }
         }

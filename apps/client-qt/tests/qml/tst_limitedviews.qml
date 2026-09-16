@@ -60,6 +60,10 @@ TestCase {
             property string stage: "deck_building"
             property int direction: 1
             property var currentPack: pool
+            property var currentPacks: []
+            property int picksRequired: 0
+            property int packsPerPlayer: 3
+            property int packsThisBatch: 1
             property var pool: [
                 {"instanceId": "card-1", "name": "Island",
                  "setCode": "TST", "collectorNumber": "1",
@@ -201,6 +205,10 @@ TestCase {
     }
 
     function init() {
+        mockLimited.currentPacks = []
+        mockLimited.picksRequired = 0
+        mockLimited.packsPerPlayer = 3
+        mockLimited.packsThisBatch = 1
         mockLimited.eventType = "set_sealed"
         mockLimited.stage = "deck_building"
         mockLimited.deckSubmitted = false
@@ -343,6 +351,53 @@ TestCase {
         verify(draftView.canConfirm)
         draftView.confirmPick()
         compare(mockWs.pickedIds.join(","), "card-1")
+    }
+
+    function test_pairedPacksKeepIndependentQuotas_data() {
+        return [{tag: "desktop", width: 1200}, {tag: "narrow", width: 600}, {tag: "compact", width: 360}]
+    }
+
+    function test_pairedPacksKeepIndependentQuotas(data) {
+        mockLimited.eventType = "commander_cube"
+        mockLimited.picksRequired = 4
+        mockLimited.packsPerPlayer = 6
+        mockLimited.packsThisBatch = 2
+        mockLimited.packRound = 2
+        const a = Array.from({length: 20}, (_, i) => ({instanceId: "pack-a-" + i, name: "Card A " + i}))
+        const b = Array.from({length: 20}, (_, i) => ({instanceId: "pack-b-" + i, name: "Card B " + i}))
+        mockLimited.currentPack = a.concat(b)
+        mockLimited.currentPacks = [{packId: "a", cards: a, picksRequired: 2}, {packId: "b", cards: b, picksRequired: 2}]
+        squeezeHost.width = data.width
+        squeezedDraftView.visible = true
+        verify(waitForRendering(squeezedDraftView))
+        const first = findChild(squeezedDraftView, "limitedCurrentPackGrid")
+        const second = findChild(squeezedDraftView, "limitedCurrentPackGrid-2")
+        compare(first.cards.length, 20)
+        compare(second.cards.length, 20)
+        verify(first.width > 0 && first.height > 0 && second.width > 0 && second.height > 0)
+        squeezedDraftView.selectedInstanceIds = [a[0].instanceId, a[1].instanceId, a[2].instanceId, b[0].instanceId]
+        verify(!squeezedDraftView.canConfirm)
+        squeezedDraftView.selectedInstanceIds = []
+        for (const card of [a[0], b[0], a[1], b[1], a[2]]) squeezedDraftView.selectCard(card.instanceId)
+        compare(squeezedDraftView.selectedInstanceIds.length, 4)
+        verify(squeezedDraftView.selectedInstanceIds.indexOf(a[0].instanceId) < 0)
+        verify(squeezedDraftView.selectedInstanceIds.indexOf(b[0].instanceId) >= 0)
+        verify(squeezedDraftView.canConfirm)
+        mockLimited.snapshotChanged()
+        verify(squeezedDraftView.canConfirm)
+        squeezedDraftView.confirmPick()
+        compare(mockWs.pickedIds.length, 4)
+        compare(mockWs.pickCount, 1)
+        const last = a.map(card => ({instanceId: "last-" + card.instanceId, name: card.name}))
+        mockLimited.currentPack = last
+        mockLimited.currentPacks = [{packId: "last", cards: last, picksRequired: 2}]
+        mockLimited.picksRequired = 2
+        mockLimited.packsThisBatch = 1
+        mockLimited.snapshotChanged()
+        verify(!squeezedDraftView.pairedPacks)
+        compare(squeezedDraftView.requiredPicks, 2)
+        compare(squeezedDraftView.pendingPickId, "")
+        squeezedDraftView.visible = false
     }
 
     function test_draftBuildChoiceKeepsOrReleasesExactPool() {
@@ -490,6 +545,56 @@ TestCase {
         deckBuilder.clearFilters()
         compare(deckBuilder.visibleSideboardCards.length, 2)
         verify(!deckBuilder.filtersActive)
+    }
+
+    function test_mainDeckFiltersStayIndependentAndRemoveOnlyTheVisibleInstance() {
+        deckBuilder.visible = true
+        deckBuilder.setAutoBasicLands(false)
+        deckBuilder.moveToMainDeck("card-1")
+        deckBuilder.moveToMainDeck("card-2")
+        const before = JSON.stringify(mockLimited.pool)
+        const deckCount = deckBuilder.selectedCount
+        const landCount = deckBuilder.selectedLandCount
+        deckBuilder.filters.types = ["Instant"]
+        deckBuilder.mainFilters.colors = ["M"]
+        deckBuilder.mainFilters.types = ["Creature"]
+        deckBuilder.mainFilters.manaValues = ["3"]
+        deckBuilder.mainFilters.rarities = ["mythic"]
+        deckBuilder.mainFilters.query = "Test Creature"
+        compare(deckBuilder.visibleDeckListCards.map(card => card.instanceId), ["card-2"])
+        compare(deckBuilder.selectedCount, deckCount)
+        compare(deckBuilder.selectedLandCount, landCount)
+        compare(JSON.stringify(mockLimited.pool), before)
+        const filters = findChild(deckBuilder, "limitedMainDeckFilters")
+        verify(filters.visible)
+        const list = findChild(deckBuilder, "limitedMainDeckGrid")
+        compare(list.cards.length, 1)
+        list.cardActivated(list.cards[0])
+        verify(deckBuilder.cardSelected("card-1"))
+        verify(!deckBuilder.cardSelected("card-2"))
+        compare(deckBuilder.selectedCount, deckCount - 1)
+        compare(deckBuilder.visibleSideboardCards.length, 0, "The pool retains its independent instant filter")
+        compare(deckBuilder.visibleDeckListCards.length, 0)
+        compare(list.emptyText, "No cards match all active filters.")
+        deckBuilder.clearFilters()
+        compare(deckBuilder.visibleSideboardCards.length, 1)
+        compare(deckBuilder.visibleDeckListCards.length, 1)
+    }
+
+    function test_mainDeckColorSelectionRequiresBothColors() {
+        deckBuilder.visible = true
+        deckBuilder.setAutoBasicLands(false)
+        deckBuilder.moveToMainDeck("card-1")
+        deckBuilder.moveToMainDeck("card-2")
+        deckBuilder.mainFilters.colors = ["U"]
+        compare(deckBuilder.visibleDeckListCards.length, 2)
+        deckBuilder.mainFilters.toggle("colors", "G")
+        compare(deckBuilder.visibleDeckListCards.map(card => card.instanceId), ["card-2"])
+        compare(deckBuilder.selectedCount, 2)
+        deckBuilder.mainFilters.toggle("colors", "U")
+        compare(deckBuilder.visibleDeckListCards.map(card => card.instanceId), ["card-2"])
+        deckBuilder.mainFilters.reset()
+        compare(deckBuilder.visibleDeckListCards.length, 2)
     }
 
     function test_deckBuilderShowsRarityAndFullCardPreview() {

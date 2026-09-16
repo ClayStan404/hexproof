@@ -162,8 +162,9 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 		}
 		snapshot.Players = append(snapshot.Players, protocol.RulesPlayerState{
 			Seat: seat, Name: player.Name, Status: player.Status, Life: player.Life,
-			Counters: sortedRulesCounters(player.Counters),
-			ManaPool: sortedRulesCounters(player.ManaPool),
+			Counters:   sortedRulesCounters(player.Counters),
+			ManaPool:   sortedRulesCounters(player.ManaPool),
+			Commanders: projectedRulesCommanders(player.Commanders, view),
 		})
 	}
 	sort.Slice(snapshot.Players, func(i, j int) bool {
@@ -221,6 +222,7 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 			ID: stackObject.ID, SourceID: stackObject.SourceID,
 			ControllerSeat: controllerSeat, OwnerSeat: ownerSeat,
 			Identity: rulesIdentity(stackObject.Identity), Text: stackObject.Text,
+			Targets: projectedRulesStackTargets(stackObject.Targets, view, seatForID),
 		})
 	}
 	if view.WinnerID != "" {
@@ -231,6 +233,75 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 		snapshot.WinnerSeat = &winnerSeat
 	}
 	return snapshot, nil
+}
+
+func projectedRulesStackTargets(targets []forge.StackTargetView, view forge.GameView,
+	seatForID func(string) (int, error)) []protocol.RulesStackTarget {
+	result := make([]protocol.RulesStackTarget, 0, len(targets))
+	seen := make(map[string]bool)
+	for _, target := range targets {
+		key := target.Kind + ":" + target.ID
+		if target.ID == "" || seen[key] {
+			continue
+		}
+		entry := protocol.RulesStackTarget{Kind: target.Kind}
+		switch target.Kind {
+		case "player":
+			for _, player := range view.Players {
+				if player.ID == target.ID {
+					if seat, err := seatForID(player.ID); err == nil {
+						entry.Seat, entry.Label = &seat, player.Name
+					}
+				}
+			}
+		case "card":
+			for _, zone := range view.Zones {
+				for _, card := range zone.Cards {
+					if card.ID == target.ID {
+						entry.ObjectID = card.ID
+						if card.Visibility == "visible" && card.Identity != nil {
+							entry.Label = card.Identity.Name
+						}
+					}
+				}
+			}
+		case "spell":
+			for _, object := range view.Stack {
+				if object.ID == target.ID {
+					entry.ObjectID, entry.Label = object.ID, object.Identity.Name
+				}
+			}
+		}
+		if entry.Seat != nil || entry.ObjectID != "" {
+			result = append(result, entry)
+			seen[key] = true
+		}
+	}
+	return result
+}
+
+func projectedRulesCommanders(commanders []forge.CommanderView, view forge.GameView) []protocol.RulesCommanderState {
+	result := make([]protocol.RulesCommanderState, 0, len(commanders))
+	for _, commander := range commanders {
+		if strings.TrimSpace(commander.Name) == "" || commander.Casts < 0 || commander.Tax < 0 {
+			continue
+		}
+		entry := protocol.RulesCommanderState{Name: commander.Name, Casts: commander.Casts, Tax: commander.Tax, Zone: "hidden"}
+		for _, zone := range view.Zones {
+			for _, card := range zone.Cards {
+				if commander.ObjectID != "" && card.ID == commander.ObjectID && card.Visibility == "visible" && card.Identity != nil && strings.TrimSpace(card.Identity.Name) != "" && zone.Zone == commander.Zone {
+					entry.ObjectID, entry.Zone = card.ID, zone.Zone
+				}
+			}
+		}
+		for _, object := range view.Stack {
+			if commander.Zone == "stack" && commander.ObjectID != "" && object.SourceID == commander.ObjectID && strings.TrimSpace(object.Identity.Name) != "" {
+				entry.ObjectID, entry.Zone = object.SourceID, "stack"
+			}
+		}
+		result = append(result, entry)
+	}
+	return result
 }
 
 // normalizedRulesStep adapts the pinned harness names to the existing rules

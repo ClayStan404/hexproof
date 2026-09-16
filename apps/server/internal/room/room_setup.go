@@ -509,6 +509,7 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 	}
 	game.StartingSeat = startingSeat
 	game.ActiveSeat = startingSeat
+	game.Seats[startingSeat].TurnCount = 1
 	r.Game = game
 	for _, seat := range game.Seats {
 		for _, commander := range seat.CommandZone {

@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 pragma Translator: "CardWorkbench"
 import QtQuick
+import "CardTypes.js" as CardTypes
 import QtQuick.Controls.Basic
 
 Row {
@@ -42,8 +43,7 @@ Row {
     function buildBuckets() {
         const values = [0,0,0,0,0,0,0,0]
         for (const card of cards) {
-            const type = String(card.typeLine || "").split(/[—–]/)[0]
-            if (card.manaValue === undefined || card.manaValue < 0 || /land|地/i.test(type)) continue
+            if (card.manaValue === undefined || card.manaValue < 0 || CardTypes.hasType(card, "Land")) continue
             values[Math.min(7, Math.floor(Number(card.manaValue)))] += Number(card.count || 1)
         }
         return values

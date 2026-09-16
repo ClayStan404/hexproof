@@ -3,8 +3,16 @@
 
 pragma Translator: "TournamentLobby"
 import QtQuick
+import "CardTypes.js" as CardTypes
 
 QtObject {
+    function possibleCommander(card) {
+        if (!CardTypes.frontTypeLine(card)) return true
+        return (CardTypes.hasType(card, "Legendary")
+            && (CardTypes.hasType(card, "Creature") || /\bbackground\b|背景/i.test(CardTypes.subtypes(card))))
+            || /can be your commander/i.test(String(card.oracleText || ""))
+    }
+
     function sanitize(ids, cards) {
         if (!ids || typeof ids === "string" || typeof ids.length !== "number") return []
         const byId = new Map(cards.map(card => [card.instanceId, card]))
@@ -65,8 +73,7 @@ QtObject {
         const commanders = cards.filter(card => ids.indexOf(card.instanceId) >= 0)
         if (!commanders.length) return []
         const messages = []
-        const atypical = commanders.filter(card => !/legendary/i.test(String(card.typeLine || ""))
-            || !/creature/i.test(String(card.typeLine || "")))
+        const atypical = commanders.filter(card => !CardTypes.frontTypeLine(card) || !possibleCommander(card))
         if (atypical.length) {
             messages.push(qsTranslate("TournamentLobby", "Confirm that your group allows these commanders: %1.")
                 .arg(atypical.map(card => card.displayName || card.name).join(", ")))

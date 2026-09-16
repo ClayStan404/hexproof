@@ -13,24 +13,41 @@
 namespace hexproof::client {
 using namespace Qt::StringLiterals;
 
+bool LocalTestSession::Options::commanderCube() const
+{
+    return eventType == u"commander-cube"_s;
+}
+
 QString LocalTestSession::Options::eventName() const
 {
+    if (commanderCube())
+        return u"Local Commander Cube %1"_s.arg(group);
     return u"Local %1 %2 %3"_s.arg(eventType, setCode, group);
 }
 
 bool LocalTestSession::Options::valid() const
 {
-    return (eventType == u"draft"_s || eventType == u"sealed"_s) && players >= 2 &&
-           players <= (eventType == u"draft"_s ? 8 : 16) && seat >= 1 && seat <= players &&
-           timeoutMs > 0 && QRegularExpression(u"^[A-Z0-9]{2,8}$"_s).match(setCode).hasMatch() &&
+    const bool validSource =
+        commanderCube()
+            ? setCode.isEmpty() && !cube.trimmed().isEmpty()
+            : cube.isEmpty() && QRegularExpression(u"^[A-Z0-9]{2,8}$"_s).match(setCode).hasMatch();
+    return (eventType == u"draft"_s || eventType == u"sealed"_s || commanderCube()) &&
+           players >= 2 && players <= (eventType == u"sealed"_s ? 16 : 8) && seat >= 1 &&
+           seat <= players && timeoutMs > 0 && validSource && (!autoDraft || commanderCube()) &&
            QRegularExpression(u"^[a-f0-9]{32}$"_s).match(group).hasMatch();
 }
 
 void LocalTestSession::addOptions(QCommandLineParser &parser)
 {
-    parser.addOption(
-        {u"test-event"_s, u"Automate local Limited setup: draft or sealed."_s, u"mode"_s});
+    parser.addOption({u"test-event"_s,
+                      u"Automate local Limited setup: draft, sealed, or commander-cube."_s,
+                      u"mode"_s});
     parser.addOption({u"test-set"_s, u"Installed Limited set code for local setup."_s, u"code"_s});
+    parser.addOption(
+        {u"test-cube"_s, u"Saved Cube name or ID for local Commander Cube setup."_s, u"cube"_s});
+    parser.addOption(
+        {u"test-auto-draft"_s,
+         u"Finish local Commander Cube draft with random server picks; stop at deck building."_s});
     parser.addOption(
         {u"test-group"_s, u"Unique launcher group (32 lowercase hex digits)."_s, u"id"_s});
     parser.addOption({u"test-players"_s, u"Number of local test participants."_s, u"count"_s});
@@ -40,15 +57,18 @@ void LocalTestSession::addOptions(QCommandLineParser &parser)
 
 LocalTestSession::Options LocalTestSession::readOptions(const QCommandLineParser &parser)
 {
-    return {parser.value(u"test-event"_s), parser.value(u"test-set"_s).toUpper(),
-            parser.value(u"test-group"_s), parser.value(u"test-players"_s).toInt(),
-            parser.value(u"test-seat"_s).toInt()};
+    Options options{parser.value(u"test-event"_s), parser.value(u"test-set"_s).toUpper(),
+                    parser.value(u"test-group"_s), parser.value(u"test-players"_s).toInt(),
+                    parser.value(u"test-seat"_s).toInt()};
+    options.cube = parser.value(u"test-cube"_s).trimmed();
+    options.autoDraft = parser.isSet(u"test-auto-draft"_s);
+    return options;
 }
 
 bool LocalTestSession::requested(const QCommandLineParser &parser)
 {
-    for (const QString &name :
-         {u"test-event"_s, u"test-set"_s, u"test-group"_s, u"test-players"_s, u"test-seat"_s}) {
+    for (const QString &name : {u"test-event"_s, u"test-set"_s, u"test-cube"_s, u"test-group"_s,
+                                u"test-players"_s, u"test-seat"_s, u"test-auto-draft"_s}) {
         if (parser.isSet(name))
             return true;
     }
@@ -84,8 +104,15 @@ void LocalTestSession::start()
         return;
     }
     if (m_options.seat == 1) {
-        m_product = m_productProvider(m_options.setCode);
+        m_product =
+            m_productProvider(m_options.commanderCube() ? m_options.cube : m_options.setCode);
         if (m_product.isEmpty()) {
+            if (m_options.commanderCube()) {
+                fail(
+                    u"No unique ready Cube matches %1; use a saved Cube name or ID in a fresh profile template."_s
+                        .arg(m_options.cube));
+                return;
+            }
             fail(
                 u"No installed Limited product for %1; update the profile's card database or use a fresh template."_s
                     .arg(m_options.setCode));
@@ -127,23 +154,37 @@ void LocalTestSession::advance()
         if (m_options.seat == 1) {
             if (!m_createSent) {
                 m_createSent = true;
-                m_client->createLimitedTournament(m_options.eventName(),
-                                                  u"set_"_s + m_options.eventType, u"bo3"_s, 50,
-                                                  m_options.players, m_product);
+                if (m_options.commanderCube())
+                    m_client->createCasualLimitedEvent(m_options.eventName(), u"commander_cube"_s,
+                                                       u"bo1"_s, m_options.players, m_product);
+                else
+                    m_client->createLimitedTournament(m_options.eventName(),
+                                                      u"set_"_s + m_options.eventType, u"bo3"_s, 50,
+                                                      m_options.players, m_product);
             }
         } else if (!m_enterSent) {
-            for (const QVariant &value : event->tournamentList()) {
+            const QVariantList entries =
+                m_options.commanderCube() ? m_client->roomList() : event->tournamentList();
+            for (const QVariant &value : entries) {
                 const QVariantMap entry = value.toMap();
                 if (entry.value(u"name"_s).toString() != m_options.eventName())
                     continue;
-                m_tournamentId = entry.value(u"tournamentId"_s).toString();
+                m_tournamentId =
+                    entry.value(m_options.commanderCube() ? u"roomId"_s : u"tournamentId"_s)
+                        .toString();
                 m_enterSent = true;
-                m_client->enterTournament(m_tournamentId);
+                if (m_options.commanderCube())
+                    m_client->joinRoom(m_tournamentId, false, {});
+                else
+                    m_client->enterTournament(m_tournamentId);
                 return;
             }
             if (m_elapsed.elapsed() - m_lastListAt >= 1'000) {
                 m_lastListAt = m_elapsed.elapsed();
-                m_client->requestTournamentList();
+                if (m_options.commanderCube())
+                    m_client->requestRoomList();
+                else
+                    m_client->requestTournamentList();
             }
         }
         return;
@@ -151,7 +192,8 @@ void LocalTestSession::advance()
     if (event->status().isEmpty())
         return; // Wait for the authoritative snapshot after created/entered.
     if (event->name() != m_options.eventName() ||
-        event->eventType() != u"set_"_s + m_options.eventType ||
+        event->eventType() !=
+            (m_options.commanderCube() ? u"commander_cube"_s : u"set_"_s + m_options.eventType) ||
         event->maxPlayers() != m_options.players ||
         (!m_tournamentId.isEmpty() && event->tournamentId() != m_tournamentId)) {
         fail(u"The active event does not match this launch group."_s);
@@ -159,14 +201,23 @@ void LocalTestSession::advance()
     }
     m_tournamentId = event->tournamentId();
     const auto *limited = m_client->limitedSession();
-    const QString expectedStage =
-        m_options.eventType == u"draft"_s ? u"draft"_s : u"deck_building"_s;
-    if (!event->participantId().isEmpty() && limited->tournamentId() == m_tournamentId &&
-        limited->stage() == expectedStage) {
-        m_active = false;
-        m_timer.stop();
-        emit finished();
-        return;
+    if (!event->participantId().isEmpty() && limited->tournamentId() == m_tournamentId) {
+        const QString expectedStage = m_options.eventType == u"sealed"_s || m_options.autoDraft
+                                          ? u"deck_building"_s
+                                          : u"draft"_s;
+        if (limited->stage() == expectedStage &&
+            (expectedStage != u"draft"_s || !limited->currentPack().isEmpty())) {
+            m_active = false;
+            m_timer.stop();
+            emit finished();
+            return;
+        }
+        if (m_options.autoDraft && limited->stage() == u"draft"_s && !m_autoDraftSent &&
+            !limited->currentPack().isEmpty()) {
+            m_autoDraftSent = true;
+            m_client->setLimitedDraftControl(event->participantId(), true);
+            return;
+        }
     }
     if (event->status() != u"registration"_s) {
         if (event->status() != u"running"_s)

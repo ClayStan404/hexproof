@@ -8,6 +8,7 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+    property string fileDialogObjectName: "deckArtExportFileDialog"
 
     property var manager: null
     property string deckName: ""
@@ -277,7 +278,7 @@ Popup {
 
     FileDialog {
         id: exportFileDialog
-        objectName: "deckArtExportFileDialog"
+        objectName: root.fileDialogObjectName
         title: qsTr("Export card art pack")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "hexproof-artpack"

@@ -3,9 +3,14 @@
 
 #include "cardcatalog_test.h"
 
+#include "models/DeckLibraryModel.h"
 #include "services/BackgroundTaskPools.h"
 #include "services/CardArtCache.h"
+#include "services/CardArtManager.h"
 #include "services/CatalogRepository.h"
+
+#include <QScopeGuard>
+#include <QSemaphore>
 
 namespace {
 
@@ -152,6 +157,7 @@ void TestCardCatalog::searchesSupportKindsBeforeResultLimit() const
             supportFixture(u"A Token %1"_s.arg(index), u"token"_s, QString::number(index)));
     cards.append(supportFixture(u"ZZ Teferi Emblem"_s, u"emblem"_s, u"100"_s));
     cards.append(supportFixture(u"Double // Back"_s, u"double_faced_token"_s, u"101"_s));
+    cards.append(supportFixture(u"Normal Spell"_s, u"front_card"_s, u"105"_s));
     cards.append(supportFixture(u"Normal Spell"_s, u"normal"_s, u"102"_s));
     cards.append(supportFixture(u"Normal Front // Normal Back"_s, u"transform"_s, u"103"_s));
     cards.append(supportFixture(u"Normal Spell"_s, u"art_series"_s, u"104"_s));
@@ -183,6 +189,14 @@ void TestCardCatalog::searchesSupportKindsBeforeResultLimit() const
         }
         QVERIFY(repository.printings(u"ZZ Teferi Emblem"_s, u"en"_s).isEmpty());
         QVERIFY(repository.lookup({u"ZZ Teferi Emblem"_s, u"TTST"_s, u"100"_s, u"en"_s}).valid());
+        QCOMPARE(repository.printings(u"Normal Spell"_s, u"en"_s).size(), 1);
+        QCOMPARE(repository.lookup({u"Normal Spell"_s, {}, {}, u"en"_s}).collectorNumber, u"102"_s);
+        QCOMPARE(
+            repository.lookup({u"Normal Spell"_s, u"TTST"_s, u"105"_s, u"en"_s}).collectorNumber,
+            u"105"_s);
+        QString layout;
+        repository.cardFaces(u"Normal Spell"_s, {}, {}, nullptr, &layout);
+        QCOMPARE(layout, u"normal"_s);
     }
 
     CardCatalog catalog(storage.path());
@@ -257,6 +271,82 @@ void TestCardCatalog::tokenDisplayNameUsesLocalLanguageWithoutNetwork() const
     QCOMPARE(catalog.tokenDisplayName(u"Unknown Emblem"_s, u"NONE"_s, u"9"_s), u"Unknown Emblem"_s);
     catalog.setLanguage(u"en"_s);
     QCOMPARE(catalog.tokenDisplayName(u"Teferi Emblem"_s, u"TTST"_s, u"1"_s), u"Teferi Emblem"_s);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::cardDisplayNamesResolveCatalogNamesAndFaces() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QJsonObject bolt = supportFixture(u"Lightning Bolt"_s, u"normal"_s, u"1"_s);
+    bolt.insert(u"type_line"_s, u"Instant"_s);
+    QJsonObject chinese = bolt;
+    chinese.insert(u"id"_s, u"bolt-zh"_s);
+    chinese.insert(u"lang"_s, u"zhs"_s);
+    chinese.insert(u"printed_name"_s, u"闪电击"_s);
+    QJsonObject split = supportFixture(u"Fire // Ice"_s, u"split"_s, u"2"_s);
+    split.insert(u"type_line"_s, u"Instant // Instant"_s);
+    split.insert(u"card_faces"_s,
+                 QJsonArray{QJsonObject{{u"name"_s, u"Fire"_s}, {u"type_line"_s, u"Instant"_s}},
+                            QJsonObject{{u"name"_s, u"Ice"_s}, {u"type_line"_s, u"Instant"_s}}});
+    QJsonObject splitChinese = split;
+    splitChinese.insert(u"id"_s, u"split-zh"_s);
+    splitChinese.insert(u"lang"_s, u"zhs"_s);
+    splitChinese.insert(u"printed_name"_s, u"烈火 // 寒冰"_s);
+    splitChinese.insert(u"card_faces"_s, QJsonArray{QJsonObject{{u"name"_s, u"Fire"_s},
+                                                                {u"printed_name"_s, u"烈火"_s},
+                                                                {u"type_line"_s, u"Instant"_s}},
+                                                    QJsonObject{{u"name"_s, u"Ice"_s},
+                                                                {u"printed_name"_s, u"寒冰"_s},
+                                                                {u"type_line"_s, u"Instant"_s}}});
+    const auto imported =
+        importSupportFixture(storage.path(), {bolt, chinese, split, splitChinese});
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    QCOMPARE(catalog.cardDisplayName(u"Lightning Bolt"_s), u"Lightning Bolt"_s);
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Lightning Bolt"_s), u"闪电击"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Fire // Ice"_s), u"烈火 // 寒冰"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Fire"_s), u"烈火"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Ice"_s), u"寒冰"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Unknown %2"_s), u"Unknown %2"_s);
+    QCOMPARE(catalog.cardDisplayName({}), QString{});
+    catalog.setLanguage(u"en"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Lightning Bolt"_s), u"Lightning Bolt"_s);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::cardDisplayNamesUseCachedTextWithoutArtwork() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        hexproof::client::CardArtCache cache(storage.path());
+        CardCatalog::CardRecord record;
+        record.name = u"Cached Adept"_s;
+        record.requestedName = record.name;
+        record.localizedName = u"缓存学徒"_s;
+        record.setCode = u"TST"_s;
+        record.collectorNumber = u"1"_s;
+        const QString key = cache.key(record.name, u"zh"_s, record.setCode, record.collectorNumber);
+        cache.rememberSuccess(key, record);
+        const hexproof::client::CardRequest request{record.name, {}, {}, u"zh"_s};
+        QCOMPARE(cache.localizedMetadataForName(request).localizedName, record.localizedName);
+        record.name = u"Renamed Adept"_s;
+        record.requestedName = record.name;
+        record.localizedName = u"新名称学徒"_s;
+        record.imageLanguage = u"en"_s;
+        cache.rememberSuccess(key, record);
+        QVERIFY(!cache.localizedMetadataForName(request).valid());
+        QVERIFY(cache.save());
+    }
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    QVERIFY(!catalog.installed());
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Renamed Adept"_s), u"新名称学徒"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Cached Adept"_s), u"Cached Adept"_s);
     QVERIFY(network.requestedUrls.isEmpty());
 }
 
@@ -939,6 +1029,11 @@ void TestCardCatalog::importsAndSearchesBulkData() const
             const QVariantMap metadata = value.toMap();
             typeLines.insert(metadata.value(u"requestedName"_s).toString(),
                              metadata.value(u"typeLine"_s).toString());
+            const bool rider = metadata.value(u"requestedName"_s).toString() == u"Murderous Rider";
+            QCOMPARE(metadata.value(u"requestedSetCode"_s).toString(),
+                     rider ? QString{} : u"M11"_s);
+            QCOMPARE(metadata.value(u"setCode"_s).toString(), rider ? u"ELD"_s : u"M11"_s);
+            QCOMPARE(metadata.value(u"collectorNumber"_s).toString(), rider ? u"97"_s : u"149"_s);
         }
     }
     QCOMPARE(typeLines.size(), 2);
@@ -949,6 +1044,33 @@ void TestCardCatalog::importsAndSearchesBulkData() const
     QVERIFY(catalog.matchesCardQuery(u"Lightning Bolt"_s, u"M11"_s, u"149"_s, u"Instant"_s));
     QVERIFY(catalog.matchesCardQuery(u"Lightning Bolt"_s, u"M11"_s, u"149"_s, u"瞬间"_s));
     QVERIFY(!catalog.matchesCardQuery(u"Lightning Bolt"_s, u"M11"_s, u"149"_s, u"生物"_s));
+
+    {
+        QTemporaryDir libraryStorage;
+        QVERIFY(libraryStorage.isValid());
+        hexproof::client::DeckLibraryModel library(libraryStorage.path());
+        connect(&library, &hexproof::client::DeckLibraryModel::cardsNeedMetadata, &catalog,
+                &CardCatalog::enrichCardMetadata);
+        connect(&catalog, &CardCatalog::cardMetadataAvailable, &library,
+                &hexproof::client::DeckLibraryModel::applyCatalogMetadata);
+        QSignalSpy caching(&library, &hexproof::client::DeckLibraryModel::cardsNeedCaching);
+        QVERIFY(library.importDeck(u"Local metadata only"_s, u"custom"_s,
+                                   u"4 Lightning Bolt\n3 Murderous Rider\n"
+                                   "Sideboard\n1 Sol Ring (CMM) 396\n"_s));
+        const QString id =
+            library.data(library.index(0), hexproof::client::DeckLibraryModel::IdRole).toString();
+        QVERIFY(library.deckForMatch(id, true).isEmpty());
+        QTRY_VERIFY(!library.deckForMatch(id, true).isEmpty());
+        const QVariantMap deck = library.deckForMatch(id, true);
+        for (const QVariant &value : deck.value(u"mainboard"_s).toList()) {
+            const QVariantMap card = value.toMap();
+            QVERIFY(!card.value(u"setCode"_s).toString().isEmpty());
+            QVERIFY(!card.value(u"collectorNumber"_s).toString().isEmpty());
+        }
+        QCOMPARE(deck.value(u"sideboard"_s).toList().first().toMap().value(u"setCode"_s).toString(),
+                 u"CMM"_s);
+        QCOMPARE(caching.count(), 0);
+    }
 
     catalog.importCatalogFile(QUrl::fromLocalFile(sourcePath), u"default_cards"_s);
     QTRY_VERIFY_WITH_TIMEOUT(!catalog.busy(), 10'000);
@@ -1326,7 +1448,9 @@ const auto kCardsTableSql = u"CREATE TABLE cards ("
                             "power TEXT, toughness TEXT, oracle_text TEXT, "
                             "legality_statuses TEXT NOT NULL DEFAULT '')"_s;
 
-bool writeBoltAndTokenCatalog(const QString &storagePath)
+bool writeBoltAndTokenCatalog(const QString &storagePath,
+                              const QString &imageUrl = u"https://example.test/bolt.jpg"_s,
+                              const QString &cardName = u"Lightning Bolt"_s)
 {
     const QString sourcePath = storagePath + QStringLiteral("/bulk.json");
     const QString databasePath = storagePath + QStringLiteral("/cards.sqlite");
@@ -1334,13 +1458,13 @@ bool writeBoltAndTokenCatalog(const QString &storagePath)
         QJsonObject{
             {u"id"_s, u"card-1"_s},
             {u"oracle_id"_s, u"oracle-1"_s},
-            {u"name"_s, u"Lightning Bolt"_s},
+            {u"name"_s, cardName},
             {u"type_line"_s, u"Instant"_s},
             {u"set"_s, u"M11"_s},
             {u"collector_number"_s, u"149"_s},
             {u"lang"_s, u"en"_s},
             {u"layout"_s, u"normal"_s},
-            {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://example.test/bolt.jpg"_s}}},
+            {u"image_uris"_s, QJsonObject{{u"normal"_s, imageUrl}}},
         },
         QJsonObject{
             {u"id"_s, u"token-1"_s},
@@ -1439,6 +1563,185 @@ void TestCardCatalog::cachesEveryFaceOfDoubleFacedPrinting() const
     QVERIFY(
         catalog.imageSource(u"Insectile Aberration"_s, u"MID"_s, u"47"_s).startsWith(u"file:"_s));
     QVERIFY(network.requestedUrls.contains(QUrl(u"https://images.test/delver-back.png"_s)));
+}
+
+void TestCardCatalog::coldDoubleFaceAvailabilityRefreshesCanonicalDeck_data() const
+{
+    QTest::addColumn<QString>("deckCardName");
+    QTest::newRow("front-name") << u"Delver of Secrets"_s;
+    QTest::newRow("canonical-name") << u"Delver of Secrets // Insectile Aberration"_s;
+}
+
+void TestCardCatalog::coldDoubleFaceAvailabilityRefreshesCanonicalDeck() const
+{
+    QFETCH(QString, deckCardName);
+    using hexproof::client::DeckCard;
+    using hexproof::client::DeckLibraryModel;
+    QTemporaryDir storage;
+    QTemporaryDir decks;
+    QVERIFY(storage.isValid());
+    QVERIFY(decks.isValid());
+    QVERIFY2(writeDoubleFacedCatalog(storage.path()), "test catalog import failed");
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    DeckLibraryModel library(decks.path());
+    library.setImagePathResolver([&catalog](const DeckCard &card) {
+        return QUrl(catalog.imageSource(card.name, card.setCode, card.collectorNumber))
+            .toLocalFile();
+    });
+    connect(&catalog, &CardCatalog::cardAvailable, &library, &DeckLibraryModel::applyCardMetadata);
+    QVERIFY(library.importDeck(u"Other printing"_s, u"custom"_s,
+                               u"7 %1 (V17) 7\n"_s.arg(deckCardName)));
+    const QString otherDeckId = library.data(library.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(
+        library.importDeck(u"Cold cache"_s, u"custom"_s, u"7 %1 (MID) 47\n"_s.arg(deckCardName)));
+    const QString deckId = library.data(library.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(library.openDeck(deckId));
+    QCOMPARE(library.currentMissingImageCount(), 1);
+    QVERIFY(!library.currentReady());
+    const QVariantMap initialCard = library.mainCards().first().toMap();
+    QVERIFY(initialCard.value(u"imageSourceResolved"_s).toBool());
+    QVERIFY(initialCard.value(u"imageSource"_s).toString().isEmpty());
+    QVERIFY(network.requestedUrls.isEmpty());
+
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    QSignalSpy available(&catalog, &CardCatalog::cardAvailable);
+    const QVariantList faces =
+        catalog.expandCardFaceRequests(library.cardArtExportRequests(deckId));
+    QCOMPARE(faces.size(), 2);
+    // Complete the reverse first, as can happen after a front download fails
+    // and is retried. It must not make the whole printing ready with back art.
+    catalog.cacheCards({faces.last()});
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 3'000);
+    QVERIFY(completed.first().at(3).toBool());
+    QCOMPARE(available.count(), 1);
+    QCOMPARE(available.first().at(0).toString(), u"Insectile Aberration"_s);
+    QVERIFY(catalog.imageSource(u"Delver of Secrets // Insectile Aberration"_s, u"MID"_s, u"47"_s)
+                .isEmpty());
+    QCOMPARE(library.currentMissingImageCount(), 1);
+    QVERIFY(!library.currentReady());
+    catalog.cacheCards({faces.first()});
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 2, 3'000);
+    for (const auto &completion : completed)
+        QVERIFY(completion.at(3).toBool());
+    const QString frontSource = catalog.imageSource(u"Delver of Secrets"_s, u"MID"_s, u"47"_s);
+    QVERIFY(QFile::exists(QUrl(frontSource).toLocalFile()));
+    QVERIFY(QFile::exists(
+        QUrl(catalog.imageSource(u"Insectile Aberration"_s, u"MID"_s, u"47"_s)).toLocalFile()));
+    QCOMPARE(catalog.imageSource(u"Delver of Secrets // Insectile Aberration"_s, u"MID"_s, u"47"_s),
+             frontSource);
+    QVERIFY(network.requestedUrls.contains(QUrl(u"https://images.test/delver-front.png"_s)));
+    QVERIFY(network.requestedUrls.contains(QUrl(u"https://images.test/delver-back.png"_s)));
+
+    // The catalog has both images, but a full-name imported row must also drop
+    // its memoized missing path without reopening the deck or refreshing it.
+    QTRY_COMPARE_WITH_TIMEOUT(library.currentMissingImageCount(), 0, 1'000);
+    QVERIFY(library.currentReady());
+    const QVariantMap card = library.mainCards().first().toMap();
+    QCOMPARE(card.value(u"name"_s).toString(), deckCardName);
+    QCOMPARE(card.value(u"setCode"_s).toString(), u"MID"_s);
+    QCOMPARE(card.value(u"collectorNumber"_s).toString(), u"47"_s);
+    QCOMPARE(card.value(u"imageSource"_s).toString(), frontSource);
+    available.clear();
+    catalog.cacheCards({faces.last()});
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 3, 1'000);
+    QCOMPARE(available.count(), 1);
+    QCOMPARE(available.first().at(0).toString(), u"Insectile Aberration"_s);
+    QCOMPARE(library.mainCards().first().toMap().value(u"imageSource"_s).toString(), frontSource);
+    QVERIFY(library.openDeck(otherDeckId));
+    QCOMPARE(library.currentMissingImageCount(), 1);
+    QVERIFY(!library.currentReady());
+    QVERIFY(library.mainCards().first().toMap().value(u"imageSource"_s).toString().isEmpty());
+    QCOMPARE(library.mainCards().first().toMap().value(u"setCode"_s).toString(), u"V17"_s);
+}
+
+void TestCardCatalog::prepareAvailabilityDoesNotRefreshStandaloneNames() const
+{
+    using hexproof::client::DeckCard;
+    using hexproof::client::DeckLibraryModel;
+    QTemporaryDir storage;
+    QTemporaryDir decks;
+    QVERIFY(storage.isValid());
+    QVERIFY(decks.isValid());
+    const QString wholeName = u"Emeritus of Truce // Swords to Plowshares"_s;
+    const QJsonArray cards{
+        QJsonObject{
+            {u"id"_s, u"emeritus-1"_s},
+            {u"oracle_id"_s, u"emeritus-oracle"_s},
+            {u"name"_s, wholeName},
+            {u"type_line"_s, u"Creature — Cat Cleric // Instant"_s},
+            {u"set"_s, u"SOS"_s},
+            {u"collector_number"_s, u"13"_s},
+            {u"lang"_s, u"en"_s},
+            {u"layout"_s, u"prepare"_s},
+            {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://images.test/emeritus.png"_s}}},
+            {u"card_faces"_s, QJsonArray{QJsonObject{{u"name"_s, u"Emeritus of Truce"_s},
+                                                     {u"type_line"_s, u"Creature — Cat Cleric"_s}},
+                                         QJsonObject{{u"name"_s, u"Swords to Plowshares"_s},
+                                                     {u"type_line"_s, u"Instant"_s}}}}},
+        QJsonObject{
+            {u"id"_s, u"swords-1"_s},
+            {u"oracle_id"_s, u"swords-oracle"_s},
+            {u"name"_s, u"Swords to Plowshares"_s},
+            {u"type_line"_s, u"Instant"_s},
+            {u"set"_s, u"STA"_s},
+            {u"collector_number"_s, u"10"_s},
+            {u"lang"_s, u"en"_s},
+            {u"layout"_s, u"normal"_s},
+            {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://images.test/swords.png"_s}}}},
+    };
+    QFile source(storage.filePath(u"bulk.json"_s));
+    QVERIFY(source.open(QIODevice::WriteOnly));
+    const QByteArray payload = QJsonDocument(cards).toJson(QJsonDocument::Compact);
+    QCOMPARE(source.write(payload), payload.size());
+    source.close();
+    const auto imported = CardCatalog::importBulkFile(
+        source.fileName(), storage.filePath(u"cards.sqlite"_s), u"default_cards"_s);
+    QVERIFY(imported.ok);
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    DeckLibraryModel library(decks.path());
+    library.setImagePathResolver([&catalog](const DeckCard &card) {
+        return QUrl(catalog.imageSource(card.name, card.setCode, card.collectorNumber))
+            .toLocalFile();
+    });
+    connect(&catalog, &CardCatalog::cardAvailable, &library, &DeckLibraryModel::applyCardMetadata);
+    QVERIFY(library.importDeck(u"Standalone spell"_s, u"custom"_s,
+                               u"7 Swords to Plowshares (STA) 10\n"_s));
+    const QString standaloneId =
+        library.data(library.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(
+        library.importDeck(u"Prepare card"_s, u"custom"_s, u"7 %1 (SOS) 13\n"_s.arg(wholeName)));
+    const QString prepareId = library.data(library.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(library.openDeck(prepareId));
+    QCOMPARE(library.currentMissingImageCount(), 1);
+    QVERIFY(!library.currentReady());
+    const QVariantList requests =
+        catalog.expandCardFaceRequests(library.cardArtExportRequests(prepareId));
+    QCOMPARE(requests.size(), 1);
+    QCOMPARE(requests.first().toMap().value(u"name"_s).toString(), wholeName);
+
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    QSignalSpy available(&catalog, &CardCatalog::cardAvailable);
+    catalog.cacheCards(requests);
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 3'000);
+    QVERIFY(completed.first().at(3).toBool());
+    QTRY_VERIFY_WITH_TIMEOUT(library.currentReady(), 1'000);
+    QCOMPARE(library.currentMissingImageCount(), 0);
+    QCOMPARE(available.count(), 1);
+    QCOMPARE(available.first().at(0).toString(), wholeName);
+    QCOMPARE(network.requestedUrls, QList<QUrl>{QUrl(u"https://images.test/emeritus.png"_s)});
+    const QVariantMap prepared = library.mainCards().first().toMap();
+    QCOMPARE(prepared.value(u"name"_s).toString(), wholeName);
+    QCOMPARE(prepared.value(u"setCode"_s).toString(), u"SOS"_s);
+    QVERIFY(!prepared.value(u"imageSource"_s).toString().isEmpty());
+    QVERIFY(library.openDeck(standaloneId));
+    QCOMPARE(library.currentMissingImageCount(), 1);
+    QVERIFY(!library.currentReady());
+    QVERIFY(library.mainCards().first().toMap().value(u"imageSource"_s).toString().isEmpty());
+    QCOMPARE(library.mainCards().first().toMap().value(u"name"_s).toString(),
+             u"Swords to Plowshares"_s);
+    QCOMPARE(library.mainCards().first().toMap().value(u"setCode"_s).toString(), u"STA"_s);
 }
 
 void TestCardCatalog::exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() const
@@ -1711,4 +2014,123 @@ void TestCardCatalog::exposesIndependentCatalogErrorsWhenMultipleSubsystemsFail(
     QVERIFY(!catalog.printingsError().isEmpty());
     QVERIFY(catalog.lastError() != catalog.tokenSearchError());
     QVERIFY(catalog.lastError() != catalog.printingsError());
+}
+
+void TestCardCatalog::cardSearchInvalidatesDuringCatalogReplacement_data() const
+{
+    QTest::addColumn<bool>("settledSearch");
+    QTest::addColumn<bool>("failedImport");
+    QTest::addColumn<bool>("clearDuringImport");
+    for (const bool settled : {false, true}) {
+        for (const bool failed : {false, true}) {
+            for (const bool clear : {false, true}) {
+                const QByteArray name = QByteArray(settled ? "settled" : "pending-result") +
+                                        (failed ? "-failed-import" : "-replacement") +
+                                        (clear ? "-closed" : "-open");
+                QTest::newRow(name.constData()) << settled << failed << clear;
+            }
+        }
+    }
+}
+
+void TestCardCatalog::cardSearchInvalidatesDuringCatalogReplacement() const
+{
+    QFETCH(bool, settledSearch);
+    QFETCH(bool, failedImport);
+    QFETCH(bool, clearDuringImport);
+    QTemporaryDir storage;
+    QTemporaryDir replacement;
+    QVERIFY(storage.isValid());
+    QVERIFY(replacement.isValid());
+    QVERIFY(writeBoltAndTokenCatalog(storage.path()));
+    QVERIFY(writeBoltAndTokenCatalog(replacement.path(), u"https://example.test/strike.jpg"_s,
+                                     u"Lightning Strike"_s));
+    QString importPath = replacement.filePath(u"cards.sqlite"_s);
+    if (failedImport) {
+        importPath = replacement.filePath(u"invalid.json"_s);
+        QFile invalid(importPath);
+        QVERIFY(invalid.open(QIODevice::WriteOnly));
+        QCOMPARE(invalid.write("invalid"), 7);
+    }
+    CardCatalog catalog(storage.path());
+    QSemaphore started, release;
+    auto *pool = hexproof::client::BackgroundTaskPools::catalogMaintenance();
+    const int workers = pool->maxThreadCount();
+    for (int index = 0; index < workers; ++index) {
+        pool->start([&] {
+            started.release();
+            release.acquire();
+        });
+    }
+    const auto cleanup = qScopeGuard([&] {
+        release.release(workers);
+        pool->waitForDone();
+    });
+    QVERIFY(started.tryAcquire(workers, 5'000));
+
+    catalog.search(u"Lightning"_s);
+    if (settledSearch)
+        QTRY_COMPARE(catalog.searchResults().size(), 1);
+    else
+        QVERIFY(catalog.searching());
+    catalog.importCatalogFile(QUrl::fromLocalFile(importPath), u"default_cards"_s);
+    QVERIFY(catalog.busy());
+    // The old search may finish while the replacement is still queued. Neither
+    // a settled list nor a late result may remain selectable during that wait.
+    if (clearDuringImport)
+        catalog.search({});
+    QVERIFY(hexproof::client::BackgroundTaskPools::catalogSearch()->waitForDone(5'000));
+    QTest::qWait(20);
+    QVERIFY(catalog.busy());
+    QVERIFY(!catalog.searching());
+    QVERIFY(catalog.searchResults().isEmpty());
+
+    release.release(workers);
+    QTRY_VERIFY_WITH_TIMEOUT(!catalog.busy(), 5'000);
+    QCOMPARE(catalog.operationError().isEmpty(), !failedImport);
+    if (clearDuringImport) {
+        QVERIFY(catalog.searchResults().isEmpty());
+        catalog.search(u"Lightning"_s);
+    }
+    QTRY_COMPARE(catalog.searchResults().size(), 1);
+    QCOMPARE(catalog.searchResults().first().toMap().value(u"name"_s).toString(),
+             failedImport ? u"Lightning Bolt"_s : u"Lightning Strike"_s);
+}
+
+void TestCardCatalog::directImageRetryKeepsCacheOperationActive() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(writeBoltAndTokenCatalog(storage.path(), u"https://cards.scryfall.io/bolt.jpg"_s));
+    FakeNetworkAccessManager network;
+    network.scryfallImageTimeoutsRemaining = 1;
+    CardCatalog catalog(storage.path(), &network);
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    bool idleBeforeCompletion = false;
+    connect(&catalog, &CardCatalog::busyChanged, &catalog, [&] {
+        if (network.scryfallImageRequestCount > 0 && completed.isEmpty() && !catalog.busy())
+            idleBeforeCompletion = true;
+    });
+    catalog.cacheCards({QVariantMap{{u"name"_s, u"Lightning Bolt"_s},
+                                    {u"setCode"_s, u"M11"_s},
+                                    {u"collectorNumber"_s, u"149"_s}}});
+    QTRY_COMPARE(network.scryfallImageRequestCount, 1);
+    // The first reply has failed, but its retry timer still owns the request.
+    // Keep progress active and exclusive index operations blocked in that gap.
+    QTest::qWait(50);
+    QVERIFY(completed.isEmpty());
+    QVERIFY(catalog.busy());
+    QVERIFY(catalog.cacheProgressActive());
+    QVERIFY(!idleBeforeCompletion);
+    catalog.artManager()->exportPack(
+        QUrl::fromLocalFile(storage.filePath(u"cache.hexproof-artpack"_s)), false);
+    QVERIFY(!catalog.artManager()->busy());
+    QVERIFY(!catalog.artManager()->lastError().isEmpty());
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 3'000);
+    QVERIFY(completed.first().last().toBool());
+    QTRY_VERIFY(!catalog.busy());
+    QVERIFY(!catalog.cacheProgressActive());
+    QCOMPARE(network.scryfallImageRequestCount, 2);
+    QCOMPARE(network.scryfallRequestCount, 0);
+    QVERIFY(!idleBeforeCompletion);
 }

@@ -15,6 +15,10 @@ Surface {
     property alias chatInput: chatInputField
     readonly property var sourceEntries:
         tableController.tableGameLog ? tableController.tableGameLog : []
+    readonly property var catalogModel: tableController.cardCatalogModel || null
+    readonly property var publicSeats: tableController.gameTableModel
+                                       ? tableController.gameTableModel.seats : []
+    property int catalogRevision: 0
     property int synchronizationGeneration: 0
 
     objectName: "gameLogRail"
@@ -23,12 +27,36 @@ Surface {
     Layout.maximumWidth: root.tableController.gameLogRailWidth
     Layout.fillHeight: true
     visible: root.tableController.showGameLogRail
-    color: Theme.surfaceMuted
+    color: Theme.tableRailFill
     radius: 0
     border.width: 0
 
     ListModel {
         id: gameLogModel
+    }
+
+    Connections {
+        target: root.catalogModel
+        ignoreUnknownSignals: true
+        function onCatalogChanged() { ++root.catalogRevision }
+    }
+
+    function localizedCardName(name) {
+        const catalog = catalogModel
+        if (!catalog || typeof catalog.cardDisplayName !== "function")
+            return name
+        void catalogRevision
+        void catalog.language
+        void catalog.imageRevision
+        return catalog.cardDisplayName(name)
+    }
+
+    function actorName(seat) {
+        for (const player of publicSeats) {
+            if (Number(player.seat) === seat)
+                return player.displayName || ""
+        }
+        return ""
     }
 
     function normalizedEntry(entry) {
@@ -146,7 +174,7 @@ Surface {
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         width: Theme.size(2)
-        color: Theme.borderStrong
+        color: Theme.tableDivider
         z: 20
     }
 
@@ -188,8 +216,10 @@ Surface {
                 textFormat: Text.PlainText
                 required property string logText
                 required property string kind
+                required property int seat
                 width: ListView.view.width
-                text: I18n.gameLog(kind, logText)
+                text: I18n.gameLog(kind, logText, root.localizedCardName,
+                                   root.actorName(seat))
                 color: kind === "chat"
                        ? Theme.primary : Theme.textMuted
                 font.pixelSize: Theme.fontSize(10)

@@ -15,10 +15,12 @@ class DeckLibraryQueries
 {
   public:
     static QString commanderDisplayName(const Deck &deck);
-    static bool deckReady(const Deck &deck, const QVariantMap &validation = {});
+    static bool deckReady(const Deck &deck, const QVariantMap &validation = {},
+                          int missingImages = -1);
     static bool deckSelectable(const Deck &deck, bool allowMissingArt,
-                               const QVariantMap &validation = {});
-    static QString deckStatus(const Deck &deck, const QVariantMap &validation = {});
+                               const QVariantMap &validation = {}, int missingImages = -1);
+    static QString deckStatus(const Deck &deck, const QVariantMap &validation = {},
+                              int missingImages = -1);
     static int missingImageCount(const Deck &deck);
     static int missingImageCount(const QVector<DeckCard> &cards);
     static bool hasMissingArt(const QVector<Deck> &decks);

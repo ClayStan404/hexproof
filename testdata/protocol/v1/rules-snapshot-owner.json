@@ -17,6 +17,9 @@
         "counters": [],
         "manaPool": [
           {"name": "W", "value": 0}
+        ],
+        "commanders": [
+          {"name": "Isamaru, Hound of Konda", "casts": 2, "tax": 4, "zone": "hidden"}
         ]
       },
       {
@@ -25,7 +28,8 @@
         "status": "playing",
         "life": 20,
         "counters": [],
-        "manaPool": []
+        "manaPool": [],
+        "commanders": []
       }
     ],
     "zones": [

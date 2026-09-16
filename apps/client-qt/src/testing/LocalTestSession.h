@@ -15,7 +15,7 @@ namespace hexproof::client {
 class WsClient;
 
 // Opt-in workstation automation. All actions use the ordinary client facade;
-// this controller never chooses cards, submits decks, or bypasses the server.
+// optional Cube auto-draft uses server-owned picks. Deck construction stays manual.
 class LocalTestSession final : public QObject
 {
     Q_OBJECT
@@ -29,6 +29,9 @@ class LocalTestSession final : public QObject
         int players = 0;
         int seat = 0;
         int timeoutMs = 90'000;
+        QString cube = {};
+        bool autoDraft = false;
+        bool commanderCube() const;
         QString eventName() const;
         bool valid() const;
     };
@@ -63,6 +66,7 @@ class LocalTestSession final : public QObject
     bool m_registerSent = false;
     bool m_checkInSent = false;
     bool m_startSent = false;
+    bool m_autoDraftSent = false;
     qint64 m_lastListAt = -1'000;
 };
 

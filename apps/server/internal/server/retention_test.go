@@ -291,9 +291,15 @@ func TestRetainedReplayDoesNotLeakFaceDownCounterIdentity(t *testing.T) {
 			Battlefield: []protocol.GameCard{{
 				ID: "secret", Name: "Demonic Tutor", OwnerSeat: 0, FaceDown: true,
 			}},
+			Library: []protocol.GameCard{{ID: "exile-secret", Name: "Secret exiled card", OwnerSeat: 0}},
 		}},
 		NextLogID:         1,
 		NextCardCounterID: 1,
+	}
+	if _, err := r.MoveCard("host", protocol.GameMoveCard{
+		FromZone: protocol.ZoneLibrary, ToZone: protocol.ZoneExile, FaceDown: true,
+	}); err != nil {
+		t.Fatalf("exile library top: %v", err)
 	}
 	value := 1
 	if _, err := r.SetCardCounter("host", protocol.GameSetCardCounter{
@@ -318,6 +324,7 @@ func TestRetainedReplayDoesNotLeakFaceDownCounterIdentity(t *testing.T) {
 		t.Fatalf("marshal replay: %v", err)
 	}
 	if strings.Contains(string(encoded), "Demonic Tutor") ||
+		strings.Contains(string(encoded), "Secret exiled card") ||
 		!strings.Contains(string(encoded), "a face-down card") {
 		t.Fatalf("replay leaked face-down identity: %s", encoded)
 	}

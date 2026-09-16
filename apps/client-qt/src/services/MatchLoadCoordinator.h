@@ -21,6 +21,9 @@ class MatchLoadCoordinator : public QObject
     Q_PROPERTY(qint64 loadId READ loadId NOTIFY stateChanged)
     Q_PROPERTY(int total READ total NOTIFY stateChanged)
     Q_PROPERTY(int completed READ completed NOTIFY stateChanged)
+    Q_PROPERTY(int localAvailable READ localAvailable NOTIFY stateChanged)
+    Q_PROPERTY(int downloadTotal READ downloadTotal NOTIFY stateChanged)
+    Q_PROPERTY(int downloaded READ downloaded NOTIFY stateChanged)
     Q_PROPERTY(int failed READ failed NOTIFY stateChanged)
     Q_PROPERTY(qreal progress READ progress NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
@@ -55,6 +58,18 @@ class MatchLoadCoordinator : public QObject
     int failed() const
     {
         return m_failed.size();
+    }
+    int localAvailable() const
+    {
+        return m_localAvailable;
+    }
+    int downloadTotal() const
+    {
+        return total() - m_localAvailable;
+    }
+    int downloaded() const
+    {
+        return completed() - m_localAvailable - failed();
     }
     qreal progress() const;
     QString lastError() const
@@ -106,6 +121,7 @@ class MatchLoadCoordinator : public QObject
     QStringList m_requestOrder;
     QSet<QString> m_pending;
     QSet<QString> m_failed;
+    int m_localAvailable = 0;
     QString m_lastError;
 };
 

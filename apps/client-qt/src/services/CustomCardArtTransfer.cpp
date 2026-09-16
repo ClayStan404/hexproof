@@ -235,6 +235,10 @@ WorkResult inspectDirectory(const QString &directory, const QString &databasePat
     WorkResult result;
     result.staging = staging;
     result.preview.insert(u"kind"_s, u"directory"_s);
+    if (!QFileInfo(directory).isDir()) {
+        result.error = u"Choose a readable local artwork directory."_s;
+        return result;
+    }
     if (!staging || !staging->isValid()) {
         result.error = u"Could not create a private custom artwork preview."_s;
         return result;

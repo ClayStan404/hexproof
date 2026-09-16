@@ -9,6 +9,8 @@ Popup {
     id: root
 
     property var preferencesModel: preferences
+    property string applicationVersion: Qt.application.version
+    readonly property string announcementId: "sponsors:" + applicationVersion
     property bool acknowledged: false
     signal viewSponsorsRequested()
 
@@ -110,7 +112,7 @@ Popup {
     function openIfNeeded() {
         if (root.preferencesModel
                 && !root.preferencesModel.sponsorAnnouncementSeen(
-                    SponsorCatalog.announcementId)) {
+                    root.announcementId)) {
             root.open()
         }
     }
@@ -119,7 +121,7 @@ Popup {
         if (root.acknowledged || !root.preferencesModel)
             return
         root.preferencesModel.acknowledgeSponsorAnnouncement(
-            SponsorCatalog.announcementId)
+            root.announcementId)
         root.acknowledged = true
     }
 }

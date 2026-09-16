@@ -102,6 +102,7 @@ Item {
         libraryAccessConfirmation,
         publicZoneMoveConfirmation,
         tableSettingsPopup,
+        tableBackgroundPopup,
         gameResultPopup,
         landPlayPopup,
         shortcutHelp
@@ -220,6 +221,7 @@ Item {
     TableSettingsPopup {
         id: tableSettingsPopup
         objectName: "tableSettingsPopup"
+        onBackgroundRequested: tableBackgroundPopup.open()
         onSettingsRequested: function(showPlayers, showShared,
                                       showInspector, counterCount,
                                       showGameLog) {
@@ -227,6 +229,11 @@ Item {
                         showPlayers, showShared, showInspector,
                         counterCount, showGameLog)
         }
+    }
+
+    TableBackgroundPopup {
+        id: tableBackgroundPopup
+        preferencesModel: root.tableController.preferencesModel
     }
 
     TableShortcutHelp {

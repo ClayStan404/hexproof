@@ -69,6 +69,15 @@ TestCase {
         testWindow.height = data.height
         Theme.uiScale = data.scale
         waitForRendering(editor)
+        const quickSearch = findChild(editor, "deckEditorQuickSearchButton")
+        if (editor.compactLayout) {
+            verify(quickSearch.visible)
+            const position = quickSearch.mapToItem(testWindow.contentItem, 0, 0)
+            verify(position.x >= 0 && position.y >= 0
+                   && position.x + quickSearch.width <= testWindow.width
+                   && position.y + quickSearch.height <= testWindow.height,
+                   "Compact catalog search must remain reachable without scrolling the deck")
+        }
         const surface = findChild(editor, "deckEditorMainSurface")
         for (const name of ["deckNameField", "exportCurrentDeckButton", "cacheCurrentDeckArtButton",
                             "manageConsiderButton", "deckEditorViewMode", "deckEditorGroupMode", "deckEditorSortMode"]) {

@@ -80,10 +80,19 @@ func (e *Event) submitDeck(participantID string, request protocol.LimitedSubmitD
 	for _, card := range player.Pool {
 		pool[card.ID] = card
 	}
+	optional := make(map[string]*CardInstance)
+	for _, card := range e.optionalCards(participantID) {
+		optional[card.ID] = card
+	}
+	optionalCount := 0
 	selected := make(map[string]bool, len(request.MainboardInstanceIDs))
 	mainboard := make(map[cardKey]int)
 	for _, instanceID := range request.MainboardInstanceIDs {
 		card := pool[instanceID]
+		if card == nil {
+			card = optional[instanceID]
+			optionalCount++
+		}
 		if card == nil || selected[instanceID] {
 			return nil, fail(ErrDeckInvalid, "main deck contains an unavailable pool card")
 		}
@@ -95,7 +104,7 @@ func (e *Event) submitDeck(participantID string, request protocol.LimitedSubmitD
 		return nil, err
 	}
 	mainboardCount := len(request.MainboardInstanceIDs)
-	totalCount := len(player.Pool)
+	totalCount := len(player.Pool) + optionalCount
 	for _, commander := range commanders {
 		if pool[commander.ID] == nil {
 			appendDeckCard(mainboard, commander)

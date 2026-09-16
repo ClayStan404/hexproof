@@ -137,6 +137,7 @@ DeckExportResult exportDeckPack(const QString &path, const QString &imageRoot,
 
         QString canonicalName;
         QStringList faces;
+        QHash<QString, int> relatedFacesByPrinting;
         if (hasCatalog) {
             QString error;
             const QVariantList cardFaces =
@@ -147,9 +148,28 @@ DeckExportResult exportDeckPack(const QString &path, const QString &imageRoot,
                 result.operation.error = QStringLiteral("Could not read card faces.");
                 return result;
             }
-            for (const QVariant &face : cardFaces)
-                faces.append(
-                    normalizedCardName(face.toMap().value(QStringLiteral("name")).toString()));
+            for (const QVariant &value : cardFaces) {
+                const QVariantMap face = value.toMap();
+                const int faceIndex = faces.size();
+                faces.append(normalizedCardName(face.value(QStringLiteral("name")).toString()));
+                if (!face.value(QStringLiteral("relatedCard")).toBool())
+                    continue;
+                // Meld results are separate catalog printings, with their own
+                // cache keys, rather than marked backs of the front printing.
+                const QVariantMap front = cardFaces.first().toMap();
+                if ((!setCode.isEmpty() && front.value(QStringLiteral("setCode"))
+                                                   .toString()
+                                                   .compare(setCode, Qt::CaseInsensitive) != 0) ||
+                    (!collector.isEmpty() &&
+                     front.value(QStringLiteral("collectorNumber")).toString() != collector))
+                    continue;
+                const QString relatedSet = face.value(QStringLiteral("setCode")).toString();
+                const QString relatedNumber =
+                    face.value(QStringLiteral("collectorNumber")).toString();
+                if (!relatedSet.isEmpty() && !relatedNumber.isEmpty())
+                    relatedFacesByPrinting.insert(printingKey(relatedSet, relatedNumber),
+                                                  faceIndex);
+            }
         }
         result.faceCoverageVerified = result.faceCoverageVerified && !canonicalName.isEmpty();
 
@@ -188,6 +208,9 @@ DeckExportResult exportDeckPack(const QString &path, const QString &imageRoot,
             }
             candidateIndexes = std::move(matchingIndexes);
         }
+        for (auto related = relatedFacesByPrinting.cbegin();
+             related != relatedFacesByPrinting.cend(); ++related)
+            addCandidates(entriesByPrinting.values(related.key()));
         // Without a metadata database, an explicit cached face marker still
         // lets us include both known faces. Do not split prepare/adventure
         // names merely because they contain " // ".
@@ -210,13 +233,24 @@ DeckExportResult exportDeckPack(const QString &path, const QString &imageRoot,
         printing.faceEntryKeys.resize(faces.size());
         for (const qsizetype index : std::as_const(candidateIndexes)) {
             const IndexedEntry &identity = identities.at(index);
-            if ((!setCode.isEmpty() &&
-                 identity.setCode.compare(setCode, Qt::CaseInsensitive) != 0) ||
-                (!collector.isEmpty() && identity.collectorNumber != collector)) {
-                continue;
-            }
             const CardArtCacheEntry &entry = entries.at(index);
-            const int face = matchingFace(entry, identity, faces);
+            int face = -1;
+            const auto related = relatedFacesByPrinting.constFind(
+                printingKey(identity.setCode, identity.collectorNumber));
+            if (related != relatedFacesByPrinting.cend()) {
+                const QString &expectedName = faces.at(related.value());
+                const QString marker = normalizedCardName(entry.record.faceName);
+                if ((identity.requestedName == expectedName ||
+                     normalizedCardName(entry.record.name) == expectedName) &&
+                    (marker.isEmpty() || marker == expectedName))
+                    face = related.value();
+            } else {
+                if ((!setCode.isEmpty() &&
+                     identity.setCode.compare(setCode, Qt::CaseInsensitive) != 0) ||
+                    (!collector.isEmpty() && identity.collectorNumber != collector))
+                    continue;
+                face = matchingFace(entry, identity, faces);
+            }
             if (face < 0) {
                 unusableFaceKeys.insert(entry.cacheKey);
                 continue;

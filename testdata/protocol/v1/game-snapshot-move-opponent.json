@@ -57,6 +57,7 @@
         "libraryCount": 1,
         "handCount": 1,
         "mulliganCount": 0,
+        "turnCount": 0,
         "battlefield": [
           {
             "id": "s0-c1",
@@ -117,6 +118,7 @@
         "libraryCount": 1,
         "handCount": 1,
         "mulliganCount": 0,
+        "turnCount": 1,
         "hand": [
           {
             "id": "s1-c1",

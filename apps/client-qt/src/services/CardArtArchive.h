@@ -23,6 +23,8 @@ struct OperationResult
     QList<CardArtCacheEntry> importedEntries;
     QSet<QString> retainedEntryKeys;
     QSet<QString> exportedEntryKeys;
+    // Successful imports transfer rollback ownership until the index commits.
+    QSet<QString> createdImagePaths;
 };
 
 struct DeckExportResult

@@ -26,9 +26,27 @@ TestCase {
         function submitChatMessage() { ++submitCalls; return true }
     }
 
+    QtObject {
+        id: fakeCatalog
+        property string language: "en"
+        property int imageRevision: 0
+        property var names: ({"Lightning Bolt": "闪电击"})
+        signal catalogChanged()
+        function cardDisplayName(name) {
+            return language === "zh" ? names[name] || name : name
+        }
+    }
+
+    QtObject {
+        id: fakeGameTable
+        property var seats: [{seat: 0, displayName: "Alice: %2"}]
+    }
+
     Item {
         id: fakeTable
         property var cardActions: fakeActions
+        property var cardCatalogModel: fakeCatalog
+        property var gameTableModel: fakeGameTable
         property var tableGameLog: []
         property bool showGameLogRail: true
         property real gameLogRailWidth: 200
@@ -45,6 +63,8 @@ TestCase {
 
     function init() {
         testTranslations.setLanguage("en")
+        fakeCatalog.language = "en"
+        fakeCatalog.names = {"Lightning Bolt": "闪电击"}
         fakeTable.showGameLogRail = true
         fakeTable.canChat = true
         fakeActions.submitCalls = 0
@@ -124,6 +144,49 @@ TestCase {
                          && log.itemAtIndex(0).text
                             === "Alice 推进到宣攻阶段。")
         compare(log.itemAtIndex(0).text, "Alice 推进到宣攻阶段。")
+    }
+
+    function test_existingEntriesFollowInterfaceAndCardLanguagesIndependently() {
+        const source = "Alice moved Lightning Bolt from hand to graveyard."
+        fakeTable.tableGameLog = [
+            {id: 3, kind: "move_card", seat: 0, text: source},
+            {id: 4, kind: "chat", seat: 0, text: source}
+        ]
+        const log = findChild(rail, "gameLog")
+        tryVerify(() => log.itemAtIndex(0) !== null && log.itemAtIndex(1) !== null)
+        const entry = log.itemAtIndex(0)
+        compare(entry.text, source)
+        fakeCatalog.language = "zh"
+        tryCompare(entry, "text", "Alice moved 闪电击 from hand to graveyard.")
+        testTranslations.setLanguage("zh")
+        tryCompare(entry, "text", "Alice 将 闪电击 从手牌移至墓地。")
+        testTranslations.setLanguage("en")
+        tryCompare(entry, "text", "Alice moved 闪电击 from hand to graveyard.")
+        fakeCatalog.language = "en"
+        tryCompare(entry, "text", source)
+        compare(log.itemAtIndex(0), entry)
+        compare(log.itemAtIndex(1).text, source)
+        compare(fakeTable.tableGameLog[0].text, source)
+    }
+
+    function test_refreshesLocalNamesWhenCatalogOrCacheChanges() {
+        testTranslations.setLanguage("zh")
+        fakeCatalog.language = "zh"
+        fakeCatalog.names = {}
+        fakeTable.tableGameLog = [{
+            id: 3, kind: "rules_card", seat: 0,
+            text: "Alice: %2: Lightning Bolt in battlefield."
+        }]
+        const log = findChild(rail, "gameLog")
+        tryVerify(() => log.itemAtIndex(0) !== null)
+        const entry = log.itemAtIndex(0)
+        compare(entry.text, "Alice: %2: Lightning Bolt 位于战场。")
+        fakeCatalog.names["Lightning Bolt"] = "闪电击"
+        fakeCatalog.catalogChanged()
+        tryCompare(entry, "text", "Alice: %2: 闪电击 位于战场。")
+        delete fakeCatalog.names["Lightning Bolt"]
+        ++fakeCatalog.imageRevision
+        tryCompare(entry, "text", "Alice: %2: Lightning Bolt 位于战场。")
     }
 
     function test_forwardsChatActions() {

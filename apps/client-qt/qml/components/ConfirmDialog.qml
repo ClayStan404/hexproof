@@ -17,10 +17,10 @@ Popup {
     signal cancelled()
 
     parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
-    width: Math.min(Theme.size(420), parent.width - Theme.size(48))
-    height: Math.min(implicitHeight, parent.height - Theme.size(48))
+    x: parent ? Math.round((parent.width - width) / 2) : 0
+    y: parent ? Math.round((parent.height - height) / 2) : 0
+    width: parent ? Math.min(Theme.size(420), Math.max(0, parent.width - Theme.size(48))) : 0
+    height: parent ? Math.min(implicitHeight, Math.max(0, parent.height - Theme.size(48))) : 0
     padding: Theme.size(24)
     modal: true
     focus: true

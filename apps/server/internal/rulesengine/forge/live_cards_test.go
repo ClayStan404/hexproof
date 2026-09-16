@@ -14,7 +14,7 @@ import (
 
 // These are narrow, actual-card conformance scenarios, not a full card-pool
 // correctness claim. The decks deliberately repeat cards to exercise mechanics.
-func liveCardScenarios(t *testing.T, client *Client) {
+func liveCardScenarios(t *testing.T, config ProcessConfig) {
 	t.Helper()
 	for _, scenario := range []struct {
 		name, land, spell string
@@ -36,6 +36,7 @@ func liveCardScenarios(t *testing.T, client *Client) {
 		}},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
+			client := liveStartClient(t, config)
 			request := liveStartRequest(scenario.name, 2, "Constructed", 20,
 				liveDeck(scenario.land, scenario.spell, 24, 36))
 			if scenario.name == "prepare" {
@@ -51,7 +52,18 @@ func liveCardScenarios(t *testing.T, client *Client) {
 			evidence := &liveCardEvidence{scenario: scenario.name, adventure: make(map[string]bool)}
 			stats := livePlayWithPolicy(t, client, game.SessionID, 2, 0,
 				func(prompt PromptView, view GameView, stats map[string]int) PromptResponse {
+					if prompt.Kind == "chooseFromSelection" {
+						preferred := map[string]string{"adventure": "Create a 1/1 white Human creature token", "modal_land": "Bala Ged Sanctuary", "prepare": "Swords to Plowshares"}[scenario.name]
+						for _, choice := range prompt.Choices {
+							if preferred != "" && strings.Contains(choice.Label, preferred) {
+								return PromptResponse{ResponseID: "$submit", ChoiceIDs: []string{choice.ResponseID}}
+							}
+						}
+					}
 					if evidence.prepareCasting && prompt.Kind == "chooseBoardTargets" {
+						if prompt.MinSelected == 0 {
+							return PromptResponse{ResponseID: "$submit"}
+						}
 						for _, target := range prompt.Targets {
 							card, present := liveCardInZone(view, "battlefield", target.ID)
 							power, err := strconv.Atoi(card.Power)
@@ -67,6 +79,33 @@ func liveCardScenarios(t *testing.T, client *Client) {
 							prompt.Targets, view.Zones)
 					}
 					if prompt.Kind == "chooseAction" {
+						if scenario.name == "modal_land" {
+							key := "modal-land:" + strconv.Itoa(view.Turn) + ":" + strconv.Itoa(prompt.PlayerIndex)
+							options := prompt.Options[:0:0]
+							for _, option := range prompt.Options {
+								if strings.Contains(option.Label, "Bala Ged Recovery") {
+									if stats[key] == 0 {
+										stats[key] = 1
+										return PromptResponse{ResponseID: option.ResponseID}
+									}
+									continue
+								}
+								options = append(options, option)
+							}
+							prompt.Options = options
+						}
+						// Native priority publishes a card click before its ability
+						// menu. Use the public source zone to exercise special casts.
+						for _, option := range prompt.Options {
+							if card, found := liveCardInZone(view, "exile", option.CardID); found && card.Identity != nil {
+								if scenario.name == "adventure" && card.Identity.Name == "Lovestruck Beast" && liveAvailableMana(view, prompt.PlayerIndex) >= 3 {
+									return PromptResponse{ResponseID: option.ResponseID}
+								}
+								if scenario.name == "prepare" && card.Identity.Name == "Swords to Plowshares" && liveAvailableMana(view, prompt.PlayerIndex) >= 1 && !evidence.prepareCasting {
+									return PromptResponse{ResponseID: option.ResponseID}
+								}
+							}
+						}
 						if evidence.prepareCasting {
 							// Resolve one prepared spell at a time, so no second
 							// spell or combat damage can explain its life delta.
@@ -81,7 +120,7 @@ func liveCardScenarios(t *testing.T, client *Client) {
 							}
 						}
 					}
-					return liveAnswer(t, prompt, stats)
+					return liveAnswer(t, prompt, view, stats)
 				}, evidence)
 			for _, evidence := range scenario.want {
 				if stats[evidence] == 0 {
@@ -112,17 +151,19 @@ func (evidence *liveCardEvidence) submitted(t *testing.T, prompt PromptView,
 	t.Helper()
 	if prompt.Kind == "chooseAction" {
 		for _, option := range prompt.Options {
-			if option.ResponseID != answer.ResponseID || option.Kind != "cast" {
+			if option.ResponseID != answer.ResponseID {
 				continue
 			}
-			if evidence.scenario == "adventure" && option.Label == "Cast Lovestruck Beast" {
+			if evidence.scenario == "adventure" {
 				card, present := liveCardInZone(view, "exile", option.CardID)
 				if present && card.Identity != nil && card.Identity.Name == "Lovestruck Beast" {
 					evidence.adventure[option.CardID] = false
 					t.Logf("Adventure selected creature cast from exile: card=%s", option.CardID)
 				}
 			}
-			if evidence.scenario == "prepare" && option.Label == "Cast Swords to Plowshares" {
+			prepared, inExile := liveCardInZone(view, "exile", option.CardID)
+			if evidence.scenario == "prepare" && (option.Label == "Cast Swords to Plowshares" ||
+				inExile && prepared.Identity != nil && prepared.Identity.Name == "Swords to Plowshares") {
 				if evidence.prepareCasting {
 					t.Fatal("second prepared spell selected before the first was verified")
 				}
@@ -130,7 +171,7 @@ func (evidence *liveCardEvidence) submitted(t *testing.T, prompt PromptView,
 			}
 		}
 	}
-	if evidence.scenario != "prepare" || !evidence.prepareCasting || prompt.Kind != "chooseBoardTargets" {
+	if evidence.scenario != "prepare" || !evidence.prepareCasting || prompt.Kind != "chooseBoardTargets" || prompt.MinSelected == 0 {
 		return
 	}
 	if len(answer.TargetIDs) != 1 || evidence.prepare != nil {

@@ -20,8 +20,12 @@ func seatControlDraft(t *testing.T, eventType, coordinator string, seats int) (*
 	for index := range product.Sheets[0].Cards {
 		product.Sheets[0].Cards[index].Weight = seats
 	}
+	var settings *protocol.LimitedDraftSettings
+	if eventType == protocol.LimitedEventCommanderCube {
+		settings = &protocol.LimitedDraftSettings{PacksPerPlayer: 3, PacksPerBatch: 1}
+	}
 	event, err := New("SEATS1", Config{Name: "Seat control", Format: "Cube", EventType: eventType,
-		Coordinator: coordinator, MatchMode: "bo1", RoundMinutes: 50, MaxPlayers: seats, Product: &product},
+		Coordinator: coordinator, MatchMode: "bo1", RoundMinutes: 50, MaxPlayers: seats, Product: &product, DraftSettings: settings},
 		"Host", "host-conn", CredentialHash("host-token"), testNow)
 	if err != nil {
 		t.Fatal(err)

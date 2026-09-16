@@ -16,10 +16,11 @@ type Participant struct {
 }
 
 type Config struct {
-	TournamentID string
-	EventType    string
-	Product      protocol.LimitedProductDefinition
-	Participants []Participant
+	TournamentID  string
+	EventType     string
+	Product       protocol.LimitedProductDefinition
+	Participants  []Participant
+	DraftSettings *protocol.LimitedDraftSettings
 }
 
 type CardInstance struct {
@@ -33,8 +34,24 @@ type CardInstance struct {
 }
 
 type Pack struct {
-	ID    string
-	Cards []*CardInstance
+	ID        string
+	Cards     []*CardInstance
+	Companion *Pack
+}
+
+func (p *Pack) parts() []*Pack {
+	if p.Companion != nil {
+		return []*Pack{p, p.Companion}
+	}
+	return []*Pack{p}
+}
+
+func (p *Pack) cardCount() int {
+	count := len(p.Cards)
+	if p.Companion != nil {
+		count += len(p.Companion.Cards)
+	}
+	return count
 }
 
 type PlayerState struct {
@@ -52,18 +69,21 @@ type PlayerState struct {
 }
 
 type Event struct {
-	TournamentID string
-	EventType    string
-	Stage        string
-	Product      *Product
-	Players      []*PlayerState
-	playerByID   map[string]*PlayerState
-	random       *rand.Rand
-	packCount    int
-	packRound    int
-	instanceSeq  int
-	packSeq      int
-	cubeStock    []*CardInstance
+	TournamentID   string
+	EventType      string
+	Stage          string
+	Product        *Product
+	Players        []*PlayerState
+	playerByID     map[string]*PlayerState
+	random         *rand.Rand
+	packCount      int
+	cardsPerPack   int
+	packRound      int
+	packsPerBatch  int
+	packsThisBatch int
+	instanceSeq    int
+	packSeq        int
+	cubeStock      []*CardInstance
 }
 
 const (
@@ -76,7 +96,7 @@ const (
 	MaxSetDraftPlayers      = 8
 	MinCubeDraftPlayers     = 2
 	MaxCubeDraftPlayers     = 8
-	MaxCommanderCubePlayers = 4
+	MaxCommanderCubePlayers = 8
 )
 
 func CubeDraftCardsRequired(players int) int {
@@ -114,7 +134,7 @@ func New(config Config, seed int64) (*Event, error) {
 	}
 	if config.EventType == protocol.LimitedEventCommanderCube &&
 		len(config.Participants) > MaxCommanderCubePlayers {
-		return nil, fail(ErrInvalid, "Commander Cube requires two to four players at one table")
+		return nil, fail(ErrInvalid, "Commander Cube requires two to eight draft players")
 	}
 	product, err := NewProduct(config.Product)
 	if err != nil {
@@ -125,17 +145,23 @@ func New(config Config, seed int64) (*Event, error) {
 		return nil, fail(ErrInvalid, "limited event and product type do not match")
 	}
 	packCount := 0
+	settings, err := ResolveDraftSettings(config.EventType, len(config.Participants), config.DraftSettings)
+	if err != nil {
+		return nil, err
+	}
 	if config.EventType == protocol.LimitedEventSetSealed {
 		packCount = setSealedPacksPerPlayer
 	} else if config.EventType == protocol.LimitedEventSetDraft || isCube {
-		packCount = draftPacksPerPlayer
+		packCount = settings.PacksPerPlayer
 	}
 
 	event := &Event{
 		TournamentID: config.TournamentID, EventType: config.EventType,
 		Product: product, packCount: packCount,
-		playerByID: make(map[string]*PlayerState, len(config.Participants)),
-		random:     rand.New(rand.NewSource(seed)), // #nosec G404 -- the server supplies a cryptographic seed.
+		cardsPerPack:  settings.CardsPerPack,
+		packsPerBatch: settings.PacksPerBatch,
+		playerByID:    make(map[string]*PlayerState, len(config.Participants)),
+		random:        rand.New(rand.NewSource(seed)), // #nosec G404 -- the server supplies a cryptographic seed.
 	}
 	for _, participant := range config.Participants {
 		if !validText(participant.ID, maxProductText) ||
@@ -149,7 +175,7 @@ func New(config Config, seed int64) (*Event, error) {
 	}
 	if isCube {
 		event.cubeStock = product.cubeStock()
-		required := CubeDraftCardsRequiredForEvent(event.EventType, len(event.Players))
+		required := len(event.Players) * event.packCount * event.cardsPerPack
 		if len(event.cubeStock) < required {
 			return nil, fail(ErrInvalid, "Cube does not contain enough cards")
 		}
@@ -179,7 +205,7 @@ func (e *Event) nextInstanceID() string {
 
 func (e *Event) nextPack() ([]*CardInstance, error) {
 	if isCubeEvent(e.EventType) {
-		cardsPerPack := cubeCardsPerPack(e.EventType)
+		cardsPerPack := e.cardsPerPack
 		if len(e.cubeStock) < cardsPerPack {
 			return nil, fail(ErrInvalid, "Cube cannot fill another draft pack")
 		}

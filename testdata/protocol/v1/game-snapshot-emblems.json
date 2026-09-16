@@ -5,9 +5,9 @@
     "roomId": "ABCDEF", "gameNumber": 1, "startingSeat": 0, "turnOrder": [0, 1], "activeSeat": 0,
     "currentPhase": "main_1", "landPlaysThisTurn": 0,
     "seats": [
-      {"seat": 0, "displayName": "Alice", "life": 20, "libraryCount": 53, "handCount": 7, "mulliganCount": 0, "battlefield": [], "graveyard": [], "exile": [],
+      {"seat": 0, "displayName": "Alice", "life": 20, "turnCount": 1, "libraryCount": 53, "handCount": 7, "mulliganCount": 0, "battlefield": [], "graveyard": [], "exile": [],
        "counters": [{"key":"counter-1","label":"","value":0},{"key":"counter-2","label":"","value":0},{"key":"counter-3","label":"","value":0},{"key":"counter-4","label":"","value":0},{"key":"counter-5","label":"","value":0},{"key":"counter-6","label":"","value":0},{"key":"counter-7","label":"","value":0}]},
-      {"seat": 1, "displayName": "Bob", "life": 20, "libraryCount": 53, "handCount": 7, "mulliganCount": 0, "battlefield": [], "graveyard": [], "exile": [],
+      {"seat": 1, "displayName": "Bob", "life": 20, "turnCount": 0, "libraryCount": 53, "handCount": 7, "mulliganCount": 0, "battlefield": [], "graveyard": [], "exile": [],
        "counters": [{"key":"counter-1","label":"","value":0},{"key":"counter-2","label":"","value":0},{"key":"counter-3","label":"","value":0},{"key":"counter-4","label":"","value":0},{"key":"counter-5","label":"","value":0},{"key":"counter-6","label":"","value":0},{"key":"counter-7","label":"","value":0}],
        "emblems": [{"id": "s1-e1", "name": "Chandra, Awakened Inferno Emblem", "setCode": "TM20", "collectorNumber": "1", "typeLine": "Emblem — Chandra"}]}
     ],

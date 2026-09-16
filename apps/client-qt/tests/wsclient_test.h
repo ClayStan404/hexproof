@@ -107,6 +107,7 @@ class TestWsClient : public QObject
     void ignoresStaleTournamentAndLimitedSnapshots() const;
     void limitedProgressPreservesPrivateModels() const;
     void commanderDraftMetadataAndPrivateSelectionResetTogether() const;
+    void pairedDraftAndOptionalCardsClearOnPublicReplacement() const;
     void commanderProgressCannotReplacePrivateState() const;
     void sendsCommanderCubeCommandsWithinSizeBounds() const;
     void rejectsCommanderCubeCommandsWhileDisconnected() const;
@@ -117,6 +118,7 @@ class TestWsClient : public QObject
     void correlatesCommandOutcomes() const;
     void announcesOnlyCurrentRoomRestartBroadcast() const;
     void sendsTypedScryResponse() const;
+    void sendsTypedCardNamesAndKeepsRejectedPrompts() const;
     void sendsTypedDamageResponses() const;
     void rulesResponsesStayLockedUntilAuthoritativeProgress() const;
     void rulesResponsesRecoverAfterTimeoutAndDisconnect() const;
@@ -130,6 +132,12 @@ class TestWsClient : public QObject
     void roomSessionStateExposesQmlBindableSnapshot() const;
     void gameSessionStateExposesQmlBindableSnapshot() const;
     void rulesSessionStateExposesTypedSnapshot() const;
+    void rulesSnapshotModelsPreserveUnchangedRows() const;
+    void rulesPriorityHintsStayConservative() const;
+    void rulesCardActionsUseCurrentNativeCardChoices() const;
+    void rulesBoardTargetsUseTypedObjectsAndOptionalSeats() const;
+    void rulesBoardTargetsRejectInvalidSeatHints() const;
+    void rulesCombatHonorsNativeMultipleBlockCapacity() const;
     void limitedSessionRestoresPrivateDeckSelection() const;
     void dispatchesSharedSessionRoomAndGameFixtures() const;
     void exposesRoomGameAndRulesSessionsToQml() const;
@@ -150,6 +158,8 @@ class TestWsClient : public QObject
     void migratesLegacyPrimaryPublicHubEndpoint() const;
     void exposesInitialServerLatencyState() const;
     void processesFinalMessageBeforeDisconnect() const;
+    void switchingServersIgnoresOldTransportCompletion() const;
+    void cancelledConnectionIgnoresQueuedWelcome() const;
     void resumesRoomAfterUnexpectedDisconnect() const;
     void keepsPendingCommandsWhenTransportDropsMidCommand() const;
     void sendsDeckAndReadyCommands() const;

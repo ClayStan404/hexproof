@@ -5,7 +5,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Layouts
 import "../components"
 
 Page {
@@ -26,8 +25,19 @@ Page {
                                        && !sideboarding && !matchUi.matchFinished
     readonly property var matchUi: matchControls
     readonly property var tableGameLog: gameTableModel.gameLog
-    readonly property real gameLogRailWidth: Theme.size(compactLayout ? 180 : 220)
-    property bool showGameLogRail: preferencesModel ? preferencesModel.tableShowGameLog : true
+    readonly property var presentation: tablePresentation.item
+    readonly property var inspector: presentation ? presentation.inspectionDock.inspector : null
+    readonly property real gameLogRailWidth: gameLogRail ? gameLogRail.width : 0
+    readonly property var gameLogRail: presentation ? presentation.inspectionDock.logRail : null
+    readonly property var cardActionPicker: presentation ? presentation.decisionDock.actionPicker : null
+    readonly property var interaction: tableInteraction
+    readonly property var priority: priorityController
+    readonly property var combatInteraction: combatInteraction
+    readonly property bool priorityInputBlocked: backgroundPopup.opened
+        || rulesConcedeConfirmation.opened || matchUi.modalOpen === true
+        || (presentation && presentation.modalOpen === true)
+    property bool showGameLogRail: roomSession.maxSeats > 2
+        ? (preferencesModel ? preferencesModel.tableShowGameLog : true) : false
     readonly property bool canChat: roomConnected && roomSession.phase === "started"
                                    && (roomSession.role === "player"
                                        || roomSession.role === "spectator")
@@ -51,11 +61,14 @@ Page {
             spectatedHandSeat = 0
     }
     readonly property bool compactLayout: Theme.isCompactWidth(width)
+    readonly property bool stackTargetsVisible: !sideboarding && (roomSession.maxSeats <= 2 || !compactLayout)
+    readonly property bool persistentInspectionDock: width >= Theme.size(1180)
+    readonly property real inspectionDockWidth: Math.min(Theme.size(320),
+                                                         Math.max(Theme.size(230), width * 0.2))
+    readonly property real maximumDecisionHeight: Math.min(Theme.size(270), height * 0.34)
     readonly property real actionRailWidth:
         Theme.size(compactLayout ? 120 : 144)
     readonly property real sharedZoneRailWidth: Theme.size(92)
-    readonly property real stateRailWidth:
-        Theme.size(compactLayout ? 148 : 176)
     readonly property real battlefieldCardWidth: Theme.size(80)
     readonly property real battlefieldCardHeight:
         Math.round(battlefieldCardWidth * 88 / 63)
@@ -67,24 +80,28 @@ Page {
         Math.min(Theme.size(270), width * 0.35)
 
     onRulesResponsePendingChanged: {
-        if (rulesResponsePending)
+        if (rulesResponsePending && cardActionPicker)
             cardActionPicker.close()
     }
 
     function setGameLogVisible(show) {
         showGameLogRail = show
+        if (show && inspector)
+            inspector.clear()
         if (preferencesModel && !compactLayout)
             preferencesModel.tableShowGameLog = show
     }
 
     onCompactLayoutChanged: {
-        showGameLogRail = compactLayout ? false
-                         : preferencesModel ? preferencesModel.tableShowGameLog : true
+        if (compactLayout) showGameLogRail = false
+        else if (roomSession.maxSeats > 2)
+            showGameLogRail = preferencesModel ? preferencesModel.tableShowGameLog : true
     }
 
     QtObject {
         id: chatActions
         function submitChatMessage() {
+            if (!gameLogRail) return false
             const message = gameLogRail.chatInput.text.trim()
             if (!root.canChat || message.length === 0)
                 return false
@@ -97,6 +114,21 @@ Page {
 
     RulesMatchControls {
         id: matchControls
+        tableController: root
+    }
+
+    RulesTableInteraction {
+        id: tableInteraction
+        tableController: root
+    }
+
+    ForgeCombatInteraction {
+        id: combatInteraction
+        tableController: root
+    }
+
+    RulesPriorityController {
+        id: priorityController
         tableController: root
     }
 
@@ -137,6 +169,20 @@ Page {
         }
     }
 
+    function openCardDetails(cardId) {
+        if (inspector) inspector.showCard(cardId)
+    }
+
+    function previewCard(cardId, source) {
+        if (roomConnected && !sideboarding && inspector
+                && (!presentation.suppressHoverDuringDecision || !rulesSession.promptPending || priority.isPriorityPrompt))
+            inspector.previewCard(cardId, source)
+    }
+
+    function endCardPreview(source) {
+        if (inspector) inspector.hidePreview(source)
+    }
+
     function cardImage(name, setCode, collectorNumber) {
         if (!name || !cardCatalogModel
                 || typeof cardCatalogModel.tableImageSource !== "function")
@@ -158,34 +204,29 @@ Page {
         case "$pay": return qsTr("Confirm payment")
         case "$auto-pay": return qsTr("Auto-pay")
         case "$cancel": return qsTr("Cancel")
-        default: return label
+        default: return RulesText.text(label)
         }
     }
 
     function promptTitle(kind, title) {
         if (kind === "diceRolled")
             return qsTr("Roll to determine the first player")
-        return title
+        return RulesText.title(kind, title, rulesSession.promptDetail)
     }
 
     function promptDetail(kind, detail) {
         if (kind === "diceRolled")
             return qsTr("Forge will roll to determine who plays first.")
-        return detail
+        return RulesText.text(detail)
     }
 
     function handCardActions(cardId) {
-        if (!roomConnected || sideboarding || rulesSession.gameOver
-                || rulesResponsePending || localSeat < 0 || !rulesSession.promptPending
-                || rulesSession.promptKind !== "chooseAction"
-                || typeof rulesSession.castActionsForCard !== "function") {
-            return []
-        }
-        return rulesSession.castActionsForCard(cardId)
+        return interaction.actionsForCard(cardId).filter(
+                    action => action.kind === "cast" || action.kind === "playLand")
     }
 
     function canDragHandCard(cardId) {
-        return !cardActionPicker.opened
+        return cardActionPicker && !cardActionPicker.opened
                 && handCardActions(cardId).length > 0
     }
 
@@ -194,8 +235,7 @@ Page {
         if (actions.length === 0)
             return false
         if (actions.length === 1) {
-            wsModel.respondRulesPrompt(
-                        rulesSession.promptId, actions[0].responseId)
+            return interaction.submitCardAction(cardId, actions[0].responseId)
         } else {
             cardActionPicker.showFor(cardId, cardName, actions)
         }
@@ -208,6 +248,22 @@ Page {
         return playDraggedHandCard(source.cardId, source.name)
     }
 
+    Keys.onSpacePressed: event => {
+        event.accepted = priority.passOnce()
+    }
+
+    Keys.onEscapePressed: event => {
+        if (priority.yieldMode.length > 0) {
+            priority.cancelYield()
+            event.accepted = true
+        } else if (inspector && presentation.inspectionDock.inspectionOpened) {
+            inspector.clear()
+            event.accepted = true
+        } else {
+            event.accepted = false
+        }
+    }
+
     function openConcedeConfirmation() {
         if (!canConcede)
             return
@@ -216,199 +272,31 @@ Page {
             rulesConcedeConfirmation.open()
     }
 
-    background: Rectangle { color: Theme.surfaceMuted }
-
-    RowLayout {
-        objectName: "rulesGameLayout"
-        anchors.fill: parent
-        spacing: 0
-
-        RulesTableActionRail {
-            tableController: root
-        }
-
-        RulesStackRail {
-            visible: !root.compactLayout && !root.sideboarding
-            tableController: root
-        }
-
-        ColumnLayout {
-            objectName: "rulesPlayArea"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
-
-            InfoBanner {
-                objectName: "rulesErrorBanner"
-                Layout.fillWidth: true
-                message: I18n.status(root.wsModel.lastError || "")
-            }
-
-            Loader {
-                objectName: "rulesSideboardLoader"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                active: root.sideboarding
-                visible: active
-                sourceComponent: Component {
-                    SideboardPanel {
-                        objectName: "rulesSideboardPanel"
-                        enabled: root.roomConnected
-                        wsModel: root.wsModel
-                        gameTableModel: root.gameTableModel
-                        tableModel: root.sideboardTableModel
-                        cardCatalogModel: root.cardCatalogModel
-                    }
-                }
-            }
-
-            Item {
-                objectName: "rulesBattlefieldHost"
-                visible: !root.sideboarding
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                RulesBattlefieldView {
-                    anchors.fill: parent
-                    tableController: root
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    objectName: "rulesSnapshotStatus"
-                    anchors.centerIn: parent
-                    visible: !root.rulesSession.active
-                    width: parent.width - Theme.size(32)
-                    text: root.matchUi.matchFinished
-                          ? qsTr("The match is complete. Review the public log or return to the room.")
-                          : qsTr("Waiting for the first rules snapshot…")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(12)
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                }
-
-                RulesPromptPanel {
-                    enabled: root.roomConnected
-                    height: Math.min(implicitHeight,
-                                     Math.max(0, parent.height - Theme.size(20)))
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: Theme.size(10)
-                    z: 500
-                    tableController: root
-                }
-            }
-
-            RulesHandArea {
-                visible: !root.sideboarding
-                tableController: root
-            }
-        }
-
-        RulesStateRail {
-            visible: !root.compactLayout && !root.sideboarding && !root.showGameLogRail
-            tableController: root
-        }
-
-        TableGameLogRail {
-            id: gameLogRail
-            tableController: root
-        }
+    function openBackgroundPicker() {
+        backgroundPopup.open()
     }
 
-    Popup {
-        id: cardActionPicker
+    TableBackgroundPopup {
+        id: backgroundPopup
+        preferencesModel: root.preferencesModel
+    }
 
-        property string cardId: ""
-        property string cardName: ""
-        property var actions: []
+    background: AppBackground {
+        variant: "playmat"
+    }
 
-        objectName: "rulesCardActionPicker"
-        parent: Overlay.overlay
-        x: Math.round((parent.width - width) / 2)
-        y: Math.round((parent.height - height) / 2)
-        width: Math.min(Theme.size(460), parent.width - Theme.size(48))
-        padding: Theme.size(20)
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-        Overlay.modal: Rectangle { color: "#A6050B09" }
-
-        background: Rectangle {
-            color: Theme.surfaceElevated
-            radius: Theme.radiusLarge
-            border.width: 1
-            border.color: Theme.borderStrong
-        }
-
-        function showFor(cardId, cardName, actions) {
-            this.cardId = cardId
-            this.cardName = cardName
-            this.actions = actions
-            open()
-        }
-
-        function submit(responseId) {
-            const currentActions = root.handCardActions(cardId)
-            for (let index = 0; index < currentActions.length; ++index) {
-                if (currentActions[index].responseId !== responseId)
-                    continue
-                const promptId = root.rulesSession.promptId
-                close()
-                root.wsModel.respondRulesPrompt(promptId, responseId)
-                return
-            }
-            close()
-        }
-
-        contentItem: ColumnLayout {
-            spacing: Theme.size(12)
-
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: cardActionPicker.cardName.length > 0
-                      ? qsTr("Choose how to play %1")
-                        .arg(cardActionPicker.cardName)
-                      : qsTr("Choose how to play this card")
-                color: Theme.text
-                font.pixelSize: Theme.fontSize(17)
-                font.weight: Font.DemiBold
-                wrapMode: Text.WordWrap
-            }
-
-            Repeater {
-                model: cardActionPicker.actions
-
-                delegate: AppButton {
-                    required property var modelData
-
-                    objectName: "rulesCardAction-" + modelData.responseId
-                    Layout.fillWidth: true
-                    text: modelData.label
-                    onClicked: cardActionPicker.submit(modelData.responseId)
-                }
-            }
-
-            AppButton {
-                Layout.alignment: Qt.AlignRight
-                compact: true
-                variant: "ghost"
-                text: qsTr("Cancel")
-                onClicked: cardActionPicker.close()
-            }
-        }
-
-        Connections {
-            target: root.rulesSession
-
-            function onPromptChanged() {
-                cardActionPicker.close()
-            }
-        }
+    Loader {
+        id: tablePresentation
+        anchors.fill: parent
+        sourceComponent: root.roomSession.maxSeats > 2 ? legacyLayout : duelLayout
+    }
+    Component {
+        id: duelLayout
+        ForgeDuelTable { tableController: root }
+    }
+    Component {
+        id: legacyLayout
+        RulesLegacyLayout { tableController: root }
     }
 
     ConfirmDialog {

@@ -32,6 +32,7 @@ bool DeckLibraryModel::deleteDeck(const QString &id)
             return false;
         }
         m_deckValidations.remove(id);
+        m_imageCounts.remove(id);
         m_validationRevisions.remove(id);
         m_pendingValidationDeckIds.remove(id);
         beginResetModel();
@@ -84,7 +85,7 @@ bool DeckLibraryModel::renameCurrentDeck(const QString &name)
         *deck = previous;
         return false;
     }
-    notifyAllChanged();
+    notifyCurrentDeckChanged(false);
     return true;
 }
 
@@ -140,7 +141,7 @@ bool DeckLibraryModel::setCommander(const QString &cardName)
         return false;
     }
     scheduleDeckValidation(deck->id);
-    notifyAllChanged();
+    notifyCurrentDeckChanged();
     return true;
 }
 
@@ -379,9 +380,7 @@ bool DeckLibraryModel::addToken(const QVariantMap &token)
         *deck = previous;
         return false;
     }
-    notifyAllChanged();
-    if (deck->id == m_activeMatchDeckId)
-        emit activeMatchTokensChanged();
+    notifyCurrentDeckChanged();
     return true;
 }
 
@@ -398,9 +397,7 @@ bool DeckLibraryModel::removeToken(const QString &name, const QString &setCode,
         *deck = previous;
         return false;
     }
-    notifyAllChanged();
-    if (deck->id == m_activeMatchDeckId)
-        emit activeMatchTokensChanged();
+    notifyCurrentDeckChanged();
     return true;
 }
 

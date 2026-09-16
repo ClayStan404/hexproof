@@ -1,0 +1,70 @@
+{
+  "type": "tournament.create",
+  "id": "commander-create-8-players",
+  "payload": {
+    "name": "Friday Commander Cube",
+    "format": "edh",
+    "eventType": "commander_cube",
+    "coordinator": "casual",
+    "matchMode": "bo1",
+    "roundMinutes": 50,
+    "maxPlayers": 8,
+    "product": {
+      "id": "commander-cube",
+      "name": "Friday Commander Cube",
+      "productType": "cube",
+      "authentic": false,
+      "cardsPerPack": 0,
+      "sheets": [
+        {
+          "name": "pool",
+          "withReplacement": false,
+          "cards": [
+            {
+              "name": "Draft Legend",
+              "setCode": "TST",
+              "collectorNumber": "1",
+              "typeLine": "Legendary Creature — Wizard",
+              "rarity": "rare",
+              "finish": "nonfoil",
+              "weight": 240
+            },
+            {
+              "name": "Draft Legend",
+              "setCode": "TST",
+              "collectorNumber": "2",
+              "typeLine": "Legendary Creature — Wizard",
+              "rarity": "rare",
+              "finish": "nonfoil",
+              "weight": 240
+            },
+            {
+              "name": "Draft Legend",
+              "setCode": "TST",
+              "collectorNumber": "3",
+              "typeLine": "Legendary Creature — Wizard",
+              "rarity": "rare",
+              "finish": "nonfoil",
+              "weight": 240
+            },
+            {
+              "name": "Draft Legend",
+              "setCode": "TST",
+              "collectorNumber": "4",
+              "typeLine": "Legendary Creature — Wizard",
+              "rarity": "rare",
+              "finish": "nonfoil",
+              "weight": 240
+            }
+          ]
+        }
+      ],
+      "variants": []
+    },
+    "draftSettings": {
+      "packsPerPlayer": 3,
+      "packsPerBatch": 1,
+      "cardsPerPack": 20
+    }
+  }
+}

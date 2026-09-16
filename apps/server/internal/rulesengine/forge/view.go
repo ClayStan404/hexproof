@@ -29,12 +29,22 @@ type GameView struct {
 }
 
 type PlayerView struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	Status   string         `json:"status"`
-	Life     int            `json:"life"`
-	Counters map[string]int `json:"counters"`
-	ManaPool map[string]int `json:"manaPool"`
+	ID         string          `json:"id"`
+	Name       string          `json:"name"`
+	Status     string          `json:"status"`
+	Life       int             `json:"life"`
+	Counters   map[string]int  `json:"counters"`
+	ManaPool   map[string]int  `json:"manaPool"`
+	Commanders []CommanderView `json:"commanders,omitempty"`
+}
+
+// CommanderView contains public designation/history and only viewer-visible links.
+type CommanderView struct {
+	Name     string `json:"name"`
+	Casts    int    `json:"casts"`
+	Tax      int    `json:"tax"`
+	Zone     string `json:"zone"`
+	ObjectID string `json:"objectId,omitempty"`
 }
 
 type ZoneView struct {
@@ -68,12 +78,18 @@ type CardView struct {
 }
 
 type StackObjectView struct {
-	ID           string           `json:"id"`
-	SourceID     string           `json:"sourceId"`
-	ControllerID string           `json:"controllerId"`
-	OwnerID      string           `json:"ownerId"`
-	Identity     CardIdentityView `json:"identity"`
-	Text         string           `json:"text"`
+	ID           string            `json:"id"`
+	SourceID     string            `json:"sourceId"`
+	ControllerID string            `json:"controllerId"`
+	OwnerID      string            `json:"ownerId"`
+	Identity     CardIdentityView  `json:"identity"`
+	Text         string            `json:"text"`
+	Targets      []StackTargetView `json:"targets,omitempty"`
+}
+
+type StackTargetView struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
 }
 
 // SnapshotView decodes a raw harness projection before it reaches the room or

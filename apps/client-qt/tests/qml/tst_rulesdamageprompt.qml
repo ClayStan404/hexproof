@@ -124,22 +124,117 @@ TestCase {
                 height: 210
                 wsModel: fakeWs
                 cardCatalogModel: fakeCatalog
-                targetModel: visualTargets
+                targetModel: testRulesPrompt.session.promptPending
+                             ? testRulesPrompt.session.promptDamageTargets : visualTargets
                 damageSource: ({"name": "Colossal Dreadmaw"})
                 promptId: 82
-                totalDamage: 7
+                totalDamage: testRulesPrompt.session.promptPending
+                             ? testRulesPrompt.session.promptTotalDamage : 7
                 deathtouch: false
+                assignmentMode: testRulesPrompt.session.promptDamageAssignmentMode
             }
         }
     }
 
     function init() {
+        testRulesPrompt.clear()
         fakeWs.orderResponseCount = 0
         fakeWs.damageResponseCount = 0
         fakeWs.lastOrder = []
         fakeWs.lastAssignments = []
         orderPrompt.resetOrder()
         damagePrompt.resetAssignments()
+    }
+
+    function damageFixture(mode) {
+        const result = {
+            roomId: "RULE01", gameId: "damage-mode-fixture", pending: true,
+            promptId: 82, kind: "chooseCombatDamageAssignment", supported: true,
+            title: "Assign damage", detail: "", options: [], choices: [], cards: [],
+            scryDestinations: [], targets: [], contextCards: [], contextTargets: [],
+            combatSources: [], combatTargets: [], totalDamage: 6,
+            damageSource: {objectId: "attacker", label: "Colossal Dreadmaw"},
+            damageTargets: [
+                {responseId: "damage-target:0", kind: "card", label: "First bear",
+                 objectId: "first-bear", lethalDamage: 2},
+                {responseId: "damage-target:1", kind: "card", label: "Second bear",
+                 objectId: "second-bear", lethalDamage: 2},
+                {responseId: "damage-target:2", kind: "player", label: "Defender",
+                 lethalDamage: -1}
+            ]
+        }
+        if (mode !== undefined)
+            result.damageAssignmentMode = mode
+        return result
+    }
+
+    function applyDamageMode(mode) {
+        verify(testRulesPrompt.applyPrompt(damageFixture(mode)))
+        damagePrompt.resetAssignments()
+        compare(testRulesPrompt.session.promptDamageTargets.items().length, 3)
+        compare(damagePrompt.assignmentMode, mode === undefined ? "ordered" : mode)
+    }
+
+    function test_unorderedUsesActualModelAndAllowsNonlethalBlockerSplit() {
+        applyDamageMode("unordered")
+        verify(damagePrompt.setDamage("damage-target:0", 1))
+        verify(damagePrompt.setDamage("damage-target:1", 5))
+        verify(damagePrompt.validAssignment)
+        damagePrompt.submitDamage()
+        compare(fakeWs.damageResponseCount, 1)
+        compare(fakeWs.lastAssignments[0].damage, 1)
+        compare(fakeWs.lastAssignments[1].damage, 5)
+        compare(fakeWs.lastAssignments[2].damage, 0)
+        verify(damagePrompt.setDamage("damage-target:0", 0))
+        compare(damagePrompt.assignedTo("damage-target:1"), 5)
+    }
+
+    function test_unorderedStillRequiresLethalForTrample() {
+        applyDamageMode("unordered")
+        verify(damagePrompt.setDamage("damage-target:0", 1))
+        verify(damagePrompt.setDamage("damage-target:1", 1))
+        verify(!damagePrompt.setDamage("damage-target:2", 4))
+        damagePrompt.assignments = ({"damage-target:0": 1, "damage-target:1": 1,
+                                      "damage-target:2": 4})
+        verify(!damagePrompt.validAssignment)
+        damagePrompt.submitDamage()
+        compare(fakeWs.damageResponseCount, 0)
+        damagePrompt.resetAssignments()
+        damagePrompt.autoAssign()
+        compare(damagePrompt.assignedTo("damage-target:2"), 2)
+        verify(damagePrompt.validAssignment)
+        verify(damagePrompt.setDamage("damage-target:0", 1))
+        compare(damagePrompt.assignedTo("damage-target:1"), 2)
+        compare(damagePrompt.assignedTo("damage-target:2"), 0)
+    }
+
+    function test_divideFreelyAllowsNativeException() {
+        applyDamageMode("divideFreely")
+        verify(damagePrompt.setDamage("damage-target:0", 1))
+        verify(damagePrompt.setDamage("damage-target:1", 1))
+        verify(damagePrompt.setDamage("damage-target:2", 4))
+        verify(damagePrompt.validAssignment)
+        damagePrompt.submitDamage()
+        compare(fakeWs.damageResponseCount, 1)
+        verify(damagePrompt.setDamage("damage-target:0", 0))
+        compare(damagePrompt.assignedTo("damage-target:1"), 1)
+        compare(damagePrompt.assignedTo("damage-target:2"), 4)
+    }
+
+    function test_missingModeKeepsLegacyOrder() {
+        applyDamageMode(undefined)
+        verify(damagePrompt.setDamage("damage-target:0", 1))
+        verify(!damagePrompt.setDamage("damage-target:1", 5))
+        verify(!damagePrompt.validAssignment)
+    }
+
+    function test_unknownModeDoesNotChangeActualModel() {
+        applyDamageMode("unordered")
+        for (const invalid of ["", "unknown", "free", null, false, 1]) {
+            verify(!testRulesPrompt.applyPrompt(damageFixture(invalid)))
+            compare(testRulesPrompt.session.promptDamageAssignmentMode, "unordered")
+            compare(testRulesPrompt.session.promptId, 82)
+        }
     }
 
     function test_reordersOpaqueDamageTargets() {

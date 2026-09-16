@@ -33,6 +33,12 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
             ? QStringLiteral("CASE WHEN lower(c.image_status) IN ('missing', 'placeholder') "
                              "THEN 1 ELSE 0 END, ")
             : QString{};
+    // Theme front cards can share an exact name with a playable spell. Keep
+    // name-only imports on the spell while still honoring explicit printings.
+    const QString playableOrder =
+        m_schema.cardColumns.contains(QStringLiteral("layout"))
+            ? QStringLiteral("CASE WHEN %1 THEN 0 ELSE 1 END, ").arg(catalogPlayablePrintingSql())
+            : QString{};
     QSqlQuery query(database);
     const QString select =
         QStringLiteral("SELECT c.name, c.oracle_id, %1, %2, c.set_code, c.collector_number, "
@@ -41,7 +47,7 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
     const QString preferredLanguage =
         request.language == QStringLiteral("zh") ? QStringLiteral("zhs") : QStringLiteral("en");
     const QString resultOrder =
-        QStringLiteral("ORDER BY ") + imageUsabilityOrder +
+        QStringLiteral("ORDER BY ") + playableOrder + imageUsabilityOrder +
         QStringLiteral("CASE WHEN c.lang = ? THEN 0 WHEN c.lang = 'en' THEN 1 ELSE 2 END LIMIT 1");
     const bool exactPrinting = !request.setCode.isEmpty() && !request.collectorNumber.isEmpty();
     const auto lookupIndexedName = [&](const QString &column) {
@@ -93,7 +99,7 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
                            ") ORDER BY "
                            "CASE WHEN lower(c.name) = lower(?) "
                            "OR lower(c.printed_name) = lower(?) THEN 0 ELSE 1 END, ");
-        statement += imageUsabilityOrder;
+        statement += playableOrder + imageUsabilityOrder;
         statement += QStringLiteral(
             "CASE WHEN c.lang = ? THEN 0 WHEN c.lang = 'en' THEN 1 ELSE 2 END LIMIT 1");
         query.prepare(statement);

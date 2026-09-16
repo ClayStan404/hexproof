@@ -55,6 +55,7 @@ type Config struct {
 	MaxPlayers    int
 	PlannedRounds int
 	Product       *protocol.LimitedProductDefinition
+	DraftSettings *protocol.LimitedDraftSettings
 }
 
 type Actor struct {
@@ -152,6 +153,8 @@ type Tournament struct {
 	Limited                 *limited.Event
 	limitedProduct          *protocol.LimitedProductDefinition
 	limitedProductView      *protocol.LimitedProductView
+	draftSettings           *protocol.LimitedDraftSettings
+	cubeTableSeed           int64
 }
 
 func New(id string, config Config, organizerName, organizerConnectionID string,
@@ -183,7 +186,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		case protocol.LimitedEventSetDraft:
 			config.MaxPlayers = limited.MaxSetDraftPlayers
 		case protocol.LimitedEventCommanderCube:
-			config.MaxPlayers = limited.MaxCommanderCubePlayers
+			config.MaxPlayers = 4
 		case protocol.LimitedEventCubeDraft:
 			config.MaxPlayers = limited.MaxCubeDraftPlayers
 		default:
@@ -209,7 +212,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	}
 	if config.EventType == protocol.LimitedEventCommanderCube {
 		if config.MaxPlayers > limited.MaxCommanderCubePlayers {
-			return nil, fail(ErrInvalid, "Commander Cube supports two to four seats at one table")
+			return nil, fail(ErrInvalid, "Commander Cube supports two to eight draft seats")
 		}
 		if config.Coordinator != protocol.LimitedCoordinatorCasual {
 			return nil, fail(ErrInvalid, "Commander Cube uses multiplayer free-play rooms")
@@ -243,6 +246,14 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	}
 	var product *protocol.LimitedProductDefinition
 	var productView *protocol.LimitedProductView
+	settings, settingsErr := limited.ResolveDraftSettings(config.EventType, config.MaxPlayers, config.DraftSettings)
+	if settingsErr != nil {
+		return nil, fail(ErrInvalid, settingsErr.Error())
+	}
+	var draftSettings *protocol.LimitedDraftSettings
+	if config.EventType == protocol.LimitedEventCommanderCube {
+		draftSettings = &settings
+	}
 	if config.Product != nil {
 		cloned := cloneLimitedProduct(*config.Product)
 		validated, validationErr := limited.NewProduct(cloned)
@@ -254,6 +265,9 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 				return nil, fail(ErrInvalid, "Cube rooms require a saved Cube pool")
 			}
 			requiredCards := limited.CubeDraftCardsRequiredForEvent(config.EventType, config.MaxPlayers)
+			if draftSettings != nil {
+				requiredCards = config.MaxPlayers * draftSettings.PacksPerPlayer * draftSettings.CardsPerPack
+			}
 			if validated.View().CardCount < requiredCards {
 				return nil, fail(ErrInvalid, fmt.Sprintf(
 					"Cube draft requires at least %d physical cards for %d seats",
@@ -284,7 +298,16 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		participantByID:       make(map[string]*Participant),
 		limitedProduct:        product,
 		limitedProductView:    productView,
+		draftSettings:         draftSettings,
 	}, nil
+}
+
+func (t *Tournament) DraftSettings() *protocol.LimitedDraftSettings {
+	if t.draftSettings == nil {
+		return nil
+	}
+	settings := *t.draftSettings
+	return &settings
 }
 
 // LimitedProductView exposes the immutable, public product summary without
@@ -599,6 +622,7 @@ func (t *Tournament) Start(actor Actor, seed int64, now time.Time) error {
 		event, err := limited.New(limited.Config{
 			TournamentID: t.ID, EventType: t.EventType,
 			Product: *t.limitedProduct, Participants: participants,
+			DraftSettings: t.DraftSettings(),
 		}, seed)
 		if err != nil {
 			t.Status = StatusRegistration
@@ -608,6 +632,7 @@ func (t *Tournament) Start(actor Actor, seed int64, now time.Time) error {
 			return fail(ErrInvalid, err.Error())
 		}
 		t.Limited = event
+		t.cubeTableSeed = seed
 		t.Stage = event.Stage
 		return nil
 	}

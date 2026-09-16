@@ -19,9 +19,13 @@ Item {
 
     HoverHandler { id: emptyLibraryHover }
     ToolTip.visible: emptyLibraryHover.hovered
-                     && root.tableController.rulesAssist.emptyLibrary(
-                         root.tableController.ownSeatData)
-    ToolTip.text: qsTranslate("Table", "Library empty. Attempting to draw may cause a loss unless a card effect says otherwise.")
+                     && !ownLibraryDrag.drag.active
+                     && !root.tableController.tableModalOpen
+    ToolTip.delay: 600
+    ToolTip.text: root.tableController.rulesAssist.emptyLibrary(
+                      root.tableController.ownSeatData)
+                  ? qsTranslate("Table", "Library empty. Attempting to draw may cause a loss unless a card effect says otherwise.")
+                  : qsTranslate("Table", "Drag the top card to a zone. Hold Shift while dragging to exile to keep it face down; no player may look. Right-click for more actions.")
 
     Action {
         id: ownLibraryDrawAction
@@ -118,6 +122,9 @@ Item {
     }
     Item {
         id: ownLibraryDragCard
+        objectName: "ownLibraryDragCard"
+        property bool faceDownRequested: false
+        property point dragGrabPosition: Qt.point(width / 2, height / 2)
         readonly property string cardId:
             "__library_top__"
         readonly property string zoneName: "library"
@@ -135,8 +142,8 @@ Item {
         Drag.active: ownLibraryDrag.drag.active
         Drag.source: ownLibraryDragCard
         Drag.keys: ["hexproof/card"]
-        Drag.hotSpot.x: width / 2
-        Drag.hotSpot.y: height / 2
+        Drag.hotSpot.x: dragGrabPosition.x
+        Drag.hotSpot.y: dragGrabPosition.y
         states: State {
             when: ownLibraryDragCard.Drag.active
             ParentChange {
@@ -186,7 +193,14 @@ Item {
                      : Qt.OpenHandCursor
         drag.target: ownLibraryDragCard
         drag.threshold: Theme.size(5)
+        drag.smoothed: false
         preventStealing: true
+        onPressed: function(mouse) {
+            ownLibraryDragCard.dragGrabPosition = root.mapToItem(
+                ownLibraryDragCard, mouse.x, mouse.y)
+            ownLibraryDragCard.faceDownRequested =
+                (mouse.modifiers & Qt.ShiftModifier) !== 0
+        }
         onClicked: function(mouse) {
             if (mouse.button !== Qt.RightButton)
                 return
@@ -197,12 +211,14 @@ Item {
             root.tableController.ownLibraryMenu.y = position.y
             root.tableController.ownLibraryMenu.open()
         }
-        onReleased: {
+        onReleased: function(mouse) {
             // drop() emits the DropArea event.
             // Do not gate it on MouseArea.drag.active:
             // Qt may clear that state as release is
             // delivered even though the attached
             // drag still has a valid target.
+            ownLibraryDragCard.faceDownRequested =
+                (mouse.modifiers & Qt.ShiftModifier) !== 0
             ownLibraryDragCard.Drag.drop()
             Qt.callLater(function() {
                 ownLibraryDragCard.x =

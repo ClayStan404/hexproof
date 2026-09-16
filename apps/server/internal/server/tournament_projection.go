@@ -339,8 +339,9 @@ func tournamentSnapshot(event *tournament.Tournament,
 		Role: binding.Role, ParticipantID: binding.ParticipantID,
 		CanRegister: !event.IsCubeRoom() && event.Status == tournament.StatusRegistration &&
 			binding.ParticipantID == "" && len(event.Participants) < event.MaxPlayers,
-		Product:      event.LimitedProductView(),
-		Participants: participants, Pairings: pairings, Standings: standingViews,
+		Product:       event.LimitedProductView(),
+		DraftSettings: event.DraftSettings(),
+		Participants:  participants, Pairings: pairings, Standings: standingViews,
 	}
 }
 

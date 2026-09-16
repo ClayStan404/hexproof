@@ -44,6 +44,7 @@ type PlayerGameState struct {
 	Seat           int
 	DisplayName    string
 	Life           int
+	TurnCount      int
 	Counters       []protocol.GamePlayerCounter
 	CounterCount   int
 	Library        []protocol.GameCard

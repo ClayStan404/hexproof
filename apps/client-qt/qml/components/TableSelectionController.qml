@@ -11,7 +11,17 @@ QtObject {
     property string selectedCardId: ""
     property int selectedOwnerSeat: -1
     property var selectedCard: ({})
-    property var selectedFaces: []
+    readonly property var selectedFaces: {
+        if (!selectedCardId || !selectedCard.id)
+            return []
+        const catalog = tableRoot.cardCatalogModel
+        // Metadata can arrive after a background-loading game has started.
+        // Refresh only the active selection; cardFaces() is a cached lookup.
+        if (catalog && typeof catalog.imageRevision !== "undefined"
+                && catalog.imageRevision === -1)
+            return []
+        return tableRoot.presentation.availableCardFaces(selectedCard)
+    }
     property var selectedCardIds: ({})
     property string interactionMode: ""
     property var interactionSourceIds: []
@@ -213,12 +223,10 @@ QtObject {
         selectedCardId = ""
         selectedOwnerSeat = -1
         selectedCard = ({})
-        selectedFaces = []
         selectedCardIds = ({})
     }
 
     function selectCardForMenu(card, ownerSeat) {
-        selectedFaces = tableRoot.presentation.availableCardFaces(card)
         if (cardSelected(card.id)) {
             selectedCardId = card.id
             selectedOwnerSeat = ownerSeat

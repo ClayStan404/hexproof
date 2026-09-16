@@ -5,6 +5,50 @@
 
 #include <QSet>
 
+void TestWsClient::pairedDraftAndOptionalCardsClearOnPublicReplacement() const
+{
+    LimitedSessionState state;
+    const QJsonArray first{QJsonObject{{u"instanceId"_s, u"a"_s}}};
+    const QJsonArray second{QJsonObject{{u"instanceId"_s, u"b"_s}}};
+    const QJsonArray packs{
+        QJsonObject{{u"packId"_s, u"pack-a"_s}, {u"cards"_s, first}, {u"picksRequired"_s, 1}},
+        QJsonObject{{u"packId"_s, u"pack-b"_s}, {u"cards"_s, second}, {u"picksRequired"_s, 1}}};
+    const QJsonArray optional{
+        QJsonObject{{u"instanceId"_s, u"optional-sol"_s}, {u"name"_s, u"Sol Ring"_s}}};
+    state.applySnapshot(QJsonObject{{u"tournamentId"_s, u"PAIRED"_s},
+                                    {u"eventType"_s, u"commander_cube"_s},
+                                    {u"stage"_s, u"draft"_s},
+                                    {u"packsPerPlayer"_s, 6},
+                                    {u"packsThisBatch"_s, 2},
+                                    {u"packRound"_s, 2},
+                                    {u"picksRequired"_s, 2},
+                                    {u"currentPacks"_s, packs}});
+    QCOMPARE(state.currentPacks(), packs.toVariantList());
+    QCOMPARE(state.packsThisBatch(), 2);
+    QCOMPARE(state.packsPerPlayer(), 6);
+    state.applySnapshot(QJsonObject{{u"tournamentId"_s, u"PAIRED"_s},
+                                    {u"eventType"_s, u"commander_cube"_s},
+                                    {u"stage"_s, u"deck_building"_s},
+                                    {u"optionalCards"_s, optional},
+                                    {u"mainboardInstanceIds"_s, QJsonArray{u"optional-sol"_s}}});
+    QVERIFY(state.currentPacks().isEmpty());
+    QCOMPARE(state.optionalCards(), optional.toVariantList());
+    QCOMPARE(state.mainboardInstanceIds(), QVariantList{u"optional-sol"_s});
+    state.applySnapshot(QJsonObject{{u"tournamentId"_s, u"PAIRED"_s},
+                                    {u"eventType"_s, u"commander_cube"_s},
+                                    {u"stage"_s, u"deck_building"_s}});
+    QVERIFY(state.optionalCards().isEmpty());
+    QVERIFY(state.mainboardInstanceIds().isEmpty());
+    hexproof::client::TournamentSessionState tournament;
+    const QJsonObject settings{
+        {u"packsPerPlayer"_s, 6}, {u"packsPerBatch"_s, 2}, {u"cardsPerPack"_s, 25}};
+    tournament.applySnapshot(
+        QJsonObject{{u"tournamentId"_s, u"PAIRED"_s}, {u"draftSettings"_s, settings}});
+    QCOMPARE(tournament.draftSettings(), settings.toVariantMap());
+    tournament.enter(u"ORDINARY"_s, u"participant"_s, u"p-1"_s);
+    QVERIFY(tournament.draftSettings().isEmpty());
+}
+
 void TestWsClient::commanderDraftMetadataAndPrivateSelectionResetTogether() const
 {
     LimitedSessionState state;
@@ -211,7 +255,7 @@ void TestWsClient::sendsCommanderCubeCommandsWithinSizeBounds() const
 
     // Out-of-range selections/invites must not produce any network command.
     client.pickLimitedCards({});
-    client.pickLimitedCards({u"card-a"_s, u"card-b"_s, u"card-c"_s});
+    client.pickLimitedCards({u"card-a"_s, u"card-b"_s, u"card-c"_s, u"card-d"_s, u"card-e"_s});
     client.inviteCommanderCubePlayers({});
     client.inviteCommanderCubePlayers({u"p-1"_s});
     client.inviteCommanderCubePlayers({u"p-1"_s, u"p-2"_s, u"p-3"_s, u"p-4"_s, u"p-5"_s});
@@ -235,6 +279,24 @@ void TestWsClient::sendsCommanderCubeCommandsWithinSizeBounds() const
     client.pickLimitedCards({u"card-b"_s, u"card-a"_s});
     expect(hexproof::protocol::kTypeLimitedPick,
            {{u"instanceIds"_s, QJsonArray{u"card-b"_s, u"card-a"_s}}});
+    client.pickLimitedCards({u"card-a"_s, u"card-b"_s, u"card-c"_s, u"card-d"_s});
+    expect(hexproof::protocol::kTypeLimitedPick,
+           {{u"instanceIds"_s, QJsonArray{u"card-a"_s, u"card-b"_s, u"card-c"_s, u"card-d"_s}}});
+    const QVariantMap draftSettings{
+        {u"packsPerPlayer"_s, 6}, {u"packsPerBatch"_s, 2}, {u"cardsPerPack"_s, 25}};
+    const QVariantMap product{{u"id"_s, u"cube"_s}};
+    client.createCasualLimitedEvent(u"Paired Cube"_s, u"commander_cube"_s, u"bo1"_s, 4, product,
+                                    draftSettings);
+    expect(hexproof::protocol::kTypeTournamentCreate,
+           {{u"name"_s, u"Paired Cube"_s},
+            {u"format"_s, u"Limited"_s},
+            {u"eventType"_s, u"commander_cube"_s},
+            {u"coordinator"_s, u"casual"_s},
+            {u"matchMode"_s, u"bo1"_s},
+            {u"roundMinutes"_s, 50},
+            {u"maxPlayers"_s, 4},
+            {u"product"_s, QJsonObject::fromVariantMap(product)},
+            {u"draftSettings"_s, QJsonObject::fromVariantMap(draftSettings)}});
 
     for (int count = 2; count <= 4; ++count) {
         QVariantList players;

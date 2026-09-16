@@ -113,6 +113,8 @@ class TestDeckLegality : public QObject
     void keepsDuelCommanderCardPoolViolationsBlocking() const;
     void warnsAboutCommanderColorIdentity() const;
     void resolvesDoubleFacedFrontFaceNames() const;
+    void exactPreparePrintingDoesNotResolveAsStandaloneSpell() const;
+    void resolvesPlayableCardInsteadOfSameNameThemeFront() const;
     void degradesWhenCatalogIsMissing() const;
 };
 
@@ -294,6 +296,115 @@ void TestDeckLegality::resolvesDoubleFacedFrontFaceNames() const
                             .value(QStringLiteral("issues"))
                             .toStringList()
                             .join(QLatin1Char('\n'))));
+}
+
+void TestDeckLegality::exactPreparePrintingDoesNotResolveAsStandaloneSpell() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(QStringLiteral("cards.sqlite"));
+    createCatalog(databasePath);
+    const QString connection = QStringLiteral("prepare-legality-fixture");
+    {
+        auto database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connection);
+        database.setDatabaseName(databasePath);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        // These distinct identities and statuses come from the installed
+        // 2026-09-10 catalog. The Prepare characteristic shares a name with a
+        // standalone spell, but SOS/13 identifies the whole Prepare card.
+        QVERIFY(query.exec(QStringLiteral(
+            "INSERT INTO cards (oracle_id, name, type_line, colors, set_code, "
+            "collector_number, legality_statuses, layout) VALUES "
+            "('b1544f21-7e98-461b-aed5-e748b0168c52', 'Swords to Plowshares', 'Instant', "
+            "'W', 'F01', '6', '|modern:not_legal|legacy:legal|', 'normal'), "
+            "('e6c41473-2398-4888-9f0c-467dce7c39a4', "
+            "'Emeritus of Truce // Swords to Plowshares', 'Creature — Cat Cleric // Instant', "
+            "'W', 'SOS', '13', '|modern:legal|legacy:legal|', 'prepare')")));
+        QVERIFY(query.exec(QStringLiteral(
+            "UPDATE cards SET legality_statuses = legality_statuses || 'legacy:legal|' "
+            "WHERE name = 'Plains'")));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    QVariantMap characteristic = card(QStringLiteral("Swords to Plowshares"), 4);
+    characteristic.insert(QStringLiteral("setCode"), QStringLiteral("sos"));
+    characteristic.insert(QStringLiteral("collectorNumber"), QStringLiteral("13"));
+    const auto validate = [&](const QString &format, const QVariantList &spells) {
+        QVariantList mainboard = spells;
+        mainboard.append(card(QStringLiteral("Plains"), 60));
+        return DeckLegalityService::validate(databasePath, {deck(format, mainboard)})
+            .first()
+            .toMap();
+    };
+    const QVariantMap exact = validate(QStringLiteral("modern"), {characteristic});
+    QVERIFY2(exact.value(QStringLiteral("valid")).toBool(),
+             qPrintable(exact.value(QStringLiteral("issues")).toStringList().join(u'\n')));
+    QVERIFY(exact.value(QStringLiteral("verified")).toBool());
+
+    // Name-only input must still mean the standalone playable card.
+    const QVariantMap standalone =
+        validate(QStringLiteral("modern"), {card(QStringLiteral("Swords to Plowshares"), 4)});
+    QVERIFY(!standalone.value(QStringLiteral("valid")).toBool());
+    // Four copies of each distinct Oracle card do not make eight copies of
+    // the standalone spell merely because one is listed by its characteristic.
+    const QVariantMap distinct =
+        validate(QStringLiteral("legacy"),
+                 {characteristic, card(QStringLiteral("Swords to Plowshares"), 4)});
+    QVERIFY2(distinct.value(QStringLiteral("valid")).toBool(),
+             qPrintable(distinct.value(QStringLiteral("issues")).toStringList().join(u'\n')));
+}
+
+void TestDeckLegality::resolvesPlayableCardInsteadOfSameNameThemeFront() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString databasePath = storage.filePath(QStringLiteral("cards.sqlite"));
+    createCatalog(databasePath);
+    const QString connection = QStringLiteral("theme-front-legality-fixture");
+    {
+        auto database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connection);
+        database.setDatabaseName(databasePath);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        // The September 2026 catalog includes these distinct same-name cards.
+        // Insert the theme front first to reproduce the old name-only lookup.
+        QVERIFY(query.exec(
+            QStringLiteral("INSERT INTO cards (oracle_id, name, type_line, colors, set_code, "
+                           "collector_number, legality_statuses, layout) VALUES "
+                           "('theme-front', 'Pym Particles', 'Card', 'U', 'FMSC', '28', "
+                           "'|commander:not_legal|duel:not_legal|', 'front_card'), "
+                           "('pym-spell', 'Pym Particles', 'Sorcery', 'U', 'MSH', '70', "
+                           "'|commander:legal|duel:legal|', 'normal')")));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    for (const QString &format : {QStringLiteral("commander"), QStringLiteral("duel")}) {
+        for (const QString &printing : {QString{}, QStringLiteral("MSH"), QStringLiteral("FMSC")}) {
+            QVariantMap pym = card(QStringLiteral("Pym Particles"), 1);
+            if (!printing.isEmpty()) {
+                pym.insert(QStringLiteral("setCode"), printing);
+                pym.insert(QStringLiteral("collectorNumber"), printing == QStringLiteral("MSH")
+                                                                  ? QStringLiteral("70")
+                                                                  : QStringLiteral("28"));
+            }
+            const auto result = DeckLegalityService::validate(
+                                    databasePath, {deck(format,
+                                                        {card(QStringLiteral("White Commander"), 1),
+                                                         card(QStringLiteral("Plains"), 98), pym},
+                                                        {}, {QStringLiteral("White Commander")})})
+                                    .first()
+                                    .toMap();
+            QVERIFY(result.value(QStringLiteral("verified")).toBool());
+            const bool hasLegalityIssue = result.value(QStringLiteral("issues"))
+                                              .toStringList()
+                                              .join(u'\n')
+                                              .contains(QStringLiteral("not legal"));
+            QCOMPARE(hasLegalityIssue, printing == QStringLiteral("FMSC"));
+        }
+    }
 }
 
 void TestDeckLegality::degradesWhenCatalogIsMissing() const

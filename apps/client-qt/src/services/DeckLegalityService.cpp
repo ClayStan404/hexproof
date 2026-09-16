@@ -7,6 +7,7 @@
 #include "deck/DeckFormat.h"
 #include "services/BackgroundTaskPools.h"
 #include "services/CardCatalogCommon.h"
+#include "services/CardCatalogQueryInternal.h"
 #include "services/CatalogStorage.h"
 
 #include <QDir>
@@ -104,17 +105,15 @@ CatalogCard readCard(QSqlDatabase &database, const QVariantMap &card)
     };
     const QString select = QStringLiteral(
         "SELECT oracle_id, name, type_line, colors, oracle_text, legality_statuses FROM cards ");
-    const QString resultOrder = QStringLiteral(
-        "ORDER BY CASE WHEN layout IN ('art_series','token','double_faced_token','emblem') "
-        "THEN 1 ELSE 0 END, digital ASC, lang = 'en' DESC LIMIT 1");
+    const QString resultOrder = QStringLiteral("ORDER BY CASE WHEN %1 THEN 0 ELSE 1 END, "
+                                               "digital ASC, lang = 'en' DESC LIMIT 1")
+                                    .arg(catalog_internal::catalogPlayablePrintingSql(QString{}));
     const QString name = card.value(QStringLiteral("name")).toString();
-    query.prepare(select + QStringLiteral("WHERE name = ? COLLATE NOCASE ") + resultOrder);
-    query.addBindValue(name);
-    if (const CatalogCard result = readResult(); result.found)
-        return result;
-
     const QString setCode = card.value(QStringLiteral("setCode")).toString();
     const QString collectorNumber = card.value(QStringLiteral("collectorNumber")).toString();
+    // A named characteristic can also be a different standalone card (for
+    // example, a Prepare spell). Its explicit printing identifies which
+    // physical card owns that name and therefore which Oracle rules apply.
     if (!setCode.isEmpty() && !collectorNumber.isEmpty()) {
         query.prepare(select +
                       QStringLiteral("WHERE set_code = ? COLLATE NOCASE AND "
@@ -127,6 +126,11 @@ CatalogCard readCard(QSqlDatabase &database, const QVariantMap &card)
         if (const CatalogCard result = readResult(); result.found)
             return result;
     }
+
+    query.prepare(select + QStringLiteral("WHERE name = ? COLLATE NOCASE ") + resultOrder);
+    query.addBindValue(name);
+    if (const CatalogCard result = readResult(); result.found)
+        return result;
 
     query.prepare(select +
                   QStringLiteral("WHERE instr(name, ' // ') > 0 AND ("

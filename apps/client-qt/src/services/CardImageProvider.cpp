@@ -32,7 +32,31 @@ QString CardImageProvider::sourceForPath(const QString &path)
         return {};
 
     const QString id = idForPath(path);
-    return QStringLiteral("image://card-table/%1").arg(id);
+    const QMutexLocker locker(&m_mutex);
+    auto *revision = m_sourceRevisions.object(id);
+    if (!revision) {
+        revision = new quint64(++m_nextSourceRevision);
+        m_sourceRevisions.insert(id, revision);
+    }
+    // Version only the affected file. A global revision would force every
+    // visible card to reload whenever any background download finishes.
+    return QStringLiteral("image://card-table/%1/%2").arg(id).arg(*revision);
+}
+
+void CardImageProvider::invalidatePath(const QString &path)
+{
+    const QString id = idForPath(path);
+    const QMutexLocker locker(&m_mutex);
+    if (const auto *revision = m_sourceRevisions.object(id))
+        m_images.remove(id + QLatin1Char('/') + QString::number(*revision));
+    m_sourceRevisions.remove(id);
+}
+
+void CardImageProvider::invalidateAll()
+{
+    const QMutexLocker locker(&m_mutex);
+    m_images.clear();
+    m_sourceRevisions.clear();
 }
 
 QImage CardImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
@@ -48,7 +72,8 @@ QImage CardImageProvider::requestImage(const QString &id, QSize *size, const QSi
             return *cached;
         }
     }
-    path = QString::fromUtf8(QByteArray::fromBase64(id.toLatin1(), QByteArray::Base64UrlEncoding));
+    path = QString::fromUtf8(QByteArray::fromBase64(id.section(QLatin1Char('/'), 0, 0).toLatin1(),
+                                                    QByteArray::Base64UrlEncoding));
 
     const QImage image = loadTableImage(path);
     if (!image.isNull())
@@ -95,7 +120,11 @@ void CardImageProvider::cacheImage(const QString &id, const QImage &image)
     const int cost = static_cast<int>(std::min<qsizetype>(
         std::max<qsizetype>(1, (bytes + 1023) / 1024), std::numeric_limits<int>::max()));
     const QMutexLocker locker(&m_mutex);
-    m_images.insert(id, new QImage(image), cost);
+    const auto *revision = m_sourceRevisions.object(id.section(QLatin1Char('/'), 0, 0));
+    // An old decode can finish after repair. It must not repopulate the
+    // decoded cache after that file's source has been invalidated.
+    if (revision && id.section(QLatin1Char('/'), 1) == QString::number(*revision))
+        m_images.insert(id, new QImage(image), cost);
 }
 
 } // namespace hexproof::client

@@ -157,10 +157,11 @@ void ClientPreferencesModel::setCardLanguage(const QString &language)
 void ClientPreferencesModel::setCardArtProvider(const QString &provider)
 {
     const QString lowered = provider.toLower();
-    const QString normalized =
-        lowered == QStringLiteral("mtgch") || lowered == QStringLiteral("scryfall")
-            ? lowered
-            : QStringLiteral("auto");
+    const QString normalized = lowered == QStringLiteral("mtgch") ||
+                                       lowered == QStringLiteral("scryfall") ||
+                                       lowered == QStringLiteral("parallel")
+                                   ? lowered
+                                   : QStringLiteral("auto");
     if (normalized == m_preferences.cardArtProvider)
         return;
     const QString previous = m_preferences.cardArtProvider;
@@ -196,6 +197,36 @@ void ClientPreferencesModel::setAnimatePackOpenings(bool animate)
         return;
     }
     emit animatePackOpeningsChanged();
+}
+
+void ClientPreferencesModel::setUiTheme(const QString &theme)
+{
+    const QString normalized = theme.compare(QStringLiteral("glass"), Qt::CaseInsensitive) == 0
+                                   ? QStringLiteral("glass")
+                                   : QStringLiteral("classic");
+    if (normalized == m_preferences.uiTheme)
+        return;
+    const QString previous = m_preferences.uiTheme;
+    m_preferences.uiTheme = normalized;
+    if (!save()) {
+        m_preferences.uiTheme = previous;
+        return;
+    }
+    emit uiThemeChanged();
+}
+
+void ClientPreferencesModel::setTableBackground(const QString &background)
+{
+    const QString normalized = normalizedTableBackground(background);
+    if (normalized == m_preferences.tableBackground)
+        return;
+    const QString previous = m_preferences.tableBackground;
+    m_preferences.tableBackground = normalized;
+    if (!save()) {
+        m_preferences.tableBackground = previous;
+        return;
+    }
+    emit tableBackgroundChanged();
 }
 
 void ClientPreferencesModel::setInterfaceScale(qreal scale)

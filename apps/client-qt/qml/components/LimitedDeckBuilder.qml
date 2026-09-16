@@ -46,6 +46,7 @@ Item {
         ? Number(limitedModel.minimumDeckCards) : commanderDraft ? 60 : 40
     readonly property bool draftEvent: limitedModel.eventType === "set_draft" || limitedModel.eventType === "cube_draft" || commanderDraft
     property alias filters: poolFilters
+    property alias mainFilters: deckFilters
     property alias inspectedCard: preview.card
     property alias hoverPreviewVisible: preview.visible
     readonly property var basicNames: ["Plains", "Island", "Swamp", "Mountain", "Forest"]
@@ -55,6 +56,17 @@ Item {
     readonly property bool filtersActive: poolFilters.active
     readonly property var enrichedPool: enrichPoolCards()
     readonly property int selectedPoolCount: countSelected()
+    readonly property var optionalCards: {
+        void metadataRevision
+        if (!commanderDraft) return []
+        const cards = limitedModel.optionalCards || []
+        return cardCatalogModel && typeof cardCatalogModel.enrichLimitedCards === "function"
+            ? cardCatalogModel.enrichLimitedCards(cards) : cards
+    }
+    readonly property var selectedOptionalCards: {
+        void selectionRevision
+        return optionalCards.filter(card => !!selectedCards[card.instanceId])
+    }
     readonly property var fallbackCommanders: {
         void metadataRevision
         if (!commanderDraft) return []
@@ -69,9 +81,9 @@ Item {
     readonly property var participatingPlayers: (limitedModel.participants || []).filter(player => !player.withdrawn)
     readonly property bool automaticTableAfterSubmission: cubeFreePlay && limitedModel.stage === "deck_building"
         && (limitedModel.eventType === "cube_draft" || commanderDraft)
-        && participatingPlayers.length >= 2 && participatingPlayers.length <= (commanderDraft ? 4 : 2)
+        && participatingPlayers.length >= 2 && participatingPlayers.length <= (commanderDraft ? 8 : 2)
         && participatingPlayers.some(player => player.participantId === participantId)
-    readonly property var mainDeckCards: cardsForSelection(true).concat(selectedFallbackCommanders)
+    readonly property var mainDeckCards: cardsForSelection(true).concat(selectedOptionalCards, selectedFallbackCommanders)
         .map(card => commanderSelection.withColor(card, commanderColors))
     readonly property var basicLandPlan: landPlanner.recommend(mainDeckCards, minimumDeckCards)
     readonly property var landAssessment: landPlanner.analyze(mainDeckCards, basics, minimumDeckCards)
@@ -102,11 +114,14 @@ Item {
         for (const name of basicNames) {
             const count = basicValue(name)
             if (count > 0) result.push({name: name, displayName: basicLabel(name), count: count,
-                                       typeLine: "Basic Land", cardColors: "", manaCost: "", virtualBasic: true})
+                                       typeLine: "Basic Land", cardColors: "", colors: "WUBRG"[basicNames.indexOf(name)], manaCost: "",
+                                       manaValue: 0, virtualBasic: true})
         }
         return result
     }
+    readonly property var visibleDeckListCards: deckFilters.filter(deckListCards)
     CardFilterState { id: poolFilters }
+    CardFilterState { id: deckFilters }
     LimitedBasicLandPlan { id: landPlanner }
     LimitedCommanderSelection { id: commanderSelection }
 
@@ -276,15 +291,23 @@ Item {
                         font.pixelSize: Theme.fontSize(10)
                         wrapMode: Text.WordWrap
                     }
+                    CardFilterBar {
+                        objectName: "limitedMainDeckFilters"
+                        Layout.fillWidth: true
+                        filters: deckFilters
+                        compact: root.compactDeckControls
+                    }
                     CompactCardList {
                         objectName: "limitedMainDeckGrid"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        Layout.minimumHeight: Theme.size(64)
-                        cards: root.deckListCards
+                        Layout.minimumHeight: Theme.size(root.compactDeckControls ? 44 : 64)
+                        cards: root.visibleDeckListCards
                         dropTarget: root.compactColumns ? null : availablePool
                         onCardDropped: card => root.removeFromMainDeck(card)
-                        emptyText: qsTranslate("TournamentLobby", "Add cards from the sideboard to build your deck.")
+                        emptyText: deckFilters.active
+                            ? qsTranslate("TournamentLobby", "No cards match all active filters.")
+                            : qsTranslate("TournamentLobby", "Add cards from the sideboard to build your deck.")
                         onCardActivated: card => {
                             root.removeFromMainDeck(card)
                         }
@@ -326,7 +349,7 @@ Item {
                             text: root.commanderCards.length > 0
                                 ? root.commanderCards.map(card => (card.displayName || card.name)
                                     + (card.commanderColor ? " · " + card.commanderColor : "")).join(" / ")
-                                : qsTranslate("TournamentLobby", "Select commanders from your main deck or use the Piper fallback.")
+                                : qsTranslate("TournamentLobby", "Choose commanders from your drafted cards or use the Piper fallback.")
                             color: root.commandersValid ? Theme.textSecondary : Theme.warning
                             font.pixelSize: Theme.fontSize(10)
                             elide: Text.ElideRight
@@ -335,7 +358,9 @@ Item {
                             objectName: "limitedBasicLandsButton"
                             Layout.fillWidth: true
                             compact: true
-                            text: (root.autoBasicLands
+                            text: (root.optionalCards.length > 0
+                                ? qsTranslate("TournamentLobby", "Basic lands & optional cards")
+                                : root.autoBasicLands
                                 ? qsTranslate("TournamentLobby", "Basic lands · %1 · Auto").arg(root.countBasics())
                                 : qsTranslate("TournamentLobby", "Basic lands · %1").arg(root.countBasics()))
                                 + (root.landAssessment.lowLandCount ? " ⚠" : "")
@@ -458,8 +483,8 @@ Item {
         parent: Overlay.overlay
         visible: root.basicLandsExpanded
         onClosed: root.basicLandsExpanded = false
-        width: Math.min(Theme.size(420), parent ? parent.width - Theme.size(24) : 420)
-        height: Math.min(Theme.size(520), parent ? parent.height - Theme.size(24) : 520)
+        width: Math.min(Theme.size(460), parent ? parent.width - Theme.size(24) : 460)
+        height: Math.min(Theme.size(620), parent ? parent.height - Theme.size(24) : 620)
         x: parent ? (parent.width - width) / 2 : 0
         y: parent ? (parent.height - height) / 2 : 0
         modal: true
@@ -469,7 +494,9 @@ Item {
         contentItem: ColumnLayout {
             Text {
                 textFormat: Text.PlainText
-                text: qsTranslate("TournamentLobby", "Basic lands")
+                text: root.optionalCards.length > 0
+                    ? qsTranslate("TournamentLobby", "Basic lands & optional cards")
+                    : qsTranslate("TournamentLobby", "Basic lands")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(20)
                 font.bold: true
@@ -548,6 +575,54 @@ Item {
                             }
                         }
                     }
+                    ColumnLayout {
+                        objectName: "limitedOptionalCardsPanel"
+                        Layout.fillWidth: true
+                        visible: root.optionalCards.length > 0
+                        spacing: Theme.size(4)
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            text: qsTranslate("TournamentLobby", "Optional cards · one outside copy of each")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(12)
+                            wrapMode: Text.WordWrap
+                        }
+                        Repeater {
+                            model: root.optionalCards
+                            delegate: RowLayout {
+                                id: optionalRow
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Text {
+                                    id: optionalName
+                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    text: optionalRow.modelData.displayName || optionalRow.modelData.name
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(13)
+                                    elide: Text.ElideRight
+                                    HoverHandler {
+                                        onHoveredChanged: {
+                                            if (hovered) root.inspectCard(optionalRow.modelData, optionalName)
+                                            else root.hideCardPreview(optionalName)
+                                        }
+                                    }
+                                }
+                                AppButton {
+                                    objectName: "limitedOptionalCard-" + optionalRow.modelData.instanceId
+                                    compact: true
+                                    text: root.cardSelected(optionalRow.modelData.instanceId)
+                                        ? qsTranslate("TournamentLobby", "Remove") : qsTranslate("TournamentLobby", "Add")
+                                    onClicked: {
+                                        if (root.cardSelected(optionalRow.modelData.instanceId)) root.moveToSideboard(optionalRow.modelData.instanceId)
+                                        else root.moveToMainDeck(optionalRow.modelData.instanceId)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             AppButton {
@@ -567,7 +642,7 @@ Item {
     }
     LimitedCommanderPicker {
         id: commanderPicker
-        cards: root.mainDeckCards.filter(card => !card.fallbackCommander)
+        cards: root.enrichedPool
         fallbackCards: root.fallbackCommanders
         selectedIds: root.commanderInstanceIds
         selectedColors: root.commanderColors
@@ -581,12 +656,14 @@ Item {
     onVisibleChanged: {
         if (!visible) {
             hideCardPreview()
+            basicLandsExpanded = false
             commanderPicker.close()
         }
         else cachePoolCards()
     }
     onEnrichedPoolChanged: cachePoolCards()
     onFallbackCommandersChanged: cachePoolCards()
+    onOptionalCardsChanged: cachePoolCards()
 
     function cardSelected(instanceId) {
         const revision = selectionRevision
@@ -618,7 +695,7 @@ Item {
     }
 
     function moveToMainDeck(instanceId) {
-        if (!(limitedModel.pool || []).some(card => card.instanceId === instanceId)) return
+        if (!(limitedModel.pool || []).concat(optionalCards).some(card => card.instanceId === instanceId)) return
         hideCardPreview()
         const changed = Object.assign({}, selectedCards)
         changed[instanceId] = true
@@ -667,9 +744,16 @@ Item {
 
     function toggleCommander(instanceId) {
         if (!commanderDraft) return
-        const cards = commanderCandidates()
+        const cards = enrichedPool.concat(fallbackCommanders)
         if (!commanderSelection.canSelect(instanceId, commanderInstanceIds, cards)) return
         hideCardPreview()
+        // Selecting a drafted commander also includes that physical instance in
+        // the deck; the server still validates commanders against the mainboard.
+        if (commanderInstanceIds.indexOf(instanceId) < 0 && !selectedCards[instanceId]
+                && enrichedPool.some(card => card.instanceId === instanceId)) {
+            selectedCards = Object.assign({}, selectedCards, {[instanceId]: true})
+            selectionRevision++
+        }
         commanderInstanceIds = commanderInstanceIds.indexOf(instanceId) >= 0
             ? commanderInstanceIds.filter(id => id !== instanceId)
             : commanderInstanceIds.concat([instanceId])
@@ -741,6 +825,8 @@ Item {
     function clearFilters() {
         poolFilters.reset()
         poolFilters.query = ""
+        deckFilters.reset()
+        deckFilters.query = ""
         hideCardPreview()
     }
     function inspectCard(card, item) { preview.inspect(card, item) }
@@ -748,7 +834,7 @@ Item {
 
     function cachePoolCards() {
         if (!visible || !cardCatalogModel || typeof cardCatalogModel.cacheCardsIncrementally !== "function") return
-        const fresh = (limitedModel.pool || []).concat(fallbackCommanders).filter(card => {
+        const fresh = (limitedModel.pool || []).concat(fallbackCommanders, optionalCards).filter(card => {
             const key = JSON.stringify([card.name, card.setCode || "", card.collectorNumber || ""])
             if (cachedArtKeys[key]) return false
             cachedArtKeys[key] = true
@@ -825,7 +911,7 @@ Item {
         if (!ids || typeof ids === "string" || typeof ids.length !== "number") return
         // Existing manual drafts never opt in merely because the client updated.
         autoBasicLands = draft.autoBasicLands === true
-        const available = new Set((limitedModel.pool || []).map(card => card.instanceId))
+        const available = new Set((limitedModel.pool || []).concat(optionalCards).map(card => card.instanceId))
         const restored = {}
         for (const id of ids) if (available.has(id)) restored[id] = true
         const lands = {}

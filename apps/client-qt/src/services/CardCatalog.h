@@ -16,6 +16,7 @@
 #include <QUrl>
 #include <QVariantList>
 
+#include <array>
 #include <memory>
 
 class QNetworkReply;
@@ -55,6 +56,8 @@ class CardCatalog : public QObject
     Q_PROPERTY(bool checkingCatalogVersion READ checkingCatalogVersion NOTIFY catalogVersionChanged)
     Q_PROPERTY(QString catalogVersionError READ catalogVersionError NOTIFY catalogVersionChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(bool cacheProgressActive READ cacheProgressActive NOTIFY busyChanged)
+    Q_PROPERTY(bool searchPreviewBusy READ searchPreviewBusy NOTIFY searchPreviewChanged)
     Q_PROPERTY(qreal progress READ progress NOTIFY progressChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
@@ -145,6 +148,16 @@ class CardCatalog : public QObject
     qreal progress() const
     {
         return m_progress;
+    }
+    bool cacheProgressActive() const
+    {
+        return m_catalogBusy || m_limitedArtCaching || m_artCacheBusy || m_customArtBusy ||
+               m_artStorageBusy || m_totalRequests > m_completedRequests ||
+               !m_incrementalCacheQueue.isEmpty();
+    }
+    bool searchPreviewBusy() const
+    {
+        return !m_searchPreviewCards.isEmpty() || !m_searchPreviewIdentity.isEmpty();
     }
     QString status() const
     {
@@ -242,6 +255,7 @@ class CardCatalog : public QObject
                             const QString &colorFilter = {}, const QString &rarityFilter = {},
                             const QString &legalityFilter = {}, const QString &manaFilter = {});
     Q_INVOKABLE QVariantList printings(const QString &name);
+    Q_INVOKABLE QString cardDisplayName(const QString &name) const;
     Q_INVOKABLE QVariantList cardFaces(const QString &name, const QString &setCode,
                                        const QString &collectorNumber);
     Q_INVOKABLE QVariantList customArtBindings(const QVariantMap &card) const;
@@ -272,6 +286,7 @@ class CardCatalog : public QObject
                                          const QString &collectorNumber) const;
     Q_INVOKABLE void cacheToken(const QVariantMap &token);
     Q_INVOKABLE void prioritizeCards(const QVariantList &cards);
+    Q_INVOKABLE void setSearchPreviewCards(const QVariantList &cards);
     Q_INVOKABLE QVariantList limitedProducts() const;
     Q_INVOKABLE QVariantList limitedSets() const;
     Q_INVOKABLE QVariantMap limitedProduct(const QString &productId) const;
@@ -309,6 +324,7 @@ class CardCatalog : public QObject
     void catalogChanged();
     void catalogVersionChanged();
     void busyChanged();
+    void searchPreviewChanged();
     void progressChanged();
     void statusChanged();
     void lastErrorChanged();
@@ -364,6 +380,7 @@ class CardCatalog : public QObject
         QString key;
         bool retry = false;
         bool highPriority = false;
+        bool presentationArtOnly = false;
     };
 
     struct MatchCacheSubscription
@@ -383,6 +400,7 @@ class CardCatalog : public QObject
     CardRecord cachedResolvedPrinting(const CardRequest &request) const;
     CardRecord localCachedRecord(const CardRequest &request, const QString &key,
                                  bool *createdMapping);
+    bool matchArtAvailableLocally(const QVariantMap &card);
     CardRecord reusableLocalArt(const CardRequest &request,
                                 const CardRecord &catalogIdentity) const;
     CardRecord substituteArtRecord(const CardRequest &request, const CardRecord &catalogIdentity,
@@ -397,6 +415,7 @@ class CardCatalog : public QObject
                          const QString &language) const;
     CardRecord lookupCatalog(const CardRequest &request) const;
     void cacheResolvedMetadata(const CardRequest &request, const CardRecord &record);
+    void scheduleImageRevisionChanged();
     CardRecord lookupLocalizedPrinting(const CardRequest &request,
                                        const CardRecord &catalogIdentity) const;
     CardRecord migrateLegacyCacheRecord(const CardRequest &request, const CardRecord &record) const;
@@ -404,6 +423,8 @@ class CardCatalog : public QObject
     void persistLocalizedPrintings(const QJsonArray &printings);
     void clearGuiQueryCaches();
     void scheduleResolutionWork();
+    int activeCardResolutions() const;
+    void startFallbackResolutions();
     void finishResolutionIfIdle();
     bool startDirectImageDownload(const DirectImageJob &job);
     void handleDirectImageReply(QNetworkReply *reply);
@@ -429,8 +450,12 @@ class CardCatalog : public QObject
     static SearchResult searchTokenDatabase(const QString &databasePath, const QString &query);
     void enqueueCards(const QVariantList &cards, const QString &language, bool highPriority);
     void enqueueFallbackRequest(const CardRequest &request);
-    void queueCardsIncrementally(const QVariantList &cards, bool highPriority, bool retry = false);
-    void enqueueRequests(const QList<CardRequest> &requests);
+    void queueCardsIncrementally(const QVariantList &cards, bool highPriority, bool retry = false,
+                                 bool presentationArtOnly = false);
+    void enqueueRequests(const QList<CardRequest> &requests, bool searchPreview = false);
+    void scheduleSearchPreview();
+    void processSearchPreview();
+    bool finishSearchPreview(const CardRequest &request);
     void subscribeMatchCards(qint64 loadId, quint64 generation, const QVariantList &cards);
     void queueMatchCards(qint64 loadId, quint64 generation, const QVariantList &cards, bool retry);
     void emitCardCacheCompletion(const CardRequest &request, bool success);
@@ -498,6 +523,8 @@ class CardCatalog : public QObject
     int m_tokenCount = 0;
     int m_localizedPrintingCount = 0;
     int m_imageRevision = 0;
+    bool m_imageRevisionNotificationPending = false;
+    bool m_artIndexFlushing = false;
 
     std::unique_ptr<QNetworkAccessManager> m_ownedNetwork;
     QNetworkAccessManager *m_network = nullptr;
@@ -507,6 +534,10 @@ class CardCatalog : public QObject
     std::unique_ptr<CardArtManager> m_artManager;
     std::unique_ptr<CatalogInstaller> m_catalogInstaller;
     std::unique_ptr<CardResolver> m_cardResolver;
+    std::array<std::unique_ptr<CardResolver>, 5> m_parallelResolvers;
+    std::array<int, 3> m_parallelProviderRequests{};
+    bool m_parallelUseAlternateProvider = false;
+    int m_pendingDirectImageRetries = 0;
     mutable std::unique_ptr<CatalogRepository> m_guiCatalog;
     std::unique_ptr<CardFaceExpansionState> m_faceExpansion;
     std::unique_ptr<LimitedArtFaceExpansionState> m_limitedArtFaceExpansion;
@@ -529,6 +560,11 @@ class CardCatalog : public QObject
     QHash<QNetworkReply *, DirectImageJob> m_directImageJobs;
     QHash<QString, bool> m_queuedKeys;
     QHash<QString, QList<MatchCacheSubscription>> m_matchCacheSubscriptions;
+    QVariantList m_searchPreviewCards;
+    QString m_searchPreviewLanguage;
+    QString m_searchPreviewIdentity;
+    bool m_searchPreviewAdopted = false;
+    bool m_searchPreviewScheduled = false;
     mutable QCache<QString, QString> m_cardQueryTextCache{4096};
     bool m_cachedHydrationCreatedMapping = false;
     bool m_cachedHydrationScheduled = false;

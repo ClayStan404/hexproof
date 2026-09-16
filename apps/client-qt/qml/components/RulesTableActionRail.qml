@@ -25,7 +25,7 @@ Surface {
     Layout.preferredWidth: root.tableController.actionRailWidth
     Layout.maximumWidth: root.tableController.actionRailWidth
     Layout.fillHeight: true
-    color: Theme.surfaceMuted
+    color: Theme.tableRailFill
     radius: 0
     border.width: 0
 
@@ -34,7 +34,7 @@ Surface {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Theme.size(2)
-        color: Theme.borderStrong
+        color: Theme.tableDivider
     }
 
     ColumnLayout {
@@ -79,6 +79,14 @@ Surface {
             font.pixelSize: Theme.fontSize(9)
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
+        }
+
+        AppButton {
+            objectName: "rulesBackgroundButton"
+            Layout.fillWidth: true
+            compact: true
+            text: qsTr("Background")
+            onClicked: root.tableController.openBackgroundPicker()
         }
 
         AppButton {
@@ -215,6 +223,31 @@ Surface {
                 width: parent.width
                 spacing: Theme.size(3)
 
+                Row {
+                    width: parent.width
+                    height: Theme.size(22)
+                    Text {
+                        width: parent.width - Theme.size(56)
+                        textFormat: Text.PlainText
+                        text: qsTr("Stops")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(9)
+                    }
+                    Repeater {
+                        model: [qsTr("You"), qsTr("Others")]
+                        delegate: Text {
+                            required property string modelData
+                            width: Theme.size(28)
+                            textFormat: Text.PlainText
+                            text: modelData
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(8)
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+
                 Repeater {
                     model: root.phaseSteps
 
@@ -237,7 +270,7 @@ Surface {
                             textFormat: Text.PlainText
                             anchors.fill: parent
                             anchors.leftMargin: Theme.size(4)
-                            anchors.rightMargin: Theme.size(4)
+                            anchors.rightMargin: Theme.size(56)
                             text: root.tableController.stepLabel(
                                       phaseItem.modelData)
                             color: root.tableController.rulesSession.step
@@ -249,7 +282,66 @@ Surface {
                                          ? Font.DemiBold : Font.Normal
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
                             elide: Text.ElideRight
+                        }
+
+                        Row {
+                            anchors.right: parent.right
+                            height: parent.height
+                            Repeater {
+                                model: [true, false]
+                                delegate: Rectangle {
+                                    id: stopControl
+                                    required property bool modelData
+                                    readonly property var priority: root.tableController.priority || null
+                                    readonly property bool selected: priority
+                                        ? priority.hasStop(phaseItem.modelData, modelData) : false
+                                    readonly property bool available: priority && priority.active
+                                        && phaseItem.modelData !== "untap"
+                                    objectName: "rulesPhaseStop-" + (modelData ? "own-" : "other-")
+                                        + phaseItem.modelData
+                                    width: Theme.size(28)
+                                    height: parent.height
+                                    color: selected ? Theme.primaryMuted : "transparent"
+                                    radius: Theme.radiusSmall
+                                    border.width: activeFocus ? 1 : 0
+                                    border.color: Theme.primary
+                                    activeFocusOnTab: available
+                                    Accessible.role: Accessible.CheckBox
+                                    Accessible.checkable: true
+                                    Accessible.checked: selected
+                                    Accessible.name: modelData
+                                        ? qsTr("Stop at %1 on your turns").arg(root.tableController.stepLabel(phaseItem.modelData))
+                                        : qsTr("Stop at %1 on other players' turns").arg(root.tableController.stepLabel(phaseItem.modelData))
+                                    function toggle() {
+                                        if (available)
+                                            priority.toggleStop(phaseItem.modelData, modelData)
+                                    }
+                                    Accessible.onToggleAction: toggle()
+                                    Keys.onSpacePressed: toggle()
+                                    Keys.onReturnPressed: toggle()
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: Theme.size(10)
+                                        height: width
+                                        radius: width / 2
+                                        color: stopControl.selected ? Theme.primary : "transparent"
+                                        border.width: 1
+                                        border.color: stopControl.selected ? Theme.primary : Theme.textMuted
+                                        opacity: stopControl.available ? 1 : 0.25
+                                    }
+                                    TapHandler {
+                                        enabled: stopControl.available
+                                        onTapped: stopControl.toggle()
+                                    }
+                                    HoverHandler { id: stopHover }
+                                    ToolTip.visible: stopHover.hovered
+                                    ToolTip.text: stopControl.Accessible.name
+                                    ToolTip.delay: 350
+                                }
+                            }
                         }
                     }
                 }

@@ -17,9 +17,9 @@ pwsh ./packaging/windows/build-package.ps1
 Artifacts are written to `build/packages/` by default. Set
 `HEXPROOF_OUTPUT_DIR` to choose another output directory and
 `HEXPROOF_VERSION` to override the archive version. The client scripts require
-Qt 6.5 or newer with the WebSockets and Image Formats modules, CMake, a C++20
-compiler, and zlib. The server script requires the Go version declared by
-`apps/server/go.mod`.
+Qt 6.5 or newer with the WebSockets, Image Formats, and Shader Tools modules,
+CMake, a C++20 compiler, and zlib. The server script requires the Go version
+declared by `apps/server/go.mod`.
 
 CI, application releases, and card-database builds share the pinned Qt 6.11.2
 toolchain in [setup-qt](../.github/actions/setup-qt/action.yml). Upgrade this
@@ -32,8 +32,8 @@ uses the fixed upstream revision `8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b`
 because 3.3.0 cannot resolve Qt 6.11's compiler-specific Windows repositories
 ([upstream fix](https://github.com/miurahr/aqtinstall/pull/1000)). Replace this
 revision with a released installer after validating an uncached Windows SDK
-installation, including `qtwebsockets` and `qtimageformats`; do not use a
-moving branch or downgrade the Qt runtime to work around the installer.
+installation, including `qtwebsockets`, `qtimageformats`, and `qtshadertools`;
+do not use a moving branch or downgrade the Qt runtime to work around the installer.
 
 Client builds select their bundled public-server directory in this order:
 

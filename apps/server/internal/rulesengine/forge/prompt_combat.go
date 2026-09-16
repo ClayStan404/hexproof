@@ -46,7 +46,7 @@ func normalizeAttackers(input promptInput) ([]PromptCombatSource, []PromptCombat
 		}
 		sources = append(sources, PromptCombatSource{
 			ResponseID: "combat-source:" + strconv.Itoa(index), ID: attacker.AttackerID,
-			ValidTargetIDs: validTargets, MustAssignIfAble: attacker.MustAttack,
+			ValidTargetIDs: validTargets, Maximum: 1, MustAssignIfAble: attacker.MustAttack,
 		})
 	}
 	return sources, targets, nil
@@ -66,11 +66,25 @@ func normalizeBlockers(input promptInput) ([]PromptCombatSource, []PromptCombatT
 		}
 		blockerIndexes[blockerID] = index
 	}
+	if len(input.BlockerAssignmentLimits) != len(blockerIndexes) {
+		return nil, nil, errors.New("Forge blocker prompt is missing native assignment limits")
+	}
+	capacities := make(map[string]int, len(blockerIndexes))
+	for _, limit := range input.BlockerAssignmentLimits {
+		if _, exists := blockerIndexes[limit.BlockerID]; !exists || limit.Maximum == nil ||
+			*limit.Maximum < 0 || *limit.Maximum > len(input.Attackers) {
+			return nil, nil, errors.New("Forge blocker prompt has an invalid native assignment limit")
+		}
+		if _, duplicate := capacities[limit.BlockerID]; duplicate {
+			return nil, nil, errors.New("Forge blocker prompt repeats a native assignment limit")
+		}
+		capacities[limit.BlockerID] = *limit.Maximum
+	}
 	sources := make([]PromptCombatSource, len(input.AvailableBlockerIDs))
 	for index, blockerID := range input.AvailableBlockerIDs {
 		sources[index] = PromptCombatSource{
 			ResponseID: "combat-source:" + strconv.Itoa(index), ID: blockerID,
-			ValidTargetIDs: []string{},
+			ValidTargetIDs: []string{}, Maximum: capacities[blockerID],
 		}
 	}
 	targets := make([]PromptCombatTarget, 0, len(input.Attackers))
@@ -153,7 +167,8 @@ func combatAssignmentsOutput(raw json.RawMessage, responseID string,
 	for _, target := range targets {
 		targetByResponse[target.ResponseID] = target
 	}
-	seenSources := make(map[string]struct{}, len(assignments))
+	sourceCounts := make(map[string]int, len(sources))
+	seenPairs := make(map[PromptAssignment]struct{}, len(assignments))
 	targetCounts := make(map[string]int, len(targets))
 	upstream := make([]map[string]string, 0, len(assignments))
 	for _, assignment := range assignments {
@@ -163,10 +178,14 @@ func combatAssignmentsOutput(raw json.RawMessage, responseID string,
 			!containsPromptID(source.ValidTargetIDs, assignment.TargetID) {
 			return nil, errors.New("combat assignment is no longer legal")
 		}
-		if _, duplicate := seenSources[assignment.SourceID]; duplicate {
-			return nil, errors.New("combat source was assigned more than once")
+		if _, duplicate := seenPairs[assignment]; duplicate {
+			return nil, errors.New("combat source-target pair was assigned more than once")
 		}
-		seenSources[assignment.SourceID] = struct{}{}
+		seenPairs[assignment] = struct{}{}
+		sourceCounts[assignment.SourceID]++
+		if sourceCounts[assignment.SourceID] > source.Maximum {
+			return nil, errors.New("combat source exceeds its native assignment limit")
+		}
 		targetCounts[assignment.TargetID]++
 		if input.Type == "chooseAttackers" {
 			upstream = append(upstream, map[string]string{

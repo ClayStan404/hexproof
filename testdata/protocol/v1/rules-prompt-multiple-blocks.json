@@ -1,0 +1,77 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 19,
+    "kind": "chooseBlockers",
+    "supported": true,
+    "title": "Declare blockers",
+    "detail": "",
+    "options": [],
+    "choices": [],
+    "cards": [],
+    "scryDestinations": [],
+    "orderItems": [],
+    "contextCards": [],
+    "contextTargets": [],
+    "contextText": "",
+    "requiredSelections": 0,
+    "minCardSelections": 0,
+    "maxCardSelections": 0,
+    "targets": [],
+    "combatSources": [
+      {
+        "responseId": "combat-source:0",
+        "objectId": "card-guard",
+        "label": "Palace Guard",
+        "name": "Palace Guard",
+        "setCode": "M10",
+        "collectorNumber": "22",
+        "validTargetIds": [
+          "combat-target:0",
+          "combat-target:1"
+        ],
+        "maxAssignments": 2,
+        "mustAssignIfAble": false
+      }
+    ],
+    "combatTargets": [
+      {
+        "responseId": "combat-target:0",
+        "kind": "attacker",
+        "label": "Grizzly Bears",
+        "objectId": "card-attacker-0",
+        "name": "Grizzly Bears",
+        "setCode": "M10",
+        "collectorNumber": "186",
+        "minAssignments": 1,
+        "maxAssignments": 1,
+        "mustReceiveIfAble": false
+      },
+      {
+        "responseId": "combat-target:1",
+        "kind": "attacker",
+        "label": "Grizzly Bears",
+        "objectId": "card-attacker-1",
+        "name": "Grizzly Bears",
+        "setCode": "M10",
+        "collectorNumber": "186",
+        "minAssignments": 1,
+        "maxAssignments": 1,
+        "mustReceiveIfAble": false
+      }
+    ],
+    "damageTargets": [],
+    "totalDamage": 0,
+    "damageDeathtouch": false,
+    "minSelections": 0,
+    "maxSelections": 0,
+    "cancellable": false,
+    "minChoiceTotal": 0,
+    "maxChoiceTotal": 0,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

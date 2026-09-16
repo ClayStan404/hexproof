@@ -217,7 +217,7 @@ bool ServerDirectory::setCustomServerUrl(const QString &url)
         return true;
 
     m_customServerUrl = normalized;
-    ++m_probeGeneration;
+    ++m_probeGenerations[CustomServerIndex];
     m_latencyMs[CustomServerIndex] = -2;
     emit customServerUrlChanged();
     emit latenciesChanged();
@@ -255,11 +255,13 @@ QVariantList ServerDirectory::latencies() const
 
 void ServerDirectory::refreshLatencies()
 {
-    const quint64 generation = ++m_probeGeneration;
+    for (quint64 &generation : m_probeGenerations)
+        ++generation;
     m_latencyMs.fill(-2);
     emit latenciesChanged();
 
     for (int index = 0; index < ServerCount; ++index) {
+        const quint64 generation = m_probeGenerations[index];
         const QString endpoint = serverUrl(index);
         if (endpoint.isEmpty())
             continue;
@@ -270,7 +272,7 @@ void ServerDirectory::refreshLatencies()
         QNetworkReply *reply = m_networkManager.get(request);
         network_limits::limitNetworkReply(reply, network_limits::kMaximumHealthResponseBytes);
         connect(reply, &QNetworkReply::finished, this, [this, generation, index, reply, timer]() {
-            if (generation != m_probeGeneration) {
+            if (generation != m_probeGenerations[index]) {
                 reply->deleteLater();
                 return;
             }

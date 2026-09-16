@@ -39,6 +39,8 @@ QVariant GameTableModel::data(const QModelIndex &index, int role) const
         return seat.value(u"displayName"_s);
     case LifeRole:
         return seat.value(u"life"_s);
+    case TurnCountRole:
+        return seat.value(u"turnCount"_s);
     case CountersRole:
         return seat.value(u"counters"_s);
     case CounterCountRole:
@@ -90,6 +92,7 @@ QHash<int, QByteArray> GameTableModel::roleNames() const
         {SeatRole, "seat"},
         {DisplayNameRole, "displayName"},
         {LifeRole, "life"},
+        {TurnCountRole, "turnCount"},
         {CountersRole, "counters"},
         {CounterCountRole, "counterCount"},
         {LibraryCountRole, "libraryCount"},

@@ -219,6 +219,22 @@ void WsClient::respondRulesPromptWithDamage(qint64 promptId, const QVariantList 
                                         {u"damageAssignments"_s, encodedAssignments}});
 }
 
+void WsClient::respondRulesPromptWithName(qint64 promptId, const QString &name)
+{
+    const QString chosen = name.trimmed();
+    const auto codepoints = chosen.toUcs4();
+    if (promptId <= 0 || codepoints.isEmpty() || codepoints.size() > 256 ||
+        m_rulesSession->promptKind() != u"chooseCardName"_s)
+        return;
+    for (const char32_t codepoint : codepoints) {
+        if (QChar::category(codepoint) == QChar::Other_Control)
+            return;
+    }
+    send(kTypeRulesRespond, QJsonObject{{u"promptId"_s, promptId},
+                                        {u"responseId"_s, u"$submit"_s},
+                                        {u"name"_s, chosen}});
+}
+
 void WsClient::respondRulesPromptWithScry(qint64 promptId, const QVariantList &piles)
 {
     if (promptId <= 0 || piles.isEmpty() || piles.size() > 5)

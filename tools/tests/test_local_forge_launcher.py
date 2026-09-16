@@ -4,11 +4,15 @@
 """Exercise local Forge startup with isolated tools; never start Java or a hub."""
 
 import os
+import hashlib
+import importlib.util
+import json
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -22,9 +26,9 @@ class LocalForgeLauncherTests(unittest.TestCase):
         (self.root / "tools").mkdir()
         versions = self.root / "third_party/forge-runtime"
         versions.mkdir(parents=True)
-        shutil.copy(REPO_ROOT / "third_party/forge-runtime/VERSIONS.env", versions)
         self.launcher = self.root / "tools/run-local-forge-server.sh"
         shutil.copy(REPO_ROOT / "tools/run-local-forge-server.sh", self.launcher)
+        shutil.copy(REPO_ROOT / "tools/local-forge-runtime.py", self.root / "tools")
         self.runtime = self.root / "runtime"
         self.server = self.root / "server"
         self.bin = self.root / "bin"
@@ -37,130 +41,273 @@ class LocalForgeLauncherTests(unittest.TestCase):
                         HEXPROOF_SERVER_BINARY_PATH=str(self.server),
                         HEXPROOF_FORGE_LOCAL_ROOT=str(self.runtime),
                         HEXPROOF_FORGE_JAVA="java")
+        self.native_host = versions / "native-host"
+        java_source = self.native_host / "src/main/java/org/hexproof/forge"
+        java_source.mkdir(parents=True)
+        (java_source / "NativeHost.java").write_text("// Synthetic launcher fixture, never compiled.\n")
+        patch = b"reviewed synthetic patch\n"
+        (self.native_host / "native.patch").write_bytes(patch)
+        self.upstream = {"repository": "https://example.invalid/forge.git", "revision": "a" * 40,
+                         "adapterRevision": 1, "mainClass": "org.hexproof.forge.NativeHost",
+                         "patch": {"file": "native.patch", "sha256": hashlib.sha256(patch).hexdigest()}}
+        (self.native_host / "upstream.json").write_text(json.dumps(self.upstream))
+        self.write_executable(self.bin / "git", f'''
+case "$3" in
+    rev-parse) printf '%s\\n' '{self.upstream["revision"]}' ;;
+    diff) if [[ "${{4:-}}" != --cached ]]; then cat '{self.native_host}/native.patch'; fi ;;
+    ls-files) ;;
+    *) exit 17 ;;
+esac
+''')
 
     def write_executable(self, path, body):
         path.write_text("#!/usr/bin/env bash\nset -euo pipefail\n" + body)
         path.chmod(0o755)
 
-    def prepare_runtime(self, destination=None):
-        runtime = destination or self.runtime
-        (runtime / "forge-gui/res/cardsfolder").mkdir(parents=True)
-        (runtime / "forge-gui/res/languages").mkdir()
-        (runtime / "forge-gui/res/deckgendecks").mkdir()
-        (runtime / "forge-harness.jar").write_text("synthetic jar")
-        (runtime / "forge-gui/res/languages/en-US.properties").touch()
-        (runtime / "forge-gui/res/deckgendecks/Standard.raw.dat").touch()
-        shutil.copy(self.root / "third_party/forge-runtime/VERSIONS.env", runtime)
-
     def run_launcher(self, *args):
         return subprocess.run(["bash", str(self.launcher), *args], cwd=self.root,
                               env=self.env, text=True, capture_output=True, timeout=10)
 
-    def test_matching_runtime_forwards_server_arguments(self):
-        self.prepare_runtime()
-        result = self.run_launcher("-port", "57321", "-bind", "127.0.0.1")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("server:-port 57321 -bind 127.0.0.1", result.stdout)
-        self.assertIn(f"runtime:{self.runtime}/forge-gui", result.stdout)
-        self.assertNotIn("build:", result.stdout)
+    def prepare_native_runtime(self, destination=None):
+        runtime = destination or self.runtime
+        runtime.mkdir(parents=True)
+        source = self.root / "native source"
+        for directory in ("cardsfolder", "languages", "deckgendecks"):
+            (source / "forge-gui/res" / directory).mkdir(parents=True, exist_ok=True)
+        (source / "forge-gui/res/languages/en-US.properties").touch()
+        (source / "forge-gui/res/deckgendecks/Standard.raw.dat").touch()
+        (runtime / "forge-gui").symlink_to(source / "forge-gui", target_is_directory=True)
+        (runtime / "lib").mkdir()
+        dependency = runtime / "lib/official.jar"
+        dependency.write_bytes(b"synthetic dependency")
+        artifact = {"path": "lib/official.jar", "sha256": hashlib.sha256(dependency.read_bytes()).hexdigest()}
+        with zipfile.ZipFile(runtime / "forge-harness.jar", "w") as jar:
+            jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\r\nMain-Class: org.hexproof.forge.NativeHost\r\nClass-Path: lib/official.jar\r\n\r\n")
+        shutil.copytree(self.native_host, runtime / "host-source")
+        provenance = dict(self.upstream, developmentOnly=True, corePatches=[self.upstream["patch"]],
+                          resourceSource=str(source), artifacts=[artifact],
+                          hostArtifact={"path": "forge-harness.jar", "sha256": hashlib.sha256((runtime / "forge-harness.jar").read_bytes()).hexdigest()})
+        (runtime / "provenance.json").write_text(json.dumps(provenance))
+        return runtime
 
-    def test_prepare_reuses_matching_runtime_and_builds_server(self):
-        self.prepare_runtime()
-        result = self.run_launcher("--prepare", "-port", "57321")
+    def native_builder(self, package, extra=""):
+        (self.root / "third_party/forge-runtime/build-native.py").write_text(f'''
+from pathlib import Path
+import json, sys
+Path({str(self.root / "native-builder-args.json")!r}).write_text(json.dumps(sys.argv[1:]))
+{extra}
+print("native builder progress")
+print({str(package)!r})
+''')
+
+    def prepare_standalone_runtime(self):
+        specification = importlib.util.spec_from_file_location(
+            "forge_package_fixtures", REPO_ROOT / "tools/tests/test_forge_source_package.py")
+        fixtures = importlib.util.module_from_spec(specification)
+        specification.loader.exec_module(fixtures)
+        fixture_dir = self.root / "standalone-fixture"
+        runtime_archive, _ = fixtures.create_release_fixture(fixture_dir)
+        relocated = self.root / "relocated package"
+        relocated.mkdir()
+        package = fixtures.PACKAGE.extract_archive(runtime_archive, relocated, "hexproof-forge-runtime")
+        shutil.copytree(REPO_ROOT / "third_party/forge-runtime/native-host", self.native_host,
+                        dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        shutil.copy2(REPO_ROOT / "third_party/forge-runtime/source-package.py",
+                     self.root / "third_party/forge-runtime/source-package.py")
+        # A standalone runtime must not need its original package/build tree.
+        shutil.rmtree(fixture_dir)
+        self.env["HEXPROOF_FORGE_LOCAL_ROOT"] = str(package)
+        return package
+
+    def test_standalone_runtime_launches_after_relocation_without_source_archive(self):
+        package = self.prepare_standalone_runtime()
+        result = self.run_launcher("-port", "57321")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"build:build -o {self.server} ./cmd/hexproof-server CGO=0", result.stdout)
+        self.assertIn(f"runtime:{package}/forge-gui", result.stdout)
         self.assertIn("server:-port 57321", result.stdout)
-
-    def test_default_runtime_keeps_previous_patch_installation_separate(self):
-        versions = dict(line.split("=", 1) for line in
-                        (self.root / "third_party/forge-runtime/VERSIONS.env").read_text().splitlines()
-                        if line and not line.startswith("#"))
-        revision = versions["MANABREW_REVISION"]
-        patch = versions["HEXPROOF_FORGE_PATCH_REVISION"]
-        previous = self.root / f"build/forge-runtime/local-{revision}/hexproof-forge-runtime"
-        self.prepare_runtime(previous)
-        old_manifest = previous / "VERSIONS.env"
-        old_manifest.write_text("previous patch revision\n")
-        current = self.root / f"build/forge-runtime/local-{revision}-patch{patch}/hexproof-forge-runtime"
-        self.prepare_runtime(current)
-        del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
-        result = self.run_launcher("--prepare")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"runtime:{current}/forge-gui", result.stdout)
-        self.assertEqual(old_manifest.read_text(), "previous patch revision\n")
-
-    def test_prepare_builds_and_installs_missing_runtime(self):
-        package = self.root / "package/hexproof-forge-runtime"
-        self.prepare_runtime(package)
-        self.write_executable(self.root / "third_party/forge-runtime/build.sh", """
-source "$(dirname "$0")/VERSIONS.env"
-mkdir -p build/forge-runtime
-tar -czf "build/forge-runtime/hexproof-forge-runtime-${MANABREW_REVISION}.tar.gz" -C package hexproof-forge-runtime
-""")
-        result = self.run_launcher("--prepare")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue((self.runtime / "forge-harness.jar").is_file())
-        self.assertIn("build:", result.stdout)
-        self.assertIn("server:", result.stdout)
-        self.assertFalse(list(self.root.glob("forge-install.*")))
-
-    def test_stale_runtime_is_rejected_without_overwriting(self):
-        self.prepare_runtime()
-        manifest = self.runtime / "VERSIONS.env"
-        manifest.write_text("old version\n")
-        for args in [(), ("--prepare",)]:
-            result = self.run_launcher(*args)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertNotIn("server:", result.stdout)
-            self.assertEqual(manifest.read_text(), "old version\n")
-
-    def test_prepare_resolves_relative_output_before_invoking_builder(self):
-        package = self.root / "package/hexproof-forge-runtime"
-        self.prepare_runtime(package)
-        self.env["HEXPROOF_FORGE_OUTPUT_DIR"] = "archive output"
-        self.write_executable(self.root / "third_party/forge-runtime/build.sh", """
-source "$(dirname "$0")/VERSIONS.env"
-[[ "$HEXPROOF_FORGE_OUTPUT_DIR" == /* ]] || exit 61
-printf 'archive-output:%s\\n' "$HEXPROOF_FORGE_OUTPUT_DIR"
-mkdir -p "$HEXPROOF_FORGE_OUTPUT_DIR"
-tar -czf "$HEXPROOF_FORGE_OUTPUT_DIR/hexproof-forge-runtime-${MANABREW_REVISION}.tar.gz" -C package hexproof-forge-runtime
-""")
-        result = self.run_launcher("--prepare")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"archive-output:{self.root}/archive output", result.stdout)
-        self.assertTrue((self.runtime / "forge-harness.jar").is_file())
-
-    def test_prepare_does_not_publish_an_incomplete_archive(self):
-        package = self.root / "package/hexproof-forge-runtime"
-        self.prepare_runtime(package)
-        (package / "forge-gui/res/languages/en-US.properties").unlink()
-        self.write_executable(self.root / "third_party/forge-runtime/build.sh", """
-source "$(dirname "$0")/VERSIONS.env"
-mkdir -p "$HEXPROOF_FORGE_OUTPUT_DIR"
-tar -czf "$HEXPROOF_FORGE_OUTPUT_DIR/hexproof-forge-runtime-${MANABREW_REVISION}.tar.gz" -C package hexproof-forge-runtime
-""")
-        result = self.run_launcher("--prepare")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("archive failed revision/resource validation", result.stderr)
-        self.assertFalse(self.runtime.exists())
         self.assertNotIn("build:", result.stdout)
-        self.assertNotIn("server:", result.stdout)
-        self.assertEqual(len(list(self.root.glob("forge-install.*"))), 1)
 
-    def test_missing_language_bundle_is_rejected(self):
-        self.prepare_runtime()
-        (self.runtime / "forge-gui/res/languages/en-US.properties").unlink()
+    def test_standalone_resource_tampering_is_rejected_before_startup(self):
+        package = self.prepare_standalone_runtime()
+        (package / "forge-gui/res/cardsfolder/test.txt").write_text("changed card script")
         result = self.run_launcher()
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("inventory/checksum mismatch", result.stderr)
         self.assertNotIn("server:", result.stdout)
 
+    def test_native_runtime_forwards_arguments_without_building(self):
+        self.prepare_native_runtime()
+        result = self.run_launcher("--native", "-port", "57321")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"runtime:{self.runtime}/forge-gui", result.stdout)
+        self.assertIn("server:-port 57321", result.stdout)
+        self.assertNotIn("build:", result.stdout)
+
+    def test_default_mode_is_native(self):
+        self.prepare_native_runtime()
+        result = self.run_launcher("-port", "57321")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"runtime:{self.runtime}/forge-gui", result.stdout)
+        self.assertIn("server:-port 57321", result.stdout)
+        self.assertNotIn("build:", result.stdout)
+        help_result = self.run_launcher("--help")
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        self.assertIn("Only official Forge", help_result.stdout)
+
+    def test_native_prepare_and_mode_can_be_reordered(self):
+        self.prepare_native_runtime()
+        for args in (("--prepare", "--native"), ("--native", "--prepare")):
+            result = self.run_launcher(*args, "-port", "57321")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("build:", result.stdout)
+            self.assertIn("server:-port 57321", result.stdout)
+
+    def test_double_dash_preserves_server_arguments(self):
+        self.prepare_native_runtime()
+        result = self.run_launcher("--native", "--", "--prepare", "--legacy")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("server:--prepare --legacy", result.stdout)
+        self.assertNotIn("build:", result.stdout)
+
+    def test_legacy_selection_is_rejected_before_startup(self):
+        for args in (("--legacy",), ("--native", "--legacy"), ("--prepare", "--legacy")):
+            result = self.run_launcher(*args)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("has been retired", result.stderr)
+            self.assertNotIn("server:", result.stdout)
+            self.assertNotIn("build:", result.stdout)
+
     def test_relative_overrides_remain_relative_to_invocation(self):
-        self.prepare_runtime()
+        self.prepare_native_runtime()
         self.env["HEXPROOF_SERVER_BINARY_PATH"] = "server"
         self.env["HEXPROOF_FORGE_LOCAL_ROOT"] = "runtime"
         result = self.run_launcher("--prepare")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"build:build -o {self.server}", result.stdout)
+
+    def test_native_prepare_publishes_fresh_runtime_via_symlink(self):
+        package = self.prepare_native_runtime(self.root / "generated/runtime-unique")
+        self.native_builder(package)
+        self.env["HEXPROOF_FORGE_SOURCE_DIR"] = "source with spaces"
+        self.env["HEXPROOF_FORGE_OUTPUT_DIR"] = "native output"
+        self.env["HEXPROOF_FORGE_LOCAL_ROOT"] = "runtime"
+        result = self.run_launcher("--native", "--prepare")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.runtime.is_symlink())
+        self.assertEqual(self.runtime.resolve(), package)
+        arguments = json.loads((self.root / "native-builder-args.json").read_text())
+        self.assertEqual(arguments, ["--source", str(self.root / "source with spaces"), "--output", str(self.root / "native output")])
+        self.assertIn("native builder progress", result.stderr)
+        self.assertIn("build:", result.stdout)
+
+    def test_native_default_index_is_reused(self):
+        package = self.prepare_native_runtime(self.root / "generated/runtime-unique")
+        self.native_builder(package)
+        del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
+        result = self.run_launcher("--prepare")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = self.root / "build/forge-native/local-runtime.json"
+        self.assertEqual(json.loads(index.read_text())["runtimeRoot"], str(package))
+        (self.root / "third_party/forge-runtime/build-native.py").unlink()
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"runtime:{package}/forge-gui", result.stdout)
+        self.assertNotIn("build:", result.stdout)
+
+    def test_native_stale_index_prepares_new_package_and_preserves_old(self):
+        old = self.prepare_native_runtime(self.root / "generated/old")
+        provenance = old / "provenance.json"
+        content = json.loads(provenance.read_text())
+        content["revision"] = "old revision"
+        provenance.write_text(json.dumps(content))
+        old_bytes = provenance.read_bytes()
+        fresh = self.prepare_native_runtime(self.root / "generated/new")
+        self.native_builder(fresh)
+        index = self.root / "build/forge-native/local-runtime.json"
+        index.parent.mkdir(parents=True)
+        index.write_text(json.dumps({"schema": 1, "runtimeRoot": str(old)}))
+        del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
+        result = self.run_launcher("--native", "--prepare")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(index.read_text())["runtimeRoot"], str(fresh))
+        self.assertEqual(provenance.read_bytes(), old_bytes)
+
+    def test_native_existing_mismatch_is_never_overwritten(self):
+        self.prepare_native_runtime()
+        dependency = self.runtime / "lib/official.jar"
+        dependency.write_text("modified dependency")
+        for args in (("--native",), ("--native", "--prepare")):
+            result = self.run_launcher(*args)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("checksum mismatch", result.stderr)
+            self.assertEqual(dependency.read_text(), "modified dependency")
+            self.assertNotIn("build:", result.stdout)
+
+    def test_native_changed_host_source_requires_rebuild(self):
+        self.prepare_native_runtime()
+        (self.native_host / "src/main/java/NewHost.java").write_text("// changed host\n")
+        result = self.run_launcher("--native", "--prepare")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("host source changed", result.stderr)
+
+    def test_native_replaced_host_jar_is_rejected_even_with_same_manifest(self):
+        self.prepare_native_runtime()
+        jar_path = self.runtime / "forge-harness.jar"
+        with zipfile.ZipFile(jar_path, "a") as jar:
+            jar.writestr("org/hexproof/forge/NativeHost.class", b"substituted bytecode")
+        changed = jar_path.read_bytes()
+        result = self.run_launcher("--native", "--prepare")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("host JAR checksum mismatch", result.stderr)
+        self.assertEqual(jar_path.read_bytes(), changed)
+        self.assertNotIn("build:", result.stdout)
+
+    def test_native_missing_host_jar_provenance_is_rejected(self):
+        self.prepare_native_runtime()
+        path = self.runtime / "provenance.json"
+        value = json.loads(path.read_text())
+        del value["hostArtifact"]
+        path.write_text(json.dumps(value))
+        result = self.run_launcher("--native")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("host artifact provenance is missing", result.stderr)
+
+    def test_native_dangling_override_is_preserved(self):
+        self.runtime.symlink_to(self.root / "missing-runtime")
+        result = self.run_launcher("--native", "--prepare")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(self.runtime.is_symlink())
+
+    def test_native_does_not_replace_destination_created_during_build(self):
+        package = self.prepare_native_runtime(self.root / "generated/runtime-unique")
+        self.native_builder(package, f"Path({str(self.runtime)!r}).mkdir()")
+        result = self.run_launcher("--native", "--prepare")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("destination appeared", result.stderr)
+        self.assertTrue(self.runtime.is_dir())
+        self.assertFalse(self.runtime.is_symlink())
+        self.assertTrue(package.is_dir())
+
+    def test_native_failed_builder_preserves_default_index(self):
+        index = self.root / "build/forge-native/local-runtime.json"
+        index.parent.mkdir(parents=True)
+        original = json.dumps({"schema": 1, "runtimeRoot": str(self.root / "previously-built")})
+        index.write_text(original)
+        del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
+        self.native_builder(self.root / "never-published", "sys.exit(17)")
+        result = self.run_launcher("--native", "--prepare")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(index.read_text(), original)
+        self.assertNotIn("build:", result.stdout)
+
+    def test_native_unrecognized_index_is_preserved(self):
+        index = self.root / "build/forge-native/local-runtime.json"
+        index.parent.mkdir(parents=True)
+        index.write_text('{"ownerNote":"keep"}')
+        del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
+        result = self.run_launcher("--native", "--prepare")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(index.read_text(), '{"ownerNote":"keep"}')
 
 
 if __name__ == "__main__":

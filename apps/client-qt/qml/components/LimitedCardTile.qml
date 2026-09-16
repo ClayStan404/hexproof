@@ -24,7 +24,7 @@ Rectangle {
                                              : "unknown"
 
     readonly property string imageSource: {
-        if (!root.card || !root.card.name || !root.catalogModel)
+        if (!root.visible || !root.card || !root.card.name || !root.catalogModel)
             return ""
         void root.catalogModel.imageRevision
         return root.catalogModel.tableImageSource(
@@ -43,6 +43,7 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: Theme.size(3)
         asynchronous: true
+        sourceSize.width: Math.ceil(Theme.size(256) * Screen.devicePixelRatio)
         fillMode: Image.PreserveAspectFit
         source: root.imageSource
     }

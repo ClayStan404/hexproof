@@ -281,6 +281,7 @@ type GameSeatProjection struct {
 	Seat           int                 `json:"seat"`
 	DisplayName    string              `json:"displayName"`
 	Life           int                 `json:"life"`
+	TurnCount      int                 `json:"turnCount"`
 	Counters       []GamePlayerCounter `json:"counters,omitempty"`
 	CounterCount   int                 `json:"counterCount,omitempty"`
 	LibraryCount   int                 `json:"libraryCount"`

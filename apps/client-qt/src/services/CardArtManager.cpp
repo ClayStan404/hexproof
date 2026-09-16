@@ -10,33 +10,16 @@
 
 #include <QDate>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QtConcurrent>
 
 namespace hexproof::client {
-
-namespace {
-
-bool isManagedCacheFile(const QString &imageRoot, const QString &path)
-{
-    const QFileInfo file(path);
-    const QFileInfo root(imageRoot);
-    if (!file.isFile() || file.isSymLink())
-        return false;
-    const QString filePath = QDir::cleanPath(file.canonicalFilePath());
-    const QString rootPath = QDir::cleanPath(root.canonicalFilePath());
-    if (filePath.isEmpty() || rootPath.isEmpty())
-        return false;
-    const QString relative = QDir(rootPath).relativeFilePath(filePath);
-    return relative != QStringLiteral("..") && !relative.startsWith(QStringLiteral("../")) &&
-           !QDir::isAbsolutePath(relative);
-}
-
-} // namespace
 
 CardArtManager::CardArtManager(QString storageRoot, CardArtCache *cache, QObject *parent)
     : QObject(parent),
@@ -47,6 +30,32 @@ CardArtManager::CardArtManager(QString storageRoot, CardArtCache *cache, QObject
     m_repairNeeded = m_cache && m_cache->faceRepairNeeded();
 }
 
+CardArtManager::~CardArtManager()
+{
+    // Keep the profile and storage locks alive until workers stop writing.
+    for (auto *watcher : findChildren<QFutureWatcherBase *>())
+        watcher->waitForFinished();
+    // The worker may finish during shutdown without delivering its queued
+    // completion. Its new files still belong to this uncommitted import.
+    if (m_importWatcher)
+        m_uncommittedImportImages.unite(m_importWatcher->result().createdImagePaths);
+    // Closing during a frame-paced index update cancels that transaction.
+    // The cache's generation guard prevents an older writer restoring it.
+    if (m_rollback)
+        m_rollback();
+    if (!m_uncommittedImportImages.isEmpty()) {
+        const QString imageRoot = storagePath();
+        const QSet<QString> referenced = m_cache->referencedImagePaths();
+        const QSet<QString> paths = std::move(m_uncommittedImportImages);
+        auto cleanup = QtConcurrent::run(
+            BackgroundTaskPools::catalogMaintenance(), [imageRoot, referenced, paths] {
+                return cardart::removeUnreferencedFiles(imageRoot, referenced, paths, false);
+            });
+        // Do not release profile/storage ownership while rollback still writes.
+        cleanup.waitForFinished();
+    }
+}
+
 QString CardArtManager::storagePath() const
 {
     return m_cache ? m_cache->imageRoot() : QDir(m_storageRoot).filePath(QStringLiteral("images"));
@@ -55,6 +64,11 @@ QString CardArtManager::storagePath() const
 void CardArtManager::setOperationGuard(std::function<bool()> guard)
 {
     m_operationGuard = std::move(guard);
+}
+
+void CardArtManager::setInspectionGuard(std::function<bool()> guard)
+{
+    m_inspectionGuard = std::move(guard);
 }
 
 void CardArtManager::setAuditRequestProvider(std::function<QVariantList()> provider,
@@ -102,13 +116,73 @@ void CardArtManager::clearMessages()
     setError({});
 }
 
-bool CardArtManager::beginOperation(const QString &status)
+void CardArtManager::saveCache(std::function<void(bool)> completion)
+{
+    m_cache->saveAsync(
+        [guard = QPointer<CardArtManager>(this), completion = std::move(completion)](bool ok) {
+            if (guard) {
+                if (!ok && guard->m_rollback)
+                    guard->m_rollback();
+                guard->m_rollback = {};
+                if (ok) {
+                    guard->m_uncommittedImportImages.clear();
+                    completion(true);
+                } else {
+                    guard->removeUncommittedImportImages(
+                        [completion = std::move(completion)] { completion(false); });
+                }
+            }
+        });
+}
+
+void CardArtManager::removeUncommittedImportImages(std::function<void()> completion)
+{
+    if (m_uncommittedImportImages.isEmpty()) {
+        completion();
+        return;
+    }
+    const QString imageRoot = storagePath();
+    const QSet<QString> referenced = m_cache->referencedImagePaths();
+    const QSet<QString> paths = std::move(m_uncommittedImportImages);
+    auto *watcher = new QFutureWatcher<cardart::OperationResult>(this);
+    connect(watcher, &QFutureWatcher<cardart::OperationResult>::finished, this,
+            [watcher, completion = std::move(completion)] {
+                watcher->deleteLater();
+                completion();
+            });
+    watcher->setFuture(QtConcurrent::run(
+        BackgroundTaskPools::catalogMaintenance(), [imageRoot, referenced, paths] {
+            return cardart::removeUnreferencedFiles(imageRoot, referenced, paths, false);
+        }));
+}
+
+void CardArtManager::applyEntries(const QList<CardArtCacheEntry> &entries,
+                                  std::function<void()> completion, qsizetype next)
+{
+    QElapsedTimer elapsed;
+    elapsed.start();
+    const qsizetype limit = qMin(next + 64, entries.size());
+    while (next < limit && elapsed.elapsed() < 4) {
+        const auto &entry = entries.at(next++);
+        m_cache->rememberSuccess(entry.cacheKey, entry.record);
+    }
+    if (next < entries.size()) {
+        QTimer::singleShot(16, this, [this, entries, completion = std::move(completion), next] {
+            applyEntries(entries, completion, next);
+        });
+        return;
+    }
+    completion();
+}
+
+bool CardArtManager::beginOperation(const QString &status, bool inspectionOnly)
 {
     if (m_busy) {
         setError(QStringLiteral("Another card art operation is already running."));
         return false;
     }
-    if (!m_cache || (m_operationGuard && !m_operationGuard())) {
+    const auto &guard = inspectionOnly ? m_inspectionGuard : m_operationGuard;
+    if (!m_cache || (guard && !guard())) {
         setError(QStringLiteral("Wait for the current card operation to finish."));
         return false;
     }
@@ -184,6 +258,9 @@ void CardArtManager::startAudit(const QVariantList &cards)
         emit auditResultChanged();
         if (!m_auditResult.ok) {
             setError(m_auditResult.error);
+            setStatus({});
+            setBusy(false);
+            emit auditFinished();
         } else {
             const bool repairNeeded = m_auditResult.repairNeeded();
             if (m_repairNeeded != repairNeeded) {
@@ -191,17 +268,18 @@ void CardArtManager::startAudit(const QVariantList &cards)
                 emit repairNeededChanged();
             }
             m_cache->setFaceAuditState(catalog_internal::kCardFaceAuditVersion, repairNeeded);
-            if (!m_cache->save()) {
-                setError(QStringLiteral("Could not update the local card art cache."));
-            } else if (repairNeeded) {
-                setResult(QStringLiteral("Card art issues were found."));
-            } else {
-                setResult(QStringLiteral("No card art repairs are needed."));
-            }
+            saveCache([this, repairNeeded](bool saved) {
+                if (!saved)
+                    setError(QStringLiteral("Could not update the local card art cache."));
+                else if (repairNeeded)
+                    setResult(QStringLiteral("Card art issues were found."));
+                else
+                    setResult(QStringLiteral("No card art repairs are needed."));
+                setStatus({});
+                setBusy(false);
+                emit auditFinished();
+            });
         }
-        setStatus({});
-        setBusy(false);
-        emit auditFinished();
     });
     watcher->setFuture(QtConcurrent::run(
         BackgroundTaskPools::catalogMaintenance(),
@@ -223,32 +301,35 @@ void CardArtManager::repairAuditedCardArt()
     const QList<CardArtCacheEntry> previous = m_cache->entries();
     const int previousAuditVersion = m_cache->faceAuditVersion();
     const bool previousRepairNeeded = m_cache->faceRepairNeeded();
-    for (const CardArtCacheEntry &entry : m_auditResult.repairedEntries)
-        m_cache->rememberSuccess(entry.cacheKey, entry.record);
-    m_cache->setFaceAuditState(catalog_internal::kCardFaceAuditVersion, true);
-    if (m_cache->dirty() && !m_cache->save()) {
-        m_cache->replaceEntries(previous);
-        m_cache->setFaceAuditState(previousAuditVersion, previousRepairNeeded);
-        setError(QStringLiteral("Could not update the local card art cache."));
-        setStatus({});
-        setBusy(false);
-        return;
-    }
-
+    m_rollback = [cache = m_cache, previous, previousAuditVersion, previousRepairNeeded] {
+        cache->replaceEntries(previous);
+        cache->setFaceAuditState(previousAuditVersion, previousRepairNeeded);
+    };
     const bool repairedLocally = !m_auditResult.repairedEntries.isEmpty();
     const QVariantList missingRequests = m_auditResult.missingRequests;
-    if (repairedLocally)
-        emit contentsChanged();
-    setResult(missingRequests.isEmpty()
-                  ? QStringLiteral("Local card art mappings repaired.")
-                  : QStringLiteral("Local repairs completed; downloading missing card faces…"));
-    setStatus({});
-    setBusy(false);
-    if (!missingRequests.isEmpty()) {
-        emit repairDownloadsRequested(missingRequests);
-    } else {
-        QTimer::singleShot(0, this, &CardArtManager::repeatAuditAfterRepair);
-    }
+    applyEntries(m_auditResult.repairedEntries, [this, repairedLocally, missingRequests] {
+        m_cache->setFaceAuditState(catalog_internal::kCardFaceAuditVersion, true);
+        saveCache([this, repairedLocally, missingRequests](bool saved) {
+            if (!saved) {
+                setError(QStringLiteral("Could not update the local card art cache."));
+                setStatus({});
+                setBusy(false);
+                return;
+            }
+            if (repairedLocally)
+                emit contentsChanged();
+            setResult(missingRequests.isEmpty()
+                          ? QStringLiteral("Local card art mappings repaired.")
+                          : QStringLiteral("Local repairs completed; downloading "
+                                           "missing card faces…"));
+            setStatus({});
+            setBusy(false);
+            if (!missingRequests.isEmpty())
+                emit repairDownloadsRequested(missingRequests);
+            else
+                QTimer::singleShot(0, this, &CardArtManager::repeatAuditAfterRepair);
+        });
+    });
 }
 
 void CardArtManager::repeatAuditAfterRepair()
@@ -290,8 +371,13 @@ void CardArtManager::inspectPack(const QUrl &fileUrl)
         emit packInspectionFinished();
         return;
     }
-    if (!beginOperation(QStringLiteral("Inspecting card art pack…")))
+    // Inspection reads a cache snapshot and validates files on the worker.
+    // Pending downloads must not discard a selection made in a native chooser.
+    if (!beginOperation(QStringLiteral("Inspecting card art pack…"), true)) {
+        m_packPreview = {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_lastError}};
+        emit packInspectionFinished();
         return;
+    }
 
     const QList<CardArtCacheEntry> entries = m_cache->entries();
     const QString imageRoot = storagePath();
@@ -440,7 +526,7 @@ void CardArtManager::exportDeckPack(const QUrl &fileUrl, const QVariantList &car
 void CardArtManager::importPack(const QUrl &fileUrl)
 {
     const QString path = localPath(fileUrl, false);
-    if (path.isEmpty() || !QFileInfo(path).isReadable()) {
+    if (path.isEmpty()) {
         setError(QStringLiteral("Choose a readable local card art pack."));
         return;
     }
@@ -450,8 +536,10 @@ void CardArtManager::importPack(const QUrl &fileUrl)
     const QString imageRoot = storagePath();
     const QList<CardArtCacheEntry> existingEntries = m_cache->entries();
     auto *watcher = new QFutureWatcher<cardart::OperationResult>(this);
+    m_importWatcher = watcher;
     connect(watcher, &QFutureWatcher<cardart::OperationResult>::finished, this, [this, watcher]() {
         const cardart::OperationResult result = watcher->result();
+        m_importWatcher = nullptr;
         watcher->deleteLater();
         if (!result.ok) {
             setError(result.error);
@@ -461,37 +549,34 @@ void CardArtManager::importPack(const QUrl &fileUrl)
         }
 
         const QList<CardArtCacheEntry> previous = m_cache->entries();
-        int imported = 0;
-        for (const CardArtCacheEntry &entry : result.importedEntries) {
-            const CardRecord existing = m_cache->exactRecord(entry.cacheKey);
-            // The worker has decoded retained files. Existence alone would
-            // preserve corrupt images, including repaired content-hash paths.
-            if (result.retainedEntryKeys.contains(entry.cacheKey) && existing.valid() &&
-                existing.imagePath == entry.record.imagePath &&
-                isManagedCacheFile(storagePath(), existing.imagePath) &&
-                existing.resolutionVersion >= entry.record.resolutionVersion) {
-                continue;
-            }
-            m_cache->rememberSuccess(entry.cacheKey, entry.record);
-            ++imported;
-        }
-        if (m_cache->dirty() && !m_cache->save()) {
-            m_cache->replaceEntries(previous);
-            setError(QStringLiteral("Could not update the local card art cache."));
-            setStatus(QStringLiteral("Scanning the local card art cache…"));
-            startInventoryScan();
-            return;
-        }
-        setResult(imported > 0 ? QStringLiteral("Card art pack imported.")
-                               : QStringLiteral("Every image in this pack is already cached."));
-        if (imported > 0)
-            emit contentsChanged();
-        setStatus(QStringLiteral("Scanning the local card art cache…"));
-        startInventoryScan();
+        m_uncommittedImportImages = result.createdImagePaths;
+        m_rollback = [cache = m_cache, previous] { cache->replaceEntries(previous); };
+        const bool imported = !result.importedEntries.isEmpty();
+        applyEntries(result.importedEntries, [this, imported] {
+            saveCache([this, imported](bool saved) {
+                if (!saved) {
+                    setError(QStringLiteral("Could not update the local card art cache."));
+                } else {
+                    setResult(imported
+                                  ? QStringLiteral("Card art pack imported.")
+                                  : QStringLiteral("Every image in this pack is already cached."));
+                    if (imported)
+                        emit contentsChanged();
+                }
+                setStatus(QStringLiteral("Scanning the local card art cache…"));
+                startInventoryScan();
+            });
+        });
     });
     watcher->setFuture(QtConcurrent::run(
         BackgroundTaskPools::catalogMaintenance(), [path, imageRoot, existingEntries]() {
-            return cardart::importPack(path, imageRoot, existingEntries);
+            auto result = cardart::importPack(path, imageRoot, existingEntries);
+            // The maintenance guard keeps this snapshot authoritative until
+            // commit; file validation already happened on this worker.
+            result.importedEntries.removeIf([&result](const CardArtCacheEntry &entry) {
+                return result.retainedEntryKeys.contains(entry.cacheKey);
+            });
+            return result;
         }));
 }
 
@@ -533,40 +618,42 @@ void CardArtManager::removeSelection(bool selectionOnly, const QString &setCode,
         setBusy(false);
         return;
     }
-    if (!removed.isEmpty() && !m_cache->save()) {
-        m_cache->replaceEntries(previous);
-        setError(QStringLiteral("Could not update the local card art cache."));
-        setStatus({});
-        setBusy(false);
-        return;
-    }
-
-    QSet<QString> candidates;
-    for (const CardArtCacheEntry &entry : removed) {
-        if (!entry.record.imagePath.isEmpty())
-            candidates.insert(entry.record.imagePath);
-    }
+    m_rollback = [cache = m_cache, previous] { cache->replaceEntries(previous); };
     const QString imageRoot = storagePath();
     const QSet<QString> referenced = m_cache->referencedImagePaths();
-    auto *watcher = new QFutureWatcher<cardart::OperationResult>(this);
-    connect(watcher, &QFutureWatcher<cardart::OperationResult>::finished, this,
-            [this, watcher, hadRemoved = !removed.isEmpty()]() {
-                const cardart::OperationResult result = watcher->result();
-                watcher->deleteLater();
-                if (result.ok)
-                    setResult(QStringLiteral("Selected card art removed."));
-                else
-                    setError(result.error);
-                if (hadRemoved)
-                    emit contentsChanged();
-                setStatus(QStringLiteral("Scanning the local card art cache…"));
-                startInventoryScan();
-            });
-    watcher->setFuture(QtConcurrent::run(
-        BackgroundTaskPools::catalogMaintenance(),
-        [imageRoot, referenced, candidates, removeAll = !selectionOnly]() {
-            return cardart::removeUnreferencedFiles(imageRoot, referenced, candidates, removeAll);
-        }));
+    saveCache([this, removed, imageRoot, referenced, selectionOnly](bool saved) {
+        if (!saved) {
+            setError(QStringLiteral("Could not update the local card art cache."));
+            setStatus({});
+            setBusy(false);
+            return;
+        }
+        auto *watcher = new QFutureWatcher<cardart::OperationResult>(this);
+        connect(watcher, &QFutureWatcher<cardart::OperationResult>::finished, this,
+                [this, watcher, hadRemoved = !removed.isEmpty()]() {
+                    const cardart::OperationResult result = watcher->result();
+                    watcher->deleteLater();
+                    if (result.ok)
+                        setResult(QStringLiteral("Selected card art removed."));
+                    else
+                        setError(result.error);
+                    if (hadRemoved)
+                        emit contentsChanged();
+                    setStatus(QStringLiteral("Scanning the local card art cache…"));
+                    startInventoryScan();
+                });
+        watcher->setFuture(
+            QtConcurrent::run(BackgroundTaskPools::catalogMaintenance(),
+                              [imageRoot, referenced, removed, removeAll = !selectionOnly]() {
+                                  QSet<QString> candidates;
+                                  for (const auto &entry : removed) {
+                                      if (!entry.record.imagePath.isEmpty())
+                                          candidates.insert(entry.record.imagePath);
+                                  }
+                                  return cardart::removeUnreferencedFiles(imageRoot, referenced,
+                                                                          candidates, removeAll);
+                              }));
+    });
 }
 
 } // namespace hexproof::client

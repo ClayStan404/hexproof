@@ -153,7 +153,9 @@ OS scheduling, GC and instrumentation noise remain visible in raw traces.
 `workloads.json` freezes three reference decks and policies: 40-card mixed
 creatures, 60-card burn, and four-player 100-card Commander. These are synthetic
 workloads, not owner decks or competitive-format deck recommendations.
-`workload_driver.py` supports both Forge and XMage trusted bridges:
+`workload_driver.py` supports the laboratory bridge contract. The retired
+Manabrew Forge bridge is preserved only in Git history; XMage remains an
+independent research adapter:
 
 ```sh
 python3 tools/engine-eval/workload_driver.py --output build/reference-games \
@@ -164,8 +166,8 @@ build/engine-lab/engine-lab /new/isolated/gui-evidence --auto \
   backend-command arguments
 ```
 
-The backend must select the same workload; see `forge/README.md` and
-`xmage/README.md` for launch arguments. The driver checks actual initial
+The backend must select the same workload; see `xmage/README.md` for launch
+arguments and `forge/README.md` for the retired Forge probe record. The driver checks actual initial
 life/card/commander counts, every player and spectator view, every chosen land
 transfer and every newly paid cast, and natural terminal state for all players.
 The GUI uses actual Qt mouse events; it is still a test interface, not a second
@@ -174,8 +176,10 @@ production engine integration.
 Use sequential cohorts only after competing builds/tests finish. Concurrency
 means separate trusted host processes, **not** shared-server games. Report
 startup, warmed IPC p50/p95, sampled process-tree RSS, JSON size, run counts and
-failures separately. The real shared-JVM Forge lifecycle stress instead lives
-in `TestLiveForgeSharedRuntimeRooms` under the opt-in `engineintegration` tag.
+failures separately. The production Forge room lifecycle stress instead lives
+in `TestLiveForgeIsolatedRuntimeRooms` under the opt-in `engineintegration` tag.
+It uses one shared Go handler with a separate JVM per game, including successive
+waves after prior game processes exit.
 Its high test-only room/rate limits do not change production limits.
 
 `extensions.json` freezes the separate Prepare cases. Passing a partial parser

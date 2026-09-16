@@ -33,7 +33,7 @@ Page {
         anchors.rightMargin: Theme.pageMargin
         title: qsTr("Connect to server")
         subtitle: qsTr("Your name is session-only — no account required")
-        onBackRequested: root.appWindow.popScreen()
+        onBackRequested: root.leaveScreen()
     }
 
     Flickable {
@@ -233,10 +233,10 @@ Page {
                     spacing: Theme.size(10)
 
                     AppButton {
+                        objectName: "connectCancelButton"
                         variant: "ghost"
                         text: qsTr("Cancel")
-                        enabled: !root.hub.connecting
-                        onClicked: root.appWindow.popScreen()
+                        onClicked: root.leaveScreen()
                     }
 
                     Item { Layout.fillWidth: true }
@@ -378,6 +378,12 @@ Page {
     function syncServerSelector() {
         if (serverSelector.currentIndex !== root.selectedServerIndex)
             serverSelector.currentIndex = root.selectedServerIndex
+    }
+
+    function leaveScreen() {
+        if (root.hub.connecting)
+            root.hub.disconnectFromHub()
+        root.appWindow.popScreen()
     }
 
     function submit() {

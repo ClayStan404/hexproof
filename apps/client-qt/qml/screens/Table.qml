@@ -228,7 +228,9 @@ Page {
     readonly property bool isActivePlayer: root.canAct
                                                    && roomSession.seatIndex
                                                       === gameSession.activeSeat
-    background: Rectangle { color: Theme.surfaceMuted }
+    background: AppBackground {
+        variant: "playmat"
+    }
     Component.onCompleted: {
         runtimeSyncController.initialize()
         sessionUi.applyCompactChrome()

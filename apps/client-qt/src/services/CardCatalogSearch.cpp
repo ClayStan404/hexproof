@@ -52,6 +52,8 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
             {QStringLiteral("requestedName"), name},
             {QStringLiteral("requestedSetCode"), setCode},
             {QStringLiteral("requestedCollectorNumber"), collectorNumber},
+            {QStringLiteral("setCode"), record.setCode},
+            {QStringLiteral("collectorNumber"), record.collectorNumber},
             {QStringLiteral("localizedName"), record.localizedName},
             {QStringLiteral("typeLine"), record.typeLine},
         };
@@ -306,13 +308,11 @@ void CardCatalog::search(const QString &queryText, const QString &typeFilter,
     m_lastRarityFilter = rarityFilter.simplified().toLower();
     m_lastLegalityFilter = legalityFilter.simplified().toLower();
     m_lastManaFilter = manaFilter.simplified();
-    if (m_catalogBusy)
-        return;
     const bool hasFilter = !m_lastTypeFilter.isEmpty() || !m_lastSetFilter.isEmpty() ||
                            !m_lastLanguageFilter.isEmpty() || !m_lastColorFilter.isEmpty() ||
                            !m_lastRarityFilter.isEmpty() || !m_lastLegalityFilter.isEmpty() ||
                            !m_lastManaFilter.isEmpty();
-    if (!installed() || (text.isEmpty() && !hasFilter)) {
+    if (m_catalogBusy || !installed() || (text.isEmpty() && !hasFilter)) {
         ++m_searchGeneration;
         if (m_searching) {
             m_searching = false;

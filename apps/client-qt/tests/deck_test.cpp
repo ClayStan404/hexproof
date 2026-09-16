@@ -751,6 +751,17 @@ void TestDeckLibrary::hydratesTypeLineFromCatalogWithoutCachingArt() const
     QVERIFY(bolt.value(u"imageSource"_s).toString().isEmpty());
     QCOMPARE(cachingSpy.count(), 0);
 
+    // Older hydrated libraries still need the newly resolved printing identity.
+    metadataRequestSpy.clear();
+    model.hydrateCatalogMetadata();
+    QCOMPARE(metadataRequestSpy.count(), 1);
+    bool requestedBoltPrinting = false;
+    for (const QVariant &value : metadataRequestSpy.first().first().toList()) {
+        if (value.toMap().value(u"name"_s).toString() == u"Lightning Bolt"_s)
+            requestedBoltPrinting = true;
+    }
+    QVERIFY(requestedBoltPrinting);
+
     model.flushMetadataCommitForTest();
     QTRY_COMPARE_WITH_TIMEOUT(model.persistedGenerationForTest(),
                               model.persistenceGenerationForTest(), 1'000);
@@ -784,6 +795,120 @@ void TestDeckLibrary::hydratesTypeLineFromCatalogWithoutCachingArt() const
     }});
     QCOMPARE(pending.mainCards().first().toMap().value(u"category"_s).toString(), u"Spells"_s);
     QCOMPARE(pendingCacheSpy.count(), 0);
+}
+
+void TestDeckLibrary::resolvesCatalogPrintingsBeforeDeckRegistration() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QSignalSpy caching(&model, &DeckLibraryModel::cardsNeedCaching);
+    QSignalSpy validation(&model, &DeckLibraryModel::decksNeedValidation);
+    QVERIFY(model.importDeck(u"Name-only lands"_s, u"modern"_s,
+                             u"60 Plains\nSideboard\n1 Lightning Bolt (M11) 149\n"
+                             "Considering\n1 Unresolved Card\n"_s));
+    const QString id = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(id));
+    QTRY_COMPARE(validation.count(), 1);
+    QVariantMap staleValidation = validation.first().first().toList().first().toMap();
+    staleValidation.insert(u"valid"_s, true);
+    staleValidation.insert(u"verified"_s, true);
+    model.applyDeckValidation({staleValidation});
+    QVERIFY(model.deckForMatch(id, true).isEmpty());
+    QVERIFY(model.currentStatus().contains(u"printings unresolved"_s));
+    const QVariantList metadata{QVariantMap{
+        {u"requestedName"_s, u"Plains"_s},
+        {u"setCode"_s, u"m21"_s},
+        {u"collectorNumber"_s, u"260"_s},
+        {u"typeLine"_s, u"Basic Land — Plains"_s},
+        {u"rarity"_s, u"common"_s},
+        {u"manaValue"_s, 0.0},
+        {u"cardColors"_s, u""_s},
+        {u"manaCost"_s, u""_s},
+    }};
+    model.applyCatalogMetadata(metadata);
+    model.applyDeckValidation({staleValidation});
+    QVERIFY(model.deckForMatch(id, true).isEmpty());
+    QTRY_COMPARE(validation.count(), 2);
+    QVariantMap currentValidation = validation.last().first().toList().first().toMap();
+    QVERIFY(currentValidation.value(u"validationRevision"_s).toULongLong() >
+            staleValidation.value(u"validationRevision"_s).toULongLong());
+    currentValidation.insert(u"valid"_s, true);
+    currentValidation.insert(u"verified"_s, true);
+    model.applyDeckValidation({currentValidation});
+    const QVariantMap payload = model.deckForMatch(id, true);
+    QVERIFY(!payload.isEmpty());
+    QCOMPARE(model.currentConsiderCount(), 1);
+    const QVariantMap plains = payload.value(u"mainboard"_s).toList().first().toMap();
+    QCOMPARE(plains.value(u"setCode"_s).toString(), u"M21"_s);
+    QCOMPARE(plains.value(u"collectorNumber"_s).toString(), u"260"_s);
+    QVERIFY(model.deckForMatch(id, false).isEmpty());
+    QCOMPARE(caching.count(), 0);
+    model.flushMetadataCommitForTest();
+    QTRY_COMPARE(model.persistedGenerationForTest(), model.persistenceGenerationForTest());
+    DeckLibraryModel restored(storage.path());
+    QCOMPARE(restored.deckForMatch(id, true).value(u"mainboard"_s), payload.value(u"mainboard"_s));
+
+    // A sideboard printing is required, while editor-only consider cards are not registered.
+    QVERIFY(model.importDeck(u"Unresolved sideboard"_s, u"custom"_s,
+                             u"7 Plains (M21) 260\nSideboard\n1 Lightning Bolt\n"_s));
+    const QString sideboardId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.deckForMatch(sideboardId, true).isEmpty());
+    QVERIFY(!model.matchDecks(u"custom"_s, true).first().toMap().value(u"ready"_s).toBool());
+}
+
+void TestDeckLibrary::ignoresStaleCatalogPrintingsAfterAnEdit() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Printing edit"_s, u"custom"_s, u"7 Lightning Bolt\n"_s));
+    const QString id = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(id));
+    QVERIFY(model.setCardPrinting(u"Lightning Bolt"_s, {}, {}, false, u"Lightning Bolt"_s,
+                                  u"Instant"_s, u"2X2"_s, u"117"_s));
+    model.applyCatalogMetadata({QVariantMap{
+        {u"requestedName"_s, u"Lightning Bolt"_s},
+        {u"setCode"_s, u"M11"_s},
+        {u"collectorNumber"_s, u"149"_s},
+        {u"localizedName"_s, u"Stale name"_s},
+    }});
+    const QVariantMap card = model.mainCards().first().toMap();
+    QCOMPARE(card.value(u"setCode"_s).toString(), u"2X2"_s);
+    QCOMPARE(card.value(u"collectorNumber"_s).toString(), u"117"_s);
+    QCOMPARE(card.value(u"displayName"_s).toString(), u"Lightning Bolt"_s);
+}
+
+void TestDeckLibrary::mergesResolvedPrintingsAndRefreshesCardLocations() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Mixed printings"_s, u"custom"_s,
+                             u"2 Lightning Bolt\n2 Lightning Bolt (M11) 149\n"
+                             "7 Mountain (M21) 273\n"_s));
+    const QString id = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(id));
+    model.applyCatalogMetadata({QVariantMap{
+        {u"requestedName"_s, u"Lightning Bolt"_s},
+        {u"setCode"_s, u"M11"_s},
+        {u"collectorNumber"_s, u"149"_s},
+        {u"typeLine"_s, u"Instant"_s},
+    }});
+    QCOMPARE(model.mainCards().size(), 2);
+    model.applyCatalogMetadata({QVariantMap{
+        {u"requestedName"_s, u"Mountain"_s},
+        {u"requestedSetCode"_s, u"M21"_s},
+        {u"requestedCollectorNumber"_s, u"273"_s},
+        {u"typeLine"_s, u"Basic Land — Mountain"_s},
+    }});
+    for (const QVariant &value : model.mainCards()) {
+        const QVariantMap card = value.toMap();
+        if (card.value(u"name"_s).toString() == u"Lightning Bolt"_s)
+            QCOMPARE(card.value(u"count"_s).toInt(), 4);
+        else
+            QCOMPARE(card.value(u"typeLine"_s).toString(), u"Basic Land — Mountain"_s);
+    }
 }
 
 void TestDeckLibrary::appliesDoubleFacedPrintingUnderFaceName() const
@@ -950,7 +1075,7 @@ void TestDeckLibrary::persistsEmblemKindsAndIncludesSupportArtRequests() const
     QString deckId;
     {
         DeckLibraryModel model(storage.path());
-        QVERIFY(model.importDeck(u"Support objects"_s, u"modern"_s, u"7 Mountain\n"_s));
+        QVERIFY(model.importDeck(u"Support objects"_s, u"modern"_s, u"7 Mountain (M21) 273\n"_s));
         deckId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
         QVERIFY(model.openDeck(deckId));
         QVERIFY(model.addToken({{u"name"_s, u"Teferi Emblem"_s},

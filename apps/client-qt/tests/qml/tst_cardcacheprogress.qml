@@ -13,6 +13,8 @@ TestCase {
     QtObject {
         id: catalog
         property bool busy: false
+        property bool cacheProgressActive: busy
+        property bool searchPreviewBusy: false
         property bool searching: false
         property bool tokenSearching: false
         property real progress: 0
@@ -34,6 +36,8 @@ TestCase {
 
     function init() {
         catalog.busy = false
+        catalog.cacheProgressActive = Qt.binding(() => catalog.busy)
+        catalog.searchPreviewBusy = false
         catalog.searching = false
         catalog.tokenSearching = false
         catalog.progress = 0
@@ -74,6 +78,17 @@ TestCase {
         verify(panel.visible)
         catalog.tokenSearching = true
         verify(!panel.visible)
+    }
+
+    function test_speculativePreviewsDoNotAppearAsDeckDownloads() {
+        catalog.busy = true
+        catalog.cacheProgressActive = false
+        catalog.searchPreviewBusy = true
+        verify(!panel.visible)
+        catalog.cacheProgressActive = true
+        verify(panel.visible)
+        catalog.status = "Caching Razorkin Hordecaller…"
+        compare(findChild(panel, "cardCacheProgressStatus").text, "Caching card images…")
     }
 
     function test_fitsNarrowScaledPanel() {

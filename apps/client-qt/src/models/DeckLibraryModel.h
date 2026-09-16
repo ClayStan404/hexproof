@@ -286,6 +286,26 @@ class DeckLibraryModel : public QAbstractListModel
         QString error;
     };
 
+    struct CardProjection
+    {
+        QVector<DeckCard> cards;
+        QVector<DeckCard> mainboard;
+        QVector<DeckCard> sideboard;
+        QStringList commanders;
+        QVariantList values;
+        bool valid = false;
+    };
+
+    struct ImageCounts
+    {
+        QVector<DeckCard> mainboard;
+        QVector<DeckCard> sideboard;
+        QVector<DeckCard> consider;
+        int missing = 0;
+        int considerMissing = 0;
+        bool valid = false;
+    };
+
     const Deck *currentDeck() const;
     Deck *currentDeck();
     const Deck *deckById(const QString &id) const;
@@ -294,9 +314,13 @@ class DeckLibraryModel : public QAbstractListModel
     bool load();
     bool save();
     void rebuildVisibleRows();
-    void rebuildCardDeckIndex();
+    void rebuildCardDeckIndex(int deckIndex = -1);
+    const DeckCard *cardAt(const CardLocation &location) const;
     DeckCard *cardAt(const CardLocation &location);
-    void notifyAllChanged();
+    QVariantList projectedCards(const QVector<DeckCard> &cards, const Deck &deck, bool grouped,
+                                CardProjection *projection) const;
+    const ImageCounts &imageCounts(const Deck &deck) const;
+    void notifyCurrentDeckChanged(bool cardsChanged = true);
     void notifyCardStructureChanged();
     void notifyDecksChanged(const QSet<QString> &deckIds, bool cardsChanged = false);
     bool validateDeckImport(const QString &name, const QString &format, QString *deckName,
@@ -340,6 +364,11 @@ class DeckLibraryModel : public QAbstractListModel
     quint64 m_nextValidationRevision = 0;
     QSet<QString> m_pendingValidationDeckIds;
     QHash<QString, QVector<CardLocation>> m_cardLocationsByName;
+    QHash<QString, QSet<QString>> m_indexedCardNamesByDeck;
+    mutable CardProjection m_mainProjection;
+    mutable CardProjection m_sideboardProjection;
+    mutable CardProjection m_considerProjection;
+    mutable QHash<QString, ImageCounts> m_imageCounts;
     QSet<QString> m_metadataChangedDeckIds;
     QSet<QString> m_backgroundSaveDeckIds;
     quint64 m_persistenceGeneration = 0;

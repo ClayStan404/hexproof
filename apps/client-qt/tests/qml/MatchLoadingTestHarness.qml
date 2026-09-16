@@ -634,8 +634,12 @@ Item {
     QtObject {
         id: mockLoader
         property bool ready: false
+        property bool expansionPending: false
         property int completed: 1
         property int total: 2
+        property int localAvailable: 1
+        property int downloadTotal: 1
+        property int downloaded: 0
         property int failed: 0
         property real progress: 0.5
         property string lastError: ""
@@ -687,6 +691,12 @@ Item {
 
     function reset() {
         mockLoader.failed = 0
+        mockLoader.expansionPending = false
+        mockLoader.completed = 1
+        mockLoader.total = 2
+        mockLoader.localAvailable = 1
+        mockLoader.downloadTotal = 1
+        mockLoader.downloaded = 0
         mockLoader.lastError = ""
         mockLoader.retryCount = 0
         mockWs.drawCount = 0

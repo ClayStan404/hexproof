@@ -21,6 +21,13 @@ The `replay.*` messages remain server compatibility endpoints after removal of
 the client replay UI. Their wire constants, payload schemas, Go mappings, privacy
 checks, and fixtures stay intact; they no longer have Qt command builders.
 
+`game.move_card.faceDown` supports hand/library entry to battlefield or exile.
+Battlefield identity remains visible to its controller; face-down exile strips
+identity fields from every `game.snapshot` recipient. A library source always
+selects the actor's actual top card, including when the destination is stack.
+See [manual zone actions](../../docs/manual-zone-actions.md#unseen-face-down-exile)
+for the command, privacy, and client/server compatibility contract.
+
 Update affected schemas, fixtures, and handwritten Go/Qt payload mappings
 together, then regenerate both language bindings:
 

@@ -52,7 +52,8 @@ class GameTableModel : public QAbstractListModel
         GraveyardModelRole,
         ExileModelRole,
         CommandZoneModelRole,
-        EmblemsRole
+        EmblemsRole,
+        TurnCountRole
     };
     Q_ENUM(Role)
 

@@ -23,7 +23,7 @@ constexpr int kCachedHydrationIntervalMs = 16;
 void CardCatalog::cacheCards(const QVariantList &cards)
 {
     clearOperationError();
-    queueCardsIncrementally(cards, false);
+    queueCardsIncrementally(cards, true);
 }
 
 void CardCatalog::cacheCardsIncrementally(const QVariantList &cards)
@@ -32,7 +32,8 @@ void CardCatalog::cacheCardsIncrementally(const QVariantList &cards)
     queueCardsIncrementally(cards, false);
 }
 
-void CardCatalog::queueCardsIncrementally(const QVariantList &cards, bool highPriority, bool retry)
+void CardCatalog::queueCardsIncrementally(const QVariantList &cards, bool highPriority, bool retry,
+                                          bool presentationArtOnly)
 {
     if (cards.isEmpty())
         return;
@@ -52,7 +53,7 @@ void CardCatalog::queueCardsIncrementally(const QVariantList &cards, bool highPr
         }
         return;
     }
-    const auto queueCard = [this, highPriority, retry](const QVariant &card) {
+    const auto queueCard = [this, highPriority, retry, presentationArtOnly](const QVariant &card) {
         const QVariantMap map = card.toMap();
         const QString name = map.value(QStringLiteral("name")).toString().simplified();
         if (name.isEmpty())
@@ -76,7 +77,8 @@ void CardCatalog::queueCardsIncrementally(const QVariantList &cards, bool highPr
         }
         if (!alreadyQueued)
             m_incrementalQueuedKeys.insert(key);
-        const IncrementalCacheItem item{card, language, key, retry, highPriority};
+        const IncrementalCacheItem item{card,  language,     key,
+                                        retry, highPriority, presentationArtOnly};
         if (highPriority)
             m_incrementalCacheQueue.prepend(item);
         else
@@ -89,6 +91,7 @@ void CardCatalog::queueCardsIncrementally(const QVariantList &cards, bool highPr
         for (const QVariant &card : cards)
             queueCard(card);
     }
+    emit busyChanged();
     if (m_incrementalCacheQueue.isEmpty() || m_incrementalCacheScheduled)
         return;
 
@@ -167,8 +170,7 @@ void CardCatalog::processCachedHydrationBatch()
     if (m_cachedHydrationQueue.isEmpty()) {
         if (m_cachedHydrationCreatedMapping) {
             m_cachedHydrationCreatedMapping = false;
-            ++m_imageRevision;
-            emit imageRevisionChanged();
+            scheduleImageRevisionChanged();
         }
         scheduleResolutionWork();
         return;
@@ -233,11 +235,12 @@ void CardCatalog::processIncrementalCacheBatch()
         for (const QVariant &value : expanded) {
             QVariantMap request = value.toMap();
             request.insert(QStringLiteral("_presentationArtOnly"),
-                           item.highPriority && !item.retry);
+                           item.presentationArtOnly && !item.retry);
             batch.append(request);
         }
     }
     enqueueCards(batch, language, highPriority);
+    emit busyChanged();
 
     if (m_incrementalCacheQueue.isEmpty())
         return;
@@ -299,7 +302,7 @@ void CardCatalog::prioritizeCards(const QVariantList &cards)
     }
     for (auto it = prioritized.crbegin(); it != prioritized.crend(); ++it)
         m_cardQueue.prepend(*it);
-    queueCardsIncrementally(cards, true);
+    queueCardsIncrementally(cards, true, false, true);
 }
 
 void CardCatalog::cacheToken(const QVariantMap &token)
@@ -342,21 +345,26 @@ void CardCatalog::enqueueCards(const QVariantList &cards, const QString &languag
     enqueueRequests(requests);
 }
 
-void CardCatalog::enqueueRequests(const QList<CardRequest> &requests)
+void CardCatalog::enqueueRequests(const QList<CardRequest> &requests, bool searchPreview)
 {
     for (const CardRequest &request : requests) {
         const QString key =
             cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
         const QString pendingKey = queuedRequestKey(request);
-        if (m_queuedKeys.contains(pendingKey))
+        if (m_queuedKeys.contains(pendingKey)) {
+            if (!searchPreview && pendingKey == m_searchPreviewIdentity &&
+                !m_searchPreviewAdopted) {
+                m_searchPreviewAdopted = true;
+                ++m_totalRequests;
+            }
             continue;
+        }
         bool createdMapping = false;
         const CardRecord local = localCachedRecord(request, key, &createdMapping);
         if (local.valid()) {
             emitRecord(local);
             if (createdMapping) {
-                ++m_imageRevision;
-                emit imageRevisionChanged();
+                scheduleImageRevisionChanged();
             }
             emitCardCacheCompletion(request, true);
             continue;
@@ -374,8 +382,10 @@ void CardCatalog::enqueueRequests(const QList<CardRequest> &requests)
         } else {
             m_cardQueue.enqueue(request);
         }
-        ++m_totalRequests;
+        if (!searchPreview)
+            ++m_totalRequests;
     }
+    emit busyChanged();
     scheduleResolutionWork();
 }
 

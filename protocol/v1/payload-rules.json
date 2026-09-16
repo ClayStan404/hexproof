@@ -29,7 +29,19 @@
         {"name": "status", "type": "string", "required": true},
         {"name": "life", "type": "integer", "required": true},
         {"name": "counters", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}},
-        {"name": "manaPool", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}}
+        {"name": "manaPool", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}},
+        {"name": "commanders", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCommanderState"}}
+      ]
+    },
+    {
+      "name": "RulesCommanderState",
+      "goType": "RulesCommanderState",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "casts", "type": "integer", "required": true},
+        {"name": "tax", "type": "integer", "required": true},
+        {"name": "zone", "type": "string", "required": true},
+        {"name": "objectId", "type": "string", "required": false}
       ]
     },
     {
@@ -70,7 +82,18 @@
         {"name": "controllerSeat", "type": "integer", "required": true},
         {"name": "ownerSeat", "type": "integer", "required": true},
         {"name": "identity", "type": "object", "required": true, "ref": "RulesCardIdentity"},
-        {"name": "text", "type": "string", "required": true}
+        {"name": "text", "type": "string", "required": true},
+        {"name": "targets", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesStackTarget"}}
+      ]
+    },
+    {
+      "name": "RulesStackTarget",
+      "goType": "RulesStackTarget",
+      "fields": [
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "label", "type": "string", "required": true},
+        {"name": "objectId", "type": "string", "required": false},
+        {"name": "seat", "type": "integer", "required": false, "goType": "*int"}
       ]
     },
     {
@@ -132,6 +155,7 @@
         {"name": "kind", "type": "string", "required": true},
         {"name": "label", "type": "string", "required": true},
         {"name": "objectId", "type": "string", "required": false},
+        {"name": "seat", "type": "integer", "required": false, "goType": "*int"},
         {"name": "name", "type": "string", "required": false},
         {"name": "setCode", "type": "string", "required": false},
         {"name": "collectorNumber", "type": "string", "required": false},
@@ -150,6 +174,7 @@
         {"name": "collectorNumber", "type": "string", "required": true},
         {"name": "token", "type": "boolean", "required": false},
         {"name": "validTargetIds", "type": "array", "required": true, "items": {"type": "string"}},
+        {"name": "maxAssignments", "type": "integer", "required": false, "goType": "*int"},
         {"name": "mustAssignIfAble", "type": "boolean", "required": true}
       ]
     },
@@ -167,7 +192,8 @@
         {"name": "token", "type": "boolean", "required": false},
         {"name": "minAssignments", "type": "integer", "required": true},
         {"name": "maxAssignments", "type": "integer", "required": true},
-        {"name": "mustReceiveIfAble", "type": "boolean", "required": true}
+        {"name": "mustReceiveIfAble", "type": "boolean", "required": true},
+        {"name": "seat", "type": "integer", "required": false, "goType": "*int"}
       ]
     },
     {
@@ -244,6 +270,7 @@
         {"name": "promptId", "type": "integer", "required": true, "goType": "int64"},
         {"name": "kind", "type": "string", "required": true},
         {"name": "supported", "type": "boolean", "required": true},
+        {"name": "autoPassEligible", "type": "boolean", "required": false},
         {"name": "title", "type": "string", "required": true},
         {"name": "detail", "type": "string", "required": true},
         {"name": "options", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptOption"}},
@@ -264,6 +291,7 @@
         {"name": "damageTargets", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesPromptDamageTarget"}},
         {"name": "totalDamage", "type": "integer", "required": true},
         {"name": "damageDeathtouch", "type": "boolean", "required": true},
+        {"name": "damageAssignmentMode", "type": "string", "required": false, "enum": ["RulesDamageOrdered", "RulesDamageUnordered", "RulesDamageDivideFreely"]},
         {"name": "minSelections", "type": "integer", "required": true},
         {"name": "maxSelections", "type": "integer", "required": true},
         {"name": "cancellable", "type": "boolean", "required": true},
@@ -288,7 +316,8 @@
         {"name": "scryPiles", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesPromptScryPile"}},
         {"name": "damageOrderIds", "type": "array", "required": false, "items": {"type": "string"}},
         {"name": "damageAssignments", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesPromptDamageAssignment"}},
-        {"name": "chosenNumber", "type": "integer", "required": false, "goType": "*int"}
+        {"name": "chosenNumber", "type": "integer", "required": false, "goType": "*int"},
+        {"name": "name", "type": "string", "required": false}
       ]
     },
     {

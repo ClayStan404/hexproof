@@ -13,9 +13,9 @@ namespace hexproof::client {
 using namespace catalog_internal;
 
 namespace {
-// Alternatives are bound values, never SQL fragments supplied by the UI.
-void appendAlternatives(QString &statement, QVariantList &bindings, const QString &raw,
-                        const QString &kind, bool hasMana = true)
+// Filter values are bound parameters, never SQL fragments supplied by the UI.
+void appendFilter(QString &statement, QVariantList &bindings, const QString &raw,
+                  const QString &kind, bool hasMana = true)
 {
     if (raw.isEmpty())
         return;
@@ -52,10 +52,12 @@ void appendAlternatives(QString &statement, QVariantList &bindings, const QStrin
                 alternatives.append(QStringLiteral("0"));
         }
     }
-    statement +=
-        QStringLiteral(" AND (") +
-        (alternatives.isEmpty() ? QStringLiteral("0") : alternatives.join(QStringLiteral(" OR "))) +
-        QLatin1Char(')');
+    // Every selected color must be present; the other categories allow alternatives.
+    const QString separator =
+        kind == QStringLiteral("color") ? QStringLiteral(" AND ") : QStringLiteral(" OR ");
+    statement += QStringLiteral(" AND (") +
+                 (alternatives.isEmpty() ? QStringLiteral("0") : alternatives.join(separator)) +
+                 QLatin1Char(')');
 }
 } // namespace
 
@@ -124,7 +126,7 @@ CatalogRepository::search(const QString &text, const QString &language, const QS
             if (m_schema.cardColumns.contains(QStringLiteral("layout")))
                 statement += QStringLiteral(" AND ") + catalogPlayablePrintingSql();
             QVariantList filterBindings;
-            appendAlternatives(statement, filterBindings, typeFilter, QStringLiteral("type"));
+            appendFilter(statement, filterBindings, typeFilter, QStringLiteral("type"));
             if (!setFilter.isEmpty())
                 statement += QStringLiteral(" AND c.set_code = ? COLLATE NOCASE ");
             if (!setFilter.isEmpty())
@@ -133,10 +135,10 @@ CatalogRepository::search(const QString &text, const QString &language, const QS
                 statement += QStringLiteral(" AND c.lang = ? COLLATE NOCASE ");
             if (!languageFilter.isEmpty())
                 filterBindings.append(languageFilter);
-            appendAlternatives(statement, filterBindings, colorFilter, QStringLiteral("color"));
-            appendAlternatives(statement, filterBindings, rarityFilter, QStringLiteral("rarity"));
-            appendAlternatives(statement, filterBindings, manaFilter, QStringLiteral("mana"),
-                               m_schema.cardColumns.contains(QStringLiteral("mana_value")));
+            appendFilter(statement, filterBindings, colorFilter, QStringLiteral("color"));
+            appendFilter(statement, filterBindings, rarityFilter, QStringLiteral("rarity"));
+            appendFilter(statement, filterBindings, manaFilter, QStringLiteral("mana"),
+                         m_schema.cardColumns.contains(QStringLiteral("mana_value")));
             if (!legalityFilter.isEmpty())
                 statement += QStringLiteral(" AND instr(c.legal_formats, ?) > 0 ");
             if (!legalityFilter.isEmpty())

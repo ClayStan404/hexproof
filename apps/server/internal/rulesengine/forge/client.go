@@ -37,6 +37,7 @@ type ProcessConfig struct {
 	Stderr           io.Writer
 	MaxResponseBytes int
 	StartTimeout     time.Duration
+	IsolatedProfile  bool
 }
 
 // JavaProcessConfig returns the standard command line for an extracted Forge
@@ -46,7 +47,8 @@ func JavaProcessConfig(javaCommand, harnessJAR, forgeHome string) ProcessConfig 
 		javaCommand = "java"
 	}
 	return ProcessConfig{
-		Command: javaCommand,
+		Command:         javaCommand,
+		IsolatedProfile: true,
 		Args: []string{
 			"-jar", harnessJAR,
 			"--interactive-server",
@@ -98,6 +100,7 @@ type Client struct {
 	closeErr         error
 	waitMu           sync.Mutex
 	waitErr          error
+	profileDir       string
 }
 
 // Start launches and probes a Forge harness. A failed probe terminates the
@@ -116,6 +119,21 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 	command := exec.Command(config.Command, config.Args...)
 	command.Dir = config.Dir
 	command.Env = append(os.Environ(), config.Env...)
+	profileDir := ""
+	profileTransferred := false
+	if config.IsolatedProfile {
+		var err error
+		profileDir, err = os.MkdirTemp("", "hexproof-forge-")
+		if err != nil {
+			return nil, fmt.Errorf("create Forge profile: %w", err)
+		}
+		command.Env = append(command.Env, "HEXPROOF_FORGE_PROFILE="+profileDir)
+		defer func() {
+			if !profileTransferred {
+				_ = os.RemoveAll(profileDir)
+			}
+		}()
+	}
 	stdin, err := command.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("forge runtime stdin: %w", err)
@@ -138,7 +156,9 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 		requests:         make(chan rpcJob, 32),
 		done:             make(chan struct{}),
 		maxResponseBytes: config.MaxResponseBytes,
+		profileDir:       profileDir,
 	}
+	profileTransferred = true
 	go client.captureStderr(stderr, config.Stderr)
 	go client.run(stdout)
 	go client.wait()
@@ -155,6 +175,12 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 
 func (client *Client) wait() {
 	err := client.command.Wait()
+	// This exact directory was created by Start, never supplied by a caller.
+	// Reap before cleanup so even a killed JVM cannot leave mutable preferences
+	// shared with the next game or retain a growing set of per-game profiles.
+	if client.profileDir != "" {
+		_ = os.RemoveAll(client.profileDir)
+	}
 	client.waitMu.Lock()
 	client.waitErr = err
 	client.waitMu.Unlock()

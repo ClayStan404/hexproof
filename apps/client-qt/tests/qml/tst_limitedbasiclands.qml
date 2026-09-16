@@ -66,6 +66,10 @@ TestCase {
             participantId: "p-1"
         }
     }
+    Component {
+        id: builderHostComponent
+        Item { width: 1200; height: 800 }
+    }
 
     function init() {
         store.draft = ({})
@@ -81,6 +85,39 @@ TestCase {
         connection.submittedIds = []
         connection.submittedBasics = []
         connection.submittedCommanders = []
+    }
+
+    function test_hidingBuilderClosesBasicLandEditor_data() {
+        return [{tag: "builder", hideAncestor: false},
+                {tag: "ancestor", hideAncestor: true}]
+    }
+
+    function test_hidingBuilderClosesBasicLandEditor(data) {
+        const host = createTemporaryObject(builderHostComponent, window.contentItem)
+        const builder = createTemporaryObject(builderComponent, host)
+        verify(builder !== null)
+        builder.moveToMainDeck("u")
+        builder.adjustBasic("Island", -1)
+        const savedSelection = builder.selectionFingerprint()
+        const popup = findChild(builder, "limitedBasicLandsPopup")
+        verify(popup !== null)
+        waitForRendering(builder)
+        mouseClick(findChild(builder, "limitedBasicLandsButton"))
+        tryVerify(() => popup.opened)
+
+        const hiddenItem = data.hideAncestor ? host : builder
+        hiddenItem.visible = false
+        tryVerify(() => !popup.visible)
+        verify(!builder.basicLandsExpanded)
+        hiddenItem.visible = true
+        waitForRendering(builder)
+        verify(!popup.visible)
+        compare(builder.selectionFingerprint(), savedSelection)
+
+        mouseClick(findChild(builder, "limitedBasicLandsButton"))
+        tryVerify(() => popup.opened)
+        mouseClick(findChild(builder, "limitedBasicLandsDone"))
+        tryVerify(() => !popup.visible)
     }
 
     function test_manaDemand_data() {
@@ -139,6 +176,13 @@ TestCase {
     function test_landSources_data() {
         return [
             {tag: "ordinary basic without metadata", card: {name: "Plains"}, land: true, known: true, colors: ["W"]},
+            {tag: "localized nonbasic", card: {name: "Karplusan Forest", typeLine: "地", oracleText: "{T}: Add {C}."}, land: true, known: true, colors: []},
+            {tag: "localized legendary land", card: {name: "Takenuma, Abandoned Mire", typeLine: "传奇地", oracleText: "{T}: Add {B}."}, land: true, known: true, colors: ["B"]},
+            {tag: "localized dual types", card: {typeLine: "地～平原／海岛"}, land: true, known: true, colors: ["W", "U"]},
+            {tag: "traditional dual types", card: {typeLine: "地～沼澤／樹林"}, land: true, known: true, colors: ["B", "G"]},
+            {tag: "goblin subtype is not land", card: {typeLine: "神器生物～地精／神器师"}, land: false, known: false, colors: []},
+            {tag: "localized spell land MDFC", card: {typeLine: "法术 // 地"}, land: false, known: false, colors: []},
+            {tag: "localized land front MDFC", card: {typeLine: "地 // 地", producedMana: "G"}, land: true, known: true, colors: ["G"]},
             {tag: "snow basic", card: {name: "Snow-Covered Island"}, land: true, known: true, colors: ["U"]},
             {tag: "typed dual", card: {typeLine: "Land — Plains Island"}, land: true, known: true, colors: ["W", "U"]},
             {tag: "name alone is not a basic subtype", card: {name: "Forest of mystery", typeLine: "Land"}, land: true, known: false, colors: []},

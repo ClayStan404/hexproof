@@ -58,12 +58,20 @@ ColumnLayout {
 
                     required property var modelData
                     readonly property bool narrow: width < Theme.size(420)
+                    readonly property bool featured: modelData.featured === true
+                    readonly property string description: modelData.description || ""
 
                     objectName: "sponsorCard_" + modelData.name
                     Layout.fillWidth: true
                     implicitHeight: sponsorRow.implicitHeight
                                     + Theme.size(root.compact ? 20 : 28)
                     color: Theme.surfaceMuted
+                    border.width: featured ? 0 : 1
+
+                    SponsorHighlight {
+                        anchors.fill: parent
+                        visible: sponsorCard.featured
+                    }
 
                     GridLayout {
                         id: sponsorRow
@@ -76,7 +84,8 @@ ColumnLayout {
                         Rectangle {
                             Layout.row: 0
                             Layout.column: 0
-                            Layout.preferredWidth: Theme.size(root.compact ? 48 : 64)
+                            Layout.preferredWidth: Theme.size(sponsorCard.featured
+                                ? (root.compact ? 64 : 80) : (root.compact ? 48 : 64))
                             Layout.preferredHeight: Layout.preferredWidth
                             Layout.alignment: Qt.AlignVCenter
                             radius: width / 2
@@ -104,29 +113,77 @@ ColumnLayout {
                             }
                         }
 
-                        Text {
-                            objectName: "sponsorName_" + sponsorCard.modelData.name
-                            textFormat: Text.PlainText
+                        ColumnLayout {
                             Layout.row: 0
                             Layout.column: 1
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             Layout.alignment: Qt.AlignVCenter
-                            text: sponsorCard.modelData.name
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(root.compact ? 15 : 18)
-                            font.weight: Font.DemiBold
+                            spacing: Theme.size(5)
+
+                            Text {
+                                objectName: "sponsorRecognition_" + sponsorCard.modelData.name
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                visible: sponsorCard.featured
+                                text: "✦ " + qsTr("Special thanks")
+                                color: "#EDD099"
+                                font.pixelSize: Theme.fontSize(11)
+                                font.weight: Font.DemiBold
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Text {
+                                objectName: "sponsorName_" + sponsorCard.modelData.name
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                text: sponsorCard.modelData.name
+                                color: sponsorCard.featured ? "#FFF0D6" : Theme.text
+                                font.pixelSize: Theme.fontSize(sponsorCard.featured
+                                    ? (root.compact ? 19 : 24) : (root.compact ? 15 : 18))
+                                font.weight: sponsorCard.featured ? Font.Bold : Font.DemiBold
+                                wrapMode: Text.Wrap
+                            }
+
+                            Text {
+                                objectName: "sponsorThanks_" + sponsorCard.modelData.name
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                visible: sponsorCard.featured
+                                text: qsTr("Thank you for your generous support.")
+                                color: "#CCDBD7"
+                                font.pixelSize: Theme.fontSize(root.compact ? 11 : 12)
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Text {
+                            objectName: "sponsorDescription_" + sponsorCard.modelData.name
+                            textFormat: Text.PlainText
+                            Layout.row: 1
+                            Layout.column: 0
+                            Layout.columnSpan: sponsorRow.columns
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.topMargin: Theme.size(6)
+                            visible: text.length > 0
+                            text: sponsorCard.description
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSize(root.compact ? 12 : 13)
+                            lineHeight: 1.3
                             wrapMode: Text.Wrap
                         }
 
                         AppButton {
                             objectName: "sponsorProfileButton"
-                            Layout.row: sponsorCard.narrow ? 1 : 0
+                            Layout.row: sponsorCard.narrow
+                                ? (sponsorCard.description.length > 0 ? 2 : 1) : 0
                             Layout.column: sponsorCard.narrow ? 0 : 2
                             Layout.columnSpan: sponsorCard.narrow ? 2 : 1
                             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                             visible: sponsorCard.modelData.profileUrl.length > 0
                             compact: true
-                            variant: "ghost"
+                            variant: sponsorCard.featured ? "highlight" : "ghost"
                             text: qsTr("Visit profile")
                             onClicked: root.profileRequested(sponsorCard.modelData.profileUrl)
                         }

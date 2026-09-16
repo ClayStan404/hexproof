@@ -201,6 +201,11 @@
           "required": true
         },
         {
+          "name": "turnCount",
+          "type": "integer",
+          "required": true
+        },
+        {
           "name": "hand",
           "type": "array",
           "required": false,

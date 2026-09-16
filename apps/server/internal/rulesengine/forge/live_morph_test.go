@@ -29,6 +29,7 @@ func liveMorphPrivacy(t *testing.T, client *Client) {
 	defer client.AbortGame(context.Background(), game.SessionID)
 	lastID := int64(0)
 	cardID := ""
+	pendingCardID := ""
 	onCasting, onStack, onBattlefield, turnedUp := false, false, false, false
 	stats := make(map[string]int)
 	for decision := 0; decision < 900; {
@@ -51,10 +52,14 @@ func liveMorphPrivacy(t *testing.T, client *Client) {
 			time.Sleep(5 * time.Millisecond)
 			continue
 		}
+		var public GameView
 		for viewer := -1; viewer <= 1; viewer++ {
 			view, err := client.SnapshotView(ctx, game.SessionID, viewer)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if viewer == -1 {
+				public = view
 			}
 			for _, object := range view.Stack {
 				if object.SourceID != cardID || cardID == "" {
@@ -93,8 +98,21 @@ func liveMorphPrivacy(t *testing.T, client *Client) {
 			return
 		}
 		answer := PromptResponse{ResponseID: "$pass"}
-		if prompt.Kind != "chooseAction" {
-			answer = liveAnswer(t, prompt, stats)
+		if prompt.Kind == "chooseFromSelection" && pendingCardID != "" {
+			for _, choice := range prompt.Choices {
+				label := strings.ToLower(choice.Label)
+				if strings.Contains(label, "morph") || strings.Contains(label, "face down") || strings.Contains(label, "face-down") {
+					answer = PromptResponse{ResponseID: "$submit", ChoiceIDs: []string{choice.ResponseID}}
+					cardID, pendingCardID = pendingCardID, ""
+					t.Logf("selected actual Morph ability: %+v", choice)
+					break
+				}
+			}
+			if answer.ResponseID == "$pass" {
+				t.Fatalf("native Morph menu omitted face-down ability: %+v", prompt.Choices)
+			}
+		} else if prompt.Kind != "chooseAction" {
+			answer = liveAnswer(t, prompt, public, stats)
 		} else {
 			for _, option := range prompt.Options {
 				if prompt.PlayerIndex == 0 && option.Kind == "cast" && !strings.HasPrefix(option.Label, "Play ") && stats["option:"+option.Label] == 0 {
@@ -106,14 +124,17 @@ func liveMorphPrivacy(t *testing.T, client *Client) {
 					break
 				}
 				label := strings.ToLower(option.Label)
-				if prompt.PlayerIndex == 0 && cardID == "" && option.Kind == "cast" &&
-					(strings.Contains(label, "morph") || strings.Contains(label, "face down") || strings.Contains(label, "face-down")) {
-					cardID, answer.ResponseID = option.CardID, option.ResponseID
+				if prompt.PlayerIndex == 0 && cardID == "" && option.Kind == "cast" && liveAvailableMana(public, 0) >= 3 &&
+					(strings.Contains(label, "willbender") || strings.Contains(label, "morph") || strings.Contains(label, "face down") || strings.Contains(label, "face-down")) {
+					pendingCardID, answer.ResponseID = option.CardID, option.ResponseID
+					if !strings.Contains(label, "willbender") {
+						cardID, pendingCardID = pendingCardID, ""
+					}
 					t.Logf("selected actual Morph cast: %+v", option)
 					break
 				}
 				if prompt.PlayerIndex == 0 && onBattlefield && option.CardID == cardID &&
-					option.Kind != "cast" && (strings.Contains(label, "face up") || strings.Contains(label, "morph") || strings.HasPrefix(label, "activate ")) {
+					option.Kind != "cast" && liveAvailableMana(public, 0) >= 2 {
 					answer.ResponseID = option.ResponseID
 					t.Logf("selected turn-face-up action: %+v", option)
 					break

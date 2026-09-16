@@ -56,6 +56,7 @@
         "libraryCount": 1,
         "handCount": 1,
         "mulliganCount": 0,
+        "turnCount": 1,
         "battlefield": [
           {
             "id": "face-down-1",
@@ -68,7 +69,13 @@
           }
         ],
         "graveyard": [],
-        "exile": []
+        "exile": [
+          {
+            "id": "exile-face-down-1",
+            "ownerSeat": 0,
+            "faceDown": true
+          }
+        ]
       }
     ],
     "stack": [],

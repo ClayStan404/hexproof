@@ -303,6 +303,7 @@ Page {
                 AppButton {
                     Layout.fillWidth: true
                     variant: ws.connected ? "secondary" : "primary"
+                    objectName: "mainMenuConnectButton"
                     text: ws.connected ? qsTr("Server connected") : qsTr("Connect to server")
                     leadingText: ws.connected ? "✓" : "↗"
                     enabled: !ws.connected
@@ -341,6 +342,7 @@ Page {
                 AppButton {
                     Layout.fillWidth: true
                     text: qsTr("Join with room code")
+                    objectName: "mainMenuJoinRoomButton"
                     leadingText: "→"
                     enabled: ws.connected && !ws.inRoom
                     disabledReason: root.serverActionBlockerReason()
@@ -392,6 +394,7 @@ Page {
                 }
 
                 AppButton {
+                    objectName: "mainMenuDeckLibraryButton"
                     Layout.fillWidth: true
                     text: qsTr("Deck library")
                     leadingText: "◇"

@@ -48,7 +48,8 @@
       {
         "responseId": "context-target:1",
         "kind": "player",
-        "label": "Alice · Seat 1"
+        "label": "Alice · Seat 1",
+        "seat": 0
       }
     ],
     "contextText": "otherwise: \"3 damage is dealt.\"",

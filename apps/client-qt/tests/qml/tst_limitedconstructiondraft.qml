@@ -114,7 +114,9 @@ TestCase {
             {tag: "Commander two", event: "commander_cube", players: 2, cube: true, expected: true},
             {tag: "Commander three", event: "commander_cube", players: 3, cube: true, expected: true},
             {tag: "Commander four", event: "commander_cube", players: 4, cube: true, expected: true},
-            {tag: "Commander five", event: "commander_cube", players: 5, cube: true, expected: false},
+            {tag: "Commander five", event: "commander_cube", players: 5, cube: true, expected: true},
+            {tag: "Commander eight", event: "commander_cube", players: 8, cube: true, expected: true},
+            {tag: "Commander nine", event: "commander_cube", players: 9, cube: true, expected: false},
             {tag: "Swiss Cube", event: "cube_draft", players: 2, cube: false, expected: false},
             {tag: "Set draft", event: "set_draft", players: 2, cube: true, expected: false},
             {tag: "Sitting out", event: "commander_cube", players: 3, cube: true, expected: false}]

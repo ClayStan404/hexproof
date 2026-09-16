@@ -75,11 +75,25 @@ TestCase {
     }
     function cleanup() {
         Theme.uiScale = 1
+        Theme.uiTheme = "classic"
     }
-    function test_categoriesUseUnionWithinAndIntersectionBetween() {
-        filters.colors = ["U", "G"]
+    function test_inactiveFilterPreservesTheExistingCollection() {
+        verify(filters.filter(cards) === cards)
+        filters.query = "   "
+        verify(filters.filter(cards) === cards)
+        filters.query = " CHINESE "
+        compare(filters.filter(cards).map(card => card.instanceId), ["d"])
+        filters.query = ""
+        filters.colors = ["W", "G"]
+        compare(filters.filter(cards).length, 3)
+        filters.reset()
+        verify(filters.filter(cards) === cards)
+    }
+
+    function test_categoriesCombineWithEverySelectedColor() {
+        filters.colors = ["W", "G"]
         filters.types = ["Instant", "Creature"]
-        compare(filters.filter(cards).length, 4)
+        compare(filters.filter(cards).length, 3)
         filters.rarities = ["rare", "mythic"]
         compare(filters.filter(cards).length, 3)
         filters.manaValues = ["0", "1"]
@@ -87,6 +101,23 @@ TestCase {
         filters.reset()
         filters.types = ["Instant"]
         compare(filters.filter(cards)[0].name, "Chinese instant")
+    }
+    function test_colorSelectionsRequireEveryChosenColor_data() {
+        return [
+            {tag: "white and blue", selected: ["W", "U"], expected: ["WU", "WUG"]},
+            {tag: "selection order", selected: ["U", "W"], expected: ["WU", "WUG"]},
+            {tag: "three colors", selected: ["W", "U", "G"], expected: ["WUG"]},
+            {tag: "blue", selected: ["U"], expected: ["U", "WU", "WUG", "UB"]},
+            {tag: "white multicolor", selected: ["M", "W"], expected: ["WU", "WUG", "WG"]},
+            {tag: "colorless", selected: ["C"], expected: [""]},
+            {tag: "incompatible colors", selected: ["C", "W"], expected: []}
+        ]
+    }
+    function test_colorSelectionsRequireEveryChosenColor(data) {
+        const pool = ["W", "U", "WU", "WUG", "WG", "UB", "", undefined, null]
+            .map(color => ({name: String(color), colors: color, manaValue: 2}))
+        filters.colors = data.selected
+        compare(filters.filter(pool).map(card => card.colors), data.expected)
     }
     function test_presentationUsesCardColorsAndFullCost() {
         presentation.card = {cardColors: ""}
@@ -223,5 +254,53 @@ TestCase {
         done.clicked()
         tryVerify(() => !popup.opened)
         compare(filters.types, ["Creature"])
+    }
+    function test_advancedFiltersKeepMultipleSelectionsVisible_data() {
+        return [{tag: "classic", theme: "classic"}, {tag: "glass", theme: "glass"}]
+    }
+    function test_advancedFiltersKeepMultipleSelectionsVisible(data) {
+        Theme.uiTheme = data.theme
+        window.height = 820
+        findChild(toolbar, "advancedCardFiltersButton").clicked()
+        const popup = findChild(toolbar, "advancedCardFilters")
+        tryVerify(() => popup.opened)
+        const white = findChild(popup.contentItem, "filter-colors-W")
+        const blue = findChild(popup.contentItem, "filter-colors-U")
+        const creature = findChild(popup.contentItem, "filter-types-Creature")
+        const instant = findChild(popup.contentItem, "filter-types-Instant")
+        for (const option of [white, blue, creature, instant]) {
+            mouseClick(option, option.width / 2, option.height / 2)
+            verify(option.checked)
+        }
+        compare(filters.colors, ["W", "U"])
+        compare(filters.types, ["Creature", "Instant"])
+        const pool = cards.concat([
+            {name: "White-blue creature", colors: "WU", typeLine: "Creature"},
+            {name: "White-blue-green instant", colors: "WUG", typeLine: "Instant"}
+        ])
+        compare(filters.filter(pool).map(card => card.name),
+                ["White-blue creature", "White-blue-green instant"])
+        const done = findChild(popup.contentItem, "closeAdvancedCardFilters")
+        done.forceActiveFocus()
+        for (const option of [white, blue, creature, instant]) {
+            verify(!option.activeFocus)
+            verify(option.checked)
+            compare(option.leadingText, "☑")
+            compare(option.variant, "primary")
+        }
+        verify(waitForPolish(window))
+        mouseClick(done, done.width / 2, done.height / 2)
+        tryVerify(() => !popup.opened)
+        findChild(toolbar, "advancedCardFiltersButton").clicked()
+        tryVerify(() => popup.opened)
+        verify(white.checked && blue.checked && creature.checked && instant.checked)
+        mouseClick(white, white.width / 2, white.height / 2)
+        verify(!white.checked && blue.checked)
+        compare(filters.colors, ["U"])
+        compare(filters.filter(pool).map(card => card.name),
+                ["Chinese instant", "White-blue creature", "White-blue-green instant"])
+        filters.reset()
+        for (const option of [white, blue, creature, instant]) verify(!option.checked)
+        mouseClick(done, done.width / 2, done.height / 2)
     }
 }

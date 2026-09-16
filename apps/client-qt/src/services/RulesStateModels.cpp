@@ -3,6 +3,8 @@
 
 #include "RulesStateModels.h"
 
+#include <QCoreApplication>
+#include <QHash>
 #include <QStringList>
 #include <utility>
 
@@ -11,12 +13,37 @@ namespace hexproof::client {
 namespace {
 using namespace Qt::StringLiterals;
 
-QString namedValueSummary(const QVector<RulesNamedValue> &values)
+QString counterDisplayName(const QString &name)
+{
+    const QString key = name.toUpper();
+    static const QHash<QString, QString> statNames{
+        {u"P1P1"_s, u"+1/+1"_s}, {u"M1M1"_s, u"-1/-1"_s}, {u"M0M1"_s, u"-0/-1"_s},
+        {u"M0M2"_s, u"-0/-2"_s}, {u"M1M0"_s, u"-1/-0"_s}, {u"M2M1"_s, u"-2/-1"_s},
+        {u"M2M2"_s, u"-2/-2"_s}, {u"P0P1"_s, u"+0/+1"_s}, {u"P0P2"_s, u"+0/+2"_s},
+        {u"P1P0"_s, u"+1/+0"_s}, {u"P1P2"_s, u"+1/+2"_s}, {u"P2P0"_s, u"+2/+0"_s},
+        {u"P2P2"_s, u"+2/+2"_s}};
+    if (const auto found = statNames.constFind(key); found != statNames.cend())
+        return *found;
+    if (key == u"LORE"_s)
+        return QCoreApplication::translate("RulesCounters", "Lore");
+    if (key == u"ENERGY"_s)
+        return QCoreApplication::translate("RulesCounters", "Energy");
+    if (key == u"CHARGE"_s)
+        return QCoreApplication::translate("RulesCounters", "Charge");
+    if (key == u"POISON"_s)
+        return QCoreApplication::translate("RulesCounters", "Poison");
+    if (key == u"LOYALTY"_s)
+        return QCoreApplication::translate("RulesCounters", "Loyalty");
+    return name;
+}
+
+QString namedValueSummary(const QVector<RulesNamedValue> &values, bool counterNames = false)
 {
     QStringList parts;
     for (const RulesNamedValue &value : values) {
         if (!value.name.isEmpty() && value.value != 0)
-            parts.append(value.name + u" "_s + QString::number(value.value));
+            parts.append((counterNames ? counterDisplayName(value.name) : value.name) + u" "_s +
+                         QString::number(value.value));
     }
     return parts.join(u" · "_s);
 }
@@ -28,7 +55,7 @@ template <typename Rows> int modelRowCount(const QModelIndex &parent, const Rows
 } // namespace
 
 RulesPlayerModel::RulesPlayerModel(QObject *parent)
-    : QAbstractListModel(parent)
+    : RulesSnapshotModel(parent)
 {
 }
 
@@ -52,9 +79,11 @@ QVariant RulesPlayerModel::data(const QModelIndex &index, int role) const
     case LifeRole:
         return row.life;
     case CountersSummaryRole:
-        return namedValueSummary(row.counters);
+        return namedValueSummary(row.counters, true);
     case ManaSummaryRole:
         return namedValueSummary(row.manaPool);
+    case CommandersRole:
+        return row.commanders;
     default:
         return {};
     }
@@ -67,14 +96,13 @@ QHash<int, QByteArray> RulesPlayerModel::roleNames() const
             {StatusRole, "status"},
             {LifeRole, "life"},
             {CountersSummaryRole, "countersSummary"},
-            {ManaSummaryRole, "manaSummary"}};
+            {ManaSummaryRole, "manaSummary"},
+            {CommandersRole, "commanders"}};
 }
 
 void RulesPlayerModel::replace(QVector<RulesPlayerRow> rows)
 {
-    beginResetModel();
-    m_rows = std::move(rows);
-    endResetModel();
+    replaceRows(m_rows, std::move(rows), [](const RulesPlayerRow &row) { return row.seat; });
 }
 
 void RulesPlayerModel::clear()
@@ -83,7 +111,7 @@ void RulesPlayerModel::clear()
 }
 
 RulesZoneModel::RulesZoneModel(QObject *parent)
-    : QAbstractListModel(parent)
+    : RulesSnapshotModel(parent)
 {
 }
 
@@ -125,9 +153,8 @@ int RulesZoneModel::countFor(int ownerSeat, const QString &zone) const
 
 void RulesZoneModel::replace(QVector<RulesZoneRow> rows)
 {
-    beginResetModel();
-    m_rows = std::move(rows);
-    endResetModel();
+    replaceRows(m_rows, std::move(rows),
+                [](const RulesZoneRow &row) { return qMakePair(row.ownerSeat, row.zone); });
 }
 
 void RulesZoneModel::clear()
@@ -136,7 +163,7 @@ void RulesZoneModel::clear()
 }
 
 RulesCardModel::RulesCardModel(QObject *parent)
-    : QAbstractListModel(parent)
+    : RulesSnapshotModel(parent)
 {
 }
 
@@ -186,7 +213,7 @@ QVariant RulesCardModel::data(const QModelIndex &index, int role) const
     case AttachedToRole:
         return row.attachedTo;
     case CountersSummaryRole:
-        return namedValueSummary(row.counters);
+        return namedValueSummary(row.counters, true);
     default:
         return {};
     }
@@ -216,9 +243,7 @@ QHash<int, QByteArray> RulesCardModel::roleNames() const
 
 void RulesCardModel::replace(QVector<RulesCardRow> rows)
 {
-    beginResetModel();
-    m_rows = std::move(rows);
-    endResetModel();
+    replaceRows(m_rows, std::move(rows), [](const RulesCardRow &row) { return row.id; });
 }
 
 void RulesCardModel::clear()
@@ -227,7 +252,7 @@ void RulesCardModel::clear()
 }
 
 RulesStackModel::RulesStackModel(QObject *parent)
-    : QAbstractListModel(parent)
+    : RulesSnapshotModel(parent)
 {
 }
 
@@ -260,6 +285,8 @@ QVariant RulesStackModel::data(const QModelIndex &index, int role) const
         return row.token;
     case TextRole:
         return row.text;
+    case TargetsRole:
+        return row.targets;
     default:
         return {};
     }
@@ -275,14 +302,13 @@ QHash<int, QByteArray> RulesStackModel::roleNames() const
             {SetCodeRole, "setCode"},
             {CollectorNumberRole, "collectorNumber"},
             {TokenRole, "token"},
-            {TextRole, "rulesText"}};
+            {TextRole, "rulesText"},
+            {TargetsRole, "targets"}};
 }
 
 void RulesStackModel::replace(QVector<RulesStackRow> rows)
 {
-    beginResetModel();
-    m_rows = std::move(rows);
-    endResetModel();
+    replaceRows(m_rows, std::move(rows), [](const RulesStackRow &row) { return row.id; });
 }
 
 void RulesStackModel::clear()
@@ -333,12 +359,39 @@ QVariantList RulesPromptOptionModel::castActionsForCard(const QString &cardId) c
     if (cardId.isEmpty())
         return actions;
     for (const RulesPromptOptionRow &row : m_rows) {
-        if (row.kind != u"cast"_s || row.cardId != cardId)
+        if ((row.kind != u"cast"_s && row.kind != u"playLand"_s) || row.cardId != cardId)
             continue;
         actions.append(QVariantMap{
             {u"responseId"_s, row.responseId}, {u"kind"_s, row.kind}, {u"label"_s, row.label}});
     }
     return actions;
+}
+
+QVariantList RulesPromptOptionModel::cardActionsForCard(const QString &cardId) const
+{
+    QVariantList actions;
+    if (cardId.isEmpty())
+        return actions;
+    for (const RulesPromptOptionRow &row : m_rows) {
+        if (row.cardId != cardId || (row.kind != u"cast"_s && row.kind != u"playLand"_s &&
+                                     row.kind != u"activateAbility"_s))
+            continue;
+        actions.append(QVariantMap{
+            {u"responseId"_s, row.responseId}, {u"kind"_s, row.kind}, {u"label"_s, row.label}});
+    }
+    return actions;
+}
+
+QVariantList RulesPromptOptionModel::items() const
+{
+    QVariantList result;
+    for (const RulesPromptOptionRow &row : m_rows) {
+        result.append(QVariantMap{{u"responseId"_s, row.responseId},
+                                  {u"kind"_s, row.kind},
+                                  {u"label"_s, row.label},
+                                  {u"cardId"_s, row.cardId}});
+    }
+    return result;
 }
 
 void RulesPromptOptionModel::replace(QVector<RulesPromptOptionRow> rows)
@@ -451,6 +504,8 @@ QVariant RulesPromptTargetModel::data(const QModelIndex &index, int role) const
         return row.collectorNumber;
     case TokenRole:
         return row.token;
+    case SeatRole:
+        return row.seat;
     default:
         return {};
     }
@@ -465,7 +520,51 @@ QHash<int, QByteArray> RulesPromptTargetModel::roleNames() const
             {NameRole, "name"},
             {SetCodeRole, "setCode"},
             {CollectorNumberRole, "collectorNumber"},
-            {TokenRole, "token"}};
+            {TokenRole, "token"},
+            {SeatRole, "seat"}};
+}
+
+QVariantList RulesPromptTargetModel::items() const
+{
+    QVariantList targets;
+    targets.reserve(m_rows.size());
+    for (const RulesPromptTargetRow &row : m_rows) {
+        targets.append(QVariantMap{{u"responseId"_s, row.responseId},
+                                   {u"kind"_s, row.kind},
+                                   {u"label"_s, row.label},
+                                   {u"objectId"_s, row.objectId},
+                                   {u"seat"_s, row.seat},
+                                   {u"name"_s, row.name},
+                                   {u"setCode"_s, row.setCode},
+                                   {u"collectorNumber"_s, row.collectorNumber},
+                                   {u"token"_s, row.token}});
+    }
+    return targets;
+}
+
+QStringList RulesPromptTargetModel::responseIdsForObject(const QString &kind,
+                                                         const QString &objectId) const
+{
+    QStringList ids;
+    if (objectId.isEmpty() || (kind != u"card"_s && kind != u"spell"_s))
+        return ids;
+    for (const RulesPromptTargetRow &row : m_rows) {
+        if (row.kind == kind && row.objectId == objectId)
+            ids.append(row.responseId);
+    }
+    return ids;
+}
+
+QStringList RulesPromptTargetModel::responseIdsForSeat(int seat) const
+{
+    QStringList ids;
+    if (seat < 0)
+        return ids;
+    for (const RulesPromptTargetRow &row : m_rows) {
+        if (row.kind == u"player"_s && row.seat == seat)
+            ids.append(row.responseId);
+    }
+    return ids;
 }
 
 void RulesPromptTargetModel::replace(QVector<RulesPromptTargetRow> rows)

@@ -1126,6 +1126,18 @@
       "value": "forge"
     },
     {
+      "name": "RulesDamageOrdered",
+      "value": "ordered"
+    },
+    {
+      "name": "RulesDamageUnordered",
+      "value": "unordered"
+    },
+    {
+      "name": "RulesDamageDivideFreely",
+      "value": "divideFreely"
+    },
+    {
       "name": "ZoneHand",
       "value": "hand"
     },

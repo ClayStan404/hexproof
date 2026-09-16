@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "1.2.0")
+set(HEXPROOF_VERSION "2.0.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -38,6 +38,8 @@ endif()
 # Off by default so a new compiler or platform warning cannot break a release
 # build. Linux CI enables it against a verified warning-free tree.
 option(HEXPROOF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(HEXPROOF_BUILD_NATIVE_AUDIT
+    "Build the opt-in native GUI automation executable (never installed)" OFF)
 
 set(HEXPROOF_SERVER_DIRECTORY_FILE "" CACHE FILEPATH
     "JSON server directory embedded in the client")
@@ -80,7 +82,9 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     LinguistTools
     Network
     Quick
+    QuickEffects
     QuickTest
+    ShaderTools
     Sql
     Test
     WebSockets)
@@ -215,6 +219,7 @@ set(HEXPROOF_CARD_SERVICE_SOURCES
     src/services/CatalogBulkImport.cpp
     src/services/CatalogReleaseManifest.cpp
     src/services/CardCatalogSearch.cpp
+    src/services/CardCatalogSearchPreview.cpp
     src/services/CardCatalogPrintings.cpp
     src/services/CardCatalogLookup.cpp
     src/services/CardCatalogLimited.cpp
@@ -272,22 +277,20 @@ target_link_libraries(hexproof_update_service PUBLIC
     Qt6::Gui
     Qt6::Network)
 
-qt_add_executable(hexproof
-    ${HEXPROOF_PLATFORM_SOURCES}
+set(HEXPROOF_APPLICATION_SOURCES
     src/main.cpp
     src/models/ClientPreferencesModel.cpp
     src/services/MatchCardCacheBinding.cpp
     src/services/MatchLoadCoordinator.cpp
     src/services/TranslationController.cpp
 )
+qt_add_executable(hexproof ${HEXPROOF_PLATFORM_SOURCES} ${HEXPROOF_APPLICATION_SOURCES})
 
 target_include_directories(hexproof PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof PRIVATE
     HEXPROOF_VERSION="${PROJECT_VERSION}")
 
-qt_add_resources(hexproof "app_qml"
-    PREFIX "/"
-    FILES
+set(HEXPROOF_APPLICATION_QML_FILES
         "${HEXPROOF_APP_ICON_PNG}"
         "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}"
         qml/Main.qml
@@ -295,7 +298,12 @@ qt_add_resources(hexproof "app_qml"
         qml/components/qmldir
         qml/components/ActivityRing.qml
         qml/components/AppBackground.qml
+        qml/components/TableBackgrounds.qml
+        qml/components/TableBackgroundPicker.qml
+        qml/components/TableBackgroundPopup.qml
         qml/components/AppButton.qml
+        qml/components/GlassChrome.qml
+        qml/components/LiquidGlass.qml
         qml/components/AppComboBox.qml
         qml/components/AppTextField.qml
         qml/components/AppToggle.qml
@@ -325,6 +333,7 @@ qt_add_resources(hexproof "app_qml"
         qml/components/CardMetadataNotice.qml
         qml/components/CardHoverPreview.qml
         qml/components/TokenPresentation.js
+        qml/components/CardTypes.js
         qml/components/TokenDetailsPopup.qml
         qml/components/CombatDeclarationPopup.qml
         qml/components/CommanderDamagePopup.qml
@@ -352,11 +361,14 @@ qt_add_resources(hexproof "app_qml"
         qml/components/DiceRollPopup.qml
         qml/components/InfoBanner.qml
         qml/components/I18n.qml
+        qml/components/RulesText.qml
         qml/components/LibraryPositionPopup.qml
         qml/components/LandPlayPopup.qml
         qml/components/LibrarySearchCardList.qml
         qml/components/LibrarySearchContextMenu.qml
         qml/components/LibrarySearchInspector.qml
+        qml/components/LibraryTopCardsControls.qml
+        qml/components/LibraryTopCardsView.qml
         qml/components/LibrarySearchPopup.qml
         qml/components/LimitedCardGrouping.qml
         qml/components/LimitedCardGroupView.qml
@@ -384,22 +396,44 @@ qt_add_resources(hexproof "app_qml"
         qml/components/PrintingPicker.qml
         qml/components/RoomListQuery.qml
         qml/components/RulesBattlefieldView.qml
+        qml/components/RulesBattlefieldLayout.qml
+        qml/components/RulesTableInteraction.qml
+        qml/components/RulesPriorityController.qml
+        qml/components/RulesActionBar.qml
+        qml/components/RulesInspectionDock.qml
         qml/components/RulesCardSelectionPrompt.qml
+        qml/components/RulesCardBrowser.qml
+        qml/components/RulesCardChoiceDialog.qml
+        qml/components/RulesZoneActions.qml
         qml/components/RulesCardSurface.qml
+        qml/components/ForgeCard.qml
+        qml/components/ForgeCardLane.qml
+        qml/components/ForgeHand.qml
+        qml/components/ForgeStack.qml
+        qml/components/ForgeArrow.qml
+        qml/components/ForgeCombatInteraction.qml
+        qml/components/ForgeDuelTable.qml
+        qml/components/RulesLegacyLayout.qml
+        qml/components/RulesCardInspector.qml
+        qml/components/RulesCardHoverPreview.qml
+        qml/components/RulesDecisionDock.qml
+        qml/components/RulesCardActionPicker.qml
         qml/components/RulesCombatAssignmentPrompt.qml
+        qml/components/RulesHorizontalListView.qml
         qml/components/RulesDamageAssignmentPrompt.qml
+        qml/components/RulesDamageDialog.qml
         qml/components/RulesHandArea.qml
         qml/components/RulesMatchControls.qml
         qml/components/RulesNumberPrompt.qml
         qml/components/RulesOpponentZoneDock.qml
         qml/components/RulesOrderPrompt.qml
         qml/components/RulesScryPrompt.qml
+        qml/components/RulesCardNamePrompt.qml
         qml/components/RulesPromptPanel.qml
         qml/components/RulesPromptContext.qml
         qml/components/RulesRevealPrompt.qml
         qml/components/RulesScalarChoicePrompt.qml
         qml/components/RulesStackRail.qml
-        qml/components/RulesStateRail.qml
         qml/components/RulesTableActionRail.qml
         qml/components/RulesTargetSelectionPrompt.qml
         qml/components/ScreenHeader.qml
@@ -408,6 +442,7 @@ qt_add_resources(hexproof "app_qml"
         qml/components/CardArtRepairNoticePopup.qml
         qml/components/SponsorAnnouncementPopup.qml
         qml/components/SponsorCatalog.qml
+        qml/components/SponsorHighlight.qml
         qml/components/SponsorList.qml
         qml/components/SponsorSupportPopup.qml
         qml/components/SharedZonesView.qml
@@ -470,6 +505,9 @@ qt_add_resources(hexproof "app_qml"
         qml/components/TournamentScoreEditor.qml
         qml/components/ZoneBrowserPopup.qml
         assets/sponsors/alipay-pay.png
+        assets/sponsors/a1100011.jpg
+        assets/sponsors/afdian-1a326.png
+        assets/sponsors/anjisuan.jpg
         assets/sponsors/dodo.jpg
         assets/sponsors/m0nta9e.jpg
         assets/sponsors/orangezihan.jpeg
@@ -478,6 +516,13 @@ qt_add_resources(hexproof "app_qml"
         assets/sponsors/qingbao.jpg
         assets/sponsors/wechat-pay.png
         qml/assets/card-back.jpg
+        qml/assets/playmat-dusk.png
+        qml/assets/backgrounds/forest.png
+        qml/assets/backgrounds/astral.png
+        qml/assets/backgrounds/volcanic.png
+        qml/assets/backgrounds/frost.png
+        qml/assets/backgrounds/ink.png
+        qml/assets/backgrounds/woven.png
         qml/assets/mana/mana.ttf
         qml/assets/mana/OFL.txt
         qml/assets/mana/README.md
@@ -508,6 +553,9 @@ qt_add_resources(hexproof "app_qml"
         qml/components/TournamentSidebar.qml
         qml/components/LimitedEventProgress.qml
         qml/screens/WaitingRoom.qml)
+qt_add_resources(hexproof "app_qml"
+    PREFIX "/"
+    FILES ${HEXPROOF_APPLICATION_QML_FILES})
 
 qt_add_translations(hexproof
     TS_FILES i18n/hexproof_zh_CN.ts
@@ -524,7 +572,7 @@ qt_add_resources(hexproof "dynamic_translations"
     BASE "${CMAKE_CURRENT_BINARY_DIR}"
     FILES ${HEXPROOF_DYNAMIC_QM_FILES})
 
-target_link_libraries(hexproof PRIVATE
+set(HEXPROOF_APPLICATION_LIBRARIES
     hexproof_local_test
     hexproof_card_services
     hexproof_deck_library
@@ -536,9 +584,61 @@ target_link_libraries(hexproof PRIVATE
     Qt6::Gui
     Qt6::Network
     Qt6::Quick
+    Qt6::QuickEffects
     Qt6::Sql
     Qt6::WebSockets
     ZLIB::ZLIB)
+target_link_libraries(hexproof PRIVATE ${HEXPROOF_APPLICATION_LIBRARIES})
+
+qt_add_shaders(hexproof "liquidglass_shaders"
+    BATCHABLE
+    PRECOMPILE
+    OPTIMIZED
+    PREFIX "/shaders"
+    FILES
+        qml/shaders/liquidglass.frag)
+
+if(HEXPROOF_BUILD_NATIVE_AUDIT)
+    # Compile the production entry point and embed the same source/resource
+    # lists. Never link incidental .o files from a previously built client.
+    qt_add_executable(hexproof_native_audit
+        ${HEXPROOF_APPLICATION_SOURCES}
+        src/testing/NativeAudit.cpp
+        src/testing/NativeAudit.h)
+    target_include_directories(hexproof_native_audit PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(hexproof_native_audit PRIVATE
+        HEXPROOF_VERSION="${PROJECT_VERSION}"
+        HEXPROOF_NATIVE_AUDIT=1)
+    target_link_libraries(hexproof_native_audit PRIVATE
+        ${HEXPROOF_APPLICATION_LIBRARIES} Qt6::Test)
+    # Exercise the real GTK chooser through widget key events when available.
+    # This optional adapter is never linked into the release application.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(NATIVE_AUDIT_GTK QUIET IMPORTED_TARGET gtk+-3.0 x11)
+            if(TARGET PkgConfig::NATIVE_AUDIT_GTK)
+                target_sources(hexproof_native_audit PRIVATE
+                    src/testing/NativeGtkInput.cpp src/testing/NativeGtkInput.h)
+                target_link_libraries(hexproof_native_audit PRIVATE PkgConfig::NATIVE_AUDIT_GTK)
+                target_compile_definitions(hexproof_native_audit PRIVATE HEXPROOF_NATIVE_AUDIT_GTK=1)
+            endif()
+        endif()
+    endif()
+    qt_add_resources(hexproof_native_audit "native_app_qml"
+        PREFIX "/"
+        FILES ${HEXPROOF_APPLICATION_QML_FILES})
+    qt_add_resources(hexproof_native_audit "native_translations"
+        PREFIX "/i18n"
+        BASE "${CMAKE_CURRENT_BINARY_DIR}"
+        FILES "${HEXPROOF_UI_QM_FILE}" ${HEXPROOF_DYNAMIC_QM_FILES})
+    qt_add_shaders(hexproof_native_audit "native_liquidglass_shaders"
+        BATCHABLE PRECOMPILE OPTIMIZED PREFIX "/shaders"
+        FILES qml/shaders/liquidglass.frag)
+    if(TARGET Qt6::QWebpPlugin)
+        qt_import_plugins(hexproof_native_audit INCLUDE Qt6::QWebpPlugin)
+    endif()
+endif()
 
 if(TARGET Qt6::QWebpPlugin)
     qt_import_plugins(hexproof INCLUDE Qt6::QWebpPlugin)
@@ -692,6 +792,19 @@ target_link_libraries(hexproof_card_database_builder PRIVATE
 # --- Client tests ---
 
 enable_testing()
+
+if(HEXPROOF_BUILD_NATIVE_AUDIT)
+    qt_add_executable(hexproof_native_audit_test
+        tests/native_audit_test.cpp
+        src/testing/NativeAudit.cpp
+        src/testing/NativeAudit.h)
+    target_include_directories(hexproof_native_audit_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(hexproof_native_audit_test PRIVATE hexproof_session Qt6::Quick Qt6::Test)
+    add_test(NAME native_audit_adapter COMMAND hexproof_native_audit_test)
+    # Adapter regression tests are component tests; real scenario runs use the
+    # dedicated executable on a native display through the external runner.
+    set_tests_properties(native_audit_adapter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 
 qt_add_executable(hexproof_profilelock_test tests/profilelock_test.cpp)
 target_include_directories(hexproof_profilelock_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -885,6 +998,7 @@ add_test(NAME sideboardtablemodel COMMAND
 qt_add_executable(hexproof_cardcatalog_test
     tests/cardcatalog_test.cpp
     tests/cardcatalog_cache_priority_test.cpp
+    tests/cardcatalog_parallel_test.cpp
     tests/cardcatalog_database_test.cpp
     tests/cardcatalog_localized_text_test.cpp
     tests/cardcatalog_limited_art_test.cpp
@@ -893,6 +1007,7 @@ qt_add_executable(hexproof_cardcatalog_test
 )
 target_include_directories(hexproof_cardcatalog_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(hexproof_cardcatalog_test PRIVATE
+    hexproof_deck_library
     hexproof_card_services
     Qt6::Concurrent
     Qt6::Core
@@ -903,6 +1018,12 @@ target_link_libraries(hexproof_cardcatalog_test PRIVATE
     Qt6::Test
     ZLIB::ZLIB)
 add_test(NAME cardcatalog COMMAND hexproof_cardcatalog_test)
+
+qt_add_executable(hexproof_cardimageprovider_test tests/cardimageprovider_test.cpp)
+target_link_libraries(hexproof_cardimageprovider_test PRIVATE
+    hexproof_card_services Qt6::Quick Qt6::Test)
+add_test(NAME cardimageprovider COMMAND hexproof_cardimageprovider_test)
+set_tests_properties(cardimageprovider PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME bounded-catalog-source
     COMMAND ${CMAKE_COMMAND}
         -DHEXPROOF_CLIENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -1013,7 +1134,15 @@ target_link_libraries(hexproof_qml_test PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Quick
+    Qt6::QuickEffects
     Qt6::QuickTest)
+qt_add_shaders(hexproof_qml_test "liquidglass_shaders_test"
+    BATCHABLE
+    PRECOMPILE
+    OPTIMIZED
+    PREFIX "/shaders"
+    FILES
+        qml/shaders/liquidglass.frag)
 qt_add_resources(hexproof_qml_test "qml_test_translations"
     PREFIX "/i18n"
     BASE "${CMAKE_CURRENT_BINARY_DIR}"

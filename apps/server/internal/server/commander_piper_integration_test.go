@@ -41,6 +41,7 @@ func TestCommanderPiperFallbackOverWebSocket(t *testing.T) {
 	command(host, protocol.TypeTournamentCreate, protocol.TournamentCreate{
 		Name: "Piper Commander Cube", Format: "Commander", EventType: protocol.LimitedEventCommanderCube,
 		Coordinator: protocol.LimitedCoordinatorCasual, MatchMode: protocol.MatchBO1, MaxPlayers: 2,
+		DraftSettings: &protocol.LimitedDraftSettings{PacksPerPlayer: 3, PacksPerBatch: 1},
 		Product: &protocol.LimitedProductDefinition{ID: "piper-cube", Name: "No-legend Cube", ProductType: "cube",
 			Sheets: []protocol.LimitedSheetDefinition{{Name: "pool", Cards: cards}}},
 	}, protocol.TypeTournamentCreated)

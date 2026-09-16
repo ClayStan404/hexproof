@@ -182,6 +182,7 @@ inline QString imagePayloadKind(const QByteArray &bytes)
 struct ImagePayloadInspection
 {
     bool canRead = false;
+    bool decoded = false;
     QByteArray format;
     QString error;
 };
@@ -200,7 +201,8 @@ inline ImagePayloadInspection inspectImagePayload(const QByteArray &bytes)
     reader.setDecideFormatFromContent(true);
     inspection.canRead = reader.canRead();
     inspection.format = reader.format();
-    inspection.error = inspection.canRead ? QStringLiteral("<none>") : reader.errorString();
+    inspection.decoded = inspection.canRead && !reader.read().isNull();
+    inspection.error = inspection.decoded ? QStringLiteral("<none>") : reader.errorString();
     return inspection;
 }
 

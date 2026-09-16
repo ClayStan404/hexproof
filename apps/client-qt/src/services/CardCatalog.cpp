@@ -15,6 +15,8 @@
 #include "CatalogStorage.h"
 #include "CustomCardArtStore.h"
 
+#include <algorithm>
+
 namespace hexproof::client {
 using namespace catalog_internal;
 
@@ -96,7 +98,9 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
         if (!QCoreApplication::closingDown())
             QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
     };
-    m_cardResolver = std::make_unique<CardResolver>(m_network, std::move(resolverCallbacks));
+    m_cardResolver = std::make_unique<CardResolver>(m_network, resolverCallbacks);
+    for (auto &resolver : m_parallelResolvers)
+        resolver = std::make_unique<CardResolver>(*m_cardResolver, resolverCallbacks);
     connect(this, &CardCatalog::cardCacheFinished, this, &CardCatalog::handleLimitedArtCacheResult);
 
     CatalogInstaller *installer = m_catalogInstaller.get();
@@ -112,6 +116,8 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
         m_catalogBusy = busy;
         if (busy) {
             ++m_tokenEnrichGeneration;
+            search(m_lastSearchQuery, m_lastTypeFilter, m_lastSetFilter, m_lastLanguageFilter,
+                   m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter, m_lastManaFilter);
             if (m_tokenSearchRequested)
                 searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind);
         }
@@ -133,6 +139,8 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
             setLastError(QStringLiteral("Could not save the card image cache."));
     };
     m_artManager->setOperationGuard([this]() { return artOperationsIdle() && artWritesAllowed(); });
+    m_artManager->setInspectionGuard(
+        [this]() { return !m_shuttingDown && !m_catalogBusy && artWritesAllowed(); });
     m_customArt->setOperationGuard([this]() {
         // Custom mappings and blobs do not share the ordinary cache's files.
         // Downloads, cache hydration and searches must not prevent a restore.
@@ -140,13 +148,21 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
         // conflict with a custom operation.
         return !m_shuttingDown && !m_catalogBusy && m_artStorage->writesAllowed();
     });
-    m_artStorage->setOperationGuard([this]() {
-        return artOperationsIdle() && !m_customArt->busy() && !m_artManager->busy() &&
-               (!m_artCache->dirty() || saveResolutionCache());
+    m_artStorage->setOperationGuard(
+        [this]() { return artOperationsIdle() && !m_customArt->busy() && !m_artManager->busy(); });
+    m_artStorage->setIndexFlush([this](std::function<void(bool)> completion) {
+        m_artIndexFlushing = true;
+        m_artCache->saveAsync([this, completion = std::move(completion)](bool success) {
+            m_artIndexFlushing = false;
+            m_artCache->setWritable(m_artStorage->writesAllowed());
+            completion(success);
+        });
     });
     const auto storageStateChanged = [this]() {
         m_artStorageBusy = m_artStorage->busy();
-        m_artCache->setWritable(m_artStorage->writesAllowed());
+        // The migration guard blocks new resolutions immediately, but a newer
+        // index generation queued behind an older save must still reach disk.
+        m_artCache->setWritable(m_artIndexFlushing || m_artStorage->writesAllowed());
         emit busyChanged();
         if (m_artStorage->writesAllowed() && !QCoreApplication::closingDown())
             QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
@@ -172,6 +188,8 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
             QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
     });
     connect(m_artManager.get(), &CardArtManager::contentsChanged, this, [this]() {
+        if (m_cardImageProvider)
+            m_cardImageProvider->invalidateAll();
         ++m_imageRevision;
         emit imageRevisionChanged();
         emit artCacheContentsChanged();
@@ -196,6 +214,8 @@ CardCatalog::~CardCatalog()
     for (QNetworkReply *reply : directReplies)
         disconnect(reply, nullptr, this, nullptr);
     m_directImageJobs.clear();
+    for (auto &resolver : m_parallelResolvers)
+        resolver.reset();
     m_cardResolver.reset();
     m_catalogInstaller.reset();
     const auto replies =
@@ -231,6 +251,7 @@ void CardCatalog::setLanguage(const QString &language)
     if (normalized == m_language)
         return;
     m_language = normalized;
+    setSearchPreviewCards({});
     ++m_tokenEnrichGeneration;
     clearGuiQueryCaches();
     restartCardFaceExpansion();
@@ -252,13 +273,22 @@ void CardCatalog::setLanguage(const QString &language)
 void CardCatalog::setCardArtProvider(const QString &provider)
 {
     const QString lowered = provider.toLower();
-    const QString normalized =
-        lowered == QStringLiteral("mtgch") || lowered == QStringLiteral("scryfall")
-            ? lowered
-            : QStringLiteral("auto");
+    const QString normalized = lowered == QStringLiteral("mtgch") ||
+                                       lowered == QStringLiteral("scryfall") ||
+                                       lowered == QStringLiteral("parallel")
+                                   ? lowered
+                                   : QStringLiteral("auto");
     if (normalized == m_cardArtProvider)
         return;
     m_cardArtProvider = normalized;
+    if (normalized == QStringLiteral("parallel")) {
+        // Assign providers to work that was waiting in the serial resolver's
+        // backlog, retaining explicit demand ahead of background downloads.
+        m_cardQueue.append(m_fallbackQueue);
+        m_fallbackQueue.clear();
+        std::stable_partition(m_cardQueue.begin(), m_cardQueue.end(),
+                              [](const CardRequest &request) { return request.highPriority; });
+    }
     if (m_cardResolver) {
         const CardResolver::ArtProvider resolverProvider =
             normalized == QStringLiteral("mtgch")
@@ -268,6 +298,8 @@ void CardCatalog::setCardArtProvider(const QString &provider)
         m_cardResolver->setPreferredProvider(resolverProvider);
     }
     emit cardArtProviderChanged();
+    if (!QCoreApplication::closingDown())
+        QTimer::singleShot(0, this, &CardCatalog::scheduleResolutionWork);
 }
 
 void CardCatalog::setReuseLocalCardArt(bool reuse)

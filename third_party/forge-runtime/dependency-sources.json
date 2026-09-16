@@ -3,7 +3,7 @@
   "archives": [
     {
       "id": "xmlpull-api",
-      "coordinate": "forge:hexproof-xmlpull-api",
+      "coordinate": "org.hexproof.thirdparty:xmlpull-api:1.1.3.4b",
       "revision": "21127efba74f6f147e867e2bcf3e8b2a9624cc2c",
       "archive": "xmlpull-api-v1-21127efba74f6f147e867e2bcf3e8b2a9624cc2c.tar.gz",
       "origin": "https://codeload.github.com/xmlpull-org/xmlpull-api-v1/tar.gz/21127efba74f6f147e867e2bcf3e8b2a9624cc2c",
@@ -50,14 +50,23 @@
       "origin": "https://codeload.github.com/netty/netty-jni-util/tar.gz/a194db45e4f76a4714758df7b42fbad81a021672",
       "sha256": "b130abf355a1723347570915b45d31183d74aa9ccdc3eba40e230dc3f39f7d7b",
       "root": "netty-jni-util-a194db45e4f76a4714758df7b42fbad81a021672",
-      "reason": "Optional native C build dependency pinned by Netty 4.1.115.Final dependencyManagement; not present in the resolved Java runtime classpath."
+      "reason": "Optional native C build dependency pinned by Netty 4.1.115.Final dependencyManagement; not present in the resolved Java runtime classpath.",
+      "requiredBy": "io.netty:*:4.1.115.Final"
     }
   ],
   "xmlpullApiCompatibility": {
     "reference": "xmlpull:xmlpull:1.1.3.4a",
     "referenceBinarySha256": "e62496dee7ae032aafc776a87650b1eb8eb090af39b264ccf09b8ddc327a1797",
-    "javapOptions": ["-protected", "-constants"],
-    "classes": ["XmlPullParser", "XmlSerializer", "XmlPullParserException", "XmlPullParserFactory"],
+    "javapOptions": [
+      "-protected",
+      "-constants"
+    ],
+    "classes": [
+      "XmlPullParser",
+      "XmlSerializer",
+      "XmlPullParserException",
+      "XmlPullParserFactory"
+    ],
     "signatureSha256": "14e02e3ecbc0cb8b506f5579633f6eb4c5710394ced99d8f1613437a2c863e0b"
   }
 }

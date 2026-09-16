@@ -111,6 +111,8 @@ Surface {
             return qsTranslate("TournamentLobby", "All %1 card image(s) are cached")
                 .arg(root.cardCatalogModel.limitedArtTotal)
         }
+        if (root.preferencesModel.cardArtProvider === "parallel")
+            return qsTranslate("TournamentLobby", "Parallel sources · Scryfall + MTGCH")
         if (root.preferencesModel.cardArtProvider === "auto")
             return root.preferencesModel.cardLanguage === "zh"
                     ? qsTranslate("TournamentLobby", "Automatic source · MTGCH first, Scryfall fallback")

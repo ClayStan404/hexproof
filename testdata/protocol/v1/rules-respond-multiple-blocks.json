@@ -1,0 +1,18 @@
+{
+  "type": "rules.respond",
+  "id": "rules-multiple-blocks",
+  "payload": {
+    "promptId": 19,
+    "responseId": "$submit",
+    "assignments": [
+      {
+        "sourceId": "combat-source:0",
+        "targetId": "combat-target:0"
+      },
+      {
+        "sourceId": "combat-source:0",
+        "targetId": "combat-target:1"
+      }
+    ]
+  }
+}

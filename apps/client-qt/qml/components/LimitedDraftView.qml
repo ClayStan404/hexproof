@@ -49,11 +49,22 @@ Item {
     readonly property bool multiPick: limitedModel.eventType === "commander_cube"
     readonly property var ownDraftSeat: (limitedModel.participants || []).find(seat => seat.participantId === participantId) || ({})
     readonly property bool manualDraftControl: !ownDraftSeat.autoDraft && !ownDraftSeat.withdrawn
-    readonly property int requiredPicks: multiPick ? Math.min(2, limitedModel.currentPack.length) : 1
+    readonly property int requiredPicks: Math.min(Number(limitedModel.picksRequired) || (multiPick ? 2 : 1), limitedModel.currentPack.length)
+    readonly property var packGroups: {
+        const parts = limitedModel.currentPacks || []
+        if (!parts.length) return [{packId: "", cards: limitedModel.currentPack, picksRequired: requiredPicks}]
+        return parts
+    }
+    readonly property bool pairedPacks: packGroups.length === 2
+    readonly property string packLabel: Number(limitedModel.packsThisBatch) > 1
+        ? qsTranslate("TournamentLobby", "Draft packs %1–%2 of %3")
+            .arg(limitedModel.packRound - limitedModel.packsThisBatch + 1).arg(limitedModel.packRound).arg(limitedModel.packsPerPlayer)
+        : qsTranslate("TournamentLobby", "Draft pack %1").arg(limitedModel.packRound)
     readonly property var selection: multiPick ? selectedInstanceIds : selectedInstanceId ? [selectedInstanceId] : []
     readonly property bool canConfirm: manualDraftControl && pendingPickId === "" && wsModel.connected !== false
         && requiredPicks > 0 && selection.length === requiredPicks
         && selection.every(id => limitedModel.currentPack.some(card => card.instanceId === id))
+        && packGroups.every(part => selectedInPack(part).length === part.picksRequired)
     CardFilterState { id: pickFilters }
 
     ColumnLayout {
@@ -65,7 +76,7 @@ Item {
             Layout.fillWidth: true
             visible: root.compactTabs
             implicitHeight: Theme.size(36)
-            options: [qsTranslate("TournamentLobby", "Draft pack %1").arg(root.limitedModel.packRound),
+            options: [root.packLabel,
                       qsTranslate("TournamentLobby", "Your picks") + " · " + root.limitedModel.pool.length]
             currentIndex: root.compactPaneIndex
             onActivated: index => {
@@ -99,7 +110,7 @@ Item {
                             textFormat: Text.PlainText
                             objectName: "limitedDraftPackHeader"
                             Layout.fillWidth: true
-                            text: qsTranslate("TournamentLobby", "Draft pack %1").arg(root.limitedModel.packRound)
+                            text: root.packLabel
                                   + " · " + qsTranslate("TournamentLobby", "%1 cards remaining").arg(root.limitedModel.currentPack.length)
                             color: Theme.text
                             font.pixelSize: Theme.fontSize(19)
@@ -123,32 +134,62 @@ Item {
                         onClicked: seatsPopup.open()
                     }
                 }
-                CardArtGrid {
-                    id: packGrid
-                    objectName: "limitedCurrentPackGrid"
+                GridLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.minimumHeight: 0
-                    cards: root.enrichedPack
-                    catalogModel: root.cardCatalogModel
-                    cardObjectPrefix: "limitedDraftPackCard-"
-                    doubleClickEnabled: true
-                    // Aim for two rows on a desktop; narrower windows keep readable
-                    // cards and scroll vertically instead of shrinking their text away.
-                    maximumCardWidth: root.compactTabs
-                        ? Math.max(1, (height - Theme.size(26)) * 63 / 88) : Theme.size(250)
-                    preferredCardWidth: root.compactTabs ? Math.min(Theme.size(130), maximumCardWidth)
-                        : Math.max(Theme.size(130), Math.min(Theme.size(220),
-                        (height / 2 - Theme.size(26)) * 63 / 88))
-                    selectedKey: root.selectedInstanceId
-                    selectedKeys: root.selectedInstanceIds
-                    enabled: root.manualDraftControl && root.pendingPickId === ""
-                    emptyText: qsTranslate("TournamentLobby", "Waiting for the next pack…")
-                    onCardActivated: card => root.selectCard(card.instanceId)
-                    onCardDoubleActivated: card => root.confirmCard(card.instanceId)
-                    onCardInspected: (card, sourceItem) => root.inspectCard(card, sourceItem)
-                    onCardInspectionEnded: sourceItem => root.hideCardPreview(sourceItem)
-                    onMovingChanged: if (moving) root.hideCardPreview()
+                    columns: root.pairedPacks && width >= Theme.size(540) ? 2 : 1
+                    columnSpacing: Theme.size(12)
+                    rowSpacing: Theme.size(10)
+                    Repeater {
+                        model: root.packGroups.length
+                        delegate: ColumnLayout {
+                            id: packPane
+                            required property int index
+                            readonly property var pack: root.packGroups[index] || ({cards: [], picksRequired: 0})
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumWidth: 0
+                            Layout.minimumHeight: 0
+                            Text {
+                                objectName: "limitedPackSelectionCount-" + packPane.index
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                visible: root.pairedPacks
+                                text: qsTranslate("TournamentLobby", "Pack %1 · %2/%3 selected")
+                                    .arg(packPane.index === 0 ? "A" : "B")
+                                    .arg(root.selectedInPack(packPane.pack).length).arg(packPane.pack.picksRequired)
+                                color: Theme.accent
+                                font.pixelSize: Theme.fontSize(13)
+                            }
+                            CardArtGrid {
+                                id: packGrid
+                                objectName: packPane.index === 0 ? "limitedCurrentPackGrid" : "limitedCurrentPackGrid-2"
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: 0
+                                cards: root.enrichedPack.filter(card => packPane.pack.cards.some(value => value.instanceId === card.instanceId))
+                                catalogModel: root.cardCatalogModel
+                                cardObjectPrefix: "limitedDraftPackCard-"
+                                doubleClickEnabled: true
+                                maximumCardWidth: root.compactTabs
+                                    ? Math.max(1, (height - Theme.size(26)) * 63 / 88) : Theme.size(250)
+                                preferredCardWidth: root.pairedPacks ? Theme.size(110)
+                                    : root.compactTabs ? Math.min(Theme.size(130), maximumCardWidth)
+                                    : Math.max(Theme.size(130), Math.min(Theme.size(220),
+                                    (height / 2 - Theme.size(26)) * 63 / 88))
+                                selectedKey: root.selectedInstanceId
+                                selectedKeys: root.selectedInstanceIds
+                                enabled: root.manualDraftControl && root.pendingPickId === ""
+                                emptyText: qsTranslate("TournamentLobby", "Waiting for the next pack…")
+                                onCardActivated: card => root.selectCard(card.instanceId)
+                                onCardDoubleActivated: card => root.confirmCard(card.instanceId)
+                                onCardInspected: (card, sourceItem) => root.inspectCard(card, sourceItem)
+                                onCardInspectionEnded: sourceItem => root.hideCardPreview(sourceItem)
+                                onMovingChanged: if (moving) root.hideCardPreview()
+                            }
+                        }
+                    }
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -356,10 +397,16 @@ Item {
         const index = ids.indexOf(instanceId)
         if (index >= 0) ids.splice(index, 1)
         else {
-            if (ids.length >= requiredPicks) ids.shift()
+            const part = packGroups.find(value => value.cards.some(card => card.instanceId === instanceId))
+            if (!part || part.picksRequired < 1) return
+            const inPack = selectedInPack(part)
+            if (inPack.length >= part.picksRequired) ids.splice(ids.indexOf(inPack[0]), 1)
             ids.push(instanceId)
         }
         selectedInstanceIds = ids
+    }
+    function selectedInPack(part) {
+        return selection.filter(id => part.cards.some(card => card.instanceId === id))
     }
     function confirmCard(instanceId) {
         if (!manualDraftControl || pendingPickId !== "" || !limitedModel.currentPack.some(card => card.instanceId === instanceId)) return

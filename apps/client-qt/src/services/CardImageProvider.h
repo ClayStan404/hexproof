@@ -18,6 +18,8 @@ class CardImageProvider final : public QQuickImageProvider
     CardImageProvider();
 
     QString sourceForPath(const QString &path);
+    void invalidatePath(const QString &path);
+    void invalidateAll();
 
     QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override;
 
@@ -30,6 +32,8 @@ class CardImageProvider final : public QQuickImageProvider
 
     QMutex m_mutex;
     QCache<QString, QImage> m_images;
+    QCache<QString, quint64> m_sourceRevisions{4096};
+    quint64 m_nextSourceRevision = 0;
 };
 
 } // namespace hexproof::client

@@ -1,0 +1,798 @@
+{
+  "type": "limited.snapshot",
+  "payload": {
+    "tournamentId": "CMD234",
+    "eventType": "commander_cube",
+    "stage": "draft",
+    "product": {
+      "id": "commander-cube",
+      "name": "Friday Commander Cube",
+      "productType": "cube",
+      "authentic": false,
+      "cardsPerPack": 0,
+      "cardCount": 960,
+      "productHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "packRound": 2,
+    "direction": 1,
+    "currentPack": [
+      {
+        "instanceId": "limited-1",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-2",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-3",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-4",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-5",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-6",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-7",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-8",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-9",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-10",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-11",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-12",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-13",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-14",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-15",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-16",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-17",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-18",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-19",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-20",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-21",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-22",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-23",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-24",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-25",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-26",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-27",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-28",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-29",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-30",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-31",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-32",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-33",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-34",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-35",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-36",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-37",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "1",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-38",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "2",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-39",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "3",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "limited-40",
+        "name": "Draft Legend",
+        "setCode": "TST",
+        "collectorNumber": "4",
+        "typeLine": "Legendary Creature — Wizard",
+        "rarity": "rare",
+        "finish": "nonfoil"
+      }
+    ],
+    "pool": [],
+    "mainboardInstanceIds": [],
+    "picksRequired": 4,
+    "packsPerPlayer": 6,
+    "minimumDeckCards": 60,
+    "basicLands": [],
+    "participants": [
+      {
+        "participantId": "p-1",
+        "displayName": "Alice",
+        "picked": 0,
+        "packCards": 40,
+        "queuedPacks": 2,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-2",
+        "displayName": "Bob",
+        "picked": 0,
+        "packCards": 40,
+        "queuedPacks": 2,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-3",
+        "displayName": "Carol",
+        "picked": 0,
+        "packCards": 40,
+        "queuedPacks": 2,
+        "deckSubmitted": false
+      },
+      {
+        "participantId": "p-4",
+        "displayName": "Dan",
+        "picked": 0,
+        "packCards": 40,
+        "queuedPacks": 2,
+        "deckSubmitted": false
+      }
+    ],
+    "deckSubmitted": false,
+    "allDecksSubmitted": false,
+    "packsThisBatch": 2,
+    "currentPacks": [
+      {
+        "packId": "pack-1",
+        "cards": [
+          {
+            "instanceId": "limited-1",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-2",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-3",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-4",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-5",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-6",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-7",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-8",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-9",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-10",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-11",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-12",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-13",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-14",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-15",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-16",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-17",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-18",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-19",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-20",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          }
+        ],
+        "picksRequired": 2
+      },
+      {
+        "packId": "pack-2",
+        "cards": [
+          {
+            "instanceId": "limited-21",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-22",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-23",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-24",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-25",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-26",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-27",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-28",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-29",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-30",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-31",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-32",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-33",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-34",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-35",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-36",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-37",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "1",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-38",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "2",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-39",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "3",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          },
+          {
+            "instanceId": "limited-40",
+            "name": "Draft Legend",
+            "setCode": "TST",
+            "collectorNumber": "4",
+            "typeLine": "Legendary Creature — Wizard",
+            "rarity": "rare",
+            "finish": "nonfoil"
+          }
+        ],
+        "picksRequired": 2
+      }
+    ]
+  }
+}

@@ -56,6 +56,7 @@
     "minChoiceTotal": 0,
     "maxChoiceTotal": 0,
     "minNumber": 0,
-    "maxNumber": 0
+    "maxNumber": 0,
+    "damageAssignmentMode": "ordered"
   }
 }

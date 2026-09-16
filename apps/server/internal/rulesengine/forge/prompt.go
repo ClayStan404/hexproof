@@ -84,6 +84,7 @@ type PromptCombatSource struct {
 	ResponseID       string
 	ID               string
 	ValidTargetIDs   []string
+	Maximum          int
 	MustAssignIfAble bool
 }
 
@@ -122,6 +123,9 @@ type PromptDamageTarget struct {
 	Kind       string
 	ID         string
 	Defender   bool
+	// Required for each blocker in a damage-allocation prompt; absent for
+	// ordering-only prompts and defenders. A native zero remains zero.
+	LethalDamage *int
 }
 
 // PromptDamageAssignment is one exact amount assigned to a prompt-local
@@ -133,37 +137,39 @@ type PromptDamageAssignment struct {
 
 // PromptView is the normalized, privacy-safe subset of one Forge prompt.
 type PromptView struct {
-	PromptID         int64
-	PlayerIndex      int
-	Kind             string
-	Supported        bool
-	Title            string
-	Detail           string
-	Options          []PromptOption
-	Choices          []PromptChoice
-	Cards            []PromptCard
-	ScryDestinations []string
-	OrderItems       []PromptOrderItem
-	ContextCards     []PromptCard
-	ContextTargets   []PromptTarget
-	ContextText      string
-	Required         int
-	CardMinimum      int
-	CardMaximum      int
-	Targets          []PromptTarget
-	CombatSources    []PromptCombatSource
-	CombatTargets    []PromptCombatTarget
-	DamageSource     *PromptDamageSource
-	DamageTargets    []PromptDamageTarget
-	TotalDamage      int
-	DamageDeathtouch bool
-	MinSelected      int
-	MaxSelected      int
-	Cancellable      bool
-	ChoiceMinimum    int
-	ChoiceMaximum    int
-	NumberMinimum    int
-	NumberMaximum    int
+	PromptID             int64
+	PlayerIndex          int
+	Kind                 string
+	Supported            bool
+	AutoPassEligible     bool
+	Title                string
+	Detail               string
+	Options              []PromptOption
+	Choices              []PromptChoice
+	Cards                []PromptCard
+	ScryDestinations     []string
+	OrderItems           []PromptOrderItem
+	ContextCards         []PromptCard
+	ContextTargets       []PromptTarget
+	ContextText          string
+	Required             int
+	CardMinimum          int
+	CardMaximum          int
+	Targets              []PromptTarget
+	CombatSources        []PromptCombatSource
+	CombatTargets        []PromptCombatTarget
+	DamageSource         *PromptDamageSource
+	DamageTargets        []PromptDamageTarget
+	TotalDamage          int
+	DamageDeathtouch     bool
+	DamageAssignmentMode string
+	MinSelected          int
+	MaxSelected          int
+	Cancellable          bool
+	ChoiceMinimum        int
+	ChoiceMaximum        int
+	NumberMinimum        int
+	NumberMaximum        int
 }
 
 // PromptResponse is the typed Hexproof-side answer to one current prompt.
@@ -179,6 +185,7 @@ type PromptResponse struct {
 	DamageOrderIDs    []string
 	DamageAssignments []PromptDamageAssignment
 	ChosenNumber      *int
+	Name              string
 }
 
 type promptEnvelope struct {
@@ -189,43 +196,60 @@ type promptEnvelope struct {
 }
 
 type promptInput struct {
-	Type                  string                  `json:"type"`
-	Actions               []promptAction          `json:"actions"`
-	Presentation          promptPresentation      `json:"presentation"`
-	CardName              string                  `json:"cardName"`
-	ManaCost              string                  `json:"manaCost"`
-	CanConfirmFromPool    bool                    `json:"canConfirmFromPool"`
-	MulliganCount         int                     `json:"mulliganCount"`
-	HandCardIDs           []string                `json:"handCardIds"`
-	Cards                 []promptCard            `json:"cards"`
-	Zones                 []string                `json:"zones"`
-	Items                 []promptOrderItem       `json:"items"`
-	Count                 int                     `json:"count"`
-	Candidates            []promptTargetRef       `json:"candidates"`
-	MinTargets            int                     `json:"minTargets"`
-	MaxTargets            int                     `json:"maxTargets"`
-	ChosenTargets         int                     `json:"chosenTargets"`
-	Cancellable           bool                    `json:"cancellable"`
-	Attackers             []promptCombatant       `json:"attackers"`
-	AttackTargets         []promptAttackTarget    `json:"attackTargets"`
-	AvailableBlockerIDs   []string                `json:"availableBlockerIds"`
-	Error                 string                  `json:"error"`
-	ConfirmLabel          string                  `json:"confirmLabel"`
-	DenyLabel             string                  `json:"denyLabel"`
-	Min                   *int                    `json:"min"`
-	Max                   *int                    `json:"max"`
-	ValidColors           []string                `json:"validColors"`
-	Amount                *int                    `json:"amount"`
-	RepeatAllowed         bool                    `json:"repeatAllowed"`
-	SelectionOptions      []promptSelectionOption `json:"options"`
-	MinTotal              *int                    `json:"minTotal"`
-	MaxTotal              *int                    `json:"maxTotal"`
-	AttackerID            string                  `json:"attackerId"`
-	BlockerIDs            []string                `json:"blockerIds"`
-	BlockerCards          []promptCard            `json:"blockerCards"`
-	DefenderID            string                  `json:"defenderId"`
-	TotalDamage           *int                    `json:"totalDamage"`
-	AttackerHasDeathtouch bool                    `json:"attackerHasDeathtouch"`
+	Type                    string                         `json:"type"`
+	Actions                 []promptAction                 `json:"actions"`
+	AutoPassEligible        *bool                          `json:"autoPassEligible"`
+	Presentation            promptPresentation             `json:"presentation"`
+	CardName                string                         `json:"cardName"`
+	ManaCost                string                         `json:"manaCost"`
+	CanConfirmFromPool      bool                           `json:"canConfirmFromPool"`
+	CanAutoPay              *bool                          `json:"canAutoPay"`
+	MulliganCount           int                            `json:"mulliganCount"`
+	HandCardIDs             []string                       `json:"handCardIds"`
+	Cards                   []promptCard                   `json:"cards"`
+	Zones                   []string                       `json:"zones"`
+	Items                   []promptOrderItem              `json:"items"`
+	Count                   int                            `json:"count"`
+	Candidates              []promptTargetRef              `json:"candidates"`
+	MinTargets              int                            `json:"minTargets"`
+	MaxTargets              int                            `json:"maxTargets"`
+	ChosenTargets           int                            `json:"chosenTargets"`
+	Cancellable             bool                           `json:"cancellable"`
+	CanCancel               *bool                          `json:"canCancel"`
+	Message                 string                         `json:"message"`
+	Attackers               []promptCombatant              `json:"attackers"`
+	AttackTargets           []promptAttackTarget           `json:"attackTargets"`
+	AvailableBlockerIDs     []string                       `json:"availableBlockerIds"`
+	BlockerAssignmentLimits []promptBlockerAssignmentLimit `json:"blockerAssignmentLimits"`
+	Error                   string                         `json:"error"`
+	ConfirmLabel            string                         `json:"confirmLabel"`
+	DenyLabel               string                         `json:"denyLabel"`
+	Min                     *int                           `json:"min"`
+	Max                     *int                           `json:"max"`
+	ValidColors             []string                       `json:"validColors"`
+	Amount                  *int                           `json:"amount"`
+	RepeatAllowed           bool                           `json:"repeatAllowed"`
+	SelectionOptions        []promptSelectionOption        `json:"options"`
+	MinTotal                *int                           `json:"minTotal"`
+	MaxTotal                *int                           `json:"maxTotal"`
+	AttackerID              string                         `json:"attackerId"`
+	BlockerIDs              []string                       `json:"blockerIds"`
+	BlockerCards            []promptCard                   `json:"blockerCards"`
+	BlockerDamageHints      json.RawMessage                `json:"blockerDamageHints"`
+	DefenderID              string                         `json:"defenderId"`
+	TotalDamage             *int                           `json:"totalDamage"`
+	AttackerHasDeathtouch   bool                           `json:"attackerHasDeathtouch"`
+	DamageAssignmentMode    string                         `json:"damageAssignmentMode"`
+}
+
+type promptBlockerAssignmentLimit struct {
+	BlockerID string `json:"blockerId"`
+	Maximum   *int   `json:"maxAssignments"`
+}
+
+type promptDamageHint struct {
+	ID           string `json:"id"`
+	LethalDamage *int   `json:"lethalDamage"`
 }
 
 type promptSelectionOption struct {
@@ -330,6 +354,7 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		}
 	case "chooseAction":
 		view.Supported = true
+		view.AutoPassEligible = input.AutoPassEligible != nil && *input.AutoPassEligible
 		if view.Title == "" {
 			view.Title = "Choose an action"
 		}
@@ -361,6 +386,7 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		view.Cards, err = normalizePromptCards(input.HandCardIDs, input.Cards, input.Count)
 	case "chooseCards":
 		view.Supported = true
+		view.Cancellable = input.Cancellable
 		view.Title = firstPromptText(view.Title, "Choose cards")
 		view.Cards, view.CardMinimum, view.CardMaximum, err = normalizeChooseCards(input)
 		if view.Detail == "" && err == nil {
@@ -417,6 +443,12 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 			"Assign all combat damage in order.")
 		view.DamageSource, view.DamageTargets, view.TotalDamage,
 			view.DamageDeathtouch, err = normalizeCombatDamage(input)
+		if err == nil {
+			view.DamageAssignmentMode, _ = normalizeDamageAssignmentMode(input.DamageAssignmentMode)
+			if input.Presentation.Description == "" && input.Message == "" && view.DamageAssignmentMode != "ordered" {
+				view.Detail = "Assign all combat damage among the available targets."
+			}
+		}
 	case "chooseBoolean":
 		view.Supported = true
 		view.Title = firstPromptText(view.Title, "Choose yes or no")
@@ -425,6 +457,11 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		view.Supported = true
 		view.Title = firstPromptText(view.Title, "Choose a number")
 		view.NumberMinimum, view.NumberMaximum, err = normalizeNumber(input)
+	case "chooseCardName":
+		view.Supported = true
+		view.Title = firstPromptText(view.Title, "Name a card")
+		view.Detail = firstPromptText(view.Detail, input.Message)
+		view.Cancellable = input.CanCancel != nil && *input.CanCancel
 	case "chooseColor":
 		view.Supported = true
 		view.Title = firstPromptText(view.Title, "Choose colors")
@@ -448,9 +485,12 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 				view.Options = append(view.Options,
 					PromptOption{ResponseID: "$pay", Kind: "pay", Label: "Confirm payment"})
 			}
-			view.Options = append(view.Options,
-				PromptOption{ResponseID: "$auto-pay", Kind: "pay", Label: "Auto-pay"},
-				PromptOption{ResponseID: "$cancel", Kind: "cancel", Label: "Cancel"})
+			if input.CanAutoPay == nil || *input.CanAutoPay {
+				view.Options = append(view.Options, PromptOption{ResponseID: "$auto-pay", Kind: "pay", Label: "Auto-pay"})
+			}
+			if input.CanCancel == nil || *input.CanCancel {
+				view.Options = append(view.Options, PromptOption{ResponseID: "$cancel", Kind: "cancel", Label: "Cancel"})
+			}
 		}
 	default:
 		if view.Title == "" {
@@ -489,6 +529,9 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 	}
 	if view.Kind != "chooseCombatDamageAssignment" && len(answer.DamageAssignments) != 0 {
 		return nil, errors.New("prompt response contains unexpected damage assignments")
+	}
+	if view.Kind != "chooseCardName" && answer.Name != "" {
+		return nil, errors.New("prompt response contains an unexpected card name")
 	}
 	var output any
 	switch view.Kind {
@@ -591,6 +634,8 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 		} else {
 			output, err = payManaOutput(raw, answer.ResponseID)
 		}
+	case "chooseCardName":
+		output, err = cardNameOutput(view, answer)
 	default:
 		err = errors.New("unsupported prompt family")
 	}
@@ -609,7 +654,7 @@ func (answer PromptResponse) emptySelections() bool {
 		len(answer.Assignments) == 0 && len(answer.ChoiceIDs) == 0 &&
 		len(answer.OrderedIDs) == 0 && len(answer.ScryPiles) == 0 &&
 		len(answer.DamageOrderIDs) == 0 && len(answer.DamageAssignments) == 0 &&
-		answer.ChosenNumber == nil
+		answer.ChosenNumber == nil && answer.Name == ""
 }
 
 func (answer PromptResponse) hasNonCardSelections() bool {
@@ -712,16 +757,25 @@ func chooseActionOutput(raw json.RawMessage, responseID string) (any, error) {
 }
 
 func payManaOutput(raw json.RawMessage, responseID string) (any, error) {
+	_, input, _, err := decodePrompt(raw)
+	if err != nil || input.Type != "payManaCost" {
+		return nil, errors.New("invalid mana payment prompt")
+	}
 	switch responseID {
 	case "$pay":
-		_, input, _, err := decodePrompt(raw)
-		if err != nil || !input.CanConfirmFromPool {
+		if !input.CanConfirmFromPool {
 			return nil, errors.New("mana payment cannot be confirmed from the pool")
 		}
 		return map[string]any{"type": "pay", "auto": false}, nil
 	case "$auto-pay":
+		if input.CanAutoPay != nil && !*input.CanAutoPay {
+			return nil, errors.New("automatic mana payment is unavailable")
+		}
 		return map[string]any{"type": "pay", "auto": true}, nil
 	case "$cancel":
+		if input.CanCancel != nil && !*input.CanCancel {
+			return nil, errors.New("mana payment cannot be canceled")
+		}
 		return map[string]any{"type": "cancel"}, nil
 	default:
 		actionID, err := upstreamActionID(raw, responseID)

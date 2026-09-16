@@ -1,0 +1,10 @@
+{
+  "type": "game.move_card",
+  "id": "exile-unseen-top",
+  "payload": {
+    "cardId": "__library_top__",
+    "fromZone": "library",
+    "toZone": "exile",
+    "faceDown": true
+  }
+}

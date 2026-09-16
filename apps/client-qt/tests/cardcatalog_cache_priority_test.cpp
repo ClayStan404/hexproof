@@ -105,6 +105,89 @@ bool dropPriorityCardsTable(const QString &databasePath)
 
 } // namespace
 
+void TestCardCatalog::searchPreviewsReplacePendingCandidates() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    PriorityMetadataNetwork network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"zh"_s);
+    const auto card = [](int number) {
+        return QVariantMap{{u"name"_s, u"Token %1"_s.arg(number)},
+                           {u"setCode"_s, u"TTST"_s},
+                           {u"collectorNumber"_s, QString::number(number)},
+                           {u"kind"_s, u"token"_s}};
+    };
+    QVariantList candidates;
+    for (int number = 0; number < 12; ++number)
+        candidates.append(card(number));
+    catalog.setSearchPreviewCards(candidates);
+    QTRY_VERIFY(network.firstMetadata);
+    QVERIFY(catalog.busy());
+    QVERIFY(!catalog.cacheProgressActive());
+    catalog.setSearchPreviewCards({card(20)});
+    QTest::qWait(30);
+    QCOMPARE(network.requestedNumbers, QStringList{u"0"_s});
+    network.firstMetadata->blockSignals(false);
+    emit network.firstMetadata->finished();
+    QTRY_VERIFY(!catalog.searchPreviewBusy() && !catalog.busy());
+    QCOMPARE(network.requestedNumbers, (QStringList{u"0"_s, u"20"_s}));
+    QVERIFY(!catalog.cacheProgressActive());
+}
+
+void TestCardCatalog::selectedCardCacheSurvivesClosingSearch() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    PriorityMetadataNetwork network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"zh"_s);
+    const auto card = [](int number) {
+        return QVariantMap{{u"name"_s, u"Token %1"_s.arg(number)},
+                           {u"setCode"_s, u"TTST"_s},
+                           {u"collectorNumber"_s, QString::number(number)},
+                           {u"kind"_s, u"token"_s}};
+    };
+    catalog.setSearchPreviewCards({card(0), card(1), card(2)});
+    QTRY_VERIFY(network.firstMetadata);
+    catalog.cacheCards({card(2)});
+    catalog.setSearchPreviewCards({});
+    QVERIFY(catalog.cacheProgressActive());
+    QTest::qWait(30);
+    network.firstMetadata->blockSignals(false);
+    emit network.firstMetadata->finished();
+    QTRY_VERIFY(!catalog.searchPreviewBusy() && !catalog.busy());
+    QCOMPARE(network.requestedNumbers, (QStringList{u"0"_s, u"2"_s}));
+    QVERIFY(!catalog.cacheProgressActive());
+}
+
+void TestCardCatalog::explicitRequestAdoptsInFlightPreview() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    PriorityMetadataNetwork network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"zh"_s);
+    const QVariantMap card{{u"name"_s, u"Token 0"_s},
+                           {u"setCode"_s, u"TTST"_s},
+                           {u"collectorNumber"_s, u"0"_s},
+                           {u"kind"_s, u"token"_s}};
+    catalog.setSearchPreviewCards({card});
+    QTRY_VERIFY(network.firstMetadata);
+    QSignalSpy completed(&catalog, &CardCatalog::matchCardCacheFinished);
+    catalog.cacheMatchCardsIncrementally(71, 2, {card});
+    catalog.setSearchPreviewCards({});
+    QTRY_VERIFY(catalog.cacheProgressActive());
+    QTest::qWait(30);
+    network.firstMetadata->blockSignals(false);
+    emit network.firstMetadata->finished();
+    QTRY_COMPARE(completed.count(), 1);
+    QVERIFY(completed.first().at(7).toBool());
+    QTRY_VERIFY(!catalog.busy());
+    QVERIFY(!catalog.cacheProgressActive());
+    QCOMPARE(network.requestedNumbers, QStringList{u"0"_s});
+}
+
 void TestCardCatalog::prioritizeSupportMetadataAheadOfBackground_data() const
 {
     QTest::addColumn<bool>("alreadyQueued");
@@ -351,4 +434,61 @@ void TestCardCatalog::tableImageSourceUsesStaleCacheMetadata() const
 
     QVERIFY(catalog.tableImageSource(record.name, record.setCode, record.collectorNumber)
                 .startsWith(u"image://card-table/"_s));
+}
+
+void TestCardCatalog::restoredTableImageGetsFreshSource_data() const
+{
+    QTest::addColumn<bool>("missingAtFirstRead");
+    QTest::newRow("decoded-old-image") << false;
+    QTest::newRow("missing-image") << true;
+}
+
+void TestCardCatalog::restoredTableImageGetsFreshSource() const
+{
+    QFETCH(bool, missingAtFirstRead);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    FakeNetworkAccessManager network;
+    network.imageColor = Qt::red;
+    CardCatalog catalog(storage.path(), &network);
+    hexproof::client::CardImageProvider provider;
+    catalog.setCardImageProvider(&provider);
+    const QVariantList cards{QVariantMap{{u"name"_s, u"Wear // Tear"_s},
+                                         {u"setCode"_s, u"MOC"_s},
+                                         {u"collectorNumber"_s, u"343"_s}}};
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    catalog.cacheCards(cards);
+    QTRY_COMPARE(completed.count(), 1);
+    QVERIFY(completed.last().last().toBool());
+    const auto source = [&]() {
+        return catalog.tableImageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s);
+    };
+    const auto readImage = [&](const QString &url) {
+        return provider.requestImage(QUrl(url).path().mid(1), nullptr, {});
+    };
+    const QString path =
+        QUrl(catalog.imageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s)).toLocalFile();
+    const QString original = source();
+    const QString unrelated = provider.sourceForPath(storage.filePath(u"other.png"_s));
+    if (missingAtFirstRead) {
+        QVERIFY(QFile::remove(path));
+        QVERIFY(readImage(original).isNull());
+    } else {
+        QCOMPARE(readImage(original).pixelColor(0, 0), QColor(Qt::red));
+        QVERIFY(QFile::remove(path));
+    }
+    // Simulate a file lost on disk after the table has decoded it. Repair
+    // keeps its cache path, but must give QML a new URL and fresh pixels.
+    network.imageColor = Qt::blue;
+    catalog.retryCards(cards);
+    QTRY_COMPARE(completed.count(), 2);
+    QVERIFY(completed.last().last().toBool());
+    QCOMPARE(QUrl(catalog.imageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s)).toLocalFile(), path);
+    QVERIFY2(source() != original, "An unchanged image URL leaves QML's old success/error cached");
+    QCOMPARE(readImage(source()).pixelColor(0, 0), QColor(Qt::blue));
+    QCOMPARE(provider.sourceForPath(storage.filePath(u"other.png"_s)), unrelated);
+    const QString restored = source();
+    catalog.cacheCards(cards);
+    QTRY_COMPARE(completed.count(), 3);
+    QCOMPARE(source(), restored);
 }

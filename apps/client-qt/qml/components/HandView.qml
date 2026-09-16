@@ -221,6 +221,7 @@ Item {
                 required property var modelData
                 readonly property int visualIndex: DelegateModel.itemsIndex
                 property int dragStartVisualIndex: -1
+                property point dragGrabPosition: Qt.point(width / 2, height / 2)
                 readonly property string cardId: modelData.id
                 readonly property string zoneName: "hand"
                 readonly property int ownerSeat:
@@ -244,10 +245,18 @@ Item {
                 clip: true
                 z: handDrag.drag.active ? 100 : 0
                 visible: !pendingDeparture
-                scale: handDrag.drag.active ? 1.045 : 1
+                property real dragScale: handDrag.drag.active ? 1.045 : 1
                 opacity: handDrag.drag.active ? 0.94 : 1
 
-                Behavior on scale {
+                // Enlarge around the grab point so edge presses do not gain a
+                // second hotspot offset while the lift animation runs.
+                transform: Scale {
+                    origin.x: handCard.dragGrabPosition.x
+                    origin.y: handCard.dragGrabPosition.y
+                    xScale: handCard.dragScale
+                    yScale: handCard.dragScale
+                }
+                Behavior on dragScale {
                     NumberAnimation {
                         duration: Theme.motionFast
                         easing.type: Easing.OutCubic
@@ -260,8 +269,8 @@ Item {
                 Drag.active: handDrag.drag.active
                 Drag.source: handCard
                 Drag.keys: ["hexproof/card"]
-                Drag.hotSpot.x: width / 2
-                Drag.hotSpot.y: height / 2
+                Drag.hotSpot.x: dragGrabPosition.x
+                Drag.hotSpot.y: dragGrabPosition.y
 
                 function openCardMenu(localX, localY) {
                     root.tableController.selection.clear()
@@ -365,12 +374,16 @@ Item {
                                    ? Qt.OpenHandCursor : Qt.PointingHandCursor
                     drag.target: root.tableController.canAct ? handCard : null
                     drag.threshold: Theme.size(5)
+                    // Preserve the grab position when crossing the threshold.
+                    // A fast first move must not offset drops from the pointer.
+                    drag.smoothed: false
                     preventStealing: true
                     onEntered: root.tableController.presentation.inspectCard(
                                    handCard.modelData, handCard)
                     onExited: root.tableController.presentation.hideCardPreview(
                                   handCard)
-                    onPressed: {
+                    onPressed: function(mouse) {
+                        handCard.dragGrabPosition = Qt.point(mouse.x, mouse.y)
                         handCard.forceActiveFocus(Qt.MouseFocusReason)
                         root.tableController.presentation.hideCardPreview()
                         if (!root.tableController.canAct)

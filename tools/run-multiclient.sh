@@ -17,6 +17,8 @@ copy_images=0
 windowed=0
 event_mode=""
 set_code=""
+cube_name=""
+auto_draft=0
 test_group=""
 event_requested=0
 declare -a client_args=()
@@ -44,15 +46,21 @@ Options:
   --server URL           Custom server endpoint prefilled for every client
                          (default: ws://127.0.0.1:57320/ws).
   --name-prefix TEXT     Initial display-name prefix (default: Test Player).
-  --windowed             Start normal windows instead of maximized windows.
-  --event draft|sealed   Connect, create a local event, register/check in every
-                         client, then start. Picks and deck building stay manual.
+  --windowed             Use normal windows for explicit layout probes (default: maximized).
+  --event MODE           draft, sealed, or commander-cube. Connect, create the
+                         event, seat/check in all clients, then stop at packs.
   --set CODE             Installed Limited set for --event (for example EOE).
+  --cube NAME_OR_ID      Saved Cube for --event commander-cube. Uses the normal
+                         four-player six-pack or eight-player three-pack preset.
+  --auto-draft           For commander-cube: randomly draft all packs on the
+                         server, then stop at manual deck building.
   -h, --help             Show this help.
 
 Examples:
-  ./tools/run-multiclient.sh start --count 8 --windowed
-  ./tools/run-multiclient.sh start --event draft --set EOE --count 8 --windowed
+  ./tools/run-multiclient.sh start --count 8
+  ./tools/run-multiclient.sh start --event draft --set EOE --count 8
+  ./tools/run-multiclient.sh start --event commander-cube --cube MyCube --count 4
+  ./tools/run-multiclient.sh start --event commander-cube --cube MyCube --count 4 --auto-draft
   ./tools/run-multiclient.sh status
   ./tools/run-multiclient.sh stop
 
@@ -140,6 +148,16 @@ while (($# > 0)); do
             event_requested=1
             shift
             ;;
+        --cube)
+            require_option_value "$@"
+            cube_name="$2"
+            event_requested=1
+            shift
+            ;;
+        --auto-draft)
+            auto_draft=1
+            event_requested=1
+            ;;
         -h|--help)
             usage
             exit 0
@@ -167,11 +185,23 @@ if [[ ! "$count" =~ ^0*([1-9]|1[0-6])$ ]]; then
     exit 2
 fi
 count="${BASH_REMATCH[1]}"
+if ((auto_draft)) && [[ "$event_mode" != "commander-cube" ]]; then
+    echo "--auto-draft requires --event commander-cube --cube NAME_OR_ID." >&2
+    exit 2
+fi
 if ((event_requested)); then
-    if [[ "$command_name" != "start" || ! "$event_mode" =~ ^(draft|sealed)$ ||
-          ! "$set_code" =~ ^[A-Z0-9]{2,8}$ ]] || ((count < 2)) ||
-          [[ "$event_mode" == "draft" && "$count" -gt 8 ]]; then
-        echo "Use start --event draft|sealed --set CODE with 2-8 draft or 2-16 sealed clients." >&2
+    if [[ "$command_name" != "start" || ! "$event_mode" =~ ^(draft|sealed|commander-cube)$ ]] ||
+          ((count < 2)) || [[ "$event_mode" != "sealed" && "$count" -gt 8 ]]; then
+        echo "Use start --event draft|sealed --set CODE, or --event commander-cube --cube NAME_OR_ID; draft/Cube supports 2-8 clients, sealed 2-16." >&2
+        exit 2
+    fi
+    if [[ "$event_mode" == "commander-cube" ]]; then
+        if [[ -z "${cube_name//[[:space:]]/}" || -n "$set_code" ]]; then
+            echo "Commander Cube setup requires --cube NAME_OR_ID instead of --set." >&2
+            exit 2
+        fi
+    elif [[ ! "$set_code" =~ ^[A-Z0-9]{2,8}$ || -n "$cube_name" ]]; then
+        echo "Draft/Sealed setup requires --set CODE instead of --cube." >&2
         exit 2
     fi
     for argument in "${client_args[@]}"; do
@@ -341,8 +371,11 @@ if [[ -n "$event_mode" ]]; then
     done
     shopt -u nullglob
     test_group="$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
-    echo "Preparing $event_mode for $count players using $set_code (group $test_group)."
+    echo "Preparing $event_mode for $count players using ${cube_name:-$set_code} (group $test_group)."
     echo "The loopback server must already be running; setup progress/errors are in each client log."
+    if ((auto_draft)); then
+        echo "All seats will use random server picks and stop at manual deck building."
+    fi
 fi
 start_failed=0
 declare -a prepared_indices=()
@@ -525,13 +558,22 @@ for index in "${prepared_indices[@]}"; do
         launch_args+=(--windowed)
     fi
     if [[ -n "$event_mode" ]]; then
-        launch_args+=(--test-event "$event_mode" --test-set "$set_code"
+        launch_args+=(--test-event "$event_mode"
             --test-group "$test_group" --test-players "$count" --test-seat "$index")
+        if [[ "$event_mode" == "commander-cube" ]]; then
+            launch_args+=(--test-cube "$cube_name")
+        else
+            launch_args+=(--test-set "$set_code")
+        fi
+        if ((auto_draft)); then
+            launch_args+=(--test-auto-draft)
+        fi
     fi
     launch_args+=("${client_args[@]}")
 
     # Close the launcher lock in children so running clients do not retain it.
     nohup env \
+        QT_FORCE_STDERR_LOGGING=1 \
         XDG_CONFIG_HOME="$config_home" \
         XDG_DATA_HOME="$data_home" \
         XDG_CACHE_HOME="$cache_home" \

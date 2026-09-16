@@ -77,6 +77,20 @@ type LimitedParticipantView struct {
 	Withdrawn     bool   `json:"withdrawn,omitempty"`
 }
 
+// LimitedDraftSettings is locked when the room is created. Packs remain
+// independent even when two are opened and passed together.
+type LimitedDraftSettings struct {
+	PacksPerPlayer int `json:"packsPerPlayer"`
+	PacksPerBatch  int `json:"packsPerBatch"`
+	CardsPerPack   int `json:"cardsPerPack,omitempty"`
+}
+
+type LimitedDraftPackView struct {
+	PackID        string            `json:"packId"`
+	Cards         []LimitedCardView `json:"cards"`
+	PicksRequired int               `json:"picksRequired"`
+}
+
 type LimitedBasicLand struct {
 	Name            string `json:"name"`
 	Count           int    `json:"count"`
@@ -142,8 +156,11 @@ type LimitedSnapshot struct {
 	PackRound            int                      `json:"packRound"`
 	Direction            int                      `json:"direction"`
 	CurrentPack          []LimitedCardView        `json:"currentPack"`
+	CurrentPacks         []LimitedDraftPackView   `json:"currentPacks,omitempty"`
+	PacksThisBatch       int                      `json:"packsThisBatch,omitempty"`
 	Pool                 []LimitedCardView        `json:"pool"`
 	FallbackCommanders   []LimitedCardView        `json:"fallbackCommanders,omitempty"`
+	OptionalCards        []LimitedCardView        `json:"optionalCards,omitempty"`
 	MainboardInstanceIDs []string                 `json:"mainboardInstanceIds"`
 	CommanderInstanceIDs []string                 `json:"commanderInstanceIds,omitempty"`
 	CommanderColors      []LimitedCommanderColor  `json:"commanderColors,omitempty"`

@@ -9,6 +9,34 @@
 namespace hexproof::client {
 using namespace catalog_internal;
 
+QString CardCatalog::cardDisplayName(const QString &name) const
+{
+    if (m_language != QStringLiteral("zh") || name.simplified().isEmpty())
+        return name;
+    // Public log entries carry names without printing coordinates. Resolve
+    // their labels locally; viewing history must never enqueue downloads.
+    const CardRequest request{name.simplified(), {}, {}, m_language};
+    for (const CardRecord &record :
+         {lookupCatalog(request), m_artCache->localizedMetadataForName(request)}) {
+        if (!looksLikeChinese(record.localizedName))
+            continue;
+        const QStringList faces = record.name.split(QStringLiteral(" // "));
+        if (faces.size() > 1 && request.name.compare(record.name, Qt::CaseInsensitive) != 0) {
+            const QStringList localizedFaces = record.localizedName.split(QStringLiteral(" // "));
+            for (qsizetype index = 0; index < faces.size(); ++index) {
+                if (request.name.compare(faces[index], Qt::CaseInsensitive) == 0 &&
+                    localizedFaces.size() == faces.size()) {
+                    return localizedFaces[index];
+                }
+            }
+            if (request.name.compare(record.faceName, Qt::CaseInsensitive) != 0)
+                continue;
+        }
+        return record.localizedName;
+    }
+    return name;
+}
+
 CardCatalog::CardRecord CardCatalog::lookupCatalog(const CardRequest &request) const
 {
     if (m_catalogBusy || !installed())

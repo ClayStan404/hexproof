@@ -17,28 +17,43 @@ Item {
     required property int minimumSelections
     required property int maximumSelections
     required property bool cancellable
-    property var selectedIds: ({})
+    property var interaction: null
+    property var localSelectedIds: ({})
+    readonly property var selectedIds: interaction ? interaction.selectedTargetIds : localSelectedIds
     readonly property int selectedCount: Object.keys(selectedIds).length
     readonly property bool validSelection: selectedCount >= minimumSelections
                                                    && selectedCount <= maximumSelections
 
-    implicitHeight: Theme.size(142)
+    readonly property bool narrowLayout: width < Theme.size(490)
+    readonly property bool hasCandidates: !interaction || fallbackModel.count > 0
+
+    implicitHeight: !hasCandidates ? selectionControls.implicitHeight : narrowLayout
+                    ? Theme.size(154) + selectionControls.implicitHeight
+                    : Math.max(Theme.size(142), selectionControls.implicitHeight)
 
     function resetSelection() {
-        selectedIds = ({})
+        localSelectedIds = ({})
     }
 
     function toggleTarget(responseId) {
+        if (interaction) {
+            interaction.toggleTarget(responseId)
+            return
+        }
         const next = Object.assign({}, selectedIds)
         if (next[responseId] === true) {
             delete next[responseId]
         } else if (selectedCount < maximumSelections) {
             next[responseId] = true
         }
-        selectedIds = next
+        localSelectedIds = next
     }
 
     function submit(responseId) {
+        if (interaction) {
+            interaction.submitTargets(responseId)
+            return
+        }
         if (responseId === "$submit" && !validSelection)
             return
         wsModel.respondRulesPromptWithTargets(
@@ -56,24 +71,44 @@ Item {
 
     onPromptIdChanged: resetSelection()
 
-    RowLayout {
-        anchors.fill: parent
-        spacing: Theme.size(12)
+    function refreshFallbacks() {
+        fallbackModel.clear()
+        if (interaction) {
+            for (const candidate of interaction.fallbackTargets)
+                fallbackModel.append(candidate)
+        }
+    }
+    ListModel { id: fallbackModel }
+    Component.onCompleted: refreshFallbacks()
+    onInteractionChanged: refreshFallbacks()
+    Connections {
+        target: root.interaction
+        function onFallbackTargetsChanged() { root.refreshFallbacks() }
+    }
 
-        ListView {
+    GridLayout {
+        anchors.fill: parent
+        columns: root.narrowLayout || !root.hasCandidates ? 1 : 2
+        columnSpacing: Theme.size(12)
+        rowSpacing: Theme.size(12)
+
+        RulesHorizontalListView {
             id: targetList
             objectName: "rulesTargetCandidates"
 
             Layout.fillWidth: true
+            Layout.preferredHeight: Theme.size(142)
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
+            visible: root.hasCandidates
             spacing: Theme.size(8)
-            clip: true
-            model: root.targetModel
+            model: root.interaction ? fallbackModel : root.targetModel
 
             delegate: Rectangle {
                 id: targetTile
                 objectName: "rulesTarget-" + responseId
+                activeFocusOnTab: true
+                Keys.onSpacePressed: root.toggleTarget(responseId)
+                Keys.onReturnPressed: root.toggleTarget(responseId)
 
                 required property string responseId
                 required property string kind
@@ -86,11 +121,11 @@ Item {
                 readonly property bool selected: root.selectedIds[responseId] === true
 
                 width: Theme.size(98)
-                height: targetList.height
+                height: targetList.itemHeight
                 radius: Theme.radiusSmall
                 color: kind === "player" ? Theme.primaryMuted : Theme.surfaceMuted
                 border.width: selected ? 3 : 1
-                border.color: selected ? Theme.primary : Theme.border
+                border.color: selected || activeFocus ? Theme.primary : Theme.border
                 clip: true
 
                 Image {
@@ -196,9 +231,22 @@ Item {
         }
 
         ColumnLayout {
-            Layout.fillWidth: false
-            Layout.preferredWidth: Math.max(Theme.size(190), targetActions.implicitWidth)
+            id: selectionControls
+
+            Layout.fillWidth: root.narrowLayout || !root.hasCandidates
+            Layout.preferredWidth: root.narrowLayout || !root.hasCandidates ? -1 : Math.max(Theme.size(190), targetActions.implicitWidth)
             spacing: Theme.size(8)
+
+            Text {
+                objectName: "rulesDirectTargetHint"
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                visible: root.interaction !== null
+                text: qsTr("Click highlighted cards or players on the table.")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(11)
+                wrapMode: Text.WordWrap
+            }
 
             Text {
                 textFormat: Text.PlainText

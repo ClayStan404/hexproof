@@ -42,14 +42,16 @@ Page {
     property string roomPassword: ""
     property string selectedCubeDeckId: ""
     property bool commanderCube: false
+    property int commanderPackCount: 6
+    property bool commanderDoublePacks: true
+    readonly property var commanderPackOptions: [3, 4, 5, 6, 8]
 
-    onCommanderCubeChanged: Qt.callLater(limitCubePlayerCap)
+    onCommanderCubeChanged: if (commanderCube && cubePlayerCap() > 4) cubePlayerCapField.text = "4"
 
     background: AppBackground { }
 
     Component.onCompleted: {
         root.ensureSelectedCube()
-        root.limitCubePlayerCap()
     }
 
     ScreenHeader {
@@ -377,8 +379,62 @@ Page {
                                         Layout.preferredWidth: Theme.size(110)
                                         text: "8"
                                         inputMethodHints: Qt.ImhDigitsOnly
-                                        validator: IntValidator { bottom: 2; top: root.commanderCube ? 4 : 8 }
+                                        validator: IntValidator { bottom: 2; top: 8 }
                                     }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: root.commanderCube && root.cubePlayerCap() <= 4
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        Layout.fillWidth: true
+                                        text: qsTr("Packs per player")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSize(13)
+                                    }
+                                    AppComboBox {
+                                        objectName: "commanderPackCountSelector"
+                                        Layout.preferredWidth: Theme.size(160)
+                                        model: root.commanderPackOptions.map(count => count === 6
+                                            ? qsTr("%1 (recommended)").arg(count) : String(count))
+                                        currentIndex: root.commanderPackOptions.indexOf(root.commanderPackCount)
+                                        enabledForIndex: index => Number(root.selectedCube.mainCount || 0)
+                                            >= root.cubePlayerCap() * root.commanderPackOptions[index] * root.commanderCardsPerPack()
+                                        onActivated: {
+                                            if (enabledForIndex(currentIndex))
+                                                root.commanderPackCount = root.commanderPackOptions[currentIndex]
+                                            else currentIndex = root.commanderPackOptions.indexOf(root.commanderPackCount)
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: root.commanderCube
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        Layout.fillWidth: true
+                                        text: qsTr("Cards per pack (10–40)")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSize(13)
+                                    }
+                                    AppTextField {
+                                        id: commanderCardsPerPackField
+                                        objectName: "commanderCardsPerPackField"
+                                        Layout.preferredWidth: Theme.size(110)
+                                        text: "20"
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        validator: IntValidator { bottom: 10; top: 40 }
+                                        Accessible.name: qsTr("Cards per pack (10–40)")
+                                    }
+                                }
+                                AppToggle {
+                                    objectName: "commanderDoublePacksCheckBox"
+                                    Layout.fillWidth: true
+                                    visible: root.commanderCube && root.cubePlayerCap() <= 4
+                                    text: qsTr("Open two packs together; choose two cards from each")
+                                    checked: root.commanderDoublePacks
+                                    onClicked: root.commanderDoublePacks = checked
                                 }
 
                                 Text {
@@ -387,11 +443,14 @@ Page {
                                     text: !root.selectedCube.deckId
                                           ? qsTr("Import a Cube-format deck before creating this room.")
                                           : (root.commanderCube
-                                             ? qsTr("Draft three 20-card packs, picking two cards each time. Build at least 60 cards including commanders. Once everyone submits, all 2–4 players enter the same room to ready up. A %1-seat room needs %2 Cube cards; this Cube contains %3.")
+                                             ? qsTr("Each player drafts %4 packs of %6 cards and keeps %5 cards. Build at least 60 cards including commanders. Submitted players enter balanced tables of up to four. A %1-seat room needs %2 Cube cards; this Cube contains %3.")
                                              : qsTr("Start when everyone is ready (at least two players). Each player drafts three 15-card packs. A %1-seat room needs %2 Cube cards; this Cube contains %3."))
                                             .arg(root.cubePlayerCap())
                                             .arg(root.cubeCardsRequired())
                                             .arg(root.selectedCube.mainCount)
+                                            .replace("%4", root.cubeDraftSettings().packsPerPlayer)
+                                            .replace("%5", root.cubeDraftSettings().packsPerPlayer * root.commanderCardsPerPack())
+                                            .replace("%6", root.commanderCardsPerPack())
                                     color: root.cubeReady() ? Theme.textMuted : Theme.warning
                                     font.pixelSize: Theme.fontSize(10)
                                     wrapMode: Text.WordWrap
@@ -616,10 +675,12 @@ Page {
                                 root.selectedCubeDeckId)
             if (!product.id)
                 return
-            root.hub.createCasualLimitedEvent(
-                        submittedName, root.commanderCube ? "commander_cube" : "cube_draft",
-                        root.commanderCube ? "bo1" : matchMode,
-                        root.cubePlayerCap(), product)
+            if (root.commanderCube)
+                root.hub.createCasualLimitedEvent(submittedName, "commander_cube", "bo1",
+                    root.cubePlayerCap(), product, root.cubeDraftSettings())
+            else
+                root.hub.createCasualLimitedEvent(submittedName, "cube_draft", matchMode,
+                    root.cubePlayerCap(), product)
             return
         }
         const submittedMatchMode = root.roomFormat === "edh" ? "bo1" : matchMode
@@ -643,8 +704,10 @@ Page {
         if (root.isCubeFormat && !root.selectedCube.exactPrintings)
             return qsTr("Every Cube card needs an exact printing")
         if (root.isCubeFormat && !cubePlayerCapField.acceptableInput)
-            return root.commanderCube ? qsTr("Choose a Commander Cube player cap from 2 to 4")
+            return root.commanderCube ? qsTr("Choose a Commander Cube player cap from 2 to 8")
                                       : qsTr("Choose a Cube player cap from 2 to 8")
+        if (root.isCubeFormat && root.commanderCube && !commanderCardsPerPackField.acceptableInput)
+            return qsTr("Choose 10 to 40 cards per pack")
         if (root.isCubeFormat
                 && Number(root.selectedCube.mainCount) < root.cubeCardsRequired())
             return qsTr("A %1-player Cube draft needs at least %2 cards")
@@ -670,13 +733,20 @@ Page {
         return cubePlayerCapField.numberValue()
     }
 
-    function limitCubePlayerCap() {
-        if (root.commanderCube && root.cubePlayerCap() > 4)
-            cubePlayerCapField.text = "4"
+    function cubeDraftSettings() {
+        return root.cubePlayerCap() > 4
+            ? {packsPerPlayer: 3, packsPerBatch: 1, cardsPerPack: root.commanderCardsPerPack()}
+            : {packsPerPlayer: root.commanderPackCount, packsPerBatch: root.commanderDoublePacks ? 2 : 1,
+               cardsPerPack: root.commanderCardsPerPack()}
+    }
+
+    function commanderCardsPerPack() {
+        return commanderCardsPerPackField.acceptableInput ? commanderCardsPerPackField.numberValue() : 20
     }
 
     function cubeCardsRequired() {
-        return root.cubePlayerCap() * (root.commanderCube ? 60 : 45)
+        return root.cubePlayerCap() * (root.commanderCube
+            ? root.cubeDraftSettings().packsPerPlayer * root.commanderCardsPerPack() : 45)
     }
 
     function ensureSelectedCube() {
@@ -697,6 +767,7 @@ Page {
     function cubeReady() {
         return root.selectedCube.ready === true
                 && cubePlayerCapField.acceptableInput
+                && (!root.commanderCube || commanderCardsPerPackField.acceptableInput)
                 && Number(root.selectedCube.mainCount)
                    >= root.cubeCardsRequired()
     }

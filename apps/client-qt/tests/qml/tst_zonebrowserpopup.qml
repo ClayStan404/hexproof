@@ -34,10 +34,24 @@ TestCase {
     SignalSpy { id: batchSpy; target: popup; signalName: "movesRequested" }
     SignalSpy { id: singleSpy; target: popup; signalName: "moveRequested" }
 
+    QtObject {
+        id: catalog
+        property var imageRequests: []
+        function imageSource(name, setCode, number) {
+            imageRequests.push(name)
+            return ""
+        }
+        function matchesCardQuery(name, setCode, number, query) {
+            return name.toLocaleLowerCase().includes(query)
+        }
+    }
+
     function init() {
         batchSpy.clear()
         singleSpy.clear()
         popup.canMoveCards = true
+        popup.cardCatalogModel = null
+        catalog.imageRequests = []
         popup.individualCards = false
         testWindow.width = 1100
         testWindow.height = 800
@@ -60,6 +74,40 @@ TestCase {
             popup.close()
         Theme.uiScale = 1
         wait(1)
+    }
+
+    function test_faceDownExileStaysSeparateAndNeverLooksUpIdentity() {
+        popup.cardCatalogModel = catalog
+        popup.cards = [
+            {id: "hidden-1", faceDown: true},
+            {id: "hidden-2", faceDown: true},
+            // Presentation must also fail closed if private data is retained.
+            {id: "hidden-3", faceDown: true, name: "Secret", setCode: "TST", collectorNumber: "3"}
+        ]
+        popup.showZone("Alice", 0, "exile")
+        tryCompare(popup, "opened", true)
+        compare(popup.groupedCards.length, 3)
+        const list = findChild(popup, "zoneBrowserCards")
+        for (let index = 0; index < 3; ++index) {
+            tryVerify(() => list.itemAtIndex(index) !== null)
+            const row = list.itemAtIndex(index)
+            const label = findChild(row, "zoneBrowserCardName" + index)
+            verify(label !== null)
+            compare(label.text, "Face-down card")
+            const image = findChild(row, "zoneBrowserCardImage" + index)
+            verify(String(image.source).endsWith("card-back.jpg"))
+        }
+        popup.selectedIndex = 2
+        verify(String(findChild(popup, "zoneBrowserPreviewImage").source).endsWith("card-back.jpg"))
+        compare(catalog.imageRequests.indexOf("Secret"), -1)
+        popup.filterQuery = "secret"
+        compare(popup.visibleCards.length, 0)
+        popup.filterQuery = ""
+        popup.selectedOrder = ["hidden-1", "hidden-3"]
+        popup.requestSelectedMove("hand", "", false)
+        compare(batchSpy.count, 1)
+        compare(Array.from(batchSpy.signalArguments[0]),
+                [["hidden-1", "hidden-3"], "exile", 0, "hand", -1, "", false])
     }
 
     // showZone / onClosed assign searchField.text. That must not restart the

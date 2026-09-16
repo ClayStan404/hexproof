@@ -69,6 +69,7 @@ func TestFaceDownPrivacyProjectionsMatchGoldenFixtures(t *testing.T) {
 			Seat:        0,
 			DisplayName: "Alice",
 			Life:        20,
+			TurnCount:   1,
 			Counters:    faceDownCounters,
 			Library:     []protocol.GameCard{{ID: "library-1", OwnerSeat: 0}},
 			Hand: []protocol.GameCard{{
@@ -81,7 +82,10 @@ func TestFaceDownPrivacyProjectionsMatchGoldenFixtures(t *testing.T) {
 				Position: &protocol.CardPosition{X: 0.5, Y: 0.4},
 			}},
 			Graveyard: []protocol.GameCard{},
-			Exile:     []protocol.GameCard{},
+			Exile: []protocol.GameCard{{
+				ID: "exile-face-down-1", Name: "Secret exiled card", SetCode: "TST",
+				CollectorNumber: "2", TypeLine: "Sorcery", OwnerSeat: 0, FaceDown: true,
+			}},
 		}},
 		Stack:       []protocol.GameSharedCard{},
 		Revealed:    []protocol.GameSharedCard{},
@@ -132,7 +136,7 @@ func TestPublicMoveProjectionsMatchGoldenFixtures(t *testing.T) {
 				Exile: []protocol.GameCard{},
 			},
 			{
-				Seat: 1, DisplayName: "Bob", Life: 20,
+				Seat: 1, DisplayName: "Bob", Life: 20, TurnCount: 1,
 				Counters: defaultPlayerCounters(),
 				Library:  []protocol.GameCard{{ID: "s1-library-1", OwnerSeat: 1}},
 				Hand: []protocol.GameCard{{

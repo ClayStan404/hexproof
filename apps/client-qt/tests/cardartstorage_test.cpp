@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "services/BackgroundTaskPools.h"
 #include "services/CardArtCache.h"
 #include "services/CardArtStorage.h"
 
@@ -10,9 +11,11 @@
 #include <QJsonObject>
 #include <QLockFile>
 #include <QSaveFile>
+#include <QSemaphore>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QtConcurrent>
 
 #ifdef Q_OS_UNIX
 #include <sys/stat.h>
@@ -67,7 +70,107 @@ class CardArtStorageTest final : public QObject
     void sourceReplacementAtStartDoesNotFollowOutsideTree();
     void destinationReplacementAtStartDoesNotWriteOutsideTree();
     void rejectsNonRegularConfigurationBeforeReading();
+    void waitsForLatestIndexBeforeMigrationWithoutBlocking();
+    void failedIndexFlushKeepsBothLocationsUnchanged();
 };
+
+void CardArtStorageTest::waitsForLatestIndexBeforeMigrationWithoutBlocking()
+{
+    QTemporaryDir directory;
+    const QString profile = directory.filePath(u"profile"_s);
+    const QString destination = directory.filePath(u"destination"_s);
+    QVERIFY(QDir().mkpath(destination));
+    CardArtStorage storage(profile);
+    CardArtCache cache(profile);
+    struct BlockedWriter
+    {
+        QSemaphore started;
+        QSemaphore release;
+        QFuture<void> worker;
+        BlockedWriter()
+        {
+            worker = QtConcurrent::run(hexproof::client::BackgroundTaskPools::cardArtPersistence(),
+                                       [this] {
+                                           started.release();
+                                           release.acquire();
+                                       });
+            started.acquire();
+        }
+        ~BlockedWriter()
+        {
+            release.release();
+            worker.waitForFinished();
+        }
+    };
+    QSignalSpy completed(&storage, &CardArtStorage::migrationFinished);
+    {
+        BlockedWriter blocked;
+        CardRecord record;
+        record.name = record.requestedName = u"Island"_s;
+        record.imageLanguage = u"en"_s;
+        record.imagePath = QDir(storage.imageRoot()).filePath(u"island.png"_s);
+        QVERIFY(writeFile(record.imagePath, "downloaded-art"));
+        cache.rememberSuccess(cache.key(record.name, u"en"_s), record);
+        cache.saveAsync();
+        record.name = record.requestedName = u"Forest"_s;
+        cache.rememberSuccess(cache.key(record.name, u"en"_s), record);
+        bool flushing = false;
+        storage.setIndexFlush([&](std::function<void(bool)> done) {
+            flushing = true;
+            cache.saveAsync([&, done = std::move(done)](bool ok) {
+                flushing = false;
+                cache.setWritable(storage.writesAllowed());
+                done(ok);
+            });
+        });
+        // A pending newer generation must remain writable until both saves
+        // finish, while storage busy prevents all new image operations.
+        connect(&storage, &CardArtStorage::busyChanged, &storage,
+                [&] { cache.setWritable(flushing || storage.writesAllowed()); });
+        storage.migrateTo(QUrl::fromLocalFile(destination));
+        QVERIFY(storage.busy());
+        QVERIFY(!storage.writesAllowed());
+        QVERIFY(flushing);
+        QCOMPARE(completed.count(), 0);
+        bool eventDelivered = false;
+        QMetaObject::invokeMethod(&storage, [&] { eventDelivered = true; }, Qt::QueuedConnection);
+        QTRY_VERIFY(eventDelivered);
+        QVERIFY(!QFileInfo::exists(QDir(profile).filePath(u"card-art-storage.json"_s)));
+        blocked.release.release();
+        blocked.worker.waitForFinished();
+        QTRY_COMPARE(completed.count(), 1);
+        QVERIFY(!flushing);
+        QObject::disconnect(&storage, &CardArtStorage::busyChanged, &storage, nullptr);
+    }
+    QVERIFY2(finishedResult(completed).value(u"ok"_s).toBool(), qPrintable(storage.lastError()));
+    QVERIFY(storage.restartRequired());
+    CardArtCache persisted(profile);
+    persisted.load();
+    QCOMPARE(persisted.entries().size(), 2);
+}
+
+void CardArtStorageTest::failedIndexFlushKeepsBothLocationsUnchanged()
+{
+    QTemporaryDir directory;
+    const QString profile = directory.filePath(u"profile"_s);
+    const QString destination = directory.filePath(u"destination"_s);
+    QVERIFY(QDir().mkpath(destination));
+    CardArtStorage storage(profile);
+    std::function<void(bool)> pending;
+    storage.setIndexFlush([&](std::function<void(bool)> done) { pending = std::move(done); });
+    QSignalSpy completed(&storage, &CardArtStorage::migrationFinished);
+    storage.migrateTo(QUrl::fromLocalFile(destination));
+    QVERIFY(storage.busy());
+    QVERIFY(pending);
+    pending(false);
+    QTRY_VERIFY(!storage.busy());
+    QCOMPARE(completed.count(), 1);
+    QVERIFY(!finishedResult(completed).value(u"ok"_s).toBool());
+    QVERIFY(!storage.restartRequired());
+    QVERIFY(storage.writesAllowed());
+    QVERIFY(QDir(destination).entryList(QDir::NoDotAndDotDot | QDir::AllEntries).isEmpty());
+    QVERIFY(!QFileInfo::exists(QDir(profile).filePath(u"card-art-storage.json"_s)));
+}
 
 void CardArtStorageTest::rejectsNonRegularConfigurationBeforeReading()
 {

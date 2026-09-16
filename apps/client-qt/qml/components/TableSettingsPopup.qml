@@ -9,6 +9,7 @@ Popup {
     id: root
 
     property bool canSetCounterCount: false
+    signal backgroundRequested()
     signal settingsRequested(bool showPlayers, bool showShared,
                              bool showInspector, int counterCount,
                              bool showGameLog)
@@ -17,6 +18,8 @@ Popup {
     x: Math.round((parent.width - width) / 2)
     y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(460), parent.width - Theme.size(48))
+    height: Math.min(settingsContent.implicitHeight + padding * 2,
+                     parent.height - Theme.size(48))
     padding: Theme.size(24)
     modal: true
     focus: true
@@ -42,114 +45,135 @@ Popup {
         open()
     }
 
-    contentItem: ColumnLayout {
-        spacing: Theme.size(14)
+    contentItem: ScrollView {
+        id: settingsScroll
+        objectName: "tableSettingsScroll"
+        contentWidth: availableWidth
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Table layout")
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(19)
-            font.weight: Font.DemiBold
-        }
+        ColumnLayout {
+            id: settingsContent
+            width: settingsScroll.availableWidth
+            spacing: Theme.size(14)
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Choose the optional table tools you want to keep visible.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(11)
-            wrapMode: Text.WordWrap
-        }
-
-        AppToggle {
-            id: gameLogToggle
-            objectName: "showGameLogToggle"
-            Layout.fillWidth: true
-            text: qsTr("Game log / chat rail")
-        }
-
-        AppToggle {
-            id: playersToggle
-            objectName: "showPlayersToggle"
-            visible: false
-            Layout.fillWidth: true
-            text: qsTr("Player docks")
-        }
-        AppToggle {
-            id: sharedToggle
-            objectName: "showSharedToggle"
-            Layout.fillWidth: true
-            text: qsTr("Stack / reveal tray")
-        }
-        AppToggle {
-            id: inspectorToggle
-            objectName: "showInspectorToggle"
-            visible: false
-            Layout.fillWidth: true
-            text: qsTr("Card detail / game log")
-        }
-
-        RowLayout {
-            id: counterSettings
-            Layout.fillWidth: true
-            visible: root.canSetCounterCount
-            spacing: Theme.size(12)
-
-            ColumnLayout {
+            Text {
+                textFormat: Text.PlainText
                 Layout.fillWidth: true
-                spacing: Theme.size(2)
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTr("Your counter slots")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(13)
-                    font.weight: Font.DemiBold
-                }
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Show zero to seven counters beside your hand.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(10)
-                    wrapMode: Text.WordWrap
-                }
+                text: qsTr("Table layout")
+                color: Theme.text
+                font.pixelSize: Theme.fontSize(19)
+                font.weight: Font.DemiBold
             }
-            SpinBox {
-                id: counterSpin
-                objectName: "counterCountSpinBox"
-                from: 0
-                to: 7
-                editable: true
+
+            Text {
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                text: qsTr("Choose the optional table tools you want to keep visible.")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(11)
+                wrapMode: Text.WordWrap
             }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.size(10)
-
-            Item { Layout.fillWidth: true }
 
             AppButton {
+                objectName: "openTableBackgroundButton"
+                Layout.fillWidth: true
                 compact: true
-                variant: "ghost"
-                text: qsTr("Cancel")
-                onClicked: root.close()
-            }
-            AppButton {
-                objectName: "applyTableSettingsButton"
-                compact: true
-                variant: "primary"
-                text: qsTr("Apply")
+                text: qsTr("Battlefield background…")
                 onClicked: {
                     root.close()
-                    root.settingsRequested(
-                                false,
-                                sharedToggle.checked,
-                                false,
-                                counterSpin.value,
-                                gameLogToggle.checked)
+                    root.backgroundRequested()
+                }
+            }
+
+            AppToggle {
+                id: gameLogToggle
+                objectName: "showGameLogToggle"
+                Layout.fillWidth: true
+                text: qsTr("Game log / chat rail")
+            }
+
+            AppToggle {
+                id: playersToggle
+                objectName: "showPlayersToggle"
+                visible: false
+                Layout.fillWidth: true
+                text: qsTr("Player docks")
+            }
+            AppToggle {
+                id: sharedToggle
+                objectName: "showSharedToggle"
+                Layout.fillWidth: true
+                text: qsTr("Stack / reveal tray")
+            }
+            AppToggle {
+                id: inspectorToggle
+                objectName: "showInspectorToggle"
+                visible: false
+                Layout.fillWidth: true
+                text: qsTr("Card detail / game log")
+            }
+
+            RowLayout {
+                id: counterSettings
+                Layout.fillWidth: true
+                visible: root.canSetCounterCount
+                spacing: Theme.size(12)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.size(2)
+                    Text {
+                        textFormat: Text.PlainText
+                        text: qsTr("Your counter slots")
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSize(13)
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: qsTr("Show zero to seven counters beside your hand.")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(10)
+                        wrapMode: Text.WordWrap
+                    }
+                }
+                SpinBox {
+                    id: counterSpin
+                    objectName: "counterCountSpinBox"
+                    from: 0
+                    to: 7
+                    editable: true
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.size(10)
+
+                Item { Layout.fillWidth: true }
+
+                AppButton {
+                    compact: true
+                    variant: "ghost"
+                    text: qsTr("Cancel")
+                    onClicked: root.close()
+                }
+                AppButton {
+                    objectName: "applyTableSettingsButton"
+                    compact: true
+                    variant: "primary"
+                    text: qsTr("Apply")
+                    onClicked: {
+                        root.close()
+                        root.settingsRequested(
+                                    false,
+                                    sharedToggle.checked,
+                                    false,
+                                    counterSpin.value,
+                                    gameLogToggle.checked)
+                    }
                 }
             }
         }

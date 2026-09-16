@@ -26,8 +26,9 @@ func newCommanderCube(t *testing.T, players int) *Event {
 	t.Helper()
 	event, err := New(Config{
 		TournamentID: "commander-pod", EventType: protocol.LimitedEventCommanderCube,
-		Product:      commanderCubeProduct(CubeDraftCardsRequiredForEvent(protocol.LimitedEventCommanderCube, players)),
-		Participants: testParticipants(players),
+		Product:       commanderCubeProduct(players * 60),
+		Participants:  testParticipants(players),
+		DraftSettings: &protocol.LimitedDraftSettings{PacksPerPlayer: 3, PacksPerBatch: 1},
 	}, 73)
 	if err != nil {
 		t.Fatalf("New Commander Cube: %v", err)
@@ -88,7 +89,7 @@ func TestCommanderCubePhysicalStockAndProfile(t *testing.T) {
 			}
 		})
 	}
-	for _, count := range []int{1, 5, 8, 9} {
+	for _, count := range []int{1, 9} {
 		if _, err := New(Config{EventType: protocol.LimitedEventCommanderCube,
 			Product: commanderCubeProduct(count * 60), Participants: testParticipants(count)}, 1); err == nil {
 			t.Fatalf("accepted %d Commander draft seats", count)

@@ -125,12 +125,12 @@ QVariantList CatalogRepository::cardFaces(const QString &name, const QString &se
         query.addBindValue(collectorNumber);
     } else {
         query.prepare(
-            select + QStringLiteral(
-                         "WHERE %1 "
-                         "ORDER BY CASE WHEN name = ? COLLATE NOCASE THEN 0 ELSE 1 END, "
-                         "CASE WHEN layout IN ('art_series','token','double_faced_token','emblem') "
-                         "THEN 1 ELSE 0 END, CASE WHEN lang = 'en' THEN 0 ELSE 1 END LIMIT 1")
-                         .arg(catalogNameMatchesSql(QString{})));
+            select +
+            QStringLiteral("WHERE %1 "
+                           "ORDER BY CASE WHEN name = ? COLLATE NOCASE THEN 0 ELSE 1 END, "
+                           "CASE WHEN %2 THEN 0 ELSE 1 END, "
+                           "CASE WHEN lang = 'en' THEN 0 ELSE 1 END LIMIT 1")
+                .arg(catalogNameMatchesSql(QString{}), catalogPlayablePrintingSql(QString{})));
         const QString cardName = name.simplified();
         query.addBindValue(cardName);
         query.addBindValue(cardName);

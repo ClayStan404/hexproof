@@ -41,6 +41,7 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(qint64 promptId READ promptId NOTIFY promptChanged)
     Q_PROPERTY(QString promptKind READ promptKind NOTIFY promptChanged)
     Q_PROPERTY(bool promptSupported READ promptSupported NOTIFY promptChanged)
+    Q_PROPERTY(bool promptAutoPassEligible READ promptAutoPassEligible NOTIFY promptChanged)
     Q_PROPERTY(QString promptTitle READ promptTitle NOTIFY promptChanged)
     Q_PROPERTY(QString promptDetail READ promptDetail NOTIFY promptChanged)
     Q_PROPERTY(int promptRequiredSelections READ promptRequiredSelections NOTIFY promptChanged)
@@ -63,6 +64,8 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(RulesDamageModel *promptDamageTargets READ promptDamageTargets CONSTANT)
     Q_PROPERTY(int promptTotalDamage READ promptTotalDamage NOTIFY promptChanged)
     Q_PROPERTY(bool promptDamageDeathtouch READ promptDamageDeathtouch NOTIFY promptChanged)
+    Q_PROPERTY(
+        QString promptDamageAssignmentMode READ promptDamageAssignmentMode NOTIFY promptChanged)
     Q_PROPERTY(int promptMinChoiceTotal READ promptMinChoiceTotal NOTIFY promptChanged)
     Q_PROPERTY(int promptMaxChoiceTotal READ promptMaxChoiceTotal NOTIFY promptChanged)
     Q_PROPERTY(int promptMinNumber READ promptMinNumber NOTIFY promptChanged)
@@ -159,6 +162,10 @@ class RulesSessionState final : public QObject
     {
         return m_promptSupported;
     }
+    bool promptAutoPassEligible() const
+    {
+        return m_promptAutoPassEligible;
+    }
     QString promptTitle() const
     {
         return m_promptTitle;
@@ -247,6 +254,10 @@ class RulesSessionState final : public QObject
     {
         return m_promptDamageDeathtouch;
     }
+    QString promptDamageAssignmentMode() const
+    {
+        return m_promptDamageAssignmentMode;
+    }
     int promptMinChoiceTotal() const
     {
         return m_promptMinChoiceTotal;
@@ -274,6 +285,15 @@ class RulesSessionState final : public QObject
             return {};
         return m_promptOptions.castActionsForCard(cardId);
     }
+    Q_INVOKABLE QVariantList cardActionsForCard(const QString &cardId) const;
+    Q_INVOKABLE QVariantList promptOptionItems() const;
+    Q_INVOKABLE QStringList stackObjectIds() const;
+    Q_INVOKABLE QVariantList boardTargetCandidates() const;
+    Q_INVOKABLE QStringList targetResponseIdsForObject(const QString &kind,
+                                                       const QString &objectId) const;
+    Q_INVOKABLE QStringList targetResponseIdsForSeat(int seat) const;
+
+    Q_INVOKABLE QVariantMap cardForInspection(const QString &cardId) const;
 
     bool applySnapshot(const QJsonObject &snapshot);
     bool applyPrompt(const QJsonObject &prompt);
@@ -305,6 +325,7 @@ class RulesSessionState final : public QObject
     qint64 m_promptId = 0;
     QString m_promptKind;
     bool m_promptSupported = false;
+    bool m_promptAutoPassEligible = false;
     QString m_promptTitle;
     QString m_promptDetail;
     int m_promptRequiredSelections = 0;
@@ -327,6 +348,7 @@ class RulesSessionState final : public QObject
     RulesDamageModel m_promptDamageTargets;
     int m_promptTotalDamage = 0;
     bool m_promptDamageDeathtouch = false;
+    QString m_promptDamageAssignmentMode = QStringLiteral("ordered");
     int m_promptMinChoiceTotal = 0;
     int m_promptMaxChoiceTotal = 0;
     int m_promptMinNumber = 0;

@@ -79,7 +79,7 @@ func (r *Room) moveCard(connID string, move protocol.GameMoveCard,
 		card.Tapped = false
 		card.Counters = nil
 		card.FaceName = ""
-		card.FaceDown = false
+		card.FaceDown = move.ToZone == protocol.ZoneExile && move.FaceDown
 	} else if move.FromZone != protocol.ZoneBattlefield || move.FaceName != "" {
 		card.FaceName = move.FaceName
 		card.FaceDown = move.FaceDown

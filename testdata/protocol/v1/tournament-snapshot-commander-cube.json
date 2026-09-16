@@ -95,6 +95,11 @@
       "cardsPerPack": 0,
       "cardCount": 240,
       "productHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "draftSettings": {
+      "packsPerPlayer": 3,
+      "packsPerBatch": 1,
+      "cardsPerPack": 20
     }
   }
 }

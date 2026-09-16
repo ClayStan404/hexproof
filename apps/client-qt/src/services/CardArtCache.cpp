@@ -9,6 +9,7 @@
 #include "deck/Deck.h"
 
 #include <QMutexLocker>
+#include <QTimer>
 #include <QtConcurrentRun>
 
 #include <utility>
@@ -70,6 +71,18 @@ CardArtCache::CardArtCache(const QString &storageRoot, const QString &imageRoot,
         QDir().mkpath(m_imageRoot);
     QObject::connect(&m_saveWatcher, &QFutureWatcher<bool>::finished, &m_saveWatcher, [this]() {
         const bool success = m_saveWatcher.result();
+        if (success)
+            m_persistedGeneration = qMax(m_persistedGeneration, m_savingGeneration);
+        QList<std::pair<std::function<void(bool)>, bool>> completions;
+        for (auto it = m_saveCompletions.begin(); it != m_saveCompletions.end();) {
+            if (it->generation <= m_persistedGeneration || it->generation <= m_savingGeneration) {
+                completions.append(
+                    {std::move(it->callback), it->generation <= m_persistedGeneration});
+                it = m_saveCompletions.erase(it);
+            } else {
+                ++it;
+            }
+        }
         if (success && m_savingGeneration == m_generation)
             m_dirty = false;
         m_saving = false;
@@ -78,6 +91,10 @@ CardArtCache::CardArtCache(const QString &storageRoot, const QString &imageRoot,
             onSaveFinished(success);
         if (requested && dirty())
             saveAsync();
+        // A maintenance operation may only continue once its own generation
+        // has reached disk. An older in-flight save must not acknowledge it.
+        for (const auto &[completion, saved] : completions)
+            completion(saved);
     });
 }
 
@@ -96,6 +113,7 @@ void CardArtCache::load()
     m_positive.clear();
     m_negative.clear();
     m_printingIndex.clear();
+    m_metadataNameIndex.clear();
     m_oracleIndex.clear();
     m_canonicalNameIndex.clear();
     m_requestedNameIndex.clear();
@@ -165,6 +183,7 @@ bool CardArtCache::save()
     const Snapshot value = snapshot();
     if (!writeSnapshot(m_metadataPath, value, m_saveState))
         return false;
+    m_persistedGeneration = value.generation;
     m_dirty = false;
     return true;
 }
@@ -186,6 +205,22 @@ void CardArtCache::saveAsync()
                           [path = m_metadataPath, value = snapshot(), state = m_saveState]() {
                               return writeSnapshot(path, value, state);
                           }));
+}
+
+void CardArtCache::saveAsync(std::function<void(bool)> completion)
+{
+    if (!completion) {
+        saveAsync();
+        return;
+    }
+    if (!m_writable || !dirty()) {
+        QTimer::singleShot(
+            0, &m_saveWatcher,
+            [completion = std::move(completion), success = m_writable]() { completion(success); });
+        return;
+    }
+    m_saveCompletions.append({m_generation, std::move(completion)});
+    saveAsync();
 }
 
 CardArtCache::Snapshot CardArtCache::snapshot() const
@@ -313,6 +348,21 @@ CardRecord CardArtCache::resolvedPrintingMetadata(const CardRequest &request) co
         const auto it = m_positive.constFind(candidateKey);
         if (it != m_positive.cend() && matchesResolvedPrintingRequest(request, *it))
             return *it;
+    }
+    return {};
+}
+
+CardRecord CardArtCache::localizedMetadataForName(const CardRequest &request) const
+{
+    const QString indexKey = joinedIndexKey({request.language, normalizedCardName(request.name)});
+    const QSet<QString> candidates = m_metadataNameIndex.value(indexKey);
+    for (const QString &candidateKey : candidates) {
+        const auto it = m_positive.constFind(candidateKey);
+        if (it != m_positive.cend() && matchesRequestedFace(request, *it) &&
+            !it->localizedName.isEmpty() &&
+            (request.language != QStringLiteral("zh") || looksLikeChinese(it->localizedName))) {
+            return *it;
+        }
     }
     return {};
 }
@@ -459,6 +509,7 @@ void CardArtCache::rememberSuccess(const QString &cacheKey, const CardRecord &re
 void CardArtCache::rebuildIndexes()
 {
     m_printingIndex.clear();
+    m_metadataNameIndex.clear();
     m_oracleIndex.clear();
     m_canonicalNameIndex.clear();
     m_requestedNameIndex.clear();
@@ -476,6 +527,11 @@ void CardArtCache::addToIndexes(const QString &cacheKey, const CardRecord &recor
         const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
         if (faces.size() == 2)
             inferredFaceName = normalizedCardName(faces.first());
+    }
+    // Text remains usable without an image or with English fallback artwork.
+    for (const QString &name : {requestedName, canonicalName, inferredFaceName}) {
+        if (!name.isEmpty())
+            m_metadataNameIndex[joinedIndexKey({language, name})].insert(cacheKey);
     }
     if (!record.setCode.isEmpty() && !record.collectorNumber.isEmpty()) {
         const QString printingPrefix =
@@ -513,6 +569,10 @@ void CardArtCache::removeFromIndexes(const QString &cacheKey, const CardRecord &
         const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
         if (faces.size() == 2)
             inferredFaceName = normalizedCardName(faces.first());
+    }
+    for (const QString &name : {requestedName, canonicalName, inferredFaceName}) {
+        if (!name.isEmpty())
+            removeIndexEntry(&m_metadataNameIndex, joinedIndexKey({language, name}), cacheKey);
     }
     if (!record.setCode.isEmpty() && !record.collectorNumber.isEmpty()) {
         const QString printingPrefix =

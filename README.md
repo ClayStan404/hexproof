@@ -13,7 +13,7 @@ Hexproof keeps both experiences focused and native without accounts,
 matchmaking, or a browser shell. The client supports English and Simplified
 Chinese on Linux, Windows, and macOS.
 
-Current version: **1.2.0**. Client and server application versions must match
+Current version: **2.0.0**. Client and server application versions must match
 exactly.
 
 Hexproof is still in active development: features may change and releases can
@@ -177,6 +177,22 @@ valid for that source. The in-table shortcut help lists keyboard equivalents.
 Build from the repository root. Building the server first makes it available
 to the client integration test.
 
+### Quick incremental build
+
+```sh
+./tools/build.sh                  # Build the client and Go server
+./tools/build.sh --scope client   # Build only the client
+./tools/build.sh --scope server   # Build only the Go server
+```
+
+The script writes `build/client-qt/hexproof` and `build/server/hexproof-server`.
+It locates the repository from its own path, so it can also be called from
+another working directory. Client compilation uses all online logical CPUs by
+default; use `--jobs N` to set an explicit limit. Existing build caches, the prepared
+Forge runtime, and the card database are reused. Restart the corresponding
+running programs after building to load the new binaries. Run `./tools/verify.sh`
+separately for automated checks.
+
 ### Server
 
 ```sh
@@ -193,11 +209,10 @@ TLS-capable reverse proxy or tunnel in front of the localhost listener for
 Internet-facing `wss://` service.
 
 Manual rooms require no Java runtime. To enable the optional Forge rules room
-selector, build and extract the pinned payload under `build/forge-runtime/`,
-then start the prepared local runtime and server together:
+selector, prepare the pinned official Forge runtime and local server together:
 
 ```sh
-./tools/run-local-forge-server.sh
+./tools/run-local-forge-server.sh --prepare
 ```
 
 Additional arguments are passed directly to the server, for example
@@ -278,7 +293,7 @@ interaction changes, using isolated test profiles and local services.
 
 ## Release automation
 
-The repository contains three GitHub Actions workflows:
+The repository contains four GitHub Actions workflows:
 
 - [`ci.yml`](.github/workflows/ci.yml) keeps push and pull-request checks lean:
   shared static quality gates always run; application builds are skipped for
@@ -290,6 +305,9 @@ The repository contains three GitHub Actions workflows:
   macOS Apple Silicon, Linux x86_64, and Linux amd64/arm64 server archives.
 - [`card-database.yml`](.github/workflows/card-database.yml) rebuilds and
   publishes the official card database weekly or on demand.
+- [`forge-runtime.yml`](.github/workflows/forge-runtime.yml) separately builds
+  and verifies the optional official Forge runtime and matching source archives
+  on Linux amd64/arm64. Application release packages do not bundle this runtime.
 
 Application release notes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
 Unpublished work stays under **Unreleased** until the matching
@@ -320,7 +338,7 @@ notarized releases do not require this bypass.
 | `testdata/protocol/v1/` | Shared client/server protocol fixtures |
 | `CHANGELOG.md` | Application release notes; unpublished work under Unreleased |
 | `packaging/` | Client, server, and card-database release tooling |
-| `third_party/forge-runtime/` | Pinned Manabrew/Forge revisions and the optional rules-runtime build |
+| `third_party/forge-runtime/` | Pinned official Forge source, native host and optional runtime/source packaging |
 | `tools/` | Verification, code generation, database builder, and UI test helpers |
 
 ## Contributing
@@ -353,7 +371,7 @@ and small focused repairs do not require unrelated full rebuilds.
 
 Hexproof is licensed under GPL-3.0-or-later; see [`LICENSE`](LICENSE). Files that
 incorporate third-party work retain their applicable upstream copyright
-notices. Forge/Manabrew attribution is in
+notices. Forge attribution and historical runtime notices are in
 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 This is unofficial fan software. It is not affiliated with, endorsed by, or

@@ -13,6 +13,7 @@ Item {
     property Component extraFilters: null
     property string placeholderText: qsTranslate("CardWorkbench", "Search cards…")
     property bool filtersAvailable: true
+    property bool compact: false
     function focusSearch() {
         searchField.forceActiveFocus()
         searchField.selectAll()
@@ -47,7 +48,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        columns: root.width < Theme.size(680) ? 1 : 2
+        columns: root.width < Theme.size(root.compact ? 500 : 680) ? 1 : 2
         rowSpacing: Theme.size(6)
         AppTextField {
             id: searchField
@@ -71,6 +72,8 @@ Item {
                     Layout.preferredWidth: Theme.size(30)
                     Layout.preferredHeight: Theme.size(30)
                     enabled: root.filtersAvailable
+                    checkable: true
+                    autoExclusive: false
                     checked: root.filters.colors.includes(modelData.value)
                     onClicked: root.filters.toggle("colors", modelData.value)
                     Accessible.name: modelData.label
@@ -135,7 +138,7 @@ Item {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: qsTranslate("CardWorkbench", "Select several options in a category; different categories combine.")
+                text: qsTranslate("CardWorkbench", "Cards must include every selected color. Other options match any selection in their category; different categories combine.")
                 color: Theme.textMuted
                 wrapMode: Text.WordWrap
             }
@@ -155,9 +158,14 @@ Item {
                             model: root.colorOptions
                             delegate: AppButton {
                                 required property var modelData
+                                objectName: "filter-colors-" + modelData.value
                                 compact: true
                                 text: modelData.label
-                                variant: root.filters.colors.includes(modelData.value) ? "highlight" : "secondary"
+                                checkable: true
+                                autoExclusive: false
+                                checked: root.filters.colors.includes(modelData.value)
+                                leadingText: checked ? "☑" : "☐"
+                                variant: checked ? "primary" : "secondary"
                                 onClicked: root.filters.toggle("colors", modelData.value)
                             }
                         }
@@ -184,8 +192,11 @@ Item {
                                         objectName: "filter-" + section.modelData.key + "-" + modelData.value
                                         compact: true
                                         text: modelData.label
-                                        variant: root.filters[section.modelData.key].includes(modelData.value)
-                                                 ? "highlight" : "secondary"
+                                        checkable: true
+                                        autoExclusive: false
+                                        checked: root.filters[section.modelData.key].includes(modelData.value)
+                                        leadingText: checked ? "☑" : "☐"
+                                        variant: checked ? "primary" : "secondary"
                                         onClicked: root.filters.toggle(section.modelData.key, modelData.value)
                                     }
                                 }
@@ -201,6 +212,7 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 AppButton {
+                    objectName: "resetAdvancedCardFiltersButton"
                     text: qsTranslate("CardWorkbench", "Reset filters")
                     onClicked: {
                         root.filters.reset()

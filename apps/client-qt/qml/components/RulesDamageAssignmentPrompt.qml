@@ -16,6 +16,8 @@ Item {
     required property int promptId
     required property int totalDamage
     required property bool deathtouch
+    property string assignmentMode: "ordered"
+    property bool expandedView: false
     property var damageItems: []
     property var assignments: ({})
     property int visualRevision: 0
@@ -24,7 +26,11 @@ Item {
     readonly property bool validAssignment: remainingDamage === 0
                                                     && validDamageOrder()
 
-    implicitHeight: Theme.size(184)
+    readonly property bool narrowLayout: width < Theme.size(490)
+
+    implicitHeight: narrowLayout
+                    ? Theme.size(194) + selectionControls.implicitHeight
+                    : Math.max(Theme.size(184), selectionControls.implicitHeight)
 
     function resetAssignments() {
         damageItems = targetModel && typeof targetModel.items === "function"
@@ -51,13 +57,21 @@ Item {
 
     function validDamageOrder() {
         void visualRevision
+        if (assignmentMode !== "ordered" && assignmentMode !== "unordered"
+                && assignmentMode !== "divideFreely")
+            return false
         let laterDamage = 0
+        let defenderDamage = 0
         for (let index = damageItems.length - 1; index >= 0; --index) {
             const item = damageItems[index]
             const assigned = assignments[item.responseId] || 0
-            if (laterDamage > 0 && item.lethalDamage >= 0
+            const gatedDamage = assignmentMode === "ordered" ? laterDamage
+                                : assignmentMode === "unordered" ? defenderDamage : 0
+            if (gatedDamage > 0 && item.lethalDamage >= 0
                     && assigned < item.lethalDamage)
                 return false
+            if (item.lethalDamage === -1)
+                defenderDamage += assigned
             laterDamage += assigned
         }
         return true
@@ -65,11 +79,16 @@ Item {
 
     function setDamage(targetId, requestedDamage) {
         const index = damageItems.findIndex(item => item.responseId === targetId)
-        if (index < 0 || requestedDamage < 0)
+        if (index < 0 || requestedDamage < 0
+                || (assignmentMode !== "ordered" && assignmentMode !== "unordered"
+                    && assignmentMode !== "divideFreely"))
             return false
+        const needsEarlierLethal = assignmentMode === "ordered"
+                                  || (assignmentMode === "unordered"
+                                      && damageItems[index].lethalDamage === -1)
         for (let previous = 0; previous < index; ++previous) {
             const item = damageItems[previous]
-            if (requestedDamage > 0 && item.lethalDamage >= 0
+            if (needsEarlierLethal && requestedDamage > 0 && item.lethalDamage >= 0
                     && assignedTo(item.responseId) < item.lethalDamage)
                 return false
         }
@@ -81,8 +100,12 @@ Item {
         if (requestedDamage < current) {
             const item = damageItems[index]
             if (item.lethalDamage >= 0 && requestedDamage < item.lethalDamage) {
-                for (let later = index + 1; later < damageItems.length; ++later)
-                    next[damageItems[later].responseId] = 0
+                for (let later = index + 1; later < damageItems.length; ++later) {
+                    if (assignmentMode === "ordered"
+                            || (assignmentMode === "unordered"
+                                && damageItems[later].lethalDamage === -1))
+                        next[damageItems[later].responseId] = 0
+                }
             }
         }
         assignments = next
@@ -128,19 +151,24 @@ Item {
     onTargetModelChanged: resetAssignments()
     Component.onCompleted: resetAssignments()
 
-    RowLayout {
+    GridLayout {
         anchors.fill: parent
-        spacing: Theme.size(10)
+        columns: root.narrowLayout ? 1 : 2
+        columnSpacing: Theme.size(10)
+        rowSpacing: Theme.size(10)
 
-        ListView {
+        RulesHorizontalListView {
             id: targetList
+            objectName: "rulesDamageCandidates"
 
             Layout.fillWidth: true
+            Layout.preferredHeight: Theme.size(184)
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
             spacing: Theme.size(8)
-            clip: true
-            model: root.targetModel
+            model: root.visible ? root.targetModel : null
+            // Native prompt replacement can reset this model immediately after
+            // submission. Do not leave offscreen delegate incubation pending.
+            cacheBuffer: 0
 
             delegate: Rectangle {
                 id: damageTile
@@ -154,8 +182,8 @@ Item {
                 required property bool token
                 required property int lethalDamage
 
-                width: Theme.size(184)
-                height: targetList.height
+                width: Theme.size(root.expandedView ? 220 : 184)
+                height: targetList.itemHeight
                 radius: Theme.radiusSmall
                 color: Theme.surfaceMuted
                 border.width: 1
@@ -168,7 +196,7 @@ Item {
                     spacing: Theme.size(6)
 
                     Rectangle {
-                        Layout.preferredWidth: Theme.size(72)
+                        Layout.preferredWidth: Theme.size(root.expandedView ? 104 : 72)
                         Layout.fillHeight: true
                         radius: Theme.radiusSmall
                         color: Theme.surface
@@ -269,8 +297,10 @@ Item {
         }
 
         ColumnLayout {
-            Layout.fillWidth: false
-            Layout.preferredWidth: Theme.size(176)
+            id: selectionControls
+
+            Layout.fillWidth: root.narrowLayout
+            Layout.preferredWidth: root.narrowLayout ? -1 : Theme.size(176)
             spacing: Theme.size(6)
 
             Text {

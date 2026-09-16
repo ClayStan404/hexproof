@@ -3,6 +3,98 @@
 
 #include "wsclient_test.h"
 
+void TestWsClient::switchingServersIgnoresOldTransportCompletion() const
+{
+    QWebSocketServer first(u"First hub"_s, QWebSocketServer::NonSecureMode);
+    QWebSocketServer second(u"Second hub"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(first.listen(QHostAddress::LocalHost, 0));
+    QVERIFY(second.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *firstPeer = nullptr;
+    bool secondHello = false;
+    const auto welcome = [](QWebSocket *peer, const QString &id) {
+        Envelope env;
+        env.type = hexproof::protocol::kTypeSessionWelcome;
+        env.id = id;
+        env.payload = {{u"v"_s, hexproof::protocol::kProtocolVersion},
+                       {u"serverVersion"_s, buildVersion()}};
+        sendEnvelope(peer, env);
+    };
+    connect(&first, &QWebSocketServer::newConnection, &first, [&]() {
+        firstPeer = takeServerPeer(first);
+        connect(firstPeer, &QWebSocket::textMessageReceived, &first, [&](const QString &text) {
+            bool ok = false;
+            const auto env = hexproof::protocol::parse(text.toUtf8(), &ok);
+            if (ok && env.type == hexproof::protocol::kTypeSessionHello)
+                welcome(firstPeer, env.id);
+        });
+    });
+    connect(&second, &QWebSocketServer::newConnection, &second, [&]() {
+        QWebSocket *peer = takeServerPeer(second);
+        connect(peer, &QWebSocket::textMessageReceived, &second, [&, peer](const QString &text) {
+            bool ok = false;
+            const auto env = hexproof::protocol::parse(text.toUtf8(), &ok);
+            if (ok && env.type == hexproof::protocol::kTypeSessionHello) {
+                secondHello = true;
+                welcome(peer, env.id);
+            }
+        });
+    });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:%1"_s.arg(first.serverPort()), u"Alice"_s);
+    QTRY_VERIFY(client.connected());
+    const QString secondUrl = u"ws://127.0.0.1:%1"_s.arg(second.serverPort());
+    // Switch while the parser is delivering the first transport's final
+    // message, before its queued disconnect notification reaches the GUI.
+    connect(&client, &WsClient::roomListChanged, &client,
+            [&]() { client.connectTo(secondUrl, u"Bob"_s); });
+    Envelope finalMessage;
+    finalMessage.type = hexproof::protocol::kTypeRoomListed;
+    finalMessage.payload = {{u"rooms"_s, QJsonArray{}}};
+    sendEnvelope(firstPeer, finalMessage);
+    Envelope staleRoom;
+    staleRoom.type = hexproof::protocol::kTypeRoomCreated;
+    staleRoom.payload = {{u"roomId"_s, u"OLD123"_s}};
+    sendEnvelope(firstPeer, staleRoom);
+    firstPeer->sendTextMessage(u"invalid old message"_s);
+    firstPeer->close();
+    QTRY_VERIFY_WITH_TIMEOUT(secondHello, 2'000);
+    QTRY_VERIFY(client.connected());
+    QCOMPARE(client.serverUrl(), secondUrl);
+    QCOMPARE(client.displayName(), u"Bob"_s);
+    QVERIFY(client.roomId().isEmpty());
+    QVERIFY(client.lastError().isEmpty());
+}
+
+void TestWsClient::cancelledConnectionIgnoresQueuedWelcome() const
+{
+    QWebSocketServer server(u"Cancelled hub"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:%1"_s.arg(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY(peer);
+    QSignalSpy welcomes(&client, &WsClient::welcomeReceived);
+    connect(&client, &WsClient::roomListChanged, &client, &WsClient::disconnectFromHub);
+    Envelope boundary;
+    boundary.type = hexproof::protocol::kTypeRoomListed;
+    boundary.payload = {{u"rooms"_s, QJsonArray{}}};
+    sendEnvelope(peer, boundary);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, hexproof::protocol::kProtocolVersion},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"resumeToken"_s, u"cancelled-credential"_s}};
+    sendEnvelope(peer, welcome);
+    peer->close();
+    QTRY_COMPARE(client.connectionState(), WsClient::Disconnected);
+    QTest::qWait(50);
+    QVERIFY(welcomes.isEmpty());
+    QVERIFY(client.roomId().isEmpty());
+    QVERIFY(QSettings().value(u"network/resumeToken"_s).toString().isEmpty());
+}
+
 void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
 {
     QWebSocketServer server(u"Hexproof reconnect test server"_s, QWebSocketServer::NonSecureMode);

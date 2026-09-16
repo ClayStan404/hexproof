@@ -9,6 +9,7 @@ import QtQuick.Layouts
 
 Item {
     id: root
+    objectName: "rulesCardSelectionPrompt"
 
     required property var wsModel
     required property var cardCatalogModel
@@ -17,12 +18,18 @@ Item {
     required property int minimumSelections
     required property int maximumSelections
     required property string confirmationText
+    property bool expandedView: false
+    property bool cancellable: false
     property var selectedIds: ({})
     readonly property int selectedCount: Object.keys(selectedIds).length
     readonly property bool validSelection: selectedCount >= minimumSelections
                                                    && selectedCount <= maximumSelections
 
-    implicitHeight: Theme.size(142)
+    readonly property bool narrowLayout: width < Theme.size(490)
+
+    implicitHeight: expandedView ? Theme.size(540) : narrowLayout
+                    ? Theme.size(154) + selectionControls.implicitHeight
+                    : Math.max(Theme.size(142), selectionControls.implicitHeight)
 
     function resetSelection() {
         selectedIds = ({})
@@ -46,23 +53,36 @@ Item {
     }
 
     onPromptIdChanged: resetSelection()
+    Connections {
+        target: root.cardModel
+        ignoreUnknownSignals: true
+        function onModelReset() { root.resetSelection() }
+    }
 
-    RowLayout {
+    GridLayout {
         anchors.fill: parent
-        spacing: Theme.size(12)
+        columns: root.expandedView || root.narrowLayout ? 1 : 2
+        columnSpacing: Theme.size(12)
+        rowSpacing: Theme.size(12)
 
-        ListView {
+        RulesHorizontalListView {
             id: cardList
+            objectName: root.expandedView ? "" : "rulesCardCandidates"
+            visible: !root.expandedView
 
             Layout.fillWidth: true
+            Layout.preferredHeight: Theme.size(142)
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
             spacing: Theme.size(8)
-            clip: true
             model: root.cardModel
 
             delegate: Rectangle {
                 id: cardTile
+
+                objectName: "rulesCardCandidate-" + cardId
+                activeFocusOnTab: true
+                Keys.onSpacePressed: root.toggleCard(cardId)
+                Keys.onReturnPressed: root.toggleCard(cardId)
 
                 required property string cardId
                 required property string name
@@ -72,11 +92,11 @@ Item {
                 readonly property bool selected: root.selectedIds[cardId] === true
 
                 width: Theme.size(88)
-                height: cardList.height
+                height: cardList.itemHeight
                 radius: Theme.radiusSmall
                 color: Theme.surfaceMuted
                 border.width: selected ? 3 : 1
-                border.color: selected ? Theme.primary : Theme.border
+                border.color: selected || activeFocus ? Theme.primary : Theme.border
                 clip: true
 
                 Image {
@@ -144,9 +164,22 @@ Item {
             }
         }
 
+        RulesCardBrowser {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.expandedView
+            cardModel: root.expandedView ? root.cardModel : null
+            cardCatalogModel: root.cardCatalogModel
+            promptId: root.promptId
+            selectedIds: root.selectedIds
+            onCardToggled: cardId => root.toggleCard(cardId)
+        }
+
         ColumnLayout {
-            Layout.fillWidth: false
-            Layout.preferredWidth: Theme.size(190)
+            id: selectionControls
+
+            Layout.fillWidth: root.expandedView || root.narrowLayout
+            Layout.preferredWidth: root.expandedView || root.narrowLayout ? -1 : Theme.size(190)
             spacing: Theme.size(8)
 
             Text {
@@ -164,12 +197,21 @@ Item {
             }
 
             AppButton {
+                objectName: "rulesConfirmCards"
                 Layout.fillWidth: true
                 variant: "primary"
                 text: root.confirmationText
                 enabled: root.validSelection
                 disabledReason: qsTr("Choose a valid number of cards")
                 onClicked: root.submitSelection()
+            }
+
+            AppButton {
+                objectName: "rulesCancelCards"
+                Layout.fillWidth: true
+                visible: root.cancellable
+                text: qsTr("Cancel")
+                onClicked: root.wsModel.respondRulesPrompt(root.promptId, "$cancel")
             }
         }
     }

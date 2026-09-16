@@ -126,9 +126,9 @@ Page {
                         I18n.status(deckLibrary.lastError.length > 0
                                     ? deckLibrary.lastError : cardCatalog.lastError)
                     readonly property bool cacheAvailable:
-                        deckLibrary.count > 0 && !cardCatalog.busy
+                        deckLibrary.count > 0 && !deckLibraryCacheProgress.cacheActive
                     readonly property bool retryAvailable:
-                        deckLibrary.hasMissingArt && !cardCatalog.busy
+                        deckLibrary.hasMissingArt && !deckLibraryCacheProgress.cacheActive
 
                     Layout.fillWidth: true
                     spacing: Theme.size(10)
@@ -143,7 +143,7 @@ Page {
                         objectName: "cacheDeckArtButton"
                         compact: true
                         visible: deckStatusRow.cacheAvailable
-                        text: qsTr("Cache art")
+                        text: qsTr("Cache library art")
                         onClicked: deckLibrary.refreshMissingArt()
                     }
 
@@ -157,6 +157,7 @@ Page {
                 }
 
                 CardCacheProgress {
+                    id: deckLibraryCacheProgress
                     objectName: "deckLibraryCacheProgress"
                     Layout.fillWidth: true
                     catalogModel: cardCatalog

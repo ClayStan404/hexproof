@@ -20,6 +20,8 @@ Item {
                                       && !matchFinished
                                       && !gameSession.sideboarding
     property string shownResultKey: ""
+    readonly property bool modalOpen: restartConfirmation.opened || leaveConfirmation.opened
+        || resultPopup.opened
 
     function playerName(seat) {
         // The invokable lookup itself does not establish a model dependency.

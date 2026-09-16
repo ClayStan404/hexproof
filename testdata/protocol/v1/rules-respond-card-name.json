@@ -1,0 +1,9 @@
+{
+  "type": "rules.respond",
+  "id": "card-name-1",
+  "payload": {
+    "promptId": 9,
+    "responseId": "$submit",
+    "name": "Black Lotus"
+  }
+}

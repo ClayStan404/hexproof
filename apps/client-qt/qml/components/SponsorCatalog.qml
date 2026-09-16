@@ -6,7 +6,6 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property string announcementId: "founding-sponsors-2026-09"
     readonly property string afdianUrl: "https://afdian.com/a/hexproof"
     readonly property url wechatPayQrSource: Qt.resolvedUrl("../../assets/sponsors/wechat-pay.png")
     readonly property url alipayPayQrSource: Qt.resolvedUrl("../../assets/sponsors/alipay-pay.png")
@@ -51,6 +50,26 @@ QtObject {
             "tier": "ragavan",
             "avatarSource": Qt.resolvedUrl("../../assets/sponsors/beidi.jpeg"),
             "profileUrl": "https://afdian.com/u/50a0ee26bef411efa2a35254001e7c00"
+        },
+        {
+            "name": "鹌姬酸",
+            "tier": "omniscience",
+            "featured": true,
+            "description": qsTr("TCG enthusiast and organizer, Magic: The Gathering judge, Shenyang XYZ team. Creates Magic: The Gathering videos on Bilibili. Visit the profile to follow."),
+            "avatarSource": Qt.resolvedUrl("../../assets/sponsors/anjisuan.jpg"),
+            "profileUrl": "https://space.bilibili.com/6167941"
+        },
+        {
+            "name": "爱发电用户_1a326",
+            "tier": "ragavan",
+            "avatarSource": Qt.resolvedUrl("../../assets/sponsors/afdian-1a326.png"),
+            "profileUrl": "https://afdian.com/u/1a32609cb19e11f1b6925254001e7c00"
+        },
+        {
+            "name": "a1100011",
+            "tier": "ragavan",
+            "avatarSource": Qt.resolvedUrl("../../assets/sponsors/a1100011.jpg"),
+            "profileUrl": ""
         }
     ]
 

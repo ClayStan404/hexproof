@@ -15,6 +15,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLockFile>
+#include <QPointer>
 #include <QSaveFile>
 #include <QStorageInfo>
 #include <QTemporaryFile>
@@ -290,6 +291,11 @@ void CardArtStorage::setOperationGuard(std::function<bool()> guard)
     m_operationGuard = std::move(guard);
 }
 
+void CardArtStorage::setIndexFlush(std::function<void(std::function<void(bool)>)> flush)
+{
+    m_indexFlush = std::move(flush);
+}
+
 bool CardArtStorage::writesAllowed() const
 {
     // An external disk can disappear after launch. Never recreate an empty
@@ -389,12 +395,51 @@ void CardArtStorage::migrate(const QVariantMap &target)
             QStringLiteral("Wait for the current card-art operation to finish before migrating."));
         return;
     }
+    if (!m_indexFlush) {
+        startMigration(target);
+        return;
+    }
+    m_busy = true;
+    // Admit the save before busyChanged pauses ordinary cache writes. Further
+    // art operations already see writesAllowed() == false during this call.
+    m_indexFlush([guard = QPointer<CardArtStorage>(this), target](bool ok) {
+        if (!guard)
+            return;
+        QMetaObject::invokeMethod(
+            guard,
+            [guard, target, ok] {
+                if (!guard)
+                    return;
+                if (!ok) {
+                    guard->setError(QStringLiteral("Could not update the local card art cache."));
+                    guard->m_busy = false;
+                    emit guard->busyChanged();
+                    guard->setStatus({});
+                    emit guard->migrationFinished({{QStringLiteral("ok"), false},
+                                                   {QStringLiteral("error"), guard->lastError()}});
+                    return;
+                }
+                if (!guard->startMigration(target)) {
+                    guard->m_busy = false;
+                    emit guard->busyChanged();
+                    guard->setStatus({});
+                }
+            },
+            Qt::QueuedConnection);
+    });
+    emit busyChanged();
+    setProgress(0);
+    setStatus(QStringLiteral("Copying and verifying downloaded and custom card images…"));
+}
+
+bool CardArtStorage::startMigration(const QVariantMap &target)
+{
     const QString managed = target.value(QStringLiteral("managedDirectory")).toString();
     const QString images = target.value(QStringLiteral("imageRoot")).toString();
     const QString custom = target.value(QStringLiteral("customImageRoot")).toString();
     if (!QDir().mkpath(managed)) {
         setError(QStringLiteral("The destination folder could not be created."));
-        return;
+        return false;
     }
     m_destinationLock =
         std::make_unique<QLockFile>(QDir(managed).filePath(QString::fromLatin1(kLockFile)));
@@ -403,7 +448,7 @@ void CardArtStorage::migrate(const QVariantMap &target)
         m_destinationLock.reset();
         setError(QStringLiteral(
             "The destination card-art directory is already in use by another Hexproof process."));
-        return;
+        return false;
     }
     if (!target.value(QStringLiteral("isDefault")).toBool() &&
         !catalogstorage::writeJson(QDir(managed).filePath(QString::fromLatin1(kOwnerFile)),
@@ -411,7 +456,7 @@ void CardArtStorage::migrate(const QVariantMap &target)
                                     {QStringLiteral("profileKey"), m_profileKey}})) {
         m_destinationLock.reset();
         setError(QStringLiteral("Could not record ownership of the card-art directory."));
-        return;
+        return false;
     }
     QStringList previous = m_previousImageRoots;
     previous.append(m_imageRoot);
@@ -517,6 +562,7 @@ void CardArtStorage::migrate(const QVariantMap &target)
         result.ok = true;
         return result;
     }));
+    return true;
 }
 
 void CardArtStorage::setError(const QString &error)

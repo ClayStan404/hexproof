@@ -4,6 +4,7 @@
 #include "CardArtCache.h"
 #include "CardCatalog.h"
 #include "CardCatalogCommon.h"
+#include "CardImageProvider.h"
 
 namespace hexproof::client {
 using namespace catalog_internal;
@@ -28,6 +29,20 @@ void retainLocalizedMetadata(const CardRequest &request, const CardRecord &cache
 }
 
 } // namespace
+
+void CardCatalog::scheduleImageRevisionChanged()
+{
+    ++m_imageRevision;
+    if (m_imageRevisionNotificationPending)
+        return;
+    m_imageRevisionNotificationPending = true;
+    // Every visible image observes this property. Coalesce metadata and art
+    // arrivals within one frame without delaying per-card completion signals.
+    QTimer::singleShot(16, this, [this]() {
+        m_imageRevisionNotificationPending = false;
+        emit imageRevisionChanged();
+    });
+}
 
 void CardCatalog::cacheResolvedMetadata(const CardRequest &request, const CardRecord &record)
 {
@@ -56,13 +71,16 @@ void CardCatalog::cacheResolvedMetadata(const CardRequest &request, const CardRe
         return;
     m_artCache->rememberSuccess(key, updated);
     m_artCache->saveAsync();
-    ++m_imageRevision;
-    emit imageRevisionChanged();
+    scheduleImageRevisionChanged();
 }
 
 void CardCatalog::completeCardRequest(const CardRequest &request, CardRecord record, bool success,
                                       bool cacheFailure, const QString &failureDetail)
 {
+    if (request.artProvider != CardArtProvider::Auto)
+        --m_parallelProviderRequests[static_cast<size_t>(request.artProvider)];
+    const bool previewOnly =
+        queuedRequestKey(request) == m_searchPreviewIdentity && !m_searchPreviewAdopted;
     const QString key =
         cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
     m_queuedKeys.remove(queuedRequestKey(request));
@@ -80,26 +98,30 @@ void CardCatalog::completeCardRequest(const CardRequest &request, CardRecord rec
         record.requestedName = request.name;
         record.resolutionVersion = kCardResolutionVersion;
         m_artCache->rememberSuccess(key, record);
+        if (m_cardImageProvider)
+            m_cardImageProvider->invalidatePath(record.imagePath);
         emitRecord(record);
-        ++m_imageRevision;
-        emit imageRevisionChanged();
+        scheduleImageRevisionChanged();
     } else if (cacheFailure) {
         m_artCache->rememberFailure(key);
     }
-    if (!success) {
+    if (!success && !previewOnly) {
         setLastError(
             failureDetail.isEmpty()
                 ? QStringLiteral("Could not cache %1.").arg(request.name)
                 : QStringLiteral("Could not cache %1: %2").arg(request.name, failureDetail));
     }
-    ++m_completedRequests;
+    if (!previewOnly)
+        ++m_completedRequests;
     if (m_totalRequests > 0)
         setProgress(static_cast<qreal>(m_completedRequests) / m_totalRequests);
     emitCardCacheCompletion(request, success);
+    emit busyChanged();
 }
 
 void CardCatalog::emitCardCacheCompletion(const CardRequest &request, bool success)
 {
+    finishSearchPreview(request);
     const QString identity = queuedRequestKey(request);
     const QList<MatchCacheSubscription> subscriptions = m_matchCacheSubscriptions.take(identity);
     for (const MatchCacheSubscription &subscription : subscriptions) {
@@ -114,6 +136,24 @@ void CardCatalog::emitRecord(const CardRecord &record)
 {
     emit cardAvailable(record.requestedName, record.localizedName, record.typeLine,
                        record.imagePath, record.setCode, record.collectorNumber);
+
+    // Face expansion queues independent images under their face names. A deck
+    // imported with the whole canonical name must invalidate its missing-art
+    // projection when the front arrives, while a reverse must never replace it.
+    const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+    if (faces.size() != 2 || record.setCode.isEmpty() || record.collectorNumber.isEmpty() ||
+        record.imagePath.isEmpty()) {
+        return;
+    }
+    const QString frontName = normalizedCardName(faces.first());
+    const QString requestedName = normalizedCardName(record.requestedName);
+    if (frontName == normalizedCardName(faces.last()) || requestedName != frontName ||
+        normalizedCardName(record.faceName) != frontName ||
+        requestedName == normalizedCardName(record.name)) {
+        return;
+    }
+    emit cardAvailable(record.name, record.localizedName, record.typeLine, record.imagePath,
+                       record.setCode, record.collectorNumber);
 }
 
 } // namespace hexproof::client

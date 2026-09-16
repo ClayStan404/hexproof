@@ -9,6 +9,8 @@
 
 #include <QRegularExpression>
 
+#include <algorithm>
+
 namespace hexproof::client {
 
 namespace {
@@ -90,9 +92,11 @@ QVariant DeckLibraryModel::data(const QModelIndex &index, int role) const
     case SideboardCountRole:
         return cardCount(deck.sideboard);
     case ReadyRole:
-        return DeckLibraryQueries::deckReady(deck, validationForDeck(deck.id));
+        return DeckLibraryQueries::deckReady(deck, validationForDeck(deck.id),
+                                             imageCounts(deck).missing);
     case StatusRole:
-        return DeckLibraryQueries::deckStatus(deck, validationForDeck(deck.id));
+        return DeckLibraryQueries::deckStatus(deck, validationForDeck(deck.id),
+                                              imageCounts(deck).missing);
     case CommanderRole:
         return DeckLibraryQueries::commanderDisplayName(deck);
     case UpdatedAtRole:
@@ -224,12 +228,14 @@ int DeckLibraryModel::currentMainCount() const
 
 int DeckLibraryModel::currentMissingImageCount() const
 {
-    return currentDeck() ? DeckLibraryQueries::missingImageCount(*currentDeck()) : 0;
+    const Deck *deck = currentDeck();
+    return deck ? imageCounts(*deck).missing : 0;
 }
 
 int DeckLibraryModel::currentConsiderMissingImageCount() const
 {
-    return currentDeck() ? DeckLibraryQueries::missingImageCount(currentDeck()->consider) : 0;
+    const Deck *deck = currentDeck();
+    return deck ? imageCounts(*deck).considerMissing : 0;
 }
 
 int DeckLibraryModel::currentSideboardCount() const
@@ -244,15 +250,17 @@ int DeckLibraryModel::currentConsiderCount() const
 
 bool DeckLibraryModel::currentReady() const
 {
-    return currentDeck() &&
-           DeckLibraryQueries::deckReady(*currentDeck(), validationForDeck(currentDeck()->id));
+    const Deck *deck = currentDeck();
+    return deck && DeckLibraryQueries::deckReady(*deck, validationForDeck(deck->id),
+                                                 imageCounts(*deck).missing);
 }
 
 QString DeckLibraryModel::currentStatus() const
 {
-    return currentDeck() ? DeckLibraryQueries::deckStatus(*currentDeck(),
-                                                          validationForDeck(currentDeck()->id))
-                         : QString{};
+    const Deck *deck = currentDeck();
+    return deck ? DeckLibraryQueries::deckStatus(*deck, validationForDeck(deck->id),
+                                                 imageCounts(*deck).missing)
+                : QString{};
 }
 
 bool DeckLibraryModel::currentValidationVerified() const
@@ -278,23 +286,45 @@ QStringList DeckLibraryModel::currentValidationWarnings() const
 
 QVariantList DeckLibraryModel::mainCards() const
 {
-    return currentDeck()
-               ? DeckLibraryQueries::cardVariants(currentDeck()->mainboard, *currentDeck(), true)
-               : QVariantList{};
+    const Deck *deck = currentDeck();
+    return deck ? projectedCards(deck->mainboard, *deck, true, &m_mainProjection) : QVariantList{};
 }
 
 QVariantList DeckLibraryModel::sideboardCards() const
 {
-    return currentDeck()
-               ? DeckLibraryQueries::cardVariants(currentDeck()->sideboard, *currentDeck(), false)
-               : QVariantList{};
+    const Deck *deck = currentDeck();
+    return deck ? projectedCards(deck->sideboard, *deck, false, &m_sideboardProjection)
+                : QVariantList{};
 }
 
 QVariantList DeckLibraryModel::considerCards() const
 {
-    return currentDeck()
-               ? DeckLibraryQueries::cardVariants(currentDeck()->consider, *currentDeck(), false)
-               : QVariantList{};
+    const Deck *deck = currentDeck();
+    return deck ? projectedCards(deck->consider, *deck, false, &m_considerProjection)
+                : QVariantList{};
+}
+
+QVariantList DeckLibraryModel::projectedCards(const QVector<DeckCard> &cards, const Deck &deck,
+                                              bool grouped, CardProjection *projection) const
+{
+    const auto sameStorage = [](const QVector<DeckCard> &left, const QVector<DeckCard> &right) {
+        return left.constData() == right.constData() && left.size() == right.size();
+    };
+    // Retaining the source vectors makes every edit detach their shared storage.
+    // This also detects metadata applied before its coalesced notification, and
+    // avoids sorting/converting the entire deck for every QML property read.
+    if (!projection->valid || !sameStorage(projection->cards, cards) ||
+        !sameStorage(projection->mainboard, deck.mainboard) ||
+        !sameStorage(projection->sideboard, deck.sideboard) ||
+        projection->commanders != deck.commanders) {
+        projection->values = DeckLibraryQueries::cardVariants(cards, deck, grouped);
+        projection->cards = cards;
+        projection->mainboard = deck.mainboard;
+        projection->sideboard = deck.sideboard;
+        projection->commanders = deck.commanders;
+        projection->valid = true;
+    }
+    return projection->values;
 }
 
 QVariantList DeckLibraryModel::currentTokens() const
@@ -311,7 +341,32 @@ QVariantList DeckLibraryModel::activeMatchTokens() const
 
 bool DeckLibraryModel::hasMissingArt() const
 {
-    return DeckLibraryQueries::hasMissingArt(m_decks);
+    return std::any_of(m_decks.cbegin(), m_decks.cend(), [this](const Deck &deck) {
+        const ImageCounts &counts = imageCounts(deck);
+        return counts.missing > 0 || counts.considerMissing > 0;
+    });
+}
+
+const DeckLibraryModel::ImageCounts &DeckLibraryModel::imageCounts(const Deck &deck) const
+{
+    ImageCounts &counts = m_imageCounts[deck.id];
+    const auto sameStorage = [](const QVector<DeckCard> &left, const QVector<DeckCard> &right) {
+        return left.constData() == right.constData() && left.size() == right.size();
+    };
+    // UI bindings share one filesystem pass per deck revision. Cache/storage
+    // refreshes invalidate this snapshot; match registration still performs its
+    // own live check through DeckLibraryQueries::matchPayload().
+    if (!counts.valid || !sameStorage(counts.mainboard, deck.mainboard) ||
+        !sameStorage(counts.sideboard, deck.sideboard) ||
+        !sameStorage(counts.consider, deck.consider)) {
+        counts.missing = DeckLibraryQueries::missingImageCount(deck);
+        counts.considerMissing = DeckLibraryQueries::missingImageCount(deck.consider);
+        counts.mainboard = deck.mainboard;
+        counts.sideboard = deck.sideboard;
+        counts.consider = deck.consider;
+        counts.valid = true;
+    }
+    return counts;
 }
 
 void DeckLibraryModel::clearLastError()
@@ -358,22 +413,68 @@ void DeckLibraryModel::rebuildVisibleRows()
     }
 }
 
-void DeckLibraryModel::rebuildCardDeckIndex()
+void DeckLibraryModel::rebuildCardDeckIndex(int editedDeckIndex)
 {
     ++m_cardLocationRevision;
-    m_cardLocationsByName.clear();
-    for (int deckIndex = 0; deckIndex < m_decks.size(); ++deckIndex) {
+    const bool rebuildAll = editedDeckIndex < 0;
+    if (rebuildAll) {
+        m_cardLocationsByName.clear();
+        m_indexedCardNamesByDeck.clear();
+    } else {
+        const QSet<QString> previousNames =
+            m_indexedCardNamesByDeck.take(m_decks.at(editedDeckIndex).id);
+        for (const QString &name : previousNames) {
+            auto locations = m_cardLocationsByName.find(name);
+            if (locations == m_cardLocationsByName.end())
+                continue;
+            locations->removeIf([editedDeckIndex](const CardLocation &location) {
+                return location.deckIndex == editedDeckIndex;
+            });
+            if (locations->isEmpty())
+                m_cardLocationsByName.erase(locations);
+        }
+    }
+    const int firstDeckIndex = rebuildAll ? 0 : editedDeckIndex;
+    const int endDeckIndex = rebuildAll ? static_cast<int>(m_decks.size()) : editedDeckIndex + 1;
+    for (int deckIndex = firstDeckIndex; deckIndex < endDeckIndex; ++deckIndex) {
         const Deck &deck = m_decks.at(deckIndex);
-        const auto append = [this, deckIndex](const QVector<DeckCard> &cards, CardSection section) {
+        QSet<QString> &names = m_indexedCardNamesByDeck[deck.id];
+        const auto append = [this, deckIndex, &names](const QVector<DeckCard> &cards,
+                                                      CardSection section) {
             for (int cardIndex = 0; cardIndex < cards.size(); ++cardIndex) {
-                m_cardLocationsByName[normalizedCardName(cards.at(cardIndex).name)].append(
-                    CardLocation{deckIndex, section, cardIndex});
+                const QString name = normalizedCardName(cards.at(cardIndex).name);
+                names.insert(name);
+                m_cardLocationsByName[name].append(CardLocation{deckIndex, section, cardIndex});
             }
         };
         append(deck.mainboard, CardSection::Mainboard);
         append(deck.sideboard, CardSection::Sideboard);
         append(deck.consider, CardSection::Consider);
     }
+}
+
+const DeckCard *DeckLibraryModel::cardAt(const CardLocation &location) const
+{
+    if (location.deckIndex < 0 || location.deckIndex >= m_decks.size())
+        return nullptr;
+    const Deck &deck = m_decks.at(location.deckIndex);
+    const QVector<DeckCard> *cards = nullptr;
+    switch (location.section) {
+    case CardSection::Mainboard:
+        cards = &deck.mainboard;
+        break;
+    case CardSection::Sideboard:
+        cards = &deck.sideboard;
+        break;
+    case CardSection::Consider:
+        cards = &deck.consider;
+        break;
+    default:
+        return nullptr;
+    }
+    if (location.cardIndex < 0 || location.cardIndex >= cards->size())
+        return nullptr;
+    return &cards->at(location.cardIndex);
 }
 
 DeckCard *DeckLibraryModel::cardAt(const CardLocation &location)
@@ -400,33 +501,50 @@ DeckCard *DeckLibraryModel::cardAt(const CardLocation &location)
     return &(*cards)[location.cardIndex];
 }
 
-void DeckLibraryModel::notifyAllChanged()
+void DeckLibraryModel::notifyCurrentDeckChanged(bool cardsChanged)
 {
-    // Editing one deck must not repeat catalog and filesystem lookups for the
-    // entire library. Existing presentation stays valid until an art revision
-    // or a change to that card's printing/image invalidates it.
-    if (!m_currentDeckId.isEmpty())
-        resolveDisplayPaths({m_currentDeckId});
-    emit currentDeckCardsAboutToChange();
-    beginResetModel();
-    rebuildVisibleRows();
-    endResetModel();
-    emit countChanged();
-    emit currentDeckCardsChanged();
-    emit currentDeckChanged();
+    const Deck *deck = currentDeck();
+    if (!deck)
+        return;
+    const bool shouldBeVisible =
+        m_formatFilter == QStringLiteral("all") || deck->deckFormat == m_formatFilter;
+    const auto visible =
+        std::find_if(m_visibleRows.cbegin(), m_visibleRows.cend(),
+                     [this, deck](int row) { return m_decks.at(row).id == deck->id; });
+    if (shouldBeVisible != (visible != m_visibleRows.cend())) {
+        beginResetModel();
+        rebuildVisibleRows();
+        endResetModel();
+    }
+    notifyDecksChanged({deck->id}, cardsChanged);
 }
 
 void DeckLibraryModel::notifyCardStructureChanged()
 {
-    rebuildCardDeckIndex();
-    notifyAllChanged();
+    for (int deckIndex = 0; deckIndex < m_decks.size(); ++deckIndex) {
+        if (m_decks.at(deckIndex).id == m_currentDeckId) {
+            rebuildCardDeckIndex(deckIndex);
+            break;
+        }
+    }
+    notifyCurrentDeckChanged();
 }
 
 void DeckLibraryModel::notifyDecksChanged(const QSet<QString> &deckIds, bool cardsChanged)
 {
+    // An ordinary structural save has no deferred metadata to publish. Empty
+    // IDs must not reach resolveDisplayPaths(), where they mean the whole library.
+    if (deckIds.isEmpty())
+        return;
     if (cardsChanged)
         resolveDisplayPaths(deckIds);
     static const QList<int> changedRoles{
+        NameRole,
+        FormatRole,
+        TableModeRole,
+        MainCountRole,
+        SideboardCountRole,
+        CommanderRole,
         ReadyRole,
         StatusRole,
         UpdatedAtRole,

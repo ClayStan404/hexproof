@@ -19,12 +19,10 @@ const forgeRestartCooldown = time.Second
 func (h *Handler) watchForgeRuntime(client *forge.Client) {
 	<-client.Done()
 	h.forgeMu.Lock()
+	delete(h.forgeClients, client)
 	if h.forgeClosed {
 		h.forgeMu.Unlock()
 		return
-	}
-	if h.forgeClient == client {
-		h.forgeClient = nil
 	}
 	affected := make(map[string]forgeRoomGame)
 	for roomID, game := range h.forgeGames {

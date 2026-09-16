@@ -99,8 +99,8 @@ class CardArtStorage final : public QObject
     bool writesAllowed() const;
 
     // Called before copying, while no other art operation owns either tree.
-    // The guard also flushes the downloaded-art index before it is snapshotted.
     void setOperationGuard(std::function<bool()> guard);
+    void setIndexFlush(std::function<void(std::function<void(bool)>)> flush);
 
     Q_INVOKABLE QVariantMap previewDirectory(const QUrl &directory);
     Q_INVOKABLE QVariantMap previewDefault();
@@ -128,6 +128,7 @@ class CardArtStorage final : public QObject
     };
     QVariantMap destination(const QUrl &directory, bool useDefault) const;
     void migrate(const QVariantMap &destination);
+    bool startMigration(const QVariantMap &destination);
     void initialize();
     void setError(const QString &error);
     void setStatus(const QString &status);
@@ -146,6 +147,7 @@ class CardArtStorage final : public QObject
     QString m_lastResult;
     QVariantMap m_preview;
     std::function<bool()> m_operationGuard;
+    std::function<void(std::function<void(bool)>)> m_indexFlush;
     std::unique_ptr<QLockFile> m_currentLock;
     std::unique_ptr<QLockFile> m_destinationLock;
     QFutureWatcher<MigrationResult> m_watcher;

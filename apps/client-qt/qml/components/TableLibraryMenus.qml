@@ -25,7 +25,8 @@ Item {
                                                     viewTopCardMenuItem.implicitWidth,
                                                     viewTopCardsMenuItem.implicitWidth,
                                                     moveTopToGraveyardMenuItem.implicitWidth,
-                                                    moveTopToExileMenuItem.implicitWidth)
+                                                    moveTopToExileMenuItem.implicitWidth,
+                                                    exileTopFaceDownMenuItem.implicitWidth)
         width: Math.min(root.width - Theme.size(24),
                         Math.max(Theme.size(420),
                                  widestItemWidth + leftPadding + rightPadding))
@@ -101,6 +102,14 @@ Item {
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered:
                 root.tableController.sessionUi.showLibraryMoveCardsEditor("exile")
+        }
+        MenuItem {
+            id: exileTopFaceDownMenuItem
+            objectName: "exileLibraryTopFaceDownAction"
+            text: qsTr("Exile top card face down (no player may look)")
+            enabled: root.tableController.canAct
+                     && root.tableController.ownSeatData.libraryCount > 0
+            onTriggered: root.tableController.cardMoveCommands.exileLibraryTopFaceDown()
         }
     }
 

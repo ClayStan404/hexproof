@@ -7,6 +7,7 @@ import QtQuick.Layouts
 
 Surface {
     id: root
+    objectName: "deckCardRow-" + root.card.name
 
     required property var card
     property bool sideboard: false
@@ -41,6 +42,8 @@ Surface {
     }
 
     readonly property string resolvedImageSource: {
+        if (!root.visible)
+            return ""
         const card = root.card
         if (!card)
             return ""
@@ -192,6 +195,7 @@ Surface {
                     source: root.resolvedImageSource
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
+                    sourceSize.width: Math.ceil(Theme.size(34) * Screen.devicePixelRatio)
                     visible: status === Image.Ready
                 }
 
@@ -288,6 +292,7 @@ Surface {
             }
 
             AppButton {
+                objectName: "decreaseDeckCardCountButton"
                 visible: !root.sideboard
                 compact: true
                 variant: "ghost"
@@ -309,6 +314,7 @@ Surface {
             }
 
             AppButton {
+                objectName: "increaseDeckCardCountButton"
                 visible: !root.sideboard
                 compact: true
                 variant: "ghost"

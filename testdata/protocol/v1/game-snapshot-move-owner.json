@@ -57,6 +57,7 @@
         "libraryCount": 1,
         "handCount": 1,
         "mulliganCount": 0,
+        "turnCount": 0,
         "hand": [
           {
             "id": "s0-c2",
@@ -126,6 +127,7 @@
         "libraryCount": 1,
         "handCount": 1,
         "mulliganCount": 0,
+        "turnCount": 1,
         "battlefield": [],
         "graveyard": [],
         "exile": []

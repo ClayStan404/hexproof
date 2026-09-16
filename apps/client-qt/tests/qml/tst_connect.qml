@@ -15,7 +15,8 @@ TestCase {
         width: 1280
         height: 720
         visible: true
-        function popScreen() { }
+        property int popCount: 0
+        function popScreen() { ++popCount }
     }
 
     QtObject {
@@ -36,6 +37,11 @@ TestCase {
         property int configuredConnectCalls: 0
         property string lastConnectedUrl: ""
         property int lastConnectedIndex: -1
+        property int disconnectCalls: 0
+        function disconnectFromHub() {
+            ++disconnectCalls
+            connecting = false
+        }
         function refreshServerLatencies() { }
         function connectToCustomServer(url, name) {
             customConnectCalls += 1
@@ -75,6 +81,9 @@ TestCase {
     }
 
     function init() {
+        testWindow.popCount = 0
+        mockWs.connecting = false
+        mockWs.disconnectCalls = 0
         mockWs.serverIndex = 5
         mockWs.customConnectCalls = 0
         mockWs.configuredConnectCalls = 0
@@ -108,6 +117,25 @@ TestCase {
         compare(mockWs.customConnectCalls, 1)
         compare(mockWs.configuredConnectCalls, 0)
         compare(mockWs.lastConnectedUrl, mockWs.customServerUrl)
+    }
+
+    function test_leaveCancelsPendingConnection_data() {
+        return [{tag: "cancel", control: "connectCancelButton"},
+                {tag: "back", control: "screenBackButton"}]
+    }
+
+    function test_leaveCancelsPendingConnection(data) {
+        mockWs.versionMismatch = false
+        mockWs.connecting = true
+        page.refreshConnectionError()
+        waitForRendering(page)
+        const control = findChild(page, data.control)
+        verify(control !== null)
+        verify(control.enabled, "A pending handshake must remain cancellable")
+        mouseClick(control)
+        compare(mockWs.disconnectCalls, 1)
+        compare(testWindow.popCount, 1)
+        verify(!mockWs.connecting)
     }
 
     function test_minimumWindowShowsNormalConnectionActionsWithoutScrolling() {

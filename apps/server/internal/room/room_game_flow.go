@@ -640,6 +640,7 @@ func (r *Room) advanceTurn() {
 	r.Game.Arrows = []protocol.GameArrow{}
 	r.clearResponseStatuses()
 	if r.Game.ActiveSeat >= 0 && r.Game.ActiveSeat < len(r.Game.Seats) {
+		r.Game.Seats[r.Game.ActiveSeat].TurnCount++
 		r.appendGameLog("turn", r.Game.ActiveSeat,
 			fmt.Sprintf("%s began their turn.",
 				r.Game.Seats[r.Game.ActiveSeat].DisplayName))

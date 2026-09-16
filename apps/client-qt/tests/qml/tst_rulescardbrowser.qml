@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+import QtQuick
+import QtQuick.Controls.Basic
+import QtTest
+import "../../qml/components"
+
+TestCase {
+    name: "RulesCardBrowser"
+    when: windowShown
+    ApplicationWindow { id: window; width: 1180; height: 850; visible: true }
+    QtObject {
+        id: transport
+        property var responses: []
+        function respondRulesPrompt(id, response) { responses.push({id:id, response:response}) }
+        function respondRulesPromptWithCards(id, response, cards) {
+            responses.push({id:id, response:response, cards:cards})
+        }
+    }
+    Component {
+        id: selection
+        RulesCardSelectionPrompt {
+            expandedView: true
+            wsModel: transport
+            cardCatalogModel: null
+            cardModel: testRulesPrompt.session.promptCards
+            promptId: testRulesPrompt.session.promptId
+            minimumSelections: testRulesPrompt.session.promptMinCardSelections
+            maximumSelections: testRulesPrompt.session.promptMaxCardSelections
+            cancellable: testRulesPrompt.session.promptCancellable
+            confirmationText: qsTranslate("RulesPromptPanel", "Confirm cards")
+        }
+    }
+    Component {
+        id: reveal
+        RulesRevealPrompt {
+            expandedView: true
+            wsModel: transport
+            cardCatalogModel: null
+            cardModel: testRulesPrompt.session.promptCards
+            promptId: testRulesPrompt.session.promptId
+        }
+    }
+    function publish(id, kind, minimum, maximum, names) {
+        verify(testRulesPrompt.applyPrompt({roomId:"CARDS", gameId:"card-browser", pending:true,
+            promptId:id, kind:kind, supported:true, title:"Choose cards", detail:"", options:[], choices:[],
+            cards:names.map((name, index) => ({id:"candidate-" + index, name:name, setCode:"", collectorNumber:"", token:false})),
+            minCardSelections:minimum, maxCardSelections:maximum, cancellable:kind === "chooseCards",
+            scryDestinations:[], targets:[], contextCards:[], contextTargets:[], combatSources:[], combatTargets:[],
+            damageTargets:[], totalDamage:0}))
+    }
+    function create(component, width, height) {
+        const prompt = createTemporaryObject(component, window.contentItem, {width:width || 960, height:height || 700})
+        verify(prompt !== null)
+        waitForRendering(prompt)
+        return prompt
+    }
+    function grid(prompt, name) {
+        const result = findChild(prompt, name || "rulesCardCandidates")
+        verify(result !== null)
+        return result
+    }
+    function choose(list, index) {
+        list.positionViewAtIndex(index, GridView.Contain)
+        waitForRendering(list)
+        verify(list.itemAtIndex(index) !== null)
+        mouseClick(list.itemAtIndex(index))
+    }
+    function init() {
+        window.requestActivate()
+        tryCompare(window, "active", true)
+        Theme.uiScale = 1
+        testTranslations.setLanguage("en")
+        transport.responses = []
+        publish(1, "chooseCards", 2, 2, ["Sacred Foundry", "Sacred Foundry", "Plains", "Mountain"])
+    }
+    function cleanup() {
+        testRulesPrompt.clear()
+        Theme.uiScale = 1
+        testTranslations.setLanguage("en")
+    }
+    function test_filterPreservesExactSelectionsAndBounds() {
+        const prompt = create(selection), list = grid(prompt)
+        const search = findChild(prompt, "rulesCardFilter")
+        tryCompare(list, "count", 4)
+        search.text = "  sACred  "
+        tryCompare(list, "count", 2)
+        choose(list, 1)
+        compare(prompt.selectedIds, {"candidate-1":true})
+        search.text = "plains"
+        tryCompare(list, "count", 1)
+        choose(list, 0)
+        compare(prompt.selectedCount, 2)
+        search.text = "mountain"
+        choose(list, 0)
+        compare(prompt.selectedCount, 2, "Filtering must not bypass the native maximum")
+        search.text = "no such candidate"
+        tryCompare(list, "count", 0)
+        const confirm = findChild(prompt, "rulesConfirmCards")
+        verify(confirm.enabled, "Hidden selected cards remain part of the decision")
+        mouseClick(confirm)
+        compare(transport.responses, [{id:1, response:"$submit", cards:["candidate-1", "candidate-2"]}])
+    }
+    function test_selectedOnlyAllowsDeselectingFilteredCards() {
+        const prompt = create(selection), list = grid(prompt)
+        choose(list, 0); choose(list, 2)
+        mouseClick(findChild(prompt, "rulesSelectedCardsOnly"))
+        tryCompare(list, "count", 2)
+        choose(list, 0)
+        tryCompare(list, "count", 1)
+        compare(prompt.selectedCount, 1)
+        verify(!findChild(prompt, "rulesConfirmCards").enabled)
+        mouseClick(findChild(prompt, "rulesCancelCards"))
+        compare(transport.responses, [{id:1, response:"$cancel"}])
+    }
+    function test_newPromptClearsFilterAndSelection() {
+        const prompt = create(selection), list = grid(prompt)
+        const search = findChild(prompt, "rulesCardFilter")
+        search.text = "Sacred"
+        choose(list, 0)
+        publish(2, "chooseCards", 1, 1, ["Guide of Souls"])
+        tryCompare(list, "count", 1)
+        compare(search.text, "")
+        compare(prompt.selectedCount, 0)
+        choose(list, 0)
+        mouseClick(findChild(prompt, "rulesConfirmCards"))
+        compare(transport.responses, [{id:2, response:"$submit", cards:["candidate-0"]}])
+    }
+    function test_readOnlyRevealCannotSelect_data() {
+        return [{tag:"cards", names:["Sacred Foundry", "Plains"]}, {tag:"empty", names:[]}]
+    }
+    function test_readOnlyRevealCannotSelect(data) {
+        publish(2, "revealCards", 0, 0, data.names)
+        const prompt = create(reveal), list = grid(prompt, "revealCardList")
+        tryCompare(list, "count", data.names.length)
+        if (list.count > 0) choose(list, 0)
+        compare(transport.responses.length, 0)
+        verify(!findChild(prompt, "rulesSelectedCardsOnly").visible)
+        mouseClick(findChild(prompt, "acknowledgeRevealButton"))
+        compare(transport.responses, [{id:2, response:"$ack"}])
+    }
+    function test_largeListsAndTranslatedControlsRemainReachable_data() {
+        return [{tag:"desktop", width:1080, height:780, scale:1, language:"en"},
+            {tag:"compact", width:680, height:510, scale:1, language:"zh"},
+            {tag:"scaled", width:960, height:740, scale:1.35, language:"zh"}]
+    }
+    function test_largeListsAndTranslatedControlsRemainReachable(data) {
+        Theme.uiScale = data.scale
+        testTranslations.setLanguage(data.language)
+        publish(3, "chooseCards", 1, 1, Array.from({length:100}, (_, i) => "Card " + i))
+        const prompt = create(selection, data.width, data.height), list = grid(prompt)
+        tryCompare(list, "count", 100)
+        list.forceActiveFocus()
+        keyClick(Qt.Key_End)
+        waitForRendering(list)
+        verify(list.contentY > 0)
+        const before = list.contentY
+        keyClick(Qt.Key_Space)
+        compare(prompt.selectedIds, {"candidate-99":true})
+        compare(list.contentY, before, "Selecting a late card must not jump back to the first row")
+        const confirm = findChild(prompt, "rulesConfirmCards")
+        const edge = confirm.mapToItem(prompt, confirm.width, confirm.height)
+        verify(edge.x <= prompt.width + 1 && edge.y <= prompt.height + 1)
+        verify(confirm.mapToItem(list, 0, 0).y >= list.height)
+        mouseClick(confirm)
+        compare(transport.responses, [{id:3, response:"$submit", cards:["candidate-99"]}])
+    }
+}

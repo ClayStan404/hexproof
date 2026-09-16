@@ -16,6 +16,116 @@ TestCase {
         testTranslations.setLanguage("en")
     }
 
+    function test_translatesManualLogActions_data() {
+        return [
+            {tag: "token", kind: "create_token", source: "Alice created a Goblin token.",
+             expected: "Alice 创建了衍生物：Goblin。"},
+            {tag: "remove-token", kind: "remove_token", source: "Alice removed token Goblin from the battlefield.",
+             expected: "Alice 从战场移除了衍生物：Goblin。"},
+            {tag: "remove-hidden-token", kind: "remove_token", source: "Alice removed a face-down token from the battlefield.",
+             expected: "Alice 从战场移除了一个牌面朝下的衍生物。"},
+            {tag: "face-down", kind: "face_down", source: "Alice turned a battlefield card face down.",
+             expected: "Alice 将一张战场上的牌翻为牌面朝下。"},
+            {tag: "face-up", kind: "face_down", source: "Alice turned a battlefield card face up.",
+             expected: "Alice 将一张战场上的牌翻为牌面朝上。"},
+            {tag: "discard-hand", kind: "discard_hand", source: "Alice discarded their hand (7 cards).",
+             expected: "Alice 弃掉了全部手牌（7 张）。"},
+            {tag: "discard-random", kind: "discard_random", source: "Alice randomly discarded Lightning Bolt.",
+             expected: "Alice 随机弃掉了 Lightning Bolt。"},
+            {tag: "library-top", kind: "move_library_cards", source: "Alice put 3 card(s) from the top of their library into graveyard.",
+             expected: "Alice 将自己牌库顶的 3 张牌置入墓地。"},
+            {tag: "recall", kind: "recall_revealed", source: "Alice returned 2 revealed card(s) to hand.",
+             expected: "Alice 将 2 张展示的牌移回手牌。"},
+            {tag: "reorder", kind: "library_reorder", source: "Alice reordered the top 3 card(s) of their library.",
+             expected: "Alice 重新排列了自己牌库顶的 3 张牌。"},
+            {tag: "draw-game", kind: "draw", source: "Alice declared Game 2 a draw.",
+             expected: "Alice 宣告第 2 局平局。"},
+            {tag: "restart", kind: "restart", source: "Alice restarted Game 2.",
+             expected: "Alice 重新开始了第 2 局。"},
+            {tag: "roll", kind: "roll", source: "Alice %2 rolled [3, 6] on 2d6 (total 9).",
+             expected: "Alice %2 掷出 2 个 6 面骰：[3, 6]（合计 9）。"},
+            {tag: "next-game-roll", kind: "roll", source: "Alice won the roll for Game 2.",
+             expected: "Alice 赢得了第 2 局的先手掷骰。"},
+            {tag: "heads", kind: "coin", source: "Alice flipped heads.",
+             expected: "Alice 掷硬币得到正面。"},
+            {tag: "tails", kind: "coin", source: "Alice flipped tails.",
+             expected: "Alice 掷硬币得到反面。"},
+            {tag: "random-player", kind: "random_select", source: "Alice randomly selected Bob %2.",
+             expected: "Alice 随机选中了 Bob %2。"},
+            {tag: "random-hidden-card", kind: "random_select", source: "Alice randomly selected a face-down card.",
+             expected: "Alice 随机选中了 一张牌面朝下的牌。"},
+            {tag: "no-players", kind: "result", source: "The Commander game ended with no remaining players.",
+             expected: "指挥官对局结束，没有剩余玩家。"},
+            {tag: "attack-permanent", kind: "combat", source: "Alice declared 2 attacker(s) toward a battlefield permanent controlled by Bob.",
+             expected: "Alice 宣告了 2 个攻击者，攻击 Bob 操控的战场永久物。"},
+            {tag: "hidden-move", kind: "move_card", source: "Alice moved a face-down card from battlefield to exile.",
+             expected: "Alice 将 一张牌面朝下的牌 从战场移至放逐区。"},
+            {tag: "number-counter", kind: "card_counter", source: "Alice set number on a face-down card to 2.",
+             expected: "Alice 将 一张牌面朝下的牌 上的 数量指示物 设为 2。"},
+            {tag: "player-counter", kind: "counter", source: "Alice set counter-2 to 7 (+1).",
+             expected: "Alice 将 计数器 2 设为 7（+1）。"},
+            {tag: "rename-counter", kind: "counter", source: "Alice renamed counter counter-2 to Charge %2.",
+             expected: "Alice 将 计数器 2 重命名为 Charge %2。"},
+            {tag: "rename-custom-counter", kind: "counter", source: "Alice renamed counter Charge %2 to Goblin.",
+             expected: "Alice 将 Charge %2 重命名为 Goblin。"}
+        ]
+    }
+
+    function test_translatesManualLogActions(data) {
+        compare(I18n.gameLog(data.kind, data.source), data.expected)
+        compare(I18n.gameLog("chat", data.source), data.source)
+        testTranslations.setLanguage("en")
+        compare(I18n.gameLog(data.kind, data.source), data.source)
+    }
+
+    function test_localizesOnlyPublicCardNames_data() {
+        return [
+            {tag: "move", kind: "move_card", source: "Bolt %2 moved Bolt from hand to graveyard.",
+             expected: "Bolt %2 将 闪电击 从手牌移至墓地。", names: ["Bolt"]},
+            {tag: "token", kind: "create_token", source: "Bolt created a Goblin token.",
+             expected: "Bolt 创建了衍生物：地精。", names: ["Goblin"]},
+            {tag: "emblem", kind: "create_emblem", source: "Bolt created a Test Emblem emblem for Goblin.",
+             expected: "Bolt 为 Goblin 创建了徽记：测试徽记。", names: ["Test Emblem"]},
+            {tag: "remove-emblem", kind: "remove_emblem", source: "Bolt removed their Test Emblem emblem.",
+             expected: "Bolt 移除了自己的徽记：测试徽记。", names: ["Test Emblem"]},
+            {tag: "commander", kind: "commander_cast", source: "Goblin cast Bolt from the command zone; the next additional cost is +2.",
+             expected: "Goblin 从指挥官区施放了 闪电击；下次额外费用为 +2。", names: ["Bolt"]},
+            {tag: "land", kind: "land_play", source: "Bolt recorded Island as land play 1 this turn.",
+             expected: "Bolt 将 海岛 记录为本回合第 1 次地牌使用。", names: ["Island"]},
+            {tag: "hidden", kind: "move_card", source: "Bolt moved a face-down card from battlefield to exile.",
+             expected: "Bolt 将 一张牌面朝下的牌 从战场移至放逐区。", names: []},
+            {tag: "private", kind: "move_card", source: "Bolt moved a card from library to hand.",
+             expected: "Bolt 将 一张牌 从牌库移至手牌。", names: []},
+            {tag: "count", kind: "move_cards", source: "Bolt moved 2 card(s) from hand to graveyard.",
+             expected: "Bolt 将 2 张牌 从手牌移至墓地。", names: []},
+            {tag: "combat", kind: "combat", source: "Bolt declared 2 attacker(s) toward Goblin.",
+             expected: "Bolt 声明 2 个攻击者攻击 Goblin。", names: []},
+            {tag: "custom-counter", kind: "counter", source: "Bolt set Goblin to 2 (+1).",
+             expected: "Bolt 将 Goblin 设为 2（+1）。", names: []},
+            {tag: "random-player", kind: "random_select", source: "Bolt randomly selected Goblin.",
+             expected: "Bolt 随机选中了 Goblin。", names: []},
+            {tag: "chat", kind: "chat", source: "Bolt moved Bolt from hand to graveyard.",
+             expected: "Bolt moved Bolt from hand to graveyard.", names: []},
+            {tag: "unknown", kind: "move_card", source: "Bolt moved Unknown %2 from hand to graveyard.",
+             expected: "Bolt 将 Unknown %2 从手牌移至墓地。", names: ["Unknown %2"]},
+            {tag: "rules", kind: "rules_card", source: "Bolt: %2: Bolt in battlefield.",
+             actor: "Bolt: %2", expected: "Bolt: %2: 闪电击 位于战场。", names: ["Bolt"]},
+            {tag: "rules-hidden", kind: "rules_card", source: "Bolt: %2: a face-down card in battlefield.",
+             actor: "Bolt: %2", expected: "Bolt: %2: 一张牌面朝下的牌 位于战场。", names: []}
+        ]
+    }
+
+    function test_localizesOnlyPublicCardNames(data) {
+        const names = []
+        const translations = {Bolt: "闪电击", Goblin: "地精", Island: "海岛", "Test Emblem": "测试徽记"}
+        function resolve(name) {
+            names.push(name)
+            return translations[name] || name
+        }
+        compare(I18n.gameLog(data.kind, data.source, resolve, data.actor || ""), data.expected)
+        compare(names, data.names)
+    }
+
     function test_translatesStructuredCardCacheFailureWithColonInName() {
         compare(
             I18n.status("Could not cache Aang: Master of Elements: Scryfall English metadata via api.scryfall.com: HTTP 404"),

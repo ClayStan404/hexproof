@@ -21,6 +21,8 @@ class TestMatchLoadCoordinator : public QObject
 
   private slots:
     void preloadExpandsBeforeCachingEveryFace() const;
+    void localArtIsExcludedFromDownloads() const;
+    void allLocalArtCompletesWithoutCacheRequests() const;
     void backgroundWaitsForTableSnapshotTurn() const;
     void snapshotBeforeBackgroundLoadStartsNextTurn() const;
     void clearedSnapshotBeforeBackgroundLoadWaits() const;
@@ -45,6 +47,67 @@ QVariantList cardRequests()
         QVariantMap{
             {u"name"_s, u"Sol Ring"_s}, {u"setCode"_s, u"CMM"_s}, {u"collectorNumber"_s, u"396"_s}},
     };
+}
+
+void TestMatchLoadCoordinator::localArtIsExcludedFromDownloads() const
+{
+    MatchLoadCoordinator loader;
+    QSignalSpy expansions(&loader, &MatchLoadCoordinator::cardFaceExpansionRequested);
+    QSignalSpy downloads(&loader, &MatchLoadCoordinator::cardsRequested);
+    loader.preparePreload(41, cardRequests());
+    QTRY_COMPARE(expansions.count(), 1);
+    const quint64 generation = expansions.first().at(1).toULongLong();
+    QVariantList expanded = cardRequests();
+    QVariantMap local = expanded.first().toMap();
+    local.insert(u"_hexproofLocalArtAvailable"_s, true);
+    expanded[0] = local;
+    expanded.append(local);
+    loader.adoptExpandedCards(41, generation, expanded);
+    QCOMPARE(loader.total(), 2);
+    QCOMPARE(loader.localAvailable(), 1);
+    QCOMPARE(loader.completed(), 1);
+    QCOMPARE(loader.downloadTotal(), 1);
+    QCOMPARE(loader.downloaded(), 0);
+    QCOMPARE(downloads.count(), 1);
+    QCOMPARE(downloads.first().at(2).toList(), QVariantList{expanded.at(1)});
+    loader.handleMatchCardCacheFinished(41, generation, u"test-request"_s, u"Sol Ring"_s, u"CMM"_s,
+                                        u"396"_s, false, false);
+    QCOMPARE(loader.downloaded(), 0);
+    QCOMPARE(loader.failed(), 1);
+    QCOMPARE(loader.progress(), 0.5);
+    loader.retry();
+    QCOMPARE(loader.localAvailable(), 1);
+    QCOMPARE(loader.downloaded(), 0);
+    loader.handleMatchCardCacheFinished(41, generation, u"test-request"_s, u"Sol Ring"_s, u"CMM"_s,
+                                        u"396"_s, false, true);
+    QVERIFY(loader.ready());
+    QCOMPARE(loader.downloaded(), 1);
+    loader.cancel();
+    QCOMPARE(loader.localAvailable(), 0);
+    QCOMPARE(loader.downloadTotal(), 0);
+}
+
+void TestMatchLoadCoordinator::allLocalArtCompletesWithoutCacheRequests() const
+{
+    MatchLoadCoordinator loader;
+    QSignalSpy expansions(&loader, &MatchLoadCoordinator::cardFaceExpansionRequested);
+    QSignalSpy downloads(&loader, &MatchLoadCoordinator::cardsRequested);
+    QSignalSpy completed(&loader, &MatchLoadCoordinator::loadComplete);
+    loader.preparePreload(42, cardRequests());
+    QTRY_COMPARE(expansions.count(), 1);
+    QVariantList expanded;
+    for (const QVariant &value : cardRequests()) {
+        QVariantMap card = value.toMap();
+        card.insert(u"_hexproofLocalArtAvailable"_s, true);
+        expanded.append(card);
+    }
+    loader.adoptExpandedCards(42, expansions.first().at(1).toULongLong(), expanded);
+    QCOMPARE(loader.total(), 2);
+    QCOMPARE(loader.localAvailable(), 2);
+    QCOMPARE(loader.downloadTotal(), 0);
+    QCOMPARE(downloads.count(), 0);
+    QTRY_COMPARE(completed.count(), 1);
+    QVERIFY(loader.ready());
 }
 
 void connectSnapshotReadiness(hexproof::client::GameTableModel *table, MatchLoadCoordinator *loader)

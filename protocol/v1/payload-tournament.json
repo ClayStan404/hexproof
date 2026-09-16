@@ -156,7 +156,8 @@
         {"name": "roundMinutes", "type": "integer", "required": true},
         {"name": "maxPlayers", "type": "integer", "required": true},
         {"name": "plannedRounds", "type": "integer", "required": false},
-        {"name": "product", "type": "object", "required": false, "ref": "LimitedProductDefinition", "goType": "*LimitedProductDefinition"}
+        {"name": "product", "type": "object", "required": false, "ref": "LimitedProductDefinition", "goType": "*LimitedProductDefinition"},
+        {"name": "draftSettings", "type": "object", "required": false, "ref": "LimitedDraftSettings", "goType": "*LimitedDraftSettings"}
       ]
     },
     {
@@ -311,6 +312,7 @@
         {"name": "participantId", "type": "string", "required": false},
         {"name": "canRegister", "type": "boolean", "required": true},
         {"name": "product", "type": "object", "required": false, "ref": "LimitedProductView", "goType": "*LimitedProductView"},
+        {"name": "draftSettings", "type": "object", "required": false, "ref": "LimitedDraftSettings", "goType": "*LimitedDraftSettings"},
         {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentParticipantView"}},
         {"name": "pairings", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentPairingView"}},
         {"name": "standings", "type": "array", "required": true, "items": {"type": "object", "ref": "TournamentStandingView"}}

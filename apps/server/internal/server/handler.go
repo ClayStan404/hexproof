@@ -71,7 +71,7 @@ type Handler struct {
 	tournaments             *tournamentRegistry
 	forgeRuntime            *forge.ProcessConfig
 	forgeMu                 sync.Mutex
-	forgeClient             *forge.Client
+	forgeClients            map[*forge.Client]struct{}
 	forgeGames              map[string]forgeRoomGame
 	forgePromptSequence     atomic.Int64
 	forgeClosed             bool
@@ -138,6 +138,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		replayRequestLimiter:    newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournaments:             newTournamentRegistry(config.MaxTournaments),
 		forgeRuntime:            forgeRuntime,
+		forgeClients:            make(map[*forge.Client]struct{}),
 		forgeGames:              make(map[string]forgeRoomGame),
 	}, nil
 }
@@ -146,6 +147,5 @@ func (h *Handler) forgeRulesAvailable() bool {
 	h.forgeMu.Lock()
 	defer h.forgeMu.Unlock()
 	return !h.forgeClosed && h.forgeRuntime != nil &&
-		!time.Now().Before(h.forgeRetryAfter) &&
-		(h.forgeClient == nil || h.forgeClient.Healthy())
+		!time.Now().Before(h.forgeRetryAfter)
 }

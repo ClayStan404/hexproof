@@ -78,32 +78,20 @@ ColumnLayout {
                 id: cardRow
                 required property var modelData
                 required property int index
-                readonly property bool compactAssignmentLayout:
-                    root.popupController.reorderMode
-                    && width < Theme.size(560)
                 objectName: "librarySearchCard" + index
                 width: ListView.view.width
-                height: Theme.size(compactAssignmentLayout ? 120 : 76)
+                height: Theme.size(76)
                 color: root.popupController.cardSelected(modelData.id)
-                       || (root.popupController.reorderMode
-                           && root.popupController.selectedIndex === index)
                        ? Theme.primaryMuted : Theme.surfaceMuted
                 border.color: root.popupController.cardSelected(modelData.id)
-                              || (root.popupController.reorderMode
-                                  && root.popupController.selectedIndex === index)
                               ? Theme.primary : Theme.border
 
-                GridLayout {
+                RowLayout {
                     anchors.fill: parent
                     anchors.margins: Theme.size(7)
-                    columns: 5
-                    columnSpacing: Theme.size(11)
-                    rowSpacing: Theme.size(7)
+                    spacing: Theme.size(11)
 
                     Image {
-                        Layout.row: 0
-                        Layout.column: 0
-                        Layout.rowSpan: cardRow.compactAssignmentLayout ? 2 : 1
                         Layout.preferredWidth: Theme.size(54)
                         Layout.fillHeight: true
                         source: root.popupController.cardCatalogModel ? root.popupController.cardCatalogModel.imageSource(cardRow.modelData.name, cardRow.modelData.setCode, cardRow.modelData.collectorNumber) : ""
@@ -115,8 +103,6 @@ ColumnLayout {
                         objectName: "librarySelectBox" + cardRow.index
                         visible: !root.popupController.topCardMode
                                  && !root.popupController.reorderMode
-                        Layout.row: 0
-                        Layout.column: 1
                         Layout.preferredWidth: Theme.size(22)
                         Layout.preferredHeight: Theme.size(22)
                         radius: Theme.radiusSmall
@@ -144,14 +130,6 @@ ColumnLayout {
                     ColumnLayout {
                         id: cardIdentity
                         objectName: "libraryCardIdentity" + cardRow.index
-                        Layout.row: 0
-                        Layout.column: root.popupController.reorderMode
-                                       || root.popupController.topCardMode ? 1 : 2
-                        Layout.columnSpan: cardRow.compactAssignmentLayout ? 2
-                                           : (root.popupController.reorderMode
-                                              ? 1
-                                              : (root.popupController.topCardMode
-                                                 ? 4 : 3))
                         Layout.fillWidth: true
                         spacing: Theme.size(3)
                         Text {
@@ -171,61 +149,6 @@ ColumnLayout {
                             font.pixelSize: Theme.fontSize(10)
                             elide: Text.ElideRight
                         }
-                    }
-                    AppComboBox {
-                        objectName: "topCardDestination" + cardRow.index
-                        ToolTip.visible: hovered
-                        ToolTip.text: displayText
-                        visible: root.popupController.reorderMode
-                        Layout.row: cardRow.compactAssignmentLayout ? 1 : 0
-                        Layout.column: cardRow.compactAssignmentLayout ? 1 : 2
-                        Layout.columnSpan: cardRow.compactAssignmentLayout ? 4 : 1
-                        Layout.fillWidth: cardRow.compactAssignmentLayout
-                        Layout.preferredWidth: cardRow.compactAssignmentLayout
-                                               ? Theme.size(280)
-                                               : Theme.size(220)
-                        model: root.popupController.topCardDestinations
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: root.popupController.topCardDestinationIndex(
-                                          cardRow.modelData.id)
-                        onActivated: function(optionIndex) {
-                            root.popupController.selectedIndex = cardRow.index
-                            const option = root.popupController.topCardDestinations[
-                                               optionIndex]
-                            if (option) {
-                                root.popupController.setTopCardDestination(
-                                            cardRow.modelData.id, option.value)
-                            }
-                        }
-                    }
-                    AppButton {
-                        objectName: "topCardMoveUp" + cardRow.index
-                        visible: root.popupController.reorderMode
-                        compact: true
-                        variant: "ghost"
-                        text: "↑"
-                        accessibleName: qsTranslate("LibrarySearchPopup", "Move card up")
-                        Layout.row: 0
-                        Layout.column: 3
-                        Layout.preferredWidth: Theme.size(40)
-                        Layout.minimumWidth: Theme.size(40)
-                        enabled: cardRow.index > 0
-                        onClicked: root.popupController.moveCardInOrder(cardRow.modelData.id, -1)
-                    }
-                    AppButton {
-                        objectName: "topCardMoveDown" + cardRow.index
-                        visible: root.popupController.reorderMode
-                        compact: true
-                        variant: "ghost"
-                        text: "↓"
-                        accessibleName: qsTranslate("LibrarySearchPopup", "Move card down")
-                        Layout.row: 0
-                        Layout.column: 4
-                        Layout.preferredWidth: Theme.size(40)
-                        Layout.minimumWidth: Theme.size(40)
-                        enabled: cardRow.index < root.popupController.visibleCards.length - 1
-                        onClicked: root.popupController.moveCardInOrder(cardRow.modelData.id, 1)
                     }
                 }
 

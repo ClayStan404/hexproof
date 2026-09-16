@@ -27,11 +27,24 @@ Control {
     implicitHeight: Theme.size(48)
     implicitWidth: Theme.size(280)
 
-    background: Rectangle {
-        color: Theme.surfaceMuted
-        radius: Theme.radiusMedium
-        border.width: 1
-        border.color: Theme.border
+    background: Item {
+        implicitHeight: Theme.size(48)
+
+        LiquidGlass {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            compact: true
+            visible: Theme.useGlass
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: !Theme.useGlass
+            color: Theme.surfaceMuted
+            radius: Theme.radiusMedium
+            border.width: 1
+            border.color: Theme.border
+        }
     }
 
     contentItem: Row {
@@ -76,7 +89,9 @@ Control {
                     id: segmentLabel
                     elide: Text.ElideRight
                     text: segmentButton.text
-                    color: segmentButton.checked ? Theme.text : Theme.textMuted
+                    color: segmentButton.checked
+                           ? (Theme.useGlass ? Theme.primaryInk : Theme.text)
+                           : Theme.textMuted
                     font: segmentButton.font
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -87,10 +102,13 @@ Control {
                 ToolTip.delay: 600
 
                 background: Rectangle {
-                    radius: Theme.radiusSmall
+                    radius: Theme.useGlass ? height / 2 : Theme.radiusSmall
+                    antialiasing: true
                     color: segmentButton.checked
-                           ? Theme.surfaceElevated
-                           : (segmentButton.hovered ? Theme.surfaceHover : "transparent")
+                           ? (Theme.useGlass ? Theme.primary : Theme.surfaceElevated)
+                           : (segmentButton.hovered
+                              ? (Theme.useGlass ? Theme.glassElevated : Theme.surfaceHover)
+                              : "transparent")
                     border.width: segmentButton.activeFocus ? 1 : 0
                     border.color: Theme.primary
 

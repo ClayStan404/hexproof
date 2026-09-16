@@ -19,22 +19,20 @@ or stylesheets are bundled.
 
 ## Forge rules engine
 
-Rules-enforced rooms optionally use the Forge engine and card scripts from the
-Manabrew-maintained Forge fork. Forge remains licensed under
-GPL-3.0-or-later. The exact source revision is recorded in
-`third_party/forge-runtime/VERSIONS.env`.
+Rules-enforced rooms optionally use official Forge and its card scripts under
+GPL-3.0-or-later. The exact source revision and reviewed native GUI hook are
+recorded in `third_party/forge-runtime/native-host/upstream.json`. The current
+runtime uses Hexproof's native-human input host; its package includes Forge's
+license, dependency notices and a hash-linked matching source archive.
 
-Upstream source: <https://github.com/witchesofthehill/forge>
+Upstream source: <https://github.com/Card-Forge/forge>
 
-## Manabrew Forge harness
+Earlier runtime packages included Manabrew's headless Forge harness and
+protocol adapter. Their applicable AGPL-3.0-or-later and CC-BY-4.0 notices remain
+with those historical packages and in Git history. The current runtime does
+not include that harness or its generated adapter.
 
-The optional server runtime uses Manabrew's headless Forge harness and its
-generated protocol adapter. Manabrew code is licensed under
-AGPL-3.0-or-later; its published protocol specification is CC-BY-4.0. The exact
-source revision and complete upstream notices are included in every generated
-runtime archive.
-
-Upstream source: <https://github.com/witchesofthehill/manabrew>
+Historical upstream source: <https://github.com/witchesofthehill/manabrew>
 
 Card-data and localized-name attributions remain displayed by the client and
 documented with the card-database builder.

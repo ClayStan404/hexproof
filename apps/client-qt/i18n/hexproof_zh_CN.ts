@@ -127,6 +127,10 @@
 <context>
     <name>BattlefieldView</name>
     <message>
+        <source>Turn %1</source>
+        <translation>回合 %1</translation>
+    </message>
+    <message>
         <source>Emblems · %1</source>
         <translation>徽记 · %1</translation>
     </message>
@@ -1220,8 +1224,8 @@
     </message>
     <message>
         <location line="+122"/>
-        <source>Select several options in a category; different categories combine.</source>
-        <translation>同一类别可以多选，不同类别的筛选条件组合生效。</translation>
+        <source>Cards must include every selected color. Other options match any selection in their category; different categories combine.</source>
+        <translation>卡牌须同时包含所有已选颜色。其他类别内满足任一选项即可，不同类别的条件共同生效。</translation>
     </message>
     <message>
         <location line="-96"/>
@@ -1477,6 +1481,34 @@ many tables.</source>
 </context>
 <context>
     <name>CreateRoom</name>
+    <message>
+        <source>%1 (recommended)</source>
+        <translation>%1（推荐）</translation>
+    </message>
+    <message>
+        <source>Choose a Commander Cube player cap from 2 to 8</source>
+        <translation>指挥官 Cube 人数上限须为 2～8 人</translation>
+    </message>
+    <message>
+        <source>Each player drafts %4 packs of %6 cards and keeps %5 cards. Build at least 60 cards including commanders. Submitted players enter balanced tables of up to four. A %1-seat room needs %2 Cube cards; this Cube contains %3.</source>
+        <translation>每人轮抓 %4 包，每包 %6 张，共获得 %5 张。组建至少 60 张（含指挥官）的套牌，提交后均衡分入每桌至多四人的对局。人数上限为 %1 人需要 %2 张 Cube 牌，当前 Cube 有 %3 张。</translation>
+    </message>
+    <message>
+        <source>Cards per pack (10–40)</source>
+        <translation>每包张数（10–40）</translation>
+    </message>
+    <message>
+        <source>Choose 10 to 40 cards per pack</source>
+        <translation>每包张数须为 10～40 张</translation>
+    </message>
+    <message>
+        <source>Open two packs together; choose two cards from each</source>
+        <translation>同时开两包，每包分别选两张</translation>
+    </message>
+    <message>
+        <source>Packs per player</source>
+        <translation>每人包数</translation>
+    </message>
     <message>
         <source>Commander Cube</source>
         <translation>指挥官 Cube</translation>
@@ -2390,6 +2422,10 @@ many tables.</source>
         <source>All files</source>
         <translation>所有文件</translation>
     </message>
+    <message>
+        <source>Cache deck art</source>
+        <translation>缓存本套牌卡图</translation>
+    </message>
 </context>
 <context>
     <name>DeckLibrary</name>
@@ -2532,6 +2568,10 @@ many tables.</source>
         <location line="+1"/>
         <source>All files</source>
         <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>Cache library art</source>
+        <translation>缓存所有套牌卡图</translation>
     </message>
 </context>
 <context>
@@ -2983,6 +3023,90 @@ many tables.</source>
 <context>
     <name>I18n</name>
     <message>
+        <source>%1 created a %2 token.</source>
+        <translation>%1 创建了衍生物：%2。</translation>
+    </message>
+    <message>
+        <source>%1 removed token %2 from the battlefield.</source>
+        <translation>%1 从战场移除了衍生物：%2。</translation>
+    </message>
+    <message>
+        <source>%1 removed a face-down token from the battlefield.</source>
+        <translation>%1 从战场移除了一个牌面朝下的衍生物。</translation>
+    </message>
+    <message>
+        <source>%1 turned a battlefield card face down.</source>
+        <translation>%1 将一张战场上的牌翻为牌面朝下。</translation>
+    </message>
+    <message>
+        <source>%1 turned a battlefield card face up.</source>
+        <translation>%1 将一张战场上的牌翻为牌面朝上。</translation>
+    </message>
+    <message>
+        <source>%1 discarded their hand (%2 cards).</source>
+        <translation>%1 弃掉了全部手牌（%2 张）。</translation>
+    </message>
+    <message>
+        <source>%1 randomly discarded %2.</source>
+        <translation>%1 随机弃掉了 %2。</translation>
+    </message>
+    <message>
+        <source>%1 put %2 card(s) from the top of their library into %3.</source>
+        <translation>%1 将自己牌库顶的 %2 张牌置入%3。</translation>
+    </message>
+    <message>
+        <source>%1 returned %2 revealed card(s) to hand.</source>
+        <translation>%1 将 %2 张展示的牌移回手牌。</translation>
+    </message>
+    <message>
+        <source>%1 reordered the top %2 card(s) of their library.</source>
+        <translation>%1 重新排列了自己牌库顶的 %2 张牌。</translation>
+    </message>
+    <message>
+        <source>%1 declared Game %2 a draw.</source>
+        <translation>%1 宣告第 %2 局平局。</translation>
+    </message>
+    <message>
+        <source>%1 restarted Game %2.</source>
+        <translation>%1 重新开始了第 %2 局。</translation>
+    </message>
+    <message>
+        <source>%1 rolled %2 on %3d%4 (total %5).</source>
+        <translation>%1 掷出 %3 个 %4 面骰：%2（合计 %5）。</translation>
+    </message>
+    <message>
+        <source>%1 won the roll for Game %2.</source>
+        <translation>%1 赢得了第 %2 局的先手掷骰。</translation>
+    </message>
+    <message>
+        <source>%1 flipped heads.</source>
+        <translation>%1 掷硬币得到正面。</translation>
+    </message>
+    <message>
+        <source>%1 flipped tails.</source>
+        <translation>%1 掷硬币得到反面。</translation>
+    </message>
+    <message>
+        <source>%1 randomly selected %2.</source>
+        <translation>%1 随机选中了 %2。</translation>
+    </message>
+    <message>
+        <source>The Commander game ended with no remaining players.</source>
+        <translation>指挥官对局结束，没有剩余玩家。</translation>
+    </message>
+    <message>
+        <source>%1 declared %2 attacker(s) toward a battlefield permanent controlled by %3.</source>
+        <translation>%1 宣告了 %2 个攻击者，攻击 %3 操控的战场永久物。</translation>
+    </message>
+    <message>
+        <source>number</source>
+        <translation>数量指示物</translation>
+    </message>
+    <message>
+        <source>counter-%1</source>
+        <translation>计数器 %1</translation>
+    </message>
+    <message>
         <source>%1 conceded. %2 wins Game %3.</source>
         <translation>%1 已投降。%2 赢得第 %3 局。</translation>
     </message>
@@ -3401,6 +3525,10 @@ many tables.</source>
         <translation>每张 Cube 卡牌都需要指定精确印刷版本。</translation>
     </message>
     <message>
+        <source>Card printings unresolved. Install the card database or select printings.</source>
+        <translation>卡牌版本尚未解析。请安装卡牌数据库或选择版本。</translation>
+    </message>
+    <message>
         <location line="+2"/>
         <source>Could not open the legacy Cube library for migration.</source>
         <translation>无法打开旧版 Cube 牌库进行迁移。</translation>
@@ -3704,7 +3832,7 @@ many tables.</source>
     <message>
         <location line="+6"/>
         <source>%1 renamed counter %2 to %3.</source>
-        <translation>%1 将计数器 %2 重命名为 %3。</translation>
+        <translation>%1 将 %2 重命名为 %3。</translation>
     </message>
     <message>
         <source>%1 cast %2 from the command zone; commander tax is now %3.</source>
@@ -4762,6 +4890,74 @@ many tables.</source>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
+    <message>
+        <source>All</source>
+        <translation>全选</translation>
+    </message>
+    <message>
+        <source>Assign</source>
+        <translation>指定</translation>
+    </message>
+    <message>
+        <source>Assign cards</source>
+        <translation>指定卡牌去处</translation>
+    </message>
+    <message>
+        <source>Assign selected cards</source>
+        <translation>指定已选卡牌去处</translation>
+    </message>
+    <message>
+        <source>Deselect all</source>
+        <translation>取消全选</translation>
+    </message>
+    <message>
+        <source>Face down</source>
+        <translation>牌面朝下</translation>
+    </message>
+    <message>
+        <source>First card is drawn next</source>
+        <translation>第一张将最先被抓取</translation>
+    </message>
+    <message>
+        <source>In order</source>
+        <translation>按显示顺序</translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation>反选</translation>
+    </message>
+    <message>
+        <source>Invert selection</source>
+        <translation>反选</translation>
+    </message>
+    <message>
+        <source>Last card is bottommost</source>
+        <translation>最后一张位于牌库最底部</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>清空选择</translation>
+    </message>
+    <message>
+        <source>Only cards without an individual assignment follow this destination.</source>
+        <translation>仅未单独指定去处的牌会前往此处。</translation>
+    </message>
+    <message>
+        <source>Random order</source>
+        <translation>随机顺序</translation>
+    </message>
+    <message>
+        <source>Remainder</source>
+        <translation>其余牌</translation>
+    </message>
+    <message>
+        <source>Select cards to assign together; the rest follow the remainder destination. Drag the handle or use arrows to reorder cards within a destination.</source>
+        <translation>勾选多张牌可统一指定去处，其他牌按“其余牌”的设置处理。拖动把手或使用箭头可调整同一去处内的顺序。</translation>
+    </message>
+    <message>
+        <source>Use remainder destination</source>
+        <translation>恢复为“其余牌”的去处</translation>
+    </message>
 </context>
 <context>
     <name>LifeEditorPopup</name>
@@ -5424,6 +5620,26 @@ your way.</source>
         <source>Disband</source>
         <translation>解散</translation>
     </message>
+    <message>
+        <source>Checking local card art for this match…</source>
+        <translation>正在检查本局可用的本地卡图…</translation>
+    </message>
+    <message>
+        <source>Reusing local card art and downloading only missing assets.</source>
+        <translation>复用本地卡图，仅下载本局缺失的资源。</translation>
+    </message>
+    <message>
+        <source>Checking…</source>
+        <translation>正在检查…</translation>
+    </message>
+    <message>
+        <source>Available locally: %1 · Downloaded: %2 / %3</source>
+        <translation>本地可用 %1 项 · 缺失资源已下载 %2 / %3 项</translation>
+    </message>
+    <message>
+        <source>Assets include all players' unique printings and separate card faces.</source>
+        <translation>资源按所有玩家的卡牌版本去重统计，双面牌的独立卡面分别计数。</translation>
+    </message>
 </context>
 <context>
     <name>NumberInputPopup</name>
@@ -5929,9 +6145,29 @@ your way.</source>
         <source>No permanents on the battlefield</source>
         <translation>战场上没有永久物</translation>
     </message>
+    <message>
+        <source>Auto arrange</source>
+        <translation>自动排列</translation>
+    </message>
+    <message>
+        <source>Creatures</source>
+        <translation>生物</translation>
+    </message>
+    <message>
+        <source>Lands</source>
+        <translation>地</translation>
+    </message>
+    <message>
+        <source>Other permanents</source>
+        <translation>其他永久物</translation>
+    </message>
 </context>
 <context>
     <name>RulesCardSelectionPrompt</name>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
     <message>
         <location filename="../qml/components/RulesCardSelectionPrompt.qml" line="+108"/>
         <source>Unknown card</source>
@@ -5965,9 +6201,25 @@ your way.</source>
         <source>Face-down card</source>
         <translation>牌面朝下的牌</translation>
     </message>
+    <message>
+        <source>%1 dmg</source>
+        <translation>伤害 %1</translation>
+    </message>
+    <message>
+        <source>Attached</source>
+        <translation>已附着</translation>
+    </message>
+    <message>
+        <source>Damage marked: %1</source>
+        <translation>已标记伤害：%1</translation>
+    </message>
 </context>
 <context>
     <name>RulesCombatAssignmentPrompt</name>
+    <message>
+        <source>Block %1 / %2</source>
+        <translation>阻挡 %1 / %2</translation>
+    </message>
     <message>
         <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="+32"/>
         <source>Do not attack</source>
@@ -6193,6 +6445,14 @@ your way.</source>
 <context>
     <name>RulesPromptPanel</name>
     <message>
+        <source>Click highlighted mana sources to pay.</source>
+        <translation>点击高亮的法术力来源支付费用。</translation>
+    </message>
+    <message>
+        <source>Click a highlighted card to play it or use an ability. Right-click to inspect.</source>
+        <translation>点击高亮的卡牌使用该牌或启动异能，右键查看详情。</translation>
+    </message>
+    <message>
         <location filename="../qml/components/RulesPromptPanel.qml" line="+64"/>
         <source>Seat %1 wins the Forge game</source>
         <translation>座位 %1 赢得 Forge 对局</translation>
@@ -6415,6 +6675,14 @@ your way.</source>
 </context>
 <context>
     <name>RulesTable</name>
+    <message>
+        <source>Choose an action for %1</source>
+        <translation>选择%1的动作</translation>
+    </message>
+    <message>
+        <source>Choose an action</source>
+        <translation>选择动作</translation>
+    </message>
     <message>
         <location filename="../qml/screens/RulesTable.qml" line="+283"/>
         <source>The match is complete. Review the public log or return to the room.</source>
@@ -6767,9 +7035,37 @@ your way.</source>
         <source>Forge controls phases and legal actions</source>
         <translation>Forge 控制阶段与合法动作</translation>
     </message>
+    <message>
+        <source>Background</source>
+        <translation>背景</translation>
+    </message>
+    <message>
+        <source>Others</source>
+        <translation>对手</translation>
+    </message>
+    <message>
+        <source>Stop at %1 on other players' turns</source>
+        <translation>在其他玩家回合的%1停下</translation>
+    </message>
+    <message>
+        <source>Stop at %1 on your turns</source>
+        <translation>在自己回合的%1停下</translation>
+    </message>
+    <message>
+        <source>Stops</source>
+        <translation>停点</translation>
+    </message>
+    <message>
+        <source>You</source>
+        <translation>自己</translation>
+    </message>
 </context>
 <context>
     <name>RulesTargetSelectionPrompt</name>
+    <message>
+        <source>Click highlighted cards or players on the table.</source>
+        <translation>点击桌面上高亮的卡牌或玩家。</translation>
+    </message>
     <message>
         <location filename="../qml/components/RulesTargetSelectionPrompt.qml" line="+51"/>
         <source>Player</source>
@@ -7033,8 +7329,24 @@ your way.</source>
     </message>
     <message>
         <location line="-460"/>
-        <source>Language, updates, and local card data</source>
-        <translation>语言、更新与本地卡牌数据</translation>
+        <source>Language, appearance, updates, and local card data</source>
+        <translation>语言、外观、更新与本地卡牌数据</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>外观</translation>
+    </message>
+    <message>
+        <source>Choose Classic or Glass controls and panels. Battlefield backgrounds are selected separately.</source>
+        <translation>选择经典或玻璃风格的控件和面板，战场背景可单独设置。</translation>
+    </message>
+    <message>
+        <source>Classic</source>
+        <translation>经典</translation>
+    </message>
+    <message>
+        <source>Glass</source>
+        <translation>玻璃</translation>
     </message>
     <message>
         <location line="+95"/>
@@ -7050,6 +7362,18 @@ your way.</source>
         <location line="+37"/>
         <source>Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.</source>
         <translation>始终优先使用本地卡图。自动模式下，中文卡牌优先 MTGCH，英文卡牌优先 Scryfall，并在需要时自动回退。</translation>
+    </message>
+    <message>
+        <source>Parallel</source>
+        <translation>双源并行</translation>
+    </message>
+    <message>
+        <source>Use both sources to speed up large card downloads, such as EDH games.</source>
+        <translation>同时使用两个来源，加快 EDH 对局等场景下的大批量卡图下载。</translation>
+    </message>
+    <message>
+        <source>Local art remains first. Scryfall and MTGCH download different cards in parallel, with Chinese art preferred for Chinese cards and automatic fallback.</source>
+        <translation>始终优先使用本地卡图。Scryfall 与 MTGCH 并行下载不同卡牌，中文模式优先中文卡图，并在需要时自动回退。</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -8024,6 +8348,10 @@ your way.</source>
         <source>Clear filters</source>
         <translation>清除筛选</translation>
     </message>
+    <message>
+        <source>Waiting…</source>
+        <translation>等待中…</translation>
+    </message>
 </context>
 <context>
     <name>SponsorAnnouncementPopup</name>
@@ -8051,6 +8379,10 @@ your way.</source>
 <context>
     <name>SponsorCatalog</name>
     <message>
+        <source>TCG enthusiast and organizer, Magic: The Gathering judge, Shenyang XYZ team. Creates Magic: The Gathering videos on Bilibili. Visit the profile to follow.</source>
+        <translation>TCG 爱好者、组织者，万智牌裁判，沈阳 XYZ 战队。在 B 站制作万智牌相关视频，欢迎点击主页关注。</translation>
+    </message>
+    <message>
         <source>Ragavan, Nimble Pilferer</source>
         <translation>巧手窃猴勒格文</translation>
     </message>
@@ -8065,6 +8397,14 @@ your way.</source>
 </context>
 <context>
     <name>SponsorList</name>
+    <message>
+        <source>Special thanks</source>
+        <translation>特别鸣谢</translation>
+    </message>
+    <message>
+        <source>Thank you for your generous support.</source>
+        <translation>感谢你的慷慨支持。</translation>
+    </message>
     <message>
         <source>No sponsors in this tier yet</source>
         <translation>本等级暂无赞助者</translation>
@@ -9038,6 +9378,10 @@ your way.</source>
         <source>Hands are hidden from spectators in this room</source>
         <translation>本房间对观战者隐藏手牌</translation>
     </message>
+    <message>
+        <source>Drag the top card to a zone. Hold Shift while dragging to exile to keep it face down; no player may look. Right-click for more actions.</source>
+        <translation>拖动牌库顶牌到目标区域。按住 Shift 拖到放逐区可背面朝上放逐，所有人均不可查看。右键打开更多操作。</translation>
+    </message>
 </context>
 <context>
     <name>TableAreaMenus</name>
@@ -9616,6 +9960,10 @@ your way.</source>
         <source>Put top X cards into exile…</source>
         <translation>将牌库顶 X 张牌置入放逐区…</translation>
     </message>
+    <message>
+        <source>Exile top card face down (no player may look)</source>
+        <translation>将牌库顶牌背面朝上放逐（所有人不可查看）</translation>
+    </message>
 </context>
 <context>
     <name>TableMenus</name>
@@ -9920,6 +10268,10 @@ your way.</source>
         <location line="+7"/>
         <source>Apply</source>
         <translation>应用</translation>
+    </message>
+    <message>
+        <source>Battlefield background…</source>
+        <translation>战场背景…</translation>
     </message>
 </context>
 <context>
@@ -10545,6 +10897,22 @@ your way.</source>
 <context>
     <name>TournamentLobby</name>
     <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Draft packs %1–%2 of %3</source>
+        <translation>第 %1～%2 包 / 共 %3 包</translation>
+    </message>
+    <message>
+        <source>Optional cards · one outside copy of each</source>
+        <translation>固定可选牌 · 每种额外一张</translation>
+    </message>
+    <message>
+        <source>Pack %1 · %2/%3 selected</source>
+        <translation>%1 包 · 已选 %2/%3 张</translation>
+    </message>
+    <message>
         <source>%1 cards have unknown identity.</source>
         <translation>%1 张牌的标识色未知。</translation>
     </message>
@@ -11057,6 +11425,10 @@ your way.</source>
         <location line="+5"/>
         <source>Automatic source · MTGCH first, Scryfall fallback</source>
         <translation>自动来源 · 优先 MTGCH，回退 Scryfall</translation>
+    </message>
+    <message>
+        <source>Parallel sources · Scryfall + MTGCH</source>
+        <translation>双源并行 · Scryfall + MTGCH</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -11851,6 +12223,22 @@ your way.</source>
         <source>Seat %1</source>
         <translation>座位 %1</translation>
     </message>
+    <message>
+        <source>Basic lands &amp; optional cards</source>
+        <translation>基本地与可选牌</translation>
+    </message>
+    <message>
+        <source>Choose commanders from your drafted cards or use the Piper fallback.</source>
+        <translation>从已抓牌中选择指挥官，或使用棱彩吹笛手作为备选。</translation>
+    </message>
+    <message>
+        <source>Choose up to two commanders from your drafted cards; choosing one adds it to your main deck. Eligibility and partner rules are reminders only. Use All drafted cards for house rules.</source>
+        <translation>从已抓牌中选择至多两位指挥官，选中后会自动加入主牌。指挥官资格与拍档规则仅作提醒；使用自定义规则时可切换到“全部已抓牌”。</translation>
+    </message>
+    <message>
+        <source>From your drafted cards</source>
+        <translation>来自已抓牌池</translation>
+    </message>
 </context>
 <context>
     <name>WaitingRoom</name>
@@ -12393,6 +12781,18 @@ your way.</source>
         <source>Preview</source>
         <translation>预览</translation>
     </message>
+    <message>
+        <source>Face-down card</source>
+        <translation>背面朝上的牌</translation>
+    </message>
+    <message>
+        <source>No player may look at this card</source>
+        <translation>所有人均不可查看此牌</translation>
+    </message>
+    <message>
+        <source>Face-up cards are public. No player may look at face-down exiled cards.</source>
+        <translation>正面朝上的牌公开可见。背面朝上放逐的牌，所有人均不可查看。</translation>
+    </message>
 </context>
 <context>
     <name>hexproof::client::ClientPreferencesModel</name>
@@ -12425,6 +12825,18 @@ your way.</source>
 </context>
 <context>
     <name>CubeRoom</name>
+    <message>
+        <source>After everyone submits, players enter balanced EDH tables of up to 4 players (BO 1). Eight draft players split into two tables of four. Ready up at your table to start; later games use free invitations.</source>
+        <translation>所有人提交后，均衡分入每桌至多 4 人的 EDH 对局（BO 1）。8 人轮抓分为两桌，每桌 4 人。进入各自牌桌后准备开始，后续对局可自由邀请。</translation>
+    </message>
+    <message>
+        <source>Draft: %1 packs of %3 cards per player. Open %2 pack(s) together and choose 2 cards from each before passing. The last 1 or 2 cards are collected automatically. Direction alternates each batch; an odd final pack is drafted alone.</source>
+        <translation>轮抓：每人 %1 包，每包 %3 张。每次开 %2 包，各选 2 张后一起传递，最后剩余的 1 或 2 张自动收取。每批交替传递方向；包数为奇数时，最后一包单独轮抓。</translation>
+    </message>
+    <message>
+        <source>Optional cards: add up to one outside copy each of Sol Ring, Command Tower, and Arcane Signet during deck building. Only selected copies enter your deck; unused copies stay outside the pool.</source>
+        <translation>固定可选牌：组牌时可额外添加阳光戒、指挥塔、秘法印记各一张。只有选中的牌才加入套牌，未选的牌不进入牌池。</translation>
+    </message>
     <message>
         <source>A short disconnect preserves the seat and waits. Auto-draft only starts with explicit consent: enable it yourself, or the host may confirm it after a seat has been offline for over 3 minutes. Picks are random and pools stay private. Reclaim control when you return.</source>
         <translation>短暂掉线会保留座位并等待。托管须由本人主动开启，或由房主在该座位离线超过 3 分钟后确认开启。托管随机抓牌，不公开牌池；回来后可收回控制。</translation>
@@ -13182,4 +13594,894 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>合体牌：%1</translation>
     </message>
 </context>
+<context>
+    <name>TableBackgrounds</name>
+    <message>
+        <source>Default background</source>
+        <translation>默认背景</translation>
+    </message>
+    <message>
+        <source>Dusk ruins</source>
+        <translation>夕阳遗迹</translation>
+    </message>
+    <message>
+        <source>Emerald sanctuary</source>
+        <translation>翡翠秘境</translation>
+    </message>
+    <message>
+        <source>Arcane stars</source>
+        <translation>奥术星海</translation>
+    </message>
+    <message>
+        <source>Obsidian wastes</source>
+        <translation>黑曜熔境</translation>
+    </message>
+    <message>
+        <source>Silent frostlands</source>
+        <translation>静谧霜原</translation>
+    </message>
+    <message>
+        <source>Ink mountains</source>
+        <translation>墨隐山川</translation>
+    </message>
+    <message>
+        <source>Woven sand</source>
+        <translation>暖砂织纹</translation>
+    </message>
+</context>
+<context>
+    <name>TableBackgroundPicker</name>
+    <message>
+        <source>Battlefield background</source>
+        <translation>战场背景</translation>
+    </message>
+    <message>
+        <source>Use the default background without an image, or choose artwork independently of the interface theme. Changes apply immediately and are saved on this device.</source>
+        <translation>可使用不带图片的默认背景，也可独立于界面主题选择背景图。切换后立即生效，并在本机保存。</translation>
+    </message>
+</context>
+<context>
+    <name>TableBackgroundPopup</name>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+</context>
+<context>
+    <name>RulesCardNamePrompt</name>
+    <message>
+        <source>Enter an English card name, or choose a suggestion.</source>
+        <translation>输入英文牌名，或从建议列表中选择。</translation>
+    </message>
+    <message>
+        <source>English card name</source>
+        <translation>英文牌名</translation>
+    </message>
+    <message>
+        <source>Confirm name</source>
+        <translation>确认牌名</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+</context>
+<context>
+    <name>RulesCardDetailsPopup</name>
+    <message>
+        <source>Controller: Seat %1</source>
+        <translation>操控者：座位 %1</translation>
+    </message>
+    <message>
+        <source>Owner: Seat %1</source>
+        <translation>拥有者：座位 %1</translation>
+    </message>
+    <message>
+        <source>Power / toughness: %1 / %2</source>
+        <translation>力量 / 防御力：%1 / %2</translation>
+    </message>
+    <message>
+        <source>Damage marked: %1</source>
+        <translation>已标记伤害：%1</translation>
+    </message>
+    <message>
+        <source>Counters: %1</source>
+        <translation>指示物：%1</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Tapped</source>
+        <translation>已横置</translation>
+    </message>
+    <message>
+        <source>Untapped</source>
+        <translation>未横置</translation>
+    </message>
+    <message>
+        <source>Attacking</source>
+        <translation>正在攻击</translation>
+    </message>
+    <message>
+        <source>another object</source>
+        <translation>另一个物件</translation>
+    </message>
+    <message>
+        <source>Attached to %1</source>
+        <translation>附着于 %1</translation>
+    </message>
+    <message>
+        <source>Stack ability</source>
+        <translation>堆叠异能</translation>
+    </message>
+    <message>
+        <source>Face-down card</source>
+        <translation>牌面朝下的牌</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Printed card image</source>
+        <translation>印刷牌面</translation>
+    </message>
+    <message>
+        <source>Current game state</source>
+        <translation>当前对局状态</translation>
+    </message>
+</context>
+<context>
+    <name>RulesCounters</name>
+    <message>
+        <source>Lore</source>
+        <translation>学问</translation>
+    </message>
+    <message>
+        <source>Energy</source>
+        <translation>能量</translation>
+    </message>
+    <message>
+        <source>Charge</source>
+        <translation>充电</translation>
+    </message>
+    <message>
+        <source>Poison</source>
+        <translation>中毒</translation>
+    </message>
+    <message>
+        <source>Loyalty</source>
+        <translation>忠诚</translation>
+    </message>
+</context>
+<context>
+    <name>RulesCardInspector</name>
+    <message>
+        <source>Attached to %1</source>
+        <translation>附着于 %1</translation>
+    </message>
+    <message>
+        <source>Attacking</source>
+        <translation>正在攻击</translation>
+    </message>
+    <message>
+        <source>Card preview</source>
+        <translation>卡牌预览</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Controller: Seat %1</source>
+        <translation>操控者：座位 %1</translation>
+    </message>
+    <message>
+        <source>Counters: %1</source>
+        <translation>指示物：%1</translation>
+    </message>
+    <message>
+        <source>Current game state</source>
+        <translation>当前对局状态</translation>
+    </message>
+    <message>
+        <source>Damage marked: %1</source>
+        <translation>已标记伤害：%1</translation>
+    </message>
+    <message>
+        <source>Face-down card</source>
+        <translation>牌面朝下的牌</translation>
+    </message>
+    <message>
+        <source>Hover a card to see its image and current state. Right-click to keep it here.</source>
+        <translation>悬停查看大卡图和当前状态，右键固定预览。</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Owner: Seat %1</source>
+        <translation>拥有者：座位 %1</translation>
+    </message>
+    <message>
+        <source>Power / toughness: %1 / %2</source>
+        <translation>力量 / 防御力：%1 / %2</translation>
+    </message>
+    <message>
+        <source>Stack ability</source>
+        <translation>堆叠异能</translation>
+    </message>
+    <message>
+        <source>Tapped</source>
+        <translation>已横置</translation>
+    </message>
+    <message>
+        <source>The image shows the printed card.</source>
+        <translation>图片展示的是印刷牌面。</translation>
+    </message>
+    <message>
+        <source>Untapped</source>
+        <translation>未横置</translation>
+    </message>
+    <message>
+        <source>another object</source>
+        <translation>另一个物件</translation>
+    </message>
+</context>
+<context>
+    <name>RulesOpponentZoneDock</name>
+    <message>
+        <source>Command</source>
+        <translation>统帅区</translation>
+    </message>
+</context>
+<context>
+    <name>RulesActionBar</name>
+    <message>
+        <source>Smart priority enabled</source>
+        <translation>智能优先权已开启</translation>
+    </message>
+    <message>
+        <source>Cancel passing</source>
+        <translation>取消让过</translation>
+    </message>
+    <message>
+        <source>Current stack</source>
+        <translation>结算当前堆叠</translation>
+    </message>
+    <message>
+        <source>Disconnected</source>
+        <translation>连接已断开</translation>
+    </message>
+    <message>
+        <source>Full control</source>
+        <translation>完全控制</translation>
+    </message>
+    <message>
+        <source>Full control · every priority window pauses</source>
+        <translation>完全控制 · 每次获得优先权都暂停</translation>
+    </message>
+    <message>
+        <source>Game finished</source>
+        <translation>游戏已结束</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>继续</translation>
+    </message>
+    <message>
+        <source>Passing priority</source>
+        <translation>正在让过优先权</translation>
+    </message>
+    <message>
+        <source>Passing for the rest of this turn</source>
+        <translation>本回合持续让过</translation>
+    </message>
+    <message>
+        <source>Passing until a response</source>
+        <translation>持续让过，等待响应机会</translation>
+    </message>
+    <message>
+        <source>Pass…</source>
+        <translation>连续让过…</translation>
+    </message>
+    <message>
+        <source>Resolve</source>
+        <translation>结算</translation>
+    </message>
+    <message>
+        <source>Resolving the current stack</source>
+        <translation>正在结算当前堆叠</translation>
+    </message>
+    <message>
+        <source>Rest of this turn</source>
+        <translation>本回合剩余时间</translation>
+    </message>
+    <message>
+        <source>Stopped at %1</source>
+        <translation>在%1停下</translation>
+    </message>
+    <message>
+        <source>Until a response or turn ends</source>
+        <translation>直到出现响应机会或本回合结束</translation>
+    </message>
+    <message>
+        <source>Waiting for another player</source>
+        <translation>等待其他玩家</translation>
+    </message>
+    <message>
+        <source>Waiting for the game</source>
+        <translation>等待游戏处理</translation>
+    </message>
+    <message>
+        <source>Your action · %1</source>
+        <translation>请行动 · %1</translation>
+    </message>
+</context>
+    <context>
+        <name>ForgeCard</name>
+        <message>
+            <source>%1 dmg</source>
+            <translation>%1 点伤害</translation>
+        </message>
+        <message>
+            <source>Attached</source>
+            <translation>已贴附</translation>
+        </message>
+        <message>
+            <source>Attacking</source>
+            <translation>攻击中</translation>
+        </message>
+        <message>
+            <source>Hidden card</source>
+            <translation>隐藏牌</translation>
+        </message>
+    </context>
+    <context>
+        <name>ForgeCombatInteraction</name>
+        <message>
+            <source>Attacking</source>
+            <translation>攻击中</translation>
+        </message>
+        <message>
+            <source>Blocking</source>
+            <translation>阻挡中</translation>
+        </message>
+        <message>
+            <source>Choose an attacker</source>
+            <translation>选择攻击者</translation>
+        </message>
+        <message>
+            <source>Choose a defender</source>
+            <translation>选择防御者</translation>
+        </message>
+    </context>
+    <context>
+        <name>ForgeDuelTable</name>
+        <message>
+            <source>Preparing game</source>
+            <translation>对局准备中</translation>
+        </message>
+        <message>
+            <source>Your turn</source>
+            <translation>你的回合</translation>
+        </message>
+        <message>
+            <source>%1's turn</source>
+            <translation>%1 的回合</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>关闭</translation>
+        </message>
+        <message>
+            <source>Creatures</source>
+            <translation>生物</translation>
+        </message>
+        <message>
+            <source>Settings</source>
+            <translation>设置</translation>
+        </message>
+        <message>
+            <source>Game finished</source>
+            <translation>对局结束</translation>
+        </message>
+        <message>
+            <source>Hand · %1</source>
+            <translation>手牌 · %1</translation>
+        </message>
+        <message>
+            <source>Library · %1</source>
+            <translation>牌库 · %1</translation>
+        </message>
+        <message>
+            <source>Hide log / chat</source>
+            <translation>隐藏日志 / 聊天</translation>
+        </message>
+        <message>
+            <source>Life %1</source>
+            <translation>生命 %1</translation>
+        </message>
+        <message>
+            <source>Opponent's creatures</source>
+            <translation>对手的生物</translation>
+        </message>
+        <message>
+            <source>Opponent's lands</source>
+            <translation>对手的地</translation>
+        </message>
+        <message>
+            <source>Opponent's zones</source>
+            <translation>对手的区域</translation>
+        </message>
+        <message>
+            <source>Other permanents</source>
+            <translation>其他永久物</translation>
+        </message>
+        <message>
+            <source>Show log / chat</source>
+            <translation>显示日志 / 聊天</translation>
+        </message>
+        <message>
+            <source>Turn %1 · %2</source>
+            <translation>回合 %1 · %2</translation>
+        </message>
+        <message>
+            <source>View hand</source>
+            <translation>查看手牌</translation>
+        </message>
+        <message>
+            <source>Waiting for another player</source>
+            <translation>等待另一位玩家</translation>
+        </message>
+        <message>
+            <source>Waiting for the first rules snapshot…</source>
+            <translation>等待首个规则状态…</translation>
+        </message>
+        <message>
+            <source>Your creatures</source>
+            <translation>你的生物</translation>
+        </message>
+        <message>
+            <source>Your lands</source>
+            <translation>你的地</translation>
+        </message>
+        <message>
+            <source>Casts %1 · Tax +%2 · %3</source>
+            <translation>施放 %1 次 · 附加税 +%2 · %3</translation>
+        </message>
+        <message>
+            <source>Hidden zone</source>
+            <translation>隐藏区域</translation>
+        </message>
+        <message>
+            <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
+            <translation>统帅税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
+        </message>
+    </context>
+    <context>
+        <name>ForgeHand</name>
+        <message>
+            <source>%1 — hand (read only)</source>
+            <translation>%1 — 手牌（只读）</translation>
+        </message>
+        <message>
+            <source>Hand · %1</source>
+            <translation>手牌 · %1</translation>
+        </message>
+        <message>
+            <source>Hands are hidden from spectators in this room</source>
+            <translation>此房间的旁观者无法查看手牌</translation>
+        </message>
+    </context>
+    <context>
+        <name>ForgeStack</name>
+        <message>
+            <source>Hidden card</source>
+            <translation>隐藏牌</translation>
+        </message>
+        <message>
+            <source>Seat %1</source>
+            <translation>座位 %1</translation>
+        </message>
+        <message>
+            <source>Target: %1</source>
+            <translation>目标：%1</translation>
+        </message>
+        <message>
+            <source>Face-down spell</source>
+            <translation>牌面朝下的咒语</translation>
+        </message>
+        <message>
+            <source>Stack · %1</source>
+            <translation>堆叠 · %1</translation>
+        </message>
+    </context>
+    <context>
+        <name>RulesCardBrowser</name>
+        <message>
+            <source>Filter by card name</source>
+            <translation>按牌名筛选</translation>
+        </message>
+        <message>
+            <source>Clear filter</source>
+            <translation>清除筛选</translation>
+        </message>
+        <message>
+            <source>Showing %1 of %2 cards</source>
+            <translation>显示 %1 / %2 张牌</translation>
+        </message>
+        <message>
+            <source>Selected only</source>
+            <translation>仅显示已选</translation>
+        </message>
+        <message>
+            <source>Selected</source>
+            <translation>已选择</translation>
+        </message>
+        <message>
+            <source>No cards to display</source>
+            <translation>没有可显示的牌</translation>
+        </message>
+        <message>
+            <source>No cards match this filter</source>
+            <translation>没有符合筛选条件的牌</translation>
+        </message>
+    </context>
+    <context>
+        <name>RulesZoneActions</name>
+        <message>
+            <source>Opponent's %1</source>
+            <translation>对手的%1</translation>
+        </message>
+        <message>
+            <source>Available in other zones · %1</source>
+            <translation>其他区域的可用动作 · %1</translation>
+        </message>
+    </context>
+    <context>
+        <name>ForgeCardLane</name>
+        <message>
+            <source>Library contents are hidden.</source>
+            <translation>牌库内容不可见。</translation>
+        </message>
+    </context>
+    <context>
+        <name>RulesText</name>
+        <message>
+            <source>Choose play or draw</source>
+            <translation>选择先手或后手</translation>
+        </message>
+        <message>
+            <source>Play first</source>
+            <translation>先手</translation>
+        </message>
+        <message>
+            <source>Draw first</source>
+            <translation>后手</translation>
+        </message>
+        <message>
+            <source>OK</source>
+            <translation>确定</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>取消</translation>
+        </message>
+        <message>
+            <source>Accept</source>
+            <translation>接受</translation>
+        </message>
+        <message>
+            <source>Decline</source>
+            <translation>拒绝</translation>
+        </message>
+        <message>
+            <source>Library</source>
+            <translation>牌库</translation>
+        </message>
+        <message>
+            <source>Graveyard</source>
+            <translation>墓地</translation>
+        </message>
+        <message>
+            <source>Top</source>
+            <translation>牌库顶</translation>
+        </message>
+        <message>
+            <source>Bottom</source>
+            <translation>牌库底</translation>
+        </message>
+        <message>
+            <source>Keep this hand</source>
+            <translation>保留这副手牌</translation>
+        </message>
+        <message>
+            <source>View next hand</source>
+            <translation>查看下一副手牌</translation>
+        </message>
+        <message>
+            <source>Confirm decision</source>
+            <translation>确认选择</translation>
+        </message>
+        <message>
+            <source>Choose an action</source>
+            <translation>选择行动</translation>
+        </message>
+        <message>
+            <source>Opening hand</source>
+            <translation>起手牌</translation>
+        </message>
+        <message>
+            <source>Pay mana</source>
+            <translation>支付法术力</translation>
+        </message>
+        <message>
+            <source>Choose a card or player</source>
+            <translation>选择一张牌或一位牌手</translation>
+        </message>
+        <message>
+            <source>Choose cards</source>
+            <translation>选择卡牌</translation>
+        </message>
+        <message>
+            <source>Choose cards to put back</source>
+            <translation>选择要放回的牌</translation>
+        </message>
+        <message>
+            <source>Look at these cards</source>
+            <translation>查看这些牌</translation>
+        </message>
+        <message>
+            <source>Choose an order</source>
+            <translation>选择顺序</translation>
+        </message>
+        <message>
+            <source>Sort cards into zones</source>
+            <translation>将卡牌分配到各区域</translation>
+        </message>
+        <message>
+            <source>Choose targets</source>
+            <translation>选择目标</translation>
+        </message>
+        <message>
+            <source>Declare attackers</source>
+            <translation>宣告攻击者</translation>
+        </message>
+        <message>
+            <source>Declare blockers</source>
+            <translation>宣告阻挡者</translation>
+        </message>
+        <message>
+            <source>Choose combat damage order</source>
+            <translation>选择战斗伤害顺序</translation>
+        </message>
+        <message>
+            <source>Assign combat damage</source>
+            <translation>分配战斗伤害</translation>
+        </message>
+        <message>
+            <source>Choose yes or no</source>
+            <translation>选择是或否</translation>
+        </message>
+        <message>
+            <source>Choose a number</source>
+            <translation>选择数值</translation>
+        </message>
+        <message>
+            <source>Name a card</source>
+            <translation>宣告牌名</translation>
+        </message>
+        <message>
+            <source>Choose colors</source>
+            <translation>选择颜色</translation>
+        </message>
+        <message>
+            <source>Choose options</source>
+            <translation>选择选项</translation>
+        </message>
+        <message>
+            <source>Forge decision required</source>
+            <translation>需要作出规则决策</translation>
+        </message>
+        <message>
+            <source>This decision type is not supported by this Hexproof build.</source>
+            <translation>当前 Hexproof 版本尚不支持此类决策。</translation>
+        </message>
+        <message>
+            <source>Choose a mana ability:</source>
+            <translation>选择法术力异能</translation>
+        </message>
+        <message>
+            <source>Choose optional costs</source>
+            <translation>选择额外可选费用</translation>
+        </message>
+        <message>
+            <source>Choose cost order</source>
+            <translation>选择费用支付顺序</translation>
+        </message>
+        <message>
+            <source>Select order for simultaneous abilities</source>
+            <translation>选择同时触发的异能顺序</translation>
+        </message>
+        <message>
+            <source>Reorder simultaneous abilities</source>
+            <translation>调整同时触发的异能顺序</translation>
+        </message>
+        <message>
+            <source>Select order for replacement effects</source>
+            <translation>选择替代性效应的应用顺序</translation>
+        </message>
+        <message>
+            <source>Reorder replacement effects</source>
+            <translation>调整替代性效应的顺序</translation>
+        </message>
+        <message>
+            <source>Would you like to play or draw?</source>
+            <translation>你要选择先手还是后手？</translation>
+        </message>
+        <message>
+            <source>Do you want to keep your hand?</source>
+            <translation>是否保留这副手牌？</translation>
+        </message>
+        <message>
+            <source>Do you want to scry?</source>
+            <translation>是否进行占卜？</translation>
+        </message>
+        <message>
+            <source>Review the cards in your hand. Keep this hand or view the next starting hand.</source>
+            <translation>查看当前手牌。你可以保留这副手牌，或查看下一副起手牌。</translation>
+        </message>
+        <message>
+            <source>Do you want to discard your hand?</source>
+            <translation>是否弃掉全部手牌？</translation>
+        </message>
+        <message>
+            <source>Do you want to exile all cards in your graveyard?</source>
+            <translation>是否放逐你墓地中的所有牌？</translation>
+        </message>
+        <message>
+            <source>Do you want to exile all cards in your hand?</source>
+            <translation>是否放逐你手上的所有牌？</translation>
+        </message>
+        <message>
+            <source>You have priority.</source>
+            <translation>你拥有优先权。</translation>
+        </message>
+        <message>
+            <source>You have mana floating in your mana pool that could be lost if you pass priority now.</source>
+            <translation>你的法术力池中仍有法术力，现在让过优先权可能导致这些法术力消失。</translation>
+        </message>
+        <message>
+            <source>Click on your life total to pay life for phyrexian mana.</source>
+            <translation>点击你的生命值，以支付生命代替非瑞克西亚法术力。</translation>
+        </message>
+        <message>
+            <source>Mulligans taken: %1</source>
+            <translation>已调度 %1 次</translation>
+        </message>
+        <message>
+            <source>Choose exactly %1 card(s) to put on the bottom of your library.</source>
+            <translation>选择恰好 %1 张牌置于你的牌库底。</translation>
+        </message>
+        <message>
+            <source>Choose exactly %1 card(s).</source>
+            <translation>选择恰好 %1 张牌。</translation>
+        </message>
+        <message>
+            <source>Choose between %1 and %2 card(s).</source>
+            <translation>选择 %1 至 %2 张牌。</translation>
+        </message>
+        <message>
+            <source>%1, you have won the coin toss.</source>
+            <translation>%1，你赢得了先手掷币。</translation>
+        </message>
+        <message>
+            <source>%1, you lost the last game.</source>
+            <translation>%1，你输掉了上一局。</translation>
+        </message>
+        <message>
+            <source>%1, you are going first!</source>
+            <translation>%1，你将先手！</translation>
+        </message>
+        <message>
+            <source>%1 is going first.</source>
+            <translation>%1 将先手。</translation>
+        </message>
+        <message>
+            <source>%1, you are going second.</source>
+            <translation>%1，你将后手。</translation>
+        </message>
+        <message>
+            <source>Starting hand %1 of %2</source>
+            <translation>起手牌 %1 / %2</translation>
+        </message>
+        <message>
+            <source>Use triggered ability of %1?</source>
+            <translation>是否使用 %1 的触发式异能？</translation>
+        </message>
+        <message>
+            <source>Put %1 on the top of library or graveyard?</source>
+            <translation>将 %1 留在牌库顶，还是置入墓地？</translation>
+        </message>
+        <message>
+            <source>Put %1 on the top or bottom of your library?</source>
+            <translation>将 %1 放在牌库顶还是牌库底？</translation>
+        </message>
+        <message>
+            <source>Do you want to pay %1 life?</source>
+            <translation>是否支付 %1 点生命？</translation>
+        </message>
+        <message>
+            <source>Pay %1 life</source>
+            <translation>支付 %1 点生命</translation>
+        </message>
+        <message>
+            <source>Use floating %1 mana</source>
+            <translation>使用法术力池中的 %1 法术力</translation>
+        </message>
+        <message>
+            <source>Choose %1 card(s) to discard</source>
+            <translation>选择 %1 张牌弃掉</translation>
+        </message>
+        <message>
+            <source>Pay Mana Cost: %1</source>
+            <translation>支付法术力费用：%1</translation>
+        </message>
+        <message>
+            <source>Priority: %1</source>
+            <translation>优先权：%1</translation>
+        </message>
+        <message>
+            <source>Turn: %1 (%2)</source>
+            <translation>回合：%1（%2）</translation>
+        </message>
+        <message>
+            <source>Day</source>
+            <translation>白昼</translation>
+        </message>
+        <message>
+            <source>Night</source>
+            <translation>黑夜</translation>
+        </message>
+        <message>
+            <source>Phase: %1</source>
+            <translation>阶段：%1</translation>
+        </message>
+        <message>
+            <source>Stack: Empty</source>
+            <translation>堆叠：空</translation>
+        </message>
+        <message>
+            <source>Stack: %1 to resolve.</source>
+            <translation>堆叠：%1 个对象待结算。</translation>
+        </message>
+        <message>
+            <source>Storm Count: %1</source>
+            <translation>风暴计数：%1</translation>
+        </message>
+        <message>
+            <source>Cast spell</source>
+            <translation>施放咒语</translation>
+        </message>
+        <message>
+            <source>Play land</source>
+            <translation>使用地</translation>
+        </message>
+        <message>
+            <source>Activate ability</source>
+            <translation>起动异能</translation>
+        </message>
+        <message>
+            <source>%1 — %2</source>
+            <translation>%1 — %2</translation>
+        </message>
+        <message>
+            <source>First strike combat damage</source>
+            <translation>先攻战斗伤害</translation>
+        </message>
+    </context>
 </TS>

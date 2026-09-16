@@ -26,7 +26,7 @@ func assertAutoDraftPoolConservation(t *testing.T, event *Event) {
 	t.Helper()
 	seen := map[string]bool{}
 	for _, player := range event.Players {
-		want := CubeDraftCardsRequiredForEvent(event.EventType, 1)
+		want := event.packCount * event.cardsPerPack
 		if len(player.Pool) != want || len(player.Inbox) != 0 {
 			t.Fatalf("seat %s: pool %d inbox %d, expected %d private picks", player.ID, len(player.Pool), len(player.Inbox), want)
 		}
@@ -39,17 +39,15 @@ func assertAutoDraftPoolConservation(t *testing.T, event *Event) {
 	}
 	public := event.Snapshot("")
 	if event.Stage != protocol.LimitedStageDeckBuilding || len(public.Pool) != 0 ||
-		len(public.CurrentPack) != 0 || len(public.FallbackCommanders) != 0 || event.packRound != 3 {
+		len(public.CurrentPack) != 0 || len(public.CurrentPacks) != 0 || len(public.OptionalCards) != 0 ||
+		len(public.FallbackCommanders) != 0 || event.packRound != event.packCount {
 		t.Fatalf("unexpected terminal stage or public private cards: %+v", public)
 	}
 }
 
 func TestExplicitAutoDraftAllSeatsTerminatesAndConservesPhysicalCards(t *testing.T) {
 	for _, eventType := range []string{protocol.LimitedEventCubeDraft, protocol.LimitedEventCommanderCube} {
-		counts := []int{2, 3, 4}
-		if eventType == protocol.LimitedEventCubeDraft {
-			counts = append(counts, 8)
-		}
+		counts := []int{2, 3, 4, 8}
 		for _, seats := range counts {
 			t.Run(fmt.Sprintf("%s_%d", eventType, seats), func(t *testing.T) {
 				event := autoDraftEvent(t, eventType, seats)
@@ -76,7 +74,7 @@ func TestExplicitAutoDraftReclaimAndManualMix(t *testing.T) {
 			if err := event.SetAutoDraft(seat.ID, true); err != nil {
 				t.Fatal(err)
 			}
-			if len(seat.Pool) != event.PicksPerSelection() || len(seat.Inbox) != 0 {
+			if len(seat.Pool) != event.PicksPerSelection()*event.packsThisBatch || len(seat.Inbox) != 0 {
 				t.Fatal("explicit activation did not consume exactly one atomic selection")
 			}
 			before := event.Snapshot(seat.ID)
@@ -101,8 +99,10 @@ func TestExplicitAutoDraftReclaimAndManualMix(t *testing.T) {
 					t.Fatal("automatic seats failed to deliver the next manual pack")
 				}
 				ids := []string{}
-				for _, card := range seat.Inbox[0].Cards[:event.PicksPerSelection()] {
-					ids = append(ids, card.ID)
+				for _, part := range seat.Inbox[0].parts() {
+					for _, card := range part.Cards[:min(event.PicksPerSelection(), len(part.Cards))] {
+						ids = append(ids, card.ID)
+					}
 				}
 				if _, err := event.PickCards(seat.ID, ids); err != nil {
 					t.Fatal(err)

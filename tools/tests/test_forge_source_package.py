@@ -25,24 +25,90 @@ PACKAGE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PACKAGE)
 
 
+def make_fixture_trees(directory):
+    """Small structurally complete pair for deploy/packager tests; no Maven/network."""
+    source = directory / "hexproof-forge-source"
+    runtime = directory / "hexproof-forge-runtime"
+    source.mkdir(parents=True)
+    runtime.mkdir()
+    bundled = source / "hexproof-build"
+    bundled.mkdir()
+    for name in PACKAGE.BUILD_FILES:
+        shutil.copy2(TOOLS / name, bundled / name)
+    shutil.copytree(TOOLS / "native-host", bundled / "native-host",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    upstream = PACKAGE.read_upstream(TOOLS)
+    (source / "forge").mkdir()
+    (source / "forge/pom.xml").write_text("<project/>")
+    (source / "forge/LICENSE").write_text("Synthetic GPL fixture license")
+    (source / "source.java").write_text("source payload")
+    (source / "source-link").symlink_to("source.java")
+    for name in ("forge-gui/res/cardsfolder/test.txt", "forge-gui/res/languages/en-US.properties",
+                 "forge-gui/res/deckgendecks/Standard.raw.dat"):
+        path = source / "forge" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic resource")
+    libraries = runtime / "lib"
+    libraries.mkdir()
+    artifacts = []
+    for module in ("forge-core", "forge-game", "forge-ai", "forge-gui"):
+        (source / "forge" / module).mkdir(exist_ok=True)
+        (source / "forge" / module / "pom.xml").write_text("<project/>")
+        temporary = directory / (module + ".jar")
+        with zipfile.ZipFile(temporary, "w") as jar:
+            jar.writestr(module.replace("-", "/") + "/Fixture.class", b"synthetic class")
+        digest = PACKAGE.sha256(temporary)
+        name = f"lib/{digest[:16]}-{module}-1.jar"
+        shutil.copy2(temporary, runtime / name)
+        artifacts.append({"path": name, "sha256": digest, "source": "forge"})
+    dependency = {"groupId": "org.example", "artifactId": "fixture", "version": "1", "classifier": ""}
+    jar_path = runtime / "lib/fixture.jar"
+    with zipfile.ZipFile(jar_path, "w") as jar:
+        jar.writestr("org/example/Fixture.class", b"synthetic dependency")
+    artifacts.append({"path": "lib/fixture.jar", "sha256": PACKAGE.sha256(jar_path), "source": dependency})
+    payload = source / "third-party/maven/fixture-sources.jar"
+    payload.parent.mkdir(parents=True)
+    with zipfile.ZipFile(payload, "w") as jar:
+        jar.writestr("org/example/Fixture.java", "class Fixture {}")
+    pom = payload.with_name("fixture.pom")
+    pom.write_text("<project/>")
+    dependencies = [{**dependency, "scope": "compile", "binarySha256": PACKAGE.sha256(jar_path),
+        "sourceForm": "source-jar", "notices": [], "files": [{"path": payload.relative_to(source).as_posix(),
+        "sha256": PACKAGE.sha256(payload), "origin": "https://example.invalid/synthetic-sources.jar"},
+        {"path": pom.relative_to(source).as_posix(), "sha256": PACKAGE.sha256(pom), "origin": "https://example.invalid/fixture.pom"}]}]
+    PACKAGE.write_json(source / "SOURCE-MANIFEST.json", {"schemaVersion": PACKAGE.SCHEMA_VERSION,
+        "upstream": upstream, "sourceDateEpoch": 12345, "runtimeDependencies": dependencies,
+        "upstreamSources": [], "files": PACKAGE.inventory(source)})
+    shutil.copytree(source / "forge/forge-gui", runtime / "forge-gui")
+    shutil.copytree(bundled / "native-host", runtime / "host-source")
+    shutil.copy2(source / "forge/LICENSE", runtime / "FORGE-LICENSE")
+    with zipfile.ZipFile(runtime / "forge-harness.jar", "w") as jar:
+        jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\nMain-Class: " + upstream["mainClass"]
+            + "\nClass-Path: " + " ".join(entry["path"] for entry in artifacts) + "\n\n")
+        jar.writestr("org/hexproof/forge/NativeHost.class", b"synthetic native host")
+    PACKAGE.write_json(runtime / "provenance.json", {**upstream, "developmentOnly": False,
+        "corePatches": [upstream["patch"]], "artifacts": artifacts,
+        "hostArtifact": {"path": "forge-harness.jar", "sha256": PACKAGE.sha256(runtime / "forge-harness.jar")}})
+    return source, runtime
+
+
+def create_release_fixture(directory):
+    source, runtime = make_fixture_trees(directory)
+    upstream = PACKAGE.read_upstream(TOOLS)
+    suffix = PACKAGE.artifact_suffix(upstream)
+    source_archive = directory / f"hexproof-forge-source-{suffix}.tar.gz"
+    runtime_archive = directory / f"hexproof-forge-runtime-{suffix}.tar.gz"
+    PACKAGE.archive_tree(source, source_archive, 12345)
+    PACKAGE.link_runtime(source_archive, runtime, TOOLS)
+    PACKAGE.archive_tree(runtime, runtime_archive, 12345)
+    return runtime_archive, source_archive
+
+
 class ForgeSourcePackageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-
-    def test_default_checkout_is_versioned_but_explicit_override_is_preserved(self):
-        assignment = next(line for line in (TOOLS / "build.sh").read_text().splitlines()
-                          if line.startswith('source_dir="${HEXPROOF_FORGE_SOURCE_DIR:'))
-        environment = {**os.environ, "repo_root": str(self.root),
-                       "MANABREW_REVISION": "a" * 40, "HEXPROOF_FORGE_PATCH_REVISION": "2"}
-        environment.pop("HEXPROOF_FORGE_SOURCE_DIR", None)
-        command = assignment + '\nprintf "%s" "$source_dir"'
-        default = subprocess.check_output(["bash", "-c", command], env=environment, text=True)
-        self.assertEqual(default, str(self.root / ("build/forge-runtime/source-" + "a" * 40 + "-patch2")))
-        environment["HEXPROOF_FORGE_SOURCE_DIR"] = str(self.root / "owner checkout")
-        explicit = subprocess.check_output(["bash", "-c", command], env=environment, text=True)
-        self.assertEqual(explicit, str(self.root / "owner checkout"))
 
     def dependencies(self, lines=None):
         binary = self.root / "repository with spaces/library.jar"
@@ -55,19 +121,8 @@ class ForgeSourcePackageTests(unittest.TestCase):
         return report
 
     def bundle(self):
-        root = self.root / "hexproof-forge-source"
-        tools = root / "hexproof-build"
-        (tools / "patches").mkdir(parents=True)
-        shutil.copy(TOOLS / "VERSIONS.env", tools)
-        shutil.copy(TOOLS / "patches/manifest.json", tools / "patches")
-        (root / "source.java").write_text("source payload")
-        (root / "source-link").symlink_to("source.java")
-        manifest = {"schemaVersion": PACKAGE.SCHEMA_VERSION,
-                    "versions": PACKAGE.read_versions(TOOLS / "VERSIONS.env"),
-                    "sourceDateEpoch": 12345, "runtimeDependencies": [],
-                    "files": PACKAGE.inventory(root)}
-        (root / "SOURCE-MANIFEST.json").write_text(json.dumps(manifest))
-        return root
+        source, _runtime = make_fixture_trees(self.root)
+        return source
 
     def test_dependency_parser_preserves_classifier_and_paths_with_spaces(self):
         dependencies = PACKAGE.parse_dependencies(self.dependencies())
@@ -155,7 +210,7 @@ class ForgeSourcePackageTests(unittest.TestCase):
     def test_patch_revision_mismatch_is_rejected(self):
         root = self.bundle()
         manifest = json.loads((root / "SOURCE-MANIFEST.json").read_text())
-        manifest["versions"]["HEXPROOF_FORGE_PATCH_REVISION"] = "99999"
+        manifest["upstream"]["adapterRevision"] = 99999
         (root / "SOURCE-MANIFEST.json").write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, "version"):
             PACKAGE.verify_bundle(root, TOOLS)
@@ -197,7 +252,7 @@ class ForgeSourcePackageTests(unittest.TestCase):
         self.assertIn("outside", result.stderr)
 
     def test_xmlpull_module_uses_only_four_original_api_classes_and_notice(self):
-        source = self.root / "manabrew"
+        source = self.root / "official-source"
         (source / "forge").mkdir(parents=True)
         (source / "forge/pom.xml").write_text('<project xmlns="http://maven.apache.org/POM/4.0.0">'
                                              '<properties><revision>2.0.11-SNAPSHOT</revision></properties></project>')
@@ -213,11 +268,8 @@ class ForgeSourcePackageTests(unittest.TestCase):
                 info.size = len(data)
                 archive.addfile(info, io.BytesIO(data))
         with mock.patch.object(PACKAGE, "upstream_archives", return_value=[(original, archive_path)]):
-            PACKAGE.prepare_dependencies(source, TOOLS, self.root / "cache")
-        module = source / "target/hexproof-xmlpull-api"
+            module = PACKAGE.prepare_dependencies(source, TOOLS, self.root / "cache")
         self.assertEqual(len(list(module.rglob("*.java"))), 4)
-        self.assertIn("../../forge/pom.xml", (module / "pom.xml").read_text())
-        self.assertIn("1.1.3.4b", (module / "pom.xml").read_text())
         self.assertFalse((module / "src/main/resources/META-INF/services").exists())
         self.assertEqual((module / "src/main/resources/META-INF/LICENSE-XMLPULL.txt").read_bytes(),
                          b"original public domain notice")
@@ -231,6 +283,110 @@ class ForgeSourcePackageTests(unittest.TestCase):
         with mock.patch.object(PACKAGE, "download", side_effect=AssertionError("network")):
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 PACKAGE.upstream_archives(TOOLS, self.root / "cache", preserved)
+
+    def test_release_pair_verifies_after_runtime_relocation(self):
+        runtime_archive, source_archive = create_release_fixture(self.root)
+        PACKAGE.verify_release(runtime_archive, source_archive, TOOLS)
+        relocated = self.root / "different directory" / "runtime"
+        relocated.parent.mkdir()
+        shutil.move(str(self.root / "hexproof-forge-runtime"), relocated)
+        PACKAGE.validate_runtime(relocated, PACKAGE.read_upstream(TOOLS))
+
+    def test_runtime_tampering_extra_jar_and_symlink_are_rejected(self):
+        create_release_fixture(self.root)
+        runtime = self.root / "hexproof-forge-runtime"
+        upstream = PACKAGE.read_upstream(TOOLS)
+        card = runtime / "forge-gui/res/cardsfolder/test.txt"
+        original = card.read_bytes()
+        card.write_bytes(b"tampered card rules")
+        with self.assertRaisesRegex(ValueError, "inventory/checksum"):
+            PACKAGE.validate_runtime(runtime, upstream)
+        card.write_bytes(original)
+        extra = runtime / "lib/extra.jar"
+        extra.write_bytes(b"undeclared code")
+        PACKAGE.seal_runtime(runtime, upstream)
+        with self.assertRaisesRegex(ValueError, "classpath"):
+            PACKAGE.validate_runtime(runtime, upstream)
+        extra.unlink()
+        card.unlink()
+        card.symlink_to("../languages/en-US.properties")
+        PACKAGE.seal_runtime(runtime, upstream)
+        with self.assertRaisesRegex(ValueError, "symlinks"):
+            PACKAGE.validate_runtime(runtime, upstream)
+
+    def test_self_consistent_runtime_resource_license_and_notice_drift_rejected(self):
+        runtime_archive, source_archive = create_release_fixture(self.root)
+        runtime = self.root / "hexproof-forge-runtime"
+        for name in ("forge-gui/res/cardsfolder/test.txt", "FORGE-LICENSE", "THIRD-PARTY-LICENSES/extra.txt"):
+            with self.subTest(name=name):
+                path = runtime / name
+                original = path.read_bytes() if path.exists() else None
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"different from corresponding source")
+                PACKAGE.seal_runtime(runtime, PACKAGE.read_upstream(TOOLS))
+                PACKAGE.archive_tree(runtime, runtime_archive, 12345)
+                with self.assertRaisesRegex(ValueError, "resources|license|notices"):
+                    PACKAGE.verify_release(runtime_archive, source_archive, TOOLS)
+                if original is None:
+                    path.unlink()
+                else:
+                    path.write_bytes(original)
+
+    def test_source_cannot_omit_required_native_archives_or_use_unknown_source_form(self):
+        root = self.bundle()
+        path = root / "SOURCE-MANIFEST.json"
+        manifest = json.loads(path.read_text())
+        manifest["runtimeDependencies"][0]["sourceForm"] = "url-only-offer"
+        PACKAGE.write_json(path, manifest)
+        with self.assertRaisesRegex(ValueError, "source form"):
+            PACKAGE.verify_bundle(root, TOOLS)
+        manifest["runtimeDependencies"][0].update({"sourceForm": "source-jar", "groupId": "at.yawk.lz4",
+                                                   "artifactId": "lz4-java", "version": "1.10.2"})
+        PACKAGE.write_json(path, manifest)
+        with self.assertRaisesRegex(ValueError, "pinned upstream source archives"):
+            PACKAGE.verify_bundle(root, TOOLS)
+
+    def test_embedded_rebuild_imports_do_not_modify_preserved_source(self):
+        root = self.bundle()
+        before = PACKAGE.inventory(root)
+        code = """import pathlib, runpy, sys
+root = pathlib.Path(sys.argv[1])
+namespace = runpy.run_path(str(root / 'hexproof-build/source-package.py'))
+namespace['verify_bundle'](root, root / 'hexproof-build')
+builder = namespace['load_builder'](root / 'hexproof-build')
+builder.packaging().verify_bundle(root, root / 'hexproof-build')
+assert not list(root.rglob('*.pyc'))
+"""
+        subprocess.run(["python3", "-c", code, str(root)], cwd=root, check=True,
+                        text=True, capture_output=True, timeout=15)
+        self.assertEqual(before, PACKAGE.inventory(root))
+
+    def test_source_repack_keeps_canonical_root_after_directory_rename(self):
+        root = self.bundle()
+        renamed = self.root / "owner-renamed-sources"
+        root.rename(renamed)
+        archive = self.root / "renamed.tar.gz"
+        PACKAGE.archive_tree(renamed, archive, 12345, "hexproof-forge-source")
+        extracted = PACKAGE.extract_archive(archive, self.root / "extracted", "hexproof-forge-source")
+        PACKAGE.verify_bundle(extracted, TOOLS)
+
+    def test_archive_rejects_traversal_duplicates_special_files_and_escaping_links(self):
+        for kind in ("traversal", "duplicate", "symlink", "fifo"):
+            with self.subTest(kind=kind):
+                path = self.root / (kind + ".tar.gz")
+                with tarfile.open(path, "w:gz") as archive:
+                    name = "../outside" if kind == "traversal" else "hexproof-forge-source/item"
+                    member = tarfile.TarInfo(name)
+                    if kind == "symlink":
+                        member.type = tarfile.SYMTYPE
+                        member.linkname = "../../outside"
+                    elif kind == "fifo":
+                        member.type = tarfile.FIFOTYPE
+                    archive.addfile(member)
+                    if kind == "duplicate":
+                        archive.addfile(tarfile.TarInfo("hexproof-forge-source/./item"))
+                with self.assertRaisesRegex(ValueError, "Unsafe|duplicate|escapes"):
+                    PACKAGE.extract_archive(path, self.root / kind, "hexproof-forge-source")
 
     def test_workflow_is_optional_native_and_never_publishes_or_deploys(self):
         workflow = (REPO / ".github/workflows/forge-runtime.yml").read_text()

@@ -45,13 +45,6 @@ func TestLiveForgeRuntime(t *testing.T) {
 			t.Logf("synthetic-game diagnostics: %s", data)
 		}
 	})
-	started := time.Now()
-	client, err := Start(context.Background(), config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
-	t.Logf("real runtime ready in %s", time.Since(started))
 	for _, scenario := range []struct {
 		name, land, spell string
 		combat            bool
@@ -60,6 +53,7 @@ func TestLiveForgeRuntime(t *testing.T) {
 		{"targeted_damage", "Mountain", "Lightning Bolt", false},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
+			client := liveStartClient(t, config)
 			request := liveStartRequest(scenario.name, 2, "Constructed", 20,
 				liveDeck(scenario.land, scenario.spell, 24, 36))
 			game, err := client.StartGame(context.Background(), request)
@@ -76,7 +70,85 @@ func TestLiveForgeRuntime(t *testing.T) {
 			}
 		})
 	}
+	t.Run("trample_two_blockers", func(t *testing.T) {
+		client := liveStartClient(t, config)
+		request := liveStartRequest("trample-two-blockers", 2, "Constructed", 20,
+			liveDeck("Forest", "Colossal Dreadmaw", 30, 30))
+		request.Players[1].Deck = liveDeck("Forest", "Grizzly Bears", 24, 36)
+		game, err := client.StartGame(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.AbortGame(context.Background(), game.SessionID)
+		var killed []string
+		beforeLife, expectedDamage, verified := 0, 0, 0
+		stats := livePlayWithPolicy(t, client, game.SessionID, 2, 0,
+			func(prompt PromptView, view GameView, stats map[string]int) PromptResponse {
+				if len(killed) > 0 && prompt.Kind == "chooseAction" {
+					life, _ := livePlayerLife(view, "player-1")
+					for _, cardID := range killed {
+						if _, present := liveCardInZone(view, "graveyard", cardID); !present {
+							t.Fatalf("native assigned lethal damage did not destroy blocker %s", cardID)
+						}
+					}
+					if life != beforeLife-expectedDamage {
+						t.Fatalf("trample resolved life=%d want=%d", life, beforeLife-expectedDamage)
+					}
+					verified++
+					killed = nil
+				}
+				switch prompt.Kind {
+				case "chooseAttackers":
+					answer := PromptResponse{ResponseID: "$submit"}
+					// One attacker per combat makes the exact trample life delta
+					// attributable to this assignment. The other seat never attacks.
+					if prompt.PlayerIndex == 0 && len(prompt.CombatSources) > 0 {
+						source := prompt.CombatSources[0]
+						answer.Assignments = []PromptAssignment{{SourceID: source.ResponseID, TargetID: source.ValidTargetIDs[0]}}
+						stats["attack"]++
+					}
+					return answer
+				case "chooseBlockers":
+					answer := PromptResponse{ResponseID: "$submit"}
+					if prompt.PlayerIndex == 1 && len(prompt.CombatSources) >= 2 {
+						for _, source := range prompt.CombatSources[:2] {
+							answer.Assignments = append(answer.Assignments, PromptAssignment{SourceID: source.ResponseID, TargetID: source.ValidTargetIDs[0]})
+						}
+					}
+					return answer
+				case "chooseCombatDamageAssignment":
+					answer := PromptResponse{ResponseID: "$submit"}
+					remaining := prompt.TotalDamage
+					beforeLife, _ = livePlayerLife(view, "player-1")
+					for _, target := range prompt.DamageTargets {
+						amount := remaining
+						if target.Defender {
+							expectedDamage = amount
+						} else {
+							// The fixture uses uninjured 2/2 blockers. Require the
+							// exact native threshold and submit that engine value.
+							if target.LethalDamage == nil || *target.LethalDamage != 2 {
+								t.Fatalf("native blocker threshold = %v; want 2", target.LethalDamage)
+							}
+							amount = *target.LethalDamage
+							killed = append(killed, target.ID)
+						}
+						if amount > remaining {
+							amount = remaining
+						}
+						answer.DamageAssignments = append(answer.DamageAssignments, PromptDamageAssignment{TargetID: target.ResponseID, Damage: amount})
+						remaining -= amount
+					}
+					return answer
+				}
+				return liveAnswer(t, prompt, view, stats)
+			}, nil)
+		if stats["chooseCombatDamageAssignment"] == 0 || verified == 0 {
+			t.Fatalf("trample scenario did not verify native assignment resolution: %v verified=%d", stats, verified)
+		}
+	})
 	t.Run("commander_four_players", func(t *testing.T) {
+		client := liveStartClient(t, config)
 		request := liveStartRequest("commander", 4, "Commander", 40,
 			liveDeck("Forest", "Grizzly Bears", 50, 49))
 		for i := range request.Players {
@@ -118,9 +190,8 @@ func TestLiveForgeRuntime(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				// The old harness exposes the concession flag before its game
-				// thread has committed the terminal result. Do not mistake that
-				// intermediate observation for a failed final concession.
+				// Wait for the game thread to commit the concession before
+				// asserting the terminal result of the final departure.
 				if view.GameOver || player > 1 && view.Players[player].Status != "playing" {
 					break
 				}
@@ -139,6 +210,7 @@ func TestLiveForgeRuntime(t *testing.T) {
 		}
 	})
 	t.Run("duel_commander_starting_life", func(t *testing.T) {
+		client := liveStartClient(t, config)
 		request := liveStartRequest("duel-commander", 2, "Commander", 20,
 			liveDeck("Plains", "Savannah Lions", 50, 49))
 		for i := range request.Players {
@@ -163,8 +235,22 @@ func TestLiveForgeRuntime(t *testing.T) {
 			}
 		}
 	})
-	t.Run("cards", func(t *testing.T) { liveCardScenarios(t, client) })
-	t.Run("morph_privacy", func(t *testing.T) { liveMorphPrivacy(t, client) })
+	t.Run("cards", func(t *testing.T) { liveCardScenarios(t, config) })
+	t.Run("morph_privacy", func(t *testing.T) { liveMorphPrivacy(t, liveStartClient(t, config)) })
+}
+
+// A real runtime process owns one game. Every scenario starts and reaps its
+// own JVM, just as the server does for a restarted or sideboarded game.
+func liveStartClient(t *testing.T, config ProcessConfig) *Client {
+	t.Helper()
+	started := time.Now()
+	client, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	t.Logf("real runtime ready in %s", time.Since(started))
+	return client
 }
 
 func liveDeck(land, spell string, lands, spells int) []CardIdentity {
@@ -266,6 +352,11 @@ func livePlayWithPolicy(t *testing.T, client *Client, session string, players, s
 					}
 				}
 				previousPublic = view
+				for _, object := range view.Stack {
+					if object.Identity.Name != "" && !strings.HasPrefix(object.ID, "casting-") {
+						stats["cast:Cast "+object.Identity.Name] = 1
+					}
+				}
 				if evidence != nil {
 					evidence.observe(t, view, stats)
 				}
@@ -292,12 +383,12 @@ func livePlayWithPolicy(t *testing.T, client *Client, session string, players, s
 		}
 		var answer PromptResponse
 		if policy == nil {
-			answer = liveAnswer(t, prompt, stats)
+			answer = liveAnswer(t, prompt, previousPublic, stats)
 		} else {
 			answer = policy(prompt, previousPublic, stats)
 		}
 		if decisions < 20 || decisions%500 == 0 {
-			t.Logf("decision=%d kind=%s options=%+v answer=%+v", decisions, prompt.Kind, prompt.Options, answer)
+			t.Logf("decision=%d kind=%s options=%+v choices=%+v answer=%+v", decisions, prompt.Kind, prompt.Options, prompt.Choices, answer)
 		}
 		response, err := BuildPromptResponse(raw, prompt.PlayerIndex, prompt.PromptID, answer)
 		if err != nil {
@@ -319,7 +410,7 @@ func livePlayWithPolicy(t *testing.T, client *Client, session string, players, s
 	return stats
 }
 
-func liveAnswer(t *testing.T, prompt PromptView, stats map[string]int) PromptResponse {
+func liveAnswer(t *testing.T, prompt PromptView, view GameView, stats map[string]int) PromptResponse {
 	t.Helper()
 	answer := PromptResponse{ResponseID: "$submit"}
 	switch prompt.Kind {
@@ -329,8 +420,19 @@ func liveAnswer(t *testing.T, prompt PromptView, stats map[string]int) PromptRes
 		answer.ResponseID = "$keep"
 	case "chooseAction":
 		answer.ResponseID = "$pass"
+		mana := liveAvailableMana(view, prompt.PlayerIndex)
 		for _, option := range prompt.Options {
-			if option.Kind == "playLand" || option.Kind == "cast" {
+			if option.Kind == "playLand" {
+				stats["land"]++
+				return PromptResponse{ResponseID: option.ResponseID}
+			}
+		}
+		for _, option := range prompt.Options {
+			cost := liveFixtureCost(option.Label)
+			if card, exiled := liveCardInZone(view, "exile", option.CardID); exiled && card.Identity != nil && card.Identity.Name == "Lovestruck Beast" {
+				cost = 3 // Its Adventure costs one; its creature half from exile costs three.
+			}
+			if option.Kind == "cast" && mana >= cost {
 				answer.ResponseID = option.ResponseID
 				if option.Kind == "playLand" || strings.HasPrefix(option.Label, "Play ") {
 					stats["land"]++
@@ -342,13 +444,21 @@ func liveAnswer(t *testing.T, prompt PromptView, stats map[string]int) PromptRes
 			}
 		}
 	case "payManaCost":
-		answer.ResponseID = "$auto-pay"
+		// Click each native mana action. Auto is only legal when explicitly
+		// offered, and some spells require manual native payment.
 		for _, option := range prompt.Options {
-			if option.ResponseID == "$pay" {
-				answer.ResponseID = "$pay"
-				break
+			if !strings.HasPrefix(option.ResponseID, "$") {
+				return PromptResponse{ResponseID: option.ResponseID}
 			}
 		}
+		for _, id := range []string{"$pay", "$auto-pay", "$cancel"} {
+			for _, option := range prompt.Options {
+				if option.ResponseID == id {
+					return PromptResponse{ResponseID: id}
+				}
+			}
+		}
+		t.Fatalf("native payment has no available action: %+v", prompt)
 	case "chooseAttackers":
 		for _, source := range prompt.CombatSources {
 			if len(source.ValidTargetIDs) > 0 {
@@ -369,13 +479,19 @@ func liveAnswer(t *testing.T, prompt PromptView, stats map[string]int) PromptRes
 				break
 			}
 		}
-		if len(answer.TargetIDs) == 0 {
+		if prompt.MinSelected == 0 {
+			answer.TargetIDs = nil // Native OK commits the already selected target.
+		} else if len(answer.TargetIDs) == 0 {
 			t.Fatalf("synthetic burn spell has no opponent target: %+v", prompt)
 		}
 	case "chooseBoolean", "chooseColor", "chooseFromSelection":
 		total := 0
+		minimum := prompt.ChoiceMinimum
+		if minimum == 0 && len(prompt.Choices) > 0 {
+			minimum = 1 // This policy takes offered abilities, including optional menus.
+		}
 		for _, choice := range prompt.Choices {
-			if total >= prompt.ChoiceMinimum {
+			if total >= minimum {
 				break
 			}
 			answer.ChoiceIDs = append(answer.ChoiceIDs, choice.ResponseID)
@@ -403,4 +519,47 @@ func liveAnswer(t *testing.T, prompt PromptView, stats map[string]int) PromptRes
 		t.Fatalf("scenario needs explicit policy for %s: %s", strings.TrimSpace(prompt.Kind), encoded)
 	}
 	return answer
+}
+
+// Costs are explicit knowledge of these synthetic fixtures, not production
+// legality. Native Forge still validates every selected spell and payment.
+func liveFixtureCost(label string) int {
+	for name, cost := range map[string]int{
+		"Lightning Bolt": 1, "Savannah Lions": 1, "Heart's Desire": 1,
+		"Lovestruck Beast": 1, "Bala Ged Recovery": 0,
+		"Grizzly Bears": 2, "Elvish Visionary": 2,
+		"Emeritus of Truce": 3, "Swords to Plowshares": 1, "Willbender": 3, "Colossal Dreadmaw": 6,
+	} {
+		if strings.Contains(label, name) {
+			return cost
+		}
+	}
+	return 100 // Unlisted abilities need a declared policy before being exercised.
+}
+
+func liveAvailableMana(view GameView, player int) int {
+	owner := fmt.Sprintf("player-%d", player)
+	mana := 0
+	for _, zone := range view.Zones {
+		if zone.Zone != "battlefield" {
+			continue
+		}
+		for _, card := range zone.Cards {
+			if card.ControllerID != owner || card.Tapped || card.Identity == nil {
+				continue
+			}
+			switch card.Identity.Name {
+			case "Forest", "Mountain", "Plains", "Island", "Swamp", "Bala Ged Sanctuary":
+				mana++
+			}
+		}
+	}
+	for _, player := range view.Players {
+		if player.ID == owner {
+			for _, amount := range player.ManaPool {
+				mana += amount
+			}
+		}
+	}
+	return mana
 }

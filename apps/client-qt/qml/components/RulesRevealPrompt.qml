@@ -14,26 +14,34 @@ Item {
     required property var cardCatalogModel
     required property var cardModel
     required property int promptId
+    property bool expandedView: false
 
-    implicitHeight: cardList.count > 0 ? Theme.size(142) : Theme.size(48)
+    readonly property bool narrowLayout: width < Theme.size(490)
+
+    implicitHeight: expandedView ? Theme.size(540) : cardList.count > 0
+                    ? Theme.size(142) + (narrowLayout ? Theme.size(12) + acknowledgeButton.implicitHeight : 0)
+                    : Math.max(Theme.size(48), revealLayout.implicitHeight)
 
     function acknowledge() {
         wsModel.respondRulesPrompt(promptId, "$ack")
     }
 
-    RowLayout {
+    GridLayout {
+        id: revealLayout
         anchors.fill: parent
-        spacing: Theme.size(12)
+        columns: root.expandedView || root.narrowLayout ? 1 : 2
+        columnSpacing: Theme.size(12)
+        rowSpacing: Theme.size(12)
 
-        ListView {
+        RulesHorizontalListView {
             id: cardList
-            objectName: "revealCardList"
+            objectName: root.expandedView ? "" : "revealCardList"
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
+            Layout.preferredHeight: Theme.size(142)
+            visible: count > 0 && !root.expandedView
             spacing: Theme.size(8)
-            clip: true
             model: root.cardModel
 
             delegate: Rectangle {
@@ -46,7 +54,7 @@ Item {
                 required property bool token
 
                 width: Theme.size(88)
-                height: cardList.height
+                height: cardList.itemHeight
                 radius: Theme.radiusSmall
                 color: Theme.surfaceMuted
                 border.width: 1
@@ -94,10 +102,21 @@ Item {
             }
         }
 
+        RulesCardBrowser {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.expandedView
+            cardModel: root.expandedView ? root.cardModel : null
+            cardCatalogModel: root.cardCatalogModel
+            promptId: root.promptId
+            readOnly: true
+            candidatesName: "revealCardList"
+        }
+
         Text {
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            visible: cardList.count === 0
+            visible: cardList.count === 0 && !root.expandedView
             text: qsTr("No cards to display")
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(10)
@@ -105,8 +124,10 @@ Item {
         }
 
         AppButton {
+            id: acknowledgeButton
             objectName: "acknowledgeRevealButton"
-            Layout.preferredWidth: Theme.size(150)
+            Layout.fillWidth: root.expandedView || root.narrowLayout
+            Layout.preferredWidth: root.expandedView || root.narrowLayout ? -1 : Theme.size(150)
             compact: true
             variant: "primary"
             text: qsTr("Continue")

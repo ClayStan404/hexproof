@@ -9,6 +9,173 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-16
+
+Rebuilds rules battles around the official Forge engine and a dedicated native
+1v1 table, including Duel Commander. The manual tabletop remains available.
+This release consolidates the changes since 1.2.0.
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.0.0**; application versions
+  must match exactly. The WebSocket protocol remains `hexproof.v1`.
+- Forge is an optional, separately configured server runtime. New rules-table
+  delivery covers 1v1 formats and Duel Commander; multiplayer EDH is outside
+  this scope. Existing manual Commander play remains available.
+- Replace legacy Manabrew installations with the pinned official Forge runtime
+  and its matching sources. The application archives contain clients and Go
+  servers; they do not bundle Java, the Forge runtime, or card data.
+- Servers already using official Forge should rebuild its runtime from the
+  2.0.0 sources to include the face-down payment correction.
+- Existing schema-v10 card databases remain compatible. Card-data updates
+  continue through the separate `card-data` release channel.
+
+### Added
+
+- Add three sponsor acknowledgements, including a featured Omniscience supporter
+  with a gold frame, gentle glow, special thanks and a profile introduction in
+  both sponsor lists.
+- Add independent local battlefield backgrounds with an optional built-in
+  playmat, and parallel card-art downloads with inline progress.
+- Drag the manual library's top card directly to the stack. Exile it face down
+  through the library menu or Shift-drag without revealing it to any player,
+  including its owner, for effects such as Bomat Courier. Battlefield face-down
+  rules retain their existing behavior.
+- Show native stack target relationships with exact-object navigation,
+  highlighting and arrows in the Forge table.
+- Show Forge-authored commander cast counts, tax and visible locations in the
+  Duel table, with direct legal commander actions and independent histories.
+- Use the new Forge-specific table for 1v1 rules rooms, with opposed creature
+  lanes, a fanned hand, a separate stack and decision dock, public-zone browsing,
+  and direct combat selection shared with the native assignment controls.
+- Add a Forge action bar beside the hand, smart priority for quiet phases and
+  own-spell responses, full control, own/opponent phase stops, and cancellable
+  passing through a turn or the current stack.
+- Add an official Forge runtime using native human inputs, with a pinned local
+  builder and matching runtime/source packages.
+- Play Forge hand cards and activate permanents directly on the table. Select
+  highlighted cards, stack objects, and players as targets, with immediate
+  single-target submission and shared confirmation for multiple targets.
+- Commander Cube supports up to eight draft players, configurable 10–40-card
+  packs, and small-room choices of 3/4/5/6/8 packs per player. Small rooms default
+  to six packs opened in pairs; larger rooms use three packs opened separately.
+- Commander Cube deck building offers one outside copy each of Sol Ring,
+  Command Tower, and Arcane Signet alongside basic lands. The local multi-client
+  launcher can set up a saved Cube and automatically draft through deck building.
+
+### Fixed
+
+- Keep Morph payment decisions actionable when Forge supplies an anonymous
+  source-card view. Omit the optional preview without disclosing its identity;
+  casting face down, resolving, and turning the card face up retain their
+  normal rules flow.
+- Resolve Commander legality for **Pym Particles (MSH 70)** using its playable
+  printing instead of a same-name auxiliary front card. Keep explicitly chosen
+  printing identities intact.
+- Keep manual library-top drags attached to the actual grab point, including
+  fast movement and drops onto the stack or exile zone. Face-down exile shows
+  card backs and a no-look label for owners, opponents, and spectators.
+- Show sponsor acknowledgements once per application version, so supporters
+  remain visible to existing users after an upgrade.
+- Merge Forge turn/phase, Settings and log/chat controls into the lower-right
+  decision dock, returning the entire top toolbar's height to the battlefield.
+- Prevent Forge phase and priority updates from rebuilding unchanged cards,
+  resetting focus or scroll positions, and shifting continuous-pass controls.
+- Translate common Forge decisions, opening play/draw choices, optional-trigger
+  confirmations and payment prompts using the client's selected language.
+- Place Forge log/chat on the right beside the decision controls, label the
+  menu Settings, and show live library counts in both player summaries and
+  zone browsers. Hide command-zone controls outside Duel Commander.
+- Show the actual card during native Forge surveil confirmations, with adjacent
+  full-card inspection and rules-text fallback when artwork is unavailable.
+- Remove the duplicate central Forge action banner, keeping instructions in
+  the decision dock and returning its height to the battlefield.
+- Preserve Forge's top-first ordering when displaying multiple stack entries.
+- Select player, planeswalker and battle attack destinations directly on the
+  Forge table, and keep damage controls reachable in compact windows.
+- Prevent repeated sideboard Ready submissions while the next Forge game starts.
+- Keep Forge decisions beside the hand at every window size, with independent
+  card inspection; retain a response window after cancelling continuous passing.
+- Make the Forge current-stack control continue through the existing stack and
+  stop on new spells or triggers instead of silently passing only once.
+- Keep Forge inspection on hover/right-click and layout dragging independent
+  of gameplay actions; recognize native land plays when dragging from hand.
+- Keep Forge player controls reachable in narrow multiplayer lanes without
+  moving placed cards when turn, priority, or arrangement controls appear.
+- Retire the Manabrew runtime, legacy launcher and build path; use official
+  Forge throughout local startup, package validation, deployment tooling and CI.
+- Make overflowing rules decisions reachable with mouse wheels, scrollbars and
+  keyboard focus, including large combat declarations and nested scry piles.
+- Keep rules-table base actions visible above long ability lists, and show
+  current power/toughness, damage, counters, energy and public card details.
+- Preserve native cost cancellation and full authorized card reveals before
+  selection, including Collected Company.
+- Preserve full selection sizes for standard native card lists, including
+  Seasoned Pyromancer's discard, and Forge's computed combat-damage thresholds.
+- Restore Forge scry/surveil card placement and reject incomplete partitions.
+- Resolve name-only deck imports to local catalog printings before registration.
+- Preserve anonymous face-down permanents in combat-damage decisions.
+- Isolate each rules game in its own runtime process so a failed game cannot
+  abort another room, and release the process after the game ends.
+- Use native human X payment and searchable public card-name candidates in
+  official Forge decisions.
+- Clear outdated card searches during database replacement, including pending
+  responses and searches closed while the replacement is running.
+- Keep image caching active during automatic retry delays, preserving progress
+  and preventing conflicting card-art maintenance.
+- Close the Limited basic-land editor when its deck-building workspace hides,
+  so table invitations remain accessible without losing deck edits.
+- Reduce temporary allocations in exact Swiss pairing while preserving its
+  minimum-cost pairings and deterministic tie handling.
+- Allow card-art pack previews while background card lookup is active, so a file
+  selected in the native chooser is not rejected by unrelated read activity.
+- Clear a rejected card-art inspection's old preview and report its error.
+- Keep battlefield, stack and revealed-card drags aligned with the actual
+  grab point, including card edges and tapped permanents, so drops reach the
+  intended zone.
+- Include catalog-linked meld result printings in deck art exports while keeping
+  identical image files deduplicated.
+- Keep battlefield face choices synchronized with left-click selection, so the
+  choose-face shortcut works without first opening a card's context menu.
+- Keep fast hand drags aligned with the pointer so dropping later or partly
+  clipped cards onto the stack cannot leave them in hand or move them elsewhere.
+- Refresh full-name double-faced deck entries after their front art downloads,
+  so completed caching no longer leaves those entries marked as missing images.
+- Use the selected printing for legality when a Prepare characteristic shares
+  its name with a standalone card.
+- Classify saved-deck cards by their front-face main types, so localized Gnome
+  or Goblin subtypes containing the character for land do not become lands.
+- Hide obsolete search results immediately when queries or filters change,
+  and release result delegates when the search workspace closes.
+- Refresh a deck's missing-art status when a replacement image arrives at the
+  same saved path, without requiring another edit or a restart.
+- Roll back newly created card-art files when an import fails late, its index
+  cannot be saved, or the application closes before the import commits.
+- Keep deck editing and filtering responsive by refreshing only the changed
+  deck, reusing card projections and rendering only visible gallery rows.
+- Keep card-art import, export, cleanup and custom-art maintenance responsive
+  through asynchronous index commits, bounded display updates and background
+  cleanup of temporary artwork.
+- Deck building retains independent pool/main-deck filters, recognizes localized
+  land types, and offers filtered commander candidates from the drafted pool.
+  Selecting multiple colors requires every selected color.
+- Search-art previews now follow the visible results, discard obsolete pending
+  candidates, and yield to explicit deck caching without inflating its progress.
+- Match preparation distinguishes locally available art from missing downloads,
+  reusing cached card faces before enqueueing network work.
+
+### Development
+
+- Add `./tools/build.sh` for incremental client/server builds, with separate
+  scopes and all online CPU cores used by default for client compilation.
+- Extend isolated native review with real-deck Forge scenarios, manual-table
+  lifecycle checks, and privacy/decision regression coverage. Passing these
+  scenarios does not certify every card interaction or format ban list.
+- Synchronize multi-client test teardown so an early worker disconnect cannot
+  alter another worker's recorded Cube setup state.
+- Add an offline QML Forge table preview for combat, targeting, payment,
+  commander controls, and crowded battlefields.
+
 ## [1.2.0] - 2026-09-10
 
 Consolidates the application changes since 1.0.6 (source baseline **82f8110**).
@@ -295,6 +462,7 @@ Follow-up fixes are combined; reverted theme experiments are not included.
   becomes selectable at 90 physical cards, the two-player pack requirement.
 - Draft columns stay usable on shorter windows.
 
-[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/ClayStan404/hexproof/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/ClayStan404/hexproof/compare/v1.0.6...v1.2.0
 [1.0.6]: https://github.com/ClayStan404/hexproof/releases/tag/v1.0.6

@@ -105,8 +105,8 @@ func (t *Tournament) pairingCosts(players []*Participant) func(*Participant, *Pa
 func (t *Tournament) minimumCostPairs(players []*Participant) []playerPair {
 	costFor := t.pairingCosts(players)
 	type solution struct {
-		cost  int
-		pairs []playerPair
+		cost   int
+		second int
 	}
 	memo := make(map[uint64]solution)
 	var solve func(uint64) solution
@@ -130,16 +130,27 @@ func (t *Tournament) minimumCostPairs(players []*Participant) []playerPair {
 			remainder := solve(withoutFirst &^ (uint64(1) << second))
 			cost := costFor(players[first], players[second]) + remainder.cost
 			if cost < best.cost {
-				pairs := make([]playerPair, 1, len(remainder.pairs)+1)
-				pairs[0] = playerPair{players[first], players[second]}
-				pairs = append(pairs, remainder.pairs...)
-				best = solution{cost: cost, pairs: pairs}
+				best = solution{cost: cost, second: second}
 			}
 		}
 		memo[mask] = best
 		return best
 	}
-	return solve((uint64(1) << len(players)) - 1).pairs
+	mask := (uint64(1) << len(players)) - 1
+	solve(mask)
+	// Keep only the winning choice per subproblem. Building complete pair
+	// lists during the search repeatedly copies solutions that are discarded.
+	pairs := make([]playerPair, 0, len(players)/2)
+	for mask != 0 {
+		first := 0
+		for mask&(uint64(1)<<first) == 0 {
+			first++
+		}
+		second := memo[mask].second
+		pairs = append(pairs, playerPair{players[first], players[second]})
+		mask &^= (uint64(1) << first) | (uint64(1) << second)
+	}
+	return pairs
 }
 
 func (t *Tournament) greedyPairs(players []*Participant) []playerPair {

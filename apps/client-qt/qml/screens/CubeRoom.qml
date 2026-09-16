@@ -352,6 +352,7 @@ Page {
                     compact: true
                     variant: "ghost"
                     text: qsTr("Close")
+                    objectName: "cubeRoomInfoCloseButton"
                     onClicked: roomPopup.close()
                 }
             }
@@ -398,6 +399,7 @@ Page {
                 visible: root.roomInfoTab === 2
                 commanderCube: root.commanderCube
                 matchMode: root.tournamentModel.matchMode
+                draftSettings: root.tournamentModel.draftSettings || ({packsPerPlayer: 3, packsPerBatch: 1})
             }
         }
     }

@@ -8,6 +8,7 @@ ComboBox {
     id: control
 
     property var textForIndex: null
+    property var enabledForIndex: null
 
     implicitHeight: Theme.size(44)
     leftPadding: Theme.size(13)
@@ -45,17 +46,46 @@ ComboBox {
         font.pixelSize: Theme.fontSize(15)
     }
 
-    background: Rectangle {
-        color: control.enabled ? Theme.surfaceMuted : Theme.disabled
-        radius: Theme.radiusMedium
-        border.width: 1
-        border.color: control.activeFocus ? Theme.primary
-                      : (control.hovered ? Theme.borderStrong : Theme.border)
+    background: Item {
+        implicitHeight: Theme.size(44)
+
+        LiquidGlass {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            compact: true
+            elevated: control.activeFocus || control.hovered
+            visible: Theme.useGlass && control.enabled
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            antialiasing: true
+            visible: !Theme.useGlass || !control.enabled
+            color: control.enabled ? Theme.surfaceMuted : Theme.disabled
+            border.width: 1
+            border.color: control.activeFocus ? Theme.primary
+                          : (control.hovered ? Theme.borderStrong : Theme.border)
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            antialiasing: true
+            visible: Theme.useGlass && control.enabled
+            color: Theme.withAlpha("#FFFFFF",
+                                   control.activeFocus || control.hovered
+                                   ? 0.12 : 0.08)
+            border.width: 1
+            border.color: control.activeFocus ? Theme.primary
+                          : Theme.glassBorder
+        }
     }
 
     delegate: ItemDelegate {
         id: delegateItem
         required property int index
+        enabled: typeof control.enabledForIndex !== "function" || control.enabledForIndex(index)
         width: ListView.view ? ListView.view.width : control.width
         text: control.optionText(index)
         highlighted: control.highlightedIndex === index
@@ -64,14 +94,17 @@ ComboBox {
         contentItem: Text {
             textFormat: Text.PlainText
             text: delegateItem.text
-            color: delegateItem.highlighted ? Theme.primary : Theme.text
+            color: !delegateItem.enabled ? Theme.textDisabled : delegateItem.highlighted ? Theme.primary : Theme.text
             font: delegateItem.font
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
 
         background: Rectangle {
-            color: delegateItem.highlighted ? Theme.surfaceHover : Theme.surfaceElevated
+            color: delegateItem.highlighted
+                   ? (Theme.useGlass ? Theme.glassElevated : Theme.surfaceHover)
+                   : (Theme.useGlass ? "transparent" : Theme.surfaceElevated)
+            radius: Theme.useGlass ? Theme.radiusSmall : 0
         }
     }
 
@@ -90,11 +123,23 @@ ComboBox {
             ScrollIndicator.vertical: ScrollIndicator { }
         }
 
-        background: Rectangle {
-            color: Theme.surfaceElevated
-            radius: Theme.radiusMedium
-            border.width: 1
-            border.color: Theme.borderStrong
+        background: Item {
+            implicitHeight: Theme.size(44)
+
+            GlassChrome {
+                anchors.fill: parent
+                radius: Theme.useGlass ? Theme.radiusLarge : Theme.radiusMedium
+                visible: Theme.useGlass
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                visible: !Theme.useGlass
+                color: Theme.surfaceElevated
+                radius: Theme.radiusMedium
+                border.width: 1
+                border.color: Theme.borderStrong
+            }
         }
     }
 }

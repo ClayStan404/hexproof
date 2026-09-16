@@ -4,13 +4,14 @@
 package forge
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
 )
 
 func normalizeDamageOrder(input promptInput) (*PromptDamageSource, []PromptDamageTarget, error) {
-	if err := validateDamageCardIDs(input.AttackerID, input.BlockerIDs); err != nil {
+	if err := validateDamageCardIDs(input.AttackerID, input.BlockerIDs, false); err != nil {
 		return nil, nil, err
 	}
 	return &PromptDamageSource{ID: input.AttackerID}, damageTargets(input.BlockerIDs, "card", false), nil
@@ -18,13 +19,19 @@ func normalizeDamageOrder(input promptInput) (*PromptDamageSource, []PromptDamag
 
 func normalizeCombatDamage(input promptInput) (*PromptDamageSource, []PromptDamageTarget, int,
 	bool, error) {
+	if _, err := normalizeDamageAssignmentMode(input.DamageAssignmentMode); err != nil {
+		return nil, nil, 0, false, err
+	}
 	if input.TotalDamage == nil || *input.TotalDamage < 0 || *input.TotalDamage > 100000 {
 		return nil, nil, 0, false, errors.New("Forge damage prompt has invalid total damage")
 	}
-	if err := validateDamageCardIDs(input.AttackerID, input.BlockerIDs); err != nil {
+	if err := validateDamageCardIDs(input.AttackerID, input.BlockerIDs, true); err != nil {
 		return nil, nil, 0, false, err
 	}
 	targets := damageTargets(input.BlockerIDs, "card", false)
+	if err := applyNativeDamageHints(targets, input.BlockerDamageHints); err != nil {
+		return nil, nil, 0, false, err
+	}
 	if defenderID := strings.TrimSpace(input.DefenderID); defenderID != "" {
 		if len(defenderID) > maxPromptText {
 			return nil, nil, 0, false, errors.New("Forge damage prompt has an invalid defender")
@@ -47,9 +54,42 @@ func normalizeCombatDamage(input promptInput) (*PromptDamageSource, []PromptDama
 		input.AttackerHasDeathtouch, nil
 }
 
-func validateDamageCardIDs(sourceID string, targetIDs []string) error {
+func applyNativeDamageHints(targets []PromptDamageTarget, raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return errors.New("Forge damage prompt is missing native blocker thresholds")
+	}
+	var hints []promptDamageHint
+	if err := json.Unmarshal(raw, &hints); err != nil || hints == nil || len(hints) != len(targets) {
+		return errors.New("Forge damage hints must cover exactly the current blockers")
+	}
+	allowed := make(map[string]int, len(targets))
+	for index, target := range targets {
+		allowed[target.ID] = index
+	}
+	seen := make(map[string]bool, len(hints))
+	for _, hint := range hints {
+		index, exists := allowed[hint.ID]
+		if !exists || seen[hint.ID] || hint.LethalDamage == nil || *hint.LethalDamage < 0 || *hint.LethalDamage > 100000 {
+			return errors.New("Forge damage hint has an invalid candidate or lethal threshold")
+		}
+		seen[hint.ID] = true
+		targets[index].LethalDamage = hint.LethalDamage
+	}
+	return nil
+}
+
+func normalizeDamageAssignmentMode(mode string) (string, error) {
+	switch mode {
+	case "ordered", "unordered", "divideFreely":
+		return mode, nil
+	default:
+		return "", errors.New("Forge damage prompt has an unknown assignment mode")
+	}
+}
+
+func validateDamageCardIDs(sourceID string, targetIDs []string, allowEmpty bool) error {
 	if strings.TrimSpace(sourceID) == "" || len(sourceID) > maxPromptText ||
-		len(targetIDs) == 0 || len(targetIDs) > maxPromptCards {
+		!allowEmpty && len(targetIDs) == 0 || len(targetIDs) > maxPromptCards {
 		return errors.New("Forge damage prompt has invalid combatants")
 	}
 	seen := make(map[string]struct{}, len(targetIDs))

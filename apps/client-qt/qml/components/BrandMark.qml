@@ -21,6 +21,8 @@ Item {
         Connections {
             target: Theme
             function onUiScaleChanged() { canvas.requestPaint() }
+            function onUiThemeChanged() { canvas.requestPaint() }
+            function onPrimaryChanged() { canvas.requestPaint() }
         }
 
         onPaint: {

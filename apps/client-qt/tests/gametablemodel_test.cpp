@@ -18,6 +18,7 @@ class TestGameTableModel : public QObject
 
   private slots:
     void snapshotReadiness() const;
+    void updatesAndRestoresPublicTurnCounts() const;
     void emptySnapshotSentinelClearsReadiness() const;
     void keepsEmblemsPublicAndSeparateFromCards() const;
     void indexesSnapshotDomainData() const;
@@ -30,6 +31,30 @@ class TestGameTableModel : public QObject
     void consumesSharedOwnerAndOpponentSnapshots() const;
     void benchmarkFourPlayerBattlefieldSnapshot() const;
 };
+
+void TestGameTableModel::updatesAndRestoresPublicTurnCounts() const
+{
+    GameTableModel model;
+    QSignalSpy rows(&model, &QAbstractItemModel::dataChanged);
+    QVariantList seats{QVariantMap{{u"seat"_s, 0}, {u"turnCount"_s, 1}},
+                       QVariantMap{{u"seat"_s, 1}, {u"turnCount"_s, 0}}};
+    model.applySnapshot({{u"seats"_s, seats}});
+    QCOMPARE(model.roleNames().value(GameTableModel::TurnCountRole), QByteArray("turnCount"));
+    QCOMPARE(model.data(model.index(0), GameTableModel::TurnCountRole).toInt(), 1);
+    QCOMPARE(model.seatData(1).value(u"turnCount"_s).toInt(), 0);
+
+    seats[1] = QVariantMap{{u"seat"_s, 1}, {u"turnCount"_s, 1}};
+    model.applySnapshot({{u"seats"_s, seats}});
+    QCOMPARE(rows.count(), 1);
+    QCOMPARE(model.seatData(0).value(u"turnCount"_s).toInt(), 1);
+    QCOMPARE(model.data(model.index(1), GameTableModel::TurnCountRole).toInt(), 1);
+
+    model.clear();
+    seats[0] = QVariantMap{{u"seat"_s, 0}, {u"turnCount"_s, 8}};
+    model.applySnapshot({{u"seats"_s, seats}});
+    QCOMPARE(model.seatData(0).value(u"turnCount"_s).toInt(), 8);
+    QCOMPARE(model.seatData(1).value(u"turnCount"_s).toInt(), 1);
+}
 
 void TestGameTableModel::snapshotReadiness() const
 {

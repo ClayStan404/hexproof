@@ -1,0 +1,68 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 92,
+    "kind": "chooseBoardTargets",
+    "supported": true,
+    "title": "Choose targets",
+    "detail": "Choose one or two targets.",
+    "options": [],
+    "choices": [],
+    "cards": [],
+    "scryDestinations": [],
+    "orderItems": [],
+    "contextCards": [],
+    "contextTargets": [],
+    "contextText": "",
+    "requiredSelections": 0,
+    "minCardSelections": 0,
+    "maxCardSelections": 0,
+    "targets": [
+      {
+        "responseId": "target:0",
+        "kind": "player",
+        "label": "Alex · Seat 1",
+        "seat": 0
+      },
+      {
+        "responseId": "target:1",
+        "kind": "card",
+        "label": "Grizzly Bears",
+        "objectId": "visible-object",
+        "name": "Grizzly Bears",
+        "setCode": "10E",
+        "collectorNumber": "268"
+      },
+      {
+        "responseId": "target:2",
+        "kind": "spell",
+        "label": "Lightning Bolt",
+        "objectId": "visible-object",
+        "name": "Lightning Bolt",
+        "setCode": "M11",
+        "collectorNumber": "149"
+      },
+      {
+        "responseId": "target:3",
+        "kind": "player",
+        "label": "Alex · Seat 3",
+        "seat": 2
+      }
+    ],
+    "combatSources": [],
+    "combatTargets": [],
+    "damageTargets": [],
+    "totalDamage": 0,
+    "damageDeathtouch": false,
+    "minSelections": 1,
+    "maxSelections": 2,
+    "cancellable": true,
+    "minChoiceTotal": 0,
+    "maxChoiceTotal": 0,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

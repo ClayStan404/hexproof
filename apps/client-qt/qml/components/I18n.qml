@@ -136,29 +136,29 @@ QtObject {
         }
     }
 
-    function status(source) {
+    function status(source, resolveCardName) {
         if (!source)
             return source
         const exact = tr(source)
         if (exact !== source)
             return exact
-        return patternedStatus(source)
+        return patternedStatus(source, resolveCardName)
     }
 
     // Log kind is server-owned. Never reinterpret user chat as an engine
     // event, even when its text happens to look exactly like a rules message.
-    function gameLog(kind, source) {
+    function gameLog(kind, source, resolveCardName, actorName) {
         if (kind === "chat" || !source)
             return source
         if (kind === "create_emblem") {
             const match = source.match(/^(.+) created a (.+) emblem for (.+)\.$/)
             return match ? formatRulesLog(qsTr("%1 created a %2 emblem for %3."),
-                                         [match[1], match[2], match[3]]) : source
+                                         [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), match[3]]) : source
         }
         if (kind === "remove_emblem") {
             const match = source.match(/^(.+) removed their (.+) emblem\.$/)
             return match ? formatRulesLog(qsTr("%1 removed their %2 emblem."),
-                                         [match[1], match[2]]) : source
+                                         [match[1], libraryCardDescriptionLabel(match[2], resolveCardName)]) : source
         }
         if (kind === "commander_color") {
             const match = source.match(/^(.+) chose ([WUBRG]) for (.+) \((s\d+-c\d+)\)\.$/)
@@ -169,14 +169,112 @@ QtObject {
                 G: qsTranslate("CardWorkbench", "Green")
             }
             return formatRulesLog(qsTr("%1 chose %2 for %3 (%4)."),
-                                  [match[1], colors[match[2]], match[3], match[4]])
+                                  [match[1], colors[match[2]], libraryCardDescriptionLabel(match[3], resolveCardName), match[4]])
         }
         if (String(kind).startsWith("rules_"))
-            return rulesGameLog(kind, source)
-        return status(source)
+            return rulesGameLog(kind, source, resolveCardName, actorName)
+        return manualGameLog(kind, source, resolveCardName)
     }
 
-    function rulesGameLog(kind, source) {
+    function manualGameLog(kind, source, resolveCardName) {
+        let match
+        switch (kind) {
+        case "create_token":
+            match = source.match(/^(.+) created a (.+) token\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 created a %2 token."),
+                                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName)])
+            break
+        case "remove_token":
+            match = source.match(/^(.+) removed a face-down token from the battlefield\.$/)
+            if (match)
+                return qsTr("%1 removed a face-down token from the battlefield.").arg(match[1])
+            match = source.match(/^(.+) removed token (.+) from the battlefield\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 removed token %2 from the battlefield."),
+                                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName)])
+            break
+        case "face_down":
+            match = source.match(/^(.+) turned a battlefield card (face down|face up)\.$/)
+            if (match)
+                return (match[2] === "face down"
+                        ? qsTr("%1 turned a battlefield card face down.")
+                        : qsTr("%1 turned a battlefield card face up.")).arg(match[1])
+            break
+        case "discard_hand":
+            match = source.match(/^(.+) discarded their hand \((\d+) cards\)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 discarded their hand (%2 cards)."), match.slice(1))
+            break
+        case "discard_random":
+            match = source.match(/^(.+) randomly discarded (.+)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 randomly discarded %2."),
+                                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName)])
+            break
+        case "move_library_cards":
+            match = source.match(/^(.+) put (\d+) card\(s\) from the top of their library into (hand|battlefield|graveyard|exile)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 put %2 card(s) from the top of their library into %3."),
+                                    [match[1], match[2], zoneLabel(match[3])])
+            break
+        case "recall_revealed":
+            match = source.match(/^(.+) returned (\d+) revealed card\(s\) to hand\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 returned %2 revealed card(s) to hand."), match.slice(1))
+            break
+        case "library_reorder":
+            match = source.match(/^(.+) reordered the top (\d+) card\(s\) of their library\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 reordered the top %2 card(s) of their library."), match.slice(1))
+            break
+        case "draw":
+            match = source.match(/^(.+) declared Game (\d+) a draw\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 declared Game %2 a draw."), match.slice(1))
+            break
+        case "restart":
+            match = source.match(/^(.+) restarted Game (\d+)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 restarted Game %2."), match.slice(1))
+            break
+        case "roll":
+            match = source.match(/^(.+) rolled (\[\d+(?:, \d+)*\]) on (\d+)d(\d+) \(total (\d+)\)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 rolled %2 on %3d%4 (total %5)."), match.slice(1))
+            match = source.match(/^(.+) won the roll for Game (\d+)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 won the roll for Game %2."), match.slice(1))
+            break
+        case "coin":
+            match = source.match(/^(.+) flipped (heads|tails)\.$/)
+            if (match)
+                return (match[2] === "heads" ? qsTr("%1 flipped heads.")
+                                             : qsTr("%1 flipped tails.")).arg(match[1])
+            break
+        case "random_select":
+            match = source.match(/^(.+) randomly selected (.+)\.$/)
+            if (match) {
+                // This legacy kind can name either a player or a card. Do not
+                // look up arbitrary player names in the card catalog.
+                return formatStatus(qsTr("%1 randomly selected %2."),
+                                    [match[1], libraryCardDescriptionLabel(match[2])])
+            }
+            break
+        case "result":
+            if (source === "The Commander game ended with no remaining players.")
+                return qsTr("The Commander game ended with no remaining players.")
+            break
+        case "combat":
+            match = source.match(/^(.+) declared (\d+) attacker\(s\) toward a battlefield permanent controlled by (.+)\.$/)
+            if (match)
+                return formatStatus(qsTr("%1 declared %2 attacker(s) toward a battlefield permanent controlled by %3."), match.slice(1))
+            break
+        }
+        return status(source, resolveCardName)
+    }
+
+    function rulesGameLog(kind, source, resolveCardName, actorName) {
         let match
         switch (kind) {
         case "rules_start":
@@ -212,7 +310,7 @@ QtObject {
             // colons, so splitting that prefix would alter legitimate names.
             match = source.match(/^(.+) (in|left) (battlefield|graveyard|exile|command)\.$/)
             if (match) {
-                const prefix = rulesCardDescription(match[1])
+                const prefix = rulesCardDescription(match[1], resolveCardName, actorName)
                 return formatRulesLog(match[2] === "in" ? qsTr("%1 is in %2.")
                                                        : qsTr("%1 left %2."),
                                       [prefix, zoneLabel(match[3])])
@@ -221,7 +319,7 @@ QtObject {
         case "rules_tap":
             match = source.match(/^(.+) (tapped|untapped)\.$/)
             if (match) {
-                const prefix = rulesCardDescription(match[1])
+                const prefix = rulesCardDescription(match[1], resolveCardName, actorName)
                 return match[2] === "tapped" ? qsTr("%1 tapped.").arg(prefix)
                                              : qsTr("%1 untapped.").arg(prefix)
             }
@@ -245,7 +343,12 @@ QtObject {
         return source
     }
 
-    function rulesCardDescription(prefix) {
+    function rulesCardDescription(prefix, resolveCardName, actorName) {
+        // The public seat identifies the actor even when either name contains
+        // colons. Older entries without that context keep their original names.
+        if (actorName && prefix.startsWith(actorName + ": "))
+            return actorName + ": " + libraryCardDescriptionLabel(
+                        prefix.slice(actorName.length + 2), resolveCardName)
         const hidden = ": a face-down card"
         return prefix.endsWith(hidden)
                 ? prefix.slice(0, -hidden.length) + ": " + qsTr("a face-down card")
@@ -276,7 +379,7 @@ QtObject {
         })
     }
 
-    function patternedStatus(source) {
+    function patternedStatus(source, resolveCardName) {
         const artLocation = source.match(/^Card images were copied and verified\. Restart Hexproof to use the new location\. Original files were kept at ([\s\S]+)\.$/)
         if (artLocation) {
             return formatStatus(tr("Card images were copied and verified. Restart Hexproof to use the new location. Original files were kept at %1."), [artLocation[1]])
@@ -299,6 +402,8 @@ QtObject {
             return qsTr("Cube cards must stay in the main pool.")
         if (source === "Every Cube card needs an exact printing.")
             return qsTr("Every Cube card needs an exact printing.")
+        if (source === "Card printings unresolved. Install the card database or select printings.")
+            return qsTr("Card printings unresolved. Install the card database or select printings.")
         if (source === "Could not open the legacy Cube library for migration.")
             return qsTr("Could not open the legacy Cube library for migration.")
         if (source === "The legacy Cube library could not be migrated and was left unchanged.")
@@ -577,7 +682,7 @@ QtObject {
                     /^(.+) searched (their|.+\'s) library and put (.+?) (face down onto .+|into .+|onto .+|on top of .+|on bottom of .+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 searched %2 library and put %3 %4."),
-                    [match[1], libraryOwnerLabel(match[2]), libraryCardDescriptionLabel(match[3]), searchDestinationLabel(match[4])])
+                    [match[1], libraryOwnerLabel(match[2]), libraryCardDescriptionLabel(match[3], resolveCardName), searchDestinationLabel(match[4])])
         }
         match = source.match(
                     /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library and put (\d+) card\(s\) (face down onto .+|onto .+|into .+|on top of .+|on bottom of .+)\.$/)
@@ -601,7 +706,7 @@ QtObject {
                     /^(.+) moved (.+) from (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|.+\'s (?:graveyard|exile)) to (hand|battlefield|graveyard|exile|stack|reveal|library|command|sideboard|library \((?:top|bottom), in (?:random )?order\)|library and shuffled the library|.+\'s battlefield)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 moved %2 from %3 to %4."),
-                    [match[1], libraryCardDescriptionLabel(match[2]), libraryTargetLabel(match[3]), moveDestinationLabel(match[4])])
+                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), libraryTargetLabel(match[3]), moveDestinationLabel(match[4])])
         }
         match = source.match(/^(.+) removed (\d+) token\(s\) from the battlefield\.$/)
         if (match) {
@@ -611,7 +716,8 @@ QtObject {
         match = source.match(/^(.+) set (.+) on (.+) to (\d+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 set %2 on %3 to %4."),
-                    [match[1], match[2], match[3], match[4]])
+                    [match[1], match[2] === "number" ? qsTr("number") : match[2],
+                     libraryCardDescriptionLabel(match[3], resolveCardName), match[4]])
         }
         match = source.match(
                     /^(.+) set life to (-?\d+) \(([+-]\d+)\)\.$/)
@@ -623,12 +729,12 @@ QtObject {
                     /^(.+) set (.+) to (-?\d+) \(([+-]\d+)\)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 set %2 to %3 (%4)."),
-                    [match[1], match[2], match[3], match[4]])
+                    [match[1], playerCounterLabel(match[2]), match[3], match[4]])
         }
         match = source.match(/^(.+) renamed counter (.+) to (.+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 renamed counter %2 to %3."),
-                    [match[1], match[2], match[3]])
+                    [match[1], playerCounterLabel(match[2]), match[3]])
         }
         match = source.match(/^(.+) advanced to the (.+) step\.$/)
         if (match) {
@@ -642,7 +748,7 @@ QtObject {
                     /^(.+) recorded (.+) as land play (\d+) this turn\.$/)
         if (match) {
             return formatStatus(qsTr("%1 recorded %2 as land play %3 this turn."),
-                    [match[1], match[2], match[3]])
+                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), match[3]])
         }
         match = source.match(
                     /^(.+) set recorded land plays this turn to (\d+)\.$/)
@@ -665,25 +771,25 @@ QtObject {
                     /^(.+) cast (.+) from the command zone; the next additional cost is \+(\d+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 cast %2 from the command zone; the next additional cost is +%3."),
-                    [match[1], match[2], match[3]])
+                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), match[3]])
         }
         match = source.match(
                     /^(.+) set (.+) command-zone cast count to (\d+); additional cost is \+(\d+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 set %2 command-zone cast count to %3; additional cost is +%4."),
-                    [match[1], match[2], match[3], match[4]])
+                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), match[3], match[4]])
         }
         match = source.match(
                     /^(.+) recorded (\d+) combat damage from (.+) to (.+); commander damage is now (\d+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 recorded %2 combat damage from %3 to %4; commander damage is now %5."),
-                    [match[1], match[2], match[3], match[4], match[5]])
+                    [match[1], match[2], libraryCardDescriptionLabel(match[3], resolveCardName), match[4], match[5]])
         }
         match = source.match(
                     /^(.+) set commander damage from (.+) to (.+) to (\d+)\.$/)
         if (match) {
             return formatStatus(qsTr("%1 set commander damage from %2 to %3 to %4."),
-                    [match[1], match[2], match[3], match[4]])
+                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), match[3], match[4]])
         }
         match = source.match(/^(.+) has no response\.$/)
         if (match)
@@ -795,13 +901,21 @@ QtObject {
         return zoneLabel(target)
     }
 
-    function libraryCardDescriptionLabel(description) {
+    function playerCounterLabel(label) {
+        const match = label.match(/^counter-([1-7])$/)
+        return match ? qsTr("counter-%1").arg(match[1]) : label
+    }
+
+    function libraryCardDescriptionLabel(description, resolveCardName) {
         if (description === "a card")
             return qsTr("a card")
+        if (description === "a face-down card")
+            return qsTr("a face-down card")
         const countMatch = description.match(/^(\d+) card\(s\)$/)
         if (countMatch)
             return qsTr("%n card(s)", "", Number(countMatch[1]))
-        return description
+        return typeof resolveCardName === "function"
+                ? resolveCardName(description) || description : description
     }
 
     function moveDestinationLabel(destination) {

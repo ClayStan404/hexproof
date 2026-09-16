@@ -21,6 +21,7 @@ func submittedInitialCubeRoom(t *testing.T, eventType string) (*Handler, *tourna
 	request.EventType = eventType
 	if eventType == protocol.LimitedEventCommanderCube {
 		request.Format = protocol.FormatEDH
+		request.DraftSettings = &protocol.LimitedDraftSettings{PacksPerPlayer: 3, PacksPerBatch: 1}
 		request.Product.Sheets[0].Cards[0].Weight = 120
 	}
 	_ = h.handleTournamentCreate(host, cubeCommandEnvelope(t, protocol.TypeTournamentCreate, request))

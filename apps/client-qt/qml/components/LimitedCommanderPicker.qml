@@ -14,16 +14,14 @@ Popup {
     property var fallbackCards: []
     property var selectedColors: []
     property var advice: []
+    property bool showAll: false
+    property alias filters: candidateFilters
     signal toggleRequested(string instanceId)
     signal colorRequested(string instanceId, string color)
     signal cardInspected(var card, var sourceItem)
     signal cardInspectionEnded(var sourceItem)
-    readonly property var visibleCards: cards.filter(card => {
-        const query = search.text.trim().toLowerCase()
-        return !query || String(card.displayName || "").toLowerCase().includes(query)
-            || String(card.name || "").toLowerCase().includes(query)
-            || (String(card.setCode || "") + " " + String(card.collectorNumber || "")).toLowerCase().includes(query)
-    })
+    readonly property var visibleCards: candidateFilters.filter(cards.filter(card =>
+        showAll || selection.possibleCommander(card) || selectedIds.indexOf(card.instanceId) >= 0))
     parent: Overlay.overlay
     objectName: "limitedCommanderPicker"
     width: Math.min(Theme.size(560), parent ? parent.width - Theme.size(24) : 560)
@@ -35,6 +33,7 @@ Popup {
     padding: Theme.size(16)
     background: Surface { elevated: true }
     LimitedCommanderSelection { id: selection }
+    CardFilterState { id: candidateFilters }
     component CommanderRow: ColumnLayout {
         id: row
         required property var modelData
@@ -132,19 +131,17 @@ Popup {
             font.bold: true
             color: Theme.text
         }
-        Text {
-            textFormat: Text.PlainText
+        SegmentedControl {
+            objectName: "limitedCommanderCandidateMode"
             Layout.fillWidth: true
-            text: qsTranslate("TournamentLobby", "Choose one or two commanders. Drafted copies with the same name are allowed. Commanders count toward the 60-card minimum; eligibility and color identity are reminders only.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(11)
-            wrapMode: Text.WordWrap
+            options: [qsTranslate("TournamentLobby", "Possible commanders"), qsTranslate("TournamentLobby", "All drafted cards")]
+            currentIndex: root.showAll ? 1 : 0
+            onActivated: index => root.showAll = index === 1
         }
-        AppTextField {
-            id: search
-            objectName: "limitedCommanderSearch"
+        CardFilterBar {
+            objectName: "limitedCommanderFilters"
             Layout.fillWidth: true
-            placeholderText: qsTranslate("TournamentLobby", "Search cards...")
+            filters: candidateFilters
         }
         ScrollView {
             objectName: "limitedCommanderScroll"
@@ -156,10 +153,25 @@ Popup {
             ColumnLayout {
                 width: parent.width
                 spacing: Theme.size(8)
-                InfoBanner {
+                Text {
+                    textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    tone: "warning"
-                    message: root.advice.join("\n")
+                    text: qsTranslate("TournamentLobby", "From your drafted cards")
+                    color: Theme.text
+                    font.bold: true
+                    wrapMode: Text.WordWrap
+                }
+                Text {
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    visible: root.visibleCards.length === 0
+                    text: qsTranslate("TournamentLobby", "No matching candidates. Use All drafted cards for house rules.")
+                    wrapMode: Text.WordWrap
+                    color: Theme.textMuted
+                }
+                Repeater {
+                    model: root.visibleCards
+                    delegate: CommanderRow { }
                 }
                 Text {
                     textFormat: Text.PlainText
@@ -186,24 +198,15 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTranslate("TournamentLobby", "From your main deck")
-                    color: Theme.text
-                    font.bold: true
+                    text: qsTranslate("TournamentLobby", "Choose up to two commanders from your drafted cards; choosing one adds it to your main deck. Eligibility and partner rules are reminders only. Use All drafted cards for house rules.")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSize(11)
                     wrapMode: Text.WordWrap
                 }
-                Text {
-                    textFormat: Text.PlainText
+                InfoBanner {
                     Layout.fillWidth: true
-                    visible: root.visibleCards.length === 0
-                    text: root.cards.length === 0
-                          ? qsTranslate("TournamentLobby", "Add cards to your main deck before choosing commanders.")
-                          : qsTranslate("TournamentLobby", "No cards match the current filters.")
-                    wrapMode: Text.WordWrap
-                    color: Theme.textMuted
-                }
-                Repeater {
-                    model: root.visibleCards
-                    delegate: CommanderRow { }
+                    tone: "warning"
+                    message: root.advice.join("\n")
                 }
             }
         }

@@ -9,13 +9,14 @@ Item {
     required property var catalogModel
     property var card: ({})
     property var sourceItem: null
+    property var placementBoundary: null
     property bool tokenArt: false
     readonly property string cardLanguage: tokenArt && catalogModel ? catalogModel.language || "en" : ""
     onCardLanguageChanged: if (tokenArt && visible) TokenPresentation.prioritize(catalogModel, card)
     readonly property var tokenDetails: TokenPresentation.details(tokenArt ? catalogModel : null, card)
     onSourceItemChanged: if (!sourceItem) visible = false
     property string artObjectName: "cardHoverPreviewArt"
-    width: Math.max(1, Math.min(Theme.size(380), parent.width * 0.55, (parent.height - Theme.size(24)) * 63 / 88))
+    width: parent ? Math.max(1, Math.min(Theme.size(380), parent.width * 0.55, (parent.height - Theme.size(24)) * 63 / 88)) : 1
     height: width * 88 / 63
     visible: false
     enabled: false
@@ -30,6 +31,7 @@ Item {
             if (!root.visible || !root.card.name || !root.catalogModel) return ""
             void root.catalogModel.imageRevision
             if (root.tokenArt) void root.catalogModel.language
+            if (!root.tokenArt && typeof root.catalogModel.imageSource !== "function") return ""
             return root.tokenArt
                     ? root.catalogModel.tokenImageSource(root.card.name, root.card.setCode || "", root.card.collectorNumber || "")
                     : root.catalogModel.imageSource(root.card.name, root.card.setCode || "", root.card.collectorNumber || "")
@@ -60,16 +62,22 @@ Item {
         }
     }
     function inspect(value, item) {
-        if (!value || !value.name || !item) return
+        if (!value || !value.name || !item || !parent) return
         if (tokenArt) TokenPresentation.prioritize(catalogModel, value)
         card = value
         sourceItem = item
-        const origin = item.mapToItem(parent, 0, 0)
-        const right = origin.x + item.width + Theme.size(12)
-        x = Math.max(0, Math.min(parent.width - width, right + width <= parent.width ? right : origin.x - width - Theme.size(12)))
-        y = Math.max(0, Math.min(parent.height - height, origin.y))
+        reposition()
         visible = true
     }
+    function reposition() {
+        if (!sourceItem || !parent) return
+        const anchor = placementBoundary || sourceItem
+        const origin = anchor.mapToItem(parent, 0, 0)
+        const right = origin.x + anchor.width + Theme.size(12)
+        x = Math.max(0, Math.min(parent.width - width, right + width <= parent.width ? right : origin.x - width - Theme.size(12)))
+        y = Math.max(0, Math.min(parent.height - height, sourceItem.mapToItem(parent, 0, 0).y))
+    }
+    FrameAnimation { running: root.visible; onTriggered: root.reposition() }
     function hide(item) {
         if (item && sourceItem && item !== sourceItem) return
         visible = false

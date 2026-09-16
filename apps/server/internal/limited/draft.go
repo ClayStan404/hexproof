@@ -6,7 +6,8 @@ package limited
 import "hexproof/server/internal/protocol"
 
 func (e *Event) Direction() int {
-	if e.packRound == 0 || e.packRound%2 == 1 {
+	batch := (e.packRound + max(1, e.packsPerBatch) - 1) / max(1, e.packsPerBatch)
+	if batch == 0 || batch%2 == 1 {
 		return 1
 	}
 	return -1
@@ -17,14 +18,24 @@ func (e *Event) startDraftRound() error {
 		e.Stage = protocol.LimitedStageDeckBuilding
 		return nil
 	}
-	e.packRound++
+	e.packsThisBatch = min(max(1, e.packsPerBatch), e.packCount-e.packRound)
+	e.packRound += e.packsThisBatch
 	for _, player := range e.Players {
-		cards, err := e.nextPack()
-		if err != nil {
-			return err
+		var batch *Pack
+		for index := 0; index < e.packsThisBatch; index++ {
+			cards, err := e.nextPack()
+			if err != nil {
+				return err
+			}
+			e.packSeq++
+			pack := &Pack{ID: "pack-" + itoa(e.packSeq), Cards: cards}
+			if batch == nil {
+				batch = pack
+			} else {
+				batch.Companion = pack
+			}
 		}
-		e.packSeq++
-		player.Inbox = append(player.Inbox, &Pack{ID: "pack-" + itoa(e.packSeq), Cards: cards})
+		player.Inbox = append(player.Inbox, batch)
 	}
 	return e.drainSingletons()
 }
@@ -65,7 +76,7 @@ func (e *Event) PickCards(participantID string, instanceIDs []string) (int, erro
 		return 0, fail(ErrPickUnavailable, "no pack is available")
 	}
 	pack := player.Inbox[0]
-	if len(instanceIDs) != min(e.PicksPerSelection(), len(pack.Cards)) {
+	if len(instanceIDs) != e.picksForPack(pack) {
 		return 0, fail(ErrPickUnavailable, "incorrect number of cards selected")
 	}
 	selected := make(map[string]bool, len(instanceIDs))
@@ -75,22 +86,31 @@ func (e *Event) PickCards(participantID string, instanceIDs []string) (int, erro
 		}
 		selected[id] = true
 	}
-	picked := make([]*CardInstance, 0, len(instanceIDs))
-	remainingCards := make([]*CardInstance, 0, len(pack.Cards)-len(instanceIDs))
-	for _, card := range pack.Cards {
-		if selected[card.ID] {
-			picked = append(picked, card)
-		} else {
-			remainingCards = append(remainingCards, card)
+	// Validate every physical pack before moving any card or either pack.
+	for _, part := range pack.parts() {
+		found := 0
+		for _, card := range part.Cards {
+			if selected[card.ID] {
+				found++
+			}
+		}
+		if found != min(e.PicksPerSelection(), len(part.Cards)) {
+			return 0, fail(ErrPickUnavailable, "select the required cards from each current pack")
 		}
 	}
-	if len(picked) != len(instanceIDs) {
-		return 0, fail(ErrPickUnavailable, "card is not in the current pack")
+	for _, part := range pack.parts() {
+		remainingCards := make([]*CardInstance, 0, len(part.Cards))
+		for _, card := range part.Cards {
+			if selected[card.ID] {
+				player.Pool = append(player.Pool, card)
+			} else {
+				remainingCards = append(remainingCards, card)
+			}
+		}
+		part.Cards = remainingCards
 	}
-	player.Pool = append(player.Pool, picked...)
-	pack.Cards = remainingCards
 	player.Inbox = player.Inbox[1:]
-	if len(pack.Cards) > 0 {
+	if pack.cardCount() > 0 {
 		target := e.targetPlayer(player)
 		target.Inbox = append(target.Inbox, pack)
 	}
@@ -99,9 +119,17 @@ func (e *Event) PickCards(participantID string, instanceIDs []string) (int, erro
 	}
 	remaining := 0
 	if len(player.Inbox) > 0 {
-		remaining = len(player.Inbox[0].Cards)
+		remaining = player.Inbox[0].cardCount()
 	}
 	return remaining, nil
+}
+
+func (e *Event) picksForPack(pack *Pack) int {
+	count := 0
+	for _, part := range pack.parts() {
+		count += min(e.PicksPerSelection(), len(part.Cards))
+	}
+	return count
 }
 
 // SetAutoDraft is called only after the coordinator authorizes explicit seat
@@ -120,21 +148,26 @@ func (e *Event) SetAutoDraft(participantID string, automatic bool) error {
 
 func (e *Event) drainSingletons() error {
 	// Every successful iteration removes physical cards from a pack. The
-	// locked Cube stock and three rounds therefore bound even an all-auto pod.
+	// Locked stock and the configured pack count bound even an all-auto pod.
 	for {
 		changed := false
 		for _, player := range e.Players {
-			for len(player.Inbox) > 0 && (player.AutoDraft || len(player.Inbox[0].Cards) <= e.PicksPerSelection()) {
+			for len(player.Inbox) > 0 && (player.AutoDraft || player.Inbox[0].cardCount() <= e.picksForPack(player.Inbox[0])) {
 				pack := player.Inbox[0]
-				if len(pack.Cards) <= e.PicksPerSelection() {
-					player.Pool = append(player.Pool, pack.Cards...)
-				} else {
-					// Draw without replacement, then pass once for an atomic pick-two.
-					for pick := 0; pick < e.PicksPerSelection(); pick++ {
-						index := e.random.Intn(len(pack.Cards))
-						player.Pool = append(player.Pool, pack.Cards[index])
-						pack.Cards = append(pack.Cards[:index], pack.Cards[index+1:]...)
+				for _, part := range pack.parts() {
+					if len(part.Cards) <= e.PicksPerSelection() {
+						player.Pool = append(player.Pool, part.Cards...)
+						part.Cards = nil
+					} else {
+						// Random picks obey each pack's quota without replacement.
+						for pick := 0; pick < e.PicksPerSelection(); pick++ {
+							index := e.random.Intn(len(part.Cards))
+							player.Pool = append(player.Pool, part.Cards[index])
+							part.Cards = append(part.Cards[:index], part.Cards[index+1:]...)
+						}
 					}
+				}
+				if pack.cardCount() > 0 {
 					target := e.targetPlayer(player)
 					target.Inbox = append(target.Inbox, pack)
 				}

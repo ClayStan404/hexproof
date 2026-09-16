@@ -21,6 +21,9 @@ Popup {
     property int topCount: 0
     property var selectedOrder: []
     property var topCardAssignments: ({})
+    property string topRemainderDestination: "library_top"
+    property bool topRemainderFaceDown: false
+    property string topSelectionAnchor: ""
     property string contextCardId: ""
     property string filterQuery: ""
     property bool offerShuffleOnClose: false
@@ -35,6 +38,9 @@ Popup {
                                          && sourceSeat !== localSeat
     readonly property var destinations: destinationOptions()
     readonly property var topCardDestinations: topCardDestinationOptions()
+    readonly property var topCardRows: groupedTopCardRows()
+    readonly property int topRemainderCount:
+        cards.filter(card => !topCardAssignments[card.id]).length
     signal searchRequested(var cardIds, string destination, bool reveal,
                            bool randomize, var position, int sourceSeat,
                            string approvalId, int destinationSeat,
@@ -75,16 +81,10 @@ Popup {
                             ? libraryOwnerName : localDisplayName
         topCount = requestedTopCount ? requestedTopCount : 0
         selectedOrder = []
-        const assignments = ({})
-        if (topCount > 1) {
-            for (let index = 0; index < cards.length; ++index) {
-                assignments[cards[index].id] = {
-                    "toZone": "library_top",
-                    "faceDown": false
-                }
-            }
-        }
-        topCardAssignments = assignments
+        topCardAssignments = ({})
+        topRemainderDestination = "library_top"
+        topRemainderFaceDown = false
+        topSelectionAnchor = ""
         contextCardId = ""
         filterQuery = ""
         cardBrowser.resetFilter()
@@ -190,25 +190,6 @@ Popup {
         selectedOrder = next
     }
 
-    function moveCardInOrder(cardId, delta) {
-        const next = cards.slice()
-        let index = -1
-        for (let i = 0; i < next.length; ++i) {
-            if (next[i].id === cardId) {
-                index = i
-                break
-            }
-        }
-        const target = index + delta
-        if (index < 0 || target < 0 || target >= next.length)
-            return
-        const value = next[index]
-        next[index] = next[target]
-        next[target] = value
-        cards = next
-        selectedIndex = target
-    }
-
     function destinationOptions() {
         const options = [
             {"value": "hand",
@@ -269,44 +250,138 @@ Popup {
     function topCardAssignment(cardId) {
         const assignment = topCardAssignments[cardId]
         return assignment ? assignment : ({
-            "toZone": "library_top",
-            "faceDown": false
+            "toZone": topRemainderDestination,
+            "faceDown": topRemainderDestination === "battlefield"
+                        && topRemainderFaceDown
         })
     }
 
-    function topCardDestinationIndex(cardId) {
-        const destination = topCardAssignment(cardId).toZone
-        for (let index = 0; index < topCardDestinations.length; ++index) {
-            if (topCardDestinations[index].value === destination)
-                return index
+    function topDestinationLabel(destination) {
+        const option = topCardDestinations.find(option => option.value === destination)
+        return option ? option.label : ""
+    }
+
+    function groupedTopCardRows() {
+        const rows = []
+        const groups = ["library_top", "hand", "battlefield", "graveyard",
+                        "exile", "library_bottom"]
+        for (const destination of groups) {
+            const group = []
+            for (let index = 0; index < cards.length; ++index) {
+                if (topCardAssignment(cards[index].id).toZone === destination) {
+                    group.push({"card": cards[index], "sourceIndex": index,
+                                "destination": destination, "groupIndex": group.length})
+                }
+            }
+            for (const row of group) {
+                row.groupSize = group.length
+                rows.push(row)
+            }
         }
-        return 0
+        return rows
+    }
+
+    function topGroupCount(destination) {
+        return topCardRows.filter(row => row.destination === destination).length
+    }
+
+    function topGroupRandomized(destination) {
+        return (destination === "library_top" && inspector.randomizeTop)
+               || (destination === "library_bottom" && inspector.randomizeBottom)
+    }
+
+    function selectTopCard(cardId, range) {
+        const ids = topCardRows.map(row => row.card.id)
+        const target = ids.indexOf(cardId)
+        if (target < 0)
+            return
+        const anchor = ids.indexOf(topSelectionAnchor)
+        if (range && anchor >= 0) {
+            const next = selectedOrder.slice()
+            for (let index = Math.min(anchor, target); index <= Math.max(anchor, target); ++index) {
+                if (next.indexOf(ids[index]) < 0)
+                    next.push(ids[index])
+            }
+            selectedOrder = next
+        } else {
+            toggleCard(cardId)
+            topSelectionAnchor = cardId
+        }
+    }
+
+    function invertTopSelection() {
+        selectedOrder = topCardRows.map(row => row.card.id)
+                                  .filter(cardId => !cardSelected(cardId))
+        topSelectionAnchor = ""
+    }
+
+    function setTopRemainderDestination(destination) {
+        if (!topCardDestinations.some(option => option.value === destination))
+            return
+        topRemainderDestination = destination
+        if (destination !== "battlefield")
+            topRemainderFaceDown = false
+    }
+
+    function assignTopCards(cardIds, destination, faceDown) {
+        if (!reorderMode || !topCardDestinations.some(option => option.value === destination))
+            return
+        const next = Object.assign({}, topCardAssignments)
+        for (const cardId of cardIds) {
+            if (!selectedCardForId(cardId).id)
+                continue
+            next[cardId] = {
+                "toZone": destination,
+                "faceDown": destination === "battlefield"
+                            && (faceDown === undefined
+                                ? topCardAssignment(cardId).faceDown === true
+                                : faceDown === true)
+            }
+        }
+        topCardAssignments = next
+    }
+
+    function useRemainderForTopCards(cardIds) {
+        const next = Object.assign({}, topCardAssignments)
+        for (const cardId of cardIds)
+            delete next[cardId]
+        topCardAssignments = next
+    }
+
+    function moveTopCardRelative(cardId, targetId, after) {
+        if (!selectedCardForId(cardId).id || !selectedCardForId(targetId).id
+            || cardId === targetId)
+            return
+        const destination = topCardAssignment(cardId).toZone
+        if (topCardAssignment(targetId).toZone !== destination
+            || topGroupRandomized(destination))
+            return
+        const group = cards.filter(card => topCardAssignment(card.id).toZone === destination)
+        const card = group.splice(group.findIndex(card => card.id === cardId), 1)[0]
+        group.splice(group.findIndex(card => card.id === targetId) + (after ? 1 : 0), 0, card)
+        const previewId = selectedCard.id
+        let groupIndex = 0
+        // Replace only this group's slots, preserving every other group's order.
+        cards = cards.map(card => topCardAssignment(card.id).toZone === destination
+                                 ? group[groupIndex++] : card)
+        selectedIndex = cards.findIndex(card => card.id === previewId)
+    }
+
+    function moveTopCardInGroup(cardId, delta) {
+        const destination = topCardAssignment(cardId).toZone
+        const group = cards.filter(card => topCardAssignment(card.id).toZone === destination)
+        const target = group.findIndex(card => card.id === cardId) + delta
+        if (target >= 0 && target < group.length)
+            moveTopCardRelative(cardId, group[target].id, delta > 0)
     }
 
     function setTopCardDestination(cardId, destination) {
-        if (!cardId || !destination)
-            return
-        const current = topCardAssignment(cardId)
-        const next = Object.assign({}, topCardAssignments)
-        next[cardId] = {
-            "toZone": destination,
-            "faceDown": destination === "battlefield"
-                        && current.faceDown === true
-        }
-        topCardAssignments = next
+        assignTopCards([cardId], destination)
     }
 
     function setTopCardFaceDown(cardId, faceDown) {
-        if (!cardId)
-            return
         const current = topCardAssignment(cardId)
-        const next = Object.assign({}, topCardAssignments)
-        next[cardId] = {
-            "toZone": current.toZone,
-            "faceDown": current.toZone === "battlefield"
-                        && faceDown === true
-        }
-        topCardAssignments = next
+        assignTopCards([cardId], current.toZone, faceDown)
     }
 
     function topCardAssignmentList() {
@@ -332,7 +407,7 @@ Popup {
         const position = destination === "battlefield"
                          ? {"x": 0.5, "y": 0.5} : ({})
         searchRequested(cardIds, destination,
-                        faceDown === true ? false : inspector.reveal,
+                        topCount === 0 && faceDown !== true && inspector.reveal,
                         randomize === true, position, sourceSeat, approvalId,
                         destinationSeat, faceDown === true)
         close()
@@ -340,6 +415,14 @@ Popup {
 
     function completeContextSearch(destination, destinationSeat, randomize,
                                    faceDown) {
+        if (reorderMode) {
+            assignTopCards(contextCardIdList(), destination, faceDown === true)
+            if (destination === "library_top")
+                inspector.randomizeTop = randomize === true
+            else if (destination === "library_bottom")
+                inspector.randomizeBottom = randomize === true
+            return
+        }
         completeSearch(destination, destinationSeat, randomize,
                        contextCardIdList(), faceDown === true)
     }
@@ -375,6 +458,9 @@ Popup {
         topCount = 0
         selectedOrder = []
         topCardAssignments = ({})
+        topRemainderDestination = "library_top"
+        topRemainderFaceDown = false
+        topSelectionAnchor = ""
         contextCardId = ""
         filterQuery = ""
         offerShuffleOnClose = false
@@ -419,7 +505,7 @@ Popup {
                         textFormat: Text.PlainText
                         width: instructionsScroll.availableWidth
                         text: root.reorderMode
-                              ? qsTr("Choose a destination for every viewed card. Use the arrows to set the relative order of cards returning to the same end of the library.")
+                              ? qsTr("Select cards to assign together; the rest follow the remainder destination. Drag the handle or use arrows to reorder cards within a destination.")
                               : (root.topCardMode
                                  ? qsTr("Only you can see this card. Right-click it to move it.")
                                  : qsTr("Only you can see these cards. Use the checkboxes to select cards; click elsewhere on a card to preview it.")
@@ -463,6 +549,13 @@ Popup {
 
             LibrarySearchCardList {
                 id: cardBrowser
+                visible: !root.reorderMode
+                popupController: root
+                cardMenu: libraryCardMenu
+            }
+
+            LibraryTopCardsView {
+                visible: root.reorderMode
                 popupController: root
                 cardMenu: libraryCardMenu
             }

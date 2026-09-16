@@ -27,7 +27,6 @@ jobs:
             machine: aarch64
             runner: ubuntu-24.04-arm
     env:
-      CARGO_BUILD_JOBS: '2'
       MAVEN_OPTS: -Xmx2g
       JAVA_HOME: /usr/lib/jvm/java-21-openjdk-${{ matrix.arch }}
     steps:
@@ -48,34 +47,38 @@ jobs:
           sudo apt-get install -y openjdk-21-jdk-headless maven
           echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
           "$JAVA_HOME/bin/java" -version
-          node --version
-          cargo --version
           python3 --version
       - name: Test packaging helpers
         run: |
           python3 -m unittest discover -s tools/tests -p test_forge_source_package.py
-          node --test third_party/forge-runtime/patches/source.test.mjs
+          python3 -m unittest discover -s tools/tests -p test_native_forge_builder.py
+          python3 -m unittest discover -s tools/tests -p test_deploy_script.py
       - name: Build paired runtime and source archives
         run: ./third_party/forge-runtime/build.sh
       - name: Verify source package rebuild and archive checksums
         shell: bash
         run: |
           set -euo pipefail
-          source third_party/forge-runtime/VERSIONS.env
           package_dir="$PWD/build/forge-runtime"
-          checksum="hexproof-forge-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.sha256"
+          package_identity="$(python3 -c 'import json; p=json.load(open("third_party/forge-runtime/native-host/upstream.json")); print(str(p["revision"])+"-adapter"+str(p["adapterRevision"]))')"
+          runtime_name="hexproof-forge-runtime-${package_identity}.tar.gz"
+          source_name="hexproof-forge-source-${package_identity}.tar.gz"
+          checksum="hexproof-forge-${package_identity}.sha256"
           (cd "$package_dir" && sha256sum -c "$checksum")
+          python3 third_party/forge-runtime/source-package.py verify-release \
+            --runtime "$package_dir/$runtime_name" --source "$package_dir/$source_name"
           mkdir -p build/forge-source-check
-          tar -xzf "$package_dir/hexproof-forge-source-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.tar.gz" \
-            -C build/forge-source-check
+          tar -xzf "$package_dir/$source_name" -C build/forge-source-check
           source_root="$PWD/build/forge-source-check/hexproof-forge-source"
-          HEXPROOF_FORGE_OUTPUT_DIR="$PWD/build/forge-rebuilt" \
-            bash "$source_root/hexproof-build/build.sh" --from-source "$source_root"
-          cmp "$package_dir/hexproof-forge-source-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.tar.gz" \
-            "build/forge-rebuilt/hexproof-forge-source-${MANABREW_REVISION}-patch${HEXPROOF_FORGE_PATCH_REVISION}.tar.gz"
+          # This rebuild uses only the bundled source; it must not fetch Forge.
+          GIT_ALLOW_PROTOCOL=file bash "$source_root/hexproof-build/build.sh" --from-source "$source_root" \
+            --output "$PWD/build/forge-rebuilt"
+          cmp "$package_dir/$source_name" "build/forge-rebuilt/$source_name"
+          python3 third_party/forge-runtime/source-package.py verify-release \
+            --runtime "build/forge-rebuilt/$runtime_name" \
+            --source "build/forge-rebuilt/$source_name"
           mkdir -p build/forge-runtime-check
-          tar -xzf "build/forge-rebuilt/hexproof-forge-runtime-${MANABREW_REVISION}.tar.gz" \
-            -C build/forge-runtime-check
+          tar -xzf "build/forge-rebuilt/$runtime_name" -C build/forge-runtime-check
           echo "HEXPROOF_REAL_FORGE_ROOT=$PWD/build/forge-runtime-check/hexproof-forge-runtime" >> "$GITHUB_ENV"
       - name: Run native Go-to-Java real-game conformance
         working-directory: apps/server

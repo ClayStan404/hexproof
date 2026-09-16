@@ -108,6 +108,8 @@ Surface {
                     readonly property int zoneSeat: -1
                     readonly property real revealDividerHeight:
                         modelData.revealDivider === true ? Theme.size(70) : 0
+                    property point dragGrabPosition: Qt.point(width / 2,
+                        revealDividerHeight + (height - revealDividerHeight) / 2)
                     objectName: "sharedCard" + index
                     width: ListView.view.width
                     height: Math.round(width * 88 / 63) + revealDividerHeight
@@ -117,7 +119,13 @@ Surface {
                              !== sharedCard.cardId
                              && !root.tableController.optimisticCommands.isCardPendingFrom(
                                  sharedCard.cardId, sharedCard.zoneName, -1)
-                    scale: sharedDrag.drag.active ? 1.045 : 1
+                    property real dragScale: sharedDrag.drag.active ? 1.045 : 1
+                    transform: Scale {
+                        origin.x: sharedCard.dragGrabPosition.x
+                        origin.y: sharedCard.dragGrabPosition.y
+                        xScale: sharedCard.dragScale
+                        yScale: sharedCard.dragScale
+                    }
                     opacity: sharedDrag.drag.active ? 0.94 : 1
                     onXChanged:
                         root.tableController.battlefieldScene.schedulePointRefresh()
@@ -131,9 +139,8 @@ Surface {
                     Drag.active: sharedDrag.drag.active
                     Drag.source: sharedCard
                     Drag.keys: ["hexproof/card"]
-                    Drag.hotSpot.x: width / 2
-                    Drag.hotSpot.y: revealDividerHeight
-                                    + (height - revealDividerHeight) / 2
+                    Drag.hotSpot.x: dragGrabPosition.x
+                    Drag.hotSpot.y: dragGrabPosition.y
 
                     states: State {
                         when: sharedCard.Drag.active
@@ -280,6 +287,7 @@ Surface {
                                         === root.tableController.roomSession.seatIndex
                                      ? sharedCard : null
                         drag.threshold: Theme.size(5)
+                        drag.smoothed: false
                         preventStealing: true
                         onClicked: root.tableController.sharedZones.selectCard(
                                        sharedCard.modelData,
@@ -288,7 +296,11 @@ Surface {
                                        sharedCard.modelData, sharedCard)
                         onExited: root.tableController.presentation.hideCardPreview(
                                       sharedCard)
-                        onPressed: root.tableController.presentation.hideCardPreview()
+                        onPressed: function(mouse) {
+                            sharedCard.dragGrabPosition = sharedDrag.mapToItem(
+                                sharedCard, mouse.x, mouse.y)
+                            root.tableController.presentation.hideCardPreview()
+                        }
                         onReleased: {
                             sharedCard.Drag.drop()
                             Qt.callLater(() => sharedGrid.forceLayout())

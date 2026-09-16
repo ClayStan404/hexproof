@@ -12,7 +12,9 @@ ColumnLayout {
     readonly property real progressValue:
         Math.max(0, Math.min(1, Number(catalogModel.progress) || 0))
 
-    visible: catalogModel.busy && !catalogModel.searching && !catalogModel.tokenSearching
+    readonly property bool cacheActive: typeof catalogModel.cacheProgressActive === "boolean"
+        ? catalogModel.cacheProgressActive : catalogModel.busy
+    visible: cacheActive && !catalogModel.searching && !catalogModel.tokenSearching
     spacing: Theme.size(5)
 
     RowLayout {
@@ -24,7 +26,8 @@ ColumnLayout {
             textFormat: Text.PlainText
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            text: I18n.status(root.catalogModel.status)
+            text: I18n.status(root.catalogModel.searchPreviewBusy
+                ? "Caching card images…" : root.catalogModel.status)
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(11)
             elide: Text.ElideRight

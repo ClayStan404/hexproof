@@ -36,6 +36,7 @@ type TournamentCreate struct {
 	MaxPlayers    int                       `json:"maxPlayers"`
 	PlannedRounds int                       `json:"plannedRounds,omitempty"`
 	Product       *LimitedProductDefinition `json:"product,omitempty"`
+	DraftSettings *LimitedDraftSettings     `json:"draftSettings,omitempty"`
 }
 
 type TournamentCreated struct {
@@ -178,6 +179,7 @@ type TournamentSnapshot struct {
 	ParticipantID  string                      `json:"participantId,omitempty"`
 	CanRegister    bool                        `json:"canRegister"`
 	Product        *LimitedProductView         `json:"product,omitempty"`
+	DraftSettings  *LimitedDraftSettings       `json:"draftSettings,omitempty"`
 	Participants   []TournamentParticipantView `json:"participants"`
 	Pairings       []TournamentPairingView     `json:"pairings"`
 	Standings      []TournamentStandingView    `json:"standings"`

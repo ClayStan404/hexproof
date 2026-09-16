@@ -28,6 +28,8 @@ Surface {
     signal previewEnded()
 
     readonly property string resolvedImageSource: {
+        if (!root.visible)
+            return ""
         const current = root.card
         if (!current)
             return ""
@@ -106,6 +108,7 @@ Surface {
                 source: root.resolvedImageSource
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
+                sourceSize.width: Math.ceil(Theme.size(184) * Screen.devicePixelRatio)
                 smooth: true
                 mipmap: false
             }

@@ -17,8 +17,12 @@ Item {
     required property int promptId
     property var piles: []
     property int visualRevision: 0
+    readonly property bool placementValid: hasCompletePlacement()
 
-    implicitHeight: Theme.size(238)
+    readonly property bool narrowLayout: width < Theme.size(490)
+
+    implicitHeight: narrowLayout ? Theme.size(208) + placementControls.implicitHeight
+                                 : Theme.size(238)
 
     function destinationLabel(destination) {
         switch (destination) {
@@ -100,8 +104,25 @@ Item {
         return true
     }
 
+    function hasCompletePlacement() {
+        void visualRevision
+        if (!destinations || piles.length !== destinations.length || piles.length === 0
+                || !cardModel || typeof cardModel.items !== "function")
+            return false
+        const remaining = cardModel.items().map(card => card.cardId)
+        for (let pileIndex = 0; pileIndex < piles.length; ++pileIndex) {
+            for (const card of piles[pileIndex]) {
+                const index = remaining.indexOf(card.cardId)
+                if (index < 0)
+                    return false
+                remaining.splice(index, 1)
+            }
+        }
+        return remaining.length === 0
+    }
+
     function submitPiles() {
-        if (piles.length !== destinations.length || piles.length === 0)
+        if (!hasCompletePlacement())
             return
         const answer = []
         for (let pileIndex = 0; pileIndex < piles.length; ++pileIndex) {
@@ -115,21 +136,29 @@ Item {
 
     onPromptIdChanged: resetPiles()
     onDestinationsChanged: resetPiles()
+    onCardModelChanged: resetPiles()
     Component.onCompleted: resetPiles()
+
+    Connections {
+        target: root.cardModel
+        ignoreUnknownSignals: true
+
+        function onModelReset() {
+            root.resetPiles()
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: Theme.size(8)
 
-        ListView {
+        RulesHorizontalListView {
             id: pileList
             objectName: "rulesScryPileList"
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
             spacing: Theme.size(8)
-            clip: true
             model: root.destinations
 
             delegate: Rectangle {
@@ -145,7 +174,7 @@ Item {
                                 (pileList.width - pileList.spacing
                                  * Math.max(0, pileList.count - 1))
                                 / Math.min(2, Math.max(1, pileList.count)))
-                height: pileList.height
+                height: pileList.itemHeight
                 radius: Theme.radiusSmall
                 color: Theme.surfaceMuted
                 border.width: 1
@@ -176,14 +205,14 @@ Item {
                         }
                     }
 
-                    ListView {
+                    RulesHorizontalListView {
                         id: cardList
+                        objectName: "rulesScryCards-" + pile.modelData
+                        outerFlickable: pileList
 
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        orientation: ListView.Horizontal
                         spacing: Theme.size(6)
-                        clip: true
                         model: pile.pileCards
 
                         delegate: Rectangle {
@@ -195,7 +224,7 @@ Item {
 
                             objectName: "rulesScryCard-" + cardId
                             width: Theme.size(96)
-                            height: cardList.height
+                            height: cardList.itemHeight
                             radius: Theme.radiusSmall
                             color: Theme.surfaceElevated
                             border.width: 1
@@ -307,8 +336,12 @@ Item {
             }
         }
 
-        RowLayout {
+        GridLayout {
+            id: placementControls
             Layout.fillWidth: true
+            columns: root.narrowLayout ? 1 : 2
+            columnSpacing: Theme.size(8)
+            rowSpacing: Theme.size(6)
 
             Text {
                 textFormat: Text.PlainText
@@ -316,15 +349,18 @@ Item {
                 text: qsTr("Choose a destination for every card. Within each pile, the leftmost card is first.")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSize(9)
-                elide: Text.ElideRight
+                wrapMode: root.narrowLayout ? Text.Wrap : Text.NoWrap
+                elide: root.narrowLayout ? Text.ElideNone : Text.ElideRight
             }
 
             AppButton {
                 objectName: "confirmScryButton"
-                Layout.preferredWidth: Theme.size(150)
+                Layout.fillWidth: root.narrowLayout
+                Layout.preferredWidth: root.narrowLayout ? -1 : Theme.size(150)
                 compact: true
                 variant: "primary"
                 text: qsTr("Confirm placement")
+                enabled: root.placementValid
                 onClicked: root.submitPiles()
             }
         }

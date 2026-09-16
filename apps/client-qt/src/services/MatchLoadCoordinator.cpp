@@ -15,7 +15,7 @@ MatchLoadCoordinator::MatchLoadCoordinator(QObject *parent)
 qreal MatchLoadCoordinator::progress() const
 {
     return m_requests.isEmpty() ? (m_ready ? 1.0 : 0.0)
-                                : static_cast<qreal>(completed()) / m_requests.size();
+                                : static_cast<qreal>(completed() - failed()) / m_requests.size();
 }
 
 void MatchLoadCoordinator::preparePreload(qint64 loadId, const QVariantList &cardKeys)
@@ -48,6 +48,7 @@ void MatchLoadCoordinator::prepareLoad(qint64 loadId, const QVariantList &cardKe
     m_requestOrder.clear();
     m_pending.clear();
     m_failed.clear();
+    m_localAvailable = 0;
     m_lastError.clear();
 
     emit stateChanged();
@@ -79,6 +80,7 @@ void MatchLoadCoordinator::handleCardLanguageChanged()
     m_requestOrder.clear();
     m_pending.clear();
     m_failed.clear();
+    m_localAvailable = 0;
     m_lastError.clear();
     emit stateChanged();
     if (!m_waitingForTableSnapshot)
@@ -126,7 +128,10 @@ void MatchLoadCoordinator::adoptExpandedCards(qint64 loadId, quint64 generation,
         normalizedRequest.insert(QStringLiteral("collectorNumber"), collector);
         m_requests.insert(key, normalizedRequest);
         m_requestOrder.append(key);
-        m_pending.insert(key);
+        if (request.value(QStringLiteral("_hexproofLocalArtAvailable")).toBool())
+            ++m_localAvailable;
+        else
+            m_pending.insert(key);
     }
 
     emit stateChanged();
@@ -187,6 +192,7 @@ void MatchLoadCoordinator::cancel()
     m_requestOrder.clear();
     m_pending.clear();
     m_failed.clear();
+    m_localAvailable = 0;
     m_lastError.clear();
     emit stateChanged();
 }

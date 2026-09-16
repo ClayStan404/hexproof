@@ -60,6 +60,11 @@
         }
       ],
       "variants": []
+    },
+    "draftSettings": {
+      "packsPerPlayer": 3,
+      "packsPerBatch": 1,
+      "cardsPerPack": 20
     }
   }
 }

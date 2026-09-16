@@ -7,15 +7,22 @@
 #include "CardCatalogCommon.h"
 
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QUrl>
 #include <QVariantMap>
 
 #include <functional>
 
+template <typename T> class QFutureWatcher;
+
 namespace hexproof::client {
 
 class CardArtCache;
+struct CardArtCacheEntry;
+namespace cardart {
+struct OperationResult;
+}
 
 class CardArtManager final : public QObject
 {
@@ -35,6 +42,7 @@ class CardArtManager final : public QObject
 
   public:
     explicit CardArtManager(QString storageRoot, CardArtCache *cache, QObject *parent = nullptr);
+    ~CardArtManager() override;
 
     int faceAuditVersion() const
     {
@@ -76,6 +84,7 @@ class CardArtManager final : public QObject
     QString storagePath() const;
 
     void setOperationGuard(std::function<bool()> guard);
+    void setInspectionGuard(std::function<bool()> guard);
     void setAuditRequestProvider(std::function<QVariantList()> provider,
                                  std::function<QString()> languageProvider);
 
@@ -111,9 +120,13 @@ class CardArtManager final : public QObject
     void deckExportFinished(const QVariantMap &result);
 
   private:
-    bool beginOperation(const QString &status);
+    bool beginOperation(const QString &status, bool inspectionOnly = false);
     void startInventoryScan();
     void startAudit(const QVariantList &cards);
+    void applyEntries(const QList<CardArtCacheEntry> &entries, std::function<void()> completion,
+                      qsizetype next = 0);
+    void saveCache(std::function<void(bool)> completion);
+    void removeUncommittedImportImages(std::function<void()> completion);
     void setBusy(bool busy);
     void setStatus(const QString &status);
     void setResult(const QString &result);
@@ -124,8 +137,12 @@ class CardArtManager final : public QObject
     QString m_databasePath;
     CardArtCache *m_cache = nullptr;
     std::function<bool()> m_operationGuard;
+    std::function<bool()> m_inspectionGuard;
     std::function<QVariantList()> m_auditRequestProvider;
     std::function<QString()> m_auditLanguageProvider;
+    std::function<void()> m_rollback;
+    QFutureWatcher<cardart::OperationResult> *m_importWatcher = nullptr;
+    QSet<QString> m_uncommittedImportImages;
     QVariantMap m_inventory;
     QVariantMap m_packPreview;
     cardart::AuditResult m_auditResult;

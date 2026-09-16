@@ -54,6 +54,7 @@ func TestCommanderCubeFourPlayerLifecycleOverWebSocket(t *testing.T) {
 	command(host, protocol.TypeTournamentCreate, protocol.TournamentCreate{
 		Name: "Commander Cube integration", Format: "Commander", EventType: protocol.LimitedEventCommanderCube,
 		Coordinator: protocol.LimitedCoordinatorCasual, MatchMode: protocol.MatchBO1, MaxPlayers: 4,
+		DraftSettings: &protocol.LimitedDraftSettings{PacksPerPlayer: 3, PacksPerBatch: 1},
 		Product: &protocol.LimitedProductDefinition{ID: "commander-cube", Name: "Commander Cube", ProductType: "cube",
 			Sheets: []protocol.LimitedSheetDefinition{{Name: "pool", Cards: cards}}},
 	}, protocol.TypeTournamentCreated)

@@ -5,7 +5,10 @@
     "name": "Commander Draft",
     "mainboardInstanceIds": [
       "limited-1",
-      "limited-2"
+      "limited-2",
+      "optional-5d250281eab73e3e02d2a406147d6ddd",
+      "optional-5f8d393a0d2bd3b75008823f2b453f38",
+      "optional-3c58295d8066ef1eac1836cc3698ea5c"
     ],
     "commanderInstanceIds": [
       "limited-2"
@@ -13,7 +16,7 @@
     "basicLands": [
       {
         "name": "Island",
-        "count": 58
+        "count": 55
       }
     ]
   }

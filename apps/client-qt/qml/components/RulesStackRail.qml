@@ -10,6 +10,7 @@ Surface {
     id: root
 
     required property var tableController
+    readonly property var interaction: tableController.interaction || null
 
     objectName: "rulesSharedZoneRail"
     Layout.minimumWidth: root.tableController.sharedZoneRailWidth
@@ -70,6 +71,7 @@ Surface {
 
                 delegate: RulesCardSurface {
                     id: stackCard
+                    required property string objectId
                     required property int controllerSeat
                     required property int index
                     required property string rulesText
@@ -90,11 +92,31 @@ Surface {
                     toughness: ""
                     countersSummary: ""
                     rotateTapped: false
+                    inspectable: true
+                    exclusiveTap: true
+                    actionable: root.interaction
+                                ? root.interaction.objectActionable("spell", objectId) : false
+                    selected: root.interaction
+                              ? root.interaction.objectSelected("spell", objectId) : false
+                    onActivationRequested: {
+                        if (!root.interaction.activateObject("spell", objectId, name))
+                            root.tableController.openCardDetails(objectId)
+                    }
+                    onInspectRequested: root.tableController.openCardDetails(objectId)
+                    onPreviewRequested: {
+                        if (typeof root.tableController.previewCard === "function")
+                            root.tableController.previewCard(objectId, stackCard)
+                    }
+                    onPreviewEnded: {
+                        if (typeof root.tableController.endCardPreview === "function")
+                            root.tableController.endCardPreview(stackCard)
+                    }
 
                     StatusPill {
+                        objectName: "rulesStackController-" + stackCard.index
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
-                        anchors.topMargin: Theme.size(5)
+                        anchors.topMargin: stackCard.selected ? Theme.size(28) : Theme.size(5)
                         text: qsTr("Seat %1").arg(parent.controllerSeat + 1)
                         statusColor: Theme.accent
                     }

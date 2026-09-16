@@ -28,24 +28,30 @@ func (e *Event) Snapshot(participantID string) protocol.LimitedSnapshot {
 		CurrentPack: []protocol.LimitedCardView{}, Pool: []protocol.LimitedCardView{},
 		MainboardInstanceIDs: []string{}, BasicLands: []protocol.LimitedBasicLand{},
 		CommanderInstanceIDs: []string{}, PicksRequired: e.PicksPerSelection(),
-		PacksPerPlayer: e.packCount, MinimumDeckCards: e.MinimumDeckCards(),
+		PacksPerPlayer: e.packCount, PacksThisBatch: e.packsThisBatch,
+		MinimumDeckCards:  e.MinimumDeckCards(),
 		Participants:      []protocol.LimitedParticipantView{},
 		AllDecksSubmitted: e.AllDecksSubmitted(),
 	}
 	for _, player := range e.Players {
 		packCards := 0
 		if len(player.Inbox) > 0 {
-			packCards = len(player.Inbox[0].Cards)
+			packCards = player.Inbox[0].cardCount()
+		}
+		queuedPacks := 0
+		for _, pack := range player.Inbox {
+			queuedPacks += len(pack.parts())
 		}
 		snapshot.Participants = append(snapshot.Participants, protocol.LimitedParticipantView{
 			ParticipantID: player.ID, DisplayName: player.DisplayName,
 			Picked: len(player.Pool), PackCards: packCards,
-			QueuedPacks: len(player.Inbox), DeckSubmitted: player.Deck != nil,
+			QueuedPacks: queuedPacks, DeckSubmitted: player.Deck != nil,
 			AutoDraft: player.AutoDraft, Withdrawn: player.Withdrawn,
 		})
 		if player.ID == participantID {
 			snapshot.Pool = cardViews(player.Pool)
 			snapshot.FallbackCommanders = cardViews(e.fallbackCommanders(player.ID))
+			snapshot.OptionalCards = cardViews(e.optionalCards(player.ID))
 			snapshot.MainboardInstanceIDs = append(
 				[]string(nil), player.MainboardInstanceIDs...)
 			snapshot.CommanderInstanceIDs = append(
@@ -55,7 +61,14 @@ func (e *Event) Snapshot(participantID string) protocol.LimitedSnapshot {
 			snapshot.BasicLands = append(
 				[]protocol.LimitedBasicLand(nil), player.BasicLands...)
 			if len(player.Inbox) > 0 {
-				snapshot.CurrentPack = cardViews(player.Inbox[0].Cards)
+				snapshot.PicksRequired = e.picksForPack(player.Inbox[0])
+				for _, part := range player.Inbox[0].parts() {
+					cards := cardViews(part.Cards)
+					snapshot.CurrentPack = append(snapshot.CurrentPack, cards...)
+					snapshot.CurrentPacks = append(snapshot.CurrentPacks, protocol.LimitedDraftPackView{
+						PackID: part.ID, Cards: cards, PicksRequired: min(e.PicksPerSelection(), len(part.Cards)),
+					})
+				}
 			}
 			snapshot.DeckSubmitted = player.Deck != nil
 		}

@@ -6,19 +6,79 @@
 #include "NetworkLimits.h"
 #include "NetworkRequestFactory.h"
 
+#include <QElapsedTimer>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPointer>
+#include <QQueue>
 #include <QTimer>
 #include <QUrlQuery>
+
+#include <utility>
 
 namespace hexproof::client {
 using namespace catalog_internal;
 
+struct CardResolver::NetworkState final : QObject
+{
+    using StartJson = std::function<void(std::function<void()>)>;
+    struct JsonLane
+    {
+        QQueue<StartJson> requests;
+        QElapsedTimer lastStart;
+        int active = 0;
+        bool scheduled = false;
+    };
+
+    QHash<QString, QDateTime> hostCooldowns;
+    QHash<QString, JsonLane> jsonLanes;
+
+    void enqueueJson(const QString &host, StartJson start)
+    {
+        jsonLanes[host].requests.enqueue(std::move(start));
+        startNextJson(host);
+    }
+
+    void startNextJson(const QString &host)
+    {
+        auto &lane = jsonLanes[host];
+        if (lane.scheduled || lane.active >= 3 || lane.requests.isEmpty())
+            return;
+        lane.scheduled = true;
+        const int delay = lane.lastStart.isValid()
+                              ? static_cast<int>(qMax<qint64>(0, 110 - lane.lastStart.elapsed()))
+                              : 0;
+        // Pace request starts independently of response latency. A slow
+        // lookup may occupy one of the host's three slots, but cannot block
+        // every other card. All workers and fallback chains share this gate.
+        QTimer::singleShot(delay, Qt::PreciseTimer, this, [this, host]() {
+            auto &ready = jsonLanes[host];
+            ready.scheduled = false;
+            ++ready.active;
+            ready.lastStart.start();
+            auto start = ready.requests.dequeue();
+            start([this, host]() {
+                --jsonLanes[host].active;
+                startNextJson(host);
+            });
+            startNextJson(host);
+        });
+    }
+};
+
 CardResolver::CardResolver(QNetworkAccessManager *network, Callbacks callbacks, QObject *parent)
     : QObject(parent),
       m_network(network),
-      m_callbacks(std::move(callbacks))
+      m_callbacks(std::move(callbacks)),
+      m_networkState(std::make_shared<NetworkState>())
+{
+}
+
+CardResolver::CardResolver(CardResolver &networkOwner, Callbacks callbacks, QObject *parent)
+    : QObject(parent),
+      m_network(networkOwner.m_network),
+      m_callbacks(std::move(callbacks)),
+      m_networkState(networkOwner.m_networkState)
 {
 }
 
@@ -120,18 +180,36 @@ QNetworkReply *CardResolver::requestImage(const QUrl &url)
 void CardResolver::requestJson(const QUrl &url, std::function<void(QNetworkReply *)> finished)
 {
     QPointer<CardResolver> guard(this);
-    QTimer::singleShot(110, this, [guard, url, finished = std::move(finished)]() {
-        if (!guard)
+    NetworkState *state = m_networkState.get();
+    state->enqueueJson(url.host().toLower(), [guard, state, url, finished = std::move(finished)](
+                                                 std::function<void()> release) {
+        if (!guard) {
+            release();
             return;
+        }
+        // Another worker may have opened a cooldown while this request waited.
+        if (guard->hostInCooldown(url)) {
+            release();
+            finished(nullptr);
+            return;
+        }
         QNetworkReply *reply = guard->startRequest(
             guard->requestFor(url, QByteArrayLiteral("application/json;q=0.9,*/*;q=0.8")));
         if (!reply) {
+            release();
             finished(nullptr);
             return;
         }
         network_limits::limitNetworkReply(reply, network_limits::kMaximumJsonResponseBytes);
         QObject::connect(reply, &QNetworkReply::finished, guard,
                          [reply, finished]() { finished(reply); });
+        const auto released = std::make_shared<bool>(false);
+        const auto releaseOnce = [released, release = std::move(release)]() {
+            if (!std::exchange(*released, true))
+                release();
+        };
+        QObject::connect(reply, &QNetworkReply::finished, state, releaseOnce);
+        QObject::connect(reply, &QObject::destroyed, state, releaseOnce);
     });
 }
 
@@ -157,18 +235,19 @@ bool CardResolver::hostInCooldown(const QUrl &url)
     const QString host = url.host().toLower();
     if (host.isEmpty())
         return false;
-    const auto cooldown = m_hostCooldowns.constFind(host);
-    if (cooldown == m_hostCooldowns.cend())
+    const auto cooldown = m_networkState->hostCooldowns.constFind(host);
+    if (cooldown == m_networkState->hostCooldowns.cend())
         return false;
     if (*cooldown > QDateTime::currentDateTimeUtc())
         return true;
-    m_hostCooldowns.remove(host);
+    m_networkState->hostCooldowns.remove(host);
     return false;
 }
 
 void CardResolver::markHostSuccess(const QUrl &url)
 {
-    m_hostCooldowns.remove(url.host().toLower());
+    // A response already in flight must not cancel another worker's 429.
+    hostInCooldown(url);
 }
 
 void CardResolver::markHostFailure(const QUrl &url, int httpStatus, const QByteArray &retryAfter,
@@ -192,12 +271,15 @@ void CardResolver::markHostFailure(const QUrl &url, int httpStatus, const QByteA
     if (cooldownMs < 0)
         cooldownMs = static_cast<qint64>(kHostCooldownSeconds) * 1000;
     cooldownMs = qMax<qint64>(1000, cooldownMs);
-    m_hostCooldowns.insert(host, QDateTime::currentDateTimeUtc().addMSecs(cooldownMs));
+    const QDateTime until = QDateTime::currentDateTimeUtc().addMSecs(cooldownMs);
+    auto &cooldown = m_networkState->hostCooldowns[host];
+    if (!cooldown.isValid() || until > cooldown)
+        cooldown = until;
 }
 
 void CardResolver::clearCooldowns()
 {
-    m_hostCooldowns.clear();
+    m_networkState->hostCooldowns.clear();
 }
 
 QString CardResolver::phaseName(Phase phase) const

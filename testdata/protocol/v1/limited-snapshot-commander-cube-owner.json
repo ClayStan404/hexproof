@@ -560,7 +560,10 @@
     ],
     "mainboardInstanceIds": [
       "limited-1",
-      "limited-2"
+      "limited-2",
+      "optional-5d250281eab73e3e02d2a406147d6ddd",
+      "optional-5f8d393a0d2bd3b75008823f2b453f38",
+      "optional-3c58295d8066ef1eac1836cc3698ea5c"
     ],
     "picksRequired": 2,
     "packsPerPlayer": 3,
@@ -568,7 +571,7 @@
     "basicLands": [
       {
         "name": "Island",
-        "count": 58
+        "count": 55
       }
     ],
     "participants": [
@@ -609,6 +612,35 @@
     "allDecksSubmitted": false,
     "commanderInstanceIds": [
       "limited-2"
+    ],
+    "optionalCards": [
+      {
+        "instanceId": "optional-5d250281eab73e3e02d2a406147d6ddd",
+        "name": "Sol Ring",
+        "setCode": "CMR",
+        "collectorNumber": "472",
+        "typeLine": "Artifact",
+        "rarity": "uncommon",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "optional-5f8d393a0d2bd3b75008823f2b453f38",
+        "name": "Command Tower",
+        "setCode": "CMR",
+        "collectorNumber": "350",
+        "typeLine": "Land",
+        "rarity": "common",
+        "finish": "nonfoil"
+      },
+      {
+        "instanceId": "optional-3c58295d8066ef1eac1836cc3698ea5c",
+        "name": "Arcane Signet",
+        "setCode": "CMR",
+        "collectorNumber": "297",
+        "typeLine": "Artifact",
+        "rarity": "uncommon",
+        "finish": "nonfoil"
+      }
     ]
   }
 }

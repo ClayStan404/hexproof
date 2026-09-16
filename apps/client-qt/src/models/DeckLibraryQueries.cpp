@@ -46,17 +46,21 @@ QString DeckLibraryQueries::commanderDisplayName(const Deck &deck)
     return deck.commanders.join(QStringLiteral(" / "));
 }
 
-bool DeckLibraryQueries::deckReady(const Deck &deck, const QVariantMap &validation)
+bool DeckLibraryQueries::deckReady(const Deck &deck, const QVariantMap &validation,
+                                   int missingImages)
 {
-    return deckSelectable(deck, false, validation);
+    return deckSelectable(deck, false, validation, missingImages);
 }
 
 bool DeckLibraryQueries::deckSelectable(const Deck &deck, bool allowMissingArt,
-                                        const QVariantMap &validation)
+                                        const QVariantMap &validation, int missingImages)
 {
+    const auto artReady = [&deck, missingImages]() {
+        return (missingImages < 0 ? missingImageCount(deck) : missingImages) == 0;
+    };
     if (isCubeDeckFormat(deck.deckFormat)) {
         return cardCount(deck.mainboard) >= kMinimumCubeDraftCards && deck.sideboard.isEmpty() &&
-               hasExactPrintings(deck) && (allowMissingArt || missingImageCount(deck) == 0);
+               hasExactPrintings(deck) && (allowMissingArt || artReady());
     }
     constexpr int minimumOpeningHandCards = 7;
     if (cardCount(deck.mainboard) < minimumOpeningHandCards)
@@ -68,10 +72,13 @@ bool DeckLibraryQueries::deckSelectable(const Deck &deck, bool allowMissingArt,
     if (validation.contains(QStringLiteral("valid")) &&
         !validation.value(QStringLiteral("valid")).toBool())
         return false;
-    return allowMissingArt || missingImageCount(deck) == 0;
+    if (!hasExactPrintings(deck))
+        return false;
+    return allowMissingArt || artReady();
 }
 
-QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &validation)
+QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &validation,
+                                       int missingImages)
 {
     if (cardCount(deck.mainboard) == 0)
         return QStringLiteral("Empty deck");
@@ -85,7 +92,7 @@ QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &vali
                        "The Cube needs at least %1 physical cards for a two-player draft.")
                 .arg(kMinimumCubeDraftCards);
         }
-        const int missing = missingImageCount(deck);
+        const int missing = missingImages < 0 ? missingImageCount(deck) : missingImages;
         if (missing > 0) {
             return QStringLiteral("%1 image%2 missing")
                 .arg(missing)
@@ -100,13 +107,17 @@ QString DeckLibraryQueries::deckStatus(const Deck &deck, const QVariantMap &vali
     if (validation.contains(QStringLiteral("valid")) &&
         !validation.value(QStringLiteral("valid")).toBool())
         return validation.value(QStringLiteral("status")).toString();
+    if (!hasExactPrintings(deck)) {
+        return QStringLiteral(
+            "Card printings unresolved. Install the card database or select printings.");
+    }
     if (validation.contains(QStringLiteral("verified")) &&
         !validation.value(QStringLiteral("verified")).toBool())
         return validation.value(QStringLiteral("status")).toString();
     constexpr int minimumOpeningHandCards = 7;
     if (cardCount(deck.mainboard) < minimumOpeningHandCards)
         return QStringLiteral("At least 7 main-deck cards required");
-    const int missing = missingImageCount(deck);
+    const int missing = missingImages < 0 ? missingImageCount(deck) : missingImages;
     if (missing > 0)
         return QStringLiteral("%1 image%2 missing")
             .arg(missing)
@@ -140,11 +151,13 @@ bool DeckLibraryQueries::hasExactPrintings(const Deck &deck)
 {
     if (deck.mainboard.isEmpty())
         return false;
-    for (const DeckCard &card : deck.mainboard) {
-        if (card.setCode.trimmed().isEmpty() ||
-            card.setCode.compare(QStringLiteral("CUBE"), Qt::CaseInsensitive) == 0 ||
-            card.collectorNumber.trimmed().isEmpty()) {
-            return false;
+    for (const QVector<DeckCard> *zone : {&deck.mainboard, &deck.sideboard}) {
+        for (const DeckCard &card : *zone) {
+            if (card.setCode.trimmed().isEmpty() ||
+                card.setCode.compare(QStringLiteral("CUBE"), Qt::CaseInsensitive) == 0 ||
+                card.collectorNumber.trimmed().isEmpty()) {
+                return false;
+            }
         }
     }
     return true;

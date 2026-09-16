@@ -26,6 +26,9 @@ class LimitedSessionState : public QObject
     Q_PROPERTY(int packRound READ packRound NOTIFY headerChanged)
     Q_PROPERTY(int direction READ direction NOTIFY headerChanged)
     Q_PROPERTY(QVariantList currentPack READ currentPack NOTIFY packChanged)
+    Q_PROPERTY(QVariantList currentPacks READ currentPacks NOTIFY packChanged)
+    Q_PROPERTY(int packsThisBatch READ packsThisBatch NOTIFY headerChanged)
+    Q_PROPERTY(QVariantList optionalCards READ optionalCards NOTIFY deckChanged)
     Q_PROPERTY(QVariantList pool READ pool NOTIFY poolChanged)
     Q_PROPERTY(QVariantList mainboardInstanceIds READ mainboardInstanceIds NOTIFY deckChanged)
     Q_PROPERTY(QVariantList commanderInstanceIds READ commanderInstanceIds NOTIFY deckChanged)
@@ -99,6 +102,18 @@ class LimitedSessionState : public QObject
     {
         return m_currentPack;
     }
+    QVariantList currentPacks() const
+    {
+        return m_currentPacks;
+    }
+    int packsThisBatch() const
+    {
+        return m_packsThisBatch;
+    }
+    QVariantList optionalCards() const
+    {
+        return m_optionalCards;
+    }
     QVariantList pool() const
     {
         return m_pool;
@@ -144,6 +159,9 @@ class LimitedSessionState : public QObject
     int m_packRound = 0;
     int m_direction = 1;
     QVariantList m_currentPack;
+    QVariantList m_currentPacks;
+    int m_packsThisBatch = 1;
+    QVariantList m_optionalCards;
     QVariantList m_pool;
     QVariantList m_mainboardInstanceIds;
     QVariantList m_commanderInstanceIds;

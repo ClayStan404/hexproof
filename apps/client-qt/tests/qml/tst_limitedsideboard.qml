@@ -116,6 +116,16 @@ TestCase {
         tryCompare(popup, "opened", false)
         mouseClick(ready)
         compare(mockWs.sideboardReadyCount, 1)
+        verify(panel.readyPending)
+        verify(!ready.enabled)
+        mouseClick(ready)
+        compare(mockWs.sideboardReadyCount, 1)
+        const acknowledged = Object.assign({}, mockWs.sideboardState)
+        acknowledged.seats = [{seat:0, ready:true, mainboardCount:40, sideboardCount:15},
+            {seat:1, ready:false, mainboardCount:40, sideboardCount:15}]
+        mockWs.sideboardState = acknowledged
+        tryCompare(panel, "readyPending", false)
+        verify(ready.enabled)
     }
 
     function test_filtersAndUnlimitedBasicLandSupply() {

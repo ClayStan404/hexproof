@@ -14,7 +14,7 @@ Surface {
     required property var areaMenu
     required property var cardMenu
     required property var publicZoneBrowserPopup
-    color: Theme.surfaceMuted
+    color: Theme.useGlass || TableBackgrounds.hasImage ? "transparent" : Theme.surfaceMuted
     radius: 0
     border.width: 0
 
@@ -156,9 +156,15 @@ Surface {
                         ? 3
                         : root.tableController.battlefieldLayout.overviewColumnSpan(
                               modelData.seat)
-                    color: isOwn ? Theme.primaryMuted : Theme.surfaceHover
-                    radius: 0
-                    border.width: isActiveTurn ? Theme.size(2) : 1
+                    color: Theme.useGlass
+                           ? "transparent"
+                           : TableBackgrounds.hasImage
+                             ? Theme.withAlpha(isOwn ? Theme.primaryMuted : Theme.surfaceHover, 0.24)
+                             : (isOwn ? Theme.primaryMuted : Theme.surfaceHover)
+                    radius: Theme.useGlass ? Theme.radiusLarge : 0
+                    border.width: Theme.useGlass
+                                  ? 0
+                                  : (isActiveTurn ? Theme.size(2) : 1)
                     border.color: isActiveTurn
                                   ? Theme.primary : Theme.border
                     opacity: modelData.eliminated === true ? 0.58 : 1
@@ -176,6 +182,20 @@ Surface {
                         root.tableController.battlefieldScene.schedulePointRefresh()
                     onHeightChanged:
                         root.tableController.battlefieldScene.schedulePointRefresh()
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: battlefieldZone.radius
+                        antialiasing: true
+                        visible: Theme.useGlass
+                        color: battlefieldZone.isOwn
+                               ? Theme.withAlpha(Theme.primary, 0.06)
+                               : "#10000000"
+                        border.width: 1
+                        border.color: battlefieldZone.isActiveTurn
+                                      ? Theme.withAlpha(Theme.primary, 0.55)
+                                      : Theme.playmatStitch
+                    }
 
                     AppButton {
                         objectName: "emblemZoneButton" + battlefieldZone.modelData.seat
@@ -215,6 +235,8 @@ Surface {
                                ? Theme.primary : Theme.text
                         font.pixelSize: Theme.fontSize(11)
                         font.weight: Font.Bold
+                        style: TableBackgrounds.hasImage ? Text.Outline : Text.Normal
+                        styleColor: "#B8000000"
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                         HoverHandler { id: playerNameHover }
@@ -237,6 +259,14 @@ Surface {
                                              : implicitWidth
                         spacing: Theme.size(8)
                         z: 220
+
+                        StatusPill {
+                            objectName: "playerTurnCount" + battlefieldZone.modelData.seat
+                            visible: battlefieldZone.modelData.turnCount >= 0
+                            text: qsTr("Turn %1").arg(battlefieldZone.modelData.turnCount)
+                            statusColor: battlefieldZone.isActiveTurn
+                                         ? Theme.primary : Theme.textMuted
+                        }
 
                         StatusPill {
                             objectName: "activeTurnBadge"
@@ -295,6 +325,8 @@ Surface {
                                    ? Theme.warning : Theme.textSecondary)
                             font.pixelSize: Theme.fontSize(11)
                             font.weight: Font.DemiBold
+                            style: TableBackgrounds.hasImage ? Text.Outline : Text.Normal
+                            styleColor: "#B8000000"
                         }
                     }
 

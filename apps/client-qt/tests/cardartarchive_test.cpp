@@ -6,16 +6,24 @@
 #include "services/CardArtCache.h"
 #include "services/CardCatalogCommon.h"
 
+#include <QCryptographicHash>
 #include <QDataStream>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUuid>
+
+#ifdef Q_OS_UNIX
+#include <sys/stat.h>
+#endif
 
 using namespace Qt::StringLiterals;
 using namespace hexproof::client;
@@ -58,18 +66,22 @@ bool writeFaceCatalog(const QString &databasePath, const QVariantList &cards)
             QSqlQuery query(database);
             ok = query.exec(u"CREATE TABLE cards (name TEXT NOT NULL, layout TEXT NOT NULL, "
                             "type_line TEXT NOT NULL, set_code TEXT NOT NULL, "
-                            "collector_number TEXT NOT NULL, lang TEXT NOT NULL)"_s);
+                            "collector_number TEXT NOT NULL, lang TEXT NOT NULL, "
+                            "id TEXT, related_cards TEXT)"_s);
             for (const QVariant &value : cards) {
                 if (!ok)
                     break;
                 const QVariantMap card = value.toMap();
                 query.prepare(u"INSERT INTO cards (name, layout, type_line, set_code, "
-                              "collector_number, lang) VALUES (?, ?, ?, ?, ?, 'en')"_s);
+                              "collector_number, lang, id, related_cards) "
+                              "VALUES (?, ?, ?, ?, ?, 'en', ?, ?)"_s);
                 query.addBindValue(card.value(u"name"_s));
                 query.addBindValue(card.value(u"layout"_s));
                 query.addBindValue(card.value(u"typeLine"_s));
                 query.addBindValue(card.value(u"setCode"_s));
                 query.addBindValue(card.value(u"collectorNumber"_s));
+                query.addBindValue(card.value(u"id"_s).toString());
+                query.addBindValue(card.value(u"relatedCards"_s).toString());
                 ok = query.exec();
             }
             database.close();
@@ -104,6 +116,7 @@ class TestCardArtArchive final : public QObject
     void importAcceptsLegacyRulesAndRejectsInvalidMetadata() const;
     void selectedExportContainsOnlyRequestedGroup() const;
     void deckExportIncludesExactPrintingsLanguagesFacesAndSupportCards() const;
+    void deckExportIncludesRelatedMeldPrintings() const;
     void deckExportReportsUncachedAndCorruptFaces() const;
     void deckExportNeverBroadensAnEmptySelection() const;
     void deckExportWithoutCatalogIncludesKnownFaces() const;
@@ -114,6 +127,8 @@ class TestCardArtArchive final : public QObject
     void exportSkipsInvalidAndDuplicateMappingMetadata() const;
     void deckExportLargeCubeDeduplicatesImages() const;
     void importRejectsTamperedImagePayload() const;
+    void lateImportFailureRemovesNewImages_data() const;
+    void lateImportFailureRemovesNewImages() const;
     void orphanCleanupDeletesOnlyUnreferencedFiles() const;
     void selectedCleanupPreservesSharedImage() const;
     void auditRepairsCachedFrontAndFindsMissingBack() const;
@@ -121,7 +136,140 @@ class TestCardArtArchive final : public QObject
     void auditRepairsLegacyPrepareMappingWithoutDownload() const;
     void supportArtAuditAndPackRoundTripUsePreferredLanguage() const;
     void persistsFaceAuditState() const;
+    void nonRegularInputsNeverEnterBlockingReaders() const;
 };
+
+void TestCardArtArchive::nonRegularInputsNeverEnterBlockingReaders() const
+{
+    QTemporaryDir directory;
+    CardArtCache cache(directory.filePath(u"cache"_s));
+    QStringList paths{directory.path()};
+#ifdef Q_OS_UNIX
+    const QString pipe = directory.filePath(u"unopened.hexproof-artpack"_s);
+    QCOMPARE(::mkfifo(QFile::encodeName(pipe).constData(), 0600), 0);
+    paths.append(pipe);
+#endif
+    for (const auto &path : paths) {
+        QVERIFY(!cardart::inspectPack(path).value(u"ok"_s).toBool());
+        const auto imported = cardart::importPack(path, cache.imageRoot());
+        QVERIFY(!imported.ok);
+        QVERIFY(imported.importedEntries.isEmpty());
+    }
+    QVERIFY(cache.entries().isEmpty());
+}
+
+void TestCardArtArchive::deckExportIncludesRelatedMeldPrintings() const
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    CardArtCache cache(directory.filePath(u"source"_s));
+    QVERIFY(QDir().mkpath(cache.imageRoot()));
+    struct MeldPrinting
+    {
+        QString front;
+        QString back;
+        QString set;
+        QString frontNumber;
+        QString backNumber;
+    };
+    const QList<MeldPrinting> melds{{u"Bruna, the Fading Light"_s,
+                                     u"Brisela, Voice of Nightmares"_s, u"V17"_s, u"5"_s, u"5b"_s},
+                                    {u"Gisela, the Broken Blade"_s,
+                                     u"Brisela, Voice of Nightmares"_s, u"EMN"_s, u"28"_s,
+                                     u"15b"_s},
+                                    {u"Argoth, Sanctum of Nature"_s, u"Titania, Gaea Incarnate"_s,
+                                     u"BRO"_s, u"256"_s, u"256b"_s}};
+    QVariantList catalog;
+    QVariantList requests;
+    QSet<QString> expectedKeys;
+    const auto addEntry = [&](const QString &name, const QString &set, const QString &number,
+                              QRgb color) {
+        const QString imagePath =
+            QDir(cache.imageRoot()).filePath(QString::number(color) + u".png"_s);
+        QImage image(2, 2, QImage::Format_ARGB32);
+        image.fill(color);
+        if (!image.save(imagePath, "PNG"))
+            return QString{};
+        auto entry = cacheEntry(&cache, name, set, u"en"_s, imagePath);
+        entry.record.collectorNumber = number;
+        entry.cacheKey = cache.key(name, u"en"_s, set, number);
+        cache.rememberSuccess(entry.cacheKey, entry.record);
+        return entry.cacheKey;
+    };
+    for (qsizetype index = 0; index < melds.size(); ++index) {
+        const MeldPrinting &meld = melds[index];
+        const QString backId = meld.set + meld.backNumber;
+        const QString related = QString::fromUtf8(
+            QJsonDocument(QJsonArray{QJsonObject{{u"component"_s, u"meld_result"_s},
+                                                 {u"name"_s, meld.back},
+                                                 {u"id"_s, backId}}})
+                .toJson(QJsonDocument::Compact));
+        catalog.append(QVariantMap{{u"name"_s, meld.front},
+                                   {u"layout"_s, u"meld"_s},
+                                   {u"typeLine"_s, u"Creature"_s},
+                                   {u"setCode"_s, meld.set},
+                                   {u"collectorNumber"_s, meld.frontNumber},
+                                   {u"relatedCards"_s, related}});
+        catalog.append(QVariantMap{{u"name"_s, meld.back},
+                                   {u"layout"_s, u"meld"_s},
+                                   {u"typeLine"_s, u"Creature"_s},
+                                   {u"setCode"_s, meld.set},
+                                   {u"collectorNumber"_s, meld.backNumber},
+                                   {u"id"_s, backId}});
+        requests.append(deckPrinting(meld.front, meld.set, meld.frontNumber));
+        expectedKeys.insert(
+            addEntry(meld.front, meld.set, meld.frontNumber, qRgb(20 + int(index), 30, 40)));
+        // Two distinct Brisela printings share one downloaded image in the
+        // real cache. Portable mappings must preserve both exact identities.
+        expectedKeys.insert(addEntry(meld.back, meld.set, meld.backNumber,
+                                     index < 2 ? qRgb(90, 30, 40) : qRgb(100, 30, 40)));
+    }
+    QVERIFY(!expectedKeys.contains(QString{}));
+    const QString wrongKey = addEntry(melds.first().back, u"V17"_s, u"5c"_s, qRgb(120, 30, 40));
+    QVERIFY(!wrongKey.isEmpty());
+    const QString database = directory.filePath(u"cards.sqlite"_s);
+    QVERIFY(writeFaceCatalog(database, catalog));
+    const QString archive = directory.filePath(u"meld.hexproof-artpack"_s);
+    const auto exported =
+        cardart::exportDeckPack(archive, cache.imageRoot(), database, requests, cache.entries());
+    QVERIFY2(exported.operation.ok, qPrintable(exported.operation.error));
+    QCOMPARE(exported.requestedPrintingCount, 3);
+    QCOMPARE(exported.requestedFaceCount, 6);
+    QCOMPARE(exported.missingPrintingCount, 0);
+    QCOMPARE(exported.missingFaceCount, 0);
+    QCOMPARE(exported.operation.exportedEntryKeys, expectedKeys);
+    QCOMPARE(exported.operation.entryCount, 6);
+    QCOMPARE(exported.operation.imageCount, 5);
+
+    CardArtCache recipient(directory.filePath(u"recipient"_s));
+    const auto imported = cardart::importPack(archive, recipient.imageRoot());
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+    QSet<QString> importedKeys;
+    for (const auto &entry : imported.importedEntries) {
+        importedKeys.insert(entry.cacheKey);
+        QVERIFY(QFileInfo::exists(entry.record.imagePath));
+        recipient.rememberSuccess(entry.cacheKey, entry.record);
+    }
+    QCOMPARE(importedKeys, expectedKeys);
+    for (const MeldPrinting &meld : melds) {
+        const auto restored =
+            recipient.resolvedPrinting(CardRequest{meld.back, meld.set, meld.backNumber, u"en"_s});
+        QCOMPARE(restored.name, meld.back);
+        QCOMPARE(restored.collectorNumber, meld.backNumber);
+        QVERIFY(QFileInfo::exists(restored.imagePath));
+    }
+
+    auto partialEntries = cache.entries();
+    const QString missingKey = cache.key(melds.first().back, u"en"_s, u"V17"_s, u"5b"_s);
+    partialEntries.removeIf([&](const auto &entry) { return entry.cacheKey == missingKey; });
+    const auto partial =
+        cardart::exportDeckPack(directory.filePath(u"partial-meld.hexproof-artpack"_s),
+                                cache.imageRoot(), database, requests, partialEntries);
+    QVERIFY(partial.operation.ok);
+    QCOMPARE(partial.missingPrintingCount, 0);
+    QCOMPARE(partial.missingFaceCount, 1);
+    QVERIFY(!partial.operation.exportedEntryKeys.contains(wrongKey));
+}
 
 void TestCardArtArchive::deckExportIncludesExactPrintingsLanguagesFacesAndSupportCards() const
 {
@@ -821,6 +969,102 @@ void TestCardArtArchive::importRejectsTamperedImagePayload() const
     QVERIFY(!imported.error.isEmpty());
     // Already-cached entries must not bypass validation of the archive payload.
     QVERIFY(!cardart::importPack(packPath, source.imageRoot(), source.entries()).ok);
+}
+
+void TestCardArtArchive::lateImportFailureRemovesNewImages_data() const
+{
+    QTest::addColumn<bool>("corruptPayload");
+    QTest::addColumn<bool>("previouslyReferenced");
+    QTest::newRow("damaged final image") << true << false;
+    QTest::newRow("unwritable final destination") << false << false;
+    QTest::newRow("damaged final image preserves restored reference") << true << true;
+    QTest::newRow("unwritable final destination preserves restored reference") << false << true;
+}
+
+void TestCardArtArchive::lateImportFailureRemovesNewImages() const
+{
+    QFETCH(bool, corruptPayload);
+    QFETCH(bool, previouslyReferenced);
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    CardArtCache source(directory.filePath(u"source"_s));
+    const QString first = QDir(source.imageRoot()).filePath(u"first.png"_s);
+    const QString second = QDir(source.imageRoot()).filePath(u"second.png"_s);
+    QVERIFY(writeFile(first, kPng));
+    QImage different(2, 2, QImage::Format_RGB32);
+    different.fill(Qt::red);
+    QVERIFY(different.save(second, "PNG"));
+    const QList<CardArtCacheEntry> entries{
+        cacheEntry(&source, u"First"_s, u"TST"_s, u"en"_s, first),
+        cacheEntry(&source, u"Second"_s, u"TST"_s, u"en"_s, second)};
+    const QString packPath = directory.filePath(u"late-failure.hexproof-artpack"_s);
+    const auto exported = cardart::exportPack(packPath, source.imageRoot(), entries, false, {}, {});
+    QVERIFY2(exported.ok, qPrintable(exported.error));
+    QCOMPARE(exported.imageCount, 2);
+    QFile pack(packPath);
+    QVERIFY(pack.open(QIODevice::ReadWrite));
+    QVERIFY(pack.seek(8));
+    QDataStream stream(&pack);
+    stream.setByteOrder(QDataStream::BigEndian);
+    quint32 manifestLength = 0;
+    stream >> manifestLength;
+    const QJsonObject manifest = QJsonDocument::fromJson(pack.read(manifestLength)).object();
+    const QJsonObject firstImage = manifest.value(u"images"_s).toArray().first().toObject();
+    const QJsonObject finalImage = manifest.value(u"images"_s).toArray().last().toObject();
+    if (corruptPayload) {
+        QVERIFY(pack.seek(pack.size() - 1));
+        char last = 0;
+        QCOMPARE(pack.read(&last, 1), 1);
+        QVERIFY(pack.seek(pack.size() - 1));
+        last ^= 1;
+        QCOMPARE(pack.write(&last, 1), 1);
+    }
+    pack.close();
+
+    CardArtCache target(directory.filePath(u"target"_s));
+    const QString retained = QDir(target.imageRoot()).filePath(u"existing.png"_s);
+    QVERIFY(writeFile(retained, kPng));
+    const auto existing = cacheEntry(&target, u"Existing"_s, u"OLD"_s, u"en"_s, retained);
+    target.rememberSuccess(existing.cacheKey, existing.record);
+    const QString restored = QDir(target.imageRoot())
+                                 .filePath(firstImage.value(u"sha256"_s).toString() + u"."_s +
+                                           firstImage.value(u"format"_s).toString());
+    if (previouslyReferenced) {
+        const auto missing = cacheEntry(&target, u"Missing"_s, u"OLD"_s, u"en"_s, restored);
+        target.rememberSuccess(missing.cacheKey, missing.record);
+        QVERIFY(!QFileInfo::exists(restored));
+    }
+    QVERIFY(target.save());
+    const QString blocked = QDir(target.imageRoot())
+                                .filePath(finalImage.value(u"sha256"_s).toString() + u"."_s +
+                                          finalImage.value(u"format"_s).toString());
+    if (!corruptPayload)
+        QVERIFY(QDir().mkdir(blocked));
+    auto expectedFiles = QDir(target.imageRoot()).entryList(QDir::Files, QDir::Name);
+    if (previouslyReferenced) {
+        expectedFiles.append(QFileInfo(restored).fileName());
+        expectedFiles.sort();
+    }
+    const auto imported = cardart::importPack(packPath, target.imageRoot(), target.entries());
+    QVERIFY(!imported.ok);
+    QVERIFY(imported.importedEntries.isEmpty());
+    QFile retainedImage(retained);
+    QVERIFY(retainedImage.open(QIODevice::ReadOnly));
+    QCOMPARE(retainedImage.readAll(), kPng);
+    QCOMPARE(QDir(target.imageRoot()).entryList(QDir::Files, QDir::Name), expectedFiles);
+    if (previouslyReferenced) {
+        QFile repairedImage(restored);
+        QVERIFY(repairedImage.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromLatin1(
+                     QCryptographicHash::hash(repairedImage.readAll(), QCryptographicHash::Sha256)
+                         .toHex()),
+                 firstImage.value(u"sha256"_s).toString());
+    }
+    QCOMPARE(
+        cardart::inventory(target.imageRoot(), target.entries()).value(u"orphanCount"_s).toInt(),
+        0);
+    if (!corruptPayload)
+        QVERIFY(QFileInfo(blocked).isDir());
 }
 
 void TestCardArtArchive::selectedExportContainsOnlyRequestedGroup() const

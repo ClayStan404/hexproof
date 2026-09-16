@@ -1,0 +1,12 @@
+{
+  "type": "limited.pick",
+  "id": "commander-paired-pick",
+  "payload": {
+    "instanceIds": [
+      "limited-1",
+      "limited-2",
+      "limited-21",
+      "limited-22"
+    ]
+  }
+}

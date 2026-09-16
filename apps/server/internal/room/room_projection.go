@@ -33,6 +33,7 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 			Seat:           state.Seat,
 			DisplayName:    state.DisplayName,
 			Life:           state.Life,
+			TurnCount:      state.TurnCount,
 			Counters:       clonePlayerCounters(state.Counters),
 			CounterCount:   state.CounterCount,
 			LibraryCount:   len(state.Library),
@@ -42,7 +43,7 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 			Battlefield: projectBattlefieldCards(
 				state.Battlefield, state.Seat, ownerSeat),
 			Graveyard:      cloneGameCards(state.Graveyard),
-			Exile:          cloneGameCards(state.Exile),
+			Exile:          projectFaceDownCards(state.Exile, false),
 			CommandZone:    cloneGameCards(state.CommandZone),
 			Emblems:        append([]protocol.GameEmblem{}, state.Emblems...),
 			CommanderTax:   state.CommanderTax,
@@ -236,10 +237,16 @@ func cloneGameCards(cards []protocol.GameCard) []protocol.GameCard {
 
 func projectBattlefieldCards(cards []protocol.GameCard, controllerSeat,
 	viewerSeat int) []protocol.GameCard {
+	return projectFaceDownCards(cards, viewerSeat == controllerSeat)
+}
+
+// Face-down exile has no privileged viewer, including its owner and spectators
+// allowed to see hands. Battlefield identity follows the current controller.
+func projectFaceDownCards(cards []protocol.GameCard, identityVisible bool) []protocol.GameCard {
 	projected := cloneGameCards(cards)
 	for index := range projected {
 		card := &projected[index]
-		if !card.FaceDown || viewerSeat == controllerSeat {
+		if !card.FaceDown || identityVisible {
 			continue
 		}
 		card.Name = ""

@@ -18,15 +18,18 @@ ColumnLayout {
     property alias reveal: revealToggle.checked
 
     Layout.preferredWidth: Math.min(Theme.size(340), popupController.availableWidth * 0.44)
+    Layout.fillWidth: false
     Layout.minimumWidth: 0
     Layout.fillHeight: true
     spacing: Theme.size(12)
 
     function resetControls() {
         destinationBox.currentIndex = 0
+        inspectorScroll.contentItem.contentY = 0
         randomizeTopToggle.checked = false
         randomizeBottomToggle.checked = false
-        revealToggle.checked = true
+        revealToggle.checked = root.popupController.topCount === 0
+        topControls.resetControls()
     }
 
     ScrollView {
@@ -42,6 +45,38 @@ ColumnLayout {
         ColumnLayout {
             width: inspectorScroll.availableWidth
             spacing: Theme.size(12)
+
+            LibraryTopCardsControls {
+                id: topControls
+                Layout.fillWidth: true
+                visible: root.popupController.reorderMode
+                popupController: root.popupController
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: root.popupController.reorderMode
+                spacing: Theme.size(7)
+
+                Text {
+                    textFormat: Text.PlainText
+                    text: qsTr("Library order")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSize(10)
+                    font.weight: Font.DemiBold
+                }
+                AppToggle {
+                    id: randomizeTopToggle
+                    objectName: "topCardsRandomizeTop"
+                    Layout.fillWidth: true
+                    text: qsTr("Randomize cards returning to the top")
+                }
+                AppToggle {
+                    id: randomizeBottomToggle
+                    objectName: "topCardsRandomizeBottom"
+                    Layout.fillWidth: true
+                    text: qsTr("Randomize cards returning to the bottom")
+                }
+            }
 
             Surface {
                 Layout.fillWidth: true
@@ -80,6 +115,9 @@ ColumnLayout {
             ColumnLayout {
                 Layout.fillWidth: true
                 visible: root.popupController.reorderMode
+                         && !!(root.popupController.selectedCard.id
+                               && root.popupController.topCardAssignment(
+                                   root.popupController.selectedCard.id).toZone === "battlefield")
                 spacing: Theme.size(7)
 
                 Text {
@@ -103,29 +141,6 @@ ColumnLayout {
                     text: qsTranslate("LibrarySearchPopup", "Put this card onto the battlefield face down")
                     onToggled: root.popupController.setTopCardFaceDown(
                                    root.popupController.selectedCard.id, checked)
-                }
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTranslate("LibrarySearchPopup", "Library order")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(10)
-                    font.weight: Font.DemiBold
-                }
-                AppToggle {
-                    id: randomizeTopToggle
-                    objectName: "topCardsRandomizeTop"
-                    Layout.fillWidth: true
-                    text: qsTranslate("LibrarySearchPopup", "Randomize cards returning to the top")
-                }
-                AppToggle {
-                    id: randomizeBottomToggle
-                    objectName: "topCardsRandomizeBottom"
-                    Layout.fillWidth: true
-                    text: qsTranslate("LibrarySearchPopup", "Randomize cards returning to the bottom")
-                }
-                StatusPill {
-                    text: qsTranslate("LibrarySearchPopup", "Assigned") + " · " + root.popupController.cards.length
-                    statusColor: Theme.primary
                 }
             }
 

@@ -32,7 +32,7 @@ class TestCatalogRepository : public QObject
     void queriesCatalog() const;
     void cardFacesUseIndexedCaseInsensitivePrinting() const;
     void meldFacesPreferRelatedPrintingAndConstrainFallback() const;
-    void filtersAlternativesBeforeResultLimit() const;
+    void filtersSelectionsBeforeResultLimit() const;
     void enrichesLocalizedCardPresentation() const;
     void resolvesRarityFromExactPrintingInsteadOfCubePlaceholder() const;
     void oldLimitedMetadataDoesNotInventColorsOrCosts() const;
@@ -475,7 +475,7 @@ void TestCatalogRepository::approximatesWhenSetHasOnlyLeftoverOfficialProducts()
     QCOMPARE(repository.limitedProduct(u"approx-fin"_s).value(u"cardsPerPack"_s).toInt(), 14);
 }
 
-void TestCatalogRepository::filtersAlternativesBeforeResultLimit() const
+void TestCatalogRepository::filtersSelectionsBeforeResultLimit() const
 {
     QTemporaryDir storage;
     const QString path = storage.filePath(u"filters.sqlite"_s);
@@ -491,17 +491,20 @@ void TestCatalogRepository::filtersAlternativesBeforeResultLimit() const
             "lang TEXT, colors TEXT, mana_value REAL, rarity TEXT, legal_formats TEXT)"_s));
         query.prepare(
             u"INSERT INTO cards VALUES ('id', ?, '', ?, 'TST', ?, '', 'en', ?, ?, ?, '|modern|')"_s);
-        for (int index = 0; index < 53; ++index) {
+        for (int index = 0; index < 55; ++index) {
             query.bindValue(0,
                             index < 50 ? u"A filler %1"_s.arg(index) : u"Z target %1"_s.arg(index));
-            query.bindValue(1, index == 51 ? u"Instant"_s : u"Creature"_s);
+            const bool instant = index == 51 || index == 53;
+            query.bindValue(1, instant ? u"Instant"_s : u"Creature"_s);
             query.bindValue(2, QString::number(index));
             query.bindValue(3, index < 50    ? u"W"_s
-                               : index == 50 ? u"G"_s
+                               : index == 50 ? u"W"_s
                                : index == 51 ? u"U"_s
-                                             : u"GU"_s);
-            query.bindValue(4, index < 50 ? 1 : index == 51 ? 8 : 5);
-            query.bindValue(5, index < 50 ? u"common"_s : index == 51 ? u"mythic"_s : u"rare"_s);
+                               : index == 52 ? u"WU"_s
+                               : index == 53 ? u"WUG"_s
+                                             : u""_s);
+            query.bindValue(4, index < 50 ? 1 : instant ? 8 : 5);
+            query.bindValue(5, index < 50 ? u"common"_s : instant ? u"mythic"_s : u"rare"_s);
             QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
         }
         database.close();
@@ -511,18 +514,32 @@ void TestCatalogRepository::filtersAlternativesBeforeResultLimit() const
     const auto unfiltered = repository.search({}, u"en"_s, {}, {}, {}, {}, {}, {});
     QVERIFY2(unfiltered.error.isEmpty(), qPrintable(unfiltered.error));
     QCOMPARE(unfiltered.cards.size(), 40);
-    const auto filtered = repository.search({}, u"en"_s, u"Creature,Instant"_s, {}, {}, u"G,U"_s,
+    const auto filtered = repository.search({}, u"en"_s, u"Creature,Instant"_s, {}, {}, u"W,U"_s,
                                             u"rare,mythic"_s, u"modern"_s, u"5,7+"_s);
     QVERIFY2(filtered.error.isEmpty(), qPrintable(filtered.error));
-    QCOMPARE(filtered.cards.size(), 3);
+    QCOMPARE(filtered.cards.size(), 2);
     for (const QVariant &value : filtered.cards) {
         const QVariantMap card = value.toMap();
         QVERIFY(card.value(u"name"_s).toString().startsWith(u"Z target"_s));
         QVERIFY(!card.value(u"rarity"_s).toString().isEmpty());
         QVERIFY(card.value(u"manaValue"_s).toInt() >= 5);
+        QVERIFY(card.value(u"colors"_s).toString().contains(QLatin1Char('W')));
+        QVERIFY(card.value(u"colors"_s).toString().contains(QLatin1Char('U')));
     }
-    const auto mono = repository.search({}, u"en"_s, {}, {}, {}, u"U"_s, {}, {}, u"7+"_s);
-    QCOMPARE(mono.cards.size(), 1);
+    const auto reversed = repository.search({}, u"en"_s, {}, {}, {}, u"U,W"_s, {}, {});
+    QCOMPARE(reversed.cards, filtered.cards);
+    const auto threeColors = repository.search({}, u"en"_s, {}, {}, {}, u"W,U,G"_s, {}, {});
+    QCOMPARE(threeColors.cards.size(), 1);
+    QCOMPARE(threeColors.cards.first().toMap().value(u"colors"_s).toString(), u"WUG"_s);
+    const auto whiteMulticolor = repository.search({}, u"en"_s, {}, {}, {}, u"W,M"_s, {}, {});
+    QCOMPARE(whiteMulticolor.cards, filtered.cards);
+    const auto blueHighCost = repository.search({}, u"en"_s, {}, {}, {}, u"U"_s, {}, {}, u"7+"_s);
+    QCOMPARE(blueHighCost.cards.size(), 2);
+    const auto colorless = repository.search({}, u"en"_s, {}, {}, {}, u"C"_s, {}, {});
+    QCOMPARE(colorless.cards.size(), 1);
+    const auto incompatible = repository.search({}, u"en"_s, {}, {}, {}, u"W,C"_s, {}, {});
+    QVERIFY2(incompatible.error.isEmpty(), qPrintable(incompatible.error));
+    QVERIFY(incompatible.cards.isEmpty());
     const auto unknown =
         repository.search({}, u"en"_s, {}, {}, {}, {}, {}, {}, u"not a mana value"_s);
     QVERIFY(unknown.error.isEmpty());

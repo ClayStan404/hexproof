@@ -115,6 +115,7 @@ class CustomCardArtStore final : public QObject
     QString m_databasePath;
     QString m_imageRoot;
     QVariantList m_entries;
+    QVariantList m_displayEntries;
     QVariantList m_pendingEntries;
     QVariantMap m_preview;
     QHash<QString, QString> m_lookup;
@@ -128,6 +129,7 @@ class CustomCardArtStore final : public QObject
     bool m_busy = false;
     bool m_indexReadable = true;
     int m_revision = 0;
+    quint64 m_presentationGeneration = 0;
 };
 
 } // namespace hexproof::client

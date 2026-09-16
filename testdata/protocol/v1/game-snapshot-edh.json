@@ -59,6 +59,7 @@
         "libraryCount": 92,
         "handCount": 7,
         "mulliganCount": 0,
+        "turnCount": 0,
         "battlefield": [],
         "graveyard": [],
         "exile": [],
@@ -121,6 +122,7 @@
         "libraryCount": 80,
         "handCount": 5,
         "mulliganCount": 0,
+        "turnCount": 1,
         "battlefield": [],
         "graveyard": [],
         "exile": [],
@@ -170,6 +172,7 @@
         "libraryCount": 92,
         "handCount": 7,
         "mulliganCount": 0,
+        "turnCount": 1,
         "battlefield": [],
         "graveyard": [],
         "exile": []
@@ -218,6 +221,7 @@
         "libraryCount": 92,
         "handCount": 7,
         "mulliganCount": 0,
+        "turnCount": 0,
         "battlefield": [
           {
             "id": "s3-t1",

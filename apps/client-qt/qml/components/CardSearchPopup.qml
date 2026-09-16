@@ -12,6 +12,8 @@ Popup {
     property alias filters: filterState
     property var results: []
     property bool searching: false
+    property bool searchScheduled: false
+    readonly property bool searchPending: searching || searchScheduled
     property var deckLibraryModel: null
     property var catalogModel: null
     property bool allowSideboard: true
@@ -100,10 +102,11 @@ Popup {
             }
             Text {
                 textFormat: Text.PlainText
-                text: root.searching ? qsTr("Searching cards…") : I18n.count("result", root.results.length)
+                text: root.searchPending ? qsTr("Searching cards…") : I18n.count("result", root.results.length)
                 color: Theme.textMuted
             }
             AppButton {
+                objectName: "cardSearchDoneButton"
                 text: qsTr("Done")
                 onClicked: root.close()
             }
@@ -183,20 +186,25 @@ Popup {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.minimumHeight: 0
-                    cards: root.hasSearchCriteria && !root.searching ? root.results : []
+                    cards: root.opened && root.hasSearchCriteria && !root.searchPending ? root.results : []
                     catalogModel: root.catalogModel
                     preferredCardWidth: Math.max(Theme.size(150),
                         Math.min(Theme.size(230), width / 5 - Theme.size(16)))
-                    emptyText: root.searching ? qsTr("Searching cards…")
+                    emptyText: root.searchPending ? qsTr("Searching cards…")
                         : !root.hasSearchCriteria ? qsTr("Type a card name or choose filters to see search results.")
                         : qsTr("No matching cards")
                     onCardActivated: card => {
+                        if (!root.opened || root.searchPending || !root.hasSearchCriteria) return
                         if (!root.deckLibraryModel || root.deckLibraryModel.canAddCard(card.name, card.typeLine))
                             root.addRequested(card, root.allowSideboard && root.targetIndex === 1)
                     }
                     onCardInspected: (card, item) => preview.inspect(card, item)
                     onCardInspectionEnded: item => preview.hide(item)
-                    onMovingChanged: if (moving) preview.hide()
+                    onVisibleCardsChanged: root.schedulePreviews()
+                    onMovingChanged: {
+                        if (moving) preview.hide()
+                        root.schedulePreviews()
+                    }
                 }
             }
             Surface {
@@ -286,6 +294,11 @@ Popup {
         interval: 220
         onTriggered: root.searchNow()
     }
+    Timer {
+        id: previewTimer
+        interval: 350
+        onTriggered: root.updatePreviews(resultGrid.visibleCards)
+    }
     onTypeFilterChanged: {
         if (filterState.types.join(",") !== typeFilter) filterState.types = typeFilter ? typeFilter.split(",") : []
         scheduleSearch()
@@ -307,25 +320,52 @@ Popup {
     onLegalityFilterChanged: scheduleSearch()
     onResultsChanged: {
         preview.hide()
-        if (opened && catalogModel && typeof catalogModel.cacheCardsIncrementally === "function")
-            catalogModel.cacheCardsIncrementally(results)
+        schedulePreviews()
     }
+    onSearchingChanged: schedulePreviews()
     onOpened: {
         targetIndex = 0
         if (!filtersAvailable) resetFilters()
         filterBar.focusSearch()
-        searchTimer.restart()
+        scheduleSearch()
     }
     onClosed: {
         searchTimer.stop()
+        previewTimer.stop()
+        updatePreviews([])
         preview.hide()
     }
+    onAboutToHide: {
+        searchTimer.stop()
+        searchScheduled = true
+        previewTimer.stop()
+        updatePreviews([])
+    }
+    Component.onDestruction: updatePreviews([])
     function openSearch() { open() }
-    function scheduleSearch() { if (opened) searchTimer.restart() }
+    function updatePreviews(cards) {
+        if (catalogModel && typeof catalogModel.setSearchPreviewCards === "function")
+            catalogModel.setSearchPreviewCards(cards)
+    }
+    function schedulePreviews() {
+        previewTimer.stop()
+        updatePreviews([])
+        if (opened && !searchPending && !searchTimer.running && !resultGrid.moving && hasSearchCriteria)
+            previewTimer.restart()
+    }
+    function scheduleSearch() {
+        searchScheduled = true
+        previewTimer.stop()
+        updatePreviews([])
+        if (opened) searchTimer.restart()
+    }
     function searchNow() {
+        searchScheduled = true
         searchTimer.stop()
         searchRequested(query.trim(), typeFilter, setFilter.trim(), languageFilter,
                         colorFilter, rarityFilter, legalityFilter, manaFilter)
+        searchScheduled = false
+        schedulePreviews()
     }
     function resetFilters() {
         filterState.reset()

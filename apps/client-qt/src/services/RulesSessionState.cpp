@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "RulesSessionState.h"
+#include "protocol/WireConstantsGenerated.h"
 
 #include <QJsonArray>
 #include <QSet>
@@ -31,7 +32,99 @@ void applyIdentity(const QJsonObject &identity, QString &name, QString &setCode,
     collectorNumber = identity.value(u"collectorNumber"_s).toString();
     token = identity.value(u"token"_s).toBool();
 }
+
+bool parseTargetSeat(const QJsonObject &target, RulesPromptTargetRow &row)
+{
+    const QJsonValue value = target.value(u"seat"_s);
+    if (value.isUndefined())
+        return true;
+    const int seat = value.toInt(-1);
+    if (row.kind != u"player"_s || !value.isDouble() || seat < 0 || value.toDouble() != seat)
+        return false;
+    row.seat = seat;
+    return true;
+}
 } // namespace
+
+QVariantList RulesSessionState::cardActionsForCard(const QString &cardId) const
+{
+    if (!m_promptPending || !m_promptSupported ||
+        (m_promptKind != u"chooseAction"_s && m_promptKind != u"payManaCost"_s))
+        return {};
+    return m_promptOptions.cardActionsForCard(cardId);
+}
+
+QVariantList RulesSessionState::boardTargetCandidates() const
+{
+    if (!m_promptPending || !m_promptSupported || m_promptKind != u"chooseBoardTargets"_s)
+        return {};
+    return m_promptTargets.items();
+}
+
+QVariantList RulesSessionState::promptOptionItems() const
+{
+    if (!m_promptPending || !m_promptSupported)
+        return {};
+    return m_promptOptions.items();
+}
+
+QStringList RulesSessionState::stackObjectIds() const
+{
+    QStringList result;
+    for (int row = 0; row < m_stack.rowCount(); ++row)
+        result.append(m_stack.data(m_stack.index(row), RulesStackModel::IdRole).toString());
+    return result;
+}
+
+QStringList RulesSessionState::targetResponseIdsForObject(const QString &kind,
+                                                          const QString &objectId) const
+{
+    if (!m_promptPending || !m_promptSupported || m_promptKind != u"chooseBoardTargets"_s)
+        return {};
+    return m_promptTargets.responseIdsForObject(kind, objectId);
+}
+
+QStringList RulesSessionState::targetResponseIdsForSeat(int seat) const
+{
+    if (!m_promptPending || !m_promptSupported || m_promptKind != u"chooseBoardTargets"_s)
+        return {};
+    return m_promptTargets.responseIdsForSeat(seat);
+}
+
+QVariantMap RulesSessionState::cardForInspection(const QString &cardId) const
+{
+    if (cardId.isEmpty())
+        return {};
+    const auto findRow = [&cardId](const QAbstractListModel &model, int idRole) {
+        for (int row = 0; row < model.rowCount(); ++row) {
+            const QModelIndex index = model.index(row);
+            if (model.data(index, idRole).toString() != cardId)
+                continue;
+            QVariantMap result;
+            const auto roles = model.roleNames();
+            for (auto it = roles.cbegin(); it != roles.cend(); ++it)
+                result.insert(QString::fromUtf8(it.value()), model.data(index, it.key()));
+            return result;
+        }
+        return QVariantMap{};
+    };
+    // Reuse the current viewer projection. Never resolve identities from another
+    // zone, the catalog, or an earlier snapshot after visibility changes.
+    QVariantMap card = findRow(m_battlefieldCards, RulesCardModel::IdRole);
+    if (!card.isEmpty())
+        return card;
+    card = findRow(m_zoneCards, RulesCardModel::IdRole);
+    if (!card.isEmpty())
+        return card.value(u"visibleIdentity"_s).toBool() ? card : QVariantMap{};
+    card = findRow(m_stack, RulesStackModel::IdRole);
+    if (!card.isEmpty()) {
+        card.insert(u"cardId"_s, card.take(u"objectId"_s));
+        card.insert(u"zone"_s, u"stack"_s);
+        card.insert(u"visibleIdentity"_s, !card.value(u"name"_s).toString().isEmpty());
+        card.insert(u"faceDown"_s, card.value(u"rulesText"_s) == u"Face-down spell"_s);
+    }
+    return card;
+}
 
 RulesSessionState::RulesSessionState(QObject *parent)
     : QObject(parent),
@@ -64,6 +157,9 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         !prompt.value(u"combatTargets"_s).isArray() || !prompt.value(u"damageTargets"_s).isArray())
         return false;
     if (!m_roomId.isEmpty() && (roomId != m_roomId || gameId != m_gameId))
+        return false;
+    const QJsonValue autoPassEligible = prompt.value(u"autoPassEligible"_s);
+    if (!autoPassEligible.isUndefined() && !autoPassEligible.isBool())
         return false;
 
     QVector<RulesPromptOptionRow> options;
@@ -175,6 +271,7 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         orderItems.append(std::move(row));
     }
     QVector<RulesPromptTargetRow> targets;
+    QSet<QString> targetIds;
     const QJsonArray targetArray = prompt.value(u"targets"_s).toArray();
     targets.reserve(targetArray.size());
     for (const QJsonValue &value : targetArray) {
@@ -189,8 +286,10 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
             target.value(u"collectorNumber"_s).toString(),
             target.value(u"token"_s).toBool(),
         };
-        if (row.responseId.isEmpty() || row.kind.isEmpty() || row.label.isEmpty())
+        if (row.responseId.isEmpty() || row.kind.isEmpty() || row.label.isEmpty() ||
+            targetIds.contains(row.responseId) || !parseTargetSeat(target, row))
             return false;
+        targetIds.insert(row.responseId);
         targets.append(std::move(row));
     }
     QVector<RulesPromptTargetRow> contextTargets;
@@ -210,7 +309,8 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
             target.value(u"token"_s).toBool(),
         };
         if (!row.responseId.startsWith(u"context-target:"_s) || row.kind.isEmpty() ||
-            row.label.isEmpty() || contextTargetIds.contains(row.responseId)) {
+            row.label.isEmpty() || contextTargetIds.contains(row.responseId) ||
+            !parseTargetSeat(target, row)) {
             return false;
         }
         contextTargetIds.insert(row.responseId);
@@ -246,6 +346,7 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
             target.value(u"minAssignments"_s).toInt(),
             target.value(u"maxAssignments"_s).toInt(),
             target.value(u"mustReceiveIfAble"_s).toBool(),
+            target.value(u"seat"_s).toInt(-1),
         };
         if (row.responseId.isEmpty() || row.kind.isEmpty() || row.label.isEmpty() ||
             row.minimum < 0 || row.maximum < 0 || combatTargetIds.contains(row.responseId)) {
@@ -270,8 +371,14 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
             source.value(u"token"_s).toBool(),
             {},
             source.value(u"mustAssignIfAble"_s).toBool(),
+            source.value(u"maxAssignments"_s).toInt(1),
         };
+        const QJsonValue maximum = source.value(u"maxAssignments"_s);
         if (row.responseId.isEmpty() || row.objectId.isEmpty() || row.label.isEmpty() ||
+            row.maximum < 0 || row.maximum > 512 ||
+            (!maximum.isUndefined() &&
+             (!maximum.isDouble() || maximum.toDouble() != row.maximum)) ||
+            (prompt.value(u"kind"_s).toString() == u"chooseAttackers"_s && row.maximum > 1) ||
             !source.value(u"validTargetIds"_s).isArray() ||
             combatSourceIds.contains(row.responseId)) {
             return false;
@@ -291,6 +398,15 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
     }
     const bool damagePrompt = promptKind == u"chooseDamageAssignmentOrder"_s ||
                               promptKind == u"chooseCombatDamageAssignment"_s;
+    QString damageAssignmentMode = protocol::kRulesDamageOrdered;
+    if (prompt.contains(u"damageAssignmentMode"_s)) {
+        damageAssignmentMode = prompt.value(u"damageAssignmentMode"_s).toString();
+        if (damageAssignmentMode != protocol::kRulesDamageOrdered &&
+            damageAssignmentMode != protocol::kRulesDamageUnordered &&
+            damageAssignmentMode != protocol::kRulesDamageDivideFreely) {
+            return false;
+        }
+    }
     QVariantMap damageSource;
     if (prompt.value(u"damageSource"_s).isObject()) {
         const QJsonObject source = prompt.value(u"damageSource"_s).toObject();
@@ -338,6 +454,8 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
     m_promptId = prompt.value(u"promptId"_s).toInteger();
     m_promptKind = promptKind;
     m_promptSupported = prompt.value(u"supported"_s).toBool();
+    m_promptAutoPassEligible = m_promptPending && m_promptSupported &&
+                               promptKind == u"chooseAction"_s && autoPassEligible.toBool();
     m_promptTitle = prompt.value(u"title"_s).toString();
     m_promptDetail = prompt.value(u"detail"_s).toString();
     m_promptContextText = prompt.value(u"contextText"_s).toString();
@@ -354,10 +472,12 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
     m_promptDamageSource = std::move(damageSource);
     m_promptTotalDamage = totalDamage;
     m_promptDamageDeathtouch = prompt.value(u"damageDeathtouch"_s).toBool();
+    m_promptDamageAssignmentMode = damageAssignmentMode;
     if (!m_promptPending) {
         m_promptId = 0;
         m_promptKind.clear();
         m_promptSupported = false;
+        m_promptAutoPassEligible = false;
         m_promptTitle.clear();
         m_promptDetail.clear();
         m_promptRequiredSelections = 0;
@@ -385,6 +505,7 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         damageTargets.clear();
         m_promptTotalDamage = 0;
         m_promptDamageDeathtouch = false;
+        m_promptDamageAssignmentMode = protocol::kRulesDamageOrdered;
     }
     m_promptOptions.replace(std::move(options));
     m_promptChoices.replace(std::move(choices));
@@ -421,6 +542,20 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
         row.life = player.value(u"life"_s).toInt();
         row.counters = parseNamedValues(player.value(u"counters"_s).toArray());
         row.manaPool = parseNamedValues(player.value(u"manaPool"_s).toArray());
+        for (const QJsonValue &commanderValue : player.value(u"commanders"_s).toArray()) {
+            const QJsonObject commander = commanderValue.toObject();
+            const QString name = commander.value(u"name"_s).toString();
+            const int casts = commander.value(u"casts"_s).toInt(-1);
+            const int tax = commander.value(u"tax"_s).toInt(-1);
+            if (name.isEmpty() || casts < 0 || tax < 0)
+                continue;
+            row.commanders.append(
+                QVariantMap{{u"name"_s, name},
+                            {u"casts"_s, casts},
+                            {u"tax"_s, tax},
+                            {u"zone"_s, commander.value(u"zone"_s).toString(u"hidden"_s)},
+                            {u"objectId"_s, commander.value(u"objectId"_s).toString()}});
+        }
         players.append(std::move(row));
     }
 
@@ -478,6 +613,19 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
         applyIdentity(object.value(u"identity"_s).toObject(), row.name, row.setCode,
                       row.collectorNumber, row.token);
         row.text = object.value(u"text"_s).toString();
+        for (const QJsonValue &targetValue : object.value(u"targets"_s).toArray()) {
+            const QJsonObject target = targetValue.toObject();
+            const QString kind = target.value(u"kind"_s).toString();
+            const QString objectId = target.value(u"objectId"_s).toString();
+            const int seat = target.value(u"seat"_s).toInt(-1);
+            if ((kind == u"player" && seat >= 0) ||
+                ((kind == u"card" || kind == u"spell") && !objectId.isEmpty())) {
+                row.targets.append(QVariantMap{{u"kind"_s, kind},
+                                               {u"objectId"_s, objectId},
+                                               {u"seat"_s, seat},
+                                               {u"label"_s, target.value(u"label"_s).toString()}});
+            }
+        }
         stack.append(std::move(row));
     }
 
@@ -528,6 +676,7 @@ void RulesSessionState::clear()
     m_promptId = 0;
     m_promptKind.clear();
     m_promptSupported = false;
+    m_promptAutoPassEligible = false;
     m_promptTitle.clear();
     m_promptDetail.clear();
     m_promptRequiredSelections = 0;
@@ -554,6 +703,7 @@ void RulesSessionState::clear()
     m_promptDamageTargets.clear();
     m_promptTotalDamage = 0;
     m_promptDamageDeathtouch = false;
+    m_promptDamageAssignmentMode = protocol::kRulesDamageOrdered;
     ++m_snapshotRevision;
     emit snapshotChanged();
     emit promptChanged();

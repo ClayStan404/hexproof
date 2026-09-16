@@ -14,6 +14,11 @@ class TestDeckLibrary : public QObject
     void benchmarkCommanderDeckParsing() const;
     void benchmarkLargeCubeParsing() const;
     void benchmarkLargeCubeProjection() const;
+    void sharesCardProjectionsAndInvalidatesEditedInputs() const;
+    void editsNotifyOnlyTheAffectedLibraryRow() const;
+    void structuralSaveDoesNotPublishUnrelatedMetadata() const;
+    void refreshesLibraryDisplayPathsWithoutBlocking() const;
+    void refreshesImageCountsAndKeepsMatchChecksLive() const;
     void benchmarkEmptyLibraryStartup() const;
     void importsPersistsAndBuildsCubeProduct() const;
     void keepsIncompleteCubeEditableButUnplayable() const;
@@ -54,6 +59,7 @@ class TestDeckLibrary : public QObject
     void appliesMetadataOnlyToMatchingCardLocations() const;
     void limitsDisplayPathResolutionToChangedCards() const;
     void invalidatesDisplayPathsOnlyForArtOrPrintingMetadata() const;
+    void recoversDownloadedArtAtAnUnchangedSavedPath() const;
     void refreshesDisplayPathsAndMetadataAfterPrintingMerge() const;
     void defersInitialDisplayPathsInBoundedBatches_data() const;
     void defersInitialDisplayPathsInBoundedBatches() const;
@@ -80,6 +86,10 @@ class TestDeckLibrary : public QObject
     void storesLocalArtReusePreference() const;
     void storesPackOpeningAnimationPreference() const;
     void ignoresRemovedThemePreferences() const;
+    void storesUiThemePreference() const;
+    void storesTableBackgroundIndependentlyOfTheme() const;
+    void rejectsUnknownTableBackgrounds() const;
+    void rollsBackTableBackgroundWhenSavingFails() const;
     void storesSponsorAnnouncementAcknowledgement() const;
     void storesCardArtRepairNoticeAcknowledgement() const;
     void storesAndClampsInterfaceScale() const;
@@ -93,6 +103,9 @@ class TestDeckLibrary : public QObject
     void recachesExistingDeckEntriesToExpandFaces() const;
     void doesNotCacheArtOnImportUntilRequested() const;
     void hydratesTypeLineFromCatalogWithoutCachingArt() const;
+    void resolvesCatalogPrintingsBeforeDeckRegistration() const;
+    void ignoresStaleCatalogPrintingsAfterAnEdit() const;
+    void mergesResolvedPrintingsAndRefreshesCardLocations() const;
     void appliesDoubleFacedPrintingUnderFaceName() const;
     void reportsImportWarnings() const;
     void storesDeckTokensAndActivatesThemForMatches() const;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
+import QtQuick.Controls.Basic
 import QtTest
 import "../../qml/components"
 
@@ -32,6 +33,8 @@ TestCase {
     }
 
     function init() {
+        Theme.uiTheme = "classic"
+        TableBackgrounds.currentId = "default"
         verify(harness.reset())
     }
 
@@ -39,6 +42,24 @@ TestCase {
         testTranslations.setLanguage("en")
         harness.cleanupHarness()
         Theme.uiScale = 1
+        TableBackgrounds.currentId = "default"
+    }
+
+    function test_defaultRestoresOpaqueClassicBattlefield() {
+        const table = createTemporaryObject(tableComponent, tableHost, {width: 1280, height: 800})
+        verify(waitForRendering(table))
+        const ownLane = findChild(table, "battlefieldZone0")
+        const opponentLane = findChild(table, "battlefieldZone1")
+        for (const background of ["default", "ink", "default"]) {
+            TableBackgrounds.currentId = background
+            for (const lane of [ownLane, opponentLane]) {
+                verify(lane !== null)
+                if (background === "default")
+                    compare(lane.color, lane.isOwn ? Theme.primaryMuted : Theme.surfaceHover)
+                else
+                    verify(lane.color.a > 0 && lane.color.a < 1)
+            }
+        }
     }
 
     function test_zoneTitlesUseChineseTranslations() {
@@ -47,6 +68,71 @@ TestCase {
         waitForRendering(table)
         compare(findChild(table, "graveyardDropArea0").parent.zoneTitle, "墓地")
         compare(findChild(table, "exileDropArea0").parent.zoneTitle, "放逐区")
+    }
+
+    function test_playerTurnCountsArePublicAndUpdateFromSnapshots_data() {
+        return [{tag: "two-players", count: 2, viewer: 0, width: 1280, scale: 1},
+                {tag: "four-players", count: 4, viewer: 1, width: 1000, scale: 1},
+                {tag: "spectator", count: 4, viewer: -1, width: 1000, scale: 1},
+                {tag: "compact-chinese", count: 2, viewer: 0, width: 900, scale: 1.5}]
+    }
+
+    function test_playerTurnCountsArePublicAndUpdateFromSnapshots(data) {
+        Theme.uiScale = data.scale
+        testTranslations.setLanguage("zh")
+        mockWs.format = data.count > 2 ? "edh" : "modern"
+        mockWs.seatIndex = data.viewer
+        mockWs.roomRole = data.viewer < 0 ? "spectator" : "player"
+        const seats = []
+        for (let index = 0; index < data.count; ++index) {
+            const seat = JSON.parse(JSON.stringify(mockWs.baselineGameSeats[index % 2]))
+            seat.seat = index
+            seat.displayName = "Player " + index
+            seat.turnCount = index === 0 ? 1 : 0
+            seat.battlefield = []
+            seats.push(seat)
+        }
+        mockWs.turnOrder = seats.map(seat => seat.seat)
+        mockWs.gameSeats = seats
+        const table = createTemporaryObject(tableComponent, tableHost,
+                                             {width: data.width, height: 720})
+        verify(waitForRendering(table))
+        for (const seat of seats) {
+            const label = findChild(table, "playerTurnCount" + seat.seat)
+            verify(label !== null && label.visible)
+            compare(label.text, "回合 " + seat.turnCount)
+            const zone = findChild(table, "battlefieldZone" + seat.seat)
+            const point = label.mapToItem(zone, 0, 0)
+            verify(point.x >= 0 && point.y >= 0)
+            verify(point.x + label.width <= zone.width + 1)
+            verify(point.y + label.height <= zone.height + 1)
+        }
+        const nextSeats = JSON.parse(JSON.stringify(seats))
+        nextSeats[1].turnCount = 1
+        mockWs.gameSeats = nextSeats
+        tryCompare(findChild(table, "playerTurnCount1"), "text", "回合 1")
+        compare(findChild(table, "playerTurnCount0").text, "回合 1")
+    }
+
+    function test_tokenBadgeStaysCompactAndExplainsItselfOnHover() {
+        testTranslations.setLanguage("zh")
+        const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        seats[0].battlefield = [{id: "token-1", name: "Soldier", token: true,
+                                 ownerSeat: 0, position: {x: 0.35, y: 0.5}}]
+        const table = createTemporaryObject(tableComponent, tableHost, {width: 1280, height: 800})
+        mockWs.gameSeats = seats
+        verify(waitForRendering(table))
+        const badge = findChild(table, "battlefieldTokenBadgetoken-1")
+        verify(badge !== null && badge.visible)
+        compare(badge.Accessible.name, "衍生物")
+        compare(badge.width, Theme.size(18))
+        mouseMove(badge, badge.width / 2, badge.height / 2)
+        tryCompare(badge.ToolTip, "visible", true)
+        compare(badge.ToolTip.text, "衍生物")
+        const updated = JSON.parse(JSON.stringify(seats))
+        updated[0].battlefield[0].token = false
+        mockWs.gameSeats = updated
+        tryVerify(() => !findChild(table, "battlefieldTokenBadgetoken-1").visible)
     }
 
     function test_emblemsStayPublicAndDoNotReserveBattlefieldSpace_data() {

@@ -57,6 +57,7 @@
         "libraryCount": 51,
         "handCount": 8,
         "mulliganCount": 0,
+        "turnCount": 1,
         "hand": [
           {
             "id": "s0-secret",
@@ -114,6 +115,7 @@
         "libraryCount": 53,
         "handCount": 7,
         "mulliganCount": 0,
+        "turnCount": 0,
         "battlefield": [],
         "graveyard": [],
         "exile": []

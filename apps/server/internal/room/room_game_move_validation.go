@@ -161,7 +161,7 @@ func (r *Room) planCardMove(connID string, move *protocol.GameMoveCard) (cardMov
 	} else if move.Position != nil || move.ToSeat != nil {
 		return cardMovePlan{}, newError(protocol.ErrInvalidPosition)
 	}
-	if move.FaceDown && (move.ToZone != protocol.ZoneBattlefield ||
+	if move.FaceDown && ((move.ToZone != protocol.ZoneBattlefield && move.ToZone != protocol.ZoneExile) ||
 		(move.FromZone != protocol.ZoneHand && move.FromZone != protocol.ZoneLibrary)) {
 		return cardMovePlan{}, newError(protocol.ErrInvalidMove)
 	}

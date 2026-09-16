@@ -3,7 +3,7 @@
 
 import QtQuick
 
-Rectangle {
+Item {
     id: root
 
     property string message: ""
@@ -13,10 +13,23 @@ Rectangle {
 
     visible: message.length > 0
     implicitHeight: messageText.implicitHeight + Theme.size(24)
-    radius: Theme.radiusMedium
-    color: Qt.rgba(toneColor.r, toneColor.g, toneColor.b, 0.10)
-    border.width: 1
-    border.color: Qt.rgba(toneColor.r, toneColor.g, toneColor.b, 0.28)
+
+    LiquidGlass {
+        anchors.fill: parent
+        radius: Theme.radiusLarge
+        compact: true
+        elevated: true
+        visible: Theme.useGlass
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        radius: Theme.useGlass ? Theme.radiusLarge : Theme.radiusMedium
+        antialiasing: true
+        color: Qt.rgba(toneColor.r, toneColor.g, toneColor.b, Theme.useGlass ? 0.14 : 0.10)
+        border.width: Theme.useGlass ? 0 : 1
+        border.color: Qt.rgba(toneColor.r, toneColor.g, toneColor.b, 0.28)
+    }
 
     Row {
         anchors.fill: parent

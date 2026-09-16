@@ -42,6 +42,7 @@ TestCase {
         property string eventType: "cube_draft"
         property string format: "Cube"
         property string matchMode: "bo3"
+        property var draftSettings: ({packsPerPlayer: 3, packsPerBatch: 1})
         property string organizerName: "Alice"
         property int maxPlayers: 4
         property var participants: []
@@ -113,6 +114,7 @@ TestCase {
         window.height = 800
         roomState.stage = "registration"
         roomState.eventType = "cube_draft"
+        roomState.draftSettings = {packsPerPlayer: 3, packsPerBatch: 1}
         roomState.status = "registration"
         roomState.role = "organizer"
         roomState.participantId = "a"
@@ -246,7 +248,11 @@ TestCase {
         tryCompare(findChild(rules, "cubeRule-0"), "text", "Cube 规则")
         roomState.eventType = "commander_cube"
         tryCompare(findChild(rules, "cubeRule-0"), "text", "Commander Cube 规则")
-        verify(findChild(rules, "cubeRule-1").text.indexOf("每次一起抓 2 张") >= 0)
+        roomState.draftSettings = {packsPerPlayer: 6, packsPerBatch: 2, cardsPerPack: 25}
+        verify(findChild(rules, "cubeRule-1").text.indexOf("每人 6 包") >= 0)
+        verify(findChild(rules, "cubeRule-1").text.indexOf("每包 25 张") >= 0)
+        verify(findChild(rules, "cubeRule-1").text.indexOf("每次开 2 包，各选 2 张") >= 0)
+        verify(findChild(rules, "cubeRule-4").text.indexOf("阳光戒、指挥塔、秘法印记") >= 0)
         testTranslations.setLanguage("en")
         popup.close()
     }

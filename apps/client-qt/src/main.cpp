@@ -25,6 +25,9 @@
 #include "services/TranslationController.h"
 #include "services/WsClient.h"
 #include "testing/LocalTestSession.h"
+#ifdef HEXPROOF_NATIVE_AUDIT
+#include "testing/NativeAudit.h"
+#endif
 
 #include <QCommandLineParser>
 #include <QDebug>
@@ -112,8 +115,8 @@ int main(int argc, char *argv[])
     const bool localTestRequested = hexproof::client::LocalTestSession::requested(commandLine);
     const auto localTestOptions = hexproof::client::LocalTestSession::readOptions(commandLine);
     if (localTestRequested && (!localTestOptions.valid() || !commandLine.isSet(serverUrlOption))) {
-        qCritical()
-            << "Local test setup requires all --test-* options, --server-url, and --display-name.";
+        qCritical() << "Local test setup requires valid event, source, group, player and seat "
+                       "options, --server-url, and --display-name.";
         return 2;
     }
 
@@ -123,6 +126,10 @@ int main(int argc, char *argv[])
                                 : QStringLiteral("Hexproof — %1").arg(instanceLabel));
 
     const QString storageRoot = hexproof::client::defaultStorageRoot();
+#ifdef HEXPROOF_NATIVE_AUDIT
+    if (!hexproof::client::NativeAudit::validateEnvironment(storageRoot))
+        return 2;
+#endif
     hexproof::client::ProfileLock profileLock(storageRoot);
     if (!profileLock.tryLock()) {
         qCritical() << "Cannot acquire Hexproof profile:" << storageRoot;
@@ -323,6 +330,11 @@ int main(int argc, char *argv[])
                                                          .arg(e.description());
                      });
     const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
+#ifdef HEXPROOF_NATIVE_AUDIT
+    auto *nativeAudit = new hexproof::client::NativeAudit(&engine);
+    Q_UNUSED(nativeAudit);
+    engine.rootContext()->setContextProperty(QStringLiteral("localTestMode"), true);
+#endif
     engine.setInitialProperties(
         {{QStringLiteral("windowTitle"), QGuiApplication::applicationDisplayName()}});
     QObject::connect(
@@ -333,10 +345,26 @@ int main(int argc, char *argv[])
     if (localTestRequested) {
         auto *setup = new hexproof::client::LocalTestSession(
             ws, localTestOptions,
-            [cardCatalog](const QString &setCode) {
+            [cardCatalog, deckLibrary, localTestOptions](const QString &source) {
+                if (localTestOptions.commanderCube()) {
+                    const QVariantMap byId = deckLibrary->cubeProduct(source);
+                    if (!byId.isEmpty())
+                        return byId;
+                    QString cubeId;
+                    for (const QVariant &value :
+                         deckLibrary->matchDecks(QStringLiteral("cube"), true)) {
+                        const QVariantMap cube = value.toMap();
+                        if (cube.value(QStringLiteral("deckName")).toString() != source)
+                            continue;
+                        if (!cubeId.isEmpty())
+                            return QVariantMap{};
+                        cubeId = cube.value(QStringLiteral("deckId")).toString();
+                    }
+                    return cubeId.isEmpty() ? QVariantMap{} : deckLibrary->cubeProduct(cubeId);
+                }
                 for (const QVariant &value : cardCatalog->limitedSets()) {
                     const QVariantMap set = value.toMap();
-                    if (set.value(QStringLiteral("setCode")).toString().toUpper() == setCode)
+                    if (set.value(QStringLiteral("setCode")).toString().toUpper() == source)
                         return cardCatalog->limitedProduct(
                             set.value(QStringLiteral("productId")).toString());
                 }
@@ -351,13 +379,24 @@ int main(int argc, char *argv[])
                                                            "showBanner",
                                                            Q_ARG(QVariant, QVariant(message)));
                          });
-        QObject::connect(setup, &hexproof::client::LocalTestSession::finished, &app, []() {
-            qInfo() << "Local test setup complete; drafting and deck building are now manual.";
-        });
+        QObject::connect(
+            setup, &hexproof::client::LocalTestSession::finished, &app, [localTestOptions]() {
+                if (localTestOptions.autoDraft)
+                    qInfo() << "Local test setup complete; auto-draft finished and deck building "
+                               "is now manual.";
+                else
+                    qInfo()
+                        << "Local test setup complete; drafting and deck building are now manual.";
+            });
         QTimer::singleShot(0, setup, &hexproof::client::LocalTestSession::start);
     }
 
-    if (!localTestRequested) {
+    bool startupServicesEnabled = !localTestRequested;
+#ifdef HEXPROOF_NATIVE_AUDIT
+    startupServicesEnabled =
+        startupServicesEnabled && qEnvironmentVariable("HEXPROOF_AUDIT_STARTUP_SERVICES") == "1";
+#endif
+    if (startupServicesEnabled) {
         QTimer::singleShot(1'500, appUpdater,
                            &hexproof::client::AppUpdateService::checkAutomatically);
         QTimer::singleShot(2'000, cardCatalog,

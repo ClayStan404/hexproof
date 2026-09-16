@@ -12,6 +12,7 @@
 #include <QFutureWatcher>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QThread>
 #include <QtConcurrent>
 
 #include <algorithm>
@@ -21,6 +22,50 @@ namespace hexproof::client {
 using namespace Qt::StringLiterals;
 
 namespace {
+
+std::shared_ptr<QTemporaryDir> createStaging()
+{
+    return {new QTemporaryDir, [](QTemporaryDir *directory) {
+                // A preview may own thousands of extracted files. The last
+                // reference can disappear in a GUI completion or rejection.
+                auto *pool = BackgroundTaskPools::customCardArt();
+                if (pool->contains(QThread::currentThread()))
+                    delete directory;
+                else
+                    pool->start([directory] { delete directory; });
+            }};
+}
+
+void prepareEntries(const QVariantList &entries, const QString &imageRoot,
+                    customart::WorkResult *result)
+{
+    QHash<QString, QString> paths;
+    result->displayEntries.reserve(entries.size());
+    result->entriesById.reserve(entries.size());
+    for (const QVariant &value : entries) {
+        QVariantMap entry = value.toMap();
+        const QString fileName = entry.value(u"fileName"_s).toString();
+        result->entriesById.insert(entry.value(u"id"_s).toString(), entry);
+        for (const QString &key : customart::lookupKeys(entry))
+            result->lookup.insert(key, fileName);
+        if (!paths.contains(fileName))
+            paths.insert(fileName, customart::safeManagedFile(imageRoot, fileName));
+        const QString path = paths.value(fileName);
+        entry.insert(u"imageSource"_s,
+                     path.isEmpty() ? QString{} : QUrl::fromLocalFile(path).toString());
+        entry.insert(u"missing"_s, path.isEmpty());
+        result->displayEntries.append(entry);
+    }
+    std::sort(result->displayEntries.begin(), result->displayEntries.end(),
+              [](const QVariant &left, const QVariant &right) {
+                  const auto a = left.toMap();
+                  const auto b = right.toMap();
+                  const int compared = a.value(u"name"_s).toString().compare(
+                      b.value(u"name"_s).toString(), Qt::CaseInsensitive);
+                  return compared != 0 ? compared < 0
+                                       : a.value(u"id"_s).toString() < b.value(u"id"_s).toString();
+              });
+}
 
 QVariantList changedBindings(const QVariantList &previous, const QVariantList &current,
                              const QSet<QString> &repairedImages)
@@ -101,25 +146,7 @@ void CustomCardArtStore::setOperationGuard(std::function<bool()> guard)
 
 QVariantList CustomCardArtStore::entries() const
 {
-    QVariantList result;
-    for (const QVariant &value : m_entries) {
-        QVariantMap entry = value.toMap();
-        const QString path =
-            customart::safeManagedFile(m_imageRoot, entry.value(u"fileName"_s).toString());
-        entry.insert(u"imageSource"_s,
-                     path.isEmpty() ? QString{} : QUrl::fromLocalFile(path).toString());
-        entry.insert(u"missing"_s, path.isEmpty());
-        result.append(entry);
-    }
-    std::sort(result.begin(), result.end(), [](const QVariant &left, const QVariant &right) {
-        const auto a = left.toMap();
-        const auto b = right.toMap();
-        const int compared = a.value(u"name"_s).toString().compare(b.value(u"name"_s).toString(),
-                                                                   Qt::CaseInsensitive);
-        return compared != 0 ? compared < 0
-                             : a.value(u"id"_s).toString() < b.value(u"id"_s).toString();
-    });
-    return result;
+    return m_displayEntries;
 }
 
 QVariantMap CustomCardArtStore::entryFor(const QVariantMap &binding) const
@@ -157,6 +184,28 @@ void CustomCardArtStore::rebuildLookup()
         for (const QString &key : customart::lookupKeys(entry))
             m_lookup.insert(key, entry.value(u"fileName"_s).toString());
     }
+    // Startup and root changes must not synchronously stat an entire artwork
+    // collection merely to prepare the manager's optional inventory view.
+    m_displayEntries = m_entries;
+    const quint64 generation = ++m_presentationGeneration;
+    if (m_entries.isEmpty())
+        return;
+    auto *watcher = new QFutureWatcher<customart::WorkResult>(this);
+    connect(watcher, &QFutureWatcher<customart::WorkResult>::finished, this,
+            [this, watcher, generation] {
+                const auto prepared = watcher->result();
+                watcher->deleteLater();
+                if (generation != m_presentationGeneration)
+                    return;
+                m_displayEntries = prepared.displayEntries;
+                emit changed();
+            });
+    watcher->setFuture(QtConcurrent::run(BackgroundTaskPools::customCardArt(),
+                                         [entries = m_entries, root = m_imageRoot] {
+                                             customart::WorkResult result;
+                                             prepareEntries(entries, root, &result);
+                                             return result;
+                                         }));
 }
 
 QString CustomCardArtStore::imagePath(const QString &name, const QString &setCode,
@@ -235,8 +284,11 @@ void CustomCardArtStore::run(const QString &operation, const QString &fileUrl,
                 m_worker = nullptr;
                 watcher->deleteLater();
                 if (result.changed && result.ok) {
+                    ++m_presentationGeneration;
                     m_entries = result.entries;
-                    rebuildLookup();
+                    m_lookup = result.lookup;
+                    m_entriesById = result.entriesById;
+                    m_displayEntries = result.displayEntries;
                     ++m_revision;
                 }
                 if (operation.startsWith(u"inspect"_s)) {
@@ -271,11 +323,14 @@ void CustomCardArtStore::run(const QString &operation, const QString &fileUrl,
                 emit operationFinished(completion);
             });
     watcher->setFuture(QtConcurrent::run(
-        BackgroundTaskPools::customCardArt(), [work = std::move(work), previous = m_entries]() {
+        BackgroundTaskPools::customCardArt(),
+        [work = std::move(work), previous = m_entries, imageRoot = m_imageRoot]() {
             auto result = work();
-            if (result.changed && result.ok)
+            if (result.changed && result.ok) {
                 result.changedBindings =
                     changedBindings(previous, result.entries, result.repairedImageFiles);
+                prepareEntries(result.entries, imageRoot, &result);
+            }
             return result;
         }));
 }
@@ -288,8 +343,8 @@ void CustomCardArtStore::inspectImage(const QUrl &fileUrl)
     }
     if (!begin(u"inspectImage"_s, fileUrl.toString()))
         return;
-    auto staging = std::make_shared<QTemporaryDir>();
-    run(u"inspectImage"_s, fileUrl.toString(), [staging, path = fileUrl.toLocalFile()] {
+    run(u"inspectImage"_s, fileUrl.toString(), [path = fileUrl.toLocalFile()] {
+        auto staging = createStaging();
         customart::WorkResult result;
         result.staging = staging;
         result.preview.insert(u"kind"_s, u"image"_s);
@@ -319,10 +374,10 @@ void CustomCardArtStore::setImage(const QUrl &fileUrl, const QVariantMap &bindin
     }
     if (!begin(u"setImage"_s, fileUrl.toString()))
         return;
-    auto staging = std::make_shared<QTemporaryDir>();
     run(u"setImage"_s, fileUrl.toString(),
-        [staging, normalized, source = fileUrl.toLocalFile(), index = m_indexPath,
-         root = m_imageRoot, database = m_databasePath, entries = m_entries] {
+        [normalized, source = fileUrl.toLocalFile(), index = m_indexPath, root = m_imageRoot,
+         database = m_databasePath, entries = m_entries] {
+            auto staging = createStaging();
             QString bindingError;
             if (!customart::validateBindingForCatalog(normalized, database, &bindingError)) {
                 customart::WorkResult result;
@@ -390,18 +445,16 @@ void CustomCardArtStore::clear()
 
 void CustomCardArtStore::inspectDirectory(const QUrl &directoryUrl)
 {
-    if (!directoryUrl.isLocalFile() || !QFileInfo(directoryUrl.toLocalFile()).isDir()) {
+    if (!directoryUrl.isLocalFile()) {
         reject(u"inspectDirectory"_s, u"Choose a readable local artwork directory."_s,
                directoryUrl.toString());
         return;
     }
     if (!begin(u"inspectDirectory"_s, directoryUrl.toString()))
         return;
-    auto staging = std::make_shared<QTemporaryDir>();
     run(u"inspectDirectory"_s, directoryUrl.toString(),
-        [staging, path = directoryUrl.toLocalFile(), database = m_databasePath,
-         entries = m_entries] {
-            return customart::inspectDirectory(path, database, entries, staging);
+        [path = directoryUrl.toLocalFile(), database = m_databasePath, entries = m_entries] {
+            return customart::inspectDirectory(path, database, entries, createStaging());
         });
 }
 
@@ -413,10 +466,9 @@ void CustomCardArtStore::inspectPack(const QUrl &fileUrl)
     }
     if (!begin(u"inspectPack"_s, fileUrl.toString()))
         return;
-    auto staging = std::make_shared<QTemporaryDir>();
     run(u"inspectPack"_s, fileUrl.toString(),
-        [staging, path = fileUrl.toLocalFile(), database = m_databasePath, entries = m_entries] {
-            return customart::inspectPack(path, database, entries, staging);
+        [path = fileUrl.toLocalFile(), database = m_databasePath, entries = m_entries] {
+            return customart::inspectPack(path, database, entries, createStaging());
         });
 }
 
@@ -446,22 +498,23 @@ void CustomCardArtStore::exportPack(const QUrl &fileUrl, const QStringList &ids)
                fileUrl.toString());
         return;
     }
-    QVariantList selected;
-    for (const QVariant &value : m_entries) {
-        if (ids.isEmpty() || ids.contains(value.toMap().value(u"id"_s).toString()))
-            selected.append(value);
-    }
-    if (selected.isEmpty()) {
-        reject(u"exportPack"_s, u"There is no custom artwork in this selection."_s,
-               fileUrl.toString());
-        return;
-    }
     if (!begin(u"exportPack"_s, fileUrl.toString()))
         return;
     QString path = fileUrl.toLocalFile();
     if (QFileInfo(path).suffix().isEmpty())
         path += u".hexproof-custom-artpack"_s;
-    run(u"exportPack"_s, fileUrl.toString(), [path, root = m_imageRoot, selected] {
+    run(u"exportPack"_s, fileUrl.toString(), [path, root = m_imageRoot, entries = m_entries, ids] {
+        const QSet<QString> selectedIds(ids.cbegin(), ids.cend());
+        QVariantList selected;
+        for (const QVariant &value : entries) {
+            if (ids.isEmpty() || selectedIds.contains(value.toMap().value(u"id"_s).toString()))
+                selected.append(value);
+        }
+        if (selected.isEmpty()) {
+            customart::WorkResult result;
+            result.error = u"There is no custom artwork in this selection."_s;
+            return result;
+        }
         return customart::exportPack(path, root, selected);
     });
 }

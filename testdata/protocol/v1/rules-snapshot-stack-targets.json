@@ -1,0 +1,168 @@
+{
+  "type": "rules.snapshot",
+  "seq": 8,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "turn": 1,
+    "step": "main1",
+    "activeSeat": 0,
+    "prioritySeat": 0,
+    "players": [
+      {
+        "seat": 0,
+        "name": "Alice",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [
+          {
+            "name": "W",
+            "value": 0
+          }
+        ],
+        "commanders": []
+      },
+      {
+        "seat": 1,
+        "name": "Bob",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [],
+        "commanders": []
+      }
+    ],
+    "zones": [
+      {
+        "zone": "hand",
+        "ownerSeat": 0,
+        "count": 1,
+        "cards": [
+          {
+            "id": "java-card-1",
+            "visible": true,
+            "identity": {
+              "name": "Lightning Bolt",
+              "setCode": "M11",
+              "collectorNumber": "149"
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": []
+          }
+        ]
+      },
+      {
+        "zone": "hand",
+        "ownerSeat": 1,
+        "count": 1,
+        "cards": []
+      },
+      {
+        "zone": "battlefield",
+        "ownerSeat": 1,
+        "count": 3,
+        "cards": [
+          {
+            "id": "bear-0",
+            "visible": true,
+            "identity": {
+              "name": "Grizzly Bears",
+              "setCode": "LEA",
+              "collectorNumber": "199"
+            },
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": []
+          },
+          {
+            "id": "bear-1",
+            "visible": true,
+            "identity": {
+              "name": "Grizzly Bears",
+              "setCode": "LEA",
+              "collectorNumber": "199"
+            },
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": []
+          },
+          {
+            "id": "face-down-permanent",
+            "visible": false,
+            "faceDown": true,
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": []
+          }
+        ]
+      }
+    ],
+    "stack": [
+      {
+        "id": "counter",
+        "sourceId": "counter-source",
+        "controllerSeat": 1,
+        "ownerSeat": 1,
+        "identity": {
+          "name": "Counterspell",
+          "setCode": "LEA",
+          "collectorNumber": "54"
+        },
+        "text": "Counter target spell.",
+        "targets": [
+          {
+            "kind": "spell",
+            "objectId": "trail",
+            "label": "Arc Trail"
+          }
+        ]
+      },
+      {
+        "id": "trail",
+        "sourceId": "trail-source",
+        "controllerSeat": 0,
+        "ownerSeat": 0,
+        "identity": {
+          "name": "Arc Trail",
+          "setCode": "SOM",
+          "collectorNumber": "81"
+        },
+        "text": "Deal 2 damage to one target and 1 damage to another.",
+        "targets": [
+          {
+            "kind": "card",
+            "objectId": "bear-1",
+            "label": "Grizzly Bears"
+          },
+          {
+            "kind": "player",
+            "seat": 1,
+            "label": "Bob"
+          }
+        ]
+      },
+      {
+        "id": "bolt",
+        "sourceId": "bolt-source",
+        "controllerSeat": 0,
+        "ownerSeat": 0,
+        "identity": {
+          "name": "Lightning Bolt",
+          "setCode": "M11",
+          "collectorNumber": "149"
+        },
+        "text": "Deal 3 damage.",
+        "targets": [
+          {
+            "kind": "card",
+            "objectId": "face-down-permanent",
+            "label": ""
+          }
+        ]
+      }
+    ],
+    "gameOver": false
+  }
+}

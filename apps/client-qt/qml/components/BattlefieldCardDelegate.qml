@@ -136,12 +136,23 @@ Item {
             root.battlefieldSeat
         property var modelData:
             root.modelData
+        property point dragGrabPosition: Qt.point(width / 2, height / 2)
         width: root.width
         height: root.height
         z: battlefieldDrag.drag.active
            ? 2000 : 0
-        scale: battlefieldDrag.drag.active
-               ? 1.045 : 1
+        property real dragScale: battlefieldDrag.drag.active ? 1.045 : 1
+        transform: Scale {
+            // Rotate the lift anchor with a tapped card so enlargement also
+            // preserves the grab point on rotated artwork.
+            readonly property real radians: battlefieldDragCard.rotation * Math.PI / 180
+            readonly property real offsetX: battlefieldDragCard.dragGrabPosition.x - battlefieldDragCard.width / 2
+            readonly property real offsetY: battlefieldDragCard.dragGrabPosition.y - battlefieldDragCard.height / 2
+            origin.x: battlefieldDragCard.width / 2 + offsetX * Math.cos(radians) - offsetY * Math.sin(radians)
+            origin.y: battlefieldDragCard.height / 2 + offsetX * Math.sin(radians) + offsetY * Math.cos(radians)
+            xScale: battlefieldDragCard.dragScale
+            yScale: battlefieldDragCard.dragScale
+        }
         opacity: battlefieldDrag.drag.active
                  ? 0.94 : 1
         rotation:
@@ -152,8 +163,8 @@ Item {
         Drag.active: battlefieldDrag.drag.active
         Drag.source: battlefieldDragCard
         Drag.keys: ["hexproof/card"]
-        Drag.hotSpot.x: width / 2
-        Drag.hotSpot.y: height / 2
+        Drag.hotSpot.x: dragGrabPosition.x
+        Drag.hotSpot.y: dragGrabPosition.y
 
         states: State {
             when: battlefieldDragCard.Drag.active
@@ -177,7 +188,7 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        Behavior on scale {
+        Behavior on dragScale {
             NumberAnimation {
                 duration: Theme.motionFast
                 easing.type: Easing.OutCubic
@@ -271,13 +282,32 @@ Item {
                 font.weight: Font.Bold
             }
         }
-        StatusPill {
+        Rectangle {
+            objectName: "battlefieldTokenBadge" + root.modelData.id
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Theme.size(5)
+            width: Theme.size(18)
+            height: width
+            radius: width / 2
+            z: 6
             visible: root.modelData.token === true
-            text: qsTranslate("BattlefieldView", "Token")
-            statusColor: Theme.warning
+            color: Theme.surfaceElevated
+            border.width: 1
+            border.color: Theme.warning
+            Accessible.role: Accessible.StaticText
+            Accessible.name: qsTranslate("BattlefieldView", "Token")
+            Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                text: "T"
+                color: Theme.warning
+                font.pixelSize: Theme.fontSize(10)
+                font.weight: Font.Bold
+            }
+            HoverHandler { id: tokenBadgeHover }
+            ToolTip.visible: tokenBadgeHover.hovered
+            ToolTip.text: qsTranslate("BattlefieldView", "Token")
         }
         Rectangle {
             objectName:
@@ -420,6 +450,7 @@ Item {
                     battlefieldDragCard)
                 ? battlefieldDragCard : null
             drag.threshold: Theme.size(5)
+            drag.smoothed: false
             preventStealing: true
             onEntered:
                 root.tableController.presentation.inspectCard(
@@ -428,7 +459,8 @@ Item {
             onExited:
                 root.tableController.presentation.hideCardPreview(
                     battlefieldDragCard)
-            onPressed: {
+            onPressed: function(mouse) {
+                battlefieldDragCard.dragGrabPosition = Qt.point(mouse.x, mouse.y)
                 root.forceActiveFocus(Qt.MouseFocusReason)
                 root.tableController.presentation.hideCardPreview()
                 if (root.tableController.cardMoveCommands.canDragBattlefieldCard(

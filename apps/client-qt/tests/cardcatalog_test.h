@@ -158,6 +158,7 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
     int scryfallImageRequestCount = 0;
     int scryfallImageTimeoutsRemaining = 0;
     int scryfallImageRemoteClosesRemaining = 0;
+    QColor imageColor = Qt::transparent;
 
   protected:
     QNetworkReply *createRequest(Operation operation, const QNetworkRequest &request,
@@ -309,7 +310,7 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
         }
 
         QImage image(1, 1, QImage::Format_ARGB32);
-        image.fill(Qt::transparent);
+        image.fill(imageColor);
         QByteArray png;
         QBuffer buffer(&png);
         buffer.open(QIODevice::WriteOnly);
@@ -373,12 +374,30 @@ class TestCardCatalog : public QObject
     void recoversInterruptedDatabaseReplacement() const;
     void prefersScryfallBeforeMtgchFallback() const;
     void automaticProviderUsesLanguagePriority() const;
+    void parallelProvidersShareDownloads_data() const;
+    void parallelProvidersShareDownloads() const;
+    void parallelProviderStallDoesNotBlockOtherSource() const;
+    void slowMetadataDoesNotBlockSameProvider() const;
+    void parallelMetadataFallbackKeepsHostLimit() const;
+    void retriesTruncatedImagePayload_data() const;
+    void retriesTruncatedImagePayload() const;
+    void imageValidationRetainsSlotsAndCancelsOnDestruction() const;
+    void parallelProvidersShareCooldowns() const;
+    void parallelDownloadsReserveRetrySlots() const;
+    void parallelProviderChangeFinishesQueuedWork() const;
+    void enablingParallelUsesExistingBacklog() const;
+    void destroyingParallelCatalogCancelsQueuedRequests() const;
     void prefersMtgchBeforeScryfallFallback() const;
     void prefersMtgchForEnglishArt() const;
     void positiveCacheHitDoesNotBumpImageRevision() const;
     void setLanguageBumpsImageRevision() const;
     void imageProviderForcesAsyncLoads() const;
     void prioritizeCardsDefersCacheDiscovery() const;
+    void searchPreviewsReplacePendingCandidates() const;
+    void selectedCardCacheSurvivesClosingSearch() const;
+    void explicitRequestAdoptsInFlightPreview() const;
+    void matchExpansionRecognizesLocalFaceArt_data() const;
+    void matchExpansionRecognizesLocalFaceArt() const;
     void prioritizeSupportMetadataAheadOfBackground_data() const;
     void prioritizeSupportMetadataAheadOfBackground() const;
     void prioritizeCardsDefersFaceExpansion() const;
@@ -402,9 +421,14 @@ class TestCardCatalog : public QObject
     void retryClearsFailureForEveryExpandedFace() const;
     void cachedTypeLineNeverQueriesBrokenCatalog() const;
     void tableImageSourceUsesStaleCacheMetadata() const;
+    void restoredTableImageGetsFreshSource_data() const;
+    void restoredTableImageGetsFreshSource() const;
     void exactArtUsesSamePrintingProviderFallback() const;
     void exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() const;
     void cachesEveryFaceOfDoubleFacedPrinting() const;
+    void coldDoubleFaceAvailabilityRefreshesCanonicalDeck_data() const;
+    void coldDoubleFaceAvailabilityRefreshesCanonicalDeck() const;
+    void prepareAvailabilityDoesNotRefreshStandaloneNames() const;
     void cachesLimitedProductWithMtgchSetIndex() const;
     void mtgchPreferenceBypassesCatalogScryfallFastPath() const;
     void reusesNameOnlyCacheForResolvedPrinting() const;
@@ -434,6 +458,8 @@ class TestCardCatalog : public QObject
     void searchesSupportKindsBeforeResultLimit() const;
     void emblemOnlyCatalogRemainsInstalledAfterLegacyCountRecovery() const;
     void tokenDisplayNameUsesLocalLanguageWithoutNetwork() const;
+    void cardDisplayNamesResolveCatalogNamesAndFaces() const;
+    void cardDisplayNamesUseCachedTextWithoutArtwork() const;
     void cachesSupportCardsAlongsidePreferredLanguage() const;
     void supportDetailsAndArtSurviveLanguageChangesAndRestart() const;
     void legacySupportArtDoesNotSuppressChineseMetadata() const;
@@ -448,6 +474,9 @@ class TestCardCatalog : public QObject
     void localizedRulesRetryAfterTransientMetadataFailure() const;
     void tokenEnrichmentDiscardsEarlierLanguage() const;
     void tokenSearchRefreshesAfterCatalogReplacement() const;
+    void cardSearchInvalidatesDuringCatalogReplacement_data() const;
+    void cardSearchInvalidatesDuringCatalogReplacement() const;
+    void directImageRetryKeepsCacheOperationActive() const;
     void emptyTokenRequestInvalidatesEnrichment() const;
     void boundedExpansionWaitsForCatalogReplacement() const;
     void limitedArtExpansionWaitsForCatalogReplacement() const;

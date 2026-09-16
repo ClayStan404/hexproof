@@ -23,7 +23,14 @@ GridView {
     signal cardInspectionEnded(var sourceItem)
     readonly property int columns: Math.max(1, Math.floor(width / (preferredCardWidth + Theme.size(14))))
     readonly property real artWidth: Math.max(1, Math.min(maximumCardWidth, cellWidth - Theme.size(16)))
+    readonly property var visibleCards: {
+        if (width <= 0 || height <= 0 || cellHeight <= 0) return []
+        const firstRow = Math.max(0, Math.floor((contentY - originY) / cellHeight))
+        const lastRow = Math.max(firstRow, Math.ceil((contentY - originY + height) / cellHeight))
+        return cards.slice(firstRow * columns, lastRow * columns)
+    }
     model: cards
+    reuseItems: true
     cellWidth: Math.max(1, width / columns)
     cellHeight: artWidth * 88 / 63 + Theme.size(26)
     clip: true

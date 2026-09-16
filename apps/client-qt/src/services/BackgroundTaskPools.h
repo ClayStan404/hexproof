@@ -52,6 +52,16 @@ class BackgroundTaskPools final
         return &pool;
     }
 
+    static QThreadPool *cardImageValidation()
+    {
+        // Decoding downloaded images must not stall input or wait behind a
+        // catalog import. The download slots also bound this pool's backlog.
+        static QThreadPool pool;
+        static const bool configured = configure(pool, 2);
+        Q_UNUSED(configured);
+        return &pool;
+    }
+
     static QThreadPool *customCardArt()
     {
         // Interactive override/restore work must not queue behind a complete

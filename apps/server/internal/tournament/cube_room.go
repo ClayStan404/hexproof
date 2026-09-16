@@ -5,6 +5,7 @@ package tournament
 
 import (
 	"fmt"
+	"math/rand"
 	"slices"
 
 	"hexproof/server/internal/protocol"
@@ -94,8 +95,8 @@ func (t *Tournament) clearDisconnectedCubeMatches(participantID string) {
 	})
 }
 
-// The first table needs no opponent choice when every competing player fits
-// at the same table. Readiness remains an explicit action in the game lobby.
+// Initial Commander tables split the submitted group into balanced pods of at
+// most four. Readiness remains an explicit action in each game lobby.
 // Later departures and deck updates never recreate this initial assignment.
 func (t *Tournament) enterCubeFreePlayIfReady() error {
 	if !t.IsCubeRoom() || t.Stage != protocol.LimitedStageDeckBuilding ||
@@ -112,19 +113,31 @@ func (t *Tournament) enterCubeFreePlayIfReady() error {
 			ids = append(ids, participant.ID)
 		}
 	}
-	if len(ids) < 2 || (!t.IsCommanderCube() && len(ids) != 2) || len(ids) > 4 {
+	if len(ids) < 2 || (!t.IsCommanderCube() && len(ids) != 2) {
 		return nil
 	}
-	t.nextPairing++
-	pairing := Pairing{
-		ID: fmt.Sprintf("casual-%d", t.nextPairing), Table: t.nextPairing,
-		PlayerAID: ids[0], PlayerBID: ids[1], InitialCubeTable: true,
-		AutoEntryPendingIDs: append([]string(nil), ids...),
+	if len(ids) > 4 {
+		// Separate from drafting RNG; submissions never change card allocation.
+		random := rand.New(rand.NewSource(t.cubeTableSeed ^ 0x43554245)) // #nosec G404 -- server-generated seed.
+		random.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
 	}
-	if t.IsCommanderCube() {
-		pairing.Group = &CasualGroup{PlayerIDs: ids, AcceptedPlayerIDs: append([]string(nil), ids...)}
+	groups := (len(ids) + 3) / 4
+	for groups > 0 {
+		size := (len(ids) + groups - 1) / groups
+		group := append([]string(nil), ids[:size]...)
+		ids = ids[size:]
+		groups--
+		t.nextPairing++
+		pairing := Pairing{
+			ID: fmt.Sprintf("casual-%d", t.nextPairing), Table: t.nextPairing,
+			PlayerAID: group[0], PlayerBID: group[1], InitialCubeTable: true,
+			AutoEntryPendingIDs: append([]string(nil), group...),
+		}
+		if t.IsCommanderCube() {
+			pairing.Group = &CasualGroup{PlayerIDs: group, AcceptedPlayerIDs: append([]string(nil), group...)}
+		}
+		t.CasualPairings = append(t.CasualPairings, pairing)
 	}
-	t.CasualPairings = append(t.CasualPairings, pairing)
 	return nil
 }
 

@@ -17,7 +17,10 @@ class QtToolchainTests(unittest.TestCase):
         self.assertRegex(action, r"install-qt-action@[0-9a-f]{40}\b")
         version = re.search(r"version: '([0-9]+\.[0-9]+\.[0-9]+)'", action)
         self.assertIsNotNone(version, "Pin a validated release, not a moving latest version")
-        self.assertIn("modules: qtwebsockets qtimageformats", action)
+        modules = re.search(r"^\s*modules: (.+)$", action, re.MULTILINE)
+        self.assertIsNotNone(modules)
+        for required in ("qtwebsockets", "qtimageformats", "qtshadertools"):
+            self.assertIn(required, modules.group(1).split())
         self.assertIn("cache: true", action)
         packaging = (ROOT / "packaging/README.md").read_text()
         self.assertIn("pinned Qt " + version.group(1), packaging)

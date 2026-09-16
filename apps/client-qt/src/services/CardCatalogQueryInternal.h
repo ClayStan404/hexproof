@@ -45,7 +45,7 @@ inline QString catalogExactPrintingSql(const QString &columnPrefix = QStringLite
 inline QString catalogPlayablePrintingSql(const QString &columnPrefix = QStringLiteral("c."))
 {
     return QStringLiteral("COALESCE(%1layout, '') NOT IN "
-                          "('art_series','token','double_faced_token','emblem')")
+                          "('art_series','token','double_faced_token','emblem','front_card')")
         .arg(columnPrefix);
 }
 

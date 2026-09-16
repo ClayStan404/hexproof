@@ -16,6 +16,7 @@
 #include <QUrl>
 
 #include <functional>
+#include <memory>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -25,12 +26,7 @@ namespace hexproof::client {
 class CardResolver final : public QObject
 {
   public:
-    enum class ArtProvider
-    {
-        Auto,
-        Scryfall,
-        Mtgch,
-    };
+    using ArtProvider = CardArtProvider;
 
     struct Callbacks
     {
@@ -56,6 +52,7 @@ class CardResolver final : public QObject
 
     explicit CardResolver(QNetworkAccessManager *network, Callbacks callbacks,
                           QObject *parent = nullptr);
+    CardResolver(CardResolver &networkOwner, Callbacks callbacks, QObject *parent = nullptr);
     ~CardResolver() override;
 
     QUrl chineseExactUrl(const QString &setCode, const QString &collectorNumber) const;
@@ -134,7 +131,8 @@ class CardResolver final : public QObject
     QNetworkAccessManager *m_network = nullptr;
     Callbacks m_callbacks;
     QSet<QNetworkReply *> m_activeReplies;
-    QHash<QString, QDateTime> m_hostCooldowns;
+    struct NetworkState;
+    std::shared_ptr<NetworkState> m_networkState;
     CardRequest m_currentRequest;
     CardRecord m_catalogRecord;
     CardRecord m_currentRecord;

@@ -146,8 +146,95 @@ TestCase {
                 {tag: "zh-forge", language: "zh", format: "modern", rules: "forge"},
                 {tag: "zh-cube", language: "zh", format: "modern", deckFormat: "cube", rules: "manual"}]
     }
-    function test_commanderCubeCapacityAndSingleMultiplayerGame() {
-        mockDecks.cubes = [{deckId: "cube-1", deckName: "Commander Cube", mainCount: 240,
+    function test_commanderPackOptions_data() {
+        const rows = []
+        for (const packs of [3, 4, 5, 6, 8])
+            for (const batch of [1, 2]) rows.push({tag: packs + " packs, batch " + batch, packs, batch})
+        return rows
+    }
+    function test_commanderPackOptions(data) {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Commander Cube", mainCount: 960,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Configured Commander Cube"
+        page.deckFormat = "cube"
+        findChild(page, "cubeVariantControl").activated(1)
+        findChild(page, "cubePlayerCapField").text = "4"
+        const packs = findChild(page, "commanderPackCountSelector")
+        packs.currentIndex = page.commanderPackOptions.indexOf(data.packs)
+        packs.activated(packs.currentIndex)
+        page.commanderDoublePacks = data.batch === 2
+        compare(page.cubeCardsRequired(), 4 * data.packs * 20)
+        findChild(page, "createRoomSubmitButton").clicked()
+        compare(mockWs.submittedLimited[5].packsPerPlayer, data.packs)
+        compare(mockWs.submittedLimited[5].packsPerBatch, data.batch)
+        compare(mockWs.submittedLimited[5].cardsPerPack, 20)
+    }
+    function test_commanderPackSizeControlsStockAndRequest_data() {
+        return [{tag: "minimum", seats: 4, cards: 10, packs: 6},
+                {tag: "odd", seats: 4, cards: 25, packs: 6},
+                {tag: "maximum", seats: 4, cards: 40, packs: 6},
+                {tag: "eight seats", seats: 8, cards: 25, packs: 3}]
+    }
+    function test_commanderPackSizeControlsStockAndRequest(data) {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Custom pack Cube", mainCount: 960,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Custom packs"
+        page.deckFormat = "cube"
+        findChild(page, "cubeVariantControl").activated(1)
+        findChild(page, "cubePlayerCapField").text = String(data.seats)
+        const field = findChild(page, "commanderCardsPerPackField")
+        verify(field.visible)
+        compare(field.text, "20")
+        field.text = String(data.cards)
+        compare(page.cubeCardsRequired(), data.seats * data.packs * data.cards)
+        const button = findChild(page, "createRoomSubmitButton")
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedLimited[5].cardsPerPack, data.cards)
+        compare(mockWs.submittedLimited[5].packsPerPlayer, data.packs)
+        compare(mockWs.submittedLimited[5].packsPerBatch, data.seats > 4 ? 1 : 2)
+        const packs = findChild(page, "commanderPackCountSelector")
+        if (data.seats === 4) {
+            compare(packs.enabledForIndex(4), 4 * 8 * data.cards <= 960)
+            page.commanderPackCount = 8
+            compare(button.enabled, 4 * 8 * data.cards <= 960)
+        }
+        for (const value of ["", "9", "41", "1.5", "cards"]) {
+            field.text = value
+            verify(!button.enabled)
+            compare(page.createBlockerReason(), "Choose 10 to 40 cards per pack")
+        }
+        // An invalid hidden Commander setting does not affect regular Cube.
+        findChild(page, "cubeVariantControl").activated(0)
+        verify(button.enabled)
+        compare(page.cubeCardsRequired(), data.seats * 45)
+    }
+    function test_commanderPackOptionsRejectInsufficientStock() {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Small Commander Cube", mainCount: 400,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Small Commander Cube"
+        page.deckFormat = "cube"
+        findChild(page, "cubeVariantControl").activated(1)
+        findChild(page, "cubePlayerCapField").text = "4"
+        const packs = findChild(page, "commanderPackCountSelector")
+        const button = findChild(page, "createRoomSubmitButton")
+        verify(!button.enabled, "The default six packs require 480 cards")
+        compare(page.commanderPackOptions.map((_, index) => packs.enabledForIndex(index)),
+            [true, true, true, false, false])
+        packs.currentIndex = 2
+        packs.activated(2)
+        compare(page.commanderPackCount, 5)
+        verify(button.enabled)
+        packs.currentIndex = 4
+        packs.activated(4)
+        compare(page.commanderPackCount, 5, "Keyboard activation cannot select an unavailable option")
+        compare(packs.currentIndex, 2)
+    }
+    function test_commanderCubeCapacityAndDraftPresets() {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Commander Cube", mainCount: 960,
                            sideboardCount: 0, exactPrintings: true}]
         page.selectedCubeDeckId = "cube-1"
         page.roomName = "Commander night"
@@ -162,17 +249,26 @@ TestCase {
         const button = findChild(page, "createRoomSubmitButton")
         const cap = findChild(page, "cubePlayerCapField")
         tryCompare(cap, "text", "4")
-        compare(page.cubeCardsRequired(), 240)
+        compare(page.cubeCardsRequired(), 480)
         verify(button.enabled)
         button.clicked()
         compare(mockWs.submittedCoordinator, "casual")
         compare(mockWs.submittedLimited[1], "commander_cube")
         compare(mockWs.submittedLimited[2], "bo1")
         compare(mockWs.submittedLimited[3], 4)
+        compare(mockWs.submittedLimited[5].packsPerPlayer, 6)
+        compare(mockWs.submittedLimited[5].packsPerBatch, 2)
         compare(mockWs.createCount, 0)
-        cap.text = "5"
-        verify(!button.enabled, "Commander Cube never splits into multiple tables")
-        compare(page.createBlockerReason(), "Choose a Commander Cube player cap from 2 to 4")
+        cap.text = "8"
+        verify(button.enabled)
+        compare(page.cubeCardsRequired(), 480)
+        button.clicked()
+        compare(mockWs.submittedLimited[3], 8)
+        compare(mockWs.submittedLimited[5].packsPerPlayer, 3)
+        compare(mockWs.submittedLimited[5].packsPerBatch, 1)
+        cap.text = "9"
+        verify(!button.enabled)
+        compare(page.createBlockerReason(), "Choose a Commander Cube player cap from 2 to 8")
         cap.text = "3"
         verify(button.enabled)
         cap.text = "2"
@@ -205,7 +301,15 @@ TestCase {
         verify(bottom.y <= body.height + 1)
     }
 
-    function test_narrowScaledFormStacksAndScrolls() {
+    function test_narrowScaledFormStacksAndScrolls_data() {
+        return [{tag: "ordinary", commander: false}, {tag: "commander packs", commander: true}]
+    }
+    function test_narrowScaledFormStacksAndScrolls(data) {
+        if (data.commander) {
+            page.deckFormat = "cube"
+            page.commanderCube = true
+            findChild(page, "commanderCardsPerPackField").text = "25"
+        }
         testWindow.requestActivate()
         tryVerify(() => testWindow.active)
         testWindow.width = 900

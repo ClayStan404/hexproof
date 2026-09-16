@@ -11,6 +11,7 @@ QtObject {
     property int seat: -1
     property string displayName: ""
     property int life: 0
+    property int turnCount: -1
     property var counters: []
     property int counterCount: 0
     property int libraryCount: 0
@@ -41,6 +42,7 @@ QtObject {
         seat = sourceSeat
         displayName = source.displayName ? source.displayName : ""
         life = source.life !== undefined ? source.life : 0
+        turnCount = source.turnCount !== undefined ? source.turnCount : -1
         counterCount = source.counterCount !== undefined
                      ? source.counterCount : 0
         libraryCount = source.libraryCount !== undefined

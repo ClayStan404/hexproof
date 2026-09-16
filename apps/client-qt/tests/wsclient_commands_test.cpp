@@ -71,6 +71,75 @@ void TestWsClient::sendsTypedScryResponse() const
     QCOMPARE(outbound.count(), 0);
 }
 
+void TestWsClient::sendsTypedCardNamesAndKeepsRejectedPrompts() const
+{
+    QWebSocketServer server(u"Hexproof card name server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"conn-card-name"_s},
+                                  {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt-card-name.json"_s, 91));
+    QCOMPARE(client.rulesSession()->promptKind(), u"chooseCardName"_s);
+    QCOMPARE(client.rulesSession()->promptCards()->rowCount(), 0);
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    const QString supplementary = QString::fromUcs4(U"\U0001f0a1");
+    for (const QString &invalid :
+         {QString{}, u" \t "_s, u"Bad\nName"_s, QString(257, u'A'), supplementary.repeated(257),
+          u"Bad"_s + QChar(0x85) + u"Name"_s}) {
+        client.respondRulesPromptWithName(91, invalid);
+        QVERIFY(!client.rulesResponsePending());
+    }
+    client.respondRulesPromptWithName(90, u"Lightning Bolt"_s);
+    QVERIFY(!client.rulesResponsePending());
+    client.respondRulesPromptWithName(91, u"  A card outside the local catalog  "_s);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    bool ok = false;
+    Envelope request =
+        hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.payload.value(u"responseId"_s).toString(), u"$submit"_s);
+    QCOMPARE(request.payload.value(u"name"_s).toString(), u"A card outside the local catalog"_s);
+    QVERIFY(client.rulesResponsePending());
+
+    Envelope rejected;
+    rejected.type = hexproof::protocol::kTypeError;
+    rejected.id = request.id;
+    rejected.payload = QJsonObject{{u"code"_s, u"invalid_rules_response"_s},
+                                   {u"message"_s, u"Choose a legal card name"_s}};
+    sendEnvelope(peer, rejected);
+    QTRY_VERIFY_WITH_TIMEOUT(!client.rulesResponsePending(), 1000);
+    QCOMPARE(client.rulesSession()->promptId(), 91);
+    QVERIFY(client.rulesSession()->promptPending());
+    client.respondRulesPromptWithName(91, supplementary.repeated(256));
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    request = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.payload.value(u"name"_s).toString(), supplementary.repeated(256));
+
+    Envelope next = sharedFixture(u"rules-prompt-card-name.json"_s, &ok);
+    QVERIFY(ok);
+    next.payload.insert(u"promptId"_s, 92);
+    next.payload.insert(u"cancellable"_s, true);
+    QVERIFY(client.rulesSession()->applyPrompt(next.payload));
+    QVERIFY(!client.rulesResponsePending());
+    client.respondRulesPrompt(92, u"$cancel"_s);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    request = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.payload.value(u"responseId"_s).toString(), u"$cancel"_s);
+    QVERIFY(!request.payload.contains(u"name"_s));
+}
+
 void TestWsClient::sendsTypedDamageResponses() const
 {
     QWebSocketServer server(u"Hexproof damage response server"_s, QWebSocketServer::NonSecureMode);

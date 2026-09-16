@@ -23,6 +23,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <utility>
 
 namespace hexproof::client::cardart {
 using namespace catalog_internal;
@@ -70,6 +71,20 @@ struct InventoryGroup
     int missingEntryCount = 0;
     QSet<QString> paths;
     QSet<QString> sources;
+};
+
+struct ImportFileRollback
+{
+    QString imageRoot;
+    QSet<QString> referencedPaths;
+    QSet<QString> paths;
+    bool committed = false;
+
+    ~ImportFileRollback()
+    {
+        if (!committed && !paths.isEmpty())
+            removeUnreferencedFiles(imageRoot, referencedPaths, paths, false);
+    }
 };
 
 // Build the canonical positive-cache key for a pack manifest entry object.
@@ -138,7 +153,9 @@ bool matchesSelection(const CardArtCacheEntry &entry, bool selectionOnly, const 
 QByteArray readImage(const QString &path, QString *error)
 {
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly) || file.size() <= 0 || file.size() > kMaximumImageBytes) {
+    const QFileInfo info(path);
+    if (!info.isFile() || info.size() <= 0 || info.size() > kMaximumImageBytes ||
+        !file.open(QIODevice::ReadOnly) || file.size() <= 0 || file.size() > kMaximumImageBytes) {
         if (error)
             *error = QStringLiteral("The card art pack contains invalid image data.");
         return {};
@@ -521,7 +538,7 @@ QVariantMap inspectPack(const QString &path, const QList<CardArtCacheEntry> &exi
                         const QString &imageRoot)
 {
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
+    if (!QFileInfo(path).isFile() || !file.open(QIODevice::ReadOnly)) {
         return {{QStringLiteral("ok"), false},
                 {QStringLiteral("error"),
                  QStringLiteral("Could not open the selected card art pack.")}};
@@ -687,7 +704,7 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
 {
     OperationResult result;
     QFile input(path);
-    if (!input.open(QIODevice::ReadOnly)) {
+    if (!QFileInfo(path).isFile() || !input.open(QIODevice::ReadOnly)) {
         result.error = QStringLiteral("Could not open the selected card art pack.");
         return result;
     }
@@ -703,7 +720,12 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
 
     const QJsonArray entries = pack.manifest.value(QStringLiteral("entries")).toArray();
     QHash<QString, CardRecord> existingByKey;
+    ImportFileRollback rollback;
+    rollback.imageRoot = imageRoot;
     for (const CardArtCacheEntry &entry : existingEntries) {
+        // A missing content-addressed image may be repaired before a later
+        // payload fails. Preserve it if the unchanged index still uses it.
+        rollback.referencedPaths.insert(entry.record.imagePath);
         if (entry.record.valid() && !managedFilePath(imageRoot, entry.record.imagePath).isEmpty())
             existingByKey.insert(entry.cacheKey, entry.record);
     }
@@ -757,11 +779,12 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
             QDir(imageRoot).filePath(blob.sha256 + QLatin1Char('.') + blob.suffix);
         bool needsWrite = true;
         const QFileInfo destinationInfo(destination);
+        const bool destinationExisted = destinationInfo.exists();
         if (destinationInfo.isSymLink()) {
             result.error = QStringLiteral("Could not write imported card images.");
             return result;
         }
-        if (destinationInfo.exists()) {
+        if (destinationExisted) {
             QString existingError;
             const QByteArray existing = readImage(destination, &existingError);
             needsWrite = QCryptographicHash::hash(existing, QCryptographicHash::Sha256).toHex() !=
@@ -774,6 +797,8 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
                 result.error = QStringLiteral("Could not write imported card images.");
                 return result;
             }
+            if (!destinationExisted)
+                rollback.paths.insert(QFileInfo(destination).absoluteFilePath());
         }
         importedPaths.insert(blob.sha256, QFileInfo(destination).absoluteFilePath());
     }
@@ -820,6 +845,8 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
     result.entryCount = result.importedEntries.size();
     result.imageCount = pack.blobs.size();
     result.bytes = pack.payloadBytes;
+    result.createdImagePaths = std::move(rollback.paths);
+    rollback.committed = true;
     return result;
 }
 

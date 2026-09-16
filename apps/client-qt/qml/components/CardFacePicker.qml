@@ -87,6 +87,7 @@ Popup {
             }
 
             AppButton {
+                objectName: "closeCardFacePickerButton"
                 compact: true
                 variant: "ghost"
                 text: "×"
@@ -108,6 +109,7 @@ Popup {
                     id: faceCard
                     required property var modelData
                     required property int index
+                    objectName: "cardFaceChoice" + index
 
                     Layout.fillWidth: true
                     Layout.fillHeight: true

@@ -25,7 +25,7 @@ Page {
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
         title: qsTr("Settings")
-        subtitle: qsTr("Language, updates, and local card data")
+        subtitle: qsTr("Language, appearance, updates, and local card data")
         onBackRequested: root.appWindow.popScreen()
     }
 
@@ -45,6 +45,57 @@ Page {
             width: Math.min(Theme.size(760), parent.width - Theme.size(72))
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.size(16)
+
+            Surface {
+                Layout.fillWidth: true
+                implicitHeight: appearanceContent.implicitHeight + Theme.size(48)
+                elevated: true
+
+                ColumnLayout {
+                    id: appearanceContent
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(24)
+                    spacing: Theme.size(12)
+
+                    Text {
+                        textFormat: Text.PlainText
+                        text: qsTr("Appearance")
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSize(20)
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: qsTr("Choose Classic or Glass controls and panels. Battlefield backgrounds are selected separately.")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(12)
+                        wrapMode: Text.WordWrap
+                    }
+                    SegmentedControl {
+                        objectName: "settingsThemeSelector"
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.size(6)
+                        options: [qsTr("Classic"), qsTr("Glass")]
+                        currentIndex: preferences.uiTheme === "glass" ? 1 : 0
+                        onActivated: index => preferences.uiTheme = index === 1 ? "glass" : "classic"
+                    }
+                }
+            }
+
+            Surface {
+                Layout.fillWidth: true
+                implicitHeight: backgroundPicker.implicitHeight + Theme.size(48)
+                elevated: true
+
+                TableBackgroundPicker {
+                    id: backgroundPicker
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(24)
+                    selectedId: preferences.tableBackground
+                    onBackgroundSelected: key => preferences.tableBackground = key
+                }
+            }
 
             Surface {
                 Layout.fillWidth: true
@@ -73,6 +124,7 @@ Page {
                         wrapMode: Text.WordWrap
                     }
                     SegmentedControl {
+                        objectName: "settingsLanguageSelector"
                         Layout.fillWidth: true
                         Layout.topMargin: Theme.size(6)
                         options: [qsTr("English"), qsTr("简体中文")]
@@ -104,6 +156,7 @@ Page {
                         wrapMode: Text.WordWrap
                     }
                     SegmentedControl {
+                        objectName: "settingsCardLanguageSelector"
                         Layout.fillWidth: true
                         Layout.topMargin: Theme.size(6)
                         options: [qsTr("English cards"), qsTr("Chinese cards")]
@@ -120,17 +173,22 @@ Page {
                         font.weight: Font.DemiBold
                     }
                     SegmentedControl {
+                        objectName: "settingsCardArtProviderSelector"
                         Layout.fillWidth: true
-                        options: [qsTr("Automatic (default)"), qsTr("Scryfall"), qsTr("MTGCH")]
+                        options: [qsTr("Automatic (default)"), qsTr("Scryfall"), qsTr("MTGCH"), qsTr("Parallel")]
                         currentIndex: preferences.cardArtProvider === "scryfall" ? 1
-                                      : preferences.cardArtProvider === "mtgch" ? 2 : 0
+                                      : preferences.cardArtProvider === "mtgch" ? 2
+                                      : preferences.cardArtProvider === "parallel" ? 3 : 0
                         onActivated: index => preferences.cardArtProvider = index === 1
-                                              ? "scryfall" : index === 2 ? "mtgch" : "auto"
+                                              ? "scryfall" : index === 2 ? "mtgch"
+                                              : index === 3 ? "parallel" : "auto"
                     }
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        text: qsTr("The preferred source is tried first for uncached art. Missing or unavailable images automatically fall back to the other source.")
+                        text: preferences.cardArtProvider === "parallel"
+                              ? qsTr("Use both sources to speed up large card downloads, such as EDH games.")
+                              : qsTr("The preferred source is tried first for uncached art. Missing or unavailable images automatically fall back to the other source.")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSize(11)
                         wrapMode: Text.WordWrap
@@ -157,7 +215,9 @@ Page {
                     InfoBanner {
                         Layout.fillWidth: true
                         tone: "warning"
-                        message: preferences.cardArtProvider === "auto"
+                        message: preferences.cardArtProvider === "parallel"
+                                 ? qsTr("Local art remains first. Scryfall and MTGCH download different cards in parallel, with Chinese art preferred for Chinese cards and automatic fallback.")
+                                 : preferences.cardArtProvider === "auto"
                                  ? qsTr("Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.")
                                  : preferences.cardArtProvider === "mtgch"
                                  ? qsTr("Local art remains first. MTGCH is preferred for new downloads; Scryfall remains the automatic fallback.")
@@ -202,6 +262,7 @@ Page {
                         statusColor: Theme.warning
                     }
                     AppButton {
+                        objectName: "settingsManageArtButton"
                         text: qsTr("Manage…")
                         onClicked: root.appWindow.pushScreen(
                                        "screens/CardArtManager.qml")
@@ -272,6 +333,7 @@ Page {
                             compact: true
                             variant: "ghost"
                             text: "+"
+                            objectName: "settingsIncreaseScaleButton"
                             accessibleName: qsTr("Increase interface scale")
                             Layout.preferredWidth: Theme.size(48)
                             enabled: preferences.interfaceScale < 1.5
@@ -283,6 +345,7 @@ Page {
 
                         AppButton {
                             compact: true
+                            objectName: "settingsResetScaleButton"
                             text: qsTr("Reset to 100%")
                             enabled: Math.abs(preferences.interfaceScale - 1.0) > 0.001
                             onClicked: root.setInterfaceScale(1.0)
@@ -365,6 +428,7 @@ Page {
                         }
                     }
                     AppButton {
+                        objectName: "settingsCustomizeShortcutsButton"
                         text: qsTr("Customize…")
                         onClicked: root.appWindow.pushScreen(
                                        "screens/ShortcutSettings.qml")
@@ -466,6 +530,7 @@ Page {
                                 font.weight: Font.DemiBold
                             }
                             AppButton {
+                                objectName: "settingsCheckCatalogUpdatesButton"
                                 compact: true
                                 variant: "ghost"
                                 text: qsTr("Check updates")
@@ -523,6 +588,7 @@ Page {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     AppButton {
+                                        objectName: "settingsDownloadCatalogButton"
                                         Layout.fillWidth: true
                                         compact: true
                                         visible: !cardCatalog.installed
@@ -536,6 +602,7 @@ Page {
                                         onClicked: root.confirmDownload("default_cards")
                                     }
                                     AppButton {
+                                        objectName: "settingsImportCatalogButton"
                                         compact: true
                                         text: qsTr("Import…")
                                         enabled: !cardCatalog.busy
@@ -593,6 +660,7 @@ Page {
 
     ConfirmDialog {
         id: downloadDialog
+        objectName: "settingsCatalogDownloadDialog"
         titleText: qsTr("Download the card database?")
         message: qsTr("Hexproof will download and verify the latest prebuilt database. It will not build a database from upstream sources on this device.")
         confirmText: qsTr("Download")
@@ -601,6 +669,7 @@ Page {
 
     FileDialog {
         id: catalogFileDialog
+        objectName: "catalogImportFileDialog"
         title: qsTr("Import card database")
         fileMode: FileDialog.OpenFile
         nameFilters: [

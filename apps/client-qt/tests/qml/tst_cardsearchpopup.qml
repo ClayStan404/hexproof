@@ -7,14 +7,29 @@ import QtTest
 import "../../qml/components"
 
 TestCase {
+    id: testCase
     name: "CardSearchPopup"
     when: windowShown
+    property bool respondAsynchronously: false
 
     ApplicationWindow {
         id: testWindow
         width: 1100
         height: 760
         visible: true
+
+        QtObject {
+            id: previewCatalog
+            property var previewCards: []
+            property var previewBatches: []
+            property int imageRevision: 0
+            function imageSource(name, setCode, collectorNumber) { return "" }
+            function tableImageSource(name, setCode, collectorNumber) { return "" }
+            function setSearchPreviewCards(cards) {
+                previewCards = cards.slice()
+                if (cards.length > 0) previewBatches = previewBatches.concat([cards.slice()])
+            }
+        }
 
         QtObject {
             id: mockDeckLibrary
@@ -32,6 +47,7 @@ TestCase {
         CardSearchPopup {
             id: searchPopup
             deckLibraryModel: mockDeckLibrary
+            catalogModel: previewCatalog
             results: [{
                 "name": "Lightning Bolt",
                 "displayName": "Lightning Bolt",
@@ -40,6 +56,7 @@ TestCase {
                 "collectorNumber": "149",
                 "versionCount": 12
             }]
+            onSearchRequested: if (testCase.respondAsynchronously) searching = true
         }
     }
 
@@ -49,17 +66,141 @@ TestCase {
         signalName: "searchRequested"
     }
 
+    SignalSpy {
+        id: addSpy
+        target: searchPopup
+        signalName: "addRequested"
+    }
+
     function init() {
         Theme.uiScale = 1
+        testWindow.requestActivate()
+        tryVerify(() => testWindow.active)
         searchPopup.close()
+        respondAsynchronously = false
+        searchPopup.searching = false
         searchPopup.resetFilters()
         searchPopup.query = ""
+        searchPopup.results = [{name: "Lightning Bolt", displayName: "Lightning Bolt",
+                                typeLine: "Instant", setCode: "M11", collectorNumber: "149"}]
+        previewCatalog.previewCards = []
+        previewCatalog.previewBatches = []
         searchSpy.clear()
+        addSpy.clear()
     }
 
     function cleanup() {
         searchPopup.close()
         Theme.uiScale = 1
+    }
+
+    function findVisual(item, name) {
+        if (item.objectName === name) return item
+        for (const child of item.children || []) {
+            const found = findVisual(child, name)
+            if (found) return found
+        }
+        return null
+    }
+
+    function test_pendingSearchHidesPreviousResults_data() {
+        return [{tag: "typed query", query: true}, {tag: "color filter", query: false}]
+    }
+
+    function test_pendingSearchHidesPreviousResults(data) {
+        searchPopup.query = "Lightning"
+        searchPopup.openSearch()
+        tryCompare(searchPopup, "opened", true)
+        tryCompare(searchSpy, "count", 1)
+        const grid = findChild(searchPopup, "cardSearchResults")
+        tryCompare(grid, "count", 1)
+        waitForPolish(testWindow)
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        respondAsynchronously = true
+
+        if (data.query) {
+            const input = findVisual(searchPopup.contentItem, "workbenchSearch")
+            mouseClick(input, input.width / 2, input.height / 2)
+            tryVerify(() => input.activeFocus)
+            keyClick(Qt.Key_A, Qt.ControlModifier)
+            for (const character of "Counterspell") keyClick(character)
+            compare(searchPopup.query, "Counterspell")
+        } else {
+            const color = findVisual(searchPopup.contentItem, "filterColor-U")
+            verify(color !== null)
+            mouseClick(color, color.width / 2, color.height / 2)
+            compare(searchPopup.colorFilter, "U")
+        }
+        compare(searchSpy.count, 1, "The next database search is still debounced")
+        compare(grid.count, 0, "Previous-query cards must stop being clickable immediately")
+        compare(addSpy.count, 0)
+
+        tryCompare(searchSpy, "count", 2)
+        compare(grid.count, 0, "Pending database work must not restore the old result")
+        searchPopup.results = [{name: "Counterspell", displayName: "Counterspell",
+                                typeLine: "Instant", setCode: "MH2", collectorNumber: "267"}]
+        searchPopup.searching = false
+        tryCompare(grid, "count", 1)
+        waitForPolish(testWindow)
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        const card = findChild(grid.itemAtIndex(0), "workbenchCard-Counterspell")
+        verify(card !== null)
+        mouseClick(card, card.width / 2, card.height / 2)
+        compare(addSpy.count, 1)
+        compare(addSpy.signalArguments[0][0].name, "Counterspell")
+        compare(addSpy.signalArguments[0][0].setCode, "MH2")
+        compare(addSpy.signalArguments[0][0].collectorNumber, "267")
+    }
+
+    function test_closeCancelsDebouncedSearchAndLateResultsStayHidden() {
+        searchPopup.query = "Lightning"
+        searchPopup.openSearch()
+        tryCompare(searchPopup, "opened", true)
+        tryCompare(searchSpy, "count", 1)
+        const input = findVisual(searchPopup.contentItem, "workbenchSearch")
+        mouseClick(input, input.width / 2, input.height / 2)
+        tryVerify(() => input.activeFocus)
+        keyClick(Qt.Key_A, Qt.ControlModifier)
+        for (const character of "Counterspell") keyClick(character)
+        compare(searchPopup.query, "Counterspell")
+        const close = findChild(searchPopup, "cardSearchDoneButton")
+        verify(close !== null)
+        mouseClick(close, close.width / 2, close.height / 2)
+        tryCompare(searchPopup, "opened", false)
+        searchPopup.results = [{name: "A late result", setCode: "TST", collectorNumber: "9"}]
+        wait(300)
+        compare(searchSpy.count, 1, "Closing cancels a search that was still debounced")
+        compare(previewCatalog.previewCards.length, 0)
+        compare(findChild(searchPopup, "cardSearchResults").count, 0,
+                "A closed popup must not rebuild stale result delegates")
+        compare(addSpy.count, 0)
+    }
+
+    function test_previewsFollowViewportAndCancelOnSearchOrClose() {
+        searchPopup.openSearch()
+        tryCompare(searchPopup, "opened", true)
+        searchPopup.query = "Razor"
+        const candidates = []
+        for (let index = 0; index < 40; ++index)
+            candidates.push({name: "Razor " + index, setCode: "TST", collectorNumber: String(index)})
+        searchPopup.results = candidates
+        const grid = findChild(searchPopup, "cardSearchResults")
+        tryVerify(() => previewCatalog.previewCards.length > 0)
+        verify(previewCatalog.previewCards.length < candidates.length)
+        compare(previewCatalog.previewCards, grid.visibleCards)
+        grid.positionViewAtIndex(30, GridView.Beginning)
+        tryVerify(() => previewCatalog.previewCards.some(card => card.name === "Razor 30"))
+        compare(previewCatalog.previewCards, grid.visibleCards)
+        searchPopup.query = "Razorgrass"
+        compare(previewCatalog.previewCards.length, 0)
+        searchPopup.results = [{name: "Razorgrass Ambush // Razorgrass Field",
+                                setCode: "MH3", collectorNumber: "238"}]
+        tryCompare(previewCatalog, "previewCards", searchPopup.results)
+        searchPopup.close()
+        compare(previewCatalog.previewCards.length, 0)
+        const batchCount = previewCatalog.previewBatches.length
+        wait(450)
+        compare(previewCatalog.previewBatches.length, batchCount)
     }
 
     function test_hoverPreviewKeepsResultsGeometryAndWindowBounds_data() {

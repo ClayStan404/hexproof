@@ -3,8 +3,11 @@
 
 #pragma once
 
+#include "RulesSnapshotModel.h"
+
 #include <QAbstractListModel>
 #include <QString>
+#include <QStringList>
 #include <QVariantList>
 #include <QVector>
 
@@ -14,6 +17,7 @@ struct RulesNamedValue
 {
     QString name;
     int value = 0;
+    bool operator==(const RulesNamedValue &) const = default;
 };
 
 struct RulesPlayerRow
@@ -24,6 +28,8 @@ struct RulesPlayerRow
     int life = 0;
     QVector<RulesNamedValue> counters;
     QVector<RulesNamedValue> manaPool;
+    QVariantList commanders;
+    bool operator==(const RulesPlayerRow &) const = default;
 };
 
 struct RulesZoneRow
@@ -31,6 +37,7 @@ struct RulesZoneRow
     QString zone;
     int ownerSeat = -1;
     int count = 0;
+    bool operator==(const RulesZoneRow &) const = default;
 };
 
 struct RulesCardRow
@@ -53,6 +60,7 @@ struct RulesCardRow
     int damage = 0;
     QString attachedTo;
     QVector<RulesNamedValue> counters;
+    bool operator==(const RulesCardRow &) const = default;
 };
 
 struct RulesStackRow
@@ -66,6 +74,8 @@ struct RulesStackRow
     QString collectorNumber;
     bool token = false;
     QString text;
+    QVariantList targets;
+    bool operator==(const RulesStackRow &) const = default;
 };
 
 struct RulesPromptOptionRow
@@ -95,9 +105,10 @@ struct RulesPromptTargetRow
     QString setCode;
     QString collectorNumber;
     bool token = false;
+    int seat = -1;
 };
 
-class RulesPlayerModel final : public QAbstractListModel
+class RulesPlayerModel final : public RulesSnapshotModel
 {
   public:
     enum Role
@@ -107,7 +118,8 @@ class RulesPlayerModel final : public QAbstractListModel
         StatusRole,
         LifeRole,
         CountersSummaryRole,
-        ManaSummaryRole
+        ManaSummaryRole,
+        CommandersRole
     };
 
     explicit RulesPlayerModel(QObject *parent = nullptr);
@@ -121,7 +133,7 @@ class RulesPlayerModel final : public QAbstractListModel
     QVector<RulesPlayerRow> m_rows;
 };
 
-class RulesZoneModel final : public QAbstractListModel
+class RulesZoneModel final : public RulesSnapshotModel
 {
   public:
     enum Role
@@ -143,7 +155,7 @@ class RulesZoneModel final : public QAbstractListModel
     QVector<RulesZoneRow> m_rows;
 };
 
-class RulesCardModel final : public QAbstractListModel
+class RulesCardModel final : public RulesSnapshotModel
 {
   public:
     enum Role
@@ -179,7 +191,7 @@ class RulesCardModel final : public QAbstractListModel
     QVector<RulesCardRow> m_rows;
 };
 
-class RulesStackModel final : public QAbstractListModel
+class RulesStackModel final : public RulesSnapshotModel
 {
   public:
     enum Role
@@ -192,7 +204,8 @@ class RulesStackModel final : public QAbstractListModel
         SetCodeRole,
         CollectorNumberRole,
         TokenRole,
-        TextRole
+        TextRole,
+        TargetsRole
     };
 
     explicit RulesStackModel(QObject *parent = nullptr);
@@ -222,6 +235,8 @@ class RulesPromptOptionModel final : public QAbstractListModel
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
     QVariantList castActionsForCard(const QString &cardId) const;
+    QVariantList cardActionsForCard(const QString &cardId) const;
+    QVariantList items() const;
     void replace(QVector<RulesPromptOptionRow> rows);
     void clear();
 
@@ -231,6 +246,8 @@ class RulesPromptOptionModel final : public QAbstractListModel
 
 class RulesPromptCardModel final : public QAbstractListModel
 {
+    Q_OBJECT
+
   public:
     enum Role
     {
@@ -265,13 +282,17 @@ class RulesPromptTargetModel final : public QAbstractListModel
         NameRole,
         SetCodeRole,
         CollectorNumberRole,
-        TokenRole
+        TokenRole,
+        SeatRole
     };
 
     explicit RulesPromptTargetModel(QObject *parent = nullptr);
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
+    QVariantList items() const;
+    QStringList responseIdsForObject(const QString &kind, const QString &objectId) const;
+    QStringList responseIdsForSeat(int seat) const;
     void replace(QVector<RulesPromptTargetRow> rows);
     void clear();
 

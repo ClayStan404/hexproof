@@ -8,7 +8,9 @@ import "../../qml/components"
 import "../../qml/screens"
 
 TestCase {
-    name: "RulesTable"
+    // The historical layout remains available to existing multiplayer rooms.
+    // Ordinary 1v1 integration is exercised with real models in tst_forgeduel.qml.
+    name: "RulesLegacyTable"
     when: windowShown
 
     ApplicationWindow {
@@ -185,6 +187,32 @@ TestCase {
             id: rulesSession
             property string gameId: "rules-match"
             signal promptChanged()
+            signal snapshotChanged()
+            function cardForInspection(id) {
+                for (const model of [battlefieldCards, zoneCards, stack]) {
+                    for (let index = 0; index < model.count; ++index) {
+                        const card = model.get(index)
+                        if (card.cardId !== id)
+                            continue
+                        // The C++ invokable returns a value map. Explicit role
+                        // reads preserve that contract without Object.assign's
+                        // binding reentry on live ListModel.get() wrappers.
+                        return {
+                            cardId: card.cardId, zone: card.zone,
+                            zoneOwnerSeat: card.zoneOwnerSeat,
+                            visibleIdentity: card.visibleIdentity,
+                            name: card.name, setCode: card.setCode,
+                            collectorNumber: card.collectorNumber, token: card.token,
+                            ownerSeat: card.ownerSeat, controllerSeat: card.controllerSeat,
+                            tapped: card.tapped, faceDown: card.faceDown,
+                            attacking: card.attacking, power: card.power,
+                            toughness: card.toughness, damage: card.damage,
+                            attachedTo: card.attachedTo, countersSummary: card.countersSummary
+                        }
+                    }
+                }
+                return ({})
+            }
 
             property bool active: true
             property int snapshotRevision: 0
@@ -205,6 +233,7 @@ TestCase {
             property int winnerSeat: -1
             property bool promptPending: true
             property bool promptSupported: true
+            property bool promptAutoPassEligible: false
             property int promptId: 1
             property string promptKind: "diceRolled"
             property string promptTitle: "Roll for first player"
@@ -232,6 +261,37 @@ TestCase {
             property int promptMaxChoiceTotal: 0
             property int promptMinNumber: 0
             property int promptMaxNumber: 0
+            property var boardTargets: []
+
+            function promptOptionItems() {
+                const result = []
+                for (let index = 0; index < promptOptions.count; ++index) {
+                    const option = promptOptions.get(index)
+                    result.push({responseId: option.responseId, kind: option.kind,
+                                 label: option.label, cardId: option.cardId || ""})
+                }
+                return result
+            }
+
+            function stackObjectIds() {
+                const result = []
+                for (let index = 0; index < stack.count; ++index)
+                    result.push(stack.get(index).cardId)
+                return result
+            }
+
+            function boardTargetCandidates() {
+                return boardTargets.map(target => Object.assign({label: "", objectId: "",
+                    name: "", setCode: "", collectorNumber: "", token: false, seat: -1}, target))
+            }
+            function targetResponseIdsForObject(kind, id) {
+                return boardTargets.filter(target => target.kind === kind && target.objectId === id)
+                    .map(target => target.responseId)
+            }
+            function targetResponseIdsForSeat(seat) {
+                return boardTargets.filter(target => target.kind === "player" && target.seat === seat)
+                    .map(target => target.responseId)
+            }
 
             function zoneCount(ownerSeat, zone) {
                 // Mutating this plain object has no QML property notification,
@@ -239,15 +299,16 @@ TestCase {
                 return zoneCountSnapshot[ownerSeat + ":" + zone] || 0
             }
 
-            function castActionsForCard(cardId) {
+            function cardActionsForCard(cardId) {
                 if (!promptPending || !promptSupported
-                        || promptKind !== "chooseAction") {
+                        || (promptKind !== "chooseAction" && promptKind !== "payManaCost")) {
                     return []
                 }
                 const actions = []
                 for (let index = 0; index < promptOptions.count; ++index) {
                     const option = promptOptions.get(index)
-                    if (option.kind === "cast" && option.cardId === cardId) {
+                    if (["cast", "playLand", "activateAbility"].includes(option.kind)
+                            && option.cardId === cardId) {
                         actions.push({
                             "responseId": option.responseId,
                             "kind": option.kind,
@@ -261,6 +322,7 @@ TestCase {
 
         QtObject {
             id: roomSession
+            property int maxSeats: 4
             property string roomName: "Friday Forge"
             property string roomId: "ABCDEF"
             property string role: "player"
@@ -294,6 +356,7 @@ TestCase {
             property int concedeCount: 0
             property int lastPromptId: 0
             property string lastResponseId: ""
+            property var lastSelectedTargets: []
             property int restartCount: 0
             property int leaveCount: 0
             property int returnCount: 0
@@ -314,6 +377,10 @@ TestCase {
                 responseCount++
                 lastPromptId = promptId
                 lastResponseId = responseId
+            }
+            function respondRulesPromptWithTargets(promptId, responseId, targets) {
+                lastSelectedTargets = targets
+                respondRulesPrompt(promptId, responseId)
             }
             function respondRulesPromptWithScry(promptId, piles) {}
             function returnToRoom() { returnCount++ }
@@ -372,6 +439,11 @@ TestCase {
     }
 
     function init() {
+        testWindow.requestActivate()
+        tryCompare(testWindow, "active", true)
+        findChild(table, "rulesCardInspector").clear()
+        Theme.uiTheme = "classic"
+        TableBackgrounds.currentId = "default"
         const picker = findChild(table, "rulesCardActionPicker")
         if (picker !== null)
             picker.close()
@@ -392,20 +464,41 @@ TestCase {
         rulesSession.gameOver = false
         rulesSession.promptPending = true
         rulesSession.promptSupported = true
+        rulesSession.promptAutoPassEligible = false
+        table.priority.phaseStops = ({})
+        table.priority.setFullControl(false)
+        table.priority.resetTransient()
         rulesSession.promptId = 1
         rulesSession.promptKind = "diceRolled"
         rulesSession.promptTitle = "Roll for first player"
         rulesSession.promptDetail = ""
         rulesSession.promptOptions = rollPromptOptions
         rulesSession.promptContextText = ""
+        rulesSession.boardTargets = []
         rulesSession.stack = emptyModel
         players.setProperty(0, "status", "playing")
         players.setProperty(1, "status", "playing")
         fakeWs.concedeCount = 0
         fakeWs.responseCount = 0
+        fakeWs.lastSelectedTargets = []
         fakeWs.rulesResponsePending = false
         manyPromptOptions.clear()
         waitForRendering(table)
+    }
+
+    function test_defaultRestoresOpaqueClassicBattlefield() {
+        const ownLane = findChild(table, "rulesBattlefieldLane0")
+        const opponentLane = findChild(table, "rulesBattlefieldLane1")
+        for (const background of ["default", "ink", "default"]) {
+            TableBackgrounds.currentId = background
+            for (const lane of [ownLane, opponentLane]) {
+                verify(lane !== null)
+                if (background === "default")
+                    compare(lane.color, lane.isOwn ? Theme.primaryMuted : Theme.surfaceHover)
+                else
+                    verify(lane.color.a > 0 && lane.color.a < 1)
+            }
+        }
     }
 
     function test_zoneOnlySnapshotRefreshesCountsAndEmptyLabels() {
@@ -479,28 +572,75 @@ TestCase {
         const playArea = findChild(table, "rulesPlayArea")
         const actionRail = findChild(table, "rulesActionRail")
         const sharedRail = findChild(table, "rulesSharedZoneRail")
-        const stateRail = findChild(table, "rulesStateRail")
         const battlefield = findChild(table, "rulesBattlefieldPanel")
         const handArea = findChild(table, "rulesHandArea")
         verify(layout !== null)
         verify(playArea !== null)
         verify(actionRail !== null)
         verify(sharedRail !== null)
-        verify(stateRail !== null)
         verify(battlefield !== null)
         verify(handArea !== null)
         tryVerify(() => layout.width > 0)
         compare(actionRail.width, 144)
         compare(sharedRail.width, 92)
-        verify(!stateRail.visible)
         compare(findChild(table, "gameLogRail").width, table.gameLogRailWidth)
-        verify(playArea.width >= layout.width * 0.6,
+        verify(playArea.width >= layout.width * 0.48,
                "play area " + playArea.width + " / layout " + layout.width)
-        verify(battlefield.width >= playArea.width - 1,
-               "battlefield " + battlefield.width + " / play area "
-               + playArea.width)
+        const inspectionHost = findChild(table, "rulesInspectionHost")
+        verify(battlefield.width + inspectionHost.width >= playArea.width - 1,
+               "Battlefield and the independent inspector fill the workspace")
         compare(handArea.width, playArea.width)
         verify(handArea.y > battlefield.y)
+    }
+
+    function test_decisionsAndInspectionNeverOverlapBattlefield_data() {
+        return [
+            {tag: "desktop", width: 1600, height: 1000, scale: 1},
+            {tag: "laptop", width: 1280, height: 800, scale: 1},
+            {tag: "compact", width: 900, height: 620, scale: 1},
+            {tag: "scaled", width: 1280, height: 800, scale: 1.35}
+        ]
+    }
+
+    function test_decisionsAndInspectionNeverOverlapBattlefield(data) {
+        testWindow.width = data.width
+        testWindow.height = data.height
+        Theme.uiScale = data.scale
+        const dock = findChild(table, "rulesDecisionDock")
+        const field = findChild(table, "rulesBattlefieldHost")
+        const hand = findChild(table, "rulesHandArea")
+        const inspector = findChild(table, "rulesCardInspector")
+        waitForRendering(table)
+        const fieldRect = field.mapToItem(table, 0, 0, field.width, field.height)
+        const dockRect = dock.mapToItem(table, 0, 0, dock.width, dock.height)
+        verify(dockRect.y >= fieldRect.y + fieldRect.height - 1,
+               "Decisions stay below the battlefield at every width")
+        const handRect = hand.mapToItem(table, 0, 0, hand.width, hand.height)
+        verify(dockRect.y + dockRect.height <= handRect.y + 1,
+               "Decisions sit directly above the player's hand")
+        compare(dock.width, hand.width)
+        verify(field.height >= Theme.size(110), "Battlefield remains visible")
+        table.openCardDetails("own-permanent")
+        tryCompare(inspector, "hasCard", true)
+        verify(inspector.pinned)
+        waitForRendering(inspector)
+        const inspectRect = inspector.mapToItem(table, 0, 0, inspector.width, inspector.height)
+        const inspectedFieldRect = field.mapToItem(table, 0, 0, field.width, field.height)
+        verify(inspectRect.x >= inspectedFieldRect.x + inspectedFieldRect.width - 1,
+               "Card inspection has its own side area")
+        const inspectedDockRect = dock.mapToItem(table, 0, 0, dock.width, dock.height)
+        compare(inspectedDockRect.y, dockRect.y)
+        compare(inspectedDockRect.width, dockRect.width)
+        verify(findChild(table, "rulesPromptPanel").visible,
+               "Opening card inspection never replaces the current decision")
+        verify(hand.visible)
+        mouseClick(findChild(inspector, "clearRulesCardInspectorButton"))
+        tryCompare(inspector, "hasCard", false)
+        verify(findChild(table, "rulesPromptPanel").visible)
+        table.openCardDetails("own-permanent")
+        table.forceActiveFocus()
+        keyClick(Qt.Key_Escape)
+        tryCompare(inspector, "hasCard", false)
     }
 
     function test_localBattlefieldIsBelowOpponent() {
@@ -514,15 +654,124 @@ TestCase {
                + opponentLane.y)
     }
 
+    function test_priorityControlsStayBesideHandWithoutResizingForInspection_data() {
+        return [
+            {tag: "desktop", width: 1600, height: 1000},
+            {tag: "compact", width: 900, height: 620}
+        ]
+    }
+
+    function test_priorityControlsStayBesideHandWithoutResizingForInspection(data) {
+        testWindow.width = data.width
+        testWindow.height = data.height
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = castPromptOptions
+        const dock = findChild(table, "rulesDecisionDock")
+        const field = findChild(table, "rulesBattlefieldHost")
+        const hand = findChild(table, "rulesHandArea")
+        waitForRendering(table)
+        verify(!dock.expanded)
+        verify(dock.height <= Theme.size(116),
+               "Routine priority uses a compact action strip")
+        verify(field.height >= testWindow.height * 0.5,
+               "The battlefield keeps most of the vertical space")
+        const initialDock = dock.mapToItem(table, 0, 0, dock.width, dock.height)
+        const initialHand = hand.mapToItem(table, 0, 0, hand.width, hand.height)
+        verify(initialDock.y + initialDock.height <= initialHand.y + 1)
+        table.openCardDetails("own-permanent")
+        waitForRendering(table)
+        const inspectedDock = dock.mapToItem(table, 0, 0, dock.width, dock.height)
+        compare(inspectedDock, initialDock)
+        verify(!dock.expanded)
+        verify(!findChild(table, "rulesPromptPanel").visible,
+               "Routine priority does not repeat the large decision form")
+    }
+
+    function test_compactHoverKeepsInspectionSpaceUntilDismissed() {
+        testWindow.width = 900
+        table.setGameLogVisible(false)
+        const dock = findChild(table, "rulesInspectionHost")
+        const inspector = findChild(table, "rulesCardInspector")
+        const field = findChild(table, "rulesBattlefieldHost")
+        inspector.clear()
+        waitForRendering(table)
+        const fullWidth = field.width
+        table.previewCard("own-permanent", table)
+        tryCompare(dock, "visible", true)
+        waitForRendering(table)
+        const inspectedWidth = field.width
+        verify(inspectedWidth < fullWidth)
+        table.endCardPreview(table)
+        tryCompare(inspector, "hasCard", false)
+        waitForRendering(table)
+        verify(dock.visible, "Leaving a hover must not move cards back under the pointer")
+        compare(field.width, inspectedWidth)
+        const close = findChild(inspector, "clearRulesCardInspectorButton")
+        verify(close.visible)
+        mouseClick(close)
+        tryCompare(dock, "visible", false)
+        tryCompare(field, "width", fullWidth)
+    }
+
+    function test_fourPlayerHeaderRemainsClickableBesideNarrowDecisionDock() {
+        testWindow.width = 1180
+        players.append({seat: 2, name: "Carol", status: "playing", life: 20,
+                        countersSummary: "", manaSummary: ""})
+        players.append({seat: 3, name: "Dave", status: "playing", life: 20,
+                        countersSummary: "", manaSummary: ""})
+        const battlefield = findChild(table, "rulesBattlefieldPanel")
+        try {
+            rulesSession.activeSeat = 0
+            rulesSession.prioritySeat = 0
+            const lane = findChild(table, "rulesBattlefieldLane0")
+            const header = findChild(table, "rulesPlayerTarget0")
+            const arrange = findChild(table, "rulesAutoArrange0")
+            const viewport = findChild(table, "rulesBattlefieldViewport0")
+            waitForRendering(table)
+            const initialHeaderHeight = lane.headerHeight
+            const initialViewportHeight = viewport.height
+            battlefield.layoutState.remember(0, "own-permanent", 10, 10, 100, 100)
+            rulesSession.promptId = 25
+            rulesSession.promptKind = "chooseBoardTargets"
+            rulesSession.promptOptions = emptyModel
+            rulesSession.promptMinSelections = 1
+            rulesSession.promptMaxSelections = 1
+            rulesSession.boardTargets = [{responseId: "target:self", kind: "player", seat: 0}]
+            verify(table.persistentInspectionDock)
+            tryCompare(lane, "targetActionable", true)
+            tryVerify(() => arrange.visible)
+            waitForRendering(table)
+            compare(lane.headerHeight, initialHeaderHeight)
+            compare(viewport.height, initialViewportHeight)
+            rulesSession.prioritySeat = 1
+            waitForRendering(table)
+            compare(lane.headerHeight, initialHeaderHeight)
+            compare(viewport.height, initialViewportHeight)
+            rulesSession.prioritySeat = 0
+            verify(header.width >= Theme.size(144), "Player selection keeps a usable hit area")
+            verify(header.x >= 0 && header.x + header.width <= lane.width)
+            verify(viewport.y >= arrange.mapToItem(lane, 0, arrange.height).y,
+                   "The badge row has reserved space above the cards")
+            compare(table.interaction.fallbackTargets.length, 0)
+            mouseClick(header, header.width / 2, header.height / 2)
+            compare(fakeWs.responseCount, 1)
+            compare(fakeWs.lastPromptId, 25)
+            compare(fakeWs.lastResponseId, "$submit")
+            compare(fakeWs.lastSelectedTargets, ["target:self"])
+        } finally {
+            battlefield.layoutState.reset(0)
+            players.remove(2, players.count - 2)
+            rulesSession.boardTargets = []
+        }
+    }
+
     function test_compactLayoutReturnsRailsToBattlefield() {
         const actionRail = findChild(table, "rulesActionRail")
         const sharedRail = findChild(table, "rulesSharedZoneRail")
-        const stateRail = findChild(table, "rulesStateRail")
         const playArea = findChild(table, "rulesPlayArea")
         testWindow.width = 1000
         tryCompare(actionRail, "width", 120)
         compare(sharedRail.visible, false)
-        compare(stateRail.visible, false)
         verify(playArea.width >= 875,
                "compact play area " + playArea.width)
     }
@@ -583,19 +832,63 @@ TestCase {
         rulesSession.promptPending = false
 
         const panel = findChild(table, "rulesPromptPanel")
-        const title = findChild(table, "rulesPromptTitle")
-        const detail = findChild(table, "rulesPromptDetail")
-        const options = findChild(table, "rulesPromptOptions")
+        const status = findChild(table, "rulesPriorityStatus")
+        const next = findChild(table, "rulesActionBar")
         verify(panel !== null)
-        verify(title !== null)
-        verify(detail !== null)
-        verify(options !== null)
-        tryCompare(panel, "visible", true)
-        compare(title.text, "Waiting for another player")
-        compare(detail.visible, true)
-        compare(detail.text,
-                "Forge is waiting for another player to respond.")
-        compare(options.visible, false)
+        verify(status !== null)
+        verify(next !== null)
+        tryCompare(panel, "visible", false)
+        compare(status.text, "Waiting for another player")
+        verify(status.visible)
+        verify(!findChild(next, "rulesPromptOption-$pass").visible)
+    }
+
+    function test_spaceUsesTheFocusedGameControl_data() {
+        return [{tag: "table", focusCard: false, response: "$pass"},
+                {tag: "card", focusCard: true, response: "action:0"}]
+    }
+
+    function test_spaceUsesTheFocusedGameControl(data) {
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = castPromptOptions
+        const target = data.focusCard
+                ? findChild(table, "rulesHandCardSurface-hand-card")
+                : findChild(table, "rulesBattlefieldHost")
+        if (!data.focusCard)
+            verify(table.priority.canPass, "The table has a current legal pass action")
+        target.forceActiveFocus()
+        tryCompare(target, "activeFocus", true)
+        keyClick(Qt.Key_Space)
+        compare(fakeWs.responseCount, 1)
+        compare(fakeWs.lastResponseId, data.response)
+    }
+
+    function test_spaceInChatDoesNotPassPriority() {
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = castPromptOptions
+        table.setGameLogVisible(true)
+        const chat = table.gameLogRail.chatInput
+        chat.text = "hello"
+        chat.forceActiveFocus()
+        tryCompare(chat, "activeFocus", true)
+        keyClick(Qt.Key_Space)
+        compare(chat.text, "hello ")
+        compare(fakeWs.responseCount, 0)
+        chat.clear()
+    }
+
+    function test_escapeCancelsPassingBeforeClosingInspection() {
+        rulesSession.promptPending = false
+        table.openCardDetails("own-permanent")
+        const inspector = findChild(table, "rulesCardInspector")
+        verify(table.priority.beginYield("response"))
+        table.forceActiveFocus()
+        keyClick(Qt.Key_Escape)
+        compare(table.priority.yieldMode, "")
+        verify(inspector.hasCard)
+        keyClick(Qt.Key_Escape)
+        verify(!inspector.hasCard)
+        compare(fakeWs.responseCount, 0)
     }
 
     function test_legalHandCardCanBeDraggedToBattlefield() {
@@ -630,6 +923,95 @@ TestCase {
         tryCompare(fakeWs, "responseCount", 1)
         compare(fakeWs.lastPromptId, 9)
         compare(fakeWs.lastResponseId, "action:0")
+    }
+
+    function test_landIsPlayedByClickingItsHandCard() {
+        rulesSession.promptId = 21
+        rulesSession.promptKind = "chooseAction"
+        manyPromptOptions.append({responseId: "land:opaque-response", kind: "playLand",
+                                  label: "Play Plains", cardId: "hand-card"})
+        rulesSession.promptOptions = manyPromptOptions
+        const originalName = zoneCards.get(0).name
+        zoneCards.setProperty(0, "name", "Plains")
+        try {
+            const card = findChild(table, "rulesHandCardSurface-hand-card")
+            const drag = findChild(table, "rulesHandCardDrag-hand-card")
+            tryCompare(card, "actionable", true)
+            compare(drag.enabled, true)
+            mouseClick(drag, drag.width / 2, drag.height / 2)
+            compare(fakeWs.responseCount, 1)
+            compare(fakeWs.lastPromptId, 21)
+            compare(fakeWs.lastResponseId, "land:opaque-response")
+            compare(card.actionable, false)
+        } finally {
+            zoneCards.setProperty(0, "name", originalName)
+        }
+    }
+
+    function test_manaAbilityUsesPermanentPrimaryActionAndSecondaryInspection() {
+        rulesSession.promptId = 22
+        rulesSession.promptKind = "payManaCost"
+        manyPromptOptions.append({responseId: "mana:opaque-response", kind: "activateAbility",
+                                  label: "Add white mana", cardId: "own-permanent"})
+        rulesSession.promptOptions = manyPromptOptions
+        const card = findChild(table, "rulesBattlefieldCard-0-own-permanent")
+        const inspector = findChild(table, "rulesCardInspector")
+        tryCompare(card, "actionable", true)
+        mouseClick(card, card.width / 2, card.height / 2, Qt.RightButton)
+        compare(fakeWs.responseCount, 0)
+        tryCompare(inspector, "pinnedCardId", "own-permanent")
+        mouseClick(card, card.width / 2, card.height / 2, Qt.LeftButton)
+        compare(fakeWs.responseCount, 1)
+        compare(fakeWs.lastPromptId, 22)
+        compare(fakeWs.lastResponseId, "mana:opaque-response")
+    }
+
+    function test_handManaAbilityCanBeClickedButNeverDraggedAsSpell() {
+        rulesSession.promptId = 24
+        rulesSession.promptKind = "payManaCost"
+        manyPromptOptions.append({responseId: "hand-mana:opaque-response", kind: "activateAbility",
+                                  label: "Exile Simian Spirit Guide: Add red mana", cardId: "hand-card"})
+        rulesSession.promptOptions = manyPromptOptions
+        const originalName = zoneCards.get(0).name
+        zoneCards.setProperty(0, "name", "Simian Spirit Guide")
+        try {
+            const card = findChild(table, "rulesHandCardSurface-hand-card")
+            const drag = findChild(table, "rulesHandCardDrag-hand-card")
+            tryCompare(card, "actionable", true)
+            compare(drag.enabled, false)
+            verify(!table.canDragHandCard("hand-card"))
+            verify(!table.playDraggedHandCard("hand-card", "Simian Spirit Guide"))
+            mouseDrag(card, card.width / 2, card.height / 2, 0, -180)
+            compare(fakeWs.responseCount, 0)
+            compare(card.actionable, true)
+            mouseClick(card, card.width / 2, card.height / 2)
+            compare(fakeWs.responseCount, 1)
+            compare(fakeWs.lastPromptId, 24)
+            compare(fakeWs.lastResponseId, "hand-mana:opaque-response")
+        } finally {
+            zoneCards.setProperty(0, "name", originalName)
+        }
+    }
+
+    function test_draggingActionablePermanentOnlyChangesItsPosition() {
+        rulesSession.promptId = 23
+        rulesSession.promptKind = "chooseAction"
+        manyPromptOptions.append({responseId: "activation:opaque-response", kind: "activateAbility",
+                                  label: "Add white mana", cardId: "own-permanent"})
+        rulesSession.promptOptions = manyPromptOptions
+        const card = findChild(table, "rulesBattlefieldCard-0-own-permanent")
+        const slot = findChild(table, "rulesBattlefieldPosition-0-own-permanent")
+        const field = findChild(table, "rulesBattlefieldPanel")
+        tryCompare(card, "actionable", true)
+        const beforeX = slot.x
+        try {
+            mouseDrag(card, card.width / 2, card.height / 2, 150, 0)
+            tryVerify(() => slot.x > beforeX + 50)
+            compare(fakeWs.responseCount, 0)
+            compare(card.actionable, true)
+        } finally {
+            field.layoutState.reset(0)
+        }
     }
 
     function test_overflowingHandScrollsWithoutStealingPlayableCardDrag() {
@@ -707,14 +1089,7 @@ TestCase {
         tryCompare(picker, "opened", true)
         compare(fakeWs.responseCount, 0)
 
-        let backFace = null
-        const children = picker.contentItem.children
-        for (let index = 0; index < children.length; ++index) {
-            if (children[index].objectName === "rulesCardAction-action:1") {
-                backFace = children[index]
-                break
-            }
-        }
+        const backFace = findChild(picker, "rulesCardAction-action:1")
         verify(backFace !== null)
         mouseClick(backFace, backFace.width / 2, backFace.height / 2)
         compare(fakeWs.responseCount, 1)
@@ -722,7 +1097,50 @@ TestCase {
         compare(fakeWs.lastResponseId, "action:1")
     }
 
-    function test_tallDecisionStaysInsideBattlefieldAndScrolls() {
+    function test_compactCastChoiceRemainsSeparateFromPinnedInspection() {
+        testWindow.width = 700
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = modalCastPromptOptions
+        table.openCardDetails("own-permanent")
+        const inspector = findChild(table, "rulesCardInspector")
+        tryCompare(inspector, "hasCard", true)
+        verify(table.playDraggedHandCard("hand-card", "Lightning Bolt"))
+        const picker = findChild(table, "rulesCardActionPicker")
+        waitForRendering(picker)
+        verify(picker.visible)
+        verify(inspector.visible, "Pinned inspection remains available beside the battlefield")
+        const pickerRect = picker.mapToItem(table, 0, 0, picker.width, picker.height)
+        const inspectionRect = inspector.mapToItem(table, 0, 0, inspector.width, inspector.height)
+        verify(inspectionRect.y + inspectionRect.height <= pickerRect.y + 1,
+               "Inspection cannot cover a cast-mode choice")
+        const backFace = findChild(picker, "rulesCardAction-action:1")
+        mouseClick(backFace)
+        compare(fakeWs.responseCount, 1)
+        compare(fakeWs.lastResponseId, "action:1")
+    }
+
+    function test_cardActionPickerClosesWhenViewerAuthorityChanges_data() {
+        return [{tag: "seat", role: "player", seat: 1},
+                {tag: "spectator", role: "spectator", seat: 0}]
+    }
+
+    function test_cardActionPickerClosesWhenViewerAuthorityChanges(data) {
+        rulesSession.promptId = 24
+        rulesSession.promptKind = "chooseAction"
+        rulesSession.promptOptions = modalCastPromptOptions
+        verify(table.playDraggedHandCard("hand-card", "Lightning Bolt"))
+        const picker = findChild(table, "rulesCardActionPicker")
+        tryCompare(picker, "opened", true)
+        roomSession.role = data.role
+        roomSession.seatIndex = data.seat
+        tryCompare(picker, "opened", false)
+        compare(picker.cardId, "")
+        compare(picker.actions.length, 0)
+        picker.submit("action:1")
+        compare(fakeWs.responseCount, 0)
+    }
+
+    function test_tallDecisionReservesSpaceOutsideBattlefieldAndScrolls() {
         testWindow.width = 900
         testWindow.height = 620
         Theme.uiScale = 1.35
@@ -733,8 +1151,8 @@ TestCase {
         const panel = findChild(table, "rulesPromptPanel")
         const host = findChild(table, "rulesBattlefieldHost")
         waitForRendering(table)
-        verify(panel.mapToItem(host, 0, 0).y >= 0,
-               "The decision title must not extend above the battlefield")
+        verify(panel.mapToItem(host, 0, 0).y >= host.height,
+               "The entire decision must stay below the battlefield")
         const body = findChild(table, "rulesPromptScroll")
         verify(body !== null)
         verify(body.contentHeight > body.height)
@@ -743,6 +1161,36 @@ TestCase {
         const confirmation = findChild(table, "rulesConfirmTargets")
         tryVerify(() => confirmation.mapToItem(body, 0, confirmation.height).y <= body.height + 1,
                   1000, "Confirmation remains reachable by scrolling")
+    }
+
+    function test_publicPlayerAndCardCountersAreVisibleOnBattlefield() {
+        const card = findChild(table, "rulesBattlefieldCard-0-own-permanent")
+        verify(card !== null)
+        players.setProperty(0, "countersSummary", "Energy 3")
+        battlefieldCards.setProperty(0, "damage", 2)
+        battlefieldCards.setProperty(0, "power", "4")
+        battlefieldCards.setProperty(0, "toughness", "4")
+        battlefieldCards.setProperty(0, "countersSummary", "+1/+1 4")
+        battlefieldCards.setProperty(0, "attachedTo", "opponent-permanent")
+        try {
+            const energy = findChild(table, "rulesPlayerCounters0")
+            tryVerify(() => energy.visible)
+            compare(energy.text, "Energy 3")
+            compare(card.damageMarked, 2)
+            compare(card.attachmentId, "opponent-permanent")
+            compare(findChild(card, "rulesCardCounters").text, "+1/+1 4")
+            verify(findChild(card, "rulesCardCounters").visible)
+            verify(findChild(card, "rulesCardDamage").visible)
+            verify(findChild(card, "rulesCardAttachment").visible)
+            verify(card.inspectable)
+        } finally {
+            players.setProperty(0, "countersSummary", "")
+            battlefieldCards.setProperty(0, "damage", 0)
+            battlefieldCards.setProperty(0, "power", "")
+            battlefieldCards.setProperty(0, "toughness", "")
+            battlefieldCards.setProperty(0, "countersSummary", "")
+            battlefieldCards.setProperty(0, "attachedTo", "")
+        }
     }
 
     function test_manyActionsRemainDiscoverableAtNarrowWidth_data() {
@@ -764,21 +1212,19 @@ TestCase {
             manyPromptOptions.append({ responseId: "action:" + index,
                                        kind: "activate", label: "Activate ability " + index })
         }
+        manyPromptOptions.append({responseId: "$pass", kind: "pass", label: "Pass priority"})
         rulesSession.promptOptions = manyPromptOptions
         const panel = findChild(table, "rulesPromptPanel")
-        const title = findChild(table, "rulesPromptTitle")
-        const detail = findChild(table, "rulesPromptDetail")
-        const options = findChild(table, "rulesPromptOptions")
-        const scrollbar = findChild(table, "rulesPromptOptionsScrollBar")
+        const status = findChild(table, "rulesPriorityStatus")
+        const options = findChild(table, "rulesPriorityFallbackActions")
+        const scrollbar = findChild(table, "rulesPriorityFallbackActionsScrollBar")
         waitForRendering(table)
         tryVerify(() => options.contentWidth > options.width)
         compare(scrollbar.policy, ScrollBar.AlwaysOn)
         verify(scrollbar.visible)
-        verify(title.width > panel.width * 0.9)
-        verify(!title.truncated)
-        verify(!detail.truncated)
-        compare(title.textFormat, Text.PlainText)
-        compare(detail.textFormat, Text.PlainText)
+        verify(!panel.visible)
+        verify(status.visible)
+        compare(status.textFormat, Text.PlainText)
 
         const initialX = options.contentX
         mouseWheel(options, options.width / 2, 15, 0, -120)
@@ -798,20 +1244,20 @@ TestCase {
     function test_responsePendingBlocksClicksAndHandActions() {
         rulesSession.promptKind = "chooseAction"
         rulesSession.promptOptions = castPromptOptions
-        const options = findChild(table, "rulesPromptOptions")
-        tryVerify(() => options.count === 2)
-        const button = findChild(options, "rulesPromptOption-action:0")
-        verify(button !== null)
+        const card = findChild(table, "rulesHandCardSurface-hand-card")
+        verify(card !== null)
+        tryCompare(card, "actionable", true)
         verify(table.canDragHandCard("hand-card"))
-        mouseClick(button, button.width / 2, button.height / 2)
+        waitForRendering(table)
+        mouseClick(card, card.width / 2, card.height / 2)
         compare(fakeWs.responseCount, 1)
-        verify(!button.enabled)
+        verify(!card.actionable)
         verify(!table.canDragHandCard("hand-card"))
         verify(!table.playDraggedHandCard("hand-card", "Lightning Bolt"))
-        mouseClick(button, button.width / 2, button.height / 2)
+        mouseClick(card, card.width / 2, card.height / 2)
         compare(fakeWs.responseCount, 1)
         fakeWs.rulesResponsePending = false
-        tryCompare(button, "enabled", true)
+        tryCompare(card, "actionable", true)
         verify(table.canDragHandCard("hand-card"))
     }
 
@@ -876,6 +1322,28 @@ TestCase {
         verify(visibleCard !== null)
         verify(visibleCard.visibleIdentity && !visibleCard.faceDown)
         compare(visibleCard.name, "Lightning Bolt")
+    }
+
+    function test_selectedStackMarkerDoesNotOverlapItsControllerBadge() {
+        rulesSession.stack = testRulesSnapshot.stack
+        const list = findChild(table, "rulesStackCards")
+        tryCompare(list, "count", 2)
+        const card = findChild(list, "rulesStackCard-1")
+        rulesSession.promptKind = "chooseBoardTargets"
+        rulesSession.promptOptions = emptyModel
+        rulesSession.promptMinSelections = 1
+        rulesSession.promptMaxSelections = 2
+        rulesSession.boardTargets = [{responseId: "target:stack", kind: "spell",
+                                     objectId: card.objectId}]
+        tryCompare(card, "actionable", true)
+        mouseClick(card, card.width / 2, card.height / 2)
+        tryCompare(card, "selected", true)
+        const marker = findChild(card, "rulesCardSelectedTarget")
+        const badge = findChild(card, "rulesStackController-1")
+        verify(marker.visible)
+        verify(badge.y >= marker.y + marker.height,
+               "The seat badge must not cover the selected target checkmark")
+        compare(fakeWs.responseCount, 0)
     }
 
     function test_bo3SideboardUsesOwnerPartitionAndStartsNextGame() {

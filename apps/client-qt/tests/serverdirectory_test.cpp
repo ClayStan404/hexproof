@@ -46,6 +46,7 @@ class TestServerDirectory : public QObject
     void mapsConfiguredAndCustomUrls() const;
     void exposesInitialLatencyState() const;
     void probesConfiguredHealthEndpoints() const;
+    void editingCustomEndpointPreservesConfiguredProbes() const;
 };
 
 void TestServerDirectory::init()
@@ -212,6 +213,39 @@ void TestServerDirectory::probesConfiguredHealthEndpoints() const
     for (const QString &target : requestTargets)
         QCOMPARE(target, u"/test/healthz"_s);
     QCOMPARE(changed.count(), 7);
+}
+
+void TestServerDirectory::editingCustomEndpointPreservesConfiguredProbes() const
+{
+    QTcpServer server;
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QList<QTcpSocket *> pending;
+    connect(&server, &QTcpServer::newConnection, &server, [&]() {
+        while (QTcpSocket *socket = server.nextPendingConnection()) {
+            socket->setParent(&server);
+            connect(socket, &QTcpSocket::readyRead, socket, [&, socket]() {
+                socket->readAll();
+                if (!pending.contains(socket))
+                    pending.append(socket);
+            });
+        }
+    });
+    const QByteArray endpoint = "ws://127.0.0.1:" + QByteArray::number(server.serverPort()) + "/ws";
+    for (int index = 1; index <= ServerDirectory::ConfiguredServerCount; ++index)
+        qputenv(qPrintable(u"HEXPROOF_SERVER_%1_URL"_s.arg(index)), endpoint);
+    ServerDirectory directory;
+    QVERIFY(directory.setCustomServerUrl(QString::fromUtf8(endpoint)));
+    directory.refreshLatencies();
+    QTRY_COMPARE(pending.size(), ServerDirectory::ServerCount);
+    QVERIFY(directory.setCustomServerUrl(QString::fromUtf8(endpoint) + u"/changed"_s));
+    for (QTcpSocket *socket : pending) {
+        socket->write("HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        socket->disconnectFromHost();
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(directory.latencies()[0].toInt() >= 0, 1'000);
+    for (int index = 0; index < ServerDirectory::ConfiguredServerCount; ++index)
+        QTRY_VERIFY(directory.latencies()[index].toInt() >= 0);
+    QCOMPARE(directory.latencies()[ServerDirectory::CustomServerIndex].toInt(), -2);
 }
 
 QTEST_MAIN(TestServerDirectory)

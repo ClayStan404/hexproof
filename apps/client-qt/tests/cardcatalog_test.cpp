@@ -499,6 +499,9 @@ void TestCardCatalog::positiveCacheHitDoesNotBumpImageRevision() const
     QSignalSpy availableSpy(&catalog, &CardCatalog::cardAvailable);
     QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
     QSignalSpy revisionSpy(&catalog, &CardCatalog::imageRevisionChanged);
+    int notifiedRevision = catalog.imageRevision();
+    connect(&catalog, &CardCatalog::imageRevisionChanged, &catalog,
+            [&]() { notifiedRevision = catalog.imageRevision(); });
     const QVariantList request{QVariantMap{
         {u"name"_s, u"Lightning Bolt"_s},
         {u"setCode"_s, u"M11"_s},
@@ -509,6 +512,7 @@ void TestCardCatalog::positiveCacheHitDoesNotBumpImageRevision() const
     QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 1, 2'000);
     QVERIFY(cacheSpy.first().at(3).toBool());
     QCOMPARE(availableSpy.count(), 1);
+    QTRY_COMPARE(notifiedRevision, catalog.imageRevision());
     const int revisionAfterDownload = catalog.imageRevision();
     QVERIFY(revisionAfterDownload > 0);
     const int revisionSignalsAfterDownload = revisionSpy.count();
@@ -724,10 +728,14 @@ void TestCardCatalog::resolvedPrintingAliasBumpsImageRevision() const
     catalog.setLanguage(u"zh"_s);
     QSignalSpy cacheSpy(&catalog, &CardCatalog::cardCacheFinished);
     QSignalSpy revisionSpy(&catalog, &CardCatalog::imageRevisionChanged);
+    int notifiedRevision = catalog.imageRevision();
+    connect(&catalog, &CardCatalog::imageRevisionChanged, &catalog,
+            [&]() { notifiedRevision = catalog.imageRevision(); });
 
     catalog.cacheCards({QVariantMap{{u"name"_s, u"Lightning Bolt"_s}}});
     QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 1, 2'000);
     QVERIFY(cacheSpy.first().at(3).toBool());
+    QTRY_COMPARE(notifiedRevision, catalog.imageRevision());
     const int revisionAfterNameOnly = catalog.imageRevision();
     QVERIFY(revisionAfterNameOnly > 0);
     const int revisionSignalsAfterNameOnly = revisionSpy.count();
@@ -741,7 +749,7 @@ void TestCardCatalog::resolvedPrintingAliasBumpsImageRevision() const
     QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
     QVERIFY(cacheSpy.at(1).at(3).toBool());
     QCOMPARE(catalog.imageRevision(), revisionAfterNameOnly + 1);
-    QCOMPARE(revisionSpy.count(), revisionSignalsAfterNameOnly + 1);
+    QTRY_COMPARE(revisionSpy.count(), revisionSignalsAfterNameOnly + 1);
     QCOMPARE(network.requestedUrls.size(), initialRequests);
 }
 

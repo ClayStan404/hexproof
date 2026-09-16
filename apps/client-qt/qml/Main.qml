@@ -27,13 +27,27 @@ ApplicationWindow {
             width, height, preferences.interfaceScale)
     }
 
+    function syncUiTheme() {
+        Theme.uiTheme = preferences.uiTheme
+    }
+
+    function syncTableBackground() {
+        TableBackgrounds.currentId = preferences.tableBackground
+    }
+
     onWidthChanged: syncUiScale()
     onHeightChanged: syncUiScale()
-    Component.onCompleted: syncUiScale()
+    Component.onCompleted: {
+        syncUiTheme()
+        syncTableBackground()
+        syncUiScale()
+    }
 
     Connections {
         target: preferences
         function onInterfaceScaleChanged() { root.syncUiScale() }
+        function onUiThemeChanged() { root.syncUiTheme() }
+        function onTableBackgroundChanged() { root.syncTableBackground() }
     }
 
     Connections {

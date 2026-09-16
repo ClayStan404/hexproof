@@ -24,7 +24,7 @@ import (
 
 const supervisionHelperEnv = "HEXPROOF_FORGE_SUPERVISION_HELPER"
 
-func TestForgeRuntimeExitAbortsItsGamesAndNewGamesRecover(t *testing.T) {
+func TestForgeRuntimeExitAbortsOnlyItsGameAndNewGamesRecover(t *testing.T) {
 	handler, _ := newSupervisedForgeHandler(t)
 	first, firstMembers := newSupervisedRoom(t, handler, "first", protocol.RulesModeForge)
 	second, secondMembers := newSupervisedRoom(t, handler, "second", protocol.RulesModeForge)
@@ -34,8 +34,8 @@ func TestForgeRuntimeExitAbortsItsGamesAndNewGamesRecover(t *testing.T) {
 		t.Fatal("first rules game was not tracked")
 	}
 	other, _ := handler.forgeGame(second.ID)
-	if old.client != other.client {
-		t.Fatal("test did not exercise two games sharing one process")
+	if old.client == other.client {
+		t.Fatal("two games share a process with global Forge state")
 	}
 	manualGame := manual.Game
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -44,12 +44,15 @@ func TestForgeRuntimeExitAbortsItsGamesAndNewGamesRecover(t *testing.T) {
 	if err := old.client.SubmitAction(ctx, old.sessionID, json.RawMessage(`{"testExit":true}`)); err == nil {
 		t.Fatal("unexpected process exit did not fail the active RPC")
 	}
-	for _, members := range [][]*Session{firstMembers, secondMembers} {
-		for _, member := range members {
-			assertForgeTermination(t, member)
-		}
+	for _, member := range firstMembers {
+		assertForgeTermination(t, member)
 	}
-	for _, r := range []*room.Room{first, second} {
+	assertSupervisedPhase(t, handler, second, protocol.RoomPhaseStarted)
+	if !other.client.Healthy() {
+		t.Fatal("a different game lost its runtime")
+	}
+	assertNoForgeFailure(t, secondMembers)
+	for _, r := range []*room.Room{first} {
 		assertSupervisedPhase(t, handler, r, protocol.RoomPhaseWaiting)
 		if _, exists := handler.forgeGame(r.ID); exists {
 			t.Fatal("terminated rules game retained its engine session")
@@ -84,10 +87,10 @@ func TestForgeRuntimeExitAbortsItsGamesAndNewGamesRecover(t *testing.T) {
 	}
 }
 
-func TestForgeProjectionFailureIsPrivateAndReturnsRoomsToWaiting(t *testing.T) {
+func TestForgeProjectionFailureIsPrivateAndIsolated(t *testing.T) {
 	handler, _ := newSupervisedForgeHandler(t)
 	first, firstMembers := newSupervisedRoom(t, handler, "first", protocol.RulesModeForge)
-	_, secondMembers := newSupervisedRoom(t, handler, "second", protocol.RulesModeForge)
+	second, secondMembers := newSupervisedRoom(t, handler, "second", protocol.RulesModeForge)
 	operation, err := handler.hub.lockRoomOperation(first.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -95,11 +98,11 @@ func TestForgeProjectionFailureIsPrivateAndReturnsRoomsToWaiting(t *testing.T) {
 	// This exercises the existing already-locked call site, not a second lock.
 	handler.failClosedGameProjections(first, errors.New("private deck and engine exception"))
 	operation.opMu.Unlock()
-	for _, members := range [][]*Session{firstMembers, secondMembers} {
-		for _, member := range members {
-			assertForgeTermination(t, member)
-		}
+	for _, member := range firstMembers {
+		assertForgeTermination(t, member)
 	}
+	assertSupervisedPhase(t, handler, second, protocol.RoomPhaseStarted)
+	assertNoForgeFailure(t, secondMembers)
 }
 
 func TestForgeIdleExitNotifiesPlayersAndSpectatorWithoutAnotherRPC(t *testing.T) {
@@ -141,7 +144,7 @@ func TestForgeIdleExitNotifiesPlayersAndSpectatorWithoutAnotherRPC(t *testing.T)
 	assertSupervisedPhase(t, handler, r, protocol.RoomPhaseWaiting)
 }
 
-func TestForgeRuntimeStartupIsSingleFlightAndFailedStartsAreThrottled(t *testing.T) {
+func TestForgeRuntimeStartsAreIsolatedAndFailedStartsAreThrottled(t *testing.T) {
 	handler, dir := newSupervisedForgeHandler(t)
 	const count = 12
 	clients := make(chan *forge.Client, count)
@@ -152,38 +155,34 @@ func TestForgeRuntimeStartupIsSingleFlightAndFailedStartsAreThrottled(t *testing
 			defer callers.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			client, err := handler.forgeClientForUse(ctx)
+			client, err := handler.startForgeRuntime(ctx)
 			if err != nil {
-				t.Errorf("get shared runtime: %v", err)
+				t.Errorf("start isolated runtime: %v", err)
 			}
 			clients <- client
 		}()
 	}
 	callers.Wait()
 	close(clients)
-	var shared *forge.Client
+	seen := make(map[*forge.Client]bool)
 	for client := range clients {
-		if shared == nil {
-			shared = client
+		if client == nil || seen[client] {
+			t.Fatal("concurrent starts reused a process")
 		}
-		if client == nil || client != shared {
-			t.Fatal("concurrent startups did not share one runtime")
-		}
+		seen[client] = true
 	}
-	if starts := supervisionStartCount(t, dir); starts != 2 {
-		t.Fatalf("startup count = %d, want startup probe plus one shared runtime", starts)
+	if starts := supervisionStartCount(t, dir); starts != count+1 {
+		t.Fatalf("startup count = %d, want probe plus %d isolated processes", starts, count)
 	}
-	shared.Invalidate()
-	<-shared.Done()
 	if err := os.WriteFile(filepath.Join(dir, "fail"), []byte("fail probe"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	for range count {
-		if _, err := handler.forgeClientForUse(context.Background()); err == nil {
+		if _, err := handler.startForgeRuntime(context.Background()); err == nil {
 			t.Fatal("failed startup was accepted")
 		}
 	}
-	if starts := supervisionStartCount(t, dir); starts != 3 {
+	if starts := supervisionStartCount(t, dir); starts != count+2 {
 		t.Fatalf("failed startups were not throttled: %d processes", starts)
 	}
 	if handler.forgeRulesAvailable() {
@@ -195,12 +194,23 @@ func TestForgeRuntimeStartupIsSingleFlightAndFailedStartsAreThrottled(t *testing
 	handler.forgeMu.Lock()
 	handler.forgeRetryAfter = time.Now().Add(-time.Second)
 	handler.forgeMu.Unlock()
-	client, err := handler.forgeClientForUse(context.Background())
-	if err != nil || client == nil || !client.Healthy() || client == shared {
+	client, err := handler.startForgeRuntime(context.Background())
+	if err != nil || client == nil || !client.Healthy() || seen[client] {
 		t.Fatalf("runtime recovery after cooldown: client = %p, error = %v", client, err)
 	}
-	if starts := supervisionStartCount(t, dir); starts != 4 {
-		t.Fatalf("recovery startup count = %d, want 4", starts)
+	if starts := supervisionStartCount(t, dir); starts != count+3 {
+		t.Fatalf("recovery startup count = %d, want %d", starts, count+3)
+	}
+	if err := handler.Close(); err != nil {
+		t.Fatal(err)
+	}
+	seen[client] = true
+	for child := range seen {
+		select {
+		case <-child.Done():
+		default:
+			t.Fatal("shutdown returned before reaping every child")
+		}
 	}
 }
 
@@ -211,7 +221,7 @@ func TestForgeCloseCancelsInFlightStartupAndPreventsRestart(t *testing.T) {
 	}
 	result := make(chan error, 1)
 	go func() {
-		_, err := handler.forgeClientForUse(context.Background())
+		_, err := handler.startForgeRuntime(context.Background())
 		result <- err
 	}()
 	deadline := time.Now().Add(2 * time.Second)
@@ -234,7 +244,7 @@ func TestForgeCloseCancelsInFlightStartupAndPreventsRestart(t *testing.T) {
 	if err := <-result; err == nil {
 		t.Fatal("startup returned a client after Handler.Close")
 	}
-	if _, err := handler.forgeClientForUse(context.Background()); err == nil {
+	if _, err := handler.startForgeRuntime(context.Background()); err == nil {
 		t.Fatal("closed handler restarted Forge")
 	}
 	if handler.forgeRulesAvailable() {
@@ -327,6 +337,17 @@ func assertSupervisedPhase(t *testing.T, handler *Handler, r *room.Room, expecte
 	defer entry.mu.Unlock()
 	if r.Phase != expected {
 		t.Fatalf("room phase = %s, want %s", r.Phase, expected)
+	}
+}
+
+func assertNoForgeFailure(t *testing.T, members []*Session) {
+	t.Helper()
+	for _, member := range members {
+		select {
+		case message := <-member.Send:
+			t.Fatalf("unaffected game received Forge failure: %s", message)
+		default:
+		}
 	}
 }
 

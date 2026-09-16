@@ -11,6 +11,7 @@ Surface {
     id: root
 
     required property var tableController
+    readonly property var interaction: tableController.interaction || null
     readonly property var zoneKeys: [
         "library", "graveyard", "exile", "command"
     ]
@@ -22,7 +23,7 @@ Surface {
     objectName: "rulesHandArea"
     Layout.fillWidth: true
     Layout.preferredHeight: root.tableController.handAreaHeight
-    color: Theme.surfaceMuted
+    color: Theme.tableHandFill
     radius: 0
     border.width: 0
 
@@ -35,8 +36,10 @@ Surface {
             objectName: "rulesOwnHand"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Theme.backgroundRaised
-            radius: 0
+            color: Theme.useGlass
+                   ? Theme.withAlpha("#0A0806", 0.35)
+                   : Theme.backgroundRaised
+            radius: Theme.useGlass ? Theme.radiusMedium : 0
 
             Text {
                 textFormat: Text.PlainText
@@ -146,6 +149,8 @@ Surface {
                             opacity: handDrag.drag.active ? 0.45 : 1
 
                             RulesCardSurface {
+                                id: handSurface
+                                objectName: "rulesHandCardSurface-" + handCard.cardId
                                 anchors.centerIn: parent
                                 width: root.tableController.handCardWidth
                                 height: root.tableController.handCardHeight
@@ -164,6 +169,29 @@ Surface {
                                 toughness: handCard.toughness
                                 countersSummary: handCard.countersSummary
                                 rotateTapped: false
+                                inspectable: true
+                                actionable: root.interaction
+                                            ? root.interaction.objectActionable("card", handCard.cardId) : false
+                                selected: root.interaction
+                                          ? root.interaction.objectSelected("card", handCard.cardId) : false
+                                pointerActivationEnabled: !handDrag.enabled
+                                previewEnabled: !handDrag.drag.active
+                                onActivationRequested: {
+                                    if (!root.interaction.activateObject("card", handCard.cardId, handCard.name))
+                                        root.tableController.openCardDetails(handCard.cardId)
+                                }
+                                onInspectRequested: {
+                                    if (typeof root.tableController.openCardDetails === "function")
+                                        root.tableController.openCardDetails(handCard.cardId)
+                                }
+                                onPreviewRequested: {
+                                    if (typeof root.tableController.previewCard === "function")
+                                        root.tableController.previewCard(handCard.cardId, handSurface)
+                                }
+                                onPreviewEnded: {
+                                    if (typeof root.tableController.endCardPreview === "function")
+                                        root.tableController.endCardPreview(handSurface)
+                                }
                             }
 
                             RulesCardSurface {
@@ -209,9 +237,10 @@ Surface {
                                 objectName: "rulesHandCardDrag-" + handCard.cardId
                                 anchors.fill: parent
                                 enabled: handCard.canPlay
+                                acceptedButtons: Qt.LeftButton
                                 cursorShape: drag.active
                                              ? Qt.ClosedHandCursor
-                                             : Qt.OpenHandCursor
+                                             : Qt.PointingHandCursor
                                 drag.target: handCard.canPlay ? dragCard : null
                                 drag.threshold: Theme.size(5)
                                 preventStealing: true
@@ -226,6 +255,7 @@ Surface {
                                 }
                                 onReleased: dragCard.Drag.drop()
                                 onCanceled: dragCard.Drag.cancel()
+                                onClicked: handSurface.activate()
                             }
                         }
                     }
@@ -301,7 +331,9 @@ Surface {
                                 model: root.tableController.rulesSession.zoneCards
 
                                 delegate: Image {
+                                    id: zoneCard
                                     required property int index
+                                    required property string cardId
                                     required property string zone
                                     required property int zoneOwnerSeat
                                     required property bool visibleIdentity
@@ -323,6 +355,43 @@ Surface {
                                             : root.tableController.cardBackSource
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
+                                    Component.onDestruction: {
+                                        if (root && root.tableController
+                                                && typeof root.tableController.endCardPreview === "function")
+                                            root.tableController.endCardPreview(zoneCard)
+                                    }
+                                    activeFocusOnTab: visible && visibleIdentity
+                                    onActiveFocusChanged: {
+                                        if (activeFocus && typeof root.tableController.previewCard === "function")
+                                            root.tableController.previewCard(cardId, zoneCard)
+                                        else if (!activeFocus && typeof root.tableController.endCardPreview === "function")
+                                            root.tableController.endCardPreview(zoneCard)
+                                    }
+                                    Keys.onReturnPressed: {
+                                        if (typeof root.tableController.openCardDetails === "function")
+                                            root.tableController.openCardDetails(cardId)
+                                    }
+                                    Keys.onSpacePressed: {
+                                        if (typeof root.tableController.openCardDetails === "function")
+                                            root.tableController.openCardDetails(cardId)
+                                    }
+                                    TapHandler {
+                                        enabled: zoneCard.visibleIdentity
+                                        gesturePolicy: TapHandler.WithinBounds
+                                        onTapped: {
+                                            if (typeof root.tableController.openCardDetails === "function")
+                                                root.tableController.openCardDetails(zoneCard.cardId)
+                                        }
+                                    }
+                                    HoverHandler {
+                                        cursorShape: zoneCard.visibleIdentity ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        onHoveredChanged: {
+                                            if (hovered && typeof root.tableController.previewCard === "function")
+                                                root.tableController.previewCard(zoneCard.cardId, zoneCard)
+                                            else if (!hovered && typeof root.tableController.endCardPreview === "function")
+                                                root.tableController.endCardPreview(zoneCard)
+                                        }
+                                    }
                                 }
                             }
 

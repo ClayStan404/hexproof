@@ -38,7 +38,12 @@ TestCase {
         {name: "寡妇门前是非多", tier: "ragavan", avatar: "guafu.jpeg",
          profileUrl: "https://afdian.com/u/76b1c06e60b911ecb38952540025c377"},
         {name: "贝蒂小熊-乱世不败", tier: "ragavan", avatar: "beidi.jpeg",
-         profileUrl: "https://afdian.com/u/50a0ee26bef411efa2a35254001e7c00"}
+         profileUrl: "https://afdian.com/u/50a0ee26bef411efa2a35254001e7c00"},
+        {name: "鹌姬酸", tier: "omniscience", avatar: "anjisuan.jpg",
+         profileUrl: "https://space.bilibili.com/6167941"},
+        {name: "爱发电用户_1a326", tier: "ragavan", avatar: "afdian-1a326.png",
+         profileUrl: "https://afdian.com/u/1a32609cb19e11f1b6925254001e7c00"},
+        {name: "a1100011", tier: "ragavan", avatar: "a1100011.jpg", profileUrl: ""}
     ]
 
     QtObject {
@@ -61,6 +66,7 @@ TestCase {
         id: popupComponent
         SponsorAnnouncementPopup {
             preferencesModel: mockPreferences
+            applicationVersion: "1.2.0"
         }
     }
 
@@ -115,7 +121,6 @@ TestCase {
             compare(actual.profileUrl, expected.profileUrl)
             verify(String(actual.avatarSource).endsWith("/assets/sponsors/" + expected.avatar))
         }
-        compare(SponsorCatalog.announcementId, "founding-sponsors-2026-09")
     }
 
     function test_catalogGroupsSponsorsWithoutDuplicates() {
@@ -140,7 +145,7 @@ TestCase {
                 allNames.push(sponsors[sponsorIndex].name)
             }
         }
-        compare(allNames.length, 6)
+        compare(allNames.length, 9)
         compare(SponsorCatalog.sponsorsForTier("unknown-tier").length, 0)
     }
 
@@ -160,7 +165,7 @@ TestCase {
         verify(list !== null)
         profileSpy.target = list
         waitForRendering(list)
-        compare(namedItems(list, "sponsorCard_").length, 6)
+        compare(namedItems(list, "sponsorCard_").length, 9)
         let previousBottom = -1
         for (const tier of SponsorCatalog.tiers) {
             const group = findChild(list, "sponsorTier_" + tier.id)
@@ -174,12 +179,9 @@ TestCase {
             verify(group.y >= previousBottom - 1, "Tier groups must keep their catalog order")
             previousBottom = group.y + group.height
         }
-        const emptyTier = findChild(list, "sponsorTier_omniscience")
-        const emptyText = findChild(emptyTier, "sponsorTierEmpty_omniscience")
-        verify(emptyText !== null)
-        verify(emptyText.visible)
-        verify(emptyText.text.length > 0)
-        compare(namedItems(emptyTier, "sponsorCard_").length, 0)
+        const highestTier = findChild(list, "sponsorTier_omniscience")
+        verify(!findChild(highestTier, "sponsorTierEmpty_omniscience").visible)
+        compare(namedItems(highestTier, "sponsorCard_").length, 1)
         let expectedProfileSignals = 0
         for (const expected of expectedSponsors) {
             const group = findChild(list, "sponsorTier_" + expected.tier)
@@ -202,7 +204,7 @@ TestCase {
                         expected.profileUrl)
             }
         }
-        compare(profileSpy.count, 4)
+        compare(profileSpy.count, 6)
     }
 
     function test_sponsorNamesAndLinksStayInsideNarrowCards_data() {
@@ -231,7 +233,9 @@ TestCase {
             verify(!name.truncated, "Preserve the full sponsor name: " + expected.name)
             verify(name.contentHeight <= name.height + 1, expected.name + " text is not clipped")
             verify(name.width >= Theme.size(70), "Keep a readable name area: " + expected.name)
-            for (const item of [name, button]) {
+            const recognition = findChild(card, "sponsorRecognition_" + expected.name)
+            const thanks = findChild(card, "sponsorThanks_" + expected.name)
+            for (const item of [name, button, recognition, thanks]) {
                 if (!item.visible)
                     continue
                 const point = item.mapToItem(card, 0, 0)
@@ -241,6 +245,8 @@ TestCase {
                        + (point.x + item.width) + " <= " + card.width)
                 verify(point.y + item.height <= card.height + 1,
                        expected.name + " fits card height")
+                if (item === recognition || item === thanks)
+                    verify(item.contentHeight <= item.height + 1, "Recognition text must not be clipped")
             }
             if (button.visible) {
                 const namePoint = name.mapToItem(card, 0, 0)
@@ -379,7 +385,7 @@ TestCase {
         tryCompare(popup, "visible", false)
         tryCompare(mockPreferences, "acknowledgeCount", 1)
         compare(mockPreferences.seenAnnouncementId,
-                SponsorCatalog.announcementId)
+                popup.announcementId)
 
         popup.openIfNeeded()
         wait(50)
@@ -395,12 +401,38 @@ TestCase {
         compare(mockPreferences.acknowledgeCount, 1)
     }
 
-    function test_updatedSponsorTiersDoNotRepeatSeenAnnouncement() {
-        mockPreferences.seenAnnouncementId = "founding-sponsors-2026-09"
+    function test_sameVersionDoesNotRepeatSeenAnnouncement() {
+        mockPreferences.seenAnnouncementId = popup.announcementId
         popup.openIfNeeded()
         wait(50)
         verify(!popup.visible)
         compare(mockPreferences.acknowledgeCount, 0)
+    }
+
+    function test_newVersionOpensAfterPreviousAcknowledgement_data() {
+        return [{tag: "legacy", seen: "founding-sponsors-2026-09"},
+                {tag: "previous-version", seen: "sponsors:1.1.9"}]
+    }
+
+    function test_newVersionOpensAfterPreviousAcknowledgement(data) {
+        mockPreferences.seenAnnouncementId = data.seen
+        popup.openIfNeeded()
+        tryVerify(() => popup.opened)
+        popup.close()
+        tryVerify(() => !popup.visible)
+        compare(mockPreferences.seenAnnouncementId, "sponsors:1.2.0")
+
+        const upgraded = createTemporaryObject(popupComponent, testWindow.contentItem,
+                                                {applicationVersion: "1.2.1"})
+        upgraded.openIfNeeded()
+        tryVerify(() => upgraded.opened)
+        upgraded.close()
+        tryVerify(() => !upgraded.visible)
+        compare(mockPreferences.seenAnnouncementId, "sponsors:1.2.1")
+        upgraded.openIfNeeded()
+        wait(50)
+        verify(!upgraded.visible)
+        compare(mockPreferences.acknowledgeCount, 2)
     }
 
     function test_openingFullListAcknowledgesOnlyOnce() {
@@ -413,7 +445,7 @@ TestCase {
         tryVerify(() => !popup.visible)
         compare(viewSponsorsSpy.count, 1)
         compare(mockPreferences.acknowledgeCount, 1)
-        compare(mockPreferences.seenAnnouncementId, SponsorCatalog.announcementId)
+        compare(mockPreferences.seenAnnouncementId, popup.announcementId)
     }
 
     function test_announcementScrollAndCloseRemainAccessible_data() {

@@ -36,6 +36,8 @@ TestCase {
 
     function cleanup() {
         harness.cleanupHarness()
+        testWindow.width = 1400
+        testWindow.height = 800
     }
 
     function test_arrangeBattlefieldStacksSameLaneAttachmentsAndSkipsCrossLane() {
@@ -187,15 +189,15 @@ TestCase {
         compare(mockWs.lastMove.toZone, "stack")
         verify(handDrop.accepted)
 
-        // A hidden library source stays rejected, and a rejected drop must not
-        // leave a stale source behind for the next drop.
+        // A library drag names only the unknown top card. The server reveals
+        // that card when it reaches the public stack, without a private peek.
         const libraryDrop = {
             "source": {
-                "cardId": "s0-library",
+                "cardId": "__library_top__",
                 "zoneName": "library",
                 "zoneSeat": 0,
                 "ownerSeat": 0,
-                "modelData": {"id": "s0-library", "ownerSeat": 0}
+                "modelData": ({})
             },
             "accepted": true,
             "acceptProposedAction": function() {
@@ -204,8 +206,11 @@ TestCase {
         }
         const staleDropArea = {"cardSource": handDrop.source}
         table.cardMoveCommands.finishStackDrop(staleDropArea, libraryDrop)
-        compare(mockWs.moveCount, before + 1)
-        verify(!libraryDrop.accepted)
+        compare(mockWs.moveCount, before + 2)
+        compare(mockWs.lastMove.cardId, "__library_top__")
+        compare(mockWs.lastMove.fromZone, "library")
+        compare(mockWs.lastMove.toZone, "stack")
+        verify(libraryDrop.accepted)
         compare(staleDropArea.cardSource, null)
         table.destroy()
     }
@@ -214,7 +219,14 @@ TestCase {
     // onDropped handler in SharedZonesView, and qmllint cannot type-check that
     // call either. Drive a real pointer drag so the DropArea signal, the handler,
     // and the controller are all exercised as they are wired.
-    function test_draggingHandCardOntoSharedZoneCastsToStack() {
+    function test_draggingCardOntoSharedZoneMovesToStack_data() {
+        return [
+            {tag: "hand", source: "handCard0", cardId: "s0-c1", zone: "hand"},
+            {tag: "library-top", source: "ownLibraryCardBack", cardId: "__library_top__", zone: "library"},
+            {tag: "library-top-off-center", source: "ownLibraryCardBack", cardId: "__library_top__", zone: "library", offset: 0.1}
+        ]
+    }
+    function test_draggingCardOntoSharedZoneMovesToStack(data) {
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
             "height": testWindow.height
@@ -224,7 +236,7 @@ TestCase {
         const sharedDropArea = findChild(table, "sharedDropArea")
         verify(sharedDropArea !== null)
         tryVerify(() => findChild(table, "handCard0") !== null)
-        const handCard = findChild(table, "handCard0")
+        const handCard = findChild(table, data.source)
         verify(handCard !== null)
         tryVerify(() => sharedDropArea.width > 0 && sharedDropArea.height > 0)
         verify(sharedDropArea.enabled)
@@ -235,7 +247,8 @@ TestCase {
         // coordinate frame moves mid-gesture. Express the whole gesture in the
         // stationary table frame instead.
         const pressPoint = handCard.mapToItem(
-                             table, handCard.width / 2, handCard.height / 2)
+                             table, handCard.width * (data.offset || 0.5),
+                             handCard.height * (data.offset || 0.5))
         const dropPoint = sharedDropArea.mapToItem(
                             table, sharedDropArea.width / 2,
                             sharedDropArea.height / 2)
@@ -244,10 +257,55 @@ TestCase {
                   Qt.LeftButton, Qt.NoModifier, 30)
 
         tryCompare(mockWs, "moveCount", 1)
-        compare(mockWs.lastMove.cardId, "s0-c1")
-        compare(mockWs.lastMove.fromZone, "hand")
+        compare(mockWs.lastMove.cardId, data.cardId)
+        compare(mockWs.lastMove.fromZone, data.zone)
         compare(mockWs.lastMove.toZone, "stack")
+        compare(table.sharedCards[table.sharedCards.length - 1].ownerSeat, 0)
+        compare(mockWs.dumpLibraryCount, 0)
         table.destroy()
+    }
+
+    function test_draggingLibraryTopToExile_data() {
+        return [{tag: "face-up", modifiers: Qt.NoModifier, faceDown: false},
+                {tag: "face-down", modifiers: Qt.ShiftModifier, faceDown: true}]
+    }
+
+    function test_draggingLibraryTopToExile(data) {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        const source = findChild(table, "ownLibraryCardBack")
+        const destination = findChild(table, "exileDropArea0")
+        tryVerify(() => source.width > 0 && destination.width > 0)
+        const start = source.mapToItem(table, source.width * 0.2, source.height * 0.3)
+        const end = destination.mapToItem(table, destination.width / 2, destination.height / 2)
+        mouseDrag(table, start.x, start.y, end.x - start.x, end.y - start.y,
+                  Qt.LeftButton, data.modifiers, 30)
+        tryCompare(mockWs, "moveCount", 1)
+        compare(mockWs.lastMove.cardId, "__library_top__")
+        compare(mockWs.lastMove.fromZone, "library")
+        compare(mockWs.lastMove.toZone, "exile")
+        compare(mockWs.lastMove.faceDown, data.faceDown)
+        compare(mockWs.dumpLibraryCount, 0)
+    }
+
+    function test_libraryMenuExilesWithoutLookingAtTop() {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        const action = findChild(table, "exileLibraryTopFaceDownAction")
+        verify(action !== null && action.enabled)
+        action.triggered()
+        compare(mockWs.moveCount, 1)
+        compare(mockWs.lastMove.fromZone, "library")
+        compare(mockWs.lastMove.toZone, "exile")
+        compare(mockWs.lastMove.faceDown, true)
+        compare(mockWs.dumpLibraryCount, 0)
+        // A second click cannot enqueue the same unknown top while pending.
+        action.triggered()
+        compare(mockWs.moveCount, 1)
     }
 
     function test_draggingHandCardsReordersOnlyTheLocalProjection() {
@@ -294,6 +352,80 @@ TestCase {
         compare(table.ownHand[0].id, "s0-hand-b")
         compare(table.ownHand[1].id, "s0-hand-c")
         compare(mockWs.moveCount, beforeMoves)
+        table.destroy()
+    }
+
+    function test_draggingNonFirstHandCardToStackKeepsDropLocation_data() {
+        return [{tag: "first", index: 0, count: 7}, {tag: "sixth", index: 5, count: 7},
+                {tag: "seventh", index: 6, count: 7},
+                {tag: "clipped-card", index: 10, count: 16, clipped: true},
+                {tag: "two-pixel-fragment", index: 10, count: 16, clipped: true, thin: true},
+                {tag: "top-edge-grab", index: 5, count: 7, pressTop: true},
+                {tag: "bottom-edge-grab", index: 5, count: 7, pressBottom: true},
+                {tag: "rejected-drop", index: 6, count: 7, rejected: true}]
+    }
+
+    function test_draggingNonFirstHandCardToStackKeepsDropLocation(data) {
+        testWindow.width = 1440
+        testWindow.height = 900
+        const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        seats[0].hand = []
+        for (let index = 0; index < data.count; ++index)
+            seats[0].hand.push({id: "drag-hand-" + index, name: "Spell " + index, ownerSeat: 0})
+        seats[0].handCount = data.count
+        mockWs.gameSeats = seats
+        const table = tableComponent.createObject(tableHost, {width: 1440, height: 900})
+        verify(table !== null)
+        const hand = findChild(table, "ownHand")
+        const stack = findChild(table, "sharedDropArea")
+        tryCompare(hand, "count", data.count)
+        if (data.clipped)
+            hand.positionViewAtIndex(data.index, ListView.Beginning)
+        tryVerify(() => hand.itemAtIndex(data.index) !== null && stack.width > 0)
+        if (data.clipped) {
+            // Fixture setup exposes only part of the card. The gesture below
+            // still presses only that visible fragment.
+            const target = hand.itemAtIndex(data.index)
+            hand.contentX = target.x - hand.width + (data.thin ? 2 : target.width / 4)
+        }
+        wait(100)
+        const card = hand.itemAtIndex(data.index)
+        const cardLeft = card.mapToItem(hand, 0, 0).x
+        const visibleWidth = Math.min(card.width, hand.width - cardLeft)
+        verify(visibleWidth > 0, "The drag must start within the visible hand viewport")
+        if (data.clipped) verify(visibleWidth < card.width / 2, "The clipping fixture must actually clip the card")
+        if (data.thin) verify(visibleWidth <= 2.5, "Only the two-pixel card fragment may be exposed")
+        const press = card.mapToItem(table, visibleWidth / 2,
+                                    data.pressTop ? 2 : data.pressBottom ? card.height - 2 : card.height / 2)
+        const dropY = data.pressTop ? stack.height - 10 : data.pressBottom ? 10 : stack.height / 2
+        const drop = data.rejected ? Qt.point(20, 30)
+                                  : stack.mapToItem(table, stack.width / 2, dropY)
+        mousePress(table, press.x, press.y, Qt.LeftButton)
+        wait(20)
+        for (let step = 1; step <= 12; ++step) {
+            mouseMove(table, press.x + (drop.x - press.x) * step / 12,
+                      press.y + (drop.y - press.y) * step / 12, 0, Qt.LeftButton)
+            wait(20)
+        }
+        const hotspot = card.mapToItem(stack, card.Drag.hotSpot.x, card.Drag.hotSpot.y)
+        const pointer = stack.mapFromItem(table, drop.x, drop.y)
+        mouseRelease(table, drop.x, drop.y, Qt.LeftButton)
+        if (data.rejected) {
+            tryCompare(table, "activeHandDragCardId", "")
+            compare(mockWs.moveCount, 0)
+            compare(table.ownHand.map(row => row.id).sort(), seats[0].hand.map(row => row.id).sort())
+            tryVerify(() => card.parent !== table && !card.Drag.active)
+            table.destroy()
+            return
+        }
+        verify(hotspot.x >= 0 && hotspot.x <= stack.width && hotspot.y >= 0 && hotspot.y <= stack.height,
+               "The dragged card's drop hotspot must reach the stack with the pointer")
+        verify(Math.abs(hotspot.x - pointer.x) <= 1.5 && Math.abs(hotspot.y - pointer.y) <= 1.5,
+               "The drop hotspot must follow the actual grab point, including edge presses")
+        tryCompare(mockWs, "moveCount", 1)
+        compare(mockWs.lastMove.cardId, "drag-hand-" + data.index)
+        compare(mockWs.lastMove.fromZone, "hand")
+        compare(mockWs.lastMove.toZone, "stack", "A pointer released on the stack must not move the card to another zone")
         table.destroy()
     }
 

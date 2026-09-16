@@ -106,6 +106,11 @@ Popup {
         const result = []
         for (let i = 0; i < groupedCards.length; ++i) {
             const card = groupedCards[i]
+            if (card.faceDown === true) {
+                if (cardLabel(card).toLocaleLowerCase().includes(query))
+                    result.push(card)
+                continue
+            }
             if (cardCatalogModel
                 && cardCatalogModel.matchesCardQuery(
                     card.name ? card.name : "",
@@ -129,7 +134,10 @@ Popup {
         const byKey = ({})
         for (let i = 0; i < cards.length; ++i) {
             const card = cards[i]
-            const key = (card.name ? card.name.toLocaleLowerCase() : "")
+            // Hidden cards stay separate, even if a projection accidentally
+            // retains private printing metadata.
+            const key = card.faceDown === true ? "face-down:" + card.id
+                        : (card.name ? card.name.toLocaleLowerCase() : "")
                         + "\u001f"
                         + (card.setCode ? card.setCode.toLocaleLowerCase() : "")
                         + "\u001f"
@@ -148,6 +156,18 @@ Popup {
             groups.push(grouped)
         }
         return groups
+    }
+
+    function cardLabel(card) {
+        return card.faceDown === true ? qsTr("Face-down card") : (card.name || "")
+    }
+
+    function cardImage(card) {
+        if (card.faceDown === true)
+            return Qt.resolvedUrl("../assets/card-back.jpg")
+        return card.name && cardCatalogModel
+               ? cardCatalogModel.imageSource(card.name, card.setCode || "",
+                                              card.collectorNumber || "") : ""
     }
 
     function cardForId(cardId) {
@@ -353,6 +373,8 @@ Popup {
                           ? qsTr("Only authorized viewers can inspect these hand cards.")
                           : root.zoneKey === "sideboard"
                           ? qsTr("Only you can inspect these sideboard cards.")
+                          : root.zoneKey === "exile"
+                          ? qsTr("Face-up cards are public. No player may look at face-down exiled cards.")
                           : qsTr("All players and spectators can inspect these cards.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(11)
@@ -478,14 +500,10 @@ Popup {
                                 spacing: Theme.size(11)
 
                                 Image {
+                                    objectName: "zoneBrowserCardImage" + cardRow.index
                                     Layout.preferredWidth: Theme.size(54)
                                     Layout.fillHeight: true
-                                    source: root.cardCatalogModel
-                                            ? root.cardCatalogModel.imageSource(
-                                                  cardRow.modelData.name,
-                                                  cardRow.modelData.setCode,
-                                                  cardRow.modelData.collectorNumber)
-                                            : ""
+                                    source: root.cardImage(cardRow.modelData)
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                 }
@@ -528,8 +546,9 @@ Popup {
                                     spacing: Theme.size(3)
                                     Text {
                                         textFormat: Text.PlainText
+                                        objectName: "zoneBrowserCardName" + cardRow.index
                                         Layout.fillWidth: true
-                                        text: cardRow.modelData.name
+                                        text: root.cardLabel(cardRow.modelData)
                                         color: Theme.text
                                         font.pixelSize: Theme.fontSize(13)
                                         font.weight: Font.Medium
@@ -538,7 +557,9 @@ Popup {
                                     Text {
                                         textFormat: Text.PlainText
                                         Layout.fillWidth: true
-                                        text: cardRow.modelData.setCode
+                                        text: cardRow.modelData.faceDown === true
+                                              ? qsTr("No player may look at this card")
+                                              : cardRow.modelData.setCode
                                               + " · #"
                                               + cardRow.modelData.collectorNumber
                                         color: Theme.textMuted
@@ -612,14 +633,10 @@ Popup {
                     clip: true
 
                     Image {
+                        objectName: "zoneBrowserPreviewImage"
                         anchors.fill: parent
                         anchors.margins: Theme.size(12)
-                        source: root.selectedCard.name && root.cardCatalogModel
-                                ? root.cardCatalogModel.imageSource(
-                                      root.selectedCard.name,
-                                      root.selectedCard.setCode,
-                                      root.selectedCard.collectorNumber)
-                                : ""
+                        source: root.cardImage(root.selectedCard)
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                     }
@@ -627,7 +644,7 @@ Popup {
                     Text {
                         textFormat: Text.PlainText
                         anchors.centerIn: parent
-                        visible: !root.selectedCard.name
+                        visible: !root.selectedCard.id
                         text: qsTr("Select a card")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(11)
@@ -637,8 +654,8 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: root.selectedCard.name ? root.selectedCard.name
-                                                 : root.zoneLabel()
+                    text: root.selectedCard.id ? root.cardLabel(root.selectedCard)
+                                              : root.zoneLabel()
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(15)
                     font.weight: Font.DemiBold
@@ -647,9 +664,11 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    visible: root.selectedCard.name !== undefined
-                    text: (root.selectedCard.setCode || "") + " · #"
-                          + (root.selectedCard.collectorNumber || "")
+                    visible: !!root.selectedCard.id
+                    text: root.selectedCard.faceDown === true
+                          ? qsTr("No player may look at this card")
+                          : (root.selectedCard.setCode || "") + " · #"
+                            + (root.selectedCard.collectorNumber || "")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(10)
                     elide: Text.ElideRight

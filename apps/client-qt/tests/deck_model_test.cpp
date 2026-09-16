@@ -55,6 +55,152 @@ QVariantMap customPrintingBinding(const QString &name, const QString &set, const
 
 } // namespace
 
+void TestDeckLibrary::sharesCardProjectionsAndInvalidatesEditedInputs() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Projection"_s, u"commander"_s,
+                             u"1 Alpha (TST) 1\n1 Beta (TST) 2\nConsider\n1 Alpha (TST) 1\n"_s));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    const QVariantList initial = model.mainCards();
+    const QVariantList repeated = model.mainCards();
+    QCOMPARE(initial.constData(), repeated.constData());
+    const QVariantList considered = model.considerCards();
+    QCOMPARE(considered.first().toMap().value(u"totalCount"_s).toInt(), 1);
+
+    QVERIFY(model.changeCardCount(u"Alpha"_s, u"TST"_s, u"1"_s, false, 1));
+    const QVariantList counted = model.mainCards();
+    QCOMPARE(counted.first().toMap().value(u"count"_s).toInt(), 2);
+    QCOMPARE(initial.first().toMap().value(u"count"_s).toInt(), 1);
+    QCOMPARE(model.considerCards().first().toMap().value(u"totalCount"_s).toInt(), 2);
+    QVERIFY(model.setCommander(u"Alpha"_s));
+    QVERIFY(model.mainCards().first().toMap().value(u"commander"_s).toBool());
+
+    model.applyCardMetadata(u"Alpha"_s, u"Updated Alpha"_s, {}, {}, u"TST"_s, u"1"_s);
+    QCOMPARE(model.mainCards().first().toMap().value(u"displayName"_s).toString(),
+             u"Updated Alpha"_s);
+    const QVariantList updated = model.mainCards();
+    QCOMPARE(updated.constData(), model.mainCards().constData());
+    QVERIFY(model.renameCurrentDeck(u"Renamed projection"_s));
+    QCOMPARE(updated.constData(), model.mainCards().constData());
+    model.closeDeck();
+    QVERIFY(model.mainCards().isEmpty());
+}
+
+void TestDeckLibrary::editsNotifyOnlyTheAffectedLibraryRow() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Unrelated"_s, u"cube"_s, startupDeckText(100)));
+    QVERIFY(model.importDeck(u"Edited"_s, u"custom"_s, u"1 Alpha (TST) 1\n"_s));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    QSignalSpy resets(&model, &QAbstractItemModel::modelReset);
+    QSignalSpy rowsChanged(&model, &QAbstractItemModel::dataChanged);
+    QVERIFY(model.addCard(u"Beta"_s, {}, {}, u"TST"_s, u"2"_s, false));
+    QVERIFY(model.changeCardCount(u"Alpha"_s, u"TST"_s, u"1"_s, false, 1));
+    QVERIFY(model.changeCardCount(u"Beta"_s, u"TST"_s, u"2"_s, false, -1));
+    QVERIFY(model.renameCurrentDeck(u"Edited again"_s));
+    QCOMPARE(resets.count(), 0);
+    QCOMPARE(rowsChanged.count(), 4);
+    for (const QList<QVariant> &change : rowsChanged) {
+        QCOMPARE(qvariant_cast<QModelIndex>(change.at(0)).row(), 0);
+        QCOMPARE(qvariant_cast<QModelIndex>(change.at(1)).row(), 0);
+    }
+    QCOMPARE(model.data(model.index(0), DeckLibraryModel::MainCountRole).toInt(), 2);
+    QCOMPARE(model.data(model.index(1), DeckLibraryModel::MainCountRole).toInt(), 100);
+    model.setFormatFilter(u"custom"_s);
+    QCOMPARE(model.rowCount(), 1);
+    QVERIFY(model.changeCurrentDeckFormat(u"cube"_s));
+    QCOMPARE(model.rowCount(), 0);
+}
+
+void TestDeckLibrary::structuralSaveDoesNotPublishUnrelatedMetadata() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Edited"_s, u"custom"_s, u"1 Alpha (TST) 1\n"_s));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    QVERIFY(model.importDeck(u"Unrelated"_s, u"cube"_s, startupDeckText(100)));
+    QTRY_COMPARE(model.persistedGenerationForTest(), model.persistenceGenerationForTest());
+    QStringList lookups;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        lookups.append(card.name);
+        return QString{};
+    });
+    lookups.clear();
+    QSignalSpy libraryChanges(&model, &DeckLibraryModel::countChanged);
+    QVERIFY(model.addCard(u"Beta"_s, {}, {}, u"TST"_s, u"2"_s, false));
+    QCOMPARE(lookups, QStringList{u"Beta"_s});
+    QCOMPARE(libraryChanges.count(), 1);
+    QTRY_COMPARE(model.persistedGenerationForTest(), model.persistenceGenerationForTest());
+    QCOMPARE(lookups, QStringList{u"Beta"_s});
+    QCOMPARE(libraryChanges.count(), 1);
+}
+
+void TestDeckLibrary::refreshesLibraryDisplayPathsWithoutBlocking() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Library refresh"_s, u"cube"_s, startupDeckText(100)));
+    QVERIFY(model.openDeck(model.data(model.index(0), DeckLibraryModel::IdRole).toString()));
+    int calls = 0;
+    bool slow = false;
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        ++calls;
+        if (slow)
+            QTest::qSleep(2);
+        return storage.filePath((slow ? u"new-"_s : u"old-"_s) + card.collectorNumber);
+    });
+    calls = 0;
+    slow = true;
+    int firstBatch = 0;
+    int callsAtYield = 0;
+    connect(&model, &DeckLibraryModel::currentDeckCardsChanged, &model, [&]() {
+        if (firstBatch != 0 || calls == 0)
+            return;
+        firstBatch = calls;
+        QTimer::singleShot(0, &model, [&]() { callsAtYield = calls; });
+    });
+    model.refreshDisplayedCardArt();
+    QCOMPARE(calls, 0);
+    QTRY_COMPARE(calls, 100);
+    QVERIFY(firstBatch > 0);
+    QVERIFY(firstBatch <= 8);
+    QCOMPARE(callsAtYield, firstBatch);
+    for (const QVariant &value : model.mainCards())
+        QVERIFY(value.toMap().value(u"imageSource"_s).toString().contains(u"new-"_s));
+}
+
+void TestDeckLibrary::refreshesImageCountsAndKeepsMatchChecksLive() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QFile image(storage.filePath(u"existing.png"_s));
+    QVERIFY(image.open(QIODevice::WriteOnly));
+    QCOMPARE(image.write("image"), qint64(5));
+    image.close();
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.importDeck(u"Live art"_s, u"custom"_s, u"7 Alpha (TST) 1\n"_s));
+    const QString deckId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+    QVERIFY(model.openDeck(deckId));
+    model.setImagePathResolver([&](const hexproof::client::DeckCard &) {
+        return QFile::exists(image.fileName()) ? image.fileName() : QString{};
+    });
+    QCOMPARE(model.currentMissingImageCount(), 0);
+    QVERIFY(model.currentReady());
+    QVERIFY(!model.hasMissingArt());
+    QVERIFY(image.remove());
+    QVERIFY(model.deckForMatch(deckId).isEmpty());
+    model.refreshDisplayedCardArt();
+    QCOMPARE(model.currentMissingImageCount(), 1);
+    QVERIFY(!model.currentReady());
+    QVERIFY(model.hasMissingArt());
+}
+
 void TestDeckLibrary::defersInitialDisplayPathsInBoundedBatches_data() const
 {
     QTest::addColumn<bool>("sameName");
@@ -193,7 +339,8 @@ void TestDeckLibrary::cancelsDeferredDisplayPathsWhenResolverChanges() const
 
     model.setImagePathResolver(oldResolver, true);
     model.refreshDisplayedCardArt();
-    QCOMPARE(oldCalls, 70);
+    QCOMPARE(oldCalls, 0);
+    QTRY_COMPARE(oldCalls, 70);
     QTest::qWait(60);
     QCOMPARE(oldCalls, 70);
     {
@@ -473,7 +620,8 @@ void TestDeckLibrary::limitsDisplayPathResolutionToChangedCards() const
     // Only an explicit artwork revision or a new resolver refreshes the library.
     lookedUp.clear();
     model.refreshDisplayedCardArt();
-    QCOMPARE(lookedUp.size(), 7);
+    QVERIFY(lookedUp.isEmpty());
+    QTRY_COMPARE(lookedUp.size(), 7);
     lookedUp.clear();
     model.setImagePathResolver(resolver);
     QCOMPARE(lookedUp.size(), 7);
@@ -528,6 +676,69 @@ void TestDeckLibrary::invalidatesDisplayPathsOnlyForArtOrPrintingMetadata() cons
             QVERIFY(!card.value(u"imageSourceResolved"_s).toBool());
         }
     }
+}
+
+void TestDeckLibrary::recoversDownloadedArtAtAnUnchangedSavedPath() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString imagePath = storage.filePath(u"cached-alpha.png"_s);
+    QString deckId;
+    {
+        QFile image(imagePath);
+        QVERIFY(image.open(QIODevice::WriteOnly));
+        QVERIFY(image.write("cached image") > 0);
+        image.close();
+        DeckLibraryModel model(storage.path());
+        QVERIFY(model.importDeck(u"Previously cached"_s, u"custom"_s, u"7 Alpha (TST) 1\n"_s));
+        deckId = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
+        model.applyCardMetadata(u"Alpha"_s, u"Alpha"_s, u"Instant"_s, imagePath, u"TST"_s, u"1"_s);
+        QTRY_COMPARE(model.persistedGenerationForTest(), model.persistenceGenerationForTest());
+    }
+
+    // Reproduce a cache file removed between launches, retaining the library's
+    // previously successful path and exact printing metadata on disk.
+    QVERIFY(QFile::remove(imagePath));
+    DeckLibraryModel reopened(storage.path());
+    QVERIFY(reopened.openDeck(deckId));
+    int resolutions = 0;
+    reopened.setImagePathResolver([&](const hexproof::client::DeckCard &card) {
+        ++resolutions;
+        return QFile::exists(card.imagePath) ? card.imagePath : QString{};
+    });
+    QCOMPARE(resolutions, 1);
+    QVERIFY(!reopened.currentReady());
+    QVERIFY(reopened.mainCards().first().toMap().value(u"imageSource"_s).toString().isEmpty());
+    QSignalSpy cardsChanged(&reopened, &DeckLibraryModel::currentDeckCardsChanged);
+    const quint64 generation = reopened.persistenceGenerationForTest();
+
+    QFile restoredImage(imagePath);
+    QVERIFY(restoredImage.open(QIODevice::WriteOnly));
+    QVERIFY(restoredImage.write("downloaded replacement") > 0);
+    restoredImage.close();
+    reopened.applyCardMetadata(u"Alpha"_s, u"Alpha"_s, u"Instant"_s, imagePath, u"TST"_s, u"2"_s);
+    QVERIFY(cardsChanged.isEmpty());
+    QCOMPARE(resolutions, 1);
+    QVERIFY(reopened.mainCards().first().toMap().value(u"imageSource"_s).toString().isEmpty());
+    // Normal cache completion emits cardAvailable even when every persisted
+    // metadata string is identical. It does not emit a bulk maintenance event.
+    reopened.applyCardMetadata(u"Alpha"_s, u"Alpha"_s, u"Instant"_s, imagePath, u"TST"_s, u"1"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(!cardsChanged.isEmpty(), 1'000);
+    QCOMPARE(
+        QUrl(reopened.mainCards().first().toMap().value(u"imageSource"_s).toString()).toLocalFile(),
+        imagePath);
+    QVERIFY(reopened.currentReady());
+    QCOMPARE(reopened.currentMissingImageCount(), 0);
+    QCOMPARE(resolutions, 2);
+    QCOMPARE(reopened.persistenceGenerationForTest(), generation);
+    QVERIFY(!reopened.metadataCommitPendingForTest());
+
+    cardsChanged.clear();
+    reopened.applyCardMetadata(u"Alpha"_s, u"Alpha"_s, u"Instant"_s, imagePath, u"TST"_s, u"1"_s);
+    QVERIFY(cardsChanged.isEmpty());
+    QCOMPARE(resolutions, 2);
+    QCOMPARE(reopened.persistenceGenerationForTest(), generation);
+    QVERIFY(!reopened.metadataCommitPendingForTest());
 }
 
 void TestDeckLibrary::refreshesDisplayPathsAndMetadataAfterPrintingMerge() const
@@ -710,7 +921,8 @@ void TestDeckLibrary::edhReadinessRequiresCommanderAndImages() const
     QVERIFY(model.openDeck(id));
     QCOMPARE(model.currentStatus(), u"Commander required"_s);
     QVERIFY(model.setCommander(u"Sol Ring"_s));
-    QCOMPARE(model.currentStatus(), u"1 image missing"_s);
+    QCOMPARE(model.currentStatus(),
+             u"Card printings unresolved. Install the card database or select printings."_s);
 
     const QString imagePath = storage.filePath(u"sol-ring.jpg"_s);
     QFile image(imagePath);
@@ -828,7 +1040,7 @@ void TestDeckLibrary::legalityWarningsDoNotBlockDeckSelection() const
     QSignalSpy validationSpy(&model, &DeckLibraryModel::decksNeedValidation);
 
     QVERIFY(model.importDeck(u"Advisory identity"_s, u"edh"_s,
-                             u"1 White Commander *CMDR*\n99 Plains\n"_s));
+                             u"1 White Commander (TST) 1 *CMDR*\n99 Plains (M21) 260\n"_s));
     const QString id = model.data(model.index(0), DeckLibraryModel::IdRole).toString();
     QVERIFY(model.openDeck(id));
     QTRY_COMPARE(validationSpy.count(), 1);
@@ -1442,6 +1654,10 @@ void TestDeckLibrary::storesCardArtProviderPreference() const
 
     ClientPreferencesModel restored(storage.path());
     QCOMPARE(restored.cardArtProvider(), u"mtgch"_s);
+    restored.setCardArtProvider(u"PARALLEL"_s);
+    QCOMPARE(restored.cardArtProvider(), u"parallel"_s);
+    ClientPreferencesModel parallelRestored(storage.path());
+    QCOMPARE(parallelRestored.cardArtProvider(), u"parallel"_s);
     restored.setCardArtProvider(u"unsupported"_s);
     QCOMPARE(restored.cardArtProvider(), u"auto"_s);
 }
@@ -1502,6 +1718,7 @@ void TestDeckLibrary::ignoresRemovedThemePreferences() const
         QCOMPARE(model.cardLanguage(), u"en"_s);
         QCOMPARE(model.interfaceScale(), 1.25);
         QVERIFY(!model.animatePackOpenings());
+        QCOMPARE(model.uiTheme(), u"classic"_s);
         QVERIFY(!model.property("themeId").isValid());
         QVERIFY(!model.property("reducedMotion").isValid());
         model.setReuseLocalCardArt(false);
@@ -1510,11 +1727,112 @@ void TestDeckLibrary::ignoresRemovedThemePreferences() const
         const auto saved = QJsonDocument::fromJson(settings.readAll()).object();
         QVERIFY(!saved.contains(u"themeId"_s));
         QVERIFY(!saved.contains(u"reducedMotion"_s));
+        QCOMPARE(saved.value(u"uiTheme"_s).toString(), u"classic"_s);
         QCOMPARE(saved.value(u"uiLanguage"_s).toString(), u"zh"_s);
         QCOMPARE(saved.value(u"cardLanguage"_s).toString(), u"en"_s);
         QCOMPARE(saved.value(u"interfaceScale"_s).toDouble(), 1.25);
         QCOMPARE(saved.value(u"animatePackOpenings"_s).toBool(), false);
     }
+}
+
+void TestDeckLibrary::storesUiThemePreference() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        QCOMPARE(model.uiTheme(), u"classic"_s);
+        QSignalSpy themeSpy(&model, &ClientPreferencesModel::uiThemeChanged);
+        model.setUiTheme(u"GLASS"_s);
+        QCOMPARE(model.uiTheme(), u"glass"_s);
+        QCOMPARE(themeSpy.count(), 1);
+        model.setUiTheme(u"ember"_s);
+        QCOMPARE(model.uiTheme(), u"classic"_s);
+        QCOMPARE(themeSpy.count(), 2);
+        model.setUiTheme(u"classic"_s);
+        QCOMPARE(themeSpy.count(), 2);
+    }
+
+    ClientPreferencesModel restored(storage.path());
+    QCOMPARE(restored.uiTheme(), u"classic"_s);
+    restored.setUiTheme(u"glass"_s);
+    QCOMPARE(restored.uiTheme(), u"glass"_s);
+
+    ClientPreferencesModel glass(storage.path());
+    QCOMPARE(glass.uiTheme(), u"glass"_s);
+
+    QTemporaryDir unknown;
+    QVERIFY(unknown.isValid());
+    QFile settings(unknown.filePath(u"settings.json"_s));
+    QVERIFY(settings.open(QIODevice::WriteOnly));
+    QVERIFY(settings.write(QJsonDocument(QJsonObject{{u"uiTheme"_s, u"hall"_s}}).toJson()) > 0);
+    settings.close();
+    ClientPreferencesModel unknownTheme(unknown.path());
+    QCOMPARE(unknownTheme.uiTheme(), u"classic"_s);
+}
+
+void TestDeckLibrary::storesTableBackgroundIndependentlyOfTheme() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    QCOMPARE(model.tableBackground(), u"default"_s);
+    QSignalSpy backgroundSpy(&model, &ClientPreferencesModel::tableBackgroundChanged);
+    for (const QString &background : {u"forest"_s, u"astral"_s, u"volcanic"_s, u"frost"_s, u"ink"_s,
+                                      u"woven"_s, u"dusk"_s, u"default"_s}) {
+        model.setTableBackground(background.toUpper());
+        QCOMPARE(model.tableBackground(), background);
+        QCOMPARE(backgroundSpy.count(), 1);
+        model.setTableBackground(background);
+        for (const QString &theme : {u"glass"_s, u"classic"_s}) {
+            model.setUiTheme(theme);
+            QCOMPARE(model.tableBackground(), background);
+            ClientPreferencesModel restored(storage.path());
+            QCOMPARE(restored.tableBackground(), background);
+            QCOMPARE(restored.uiTheme(), theme);
+        }
+        QCOMPARE(backgroundSpy.count(), 1);
+        backgroundSpy.clear();
+    }
+}
+
+void TestDeckLibrary::rejectsUnknownTableBackgrounds() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QFile settings(storage.filePath(u"settings.json"_s));
+    for (const QString &theme : {u"classic"_s, u"glass"_s}) {
+        for (const QJsonValue &background :
+             {QJsonValue(QJsonValue::Undefined), QJsonValue(), QJsonValue(u""_s),
+              QJsonValue(u"removed-background"_s), QJsonValue(42)}) {
+            QVERIFY(settings.open(QIODevice::WriteOnly));
+            QVERIFY(settings.write(QJsonDocument(QJsonObject{{u"uiTheme"_s, theme},
+                                                             {u"tableBackground"_s, background}})
+                                       .toJson()) > 0);
+            settings.close();
+            ClientPreferencesModel model(storage.path());
+            QCOMPARE(model.tableBackground(), u"default"_s);
+            model.setTableBackground(u"ink"_s);
+            model.setTableBackground(u"unknown"_s);
+            QCOMPARE(model.tableBackground(), u"default"_s);
+            QCOMPARE(model.uiTheme(), theme);
+            ClientPreferencesModel restored(storage.path());
+            QCOMPARE(restored.tableBackground(), u"default"_s);
+        }
+    }
+}
+
+void TestDeckLibrary::rollsBackTableBackgroundWhenSavingFails() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    QVERIFY(QDir(storage.path()).mkdir(u"settings.json"_s));
+    QSignalSpy backgroundSpy(&model, &ClientPreferencesModel::tableBackgroundChanged);
+    model.setTableBackground(u"ink"_s);
+    QCOMPARE(model.tableBackground(), u"default"_s);
+    QCOMPARE(backgroundSpy.count(), 0);
+    QVERIFY(!model.lastError().isEmpty());
 }
 
 void TestDeckLibrary::storesSponsorAnnouncementAcknowledgement() const
@@ -1523,15 +1841,15 @@ void TestDeckLibrary::storesSponsorAnnouncementAcknowledgement() const
     QVERIFY(storage.isValid());
     {
         ClientPreferencesModel model(storage.path());
-        QVERIFY(!model.sponsorAnnouncementSeen(u"founding-sponsors-2026-09"_s));
+        QVERIFY(!model.sponsorAnnouncementSeen(u"sponsors:1.2.0"_s));
         QVERIFY(!model.acknowledgeSponsorAnnouncement({}));
-        QVERIFY(model.acknowledgeSponsorAnnouncement(u" founding-sponsors-2026-09 "_s));
-        QVERIFY(model.sponsorAnnouncementSeen(u"founding-sponsors-2026-09"_s));
+        QVERIFY(model.acknowledgeSponsorAnnouncement(u" sponsors:1.2.0 "_s));
+        QVERIFY(model.sponsorAnnouncementSeen(u"sponsors:1.2.0"_s));
     }
 
     ClientPreferencesModel restored(storage.path());
-    QVERIFY(restored.sponsorAnnouncementSeen(u"founding-sponsors-2026-09"_s));
-    QVERIFY(!restored.sponsorAnnouncementSeen(u"future-sponsor-announcement"_s));
+    QVERIFY(restored.sponsorAnnouncementSeen(u"sponsors:1.2.0"_s));
+    QVERIFY(!restored.sponsorAnnouncementSeen(u"sponsors:1.2.1"_s));
 }
 
 void TestDeckLibrary::storesCardArtRepairNoticeAcknowledgement() const

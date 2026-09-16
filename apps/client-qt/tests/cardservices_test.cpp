@@ -47,10 +47,14 @@ class TestCardServices final : public QObject
     void requestFactoryKeepsHttp2ForNonScryfallHosts() const;
     void networkReplyLimiterRejectsOversizePayloads() const;
     void imageTimeoutDoesNotOpenHostCooldown() const;
+    void sharedCooldownSurvivesInFlightSuccess() const;
     void artCachePersistsPolicyAndReusesOraclePrinting() const;
     void artCacheRejectsCachedWrongDoubleFace() const;
     void artCachePreservesCorruptMetadataBeforeWriting() const;
     void artCacheSavesWithoutBlockingAndCoalesces() const;
+    void artCacheMaintenanceCompletionWaitsForItsGeneration() const;
+    void artCacheMaintenanceCompletionReportsFailure() const;
+    void artCacheSynchronousSaveCompletesNewerAsyncGeneration() const;
     void artCacheOldSaveCannotUndoMaintenance() const;
     void artCacheAsyncFailureRetriesAndShutdownFlushes() const;
 };
@@ -399,6 +403,19 @@ void TestCardServices::imageTimeoutDoesNotOpenHostCooldown() const
     QVERIFY(resolver.hostInCooldown(cdn));
 }
 
+void TestCardServices::sharedCooldownSurvivesInFlightSuccess() const
+{
+    CardResolver first(nullptr, {});
+    CardResolver second(first, {});
+    const QUrl cdn(u"https://cards.scryfall.io/normal/front/x.jpg"_s);
+    first.markHostFailure(cdn, 429, QByteArrayLiteral("30"));
+    QVERIFY(second.hostInCooldown(cdn));
+    second.markHostSuccess(cdn);
+    QVERIFY(first.hostInCooldown(cdn));
+    second.clearCooldowns();
+    QVERIFY(!first.hostInCooldown(cdn));
+}
+
 void TestCardServices::artCachePersistsPolicyAndReusesOraclePrinting() const
 {
     QTemporaryDir directory;
@@ -606,6 +623,102 @@ void TestCardServices::artCacheOldSaveCannotUndoMaintenance() const
     reloaded.load();
     QVERIFY(reloaded.entries().isEmpty());
     QCOMPARE(reloaded.faceAuditVersion(), 4);
+}
+
+void TestCardServices::artCacheMaintenanceCompletionWaitsForItsGeneration() const
+{
+    QTemporaryDir dir;
+    CardArtCache cache(dir.path());
+    QSemaphore started, release;
+    auto *pool = BackgroundTaskPools::cardArtPersistence();
+    pool->start([&]() {
+        started.release();
+        release.acquire();
+    });
+    const auto cleanup = qScopeGuard([&]() {
+        release.release();
+        pool->waitForDone();
+    });
+    QVERIFY(started.tryAcquire(1, 1000));
+    cache.rememberFailure(u"first"_s);
+    cache.saveAsync();
+    cache.rememberFailure(u"maintenance"_s);
+    int completions = 0;
+    bool savedLatest = false;
+    cache.saveAsync([&](bool success) {
+        ++completions;
+        CardArtCache restored(dir.path());
+        restored.load();
+        savedLatest = success && restored.failedRecently(u"maintenance"_s);
+        QCOMPARE(QThread::currentThread(), thread());
+    });
+    bool heartbeat = false;
+    QTimer::singleShot(0, [&]() { heartbeat = true; });
+    QTRY_VERIFY(heartbeat);
+    QCOMPARE(completions, 0);
+    release.release();
+    QTRY_COMPARE(completions, 1);
+    QVERIFY(savedLatest);
+    QVERIFY(!cache.dirty());
+    bool cleanCompletion = false;
+    cache.saveAsync([&](bool success) { cleanCompletion = success; });
+    QVERIFY(!cleanCompletion);
+    QTRY_VERIFY(cleanCompletion);
+}
+
+void TestCardServices::artCacheMaintenanceCompletionReportsFailure() const
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(u"card-cache.json"_s);
+    QVERIFY(QDir().mkpath(path));
+    CardArtCache cache(dir.path());
+    cache.rememberFailure(u"pending"_s);
+    int completions = 0;
+    bool succeeded = true;
+    cache.saveAsync([&](bool success) {
+        ++completions;
+        succeeded = success;
+    });
+    QTRY_COMPARE(completions, 1);
+    QVERIFY(!succeeded);
+    QVERIFY(cache.dirty());
+    QVERIFY(QDir().rmdir(path));
+    cache.saveAsync([&](bool success) {
+        ++completions;
+        succeeded = success;
+    });
+    QTRY_COMPARE(completions, 2);
+    QVERIFY(succeeded);
+    QVERIFY(!cache.dirty());
+}
+
+void TestCardServices::artCacheSynchronousSaveCompletesNewerAsyncGeneration() const
+{
+    QTemporaryDir dir;
+    CardArtCache cache(dir.path());
+    QSemaphore started, release;
+    auto *pool = BackgroundTaskPools::cardArtPersistence();
+    pool->start([&]() {
+        started.release();
+        release.acquire();
+    });
+    const auto cleanup = qScopeGuard([&]() {
+        release.release();
+        pool->waitForDone();
+    });
+    QVERIFY(started.tryAcquire(1, 1000));
+    cache.rememberFailure(u"old"_s);
+    cache.saveAsync();
+    cache.rememberFailure(u"latest"_s);
+    int completions = 0;
+    cache.saveAsync([&](bool success) {
+        QVERIFY(success);
+        ++completions;
+    });
+    QVERIFY(cache.save());
+    release.release();
+    QTRY_COMPARE(completions, 1);
+    QVERIFY(!cache.dirty());
 }
 
 void TestCardServices::artCacheAsyncFailureRetriesAndShutdownFlushes() const

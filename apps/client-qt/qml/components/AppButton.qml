@@ -12,6 +12,9 @@ Button {
     property string accessibleName: ""
     property string disabledReason: ""
     property bool compact: false
+    readonly property bool glassVariant: variant === "secondary"
+                                         || variant === "ghost"
+                                         || variant === "highlight"
 
     Accessible.role: Accessible.Button
     Accessible.name: accessibleName.length > 0
@@ -38,12 +41,12 @@ Button {
         if (!enabled)
             return variant === "ghost" ? "transparent" : Theme.disabled
         if (variant === "primary")
-            return down ? Theme.primaryStrong : (hovered ? "#91E9C4" : Theme.primary)
+            return down ? Theme.primaryStrong : (hovered ? Theme.primaryHover : Theme.primary)
         if (variant === "highlight")
-            return down ? "#214D3D"
-                        : (hovered ? "#214A3B" : Theme.primaryMuted)
+            return down ? Theme.highlightPressed
+                        : (hovered ? Theme.highlightHover : Theme.primaryMuted)
         if (variant === "danger")
-            return down || hovered ? "#482528" : Theme.errorMuted
+            return down || hovered ? Theme.errorHover : Theme.errorMuted
         if (variant === "ghost")
             return down || hovered ? Theme.surfaceHover : "transparent"
         return down || hovered ? Theme.surfaceHover : Theme.surfaceElevated
@@ -55,7 +58,7 @@ Button {
         if (!enabled || variant === "primary" || variant === "ghost")
             return "transparent"
         if (variant === "danger")
-            return "#653337"
+            return Theme.errorBorder
         return hovered ? Theme.borderStrong : Theme.border
     }
 
@@ -103,13 +106,42 @@ Button {
         }
     }
 
-    background: Rectangle {
-        color: control.backgroundColor
-        radius: Theme.radiusMedium
-        border.width: 1
-        border.color: control.activeFocus ? Theme.primary : control.outlineColor
+    background: Item {
+        implicitHeight: control.implicitHeight
+        implicitWidth: control.implicitWidth
 
-        Behavior on color { ColorAnimation { duration: Theme.motionFast } }
-        Behavior on border.color { ColorAnimation { duration: Theme.motionFast } }
+        LiquidGlass {
+            anchors.fill: parent
+            radius: height / 2
+            compact: true
+            elevated: control.hovered || control.down || control.activeFocus
+            visible: Theme.useGlass && control.enabled && control.glassVariant
+                     && (control.variant !== "ghost"
+                         || control.hovered || control.down || control.activeFocus)
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.useGlass ? height / 2 : Theme.radiusMedium
+            antialiasing: true
+            visible: !Theme.useGlass || !control.glassVariant || !control.enabled
+            color: control.backgroundColor
+            border.width: 1
+            border.color: control.activeFocus ? Theme.primary : control.outlineColor
+
+            Behavior on color { ColorAnimation { duration: Theme.motionFast } }
+            Behavior on border.color { ColorAnimation { duration: Theme.motionFast } }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: height / 2
+            antialiasing: true
+            visible: Theme.useGlass && control.enabled && control.glassVariant
+                     && control.activeFocus
+            color: "transparent"
+            border.width: Theme.size(2)
+            border.color: Theme.primary
+        }
     }
 }

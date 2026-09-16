@@ -15,9 +15,19 @@ Surface {
     objectName: "handSurface"
     Layout.fillWidth: true
     Layout.preferredHeight: tableController.handAreaHeight
-    color: Theme.surfaceMuted
+    color: Theme.tableHandFill
     radius: 0
     border.width: 0
+
+    Rectangle {
+        visible: Theme.useGlass
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: Theme.playmatStitch
+        z: 8
+    }
 
     TapHandler {
         acceptedButtons: Qt.RightButton

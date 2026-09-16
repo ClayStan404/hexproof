@@ -2,10 +2,35 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardCatalog.h"
+#include "CardCatalogCommon.h"
 
 #include <algorithm>
 
 namespace hexproof::client {
+
+bool CardCatalog::matchArtAvailableLocally(const QVariantMap &card)
+{
+    CardRequest request{card.value(QStringLiteral("name")).toString().simplified(),
+                        card.value(QStringLiteral("setCode")).toString().toUpper(),
+                        card.value(QStringLiteral("collectorNumber")).toString(), m_language};
+    request.exactArt = card.value(QStringLiteral("exactArt")).toBool();
+    request.supportCard = catalog_internal::isSupportCardRequest(card);
+    if (!customImagePath(request).isEmpty())
+        return true;
+
+    bool createdMapping = false;
+    const CardRecord local = localCachedRecord(
+        request, cacheKey(request.name, request.language, request.setCode, request.collectorNumber),
+        &createdMapping);
+    if (!local.valid())
+        return false;
+    emitRecord(local);
+    if (createdMapping) {
+        ++m_imageRevision;
+        emit imageRevisionChanged();
+    }
+    return true;
+}
 
 void CardCatalog::cacheMatchCardsIncrementally(qint64 loadId, quint64 generation,
                                                const QVariantList &cards)

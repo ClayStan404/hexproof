@@ -4,6 +4,7 @@
 pragma Translator: "TournamentLobby"
 
 import QtQuick
+import "CardTypes.js" as CardTypes
 
 QtObject {
     id: root
@@ -11,24 +12,9 @@ QtObject {
     property string mode: "mana"
 
     function typeKey(card) {
-        const typeLine = card && card.typeLine ? card.typeLine : ""
-        const normalized = String(typeLine).toLowerCase()
-        if (normalized.indexOf("land") >= 0)
-            return "land"
-        if (normalized.indexOf("creature") >= 0)
-            return "creature"
-        if (normalized.indexOf("planeswalker") >= 0)
-            return "planeswalker"
-        if (normalized.indexOf("battle") >= 0)
-            return "battle"
-        if (normalized.indexOf("instant") >= 0)
-            return "instant"
-        if (normalized.indexOf("sorcery") >= 0)
-            return "sorcery"
-        if (normalized.indexOf("artifact") >= 0)
-            return "artifact"
-        if (normalized.indexOf("enchantment") >= 0)
-            return "enchantment"
+        for (const name of ["Land", "Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment"]) {
+            if (CardTypes.hasType(card || {}, name)) return name.toLowerCase()
+        }
         return "other"
     }
 

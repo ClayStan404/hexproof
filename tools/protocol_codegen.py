@@ -29,6 +29,7 @@ STABLE_PREFIXES = (
     "RoomPhase",
     "CardLoad",
     "RulesMode",
+    "RulesDamage",
     "GamePhase",
     "Zone",
     "MatchBO",

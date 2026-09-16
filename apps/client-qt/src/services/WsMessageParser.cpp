@@ -7,25 +7,25 @@
 
 namespace hexproof::client {
 
-void WsMessageParser::parseMessage(const QString &text)
+void WsMessageParser::parseMessage(quint64 transportGeneration, const QString &text)
 {
     bool ok = false;
     protocol::Envelope envelope = protocol::parse(text.toUtf8(), &ok);
     if (!ok) {
-        emit messageRejected();
+        emit messageRejected(transportGeneration);
         return;
     }
 
     QVariantMap gameSnapshot;
     if (envelope.type == protocol::kTypeGameSnapshot)
         gameSnapshot = envelope.payload.toVariantMap();
-    emit messageParsed(envelope.type, envelope.id, envelope.seq, envelope.hasSeq, envelope.payload,
-                       gameSnapshot);
+    emit messageParsed(transportGeneration, envelope.type, envelope.id, envelope.seq,
+                       envelope.hasSeq, envelope.payload, gameSnapshot);
 }
 
-void WsMessageParser::finishTransport()
+void WsMessageParser::finishTransport(quint64 transportGeneration)
 {
-    emit transportFinished();
+    emit transportFinished(transportGeneration);
 }
 
 } // namespace hexproof::client

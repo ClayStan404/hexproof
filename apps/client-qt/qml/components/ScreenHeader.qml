@@ -20,6 +20,7 @@ Item {
         spacing: Theme.size(14)
 
         AppButton {
+            objectName: "screenBackButton"
             visible: root.showBack
             variant: "ghost"
             compact: true

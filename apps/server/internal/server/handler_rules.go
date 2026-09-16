@@ -22,6 +22,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 	var request protocol.RulesRespond
 	if err := env.DecodePayload(&request); err != nil || request.PromptID <= 0 ||
 		strings.TrimSpace(request.ResponseID) == "" || len(request.ResponseID) > 128 ||
+		len(request.Name) > 1024 ||
 		!validRulesPromptSelectionIDs(request.CardIDs, false) ||
 		!validRulesPromptSelectionIDs(request.TargetIDs, true) ||
 		!validRulesPromptChoiceIDs(request.ChoiceIDs) ||
@@ -88,9 +89,9 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			return nil
 		}
 		_, damageTargets, projectionErr := projectedRulesDamage(promptView.DamageSource,
-			promptView.DamageTargets, promptView.DamageDeathtouch, game, snapshot)
+			promptView.DamageTargets, true, game, snapshot)
 		if projectionErr != nil || !validRulesDamageDistribution(
-			damageTargets, promptView.TotalDamage, request.DamageAssignments) {
+			damageTargets, promptView.TotalDamage, promptView.DamageAssignmentMode, request.DamageAssignments) {
 			h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 				"The combat damage assignment is invalid")
 			return nil
@@ -105,10 +106,11 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			DamageOrderIDs:    request.DamageOrderIDs,
 			DamageAssignments: forgePromptDamageAssignments(request.DamageAssignments),
 			ChosenNumber:      request.ChosenNumber,
+			Name:              request.Name,
 		})
 	if err != nil {
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
-			"The Forge decision is stale or no longer available")
+			"The selection does not satisfy this Forge decision")
 		return nil
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), forgePromptTimeout)
@@ -243,9 +245,19 @@ func validRulesPromptDamageAssignments(assignments []protocol.RulesPromptDamageA
 	return true
 }
 
-func validRulesDamageDistribution(targets []protocol.RulesPromptDamageTarget, totalDamage int,
+func rulesDamageAssignmentMode(mode string) (string, bool) {
+	switch mode {
+	case protocol.RulesDamageOrdered, protocol.RulesDamageUnordered, protocol.RulesDamageDivideFreely:
+		return mode, true
+	default:
+		return "", false
+	}
+}
+
+func validRulesDamageDistribution(targets []protocol.RulesPromptDamageTarget, totalDamage int, mode string,
 	assignments []protocol.RulesPromptDamageAssignment) bool {
-	if totalDamage < 0 || len(assignments) != len(targets) {
+	mode, supported := rulesDamageAssignmentMode(mode)
+	if !supported || totalDamage < 0 || len(assignments) != len(targets) {
 		return false
 	}
 	assigned := make(map[string]int, len(assignments))
@@ -267,14 +279,24 @@ func validRulesDamageDistribution(targets []protocol.RulesPromptDamageTarget, to
 		return false
 	}
 	laterDamage := 0
+	defenderDamage := 0
 	for index := len(targets) - 1; index >= 0; index-- {
 		target := targets[index]
 		damage, exists := assigned[target.ResponseID]
 		if !exists {
 			return false
 		}
-		if laterDamage > 0 && target.LethalDamage >= 0 && damage < target.LethalDamage {
+		gatedDamage := laterDamage
+		if mode == protocol.RulesDamageUnordered {
+			gatedDamage = defenderDamage
+		} else if mode == protocol.RulesDamageDivideFreely {
+			gatedDamage = 0
+		}
+		if gatedDamage > 0 && target.LethalDamage >= 0 && damage < target.LethalDamage {
 			return false
+		}
+		if target.LethalDamage == -1 {
+			defenderDamage += damage
 		}
 		laterDamage += damage
 	}

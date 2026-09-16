@@ -5,12 +5,51 @@ package server
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
 )
+
+func TestForgeStackTargetsJoinOnlyViewerObjects(t *testing.T) {
+	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 1, 1: 0}}
+	view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",
+		Players: []forge.PlayerView{{ID: "player-0", Name: "Alice"}, {ID: "player-1", Name: "Bob"}},
+		Zones: []forge.ZoneView{{Zone: "battlefield", OwnerID: "player-0", Cards: []forge.CardView{
+			{ID: "same-name-1", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Bear"}},
+			{ID: "same-name-2", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Bear"}},
+			{ID: "face-down", Visibility: "hidden", Identity: &forge.CardIdentityView{Name: "PRIVATE"}},
+		}}},
+		Stack: []forge.StackObjectView{
+			{ID: "counter", ControllerID: "player-1", Identity: forge.CardIdentityView{Name: "Counterspell"}, Targets: []forge.StackTargetView{
+				{Kind: "spell", ID: "spell"}, {Kind: "card", ID: "same-name-2"}, {Kind: "player", ID: "player-0"},
+				{Kind: "card", ID: "face-down"}, {Kind: "card", ID: "private-hand"}, {Kind: "spell", ID: "departed-spell"},
+				{Kind: "card", ID: "same-name-2"}, {Kind: "player", ID: "player-9"}, {Kind: "unknown", ID: "same-name-1"},
+			}},
+			{ID: "spell", ControllerID: "player-0"},
+		}}
+	snapshot, err := normalizeForgeSnapshot("ROOM", game, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seat := 1
+	want := []protocol.RulesStackTarget{{Kind: "spell", ObjectID: "spell"}, {Kind: "card", ObjectID: "same-name-2", Label: "Bear"},
+		{Kind: "player", Seat: &seat, Label: "Alice"}, {Kind: "card", ObjectID: "face-down"}}
+	if !reflect.DeepEqual(snapshot.Stack[0].Targets, want) {
+		t.Fatalf("unsafe or incorrect stack relationships: %#v", snapshot.Stack[0].Targets)
+	}
+	if snapshot.Stack[0].ID != "counter" || snapshot.Stack[1].ID != "spell" {
+		t.Fatal("projection reordered the native top-first stack")
+	}
+	data, _ := json.Marshal(snapshot.Stack)
+	for _, secret := range []string{"PRIVATE", "private-hand", "departed-spell", "player-0", "player-9"} {
+		if strings.Contains(string(data), secret) {
+			t.Fatalf("stack relationship leaked %q", secret)
+		}
+	}
+}
 
 func TestForgeSpectatorHandPermissionDoesNotExtendOtherPrivateZones(t *testing.T) {
 	public := protocol.RulesGameSnapshot{RoomID: "ROOM", GameID: "game-1",
@@ -91,5 +130,31 @@ func TestForgeSnapshotUsesRulesTablePhaseKeys(t *testing.T) {
 			}
 			assertNormalizedRulesWireArrays(t, envelope)
 		})
+	}
+}
+
+func TestForgeCommanderHistoryCannotRevealHiddenObject(t *testing.T) {
+	view := forge.GameView{Zones: []forge.ZoneView{{Zone: "command", Cards: []forge.CardView{
+		{ID: "visible", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Commander"}},
+		{ID: "anonymous", Visibility: "visible", Identity: &forge.CardIdentityView{}},
+	}}}}
+	for _, test := range []struct{ id, zone, expected string }{
+		{"visible", "command", "visible"}, {"anonymous", "command", ""},
+		{"private", "library", ""}, {"visible", "hand", ""},
+	} {
+		input := []forge.CommanderView{{Name: "Commander", Casts: 2, Tax: 4, Zone: test.zone, ObjectID: test.id},
+			{Name: "Partner", Casts: 0, Tax: 0, Zone: "hidden"}}
+		result := projectedRulesCommanders(input, view)
+		if len(result) != 2 || result[0].Casts != 2 || result[0].Tax != 4 || result[1].Tax != 0 || result[0].ObjectID != test.expected {
+			t.Fatalf("commander projection = %+v", result)
+		}
+		if test.expected == "" && result[0].Zone != "hidden" {
+			t.Fatal("hidden object location leaked")
+		}
+	}
+	view.Stack = []forge.StackObjectView{{SourceID: "spell", Identity: forge.CardIdentityView{Name: "Commander"}}}
+	result := projectedRulesCommanders([]forge.CommanderView{{Name: "Commander", Casts: 3, Tax: 6, Zone: "stack", ObjectID: "spell"}}, view)
+	if result[0].Zone != "stack" || result[0].ObjectID != "spell" {
+		t.Fatal("public stack commander link lost")
 	}
 }

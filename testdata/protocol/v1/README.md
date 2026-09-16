@@ -52,13 +52,19 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-snapshot-owner.json` | S -> C | Owner sees their seven private hand identities and only opponent counts |
 | `game-snapshot-opponent.json` | S -> C | Opponent gets their own hand while Alice's hand identities remain absent |
 | `rules-snapshot-owner.json` | S -> C | Normalized Forge projection with seat-mapped players and viewer-authorized card identities |
-| `rules-prompt.json` / `rules-prompt-reveal.json` / `rules-prompt-scry.json` / `rules-prompt-damage-order.json` / `rules-prompt-damage-assignment.json` / `rules-prompt-replacement.json` / `rules-respond.json` / `rules-respond-scry.json` / `rules-respond-damage-order.json` / `rules-respond-damage-assignment.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choices, including private card disclosure, scry ordering, combat-damage assignment, and read-only replacement-effect context, stable response ids, and identity-free acknowledgements |
+| `rules-snapshot-stack-targets.json` | S -> C | Top-first stack with exact spell, player, duplicate-name card and anonymous permanent target relationships |
+| `rules-prompt.json` / `rules-prompt-auto-pass.json` / `rules-prompt-board-targets.json` / `rules-prompt-reveal.json` / `rules-prompt-scry.json` / `rules-prompt-damage-order.json` / `rules-prompt-damage-assignment.json` / `rules-prompt-replacement.json` / `rules-respond.json` / `rules-respond-scry.json` / `rules-respond-damage-order.json` / `rules-respond-damage-assignment.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choices, including private card disclosure, scry ordering, combat-damage assignment, and read-only replacement-effect context, stable response ids, and identity-free acknowledgements |
+| `rules-prompt-damage-unordered.json` / `rules-prompt-damage-dividefreely.json` | server | Native damage constraints permit blocker splits or the explicit divide-freely exception; defender lethal requirements remain mode-specific |
+| `rules-prompt-multiple-blocks.json` / `rules-respond-multiple-blocks.json` | both | Native per-blocker capacities and distinct source-target pairs allow one blocker to block multiple attackers without exposing engine response ids |
+| `rules-prompt-attack-defenders.json` | S -> C | Opaque attack destinations join visible planeswalkers and authenticated player seats for direct table selection |
+| `rules-prompt-card-name.json` / `rules-respond-card-name.json` | both | Free-text public card naming, validated by Forge against the effect's complete legal candidate set without deriving candidates from private zones |
 | `game-draw.json` / `game-drawn.json` | both | Bounded multi-card draw request and identity-free acknowledgement |
 | `game-return-to-room.json` / `game-returned-to-room.json` | both | End completed-match review and restore the room waiting flow |
 | `game-shuffle-library.json` / `game-library-shuffled.json` | both | Shuffle the acting player's hidden library with an identity-free acknowledgement |
 | `game-mulligan.json` / `game-mulliganed.json` | both | Manual mulligan request and resulting public hand-size/count acknowledgement |
 | `game-discard-hand.json` / `game-hand-discarded.json` | both | Server-random single-card or atomic whole-hand discard with an identity-free acknowledgement |
 | `game-move-card.json` / `game-card-moved.json` | both | Move a card with explicit source/target seats; a remote public source uses the consent exchange below, while library destinations may use top/index/bottom placement |
+| `game-move-card-face-down-exile.json` | C -> S | Exile the unknown library top face down without requesting its identity |
 | `game-public-zone-move-pending.json` / `game-public-zone-move-requested.json` / `game-respond-public-zone-move.json` / `game-public-zone-move-responded.json` | both | One-use source-player consent for an exact move out of another player's graveyard or exile |
 | `game-arrange-battlefield.json` / `game-battlefield-arranged.json` | both | Atomically update normalized positions for existing permanents on the acting player's battlefield |
 | `game-move-cards.json` / `game-cards-moved.json` | both | Atomic ordered/random battlefield multi-selection move |
@@ -88,7 +94,7 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-set-face-down.json` / `game-face-down-set.json` | both | Owner/controller toggles persistent battlefield redaction without echoing identity |
 | `tournament-*.json` | both | Hub-local tournament discovery, registration, Swiss rounds, results, pairing rooms, and public standings |
 | `limited-*.json` | both | Private draft picks, reconnectable pool/deck-building projection, and identity-free limited acknowledgements |
-| `game-snapshot-face-down-owner.json` / `game-snapshot-face-down-spectator.json` | S -> C | Owner retains a face-down identity while uninformed viewers receive only public instance state |
+| `game-snapshot-face-down-owner.json` / `game-snapshot-face-down-spectator.json` | S -> C | Battlefield controller retains a face-down identity; face-down exile is redacted even for its owner |
 | `game-declare-draw.json` / `game-draw-declared.json` | both | A no-winner game result with unchanged series score |
 | `game-restart.json` / `game-restarted.json` | both | Host rebuilds the same game while preserving score and starting seat |
 | `game-roll.json` / `game-rolled.json` | both | Public bounded server-generated dice results |

@@ -1,0 +1,385 @@
+diff --git a/forge-game/src/main/java/forge/game/GameAction.java b/forge-game/src/main/java/forge/game/GameAction.java
+index aeefd9bdc3b397997a5e0622211b8e82f1216b68..b4b63b4d924377a74c7fe172c31d1cdf25529e6a 100644
+--- a/forge-game/src/main/java/forge/game/GameAction.java
++++ b/forge-game/src/main/java/forge/game/GameAction.java
+@@ -334,6 +334,13 @@ public class GameAction {
+             ReplacementResult repres = game.getReplacementHandler().run(ReplacementType.Moved, repParams);
+             copied.getOwner().removeInboundToken(copied);
+ 
++            // CR 800.4a: a concession during an ETB choice removed the object.
++            // Do not finish the suspended zone change and recreate that object.
++            if (!copied.getOwner().isInGame()) {
++                cleanStaticEffect(staticEff, copied);
++                return c;
++            }
++
+             if (repres != ReplacementResult.NotReplaced && repres != ReplacementResult.Updated) {
+                 // reset failed manifested Cards back to original
+                 if ((c.isManifested() || c.isCloaked()) && !c.isInPlay()) {
+diff --git a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
+index 0e8e291c0bb807f9e5e628a4fa05d11919edd3df..c670a3ea94b6ec0489f9636a34bdae60f409e8ef 100644
+--- a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
++++ b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
+@@ -1300,7 +1300,17 @@ public class AbilityUtils {
+         if (sa == null) {
+             return;
+         }
++        try {
++            resolveAvailableAbility(sa);
++        } catch (forge.game.player.PlayerController.PlayerDecisionCancelled cancelled) {
++            // Nested/repeated effects must unwind the entire removed object.
++            if (sa.getParent() != null || !cancelled.canAbandon(sa)) {
++                throw cancelled;
++            }
++        }
++    }
+ 
++    private static void resolveAvailableAbility(final SpellAbility sa) {
+         Player pl = sa.getActivatingPlayer();
+         final Game game = pl.getGame();
+ 
+diff --git a/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java b/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
+index a61fd39d90fd8054b90294609f373aae670ebf79..e6df23bf6695b45d41550433c10ca282e8d7121d 100644
+--- a/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
++++ b/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
+@@ -73,6 +73,7 @@ public class BackupPlanService {
+         }
+ 
+         player.resetExtraZones(ZoneType.ExtraHand);
++        player.shuffle(null);
+         player.updateZoneForView(player.getZone(ZoneType.Hand));
+     }
+ }
+diff --git a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java b/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
+index 838c73f239a290cea8525d36ee281480f28d44fb..8b8f44751f32106d715e2f5a1907a4c73fa14cce 100644
+--- a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
++++ b/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
+@@ -1051,17 +1051,21 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
+                     // state-based effects check could lead to game over
+                     return;
+                 }
++                // CR 800.4a/j: never request priority from a player who left
++                // during resolution or a state-based action.
++                if (!pPlayerPriority.isInGame()) {
++                    Player next = game.getNextPlayerAfter(pPlayerPriority);
++                    if (next == null) { return; }
++                    pPlayerPriority = next;
++                    if (!pFirstPriority.isInGame()) { pFirstPriority = next; }
++                }
+                 game.stashGameState();
+ 
+                 chosenSa = pPlayerPriority.getController().chooseSpellAbilityToPlay();
+ 
+-                // this needs to come after chosenSa so it sees you conceding on own turn
+-                if (playerTurn.hasLost() && pPlayerPriority.equals(playerTurn) && pFirstPriority.equals(playerTurn)) {
+-                    // If the active player has lost, and they have priority, set the next player to have priority
+-                    System.out.println("Active player is no longer in the game...");
+-                    pPlayerPriority = game.getNextPlayerAfter(getPriorityPlayer());
+-                    pFirstPriority = pPlayerPriority;
+-                }
++                // A concession while this input was open is not a pass by
++                // its successor. Ask that successor before advancing priority.
++                if (!pPlayerPriority.isInGame()) { continue; }
+ 
+                 if (chosenSa == null) {
+                     break; // that means 'I pass'
+diff --git a/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java b/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java
+index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..c23610f8725190bb2c5f4b24509c032c1f47e4d8 100644
+--- a/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java
++++ b/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java
+@@ -17,6 +17,8 @@
+  */
+ package forge.game.player;
+ 
++import forge.game.player.PlayerController.PlayerDecisionCancelled;
++
+ import com.google.common.collect.Iterables;
+ import forge.card.CardStateName;
+ import forge.card.CardType;
+@@ -118,6 +120,9 @@ public class PlaySpellAbility {
+ 
+         final PlaySpellAbility req = new PlaySpellAbility(controller, sa);
+         if (!req.playAbility(true, false, false)) {
++            if (!p.isInGame() || !source.getOwner().isInGame()) {
++                return false;
++            }
+             if (!controller.getGame().EXPERIMENTAL_RESTORE_SNAPSHOT) {
+                 Card rollback = p.getGame().getCardState(source);
+                 if (castFaceDown) {
+@@ -579,6 +584,27 @@ public class PlaySpellAbility {
+     }
+ 
+     public final boolean playAbility(final boolean mayChooseTargets, final boolean isFree, final boolean skipStack) {
++        final Player player = ability.getActivatingPlayer();
++        final Game game = player.getGame();
++        final boolean wasFrozen = game.getStack().isFrozen();
++        try {
++            return playAvailableAbility(mayChooseTargets, isFree, skipStack);
++        } catch (PlayerDecisionCancelled cancelled) {
++            if (!cancelled.canAbandon(ability)) {
++                throw cancelled;
++            }
++            // Their cards already left under CR 800.4a; rolling the cast back
++            // would recreate them. Only release the native transaction state.
++            game.clearTopLibsCast(ability);
++            if (!wasFrozen) {
++                game.getStack().unfreezeStack();
++            }
++            player.getManaPool().restoreColorReplacements();
++            return false;
++        }
++    }
++
++    private boolean playAvailableAbility(final boolean mayChooseTargets, final boolean isFree, final boolean skipStack) {
+         final Player player = ability.getActivatingPlayer();
+         final Game game = player.getGame();
+         boolean refreeze = game.getStack().isFrozen();
+diff --git a/forge-game/src/main/java/forge/game/player/PlayerController.java b/forge-game/src/main/java/forge/game/player/PlayerController.java
+index 192ef8737ecd645b75d50782693d5eab948d43a7..3260ed5850a4d0099a43224b01504c12de9f5fa2 100644
+--- a/forge-game/src/main/java/forge/game/player/PlayerController.java
++++ b/forge-game/src/main/java/forge/game/player/PlayerController.java
+@@ -49,6 +49,56 @@ import java.util.stream.Collectors;
+  */
+ public abstract class PlayerController {
+ 
++    /** Abandons a decision only after its player and controlling object left the game. */
++    public static final class PlayerDecisionCancelled extends java.util.concurrent.CancellationException {
++        private final Player player;
++        private final SpellAbility ability;
++
++        public PlayerDecisionCancelled(Player player, SpellAbility ability) {
++            super("The deciding player left the game");
++            if (player == null || player.isInGame() || ability == null) {
++                throw new IllegalArgumentException("Only a departed player's object decision can be abandoned");
++            }
++            this.player = player;
++            this.ability = ability;
++        }
++
++        public boolean canAbandon(SpellAbility current) {
++            if (player.isInGame() || current == null || current.getHostCard().getGame() != player.getGame()) {
++                return false;
++            }
++            // CR 800.4a removes every spell/ability controlled by the departing player.
++            // Replacement abilities of their departed permanents cease with the object.
++            return ability.getActivatingPlayer() == player && current.getActivatingPlayer() == player
++                || ability.getRootAbility().isSpell() && ability.getHostCard().getOwner() == player
++                    && current.getRootAbility() == ability.getRootAbility()
++                || ability == current && current.isReplacementAbility() && current.getHostCard().getOwner() == player;
++        }
++    }
++
++    /** CR 800.4g: the object's controller explicitly chooses the replacement. */
++    public final Player choosePlayerForDepartedDecision(SpellAbility ability, Player departed) {
++        if (departed.isInGame() || !player.isInGame() || ability.getActivatingPlayer() != player) {
++            throw new IllegalArgumentException("A departed player's choice requires its surviving object controller");
++        }
++        while (player.isInGame()) {
++            forge.util.collect.FCollection<Player> choices = new forge.util.collect.FCollection<>(getGame().getPlayers());
++            if (departed.isOpponentOf(player)) {
++                forge.util.collect.FCollection<Player> opponents = new forge.util.collect.FCollection<>();
++                for (Player candidate : choices) {
++                    if (candidate.isOpponentOf(player)) { opponents.add(candidate); }
++                }
++                if (!opponents.isEmpty()) { choices = opponents; }
++            }
++            Player chosen = chooseSingleEntityForEffect(choices, ability,
++                    "Choose a player to make the departed player's choice", Map.of());
++            if (player.isInGame() && chosen != null && chosen.isInGame()) { return chosen; }
++            // A candidate can leave while the native choice is open. Ask again
++            // from the surviving set rather than continuing with that player.
++        }
++        throw new PlayerDecisionCancelled(player, ability);
++    }
++
+     public enum BinaryChoiceType {
+         HeadsOrTails, // coin
+         TapOrUntap,
+diff --git a/forge-game/src/main/java/forge/game/zone/MagicStack.java b/forge-game/src/main/java/forge/game/zone/MagicStack.java
+index 35ea040cc89fd8105635f3426031a44bfaa117c5..ef68d3bb09c7b836f526d165a77c1f5d0544f732 100644
+--- a/forge-game/src/main/java/forge/game/zone/MagicStack.java
++++ b/forge-game/src/main/java/forge/game/zone/MagicStack.java
+@@ -615,6 +615,20 @@ public class MagicStack /* extends MyObservable */ implements Iterable<SpellAbil
+         } else if (sa.getApi() != null) {
+             AbilityUtils.handleRemembering(sa);
+             AbilityUtils.resolve(sa);
++            if (getInstanceMatchingSpellAbilityID(sa) == null
++                    && (!sa.getActivatingPlayer().isInGame() || !source.getOwner().isInGame())) {
++                // A concession removed this object during a synchronous choice.
++                // Release resolution state without publishing a fabricated resolution.
++                if (sa.getControlledByPlayer() != null) {
++                    sa.getActivatingPlayer().removeController(sa.getControlledByPlayer().getLeft());
++                    sa.setControlledByPlayer(-1, null);
++                    sa.setManaCostBeingPaid(null);
++                }
++                game.getAction().checkStaticAbilities();
++                finishResolving(sa, false);
++                game.copyLastState();
++                return;
++            }
+             final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(source);
+             runParams.put(AbilityKey.SpellAbility, sa);
+             game.getTriggerHandler().runTrigger(TriggerType.AbilityResolves, runParams, false);
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java
+index 5932059d5d752a06a1e817a921067a7fac779f34..a5bb20155d86c0190fbf90c709f44102c3f2ad8f 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java
+@@ -125,6 +125,9 @@ public class InputLondonMulligan extends InputSyncronizedBase {
+         return true;
+     }
+ 
++    /** Number of cards required by the native London mulligan. */
++    public int getCardsToReturn() { return toReturn; }
++
+     public CardCollectionView getSelectedCards() {
+         return selected;
+     }
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
+index 7350155fab629d2bb38a71c032599258a2c53c5b..03eb0badd40c575749b5cc6c58fd0f18f42ed8e1 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
+@@ -357,6 +357,11 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+         return true;
+     }
+ 
++    /** Read-only metadata for remote renderers of this native payment input. */
++    public final String getUnpaidManaCost() { return manaCost.toString(); }
++    public final boolean isPaymentActionPending() { return locked; }
++    public final boolean supportsAutomaticPayment() { return supportAutoPay(); }
++
+     protected boolean isAlreadyPaid() {
+         if (manaCost.isPaid()) {
+             bPaid = true;
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
+index 73926b484fe4aaf3905348a945d9c67cacc37fe1..3de28a856190d8146b78561db8201ed98f2fe838 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
+@@ -40,10 +40,17 @@ public class InputPayManaOfCostPayment extends InputPayMana {
+     private static final long serialVersionUID = 3467312982164195091L;
+     private ManaConversionMatrix extraMatrix;
+ 
++    /** Whether the native life-total click can pay one remaining mana symbol. */
++    public final boolean canPayLifeForMana() {
++        return player.canPayLife(this.phyLifeToLose + 2, this.effect, saPaidFor)
++                && (manaCost.containsPhyrexianMana()
++                || player.hasKeyword("PayLifeInsteadOf:B") && manaCost.hasAnyKind(ManaAtom.BLACK));
++    }
++
+     @Override
+     protected final void onPlayerSelected(Player selected, final ITriggerEvent triggerEvent) {
+         if (player == selected) {
+-            if (player.canPayLife(this.phyLifeToLose + 2, this.effect, saPaidFor)) {
++            if (canPayLifeForMana()) {
+                 if (manaCost.payPhyrexian()) {
+                     saPaidFor.setSpendPhyrexianMana(true);
+                     this.phyLifeToLose += 2;
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
+index 39afa242b1e681dc1d7a30eba0eacbaa19313775..e4904d9e63c7202f87b59be752a0000c20a847ff 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
+@@ -133,6 +133,9 @@ public final class InputSelectCardsForConvokeOrImprovise extends InputSelectMany
+         return null;
+     }
+ 
++    /** Candidates already selected by the native cost adjustment. */
++    public CardCollectionView getAvailableCards() { return availableCards; }
++
+     public Map<Card, ManaCostShard> getConvokeMap() {
+         if (hasCancelled()) {
+             return Maps.newHashMap();
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectTargets.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectTargets.java
+index ca152203513a86cc725dbdc9ce002ada74d1f595..63a632180a364cb0025dc28895eb22e778d6fae9 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectTargets.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectTargets.java
+@@ -44,6 +44,22 @@ public final class InputSelectTargets extends InputSyncronizedBase {
+     private boolean mustTargetFiltered;
+     private static final long serialVersionUID = -1091595663541356356L;
+ 
++    /** Card candidates already supplied by the native target setup. */
++    public List<Card> getSelectableCards() { return java.util.Collections.unmodifiableList(choices); }
++
++    /** Uses the same native player-target predicates as the input action. */
++    public List<Player> getSelectablePlayers() {
++        return getController().getGame().getPlayers().stream()
++                .filter(p -> targets.contains(p) || canSelectPlayer(p)).toList();
++    }
++
++    private boolean canSelectPlayer(final Player player) {
++        return !player.hasLost()
++                && !(sa.isSpell() && sa.getHostCard().isAura() && !player.canBeAttached(sa.getHostCard(), sa))
++                && sa.canTarget(player) && !mustTargetFiltered
++                && (filter == null || filter.test(player));
++    }
++
+     public boolean hasCancelled() { return bCancel; }
+     public boolean hasPressedOk() { return bOk; }
+ 
+@@ -337,21 +353,7 @@ public final class InputSelectTargets extends InputSyncronizedBase {
+             return;
+         }
+ 
+-        if (player.hasLost()) {
+-            showMessage(sa.getHostCard() + " - Cannot target this player - already lost.");
+-            return;
+-        }
+-
+-        //TODO return the correct reason to display
+-        if (sa.isSpell() && sa.getHostCard().isAura() && !player.canBeAttached(sa.getHostCard(), sa)) {
+-            showMessage(sa.getHostCard() + " - Cannot enchant this player (Hexproof? Protection? Restrictions?).");
+-            return;
+-        }
+-        if (!sa.canTarget(player) || mustTargetFiltered) {
+-            showMessage(sa.getHostCard() + " - Cannot target this player (Hexproof? Protection? Restrictions?).");
+-            return;
+-        }
+-        if (filter != null && !filter.test(player)) {
++        if (!canSelectPlayer(player)) {
+             showMessage(sa.getHostCard() + " - Cannot target this player (Hexproof? Protection? Restrictions?).");
+             return;
+         }
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java
+index 014cb5db0f6986ef9641f823784c2a42840a993f..20955e4cf7f2363ec6823b8d3c49fe9f92e9df04 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java
+@@ -17,6 +17,11 @@ public abstract class InputSyncronizedBase extends InputBase implements InputSyn
+         cdlDone = new CountDownLatch(1);
+     }
+ 
++    /** True while this input's native game-thread wait has not been released. */
++    public final boolean isAwaitingInput() {
++        return cdlDone.getCount() != 0;
++    }
++
+     @Override
+     public void awaitLatchRelease() {
+         FThreads.assertExecutedByEdt(false);
+diff --git a/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java b/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java
+index dac033fdecf85bfba545db44f66a615e268418f4..370bbf60c5f77913b5e68649a772b275010a3a84 100644
+--- a/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java
++++ b/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java
+@@ -59,8 +59,14 @@ public class ForgeProfileProperties {
+     public static void load(boolean isUsingAppDirectory) {
+         final Properties props = new Properties();
+         final File propFile = new File(ForgeConstants.PROFILE_FILE);
++        // A remote host may isolate each game process without changing the
++        // shared assets profile or relying on platform-specific home variables.
++        final String processProfile = System.getProperty("forge.processProfile");
+         try {
+-            if (propFile.canRead() && !isUsingAppDirectory) {
++            if (processProfile != null) {
++                props.setProperty(USER_DIR_KEY, new File(processProfile, "data").getAbsolutePath());
++                props.setProperty(CACHE_DIR_KEY, new File(processProfile, "cache").getAbsolutePath());
++            } else if (propFile.canRead() && !isUsingAppDirectory) {
+                 props.load(Files.newInputStream(propFile.toPath()));
+             }
+         } catch (final IOException e) {
+@@ -204,6 +210,9 @@ public class ForgeProfileProperties {
+     }
+ 
+     private static void save() {
++        if (System.getProperty("forge.processProfile") != null) {
++            return; // Process-local paths must never modify shared assets.
++        }
+         final Pair<String, String> defaults = getDefaultDirs();
+         final String defaultUserDir = defaults.getLeft() + File.separator;
+         final String defaultDecksDir = defaultUserDir + "decks" + File.separator;

@@ -71,6 +71,7 @@ TestCase {
     }
 
     SignalSpy { id: customArtSpy; target: collection; signalName: "customArtRequested" }
+    CardFilterState { id: creatureFilter; types: ["Creature"] }
 
     function init() {
         testTranslations.setLanguage("en")
@@ -105,6 +106,13 @@ TestCase {
     }
 
     function cleanup() {
+        // Release both virtualized views before the test engine is destroyed.
+        // The large-deck cases can leave buffered delegates incubating after
+        // their final assertion, even when all visible rows already exist.
+        collection.cards = []
+        collection.viewModeIndex = 0
+        waitForPolish(testWindow)
+        tryCompare(findChild(collection, "mainDeckList"), "count", 0)
         testTranslations.setLanguage("en")
     }
 
@@ -129,6 +137,33 @@ TestCase {
         compare(collection.groups[1].label, "Instants (5)")
     }
 
+    function test_localizedSubtypesAndBackFacesDoNotBecomeLandGroups() {
+        collection.cards = [
+            {name: "Oswald Fiddlebender", displayName: "Oswald Fiddlebender",
+             typeLine: "传奇生物 ～地侏／神器师", setCode: "AFR", collectorNumber: "28",
+             count: 1, manaValue: 2, colors: "W"},
+            {name: "Esper Sentinel", displayName: "Esper Sentinel",
+             typeLine: "神器生物～人类／士兵", setCode: "MH2", collectorNumber: "12",
+             count: 1, manaValue: 1, colors: "W"},
+            {name: "Test front // Test back", displayName: "Test front // Test back", typeLine: "瞬间//地",
+             setCode: "TST", collectorNumber: "1", count: 1, manaValue: 2, colors: "W"},
+            {name: "Island", displayName: "Island", typeLine: "基本地～海岛", setCode: "TST", collectorNumber: "2",
+             count: 5, manaValue: 0, colors: "U"}
+        ]
+        const expectedCreatures = ["Esper Sentinel", "Oswald Fiddlebender"]
+        compare(creatureFilter.filter(collection.cards).map(card => card.name).sort(), expectedCreatures)
+        compare(collection.groups.map(group => group.key), ["Creatures", "Instants", "Lands"])
+        compare(collection.groups[0].cards.map(card => card.name).sort(), expectedCreatures,
+                "Type grouping must agree with the local Creature filter")
+        compare(collection.groups[0].label, "Creatures (2)")
+        compare(collection.groups[1].cards[0].name, "Test front // Test back")
+        compare(collection.groups[2].label, "Lands (5)")
+        collection.groupModeIndex = 1
+        compare(collection.groups.map(group => group.key), ["mana-1", "mana-2", "mana-land"])
+        compare(collection.groups[1].cards.length, 2)
+        compare(collection.groups[2].cards.map(card => card.name), ["Island"])
+    }
+
     function test_manaGroupingAndSorting() {
         collection.groupModeIndex = 1
         collection.sortModeIndex = 1
@@ -142,31 +177,169 @@ TestCase {
     function test_visualModeIsAvailable() {
         collection.viewModeIndex = 1
         compare(collection.viewModeIndex, 1)
-        tryVerify(() => findChild(collection, "groupedDeckGallery") !== null
-                         && findChild(collection, "largeDeckGallery") === null)
+        tryVerify(() => findChild(collection, "groupedDeckGallery") !== null)
     }
 
-    function test_largeVisualModeUsesVirtualizedGallery() {
+    function makeCards(count) {
         const cards = []
-        for (let index = 0; index < 1000; ++index) {
-            cards.push({
-                "name": "Cube Card " + index,
-                "displayName": "Cube Card " + index,
-                "category": "Other",
-                "typeLine": "",
-                "count": 1,
-                "manaValue": -1,
-                "setCode": "TST",
-                "collectorNumber": String(index),
-                "commander": false
-            })
+        for (let index = 0; index < count; ++index) {
+            cards.push({name: "Cube Card " + String(index).padStart(4, "0"),
+                        displayName: "Cube Card " + String(index).padStart(4, "0"),
+                        category: "Other", typeLine: "", count: 1, manaValue: -1,
+                        setCode: "TST", collectorNumber: String(index), commander: false})
         }
+        return cards
+    }
+
+    function visualCards(item) {
+        let result = []
+        if (item.card && typeof item.incrementRequested === "function")
+            result.push(item)
+        for (const child of item.children || [])
+            result = result.concat(visualCards(child))
+        return result
+    }
+
+    function test_visualModeOnlyCreatesViewportCards_data() {
+        return [{tag: "EDH", count: 100}, {tag: "old threshold", count: 240},
+                {tag: "Cube", count: 960}, {tag: "maximum entries", count: 5000}]
+    }
+
+    function test_visualModeOnlyCreatesViewportCards(data) {
+        collection.cards = makeCards(data.count)
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(gallery !== null)
+        waitForPolish(testWindow)
+        waitForRendering(gallery)
+        compare(gallery.count, Math.ceil(data.count / gallery.columns))
+        const maximumDelegates = gallery.columns * (Math.ceil(gallery.height / Theme.size(380)) + 4)
+        verify(visualCards(gallery).length <= maximumDelegates,
+               "Only viewport rows and a bounded scroll buffer should instantiate card controls")
+        compare(findChild(collection, "mainDeckList").count, 0,
+                "The hidden list must not instantiate a second copy of the deck")
+        gallery.positionViewAtEnd()
+        waitForPolish(testWindow)
+        tryVerify(() => findCardDelegate(gallery, "TST", String(data.count - 1)) !== null)
+        verify(visualCards(gallery).length <= maximumDelegates)
+        collection.viewModeIndex = 0
+        tryVerify(() => findChild(collection, "groupedDeckGallery") === null, 5000,
+                  "The hidden gallery should release its card controls")
+    }
+
+    function test_groupedRowsPreserveCategoriesAndEveryPrinting() {
+        collection.cards = makeCards(100).concat(testCase.defaultCards)
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(gallery !== null)
+        waitForPolish(testWindow)
+        const rows = collection.galleryRows(gallery.columns)
+        compare(rows[0].groupKey, "Creatures")
+        compare(rows[1].groupKey, "Instants")
+        compare(rows[2].groupKey, "Other")
+        const allCards = [].concat.apply([], rows.map(row => row.cards))
+        compare(allCards.length, 104)
+        compare(allCards.filter(card => card.name === "Lightning Bolt").length, 2)
+        compare(collection.groupTitle("Instants"), "Instants (5)")
+    }
+
+    function firstVisibleCard(view) {
+        const rows = Array.from(view.contentItem.children).filter(item => item.visible
+            && (item.card || item.row) && item.y + item.height > view.contentY
+            && item.y < view.contentY + view.height).sort((a, b) => a.y - b.y)
+        verify(rows.length > 0)
+        const row = rows[0]
+        const card = row.card || row.row.cards[0]
+        return {identity: [card.name, card.setCode, card.collectorNumber],
+                offset: row.y - view.contentY}
+    }
+
+    function test_viewSwitchRestoresReleasedViewport_data() {
+        return [{tag: "gallery middle", view: 1, bottom: false},
+                {tag: "gallery bottom", view: 1, bottom: true},
+                {tag: "list middle", view: 0, bottom: false},
+                {tag: "list bottom", view: 0, bottom: true}]
+    }
+
+    function test_viewSwitchRestoresReleasedViewport(data) {
+        collection.cards = makeCards(100).map((card, index) => Object.assign({}, card, {
+            typeLine: ["Creature", "Instant", "Sorcery", "Land"][Math.floor(index / 25)]}))
+        collection.viewModeIndex = data.view
+        const viewName = data.view === 1 ? "groupedDeckGallery" : "mainDeckList"
+        let view = findChild(collection, viewName)
+        waitForPolish(testWindow)
+        if (data.bottom)
+            view.positionViewAtEnd()
+        else {
+            view.positionViewAtIndex(Math.floor(view.count / 2), ListView.Beginning)
+            view.contentY += Theme.size(17)
+        }
+        waitForPolish(testWindow)
+        waitForRendering(view)
+        const firstCard = firstVisibleCard(view)
+        findChild(collection, "deckEditorViewMode").activated(1 - data.view)
+        waitForPolish(testWindow)
+        waitForRendering(findChild(collection, data.view === 1 ? "mainDeckList" : "groupedDeckGallery"))
+        findChild(collection, "deckEditorViewMode").activated(data.view)
+        view = findChild(collection, viewName)
+        verify(view !== null)
+        wait(50)
+        const restoredCard = firstVisibleCard(view)
+        compare(restoredCard.identity, firstCard.identity)
+        compare(restoredCard.offset, firstCard.offset)
+        if (data.bottom)
+            tryVerify(() => findCardDelegate(view, "TST", "99") !== null)
+    }
+
+    function test_restoringAfterFilteringKeepsShortViewWithinBounds_data() {
+        return [{tag: "list", view: 0}, {tag: "gallery", view: 1}]
+    }
+
+    function test_restoringAfterFilteringKeepsShortViewWithinBounds(data) {
+        const cards = makeCards(100)
+        collection.cards = cards
+        collection.viewModeIndex = data.view
+        const name = data.view === 1 ? "groupedDeckGallery" : "mainDeckList"
+        let view = findChild(collection, name)
+        waitForPolish(testWindow)
+        view.positionViewAtIndex(Math.floor(view.count / 2), ListView.Beginning)
+        view.contentY += Theme.size(17)
+        waitForPolish(testWindow)
+        waitForRendering(view)
+        findChild(collection, "deckEditorViewMode").activated(1 - data.view)
+        collection.cards = cards.slice(0, 3)
+        waitForPolish(testWindow)
+        waitForRendering(findChild(collection, data.view === 1 ? "mainDeckList" : "groupedDeckGallery"))
+        findChild(collection, "deckEditorViewMode").activated(data.view)
+        view = findChild(collection, name)
+        wait(50)
+        verify(view.contentHeight < view.height)
+        compare(view.contentY, view.originY)
+        compare(firstVisibleCard(view).identity, [cards[0].name, "TST", "0"])
+    }
+
+    function test_countUpdatePreservesScrolledViewportAndPrinting() {
+        const cards = makeCards(100)
         collection.cards = cards
         collection.viewModeIndex = 1
-
-        tryVerify(() => findChild(collection, "largeDeckGallery") !== null
-                         && findChild(collection, "groupedDeckGallery") === null)
-        waitForRendering(findChild(collection, "largeDeckGallery"))
+        const gallery = findChild(collection, "groupedDeckGallery")
+        waitForPolish(testWindow)
+        gallery.positionViewAtEnd()
+        waitForPolish(testWindow)
+        const contentY = gallery.contentY
+        const originalDelegate = findCardDelegate(gallery, "TST", "99")
+        verify(originalDelegate !== null)
+        fakeDeckLibrary.currentDeckCardsAboutToChange()
+        const updated = cards.slice()
+        updated[99] = Object.assign({}, cards[99], {count: 2})
+        collection.cards = updated
+        fakeDeckLibrary.currentDeckCardsChanged()
+        wait(50)
+        compare(gallery.contentY, contentY)
+        tryVerify(() => findCardDelegate(gallery, "TST", "99") !== null)
+        compare(findCardDelegate(gallery, "TST", "99"), originalDelegate)
+        compare(findCardDelegate(gallery, "TST", "99").card.count, 2)
+        compare(collection.groupTitle("Other"), "Other (101)")
     }
 
     function test_listButtonsForwardPrintingIdentity() {
@@ -244,10 +417,10 @@ TestCase {
         }
         collection.cards = cards
         collection.viewModeIndex = 1
-        const gallery = findChild(collection, "largeDeckGallery")
+        const gallery = findChild(collection, "groupedDeckGallery")
         verify(gallery !== null)
-        tryVerify(() => gallery.itemAtIndex(0) !== null)
-        const card = gallery.itemAtIndex(0)
+        tryVerify(() => findCardDelegate(gallery, "TST", "0") !== null)
+        const card = findCardDelegate(gallery, "TST", "0")
 
         card.incrementRequested()
         compare(fakeDeckLibrary.lastCountChange,

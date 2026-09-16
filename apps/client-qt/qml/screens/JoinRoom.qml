@@ -90,6 +90,7 @@ Page {
 
                 AppTextField {
                     id: roomCodeField
+                    objectName: "joinRoomCodeField"
                     Layout.fillWidth: true
                     implicitHeight: Theme.size(60)
                     placeholderText: "ABC123"

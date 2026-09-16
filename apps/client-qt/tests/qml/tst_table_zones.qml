@@ -269,6 +269,7 @@ TestCase {
         compare(mockWs.lastLibrarySearch.cardIds.length, 1)
         compare(mockWs.lastLibrarySearch.cardIds[0], "s0-top1")
         compare(mockWs.lastLibrarySearch.toZone, "library_bottom")
+        compare(mockWs.lastLibrarySearch.reveal, false)
         compare(mockWs.lastLibrarySearch.randomize, false)
         compare(mockWs.lastLibrarySearch.toSeat, 0)
         tryVerify(() => !popup.opened)

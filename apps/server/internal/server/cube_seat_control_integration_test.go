@@ -38,6 +38,9 @@ func TestCubeExplicitSeatControlAndWithdrawalOverWebSocket(t *testing.T) {
 			}
 			request := cubeRoomRequest(3)
 			request.EventType = eventType
+			if eventType == protocol.LimitedEventCommanderCube {
+				request.DraftSettings = &protocol.LimitedDraftSettings{PacksPerPlayer: 3, PacksPerBatch: 1}
+			}
 			request.Product.Sheets[0].Cards[0].Weight = 180
 			command(host, protocol.TypeTournamentCreate, request, protocol.TypeTournamentCreated)
 			for _, peer := range peers[1:3] {

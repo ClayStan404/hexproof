@@ -34,26 +34,40 @@ Page {
 
     background: AppBackground { }
 
-    RowLayout {
+    GridLayout {
         id: header
+        columns: 2
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.topMargin: Theme.size(22)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        spacing: Theme.size(16)
+        columnSpacing: Theme.size(16)
+        rowSpacing: Theme.size(8)
         ScreenHeader {
+            Layout.columnSpan: root.compactLayout ? 2 : 1
             Layout.fillWidth: true
             title: deckLibrary.currentDeckName.length > 0 ? deckLibrary.currentDeckName : qsTr("Deck editor")
             subtitle: qsTr("Changes save automatically")
             onBackRequested: root.closeEditor()
         }
 
+        AppButton {
+            objectName: "deckEditorQuickSearchButton"
+            visible: root.compactLayout
+            compact: true
+            leadingText: "⌕"
+            text: qsTr("Card search")
+            enabled: cardCatalog.installed
+            onClicked: root.openCardSearch("deck")
+        }
+
         AppComboBox {
             id: formatSelector
             objectName: "deckFormatSelector"
             Layout.preferredWidth: Theme.size(190)
+            Layout.alignment: Qt.AlignRight
             model: root.formatOptions
             textRole: "label"
             valueRole: "value"
@@ -149,6 +163,7 @@ Page {
                             }
 
                             StatusPill {
+                                objectName: "deckEditorStatus"
                                 maximumWidth: Math.min(Theme.size(220), mainSurface.width * 0.4)
                                 text: I18n.status(deckLibrary.currentStatus)
                                 statusColor: deckLibrary.currentReady
@@ -193,9 +208,9 @@ Page {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 compact: true
-                                text: qsTr("Cache art")
+                                text: qsTr("Cache deck art")
                                 enabled: deckLibrary.currentDeckId.length > 0
-                                         && !cardCatalog.busy
+                                         && !deckEditorCacheProgress.cacheActive
                                 onClicked: deckLibrary.cacheCurrentDeckArt()
                             }
 
@@ -226,6 +241,7 @@ Page {
                     }
 
                     CardCacheProgress {
+                        id: deckEditorCacheProgress
                         objectName: "deckEditorCacheProgress"
                         Layout.fillWidth: true
                         catalogModel: cardCatalog
@@ -304,6 +320,7 @@ Page {
                         }
 
                         AppButton {
+                            objectName: "deckEditorSearchButton"
                             Layout.fillWidth: true
                             leadingText: "⌕"
                             text: qsTr("Search card names…")
@@ -612,6 +629,7 @@ Page {
 
     CardSearchPopup {
         id: searchPopup
+        objectName: "deckEditorSearchPopup"
         catalogModel: cardCatalog
         results: cardCatalog.searchResults
         searching: cardCatalog.searching
@@ -888,11 +906,13 @@ Page {
     DeckArtExportDialog {
         id: deckArtExportDialog
         objectName: "currentDeckArtExportDialog"
+        fileDialogObjectName: "currentDeckArtExportFileDialog"
         manager: typeof cardArtManager !== "undefined" ? cardArtManager : null
     }
 
     FileDialog {
         id: exportFileDialog
+        objectName: "exportDeckFileDialog"
         title: qsTr("Save deck list")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "txt"

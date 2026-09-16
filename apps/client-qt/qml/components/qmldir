@@ -1,5 +1,9 @@
 singleton Theme 1.0 Theme.qml
+singleton TableBackgrounds 1.0 TableBackgrounds.qml
+TableBackgroundPicker 1.0 TableBackgroundPicker.qml
+TableBackgroundPopup 1.0 TableBackgroundPopup.qml
 singleton I18n 1.0 I18n.qml
+singleton RulesText 1.0 RulesText.qml
 singleton SponsorCatalog 1.0 SponsorCatalog.qml
 singleton ManaSymbols 1.0 ManaSymbols.qml
 singleton ShortcutHints 1.0 ShortcutHints.qml
@@ -36,6 +40,8 @@ ZoneBrowserPopup 1.0 ZoneBrowserPopup.qml
 ActivityRing 1.0 ActivityRing.qml
 AppBackground 1.0 AppBackground.qml
 AppButton 1.0 AppButton.qml
+GlassChrome 1.0 GlassChrome.qml
+LiquidGlass 1.0 LiquidGlass.qml
 AppComboBox 1.0 AppComboBox.qml
 AppTextField 1.0 AppTextField.qml
 AppToggle 1.0 AppToggle.qml
@@ -70,6 +76,7 @@ SegmentedControl 1.0 SegmentedControl.qml
 SideboardPanel 1.0 SideboardPanel.qml
 StatusPill 1.0 StatusPill.qml
 SponsorAnnouncementPopup 1.0 SponsorAnnouncementPopup.qml
+SponsorHighlight 1.0 SponsorHighlight.qml
 SponsorList 1.0 SponsorList.qml
 SponsorSupportPopup 1.0 SponsorSupportPopup.qml
 ShortcutActionCatalog 1.0 ShortcutActionCatalog.qml

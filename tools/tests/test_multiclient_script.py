@@ -294,7 +294,7 @@ while :; do sleep 1; done
 
     def test_rejects_missing_values_before_consuming_the_next_option(self):
         for option in ("--count", "--binary", "--profiles-root", "--template", "--server",
-                       "--name-prefix", "--event", "--set"):
+                       "--name-prefix", "--event", "--set", "--cube"):
             for suffix in ((), ("--count", "2")):
                 with self.subTest(option=option, suffix=suffix):
                     result = self.run_script(option, *suffix, check=False)
@@ -335,16 +335,61 @@ while :; do sleep 1; done
         cloned.write_bytes(b"edited clone")
         self.assertEqual(original.read_bytes(), b"original image")
 
+    def test_passes_commander_cube_source_without_set_options(self):
+        self.run_script(
+            "start", "--count", "4", "--binary", str(self.fake_client),
+            "--profiles-root", str(self.profiles), "--no-template",
+            "--event", "commander-cube", "--cube", "My Commander Cube", "--windowed",
+        )
+        groups = set()
+        for number in range(1, 5):
+            observed = self.profiles / f"client-{number:02d}" / "observed-args"
+            self.wait_for(observed)
+            args = observed.read_text().splitlines()
+            for key, value in (("--test-event", "commander-cube"), ("--test-cube", "My Commander Cube"),
+                               ("--test-players", "4"), ("--test-seat", str(number))):
+                self.assertEqual(args[args.index(key) + 1], value)
+            self.assertNotIn("--test-set", args)
+            self.assertNotIn("--test-auto-draft", args)
+            groups.add(args[args.index("--test-group") + 1])
+        self.assertEqual(len(groups), 1)
+
+    def test_auto_draft_is_enabled_for_every_commander_seat(self):
+        result = self.run_script(
+            "start", "--count", "4", "--binary", str(self.fake_client),
+            "--profiles-root", str(self.profiles), "--no-template",
+            "--event", "commander-cube", "--cube", "My Cube", "--auto-draft",
+        )
+        self.assertIn("stop at manual deck building", result.stdout)
+        for number in range(1, 5):
+            profile = self.profiles / f"client-{number:02d}"
+            observed = profile / "observed-args"
+            self.wait_for(observed)
+            self.assertIn("--test-auto-draft", observed.read_text().splitlines())
+            self.wait_for(profile / "observed-env")
+            self.assertIn("QT_FORCE_STDERR_LOGGING=1",
+                          (profile / "observed-env").read_text().splitlines())
+
     def test_rejects_invalid_or_remote_automatic_event_setup(self):
         for args in (
             ("--event", ""), ("--set", ""),
             ("--event", "cube", "--set", "EOE"),
             ("--event", "draft"), ("--set", "EOE"),
+            ("--event", "commander-cube"), ("--cube", "My Cube"),
+            ("--event", "commander-cube", "--cube", " "),
+            ("--event", "commander-cube", "--cube", "My Cube", "--set", "EOE"),
+            ("--event", "commander-cube", "--cube", "My Cube", "--count", "9"),
+            ("--event", "commander-cube", "--cube", "My Cube", "--server", "ws://192.0.2.1/ws"),
+            ("--event", "draft", "--set", "EOE", "--cube", "My Cube"),
             ("--event", "draft", "--set", "EOE", "--count", "9"),
             ("--event", "sealed", "--set", "EOE", "--count", "1"),
             ("--event", "draft", "--set", "EOE", "--server", "ws://192.0.2.1/ws"),
             ("--event", "draft", "--set", "EOE", "--server", "ws://localhost:99999/ws"),
             ("--event", "draft", "--set", "EOE", "--", "--test-seat", "1"),
+            ("--auto-draft",),
+            ("--event", "draft", "--set", "EOE", "--auto-draft"),
+            ("--event", "sealed", "--set", "EOE", "--auto-draft"),
+            ("--event", "commander-cube", "--cube", "My Cube", "--", "--test-auto-draft"),
         ):
             with self.subTest(args=args):
                 result = self.run_script("start", "--profiles-root", str(self.profiles),

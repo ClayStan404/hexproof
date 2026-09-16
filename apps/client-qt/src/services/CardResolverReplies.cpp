@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CardCatalogCommon.h"
+#include "CardImageValidation.h"
 #include "CardResolver.h"
 #include "CatalogImport.h"
 
@@ -71,12 +72,10 @@ ImageTransport takeImageTransport(QNetworkReply *reply)
     transport.responseHeaders = diagnosticResponseHeaders(reply);
     transport.requestUrl = reply->url();
     transport.originalUrl = reply->request().url();
-    transport.image = inspectImagePayload(transport.bytes);
     transport.payloadKind = imagePayloadKind(transport.bytes);
     transport.networkOk =
         transport.networkError == QNetworkReply::NoError &&
         (transport.httpStatus == 0 || (transport.httpStatus >= 200 && transport.httpStatus < 300));
-    transport.ok = transport.networkOk && !transport.bytes.isEmpty() && transport.image.canRead;
     reply->deleteLater();
     return transport;
 }
@@ -173,6 +172,8 @@ void CardResolver::rejectJsonReply(const QUrl &requestUrl, Phase phase, int http
     const QString validationError = networkOk ? QStringLiteral("invalid JSON response") : QString{};
     setCurrentFailure(requestUrl, phase, httpStatus, networkError, networkErrorString,
                       validationError);
+    if (httpStatus == 429)
+        markHostFailure(requestUrl, httpStatus, retryAfter, networkError);
     if (!confirmedMissing && retryCurrentPhase(requestUrl, phase, httpStatus, retryAfter))
         return;
     markHostFailure(requestUrl, httpStatus, retryAfter, networkError);
@@ -327,38 +328,50 @@ void CardResolver::applyMtgchJson(const QJsonObject &object)
 void CardResolver::handleImageReply(QNetworkReply *reply)
 {
     const ImageTransport transport = takeImageTransport(reply);
-    logImageDebug(m_currentRequest.name, transport);
-    if (!transport.ok) {
-        QString validationError;
-        if (transport.networkError == QNetworkReply::NoError && transport.httpStatus >= 200 &&
-            transport.httpStatus < 300)
-            validationError = QStringLiteral("invalid image data");
-        setCurrentFailure(transport.requestUrl, Phase::Image, transport.httpStatus,
-                          static_cast<int>(transport.networkError), transport.networkErrorString,
-                          validationError);
-        if (transport.httpStatus != 404 &&
-            retryCurrentPhase(transport.requestUrl, Phase::Image, transport.httpStatus,
-                              transport.retryAfter)) {
-            qCDebug(cardCatalogLog).noquote()
-                << "Card image download interrupted; retrying"
-                << "card=" + m_currentRequest.name
-                << QStringLiteral("networkError=%1").arg(static_cast<int>(transport.networkError))
-                << "url=" + transport.requestUrl.toString(QUrl::FullyEncoded);
+    auto complete = [this, transport = transport](const ImagePayloadInspection &image) mutable {
+        transport.image = image;
+        transport.ok = transport.networkOk && image.decoded;
+        logImageDebug(m_currentRequest.name, transport);
+        if (!transport.ok) {
+            QString validationError;
+            if (transport.networkError == QNetworkReply::NoError && transport.httpStatus >= 200 &&
+                transport.httpStatus < 300)
+                validationError = QStringLiteral("invalid image data");
+            setCurrentFailure(transport.requestUrl, Phase::Image, transport.httpStatus,
+                              static_cast<int>(transport.networkError),
+                              transport.networkErrorString, validationError);
+            if (transport.httpStatus == 429)
+                markHostFailure(transport.requestUrl, transport.httpStatus, transport.retryAfter,
+                                static_cast<int>(transport.networkError));
+            if (transport.httpStatus != 404 &&
+                retryCurrentPhase(transport.requestUrl, Phase::Image, transport.httpStatus,
+                                  transport.retryAfter)) {
+                qCDebug(cardCatalogLog).noquote()
+                    << "Card image download interrupted; retrying"
+                    << "card=" + m_currentRequest.name
+                    << QStringLiteral("networkError=%1")
+                           .arg(static_cast<int>(transport.networkError))
+                    << "url=" + transport.requestUrl.toString(QUrl::FullyEncoded);
+                return;
+            }
+            logImageFailure(m_currentRequest.name,
+                            m_currentRecord.setCode.isEmpty()
+                                ? QString{}
+                                : m_currentRecord.setCode + QLatin1Char('/') +
+                                      m_currentRecord.collectorNumber,
+                            transport);
+            markHostFailure(transport.requestUrl, transport.httpStatus, transport.retryAfter,
+                            static_cast<int>(transport.networkError));
+            continueAfterImageFailure(transport.httpStatus == 404);
             return;
         }
-        logImageFailure(m_currentRequest.name,
-                        m_currentRecord.setCode.isEmpty()
-                            ? QString{}
-                            : m_currentRecord.setCode + QLatin1Char('/') +
-                                  m_currentRecord.collectorNumber,
-                        transport);
-        markHostFailure(transport.requestUrl, transport.httpStatus, transport.retryAfter,
-                        static_cast<int>(transport.networkError));
-        continueAfterImageFailure(transport.httpStatus == 404);
-        return;
-    }
-    markHostSuccess(transport.requestUrl);
-    acceptImageBytes(transport.requestUrl, transport.bytes);
+        markHostSuccess(transport.requestUrl);
+        acceptImageBytes(transport.requestUrl, transport.bytes);
+    };
+    if (transport.networkOk)
+        inspectImagePayloadAsync(this, transport.bytes, complete);
+    else
+        complete({});
 }
 
 void CardResolver::acceptImageBytes(const QUrl &requestUrl, const QByteArray &bytes)

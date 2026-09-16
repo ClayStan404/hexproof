@@ -417,8 +417,7 @@ QtObject {
         const source = drop.source ? drop.source : dropArea.cardSource
         if (!canMoveSharedSource(source)
             || source.zoneName === "stack"
-            || source.zoneName === "reveal"
-            || source.zoneName === "library") {
+            || source.zoneName === "reveal") {
             rejectDrop(dropArea, drop)
             return
         }
@@ -464,9 +463,12 @@ QtObject {
         // ownership even when the card is controlled on another battlefield.
         const wireTargetSeat = toZone === "graveyard" || toZone === "exile"
                                ? destinationSeat : -1
+        const faceDown = fromZone === "library" && toZone === "exile"
+                         && (source.faceDownRequested === true
+                             || (drop.modifiers & Qt.ShiftModifier) !== 0)
         tableRoot.wsModel.moveCard(
                     cardId, fromZone, toZone, {},
-                    wireTargetSeat, "", -1, publicFromSeat)
+                    wireTargetSeat, "", -1, publicFromSeat, "", faceDown)
         dropArea.cardSource = null
         drop.acceptProposedAction()
     }
@@ -643,11 +645,22 @@ QtObject {
         }
     }
 
-    function moveCardToShared(cardId, fromZone, toZone) {
+    function exileLibraryTopFaceDown() {
+        if (!tableRoot.canAct || tableRoot.ownSeatData.libraryCount <= 0
+                || tableRoot.optimisticCommands.isCardPendingFrom(
+                    "__library_top__", "library", tableRoot.roomSession.seatIndex))
+            return
+        moveCardToShared("__library_top__", "library", "exile", true)
+    }
+
+    function moveCardToShared(cardId, fromZone, toZone, faceDown) {
         if (!tableRoot.canAct || !cardId)
             return
-        const card = tableRoot.zoneState.cardDataForId(cardId)
-        const fromSeat = tableRoot.zoneState.visibleZoneSeatForCard(cardId, fromZone)
+        const card = Object.assign({}, tableRoot.zoneState.cardDataForId(cardId))
+        const fromSeat = fromZone === "library" ? tableRoot.roomSession.seatIndex
+                        : tableRoot.zoneState.visibleZoneSeatForCard(cardId, fromZone)
+        if (fromZone === "library")
+            card.ownerSeat = fromSeat
         let destinationSeat = -1
         if (toZone === "hand" || toZone === "graveyard"
             || toZone === "exile" || toZone === "library") {
@@ -667,7 +680,7 @@ QtObject {
                            ? destinationSeat : -1
         tableRoot.wsModel.moveCard(
                     cardId, fromZone, toZone, {},
-                    targetSeat, "", -1, publicFromSeat)
+                    targetSeat, "", -1, publicFromSeat, "", faceDown === true)
         tableRoot.selectedSharedCard = ({})
         tableRoot.selectedSharedZone = ""
     }

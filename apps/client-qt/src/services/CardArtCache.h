@@ -35,6 +35,7 @@ class CardArtCache
     void load();
     bool save();
     void saveAsync();
+    void saveAsync(std::function<void(bool)> completion);
     std::function<void(bool)> onSaveFinished;
     bool dirty() const
     {
@@ -73,6 +74,7 @@ class CardArtCache
     bool matchesRequestedFace(const CardRequest &request, const CardRecord &record) const;
     CardRecord resolvedPrinting(const CardRequest &request) const;
     CardRecord resolvedPrintingMetadata(const CardRequest &request) const;
+    CardRecord localizedMetadataForName(const CardRequest &request) const;
     CardRecord reusableArt(const CardRequest &request, const CardRecord &catalogIdentity) const;
     CardRecord substituteRecord(const CardRequest &request, const CardRecord &catalogIdentity,
                                 const CardRecord &cachedArt) const;
@@ -109,6 +111,11 @@ class CardArtCache
         bool faceRepairNeeded;
         quint64 generation;
     };
+    struct SaveCompletion
+    {
+        quint64 generation;
+        std::function<void(bool)> callback;
+    };
     Snapshot snapshot() const;
     static bool writeSnapshot(const QString &path, const Snapshot &snapshot,
                               const std::shared_ptr<SaveState> &state);
@@ -124,6 +131,7 @@ class CardArtCache
     QHash<QString, CardRecord> m_positive;
     QHash<QString, QDateTime> m_negative;
     QHash<QString, QSet<QString>> m_printingIndex;
+    QHash<QString, QSet<QString>> m_metadataNameIndex;
     QHash<QString, QSet<QString>> m_oracleIndex;
     QHash<QString, QSet<QString>> m_canonicalNameIndex;
     QHash<QString, QSet<QString>> m_requestedNameIndex;
@@ -134,8 +142,10 @@ class CardArtCache
     bool m_dirty = false;
     quint64 m_generation = 1;
     quint64 m_savingGeneration = 0;
+    quint64 m_persistedGeneration = 0;
     bool m_saving = false;
     bool m_saveRequested = false;
+    QList<SaveCompletion> m_saveCompletions;
     std::shared_ptr<SaveState> m_saveState = std::make_shared<SaveState>();
     QFutureWatcher<bool> m_saveWatcher;
 };

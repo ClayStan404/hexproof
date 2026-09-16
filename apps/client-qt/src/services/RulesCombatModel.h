@@ -21,6 +21,7 @@ struct RulesCombatSourceRow
     bool token = false;
     QStringList validTargetIds;
     bool mustAssignIfAble = false;
+    int maximum = 1;
 };
 
 struct RulesCombatTargetRow
@@ -36,6 +37,7 @@ struct RulesCombatTargetRow
     int minimum = 0;
     int maximum = 0;
     bool mustReceiveIfAble = false;
+    int seat = -1;
 };
 
 class RulesCombatModel final : public QAbstractListModel
@@ -53,7 +55,8 @@ class RulesCombatModel final : public QAbstractListModel
         CollectorNumberRole,
         TokenRole,
         ValidTargetsRole,
-        MustAssignIfAbleRole
+        MustAssignIfAbleRole,
+        MaximumRole
     };
 
     explicit RulesCombatModel(QObject *parent = nullptr);
@@ -64,6 +67,7 @@ class RulesCombatModel final : public QAbstractListModel
     void replace(QVector<RulesCombatSourceRow> sources, QVector<RulesCombatTargetRow> targets);
     void clear();
     Q_INVOKABLE bool validAssignments(const QVariantMap &assignments) const;
+    Q_INVOKABLE QVariantList sourceItems() const;
 
   private:
     const RulesCombatSourceRow *sourceById(const QString &responseId) const;

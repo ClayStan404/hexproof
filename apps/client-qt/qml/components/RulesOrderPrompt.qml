@@ -16,7 +16,11 @@ Item {
     required property int promptId
     property bool damageOrder: false
 
-    implicitHeight: Theme.size(218)
+    readonly property bool narrowLayout: width < Theme.size(490)
+
+    implicitHeight: narrowLayout
+                    ? Theme.size(230) + selectionControls.implicitHeight
+                    : Math.max(Theme.size(218), selectionControls.implicitHeight)
 
     function resetOrder() {
         visualOrder.clear()
@@ -32,6 +36,7 @@ Item {
                 || toIndex >= visualOrder.count || fromIndex === toIndex)
             return
         visualOrder.move(fromIndex, toIndex, 1)
+        Qt.callLater(function() { orderList.positionViewAtIndex(toIndex, ListView.Contain) })
     }
 
     function submitOrder() {
@@ -45,22 +50,25 @@ Item {
     }
 
     onPromptIdChanged: resetOrder()
+    onOrderModelChanged: resetOrder()
     Component.onCompleted: resetOrder()
 
     ListModel { id: visualOrder }
 
-    RowLayout {
+    GridLayout {
         anchors.fill: parent
-        spacing: Theme.size(12)
+        columns: root.narrowLayout ? 1 : 2
+        columnSpacing: Theme.size(12)
+        rowSpacing: Theme.size(12)
 
-        ListView {
+        RulesHorizontalListView {
             id: orderList
+            objectName: "rulesOrderCandidates"
 
             Layout.fillWidth: true
+            Layout.preferredHeight: Theme.size(218)
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
             spacing: Theme.size(10)
-            clip: true
             model: visualOrder
             move: Transition {
                 NumberAnimation {
@@ -89,7 +97,7 @@ Item {
                 required property string oracle
 
                 width: Theme.size(112)
-                height: orderList.height
+                height: orderList.itemHeight
                 z: dragArea.drag.active ? 2 : 0
 
                 Rectangle {
@@ -249,8 +257,10 @@ Item {
         }
 
         ColumnLayout {
-            Layout.fillWidth: false
-            Layout.preferredWidth: Theme.size(190)
+            id: selectionControls
+
+            Layout.fillWidth: root.narrowLayout
+            Layout.preferredWidth: root.narrowLayout ? -1 : Theme.size(190)
             spacing: Theme.size(8)
 
             Text {
@@ -264,6 +274,7 @@ Item {
             }
 
             AppButton {
+                objectName: "rulesConfirmOrder"
                 Layout.fillWidth: true
                 variant: "primary"
                 text: qsTr("Confirm order")

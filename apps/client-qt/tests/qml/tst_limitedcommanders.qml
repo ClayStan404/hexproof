@@ -28,6 +28,7 @@ TestCase {
         property var commanderInstanceIds: []
         property var commanderColors: []
         property var fallbackCommanders: []
+        property var optionalCards: []
         property var basicLands: []
         property var participants: []
         property var pool: []
@@ -120,6 +121,7 @@ TestCase {
         limitedState.commanderInstanceIds = []
         limitedState.commanderColors = []
         limitedState.fallbackCommanders = []
+        limitedState.optionalCards = []
         limitedState.basicLands = []
         limitedState.pool = [
             {instanceId: "a", name: "Captain", displayName: "Captain localized", setCode: "NEW", collectorNumber: "20",
@@ -137,6 +139,55 @@ TestCase {
     }
 
     function cleanup() { Theme.uiScale = 1 }
+
+    function test_optionalStaplesAreOptInAndRestoreWithConstruction() {
+        limitedState.optionalCards = [
+            {instanceId: "sol", name: "Sol Ring", typeLine: "Artifact", manaCost: "{1}", cardColors: "", colors: ""},
+            {instanceId: "tower", name: "Command Tower", typeLine: "Land", cardColors: "", colors: ""},
+            {instanceId: "signet", name: "Arcane Signet", typeLine: "Artifact", manaCost: "{2}", cardColors: "", colors: ""}
+        ]
+        const view = builder()
+        view.chooseInitialPool(true)
+        view.toggleCommander("a")
+        compare(view.selectedOptionalCards.length, 0)
+        compare(view.sideboardCards.length, 0)
+        verify(!findChild(view, "limitedOptionalCardsPanel").visible)
+        findChild(view, "limitedBasicLandsButton").clicked()
+        tryCompare(findChild(view, "limitedBasicLandsPopup"), "opened", true)
+        verify(findChild(view, "limitedOptionalCardsPanel").visible)
+        const popup = findChild(view, "limitedBasicLandsPopup")
+        for (const card of limitedState.optionalCards) findVisual(popup, "limitedOptionalCard-" + card.instanceId).clicked()
+        compare(view.selectedOptionalCards.length, 3)
+        findChild(view, "limitedBasicLandsDone").clicked()
+        verify(findChild(view, "limitedCommanderPicker").cards.every(card =>
+            !limitedState.optionalCards.some(optional => optional.instanceId === card.instanceId)))
+        compare(view.mainDeckCards.length, 7)
+        view.moveToMainDeck("sol")
+        compare(view.mainDeckCards.length, 7)
+        view.moveToMainDeck("forged")
+        compare(view.mainDeckCards.length, 7)
+        view.toggleCommander("sol")
+        compare(view.commanderInstanceIds.join(","), "a")
+        const restored = builder()
+        compare(restored.selectedOptionalCards.length, 3)
+        compare(restored.mainDeckCards.length, 7)
+        restored.submit()
+        compare(connection.submission.ids.length, 7)
+        for (const id of ["sol", "tower", "signet"]) verify(connection.submission.ids.indexOf(id) >= 0)
+        limitedState.mainboardInstanceIds = connection.submission.ids
+        limitedState.commanderInstanceIds = connection.submission.commanders
+        limitedState.basicLands = connection.submission.lands
+        limitedState.deckSubmitted = true
+        limitedState.snapshotChanged()
+        const submitted = builder()
+        compare(submitted.selectedOptionalCards.length, 3)
+        submitted.moveToSideboard("sol")
+        compare(submitted.selectedOptionalCards.length, 2)
+        compare(submitted.sideboardCards.length, 0)
+        verify(submitted.hasUnsubmittedChanges)
+        submitted.discardUnsubmittedChanges()
+        compare(submitted.selectedOptionalCards.length, 3)
+    }
 
     function builder() {
         const result = createTemporaryObject(builderComponent, window.contentItem)
@@ -178,7 +229,7 @@ TestCase {
         verify(view.commanderAdvice.some(message => message.indexOf("outside") >= 0))
     }
 
-    function test_maximumDistinctInstancesAndNoForeignOrSideboardCommander() {
+    function test_maximumDistinctInstancesAndNoForeignCommander() {
         const view = builder()
         view.chooseInitialPool(true)
         view.toggleCommander("a")
@@ -191,10 +242,85 @@ TestCase {
         view.moveToSideboard("a")
         compare(view.commanderInstanceIds, ["a2"])
         view.toggleCommander("a")
-        compare(view.commanderInstanceIds, ["a2"])
+        compare(view.commanderInstanceIds, ["a2", "a"])
+        verify(view.cardSelected("a"))
+        view.toggleCommander("a")
         view.toggleCommander("a2")
         compare(view.commanderInstanceIds, [])
         verify(!view.commandersValid)
+    }
+
+    function test_commanderCandidatesUseLocalizedTypesAndFiltersBeforeAddingToDeck() {
+        limitedState.pool = limitedState.pool.concat([
+            {instanceId: "zh", name: "Goblin Captain", displayName: "地精队长", typeLine: "传奇生物～地精／战士",
+             colors: "R", cardColors: "R", manaValue: 3, rarity: "mythic"},
+            {instanceId: "zh-land", name: "Legendary land", typeLine: "传奇地", colors: "", manaValue: 0},
+            {instanceId: "walker", name: "Eligible Walker", typeLine: "传奇鹏洛客～测试",
+             oracleText: "Eligible Walker can be your commander.", colors: "U", manaValue: 4},
+            {instanceId: "unknown", name: "Unknown metadata"}
+        ])
+        const view = builder()
+        view.chooseInitialPool(false)
+        const picker = findChild(view, "limitedCommanderPicker")
+        verify(picker.visibleCards.some(card => card.instanceId === "zh"))
+        verify(picker.visibleCards.some(card => card.instanceId === "walker"))
+        verify(picker.visibleCards.some(card => card.instanceId === "unknown"))
+        verify(!picker.visibleCards.some(card => card.instanceId === "zh-land" || card.instanceId === "c"))
+        picker.filters.colors = ["R"]
+        picker.filters.types = ["Creature"]
+        picker.filters.manaValues = ["3"]
+        picker.filters.rarities = ["mythic"]
+        picker.filters.query = "地精"
+        compare(picker.visibleCards.map(card => card.instanceId), ["zh"])
+        compare(view.selectedPoolCount, 0)
+        picker.toggleRequested("zh")
+        compare(view.commanderInstanceIds, ["zh"])
+        compare(view.selectedPoolCount, 1)
+        compare(view.selectedLandCount, 59)
+        verify(!view.commanderAdvice.some(message => message.indexOf("allows") >= 0))
+        verify(view.cardSelected("zh"))
+        picker.filters.reset()
+        picker.filters.query = "Red Spell"
+        compare(picker.visibleCards.length, 0)
+        picker.showAll = true
+        compare(picker.visibleCards.map(card => card.instanceId), ["c"])
+        compare(view.selectedPoolCount, 1)
+        picker.toggleRequested("c")
+        compare(view.commanderInstanceIds, ["zh", "c"])
+        verify(view.cardSelected("c"))
+        picker.toggleRequested("a")
+        verify(!view.cardSelected("a"), "A rejected third commander must not modify the main deck")
+    }
+
+    function test_localizedLandCountsIncludeAllLandsAndIgnoreGoblinSubtypes() {
+        limitedState.pool = []
+        const pool = []
+        for (let index = 0; index < 120; ++index) {
+            pool.push({instanceId: "mixed-" + index, name: "Mixed " + index,
+                typeLine: index < 24 ? (index % 2 ? "地～树林／海岛" : "传奇地") : "生物～地精／战士",
+                colors: index < 24 ? "" : "R", cardColors: index < 24 ? "" : "R", manaValue: index < 24 ? 0 : 2,
+                manaCost: index < 24 ? "" : "{1}{R}"})
+        }
+        limitedState.pool = pool
+        const view = builder()
+        view.chooseInitialPool(true)
+        compare(view.selectedCount, 120)
+        compare(view.selectedLandCount, 24)
+        compare(view.selectedNonlandCount, 96)
+        view.mainFilters.types = ["Land"]
+        compare(view.visibleDeckListCards.length, 24)
+        compare(view.selectedLandCount, 24)
+        view.mainFilters.types = ["Creature"]
+        compare(view.visibleDeckListCards.length, 96)
+        compare(view.selectedLandCount, 24)
+        view.adjustBasic("Island", 2)
+        compare(view.selectedLandCount, 26)
+        compare(view.selectedNonlandCount, 96)
+        view.mainFilters.types = ["Land"]
+        view.mainFilters.colors = ["U"]
+        compare(view.visibleDeckListCards.length, 1)
+        verify(view.visibleDeckListCards[0].virtualBasic)
+        compare(view.visibleDeckListCards[0].count, 2)
     }
 
     function test_manualEDHUnusualCommanderAndColorMismatchNeverBlock() {

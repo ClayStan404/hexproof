@@ -34,6 +34,7 @@ Page {
     }
 
     ScrollView {
+        objectName: "shortcutSettingsBody"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -61,6 +62,7 @@ Page {
                     spacing: Theme.size(12)
 
                     AppTextField {
+                        objectName: "shortcutSearchField"
                         Layout.fillWidth: true
                         placeholderText: qsTr("Search actions…")
                         onTextChanged: root.query = text.trim().toLowerCase()
@@ -364,6 +366,7 @@ Page {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
                     visible: capturePopup.conflictAction.length > 0
+                    objectName: "shortcutCaptureConflictText"
                     text: qsTr("Already assigned to: %1")
                           .arg(catalog.labelFor(capturePopup.conflictAction))
                     color: Theme.error
@@ -389,6 +392,7 @@ Page {
                     AppButton {
                         compact: true
                         variant: "ghost"
+                        objectName: "shortcutCaptureDefaultButton"
                         text: qsTr("Use default (%1)")
                               .arg(preferences.defaultShortcutDisplay(
                                        capturePopup.actionId))
@@ -401,12 +405,14 @@ Page {
                     AppButton {
                         compact: true
                         variant: "ghost"
+                        objectName: "shortcutCaptureCancelButton"
                         text: qsTr("Cancel")
                         onClicked: capturePopup.close()
                     }
                     AppButton {
                         compact: true
                         variant: "primary"
+                        objectName: "shortcutCaptureSaveButton"
                         text: qsTr("Save")
                         enabled: capturePopup.hasCaptured
                                  && capturePopup.conflictAction.length === 0

@@ -98,8 +98,7 @@ WsClient::WsClient(QObject *parent)
     connect(m_reconnectController, &ReconnectController::retryDue, this, [this]() {
         if (m_state != Reconnecting)
             return;
-        m_helloTimer.start();
-        m_ws.open(QUrl(m_serverUrl));
+        openTransport();
     });
     connect(m_reconnectController, &ReconnectController::reconnectExpired, this, [this]() {
         if (m_state != Reconnecting)
@@ -120,9 +119,22 @@ WsClient::WsClient(QObject *parent)
     m_parserThread.start();
 
     connect(&m_ws, &QWebSocket::connected, this, &WsClient::onConnected);
-    connect(&m_ws, &QWebSocket::textMessageReceived, m_messageParser,
-            &WsMessageParser::parseMessage);
-    connect(&m_ws, &QWebSocket::disconnected, m_messageParser, &WsMessageParser::finishTransport);
+    connect(&m_ws, &QWebSocket::textMessageReceived, this, [this](const QString &text) {
+        QMetaObject::invokeMethod(
+            m_messageParser,
+            [parser = m_messageParser, generation = m_transportGeneration, text]() {
+                parser->parseMessage(generation, text);
+            },
+            Qt::QueuedConnection);
+    });
+    connect(&m_ws, &QWebSocket::disconnected, this, [this]() {
+        QMetaObject::invokeMethod(
+            m_messageParser,
+            [parser = m_messageParser, generation = m_transportGeneration]() {
+                parser->finishTransport(generation);
+            },
+            Qt::QueuedConnection);
+    });
     connect(&m_ws, &QWebSocket::errorOccurred, this, [this]() { onErrorOccurred(); });
 
     m_helloTimer.setSingleShot(true);
@@ -145,7 +157,7 @@ WsClient::WsClient(QObject *parent)
 WsClient::~WsClient()
 {
     m_reconnectController->flush();
-    disconnect(&m_ws, nullptr, m_messageParser, nullptr);
+    disconnect(&m_ws, nullptr, this, nullptr);
     disconnect(m_messageParser, nullptr, this, nullptr);
 
     // The parser must be destroyed in its affinity thread. Move it back only
@@ -192,6 +204,13 @@ bool WsClient::setInitialConnection(const QString &url, const QString &displayNa
 
 void WsClient::connectTo(const QString &url, const QString &displayName)
 {
+    const bool hadRoom = !roomId().isEmpty() || m_state == InRoom;
+    m_reconnectController->stopRetry();
+    m_protocolSession->failAll(u"connection replaced before the server replied"_s);
+    if (hadRoom)
+        clearRoomState();
+    m_tournamentSession->clear();
+    m_limitedSession->clear();
     clearLastError();
     clearVersionMismatch();
     setForgeRulesAvailable(false);
@@ -206,6 +225,18 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
     m_intentionalDisconnect = false;
     emit displayNameChanged();
     setState(Connecting);
+    if (hadRoom)
+        emit inRoomChanged();
+    openTransport();
+}
+
+void WsClient::openTransport()
+{
+    // Abort before advancing the generation, so even the old socket's final
+    // disconnect is tagged with its old identity. Parser deliveries retain
+    // their original order within one transport, including its final message.
+    m_ws.abort();
+    ++m_transportGeneration;
     m_helloTimer.start();
     m_ws.open(QUrl(m_serverUrl));
 }
@@ -277,6 +308,11 @@ void WsClient::disconnectFromHub()
     m_reconnectController->stopRetry();
     m_reconnectController->clear();
     if (m_ws.state() == QAbstractSocket::UnconnectedState) {
+        // The socket can finish before its parser queue drains. Explicit
+        // cancellation invalidates those queued messages as well.
+        ++m_transportGeneration;
+        m_helloTimer.stop();
+        m_protocolSession->failAll(u"connection closed before the server replied"_s);
         const bool hadRoom = !roomId().isEmpty() || m_state == InRoom || m_state == Reconnecting;
         setState(Disconnected);
         if (hadRoom) {
@@ -405,8 +441,10 @@ void WsClient::onConnected()
     send(kTypeSessionHello, p);
 }
 
-void WsClient::onDisconnected()
+void WsClient::onDisconnected(quint64 transportGeneration)
 {
+    if (transportGeneration != m_transportGeneration)
+        return;
     clearRulesResponse();
     m_helloTimer.stop();
     m_reconnectController->flush();
@@ -450,9 +488,12 @@ void WsClient::onErrorOccurred()
         setLastError(u"socket"_s, m_ws.errorString());
 }
 
-void WsClient::onMessageParsed(const QString &type, const QString &id, qint64 seq, bool hasSeq,
-                               const QJsonObject &payload, const QVariantMap &gameSnapshot)
+void WsClient::onMessageParsed(quint64 transportGeneration, const QString &type, const QString &id,
+                               qint64 seq, bool hasSeq, const QJsonObject &payload,
+                               const QVariantMap &gameSnapshot)
 {
+    if (transportGeneration != m_transportGeneration || m_intentionalDisconnect)
+        return;
     Envelope envelope;
     envelope.type = type;
     envelope.id = id;
@@ -462,8 +503,10 @@ void WsClient::onMessageParsed(const QString &type, const QString &id, qint64 se
     dispatch(envelope, gameSnapshot);
 }
 
-void WsClient::onMessageRejected()
+void WsClient::onMessageRejected(quint64 transportGeneration)
 {
+    if (transportGeneration != m_transportGeneration || m_intentionalDisconnect)
+        return;
     setLastError(u"parse"_s, u"invalid message from server"_s);
 }
 

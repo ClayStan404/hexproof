@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
+import "CardTypes.js" as CardTypes
 
 QtObject {
     readonly property var colors: ["W", "U", "B", "R", "G"]
@@ -16,26 +17,23 @@ QtObject {
         return Number.isFinite(count) ? Math.max(0, Math.min(1000, Math.floor(count))) : 0
     }
 
-    function landType(card) {
-        // A spell/land MDFC is still a spell in this conservative suggestion.
-        return String(card.typeLine || "").split("//")[0]
-    }
-
     function basicIndex(card) {
         return names.indexOf(String(card.name || "").replace(/^Snow-Covered /, ""))
     }
 
     function isLand(card) {
-        return /\bland\b/i.test(landType(card)) || basicIndex(card) >= 0
+        return CardTypes.hasType(card, "Land") || basicIndex(card) >= 0
     }
 
     function landSources(card) {
         if (!isLand(card)) return {isLand: false, known: false, colors: []}
-        const type = landType(card)
-        const subtype = type.split(/[—–]/).slice(1).join(" ")
+        const subtype = CardTypes.subtypes(card)
+        const localizedBasics = [["平原"], ["海岛", "海島"], ["沼泽", "沼澤"],
+            ["山脉", "山脈"], ["树林", "樹林"]]
         const ordinary = basicIndex(card)
         const typed = colors.filter((color, index) => ordinary === index
-            || new RegExp("\\b" + names[index] + "\\b", "i").test(subtype))
+            || new RegExp("\\b" + names[index] + "\\b", "i").test(subtype)
+            || localizedBasics[index].some(name => subtype.includes(name)))
         // Catalog source metadata is authoritative when supplied. Never use
         // card colors or Commander color identity as a mana-production hint.
         if (card.producedMana !== undefined && card.producedMana !== null) {

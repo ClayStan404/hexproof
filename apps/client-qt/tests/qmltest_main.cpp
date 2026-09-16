@@ -343,6 +343,42 @@ class DeckEditorCatalogStub : public QObject
                            const QString &collectorNumber, bool success);
 };
 
+class RulesPromptFixture : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(hexproof::client::RulesSessionState *session READ session CONSTANT)
+
+  public:
+    explicit RulesPromptFixture(QObject *parent = nullptr)
+        : QObject(parent),
+          m_session(this)
+    {
+    }
+
+    hexproof::client::RulesSessionState *session()
+    {
+        return &m_session;
+    }
+
+    Q_INVOKABLE void clear()
+    {
+        m_session.clear();
+    }
+
+    Q_INVOKABLE bool applySnapshot(const QVariantMap &snapshot)
+    {
+        return m_session.applySnapshot(QJsonObject::fromVariantMap(snapshot));
+    }
+
+    Q_INVOKABLE bool applyPrompt(const QVariantMap &prompt)
+    {
+        return m_session.applyPrompt(QJsonObject::fromVariantMap(prompt));
+    }
+
+  private:
+    hexproof::client::RulesSessionState m_session;
+};
+
 class QmlTestSetup : public QObject
 {
     Q_OBJECT
@@ -389,6 +425,8 @@ class QmlTestSetup : public QObject
                                          .object());
         engine->rootContext()->setContextProperty(QStringLiteral("testRulesSnapshot"),
                                                   rulesSnapshot);
+        engine->rootContext()->setContextProperty(QStringLiteral("testRulesPrompt"),
+                                                  new RulesPromptFixture(engine));
         auto *combatSources = new hexproof::client::RulesCombatModel(engine);
         QVector<hexproof::client::RulesCombatSourceRow> sources;
         for (int index = 0; index < 8; ++index) {

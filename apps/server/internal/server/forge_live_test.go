@@ -41,12 +41,12 @@ func runLiveForgeWebSocketMatch(t *testing.T, matchMode string) {
 	runLiveForgeWebSocketRoom(t, srv, handler, matchMode)
 }
 
-// The production handler shares one hosted JVM across rooms. Exercise that
-// topology explicitly rather than mistaking independent JVMs for room load.
-func TestLiveForgeSharedRuntimeRooms(t *testing.T) {
+// The production handler owns one hosted JVM per game. Exercise concurrent
+// rooms and replacement processes across successive waves.
+func TestLiveForgeIsolatedRuntimeRooms(t *testing.T) {
 	srv, handler := newLiveForgeWebSocketServer(t)
-	// Reuse the same handler and JVM for successive waves, including after
-	// every previous room has naturally finished and removed its game session.
+	// Reuse the handler across waves; each new game must start its own JVM
+	// after previous games have finished and their processes have been reaped.
 	for wave := 0; wave < 5; wave++ {
 		t.Run(fmt.Sprintf("wave-%d", wave), func(t *testing.T) {
 			for roomNumber := 0; roomNumber < 4; roomNumber++ {
@@ -219,6 +219,7 @@ func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Hand
 			resumed = true
 		}
 		answer := liveForgeAnswer(t, actor, stats)
+
 		decisionKind := actor.prompt.Kind
 		if decisions == 0 {
 			// Knowing a prompt id and response token does not grant authority:
@@ -478,25 +479,60 @@ func liveForgeAnswer(t *testing.T, actor *liveForgePeer, stats map[string]int) p
 	case "chooseAction":
 		answer.ResponseID = "$pass"
 		for _, option := range prompt.Options {
-			if option.Kind == "playLand" || option.Kind == "cast" {
+			if option.Kind == "playLand" {
+				stats["land"]++
 				answer.ResponseID = option.ResponseID
-				if option.Kind == "playLand" || strings.HasPrefix(option.Label, "Play ") {
-					stats["land"]++
-				} else {
-					stats["cast"]++
+				return answer
+			}
+		}
+		// This fixture contains only one-mana Lightning Bolts and Mountains.
+		// Native Forge offers cast attempts before payment; the synthetic
+		// player must avoid repeatedly attempting an unaffordable spell.
+		mana := 0
+		for _, zone := range actor.snapshot.Zones {
+			if zone.Zone != "battlefield" {
+				continue
+			}
+			for _, card := range zone.Cards {
+				if card.ControllerSeat == actor.seat && !card.Tapped && card.Identity != nil && card.Identity.Name == "Mountain" {
+					mana++
 				}
+			}
+		}
+		for _, player := range actor.snapshot.Players {
+			if player.Seat == actor.seat {
+				for _, counter := range player.ManaPool {
+					mana += counter.Value
+				}
+			}
+		}
+		for _, option := range prompt.Options {
+			if option.Kind == "cast" && mana > 0 {
+				answer.ResponseID = option.ResponseID
+				stats["cast"]++
 				break
 			}
 		}
 	case "payManaCost":
-		answer.ResponseID = "$auto-pay"
 		for _, option := range prompt.Options {
-			if option.ResponseID == "$pay" {
-				answer.ResponseID = "$pay"
-				break
+			if !strings.HasPrefix(option.ResponseID, "$") {
+				answer.ResponseID = option.ResponseID
+				return answer
 			}
 		}
+		for _, id := range []string{"$pay", "$auto-pay", "$cancel"} {
+			for _, option := range prompt.Options {
+				if option.ResponseID == id {
+					answer.ResponseID = id
+					return answer
+				}
+			}
+		}
+		t.Fatalf("native payment has no available action: %+v", prompt)
 	case "chooseBoardTargets":
+		if prompt.Minimum == 0 {
+			break // Confirm the target already selected by the native input.
+		}
 		for _, target := range prompt.Targets {
 			if target.Kind == "player" && !strings.HasPrefix(target.Label, actor.name+" · ") {
 				answer.TargetIDs = []string{target.ResponseID}

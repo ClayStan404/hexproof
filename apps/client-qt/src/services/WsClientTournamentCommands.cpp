@@ -60,7 +60,8 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
 
 void WsClient::createCasualLimitedEvent(const QString &name, const QString &eventType,
                                         const QString &matchMode, int maxPlayers,
-                                        const QVariantMap &product)
+                                        const QVariantMap &product,
+                                        const QVariantMap &draftSettings)
 {
     QJsonObject payload{
         {u"name"_s, name},
@@ -72,6 +73,8 @@ void WsClient::createCasualLimitedEvent(const QString &name, const QString &even
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},
     };
+    if (!draftSettings.isEmpty())
+        payload.insert(u"draftSettings"_s, QJsonObject::fromVariantMap(draftSettings));
     send(kTypeTournamentCreate, payload);
 }
 
@@ -100,7 +103,7 @@ void WsClient::pickLimitedCard(const QString &instanceId)
 
 void WsClient::pickLimitedCards(const QVariantList &instanceIds)
 {
-    if (!instanceIds.isEmpty() && instanceIds.size() <= 2)
+    if (!instanceIds.isEmpty() && instanceIds.size() <= 4)
         send(kTypeLimitedPick,
              QJsonObject{{u"instanceIds"_s, QJsonArray::fromVariantList(instanceIds)}});
 }

@@ -3,6 +3,24 @@
   "protocol": "hexproof.v1",
   "definitions": [
     {
+      "name": "LimitedDraftSettings",
+      "goType": "LimitedDraftSettings",
+      "fields": [
+        {"name": "packsPerPlayer", "type": "integer", "required": true},
+        {"name": "packsPerBatch", "type": "integer", "required": true},
+        {"name": "cardsPerPack", "type": "integer", "required": false}
+      ]
+    },
+    {
+      "name": "LimitedDraftPackView",
+      "goType": "LimitedDraftPackView",
+      "fields": [
+        {"name": "packId", "type": "string", "required": true},
+        {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "picksRequired", "type": "integer", "required": true}
+      ]
+    },
+    {
       "name": "LimitedCardDefinition",
       "goType": "LimitedCardDefinition",
       "fields": [
@@ -230,8 +248,11 @@
         {"name": "packRound", "type": "integer", "required": true},
         {"name": "direction", "type": "integer", "required": true},
         {"name": "currentPack", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "currentPacks", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedDraftPackView"}},
+        {"name": "packsThisBatch", "type": "integer", "required": false},
         {"name": "pool", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
         {"name": "fallbackCommanders", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "optionalCards", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardView"}},
         {"name": "mainboardInstanceIds", "type": "array", "required": true, "items": {"type": "string"}},
         {"name": "commanderInstanceIds", "type": "array", "required": false, "items": {"type": "string"}},
         {"name": "commanderColors", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCommanderColor"}},

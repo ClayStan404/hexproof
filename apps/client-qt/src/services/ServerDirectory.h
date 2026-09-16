@@ -47,7 +47,7 @@ class ServerDirectory : public QObject
     std::array<QStringList, ConfiguredServerCount> m_legacyServerUrls;
     std::array<int, ServerCount> m_latencyMs;
     QString m_customServerUrl;
-    quint64 m_probeGeneration = 0;
+    std::array<quint64, ServerCount> m_probeGenerations{};
 };
 
 } // namespace hexproof::client

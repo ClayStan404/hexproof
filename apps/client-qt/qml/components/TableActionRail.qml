@@ -32,7 +32,7 @@ Surface {
     Layout.preferredWidth: root.tableController.actionRailWidth
     Layout.maximumWidth: root.tableController.actionRailWidth
     Layout.fillHeight: true
-    color: Theme.surfaceMuted
+    color: Theme.tableRailFill
     radius: 0
     border.width: 0
 
@@ -42,7 +42,7 @@ Surface {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Theme.size(2)
-        color: Theme.borderStrong
+        color: Theme.tableDivider
         z: 20
     }
 
@@ -155,12 +155,22 @@ Surface {
             }
         }
         AppButton {
+            id: commanderDamageControl
             objectName: "commanderDamageButton"
             Layout.fillWidth: true
             compact: true
             variant: "secondary"
             visible: root.tableController.isCommanderFormat
             text: qsTranslate("Table", "Commander damage")
+            contentItem: Text {
+                textFormat: Text.PlainText
+                text: commanderDamageControl.text
+                font: commanderDamageControl.font
+                color: commanderDamageControl.foregroundColor
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
             onClicked: root.tableController.commanderDamagePopup.open()
         }
         AppButton {

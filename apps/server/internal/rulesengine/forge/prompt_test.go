@@ -5,6 +5,7 @@ package forge
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -213,6 +214,27 @@ func TestChooseCardsAllowsOptionalEmptySelection(t *testing.T) {
 	}
 }
 
+func TestChooseCardsCancellationPreservesNativePermission(t *testing.T) {
+	raw := json.RawMessage(`{"promptId":53,"decidingPlayerId":"player-0","input":{
+      "type":"chooseCards","min":1,"max":1,"cancellable":true,
+      "cards":[{"id":"card-a","identity":{"name":"Plains"}}]}}`)
+	view, err := NormalizePrompt(raw)
+	if err != nil || !view.Cancellable {
+		t.Fatalf("native cost cancellation missing: %+v, %v", view, err)
+	}
+	response, err := BuildPromptResponse(raw, 0, 53, PromptResponse{ResponseID: "$cancel"})
+	if err != nil || string(response) != `{"output":{"type":"cancel"},"type":"chooseCards"}` {
+		t.Fatalf("card cost cancellation = %s, %v", response, err)
+	}
+	if _, err := BuildPromptResponse(raw, 0, 53, PromptResponse{ResponseID: "$cancel", CardIDs: []string{"card-a"}}); err == nil {
+		t.Fatal("cancel accepted a simultaneous card selection")
+	}
+	required := json.RawMessage(strings.Replace(string(raw), `"cancellable":true`, `"cancellable":false`, 1))
+	if _, err := BuildPromptResponse(required, 0, 53, PromptResponse{ResponseID: "$cancel"}); err == nil {
+		t.Fatal("mandatory selection accepted cancellation")
+	}
+}
+
 func TestNormalizeAndBuildBoardTargets(t *testing.T) {
 	raw := json.RawMessage(`{"promptId":6,"decidingPlayerId":"player-0","input":{
       "type":"chooseBoardTargets","presentation":{"title":"Choose targets"},
@@ -296,7 +318,9 @@ func TestNormalizeAndBuildBlockers(t *testing.T) {
          "minBlockers":2,"mustBeBlocked":false},
         {"attackerId":"card-b","validBlockerIds":["card-y","card-z"],
          "minBlockers":1,"maxBlockers":1,"mustBeBlocked":true}],
-      "availableBlockerIds":["card-x","card-y","card-z"]}}`)
+      "availableBlockerIds":["card-x","card-y","card-z"],
+      "blockerAssignmentLimits":[{"blockerId":"card-x","maxAssignments":1},
+        {"blockerId":"card-y","maxAssignments":1},{"blockerId":"card-z","maxAssignments":1}]}}`)
 	view, err := NormalizePrompt(raw)
 	if err != nil || !view.Supported || len(view.CombatSources) != 3 ||
 		len(view.CombatTargets) != 2 || view.CombatTargets[0].Minimum != 2 ||
@@ -350,4 +374,20 @@ func containsBytes(value, pattern []byte) bool {
 		}
 	}
 	return false
+}
+
+func TestManaPromptRespectsNativeButtonAvailability(t *testing.T) {
+	raw := json.RawMessage(`{"promptId":5,"decidingPlayerId":"player-0","input":{"type":"payManaCost","actions":[{"id":"native-pool-G","type":"activateAbility","label":"Spend G"}],"canConfirmFromPool":false,"canAutoPay":false,"canCancel":false}}`)
+	view, err := NormalizePrompt(raw)
+	if err != nil || len(view.Options) != 1 || view.Options[0].Label != "Spend G" {
+		t.Fatalf("native mana actions = %+v, error = %v", view.Options, err)
+	}
+	for _, id := range []string{"$pay", "$auto-pay", "$cancel"} {
+		if _, err := BuildPromptResponse(raw, 0, 5, PromptResponse{ResponseID: id}); err == nil {
+			t.Fatalf("accepted unavailable native button %s", id)
+		}
+	}
+	if _, err := BuildPromptResponse(raw, 0, 5, PromptResponse{ResponseID: "action:0"}); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -4,6 +4,7 @@
 #include "RulesCombatModel.h"
 
 #include <QHash>
+#include <QSet>
 #include <utility>
 
 namespace hexproof::client {
@@ -42,6 +43,8 @@ QVariant RulesCombatModel::data(const QModelIndex &index, int role) const
         return validTargets(row);
     case MustAssignIfAbleRole:
         return row.mustAssignIfAble;
+    case MaximumRole:
+        return row.maximum;
     default:
         return {};
     }
@@ -57,7 +60,8 @@ QHash<int, QByteArray> RulesCombatModel::roleNames() const
             {CollectorNumberRole, "collectorNumber"},
             {TokenRole, "token"},
             {ValidTargetsRole, "validTargets"},
-            {MustAssignIfAbleRole, "mustAssignIfAble"}};
+            {MustAssignIfAbleRole, "mustAssignIfAble"},
+            {MaximumRole, "maxAssignments"}};
 }
 
 void RulesCombatModel::replace(QVector<RulesCombatSourceRow> sources,
@@ -79,10 +83,23 @@ bool RulesCombatModel::validAssignments(const QVariantMap &assignments) const
     QHash<QString, int> targetCounts;
     for (auto iterator = assignments.cbegin(); iterator != assignments.cend(); ++iterator) {
         const RulesCombatSourceRow *source = sourceById(iterator.key());
-        const QString targetId = iterator.value().toString();
-        if (!source || !targetById(targetId) || !source->validTargetIds.contains(targetId))
+        if (!source)
             return false;
-        ++targetCounts[targetId];
+        const QVariant &value = iterator.value();
+        const QVariantList selected =
+            value.metaType().id() == QMetaType::QString ? QVariantList{value} : value.toList();
+        if (selected.isEmpty() || selected.size() > source->maximum)
+            return false;
+        QSet<QString> seen;
+        for (const QVariant &target : selected) {
+            const QString targetId = target.toString();
+            if (!targetById(targetId) || !source->validTargetIds.contains(targetId) ||
+                seen.contains(targetId)) {
+                return false;
+            }
+            seen.insert(targetId);
+            ++targetCounts[targetId];
+        }
     }
     for (const RulesCombatTargetRow &target : m_targets) {
         const int count = targetCounts.value(target.responseId);
@@ -111,6 +128,19 @@ const RulesCombatTargetRow *RulesCombatModel::targetById(const QString &response
     return nullptr;
 }
 
+QVariantList RulesCombatModel::sourceItems() const
+{
+    QVariantList result;
+    const auto roles = roleNames();
+    for (int row = 0; row < rowCount(); ++row) {
+        QVariantMap item;
+        for (auto role = roles.cbegin(); role != roles.cend(); ++role)
+            item.insert(QString::fromUtf8(role.value()), data(index(row), role.key()));
+        result.append(item);
+    }
+    return result;
+}
+
 QVariantList RulesCombatModel::validTargets(const RulesCombatSourceRow &source) const
 {
     QVariantList result;
@@ -122,6 +152,8 @@ QVariantList RulesCombatModel::validTargets(const RulesCombatSourceRow &source) 
         result.append(
             QVariantMap{{QStringLiteral("responseId"), target->responseId},
                         {QStringLiteral("kind"), target->kind},
+                        {QStringLiteral("objectId"), target->objectId},
+                        {QStringLiteral("seat"), target->seat},
                         {QStringLiteral("label"), target->label},
                         {QStringLiteral("minAssignments"), target->minimum},
                         {QStringLiteral("maxAssignments"), target->maximum},

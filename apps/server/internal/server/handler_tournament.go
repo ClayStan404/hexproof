@@ -95,6 +95,7 @@ func (h *Handler) handleTournamentCreate(sess *Session, env protocol.Envelope) e
 			RoundMinutes: request.RoundMinutes, MaxPlayers: request.MaxPlayers,
 			PlannedRounds: request.PlannedRounds, EventType: request.EventType,
 			Coordinator: request.Coordinator, Product: request.Product,
+			DraftSettings: request.DraftSettings,
 		}, sess.DisplayName, sess.ConnectionID, tournament.CredentialHash(token), now)
 		if err != nil {
 			sendTournamentError(h, sess, env.ID, err)

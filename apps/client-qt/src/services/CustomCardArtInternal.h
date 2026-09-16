@@ -25,6 +25,9 @@ struct WorkResult
     bool ok = false;
     QString error;
     QVariantList entries;
+    QVariantList displayEntries;
+    QHash<QString, QString> lookup;
+    QHash<QString, QVariantMap> entriesById;
     QVariantList changedBindings;
     QSet<QString> repairedImageFiles;
     QVariantList pendingEntries;

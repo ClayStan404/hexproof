@@ -150,7 +150,50 @@ class TestCustomCardArtStore final : public QObject
     void changedBindingsContainOnlyAffectedIdentitiesAfterBusyClears();
     void repairingSharedImageNotifiesEveryBinding_data();
     void repairingSharedImageNotifiesEveryBinding();
+    void discardingPreviewRemovesStagedFilesOffTheGuiThread();
 };
+
+void TestCustomCardArtStore::discardingPreviewRemovesStagedFilesOffTheGuiThread()
+{
+    QTemporaryDir directory;
+    CustomCardArtStore store(directory.filePath(u"profile"_s));
+    const auto image = makeImage(directory.filePath(u"image.png"_s));
+    QVERIFY(runOperation(&store, [&] { store.inspectImage(image); }).value(u"ok"_s).toBool());
+    const QString staged = QUrl(store.preview().value(u"imageSource"_s).toString()).toLocalFile();
+    QVERIFY(QFileInfo::exists(staged));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    struct BlockedCustomWorker
+    {
+        QSemaphore started;
+        QSemaphore release;
+        QFuture<void> worker;
+        BlockedCustomWorker()
+        {
+            worker = QtConcurrent::run(BackgroundTaskPools::customCardArt(), [this] {
+                started.release();
+                release.acquire();
+            });
+            started.acquire();
+        }
+        ~BlockedCustomWorker()
+        {
+            release.release();
+            worker.waitForFinished();
+        }
+    };
+    {
+        BlockedCustomWorker blocked;
+        store.inspectImage(QUrl(u"https://example.test/not-local.png"_s));
+        QVERIFY(!store.preview().value(u"ok"_s).toBool());
+        // Rejection must only release ownership, without deleting the private
+        // extraction tree on this thread. Cleanup waits for its worker.
+        QVERIFY(QFileInfo::exists(staged));
+        bool eventDelivered = false;
+        QMetaObject::invokeMethod(&store, [&] { eventDelivered = true; }, Qt::QueuedConnection);
+        QTRY_VERIFY(eventDelivered);
+    }
+    QTRY_VERIFY(!QFileInfo::exists(staged));
+}
 
 void TestCustomCardArtStore::repairingSharedImageNotifiesEveryBinding_data()
 {

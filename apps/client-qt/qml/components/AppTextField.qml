@@ -61,14 +61,42 @@ TextField {
     font.pixelSize: Theme.fontSize(14)
     passwordCharacter: "•"
 
-    background: Rectangle {
-        color: control.enabled ? Theme.surfaceMuted : Theme.disabled
-        radius: Theme.radiusMedium
-        border.width: 1
-        border.color: control.activeFocus
-                      ? Theme.primary
-                      : (control.hovered ? Theme.borderStrong : Theme.border)
+    background: Item {
+        implicitHeight: Theme.size(52)
 
-        Behavior on border.color { ColorAnimation { duration: Theme.motionFast } }
+        LiquidGlass {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            compact: true
+            elevated: control.activeFocus || control.hovered
+            visible: Theme.useGlass && control.enabled
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            antialiasing: true
+            visible: !Theme.useGlass || !control.enabled
+            color: control.enabled ? Theme.surfaceMuted : Theme.disabled
+            border.width: 1
+            border.color: control.activeFocus
+                          ? Theme.primary
+                          : (control.hovered ? Theme.borderStrong : Theme.border)
+
+            Behavior on border.color { ColorAnimation { duration: Theme.motionFast } }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusMedium
+            antialiasing: true
+            visible: Theme.useGlass && control.enabled
+            color: Theme.withAlpha("#FFFFFF",
+                                   control.activeFocus || control.hovered
+                                   ? 0.12 : 0.08)
+            border.width: 1
+            border.color: control.activeFocus ? Theme.primary
+                          : Theme.glassBorder
+        }
     }
 }

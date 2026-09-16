@@ -96,6 +96,7 @@ void CardCatalog::processCardFaceExpansionBatch()
         return;
     }
 
+    const qsizetype firstNewRequest = m_faceExpansion->expanded.size();
     int batchSize = 0;
     while (batchSize < cardFaceExpansionBatchSize() &&
            m_faceExpansion->nextIndex < m_faceExpansion->cards.size()) {
@@ -127,6 +128,15 @@ void CardCatalog::processCardFaceExpansionBatch()
         ++batchSize;
     }
 
+    // Check the same local mappings used by downloads, in the existing bounded
+    // batches. A match's resource total must not be presented as a download count.
+    for (qsizetype index = firstNewRequest; index < m_faceExpansion->expanded.size(); ++index) {
+        QVariantMap request = m_faceExpansion->expanded.at(index).toMap();
+        request.insert(QStringLiteral("_hexproofLocalArtAvailable"),
+                       matchArtAvailableLocally(request));
+        m_faceExpansion->expanded[index] = request;
+    }
+
     emit cardFaceExpansionProgress(m_faceExpansion->loadId, m_faceExpansion->generation,
                                    m_faceExpansion->language, batchSize,
                                    static_cast<int>(m_faceExpansion->nextIndex));
@@ -140,6 +150,7 @@ void CardCatalog::processCardFaceExpansionBatch()
     const QVariantList expanded = m_faceExpansion->expanded;
     m_faceExpansion.reset();
     emit cardFaceRequestsExpanded(loadId, generation, expanded);
+    scheduleSearchPreview();
 }
 
 } // namespace hexproof::client

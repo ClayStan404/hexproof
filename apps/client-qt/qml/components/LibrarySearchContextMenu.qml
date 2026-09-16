@@ -13,6 +13,13 @@ Menu {
     required property var popupController
     objectName: "libraryCardMenu"
 
+    ConditionalMenuItem {
+        visible: root.popupController.reorderMode
+        enabled: false
+        text: qsTr("Assign cards") + " · " + root.popupController.contextCardIdList().length
+    }
+    ConditionalMenuSeparator { visible: root.popupController.reorderMode }
+
     MenuItem {
         objectName: "libraryContextLocalHand"
         text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Hand")
@@ -30,38 +37,42 @@ Menu {
     }
     MenuItem {
         objectName: "libraryContextLocalGraveyard"
-        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Graveyard")
+        text: (root.popupController.reorderMode ? root.popupController.sourceDisplayName
+                                               : root.popupController.localDisplayName)
+              + " · " + qsTranslate("LibrarySearchPopup", "Graveyard")
         onTriggered: root.popupController.completeContextSearch("graveyard", root.popupController.localSeat, false)
     }
     MenuItem {
         objectName: "libraryContextLocalExile"
-        text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Exile")
+        text: (root.popupController.reorderMode ? root.popupController.sourceDisplayName
+                                               : root.popupController.localDisplayName)
+              + " · " + qsTranslate("LibrarySearchPopup", "Exile")
         onTriggered: root.popupController.completeContextSearch("exile", root.popupController.localSeat, false)
     }
     ConditionalMenuSeparator {
-        visible: root.popupController.remoteSource
+        visible: root.popupController.remoteSource && !root.popupController.reorderMode
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceHand"
-        visible: root.popupController.remoteSource
+        visible: root.popupController.remoteSource && !root.popupController.reorderMode
         text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Hand")
         onTriggered: root.popupController.completeContextSearch("hand", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceBattlefield"
-        visible: root.popupController.remoteSource
+        visible: root.popupController.remoteSource && !root.popupController.reorderMode
         text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Battlefield")
         onTriggered: root.popupController.completeContextSearch("battlefield", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceGraveyard"
-        visible: root.popupController.remoteSource
+        visible: root.popupController.remoteSource && !root.popupController.reorderMode
         text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Graveyard")
         onTriggered: root.popupController.completeContextSearch("graveyard", root.popupController.sourceSeat, false)
     }
     ConditionalMenuItem {
         objectName: "libraryContextSourceExile"
-        visible: root.popupController.remoteSource
+        visible: root.popupController.remoteSource && !root.popupController.reorderMode
         text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Exile")
         onTriggered: root.popupController.completeContextSearch("exile", root.popupController.sourceSeat, false)
     }
@@ -87,5 +98,12 @@ Menu {
         visible: !root.popupController.topCardMode
         text: qsTranslate("LibrarySearchPopup", "Bottom of library · random order")
         onTriggered: root.popupController.completeContextSearch("library_bottom", root.popupController.sourceSeat, true)
+    }
+    ConditionalMenuSeparator { visible: root.popupController.reorderMode }
+    ConditionalMenuItem {
+        visible: root.popupController.reorderMode
+        text: qsTr("Use remainder destination")
+        onTriggered: root.popupController.useRemainderForTopCards(
+                         root.popupController.contextCardIdList())
     }
 }
