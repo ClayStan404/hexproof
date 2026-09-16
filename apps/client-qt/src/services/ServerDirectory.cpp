@@ -178,7 +178,7 @@ QUrl healthUrl(const QString &endpoint)
         path = u"/healthz"_s;
     }
     url.setPath(path);
-    url.setQuery({});
+    url.setQuery(QString{});
     url.setFragment({});
     return url;
 }
