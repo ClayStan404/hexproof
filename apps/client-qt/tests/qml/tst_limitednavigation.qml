@@ -26,6 +26,12 @@ TestCase {
         property bool inRoom: false
         property string displayName: "Navigation test"
         property int serverIndex: 0
+        property var serverEntries: [
+            {id: "server-1", name: "Server 1"},
+            {id: "server-2", name: "Server 2"},
+            {id: "server-3", name: "Server 3"},
+            {id: "custom"}
+        ]
         function disconnectFromHub() { connected = false }
     }
     QtObject {
@@ -230,7 +236,7 @@ TestCase {
         Theme.uiScale = data.scale
         testTranslations.setLanguage(data.language)
         hub.connected = true
-        hub.serverIndex = 5
+        hub.serverIndex = 3
         hub.displayName = "A very long connected player display name"
         updater.updateAvailable = true
         updater.targetVersion = "1.0.7"
@@ -247,7 +253,7 @@ TestCase {
         const page = createPage(mainMenuComponent)
         verifyHeaderGeometry(page)
         hub.connected = true
-        hub.serverIndex = 4
+        hub.serverIndex = 2
         hub.displayName = "A very long connected player display name"
         updater.updateAvailable = true
         updater.targetVersion = "1.0.7"
@@ -256,7 +262,7 @@ TestCase {
         Theme.uiScale = 1.8
         waitForRendering(page)
         verifyHeaderGeometry(page)
-        compare(findChild(page, "connectedServerStatus").text, "Test server")
+        compare(findChild(page, "connectedServerStatus").text, "Server 3")
         mouseClick(findChild(page, "mainMenuDisconnectButton"))
         updater.updateAvailable = false
         waitForRendering(page)
@@ -281,7 +287,7 @@ TestCase {
         Theme.uiScale = data.scale
         hub.connected = true
         hub.displayName = "A very long connected player display name"
-        hub.serverIndex = 5
+        hub.serverIndex = 3
         updater.updateAvailable = true
         updater.targetVersion = "1.0.7"
         const page = createPage(mainMenuComponent)

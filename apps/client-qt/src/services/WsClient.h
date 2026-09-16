@@ -48,7 +48,14 @@ class WsClient : public QObject
     Q_PROPERTY(bool inRoom READ inRoom NOTIFY inRoomChanged)
     Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY serverUrlChanged)
     Q_PROPERTY(int serverIndex READ serverIndex NOTIFY serverUrlChanged)
-    Q_PROPERTY(int customServerIndex READ customServerIndex CONSTANT)
+    Q_PROPERTY(int customServerIndex READ customServerIndex NOTIFY serverDirectoryChanged)
+    Q_PROPERTY(QVariantList serverEntries READ serverEntries NOTIFY serverDirectoryChanged)
+    Q_PROPERTY(QString serverDirectorySource READ serverDirectorySource NOTIFY
+                   serverDirectoryStatusChanged)
+    Q_PROPERTY(bool serverDirectoryRefreshing READ serverDirectoryRefreshing NOTIFY
+                   serverDirectoryStatusChanged)
+    Q_PROPERTY(bool serverDirectoryRefreshFailed READ serverDirectoryRefreshFailed NOTIFY
+                   serverDirectoryStatusChanged)
     Q_PROPERTY(QString customServerUrl READ customServerUrl NOTIFY customServerUrlChanged)
     Q_PROPERTY(QVariantList serverLatencies READ serverLatencies NOTIFY serverLatenciesChanged)
     Q_PROPERTY(QString displayName READ displayName NOTIFY displayNameChanged)
@@ -145,6 +152,10 @@ class WsClient : public QObject
     bool setInitialConnection(const QString &url, const QString &displayName);
     int serverIndex() const;
     int customServerIndex() const;
+    QVariantList serverEntries() const;
+    QString serverDirectorySource() const;
+    bool serverDirectoryRefreshing() const;
+    bool serverDirectoryRefreshFailed() const;
     QString customServerUrl() const;
     QVariantList serverLatencies() const;
     QString displayName() const
@@ -294,6 +305,7 @@ class WsClient : public QObject
     Q_INVOKABLE void connectToServer(int serverIndex, const QString &displayName);
     Q_INVOKABLE void connectToCustomServer(const QString &url, const QString &displayName);
     Q_INVOKABLE void refreshServerLatencies();
+    Q_INVOKABLE void refreshServerDirectory(bool force = false);
     Q_INVOKABLE void disconnectFromHub();
     Q_INVOKABLE void createRoom(const QString &name, const QString &format,
                                 const QString &deckFormat, bool allowSpectators,
@@ -465,6 +477,8 @@ class WsClient : public QObject
     void serverUrlChanged();
     void customServerUrlChanged();
     void serverLatenciesChanged();
+    void serverDirectoryChanged();
+    void serverDirectoryStatusChanged();
     void displayNameChanged();
     void roomIdChanged();
     void snapshotChanged();

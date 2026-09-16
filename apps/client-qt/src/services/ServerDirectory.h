@@ -3,8 +3,10 @@
 
 #pragma once
 
-#include <array>
-
+#include <QElapsedTimer>
+#include <QHash>
+#include <QJsonObject>
+#include <QList>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QString>
@@ -13,8 +15,8 @@
 
 namespace hexproof::client {
 
-// ServerDirectory owns the public-hub configuration, custom endpoint, and
-// health probes.
+// ServerDirectory owns the online public-hub catalog, last-known-good cache,
+// bundled fallback, custom endpoint, and health probes.
 // WsClient remains the QML compatibility facade while connection/session state
 // stays independent from endpoint discovery.
 class ServerDirectory : public QObject
@@ -22,12 +24,14 @@ class ServerDirectory : public QObject
     Q_OBJECT
 
   public:
-    static constexpr int ConfiguredServerCount = 5;
-    static constexpr int CustomServerIndex = ConfiguredServerCount;
-    static constexpr int ServerCount = ConfiguredServerCount + 1;
-
     explicit ServerDirectory(QObject *parent = nullptr);
 
+    int configuredServerCount() const;
+    int customServerIndex() const;
+    QVariantList entries() const;
+    QString source() const;
+    bool refreshing() const;
+    bool refreshFailed() const;
     QString serverUrl(int serverIndex) const;
     QString customServerUrl() const;
     bool setCustomServerUrl(const QString &url);
@@ -36,18 +40,34 @@ class ServerDirectory : public QObject
     QVariantList latencies() const;
 
     void refreshLatencies();
+    void refreshDirectory(bool force = false);
+    void recordForgeCapability(const QString &url, bool supported);
 
   signals:
     void latenciesChanged();
     void customServerUrlChanged();
+    void directoryChanged();
+    void statusChanged();
 
   private:
+    void applyDirectory(const QJsonObject &document, const QString &source);
+    void fetchNextSource(int index);
+    QString cachePath() const;
+
     QNetworkAccessManager m_networkManager;
-    std::array<QString, ConfiguredServerCount> m_configuredServerUrls;
-    std::array<QStringList, ConfiguredServerCount> m_legacyServerUrls;
-    std::array<int, ServerCount> m_latencyMs;
+    QJsonObject m_document;
+    QVariantList m_servers;
+    QStringList m_directoryUrls;
+    QList<int> m_latencyMs;
+    QHash<QString, int> m_observedForge;
     QString m_customServerUrl;
-    std::array<quint64, ServerCount> m_probeGenerations{};
+    QString m_source;
+    bool m_refreshing = false;
+    bool m_refreshFailed = false;
+    QElapsedTimer m_lastDirectoryAttempt;
+    quint64 m_catalogGeneration = 0;
+    quint64 m_probeGeneration = 0;
+    quint64 m_customGeneration = 0;
 };
 
 } // namespace hexproof::client

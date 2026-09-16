@@ -9,6 +9,45 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-16
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.0.1**; application versions
+  must match exactly. The WebSocket protocol remains `hexproof.v1`.
+- Reuse the published 2.0.0 official Forge runtime and matching source archive
+  (pinned upstream revision, adapter 2). No Java, Forge runtime, card database,
+  or saved-deck migration is required for this update.
+- Forge-enabled servers now default to **one simultaneous Forge match**.
+  Operators can set `-max-forge-games` or `HEXPROOF_FORGE_MAX_GAMES` to a positive
+  integer sized for their host; the flag takes precedence. Memory limits alone
+  do not configure this admission limit.
+
+### Changed
+
+- Load the public server list over HTTPS from a primary directory and backup
+  mirror, with a last-known-good local cache, bundled fallback and custom
+  addresses available during directory outages.
+- Add manual list refresh and per-server Forge support labels. Successful
+  connections correct the advertised capability using the actual server
+  welcome. Catalog changes take effect without another client rebuild.
+- Preserve server selection by stable ID across reordering; clear a removed
+  selection instead of choosing another node. Refresh does not move existing
+  connections or their reconnect credentials. Reject stale catalog revisions.
+- Update the maintained fleet to Server 1 (manual only), Server 2 and the new
+  Server 3 (Forge enabled). Remove retired public nodes and the old test server
+  from the default list. Update connected-server labels for the dynamic list.
+
+### Fixed
+
+- Bound simultaneous Forge games before starting Java to prevent unrestricted
+  engine creation from exhausting small servers. A full hub rejects a new
+  start with a capacity message, preserving the room's seats and decks.
+  Existing Forge games, manual games and waiting rooms remain available.
+- Count starting and exiting engines until cleanup completes. BO3 sideboarding
+  and host restarts retain their match slot; completed, abandoned and failed
+  matches release capacity. A restart waits for the previous process to exit.
+
 ## [2.0.0] - 2026-09-16
 
 Rebuilds rules battles around the official Forge engine and a dedicated native

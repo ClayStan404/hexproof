@@ -24,6 +24,15 @@ const (
 	forgeCleanupTimeout   = 5 * time.Second
 )
 
+var errForgeCapacity = errors.New("Forge game capacity is full")
+
+func forgeStartFailure(err error) (string, string) {
+	if errors.Is(err, errForgeCapacity) {
+		return protocol.ErrServerLimit, "Forge game capacity is full; wait for a game to finish, then ready again. Your seats and decks are kept"
+	}
+	return protocol.ErrRulesUnavailable, "Forge could not start the game; the room is waiting for players to ready again"
+}
+
 // forgeRoomGame is private lifecycle metadata. Decks and private projections
 // are never cached here; reconnect always asks Forge for a fresh viewer view.
 type forgeRoomGame struct {
@@ -43,12 +52,56 @@ type forgeStartState struct {
 // startForgeRuntime reserves a fresh process for exactly one game. Native
 // Forge GUI/model singletons and RNG state must never cross game boundaries.
 // Serialize cold startups, but allow established games to run independently.
-func (h *Handler) startForgeRuntime(ctx context.Context) (*forge.Client, error) {
+func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.Client, error) {
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		h.forgeMu.Lock()
 		if h.forgeClosed || h.forgeRuntime == nil || time.Now().Before(h.forgeRetryAfter) {
 			h.forgeMu.Unlock()
 			return nil, errors.New("Forge rules runtime is unavailable")
+		}
+		// Reserve capacity before spawning Java. A process remains charged
+		// until Wait has reaped it, even if it is unhealthy or closing. Check
+		// Done directly so a next game need not wait for its old watcher.
+		occupied := len(h.forgeReservations)
+		reservedClients := make(map[*forge.Client]bool, occupied)
+		for _, client := range h.forgeReservations {
+			reservedClients[client] = true
+		}
+		for client := range h.forgeClients {
+			if reservedClients[client] {
+				continue
+			}
+			select {
+			case <-client.Done():
+			default:
+				occupied++
+			}
+		}
+		if h.forgeStarting != nil {
+			occupied++
+		}
+		if previous, reserved := h.forgeReservations[roomID]; reserved {
+			// Keep the same match's slot across sideboarding/restart, but
+			// never overlap its previous JVM with the replacement.
+			select {
+			case <-previous.Done():
+				occupied--
+			default:
+				h.forgeMu.Unlock()
+				select {
+				case <-previous.Done():
+					continue
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}
+		}
+		if occupied >= h.config.MaxForgeGames {
+			h.forgeMu.Unlock()
+			return nil, errForgeCapacity
 		}
 		if starting := h.forgeStarting; starting != nil {
 			h.forgeMu.Unlock()
@@ -60,6 +113,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context) (*forge.Client, error) 
 			}
 		}
 		starting := make(chan struct{})
+		delete(h.forgeReservations, roomID)
 		h.forgeStarting = starting
 		startCtx, cancel := context.WithCancel(ctx)
 		h.forgeStartCancel = cancel
@@ -111,8 +165,11 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), forgeGameStartTimeout)
 	defer cancel()
-	client, err := h.startForgeRuntime(ctx)
+	client, err := h.startForgeRuntime(ctx, r.ID)
 	if err != nil {
+		h.forgeMu.Lock()
+		delete(h.forgeReservations, r.ID)
+		h.forgeMu.Unlock()
 		return forgeStartState{}, err
 	}
 	handle, err := client.StartGame(ctx, request)
@@ -281,10 +338,19 @@ func (h *Handler) abortUntrackedForgeGame(client *forge.Client, sessionID string
 }
 
 func (h *Handler) abortForgeGame(roomID string) {
+	h.closeForgeGame(roomID, false)
+}
+
+func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
 	h.forgeMu.Lock()
 	game, ok := h.forgeGames[roomID]
 	if ok {
 		delete(h.forgeGames, roomID)
+	}
+	if keepSlot && ok {
+		h.forgeReservations[roomID] = game.client
+	} else if !keepSlot {
+		delete(h.forgeReservations, roomID)
 	}
 	h.forgeMu.Unlock()
 	if ok {
@@ -292,11 +358,14 @@ func (h *Handler) abortForgeGame(roomID string) {
 	}
 }
 
-func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame) {
+func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bool) {
 	h.forgeMu.Lock()
 	current, ok := h.forgeGames[roomID]
 	if ok && current.sessionID == game.sessionID {
 		delete(h.forgeGames, roomID)
+		if keepSlot {
+			h.forgeReservations[roomID] = game.client
+		}
 	} else {
 		ok = false
 	}
@@ -326,6 +395,7 @@ func (h *Handler) Close() error {
 		starting := h.forgeStarting
 		clients := h.forgeClients
 		h.forgeClients = make(map[*forge.Client]struct{})
+		h.forgeReservations = make(map[string]*forge.Client)
 		h.forgeGames = make(map[string]forgeRoomGame)
 		h.forgeMu.Unlock()
 		if starting != nil {

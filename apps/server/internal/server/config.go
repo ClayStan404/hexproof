@@ -33,6 +33,10 @@ type Config struct {
 	TournamentAbandonedTTL      time.Duration
 	PasswordJoinsPerMinute      int
 	MaxConcurrentPasswordChecks int
+	// MaxForgeGames bounds live game processes, including a cold startup,
+	// exiting children, and slots held across BO3 sideboarding or a restart.
+	// Waiting rooms and manual games do not use slots.
+	MaxForgeGames int
 	// ForgeRuntime is nil when rules-enforced rooms are unavailable. A
 	// configured runtime is probed before the handler is returned.
 	ForgeRuntime *forge.ProcessConfig
@@ -63,6 +67,7 @@ func DefaultConfig() Config {
 		TournamentAbandonedTTL:      5 * time.Minute,
 		PasswordJoinsPerMinute:      20,
 		MaxConcurrentPasswordChecks: 8,
+		MaxForgeGames:               1,
 	}
 }
 
@@ -127,6 +132,9 @@ func normalizeConfig(config Config) Config {
 	}
 	if config.MaxConcurrentPasswordChecks <= 0 {
 		config.MaxConcurrentPasswordChecks = defaults.MaxConcurrentPasswordChecks
+	}
+	if config.MaxForgeGames <= 0 {
+		config.MaxForgeGames = defaults.MaxForgeGames
 	}
 	return config
 }

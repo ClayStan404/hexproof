@@ -127,11 +127,12 @@ Page {
 
     function connectedServerLabel() {
         const index = ws.serverIndex
-        if (index >= 0 && index <= 3)
-            return qsTr("Server %1").arg(index + 1)
-        if (index === 4)
-            return qsTr("Test server")
-        return qsTr("Custom server")
+        const entries = ws.serverEntries
+        if (index < 0 || index >= entries.length || entries[index].id === "custom")
+            return qsTr("Custom server")
+        const name = String(entries[index].name || "")
+        const numbered = /^Server ([0-9]+)$/.exec(name)
+        return numbered ? qsTr("Server %1").arg(numbered[1]) : name
     }
 
     Flickable {

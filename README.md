@@ -13,7 +13,7 @@ Hexproof keeps both experiences focused and native without accounts,
 matchmaking, or a browser shell. The client supports English and Simplified
 Chinese on Linux, Windows, and macOS.
 
-Current version: **2.0.0**. Client and server application versions must match
+Current version: **2.0.1**. Client and server application versions must match
 exactly.
 
 Hexproof is still in active development: features may change and releases can
@@ -52,7 +52,8 @@ screens show plain-text import and per-card printing selection.
 - Solo Playtest through the same authoritative table path used by multiplayer.
 - Player and spectator roles, password-protected rooms, host controls, public
   chat/logs, and same-seat reconnect after a network interruption.
-- Named bundled servers plus a user-defined custom WebSocket server.
+- Online server discovery with cached and bundled fallbacks, per-server Forge
+  support labels, and a user-defined custom WebSocket server.
 
 ### Limited play: draft, sealed, and Cube
 

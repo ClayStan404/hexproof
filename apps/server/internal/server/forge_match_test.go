@@ -77,7 +77,7 @@ func TestForgeBO3ReadyAndTimeoutUseFreshEngineNotManualState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler.finishForgeGame(r.ID, old)
+	handler.finishForgeGame(r.ID, old, true)
 	operation.opMu.Unlock()
 	move, _ := protocol.NewEnvelope(protocol.TypeSideboardMove, protocol.SideboardMove{
 		FromZone: protocol.SideboardZoneMain, ToZone: protocol.SideboardZoneSide,
@@ -121,7 +121,7 @@ func TestForgeBO3ReadyAndTimeoutUseFreshEngineNotManualState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler.finishForgeGame(r.ID, current)
+	handler.finishForgeGame(r.ID, current, true)
 	_, err = handler.hub.MoveSideboard(members[0].ConnectionID, protocol.SideboardMove{
 		FromZone: protocol.SideboardZoneSide, ToZone: protocol.SideboardZoneMain,
 		Name: "Forest", SetCode: "M21", CollectorNumber: "272",
@@ -164,7 +164,7 @@ func TestForgeBO3NextGameFailureReturnsWaitingWithoutFalseReadyAck(t *testing.T)
 		t.Fatal(err)
 	}
 	old, _ := handler.forgeGame(r.ID)
-	handler.finishForgeGame(r.ID, old)
+	handler.finishForgeGame(r.ID, old, true)
 	operation.opMu.Unlock()
 	if err := os.WriteFile(filepath.Join(dir, "fail-game"), []byte("synthetic failure"), 0600); err != nil {
 		t.Fatal(err)

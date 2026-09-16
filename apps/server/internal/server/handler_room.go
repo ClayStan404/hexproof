@@ -503,8 +503,8 @@ func (h *Handler) handlePlayerReady(sess *Session, env protocol.Envelope) error 
 				h.failClosedGameProjections(r, rollbackErr)
 				return nil
 			}
-			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
-				"Forge could not start this match")
+			code, message := forgeStartFailure(err)
+			h.sendError(sess, env.ID, code, message)
 			h.fanout(r, rollback.Broadcast)
 			return nil
 		}
@@ -559,8 +559,8 @@ func (h *Handler) handleClientLoadComplete(sess *Session, env protocol.Envelope)
 				h.failClosedGameProjections(r, rollbackErr)
 				return nil
 			}
-			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
-				"Forge could not start this match")
+			code, message := forgeStartFailure(err)
+			h.sendError(sess, env.ID, code, message)
 			h.fanout(r, rollback.Broadcast)
 			return nil
 		}

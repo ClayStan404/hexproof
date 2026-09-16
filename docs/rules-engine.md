@@ -265,6 +265,22 @@ game's process. Server shutdown also reaps children still starting a game.
 There is no automatic reconstruction of an in-progress game and no background
 restart loop. Old-process cleanup cannot reset a game on its replacement.
 
+The hub also enforces an operator-configured Forge capacity before spawning a
+process. `-max-forge-games` overrides `HEXPROOF_FORGE_MAX_GAMES`; the default is
+one. Both CLI and environment values must be positive integers. Cold startup
+and exiting children consume capacity until the process has been reaped. BO3
+sideboarding and host restarts retain the match's slot while the old JVM is
+reaped, so another room cannot interrupt an ongoing match by taking its place.
+An abandoned match, failed transition, or completed match releases its slot.
+
+If all slots are occupied, a new match returns the existing `server_limit`
+error before starting Java. Its room returns to `waiting` with seats and decks
+preserved and readiness cleared; players can ready again after capacity is
+available. Capacity rejection does not disable the Forge capability, trigger
+the runtime-failure cooldown, or affect existing games and manual rooms.
+Waiting rooms consume no Forge slot. The limit applies to one hub process;
+separate services sharing a host need a combined memory budget.
+
 ## Packaging
 
 The Forge runtime, card scripts, license text, source offer, pinned revisions,

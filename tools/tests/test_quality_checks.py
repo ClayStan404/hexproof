@@ -222,7 +222,7 @@ class ServerDirectoryToolTests(unittest.TestCase):
         }
         self.assertEqual(server_directory.validate_directory(document), document)
 
-    def test_rejects_the_legacy_four_server_shape(self) -> None:
+    def test_accepts_variable_legacy_server_count(self) -> None:
         document = {
             "schemaVersion": 1,
             "servers": [
@@ -232,8 +232,36 @@ class ServerDirectoryToolTests(unittest.TestCase):
                 {"url": "wss://server-1.example/test/ws"},
             ],
         }
-        with self.assertRaisesRegex(ValueError, "exactly 5 entries"):
-            server_directory.validate_directory(document)
+        self.assertEqual(server_directory.validate_directory(document), document)
+
+    def test_online_catalog_requires_unique_ids_and_boolean_capabilities(self) -> None:
+        valid = {"schemaVersion": 2, "revision": 1,
+                 "directoryUrls": ["https://directory.example/servers.json"],
+                 "servers": [{"id": "server-1", "name": "Server 1", "forge": False,
+                              "url": "wss://server-1.example/ws"}]}
+        self.assertEqual(server_directory.validate_directory(valid), valid)
+        for field, value in (("id", "custom"), ("forge", "false"),
+                             ("name", ""), ("url", "ws://public.example/ws"),
+                             ("url", "wss://user:password@public.example/ws"),
+                             ("url", "wss://public.example/ws?token=value")):
+            with self.subTest(field=field, value=value):
+                changed = json.loads(json.dumps(valid))
+                changed["servers"][0][field] = value
+                with self.assertRaises(ValueError):
+                    server_directory.validate_directory(changed)
+        duplicate = json.loads(json.dumps(valid))
+        duplicate["servers"].append(dict(valid["servers"][0], url="wss://other.example/ws"))
+        with self.assertRaises(ValueError):
+            server_directory.validate_directory(duplicate)
+
+    def test_online_catalog_accepts_empty_list_and_rejects_invalid_revisions(self) -> None:
+        document = {"schemaVersion": 2, "revision": 1, "servers": []}
+        self.assertEqual(server_directory.validate_directory(document), document)
+        for revision in (0, -1, True, 1.5, 2**53):
+            with self.subTest(revision=revision):
+                with self.assertRaises(ValueError):
+                    server_directory.validate_directory(dict(document, revision=revision))
+
 
 
 class VerificationScriptTests(unittest.TestCase):

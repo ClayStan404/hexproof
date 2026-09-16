@@ -7,20 +7,21 @@
 from __future__ import annotations
 
 import json
+import ipaddress
 import os
 from pathlib import Path
 import re
 import sys
 import tempfile
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 
 SECRET_NAME = "HEXPROOF_PUBLIC_SERVERS_JSON"
-SERVER_COUNT = 5
+MAXIMUM_SERVERS = 32
 
 
 def validate_server_url(value: object, label: str) -> None:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or len(value) > 2048:
         raise ValueError(f"{label} must be a string")
     normalized = value.strip()
     if (any(character.isspace() or ord(character) < 32 or ord(character) == 127
@@ -40,23 +41,79 @@ def validate_server_url(value: object, label: str) -> None:
         raise ValueError(f"{label} must use ws:// or wss:// with a valid host and port")
 
 
+def validate_directory_url(value: object) -> None:
+    if not isinstance(value, str) or len(value) > 2048:
+        raise ValueError("directory URL must be a bounded string")
+    parsed = urlsplit(value)
+    try:
+        loopback = parsed.hostname == "localhost" or ipaddress.ip_address(parsed.hostname or "").is_loopback
+    except ValueError:
+        loopback = False
+    if (not parsed.hostname or parsed.username or parsed.password or parsed.fragment
+            or parsed.port == 0 or parsed.scheme not in ({"https", "http"} if loopback else {"https"})):
+        raise ValueError("directory URLs require HTTPS (HTTP is allowed only on loopback)")
+    validate_server_url(value.replace("https://", "wss://", 1).replace("http://", "ws://", 1), "directory URL")
+
+
 def validate_directory(document: object) -> dict[str, object]:
-    if not isinstance(document, dict) or set(document) != {"schemaVersion", "servers"}:
-        raise ValueError("the directory must contain only schemaVersion and servers")
-    if type(document["schemaVersion"]) is not int or document["schemaVersion"] != 1:
-        raise ValueError("schemaVersion must be 1")
+    if not isinstance(document, dict) or type(document.get("schemaVersion")) is not int:
+        raise ValueError("the directory requires schemaVersion and servers")
+    if len(json.dumps(document, ensure_ascii=False).encode("utf-8")) > 64 * 1024:
+        raise ValueError("the directory must not exceed 64 KiB")
+    schema = document["schemaVersion"]
+    if schema not in (1, 2):
+        raise ValueError("schemaVersion must be 1 or 2")
+    allowed = {"schemaVersion", "servers"} if schema == 1 else {"schemaVersion", "revision", "directoryUrls", "servers"}
+    if not set(document).issubset(allowed) or "servers" not in document:
+        raise ValueError("the directory contains unsupported fields")
+    if schema == 2:
+        revision = document.get("revision")
+        if type(revision) is not int or not 1 <= revision <= 2**53 - 1:
+            raise ValueError("revision must be a positive safe JSON integer")
+        sources = document.get("directoryUrls", [])
+        if not isinstance(sources, list) or len(sources) > 4:
+            raise ValueError("directoryUrls must contain at most four sources")
+        for source in sources:
+            validate_directory_url(source)
 
     servers = document["servers"]
-    if not isinstance(servers, list) or len(servers) != SERVER_COUNT:
-        raise ValueError(f"servers must contain exactly {SERVER_COUNT} entries")
+    if not isinstance(servers, list) or not (0 if schema == 2 else 1) <= len(servers) <= MAXIMUM_SERVERS:
+        raise ValueError(f"servers must contain at most {MAXIMUM_SERVERS} entries")
+    ids = set()
+    urls = set()
     for index, server in enumerate(servers, start=1):
-        if not isinstance(server, dict) or not set(server).issubset({"url", "legacyUrls"}):
+        fields = {"url", "legacyUrls"} if schema == 1 else {"id", "name", "sponsor", "url", "forge", "legacyUrls"}
+        if not isinstance(server, dict) or not set(server).issubset(fields):
             raise ValueError(f"server {index} contains unsupported fields")
         if "url" not in server:
             raise ValueError(f"server {index} must contain url")
         validate_server_url(server["url"], f"server {index} url")
+        endpoint = urlsplit(server["url"].strip())
+        normalized = urlunsplit((endpoint.scheme, endpoint.netloc.lower(),
+                                 "/ws" if endpoint.path in ("", "/") else endpoint.path,
+                                 endpoint.query, ""))
+        if normalized in urls:
+            raise ValueError("server URLs must be unique")
+        urls.add(normalized)
+        if schema == 2:
+            identifier = server.get("id")
+            if (not isinstance(identifier, str) or not re.fullmatch(r"[a-z0-9_-]{1,64}", identifier)
+                    or identifier == "custom" or identifier in ids):
+                raise ValueError("server IDs must be unique, bounded identifiers")
+            ids.add(identifier)
+            name = server.get("name")
+            if not isinstance(name, str) or not name.strip() or len(name) > 120:
+                raise ValueError("server name must be a bounded, nonempty string")
+            if type(server.get("forge")) is not bool:
+                raise ValueError("forge must be a boolean")
+            sponsor = server.get("sponsor", "")
+            if not isinstance(sponsor, str) or len(sponsor) > 120:
+                raise ValueError("sponsor must be a bounded string")
+            validate_directory_url(server["url"].replace("wss://", "https://", 1).replace("ws://", "http://", 1))
+            if urlsplit(server["url"]).query:
+                raise ValueError("public server URLs must not contain a query")
         legacy_urls = server.get("legacyUrls", [])
-        if not isinstance(legacy_urls, list):
+        if not isinstance(legacy_urls, list) or len(legacy_urls) > 8:
             raise ValueError(f"server {index} legacyUrls must be an array")
         for legacy_index, legacy_url in enumerate(legacy_urls, start=1):
             validate_server_url(legacy_url, f"server {index} legacy URL {legacy_index}")

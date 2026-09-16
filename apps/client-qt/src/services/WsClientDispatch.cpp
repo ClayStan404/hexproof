@@ -6,6 +6,7 @@
 #include "LimitedSessionState.h"
 #include "ProtocolSession.h"
 #include "ReconnectController.h"
+#include "ServerDirectory.h"
 #include "TournamentSessionState.h"
 
 #include <QJsonArray>
@@ -192,6 +193,7 @@ void WsClient::handleWelcome(const Envelope &env)
         return;
     }
     setForgeRulesAvailable(env.payload.value(u"forgeRulesAvailable"_s).toBool());
+    m_serverDirectory->recordForgeCapability(m_serverUrl, forgeRulesAvailable());
     const bool resumed = env.payload.value(u"resumed"_s).toBool();
     const bool tournamentOnlyReconnect = m_resumeAttempted && m_state == Reconnecting &&
                                          roomId().isEmpty() && m_tournamentSession->inTournament();

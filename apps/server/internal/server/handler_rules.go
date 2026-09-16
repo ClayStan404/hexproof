@@ -151,7 +151,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			h.failClosedGameProjections(r, err)
 			return nil
 		}
-		h.finishForgeGame(r.ID, game)
+		h.finishForgeGame(r.ID, game, !resultDeadline.IsZero())
 	} else {
 		prompts, err = h.rulesPrompts(r)
 		if err != nil {

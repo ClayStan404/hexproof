@@ -21,7 +21,23 @@ TestCase {
 
     QtObject {
         id: mockWs
-        property int customServerIndex: 5
+        property var serverEntries: defaultEntries()
+        property int customServerIndex: serverEntries.length - 1
+        property string serverDirectorySource: "bundled"
+        property bool serverDirectoryRefreshing: false
+        property bool serverDirectoryRefreshFailed: false
+        property int directoryRefreshCalls: 0
+        signal serverDirectoryChanged()
+        onServerEntriesChanged: serverDirectoryChanged()
+        function defaultEntries() {
+            return [{id: "server-1", name: "Server 1", forge: 0},
+                    {id: "server-2", name: "Server 2", forge: 1},
+                    {id: "server-3", name: "Server 3", forge: 1},
+                    {id: "server-4", name: "Server 4", forge: -1},
+                    {id: "server-5", name: "Server 5", forge: 0},
+                    {id: "custom", forge: -1}]
+        }
+        function refreshServerDirectory(force) { ++directoryRefreshCalls }
         property int serverIndex: 5
         property bool connecting: false
         property bool connected: false
@@ -84,6 +100,8 @@ TestCase {
         testWindow.popCount = 0
         mockWs.connecting = false
         mockWs.disconnectCalls = 0
+        mockWs.serverEntries = mockWs.defaultEntries()
+        mockWs.directoryRefreshCalls = 0
         mockWs.serverIndex = 5
         mockWs.customConnectCalls = 0
         mockWs.configuredConnectCalls = 0
@@ -164,9 +182,46 @@ TestCase {
 
         mockWs.serverLatencies = [34, 48, -1, 72, 15, 1]
 
-        tryCompare(selector, "displayText", "Custom server · 1 ms")
+        tryCompare(selector, "displayText", "Custom server · Forge status unknown · 1 ms")
         compare(selector.currentIndex, mockWs.customServerIndex)
         compare(page.selectedServerIndex, mockWs.customServerIndex)
+    }
+
+    function test_directoryReorderPreservesSelectedIdAndRemovalClearsIt() {
+        page.selectServer(1)
+        const selected = mockWs.serverEntries[1]
+        const custom = mockWs.serverEntries[5]
+        mockWs.serverEntries = [selected, mockWs.serverEntries[0], custom]
+        tryCompare(page, "selectedServerIndex", 0)
+        compare(page.selectedServerId, "server-2")
+        page.submit()
+        compare(mockWs.lastConnectedIndex, 0)
+        mockWs.serverEntries = [custom]
+        tryCompare(page, "selectedServerIndex", -1)
+        page.submit()
+        compare(mockWs.configuredConnectCalls, 1)
+        compare(mockWs.customConnectCalls, 0)
+        mockWs.serverEntries = [selected, custom]
+        tryCompare(page, "selectedServerIndex", -1)
+    }
+
+    function test_customSelectionFollowsDynamicIndex() {
+        mockWs.serverEntries = [mockWs.serverEntries[0], mockWs.serverEntries[5]]
+        tryCompare(page, "selectedServerIndex", 1)
+        compare(page.selectedServerId, "custom")
+        page.submit()
+        compare(mockWs.customConnectCalls, 1)
+    }
+
+    function test_capabilitiesAndRefreshAction() {
+        verify(page.serverLabel(0).includes("Manual only"))
+        verify(page.serverLabel(1).includes("Forge supported"))
+        verify(page.serverLabel(3).includes("Forge status unknown"))
+        const button = findChild(page, "refreshServerDirectoryButton")
+        verify(button !== null)
+        const count = mockWs.directoryRefreshCalls
+        mouseClick(button)
+        compare(mockWs.directoryRefreshCalls, count + 1)
     }
 
     function test_connectButtonStaysInsideCardAndReachable() {

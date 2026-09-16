@@ -1,20 +1,28 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "revision": 1,
+  "directoryUrls": [
+    "https://directory.example.invalid/servers.json",
+    "https://mirror.example.invalid/servers.json"
+  ],
   "servers": [
     {
-      "url": "wss://server-1.invalid/ws"
+      "id": "server-1",
+      "name": "Server 1",
+      "url": "wss://server-1.invalid/ws",
+      "forge": false
     },
     {
-      "url": "wss://server-2.invalid/ws"
+      "id": "server-2",
+      "name": "Server 2",
+      "url": "wss://server-2.invalid/ws",
+      "forge": true
     },
     {
-      "url": "wss://server-3.invalid/ws"
-    },
-    {
-      "url": "wss://server-4.invalid/ws"
-    },
-    {
-      "url": "wss://test-server.invalid/test/ws"
+      "id": "server-3",
+      "name": "Server 3",
+      "url": "wss://server-3.invalid/ws",
+      "forge": true
     }
   ]
 }

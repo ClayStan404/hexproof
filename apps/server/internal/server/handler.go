@@ -72,6 +72,7 @@ type Handler struct {
 	forgeRuntime            *forge.ProcessConfig
 	forgeMu                 sync.Mutex
 	forgeClients            map[*forge.Client]struct{}
+	forgeReservations       map[string]*forge.Client
 	forgeGames              map[string]forgeRoomGame
 	forgePromptSequence     atomic.Int64
 	forgeClosed             bool
@@ -139,6 +140,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		tournaments:             newTournamentRegistry(config.MaxTournaments),
 		forgeRuntime:            forgeRuntime,
 		forgeClients:            make(map[*forge.Client]struct{}),
+		forgeReservations:       make(map[string]*forge.Client),
 		forgeGames:              make(map[string]forgeRoomGame),
 	}, nil
 }

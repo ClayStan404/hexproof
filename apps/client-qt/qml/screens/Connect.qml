@@ -15,10 +15,15 @@ Page {
     readonly property var hub: wsModel ? wsModel : ws
     readonly property var updater: updaterModel ? updaterModel : appUpdater
     readonly property int customServerIndex: root.hub.customServerIndex
-    property int selectedServerIndex: root.hub.serverIndex
+    property int selectedServerIndex: -1
+    property string selectedServerId: ""
     property int latencyRefreshCountdown: 0
 
-    Component.onCompleted: Qt.callLater(root.syncServerSelector)
+    Component.onCompleted: {
+        root.selectServer(root.hub.serverIndex)
+        root.hub.refreshServerDirectory()
+        Qt.callLater(root.syncServerSelector)
+    }
     onSelectedServerIndexChanged: Qt.callLater(root.syncServerSelector)
 
     background: AppBackground { }
@@ -122,20 +127,35 @@ Page {
                     displayText: root.serverLabel(root.selectedServerIndex)
                     enabled: !root.hub.connecting
                     onActivated: function(index) {
-                        root.selectedServerIndex = index
+                        root.selectServer(index)
                     }
                 }
 
-                Text {
-                    textFormat: Text.PlainText
-                    objectName: "serverLatencyRefreshStatus"
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Auto refresh") + " · "
-                          + root.latencyRefreshCountdown + " "
-                          + qsTr("sec")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(10)
-                    horizontalAlignment: Text.AlignRight
+                    Text {
+                        objectName: "serverDirectoryStatus"
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Theme.fontSize(11)
+                        color: Theme.textMuted
+                        text: root.hub.serverDirectoryRefreshing
+                              ? qsTr("Refreshing server list…")
+                              : root.hub.serverDirectoryRefreshFailed
+                                ? qsTr("Using saved server list; refresh unavailable")
+                                : root.hub.serverDirectorySource === "online"
+                                  ? qsTr("Online server list")
+                                  : root.hub.serverDirectorySource === "cache"
+                                    ? qsTr("Saved server list") : qsTr("Built-in server list")
+                    }
+                    AppButton {
+                        objectName: "refreshServerDirectoryButton"
+                        text: qsTr("Refresh list")
+                        implicitHeight: Theme.size(28)
+                        enabled: !root.hub.serverDirectoryRefreshing && !root.hub.connecting
+                        onClicked: root.hub.refreshServerDirectory(true)
+                    }
                 }
 
                 ColumnLayout {
@@ -347,6 +367,7 @@ Page {
         running: root.visible && !root.hub.connecting
         onTriggered: {
             if (root.latencyRefreshCountdown <= 1) {
+                root.hub.refreshServerDirectory()
                 root.hub.refreshServerLatencies()
                 root.latencyRefreshCountdown = 5
             } else {
@@ -356,16 +377,22 @@ Page {
     }
 
     function serverLabel(index) {
-        const name = index === 0 ? qsTr("Server 1 (sponsored by 情报)")
-                   : index === 1 ? qsTr("Server 2")
-                   : index === 2 ? qsTr("Server 3")
-                   : index === 3 ? qsTr("Server 4")
-                   : index === 4 ? qsTr("Test server")
-                                 : qsTr("Custom server")
+        const entries = root.hub.serverEntries
+        if (index < 0 || index >= entries.length)
+            return qsTr("Choose a server")
+        const entry = entries[index]
+        const numbered = /^Server ([0-9]+)$/.exec(String(entry.name || ""))
+        let name = index === root.customServerIndex ? qsTr("Custom server")
+                   : numbered ? qsTr("Server %1").arg(numbered[1]) : entry.name
+        if (entry.sponsor)
+            name += qsTr(" (sponsored by %1)").arg(entry.sponsor)
         if (index === root.customServerIndex
             && root.hub.customServerUrl.length === 0) {
             return name
         }
+        name += " · " + (entry.forge === 1 ? qsTr("Forge supported")
+                         : entry.forge === 0 ? qsTr("Manual only")
+                                             : qsTr("Forge status unknown"))
         const latencies = root.hub.serverLatencies
         const latency = latencies.length > index ? latencies[index] : -2
         if (latency >= 0)
@@ -373,6 +400,26 @@ Page {
         if (latency === -1)
             return name + " · " + qsTr("Unavailable")
         return name + " · " + qsTr("Checking…")
+    }
+
+    function selectServer(index) {
+        const entries = root.hub.serverEntries
+        root.selectedServerIndex = index >= 0 && index < entries.length ? index : -1
+        root.selectedServerId = root.selectedServerIndex >= 0 ? entries[index].id : ""
+    }
+
+    function reconcileServerSelection() {
+        const entries = root.hub.serverEntries
+        let selected = -1
+        for (let index = 0; index < entries.length; ++index) {
+            if (entries[index].id === root.selectedServerId) {
+                selected = index
+                break
+            }
+        }
+        root.selectedServerIndex = selected
+        if (selected < 0)
+            root.selectedServerId = ""
     }
 
     function syncServerSelector() {
@@ -452,6 +499,9 @@ Page {
 
     Connections {
         target: root.hub
+        function onServerDirectoryChanged() {
+            root.reconcileServerSelection()
+        }
         function onLastErrorChanged() {
             root.refreshConnectionError()
         }

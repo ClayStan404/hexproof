@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -75,10 +76,16 @@ func main() {
 		"path to the Forge runtime home containing card scripts (defaults to HEXPROOF_FORGE_HOME)")
 	forgeJava := flag.String("forge-java", forgeJavaDefault,
 		"Java command for the Forge runtime (defaults to HEXPROOF_FORGE_JAVA or java)")
+	forgeMaxGames := flag.String("max-forge-games", forgeMaxGamesDefault(),
+		"maximum concurrent Forge game processes, including startup (positive integer; defaults to HEXPROOF_FORGE_MAX_GAMES or 1)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintf(os.Stdout, "hexproof-server %s\n", buildinfo.Version)
 		return
+	}
+	maxForgeGames, err := parseForgeGameLimit(*forgeMaxGames)
+	if err != nil {
+		log.Fatalf("hexproof-server: %v", err)
 	}
 
 	var forgeRuntime *forge.ProcessConfig
@@ -113,6 +120,7 @@ func main() {
 		PasswordJoinsPerMinute:      *passwordJoinsPerMinute,
 		MaxConcurrentPasswordChecks: *maxConcurrentPasswordChecks,
 		ForgeRuntime:                forgeRuntime,
+		MaxForgeGames:               maxForgeGames,
 	})
 	if err != nil {
 		log.Fatalf("hexproof-server: configure: %v", err)
@@ -185,6 +193,21 @@ func forgeRuntimeDefaults() (string, string, string) {
 	}
 	return os.Getenv("HEXPROOF_FORGE_HARNESS"),
 		os.Getenv("HEXPROOF_FORGE_HOME"), javaCommand
+}
+
+func forgeMaxGamesDefault() string {
+	if value, set := os.LookupEnv("HEXPROOF_FORGE_MAX_GAMES"); set {
+		return value
+	}
+	return strconv.Itoa(server.DefaultConfig().MaxForgeGames)
+}
+
+func parseForgeGameLimit(value string) (int, error) {
+	limit, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || limit < 1 {
+		return 0, fmt.Errorf("-max-forge-games / HEXPROOF_FORGE_MAX_GAMES must be a positive integer")
+	}
+	return limit, nil
 }
 
 func splitCommaSeparated(value string) []string {

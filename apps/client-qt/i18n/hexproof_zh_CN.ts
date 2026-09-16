@@ -1450,6 +1450,54 @@ many tables.</source>
         <source>Find matching version</source>
         <translation>查找匹配版本</translation>
     </message>
+    <message>
+        <source>Choose a server</source>
+        <translation>请选择服务器</translation>
+    </message>
+    <message>
+        <source>Server %1</source>
+        <translation>服务器 %1</translation>
+    </message>
+    <message>
+        <source> (sponsored by %1)</source>
+        <translation>（由%1赞助）</translation>
+    </message>
+    <message>
+        <source>Forge supported</source>
+        <translation>支持 Forge</translation>
+    </message>
+    <message>
+        <source>Manual only</source>
+        <translation>仅手动牌桌</translation>
+    </message>
+    <message>
+        <source>Forge status unknown</source>
+        <translation>Forge 支持情况未知</translation>
+    </message>
+    <message>
+        <source>Refreshing server list…</source>
+        <translation>正在更新服务器列表…</translation>
+    </message>
+    <message>
+        <source>Using saved server list; refresh unavailable</source>
+        <translation>使用备用列表 · 暂时无法更新</translation>
+    </message>
+    <message>
+        <source>Online server list</source>
+        <translation>在线服务器列表</translation>
+    </message>
+    <message>
+        <source>Saved server list</source>
+        <translation>已缓存的服务器列表</translation>
+    </message>
+    <message>
+        <source>Built-in server list</source>
+        <translation>内置服务器列表</translation>
+    </message>
+    <message>
+        <source>Refresh list</source>
+        <translation>刷新列表</translation>
+    </message>
 </context>
 <context>
     <name>CounterLabelPopup</name>

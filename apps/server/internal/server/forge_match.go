@@ -47,17 +47,18 @@ func (h *Handler) prepareForgeTransition(r *room.Room, actor *Session, requestID
 	if err == nil {
 		return state, true
 	}
+	h.abortForgeGame(r.ID)
 	reset, resetErr := h.hub.ResetRulesStartFailure(r)
 	if resetErr == nil {
 		h.fanout(r, reset.Broadcast)
 	}
+	code, message := forgeStartFailure(err)
 	for _, member := range h.sessionsForRoomPointer(r) {
 		id := ""
 		if member == actor {
 			id = requestID
 		}
-		h.sendError(member, id, protocol.ErrRulesUnavailable,
-			"Forge could not start the game; the room is waiting for players to ready again")
+		h.sendError(member, id, code, message)
 	}
 	return forgeStartState{}, false
 }
@@ -83,7 +84,7 @@ func (h *Handler) handleForgeRestart(sess *Session, env protocol.Envelope, r *ro
 		h.sendError(sess, env.ID, code, "this game cannot be restarted")
 		return nil
 	}
-	h.abortForgeGame(r.ID)
+	h.closeForgeGame(r.ID, true)
 	state, ok := h.prepareForgeTransition(r, sess, env.ID)
 	if !ok {
 		return nil

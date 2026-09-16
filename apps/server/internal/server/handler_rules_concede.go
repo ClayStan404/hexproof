@@ -111,7 +111,7 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 		return nil
 	}
 	if gameOver {
-		h.finishForgeGame(r.ID, game)
+		h.finishForgeGame(r.ID, game, !result.SideboardDeadline.IsZero())
 	}
 
 	result.Reply.ID = env.ID

@@ -69,6 +69,12 @@ WsClient::WsClient(QObject *parent)
             &WsClient::serverLatenciesChanged);
     connect(m_serverDirectory, &ServerDirectory::customServerUrlChanged, this,
             &WsClient::customServerUrlChanged);
+    connect(m_serverDirectory, &ServerDirectory::directoryChanged, this, [this]() {
+        emit serverDirectoryChanged();
+        emit serverUrlChanged();
+    });
+    connect(m_serverDirectory, &ServerDirectory::statusChanged, this,
+            &WsClient::serverDirectoryStatusChanged);
 
     m_tournamentSession = new TournamentSessionState(this);
     m_limitedSession = new LimitedSessionState(this);
@@ -90,7 +96,7 @@ WsClient::WsClient(QObject *parent)
     m_serverUrl = m_reconnectController->serverUrl();
     m_displayName = m_reconnectController->displayName();
     if (!m_serverUrl.isEmpty() &&
-        m_serverDirectory->indexForUrl(m_serverUrl) == ServerDirectory::CustomServerIndex &&
+        m_serverDirectory->indexForUrl(m_serverUrl) == m_serverDirectory->customServerIndex() &&
         m_serverDirectory->customServerUrl() != m_serverUrl &&
         m_serverDirectory->setCustomServerUrl(m_serverUrl)) {
         settings.setValue(u"network/customServerUrl"_s, m_serverDirectory->customServerUrl());
@@ -244,7 +250,8 @@ void WsClient::openTransport()
 void WsClient::connectToServer(int serverIndex, const QString &displayName)
 {
     const QString url = m_serverDirectory->serverUrl(serverIndex);
-    if (serverIndex < 0 || serverIndex >= ServerDirectory::ConfiguredServerCount || url.isEmpty()) {
+    if (serverIndex < 0 || serverIndex >= m_serverDirectory->configuredServerCount() ||
+        url.isEmpty()) {
         setLastError(u"invalid_server_url"_s, u"enter a ws:// or wss:// server address"_s);
         return;
     }
@@ -274,7 +281,24 @@ int WsClient::serverIndex() const
 
 int WsClient::customServerIndex() const
 {
-    return ServerDirectory::CustomServerIndex;
+    return m_serverDirectory->customServerIndex();
+}
+
+QVariantList WsClient::serverEntries() const
+{
+    return m_serverDirectory->entries();
+}
+QString WsClient::serverDirectorySource() const
+{
+    return m_serverDirectory->source();
+}
+bool WsClient::serverDirectoryRefreshing() const
+{
+    return m_serverDirectory->refreshing();
+}
+bool WsClient::serverDirectoryRefreshFailed() const
+{
+    return m_serverDirectory->refreshFailed();
 }
 
 QString WsClient::customServerUrl() const
@@ -300,6 +324,11 @@ QString WsClient::releaseDownloadUrl() const
 void WsClient::refreshServerLatencies()
 {
     m_serverDirectory->refreshLatencies();
+}
+
+void WsClient::refreshServerDirectory(bool force)
+{
+    m_serverDirectory->refreshDirectory(force);
 }
 
 void WsClient::disconnectFromHub()

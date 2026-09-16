@@ -43,3 +43,24 @@ func TestForgeRuntimeDefaultsUseJavaFromPath(t *testing.T) {
 		t.Fatalf("Forge defaults = %q, %q, %q", harness, home, javaCommand)
 	}
 }
+
+func TestForgeGameLimit(t *testing.T) {
+	for _, value := range []string{"", "0", "-1", "unlimited", "1.5", "99999999999999999999999999"} {
+		if _, err := parseForgeGameLimit(value); err == nil {
+			t.Errorf("accepted invalid Forge process limit %q", value)
+		}
+	}
+	for _, value := range []string{"1", " 2 ", "16"} {
+		if limit, err := parseForgeGameLimit(value); err != nil || limit < 1 {
+			t.Errorf("rejected Forge process limit %q: %d, %v", value, limit, err)
+		}
+	}
+	t.Setenv("HEXPROOF_FORGE_MAX_GAMES", "2")
+	if value := forgeMaxGamesDefault(); value != "2" {
+		t.Fatalf("Forge capacity environment default = %q", value)
+	}
+	t.Setenv("HEXPROOF_FORGE_MAX_GAMES", "")
+	if _, err := parseForgeGameLimit(forgeMaxGamesDefault()); err == nil {
+		t.Fatal("explicit empty capacity environment silently used a default")
+	}
+}

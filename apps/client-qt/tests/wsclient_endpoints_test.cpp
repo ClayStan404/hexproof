@@ -53,7 +53,7 @@ void TestWsClient::prefillsInitialConnection() const
     QVERIFY(client.setInitialConnection(u" "_s + baseUrl + u" "_s, u" "_s + name + u" "_s));
     QCOMPARE(client.serverUrl(), url);
     QCOMPARE(client.customServerUrl(), url);
-    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
+    QCOMPARE(client.serverIndex(), client.customServerIndex());
     QCOMPARE(client.displayName(), name);
     QCOMPARE(client.connectionState(), WsClient::Disconnected);
     QVERIFY(!server.hasPendingConnections());
@@ -108,7 +108,7 @@ void TestWsClient::loadsSavedResumeEndpoint() const
 
     WsClient client;
     QCOMPARE(client.serverUrl(), u"ws://127.0.0.1:57320/ws"_s);
-    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
+    QCOMPARE(client.serverIndex(), client.customServerIndex());
     QCOMPARE(client.customServerUrl(), u"ws://127.0.0.1:57320/ws"_s);
     QCOMPARE(client.displayName(), u"Saved player"_s);
 }
@@ -139,7 +139,7 @@ void TestWsClient::configuresAndPersistsCustomServer() const
     client.connectToCustomServer(u" ws://127.0.0.1:9 "_s, u"Alice"_s);
     QCOMPARE(client.customServerUrl(), u"ws://127.0.0.1:9/ws"_s);
     QCOMPARE(client.serverUrl(), client.customServerUrl());
-    QCOMPARE(client.serverIndex(), ServerDirectory::CustomServerIndex);
+    QCOMPARE(client.serverIndex(), client.customServerIndex());
 
     QSettings settings;
     QCOMPARE(settings.value(u"network/customServerUrl"_s).toString(), client.customServerUrl());
@@ -183,11 +183,11 @@ void TestWsClient::exposesInitialServerLatencyState() const
 {
     WsClient client;
     const QVariantList latencies = client.serverLatencies();
-    QCOMPARE(latencies.size(), ServerDirectory::ServerCount);
+    QCOMPARE(latencies.size(), client.customServerIndex() + 1);
     QCOMPARE(latencies[0].toInt(), -2);
     QCOMPARE(latencies[1].toInt(), -2);
     QCOMPARE(latencies[2].toInt(), -2);
     QCOMPARE(latencies[3].toInt(), -2);
-    QCOMPARE(latencies[4].toInt(), -2);
-    QCOMPARE(latencies[5].toInt(), -2);
+    for (const auto &latency : latencies)
+        QCOMPARE(latency.toInt(), -2);
 }

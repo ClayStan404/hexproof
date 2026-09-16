@@ -25,7 +25,7 @@ import (
 const supervisionHelperEnv = "HEXPROOF_FORGE_SUPERVISION_HELPER"
 
 func TestForgeRuntimeExitAbortsOnlyItsGameAndNewGamesRecover(t *testing.T) {
-	handler, _ := newSupervisedForgeHandler(t)
+	handler, _ := newSupervisedForgeHandler(t, 2)
 	first, firstMembers := newSupervisedRoom(t, handler, "first", protocol.RulesModeForge)
 	second, secondMembers := newSupervisedRoom(t, handler, "second", protocol.RulesModeForge)
 	manual, manualMembers := newSupervisedRoom(t, handler, "manual", protocol.RulesModeManual)
@@ -88,7 +88,7 @@ func TestForgeRuntimeExitAbortsOnlyItsGameAndNewGamesRecover(t *testing.T) {
 }
 
 func TestForgeProjectionFailureIsPrivateAndIsolated(t *testing.T) {
-	handler, _ := newSupervisedForgeHandler(t)
+	handler, _ := newSupervisedForgeHandler(t, 2)
 	first, firstMembers := newSupervisedRoom(t, handler, "first", protocol.RulesModeForge)
 	second, secondMembers := newSupervisedRoom(t, handler, "second", protocol.RulesModeForge)
 	operation, err := handler.hub.lockRoomOperation(first.ID)
@@ -145,8 +145,8 @@ func TestForgeIdleExitNotifiesPlayersAndSpectatorWithoutAnotherRPC(t *testing.T)
 }
 
 func TestForgeRuntimeStartsAreIsolatedAndFailedStartsAreThrottled(t *testing.T) {
-	handler, dir := newSupervisedForgeHandler(t)
 	const count = 12
+	handler, dir := newSupervisedForgeHandler(t, count+1)
 	clients := make(chan *forge.Client, count)
 	var callers sync.WaitGroup
 	for range count {
@@ -155,7 +155,7 @@ func TestForgeRuntimeStartsAreIsolatedAndFailedStartsAreThrottled(t *testing.T) 
 			defer callers.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			client, err := handler.startForgeRuntime(ctx)
+			client, err := handler.startForgeRuntime(ctx, "")
 			if err != nil {
 				t.Errorf("start isolated runtime: %v", err)
 			}
@@ -178,7 +178,7 @@ func TestForgeRuntimeStartsAreIsolatedAndFailedStartsAreThrottled(t *testing.T) 
 		t.Fatal(err)
 	}
 	for range count {
-		if _, err := handler.startForgeRuntime(context.Background()); err == nil {
+		if _, err := handler.startForgeRuntime(context.Background(), ""); err == nil {
 			t.Fatal("failed startup was accepted")
 		}
 	}
@@ -194,7 +194,7 @@ func TestForgeRuntimeStartsAreIsolatedAndFailedStartsAreThrottled(t *testing.T) 
 	handler.forgeMu.Lock()
 	handler.forgeRetryAfter = time.Now().Add(-time.Second)
 	handler.forgeMu.Unlock()
-	client, err := handler.startForgeRuntime(context.Background())
+	client, err := handler.startForgeRuntime(context.Background(), "")
 	if err != nil || client == nil || !client.Healthy() || seen[client] {
 		t.Fatalf("runtime recovery after cooldown: client = %p, error = %v", client, err)
 	}
@@ -221,7 +221,7 @@ func TestForgeCloseCancelsInFlightStartupAndPreventsRestart(t *testing.T) {
 	}
 	result := make(chan error, 1)
 	go func() {
-		_, err := handler.startForgeRuntime(context.Background())
+		_, err := handler.startForgeRuntime(context.Background(), "")
 		result <- err
 	}()
 	deadline := time.Now().Add(2 * time.Second)
@@ -244,7 +244,7 @@ func TestForgeCloseCancelsInFlightStartupAndPreventsRestart(t *testing.T) {
 	if err := <-result; err == nil {
 		t.Fatal("startup returned a client after Handler.Close")
 	}
-	if _, err := handler.startForgeRuntime(context.Background()); err == nil {
+	if _, err := handler.startForgeRuntime(context.Background(), ""); err == nil {
 		t.Fatal("closed handler restarted Forge")
 	}
 	if handler.forgeRulesAvailable() {
@@ -252,10 +252,13 @@ func TestForgeCloseCancelsInFlightStartupAndPreventsRestart(t *testing.T) {
 	}
 }
 
-func newSupervisedForgeHandler(t *testing.T) (*Handler, string) {
+func newSupervisedForgeHandler(t *testing.T, maxGames ...int) (*Handler, string) {
 	t.Helper()
 	dir := t.TempDir()
 	config := DefaultConfig()
+	if len(maxGames) > 0 {
+		config.MaxForgeGames = maxGames[0]
+	}
 	config.ForgeRuntime = &forge.ProcessConfig{
 		Command: os.Args[0], Args: []string{"-test.run=^TestForgeSupervisionHelper$"},
 		Env: []string{supervisionHelperEnv + "=" + dir}, StartTimeout: 5 * time.Second,
@@ -269,6 +272,13 @@ func newSupervisedForgeHandler(t *testing.T) (*Handler, string) {
 }
 
 func newSupervisedRoom(t *testing.T, handler *Handler, name, mode string, mainCount ...int) (*room.Room, []*Session) {
+	t.Helper()
+	r, members := newWaitingSupervisedRoom(t, handler, name, mode, mainCount...)
+	startSupervisedRoom(t, handler, r, members)
+	return r, members
+}
+
+func newWaitingSupervisedRoom(t *testing.T, handler *Handler, name, mode string, mainCount ...int) (*room.Room, []*Session) {
 	t.Helper()
 	members := []*Session{
 		{ConnectionID: name + "-host", DisplayName: "Alice", Send: make(chan []byte, 32)},
@@ -306,7 +316,6 @@ func newSupervisedRoom(t *testing.T, handler *Handler, name, mode string, mainCo
 			t.Fatal(err)
 		}
 	}
-	startSupervisedRoom(t, handler, r, members)
 	return r, members
 }
 
@@ -409,6 +418,12 @@ func TestForgeSupervisionHelper(t *testing.T) {
 			t.Fatal(err)
 		}
 		if request.Command == "quit" {
+			if _, err := os.Stat(filepath.Join(dir, "hang-quit")); err == nil {
+				if err := os.WriteFile(filepath.Join(dir, "quitting"), nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+				time.Sleep(time.Hour)
+			}
 			return
 		}
 		result := ""

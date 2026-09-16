@@ -44,7 +44,7 @@ func runLiveForgeWebSocketMatch(t *testing.T, matchMode string) {
 // The production handler owns one hosted JVM per game. Exercise concurrent
 // rooms and replacement processes across successive waves.
 func TestLiveForgeIsolatedRuntimeRooms(t *testing.T) {
-	srv, handler := newLiveForgeWebSocketServer(t)
+	srv, handler := newLiveForgeWebSocketServer(t, 4)
 	// Reuse the handler across waves; each new game must start its own JVM
 	// after previous games have finished and their processes have been reaped.
 	for wave := 0; wave < 5; wave++ {
@@ -59,7 +59,7 @@ func TestLiveForgeIsolatedRuntimeRooms(t *testing.T) {
 	}
 }
 
-func newLiveForgeWebSocketServer(t *testing.T) (*httptest.Server, *Handler) {
+func newLiveForgeWebSocketServer(t *testing.T, maxGames ...int) (*httptest.Server, *Handler) {
 	t.Helper()
 	runtimeRoot := os.Getenv("HEXPROOF_REAL_FORGE_ROOT")
 	if runtimeRoot == "" {
@@ -86,6 +86,9 @@ func newLiveForgeWebSocketServer(t *testing.T) (*httptest.Server, *Handler) {
 		}
 	})
 	config := DefaultConfig()
+	if len(maxGames) > 0 {
+		config.MaxForgeGames = maxGames[0]
+	}
 	config.ForgeRuntime = &runtime
 	// The automated participants exceed human input rates. Rate limiting is
 	// covered independently; keep this opt-in conformance test engine-bound.
