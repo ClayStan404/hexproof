@@ -36,7 +36,7 @@ func forgeStartFailure(err error) (string, string) {
 // forgeRoomGame is private lifecycle metadata. Decks and private projections
 // are never cached here; reconnect always asks Forge for a fresh viewer view.
 type forgeRoomGame struct {
-	client       *forge.Client
+	client       forge.Runtime
 	sessionID    string
 	gameID       string
 	seatToPlayer map[int]int
@@ -49,9 +49,9 @@ type forgeStartState struct {
 	prompts     map[string]protocol.Envelope
 }
 
-// startForgeRuntime reserves a fresh process for exactly one game. Native
-// Forge GUI/model singletons and RNG state must never cross game boundaries.
-// Serialize cold startups, but allow established games to run independently.
+// startForgeRuntime reserves an isolated game lease: a fresh process by
+// default, or a slot in an explicitly configured shared worker. Serialize
+// admission/cold startups while established games run independently.
 func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.Client, error) {
 	for {
 		if err := ctx.Err(); err != nil {
@@ -66,11 +66,14 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 		// until Wait has reaped it, even if it is unhealthy or closing. Check
 		// Done directly so a next game need not wait for its old watcher.
 		occupied := len(h.forgeReservations)
-		reservedClients := make(map[*forge.Client]bool, occupied)
+		reservedClients := make(map[forge.Runtime]bool, occupied)
 		for _, client := range h.forgeReservations {
 			reservedClients[client] = true
 		}
 		for client := range h.forgeClients {
+			if _, local := client.(*forge.Client); !local {
+				continue
+			}
 			if reservedClients[client] {
 				continue
 			}
@@ -120,7 +123,13 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 		config := *h.forgeRuntime
 		h.forgeMu.Unlock()
 
-		client, err := forge.Start(startCtx, config)
+		var client *forge.Client
+		var err error
+		if h.forgePool != nil {
+			client, err = h.forgePool.Acquire(startCtx)
+		} else {
+			client, err = forge.Start(startCtx, config)
+		}
 		cancel()
 		h.forgeMu.Lock()
 		closed := h.forgeClosed
@@ -155,6 +164,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 // first role-specific projection before match.started is published. Failure
 // therefore leaves the handler free to roll the room back to waiting.
 func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
+	defer h.refreshPlayerHostStatus(r)
 	players, err := h.hub.RulesStartPlayers(r)
 	if err != nil {
 		return forgeStartState{}, err
@@ -163,9 +173,13 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 	if err != nil {
 		return forgeStartState{}, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), forgeGameStartTimeout)
+	startTimeout := forgeGameStartTimeout
+	if r.HostingMode == "player" {
+		startTimeout += h.config.ReconnectWindow
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), startTimeout)
 	defer cancel()
-	client, err := h.startForgeRuntime(ctx, r.ID)
+	client, err := h.startRoomForgeRuntime(ctx, r)
 	if err != nil {
 		h.forgeMu.Lock()
 		delete(h.forgeReservations, r.ID)
@@ -246,23 +260,32 @@ func forgeStartRequest(r *room.Room, players []room.RulesStartPlayer) (
 			index := len(request.Players)
 			request.StartingPlayerIndex = &index
 		}
-		cards := make([]forge.CardIdentity, 0)
-		for _, entry := range player.Deck.Mainboard {
-			if entry.Count <= 0 {
-				return forge.StartGameRequest{}, nil,
-					fmt.Errorf("seat %d has an invalid card quantity", player.Seat)
+		expand := func(entries []protocol.DeckCard) ([]forge.CardIdentity, error) {
+			cards := make([]forge.CardIdentity, 0)
+			for _, entry := range entries {
+				if entry.Count <= 0 {
+					return nil, fmt.Errorf("seat %d has an invalid card quantity", player.Seat)
+				}
+				for copyIndex := 0; copyIndex < entry.Count; copyIndex++ {
+					cards = append(cards, forge.CardIdentity{
+						Name: entry.Name, SetCode: entry.SetCode, CollectorNumber: entry.CollectorNumber,
+					})
+				}
 			}
-			for copyIndex := 0; copyIndex < entry.Count; copyIndex++ {
-				cards = append(cards, forge.CardIdentity{
-					Name:            entry.Name,
-					SetCode:         entry.SetCode,
-					CollectorNumber: entry.CollectorNumber,
-				})
-			}
+			return cards, nil
+		}
+		cards, err := expand(player.Deck.Mainboard)
+		if err != nil {
+			return forge.StartGameRequest{}, nil, err
+		}
+		sideboard, err := expand(player.Deck.Sideboard)
+		if err != nil {
+			return forge.StartGameRequest{}, nil, err
 		}
 		request.Players = append(request.Players, forge.PlayerConfig{
 			Name:           player.DisplayName,
 			Deck:           cards,
+			Sideboard:      sideboard,
 			CommanderNames: rulesCommanderNames(player.Deck),
 		})
 		seatOrder = append(seatOrder, player.Seat)
@@ -295,7 +318,7 @@ func rulesCommanderNames(deck protocol.DeckSelect) []string {
 	return result
 }
 
-func forgeRoomGameFromHandle(client *forge.Client, gameID string, seatOrder []int,
+func forgeRoomGameFromHandle(client forge.Runtime, gameID string, seatOrder []int,
 	handle forge.SessionHandle) (forgeRoomGame, error) {
 	if strings.TrimSpace(handle.SessionID) == "" || len(handle.PlayerIndexes) != len(seatOrder) {
 		return forgeRoomGame{}, errors.New("Forge returned an invalid session handle")
@@ -322,7 +345,7 @@ func forgeRoomGameFromHandle(client *forge.Client, gameID string, seatOrder []in
 	return game, nil
 }
 
-func (h *Handler) abortUntrackedForgeGame(client *forge.Client, sessionID string) {
+func (h *Handler) abortUntrackedForgeGame(client forge.Runtime, sessionID string) {
 	if client == nil {
 		return
 	}
@@ -342,12 +365,14 @@ func (h *Handler) abortForgeGame(roomID string) {
 }
 
 func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
+	h.cancelPlayerHostMigration(roomID)
 	h.forgeMu.Lock()
 	game, ok := h.forgeGames[roomID]
 	if ok {
 		delete(h.forgeGames, roomID)
 	}
-	if keepSlot && ok {
+	_, localProcess := game.client.(*forge.Client)
+	if keepSlot && ok && localProcess {
 		h.forgeReservations[roomID] = game.client
 	} else if !keepSlot {
 		delete(h.forgeReservations, roomID)
@@ -363,7 +388,7 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bo
 	current, ok := h.forgeGames[roomID]
 	if ok && current.sessionID == game.sessionID {
 		delete(h.forgeGames, roomID)
-		if keepSlot {
+		if _, local := game.client.(*forge.Client); keepSlot && local {
 			h.forgeReservations[roomID] = game.client
 		}
 	} else {
@@ -393,11 +418,31 @@ func (h *Handler) Close() error {
 			h.forgeStartCancel()
 		}
 		starting := h.forgeStarting
+		links := h.playerHosts
+		h.playerHosts = nil
+		peers := h.playerPeers
+		h.playerPeers = nil
+		backups := h.playerBackups
+		h.playerBackups = nil
 		clients := h.forgeClients
-		h.forgeClients = make(map[*forge.Client]struct{})
-		h.forgeReservations = make(map[string]*forge.Client)
+		h.forgeClients = make(map[forge.Runtime]struct{})
+		h.forgeReservations = make(map[string]forge.Runtime)
 		h.forgeGames = make(map[string]forgeRoomGame)
 		h.forgeMu.Unlock()
+		for _, peer := range peers {
+			if peer.binding != nil {
+				peer.binding.cancel()
+			}
+		}
+		for _, link := range links {
+			link.Close()
+		}
+		for _, backup := range backups {
+			if backup.cancel != nil {
+				backup.cancel()
+			}
+			backup.link.Close()
+		}
 		if starting != nil {
 			<-starting
 		}
@@ -414,6 +459,9 @@ func (h *Handler) Close() error {
 		close(results)
 		for err := range results {
 			h.forgeCloseErr = errors.Join(h.forgeCloseErr, err)
+		}
+		if h.forgePool != nil {
+			h.forgeCloseErr = errors.Join(h.forgeCloseErr, h.forgePool.Close())
 		}
 	})
 	return h.forgeCloseErr

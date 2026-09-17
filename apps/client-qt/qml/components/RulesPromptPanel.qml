@@ -371,7 +371,7 @@ Surface {
 
         RulesOrderPrompt {
             Layout.fillWidth: true
-            visible: rulesSession.promptPending
+            visible: !root.externalCardChoices && rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "reorder"
             enabled: !root.tableController.rulesResponsePending
@@ -383,7 +383,7 @@ Surface {
 
         RulesScryPrompt {
             Layout.fillWidth: true
-            visible: rulesSession.promptPending
+            visible: !root.externalCardChoices && rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "scry"
             enabled: !root.tableController.rulesResponsePending
@@ -396,7 +396,7 @@ Surface {
 
         RulesOrderPrompt {
             Layout.fillWidth: true
-            visible: rulesSession.promptPending
+            visible: !root.externalCardChoices && rulesSession.promptPending
                      && rulesSession.promptSupported
                      && rulesSession.promptKind === "chooseDamageAssignmentOrder"
             enabled: !root.tableController.rulesResponsePending

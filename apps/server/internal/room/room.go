@@ -119,6 +119,9 @@ type Room struct {
 	MatchMode          string
 	CardLoadMode       string
 	RulesMode          string
+	HostingMode        string
+	HostConnected      bool
+	HostStatus         *protocol.ForgeHostStatus
 	RulesLog           []protocol.GameLogEntry
 	RulesNextLogID     int64
 	rulesPublicLog     *rulesPublicLogState

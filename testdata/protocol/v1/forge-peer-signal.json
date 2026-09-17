@@ -1,0 +1,9 @@
+{
+  "type": "forge.peer_signal",
+  "id": "peer-fixture",
+  "payload": {
+    "roomId": "ABCDEF",
+    "bindingId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data": "{\"candidate\":{\"candidate\":\"candidate:1 1 udp 2130706431 192.0.2.10 50000 typ host\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0}}"
+  }
+}

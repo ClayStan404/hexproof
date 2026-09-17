@@ -1,0 +1,15 @@
+{
+  "type": "forge.peer_grant",
+  "id": "peer-fixture",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "bindingId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "hostSeat": 0,
+    "offerer": false,
+    "stun": [
+      "stun:stun.l.google.com:19302"
+    ]
+  }
+}

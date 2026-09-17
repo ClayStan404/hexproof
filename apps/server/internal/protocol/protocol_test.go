@@ -71,6 +71,20 @@ func TestAllFixturesParseAndRoundTrip(t *testing.T) {
 
 func fixturePayloadForType(messageType string) any {
 	switch messageType {
+	case TypeForgePeerRequest:
+		return &ForgePeerRequest{}
+	case TypeForgePeerGrant:
+		return &ForgePeerGrant{}
+	case TypeForgePeerSignal, TypeForgePeerSignaled:
+		return &ForgePeerSignal{}
+	case TypeForgePeerStatus:
+		return &ForgePeerStatus{}
+	case TypeForgeHostRequest:
+		return &ForgeHostRequest{}
+	case TypeForgeHostGrant:
+		return &ForgeHostGrant{}
+	case TypeForgeHostStatus:
+		return &ForgeHostStatus{}
 	case TypeSessionHello:
 		return &SessionHello{}
 	case TypeSessionWelcome:

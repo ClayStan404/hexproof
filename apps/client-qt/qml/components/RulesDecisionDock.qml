@@ -16,7 +16,8 @@ Surface {
     property bool showActions: true
     property Component contextControls: null
     readonly property bool externallyPresented:
-        (externalCardChoices && ["chooseCards", "mulliganPutBack", "revealCards"]
+        (externalCardChoices && ["chooseCards", "mulliganPutBack", "revealCards", "scry",
+            "reorder", "chooseDamageAssignmentOrder"]
             .includes(tableController.rulesSession.promptKind))
         || (externalDamageChoices && tableController.rulesSession.promptKind === "chooseCombatDamageAssignment")
     readonly property bool expanded: showActions && (actionPicker.opened

@@ -49,8 +49,8 @@ public final class NativeQueuedInputRegressionTest {
         ExecutorService rpc = Executors.newSingleThreadExecutor();
         CountDownLatch firstEntered = new CountDownLatch(1), releaseFirst = new CountDownLatch(1);
         CountDownLatch secondEntered = new CountDownLatch(1), releaseSecond = new CountDownLatch(1);
-        try (NativeSession session = new NativeSession(config, base)) {
-            base.setFailureHandler(session::fail);
+        try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
             try {
                 session.start();
                 JsonObject prompt = prompt(session);

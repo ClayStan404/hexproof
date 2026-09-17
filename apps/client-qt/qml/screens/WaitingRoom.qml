@@ -14,6 +14,8 @@ Page {
     required property var wsModel
     property var deckLibraryModel: null
     readonly property var roomSession: wsModel.roomSession
+    readonly property bool engineHost: roomSession.hostStatus && roomSession.hostStatus.hostSeat !== undefined
+        ? roomSession.seatIndex === roomSession.hostStatus.hostSeat : roomSession.host
     readonly property var appWindow: ApplicationWindow.window
     property int pendingSeat: -1
     property int pendingSpectator: -1
@@ -23,6 +25,12 @@ Page {
                                           || roomSession.deckFormat === "commander_limited"
 
     background: AppBackground { }
+
+    ForgeHostingDialog {
+        id: hostingOptions
+        service: root.wsModel.forgeHost ? root.wsModel.forgeHost : null
+        wsModel: root.wsModel
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -86,7 +94,8 @@ Page {
                                 }
                                 StatusPill {
                                     visible: root.roomSession.rulesMode === "forge"
-                                    text: qsTr("Forge rules")
+                                    text: root.roomSession.hostingMode === "player"
+                                          ? qsTr("Forge · Player hosted") : qsTr("Forge · Server hosted")
                                     statusColor: Theme.success
                                 }
                             }
@@ -145,6 +154,18 @@ Page {
                                 root.appWindow.showBanner(qsTr("Room code copied"))
                             }
                         }
+                    }
+                }
+                Surface {
+                    objectName: "waitingRoomPeerConnection"
+                    Layout.fillWidth: true
+                    implicitHeight: peerControls.implicitHeight + Theme.size(24)
+                    visible: peerControls.eligible
+                    ForgePeerControls {
+                        id: peerControls
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(12)
+                        wsModel: root.wsModel
                     }
                 }
                 InfoBanner {
@@ -581,6 +602,47 @@ Page {
             }
 
             Text {
+                Layout.fillWidth: true
+                visible: root.roomSession.hostingMode === "player"
+                textFormat: Text.PlainText
+                wrapMode: Text.WordWrap
+                text: root.roomSession.hostConnected === true
+                    ? qsTr("Player-hosted game · The creator must keep Hexproof open.")
+                    : qsTr("Waiting for the creator's local Forge connection…")
+                color: root.roomSession.hostConnected === true ? Theme.textMuted : Theme.warning
+                font.pixelSize: Theme.fontSize(12)
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: root.roomSession.hostingMode === "player" && root.engineHost
+                textFormat: Text.PlainText
+                text: root.wsModel.forgeHost ? root.wsModel.forgeHost.status : ""
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+                font.pixelSize: Theme.fontSize(12)
+            }
+            AppButton {
+                objectName: "retryPlayerHosting"
+                visible: root.roomSession.hostingMode === "player" && root.engineHost
+                         && root.roomSession.hostConnected !== true
+                text: root.wsModel.forgeHost && root.wsModel.forgeHost.busy && !root.wsModel.forgeHost.hosting
+                    ? qsTr("Cancel") : root.wsModel.forgeHost && root.wsModel.forgeHost.ready
+                    ? qsTr("Connect local Forge") : qsTr("Prepare local Forge")
+                enabled: root.wsModel.forgeHost ? !root.wsModel.forgeHost.hosting : false
+                onClicked: {
+                    if (root.wsModel.forgeHost.busy) root.wsModel.forgeHost.cancel()
+                    else if (!root.wsModel.forgeHost.ready) root.wsModel.forgeHost.prepare()
+                    else root.wsModel.preparePlayerHosting()
+                }
+            }
+            AppButton {
+                objectName: "forgeHostingOptions"
+                visible: root.roomSession.hostingMode === "player"
+                text: qsTr("Hosting, downloads and diagnostics")
+                variant: "ghost"
+                onClicked: hostingOptions.open()
+            }
+            Text {
                 textFormat: Text.PlainText
                 id: readyBlocker
                 objectName: "readyBlockerText"
@@ -641,7 +703,8 @@ Page {
                         text: root.myReady() ? qsTr("Cancel ready") : qsTr("Ready up")
                         enabled: root.myReady()
                                  || (root.hasEnoughPlayersToStart()
-                                     && root.myDeckSelected())
+                                     && root.myDeckSelected()
+                                     && (root.roomSession.hostingMode !== "player" || root.roomSession.hostConnected === true))
                         disabledReason: root.readyBlockerReason()
                         onClicked: root.wsModel.setReady(!root.myReady())
                     }
@@ -813,6 +876,8 @@ Page {
     function readyBlockerReason() {
         if (root.roomSession.role !== "player" || root.myReady())
             return ""
+        if (root.roomSession.hostingMode === "player" && root.roomSession.hostConnected !== true)
+            return qsTr("Waiting for the creator's local Forge connection…")
         const missingSeats = Math.max(
             0, root.minimumPlayersToStart() - root.occupiedSeatCount())
         if (missingSeats === 1)

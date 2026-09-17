@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "wsclient_test.h"
+#include <QJsonDocument>
 
 namespace {
 
@@ -17,6 +18,43 @@ bool applyRulesDecision(WsClient &client, const QString &fixture, qint64 promptI
 }
 
 } // namespace
+
+void TestWsClient::hostingMirrorAndDiagnosticPrivacy() const
+{
+    WsClient client;
+    auto *host = client.forgeHost();
+    QVERIFY(host->saveDownloadMirror(u"https://mirror.example/private-directory"_s));
+    QCOMPARE(host->downloadMirror(), u"https://mirror.example/private-directory"_s);
+    for (const auto &invalid :
+         {u"http://mirror.example/files"_s, u"https://name:secret@mirror.example/files"_s,
+          u"https://mirror.example/files?credential=secret"_s,
+          u"https://mirror.example/files#fragment"_s})
+        QVERIFY(!host->saveDownloadMirror(invalid));
+    QCOMPARE(host->downloadMirror(), u"https://mirror.example/private-directory"_s);
+    QSettings().setValue(u"network/resumeToken"_s, u"private-resume-token"_s);
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto path = directory.filePath(u"diagnostics.json"_s);
+    host->setTransportDiagnostics(u"192.0.2.20 secret-card-name"_s, 12, 2);
+    QVERIFY(host->exportDiagnostics(QUrl::fromLocalFile(path)));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const auto bytes = file.readAll();
+    const auto report = QJsonDocument::fromJson(bytes).object();
+    QCOMPARE(report.value(u"schemaVersion"_s).toInt(), 1);
+    QVERIFY(report.contains(u"architecture"_s));
+    QCOMPARE(report.value(u"transport"_s).toString(), u"relay"_s);
+    QCOMPARE(report.value(u"directDecisions"_s).toInt(), 12);
+    QCOMPARE(report.value(u"relayFallbacks"_s).toInt(), 2);
+    QVERIFY(!bytes.contains("192.0.2.20"));
+    QVERIFY(!bytes.contains("secret-card-name"));
+    QVERIFY(!bytes.contains("private-directory"));
+    QVERIFY(!bytes.contains("mirror.example"));
+    QVERIFY(!bytes.contains("private-resume-token"));
+    QVERIFY(!bytes.contains(directory.path().toUtf8()));
+    QVERIFY(!host->exportDiagnostics(QUrl(u"https://upload.example/report"_s)));
+    QVERIFY(host->saveDownloadMirror(QString()));
+}
 
 void TestWsClient::sendsTypedScryResponse() const
 {
@@ -294,9 +332,9 @@ void TestWsClient::rulesResponsesRecoverAfterTimeoutAndDisconnect() const
     QTimer *timer = client.findChild<QTimer *>(u"rulesResponseTimer"_s);
     QVERIFY(timer != nullptr);
     QCOMPARE(timer->interval(), 30000);
-    timer->setInterval(20);
     client.respondRulesPrompt(7, u"$pass"_s);
     QVERIFY(client.rulesResponsePending());
+    timer->setInterval(20);
     QTRY_VERIFY_WITH_TIMEOUT(!client.rulesResponsePending(), 1000);
     QVERIFY(client.lastError().startsWith(u"timeout:"_s));
     timer->setInterval(30000);
@@ -1345,4 +1383,131 @@ void TestWsClient::handlesSideboardCompletedPush() const
     QTRY_VERIFY_WITH_TIMEOUT(!client.gameSession()->sideboarding(), 1000);
     QCOMPARE(completedSpy.count(), 1);
     QCOMPARE(completedSpy.first().at(0).toString(), u"timeout"_s);
+}
+
+void TestWsClient::playerHostingRequiresConsentAndPausesOfflineInput() const
+{
+    QWebSocketServer server(u"Hosting capability test"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Host"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = QJsonObject{{u"v"_s, hexproof::protocol::kProtocolVersion},
+                                  {u"connectionId"_s, u"host-test"_s},
+                                  {u"serverVersion"_s, buildVersion()},
+                                  {u"playerHostingAvailable"_s, true},
+                                  {u"forgeRulesAvailable"_s, false}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.playerHostingAvailable());
+    QVERIFY(!client.forgeRulesAvailable());
+    Envelope created;
+    created.type = hexproof::protocol::kTypeRoomCreated;
+    created.payload = QJsonObject{{u"roomId"_s, u"ABCDEF"_s}};
+    sendEnvelope(peer, created);
+    auto snapshot = roomSnapshot(u"Hosted room"_s);
+    snapshot.payload.insert(u"rulesMode"_s, u"forge"_s);
+    snapshot.payload.insert(u"hostingMode"_s, u"player"_s);
+    snapshot.payload.insert(u"hostConnected"_s, false);
+    sendEnvelope(peer, snapshot);
+    QTRY_VERIFY(client.inRoom());
+    QSignalSpy helperChanges(client.forgeHost(), &hexproof::client::ForgeHostService::changed);
+    bool ok = false;
+    auto grant = sharedFixture(u"forge-host-grant.json"_s, &ok);
+    QVERIFY(ok);
+    grant.payload.insert(u"roomId"_s, u"ABCDEF"_s);
+    sendEnvelope(peer, grant);
+    QTest::qWait(60);
+    QCOMPARE(helperChanges.count(), 0);
+    QVERIFY(!client.forgeHost()->busy());
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 7));
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QTest::qWait(30);
+    QCOMPARE(outbound.count(), 0);
+    auto status = sharedFixture(u"forge-host-status.json"_s, &ok);
+    QVERIFY(ok);
+    status.payload.insert(u"roomId"_s, u"ABCDEF"_s);
+    status.payload.insert(u"connected"_s, true);
+    sendEnvelope(peer, status);
+    QTRY_VERIFY(client.roomSession()->hostConnected());
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QTRY_COMPARE(outbound.count(), 1);
+    const auto timer = client.findChild<QTimer *>(u"rulesResponseTimer"_s);
+    QVERIFY(timer && timer->interval() > (600 + 45) * 1000);
+    status.payload.insert(u"roomId"_s, u"OTHER"_s);
+    status.payload.insert(u"connected"_s, false);
+    sendEnvelope(peer, status);
+    QTest::qWait(30);
+    QVERIFY(client.roomSession()->hostConnected());
+}
+
+void TestWsClient::directPeerRequiresCapabilityAndRoomConsent() const
+{
+    using namespace hexproof::protocol;
+    QWebSocketServer server(u"Peer consent test"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Host"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, kProtocolVersion},
+                       {u"connectionId"_s, u"peer-test"_s},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"playerHostingAvailable"_s, true}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.playerHostingAvailable());
+    Envelope created;
+    created.type = kTypeRoomCreated;
+    created.payload = {{u"roomId"_s, u"ABCDEF"_s}};
+    sendEnvelope(peer, created);
+    auto snapshot = roomSnapshot(u"Hosted room"_s);
+    snapshot.payload.insert(u"rulesMode"_s, u"forge"_s);
+    snapshot.payload.insert(u"hostingMode"_s, u"player"_s);
+    sendEnvelope(peer, snapshot);
+    QTRY_VERIFY(client.inRoom());
+    client.setDirectPeerEnabled(true);
+    QVERIFY(!client.directPeerEnabled());
+    // New capabilities do not imply the user's network-address consent.
+    welcome.payload.insert(u"peerTransportAvailable"_s, true);
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.peerTransportAvailable());
+    sendEnvelope(peer, created);
+    sendEnvelope(peer, snapshot);
+    QTRY_VERIFY(client.inRoom());
+    bool ok = false;
+    auto grant = sharedFixture(u"forge-peer-grant.json"_s, &ok);
+    QVERIFY(ok);
+    grant.payload.insert(u"roomId"_s, u"ABCDEF"_s);
+    sendEnvelope(peer, grant);
+    QTest::qWait(40);
+    auto *transport = client.findChild<hexproof::client::PeerTransportService *>();
+    QVERIFY(transport);
+    QVERIFY(transport->bindingId().isEmpty());
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    client.setDirectPeerEnabled(true);
+    QTRY_COMPARE(outbound.count(), 1);
+    QVERIFY(client.directPeerEnabled());
+    auto request = hexproof::protocol::parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok && request.type == kTypeForgePeerRequest &&
+            request.payload.value(u"enabled"_s).toBool());
+    grant.payload.insert(u"roomId"_s, u"OTHER"_s);
+    sendEnvelope(peer, grant);
+    QTest::qWait(40);
+    QVERIFY(transport->bindingId().isEmpty());
+    client.setDirectPeerEnabled(false);
+    QVERIFY(!client.directPeerEnabled());
+    grant.payload.insert(u"roomId"_s, u"ABCDEF"_s);
+    sendEnvelope(peer, grant);
+    QTest::qWait(40);
+    QVERIFY(transport->bindingId().isEmpty());
+    QCOMPARE(client.peerTransportState(), u"off"_s);
 }

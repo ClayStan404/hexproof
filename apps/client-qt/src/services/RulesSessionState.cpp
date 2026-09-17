@@ -590,6 +590,9 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
             cardRow.toughness = card.value(u"toughness"_s).toString();
             cardRow.damage = card.value(u"damage"_s).toInt();
             cardRow.attachedTo = card.value(u"attachedTo"_s).toString();
+            cardRow.exiledCardCount = card.value(u"exiledCardCount"_s).toInt();
+            for (const QJsonValue &linked : card.value(u"exiledCardIds"_s).toArray())
+                cardRow.exiledCardIds.append(linked.toString());
             cardRow.counters = parseNamedValues(card.value(u"counters"_s).toArray());
             if (cardRow.zone == u"battlefield"_s) {
                 battlefieldCards.append(std::move(cardRow));

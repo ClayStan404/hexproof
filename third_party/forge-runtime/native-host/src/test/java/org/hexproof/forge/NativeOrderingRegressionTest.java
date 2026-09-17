@@ -33,8 +33,8 @@ public final class NativeOrderingRegressionTest {
             });
             for (String scenario : List.of("exert", "destination", "unbounded", "insert")) {
                 JsonObject config = JsonParser.parseString("{\"gameId\":\"native-order-test\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Ordering A\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Ordering B\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
-                try (NativeSession session = new NativeSession(config, base)) {
-                    base.setFailureHandler(session::fail);
+                try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+                    base.setTestSession(session);
                     session.game.setAge(GameStage.Play);
                     Player owner = session.game.getPlayers().get(0);
                     session.game.setStartingPlayer(owner);

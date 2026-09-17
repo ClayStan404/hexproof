@@ -40,6 +40,7 @@ Item {
 
         SpinBox {
             id: numberInput
+            objectName: "rulesNumberInput"
 
             Layout.fillWidth: root.narrowLayout
             Layout.preferredWidth: Theme.size(150)

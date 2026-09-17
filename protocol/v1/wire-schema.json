@@ -2,6 +2,18 @@
   "schemaVersion": 1,
   "protocol": "hexproof.v1",
   "constants": [
+    {"name": "TypeForgePeerRequest", "value": "forge.peer_request"},
+    {"name": "TypeForgePeerGrant", "value": "forge.peer_grant"},
+    {"name": "TypeForgePeerSignal", "value": "forge.peer_signal"},
+    {"name": "TypeForgePeerSignaled", "value": "forge.peer_signaled"},
+    {"name": "TypeForgePeerStatus", "value": "forge.peer_status"},
+    {"name": "ErrPlayerHostLost", "value": "player_host_lost"},
+    {"name": "ErrPlayerHostTrustRequired", "value": "player_host_trust_required"},
+    {"name": "TypeForgeHostRequest", "value": "forge.host_request"},
+    {"name": "TypeForgeHostGrant", "value": "forge.host_grant"},
+    {"name": "TypeForgeHostStatus", "value": "forge.host_status"},
+    {"name": "HostingModeServer", "value": "server"},
+    {"name": "HostingModePlayer", "value": "player"},
     {
       "name": "ProtocolVersion",
       "value": "hexproof.v1"

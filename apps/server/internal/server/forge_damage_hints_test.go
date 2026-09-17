@@ -11,6 +11,7 @@ import (
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
+	"hexproof/server/internal/rulesinput"
 )
 
 func TestNativeDamageHintsSurviveProjectionAndDamageGate(t *testing.T) {
@@ -54,11 +55,11 @@ func TestNativeDamageHintsSurviveProjectionAndDamageGate(t *testing.T) {
 				{TargetID: "damage-target:0", Damage: tc.blockerSplit},
 				{TargetID: "damage-target:1", Damage: 6 - tc.blockerSplit},
 			}
-			if !validRulesDamageDistribution(prompt.DamageTargets, 6, prompt.DamageAssignmentMode, assignments) {
+			if !rulesinput.ValidDamageDistribution(prompt.DamageTargets, 6, prompt.DamageAssignmentMode, assignments) {
 				t.Fatal("the current native lethal threshold still prevents a valid trample allocation")
 			}
 			response, err := forge.BuildPromptResponse(raw, 0, 94, forge.PromptResponse{
-				ResponseID: "$submit", DamageAssignments: forgePromptDamageAssignments(assignments),
+				ResponseID: "$submit", DamageAssignments: rulesinput.DamageAssignments(assignments),
 			})
 			if err != nil || !strings.Contains(string(response), fmt.Sprintf(`"assigneeId":"blocker","damage":%d`, tc.blockerSplit)) {
 				t.Fatalf("native candidate answer changed: %s, %v", response, err)

@@ -3515,5 +3515,37 @@ your way.</source>
             <source>Could not read card faces.</source>
             <translation>无法读取卡牌牌面。</translation>
         </message>
-    </context>
+        <message>
+            <source>invalid hosting request</source>
+            <translation>托管请求无效</translation>
+        </message>
+        <message>
+            <source>hosting requires a player seat</source>
+            <translation>只有对局玩家可以管理托管</translation>
+        </message>
+        <message>
+            <source>hosting is unavailable</source>
+            <translation>当前无法进行托管</translation>
+        </message>
+        <message>
+            <source>This position cannot be migrated</source>
+            <translation>当前局面无法迁移</translation>
+        </message>
+        <message>
+            <source>Hosting request is not available in this state</source>
+            <translation>当前状态下无法执行此托管操作</translation>
+        </message>
+        <message>
+        <source>invalid peer request</source>
+        <translation>无效的直连请求</translation>
+    </message>
+    <message>
+        <source>invalid peer signal</source>
+        <translation>无效的直连协商消息</translation>
+    </message>
+    <message>
+        <source>direct transport requires a player-hosted seat</source>
+        <translation>直连仅适用于玩家托管房间中的对战席位</translation>
+    </message>
+</context>
 </TS>

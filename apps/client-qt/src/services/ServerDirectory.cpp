@@ -256,9 +256,13 @@ QVariantList ServerDirectory::entries() const
         QVariantMap{{u"id"_s, u"custom"_s}, {u"url"_s, m_customServerUrl}, {u"forge"_s, -1}});
     for (QVariant &item : result) {
         QVariantMap entry = item.toMap();
-        const auto found = m_observedForge.constFind(entry.value(u"url"_s).toString());
-        if (found != m_observedForge.cend())
-            entry.insert(u"forge"_s, *found);
+        for (const auto &key : {u"playerHosting"_s, u"directPeer"_s, u"hostMigration"_s})
+            entry.insert(key, -1);
+        const auto found = m_observedCapabilities.constFind(entry.value(u"url"_s).toString());
+        if (found != m_observedCapabilities.cend()) {
+            for (auto value = found->values.cbegin(); value != found->values.cend(); ++value)
+                entry.insert(value.key(), value.value());
+        }
         item = entry;
     }
     return result;
@@ -354,10 +358,22 @@ QVariantList ServerDirectory::latencies() const
     return result;
 }
 
-void ServerDirectory::recordForgeCapability(const QString &url, bool supported)
+void ServerDirectory::recordCapabilities(const QString &url, const QJsonObject &capabilities)
 {
-    m_observedForge.insert(url, supported ? 1 : 0);
-    emit directoryChanged();
+    if (url.isEmpty())
+        return;
+    QVariantMap values;
+    for (const auto &key : {u"forge"_s, u"playerHosting"_s, u"directPeer"_s, u"hostMigration"_s}) {
+        if (!capabilities.value(key).isBool())
+            return;
+        values.insert(key, capabilities.value(key).toBool() ? 1 : 0);
+    }
+    auto &observed = m_observedCapabilities[url];
+    ++observed.generation;
+    if (observed.values != values) {
+        observed.values = values;
+        emit directoryChanged();
+    }
 }
 
 QString ServerDirectory::cachePath() const
@@ -449,6 +465,7 @@ void ServerDirectory::refreshLatencies()
         if (endpoint.isEmpty())
             continue;
         const bool custom = index == customServerIndex();
+        const quint64 capabilityGeneration = m_observedCapabilities.value(endpoint).generation;
         QNetworkRequest request(healthUrl(endpoint));
         request.setTransferTimeout(4000);
         QElapsedTimer timer;
@@ -456,12 +473,13 @@ void ServerDirectory::refreshLatencies()
         QNetworkReply *reply = m_networkManager.get(request);
         network_limits::limitNetworkReply(reply, network_limits::kMaximumHealthResponseBytes);
         connect(reply, &QNetworkReply::finished, this,
-                [this, index, custom, probeGeneration, catalogGeneration, customGeneration, reply,
-                 timer]() {
+                [this, index, custom, probeGeneration, catalogGeneration, customGeneration,
+                 endpoint, capabilityGeneration, reply, timer]() {
                     const int status =
                         reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                     const bool healthy =
                         reply->error() == QNetworkReply::NoError && status >= 200 && status < 300;
+                    const QByteArray capabilities = reply->rawHeader("X-Hexproof-Capabilities");
                     reply->deleteLater();
                     if (catalogGeneration != m_catalogGeneration ||
                         probeGeneration != m_probeGeneration ||
@@ -469,6 +487,12 @@ void ServerDirectory::refreshLatencies()
                         return;
                     m_latencyMs[index] =
                         healthy ? qBound(0, static_cast<int>(timer.elapsed()), 9999) : -1;
+                    // An authenticated welcome received during this probe wins.
+                    // Old servers and invalid headers leave known values intact.
+                    if (healthy && !capabilities.isEmpty() && capabilities.size() <= 1024 &&
+                        m_observedCapabilities.value(endpoint).generation == capabilityGeneration)
+                        recordCapabilities(endpoint,
+                                           QJsonDocument::fromJson(capabilities).object());
                     emit latenciesChanged();
                 });
     }

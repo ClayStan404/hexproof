@@ -31,6 +31,9 @@ TestCase {
         property string matchMode: "bo3"
         property string cardLoadMode: "preload"
         property string rulesMode: "manual"
+        property string hostingMode: "server"
+        property bool hostConnected: true
+        property var hostStatus: ({})
         property int maxSeats: 2
         property string phase: "waiting"
         property bool host: true
@@ -58,6 +61,15 @@ TestCase {
         id: mockWs
         property var roomSession: mockRoomSession
         property string lastError: ""
+        property bool peerTransportAvailable: true
+        property bool directPeerEnabled: false
+        property string peerTransportState: "off"
+        property var peerRequests: []
+        function setDirectPeerEnabled(enabled, retry) {
+            peerRequests = peerRequests.concat([{enabled:enabled, retry:retry === true}])
+            directPeerEnabled = enabled
+            peerTransportState = enabled ? "waiting" : "off"
+        }
         property int copyCount: 0
         property string lastCopied: ""
         function copyToClipboard(text) {
@@ -95,10 +107,15 @@ TestCase {
         mockWs.copyCount = 0
         mockWs.lastCopied = ""
         mockWs.lastError = ""
+        mockWs.peerTransportAvailable = true
+        mockWs.directPeerEnabled = false
+        mockWs.peerTransportState = "off"
+        mockWs.peerRequests = []
         mockRoomSession.spectators = []
         mockRoomSession.spectatorsSeeHands = false
         mockWs.lastRemovedSpectator = -1
         mockRoomSession.rulesMode = "manual"
+        mockRoomSession.hostingMode = "server"
         mockRoomSession.roomName = "Friday Night"
         mockRoomSession.roomId = "ABCDEF"
         mockRoomSession.format = "modern"
@@ -107,6 +124,7 @@ TestCase {
         mockRoomSession.playtest = false
         mockRoomSession.host = true
         mockRoomSession.role = "player"
+        mockRoomSession.seatIndex = 0
         mockRoomSession.selectedDeckName = "Burn"
         mockRoomSession.seats = [{
             "occupied": true,
@@ -138,6 +156,61 @@ TestCase {
 
     function test_longNamesAndFullSpectatorListRemainReachable_data() {
         return [{tag: "large", scale: 1.5}, {tag: "maximum", scale: 1.8}]
+    }
+
+    function test_peerConsentIsAvailableOnRoomSurface_data() {
+        return [{tag:"host", seat:0}, {tag:"opponent", seat:1}]
+    }
+
+    function test_peerConsentIsAvailableOnRoomSurface(data) {
+        mockRoomSession.rulesMode = "forge"
+        mockRoomSession.hostingMode = "player"
+        mockRoomSession.host = data.seat === 0
+        mockRoomSession.seatIndex = data.seat
+        waitForRendering(page)
+        const panel = findChild(page, "waitingRoomPeerConnection")
+        const enable = findChild(panel, "forgePeerEnable")
+        const notice = findChild(panel, "forgePeerConsentNotice")
+        const status = findChild(panel, "forgePeerStatus")
+        verify(panel.visible && enable.visible && enable.enabled)
+        verify(notice.visible)
+        compare(mockWs.peerRequests.length, 0)
+        const point = enable.mapToItem(page, 0, 0)
+        verify(point.y >= 0 && point.y + enable.height <= page.height)
+        mouseClick(enable)
+        compare(mockWs.peerRequests, [{enabled:true, retry:false}])
+        verify(!notice.visible)
+        compare(status.text, "Waiting for the other player")
+        mockWs.peerTransportState = "direct"
+        compare(status.text, "Direct connection active")
+        mockWs.peerTransportState = "relay"
+        const retry = findChild(panel, "forgePeerRetry")
+        verify(retry.visible)
+        waitForRendering(page)
+        mouseClick(retry)
+        compare(mockWs.peerRequests[1], {enabled:true, retry:true})
+        waitForRendering(page)
+        mouseClick(enable)
+        compare(mockWs.peerRequests[2], {enabled:false, retry:false})
+        verify(notice.visible)
+    }
+
+    function test_peerControlsExplainUnavailableServerAndExcludeSpectators() {
+        const panel = findChild(page, "waitingRoomPeerConnection")
+        verify(!panel.visible)
+        mockRoomSession.rulesMode = "forge"
+        mockRoomSession.hostingMode = "player"
+        mockWs.peerTransportAvailable = false
+        waitForRendering(page)
+        verify(panel.visible)
+        verify(!findChild(panel, "forgePeerEnable").enabled)
+        compare(findChild(panel, "forgePeerStatus").text, "This server does not support direct connections.")
+        mockRoomSession.role = "spectator"
+        verify(!panel.visible)
+        mockRoomSession.role = "player"
+        mockRoomSession.seatIndex = -1
+        verify(!panel.visible)
+        compare(mockWs.peerRequests.length, 0)
     }
 
     function test_longNamesAndFullSpectatorListRemainReachable(data) {

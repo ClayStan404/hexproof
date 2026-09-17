@@ -15,7 +15,7 @@ Item {
     property int promptSeat: -1
     property var selectedTargetIds: ({})
     readonly property int selectedCount: Object.keys(selectedTargetIds).length
-    readonly property bool contextActive: tableController.roomConnected
+    readonly property bool contextActive: tableController.roomConnected && tableController.hostingPaused !== true
         && tableController.localSeat >= 0 && promptSeat === tableController.localSeat
         && !tableController.sideboarding
         && session.active && !session.gameOver

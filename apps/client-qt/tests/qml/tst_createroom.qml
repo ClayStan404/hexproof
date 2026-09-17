@@ -23,6 +23,8 @@ TestCase {
     QtObject {
         id: mockWs
         property bool forgeRulesAvailable: true
+        property bool playerHostingAvailable: false
+        property var forgeHost: QtObject { property bool ready: false; property bool busy: false; property string status: "Test runtime"; property double progress: 0; function check() {} }
         property bool inRoom: false
         property string lastError: ""
         property int createCount: 0
@@ -30,12 +32,12 @@ TestCase {
         property string submittedRulesMode: ""
         property var submittedRoom: ({})
         function createRoom(name, format, deckFormat, spectators, hands, matchMode,
-                            loadMode, password, playtest, rulesMode) {
+                            loadMode, password, playtest, rulesMode, hostingMode) {
             ++createCount
             submittedMatchMode = matchMode
             submittedRulesMode = rulesMode
             submittedRoom = {name, format, deckFormat, spectators, hands, matchMode,
-                             loadMode, password, playtest, rulesMode}
+                             loadMode, password, playtest, rulesMode, hostingMode}
         }
         property var submittedLimited: []
         property string submittedCoordinator: ""
@@ -72,6 +74,9 @@ TestCase {
     function init() {
         mockWs.createCount = 0
         mockWs.forgeRulesAvailable = true
+        mockWs.playerHostingAvailable = false
+        mockWs.forgeHost.ready = false
+        mockWs.forgeHost.busy = false
         mockWs.lastError = ""
         mockWs.submittedLimited = []
         mockWs.submittedCoordinator = ""
@@ -402,5 +407,24 @@ TestCase {
         compare(modes.options.length, 1)
         page.submit()
         compare(mockWs.submittedMatchMode, "bo1")
+    }
+    function test_playerHostingHasIndependentCapabilityAndReadiness() {
+        page.roomName = "Trusted duel"
+        page.rulesMode = "forge"
+        page.hostingMode = "player"
+        mockWs.forgeRulesAvailable = false
+        const submit = findChild(page, "createRoomSubmitButton")
+        verify(!submit.enabled)
+        mockWs.playerHostingAvailable = true
+        verify(!submit.enabled)
+        mockWs.forgeHost.ready = true
+        verify(submit.enabled)
+        mockWs.forgeHost.busy = true
+        verify(!submit.enabled)
+        mockWs.forgeHost.busy = false
+        submit.clicked()
+        compare(mockWs.submittedRoom.hostingMode, "player")
+        page.hostingMode = "server"
+        verify(!submit.enabled)
     }
 }

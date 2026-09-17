@@ -57,6 +57,15 @@ func JavaProcessConfig(javaCommand, harnessJAR, forgeHome string) ProcessConfig 
 	}
 }
 
+// JavaOverlayProcessConfig loads the verified bundled adapter before classes
+// in the immutable base JAR and its manifest-listed runtime dependencies.
+func JavaOverlayProcessConfig(javaCommand, harnessJAR, forgeHome, overlayJAR string) ProcessConfig {
+	config := JavaProcessConfig(javaCommand, harnessJAR, forgeHome)
+	config.Args = append([]string{"-cp", overlayJAR + string(os.PathListSeparator) + harnessJAR,
+		"org.hexproof.forge.NativeHost"}, config.Args[2:]...)
+	return config
+}
+
 type rpcRequest struct {
 	Command     string `json:"command"`
 	Payload     string `json:"payload,omitempty"`
@@ -84,9 +93,10 @@ type rpcJob struct {
 	result     chan rpcResult
 }
 
-// Client serializes calls because the upstream transport returns ordered JSON
-// lines without request identifiers. Concurrent callers are safe.
+// Client owns one game. The default transport is a dedicated ordered process;
+// a pool lease uses request IDs while retaining per-game call ordering.
 type Client struct {
+	shared   *sharedLease
 	command  *exec.Cmd
 	stdin    io.WriteCloser
 	requests chan rpcJob
@@ -117,6 +127,7 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 	}
 
 	command := exec.Command(config.Command, config.Args...)
+	configurePlatformProcess(command)
 	command.Dir = config.Dir
 	command.Env = append(os.Environ(), config.Env...)
 	profileDir := ""
@@ -196,13 +207,17 @@ func (client *Client) waitError() error {
 	return fmt.Errorf("%w: process exited: %v", ErrRuntime, client.waitErr)
 }
 
-// Done closes only after the child has exited and has been reaped. Supervisors
-// must use this notification instead of assuming that a retained Client is live.
+// Done closes after a dedicated child is reaped, or shared game cleanup is
+// acknowledged. Worker failure closes its leases only after process reaping.
+// Supervisors must not assume that a retained Client is still live.
 func (client *Client) Done() <-chan struct{} { return client.done }
 
 // Healthy reports whether the established transport can still accept work.
 // It is not a substitute for handling a failure during the next RPC.
 func (client *Client) Healthy() bool {
+	if client.shared != nil && !client.shared.worker.healthy() {
+		return false
+	}
 	if client.closing.Load() || client.invalid.Load() {
 		return false
 	}
@@ -219,6 +234,10 @@ func (client *Client) Healthy() bool {
 func (client *Client) Invalidate() { client.kill() }
 
 func (client *Client) captureStderr(reader io.Reader, destination io.Writer) {
+	captureRuntimeStderr(reader, destination)
+}
+
+func captureRuntimeStderr(reader io.Reader, destination io.Writer) {
 	if destination == nil {
 		destination = io.Discard
 	}
@@ -311,6 +330,9 @@ func (client *Client) run(stdout io.Reader) {
 
 func (client *Client) call(ctx context.Context, request rpcRequest, noResponse,
 	allowClosing bool) (string, error) {
+	if client.shared != nil {
+		return client.shared.call(ctx, request)
+	}
 	if client.closing.Load() && !allowClosing {
 		return "", ErrClosed
 	}
@@ -349,6 +371,12 @@ func (client *Client) call(ctx context.Context, request rpcRequest, noResponse,
 
 func (client *Client) kill() {
 	client.invalid.Store(true)
+	if client.shared != nil {
+		// A game-level failure releases only this lease. The worker itself
+		// is killed when transport state or cleanup cannot be trusted.
+		go client.Close()
+		return
+	}
 	client.killOnce.Do(func() {
 		if client.command.Process != nil {
 			_ = client.command.Process.Kill()
@@ -553,9 +581,12 @@ func validateSessionID(sessionID string) error {
 	return nil
 }
 
-// Close asks the harness to exit, then forcibly terminates it if its game
-// threads do not unwind within a short deadline.
+// Close cleans up the owned game lease. Dedicated processes exit; shared
+// workers retain other games unless bounded native cleanup cannot finish.
 func (client *Client) Close() error {
+	if client.shared != nil {
+		return client.shared.close()
+	}
 	client.closeOnce.Do(func() {
 		client.closing.Store(true)
 		ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)

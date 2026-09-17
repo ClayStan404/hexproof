@@ -94,6 +94,20 @@ TestCase {
         ]
     }
 
+    function test_twoCardsOnTopCanBeReorderedWithVisibleButtons() {
+        applyPrompt(73, ["libraryTop", "libraryBottom"])
+        tryVerify(() => findChild(prompt, "rulesScryLater-scry:0") !== null)
+        const later = findChild(prompt, "rulesScryLater-scry:0")
+        verify(later.visible && later.enabled)
+        mouseClick(later, later.width / 2, later.height / 2)
+        compare(prompt.cardsForPile(0)[0].cardId, "scry:1")
+        compare(prompt.cardsForPile(0)[1].cardId, "scry:0")
+        const confirm = findChild(prompt, "confirmScryButton")
+        mouseClick(confirm, confirm.width / 2, confirm.height / 2)
+        compare(fakeWs.lastPiles[0].cardIds.join(","), "scry:1,scry:0")
+        compare(fakeWs.lastPiles[1].cardIds.length, 0)
+    }
+
     function test_partitionsOrdersAndSubmitsOpaqueCards(data) {
         applyPrompt(72, ["libraryTop", data.destination])
         compare(prompt.cardsForPile(0).length, 2)

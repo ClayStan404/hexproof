@@ -48,6 +48,12 @@ QtObject {
         case "Confirm decision": return qsTr("Confirm decision")
         case "Choose an action": return qsTr("Choose an action")
         case "Opening hand": return qsTr("Opening hand")
+        case "Scry": return qsTr("Scry")
+        case "Discard to maximum hand size": return qsTr("Discard to maximum hand size")
+        case "Choose cards to activate from opening hand and their order":
+            return qsTr("Choose cards to activate from opening hand and their order")
+        case "Select a card from your sideboard and exile":
+            return qsTr("Select a card from your sideboard and exile")
         case "Pay mana": return qsTr("Pay mana")
         case "Choose a card or player": return qsTr("Choose a card or player")
         case "Choose cards": return qsTr("Choose cards")
@@ -55,6 +61,7 @@ QtObject {
         case "Look at these cards": return qsTr("Look at these cards")
         case "Choose an order": return qsTr("Choose an order")
         case "Sort cards into zones": return qsTr("Sort cards into zones")
+        case "Select target Permanent.nonLand+OppCtrl or Card.inZoneStack+OppCtrl":
         case "Choose targets": return qsTr("Choose targets")
         case "Declare attackers": return qsTr("Declare attackers")
         case "Declare blockers": return qsTr("Declare blockers")
@@ -90,6 +97,8 @@ QtObject {
             return qsTr("Click on your life total to pay life for phyrexian mana.")
         }
         let match
+        if ((match = source.match(/^Choose X for (.+)$/)))
+            return I18n.formatRulesLog(qsTr("Choose X for %1"), match.slice(1))
         if ((match = source.match(/^Mulligans taken: (\d+)$/)))
             return qsTr("Mulligans taken: %1").arg(match[1])
         if ((match = source.match(/^Choose exactly (\d+) card\(s\) to put on the bottom of your library\.$/)))

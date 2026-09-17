@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
 	"hexproof/server/internal/rulesengine/forge"
@@ -33,7 +34,7 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 	// Build the public journal only from an explicit spectator view. Reuse that
 	// same envelope for every spectator rather than repeating engine RPCs.
 	ctx, cancel := context.WithTimeout(context.Background(), forgeSnapshotTimeout)
-	publicView, err := game.client.SnapshotView(ctx, game.sessionID, -1)
+	publicView, err := h.forgeProjectionView(ctx, r.ID, game, -1)
 	cancel()
 	if err != nil {
 		return nil, err
@@ -63,7 +64,7 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 			viewer = mapped
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), forgeSnapshotTimeout)
-		view, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, viewer)
+		view, snapshotErr := h.forgeProjectionView(ctx, r.ID, game, viewer)
 		cancel()
 		if snapshotErr != nil {
 			return nil, snapshotErr
@@ -90,6 +91,13 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 		}
 	}
 	return projections, nil
+}
+
+func (h *Handler) forgeProjectionView(ctx context.Context, roomID string, game forgeRoomGame, viewer int) (forge.GameView, error) {
+	if remote, ok := game.client.(*forgehost.Runtime); ok && h.playerHostMigrating(roomID) {
+		return remote.LastSnapshotView(viewer)
+	}
+	return game.client.SnapshotView(ctx, game.sessionID, viewer)
 }
 
 // The room's existing opt-in permits current hands only. The base remains the
@@ -201,6 +209,26 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 			if visible {
 				identity := rulesIdentity(*card.Identity)
 				projectedCard.Identity = &identity
+			}
+			if zone.Zone == "battlefield" && card.ExiledCardCount > 0 {
+				projectedCard.ExiledCardCount = card.ExiledCardCount
+				seen := make(map[string]bool)
+				for _, id := range card.ExiledCardIDs {
+					if seen[id] {
+						continue
+					}
+					for _, linkedZone := range view.Zones {
+						if linkedZone.Zone != "exile" {
+							continue
+						}
+						for _, linked := range linkedZone.Cards {
+							if linked.ID == id && linked.Visibility == "visible" && linked.Identity != nil && linked.Identity.Name != "" {
+								projectedCard.ExiledCardIDs = append(projectedCard.ExiledCardIDs, id)
+								seen[id] = true
+							}
+						}
+					}
+				}
 			}
 			projected.Cards = append(projected.Cards, projectedCard)
 		}

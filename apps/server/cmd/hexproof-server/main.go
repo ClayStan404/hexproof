@@ -77,7 +77,13 @@ func main() {
 	forgeJava := flag.String("forge-java", forgeJavaDefault,
 		"Java command for the Forge runtime (defaults to HEXPROOF_FORGE_JAVA or java)")
 	forgeMaxGames := flag.String("max-forge-games", forgeMaxGamesDefault(),
-		"maximum concurrent Forge game processes, including startup (positive integer; defaults to HEXPROOF_FORGE_MAX_GAMES or 1)")
+		"maximum concurrent Forge games, including startup (positive integer; defaults to HEXPROOF_FORGE_MAX_GAMES or 1)")
+	forgeGamesPerJVM := flag.Int("forge-games-per-jvm", 1,
+		"games per isolated Forge worker (1: dedicated processes; 2-4: shared JVM, requires adapter 3)")
+	allowPlayerHosting := flag.Bool("allow-player-hosting", false, "allow trusted players to host Forge through the relay")
+	maxPlayerHostedGames := flag.Int("max-player-hosted-games", 32, "maximum player-hosted room bindings")
+	peerSTUNServers := flag.String("peer-stun-servers", peerSTUNServersDefault(),
+		"comma-separated UDP STUN URLs, at most two (defaults to HEXPROOF_PEER_STUN_SERVERS or managed Server 1/2; empty disables STUN discovery)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintf(os.Stdout, "hexproof-server %s\n", buildinfo.Version)
@@ -121,6 +127,10 @@ func main() {
 		MaxConcurrentPasswordChecks: *maxConcurrentPasswordChecks,
 		ForgeRuntime:                forgeRuntime,
 		MaxForgeGames:               maxForgeGames,
+		ForgeGamesPerJVM:            *forgeGamesPerJVM,
+		AllowPlayerHosting:          *allowPlayerHosting,
+		MaxPlayerHostedGames:        *maxPlayerHostedGames,
+		PeerSTUNServers:             splitCommaSeparated(*peerSTUNServers),
 	})
 	if err != nil {
 		log.Fatalf("hexproof-server: configure: %v", err)
@@ -133,11 +143,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	// Ops/tunnel health checks (Cloudflare / curl). Not part of the game protocol.
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok\n"))
-	})
+	mux.HandleFunc("/healthz", handler.ServeHealth)
 	mux.Handle("/ws", handler)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
@@ -208,6 +214,13 @@ func parseForgeGameLimit(value string) (int, error) {
 		return 0, fmt.Errorf("-max-forge-games / HEXPROOF_FORGE_MAX_GAMES must be a positive integer")
 	}
 	return limit, nil
+}
+
+func peerSTUNServersDefault() string {
+	if value, set := os.LookupEnv("HEXPROOF_PEER_STUN_SERVERS"); set {
+		return value
+	}
+	return strings.Join(server.DefaultConfig().PeerSTUNServers, ",")
 }
 
 func splitCommaSeparated(value string) []string {

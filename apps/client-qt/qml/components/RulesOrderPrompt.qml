@@ -15,6 +15,7 @@ Item {
     required property var orderModel
     required property int promptId
     property bool damageOrder: false
+    property bool expandedView: false
 
     readonly property bool narrowLayout: width < Theme.size(490)
 
@@ -96,7 +97,7 @@ Item {
                 required property bool token
                 required property string oracle
 
-                width: Theme.size(112)
+                width: Theme.size(root.expandedView ? 174 : 112)
                 height: orderList.itemHeight
                 z: dragArea.drag.active ? 2 : 0
 
@@ -192,10 +193,11 @@ Item {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         anchors.margins: Theme.size(4)
-                        height: Theme.size(30)
+                        height: Theme.size(38)
                         spacing: Theme.size(3)
 
                         AppButton {
+                            objectName: "rulesOrderEarlier-" + tile.responseId
                             Layout.preferredWidth: Theme.size(30)
                             compact: true
                             text: "‹"
@@ -214,6 +216,7 @@ Item {
                         }
 
                         AppButton {
+                            objectName: "rulesOrderLater-" + tile.responseId
                             Layout.preferredWidth: Theme.size(30)
                             compact: true
                             text: "›"
@@ -230,7 +233,7 @@ Item {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: Theme.size(38)
+                    anchors.bottomMargin: Theme.size(46)
                     cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                     preventStealing: true
                     drag.target: tile

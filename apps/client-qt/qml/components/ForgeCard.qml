@@ -130,7 +130,8 @@ Rectangle {
             anchors.bottomMargin: root.card.power || root.card.toughness ? 34 * root.unit : 6 * root.unit
             visible: !root.fullFace
             text: [root.card.countersSummary || "", root.card.damage > 0 ? qsTr("%1 dmg").arg(root.card.damage) : "",
-                   root.card.attachedTo ? qsTr("Attached") : ""].filter(v => v.length).join(" · ")
+                   root.card.attachedTo ? qsTr("Attached") : "",
+                   root.card.exiledCardCount > 0 ? qsTr("Exiled: %1").arg(root.card.exiledCardCount) : ""].filter(v => v.length).join(" · ")
             color: "#e9c785"
             font.pixelSize: 10 * root.unit
             elide: Text.ElideRight

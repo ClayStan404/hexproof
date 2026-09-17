@@ -5,8 +5,12 @@ package main
 
 import (
 	"io"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
+
+	"hexproof/server/internal/server"
 )
 
 func TestHostedForgeRuntimeDiscardsPrivateDiagnostics(t *testing.T) {
@@ -62,5 +66,23 @@ func TestForgeGameLimit(t *testing.T) {
 	t.Setenv("HEXPROOF_FORGE_MAX_GAMES", "")
 	if _, err := parseForgeGameLimit(forgeMaxGamesDefault()); err == nil {
 		t.Fatal("explicit empty capacity environment silently used a default")
+	}
+}
+
+func TestPeerSTUNEnvironmentDefaults(t *testing.T) {
+	t.Setenv("HEXPROOF_PEER_STUN_SERVERS", "")
+	if got := splitCommaSeparated(peerSTUNServersDefault()); got == nil || len(got) != 0 {
+		t.Fatalf("explicit empty environment must disable discovery: %v", got)
+	}
+	t.Setenv("HEXPROOF_PEER_STUN_SERVERS", "stun:192.0.2.1:3478, stun:192.0.2.2:3478")
+	if got := splitCommaSeparated(peerSTUNServersDefault()); !reflect.DeepEqual(got,
+		[]string{"stun:192.0.2.1:3478", "stun:192.0.2.2:3478"}) {
+		t.Fatalf("environment endpoints = %v", got)
+	}
+	if err := os.Unsetenv("HEXPROOF_PEER_STUN_SERVERS"); err != nil {
+		t.Fatal(err)
+	}
+	if got := peerSTUNServersDefault(); got != strings.Join(server.DefaultConfig().PeerSTUNServers, ",") {
+		t.Fatalf("missing environment must select managed endpoints: %q", got)
 	}
 }

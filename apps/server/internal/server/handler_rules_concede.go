@@ -35,6 +35,10 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 		h.sendError(sess, env.ID, code, err.Error())
 		return nil
 	}
+	if h.playerHostPaused(r) {
+		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected, "The host is reconnecting; the game is paused")
+		return nil
+	}
 	game, ok := h.forgeGame(r.ID)
 	if !ok {
 		h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
@@ -68,7 +72,7 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 		return nil
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), forgePromptTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	err = game.client.Concede(ctx, game.sessionID, playerIndex)
 	cancel()
 	if err != nil {
@@ -138,7 +142,7 @@ func forgePlayerStatus(view forge.GameView, playerIndex int) (string, bool) {
 }
 
 func waitForForgeConcede(game forgeRoomGame, playerIndex int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), forgePromptTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	defer cancel()
 	ticker := time.NewTicker(forgePromptPollInterval)
 	defer ticker.Stop()

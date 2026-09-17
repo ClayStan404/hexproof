@@ -65,12 +65,32 @@ use online discovery; later catalog changes do not require a rebuild.
   minutes. **Refresh list** bypasses this interval. Latency probes run separately
   every five seconds. Selection follows stable IDs; a removed selection is
   cleared and requires an explicit new choice.
-- Forge labels initially use the catalog. A successful version-matched server
-  welcome overrides that exact URL's advertised capability for the current
-  client process. Custom URLs show unknown until connected.
+- Server Forge labels initially use the catalog. The separate player-hosting,
+  direct-connection and migration capabilities start unknown. Successful health
+  probes or version-matched welcomes update that exact URL's observed values
+  for the current process, including custom endpoints. Unknown player-hosting
+  support must not be labelled manual-only merely because `forge` is false.
 - Valid updates are saved atomically under the application's local data
   directory, scoped by the bootstrap origins. A fetch failure retains the
   current catalog. An absent, invalid, or outdated cache uses the bootstrap.
+
+## Live capability discovery
+
+The existing HTTP(S) `/healthz` response retains its plain `ok` body/status and
+adds a noncached `X-Hexproof-Capabilities` header:
+
+```json
+{"forge":false,"playerHosting":true,"directPeer":true,"hostMigration":true}
+```
+
+The client accepts at most 1 KiB and requires all four known fields to be
+booleans. Missing, oversized or invalid headers leave previous values intact;
+older servers remain compatible. A welcome received during an in-flight probe
+takes precedence over that probe. Catalog refresh cannot overwrite observations.
+These are supported modes, not available room slots or local runtime readiness.
+No runtime paths, engine identities or player data are published. This leaves
+schema 2 catalog files compatible with installed clients; no extra catalog
+fields or directory publication is needed when enabling these server features.
 
 ## Local configuration and testing
 

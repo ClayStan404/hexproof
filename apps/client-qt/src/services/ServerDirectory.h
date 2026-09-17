@@ -41,7 +41,7 @@ class ServerDirectory : public QObject
 
     void refreshLatencies();
     void refreshDirectory(bool force = false);
-    void recordForgeCapability(const QString &url, bool supported);
+    void recordCapabilities(const QString &url, const QJsonObject &capabilities);
 
   signals:
     void latenciesChanged();
@@ -59,7 +59,12 @@ class ServerDirectory : public QObject
     QVariantList m_servers;
     QStringList m_directoryUrls;
     QList<int> m_latencyMs;
-    QHash<QString, int> m_observedForge;
+    struct ObservedCapabilities
+    {
+        QVariantMap values;
+        quint64 generation = 0;
+    };
+    QHash<QString, ObservedCapabilities> m_observedCapabilities;
     QString m_customServerUrl;
     QString m_source;
     bool m_refreshing = false;

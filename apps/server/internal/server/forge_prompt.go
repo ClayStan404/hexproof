@@ -14,6 +14,7 @@ import (
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
 	"hexproof/server/internal/rulesengine/forge"
+	"hexproof/server/internal/rulesinput"
 )
 
 const (
@@ -25,6 +26,9 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 	game, ok := h.forgeGame(r.ID)
 	if !ok {
 		return nil, errors.New("Forge game session is unavailable")
+	}
+	if h.playerHostMigrating(r.ID) {
+		return h.clearedRulesPrompts(r, game)
 	}
 	targets, err := h.hub.RulesPlayerTargets(r)
 	if err != nil {
@@ -73,6 +77,7 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 		}
 		prompts[connectionID] = envelope
 	}
+	h.refreshPeerBinding(r)
 	return prompts, nil
 }
 
@@ -178,7 +183,7 @@ func projectedRulesPrompt(roomID, gameID string,
 	prompt.TotalDamage = view.TotalDamage
 	prompt.DamageDeathtouch = view.DamageDeathtouch
 	if view.Kind == "chooseCombatDamageAssignment" {
-		mode, valid := rulesDamageAssignmentMode(view.DamageAssignmentMode)
+		mode, valid := rulesinput.DamageAssignmentMode(view.DamageAssignmentMode)
 		if !valid {
 			return protocol.RulesPrompt{}, errors.New("Forge damage assignment mode is unsupported")
 		}

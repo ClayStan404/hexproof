@@ -10,6 +10,7 @@ import (
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
+	"hexproof/server/internal/rulesinput"
 )
 
 // This crosses the same native-input normalization, private projection,
@@ -58,7 +59,7 @@ func TestRulesDamageModesPreserveNativeConstraints(t *testing.T) {
 					TargetID: fmt.Sprintf("damage-target:%d", index), Damage: amount,
 				})
 			}
-			accepted := validRulesDamageDistribution(prompt.DamageTargets, prompt.TotalDamage,
+			accepted := rulesinput.ValidDamageDistribution(prompt.DamageTargets, prompt.TotalDamage,
 				prompt.DamageAssignmentMode, assignments)
 			if accepted != tc.valid {
 				t.Fatalf("mode %q assignment %v accepted=%v, want %v", tc.mode, tc.amounts, accepted, tc.valid)
@@ -67,7 +68,7 @@ func TestRulesDamageModesPreserveNativeConstraints(t *testing.T) {
 				return
 			}
 			response, err := forge.BuildPromptResponse(raw, 0, 91, forge.PromptResponse{
-				ResponseID: "$submit", DamageAssignments: forgePromptDamageAssignments(assignments),
+				ResponseID: "$submit", DamageAssignments: rulesinput.DamageAssignments(assignments),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -101,7 +102,7 @@ func TestRulesDamageModesRejectUnknownMode(t *testing.T) {
 	targets := []protocol.RulesPromptDamageTarget{{ResponseID: "damage-target:0", LethalDamage: 2}}
 	assignments := []protocol.RulesPromptDamageAssignment{{TargetID: "damage-target:0", Damage: 6}}
 	for _, mode := range []string{"", "free", "unknown", "UNORDERED"} {
-		if validRulesDamageDistribution(targets, 6, mode, assignments) {
+		if rulesinput.ValidDamageDistribution(targets, 6, mode, assignments) {
 			t.Fatalf("unknown mode %q relaxed damage validation", mode)
 		}
 		_, err := projectedRulesPrompt("ROOM", "game", forge.PromptView{

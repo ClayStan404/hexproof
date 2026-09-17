@@ -25,7 +25,7 @@ Item {
     property bool ready: false
     property bool passMenuOpen: false
 
-    readonly property bool active: tableController.roomConnected
+    readonly property bool active: tableController.roomConnected && tableController.hostingPaused !== true
         && tableController.localSeat >= 0 && !tableController.sideboarding
         && session.active && !session.gameOver
     readonly property bool isPriorityPrompt: active && session.promptPending

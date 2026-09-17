@@ -1,0 +1,9 @@
+{
+  "type": "forge.host_status",
+  "payload": {
+    "roomId": "ROOM42",
+    "connected": false,
+    "graceSeconds": 180,
+    "hostSeat": 0
+  }
+}

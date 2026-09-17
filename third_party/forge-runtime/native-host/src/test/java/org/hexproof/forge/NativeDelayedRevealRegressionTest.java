@@ -32,8 +32,8 @@ public final class NativeDelayedRevealRegressionTest {
             });
             for (boolean single : List.of(false, true)) {
                 JsonObject config = JsonParser.parseString("{\"gameId\":\"delayed-reveal-test\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Reveal A\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Reveal B\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
-                try (NativeSession session = new NativeSession(config, base)) {
-                    base.setFailureHandler(session::fail);
+                try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+                    base.setTestSession(session);
                     session.game.setAge(GameStage.Play);
                     Player owner = session.game.getPlayers().get(0);
                     session.game.setStartingPlayer(owner);

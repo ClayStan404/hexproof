@@ -16,6 +16,7 @@ import (
 // ignored so harness additions do not change the public wire contract.
 type GameView struct {
 	GameID           string            `json:"gameId"`
+	IntegrityHash    string            `json:"integrityHash,omitempty"`
 	Turn             int               `json:"turn"`
 	Step             string            `json:"step"`
 	ActivePlayerID   string            `json:"activePlayerId"`
@@ -62,19 +63,21 @@ type CardIdentityView struct {
 }
 
 type CardView struct {
-	Visibility   string            `json:"visibility"`
-	ID           string            `json:"id"`
-	Identity     *CardIdentityView `json:"identity,omitempty"`
-	OwnerID      string            `json:"ownerId,omitempty"`
-	ControllerID string            `json:"controllerId,omitempty"`
-	Tapped       bool              `json:"tapped,omitempty"`
-	FaceDown     bool              `json:"isFaceDown,omitempty"`
-	Attacking    bool              `json:"isAttacking,omitempty"`
-	Power        string            `json:"power,omitempty"`
-	Toughness    string            `json:"toughness,omitempty"`
-	Counters     map[string]int    `json:"counters,omitempty"`
-	Damage       int               `json:"damage,omitempty"`
-	AttachedTo   string            `json:"attachedTo,omitempty"`
+	Visibility      string            `json:"visibility"`
+	ID              string            `json:"id"`
+	Identity        *CardIdentityView `json:"identity,omitempty"`
+	OwnerID         string            `json:"ownerId,omitempty"`
+	ControllerID    string            `json:"controllerId,omitempty"`
+	Tapped          bool              `json:"tapped,omitempty"`
+	FaceDown        bool              `json:"isFaceDown,omitempty"`
+	Attacking       bool              `json:"isAttacking,omitempty"`
+	Power           string            `json:"power,omitempty"`
+	Toughness       string            `json:"toughness,omitempty"`
+	Counters        map[string]int    `json:"counters,omitempty"`
+	Damage          int               `json:"damage,omitempty"`
+	AttachedTo      string            `json:"attachedTo,omitempty"`
+	ExiledCardCount int               `json:"exiledCardCount,omitempty"`
+	ExiledCardIDs   []string          `json:"exiledCardIds,omitempty"`
 }
 
 type StackObjectView struct {
@@ -101,13 +104,20 @@ func (client *Client) SnapshotView(ctx context.Context, sessionID string,
 	if err != nil {
 		return GameView{}, err
 	}
+	view, err := DecodeSnapshotView(raw)
+	if err != nil {
+		client.kill()
+	}
+	return view, err
+}
+
+// DecodeSnapshotView validates a private snapshot at either transport boundary.
+func DecodeSnapshotView(raw json.RawMessage) (GameView, error) {
 	var view GameView
 	if err := json.Unmarshal(raw, &view); err != nil {
-		client.kill()
 		return GameView{}, fmt.Errorf("%w: invalid snapshot view", ErrRuntime)
 	}
 	if err := view.validate(); err != nil {
-		client.kill()
 		return GameView{}, fmt.Errorf("%w: invalid snapshot view", ErrRuntime)
 	}
 	return view, nil

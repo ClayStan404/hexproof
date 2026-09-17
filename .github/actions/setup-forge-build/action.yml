@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Select Forge adapter build JDK
+description: Verify and select the runner's preinstalled JDK 21; install no global tools.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: ${{ runner.os == 'Windows' && 'python' || 'python3' }} tools/select-forge-jdk.py

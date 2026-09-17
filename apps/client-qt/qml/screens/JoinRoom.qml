@@ -14,6 +14,8 @@ Page {
     property string roomCode: ""
     property bool asSpectator: false
     property string roomPassword: ""
+    property string hostingMode: ""
+    property var wsModel: ws
 
     background: AppBackground { }
 
@@ -144,6 +146,22 @@ Page {
                     onAccepted: root.submit()
                 }
 
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.hostingMode === "player"
+                    textFormat: Text.PlainText
+                    text: qsTr("Player-hosted Forge: the creator runs the rules engine and can access hidden cards or change its behavior. Use this mode with people you trust.")
+                    color: Theme.warning
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: Theme.fontSize(12)
+                }
+                AppToggle {
+                    id: trustHost
+                    objectName: "trustPlayerHost"
+                    Layout.fillWidth: true
+                    visible: root.hostingMode === "player"
+                    text: qsTr("I trust this host")
+                }
                 InfoBanner {
                     id: errorBanner
                     Layout.fillWidth: true
@@ -170,6 +188,7 @@ Page {
                         leadingText: "→"
                         enabled: root.roomCode.trim().length > 0
                                  && passwordField.withinUtf8ByteLimit
+                                 && (root.hostingMode !== "player" || trustHost.checked)
                         onClicked: root.submit()
                     }
                 }
@@ -178,6 +197,7 @@ Page {
     }
 
     function submit() {
+        if (hostingMode === "player" && !trustHost.checked) return
         if (roomCode.trim().length === 0)
             return
         if (!passwordField.withinUtf8ByteLimit) {
@@ -186,14 +206,16 @@ Page {
             return
         }
         errorBanner.message = ""
-        ws.joinRoom(roomCode.trim().toUpperCase(), asSpectator, roomPassword)
+        root.wsModel.joinRoom(roomCode.trim().toUpperCase(), asSpectator, roomPassword, trustHost.checked)
     }
 
     Connections {
-        target: ws
+        target: root.wsModel
         function onLastErrorChanged() {
-            if (!ws.inRoom)
-                errorBanner.message = I18n.status(ws.lastError)
+            if (String(root.wsModel.lastError).indexOf("player_host_trust_required:") === 0)
+                root.hostingMode = "player"
+            if (!root.wsModel.inRoom)
+                errorBanner.message = I18n.status(root.wsModel.lastError)
         }
     }
 }

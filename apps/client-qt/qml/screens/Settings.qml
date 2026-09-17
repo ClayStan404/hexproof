@@ -16,6 +16,11 @@ Page {
 
     background: AppBackground { }
 
+    ForgeHostingDialog {
+        id: hostingOptions
+        service: typeof ws !== "undefined" && ws.forgeHost ? ws.forgeHost : null
+    }
+
     ScreenHeader {
         id: header
         anchors.top: parent.top
@@ -45,6 +50,14 @@ Page {
             width: Math.min(Theme.size(760), parent.width - Theme.size(72))
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.size(16)
+
+            AppButton {
+                objectName: "settingsForgeHosting"
+                Layout.fillWidth: true
+                text: qsTr("Local Forge: download, import and diagnostics")
+                enabled: hostingOptions.service !== null
+                onClicked: hostingOptions.open()
+            }
 
             Surface {
                 Layout.fillWidth: true

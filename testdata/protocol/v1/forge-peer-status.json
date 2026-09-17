@@ -1,0 +1,11 @@
+{
+  "type": "forge.peer_status",
+  "id": "peer-fixture",
+  "payload": {
+    "bindingId": "",
+    "roomId": "ABCDEF",
+    "enabled": false,
+    "otherEnabled": false,
+    "available": false
+  }
+}

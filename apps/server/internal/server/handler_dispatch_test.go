@@ -42,6 +42,8 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypePlayerReady,
 		protocol.TypeClientLoadComplete,
 		protocol.TypeRulesRespond,
+		protocol.TypeForgeHostRequest,
+		protocol.TypeForgePeerRequest,
 		protocol.TypeGameDraw,
 		protocol.TypeGameShuffleLibrary,
 		protocol.TypeGameMulligan,
@@ -91,7 +93,7 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypeReplayList,
 		protocol.TypeReplayGet,
 	}
-	optional := []string{protocol.TypeSessionPing, protocol.TypeRoomLeave}
+	optional := []string{protocol.TypeSessionPing, protocol.TypeRoomLeave, protocol.TypeForgePeerSignal}
 	if got, want := len(commandRegistry), len(required)+len(optional); got != want {
 		t.Fatalf("command registry size = %d, want %d", got, want)
 	}

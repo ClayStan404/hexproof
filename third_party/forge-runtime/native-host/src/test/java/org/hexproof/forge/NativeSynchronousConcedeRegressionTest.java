@@ -59,8 +59,8 @@ public final class NativeSynchronousConcedeRegressionTest {
         AtomicBoolean cancelled = new AtomicBoolean();
         CountDownLatch unwound = new CountDownLatch(1);
         ExecutorService rpc = Executors.newSingleThreadExecutor();
-        try (NativeSession session = new NativeSession(config, base)) {
-            base.setFailureHandler(session::fail);
+        try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
             Runnable menu = () -> {
                 try {
                     if (surviving) {

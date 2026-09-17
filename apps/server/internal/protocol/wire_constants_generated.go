@@ -6,6 +6,18 @@
 package protocol
 
 const (
+	TypeForgePeerRequest            = "forge.peer_request"
+	TypeForgePeerGrant              = "forge.peer_grant"
+	TypeForgePeerSignal             = "forge.peer_signal"
+	TypeForgePeerSignaled           = "forge.peer_signaled"
+	TypeForgePeerStatus             = "forge.peer_status"
+	ErrPlayerHostLost               = "player_host_lost"
+	ErrPlayerHostTrustRequired      = "player_host_trust_required"
+	TypeForgeHostRequest            = "forge.host_request"
+	TypeForgeHostGrant              = "forge.host_grant"
+	TypeForgeHostStatus             = "forge.host_status"
+	HostingModeServer               = "server"
+	HostingModePlayer               = "player"
 	ProtocolVersion                 = "hexproof.v1"
 	TypeSessionHello                = "session.hello"
 	TypeSessionWelcome              = "session.welcome"

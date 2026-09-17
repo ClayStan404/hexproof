@@ -12,11 +12,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"hexproof/server/internal/buildinfo"
+	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
 
@@ -59,6 +61,26 @@ func TestLiveForgeIsolatedRuntimeRooms(t *testing.T) {
 	}
 }
 
+// Exercise the public room coordinator over two bounded JVMs, including BO3,
+// restart, reconnect, private sideboarding and spectator projections.
+func TestLiveForgeSharedRuntimeRooms(t *testing.T) {
+	srv, handler := newLiveForgeWebSocketServer(t, 4, 2)
+	for wave := range 3 {
+		t.Run(fmt.Sprintf("wave-%d", wave), func(t *testing.T) {
+			for roomNumber := range 4 {
+				t.Run(fmt.Sprintf("room-%d", roomNumber), func(t *testing.T) {
+					t.Parallel()
+					mode := protocol.MatchBO1
+					if roomNumber == 0 {
+						mode = protocol.MatchBO3
+					}
+					runLiveForgeWebSocketRoom(t, srv, handler, mode)
+				})
+			}
+		})
+	}
+}
+
 func newLiveForgeWebSocketServer(t *testing.T, maxGames ...int) (*httptest.Server, *Handler) {
 	t.Helper()
 	runtimeRoot := os.Getenv("HEXPROOF_REAL_FORGE_ROOT")
@@ -89,6 +111,9 @@ func newLiveForgeWebSocketServer(t *testing.T, maxGames ...int) (*httptest.Serve
 	if len(maxGames) > 0 {
 		config.MaxForgeGames = maxGames[0]
 	}
+	if len(maxGames) > 1 {
+		config.ForgeGamesPerJVM = maxGames[1]
+	}
 	config.ForgeRuntime = &runtime
 	// The automated participants exceed human input rates. Rate limiting is
 	// covered independently; keep this opt-in conformance test engine-bound.
@@ -100,7 +125,17 @@ func newLiveForgeWebSocketServer(t *testing.T, maxGames ...int) (*httptest.Serve
 	return srv, handler
 }
 
-func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Handler, matchMode string) {
+func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Handler, matchMode string, hostedRuntime ...forge.ProcessConfig) {
+	runLiveForgeWebSocketStudy(t, srv, handler, matchMode, nil, hostedRuntime...)
+}
+
+type liveForgeStudyHook func(context.Context, string, []*liveForgePeer, *liveForgePeer, int)
+
+func runLiveForgeWebSocketStudy(t *testing.T, srv *httptest.Server, handler *Handler, matchMode string, hook liveForgeStudyHook, hostedRuntime ...forge.ProcessConfig) {
+	runLiveForgePeerStudy(t, srv, handler, matchMode, hook, forgehost.WorkerPeer{}, hostedRuntime...)
+}
+
+func runLiveForgePeerStudy(t *testing.T, srv *httptest.Server, handler *Handler, matchMode string, hook liveForgeStudyHook, peerWorker forgehost.WorkerPeer, hostedRuntime ...forge.ProcessConfig) {
 	t.Helper()
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -120,9 +155,13 @@ func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Hand
 		}
 	}
 	host, guest := players[0], players[1]
+	hostingMode := ""
+	if len(hostedRuntime) > 0 {
+		hostingMode = "player"
+	}
 	host.command(t, ctx, protocol.TypeRoomCreate, "create", protocol.RoomCreate{
 		Name: "Synthetic Forge E2E", Format: protocol.FormatModern, DeckFormat: protocol.DeckFormatCustom,
-		RulesMode: protocol.RulesModeForge, MatchMode: matchMode,
+		RulesMode: protocol.RulesModeForge, MatchMode: matchMode, HostingMode: hostingMode,
 		MaxSeats: 2, AllowSpectators: true, CardLoadMode: protocol.CardLoadBackground,
 	})
 	created := host.until(t, ctx, protocol.TypeRoomCreated)
@@ -131,7 +170,39 @@ func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Hand
 		t.Fatalf("create room: %v", err)
 	}
 	roomID := roomCreated.RoomID
-	guest.command(t, ctx, protocol.TypeRoomJoin, "join", protocol.RoomJoin{RoomID: roomID})
+	if len(hostedRuntime) > 0 {
+		envelope := host.until(t, ctx, protocol.TypeForgeHostGrant)
+		var grant protocol.ForgeHostGrant
+		if err := envelope.DecodePayload(&grant); err != nil {
+			t.Fatal(err)
+		}
+		workerCtx, stopWorker := context.WithCancel(ctx)
+		completed := make(chan error, 1)
+		go func() {
+			completed <- forgehost.Run(workerCtx, forgehost.WorkerConfig{
+				ServerURL: "ws" + strings.TrimPrefix(srv.URL, "http"), RoomID: roomID, Token: grant.Token, GraceSeconds: grant.GraceSeconds,
+			}, func(ctx context.Context) (forge.Runtime, error) { return forge.Start(ctx, hostedRuntime[0]) }, nil, peerWorker)
+		}()
+		defer func() {
+			stopWorker()
+			select {
+			case <-completed:
+			case <-time.After(5 * time.Second):
+				t.Error("host worker leaked")
+			}
+		}()
+		for {
+			status := host.until(t, ctx, protocol.TypeForgeHostStatus)
+			var state protocol.ForgeHostStatus
+			if err := status.DecodePayload(&state); err != nil {
+				t.Fatal(err)
+			}
+			if state.Connected {
+				break
+			}
+		}
+	}
+	guest.command(t, ctx, protocol.TypeRoomJoin, "join", protocol.RoomJoin{RoomID: roomID, AcceptPlayerHost: len(hostedRuntime) > 0})
 	guest.until(t, ctx, protocol.TypeRoomJoined)
 	deck := protocol.DeckSelect{
 		Name: "Synthetic Burn", Format: protocol.FormatModern, DeckFormat: protocol.DeckFormatCustom,
@@ -162,17 +233,21 @@ func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Hand
 		DisplayName: observer.name, ClientVersion: buildinfo.Version, Protocol: protocol.ProtocolVersion,
 	})
 	observer.until(t, ctx, protocol.TypeSessionWelcome)
-	observer.command(t, ctx, protocol.TypeRoomJoin, "watch", protocol.RoomJoin{RoomID: roomID, AsSpectator: true})
+	observer.command(t, ctx, protocol.TypeRoomJoin, "watch", protocol.RoomJoin{RoomID: roomID, AsSpectator: true, AcceptPlayerHost: len(hostedRuntime) > 0})
 	observer.until(t, ctx, protocol.TypeRulesSnapshot)
 	if observer.snapshot.GameID != host.snapshot.GameID {
 		t.Fatal("late spectator joined a different engine game")
 	}
 
 	stats := make(map[string]int)
+	var actionLatencies []time.Duration
 	resumed := false
 	for decisions := 0; decisions < 1500; decisions++ {
 		if host.snapshot.GameOver {
 			break
+		}
+		if hook != nil {
+			hook(ctx, roomID, players, observer, decisions)
 		}
 		actor := liveForgeActor(t, players)
 		if decisions == 12 {
@@ -243,8 +318,10 @@ func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Hand
 			}
 		}
 		requestID := fmt.Sprintf("decision-%d", decisions)
+		submittedAt := time.Now()
 		actor.command(t, ctx, protocol.TypeRulesRespond, requestID, answer)
 		ack := actor.until(t, ctx, protocol.TypeRulesResponded)
+		actionLatencies = append(actionLatencies, time.Since(submittedAt))
 		var responded protocol.RulesResponded
 		if err := ack.DecodePayload(&responded); err != nil || ack.ID != requestID || responded.PromptID != answer.PromptID {
 			t.Fatalf("uncorrelated decision acknowledgement: %v", err)
@@ -327,6 +404,8 @@ func runLiveForgeWebSocketRoom(t *testing.T, srv *httptest.Server, handler *Hand
 		peer.command(t, ctx, protocol.TypeSessionPing, "barrier", struct{}{})
 		peer.until(t, ctx, protocol.TypeSessionPong)
 	}
+	slices.Sort(actionLatencies)
+	t.Logf("first-game action latency: count=%d p50=%s p95=%s max=%s", len(actionLatencies), actionLatencies[len(actionLatencies)/2], actionLatencies[len(actionLatencies)*95/100], actionLatencies[len(actionLatencies)-1])
 	t.Logf("real WS match completed in %s; winner seat=%d; decisions=%v; private snapshots=%d/%d/%d",
 		time.Since(started), winner, stats, host.snapshots, guest.snapshots, observer.snapshots)
 }
@@ -380,71 +459,7 @@ func (peer *liveForgePeer) until(t *testing.T, ctx context.Context, kind string)
 		if err != nil {
 			t.Fatal(err)
 		}
-		assertNormalizedRulesWireArrays(t, envelope)
-		switch envelope.Type {
-		case protocol.TypeError:
-			if kind != protocol.TypeError {
-				t.Fatalf("seat %d received server error during %s: %s", peer.seat, kind, envelope.Payload)
-			}
-		case protocol.TypeRoomSnapshot:
-			peer.room = protocol.RoomSnapshot{}
-			if err := envelope.DecodePayload(&peer.room); err != nil {
-				t.Fatal(err)
-			}
-			if strings.Contains(string(envelope.Payload), "Lightning Bolt") || strings.Contains(string(envelope.Payload), "Mountain") {
-				t.Fatal("public room membership snapshot disclosed the selected deck")
-			}
-		case protocol.TypeRulesSnapshot:
-			peer.snapshot = protocol.RulesGameSnapshot{}
-			if err := envelope.DecodePayload(&peer.snapshot); err != nil {
-				t.Fatal(err)
-			}
-			peer.snapshots++
-			for _, zone := range peer.snapshot.Zones {
-				private := zone.Zone == "library" || zone.Zone == "hand" && zone.OwnerSeat != peer.seat
-				for _, card := range zone.Cards {
-					if private && (card.Identity != nil || card.Visible) {
-						t.Fatalf("viewer %d received a hidden %s card", peer.seat, zone.Zone)
-					}
-					if zone.Zone == "hand" && zone.OwnerSeat == peer.seat && (card.Identity == nil || !card.Visible) {
-						t.Fatalf("player %d received a redacted card in their own hand", peer.seat)
-					}
-				}
-				if zone.Zone == "hand" && zone.OwnerSeat == peer.seat && zone.Count > 0 && len(zone.Cards) != zone.Count {
-					t.Fatalf("player %d did not receive their own complete hand", peer.seat)
-				}
-			}
-		case protocol.TypeGameSnapshot:
-			peer.metadata = protocol.GameSnapshot{}
-			if err := envelope.DecodePayload(&peer.metadata); err != nil {
-				t.Fatal(err)
-			}
-			if peer.seat < 0 && peer.metadata.Sideboard != nil &&
-				(len(peer.metadata.Sideboard.Mainboard) != 0 || len(peer.metadata.Sideboard.Sideboard) != 0 ||
-					len(peer.metadata.Sideboard.Commanders) != 0) {
-				t.Fatal("spectator received a private sideboard partition")
-			}
-		case protocol.TypeRulesPrompt:
-			if peer.seat < 0 {
-				t.Fatal("spectator received a private rules prompt")
-			}
-			peer.prompt = protocol.RulesPrompt{}
-			if err := envelope.DecodePayload(&peer.prompt); err != nil {
-				t.Fatal(err)
-			}
-			if peer.prompt.Pending {
-				if !peer.prompt.Supported || peer.prompt.PromptID <= 0 {
-					t.Fatalf("unsupported synthetic decision: %s", envelope.Payload)
-				}
-			} else if peer.prompt.PromptID != 0 || peer.prompt.Kind != "" || peer.prompt.Title != "" || peer.prompt.Detail != "" ||
-				peer.prompt.ContextText != "" || len(peer.prompt.Options) != 0 || len(peer.prompt.Choices) != 0 ||
-				len(peer.prompt.Cards) != 0 || len(peer.prompt.ContextCards) != 0 || len(peer.prompt.Targets) != 0 ||
-				len(peer.prompt.OrderItems) != 0 || len(peer.prompt.ContextTargets) != 0 || len(peer.prompt.ScryDestinations) != 0 ||
-				len(peer.prompt.CombatSources) != 0 || len(peer.prompt.CombatTargets) != 0 ||
-				peer.prompt.DamageSource != nil || len(peer.prompt.DamageTargets) != 0 {
-				t.Fatal("non-deciding player received private prompt details")
-			}
-		}
+		peer.accept(t, envelope, kind)
 		if envelope.Type == kind {
 			return envelope
 		}
@@ -565,4 +580,73 @@ func liveForgeAnswer(t *testing.T, actor *liveForgePeer, stats map[string]int) p
 		t.Fatalf("synthetic WebSocket game needs explicit policy for %s: %s", prompt.Kind, encoded)
 	}
 	return answer
+}
+
+func (peer *liveForgePeer) accept(t *testing.T, envelope protocol.Envelope, kind string) {
+	t.Helper()
+	assertNormalizedRulesWireArrays(t, envelope)
+	switch envelope.Type {
+	case protocol.TypeError:
+		if kind != protocol.TypeError {
+			t.Fatalf("seat %d received server error during %s: %s", peer.seat, kind, envelope.Payload)
+		}
+	case protocol.TypeRoomSnapshot:
+		peer.room = protocol.RoomSnapshot{}
+		if err := envelope.DecodePayload(&peer.room); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(envelope.Payload), "Lightning Bolt") || strings.Contains(string(envelope.Payload), "Mountain") {
+			t.Fatal("public room membership snapshot disclosed the selected deck")
+		}
+	case protocol.TypeRulesSnapshot:
+		peer.snapshot = protocol.RulesGameSnapshot{}
+		if err := envelope.DecodePayload(&peer.snapshot); err != nil {
+			t.Fatal(err)
+		}
+		peer.snapshots++
+		for _, zone := range peer.snapshot.Zones {
+			private := zone.Zone == "library" || zone.Zone == "hand" && zone.OwnerSeat != peer.seat
+			for _, card := range zone.Cards {
+				if private && (card.Identity != nil || card.Visible) {
+					t.Fatalf("viewer %d received a hidden %s card", peer.seat, zone.Zone)
+				}
+				if zone.Zone == "hand" && zone.OwnerSeat == peer.seat && (card.Identity == nil || !card.Visible) {
+					t.Fatalf("player %d received a redacted card in their own hand", peer.seat)
+				}
+			}
+			if zone.Zone == "hand" && zone.OwnerSeat == peer.seat && zone.Count > 0 && len(zone.Cards) != zone.Count {
+				t.Fatalf("player %d did not receive their own complete hand", peer.seat)
+			}
+		}
+	case protocol.TypeGameSnapshot:
+		peer.metadata = protocol.GameSnapshot{}
+		if err := envelope.DecodePayload(&peer.metadata); err != nil {
+			t.Fatal(err)
+		}
+		if peer.seat < 0 && peer.metadata.Sideboard != nil &&
+			(len(peer.metadata.Sideboard.Mainboard) != 0 || len(peer.metadata.Sideboard.Sideboard) != 0 ||
+				len(peer.metadata.Sideboard.Commanders) != 0) {
+			t.Fatal("spectator received a private sideboard partition")
+		}
+	case protocol.TypeRulesPrompt:
+		if peer.seat < 0 {
+			t.Fatal("spectator received a private rules prompt")
+		}
+		peer.prompt = protocol.RulesPrompt{}
+		if err := envelope.DecodePayload(&peer.prompt); err != nil {
+			t.Fatal(err)
+		}
+		if peer.prompt.Pending {
+			if !peer.prompt.Supported || peer.prompt.PromptID <= 0 {
+				t.Fatalf("unsupported synthetic decision: %s", envelope.Payload)
+			}
+		} else if peer.prompt.PromptID != 0 || peer.prompt.Kind != "" || peer.prompt.Title != "" || peer.prompt.Detail != "" ||
+			peer.prompt.ContextText != "" || len(peer.prompt.Options) != 0 || len(peer.prompt.Choices) != 0 ||
+			len(peer.prompt.Cards) != 0 || len(peer.prompt.ContextCards) != 0 || len(peer.prompt.Targets) != 0 ||
+			len(peer.prompt.OrderItems) != 0 || len(peer.prompt.ContextTargets) != 0 || len(peer.prompt.ScryDestinations) != 0 ||
+			len(peer.prompt.CombatSources) != 0 || len(peer.prompt.CombatTargets) != 0 ||
+			peer.prompt.DamageSource != nil || len(peer.prompt.DamageTargets) != 0 {
+			t.Fatal("non-deciding player received private prompt details")
+		}
+	}
 }

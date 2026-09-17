@@ -1,0 +1,7 @@
+{
+  "type": "forge.peer_request",
+  "id": "peer-fixture",
+  "payload": {
+    "enabled": true
+  }
+}

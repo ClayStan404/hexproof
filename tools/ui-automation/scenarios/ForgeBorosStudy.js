@@ -8,6 +8,7 @@ var lastAction = null;
 var captured = {};
 var reviewDue = {};
 var fixtureDeck = null;
+var paymentAttempts = {};
 var policyOrder = [
     "Ragavan, Nimble Pilferer", "Guide of Souls", "Ocelot Pride", "Ajani, Nacatl Pariah",
     "Seasoned Pyromancer", "Ranger-Captain of Eos", "Voice of Victory", "Goblin Bombardment",
@@ -124,8 +125,14 @@ function pay(driver, options) {
             return;
         }
     }
-    var mana = options.find(option => option.kind === "activateAbility" && option.cardId);
+    // A filter ability can ask for mana that this fixture cannot pay. After
+    // canceling its nested cost, do not retry that same source indefinitely.
+    var paymentState = driver.session.turn + ":" + driver.session.promptDetail + ":"
+        + JSON.stringify(lanes(driver).map(c => [c.cardId, c.tapped, c.countersSummary]));
+    var mana = options.find(option => option.kind === "activateAbility" && option.cardId
+        && !paymentAttempts[paymentState + ":" + option.cardId]);
     if (mana) {
+        paymentAttempts[paymentState + ":" + mana.cardId] = true;
         driver.cardAction(mana);
         driver.payments++;
         return;
@@ -197,7 +204,10 @@ function chooseCards(driver) {
         if (card.selected) selected.push(card);
     }
     var search = /search|library/i.test(session.promptTitle + " " + session.promptDetail);
-    var wanted = search ? Math.max(1, session.promptMinCardSelections) : session.promptMinCardSelections;
+    var target = /^Select target\b/.test(session.promptTitle);
+    if (target) save(driver, "grouped-target");
+    var wanted = search || target ? Math.min(session.promptMaxCardSelections,
+        Math.max(1, session.promptMinCardSelections)) : session.promptMinCardSelections;
     if (confirm && confirm.enabled && selected.length >= wanted) {
         driver.click("rulesConfirmCards");
         return;

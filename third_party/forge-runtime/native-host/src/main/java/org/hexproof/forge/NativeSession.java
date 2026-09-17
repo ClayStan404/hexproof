@@ -13,8 +13,6 @@ import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
 import forge.model.FModel;
 import forge.player.*;
-import forge.util.MyRandom;
-import forge.util.ThreadUtil;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -26,8 +24,8 @@ final class NativeSession implements AutoCloseable {
     final Game game;
     final Match match;
     final NativeGuiBase base;
+    final NativeExecution context;
     final List<NativeGuiGame> guis = new ArrayList<>();
-    private final long seed;
     private final Map<Integer, String> snapshots = new HashMap<>();
     private final Set<SynchronousAnswer<?>> answers = new HashSet<>();
     private final ThreadLocal<SpellAbility> decisionAbility = new ThreadLocal<>();
@@ -69,67 +67,73 @@ final class NativeSession implements AutoCloseable {
     NativeSession(JsonObject request, NativeGuiBase base) {
         this.base = base;
         id = request.get("gameId").getAsString();
-        seed = request.get("seed").getAsLong();
-        JsonArray configured = request.getAsJsonArray("players");
-        if (id.isBlank() || configured.size() < 2 || configured.size() > 8) throw new IllegalArgumentException("Invalid game setup");
-        GameType type = switch (text(request, "variant", "constructed").toLowerCase(Locale.ROOT)) {
-            case "constructed", "modern", "standard", "legacy", "vintage", "pioneer", "pauper" -> GameType.Constructed;
-            case "commander", "duelcommander", "duel_commander", "duel-commander" -> GameType.Commander;
-            default -> throw new IllegalArgumentException("Unsupported game variant");
-        };
-        List<RegisteredPlayer> registered = new ArrayList<>();
-        Integer starts = request.has("startingPlayerIndex") ? request.get("startingPlayerIndex").getAsInt() : null;
-        if (starts != null && (starts < 0 || starts >= configured.size())) throw new IllegalArgumentException("Invalid starting seat");
-        for (JsonElement element : configured) {
-            JsonObject player = element.getAsJsonObject();
-            if (player.has("ai") && player.get("ai").getAsBoolean()) throw new IllegalArgumentException("Native host requires human seats");
-            Deck deck = new Deck(player.get("name").getAsString());
-            JsonArray cards = player.getAsJsonArray("deck");
-            if (cards.isEmpty() || cards.size() > 1000) throw new IllegalArgumentException("Invalid deck size");
-            for (JsonElement ce : cards) {
-                JsonObject ci = ce.getAsJsonObject();
-                String name = ci.get("name").getAsString();
-                String set = text(ci, "setCode", "");
-                String number = text(ci, "collectorNumber", "");
-                PaperCard card = set.isEmpty() ? FModel.getMagicDb().getCommonCards().getCard(name)
-                        : number.isEmpty() ? FModel.getMagicDb().getCommonCards().getCard(name, set)
-                        : FModel.getMagicDb().getCommonCards().getCard(name, set, number);
-                if (card == null) {
-                    PaperCard variant = set.isEmpty() ? FModel.getMagicDb().getVariantCards().getCard(name)
-                            : number.isEmpty() ? FModel.getMagicDb().getVariantCards().getCard(name, set)
-                            : FModel.getMagicDb().getVariantCards().getCard(name, set, number);
-                    if (variant != null && variant.getRules().getType().isConspiracy()) card = variant;
-                }
-                if (card == null) throw new IllegalArgumentException("Requested card printing is unavailable");
-                deck.getOrCreate(card.getRules().getType().isConspiracy()
-                        ? DeckSection.Conspiracy : DeckSection.Main).add(card, 1);
-            }
-            if (player.has("commanderNames")) for (JsonElement commander : player.getAsJsonArray("commanderNames")) {
-                PaperCard card = deck.getMain().toFlatList().stream().filter(c -> c.getName().equalsIgnoreCase(commander.getAsString())).findFirst().orElseThrow(() -> new IllegalArgumentException("Commander missing from deck"));
-                deck.getMain().remove(card, 1);
-                deck.getOrCreate(DeckSection.Commander).add(card, 1);
-            }
-            LobbyPlayerHuman lobby = new LobbyPlayerHuman(player.get("name").getAsString()) {
-                @Override public Player createIngamePlayer(Game game, int playerId) {
-                    Player result = new Player(getName(), game, playerId);
-                    result.setFirstController(new NativeDecisionController(NativeSession.this, game, result, this, starts));
-                    return result;
-                }
+        context = new NativeExecution(request.get("seed").getAsLong(), this::fail);
+        try (var scope = context.enter()) {
+            JsonArray configured = request.getAsJsonArray("players");
+            if (id.isBlank() || configured.size() < 2 || configured.size() > 8) throw new IllegalArgumentException("Invalid game setup");
+            GameType type = switch (text(request, "variant", "constructed").toLowerCase(Locale.ROOT)) {
+                case "constructed", "modern", "standard", "legacy", "vintage", "pioneer", "pauper" -> GameType.Constructed;
+                case "commander", "duelcommander", "duel_commander", "duel-commander" -> GameType.Commander;
+                default -> throw new IllegalArgumentException("Unsupported game variant");
             };
-            RegisteredPlayer seat = RegisteredPlayer.forVariants(configured.size(), EnumSet.of(type), deck, null, false, null, null).setPlayer(lobby);
-            seat.assignConspiracies();
-            seat.setStartingLife(request.get("startingLife").getAsInt());
-            registered.add(seat);
-        }
-        GameRules rules = new GameRules(type);
-        rules.setAppliedVariants(EnumSet.of(type));
-        match = new Match(rules, registered, "Hexproof native Forge");
-        game = match.createGame();
-        for (Player p : game.getRegisteredPlayers()) {
-            NativeGuiGame gui = new NativeGuiGame(this, (PlayerControllerHuman) p.getController());
-            ((PlayerControllerHuman) p.getController()).setGui(gui.proxy());
-            guis.add(gui);
-        }
+            List<RegisteredPlayer> registered = new ArrayList<>();
+            Integer starts = request.has("startingPlayerIndex") ? request.get("startingPlayerIndex").getAsInt() : null;
+            if (starts != null && (starts < 0 || starts >= configured.size())) throw new IllegalArgumentException("Invalid starting seat");
+            for (JsonElement element : configured) {
+                JsonObject player = element.getAsJsonObject();
+                if (player.has("ai") && player.get("ai").getAsBoolean()) throw new IllegalArgumentException("Native host requires human seats");
+                Deck deck = new Deck(player.get("name").getAsString());
+                JsonArray cards = player.getAsJsonArray("deck");
+                if (cards.isEmpty() || cards.size() > 1000) throw new IllegalArgumentException("Invalid deck size");
+                JsonArray sideboard = player.has("sideboard") ? player.getAsJsonArray("sideboard") : new JsonArray();
+                if (sideboard.size() > 1000) throw new IllegalArgumentException("Invalid sideboard size");
+                for (var section : List.of(DeckSection.Main, DeckSection.Sideboard)) {
+                    for (JsonElement ce : section == DeckSection.Main ? cards : sideboard) {
+                        JsonObject ci = ce.getAsJsonObject();
+                        String name = ci.get("name").getAsString();
+                        String set = text(ci, "setCode", "");
+                        String number = text(ci, "collectorNumber", "");
+                        PaperCard card = set.isEmpty() ? FModel.getMagicDb().getCommonCards().getCard(name)
+                                : number.isEmpty() ? FModel.getMagicDb().getCommonCards().getCard(name, set)
+                                : FModel.getMagicDb().getCommonCards().getCard(name, set, number);
+                        if (card == null) {
+                            PaperCard variant = set.isEmpty() ? FModel.getMagicDb().getVariantCards().getCard(name)
+                                    : number.isEmpty() ? FModel.getMagicDb().getVariantCards().getCard(name, set)
+                                    : FModel.getMagicDb().getVariantCards().getCard(name, set, number);
+                            if (variant != null && variant.getRules().getType().isConspiracy()) card = variant;
+                        }
+                        if (card == null) throw new IllegalArgumentException("Requested card printing is unavailable");
+                        deck.getOrCreate(section == DeckSection.Main && card.getRules().getType().isConspiracy()
+                                ? DeckSection.Conspiracy : section).add(card, 1);
+                    }
+                }
+                if (player.has("commanderNames")) for (JsonElement commander : player.getAsJsonArray("commanderNames")) {
+                    PaperCard card = deck.getMain().toFlatList().stream().filter(c -> c.getName().equalsIgnoreCase(commander.getAsString())).findFirst().orElseThrow(() -> new IllegalArgumentException("Commander missing from deck"));
+                    deck.getMain().remove(card, 1);
+                    deck.getOrCreate(DeckSection.Commander).add(card, 1);
+                }
+                LobbyPlayerHuman lobby = new LobbyPlayerHuman(player.get("name").getAsString()) {
+                    @Override public Player createIngamePlayer(Game game, int playerId) {
+                        Player result = new Player(getName(), game, playerId);
+                        result.setFirstController(new NativeDecisionController(NativeSession.this, game, result, this, starts));
+                        return result;
+                    }
+                };
+                RegisteredPlayer seat = RegisteredPlayer.forVariants(configured.size(), EnumSet.of(type), deck, null, false, null, null).setPlayer(lobby);
+                seat.assignConspiracies();
+                seat.setStartingLife(request.get("startingLife").getAsInt());
+                registered.add(seat);
+            }
+            GameRules rules = new GameRules(type);
+            rules.setAppliedVariants(EnumSet.of(type));
+            match = new Match(rules, registered, "Hexproof native Forge");
+            game = match.createGame();
+            for (Player p : game.getRegisteredPlayers()) {
+                NativeGuiGame gui = new NativeGuiGame(this, (PlayerControllerHuman) p.getController());
+                ((PlayerControllerHuman) p.getController()).setGui(gui.proxy());
+                guis.add(gui);
+            }
+        } catch (RuntimeException | Error error) { context.close(); throw error; }
     }
     JsonObject handle() {
         JsonObject result = object("sessionId", id);
@@ -140,9 +144,8 @@ final class NativeSession implements AutoCloseable {
     }
     void start() { start(null); }
     void start(Runnable startGameHook) {
-        ThreadUtil.invokeInGameThread(() -> {
+        context.gameExecutor().execute(() -> {
             try {
-                MyRandom.setRandom(new Random(seed));
                 match.startGame(game, startGameHook);
             } catch (Throwable error) {
                 if (!game.isGameOver() || !isTerminalCancellation(error)) {
@@ -180,7 +183,12 @@ final class NativeSession implements AutoCloseable {
     }
     private void capture(Player priority) {
         Map<Integer, String> copies = new HashMap<>();
-        for (int viewer = -1; viewer < guis.size(); viewer++) copies.put(viewer, NativeSnapshot.capture(game, id, viewer, priority).toString());
+        String integrity = NativeIntegrity.capture(game, context);
+        for (int viewer = -1; viewer < guis.size(); viewer++) {
+            JsonObject snapshot = NativeSnapshot.capture(game, id, viewer, priority);
+            snapshot.addProperty("integrityHash", integrity);
+            copies.put(viewer, snapshot.toString());
+        }
         synchronized (this) { snapshots.clear(); snapshots.putAll(copies); }
     }
     void publish(Player owner, JsonObject input, Function<JsonObject, Runnable> prepare, boolean onEdt) {
@@ -205,9 +213,15 @@ final class NativeSession implements AutoCloseable {
         notifyAll();
     }
     private void dispatchNativeAction(Runnable action) {
-        base.later(() -> {
+        later(() -> {
             synchronized (NativeSession.this) { nativeActionQueued = false; }
             action.run();
+        });
+    }
+    void later(Runnable action) {
+        context.later(() -> {
+            synchronized (NativeSession.this) { if (closed) return; }
+            try { action.run(); } catch (Throwable error) { fail(error); }
         });
     }
     <T> T ask(Player owner, JsonObject input, Function<JsonObject, T> validate) {
@@ -266,6 +280,9 @@ final class NativeSession implements AutoCloseable {
     }
     synchronized boolean gameOver() { check(); return finished && game.isGameOver(); }
     String submit(JsonObject response) {
+        try (var scope = context.enter()) { return submitScoped(response); }
+    }
+    private String submitScoped(JsonObject response) {
         if (text(response, "type", "").equals("directive")) {
             if (!response.getAsJsonObject("directive").get("type").getAsString().equals("concede")) throw new IllegalArgumentException("Unknown directive");
             int player = response.get("player").getAsInt();
@@ -358,6 +375,7 @@ final class NativeSession implements AutoCloseable {
         check();
     }
     synchronized void fail(Throwable error) {
+        if (closed) return;
         if (terminalConcession && isTerminalCancellation(error)) return;
         for (Throwable cause = error; cause != null; cause = cause.getCause())
             if (closed && cause instanceof CancellationException) return;
@@ -373,8 +391,10 @@ final class NativeSession implements AutoCloseable {
     @Override public synchronized void close() {
         if (closed) return;
         closed = true;
-        for (SynchronousAnswer<?> answer : answers) answer.cancel(new CancellationException("Host closed"));
-        for (NativeGuiGame gui : guis) gui.human.getInputQueue().onGameOver(true);
+        try (var scope = context.enter()) {
+            for (SynchronousAnswer<?> answer : answers) answer.cancel(new CancellationException("Host closed"));
+            for (NativeGuiGame gui : guis) gui.human.getInputQueue().onGameOver(true);
+        } finally { context.close(); }
         notifyAll();
     }
     static JsonObject object(String key, String value) { JsonObject o = new JsonObject(); o.addProperty(key, value); return o; }

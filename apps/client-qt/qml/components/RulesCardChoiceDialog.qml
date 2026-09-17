@@ -12,12 +12,14 @@ Popup {
     required property var tableController
     readonly property var session: tableController.rulesSession
     readonly property bool requested: tableController.interaction.contextActive
-        && ["chooseCards", "mulliganPutBack", "revealCards"].includes(session.promptKind)
+        && ["chooseCards", "mulliganPutBack", "revealCards", "scry", "reorder",
+            "chooseDamageAssignmentOrder"].includes(session.promptKind)
 
     objectName: "rulesCardChoiceDialog"
     parent: Overlay.overlay
     width: Math.min(Theme.size(1080), parent ? parent.width - Theme.size(40) : 0)
-    height: Math.min(Theme.size(780), parent ? parent.height - Theme.size(40) : 0)
+    height: Math.min(Theme.size(["scry", "reorder", "chooseDamageAssignmentOrder"]
+        .includes(session.promptKind) ? 520 : 780), parent ? parent.height - Theme.size(40) : 0)
     x: parent ? (parent.width - width) / 2 : 0
     y: parent ? (parent.height - height) / 2 : 0
     padding: Theme.size(18)
@@ -70,7 +72,32 @@ Popup {
             Layout.minimumHeight: 0
             active: root.requested
             enabled: !root.tableController.rulesResponsePending
-            sourceComponent: root.session.promptKind === "revealCards" ? reveal : selection
+            sourceComponent: root.session.promptKind === "revealCards" ? reveal
+                : root.session.promptKind === "scry" ? scry
+                : ["reorder", "chooseDamageAssignmentOrder"].includes(root.session.promptKind)
+                    ? order : selection
+        }
+    }
+    Component {
+        id: scry
+        RulesScryPrompt {
+            expandedView: true
+            wsModel: root.tableController.wsModel
+            cardCatalogModel: root.tableController.cardCatalogModel
+            cardModel: root.session.promptCards
+            destinations: root.session.promptScryDestinations
+            promptId: root.session.promptId
+        }
+    }
+    Component {
+        id: order
+        RulesOrderPrompt {
+            expandedView: true
+            wsModel: root.tableController.wsModel
+            cardCatalogModel: root.tableController.cardCatalogModel
+            orderModel: damageOrder ? root.session.promptDamageTargets : root.session.promptOrderItems
+            promptId: root.session.promptId
+            damageOrder: root.session.promptKind === "chooseDamageAssignmentOrder"
         }
     }
     Component {

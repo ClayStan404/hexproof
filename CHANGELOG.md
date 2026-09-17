@@ -9,6 +9,52 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-09-17
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.0.2**; application versions
+  must match exactly. The WebSocket protocol remains `hexproof.v1`, and existing
+  schema-v10 card databases and saved decks remain compatible.
+- Client packages now include the Forge hosting helper and the current native
+  adapter 4 overlay. The host prepares the pinned Forge/Java base by download
+  or offline import; joining players do not need Java. Server-managed Forge
+  runtimes must be built with the matching current adapter to use its fixes.
+- Player hosting remains an explicit server option (`-allow-player-hosting`).
+  Direct connections require consent from both players; the room server stays
+  authoritative and supplies fallback relay when direct transport fails.
+
+### Added
+
+- Host trusted two-player Forge games on the creator's computer, including
+  Duel Commander and best-of-three matches, through the existing room hub.
+- Offer optional WebRTC data channels with authenticated signaling, confirmed
+  redacted publications and automatic relay fallback. Configure up to two STUN
+  endpoints; the managed defaults use Servers 1 and 2.
+- Expose direct-connection consent, status and retry controls on the waiting
+  room and game table, with no hosting-menu navigation required.
+- Support an explicitly approved backup host, verified game reconstruction,
+  planned handover and recovery after host loss.
+- Import platform-specific `.hexproof-forgepack` files for offline Forge and
+  Java installation, with checksum validation and cancellation.
+- Resume runtime downloads, manage the local cache, export bounded hosting
+  diagnostics and show independent server hosting/direct/migration capabilities.
+- Optionally share server Forge workers between two to four games per JVM;
+  dedicated game processes remain the default.
+
+### Fixed
+
+- Preserve native sideboarding, scry and cleanup choices, linked exile views,
+  token printings and nested mana decisions in the Forge adapter and table.
+- Emit native Forge messages as UTF-8 on every platform, preventing Windows
+  code pages from corrupting action labels and rejecting cross-platform host
+  migration replays.
+- Wrap hosting and context controls within the Forge decision dock so they
+  remain accessible in smaller maximized windows.
+- Exclude section headings from Forge target choices. Cross-zone spells such
+  as Sink into Stupor now offer actual card targets with card previews instead
+  of allowing a heading to restart the target prompt.
+
 ## [2.0.1] - 2026-09-16
 
 ### Upgrade notes

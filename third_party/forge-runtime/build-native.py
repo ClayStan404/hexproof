@@ -199,6 +199,7 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         profile.mkdir()
         scenarios = [(name, []) for name in (
             "NativeProfileRegressionTest", "NativeSnapshotRegressionTest",
+            "NativeEldraziRegressionTest", "NativeIsolationRegressionTest",
             "NativeOrderingRegressionTest", "NativeDelayedRevealRegressionTest",
             "NativeLethalDamageRegressionTest", "NativeMultiBlockRegressionTest",
             "NativeStartingHandRegressionTest", "NativeObjectDepartureRegressionTest",

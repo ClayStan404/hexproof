@@ -16,7 +16,7 @@ const forgeRestartCooldown = time.Second
 
 // watchForgeRuntime responds to actual child exit, including an idle crash.
 // There is no automatic restart loop: only a new game can launch a replacement.
-func (h *Handler) watchForgeRuntime(client *forge.Client) {
+func (h *Handler) watchForgeRuntime(client forge.Runtime) {
 	<-client.Done()
 	h.forgeMu.Lock()
 	delete(h.forgeClients, client)
@@ -36,7 +36,10 @@ func (h *Handler) watchForgeRuntime(client *forge.Client) {
 		if err != nil {
 			continue
 		}
-		h.terminateForgeGame(operation.room, game)
+		current, exists := h.forgeGame(roomID)
+		if exists && current.client == game.client && !h.beginPlayerHostMigration(operation.room) {
+			h.terminateForgeGame(operation.room, game)
+		}
 		operation.opMu.Unlock()
 	}
 }
@@ -84,8 +87,12 @@ func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame) {
 	if !reset {
 		return
 	}
+	code := protocol.ErrRulesUnavailable
+	if r.HostingMode == protocol.HostingModePlayer {
+		code = protocol.ErrPlayerHostLost
+	}
 	for _, member := range h.sessionsForRoomPointer(r) {
-		h.sendError(member, "", protocol.ErrRulesUnavailable,
+		h.sendError(member, "", code,
 			"Forge stopped; this game was aborted and the room is waiting for players to ready again")
 	}
 	h.fanout(r, result.Broadcast)

@@ -33,10 +33,18 @@ type Config struct {
 	TournamentAbandonedTTL      time.Duration
 	PasswordJoinsPerMinute      int
 	MaxConcurrentPasswordChecks int
-	// MaxForgeGames bounds live game processes, including a cold startup,
+	AllowPlayerHosting          bool
+	MaxPlayerHostedGames        int
+	// PeerSTUNServers are discovery-only UDP endpoints sent in peer grants.
+	// Nil uses the managed defaults; an explicit empty slice disables STUN.
+	PeerSTUNServers []string
+	// MaxForgeGames bounds live game leases, including a cold startup,
 	// exiting children, and slots held across BO3 sideboarding or a restart.
 	// Waiting rooms and manual games do not use slots.
 	MaxForgeGames int
+	// ForgeGamesPerJVM defaults to one dedicated process per game. Values
+	// 2 through 4 enable the adapter's isolated multiplexed worker protocol.
+	ForgeGamesPerJVM int
 	// ForgeRuntime is nil when rules-enforced rooms are unavailable. A
 	// configured runtime is probed before the handler is returned.
 	ForgeRuntime *forge.ProcessConfig
@@ -68,6 +76,12 @@ func DefaultConfig() Config {
 		PasswordJoinsPerMinute:      20,
 		MaxConcurrentPasswordChecks: 8,
 		MaxForgeGames:               1,
+		ForgeGamesPerJVM:            1,
+		MaxPlayerHostedGames:        32,
+		PeerSTUNServers: []string{
+			"stun:47.122.120.151:3478",
+			"stun:47.97.30.103:3478",
+		},
 	}
 }
 
@@ -136,5 +150,15 @@ func normalizeConfig(config Config) Config {
 	if config.MaxForgeGames <= 0 {
 		config.MaxForgeGames = defaults.MaxForgeGames
 	}
+	if config.ForgeGamesPerJVM == 0 {
+		config.ForgeGamesPerJVM = defaults.ForgeGamesPerJVM
+	}
+	if config.MaxPlayerHostedGames <= 0 {
+		config.MaxPlayerHostedGames = defaults.MaxPlayerHostedGames
+	}
+	if config.PeerSTUNServers == nil {
+		config.PeerSTUNServers = defaults.PeerSTUNServers
+	}
+	config.PeerSTUNServers = append([]string{}, config.PeerSTUNServers...)
 	return config
 }

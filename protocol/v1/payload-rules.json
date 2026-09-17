@@ -60,7 +60,9 @@
         {"name": "toughness", "type": "string", "required": false},
         {"name": "counters", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}},
         {"name": "damage", "type": "integer", "required": false},
-        {"name": "attachedTo", "type": "string", "required": false}
+        {"name": "attachedTo", "type": "string", "required": false},
+        {"name": "exiledCardCount", "type": "integer", "required": false, "minimum": 0},
+        {"name": "exiledCardIds", "type": "array", "required": false, "items": {"type": "string"}}
       ]
     },
     {
@@ -306,6 +308,7 @@
       "direction": "clientToServer",
       "goType": "RulesRespond",
       "fields": [
+        {"name": "peerBinding", "type": "string", "required": false},
         {"name": "promptId", "type": "integer", "required": true, "goType": "int64"},
         {"name": "responseId", "type": "string", "required": true},
         {"name": "cardIds", "type": "array", "required": false, "items": {"type": "string"}},

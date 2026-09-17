@@ -702,6 +702,8 @@
       "direction": "serverToClient",
       "goType": "RoomSnapshot",
       "fields": [
+        {"name": "hostConnected", "type": "boolean", "required": false},
+        {"name": "hostStatus", "type": "object", "required": false, "ref": "ForgeHostStatus", "goType": "*ForgeHostStatus"},
         {
           "name": "roomId",
           "type": "string",
@@ -777,6 +779,7 @@
             "RulesModeForge"
           ]
         },
+        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
         {
           "name": "hostSeat",
           "type": "integer",

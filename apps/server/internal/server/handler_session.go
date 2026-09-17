@@ -40,6 +40,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer atomic.AddInt64(&h.activeConnections, -1)
 
+	if r.URL.Query().Get("engine") == "1" {
+		h.servePlayerHost(w, r)
+		return
+	}
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		// Native clients do not require browser-origin authorization. Compression
 		// stays disabled to keep bounded public-hub memory use predictable.
@@ -180,19 +184,27 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 				info, envelopes, resumeErr := h.hub.ResumeRoom(
 					hold.oldConnectionID, sess, hold.room)
 				if resumeErr == nil {
+					h.forgeMu.Lock()
+					if backup := h.playerBackups[hold.room.ID]; backup != nil && backup.connectionID == hold.oldConnectionID {
+						backup.connectionID = sess.ConnectionID
+					}
+					h.forgeMu.Unlock()
 					sess.DisplayName = hold.displayName
 					sess.ResumeToken = resumeToken
 					welcome := protocol.SessionWelcome{
-						V:                   protocol.ProtocolVersion,
-						ConnectionID:        sess.ConnectionID,
-						ServerVersion:       buildinfo.Version,
-						ResumeToken:         sess.ResumeToken,
-						Resumed:             true,
-						RoomID:              hold.room.ID,
-						Role:                info.Role,
-						Seat:                info.Seat,
-						Host:                info.Host,
-						ForgeRulesAvailable: h.forgeRulesAvailable(),
+						V:                      protocol.ProtocolVersion,
+						ConnectionID:           sess.ConnectionID,
+						ServerVersion:          buildinfo.Version,
+						ResumeToken:            sess.ResumeToken,
+						Resumed:                true,
+						RoomID:                 hold.room.ID,
+						Role:                   info.Role,
+						Seat:                   info.Seat,
+						Host:                   info.Host,
+						ForgeRulesAvailable:    h.forgeRulesAvailable(),
+						PlayerHostingAvailable: h.config.AllowPlayerHosting,
+						PeerTransportAvailable: h.config.AllowPlayerHosting,
+						HostMigrationAvailable: h.config.AllowPlayerHosting,
 					}
 					welcomeEnvelope, _ := protocol.NewEnvelope(
 						protocol.TypeSessionWelcome, welcome)
@@ -228,11 +240,14 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 	sess.DisplayName = displayName
 	sess.ResumeToken = resumeToken
 	welcome := protocol.SessionWelcome{
-		V:                   protocol.ProtocolVersion,
-		ConnectionID:        sess.ConnectionID,
-		ServerVersion:       buildinfo.Version,
-		ResumeToken:         sess.ResumeToken,
-		ForgeRulesAvailable: h.forgeRulesAvailable(),
+		V:                      protocol.ProtocolVersion,
+		ConnectionID:           sess.ConnectionID,
+		ServerVersion:          buildinfo.Version,
+		ResumeToken:            sess.ResumeToken,
+		ForgeRulesAvailable:    h.forgeRulesAvailable(),
+		PlayerHostingAvailable: h.config.AllowPlayerHosting,
+		PeerTransportAvailable: h.config.AllowPlayerHosting,
+		HostMigrationAvailable: h.config.AllowPlayerHosting,
 	}
 	wEnv, _ := protocol.NewEnvelope(protocol.TypeSessionWelcome, welcome)
 	wEnv.ID = env.ID
@@ -344,7 +359,18 @@ func (h *Handler) expireResumeHold(expected resumeHold) {
 		expected.room.RulesMode == protocol.RulesModeForge &&
 		expected.room.Phase == protocol.RoomPhaseStarted &&
 		expected.room.FindSeatByConnection(expected.oldConnectionID) >= 0
+	departingEngineHost := operation.room == expected.room && expected.room.HostingMode == "player" &&
+		expected.room.FindSeatByConnection(expected.oldConnectionID) == 0
 	operation.mu.Unlock()
+	if departingEngineHost {
+		result, _, leaveErr := h.hub.LeaveRoom(expected.oldConnectionID, expected.room)
+		if leaveErr == nil {
+			h.disbandAndFanout(expected.room, result.Broadcast)
+			retained = h.snapshotRoomRetention(expected.room)
+			cleanup = h.removeRoom(expected.room)
+		}
+		return
+	}
 	result, empty, err := h.hub.ExpireDisconnected(
 		expected.oldConnectionID, expected.room)
 	if err != nil {

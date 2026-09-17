@@ -85,6 +85,8 @@ jobs:
         with:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Check formatting
@@ -182,6 +184,19 @@ jobs:
           cmake --build build/client-qt
           ctest --test-dir build/client-qt --output-on-failure
 
+      - name: Preserve complete bundled adapter sources
+        run: >-
+          python3 third_party/forge-runtime/build-overlay.py
+          --output build/client-qt/forge-overlay
+          --source-output build/forge-source-release/hexproof-forge-overlay-source.tar.gz
+      - name: Upload complete adapter source package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-forge-overlay-source
+          path: build/forge-source-release/hexproof-forge-overlay-source.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+
   client-linux:
     name: Linux client (x86_64)
     needs:
@@ -190,6 +205,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - name: Prepare private server directory
         shell: bash
         env:
@@ -202,6 +221,8 @@ jobs:
         run: >
           sudo apt-get update &&
           sudo apt-get install -y cmake ninja-build xvfb zlib1g-dev
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Build package
@@ -274,6 +295,10 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - name: Prepare private server directory
         shell: pwsh
         env:
@@ -286,6 +311,8 @@ jobs:
           }
           "HEXPROOF_SERVER_DIRECTORY_FILE=$serverDirectory" | Out-File `
               -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Install zlib
@@ -362,6 +389,10 @@ jobs:
             runner: macos-15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - name: Prepare private server directory
         shell: bash
         env:
@@ -375,6 +406,8 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: test "$(uname -m)" = "$EXPECTED_ARCH"
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Import signing certificate

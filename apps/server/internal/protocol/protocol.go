@@ -37,16 +37,19 @@ type SessionHello struct {
 // membership metadata for a restarted client to interpret the fresh room and
 // role-specific game snapshots that immediately follow.
 type SessionWelcome struct {
-	V                   string `json:"v"`
-	ConnectionID        string `json:"connectionId"`
-	ServerVersion       string `json:"serverVersion"`
-	ResumeToken         string `json:"resumeToken"`
-	Resumed             bool   `json:"resumed,omitempty"`
-	RoomID              string `json:"roomId,omitempty"`
-	Role                string `json:"role,omitempty"`
-	Seat                *int   `json:"seat,omitempty"`
-	Host                bool   `json:"host,omitempty"`
-	ForgeRulesAvailable bool   `json:"forgeRulesAvailable"`
+	V                      string `json:"v"`
+	ConnectionID           string `json:"connectionId"`
+	ServerVersion          string `json:"serverVersion"`
+	ResumeToken            string `json:"resumeToken"`
+	Resumed                bool   `json:"resumed,omitempty"`
+	RoomID                 string `json:"roomId,omitempty"`
+	Role                   string `json:"role,omitempty"`
+	Seat                   *int   `json:"seat,omitempty"`
+	Host                   bool   `json:"host,omitempty"`
+	ForgeRulesAvailable    bool   `json:"forgeRulesAvailable"`
+	PlayerHostingAvailable bool   `json:"playerHostingAvailable,omitempty"`
+	PeerTransportAvailable bool   `json:"peerTransportAvailable,omitempty"`
+	HostMigrationAvailable bool   `json:"hostMigrationAvailable,omitempty"`
 }
 
 // ErrorPayload is the payload of an `error` message.
@@ -73,6 +76,7 @@ type RoomCreate struct {
 	MatchMode          string `json:"matchMode"`
 	CardLoadMode       string `json:"cardLoadMode,omitempty"`
 	RulesMode          string `json:"rulesMode"`
+	HostingMode        string `json:"hostingMode,omitempty"`
 	Password           string `json:"password,omitempty"`
 }
 
@@ -96,6 +100,7 @@ type RoomSettings struct {
 	CardLoadMode       string `json:"cardLoadMode"`
 	HasPassword        bool   `json:"hasPassword"`
 	RulesMode          string `json:"rulesMode"`
+	HostingMode        string `json:"hostingMode,omitempty"`
 }
 
 // RoomListEntry is the public, hub-local discovery projection. It never
@@ -110,6 +115,7 @@ type RoomListEntry struct {
 	MatchMode          string `json:"matchMode"`
 	CardLoadMode       string `json:"cardLoadMode"`
 	RulesMode          string `json:"rulesMode"`
+	HostingMode        string `json:"hostingMode,omitempty"`
 	MaxSeats           int    `json:"maxSeats"`
 	PlayerCount        int    `json:"playerCount"`
 	SpectatorCount     int    `json:"spectatorCount"`
@@ -127,10 +133,11 @@ type RoomListed struct {
 
 // RoomJoin is the payload of room.join (C->S).
 type RoomJoin struct {
-	RoomID      string `json:"roomId"`
-	AsSpectator bool   `json:"asSpectator"`
-	Password    string `json:"password,omitempty"`
-	Credential  string `json:"credential,omitempty"`
+	AcceptPlayerHost bool   `json:"acceptPlayerHost,omitempty"`
+	RoomID           string `json:"roomId"`
+	AsSpectator      bool   `json:"asSpectator"`
+	Password         string `json:"password,omitempty"`
+	Credential       string `json:"credential,omitempty"`
 }
 
 // RoomJoined is the payload of room.joined (S->C).
@@ -437,6 +444,9 @@ type RoomSnapshot struct {
 	MatchMode          string                `json:"matchMode"`
 	CardLoadMode       string                `json:"cardLoadMode"`
 	RulesMode          string                `json:"rulesMode"`
+	HostingMode        string                `json:"hostingMode,omitempty"`
+	HostConnected      bool                  `json:"hostConnected,omitempty"`
+	HostStatus         *ForgeHostStatus      `json:"hostStatus,omitempty"`
 	HostSeat           int                   `json:"hostSeat"`
 	HasPassword        bool                  `json:"hasPassword"`
 	Seats              []Seat                `json:"seats"`

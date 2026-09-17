@@ -97,6 +97,31 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(snapshot))
     }
 
+    function test_linkedExileDistinguishesCopiesAndClearsReturnedCards() {
+        snapshot.zones[0].cards = [
+            {id: "labyrinth-a", visible: true, identity: {name: "Ugin's Labyrinth"},
+                ownerSeat: 0, controllerSeat: 0, exiledCardCount: 2, exiledCardIds: ["imprinted"]},
+            {id: "labyrinth-b", visible: true, identity: {name: "Ugin's Labyrinth"},
+                ownerSeat: 0, controllerSeat: 0}
+        ]
+        snapshot.zones.push({zone: "exile", ownerSeat: 0, count: 2, cards: [
+            {id: "imprinted", visible: true, identity: {name: "Devourer of Destiny"}},
+            {id: "face-down-exile", visible: false, faceDown: true}
+        ]})
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        verify(inspector.showCard("labyrinth-a"))
+        compare(inspector.card.exiledCardCount, 2)
+        verify(inspector.exiledSummary.includes("Devourer of Destiny"))
+        verify(inspector.exiledSummary.includes("1 hidden card(s)"))
+        verify(inspector.showCard("labyrinth-b"))
+        compare(inspector.exiledSummary, "")
+        verify(inspector.showCard("labyrinth-a"))
+        snapshot.zones[0].cards[0].exiledCardCount = 0
+        snapshot.zones[0].cards[0].exiledCardIds = []
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        compare(inspector.exiledSummary, "")
+    }
+
     function cleanup() {
         inspector.clear()
         card.focus = false

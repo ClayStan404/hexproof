@@ -15,6 +15,7 @@ Item {
     required property var cardModel
     required property var destinations
     required property int promptId
+    property bool expandedView: false
     property var piles: []
     property int visualRevision: 0
     readonly property bool placementValid: hasCompletePlacement()
@@ -223,7 +224,7 @@ Item {
                             readonly property string cardId: modelData.cardId
 
                             objectName: "rulesScryCard-" + cardId
-                            width: Theme.size(96)
+                            width: Theme.size(root.expandedView ? 174 : 96)
                             height: cardList.itemHeight
                             radius: Theme.radiusSmall
                             color: Theme.surfaceElevated
@@ -252,6 +253,24 @@ Item {
                                                 cardTile.modelData.name,
                                                 cardTile.modelData.setCode,
                                                 cardTile.modelData.collectorNumber)
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.margins: Theme.size(5)
+                                width: Theme.size(25)
+                                height: width
+                                radius: width / 2
+                                color: cardTile.index === 0 ? Theme.primary : Theme.surfaceElevated
+                                Text {
+                                    textFormat: Text.PlainText
+                                    anchors.centerIn: parent
+                                    text: String(cardTile.index + 1)
+                                    color: cardTile.index === 0 ? Theme.primaryInk : Theme.text
+                                    font.pixelSize: Theme.fontSize(11)
+                                    font.weight: Font.Bold
                                 }
                             }
 
@@ -292,10 +311,11 @@ Item {
                                 anchors.right: parent.right
                                 anchors.bottom: parent.bottom
                                 anchors.margins: Theme.size(3)
-                                height: Theme.size(26)
+                                height: Theme.size(38)
                                 spacing: Theme.size(3)
 
                                 AppButton {
+                                    objectName: "rulesScryEarlier-" + cardTile.cardId
                                     Layout.fillWidth: true
                                     compact: true
                                     text: "‹"
@@ -305,6 +325,7 @@ Item {
                                 }
 
                                 AppButton {
+                                    objectName: "rulesScryLater-" + cardTile.cardId
                                     Layout.fillWidth: true
                                     compact: true
                                     text: "›"

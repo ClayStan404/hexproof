@@ -25,6 +25,9 @@ class RoomSessionState : public QObject
     Q_PROPERTY(QString matchMode READ matchMode NOTIFY snapshotChanged)
     Q_PROPERTY(QString cardLoadMode READ cardLoadMode NOTIFY snapshotChanged)
     Q_PROPERTY(QString rulesMode READ rulesMode NOTIFY snapshotChanged)
+    Q_PROPERTY(QString hostingMode READ hostingMode NOTIFY snapshotChanged)
+    Q_PROPERTY(bool hostConnected READ hostConnected NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantMap hostStatus READ hostStatus NOTIFY snapshotChanged)
     Q_PROPERTY(int maxSeats READ maxSeats NOTIFY snapshotChanged)
     Q_PROPERTY(QString phase READ phase NOTIFY snapshotChanged)
     Q_PROPERTY(qint64 loadId READ loadId NOTIFY snapshotChanged)
@@ -79,6 +82,19 @@ class RoomSessionState : public QObject
     QString cardLoadMode() const
     {
         return m_cardLoadMode;
+    }
+    QString hostingMode() const
+    {
+        return m_hostingMode;
+    }
+    bool hostConnected() const
+    {
+        return m_hostConnected;
+    }
+    void applyHostStatus(const QJsonObject &status);
+    QVariantMap hostStatus() const
+    {
+        return m_hostStatus;
     }
     QString rulesMode() const
     {
@@ -153,6 +169,9 @@ class RoomSessionState : public QObject
     QString m_matchMode;
     QString m_cardLoadMode;
     QString m_rulesMode;
+    QString m_hostingMode;
+    bool m_hostConnected = false;
+    QVariantMap m_hostStatus;
     int m_maxSeats = 0;
     QString m_phase;
     qint64 m_loadId = 0;

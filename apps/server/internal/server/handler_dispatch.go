@@ -29,6 +29,9 @@ func optionalCommand(handle commandHandler) commandSpec {
 }
 
 var commandRegistry = map[string]commandSpec{
+	protocol.TypeForgePeerRequest:          requiredCommand((*Handler).handleForgePeerRequest),
+	protocol.TypeForgePeerSignal:           optionalCommand((*Handler).handleForgePeerSignal),
+	protocol.TypeForgeHostRequest:          requiredCommand((*Handler).handleForgeHostRequest),
 	protocol.TypeSessionHello:              requiredCommand((*Handler).handleHello),
 	protocol.TypeSessionPing:               optionalCommand(handleSessionPing),
 	protocol.TypeRoomCreate:                requiredCommand((*Handler).handleRoomCreate),

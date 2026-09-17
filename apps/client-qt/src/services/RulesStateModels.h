@@ -59,6 +59,8 @@ struct RulesCardRow
     QString toughness;
     int damage = 0;
     QString attachedTo;
+    int exiledCardCount = 0;
+    QStringList exiledCardIds;
     QVector<RulesNamedValue> counters;
     bool operator==(const RulesCardRow &) const = default;
 };
@@ -177,6 +179,8 @@ class RulesCardModel final : public RulesSnapshotModel
         ToughnessRole,
         DamageRole,
         AttachedToRole,
+        ExiledCardCountRole,
+        ExiledCardIdsRole,
         CountersSummaryRole
     };
 

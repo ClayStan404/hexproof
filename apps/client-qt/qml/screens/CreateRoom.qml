@@ -39,6 +39,7 @@ Page {
     property string matchMode: "bo1"
     property string cardLoadMode: "preload"
     property string rulesMode: "manual"
+    property string hostingMode: "server"
     property string roomPassword: ""
     property string selectedCubeDeckId: ""
     property bool commanderCube: false
@@ -49,6 +50,11 @@ Page {
     onCommanderCubeChanged: if (commanderCube && cubePlayerCap() > 4) cubePlayerCapField.text = "4"
 
     background: AppBackground { }
+
+    ForgeHostingDialog {
+        id: hostingOptions
+        service: root.hub.forgeHost ? root.hub.forgeHost : null
+    }
 
     Component.onCompleted: {
         root.ensureSelectedCube()
@@ -272,6 +278,7 @@ Page {
 
                                 SegmentedControl {
                                     Layout.fillWidth: true
+                                    objectName: "forgeRulesMode"
                                     options: [qsTr("Manual tabletop"),
                                               qsTr("Forge rules")]
                                     currentIndex: root.rulesMode === "forge" ? 1 : 0
@@ -280,15 +287,70 @@ Page {
                                     }
                                 }
 
+                                SegmentedControl {
+                                    objectName: "forgeHostingMode"
+                                    Layout.fillWidth: true
+                                    visible: root.rulesMode === "forge"
+                                    options: [qsTr("Server hosted"), qsTr("Host on this computer")]
+                                    currentIndex: root.hostingMode === "player" ? 1 : 0
+                                    onActivated: index => {
+                                        root.hostingMode = index === 1 ? "player" : "server"
+                                        if (root.hostingMode === "player" && root.hub.forgeHost)
+                                            root.hub.forgeHost.check()
+                                    }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    visible: root.rulesMode === "forge" && root.hostingMode === "player"
+                                    Text {
+                                        Layout.fillWidth: true
+                                        textFormat: Text.PlainText
+                                        text: qsTr("Your computer runs Forge. Keep Hexproof open during the match. This is trusted-host play: the host can access hidden cards and control the engine. Public tournaments use server hosting.")
+                                        color: Theme.warning
+                                        wrapMode: Text.WordWrap
+                                        font.pixelSize: Theme.fontSize(11)
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        textFormat: Text.PlainText
+                                        text: root.hub.forgeHost ? root.hub.forgeHost.status : ""
+                                        color: Theme.textSecondary
+                                        wrapMode: Text.WordWrap
+                                        font.pixelSize: Theme.fontSize(11)
+                                    }
+                                    ProgressBar {
+                                        Layout.fillWidth: true
+                                        visible: root.hub.forgeHost ? root.hub.forgeHost.busy : false
+                                        value: root.hub.forgeHost ? root.hub.forgeHost.progress : 0
+                                        indeterminate: value <= 0
+                                    }
+                                    AppButton {
+                                        objectName: "prepareForgeHostButton"
+                                        text: root.hub.forgeHost && root.hub.forgeHost.busy ? qsTr("Cancel") : qsTr("Prepare local Forge")
+                                        enabled: root.hub.playerHostingAvailable === true
+                                        onClicked: {
+                                            if (root.hub.forgeHost.busy) root.hub.forgeHost.cancel()
+                                            else root.hub.forgeHost.prepare()
+                                        }
+                                    }
+                                    AppButton {
+                                        objectName: "forgeHostingOptions"
+                                        text: qsTr("Downloads and diagnostics")
+                                        variant: "ghost"
+                                        onClicked: hostingOptions.open()
+                                    }
+                                }
                                 Text {
                                     textFormat: Text.PlainText
                                     Layout.fillWidth: true
                                     text: root.rulesMode === "forge"
-                                          ? (root.hub.forgeRulesAvailable
+                                          ? (root.hostingMode === "player"
+                                             ? (root.hub.playerHostingAvailable === true ? qsTr("This server can relay player-hosted games.") : qsTr("Player hosting is unavailable on this server."))
+                                             : root.hub.forgeRulesAvailable
                                              ? qsTr("Forge validates legal actions, priority, the stack, triggers, combat, and state-based actions. Two-player rooms support BO1 and BO3.")
                                              : qsTr("This server does not provide the Forge rules runtime."))
                                           : qsTr("Players control every move and resolve unusual interactions together.")
-                                    color: root.rulesMode === "forge" && !root.hub.forgeRulesAvailable
+                                    color: root.rulesMode === "forge" && root.hostingMode === "server" && !root.hub.forgeRulesAvailable
                                            ? Theme.warning : Theme.textMuted
                                     font.pixelSize: Theme.fontSize(10)
                                     wrapMode: Text.WordWrap
@@ -691,7 +753,8 @@ Page {
                       cardLoadMode,
                       playtestMode ? "" : roomPassword,
                       playtestMode,
-                      playtestMode ? "manual" : rulesMode)
+                      playtestMode ? "manual" : rulesMode,
+                      !playtestMode && rulesMode === "forge" ? hostingMode : "")
     }
 
     function createBlockerReason() {
@@ -714,7 +777,12 @@ Page {
                 .arg(root.cubePlayerCap()).arg(root.cubeCardsRequired())
         if (root.isCubeFormat && Number(root.selectedCube.sideboardCount) > 0)
             return qsTr("Move every Cube card into the main pool")
-        if (!root.isCubeFormat && root.rulesMode === "forge" && !root.hub.forgeRulesAvailable)
+        if (!root.isCubeFormat && root.rulesMode === "forge" && root.hostingMode === "player") {
+            if (root.roomFormat === "edh") return qsTr("Player hosting supports two-player formats, including Duel Commander.")
+            if (root.hub.playerHostingAvailable !== true) return qsTr("Player hosting is unavailable on this server.")
+            if (!root.hub.forgeHost || !root.hub.forgeHost.ready || root.hub.forgeHost.busy) return qsTr("Prepare the local rules engine first")
+        }
+        if (!root.isCubeFormat && root.rulesMode === "forge" && root.hostingMode !== "player" && !root.hub.forgeRulesAvailable)
             return qsTr("Forge rules are unavailable on this server")
         if (!root.isCubeFormat && !passwordField.withinUtf8ByteLimit)
             return qsTr("Password cannot exceed 72 UTF-8 bytes.")

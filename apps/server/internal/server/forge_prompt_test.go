@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
+	"hexproof/server/internal/rulesinput"
 )
 
 func TestRulesPromptsKeepRequiredWireArrays(t *testing.T) {
@@ -99,7 +101,13 @@ func assertRulesArrayFields(t *testing.T, path string, decoded any, expected ref
 		}
 		for index := 0; index < expected.NumField(); index++ {
 			field := expected.Field(index)
-			name := strings.Split(field.Tag.Get("json"), ",")[0]
+			tag := strings.Split(field.Tag.Get("json"), ",")
+			name := tag[0]
+			if _, present := object[name]; !present && slices.Contains(tag[1:], "omitempty") {
+				// Optional compatibility fields may be absent. If present,
+				// arrays still must be actual arrays rather than JSON null.
+				continue
+			}
 			if name != "" && name != "-" {
 				assertRulesArrayFields(t, path+"."+name, object[name], field.Type)
 			}
@@ -468,7 +476,7 @@ func TestValidRulesDamageDistribution(t *testing.T) {
 		{TargetID: "damage-target:1", Damage: 2},
 		{TargetID: "damage-target:2", Damage: 2},
 	}
-	if !validRulesDamageDistribution(targets, 7, protocol.RulesDamageOrdered, valid) {
+	if !rulesinput.ValidDamageDistribution(targets, 7, protocol.RulesDamageOrdered, valid) {
 		t.Fatal("valid combat damage was rejected")
 	}
 	for _, assignments := range [][]protocol.RulesPromptDamageAssignment{
@@ -483,7 +491,7 @@ func TestValidRulesDamageDistribution(t *testing.T) {
 			{TargetID: "damage-target:0", Damage: 2},
 			{TargetID: "damage-target:2", Damage: 2}},
 	} {
-		if validRulesDamageDistribution(targets, 7, protocol.RulesDamageOrdered, assignments) {
+		if rulesinput.ValidDamageDistribution(targets, 7, protocol.RulesDamageOrdered, assignments) {
 			t.Fatalf("invalid combat damage accepted: %+v", assignments)
 		}
 	}
@@ -494,7 +502,7 @@ func TestValidRulesPromptScryPiles(t *testing.T) {
 		{Destination: "libraryTop", CardIDs: []string{"scry:0"}},
 		{Destination: "graveyard", CardIDs: []string{"scry:1"}},
 	}
-	if !validRulesPromptScryPiles(valid) {
+	if !rulesinput.ValidScryPiles(valid) {
 		t.Fatal("valid scry piles were rejected")
 	}
 	for _, piles := range [][]protocol.RulesPromptScryPile{
@@ -505,7 +513,7 @@ func TestValidRulesPromptScryPiles(t *testing.T) {
 		{{Destination: "libraryTop", CardIDs: []string{"scry:0"}},
 			{Destination: "libraryTop", CardIDs: []string{"scry:1"}}},
 	} {
-		if validRulesPromptScryPiles(piles) {
+		if rulesinput.ValidScryPiles(piles) {
 			t.Fatalf("invalid scry piles accepted: %+v", piles)
 		}
 	}

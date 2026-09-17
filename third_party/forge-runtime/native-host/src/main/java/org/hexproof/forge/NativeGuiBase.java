@@ -3,17 +3,17 @@
 package org.hexproof.forge;
 
 import forge.gui.interfaces.IGuiBase;
+import forge.util.ThreadUtil;
 import java.lang.reflect.*;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Consumer;
 
 /** Headless native GUI dispatcher. Unsupported decisions never receive defaults. */
 final class NativeGuiBase implements InvocationHandler, AutoCloseable {
-    private final ExecutorService edt = Executors.newSingleThreadExecutor(r -> new Thread(r, "Hexproof-Native-EDT"));
+    private final ExecutorService edt = Executors.newSingleThreadExecutor(r -> new Thread(r, "Hexproof-Bootstrap-EDT"));
     private final String assets;
-    private Consumer<Throwable> failure = e -> { throw new IllegalStateException(e); };
+    private NativeExecution testContext;
     private final IGuiBase proxy;
     private static final Set<String> PRESENTATION = Set.of("copyToClipboard", "browseToUrl", "clearImageCache", "preventSystemSleep", "startAltSoundSystem");
     NativeGuiBase(String assets) {
@@ -21,13 +21,26 @@ final class NativeGuiBase implements InvocationHandler, AutoCloseable {
         proxy = (IGuiBase) Proxy.newProxyInstance(IGuiBase.class.getClassLoader(), new Class<?>[]{IGuiBase.class}, this);
     }
     IGuiBase proxy() { return proxy; }
-    void setFailureHandler(Consumer<Throwable> handler) { failure = handler; }
-    boolean isEdt() { return Thread.currentThread().getName().equals("Hexproof-Native-EDT"); }
+    // Mechanism tests call native controls directly outside a game task. The
+    // production host never configures a fallback game or global failure owner.
+    void setTestSession(NativeSession session) { testContext = session.context; }
+    private NativeExecution context() {
+        var current = ThreadUtil.executionContext();
+        return current instanceof NativeExecution value ? value : testContext;
+    }
+    boolean isEdt() {
+        var owner = context();
+        return owner != null ? owner.isEdt() : Thread.currentThread().getName().equals("Hexproof-Bootstrap-EDT");
+    }
     void later(Runnable action) {
-        edt.execute(() -> { try { action.run(); } catch (Throwable e) { failure.accept(e); } });
+        var owner = context();
+        if (owner != null) owner.later(action);
+        else edt.execute(action);
     }
     void andWait(Runnable action) throws Exception {
-        if (isEdt()) action.run();
+        var owner = context();
+        if (owner != null) owner.andWait(action);
+        else if (isEdt()) action.run();
         else edt.submit(action).get(30, TimeUnit.SECONDS);
     }
     @Override public Object invoke(Object p, Method m, Object[] args) throws Throwable {

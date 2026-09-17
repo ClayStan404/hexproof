@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "ForgeHostService.h"
+#include "PeerTransportService.h"
+#include <QElapsedTimer>
 #include <QObject>
 #include <QString>
 #include <QThread>
@@ -66,6 +69,15 @@ class WsClient : public QObject
     Q_PROPERTY(QString requiredVersion READ requiredVersion NOTIFY versionMismatchChanged)
     Q_PROPERTY(QString releaseDownloadUrl READ releaseDownloadUrl CONSTANT)
     Q_PROPERTY(bool forgeRulesAvailable READ forgeRulesAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool playerHostingAvailable READ playerHostingAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(ForgeHostService *forgeHost READ forgeHost CONSTANT)
+    Q_PROPERTY(bool peerTransportAvailable READ peerTransportAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool directPeerEnabled READ directPeerEnabled NOTIFY peerTransportChanged)
+    Q_PROPERTY(QString peerTransportState READ peerTransportState NOTIFY peerTransportChanged)
+    Q_PROPERTY(int directPeerDecisions READ directPeerDecisions NOTIFY peerTransportChanged)
+    Q_PROPERTY(int peerFallbacks READ peerFallbacks NOTIFY peerTransportChanged)
+    Q_PROPERTY(
+        QVariantMap peerTransportMetrics READ peerTransportMetrics NOTIFY peerTransportChanged)
     Q_PROPERTY(RoomSessionState *roomSession READ roomSession CONSTANT)
     Q_PROPERTY(GameSessionState *gameSession READ gameSession CONSTANT)
     Q_PROPERTY(RulesSessionState *rulesSession READ rulesSession CONSTANT)
@@ -292,6 +304,35 @@ class WsClient : public QObject
     {
         return m_forgeRulesAvailable;
     }
+    bool playerHostingAvailable() const
+    {
+        return m_playerHostingAvailable;
+    }
+    ForgeHostService *forgeHost() const
+    {
+        return m_forgeHost;
+    }
+    bool peerTransportAvailable() const
+    {
+        return m_peerTransportAvailable;
+    }
+    bool directPeerEnabled() const
+    {
+        return m_peerConsent;
+    }
+    QString peerTransportState() const;
+    int directPeerDecisions() const
+    {
+        return m_directPeerDecisions;
+    }
+    int peerFallbacks() const
+    {
+        return m_peerFallbacks;
+    }
+    QVariantMap peerTransportMetrics() const;
+    Q_INVOKABLE void setDirectPeerEnabled(bool enabled, bool retry = false);
+    Q_INVOKABLE void preparePlayerHosting();
+    Q_INVOKABLE void playerHostingAction(const QString &action);
     TournamentSessionState *tournamentSession() const
     {
         return m_tournamentSession;
@@ -312,7 +353,8 @@ class WsClient : public QObject
                                 bool spectatorsSeeHands, const QString &matchMode,
                                 const QString &cardLoadMode, const QString &password,
                                 bool playtest = false,
-                                const QString &rulesMode = QStringLiteral("manual"));
+                                const QString &rulesMode = QStringLiteral("manual"),
+                                const QString &hostingMode = QString());
     Q_INVOKABLE void requestRoomList();
     Q_INVOKABLE void requestTournamentList();
     Q_INVOKABLE QString sendTournamentChat(const QString &text);
@@ -357,7 +399,8 @@ class WsClient : public QObject
     Q_INVOKABLE void startNextTournamentRound();
     Q_INVOKABLE void openTournamentMatch(const QString &pairingId);
     Q_INVOKABLE void cancelTournament();
-    Q_INVOKABLE void joinRoom(const QString &roomId, bool asSpectator, const QString &password);
+    Q_INVOKABLE void joinRoom(const QString &roomId, bool asSpectator, const QString &password,
+                              bool acceptPlayerHost = false);
     Q_INVOKABLE bool hasCubeRoomCredential(const QString &roomId) const;
     Q_INVOKABLE void leaveRoom();
     Q_INVOKABLE void kickSeat(int seat);
@@ -489,6 +532,7 @@ class WsClient : public QObject
     void lastErrorChanged();
     void versionMismatchChanged();
     void capabilitiesChanged();
+    void peerTransportChanged();
     void rulesResponsePendingChanged();
     void commandQueued(const QString &requestId, const QString &commandType,
                        const QVariantMap &payload);
@@ -577,6 +621,23 @@ class WsClient : public QObject
                                    const QVariantMap &position, int sourceSeat,
                                    const QString &approvalId);
 
+    void initializePeerTransport();
+    void handlePeerEnvelope(const hexproof::protocol::Envelope &env);
+    void handlePeerMessage(const QJsonObject &message);
+    void fallbackPeerDecision();
+    PeerTransportService *m_peerTransport = nullptr;
+    bool m_peerConsent = false;
+    bool m_peerTransportAvailable = false;
+    bool m_peerOtherEnabled = false;
+    bool m_peerResumeNeeded = false;
+    QTimer m_peerFallbackTimer;
+    QByteArray m_peerFallbackWire;
+    QString m_peerRequestId;
+    qint64 m_lastRulesSnapshotSeq = 0;
+    int m_directPeerDecisions = 0;
+    int m_peerFallbacks = 0;
+    QElapsedTimer m_peerDecisionClock;
+    QList<qint64> m_peerLatencies;
     ProtocolSession *m_protocolSession = nullptr;
     ReconnectController *m_reconnectController = nullptr;
     RoomSessionState *m_roomSession = nullptr;
@@ -596,6 +657,10 @@ class WsClient : public QObject
     QString m_requiredVersion;
     bool m_versionMismatch = false;
     bool m_forgeRulesAvailable = false;
+    bool m_playerHostingAvailable = false;
+    bool m_playerHostingConsent = false;
+    bool m_backupHostingConsent = false;
+    ForgeHostService *m_forgeHost = nullptr;
     QTimer m_helloTimer; // handshake timeout while connecting or reconnecting
     QTimer m_keepAliveTimer;
     QTimer m_rulesResponseTimer;

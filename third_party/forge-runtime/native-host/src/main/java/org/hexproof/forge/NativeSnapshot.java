@@ -201,6 +201,18 @@ final class NativeSnapshot {
             result.add("counters", counters(card));
             result.addProperty("damage", card.getDamage());
             if (card.getAttachedTo() != null) result.addProperty("attachedTo", cardId(card.getAttachedTo()));
+            JsonArray linked = new JsonArray();
+            int linkedCount = 0;
+            for (Card exiled : card.getExiledCards()) {
+                if (!exiled.isInZone(ZoneType.Exile) || exiled.getExiledWith() == null
+                        || !exiled.getExiledWith().equalsWithGameTimestamp(card)) continue;
+                linkedCount++;
+                if (canSeeIdentity(exiled, viewer)) linked.add(cardId(exiled));
+            }
+            if (linkedCount > 0) {
+                result.addProperty("exiledCardCount", linkedCount);
+                result.add("exiledCardIds", linked);
+            }
         }
         return result;
     }
@@ -213,14 +225,23 @@ final class NativeSnapshot {
         return result;
     }
 
-    private static JsonObject identity(Card card) {
+    static JsonObject identity(Card card) {
         JsonObject result = new JsonObject();
         IPaperCard paper = card.getPaperCard();
         // A permitted face-down lookup needs its original face; current state is anonymous.
         String name = card.isFaceDown() ? card.getState(CardStateName.Original).getName() : card.getName();
         result.addProperty("name", name);
         boolean matchesPrinting = paper != null && name.equals(paper.getName());
-        result.addProperty("setCode", matchesPrinting ? paper.getEdition() : "");
+        String edition = matchesPrinting ? paper.getEdition() : "";
+        if (matchesPrinting && paper.isToken()) {
+            // PaperToken uses the parent edition's token numbering. Its Scryfall
+            // token set can differ (including editions without the usual T prefix).
+            var metadata = forge.StaticData.instance().getCardEdition(edition);
+            edition = metadata == null ? "" : metadata.getTokensCode().toUpperCase(Locale.ROOT);
+            if (name.endsWith(" Token")) name = name.substring(0, name.length() - 6);
+            result.addProperty("name", name);
+        }
+        result.addProperty("setCode", edition);
         result.addProperty("cardNumber", matchesPrinting ? paper.getCollectorNumber() : "");
         result.addProperty("isToken", card.isToken());
         return result;

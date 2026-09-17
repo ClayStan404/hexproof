@@ -66,8 +66,8 @@ public final class NativeObjectDepartureRegressionTest {
         AtomicBoolean resolved = new AtomicBoolean();
         CountDownLatch unwound = new CountDownLatch(1);
         ExecutorService rpc = Executors.newSingleThreadExecutor();
-        try (NativeSession session = new NativeSession(config, base)) {
-            base.setFailureHandler(session::fail);
+        try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
             Runnable resolve = () -> {
                 try {
                     var owner = session.game.getRegisteredPlayers().get(2);

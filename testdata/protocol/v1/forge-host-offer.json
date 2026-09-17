@@ -1,0 +1,7 @@
+{
+  "type": "forge.host_request",
+  "id": "host-prepare",
+  "payload": {
+    "action": "offer"
+  }
+}

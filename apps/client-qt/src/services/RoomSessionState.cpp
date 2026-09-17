@@ -19,6 +19,9 @@ RoomSessionState::RoomSessionState(QObject *parent)
       m_cardLoadMode(kCardLoadPreload)
 {
     m_rulesMode = kRulesModeManual;
+    m_hostingMode = u"server"_s;
+    m_hostConnected = false;
+    m_hostStatus.clear();
 }
 
 void RoomSessionState::enter(const QString &roomId, const QString &role, int seatIndex, bool host)
@@ -45,6 +48,9 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
     m_matchMode = snapshot.value(u"matchMode"_s).toString(kMatchBO1);
     m_cardLoadMode = snapshot.value(u"cardLoadMode"_s).toString(kCardLoadPreload);
     m_rulesMode = snapshot.value(u"rulesMode"_s).toString(kRulesModeManual);
+    m_hostingMode = snapshot.value(u"hostingMode"_s).toString(u"server"_s);
+    m_hostConnected = snapshot.value(u"hostConnected"_s).toBool();
+    m_hostStatus = snapshot.value(u"hostStatus"_s).toObject().toVariantMap();
     m_maxSeats = snapshot.value(u"maxSeats"_s).toInt();
     m_phase = snapshot.value(u"phase"_s).toString(kRoomPhaseWaiting);
     m_loadId = m_phase == kRoomPhaseWaiting ? 0 : snapshot.value(u"loadId"_s).toInteger();
@@ -155,6 +161,9 @@ void RoomSessionState::clear()
     m_matchMode.clear();
     m_cardLoadMode = kCardLoadPreload;
     m_rulesMode = kRulesModeManual;
+    m_hostingMode = u"server"_s;
+    m_hostConnected = false;
+    m_hostStatus.clear();
     m_maxSeats = 0;
     m_phase.clear();
     m_loadId = 0;
@@ -173,6 +182,15 @@ void RoomSessionState::clear()
     emit roomIdChanged();
     emit hostChanged();
     emit roleChanged();
+    emit snapshotChanged();
+}
+
+void RoomSessionState::applyHostStatus(const QJsonObject &status)
+{
+    if (status.value(u"roomId"_s).toString() != m_roomId)
+        return;
+    m_hostConnected = status.value(u"connected"_s).toBool();
+    m_hostStatus = status.toVariantMap();
     emit snapshotChanged();
 }
 

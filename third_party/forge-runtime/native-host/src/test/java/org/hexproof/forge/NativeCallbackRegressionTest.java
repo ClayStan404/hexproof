@@ -34,8 +34,8 @@ public final class NativeCallbackRegressionTest {
                 return null;
             });
             JsonObject config = JsonParser.parseString("{\"gameId\":\"native-callback-test\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Callback A\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Callback B\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
-            try (NativeSession session = new NativeSession(config, base)) {
-                base.setFailureHandler(session::fail);
+            try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+                base.setTestSession(session);
                 session.game.setAge(GameStage.Play);
                 Player owner = session.game.getPlayers().get(0);
                 session.game.setStartingPlayer(owner);
@@ -73,21 +73,14 @@ public final class NativeCallbackRegressionTest {
             require(!input.toString().contains("Mountain"), "scry disclosed an unlooked library card");
             require(!session.snapshot(-1).contains("Lightning Bolt") && !session.snapshot(1).contains("Lightning Bolt"), "scry lookup leaked to another viewer");
             decisions.incrementAndGet();
-            if (type.equals("chooseCards")) {
-                require(input.get("min").getAsInt() == 0 && input.get("max").getAsInt() == 3, "native any-number selection bounds lost");
-                JsonObject output = NativeSession.object("type", "chooseCardsDecision");
-                JsonArray selected = new JsonArray(); selected.add(NativeSession.cardId(bolt));
-                output.add("chosenCardIds", selected); return output;
-            }
-            require(type.equals("reorder"), "Unexpected scry callback");
-            JsonObject output = NativeSession.object("type", "reorderDecision");
-            JsonArray order = new JsonArray();
-            JsonArray items = input.getAsJsonArray("items");
-            require(items.size() == 2, "scry reorder candidates changed");
-            order.add(items.get(1).getAsJsonObject().get("id")); order.add(items.get(0).getAsJsonObject().get("id"));
-            output.add("orderedIds", order); return output;
+            require(type.equals("scry"), "Expected one complete scry decision");
+            JsonObject output = NativeSession.object("type", "scryDecision");
+            JsonArray top = new JsonArray(), bottom = new JsonArray(), piles = new JsonArray();
+            top.add(NativeSession.cardId(island)); top.add(NativeSession.cardId(forest));
+            bottom.add(NativeSession.cardId(bolt)); piles.add(top); piles.add(bottom);
+            output.add("zoneCardIds", piles); return output;
         });
-        require(decisions.get() == 2, "Scry did not cross both native choices");
+        require(decisions.get() == 1, "Scry must expose both ordered piles together");
     }
 
     private static void generic(NativeSession session, Player owner) throws Exception {
@@ -246,7 +239,7 @@ public final class NativeCallbackRegressionTest {
     }
 
     static void drive(NativeSession session, Player owner, Runnable work, Function<JsonObject, JsonObject> policy) throws Exception {
-        ThreadUtil.invokeInGameThread(() -> {
+        session.context.gameExecutor().execute(() -> {
             try {
                 work.run();
                 session.publish(owner, NativeSession.object("type", "testComplete"), ignored -> () -> { }, false);

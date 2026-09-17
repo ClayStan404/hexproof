@@ -38,6 +38,7 @@ public_paths=(
     THIRD-PARTY-NOTICES.md
     apps
     docs/rules-engine.md
+    docs/player-hosted-forge.md
     packaging
     protocol
     testdata

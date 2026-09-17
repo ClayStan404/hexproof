@@ -125,10 +125,17 @@ int main(int argc, char *argv[])
         instanceLabel.isEmpty() ? QStringLiteral("Hexproof")
                                 : QStringLiteral("Hexproof — %1").arg(instanceLabel));
 
-    const QString storageRoot = hexproof::client::defaultStorageRoot();
 #ifdef HEXPROOF_NATIVE_AUDIT
+    const QString storageRoot = hexproof::client::NativeAudit::profileStorageRoot();
     if (!hexproof::client::NativeAudit::validateEnvironment(storageRoot))
         return 2;
+    qputenv("HEXPROOF_SERVER_DIRECTORY_CACHE",
+            QDir(storageRoot).filePath(QStringLiteral("network/servers.json")).toUtf8());
+    if (qEnvironmentVariable("HEXPROOF_FORGE_HOST_RUNTIME_DIR").trimmed().isEmpty())
+        qputenv("HEXPROOF_FORGE_HOST_RUNTIME_DIR",
+                QDir(storageRoot).filePath(QStringLiteral("forge-runtime")).toUtf8());
+#else
+    const QString storageRoot = hexproof::client::defaultStorageRoot();
 #endif
     hexproof::client::ProfileLock profileLock(storageRoot);
     if (!profileLock.tryLock()) {
@@ -167,16 +174,16 @@ int main(int argc, char *argv[])
         qCritical() << "Launch defaults require a valid ws:// or wss:// URL and a non-empty name.";
         return 2;
     }
-    auto *preferences = new hexproof::client::ClientPreferencesModel(&runtimeOwner);
+    auto *preferences = new hexproof::client::ClientPreferencesModel(storageRoot, &runtimeOwner);
     auto *limitedDeckDrafts =
         new hexproof::client::LimitedDeckDraftStore(storageRoot, &runtimeOwner);
-    auto *deckLibrary = new hexproof::client::DeckLibraryModel(&runtimeOwner);
+    auto *deckLibrary = new hexproof::client::DeckLibraryModel(storageRoot, &runtimeOwner);
     auto *gameTable = new hexproof::client::GameTableModel(&runtimeOwner);
     auto *optimisticCommands = new hexproof::client::OptimisticCommandModel(&runtimeOwner);
     auto *sideboardTable = new hexproof::client::SideboardTableModel(&runtimeOwner);
-    auto *cardCatalog = new hexproof::client::CardCatalog(&runtimeOwner);
+    auto *cardCatalog = new hexproof::client::CardCatalog(storageRoot, &runtimeOwner);
     auto *appUpdater = new hexproof::client::AppUpdateService(&runtimeOwner);
-    auto *deckLegality = new hexproof::client::DeckLegalityService(&runtimeOwner);
+    auto *deckLegality = new hexproof::client::DeckLegalityService(storageRoot, &runtimeOwner);
     auto *matchLoader = new hexproof::client::MatchLoadCoordinator(&runtimeOwner);
     auto *matchCardCache = new hexproof::client::MatchCardCacheBinding(
         gameTable, ws->rulesSession(), ws->roomSession(), matchLoader, &runtimeOwner);

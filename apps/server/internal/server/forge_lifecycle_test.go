@@ -29,6 +29,7 @@ func TestForgeStartRequestPreservesPrintingsAndCommanderVariant(t *testing.T) {
 			Name: "Atraxa, Praetors' Voice", Count: 2,
 			SetCode: "C16", CollectorNumber: "28",
 		}},
+		Sideboard: []protocol.DeckCard{{Name: "Walking Ballista", Count: 2, SetCode: "AER", CollectorNumber: "181"}},
 	}
 	request, seats, err := forgeStartRequest(r, []room.RulesStartPlayer{
 		{Seat: 2, DisplayName: "Alice", Deck: deck},
@@ -42,6 +43,7 @@ func TestForgeStartRequestPreservesPrintingsAndCommanderVariant(t *testing.T) {
 		len(request.Players[0].Deck) != 2 || request.Players[0].Deck[0].SetCode != "C16" ||
 		request.Players[0].Deck[0].CollectorNumber != "28" ||
 		len(request.Players[0].CommanderNames) != 1 ||
+		len(request.Players[0].Sideboard) != 2 || request.Players[0].Sideboard[1].CollectorNumber != "181" ||
 		len(seats) != 2 || seats[0] != 2 || seats[1] != 3 {
 		t.Fatalf("Forge request = %+v seats=%v", request, seats)
 	}

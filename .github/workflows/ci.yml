@@ -139,7 +139,7 @@ jobs:
         run: go test ./...
       - name: Test room, server, and tournament race safety
         if: github.event_name == 'workflow_dispatch'
-        run: go test -race ./internal/room ./internal/server ./internal/tournament
+        run: go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg
       - name: Fuzz protocol, reducer, and retention boundaries
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -161,6 +161,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -188,8 +190,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Configure Debug sanitizers
@@ -223,6 +231,12 @@ jobs:
             os: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Install Windows dependencies

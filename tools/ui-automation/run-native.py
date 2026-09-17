@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def write_json(path, value):
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
+    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 
@@ -156,21 +156,44 @@ def stop_owned(process):
         process.wait(timeout=3)
 
 
-def process_sample(process):
-    result = {"pid": process.pid, "exitCode": process.poll()}
+def pid_sample(pid):
+    result = {"pid": pid}
     try:
-        stat = Path(f"/proc/{process.pid}/stat").read_text().rsplit(")", 1)[1].split()
+        stat = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
         result.update(cpuTicks=int(stat[11]) + int(stat[12]),
-                      rssBytes=int(stat[21]) * os.sysconf("SC_PAGE_SIZE"))
+                      rssBytes=int(stat[21]) * os.sysconf("SC_PAGE_SIZE"),
+                      name=Path(f"/proc/{pid}/comm").read_text().strip())
+        for line in Path(f"/proc/{pid}/smaps_rollup").read_text().splitlines():
+            if line.startswith("Pss:"):
+                result["pssBytes"] = int(line.split()[1]) * 1024
     except (OSError, IndexError, ValueError):
         pass
+    return result
+
+
+def process_sample(process):
+    result = pid_sample(process.pid)
+    result["exitCode"] = process.poll()
+    descendants, pending, seen = [], [process.pid], {process.pid}
+    while pending and len(seen) < 128:
+        parent = pending.pop()
+        for children in Path(f"/proc/{parent}/task").glob("*/children"):
+            try:
+                for child in map(int, children.read_text().split()):
+                    if child not in seen:
+                        seen.add(child)
+                        pending.append(child)
+                        descendants.append(pid_sample(child))
+            except (OSError, ValueError):
+                pass
+    result["children"] = descendants
     return result
 
 
 def seat_result(process, artifacts, reason=None):
     """Require native input evidence as well as a scenario's own assertions."""
     try:
-        result = json.loads((artifacts / "result.json").read_text())
+        result = json.loads((artifacts / "result.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         result = {}
     exit_code = process.poll()
@@ -179,9 +202,9 @@ def seat_result(process, artifacts, reason=None):
         reason = "Missing pass result or nonzero exit"
     if reason is None:
         try:
-            startup = json.loads((artifacts / "startup.json").read_text())
-            summary = json.loads((artifacts / "audit-summary.json").read_text())
-            actions = [json.loads(line) for line in (artifacts / "actions.jsonl").read_text().splitlines()
+            startup = json.loads((artifacts / "startup.json").read_text(encoding="utf-8"))
+            summary = json.loads((artifacts / "audit-summary.json").read_text(encoding="utf-8"))
+            actions = [json.loads(line) for line in (artifacts / "actions.jsonl").read_text(encoding="utf-8").splitlines()
                        if line.strip()]
             window = startup.get("window") if isinstance(startup, dict) else None
             platform_name = window.get("platform") if isinstance(window, dict) else None
@@ -283,6 +306,8 @@ def seat_result(process, artifacts, reason=None):
 
 
 def run(args):
+    args.player_hosted = getattr(args, "player_hosted", False)
+    args.reconnect_window = getattr(args, "reconnect_window", None)
     if platform.system() != "Linux":
         raise ValueError("This runner currently supports Linux isolated XDG profiles.")
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
@@ -313,7 +338,7 @@ def run(args):
             ["git", "diff", "--binary", "HEAD"], cwd=ROOT)).hexdigest(),
         "binary": str(args.binary), "binarySha256": digest(args.binary),
         "scenario": str(args.scenario), "scenarioSha256": digest(args.scenario),
-        "platform": platform.platform(), "players": args.players,
+        "platform": platform.platform(), "players": args.players, "playerHosted": args.player_hosted,
         "scaleFactor": args.scale,
         "requestedWindowMode": "windowed" if args.windowed else "maximized",
         "requestedWindowSize": [args.width, args.height] if args.windowed else None,
@@ -358,7 +383,8 @@ def run(args):
             server = subprocess.Popen([
                 str(args.server_binary), "-bind", "127.0.0.1", "-port", str(port),
                 "-retention-dir", str(output / "retained"),
-            ], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                "-forge-games-per-jvm", str(args.forge_games_per_jvm),
+            ] + (["-allow-player-hosting"] if args.player_hosted else []) + (["-reconnect-window", str(args.reconnect_window)+"s"] if args.reconnect_window else []), cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             processes.append(server)
             deadline = time.monotonic() + 10
             while True:
@@ -407,6 +433,7 @@ def run(args):
                            HEXPROOF_AUDIT_RUN_ID=run_id,
                            HEXPROOF_AUDIT_WIDTH=str(args.width) if args.windowed else "",
                            HEXPROOF_AUDIT_VARIANT=args.variant,
+                           HEXPROOF_AUDIT_PLAYER_HOSTED="1" if args.player_hosted else "0",
                            HEXPROOF_AUDIT_CARD_LANGUAGE=args.card_language,
                            HEXPROOF_AUDIT_HEIGHT=str(args.height) if args.windowed else "",
                            QT_SCALE_FACTOR=str(args.scale))
@@ -443,6 +470,9 @@ def run(args):
                         reason = f"Run exceeded {args.timeout:g}s watchdog deadline"
                     if server and server.poll() is not None:
                         reason = "Local server exited during the scenario"
+                    if server:
+                        samples.write(json.dumps(dict(process_sample(server), role="server", stage=stage,
+                            elapsedMs=round((now - started)*1000)))+"\n")
                     for process, artifacts, launched in stage_seats:
                         sample = process_sample(process)
                         sample["stage"] = stage
@@ -526,6 +556,10 @@ def main():
                         help="Start without any settings file or dismissed first-launch notices")
     parser.add_argument("--binary", type=Path, default=ROOT / "build/client-qt/hexproof_native_audit")
     parser.add_argument("--server-binary", type=Path)
+    parser.add_argument("--reconnect-window", type=int, choices=range(1, 601), help="Local hub reconnect grace in seconds")
+    parser.add_argument("--player-hosted", action="store_true", help="Enable player hosting on the isolated local hub")
+    parser.add_argument("--forge-games-per-jvm", type=int, choices=range(1, 5), default=1,
+                        help="Use the packaged shared worker on the isolated hub")
     parser.add_argument("--output", type=Path, help="New directory; existing directories are refused")
     parser.add_argument("--catalog", type=Path, help="Read-only SQLite source for an independent backup")
     parser.add_argument("--fixture-dir", type=Path, help="Explicit decks/cache/images test fixture")

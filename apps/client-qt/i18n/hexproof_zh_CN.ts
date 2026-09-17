@@ -1463,8 +1463,28 @@ many tables.</source>
         <translation>（由%1赞助）</translation>
     </message>
     <message>
-        <source>Forge supported</source>
-        <translation>支持 Forge</translation>
+        <source>Server Forge</source>
+        <translation>服务器 Forge</translation>
+    </message>
+    <message>
+        <source>Player hosting</source>
+        <translation>玩家托管</translation>
+    </message>
+    <message>
+        <source>Server Forge unavailable</source>
+        <translation>服务器未运行 Forge</translation>
+    </message>
+    <message>
+        <source>Supported</source>
+        <translation>支持</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+    <message>
+        <source>Player hosting: %1 · Direct connection: %2 · Host migration: %3</source>
+        <translation>玩家托管：%1 · 直连：%2 · 宿主迁移：%3</translation>
     </message>
     <message>
         <source>Manual only</source>
@@ -1965,6 +1985,42 @@ many tables.</source>
     <message>
         <source>An eight-player Cube draft needs at least 360 cards</source>
         <translation type="vanished">八人 Cube 轮抓至少需要 360 张牌</translation>
+    </message>
+    <message>
+        <source>Server hosted</source>
+        <translation>服务器托管</translation>
+    </message>
+    <message>
+        <source>Host on this computer</source>
+        <translation>由本机托管</translation>
+    </message>
+    <message>
+        <source>Your computer runs Forge. Keep Hexproof open during the match. This is trusted-host play: the host can access hidden cards and control the engine. Public tournaments use server hosting.</source>
+        <translation>由你的电脑运行 Forge，对局期间请保持 Hexproof 开启。此模式适合相互信任的约战：房主可以访问隐藏牌并控制引擎。公共赛事使用服务器托管。</translation>
+    </message>
+    <message>
+        <source>Prepare local Forge</source>
+        <translation>准备本地 Forge</translation>
+    </message>
+    <message>
+        <source>This server can relay player-hosted games.</source>
+        <translation>此服务器支持中转玩家托管的对局。</translation>
+    </message>
+    <message>
+        <source>Player hosting is unavailable on this server.</source>
+        <translation>此服务器暂不支持玩家托管。</translation>
+    </message>
+    <message>
+        <source>Player hosting supports two-player formats, including Duel Commander.</source>
+        <translation>玩家托管支持双人赛制，包括法禁。</translation>
+    </message>
+    <message>
+        <source>Prepare the local rules engine first</source>
+        <translation>请先准备本地规则引擎</translation>
+    </message>
+    <message>
+        <source>Downloads and diagnostics</source>
+        <translation>下载和诊断</translation>
     </message>
 </context>
 <context>
@@ -4375,6 +4431,14 @@ many tables.</source>
         <source>library, then shuffled it</source>
         <translation>牌库并洗牌</translation>
     </message>
+    <message>
+        <source>This is a player-hosted Forge room. Confirm that you trust the host before joining.</source>
+        <translation>此房间由玩家托管 Forge，加入前请确认你信任房主。</translation>
+    </message>
+    <message>
+        <source>The host engine was lost. This game was aborted without a winner. Prepare hosting and ready up to start a new game.</source>
+        <translation>房主的规则引擎已失去连接。本局已中止，不计胜负。重新准备托管并准备后可开始新对局。</translation>
+    </message>
 </context>
 <context>
     <name>ImportDeck</name>
@@ -4595,6 +4659,14 @@ many tables.</source>
         <location line="+16"/>
         <source>Password cannot exceed 72 UTF-8 bytes.</source>
         <translation>密码不能超过 72 个 UTF-8 字节。</translation>
+    </message>
+    <message>
+        <source>Player-hosted Forge: the creator runs the rules engine and can access hidden cards or change its behavior. Use this mode with people you trust.</source>
+        <translation>玩家托管 Forge：规则引擎运行在房主电脑上，房主可以访问隐藏牌或修改引擎行为。请仅与信任的人使用此模式。</translation>
+    </message>
+    <message>
+        <source>I trust this host</source>
+        <translation>我信任此房主</translation>
     </message>
 </context>
 <context>
@@ -6145,6 +6217,14 @@ your way.</source>
         <source>Waiting</source>
         <translation>等待中</translation>
     </message>
+    <message>
+        <source>Forge · Player hosted</source>
+        <translation>Forge · 玩家托管</translation>
+    </message>
+    <message>
+        <source>Forge · Server hosted</source>
+        <translation>Forge · 服务器托管</translation>
+    </message>
 </context>
 <context>
     <name>RulesBattlefieldView</name>
@@ -7571,6 +7651,10 @@ your way.</source>
         <location line="+21"/>
         <source>Increase interface scale</source>
         <translation>放大界面缩放</translation>
+    </message>
+    <message>
+        <source>Local Forge: download, import and diagnostics</source>
+        <translation>本机 Forge：下载、导入与诊断</translation>
     </message>
 </context>
 <context>
@@ -12654,6 +12738,42 @@ your way.</source>
         <source>Select deck</source>
         <translation>选择套牌</translation>
     </message>
+    <message>
+        <source>Forge · Player hosted</source>
+        <translation>Forge · 玩家托管</translation>
+    </message>
+    <message>
+        <source>Forge · Server hosted</source>
+        <translation>Forge · 服务器托管</translation>
+    </message>
+    <message>
+        <source>Player-hosted game · The creator must keep Hexproof open.</source>
+        <translation>玩家托管对局 · 房主需保持 Hexproof 开启。</translation>
+    </message>
+    <message>
+        <source>Waiting for the creator's local Forge connection…</source>
+        <translation>正在等待房主的本地 Forge 连接…</translation>
+    </message>
+    <message>
+        <source>Connect local Forge</source>
+        <translation>连接本地 Forge</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Prepare local Forge</source>
+        <translation>准备本地 Forge</translation>
+    </message>
+    <message>
+        <source>Downloads and diagnostics</source>
+        <translation>下载和诊断</translation>
+    </message>
+    <message>
+        <source>Hosting, downloads and diagnostics</source>
+        <translation>托管、下载与诊断</translation>
+    </message>
 </context>
 <context>
     <name>ZoneBrowserPopup</name>
@@ -13807,6 +13927,14 @@ Downloaded and custom images will be copied and verified before the setting chan
 <context>
     <name>RulesCardInspector</name>
     <message>
+        <source>Exiled with this card: %1</source>
+        <translation>由此牌放逐：%1</translation>
+    </message>
+    <message>
+        <source>%1 hidden card(s)</source>
+        <translation>%1 张隐藏牌</translation>
+    </message>
+    <message>
         <source>Attached to %1</source>
         <translation>附着于 %1</translation>
     </message>
@@ -13972,6 +14100,10 @@ Downloaded and custom images will be copied and verified before the setting chan
     <context>
         <name>ForgeCard</name>
         <message>
+            <source>Exiled: %1</source>
+            <translation>已放逐：%1</translation>
+        </message>
+        <message>
             <source>%1 dmg</source>
             <translation>%1 点伤害</translation>
         </message>
@@ -14109,7 +14241,31 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
             <translation>统帅税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
         </message>
-    </context>
+        <message>
+        <source>Waiting for the host to reconnect… The game is paused.</source>
+        <translation>正在等待房主重新连接… 对局已暂停。</translation>
+    </message>
+    <message>
+        <source>Player-hosted game</source>
+        <translation>玩家托管对局</translation>
+    </message>
+    <message>
+        <source>Hosting</source>
+        <translation>托管</translation>
+    </message>
+    <message>
+        <source>Verifying host transfer… The game is paused.</source>
+        <translation>正在验证宿主迁移… 对局已暂停。</translation>
+    </message>
+    <message>
+        <source>Player hosted · direct connection</source>
+        <translation>玩家托管 · 直连</translation>
+    </message>
+    <message>
+        <source>Player hosted · server relay</source>
+        <translation>玩家托管 · 服务器中转</translation>
+    </message>
+</context>
     <context>
         <name>ForgeHand</name>
         <message>
@@ -14199,6 +14355,26 @@ Downloaded and custom images will be copied and verified before the setting chan
     </context>
     <context>
         <name>RulesText</name>
+        <message>
+            <source>Discard to maximum hand size</source>
+            <translation>弃牌至手牌上限</translation>
+        </message>
+        <message>
+            <source>Scry</source>
+            <translation>占卜</translation>
+        </message>
+        <message>
+            <source>Choose cards to activate from opening hand and their order</source>
+            <translation>选择要使用开局异能的手牌，并安排顺序</translation>
+        </message>
+        <message>
+            <source>Select a card from your sideboard and exile</source>
+            <translation>从备牌或放逐区中选择一张牌</translation>
+        </message>
+        <message>
+            <source>Choose X for %1</source>
+            <translation>选择 %1 的 X 值</translation>
+        </message>
         <message>
             <source>Choose play or draw</source>
             <translation>选择先手或后手</translation>
@@ -14532,4 +14708,324 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>先攻战斗伤害</translation>
         </message>
     </context>
+<context>
+    <name>hexproof::client::ForgeHostService</name>
+    <message>
+        <source>Importing the offline Forge pack…</source>
+        <translation>正在导入 Forge 离线包…</translation>
+    </message>
+    <message>
+        <source>This offline pack does not match this version of Hexproof. Use a matching pack or update Hexproof.</source>
+        <translation>此离线包与当前 Hexproof 版本不匹配，请使用匹配的离线包或更新 Hexproof。</translation>
+    </message>
+    <message>
+        <source>This offline pack is for another operating system or processor. Choose the pack for this computer.</source>
+        <translation>此离线包适用于其他操作系统或处理器，请选择适合本机的离线包。</translation>
+    </message>
+    <message>
+        <source>Could not import the offline pack. Check that the file is complete and readable and that there is enough free disk space, then retry.</source>
+        <translation>无法导入离线包。请确认文件完整且可读取，并检查可用磁盘空间后重试。</translation>
+    </message>
+    <message>
+        <source>Downloading Forge…</source>
+        <translation>正在下载 Forge…</translation>
+    </message>
+    <message>
+        <source>Downloading Java…</source>
+        <translation>正在下载 Java…</translation>
+    </message>
+    <message>
+        <source>Installing the local rules engine…</source>
+        <translation>正在安装本地规则引擎…</translation>
+    </message>
+    <message>
+        <source>Checking the local rules engine…</source>
+        <translation>正在检查本地规则引擎…</translation>
+    </message>
+    <message>
+        <source>Your computer is hosting Forge.</source>
+        <translation>Forge 正由你的电脑托管。</translation>
+    </message>
+    <message>
+        <source>Reconnecting the hosted engine… Keep Hexproof open.</source>
+        <translation>正在重新连接托管引擎… 请保持 Hexproof 开启。</translation>
+    </message>
+    <message>
+        <source>The hosting helper is missing. Reinstall the complete client package.</source>
+        <translation>缺少托管组件，请重新安装完整客户端。</translation>
+    </message>
+    <message>
+        <source>The server requires a different Forge runtime. Update Hexproof.</source>
+        <translation>本地 Forge 与服务器要求的版本不一致，请更新 Hexproof。</translation>
+    </message>
+    <message>
+        <source>The rules engine could not be prepared. Check the connection and free disk space, then retry.</source>
+        <translation>无法准备规则引擎，请检查网络连接和可用磁盘空间后重试。</translation>
+    </message>
+    <message>
+        <source>Local Forge stopped or could not start. Return to the room and prepare hosting again.</source>
+        <translation>本地 Forge 已停止或无法启动，请返回房间重新准备托管。</translation>
+    </message>
+    <message>
+        <source>The local rules engine is ready.</source>
+        <translation>本地规则引擎已就绪。</translation>
+    </message>
+    <message>
+        <source>Download Java and Forge or import an offline pack to host games on this computer. Joining players do not need this installation.</source>
+        <translation>下载 Java 和 Forge，或导入离线包，即可由本机托管对局。加入房间的玩家无需安装。</translation>
+    </message>
+    <message>
+        <source>At least 1 GiB of free space is needed. Clear cached downloads or free disk space, then retry.</source>
+        <translation>至少需要 1 GiB 可用空间。请清理下载缓存或释放磁盘空间后重试。</translation>
+    </message>
+    <message>
+        <source>Clearing unused Forge downloads and runtimes…</source>
+        <translation>正在清理未使用的 Forge 下载和运行环境…</translation>
+    </message>
+    <message>
+        <source>Freed %1 MiB. Current and running Forge installations were kept.</source>
+        <translation>已释放 %1 MiB，保留了当前和使用中的 Forge 运行环境。</translation>
+    </message>
+    <message>
+        <source>The cache could not be cleared. Close other preparation windows and retry.</source>
+        <translation>无法清理缓存。请关闭其他正在准备的窗口后重试。</translation>
+    </message>
+    <message>
+        <source>Stopped. You can retry the import or resume the download.</source>
+        <translation>已停止，可以重新导入或继续下载。</translation>
+    </message>
+    <message>
+        <source>The bundled Forge adapter is missing or does not match this client. Reinstall the complete client package.</source>
+        <translation>客户端附带的 Forge 适配器缺失或版本不匹配，请重新安装完整客户端。</translation>
+    </message>
+    <message>
+        <source>Local hosting stopped. The installed runtime is ready for reuse.</source>
+        <translation>本地托管已停止，已安装的运行环境仍可继续使用。</translation>
+    </message>
+    <message>
+        <source>Local Forge is connected.</source>
+        <translation>本地 Forge 已连接。</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeHostingDialog</name>
+    <message>
+        <source>Import offline pack</source>
+        <translation>导入离线包</translation>
+    </message>
+    <message>
+        <source>Select a shared .hexproof-forgepack file for your system. It includes Forge and Java, so installation needs no download.</source>
+        <translation>选择适合本机系统的 .hexproof-forgepack 文件，其中已包含 Forge 和 Java，安装时无需下载。</translation>
+    </message>
+    <message>
+        <source>Import offline Forge pack</source>
+        <translation>导入 Forge 离线包</translation>
+    </message>
+    <message>
+        <source>Forge offline packs</source>
+        <translation>Forge 离线包</translation>
+    </message>
+    <message>
+        <source>Local Forge</source>
+        <translation>本机 Forge</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Prepare / retry</source>
+        <translation>准备 / 重试</translation>
+    </message>
+    <message>
+        <source>Interrupted downloads resume automatically. Only the player hosting Forge needs this installation.</source>
+        <translation>下载中断后会自动续传。只有托管 Forge 的玩家需要安装。</translation>
+    </message>
+    <message>
+        <source>Download mirror (optional)</source>
+        <translation>下载镜像（可选）</translation>
+    </message>
+    <message>
+        <source>HTTPS mirror directory; leave empty for the default source</source>
+        <translation>HTTPS 镜像目录；留空使用默认来源</translation>
+    </message>
+    <message>
+        <source>Use a mirror prepared for Hexproof. Downloads still use the pinned file checksums. The original source is tried if the mirror fails.</source>
+        <translation>请使用为 Hexproof 配置的镜像。下载仍会校验文件完整性；镜像失败时会尝试原始来源。</translation>
+    </message>
+    <message>
+        <source>Save download source</source>
+        <translation>保存下载来源</translation>
+    </message>
+    <message>
+        <source>Download source saved.</source>
+        <translation>已保存下载来源。</translation>
+    </message>
+    <message>
+        <source>Enter an HTTPS directory without a password, query, or fragment.</source>
+        <translation>请输入 HTTPS 目录地址，不要包含密码、查询参数或片段。</translation>
+    </message>
+    <message>
+        <source>Clear download and old runtime cache</source>
+        <translation>清理下载和旧运行环境缓存</translation>
+    </message>
+    <message>
+        <source>Keeps current and running installations. Partial downloads are removed and will restart from the beginning.</source>
+        <translation>保留当前和使用中的运行环境。未完成的下载会被删除，下次将从头下载。</translation>
+    </message>
+    <message>
+        <source>Export hosting diagnostics</source>
+        <translation>导出托管诊断</translation>
+    </message>
+    <message>
+        <source>Includes versions, platform and recent hosting states. Excludes decks, cards, connection credentials and local paths.</source>
+        <translation>包含版本、平台和最近的托管状态，不包含套牌、卡牌、连接凭据和本地路径。</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Save hosting diagnostics</source>
+        <translation>保存托管诊断</translation>
+    </message>
+    <message>
+        <source>JSON files</source>
+        <translation>JSON 文件</translation>
+    </message>
+    <message>
+        <source>Diagnostics saved.</source>
+        <translation>诊断文件已保存。</translation>
+    </message>
+    <message>
+        <source>Could not save the diagnostics file.</source>
+        <translation>无法保存诊断文件。</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeMigrationControls</name>
+    <message>
+        <source>Player %1</source>
+        <translation>玩家 %1</translation>
+    </message>
+    <message>
+        <source>Forge host: %1</source>
+        <translation>Forge 宿主：%1</translation>
+    </message>
+    <message>
+        <source>Verifying the game on the new host. Play is paused…</source>
+        <translation>正在新宿主上验证对局，操作已暂停…</translation>
+    </message>
+    <message>
+        <source>Migration verification failed. The original host is kept if available.</source>
+        <translation>迁移验证失败。原宿主仍在线时将继续使用原宿主。</translation>
+    </message>
+    <message>
+        <source>No backup host. The opponent can volunteer after preparing local Forge.</source>
+        <translation>尚无备用宿主。对手准备好本地 Forge 后可以申请。</translation>
+    </message>
+    <message>
+        <source>%1 volunteered. The current host must approve.</source>
+        <translation>%1 已申请成为备用宿主，等待当前宿主批准。</translation>
+    </message>
+    <message>
+        <source>Approved backup %1 is offline.</source>
+        <translation>已批准的备用宿主 %1 离线。</translation>
+    </message>
+    <message>
+        <source>Approved backup: %1. Recovery is automatic if the engine is lost and the position can be verified.</source>
+        <translation>已批准的备用宿主：%1。引擎丢失后，若局面可验证，将自动恢复。</translation>
+    </message>
+    <message>
+        <source>An approved successor receives both decks, the random seed and private choices during transfer. Only approve someone both players trust. Room ownership stays unchanged.</source>
+        <translation>迁移时，新宿主将收到双方牌表、随机种子及私密选择。请仅批准双方信任的人。房主身份保持不变。</translation>
+    </message>
+    <message>
+        <source>Volunteer as trusted backup</source>
+        <translation>申请成为可信备用宿主</translation>
+    </message>
+    <message>
+        <source>Trust and approve %1</source>
+        <translation>信任并批准 %1</translation>
+    </message>
+    <message>
+        <source>Transfer Forge to %1</source>
+        <translation>将 Forge 转交给 %1</translation>
+    </message>
+    <message>
+        <source>Recover Forge here</source>
+        <translation>在本机恢复 Forge</translation>
+    </message>
+    <message>
+        <source>This position cannot be migrated. Continue with the current host.</source>
+        <translation>当前局面无法迁移，请继续使用原宿主。</translation>
+    </message>
+    <message>
+        <source>Withdraw backup offer</source>
+        <translation>撤回备用宿主申请</translation>
+    </message>
+    <message>
+        <source>Revoke backup approval</source>
+        <translation>取消备用宿主批准</translation>
+    </message>
+</context>
+<context>
+    <name>ForgePeerControls</name>
+    <message>
+        <source>Player direct connection (P2P)</source>
+        <translation>玩家直连（P2P）</translation>
+    </message>
+    <message>
+        <source>P2P: %1</source>
+        <translation>P2P：%1</translation>
+    </message>
+    <message>
+        <source>This server does not support direct connections.</source>
+        <translation>当前服务器不支持玩家直连。</translation>
+    </message>
+    <message>
+        <source>Direct connection active</source>
+        <translation>直连已建立</translation>
+    </message>
+    <message>
+        <source>Connecting…</source>
+        <translation>正在建立直连…</translation>
+    </message>
+    <message>
+        <source>Waiting for the other player</source>
+        <translation>等待对方启用直连</translation>
+    </message>
+    <message>
+        <source>Transferring host…</source>
+        <translation>正在迁移宿主…</translation>
+    </message>
+    <message>
+        <source>Reconnecting to server…</source>
+        <translation>正在重连服务器…</translation>
+    </message>
+    <message>
+        <source>Server relay · Retry available</source>
+        <translation>服务器中转 · 可重试直连</translation>
+    </message>
+    <message>
+        <source>Server relay</source>
+        <translation>服务器中转</translation>
+    </message>
+    <message>
+        <source>Both players must agree to share network addresses and use a STUN service.</source>
+        <translation>双方需同意共享网络地址，并使用 STUN 服务。</translation>
+    </message>
+    <message>
+        <source>Use relay only</source>
+        <translation>仅使用中转</translation>
+    </message>
+    <message>
+        <source>Agree to P2P</source>
+        <translation>同意直连</translation>
+    </message>
+    <message>
+        <source>Retry direct</source>
+        <translation>重试直连</translation>
+    </message>
+</context>
 </TS>

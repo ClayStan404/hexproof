@@ -5,12 +5,13 @@ package server
 
 import (
 	"context"
-	"strings"
 	"time"
 
+	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
 	"hexproof/server/internal/rulesengine/forge"
+	"hexproof/server/internal/rulesinput"
 )
 
 func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error {
@@ -20,17 +21,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		return nil
 	}
 	var request protocol.RulesRespond
-	if err := env.DecodePayload(&request); err != nil || request.PromptID <= 0 ||
-		strings.TrimSpace(request.ResponseID) == "" || len(request.ResponseID) > 128 ||
-		len(request.Name) > 1024 ||
-		!validRulesPromptSelectionIDs(request.CardIDs, false) ||
-		!validRulesPromptSelectionIDs(request.TargetIDs, true) ||
-		!validRulesPromptChoiceIDs(request.ChoiceIDs) ||
-		!validRulesPromptOrderIDs(request.OrderedIDs) ||
-		!validRulesPromptScryPiles(request.ScryPiles) ||
-		!validRulesPromptAssignments(request.Assignments) ||
-		!validRulesPromptDamageOrderIDs(request.DamageOrderIDs) ||
-		!validRulesPromptDamageAssignments(request.DamageAssignments) {
+	if err := env.DecodePayload(&request); err != nil || !rulesinput.Valid(request) {
 		message := "invalid rules response"
 		if err != nil {
 			message = err.Error()
@@ -45,11 +36,19 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		return nil
 	}
 	defer operation.opMu.Unlock()
+	defer h.refreshPlayerHostStatus(r)
 
+	if h.replayPeerReceipt(r, sess, env.ID, request) {
+		return nil
+	}
 	seat, err := h.hub.RulesActorSeat(r, sess.ConnectionID)
 	if err != nil {
 		code, _ := ErrCode(err)
 		h.sendError(sess, env.ID, code, err.Error())
+		return nil
+	}
+	if h.playerHostPaused(r) {
+		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected, "The host is reconnecting; the game is paused")
 		return nil
 	}
 	game, ok := h.forgeGame(r.ID)
@@ -65,7 +64,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), forgePromptTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	rawPrompt, promptErr := game.client.Prompt(ctx, game.sessionID, playerIndex)
 	cancel()
 	if promptErr != nil {
@@ -90,31 +89,25 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		}
 		_, damageTargets, projectionErr := projectedRulesDamage(promptView.DamageSource,
 			promptView.DamageTargets, true, game, snapshot)
-		if projectionErr != nil || !validRulesDamageDistribution(
+		if projectionErr != nil || !rulesinput.ValidDamageDistribution(
 			damageTargets, promptView.TotalDamage, promptView.DamageAssignmentMode, request.DamageAssignments) {
 			h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 				"The combat damage assignment is invalid")
 			return nil
 		}
 	}
-	response, err := forge.BuildPromptResponse(rawPrompt, playerIndex, promptView.PromptID,
-		forge.PromptResponse{
-			ResponseID: request.ResponseID, CardIDs: request.CardIDs,
-			TargetIDs: request.TargetIDs, Assignments: forgePromptAssignments(request.Assignments),
-			ChoiceIDs: request.ChoiceIDs, OrderedIDs: request.OrderedIDs,
-			ScryPiles:         forgePromptScryPiles(request.ScryPiles),
-			DamageOrderIDs:    request.DamageOrderIDs,
-			DamageAssignments: forgePromptDamageAssignments(request.DamageAssignments),
-			ChosenNumber:      request.ChosenNumber,
-			Name:              request.Name,
-		})
+	response, err := rulesinput.Build(request, rawPrompt, playerIndex)
 	if err != nil {
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 			"The selection does not satisfy this Forge decision")
 		return nil
 	}
-	ctx, cancel = context.WithTimeout(context.Background(), forgePromptTimeout)
-	err = game.client.SubmitAction(ctx, game.sessionID, response)
+	ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
+	if remote, ok := game.client.(*forgehost.Runtime); ok {
+		err = remote.SubmitPlayerAction(ctx, game.sessionID, response, request.PeerBinding, env.ID)
+	} else {
+		err = game.client.SubmitAction(ctx, game.sessionID, response)
+	}
 	cancel()
 	if err != nil {
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
@@ -125,6 +118,15 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		h.failClosedGameProjections(r, err)
 		return nil
 	}
+
+	h.publishRulesDecision(r, game, sess.ConnectionID, env.ID, request, false)
+	return nil
+}
+
+// Caller holds opMu. Both transports use the identical redaction and match
+// lifecycle path; only delivery of the responding peer's envelopes differs.
+func (h *Handler) publishRulesDecision(r *room.Room, game forgeRoomGame, connectionID string, operationID string,
+	request protocol.RulesRespond, direct bool) *forgehost.PeerReply {
 
 	projections, err := h.rulesProjections(r)
 	if err != nil {
@@ -161,8 +163,18 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 	}
 	reply, _ := protocol.NewEnvelope(protocol.TypeRulesResponded,
 		protocol.RulesResponded{RoomID: r.ID, PromptID: request.PromptID})
-	reply.ID = env.ID
-	h.send(sess, reply)
+	reply.ID = operationID
+	peerReply := &forgehost.PeerReply{BindingID: request.PeerBinding, OperationID: operationID,
+		Envelopes: []protocol.Envelope{reply, projections[connectionID], prompts[connectionID]}}
+	h.savePeerReceipt(r.ID, game, connectionID, request, peerReply)
+	if direct && !gameOver {
+		delete(projections, connectionID)
+		delete(prompts, connectionID)
+	} else {
+		if sess := h.sessionByConn(connectionID); sess != nil {
+			h.send(sess, reply)
+		}
+	}
 	h.sendRulesProjections(projections)
 	h.sendRulesPrompts(prompts)
 	if gameOver {
@@ -171,210 +183,5 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			h.scheduleSideboardExpiration(r, resultDeadline)
 		}
 	}
-	return nil
-}
-
-func validRulesPromptChoiceIDs(ids []string) bool {
-	if len(ids) > 512 {
-		return false
-	}
-	for _, id := range ids {
-		if len(id) > 128 || !strings.HasPrefix(id, "choice:") {
-			return false
-		}
-	}
-	return true
-}
-
-func validRulesPromptAssignments(assignments []protocol.RulesPromptAssignment) bool {
-	if len(assignments) > 512 {
-		return false
-	}
-	for _, assignment := range assignments {
-		if len(assignment.SourceID) > 128 || len(assignment.TargetID) > 128 ||
-			!strings.HasPrefix(assignment.SourceID, "combat-source:") ||
-			!strings.HasPrefix(assignment.TargetID, "combat-target:") {
-			return false
-		}
-	}
-	return true
-}
-
-func forgePromptAssignments(assignments []protocol.RulesPromptAssignment) []forge.PromptAssignment {
-	result := make([]forge.PromptAssignment, 0, len(assignments))
-	for _, assignment := range assignments {
-		result = append(result, forge.PromptAssignment{
-			SourceID: assignment.SourceID, TargetID: assignment.TargetID,
-		})
-	}
-	return result
-}
-
-func validRulesPromptDamageOrderIDs(ids []string) bool {
-	if len(ids) > 512 {
-		return false
-	}
-	seen := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		if len(id) > 128 || !strings.HasPrefix(id, "damage-target:") {
-			return false
-		}
-		if _, duplicate := seen[id]; duplicate {
-			return false
-		}
-		seen[id] = struct{}{}
-	}
-	return true
-}
-
-func validRulesPromptDamageAssignments(assignments []protocol.RulesPromptDamageAssignment) bool {
-	if len(assignments) > 512 {
-		return false
-	}
-	seen := make(map[string]struct{}, len(assignments))
-	for _, assignment := range assignments {
-		if len(assignment.TargetID) > 128 ||
-			!strings.HasPrefix(assignment.TargetID, "damage-target:") || assignment.Damage < 0 {
-			return false
-		}
-		if _, duplicate := seen[assignment.TargetID]; duplicate {
-			return false
-		}
-		seen[assignment.TargetID] = struct{}{}
-	}
-	return true
-}
-
-func rulesDamageAssignmentMode(mode string) (string, bool) {
-	switch mode {
-	case protocol.RulesDamageOrdered, protocol.RulesDamageUnordered, protocol.RulesDamageDivideFreely:
-		return mode, true
-	default:
-		return "", false
-	}
-}
-
-func validRulesDamageDistribution(targets []protocol.RulesPromptDamageTarget, totalDamage int, mode string,
-	assignments []protocol.RulesPromptDamageAssignment) bool {
-	mode, supported := rulesDamageAssignmentMode(mode)
-	if !supported || totalDamage < 0 || len(assignments) != len(targets) {
-		return false
-	}
-	assigned := make(map[string]int, len(assignments))
-	total := 0
-	for _, assignment := range assignments {
-		if assignment.Damage < 0 {
-			return false
-		}
-		if _, duplicate := assigned[assignment.TargetID]; duplicate {
-			return false
-		}
-		assigned[assignment.TargetID] = assignment.Damage
-		if assignment.Damage > totalDamage-total {
-			return false
-		}
-		total += assignment.Damage
-	}
-	if total != totalDamage {
-		return false
-	}
-	laterDamage := 0
-	defenderDamage := 0
-	for index := len(targets) - 1; index >= 0; index-- {
-		target := targets[index]
-		damage, exists := assigned[target.ResponseID]
-		if !exists {
-			return false
-		}
-		gatedDamage := laterDamage
-		if mode == protocol.RulesDamageUnordered {
-			gatedDamage = defenderDamage
-		} else if mode == protocol.RulesDamageDivideFreely {
-			gatedDamage = 0
-		}
-		if gatedDamage > 0 && target.LethalDamage >= 0 && damage < target.LethalDamage {
-			return false
-		}
-		if target.LethalDamage == -1 {
-			defenderDamage += damage
-		}
-		laterDamage += damage
-	}
-	return true
-}
-
-func forgePromptDamageAssignments(assignments []protocol.RulesPromptDamageAssignment) []forge.PromptDamageAssignment {
-	result := make([]forge.PromptDamageAssignment, 0, len(assignments))
-	for _, assignment := range assignments {
-		result = append(result, forge.PromptDamageAssignment{
-			TargetID: assignment.TargetID, Damage: assignment.Damage,
-		})
-	}
-	return result
-}
-
-func validRulesPromptSelectionIDs(ids []string, opaque bool) bool {
-	if len(ids) > 512 {
-		return false
-	}
-	for _, id := range ids {
-		if strings.TrimSpace(id) == "" || len(id) > 512 ||
-			(opaque && !strings.HasPrefix(id, "target:")) {
-			return false
-		}
-	}
-	return true
-}
-
-func validRulesPromptOrderIDs(ids []string) bool {
-	if len(ids) > 512 {
-		return false
-	}
-	for _, id := range ids {
-		if len(id) > 128 || !strings.HasPrefix(id, "order:") {
-			return false
-		}
-	}
-	return true
-}
-
-func validRulesPromptScryPiles(piles []protocol.RulesPromptScryPile) bool {
-	if len(piles) > 5 {
-		return false
-	}
-	seen := make(map[string]struct{})
-	seenDestinations := make(map[string]struct{}, len(piles))
-	total := 0
-	for _, pile := range piles {
-		if _, supported := map[string]struct{}{
-			"libraryTop": {}, "libraryBottom": {}, "graveyard": {}, "exile": {}, "hand": {},
-		}[pile.Destination]; !supported {
-			return false
-		}
-		if _, duplicate := seenDestinations[pile.Destination]; duplicate {
-			return false
-		}
-		seenDestinations[pile.Destination] = struct{}{}
-		for _, id := range pile.CardIDs {
-			total++
-			if total > 512 || len(id) > 128 || !strings.HasPrefix(id, "scry:") {
-				return false
-			}
-			if _, duplicate := seen[id]; duplicate {
-				return false
-			}
-			seen[id] = struct{}{}
-		}
-	}
-	return true
-}
-
-func forgePromptScryPiles(piles []protocol.RulesPromptScryPile) []forge.PromptScryPile {
-	result := make([]forge.PromptScryPile, 0, len(piles))
-	for _, pile := range piles {
-		result = append(result, forge.PromptScryPile{
-			Destination: pile.Destination, CardIDs: append([]string(nil), pile.CardIDs...),
-		})
-	}
-	return result
+	return peerReply
 }

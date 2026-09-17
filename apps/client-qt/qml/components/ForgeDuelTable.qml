@@ -14,7 +14,7 @@ Rectangle {
     readonly property bool cardChoiceActive: cardChoiceDialog.requested
     readonly property bool damageChoiceActive: damageDialog.requested
     readonly property bool decisionDialogActive: cardChoiceActive || damageChoiceActive
-    readonly property bool modalOpen: gameMenu.opened || zonePopup.opened
+    readonly property bool modalOpen: gameMenu.opened || zonePopup.opened || hostingOptions.opened
         || cardChoiceDialog.visible || damageDialog.visible
     readonly property real unit: Math.min(width / 1600, height / 1000)
     readonly property int bottomSeat: tableController.handOwnerSeat >= 0 ? tableController.handOwnerSeat : 0
@@ -124,6 +124,11 @@ Rectangle {
         height: root.height
         edge: Qt.RightEdge
         RulesTableActionRail { anchors.fill: parent; tableController: root.tableController }
+    }
+    ForgeHostingDialog {
+        id: hostingOptions
+        service: root.tableController.wsModel.forgeHost || null
+        wsModel: root.tableController.wsModel
     }
     InfoBanner {
         objectName: "rulesErrorBanner"
@@ -437,7 +442,7 @@ Rectangle {
         externalCardChoices: true
         externalDamageChoices: true
         showZoneActions: true
-        showActions: !root.tableController.sideboarding
+        showActions: !root.tableController.sideboarding && root.tableController.hostingPaused !== true
         radius: 12 * root.unit
         color: "#f114222c"
         contextControls: Component {
@@ -446,6 +451,27 @@ Rectangle {
                 objectName: "forgeTableControls"
                 spacing: Theme.size(5)
 
+                Text {
+                    objectName: "forgeHostConnectionStatus"
+                    Layout.fillWidth: true
+                    visible: root.tableController.roomSession.hostingMode === "player"
+                    textFormat: Text.PlainText
+                    text: root.tableController.roomSession.hostStatus && root.tableController.roomSession.hostStatus.migrating === true
+                        ? qsTr("Verifying host transfer… The game is paused.") : root.tableController.hostingPaused === true
+                        ? qsTr("Waiting for the host to reconnect… The game is paused.")
+                        : root.tableController.wsModel.peerTransportState === "direct" ? qsTr("Player hosted · direct connection")
+                        : qsTr("Player hosted · server relay")
+                    color: root.tableController.hostingPaused === true ? Theme.warning : Theme.textMuted
+                    font.pixelSize: Theme.fontSize(11)
+                    wrapMode: Text.WordWrap
+                }
+                ForgePeerControls {
+                    objectName: "forgeTablePeerConnection"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    compact: true
+                    wsModel: root.tableController.wsModel
+                }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: Theme.size(8)
@@ -472,8 +498,10 @@ Rectangle {
                     }
                 }
 
-                RowLayout {
+                Flow {
+                    objectName: "forgeTableActions"
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     spacing: Theme.size(5)
                     AppButton {
                         objectName: "forgeGameMenu"
@@ -485,6 +513,16 @@ Rectangle {
                         onClicked: gameMenu.open()
                     }
                     AppButton {
+                        objectName: "forgeHostingOptions"
+                        visible: root.tableController.roomSession.hostingMode === "player"
+                        compact: true
+                        variant: "ghost"
+                        implicitHeight: Theme.size(30)
+                        font.pixelSize: Theme.fontSize(11)
+                        text: qsTr("Hosting")
+                        onClicked: hostingOptions.open()
+                    }
+                    AppButton {
                         objectName: "rulesToggleGameLogButton"
                         compact: true
                         variant: root.tableController.showGameLogRail ? "highlight" : "ghost"
@@ -494,7 +532,6 @@ Rectangle {
                         text: root.tableController.showGameLogRail ? qsTr("Hide log / chat") : qsTr("Show log / chat")
                         onClicked: root.tableController.setGameLogVisible(!root.tableController.showGameLogRail)
                     }
-                    Item { Layout.fillWidth: true }
                 }
             }
         }

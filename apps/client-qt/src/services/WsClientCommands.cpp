@@ -28,11 +28,41 @@ int formatMaxSeats(const QString &format, bool playtest)
 
 } // namespace
 
+void WsClient::preparePlayerHosting()
+{
+    const int hostSeat = m_roomSession->hostStatus().value(u"hostSeat"_s, 0).toInt();
+    if (m_roomSession->seatIndex() == hostSeat && m_playerHostingAvailable &&
+        !m_forgeHost->busy() && m_roomSession->hostingMode() == kHostingModePlayer &&
+        m_roomSession->phase() == kRoomPhaseWaiting) {
+        m_playerHostingConsent = true;
+        send(kTypeForgeHostRequest);
+    }
+}
+
+void WsClient::playerHostingAction(const QString &action)
+{
+    static const QSet<QString> actions{u"offer"_s,  u"withdraw"_s, u"approve"_s,
+                                       u"revoke"_s, u"migrate"_s,  u"refresh"_s};
+    if (!actions.contains(action) || !m_playerHostingAvailable ||
+        m_roomSession->hostingMode() != kHostingModePlayer || m_roomSession->seatIndex() < 0)
+        return;
+    if (action == u"offer"_s) {
+        if (!m_forgeHost->ready() || m_forgeHost->busy())
+            return;
+        m_backupHostingConsent = true;
+    }
+    if (action == u"withdraw"_s)
+        m_backupHostingConsent = false;
+    send(kTypeForgeHostRequest, {{u"action"_s, action}});
+}
+
 void WsClient::createRoom(const QString &name, const QString &format, const QString &deckFormat,
                           bool allowSpectators, bool spectatorsSeeHands, const QString &matchMode,
                           const QString &cardLoadMode, const QString &password, bool playtest,
-                          const QString &rulesMode)
+                          const QString &rulesMode, const QString &hostingMode)
 {
+    m_playerHostingConsent =
+        !playtest && rulesMode == kRulesModeForge && hostingMode == kHostingModePlayer;
     QJsonObject p;
     p.insert(u"name"_s, name);
     p.insert(u"format"_s, format);
@@ -44,6 +74,8 @@ void WsClient::createRoom(const QString &name, const QString &format, const QStr
     p.insert(u"matchMode"_s, playtest ? kMatchBO1 : matchMode);
     p.insert(u"cardLoadMode"_s, cardLoadMode);
     p.insert(u"rulesMode"_s, playtest ? kRulesModeManual : rulesMode);
+    if (!hostingMode.isEmpty())
+        p.insert(u"hostingMode"_s, hostingMode);
     if (!password.isEmpty())
         p.insert(u"password"_s, password);
     send(kTypeRoomCreate, p);
@@ -59,11 +91,14 @@ bool WsClient::hasCubeRoomCredential(const QString &roomId) const
     return !tournamentCredential(roomId.trimmed().toUpper()).isEmpty();
 }
 
-void WsClient::joinRoom(const QString &roomId, bool asSpectator, const QString &password)
+void WsClient::joinRoom(const QString &roomId, bool asSpectator, const QString &password,
+                        bool acceptPlayerHost)
 {
     QJsonObject p;
     p.insert(u"roomId"_s, roomId);
     p.insert(u"asSpectator"_s, asSpectator);
+    if (acceptPlayerHost)
+        p.insert(u"acceptPlayerHost"_s, true);
     if (!asSpectator) {
         const QString credential = tournamentCredential(roomId.trimmed().toUpper());
         if (!credential.isEmpty())

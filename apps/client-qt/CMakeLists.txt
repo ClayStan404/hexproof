@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.0.1")
+set(HEXPROOF_VERSION "2.0.2")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -167,6 +167,9 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/RulesStateModels.cpp
     src/services/ServerDirectory.cpp
     src/services/TournamentSessionState.cpp
+    src/services/PeerTransportService.cpp
+    src/services/WsClientPeer.cpp
+    src/services/ForgeHostService.cpp
     src/services/WsClient.cpp
     src/services/WsClientCommands.cpp
     src/services/WsClientTournamentCommands.cpp
@@ -338,6 +341,9 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/CombatDeclarationPopup.qml
         qml/components/CommanderDamagePopup.qml
         qml/components/ConfirmDialog.qml
+        qml/components/ForgeHostingDialog.qml
+        qml/components/ForgeMigrationControls.qml
+        qml/components/ForgePeerControls.qml
         qml/components/ConfigurableShortcut.qml
         qml/components/ConditionalMenuItem.qml
         qml/components/ConditionalMenuSeparator.qml
@@ -671,6 +677,78 @@ set_target_properties(hexproof PROPERTIES
     MACOSX_BUNDLE_ICON_FILE "hexproof.icns"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
+
+# Build the small native helper with the same source/version as the client.
+# Java/Forge stay optional downloads for users. Building its adapter requires
+# JDK 21+; it does not resolve Maven or rebuild the complete upstream reactor.
+find_program(HEXPROOF_GO_EXECUTABLE go REQUIRED)
+find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
+find_package(Java 21 REQUIRED COMPONENTS Development)
+set(HEXPROOF_FORGE_OVERLAY_DIR "${CMAKE_CURRENT_BINARY_DIR}/forge-overlay" CACHE PATH
+    "Build directory for the client-bundled Forge adapter")
+file(GLOB_RECURSE HEXPROOF_FORGE_OVERLAY_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/src/main/java/*.java")
+add_custom_command(
+    OUTPUT "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar"
+           "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.json"
+    COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/build-overlay.py"
+        --output "${HEXPROOF_FORGE_OVERLAY_DIR}" --javac "${Java_JAVAC_EXECUTABLE}"
+    DEPENDS ${HEXPROOF_FORGE_OVERLAY_SOURCES}
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/build-overlay.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/overlay-base.json"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/upstream.json"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/native-hooks.patch"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/runtimepkg/manifest.json"
+    VERBATIM)
+file(GLOB_RECURSE HEXPROOF_HOST_GO_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/forgehost/*.go"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/runtimepkg/*"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/rulesengine/forge/*.go"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../server/cmd/hexproof-forge-host/*.go")
+set(HEXPROOF_HOST_HELPER "${CMAKE_CURRENT_BINARY_DIR}/host-helper/hexproof-forge-host${CMAKE_EXECUTABLE_SUFFIX}")
+set(HEXPROOF_HOST_LDFLAGS "-X hexproof/server/internal/buildinfo.Version=${PROJECT_VERSION}")
+if(WIN32)
+    string(APPEND HEXPROOF_HOST_LDFLAGS " -H windowsgui")
+endif()
+add_custom_command(OUTPUT "${HEXPROOF_HOST_HELPER}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/host-helper"
+    COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/build-forge-helper.py"
+        --go "${HEXPROOF_GO_EXECUTABLE}" "--ldflags=${HEXPROOF_HOST_LDFLAGS}"
+        --output "${HEXPROOF_HOST_HELPER}" --overlay-dir "${HEXPROOF_FORGE_OVERLAY_DIR}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../server"
+    DEPENDS ${HEXPROOF_HOST_GO_SOURCES}
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/build-forge-helper.py"
+        "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar"
+        "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.json"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../server/go.mod"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../server/go.sum"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/buildinfo/buildinfo.go"
+    VERBATIM)
+add_custom_target(hexproof_forge_host ALL
+    DEPENDS "${HEXPROOF_HOST_HELPER}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:hexproof>"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${HEXPROOF_HOST_HELPER}" "$<TARGET_FILE_DIR:hexproof>/hexproof-forge-host${CMAKE_EXECUTABLE_SUFFIX}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar" "$<TARGET_FILE_DIR:hexproof>/forge-overlay.jar")
+add_dependencies(hexproof hexproof_forge_host)
+if(TARGET hexproof_native_audit)
+    add_dependencies(hexproof_native_audit hexproof_forge_host)
+    add_custom_command(TARGET hexproof_native_audit POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${HEXPROOF_HOST_HELPER}" "$<TARGET_FILE_DIR:hexproof_native_audit>/hexproof-forge-host${CMAKE_EXECUTABLE_SUFFIX}"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar" "$<TARGET_FILE_DIR:hexproof_native_audit>/forge-overlay.jar")
+endif()
+if(APPLE)
+    install(PROGRAMS "${HEXPROOF_HOST_HELPER}" DESTINATION "hexproof.app/Contents/MacOS")
+    install(FILES "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar" DESTINATION "hexproof.app/Contents/MacOS")
+else()
+    install(PROGRAMS "${HEXPROOF_HOST_HELPER}" DESTINATION bin)
+    install(FILES "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar" DESTINATION bin)
+endif()
 
 install(TARGETS hexproof
     BUNDLE DESTINATION .

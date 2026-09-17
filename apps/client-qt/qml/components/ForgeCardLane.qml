@@ -109,6 +109,7 @@ Item {
         required property string countersSummary
         required property int damage
         required property string attachedTo
+        required property int exiledCardCount
         readonly property string category: {
             void root.tableController.cardCatalogModel.imageRevision
             return grouping.category(slot, root.tableController.cardCatalogModel)

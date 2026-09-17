@@ -35,8 +35,8 @@ public final class NativeMechanicsRegressionTest {
                 return null;
             });
             JsonObject config = JsonParser.parseString("{\"gameId\":\"native-mechanics\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Mechanics A\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Mechanics B\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
-            try (NativeSession session = new NativeSession(config, base)) {
-                base.setFailureHandler(session::fail);
+            try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+                base.setTestSession(session);
                 session.game.setAge(GameStage.Play);
                 Player owner = session.game.getPlayers().get(0);
                 session.game.setStartingPlayer(owner);

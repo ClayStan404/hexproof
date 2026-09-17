@@ -26,6 +26,9 @@ TestCase {
             property string matchMode: "bo1"
             property string format: "modern"
             property string deckFormat: "modern"
+            property string hostingMode: "server"
+            property bool hostConnected: true
+            property var hostStatus: ({migrating:false})
             property bool spectatorsSeeHands: false
         }
         QtObject {
@@ -43,6 +46,15 @@ TestCase {
             property var gameSession: match
             property bool inRoom: true
             property bool rulesResponsePending: false
+            property string peerTransportState: "off"
+            property bool peerTransportAvailable: true
+            property bool directPeerEnabled: false
+            property var peerRequests: []
+            function setDirectPeerEnabled(enabled, retry) {
+                peerRequests = peerRequests.concat([{enabled:enabled, retry:retry === true}])
+                directPeerEnabled = enabled
+                peerTransportState = enabled ? "waiting" : "off"
+            }
             property string lastError: ""
             property var responses: []
             function respondRulesPrompt(id, response) {
@@ -62,6 +74,9 @@ TestCase {
             }
             function respondRulesPromptWithChoices(id, choices) {
                 responses = responses.concat([{id:id, choices:choices}]); rulesResponsePending = true
+            }
+            function respondRulesPromptWithNumber(id, value) {
+                responses = responses.concat([{id:id, number:value}]); rulesResponsePending = true
             }
         }
         QtObject {
@@ -132,8 +147,11 @@ TestCase {
         Theme.uiScale = 1
         room.role = "player"; room.seatIndex = 0; room.spectatorsSeeHands = false
         room.format = "modern"; room.deckFormat = "modern"
+        room.hostingMode = "server"
         match.sideboarding = false; transport.inRoom = true
         transport.responses = []; transport.rulesResponsePending = false
+        transport.peerTransportAvailable = true; transport.directPeerEnabled = false
+        transport.peerTransportState = "off"; transport.peerRequests = []
         testRulesPrompt.clear()
         verify(testRulesPrompt.applySnapshot(snapshot()))
         table.showGameLogRail = false
@@ -995,20 +1013,26 @@ TestCase {
         const localized = []
         for (const data of cases) {
             for (const language of ["en", "zh"])
-                localized.push(Object.assign({}, data, {tag:data.tag + "-" + language, language:language}))
+                for (const hosting of ["server", "player"])
+                    localized.push(Object.assign({}, data, {tag:data.tag + "-" + language + "-" + hosting,
+                        language:language, hosting:hosting}))
         }
         return localized
     }
     function test_tableControlsShareDecisionDockAndFreeTopEdge(data) {
         window.width = data.width; window.height = data.height; Theme.uiScale = data.scale
+        room.hostingMode = data.hosting
         testTranslations.setLanguage(data.language)
         action("playLand", "hand-0")
         const dock = item("rulesDecisionDock"), opponent = item("rulesPlayerTarget1")
         const top = item("forgeOpponentCreatures"), bottom = item("forgeOwnCreatures")
         verify(top.height + bottom.height > table.height * 0.7)
         verify(opponent.y < 12 * table.presentation.unit)
-        for (const name of ["forgeTurnIndicator", "forgeTurnPhase", "forgeGameMenu", "rulesToggleGameLogButton",
-                           "rulesPriorityStatus", "rulesFullControl", "rulesYieldMenuButton"]) {
+        const controls = ["forgeTurnIndicator", "forgeTurnPhase", "forgeGameMenu", "rulesToggleGameLogButton",
+            "rulesPriorityStatus", "rulesFullControl", "rulesYieldMenuButton"]
+            .concat(data.hosting === "player" ? ["forgeHostingOptions", "forgePeerStatus",
+                "forgePeerEnable", "forgePeerConsentNotice"] : [])
+        for (const name of controls) {
             const control = findChild(dock, name)
             verify(control !== null && control.visible, name + " belongs to the decision dock")
             const point = control.mapToItem(dock, 0, 0)
@@ -1037,6 +1061,65 @@ TestCase {
         match.sideboarding = false
         tryCompare(item("rulesActionBar"), "visible", true)
         verify(item("forgeTurnIndicator").visible)
+    }
+    function test_peerControlsOnTableAndBetweenGames_data() {
+        return [{tag:"host", seat:0, sideboarding:false}, {tag:"opponent", seat:1, sideboarding:false},
+            {tag:"between-games", seat:0, sideboarding:true}]
+    }
+    function test_peerControlsOnTableAndBetweenGames(data) {
+        room.hostingMode = "player"; room.seatIndex = data.seat
+        match.sideboarding = data.sideboarding
+        const panel = item("forgeTablePeerConnection")
+        waitForRendering(table)
+        const enable = findChild(panel, "forgePeerEnable")
+        verify(panel.visible && enable.visible && enable.enabled)
+        verify(!table.presentation.modalOpen)
+        compare(transport.peerRequests.length, 0)
+        mouseClick(enable)
+        compare(transport.peerRequests, [{enabled:true, retry:false}])
+        verify(!table.presentation.modalOpen)
+        transport.peerTransportState = "direct"
+        verify(findChild(panel, "forgePeerStatus").text.includes("Direct connection active"))
+        transport.peerTransportState = "relay"
+        waitForRendering(table)
+        const retry = findChild(panel, "forgePeerRetry")
+        verify(retry.visible)
+        mouseClick(retry)
+        compare(transport.peerRequests[1], {enabled:true, retry:true})
+        waitForRendering(table)
+        mouseClick(enable)
+        compare(transport.peerRequests[2], {enabled:false, retry:false})
+        room.role = "spectator"
+        verify(!panel.visible)
+    }
+    function test_numberDecisionRemainsInteractive_data() {
+        const rows = []
+        for (const hosting of ["server", "player"])
+            for (const maximum of [999, 2147483647])
+                rows.push({tag:hosting + "-" + maximum, hosting:hosting, maximum:maximum})
+        return rows
+    }
+    function test_numberDecisionRemainsInteractive(data) {
+        window.width = 1280; window.height = 729
+        room.hostingMode = data.hosting
+        action("cast", "hand-0")
+        mouseClick(item("forgeHandCard-hand-0"))
+        compare(transport.rulesResponsePending, true)
+        prompt("chooseNumber", {title:"Choose X for Walking Ballista", minNumber:0, maxNumber:data.maximum})
+        const input = item("rulesNumberInput")
+        for (let ancestor = input; ancestor; ancestor = ancestor.parent) {
+            verify(ancestor.visible && ancestor.enabled && ancestor.opacity > 0,
+                "Number input ancestor prevents native interaction: " + ancestor.objectName)
+        }
+        verify(input.width > 0 && input.height > 0)
+        const dock = item("rulesDecisionDock"), point = input.mapToItem(dock, 0, 0)
+        verify(point.x >= 0 && point.x + input.width <= dock.width + 1)
+        verify(point.y >= 0 && point.y + input.height <= dock.height + 1)
+        mouseClick(input.up.indicator)
+        compare(input.value, 1)
+        mouseClick(item("rulesConfirmNumber"))
+        compare(transport.responses.length, 2)
+        compare(transport.responses[1].number, 1)
     }
     function test_decisionsStayBesideBoardAndInsideWindow(data) {
         window.width = data.w; window.height = data.h

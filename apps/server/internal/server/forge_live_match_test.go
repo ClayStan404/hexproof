@@ -189,7 +189,7 @@ func liveForgeJoinFinishedGame(t *testing.T, ctx context.Context, srv *httptest.
 		DisplayName: peer.name, ClientVersion: buildinfo.Version, Protocol: protocol.ProtocolVersion,
 	})
 	peer.until(t, ctx, protocol.TypeSessionWelcome)
-	peer.command(t, ctx, protocol.TypeRoomJoin, "watch-result", protocol.RoomJoin{RoomID: roomID, AsSpectator: true})
+	peer.command(t, ctx, protocol.TypeRoomJoin, "watch-result", protocol.RoomJoin{RoomID: roomID, AsSpectator: true, AcceptPlayerHost: true})
 	peer.until(t, ctx, protocol.TypeGameSnapshot)
 	if peer.room.Phase != protocol.RoomPhaseStarted || peer.metadata.Result == nil ||
 		peer.metadata.Result.MatchFinished != matchFinished || (peer.metadata.Sideboard != nil) == matchFinished {

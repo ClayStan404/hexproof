@@ -30,11 +30,19 @@ Every room chooses one immutable gameplay mode:
 | Mode | Authority | Intended use |
 |------|-----------|--------------|
 | `manual` | Hexproof room reducer | Existing free-form tabletop and unusual interactions resolved by players |
-| `forge` | Forge rules runtime, hosted by the Hexproof server | Rules-enforced games with legal actions, priority, stack resolution, triggers, and state-based actions |
+| `forge` | Forge rules runtime, hosted by the server or consenting room creator | Rules-enforced games with legal actions, priority, stack resolution, triggers, and state-based actions |
 
 Manual rooms continue to use the current `game.*` commands and projections.
 Forge rooms use a separate command and projection family. The two reducers must
 not mutate the same live game, and a room cannot change mode after creation.
+
+Forge rooms additionally choose immutable `hostingMode`: `server` (also the
+omitted default) or `player`. Player hosting is optional trusted-host play for
+1v1, including Duel Commander and BO3. Public tournament rooms always use
+server hosting. Creation/listing/joining disclose the mode; joining a hosted
+room, including as spectator, requires `acceptPlayerHost: true`. See
+[player-hosted Forge](player-hosted-forge.md) for its protocol, lifecycle,
+preparation, trust limits, and verification.
 
 ## Runtime choice
 
@@ -83,8 +91,11 @@ Qt rules views
   -> typed WsClient rules commands
       -> hexproof.v1 rules envelopes
           -> Go rules-room coordinator
-              -> RulesEngine interface
-                  -> supervised Forge JSONL process
+              -> forge.Runtime interface
+                  -> local supervised Forge JSONL process
+                  OR
+                  -> private authenticated engine WebSocket
+                      -> desktop Go helper -> local Forge JSONL process
 ```
 
 The process adapter owns process startup, bounded RPC, cancellation, stderr
@@ -107,13 +118,30 @@ The initial Forge backend uses the harness `--interactive-server` contract:
   deciding player;
 - `getGameOver`, `endGame`, and `abortGame` close the lifecycle explicitly.
 
-Each game receives a fresh process; a process is never reused for another
-game, including a restart or the next game of BO3. Only one goroutine per
-process may write a request and read its matching response at a
-time because the upstream JSONL transport has ordered responses but no request
-identifier. Calls have a deadline and bounded response size. A malformed
-response, unexpected exit, or timeout makes affected Forge rooms unavailable;
-it never falls back to manual mutation of a partially resolved game.
+By default each game receives a fresh process, including restart and the next
+game of BO3. JSONL input and output are explicitly UTF-8, independent of the
+operating system's console encoding, in both dedicated and shared workers.
+This ordered JSONL transport allows one outstanding call. Operators
+can explicitly select adapter 3's shared workers with `-forge-games-per-jvm 2`
+(valid range 1–4; 1 retains dedicated processes). Shared requests carry positive
+monotonic request IDs; different games may complete out of order while each
+game lease remains serial. The startup probe must acknowledge the shared
+protocol and exact capacity; an older runtime is rejected.
+
+Each shared game owns its dispatchers, random source, object-ID counters,
+mutable counter/UI-card caches and failure handler. Waiting inside one game's
+synchronous menu must not block another game's input. Closing a game releases
+choices, interrupts native waits, cancels timers and waits for tasks to stop
+before its slot can be reused. A worker retires after 64 leases or one idle
+minute. FModel's card database and immutable resources remain shared.
+
+Requests, queues, response sizes and deadlines remain bounded. An ordinary
+game exception or invalid projection invalidates only that lease. A malformed
+transport, unknown response ID, in-flight timeout, fatal exit/OOM or native
+cleanup that does not terminate invalidates every lease in that worker. The
+blast radius is bounded by its configured 2–4 games. No uncertain mutation is
+retried on a different JVM; affected games use the existing aborted-game flow.
+Neither mode falls back to manual mutation of a partially resolved game.
 
 The host constructs immutable per-viewer publications on the game thread at
 stable decision boundaries and termination. RPC readers never traverse live
@@ -133,7 +161,9 @@ The public `rules.snapshot` envelope is a Hexproof-owned normalized DTO. The
 Forge adapter decodes the pinned harness shape privately, validates every
 player reference, maps engine player indexes back to authenticated room seats,
 and converts maps to deterministic arrays. Raw harness JSON never reaches the
-WebSocket or QML layers. A shared room sequence is used for all viewer-specific
+ordinary player/spectator WebSocket or QML layers. The dedicated engine
+connection carries privileged bundled publications between the helper and hub;
+it cannot join as a player or bypass seat authorization. A shared room sequence is used for all viewer-specific
 projections produced from one fan-out.
 
 Each player also carries a `commanders` array (empty for ordinary decks).
@@ -244,12 +274,15 @@ byte/file bounds and private archive permissions remain in force.
 
 ## Availability and failure behavior
 
-The server probes the configured Forge runtime during startup and exposes a
-capability flag in the session handshake. Manual-room availability never
-depends on Forge. Creating a Forge room is rejected with a stable availability
-error when the runtime is absent or unhealthy.
+The server probes its configured Forge runtime and exposes
+`forgeRulesAvailable` in the session handshake. `playerHostingAvailable` is an
+independent operator permission: relaying player-hosted rooms requires no Java
+on the hub. Manual-room availability never depends on either capability.
+Server-hosted room creation requires the local runtime; player-hosted creation
+requires the relay permission. The latter starts only after the creator's helper
+connects. Normal commands cannot supply executable paths or runtime downloads.
 
-An engine crash aborts only its active rules game, produces a public
+An engine crash aborts its active rules game(s), produces a public
 non-sensitive termination reason, and leaves the hub able to host manual rooms.
 The process supervisor observes actual child termination, not only the next
 player action. It returns the rules room using that process to `waiting`,
@@ -258,19 +291,23 @@ non-sensitive failure. Authoritative-query/projection failures invalidate the
 runtime; ordinary rejected actions and unsupported-deck startup do not abort
 unrelated games.
 
-A subsequent new game starts a fresh process on demand. Concurrent cold
-startups are serialized, each caller receives its own process, and failed
-startups have a short retry cooldown. Normal completion and abortion reap the
-game's process. Server shutdown also reaps children still starting a game.
-There is no automatic reconstruction of an in-progress game and no background
-restart loop. Old-process cleanup cannot reset a game on its replacement.
+A subsequent new game acquires an isolated lease on demand. Concurrent cold
+startups are serialized and failed startups have a short retry cooldown. Normal
+completion and abortion reap the dedicated process or acknowledge shared-game
+cleanup before releasing its slot. Server shutdown also reaps idle shared
+workers and children still starting a game.
+Server-hosted games have no automatic reconstruction or background restart
+loop. Old-process cleanup cannot reset a game on its replacement.
 
-The hub also enforces an operator-configured Forge capacity before spawning a
+For server hosting, the hub also enforces an operator-configured Forge capacity before spawning a
 process. `-max-forge-games` overrides `HEXPROOF_FORGE_MAX_GAMES`; the default is
 one. Both CLI and environment values must be positive integers. Cold startup
-and exiting children consume capacity until the process has been reaped. BO3
-sideboarding and host restarts retain the match's slot while the old JVM is
-reaped, so another room cannot interrupt an ongoing match by taking its place.
+and closing leases consume capacity until native cleanup is acknowledged (or
+the dedicated/failed process has been reaped). BO3 sideboarding and host
+restarts retain the match's slot during cleanup, so another room cannot
+interrupt an ongoing match by taking its place. `-forge-games-per-jvm` controls
+grouping, not the total game admission limit or a guarantee of memory usage.
+Heap/process limits still need to fit the operator's host budget.
 An abandoned match, failed transition, or completed match releases its slot.
 
 If all slots are occupied, a new match returns the existing `server_limit`
@@ -281,13 +318,32 @@ the runtime-failure cooldown, or affect existing games and manual rooms.
 Waiting rooms consume no Forge slot. The limit applies to one hub process;
 separate services sharing a host need a combined memory budget.
 
+Without a connected approved backup, player-hosted games use the same aborted-game flow on engine loss or expired
+transport grace, with `player_host_lost` instead of a fabricated winner. A
+surviving helper can reconnect within the bounded grace; new decisions pause
+while it is offline. Adapter 4 supports explicitly approved backup hosts and
+verified reconstruction through a bounded private operation journal; see
+[the migration contract](player-hosted-forge.md#verified-host-migration-adapter-4).
+Unsupported positions or a failed replay keep a healthy original, or use the
+existing aborted-game flow after loss. They never create a winner. Remote
+bindings have a separate capacity and do not consume server JVM slots.
+
 ## Packaging
 
 The Forge runtime, card scripts, license text, source offer, pinned revisions,
-and third-party notices are a separate server runtime payload. The pure Go
+and third-party notices are a separate runtime payload. The pure Go
 `hexproof-server` binary remains usable without Java. Release and deployment
 automation must either install the matching runtime payload or deliberately
 run with Forge capability disabled.
+
+Desktop packages also contain the native Go `hexproof-forge-host` helper.
+Players who volunteer as the initial or backup host download the pinned Forge payload and
+platform-specific Temurin JRE 21 into private, versioned application storage.
+Other players and spectators need neither Java nor Forge. The helper verifies
+archives, extracted engine files and Java files, probes startup, and installs
+repairs into a new immutable generation. Client builds now require the pinned
+Go toolchain as well as Qt/C++, Python 3.12+ and JDK 21+ for the bundled adapter
+overlay; release/CI jobs select the matching tools. Joining players need no JDK.
 
 `tools/run-local-forge-server.sh --prepare` builds and starts the local optional
 runtime. It validates the full pin/patch manifest and required resource files,
@@ -638,6 +694,11 @@ including an empty set when Forge advertises an optional choice. The server
 refetches the prompt and revalidates the range, uniqueness, and membership
 before reconstructing the canonical `chooseCardsDecision`; no rules text or
 unrelated engine card state crosses the WebSocket boundary.
+Native cross-zone target menus omit Forge's presentation-only zone headings
+from legal responses. Pure card lists use this card picker with printable
+identities; mixed lists retain the explicit finish-targeting action and the
+original candidate objects. Selecting a section title must never restart the
+same target prompt.
 Standard native card-list inputs reuse the official `setSelectables` minimum
 and maximum so multi-card decisions can be submitted as one complete batch.
 Native subclasses with additional selection constraints keep their own
@@ -676,6 +737,29 @@ presentation partitions cards among those destinations and orders each pile.
 Submission must repeat the exact destination sequence and place every current
 card exactly once; the server refetches the prompt and restores canonical ids
 only after validating that complete partition and ordering.
+
+The native human controller exposes scry as this complete two-pile decision,
+including scry 1 and retaining multiple cards on top. The 1v1 table presents
+scry and order decisions in a centered card dialog with visible reorder buttons
+and position numbers; the compact decision dock does not duplicate those inputs.
+Cleanup discards use a complete exact-count card choice, including discarding
+several cards at once; selected cards do not disappear into an incremental
+native input between confirmations.
+
+Native registration includes the player's current sideboard as a separate Forge
+deck section. Wish effects such as Karn, the Great Creator operate on that real
+section; sideboarding between games supplies the revised sections. Sideboard
+identities are never part of ordinary opponent/spectator publications. Only
+native selection/reveal decisions grant their intended temporary visibility.
+
+Token printings use the edition's explicit token set code and collector number,
+not the parent set's ordinary-card numbering. Named token suffixes used only by
+Forge are normalized for the catalog; copied ordinary cards retain their actual
+printing. Battlefield cards may expose `exiledCardCount` and `exiledCardIds` for
+cards still exiled with that exact native object. The count includes face-down
+cards, while links only join identities authorized in the viewer's current
+exile projection. Board badges distinguish identical permanents; inspection
+shows linked names or anonymous counts. Leaving exile removes the relationship.
 
 The sixth R3 slice supports both Forge combat-damage prompt families. Damage
 assignment order exposes the complete current assignee list as prompt-local

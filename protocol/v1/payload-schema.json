@@ -90,7 +90,8 @@
             "RulesModeManual",
             "RulesModeForge"
           ]
-        }
+        },
+        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]}
       ]
     },
     {
@@ -249,7 +250,10 @@
           "name": "forgeRulesAvailable",
           "type": "boolean",
           "required": true
-        }
+        },
+        {"name": "playerHostingAvailable", "type": "boolean", "required": false},
+        {"name": "peerTransportAvailable", "type": "boolean", "required": false},
+        {"name": "hostMigrationAvailable", "type": "boolean", "required": false}
       ]
     },
     {
@@ -335,6 +339,7 @@
             "RulesModeForge"
           ]
         },
+        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
         {
           "name": "password",
           "type": "string",
@@ -374,6 +379,7 @@
       "direction": "clientToServer",
       "goType": "RoomJoin",
       "fields": [
+        {"name": "acceptPlayerHost", "type": "boolean", "required": false},
         {
           "name": "roomId",
           "type": "string",

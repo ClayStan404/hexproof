@@ -987,6 +987,8 @@ QtObject {
             "invalid_match_mode": qsTr("Invalid match mode"),
             "invalid_card_load_mode": qsTr("Invalid card image loading mode"),
             "invalid_rules_mode": qsTr("Invalid gameplay rules mode"),
+            "player_host_lost": qsTr("The host engine was lost. This game was aborted without a winner. Prepare hosting and ready up to start a new game."),
+            "player_host_trust_required": qsTr("This is a player-hosted Forge room. Confirm that you trust the host before joining."),
             "rules_unavailable": qsTr("Forge rules are unavailable on this server"),
             "rules_action_rejected": qsTr("The Forge decision is stale or no longer available"),
             "not_player": qsTr("Only players can do that"),

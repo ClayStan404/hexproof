@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
 	"log"
@@ -84,7 +85,15 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, code, code)
 		return nil
 	}
-	if rc.RulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
+	if rc.HostingMode != "" && rc.HostingMode != "server" && rc.HostingMode != "player" {
+		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "invalid hosting mode")
+		return nil
+	}
+	if rc.HostingMode == "player" && (rc.RulesMode != protocol.RulesModeForge || rc.Playtest || maxSeats != 2 || !h.config.AllowPlayerHosting) {
+		h.sendError(sess, env.ID, protocol.ErrRulesUnavailable, "Player hosting requires an enabled server and a two-player Forge room")
+		return nil
+	}
+	if rc.RulesMode == protocol.RulesModeForge && rc.HostingMode != "player" && !h.forgeRulesAvailable() {
 		h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
 			"Forge rules mode is not available on this server")
 		return nil
@@ -111,8 +120,8 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	}
 	// Format dictates the multiplayer seat cap (2 or 4); Playtest overrides it
 	// with one private seat. Client MaxSeats is ignored (decisions.md).
-	r, initialSnapshot, initialSeq, operation, err := h.hub.CreateRoomWithRulesMode(
-		rc.Name, rc.Format, rc.DeckFormat, rc.MatchMode, rc.CardLoadMode, rc.RulesMode,
+	r, initialSnapshot, initialSeq, operation, err := h.hub.CreateRoomWithHostingMode(
+		rc.Name, rc.Format, rc.DeckFormat, rc.MatchMode, rc.CardLoadMode, rc.RulesMode, rc.HostingMode,
 		maxSeats, rc.AllowSpectators, rc.SpectatorsSeeHands, rc.Password, sess)
 	if err != nil {
 		code, _ := ErrCode(err)
@@ -123,6 +132,16 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 		return nil
 	}
 	defer operation.opMu.Unlock()
+	var hostLink *forgehost.Link
+	if r.HostingMode == "player" {
+		hostLink = h.allocatePlayerHost(r)
+		if hostLink == nil {
+			h.removeRoom(r)
+			sess.setRoom(nil)
+			h.sendError(sess, env.ID, protocol.ErrServerLimit, "player hosting capacity is full")
+			return nil
+		}
+	}
 	created := protocol.RoomCreated{
 		RoomID: r.ID,
 		Settings: protocol.RoomSettings{
@@ -137,6 +156,7 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 			CardLoadMode:       r.CardLoadMode,
 			HasPassword:        r.HasPassword,
 			RulesMode:          r.RulesMode,
+			HostingMode:        r.HostingMode,
 		},
 		HostSeat: r.HostSeat,
 	}
@@ -148,6 +168,9 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	snap, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, initialSnapshot)
 	snap = snap.WithSeq(initialSeq)
 	h.send(sess, snap)
+	if hostLink != nil {
+		h.sendPlayerHostGrant(sess, hostLink, "")
+	}
 	return nil
 }
 
@@ -195,6 +218,10 @@ func (h *Handler) handleRoomJoin(sess *Session, env protocol.Envelope) error {
 	if operation.tournamentID != "" && !rj.AsSpectator {
 		h.sendError(sess, env.ID, protocol.ErrTournamentForbidden,
 			"paired players must join this match from the tournament")
+		return nil
+	}
+	if operation.room.HostingMode == "player" && !rj.AcceptPlayerHost {
+		h.sendError(sess, env.ID, protocol.ErrPlayerHostTrustRequired, "This game runs on the creator's computer. Join only if you trust the host.")
 		return nil
 	}
 	res, r, err := h.hub.joinRoom(operation, sess, rj.AsSpectator)
@@ -484,6 +511,10 @@ func (h *Handler) handlePlayerReady(sess *Session, env protocol.Envelope) error 
 		return nil
 	}
 	defer operation.opMu.Unlock()
+	if request.Ready && h.playerHostPaused(r) {
+		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected, "Wait for the creator to connect local Forge")
+		return nil
+	}
 	res, err := h.hub.SetReady(sess.ConnectionID, request.Ready, r)
 	if err != nil {
 		code, _ := ErrCode(err)
@@ -663,6 +694,7 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 		tournamentID: h.hub.TournamentForRoom(r),
 		roomID:       r.ID,
 	}
+	h.revokePlayerHost(r.ID)
 	h.hub.RemoveRoom(r.ID)
 	h.abortForgeGame(r.ID)
 	h.cancelSideboardExpiration(r.ID)

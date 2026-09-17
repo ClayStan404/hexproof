@@ -365,7 +365,8 @@ Page {
                                     }
                                     StatusPill {
                                         visible: roomRow.modelData.rulesMode === "forge"
-                                        text: qsTr("Forge rules")
+                                        text: roomRow.modelData.hostingMode === "player"
+                                              ? qsTr("Forge · Player hosted") : qsTr("Forge · Server hosted")
                                         statusColor: Theme.accent
                                     }
                                 }
@@ -447,10 +448,11 @@ Page {
     function joinRoom(room, spectator) {
         if (!ws.connected)
             return
-        if (room.hasPassword) {
+        if (room.hasPassword || room.hostingMode === "player") {
             appWindow.pushScreen("screens/JoinRoom.qml", {
                 "roomCode": room.roomId,
-                "asSpectator": spectator
+                "asSpectator": spectator,
+                "hostingMode": room.hostingMode || ""
             })
             return
         }

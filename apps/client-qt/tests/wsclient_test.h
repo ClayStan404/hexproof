@@ -122,6 +122,9 @@ class TestWsClient : public QObject
     void sendsTypedDamageResponses() const;
     void rulesResponsesStayLockedUntilAuthoritativeProgress() const;
     void rulesResponsesRecoverAfterTimeoutAndDisconnect() const;
+    void playerHostingRequiresConsentAndPausesOfflineInput() const;
+    void directPeerRequiresCapabilityAndRoomConsent() const;
+    void hostingMirrorAndDiagnosticPrivacy() const;
     void parsesTypedDamagePrompts() const;
     void rollsBackPendingCommandsBeforeRoomIdentityClears() const;
     void destroysParserWorkersDeterministically() const;

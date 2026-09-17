@@ -41,19 +41,21 @@ type RulesCommanderState struct {
 // RulesCardState never includes Identity when Forge redacted the card for the
 // requested viewer.
 type RulesCardState struct {
-	ID             string             `json:"id"`
-	Visible        bool               `json:"visible"`
-	Identity       *RulesCardIdentity `json:"identity,omitempty"`
-	OwnerSeat      int                `json:"ownerSeat"`
-	ControllerSeat int                `json:"controllerSeat"`
-	Tapped         bool               `json:"tapped,omitempty"`
-	FaceDown       bool               `json:"faceDown,omitempty"`
-	Attacking      bool               `json:"attacking,omitempty"`
-	Power          string             `json:"power,omitempty"`
-	Toughness      string             `json:"toughness,omitempty"`
-	Counters       []RulesCounter     `json:"counters"`
-	Damage         int                `json:"damage,omitempty"`
-	AttachedTo     string             `json:"attachedTo,omitempty"`
+	ID              string             `json:"id"`
+	Visible         bool               `json:"visible"`
+	Identity        *RulesCardIdentity `json:"identity,omitempty"`
+	OwnerSeat       int                `json:"ownerSeat"`
+	ControllerSeat  int                `json:"controllerSeat"`
+	Tapped          bool               `json:"tapped,omitempty"`
+	FaceDown        bool               `json:"faceDown,omitempty"`
+	Attacking       bool               `json:"attacking,omitempty"`
+	Power           string             `json:"power,omitempty"`
+	Toughness       string             `json:"toughness,omitempty"`
+	Counters        []RulesCounter     `json:"counters"`
+	Damage          int                `json:"damage,omitempty"`
+	AttachedTo      string             `json:"attachedTo,omitempty"`
+	ExiledCardCount int                `json:"exiledCardCount,omitempty"`
+	ExiledCardIDs   []string           `json:"exiledCardIds,omitempty"`
 }
 
 type RulesZoneState struct {
@@ -259,6 +261,7 @@ type RulesPrompt struct {
 }
 
 type RulesRespond struct {
+	PeerBinding       string                        `json:"peerBinding,omitempty"`
 	PromptID          int64                         `json:"promptId"`
 	ResponseID        string                        `json:"responseId"`
 	CardIDs           []string                      `json:"cardIds,omitempty"`

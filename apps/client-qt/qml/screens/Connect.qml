@@ -18,6 +18,7 @@ Page {
     property int selectedServerIndex: -1
     property string selectedServerId: ""
     property int latencyRefreshCountdown: 0
+    readonly property bool compactHeight: root.height < Theme.size(700)
 
     Component.onCompleted: {
         root.selectServer(root.hub.serverIndex)
@@ -53,9 +54,8 @@ Page {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         contentWidth: width
-        contentHeight: Math.max(height,
-                                contentRow.y + contentRow.height
-                                + Theme.size(24))
+        contentHeight: contentRow.height > height
+                       ? contentRow.height + Theme.size(24) : height
         ScrollBar.vertical: ScrollBar {
             policy: connectBody.contentHeight > connectBody.height
                     ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -76,17 +76,17 @@ Page {
             objectName: "connectCard"
             Layout.fillWidth: true
             Layout.preferredWidth: Theme.size(570)
-            Layout.preferredHeight: Math.max(Theme.isCompactWidth(root.width)
+            Layout.preferredHeight: Math.max(Theme.isCompactWidth(root.width) || root.compactHeight
                                              ? 0 : Theme.size(570),
                                              form.implicitHeight
-                                             + Theme.size(64))
+                                             + 2 * form.anchors.margins)
             elevated: true
 
             ColumnLayout {
                 id: form
                 anchors.fill: parent
-                anchors.margins: Theme.size(32)
-                spacing: Theme.size(10)
+                anchors.margins: Theme.size(root.compactHeight ? 16 : 32)
+                spacing: Theme.size(root.compactHeight ? 6 : 10)
 
                 Text {
                     textFormat: Text.PlainText
@@ -99,7 +99,7 @@ Page {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    Layout.bottomMargin: Theme.size(16)
+                    Layout.bottomMargin: Theme.size(root.compactHeight ? 8 : 16)
                     text: qsTr("Choose a Hexproof server, then enter the name other players will see.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(14)
@@ -156,6 +156,19 @@ Page {
                         enabled: !root.hub.serverDirectoryRefreshing && !root.hub.connecting
                         onClicked: root.hub.refreshServerDirectory(true)
                     }
+                }
+
+                Text {
+                    objectName: "hostingCapabilitiesLabel"
+                    Layout.fillWidth: true
+                    visible: root.selectedServerIndex >= 0
+                             && (root.selectedServerIndex !== root.customServerIndex
+                                 || root.hub.customServerUrl.length > 0)
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: Theme.fontSize(11)
+                    color: Theme.textMuted
+                    text: root.hostingCapabilities(root.selectedServerIndex)
                 }
 
                 ColumnLayout {
@@ -390,9 +403,15 @@ Page {
             && root.hub.customServerUrl.length === 0) {
             return name
         }
-        name += " · " + (entry.forge === 1 ? qsTr("Forge supported")
-                         : entry.forge === 0 ? qsTr("Manual only")
-                                             : qsTr("Forge status unknown"))
+        if (entry.forge === 1)
+            name += " · " + qsTr("Server Forge")
+        if (entry.playerHosting === 1)
+            name += " · " + qsTr("Player hosting")
+        if (entry.forge !== 1 && entry.playerHosting !== 1)
+            name += " · " + (entry.forge === 0 && entry.playerHosting === 0
+                             ? qsTr("Manual only")
+                             : entry.forge === 0 ? qsTr("Server Forge unavailable")
+                                                 : qsTr("Forge status unknown"))
         const latencies = root.hub.serverLatencies
         const latency = latencies.length > index ? latencies[index] : -2
         if (latency >= 0)
@@ -400,6 +419,16 @@ Page {
         if (latency === -1)
             return name + " · " + qsTr("Unavailable")
         return name + " · " + qsTr("Checking…")
+    }
+
+    function hostingCapabilities(index) {
+        const entry = root.hub.serverEntries[index] || ({})
+        function label(value) {
+            return value === 1 ? qsTr("Supported")
+                 : value === 0 ? qsTr("Unavailable") : qsTr("Unknown")
+        }
+        return qsTr("Player hosting: %1 · Direct connection: %2 · Host migration: %3")
+            .arg(label(entry.playerHosting)).arg(label(entry.directPeer)).arg(label(entry.hostMigration))
     }
 
     function selectServer(index) {

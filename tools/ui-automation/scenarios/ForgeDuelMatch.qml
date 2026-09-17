@@ -6,6 +6,10 @@ import "ForgeStackStudy.js" as StackStudy
 import "ForgeBorosStudy.js" as BorosStudy
 import "ForgeCardChoiceStudy.js" as CardChoiceStudy
 import "ForgePauperStudy.js" as PauperStudy
+import "ForgeEldraziStudy.js" as EldraziStudy
+import "ForgeTournamentStudy.js" as TournamentStudy
+import "ForgeMigrationStudy.js" as MigrationStudy
+import "ForgePeerStudy.js" as PeerStudy
 
 // Room/deck setup is recorded fixture preparation. Every rules decision is
 // delivered through production controls in the two exposed native windows.
@@ -13,12 +17,31 @@ Item {
     id: driver
     property int seat: Number(auditProbe.environment("HEXPROOF_AUDIT_SEAT"))
     property string variant: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") || "modern"
+    readonly property bool playerHosted: auditProbe.environment("HEXPROOF_AUDIT_PLAYER_HOSTED") === "1"
+    readonly property bool migrationAudit: ["1", "loss"].includes(auditProbe.environment("HEXPROOF_AUDIT_MIGRATION"))
+    readonly property bool peerAudit: auditProbe.environment("HEXPROOF_AUDIT_PEER") === "1"
+    readonly property string peerExpected: auditProbe.environment("HEXPROOF_AUDIT_PEER_EXPECTED") || "direct"
+    property bool peerConnectingObserved: false
+    property int peerStep: 0
+    property bool peerDone: false
+    property double peerStartedAt: 0
+    property int migrationStep: 0
+    property bool migrationDone: false
+    property bool checkedBackup: false
+    readonly property bool spectator: seat > 2
+    property bool checkedRuntime: false
+    readonly property bool recoveryAudit: variant === "recovery"
+    property int recoveryStep: 0
+    property bool capturedPause: false
+    property bool capturedAbort: false
     readonly property string format: variant.startsWith("duel") ? "duel" : "modern"
     readonly property bool extended: variant.endsWith("-bo3")
     readonly property bool stackStudy: variant === "stack"
     readonly property bool borosStudy: variant === "boros" || variant === "boros-zones"
     readonly property bool cardChoiceStudy: variant === "boros-zones"
     readonly property bool pauperStudy: variant === "pauper"
+    readonly property bool eldraziStudy: variant === "eldrazi"
+    readonly property bool tournamentStudy: variant === "affinity" || variant === "duel-phelia"
     readonly property string deckFormat: pauperStudy ? "pauper" : format
     property var stackObserved: ({})
     property var stackReview: null
@@ -41,6 +64,7 @@ Item {
     property int maximumTax: 0
     property int completedGames: 0
     property string previousGame: ""
+    property double observedSnapshot: -1
     property int expectedStarter: -1
     property bool liveResumed: false
     property bool sideboardResumed: false
@@ -64,6 +88,8 @@ Item {
     }
     function capture(name) { require(auditProbe.capture(auditWindow, name), "Capture failed") }
     function deck() {
+        if (tournamentStudy) return TournamentStudy.deck(driver)
+        if (eldraziStudy) return BorosStudy.deck(driver)
         if (pauperStudy) return PauperStudy.deck(seat)
         if (borosStudy) return BorosStudy.deck(driver)
         if (stackStudy) return StackStudy.deck(seat)
@@ -93,13 +119,16 @@ Item {
     function state() {
         return {stage:stage, seat:seat, format:format, deckFormat:deckFormat, gameId:session.gameId, turn:session.turn, step:session.step,
             promptId:session.promptId, promptKind:session.promptKind, promptPending:session.promptPending,
+            rulesResponsePending:ws.rulesResponsePending, roomConnected:table ? table.roomConnected : false,
             options:session.promptOptionItems(), title:session.promptTitle, detail:session.promptDetail,
             realDeckReview:borosStudy ? BorosStudy.snapshot(driver) : null,
+            eldraziReview:eldraziStudy ? EldraziStudy.state() : null,
+            tournamentReview:tournamentStudy ? TournamentStudy.state() : null,
             cardChoiceReview:cardChoiceStudy ? CardChoiceStudy.state() : null,
             commander:commander(), error:ws.lastError, decisions:decisions, lands:lands,
             casts:casts, attacks:attacks, payments:payments, kinds:Object.keys(seenKinds),
             winnerSeat:session.winnerSeat, gameOver:session.gameOver,
-            result:ws.gameSession.result, roomPhase:ws.roomSession.phase, stackObserved:stackObserved}
+            result:ws.gameSession.result, roomPhase:ws.roomSession.phase, stackObserved:stackObserved, migrationDone:migrationDone, peerDone:peerDone, directPeerDecisions:ws.directPeerDecisions, peerFallbacks:ws.peerFallbacks, peerTransport:ws.peerTransportState, peerMetrics:ws.peerTransportMetrics}
     }
     function extendedState() {
         return {blocks:blocks, damageDecisions:damageDecisions, commanderReturns:commanderReturns,
@@ -236,6 +265,8 @@ Item {
         const options = session.promptOptionItems()
         if (pauperStudy) PauperStudy.observe(driver)
         if (cardChoiceStudy && CardChoiceStudy.act(driver)) return
+        if (eldraziStudy && EldraziStudy.act(driver)) return
+        if (tournamentStudy && TournamentStudy.act(driver)) return
         if (borosStudy && BorosStudy.act(driver, cardChoiceStudy ? CardChoiceStudy.actionOptions(driver) : null)) return
         switch (session.promptKind) {
         case "diceRolled": click("rulesPromptOption-$ack"); return
@@ -300,8 +331,12 @@ Item {
                 if (extended && format === "modern" && !(auditProbe.readShared("complex-damage") || {}).done
                     && (seat === 2 || !["Colossal Dreadmaw", "Duskdale Wurm"].includes(source.name))) continue
                 if (source.validTargets.length && !table.combatInteraction.selectedTargets(source.responseId).length) {
-                    if (click("forgeCard-" + source.objectId)) attacks++
-                    else wheelToCard(source.objectId, false)
+                    if (table.combatInteraction.selectedSource === source.responseId) {
+                        const target = source.validTargets.find(value => value.kind === "player") || source.validTargets[0]
+                        if (click(target.kind === "player" ? "rulesPlayerTarget" + target.seat : "forgeCard-" + target.objectId)) attacks++
+                    } else if (click("forgeCard-" + source.objectId)) {
+                        if (source.validTargets.length === 1) attacks++
+                    } else wheelToCard(source.objectId, false)
                     return
                 }
             }
@@ -364,7 +399,42 @@ Item {
         default: throw new Error("Unhandled native fixture decision: " + session.promptKind)
         }
     }
+    function recoverHostedGame() {
+        const fault = auditProbe.readShared("host-fault") || {}
+        if (!fault.started || recoveryStep >= 3) return false
+        if (ws.lastError) {
+            require(ws.lastError.startsWith("player_host_lost:") || ws.lastError.startsWith("rules_unavailable:") || ws.lastError.startsWith("rules_action_rejected:"), "Unexpected failure: " + ws.lastError)
+            auditProbe.fixture("acknowledge-host-failure", {code:ws.lastError.split(":")[0]})
+            ws.requestRoomList()
+        }
+        if (ws.roomSession.phase === "started") {
+            if (!ws.roomSession.hostConnected && !capturedPause && table && table.hostingPaused === true) {
+                require(!table.interaction.canRespond, "Paused game still accepts decisions")
+                capture("host-paused"); capturedPause = true
+            }
+            return true
+        }
+        require(!session.active && !ws.gameSession.result.matchFinished, "Engine loss invented a match result")
+        if (!capturedAbort) { capture("host-aborted"); capturedAbort = true }
+        if (seat === 1 && recoveryStep === 0 && !ws.forgeHost.busy) {
+            auditProbe.fixture("request-fresh-host-helper")
+            ws.preparePlayerHosting(); recoveryStep = 1
+        }
+        if (!ws.roomSession.hostConnected) return true
+        recoveryStep = 3; stage = spectator ? 3 : 2; promptId = -1; progress = Date.now()
+        auditProbe.record("host-recovered", {abortedGame:fault.gameId, capturedPause:capturedPause, waitingReset:true})
+        return true
+    }
     function tick() {
+        if (PeerStudy.tick(driver, ws, auditProbe)) return
+        if (MigrationStudy.tick(driver, ws, auditProbe)) return
+        if (recoveryAudit && recoverHostedGame()) return
+        // A real-deck turn can contain many decisions. Spectators observe
+        // published snapshots, not private prompts or only turn boundaries.
+        if (spectator && session.active && session.snapshotRevision !== observedSnapshot) {
+            observedSnapshot = session.snapshotRevision
+            progress = Date.now()
+        }
         require(!ws.lastError, "Server error: " + ws.lastError)
         require(Date.now() - progress < 75000, "No observable progress for 75 seconds")
         if (auditWindow.stack.busy) return
@@ -404,15 +474,21 @@ Item {
         if (stage === 0) {
             if (!ws.connected) return
             if (seat === 1) {
-                require(["modern", "duel", "modern-bo3", "duel-bo3", "stack", "boros", "boros-zones", "pauper"].includes(variant), "Unsupported test variant")
+                require(["modern", "duel", "modern-bo3", "duel-bo3", "stack", "boros", "boros-zones", "pauper", "recovery", "eldrazi", "affinity", "duel-phelia"].includes(variant), "Unsupported test variant")
+                if (playerHosted) {
+                    require(ws.playerHostingAvailable && !ws.forgeRulesAvailable, "Expected relay-only hub")
+                    if (!checkedRuntime) { ws.forgeHost.check(); checkedRuntime = true; return }
+                    if (ws.forgeHost.busy) return
+                    require(ws.forgeHost.ready, "Prepare the pinned test runtime before this scenario")
+                }
                 auditProbe.fixture("create-loopback-forge-room", {rulesMode:"forge", format:format})
-                ws.createRoom("Native Forge duel", format, deckFormat, true, false, extended ? "bo3" : "bo1", "background", "", false, "forge")
+                ws.createRoom("Native Forge duel", format, deckFormat, true, false, extended ? "bo3" : "bo1", "background", "", false, "forge", playerHosted ? "player" : "server")
                 stage = 1
             } else {
                 const shared = auditProbe.readShared("forge-room")
                 if (shared && shared.id) {
                     auditProbe.fixture("join-loopback-forge-room", {roomId:shared.id})
-                    ws.joinRoom(shared.id, false, ""); stage = 1
+                    ws.joinRoom(shared.id, spectator, "", playerHosted); stage = 1
                 }
             }
             return
@@ -420,12 +496,14 @@ Item {
         if (stage === 1) {
             if (!ws.inRoom) return
             if (seat === 1) auditProbe.share("forge-room", {id:ws.roomSession.roomId})
+            if (spectator) { stage = 3; progress = Date.now(); return }
             const fixtureDeck = deck()
             auditProbe.fixture("select-test-deck", fixtureDeck)
             ws.selectDeck(fixtureDeck); stage = 2; progress = Date.now(); return
         }
         if (stage === 2) {
-            if (!ws.roomSession.selectedDeckName) return
+            if (!ws.roomSession.selectedDeckName || (playerHosted && !ws.roomSession.hostConnected)) return
+            if (ws.roomSession.seats.length !== 2 || ws.roomSession.seats.some(value => !value.deckSelected)) return
             auditProbe.fixture("ready-for-real-engine-game")
             ws.setReady(true); stage = 3; progress = Date.now(); return
         }
@@ -434,9 +512,20 @@ Item {
             require(ws.roomSession.rulesMode === "forge" && ws.roomSession.maxSeats === 2, "Wrong rules mode or seats")
             require(item("rulesPlayerTarget0").life === 20 && item("rulesPlayerTarget1").life === 20, "Incorrect starting life")
             capture("opening"); stage = 4; progress = Date.now()
+            if (spectator) { stage = 60; return }
             if (format === "duel") {
                 require(table.zoneCount(ws.roomSession.seatIndex, "command") === 1, "Commander missing from command zone")
                 if (click("forgeZone-command")) stage = 31
+            }
+            return
+        }
+        if (stage === 60) {
+            require(!session.promptPending && session.promptOptionItems().length === 0, "Spectator received private decisions")
+            if ((auditProbe.readShared("forge-host-finished") || {}).done) {
+                capture("spectator-finished")
+                auditProbe.record("result", {status:"passed", scenario:"forge-player-host-spectator", seat:seat, privatePrompts:false,
+                    requiredScreenshots:["opening.png", "spectator-finished.png"].concat(recoveryAudit ? ["host-aborted.png"] : [])})
+                driverClock.enabled = false; auditProbe.finish(0)
             }
             return
         }
@@ -447,6 +536,12 @@ Item {
             return
         }
         if (stage === 4) {
+            if (recoveryAudit && seat === 1 && recoveryStep === 0 && decisions > 5 && session.promptPending) {
+                capture("before-host-crash")
+                auditProbe.share("host-fault", {started:true, gameId:session.gameId})
+                require(auditProbe.crashHostingHelper(ws), "Cannot inject helper exit")
+                return
+            }
             observePublicTable()
             if (extended && extendedTick()) return
             if (session.gameOver) {
@@ -468,27 +563,41 @@ Item {
                     else require((seat !== 1 || damageDecisions > 0 && boardMoveStage === 4) && (seat !== 2 || blocks >= 2), "Trample/sideboard coverage incomplete")
                     completedGames++
                 }
+                if (migrationAudit) require(migrationDone, "Host migration GUI was not exercised")
+                if (peerAudit) {
+                    require(peerDone, "Peer consent/connection UI was not exercised")
+                    if (peerExpected === "relay")
+                        require(ws.directPeerDecisions === 0 && ws.peerTransportState === "relay",
+                            "Blocked direct path did not remain on relay")
+                }
                 capture("finished")
                 auditProbe.record("result", Object.assign({status:"passed", scenario:"forge-duel-match",
                     evidence:"native-qt-input", roomAndDeckSetup:"fixture", gameActions:"production-controls",
                     requiredScreenshots:["opening.png", "stack.png", "combat.png", "finished.png"]
                         .concat(format === "duel" ? ["command-zone.png"] : [])
+                        .concat(migrationAudit ? ["migration-completed.png"] : [])
+                        .concat(peerAudit ? [peerExpected === "relay" ? "peer-fallback.png" : "peer-connected.png"] : [])
+                        .concat(recoveryAudit ? ["host-paused.png", "host-aborted.png"] : [])
                         .concat(cardChoiceStudy && seat === 1 ? ["private-choice-disconnected.png", "reconnect-private-choice.png"] : [])
                         .concat(extended ? ["sideboard-1.png", "reconnect-live.png", "reconnect-sideboard.png", "reconnect-result.png"] : [])}, state(), extendedState()))
-                timer.stop(); auditProbe.finish(0); return
+                if (seat === 1) auditProbe.share("forge-host-finished", {done:true})
+                driverClock.enabled = false; auditProbe.finish(0); return
             }
             act()
         }
     }
-    Timer {
-        id: timer
-        interval: 180; repeat: true; running: true
-        onTriggered: {
+    Connections {
+        id: driverClock
+        target: auditProbe
+        function onStepRequested() {
             if (driver.busy) return
             driver.busy = true
             try { driver.tick() }
             catch (error) {
-                stop()
+                driverClock.enabled = false
+                // A window grab can polish pending layouts; retain the
+                // inaccessible control geometry before requesting a frame.
+                auditProbe.record("failure-observation", auditProbe.observe(auditWindow))
                 driver.capture("failure")
                 auditProbe.record("result", Object.assign(driver.state(), {status:"failed", error:String(error)}))
                 auditProbe.finish(1)

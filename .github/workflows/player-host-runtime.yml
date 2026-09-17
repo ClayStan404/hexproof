@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Player-hosted Forge runtime
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    name: Native runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
+      - name: Download, verify, probe and play BO1/BO3 through the relay
+        shell: bash
+        run: >-
+          ${{ runner.os == 'Windows' && 'python' || 'python3' }} tools/qualify-player-host.py
+          --runtime-dir "$RUNNER_TEMP/hexproof-host-runtime"
+          --output build/player-host-qualification
+      - name: Keep native qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: player-host-${{ matrix.os }}
+          path: |
+            build/player-host-qualification/*.log
+            build/player-host-qualification/*.json
+          retention-days: 7

@@ -33,6 +33,7 @@ type CardIdentity struct {
 type PlayerConfig struct {
 	Name           string         `json:"name"`
 	Deck           []CardIdentity `json:"deck"`
+	Sideboard      []CardIdentity `json:"sideboard,omitempty"`
 	CommanderNames []string       `json:"commanderNames,omitempty"`
 	AI             bool           `json:"ai,omitempty"`
 }
@@ -69,9 +70,14 @@ func (request StartGameRequest) validate() error {
 			return fmt.Errorf("player %d deck must contain between 1 and %d cards",
 				playerIndex, maxCardsPerPlayer)
 		}
-		for cardIndex, card := range player.Deck {
-			if strings.TrimSpace(card.Name) == "" {
-				return fmt.Errorf("player %d card %d name is required", playerIndex, cardIndex)
+		if len(player.Sideboard) > maxCardsPerPlayer {
+			return fmt.Errorf("player %d sideboard exceeds %d cards", playerIndex, maxCardsPerPlayer)
+		}
+		for _, section := range [][]CardIdentity{player.Deck, player.Sideboard} {
+			for cardIndex, card := range section {
+				if strings.TrimSpace(card.Name) == "" {
+					return fmt.Errorf("player %d card %d name is required", playerIndex, cardIndex)
+				}
 			}
 		}
 	}

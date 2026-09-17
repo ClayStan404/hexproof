@@ -15,6 +15,10 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | File | Direction | Purpose |
 |------|-----------|---------|
 | `tournament-chat-*.json` | both | Event-scoped text messages and bounded history; server-authored names and sequences |
+| `forge-peer-*.json` | both | Explicit per-seat direct-transport consent, private binding and bounded signaling; no spectator delivery |
+| `forge-host-request.json` / `forge-host-grant.json` | both | Hosting preparation and a private room capability for a consenting host; never broadcast |
+| `forge-host-offer.json` | C -> S | Explicitly volunteer as a trusted backup; current-host approval remains separate |
+| `forge-host-status.json` / `forge-host-status-migrating.json` | S -> C | Public host, standby, approval and transfer status without private engine messages |
 | `session-hello.json` | C -> S | Handshake offer (no top-level `v`) |
 | `session-welcome.json` | S -> C | Authoritative `v` and opaque resume credential in payload; echoes `id`. No `seq` (session-level, not per-room) |
 | `session-resume-hello.json` | C -> S | Reconnect offer with the opaque credential and last observed room sequence |

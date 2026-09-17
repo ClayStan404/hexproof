@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "NativeAudit.h"
+#include "services/ForgeHostService.h"
 #include "services/WsClient.h"
 #ifdef HEXPROOF_NATIVE_AUDIT_GTK
 #include "NativeGtkInput.h"
@@ -218,6 +219,17 @@ bool artifactName(const QString &name)
 
 } // namespace
 
+QString NativeAudit::profileStorageRoot()
+{
+    const QFileInfo profile(auditEnvironment(QStringLiteral("HEXPROOF_TEST_PROFILE_ROOT")));
+    if (!profile.isAbsolute() || !profile.isDir())
+        return {};
+    const QString root = profile.canonicalFilePath();
+    if (root.isEmpty() || root == QDir::rootPath())
+        return {};
+    return QDir(root).filePath(QStringLiteral("data/Hexproof/Hexproof"));
+}
+
 bool NativeAudit::validateEnvironment(const QString &storageRoot)
 {
     const QFileInfo driver(auditEnvironment(QStringLiteral("AUDIT_DRIVER")));
@@ -236,8 +248,9 @@ bool NativeAudit::validateEnvironment(const QString &storageRoot)
         return false;
     }
     if (!driver.isAbsolute() || !driver.isFile() || !QDir::isAbsolutePath(output) ||
-        profile.isEmpty() || profile == QDir::rootPath() || !storage.startsWith(profile + u'/') ||
-        platform == QStringLiteral("offscreen") || platform == QStringLiteral("minimal")) {
+        storageRoot.isEmpty() || profile.isEmpty() || profile == QDir::rootPath() ||
+        !storage.startsWith(profile + u'/') || platform == QStringLiteral("offscreen") ||
+        platform == QStringLiteral("minimal")) {
         qCritical() << "Native audit requires an absolute existing HEXPROOF_AUDIT_DRIVER, absolute"
                        " HEXPROOF_AUDIT_OUTPUT, isolated HEXPROOF_TEST_PROFILE_ROOT containing"
                        " the application data directory, and a native Qt display platform.";
@@ -608,6 +621,19 @@ bool NativeAudit::click(QQuickItem *item, qreal x, qreal y)
     return ok;
 }
 
+bool NativeAudit::hover(QQuickItem *item)
+{
+    const auto started = m_elapsed.elapsed();
+    QPointF point;
+    const bool ok = targetPoint(item, &point);
+    const QVariantMap target = item ? itemDescription(item) : QVariantMap{};
+    if (ok)
+        QTest::mouseMove(m_window, point.toPoint());
+    trace(QStringLiteral("hover"),
+          {{QStringLiteral("accepted"), ok}, {QStringLiteral("target"), target}}, started);
+    return ok;
+}
+
 bool NativeAudit::doubleClick(QQuickItem *item)
 {
     const auto started = m_elapsed.elapsed();
@@ -846,6 +872,18 @@ bool NativeAudit::interruptTransport(QObject *client)
     return true;
 }
 
+bool NativeAudit::crashHostingHelper(QObject *client)
+{
+    auto *transport = qobject_cast<WsClient *>(client);
+    if (!transport || !transport->connected() ||
+        !QHostAddress(QUrl(transport->serverUrl()).host()).isLoopback() ||
+        !transport->m_forgeHost->hosting())
+        return artifactFailure(QStringLiteral("Hosting fault requires an owned loopback helper"));
+    fixture(QStringLiteral("crash-loopback-host-helper"));
+    transport->m_forgeHost->m_process.kill();
+    return true;
+}
+
 void NativeAudit::fixture(const QString &name, const QVariantMap &detail)
 {
     ++m_fixtureCount;
@@ -889,9 +927,12 @@ void NativeAudit::startDriver()
 void NativeAudit::heartbeat()
 {
     record(QStringLiteral("heartbeat"),
-           QVariantMap{{QStringLiteral("monotonicMs"), m_elapsed.elapsed()},
-                       {QStringLiteral("inputs"), m_inputCount},
-                       {QStringLiteral("finished"), m_finished}});
+           QVariantMap{
+               {QStringLiteral("monotonicMs"), m_elapsed.elapsed()},
+               {QStringLiteral("inputs"), m_inputCount},
+               {QStringLiteral("driverStage"), m_driver ? m_driver->property("stage") : QVariant{}},
+               {QStringLiteral("driverBusy"), m_driver ? m_driver->property("busy") : QVariant{}},
+               {QStringLiteral("finished"), m_finished}});
     if (!m_driverStarted && !m_finished) {
         const bool sizeMatches =
             m_window && (m_requestedWidth == 0 ? m_window->visibility() == QWindow::Maximized
@@ -914,6 +955,10 @@ void NativeAudit::heartbeat()
             finish(3);
         }
     }
+    // Audit scheduling must continue when the scene's animation clock stalls.
+    // The driver still checks visible controls, transitions and its watchdog.
+    if (m_driver && !m_finished)
+        emit stepRequested();
 }
 
 void NativeAudit::finish(int code)

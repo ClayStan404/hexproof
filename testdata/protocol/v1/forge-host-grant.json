@@ -1,0 +1,10 @@
+{
+  "type": "forge.host_grant",
+  "id": "host-prepare",
+  "payload": {
+    "roomId": "ROOM42",
+    "token": "0000000000000000000000000000000000000000000000000000000000000000",
+    "runtimeId": "test-runtime-identity",
+    "graceSeconds": 180
+  }
+}

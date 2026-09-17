@@ -49,8 +49,8 @@ public final class NativeStartingHandRegressionTest {
             player.add("deck", deck); players.add(player);
         }
         config.add("players", players);
-        try (NativeSession session = new NativeSession(config, base)) {
-            base.setFailureHandler(session::fail);
+        try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
             Player owner = session.game.getRegisteredPlayers().get(0);
             ShuffleObserver shuffles = new ShuffleObserver(owner);
             session.game.subscribeToEvents(shuffles);

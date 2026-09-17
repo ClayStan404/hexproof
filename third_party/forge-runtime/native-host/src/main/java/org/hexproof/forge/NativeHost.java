@@ -9,21 +9,25 @@ import forge.model.FModel;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
-/** Ordered JSONL transport. One process owns at most one game. */
+/** JSONL entry point. Shared workers require an explicit bounded capacity. */
 public final class NativeHost {
     public static final String FORGE_COMMIT = "2be4858216742009afe8a7cffb035fc7671e960d";
     static final Gson JSON = new Gson();
     private NativeHost() { }
 
     public static void main(String[] args) throws Exception {
-        PrintStream protocol = System.out;
+        // JSONL is UTF-8 regardless of the host's console/output code page.
+        PrintStream protocol = new PrintStream(System.out, true, StandardCharsets.UTF_8);
         System.setOut(System.err);
         String assets = null;
+        int capacity = 1;
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--forge-home") && i + 1 < args.length) assets = args[++i];
+            else if (args[i].equals("--max-games") && i + 1 < args.length) capacity = Integer.parseInt(args[++i]);
             else if (!args[i].equals("--interactive-server")) throw new IllegalArgumentException("Unknown argument");
         }
         if (assets == null) throw new IllegalArgumentException("--forge-home is required");
+        if (capacity < 1 || capacity > 4) throw new IllegalArgumentException("Invalid game capacity");
         NativeProfile.create();
         NativeGuiBase base = new NativeGuiBase(assets);
         GuiBase.setInterface(base.proxy());
@@ -34,6 +38,11 @@ public final class NativeHost {
             prefs.setPref(FPref.UI_SELECT_FROM_CARD_DISPLAYS, false);
             return null;
         });
+        if (capacity > 1) {
+            new NativeSharedHost(base, capacity).run(protocol);
+            System.exit(0);
+            return;
+        }
         NativeSession session = null;
         try (BufferedReader input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line;
@@ -51,7 +60,6 @@ public final class NativeHost {
                     } else if (command.equals("startGame")) {
                         if (session != null) throw new IllegalStateException("A process hosts one game only");
                         session = new NativeSession(JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject(), base);
-                        base.setFailureHandler(session::fail);
                         session.start();
                         result = session.handle().toString();
                     } else {

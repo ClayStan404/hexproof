@@ -1,3 +1,150 @@
+diff --git a/forge-core/src/main/java/forge/util/MyRandom.java b/forge-core/src/main/java/forge/util/MyRandom.java
+index 51ade4c7e2a2eb0947cb2343646950c5972d4335..6d582011ff6576766aad1e77ff1a0e7908511d39 100644
+--- a/forge-core/src/main/java/forge/util/MyRandom.java
++++ b/forge-core/src/main/java/forge/util/MyRandom.java
+@@ -52,7 +52,8 @@ public class MyRandom {
+      * @return the random
+      */
+     public static Random getRandom() {
+-        return MyRandom.random;
++        ThreadUtil.ExecutionContext context = ThreadUtil.executionContext();
++        return context == null ? MyRandom.random : context.random();
+     }
+ 
+     /**
+@@ -60,14 +61,16 @@ public class MyRandom {
+      * @param random the random
+      */
+     public static void setRandom(Random random) {
+-        MyRandom.random = random;
++        ThreadUtil.ExecutionContext context = ThreadUtil.executionContext();
++        if (context == null) MyRandom.random = random;
++        else context.random(random);
+     }
+ 
+     public static int[] splitIntoRandomGroups(final int value, final int numGroups) {
+         int[] groups = new int[numGroups];
+ 
+         for (int i = 0; i < value; i++) {
+-            groups[random.nextInt(numGroups)]++;
++            groups[getRandom().nextInt(numGroups)]++;
+         }
+ 
+         return groups;
+diff --git a/forge-core/src/main/java/forge/util/ThreadUtil.java b/forge-core/src/main/java/forge/util/ThreadUtil.java
+index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5cb65c777b 100644
+--- a/forge-core/src/main/java/forge/util/ThreadUtil.java
++++ b/forge-core/src/main/java/forge/util/ThreadUtil.java
+@@ -1,8 +1,41 @@
+ package forge.util;
+ 
+ import java.util.concurrent.*;
++import java.util.Random;
++import java.util.function.Supplier;
+ 
+ public class ThreadUtil {
++    /** Optional host-owned game scope; desktop behavior remains the fallback. */
++    public interface ExecutionContext {
++        boolean isClosed();
++        ExecutorService gameExecutor();
++        ScheduledFuture<?> schedule(int milliseconds, Runnable action);
++        Random random();
++        void random(Random value);
++        int nextId(String kind);
++        void resetId(String kind, int value);
++        <T> T cache(String kind, Supplier<T> create);
++    }
++    public interface Scope extends AutoCloseable { @Override void close(); }
++    private static final ThreadLocal<ExecutionContext> execution = new ThreadLocal<>();
++    public static ExecutionContext executionContext() { return execution.get(); }
++    public static Scope enter(ExecutionContext context) {
++        ExecutionContext previous = execution.get();
++        execution.set(context);
++        return () -> { if (previous == null) execution.remove(); else execution.set(previous); };
++    }
++    public static int nextId(String kind, java.util.concurrent.atomic.AtomicInteger fallback) {
++        ExecutionContext context = execution.get();
++        return context == null ? fallback.incrementAndGet() : context.nextId(kind);
++    }
++    public static void resetId(String kind, java.util.concurrent.atomic.AtomicInteger fallback, int value) {
++        ExecutionContext context = execution.get();
++        if (context == null) fallback.set(value); else context.resetId(kind, value);
++    }
++    public static <T> T scopedCache(String kind, T fallback, Supplier<T> create) {
++        ExecutionContext context = execution.get();
++        return context == null ? fallback : context.cache(kind, create);
++    }
+     static {
+         System.out.printf("(ThreadUtil first call): Running with priority %d%n", Thread.currentThread().getPriority());
+     }
+@@ -41,10 +74,13 @@ public class ThreadUtil {
+     }
+ 
+     public static void invokeInGameThread(Runnable toRun) {
+-        getGameThreadPool().execute(toRun);
++        ExecutionContext context = execution.get();
++        (context == null ? getGameThreadPool() : context.gameExecutor()).execute(toRun);
+     }
+ 
+     public static ScheduledFuture<?> delay(int milliseconds, Runnable inputUpdater) {
++        ExecutionContext context = execution.get();
++        if (context != null) return context.schedule(milliseconds, inputUpdater);
+         return getScheduledPool().schedule(inputUpdater, milliseconds, TimeUnit.MILLISECONDS);
+     }
+ 
+@@ -54,7 +90,8 @@ public class ThreadUtil {
+ 
+     private static ExecutorService service = Executors.newWorkStealingPool();
+     public static ExecutorService getServicePool() {
+-        return service;
++        ExecutionContext context = execution.get();
++        return context == null ? service : context.gameExecutor();
+     }
+     public static void refreshServicePool() {
+         service = Executors.newWorkStealingPool();
+@@ -63,7 +100,7 @@ public class ThreadUtil {
+         Future<T> future = null;
+         T result;
+         try {
+-            future = service.submit(task);
++            future = getServicePool().submit(task);
+             result = future.get(millis, TimeUnit.MILLISECONDS);
+         } catch (Exception e) {
+             result = null;
+@@ -74,6 +111,7 @@ public class ThreadUtil {
+         return result;
+     }
+     public static <T> T executeWithTimeout(Callable<T> task, int milliseconds) {
++        if (execution.get() != null) return limit(task, milliseconds);
+         ExecutorService executor = Executors.newCachedThreadPool(r -> {
+             Thread thread = new Thread(r);
+             thread.setDaemon(true);
+@@ -90,7 +128,8 @@ public class ThreadUtil {
+         }
+         finally {
+            future.cancel(true);
++           executor.shutdownNow();
+         }
+         return result;
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/forge-game/src/main/java/forge/game/Game.java b/forge-game/src/main/java/forge/game/Game.java
+index cdc70dd5e0dd1c87bb221940666eac862f13a685..b8da49f5c0ab0160870bf6f6a3b5713813e221f4 100644
+--- a/forge-game/src/main/java/forge/game/Game.java
++++ b/forge-game/src/main/java/forge/game/Game.java
+@@ -64,8 +64,8 @@ public class Game {
+ 
+     private static final TaggedLogger netLog = Logger.tag("NETWORK");
+ 
+-    private static int maxId = 0;
+-    private static int nextId() { return ++maxId; }
++    private static final java.util.concurrent.atomic.AtomicInteger maxId = new java.util.concurrent.atomic.AtomicInteger();
++    private static int nextId() { return maxId.incrementAndGet(); }
+ 
+     private boolean noGUIUser;
+ 
 diff --git a/forge-game/src/main/java/forge/game/GameAction.java b/forge-game/src/main/java/forge/game/GameAction.java
 index aeefd9bdc3b397997a5e0622211b8e82f1216b68..b4b63b4d924377a74c7fe172c31d1cdf25529e6a 100644
 --- a/forge-game/src/main/java/forge/game/GameAction.java
@@ -38,6 +185,70 @@ index 0e8e291c0bb807f9e5e628a4fa05d11919edd3df..c670a3ea94b6ec0489f9636a34bdae60
          Player pl = sa.getActivatingPlayer();
          final Game game = pl.getGame();
  
+diff --git a/forge-game/src/main/java/forge/game/card/Card.java b/forge-game/src/main/java/forge/game/card/Card.java
+index dcd6d517f51c8d0116afe18983a16b6a20492c36..f69d2e0e3c7a859a7bd6750e41a5e4f6d705d039 100644
+--- a/forge-game/src/main/java/forge/game/card/Card.java
++++ b/forge-game/src/main/java/forge/game/card/Card.java
+@@ -7460,6 +7460,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
+ 
+     private static final Map<PaperCard, Card> cp2card = Maps.newHashMap();
+     public static Card getCardForUi(IPaperCard pc) {
++        Map<PaperCard, Card> cp2card = forge.util.ThreadUtil.scopedCache("CardUI", Card.cp2card, java.util.concurrent.ConcurrentHashMap::new);
+         if (pc instanceof PaperCard) {
+             Card res = cp2card.get(pc);
+             if (res == null) {
+diff --git a/forge-game/src/main/java/forge/game/card/CounterCustomType.java b/forge-game/src/main/java/forge/game/card/CounterCustomType.java
+index d9a72808a9ffe0850a9e10a273966c2c91003fcd..72fc2fc6648b04140826a7ef5d082488884ce2bb 100644
+--- a/forge-game/src/main/java/forge/game/card/CounterCustomType.java
++++ b/forge-game/src/main/java/forge/game/card/CounterCustomType.java
+@@ -9,7 +9,12 @@ import com.google.common.collect.Maps;
+ public record CounterCustomType(String keyword) implements CounterType {
+     private static Map<String, CounterCustomType> sMap = Maps.newHashMap();
+ 
++    private static Map<String, CounterCustomType> cache() {
++        return forge.util.ThreadUtil.scopedCache("CounterCustomType", sMap, java.util.concurrent.ConcurrentHashMap::new);
++    }
++
+     public static CounterCustomType get(String s) {
++        Map<String, CounterCustomType> sMap = cache();
+         if (!sMap.containsKey(s)) {
+             sMap.put(s, new CounterCustomType(s));
+         }
+@@ -17,7 +22,7 @@ public record CounterCustomType(String keyword) implements CounterType {
+     }
+ 
+     public static Set<CounterType> getValues() {
+-        return new LinkedHashSet<CounterType>(sMap.values());
++        return new LinkedHashSet<CounterType>(cache().values());
+     }
+     
+     @Override
+diff --git a/forge-game/src/main/java/forge/game/card/CounterKeywordType.java b/forge-game/src/main/java/forge/game/card/CounterKeywordType.java
+index 2a4dede7490194dd5f57ea1205d307f2a090346e..b9efe9254f117a4e99c635f0d16034a3420b8eb1 100644
+--- a/forge-game/src/main/java/forge/game/card/CounterKeywordType.java
++++ b/forge-game/src/main/java/forge/game/card/CounterKeywordType.java
+@@ -19,7 +19,12 @@ public record CounterKeywordType(KeywordView keyword) implements CounterType {
+             "Indestructible", "Lifelink", "Menace", "Reach", "Shadow", "Trample", "Vigilance");
+     private static Map<String, CounterKeywordType> sMap = Maps.newHashMap();
+ 
++    private static Map<String, CounterKeywordType> cache() {
++        return forge.util.ThreadUtil.scopedCache("CounterKeywordType", sMap, java.util.concurrent.ConcurrentHashMap::new);
++    }
++
+     public static CounterKeywordType get(String s) {
++        Map<String, CounterKeywordType> sMap = cache();
+         if (!sMap.containsKey(s)) {
+             sMap.put(s, new CounterKeywordType(Keyword.getInstance(s).getView()));
+         }
+@@ -30,7 +35,7 @@ public record CounterKeywordType(KeywordView keyword) implements CounterType {
+         // add fixed first
+         Set<CounterType> result = keywordCounter.stream().map(CounterKeywordType::get).collect(Collectors.toCollection(LinkedHashSet::new));
+         // add variable ones later
+-        result.addAll(sMap.values());
++        result.addAll(cache().values());
+         return result;
+     }
+     
 diff --git a/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java b/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
 index a61fd39d90fd8054b90294609f373aae670ebf79..e6df23bf6695b45d41550433c10ca282e8d7121d 100644
 --- a/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
@@ -50,6 +261,19 @@ index a61fd39d90fd8054b90294609f373aae670ebf79..e6df23bf6695b45d41550433c10ca282
          player.updateZoneForView(player.getZone(ZoneType.Hand));
      }
  }
+diff --git a/forge-game/src/main/java/forge/game/keyword/Keyword.java b/forge-game/src/main/java/forge/game/keyword/Keyword.java
+index 646f3131b54c73e4286a8c4b635761a9d9f94cab..06bfe1036c063656a50d93e1103ad29ef61aaef7 100644
+--- a/forge-game/src/main/java/forge/game/keyword/Keyword.java
++++ b/forge-game/src/main/java/forge/game/keyword/Keyword.java
+@@ -292,7 +292,7 @@ public enum Keyword {
+         return getKeywordDetails(k).getKey();
+     }
+ 
+-    private static final Map<String, Set<Keyword>> cardKeywordSetLookup = new HashMap<>();
++    private static final Map<String, Set<Keyword>> cardKeywordSetLookup = new java.util.concurrent.ConcurrentHashMap<>();
+ 
+     public static Set<Keyword> getKeywordSet(PaperCard card) {
+         String name = card.getName();
 diff --git a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java b/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
 index 838c73f239a290cea8525d36ee281480f28d44fb..8b8f44751f32106d715e2f5a1907a4c73fa14cce 100644
 --- a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
@@ -195,6 +419,90 @@ index 192ef8737ecd645b75d50782693d5eab948d43a7..3260ed5850a4d0099a43224b01504c12
      public enum BinaryChoiceType {
          HeadsOrTails, // coin
          TapOrUntap,
+diff --git a/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java b/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java
+index b5b396dc82f9928041f0486277fcf4944b538315..4855d00267ca194d7d513ef3f653d03ea69b68a3 100644
+--- a/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java
++++ b/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java
+@@ -47,8 +47,8 @@ import forge.util.TextUtil;
+  *
+  */
+ public abstract class ReplacementEffect extends TriggerReplacementBase {
+-    private static int maxId = 0;
+-    private static int nextId() { return ++maxId; }
++    private static final java.util.concurrent.atomic.AtomicInteger maxId = new java.util.concurrent.atomic.AtomicInteger();
++    private static int nextId() { return forge.util.ThreadUtil.nextId("ReplacementEffect", maxId); }
+ 
+     /** The ID. */
+     private int id;
+diff --git a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
+index da6f782e3f8cb7c3f07955c587ba3401be330e38..13fb3efae8dc6bc32d9def701ff997fcd17ab13c 100644
+--- a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
++++ b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
+@@ -75,8 +75,8 @@ import forge.game.zone.ZoneType;
+  * @version $Id$
+  */
+ public abstract class SpellAbility extends CardTraitBase implements ISpellAbility, IIdentifiable, Comparable<SpellAbility> {
+-    private static int maxId = 0;
+-    private static int nextId() { return ++maxId; }
++    private static final java.util.concurrent.atomic.AtomicInteger maxId = new java.util.concurrent.atomic.AtomicInteger();
++    private static int nextId() { return forge.util.ThreadUtil.nextId("SpellAbility", maxId); }
+ 
+     public static class EmptySa extends SpellAbility {
+         public EmptySa(Card sourceCard) { super(sourceCard, Cost.Zero); setActivatingPlayer(sourceCard.getController());}
+diff --git a/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java b/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java
+index f67dd5b4e88bb898a7a5db2b9d6ffe138d6b9e49..ff8bb2d7468402c2c8afe2fcf9f5ceb48ca14daf 100644
+--- a/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java
++++ b/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java
+@@ -38,8 +38,8 @@ import forge.util.TextUtil;
+  * @version $Id$
+  */
+ public class SpellAbilityStackInstance implements IIdentifiable, IHasCardView {
+-    private static int maxId = 0;
+-    public static int nextId() { return ++maxId; }
++    private static final java.util.concurrent.atomic.AtomicInteger maxId = new java.util.concurrent.atomic.AtomicInteger();
++    public static int nextId() { return forge.util.ThreadUtil.nextId("SpellAbilityStackInstance", maxId); }
+ 
+     // At some point I want this functioning more like Target/Target Choices
+     // where the SA has an "active"
+diff --git a/forge-game/src/main/java/forge/game/staticability/StaticAbility.java b/forge-game/src/main/java/forge/game/staticability/StaticAbility.java
+index 229e244e7a4568cfe9cdc1c7dda202cc1375e941..3868ce4fb44603601ea7d3865eb2d140651e05ba 100644
+--- a/forge-game/src/main/java/forge/game/staticability/StaticAbility.java
++++ b/forge-game/src/main/java/forge/game/staticability/StaticAbility.java
+@@ -51,8 +51,8 @@ import forge.util.*;
+  * The Class StaticAbility.
+  */
+ public class StaticAbility extends CardTraitBase implements IIdentifiable, Cloneable, Comparable<StaticAbility> {
+-    private static int maxId = 0;
+-    private static int nextId() { return ++maxId; }
++    private static final java.util.concurrent.atomic.AtomicInteger maxId = new java.util.concurrent.atomic.AtomicInteger();
++    private static int nextId() { return forge.util.ThreadUtil.nextId("StaticAbility", maxId); }
+ 
+     private int id;
+ 
+diff --git a/forge-game/src/main/java/forge/game/trigger/Trigger.java b/forge-game/src/main/java/forge/game/trigger/Trigger.java
+index 186d4cdf4c60dd411811cb84fcf8027db2c23095..af60676492debab553e3214e3dd8233b07414296 100644
+--- a/forge-game/src/main/java/forge/game/trigger/Trigger.java
++++ b/forge-game/src/main/java/forge/game/trigger/Trigger.java
+@@ -52,8 +52,8 @@ import java.util.*;
+  * @version $Id$
+  */
+ public abstract class Trigger extends TriggerReplacementBase {
+-    private static int maxId = 0;
+-    private static int nextId() { return ++maxId; }
++    private static final java.util.concurrent.atomic.AtomicInteger maxId = new java.util.concurrent.atomic.AtomicInteger();
++    private static int nextId() { return forge.util.ThreadUtil.nextId("Trigger", maxId); }
+ 
+     /**
+      * <p>
+@@ -61,7 +61,7 @@ public abstract class Trigger extends TriggerReplacementBase {
+      * </p>
+      */
+     public static void resetIDs() {
+-        Trigger.maxId = 50000;
++        forge.util.ThreadUtil.resetId("Trigger", maxId, 50000);
+     }
+ 
+     /** The ID. */
 diff --git a/forge-game/src/main/java/forge/game/zone/MagicStack.java b/forge-game/src/main/java/forge/game/zone/MagicStack.java
 index 35ea040cc89fd8105635f3426031a44bfaa117c5..ef68d3bb09c7b836f526d165a77c1f5d0544f732 100644
 --- a/forge-game/src/main/java/forge/game/zone/MagicStack.java
@@ -220,6 +528,59 @@ index 35ea040cc89fd8105635f3426031a44bfaa117c5..ef68d3bb09c7b836f526d165a77c1f5d
              final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(source);
              runParams.put(AbilityKey.SpellAbility, sa);
              game.getTriggerHandler().runTrigger(TriggerType.AbilityResolves, runParams, false);
+diff --git a/forge-game/src/main/java/forge/trackable/TrackableTypes.java b/forge-game/src/main/java/forge/trackable/TrackableTypes.java
+index a6cf5f1521e668b160713ead14aa16096aaa8c3c..9d05fe8a973eb0f15a490f3a26f00fac2ca9d1b5 100644
+--- a/forge-game/src/main/java/forge/trackable/TrackableTypes.java
++++ b/forge-game/src/main/java/forge/trackable/TrackableTypes.java
+@@ -4,7 +4,6 @@ import java.util.List;
+ import java.util.Map;
+ import java.util.Set;
+ 
+-import com.google.common.collect.Maps;
+ import com.google.common.collect.Multiset;
+ 
+ import forge.card.CardType;
+@@ -136,7 +135,7 @@ public class TrackableTypes {
+     public static final TrackableType<Object> ObjectType = new TrackableType<Object>(null);
+ 
+     //make this quicker than having to define a new class for every single enum
+-    private static Map<Class<? extends Enum<?>>, TrackableType<?>> enumTypes = Maps.newHashMap();
++    private static Map<Class<? extends Enum<?>>, TrackableType<?>> enumTypes = new java.util.concurrent.ConcurrentHashMap<>();
+ 
+     @SuppressWarnings("unchecked")
+     public static <E extends Enum<E>> TrackableType<E> EnumType(final Class<E> enumType) {
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java
+index 65e0ae93ef577d1ca25793c12e5238ea3e812523..bdc586619c680b8c1c12571d4dd9eb5e94615f34 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java
+@@ -11,10 +11,12 @@ import forge.util.Localizer;
+ import forge.util.ThreadUtil;
+ 
+ import java.util.List;
++import java.util.concurrent.ScheduledFuture;
+ import java.util.concurrent.atomic.AtomicInteger;
+ 
+ public class InputLockUI implements Input {
+     private final AtomicInteger iCall = new AtomicInteger();
++    private ScheduledFuture<?> pendingUpdate;
+ 
+     private final InputQueue inputQueue;
+     private final PlayerControllerHuman controller;
+@@ -29,9 +31,12 @@ public class InputLockUI implements Input {
+     }
+ 
+     @Override
+-    public void showMessageInitial() {
++    public synchronized void showMessageInitial() {
+         final int ixCall = 1 + iCall.getAndIncrement();
+-        ThreadUtil.delay(500, new InputUpdater(ixCall));
++        // Superseded waiting-message refreshes have no useful work left. Do
++        // not retain one timer per priority transition during rapid passing.
++        if (pendingUpdate != null) pendingUpdate.cancel(false);
++        pendingUpdate = ThreadUtil.delay(500, new InputUpdater(ixCall));
+     }
+ 
+     @Override
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java
 index 5932059d5d752a06a1e817a921067a7fac779f34..a5bb20155d86c0190fbf90c709f44102c3f2ad8f 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLondonMulligan.java
@@ -235,21 +596,92 @@ index 5932059d5d752a06a1e817a921067a7fac779f34..a5bb20155d86c0190fbf90c709f44102
          return selected;
      }
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
-index 7350155fab629d2bb38a71c032599258a2c53c5b..03eb0badd40c575749b5cc6c58fd0f18f42ed8e1 100644
+index 7350155fab629d2bb38a71c032599258a2c53c5b..29f470e35e76689a0370bb9fa682beb62033b2bc 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
 +++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
-@@ -357,6 +357,11 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -48,7 +48,10 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+     private CardCollection autoPayManaSources = null;
+     private boolean autoPayManaSourcesKnown = false;
+ 
+-    private boolean locked = false;
++    private volatile boolean locked = false;
++    // A nested payment can restore this input before the mana ability has
++    // produced and applied its mana. UI refreshes must not release this guard.
++    private volatile boolean resolvingManaAction = false;
+ 
+     protected InputPayMana(final PlayerControllerHuman controller, final SpellAbility saPaidFor0, final Player player0, final boolean effect) {
+         super(controller);
+@@ -119,7 +122,7 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+         final Collection<SpellAbility> toRemove = Lists.newArrayListWithCapacity(result.size());
+         for (final SpellAbility sa : result) {
+             sa.setActivatingPlayer(player);
+-            if (sa.canPlay(true)) {
++            if (sa.canPlay(true) && sa.checkRestrictions(player)) {
+                 continue;
+             }
+             toRemove.add(sa);
+@@ -207,7 +210,7 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+         return activateManaAbility(card, null);
+     }
+     protected boolean activateManaAbility(final Card card, SpellAbility chosenAbility) {
+-        if (locked) {
++        if (locked || resolvingManaAction) {
+             System.err.print("Should wait till previous call to playAbility finishes.");
+             return false;
+         }
+@@ -329,7 +332,9 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+         // System.out.println("Chosen sa=" + chosen + " of " + chosen.getHostCard() + " to pay mana");
+ 
+         locked = true;
++        resolvingManaAction = true;
+         game.getAction().invoke(() -> {
++            try {
+             if (PlaySpellAbility.playSpellAbility(getController(), chosen.getActivatingPlayer(), chosen)) {
+                 final List<AbilityManaPart> manaAbilities = chosen.getAllManaParts();
+                 boolean restrictionsMet = true;
+@@ -350,6 +355,9 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+                     invalidateAutoPayManaSources();
+                 }
+             }
++            } finally {
++                resolvingManaAction = false;
++            }
+             // Need to call this to unlock
+             onStateChanged();
+         });
+@@ -357,6 +365,11 @@ public abstract class InputPayMana extends InputSyncronizedBase {
          return true;
      }
  
 +    /** Read-only metadata for remote renderers of this native payment input. */
 +    public final String getUnpaidManaCost() { return manaCost.toString(); }
-+    public final boolean isPaymentActionPending() { return locked; }
++    public final boolean isPaymentActionPending() { return locked || resolvingManaAction; }
 +    public final boolean supportsAutomaticPayment() { return supportAutoPay(); }
 +
      protected boolean isAlreadyPaid() {
          if (manaCost.isPaid()) {
              bPaid = true;
+@@ -374,13 +387,18 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+ 
+     @Override
+     protected void onOk() {
+-        if (supportAutoPay() && !locked) { //prevent AI taking over from double-clicking Auto
++        if (supportAutoPay() && !locked && !resolvingManaAction) { //prevent AI taking over from double-clicking Auto
+             locked = true;
++            resolvingManaAction = true;
+             //use AI utility to automatically pay mana cost if possible
+             final Runnable proc = () -> ComputerUtilMana.payManaCost(manaCost, saPaidFor, player, effect);
+             //must run in game thread as certain payment actions can only be automated there
+             game.getAction().invoke(() -> {
+-                runAsAi(proc);
++                try {
++                    runAsAi(proc);
++                } finally {
++                    resolvingManaAction = false;
++                }
+                 onStateChanged();
+             });
+         }
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
 index 73926b484fe4aaf3905348a945d9c67cacc37fe1..3de28a856190d8146b78561db8201ed98f2fe838 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
@@ -273,6 +705,36 @@ index 73926b484fe4aaf3905348a945d9c67cacc37fe1..3de28a856190d8146b78561db8201ed9
                  if (manaCost.payPhyrexian()) {
                      saPaidFor.setSpendPhyrexianMana(true);
                      this.phyLifeToLose += 2;
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputQueue.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputQueue.java
+index 32dafaf9e2da45da0ac294ad1fa9eb66a1912de6..5fd7da4a2bef067f9a21a0e0ac766221c2d5c81a 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputQueue.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputQueue.java
+@@ -37,6 +37,7 @@ public class InputQueue extends Observable implements IHasForgeLog {
+ 
+     private final BlockingDeque<InputSynchronized> inputStack = new LinkedBlockingDeque<>();
+     private final GameView gameView;
++    private InputLockUI lockInput;
+ 
+     public InputQueue(final GameView gameView, final InputProxy inputProxy) {
+         this.gameView = gameView;
+@@ -79,12 +80,15 @@ public class InputQueue extends Observable implements IHasForgeLog {
+         updateObservers();
+     }
+ 
+-    public final Input getActualInput(final PlayerControllerHuman controller) {
++    public final synchronized Input getActualInput(final PlayerControllerHuman controller) {
+         final Input topMost = inputStack.peek(); // incoming input to Control
+         if (topMost != null && !gameView.isGameOver()) {
+             return topMost;
+         }
+-        return new InputLockUI(this, controller);
++        // Each controller owns one queue. Reuse its waiting input so newer
++        // refreshes can cancel the previous input's delayed presentation task.
++        if (lockInput == null) lockInput = new InputLockUI(this, controller);
++        return lockInput;
+     } // getInput()
+ 
+     // only for debug purposes
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
 index 39afa242b1e681dc1d7a30eba0eacbaa19313775..e4904d9e63c7202f87b59be752a0000c20a847ff 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
@@ -338,10 +800,24 @@ index ca152203513a86cc725dbdc9ce002ada74d1f595..63a632180a364cb0025dc28895eb22e7
              return;
          }
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java
-index 014cb5db0f6986ef9641f823784c2a42840a993f..20955e4cf7f2363ec6823b8d3c49fe9f92e9df04 100644
+index 014cb5db0f6986ef9641f823784c2a42840a993f..bdbe10e5a9997b112d025f65d972f57bf5d98533 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java
 +++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSyncronizedBase.java
-@@ -17,6 +17,11 @@ public abstract class InputSyncronizedBase extends InputBase implements InputSyn
+@@ -1,11 +1,13 @@
+ package forge.gamemodes.match.input;
+ 
+ import forge.util.IHasForgeLog;
++import forge.util.ThreadUtil;
+ import forge.gui.FThreads;
+ import forge.gui.error.BugReporter;
+ import forge.player.PlayerControllerHuman;
+ 
+ import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.CancellationException;
+ 
+ public abstract class InputSyncronizedBase extends InputBase implements InputSynchronized, IHasForgeLog {
+ 
+@@ -17,13 +19,24 @@ public abstract class InputSyncronizedBase extends InputBase implements InputSyn
          cdlDone = new CountDownLatch(1);
      }
  
@@ -352,7 +828,20 @@ index 014cb5db0f6986ef9641f823784c2a42840a993f..20955e4cf7f2363ec6823b8d3c49fe9f
 +
      @Override
      public void awaitLatchRelease() {
++        ThreadUtil.ExecutionContext context = ThreadUtil.executionContext();
++        if (context != null && context.isClosed()) throw new CancellationException("Game execution was closed");
          FThreads.assertExecutedByEdt(false);
+         netLog.trace("awaitLatchRelease() starting on {}, thread = {}", this.getClass().getSimpleName(), Thread.currentThread().getName());
+         try {
+             cdlDone.await();
+         } catch (final InterruptedException e) {
++            if (context != null) {
++                Thread.currentThread().interrupt();
++                throw new CancellationException("Game input wait was interrupted");
++            }
+             BugReporter.reportException(e);
+         }
+         netLog.trace("awaitLatchRelease() UNBLOCKED on {}, thread = {}", this.getClass().getSimpleName(), Thread.currentThread().getName());
 diff --git a/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java b/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java
 index dac033fdecf85bfba545db44f66a615e268418f4..370bbf60c5f77913b5e68649a772b275010a3a84 100644
 --- a/forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java

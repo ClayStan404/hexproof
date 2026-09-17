@@ -23,6 +23,9 @@ import static org.hexproof.forge.NativeSession.*;
 
 /** Converts native human GUI requests into bounded remote decisions. */
 final class NativeGuiGame implements InvocationHandler {
+    private static final Set<String> TARGET_ZONE_HEADINGS = Set.of(
+            "--CARDS ON BATTLEFIELD:--", "--CARDS IN EXILE:--", "--CARDS IN GRAVEYARD:--",
+            "--CARDS IN LIBRARY:--", "--CARDS IN STACK:--", "--CARDS IN ANTE:--");
     final PlayerControllerHuman human;
     private final NativeSession session;
     private final IGuiGame proxy;
@@ -43,6 +46,9 @@ final class NativeGuiGame implements InvocationHandler {
     IGuiGame proxy() { return proxy; }
     private Player owner() { return human.getPlayer(); }
     @Override public Object invoke(Object p, Method m, Object[] a) throws Throwable {
+        try (var scope = session.context.enter()) { return invokeScoped(p, m, a); }
+    }
+    private Object invokeScoped(Object p, Method m, Object[] a) throws Throwable {
         if (m.isDefault()) return InvocationHandler.invokeDefault(p, m, a);
         return switch (m.getName()) {
             case "toString" -> "HexproofNativeGuiGame-" + session.index(owner());
@@ -129,7 +135,7 @@ final class NativeGuiGame implements InvocationHandler {
     private void scheduleInput() {
         if (scheduled) return;
         scheduled = true;
-        session.base.later(() -> { scheduled = false; renderInput(); });
+        session.later(() -> { scheduled = false; renderInput(); });
     }
     private JsonObject input(String type, String title) {
         JsonObject result = object("type", type);
@@ -430,6 +436,16 @@ final class NativeGuiGame implements InvocationHandler {
         }), true);
     }
     private Object chooseOne(String title, List<?> choices, boolean optional, Object display) {
+        // TargetSelection mixes CardViews with presentation-only zone headings.
+        // Keep the original card objects and its explicit finish sentinel, but
+        // never publish a heading as a legal response. Pure card targets then
+        // use the existing card picker, including their printable identities.
+        if (display == null && choices.stream().anyMatch(CardView.class::isInstance)
+                && choices.stream().allMatch(c -> c instanceof CardView
+                    || c instanceof String text
+                        && (TARGET_ZONE_HEADINGS.contains(text) || "[FINISH TARGETING]".equals(text)))) {
+            choices = choices.stream().filter(c -> !TARGET_ZONE_HEADINGS.contains(c)).toList();
+        }
         if (!choices.isEmpty() && choices.get(0) instanceof CardFaceView) {
             JsonObject in = input("chooseCardName", title);
             in.addProperty("message", title); in.addProperty("canCancel", optional);

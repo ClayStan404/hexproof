@@ -25,7 +25,32 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         m_reconnectController->observeSequence(env.seq);
     if (env.type != kTypeError && !env.id.isEmpty())
         m_protocolSession->resolveSuccess(env.id);
-    if (env.type == kTypeSessionWelcome)
+    if (env.type == kTypeRulesSnapshot && env.hasSeq) {
+        if (env.seq <= m_lastRulesSnapshotSeq)
+            return;
+        m_lastRulesSnapshotSeq = env.seq;
+    }
+    if (env.type == kTypeForgePeerGrant || env.type == kTypeForgePeerSignaled ||
+        env.type == kTypeForgePeerStatus) {
+        handlePeerEnvelope(env);
+    } else if (env.type == kTypeForgeHostGrant) {
+        const bool standby = env.payload.value(u"standby"_s).toBool();
+        const bool consent = standby ? m_backupHostingConsent : m_playerHostingConsent;
+        if (consent && m_playerHostingAvailable &&
+            m_roomSession->hostingMode() == kHostingModePlayer &&
+            env.payload.value(u"roomId"_s).toString() == roomId() &&
+            m_roomSession->seatIndex() >= 0)
+            m_forgeHost->startHosting(m_serverUrl, env.payload);
+    } else if (env.type == kTypeForgeHostStatus) {
+        m_roomSession->applyHostStatus(env.payload);
+        if (env.payload.value(u"roomId"_s).toString() == roomId() && m_forgeHost->hosting()) {
+            const int local = m_roomSession->seatIndex();
+            const int host = env.payload.value(u"hostSeat"_s).toInt();
+            const int backup = env.payload.value(u"backupSeat"_s).toInt(-1);
+            if (local != host && local != backup)
+                m_forgeHost->stop();
+        }
+    } else if (env.type == kTypeSessionWelcome)
         handleWelcome(env);
     else if (env.type == kTypeRoomCreated)
         handleCreated(env);
@@ -192,8 +217,16 @@ void WsClient::handleWelcome(const Envelope &env)
         m_ws.close();
         return;
     }
+    m_peerTransportAvailable = env.payload.value(u"peerTransportAvailable"_s).toBool();
+    m_playerHostingAvailable = env.payload.value(u"playerHostingAvailable"_s).toBool();
     setForgeRulesAvailable(env.payload.value(u"forgeRulesAvailable"_s).toBool());
-    m_serverDirectory->recordForgeCapability(m_serverUrl, forgeRulesAvailable());
+    emit capabilitiesChanged();
+    m_serverDirectory->recordCapabilities(
+        m_serverUrl,
+        {{u"forge"_s, forgeRulesAvailable()},
+         {u"playerHosting"_s, m_playerHostingAvailable},
+         {u"directPeer"_s, m_peerTransportAvailable},
+         {u"hostMigration"_s, env.payload.value(u"hostMigrationAvailable"_s).toBool()}});
     const bool resumed = env.payload.value(u"resumed"_s).toBool();
     const bool tournamentOnlyReconnect = m_resumeAttempted && m_state == Reconnecting &&
                                          roomId().isEmpty() && m_tournamentSession->inTournament();
@@ -252,6 +285,7 @@ void WsClient::handleCreated(const Envelope &env)
 
 void WsClient::handleJoined(const Envelope &env)
 {
+    m_playerHostingConsent = false;
     // Joiner is not host (regardless of role). Defer InRoom until first
     // snapshot so WaitingRoom renders with seats filled.
     const QString role = env.payload.value(u"role"_s).toString();
@@ -278,6 +312,10 @@ void WsClient::handleSnapshot(const Envelope &env)
     if (m_roomSession->completePendingEntry()) {
         setState(InRoom);
         emit inRoomChanged();
+        if (m_peerResumeNeeded) {
+            m_peerResumeNeeded = false;
+            setDirectPeerEnabled(true);
+        }
         resumeTournamentView();
     }
 }

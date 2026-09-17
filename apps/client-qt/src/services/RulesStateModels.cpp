@@ -212,6 +212,10 @@ QVariant RulesCardModel::data(const QModelIndex &index, int role) const
         return row.damage;
     case AttachedToRole:
         return row.attachedTo;
+    case ExiledCardCountRole:
+        return row.exiledCardCount;
+    case ExiledCardIdsRole:
+        return row.exiledCardIds;
     case CountersSummaryRole:
         return namedValueSummary(row.counters, true);
     default:
@@ -238,6 +242,8 @@ QHash<int, QByteArray> RulesCardModel::roleNames() const
             {ToughnessRole, "toughness"},
             {DamageRole, "damage"},
             {AttachedToRole, "attachedTo"},
+            {ExiledCardCountRole, "exiledCardCount"},
+            {ExiledCardIdsRole, "exiledCardIds"},
             {CountersSummaryRole, "countersSummary"}};
 }
 

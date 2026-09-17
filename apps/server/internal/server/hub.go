@@ -217,8 +217,16 @@ func (h *Hub) CreateRoomWithDeckFormat(name, format, deckFormat, matchMode,
 func (h *Hub) CreateRoomWithRulesMode(name, format, deckFormat, matchMode, cardLoadMode,
 	rulesMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool, password string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, maxSeats,
+	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, "", maxSeats,
 		allowSpectators, spectatorsSeeHands, password, "", "", "", host)
+}
+
+// CreateRoomWithHostingMode binds the immutable engine placement before publication.
+func (h *Hub) CreateRoomWithHostingMode(name, format, deckFormat, matchMode, cardLoadMode,
+	rulesMode, hostingMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool,
+	password string, host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
+	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, hostingMode,
+		maxSeats, allowSpectators, spectatorsSeeHands, password, "", "", "", host)
 }
 
 // createTournamentRoom tags a pairing room before it becomes visible in the
@@ -228,11 +236,11 @@ func (h *Hub) createTournamentRoom(name, format, deckFormat, matchMode, cardLoad
 	maxSeats int, tournamentID, tournamentPairing, tournamentParticipantID string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
 	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode,
-		protocol.RulesModeManual, maxSeats, true,
+		protocol.RulesModeManual, "", maxSeats, true,
 		false, "", tournamentID, tournamentPairing, tournamentParticipantID, host)
 }
 
-func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode string,
+func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, hostingMode string,
 	maxSeats int, allowSpectators, spectatorsSeeHands bool, password, tournamentID, tournamentPairing,
 	tournamentParticipantID string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
@@ -277,6 +285,7 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 		if err != nil {
 			return nil, protocol.RoomSnapshot{}, 0, nil, err
 		}
+		r.HostingMode = hostingMode
 		r.DeckFormat = deckFormat
 		r.LimitedDeckLocked = tournamentID != ""
 		r.SpectatorsSeeHands = allowSpectators && spectatorsSeeHands

@@ -30,7 +30,7 @@ TestCase {
         signal serverDirectoryChanged()
         onServerEntriesChanged: serverDirectoryChanged()
         function defaultEntries() {
-            return [{id: "server-1", name: "Server 1", forge: 0},
+            return [{id: "server-1", name: "Server 1", forge: 0, playerHosting: 0},
                     {id: "server-2", name: "Server 2", forge: 1},
                     {id: "server-3", name: "Server 3", forge: 1},
                     {id: "server-4", name: "Server 4", forge: -1},
@@ -168,6 +168,12 @@ TestCase {
             const position = button.mapToItem(page, 0, 0)
             verify(position.y >= 0)
             verify(position.y + button.height <= page.height)
+            const card = findChild(page, "connectCard")
+            const body = findChild(page, "connectBody")
+            const cardBottom = card.mapToItem(body, 0, card.height).y
+            verify(cardBottom <= body.height + 1,
+                   "Compact form bottom " + cardBottom + " exceeds viewport " + body.height)
+            verify(body.contentHeight <= body.height + 1, "A fitting form must not add scrolling")
         } finally {
             mockWs.versionMismatch = true
             testWindow.width = 1280
@@ -215,13 +221,26 @@ TestCase {
 
     function test_capabilitiesAndRefreshAction() {
         verify(page.serverLabel(0).includes("Manual only"))
-        verify(page.serverLabel(1).includes("Forge supported"))
+        verify(page.serverLabel(1).includes("Server Forge"))
         verify(page.serverLabel(3).includes("Forge status unknown"))
         const button = findChild(page, "refreshServerDirectoryButton")
         verify(button !== null)
         const count = mockWs.directoryRefreshCalls
         mouseClick(button)
         compare(mockWs.directoryRefreshCalls, count + 1)
+    }
+
+    function test_playerHostingDoesNotRequireServerForge() {
+        mockWs.serverEntries = [
+            {id: "relay", name: "Relay", forge: 0, playerHosting: 1, directPeer: 1, hostMigration: 1},
+            {id: "older", name: "Older server", forge: 0},
+            {id: "custom", forge: -1}]
+        verify(page.serverLabel(0).includes("Player hosting"))
+        verify(!page.serverLabel(0).includes("Manual only"))
+        verify(page.hostingCapabilities(0).includes("Direct connection: Supported"))
+        verify(page.hostingCapabilities(0).includes("Host migration: Supported"))
+        verify(!page.serverLabel(1).includes("Manual only"))
+        verify(page.hostingCapabilities(1).includes("Player hosting: Unknown"))
     }
 
     function test_connectButtonStaysInsideCardAndReachable() {

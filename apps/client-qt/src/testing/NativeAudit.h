@@ -26,6 +26,7 @@ class NativeAudit final : public QObject
 
   public:
     explicit NativeAudit(QQmlApplicationEngine *engine);
+    static QString profileStorageRoot();
     static bool validateEnvironment(const QString &storageRoot);
     QString lastError() const;
 
@@ -37,6 +38,7 @@ class NativeAudit final : public QObject
                                  const QVariantMap &identity = {});
     Q_INVOKABLE QVariantMap observe(QQuickWindow *window) const;
     Q_INVOKABLE bool click(QQuickItem *item, qreal x = -1, qreal y = -1);
+    Q_INVOKABLE bool hover(QQuickItem *item);
     Q_INVOKABLE bool doubleClick(QQuickItem *item);
     Q_INVOKABLE bool rightClick(QQuickItem *item);
     Q_INVOKABLE bool activate();
@@ -53,10 +55,12 @@ class NativeAudit final : public QObject
     Q_INVOKABLE bool share(const QString &name, const QVariant &value);
     Q_INVOKABLE void fixture(const QString &name, const QVariantMap &detail = {});
     Q_INVOKABLE bool interruptTransport(QObject *client);
+    Q_INVOKABLE bool crashHostingHelper(QObject *client);
     Q_INVOKABLE void finish(int code);
 
   signals:
     void lastErrorChanged();
+    void stepRequested();
 
   private:
     QObject *fileDialogObject(const QString &name) const;

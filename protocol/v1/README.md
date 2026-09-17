@@ -53,3 +53,19 @@ before writing generated files. Validation failure leaves previous bindings
 untouched. Parity checks inspect the resulting contracts, not the spelling of
 an import in the generator; package-local source organization may change while
 the wire shape stays identical.
+
+### Optional direct player-host transport
+
+`forge.peer_request` enables/disables consent (or explicitly retries) for a
+player-hosted seat. Only both consenting seats in an active game receive private
+`forge.peer_grant` capabilities. `forge.peer_signal` / `forge.peer_signaled`
+exchange bounded SDP/ICE JSON strings only within that binding. `forge.peer_status`
+reports per-seat consent and the active binding without a token. These messages
+are never room broadcasts, spectator state, journals or diagnostics.
+
+`rules.respond.peerBinding` is optional fallback correlation metadata. Reusing
+its original envelope ID acknowledges an already committed direct operation
+without mutating Forge twice. The server still checks the seat and canonical
+choice. Public rules snapshots/prompts retain their existing redaction contract.
+`session.welcome` separately advertises `peerTransportAvailable` and
+`hostMigrationAvailable`; omitted values mean unavailable.

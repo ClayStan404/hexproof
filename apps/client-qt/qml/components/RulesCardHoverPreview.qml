@@ -11,7 +11,7 @@ Rectangle {
     readonly property var sourceItem: inspector.previewSource
     objectName: "rulesCardHoverPreview"
     width: Math.min(Theme.size(360), parent.width * 0.42, (parent.height - Theme.size(32)) * 63 / 88)
-    height: width * 88 / 63
+    height: Math.min(parent.height - Theme.size(24), width * 88 / 63 + linkedCards.implicitHeight)
     radius: Theme.radiusMedium
     color: Theme.surfaceElevated
     border.color: Theme.primary
@@ -39,6 +39,7 @@ Rectangle {
         objectName: "rulesCardHoverPreviewArt"
         anchors.fill: parent
         anchors.margins: 2
+        anchors.bottomMargin: 2 + linkedCards.implicitHeight
         asynchronous: true
         fillMode: Image.PreserveAspectFit
         source: {
@@ -50,6 +51,21 @@ Rectangle {
             const card = root.inspector.card
             return catalog.imageSource(card.name, card.setCode || "", card.collectorNumber || "")
         }
+    }
+    Text {
+        id: linkedCards
+        objectName: "rulesCardHoverLinkedCards"
+        textFormat: Text.PlainText
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: Theme.size(6)
+        text: root.inspector.exiledSummary || ""
+        color: Theme.text
+        font.pixelSize: Theme.fontSize(12)
+        wrapMode: Text.Wrap
+        maximumLineCount: 3
+        elide: Text.ElideRight
     }
     Text {
         objectName: "rulesCardHoverPreviewFallback"

@@ -31,6 +31,7 @@ WsClient::WsClient(QObject *parent)
     m_ws.setMaxAllowedIncomingFrameSize(network_limits::kMaximumIncomingWebSocketBytes);
     m_ws.setMaxAllowedIncomingMessageSize(network_limits::kMaximumIncomingWebSocketBytes);
 
+    m_forgeHost = new ForgeHostService(this);
     m_roomSession = new RoomSessionState(this);
     connect(m_roomSession, &RoomSessionState::roomIdChanged, this, &WsClient::roomIdChanged);
     connect(m_roomSession, &RoomSessionState::hostChanged, this, &WsClient::youAreHostChanged);
@@ -86,6 +87,7 @@ WsClient::WsClient(QObject *parent)
         settings.remove(u"network/customServerUrl"_s);
     }
     m_protocolSession = new ProtocolSession(this);
+    initializePeerTransport();
     connect(m_protocolSession, &ProtocolSession::commandQueued, this, &WsClient::commandQueued);
     connect(m_protocolSession, &ProtocolSession::commandSucceeded, this,
             &WsClient::commandSucceeded);
@@ -219,7 +221,10 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
     m_limitedSession->clear();
     clearLastError();
     clearVersionMismatch();
+    m_peerTransportAvailable = false;
+    m_playerHostingAvailable = false;
     setForgeRulesAvailable(false);
+    emit capabilitiesChanged();
     const QString nextServerUrl = url.trimmed();
     if (m_serverUrl != nextServerUrl) {
         m_serverUrl = nextServerUrl;
@@ -419,6 +424,10 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
     // Every typed rules response passes here, including hand-card drag actions.
     // A queued write is not a completed decision: retain the lock until the
     // authoritative prompt changes, a correlated error arrives, or it times out.
+    if (type == kTypeRulesRespond && m_roomSession->hostingMode() == u"player"_s &&
+        (!m_roomSession->hostConnected() ||
+         m_roomSession->hostStatus().value(u"migrating"_s).toBool()))
+        return {};
     if (type == kTypeRulesRespond &&
         (rulesResponsePending() || !m_rulesSession->active() || !m_rulesSession->promptPending() ||
          !m_rulesSession->promptSupported() || m_rulesSession->gameOver() ||
@@ -436,8 +445,20 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         return {};
     }
     clearLastError();
-    const ProtocolSession::OutboundCommand command = m_protocolSession->prepare(type, payload);
-    if (m_ws.sendTextMessage(QString::fromUtf8(command.wire)) <= 0) {
+    QJsonObject outbound = payload;
+    const bool direct = type == kTypeRulesRespond && m_peerConsent && m_peerTransport->ready() &&
+                        m_peerTransport->gameId() == m_rulesSession->gameId() &&
+                        m_roomSession->seatIndex() != m_peerTransport->hostSeat();
+    if (direct)
+        outbound.insert(u"peerBinding"_s, m_peerTransport->bindingId());
+    const ProtocolSession::OutboundCommand command = m_protocolSession->prepare(type, outbound);
+    bool directQueued = false;
+    if (direct) {
+        directQueued = m_peerTransport->send({{u"bindingId"_s, m_peerTransport->bindingId()},
+                                              {u"operationId"_s, command.id},
+                                              {u"request"_s, outbound}});
+    }
+    if (!directQueued && m_ws.sendTextMessage(QString::fromUtf8(command.wire)) <= 0) {
         setLastError(u"connection"_s, u"action could not be queued for sending"_s);
         m_protocolSession->reportUnqueuedFailure(type, payload, m_lastError);
         return {};
@@ -446,10 +467,17 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         m_rulesResponseRequestId = command.id;
         m_rulesResponseGameId = m_rulesSession->gameId();
         m_rulesResponsePromptId = m_rulesSession->promptId();
-        m_rulesResponseTimer.start();
+        // Cover the maximum ten-minute host grace and 45-second operation deadline.
+        m_rulesResponseTimer.start(m_roomSession->hostingMode() == u"player"_s ? 660000 : 30000);
         emit rulesResponsePendingChanged();
     }
     m_protocolSession->markQueued(command);
+    if (directQueued) {
+        m_peerDecisionClock.start();
+        m_peerRequestId = command.id;
+        m_peerFallbackWire = command.wire;
+        m_peerFallbackTimer.start();
+    }
     return command.id;
 }
 
@@ -475,6 +503,8 @@ void WsClient::onDisconnected(quint64 transportGeneration)
     if (transportGeneration != m_transportGeneration)
         return;
     clearRulesResponse();
+    m_peerResumeNeeded = m_peerConsent;
+    m_peerTransport->stop();
     m_helloTimer.stop();
     m_reconnectController->flush();
     const bool hadRoom = m_state == InRoom || m_state == Reconnecting ||
@@ -495,7 +525,9 @@ void WsClient::onDisconnected(quint64 transportGeneration)
     }
     m_protocolSession->failAll(u"connection closed before the server replied"_s);
     setState(Disconnected);
+    m_playerHostingAvailable = false;
     setForgeRulesAvailable(false);
+    emit capabilitiesChanged();
     if (hadRoom) {
         clearRoomState();
         emit inRoomChanged();
@@ -590,6 +622,8 @@ void WsClient::clearGameState()
 void WsClient::clearRulesResponse()
 {
     m_rulesResponseTimer.stop();
+    m_peerFallbackTimer.stop();
+    m_peerFallbackWire.clear();
     if (!rulesResponsePending())
         return;
     m_rulesResponseRequestId.clear();
@@ -603,8 +637,14 @@ void WsClient::reconcileRulesResponse()
     if (rulesResponsePending() &&
         (!m_rulesSession->active() || m_rulesSession->gameOver() ||
          m_rulesSession->gameId() != m_rulesResponseGameId || !m_rulesSession->promptPending() ||
-         m_rulesSession->promptId() != m_rulesResponsePromptId))
+         m_rulesSession->promptId() != m_rulesResponsePromptId)) {
+        // Authoritative progress can overtake a lost direct acknowledgement.
+        // Release its correlation as well as the UI lock; do not retain a
+        // permanently pending command after stopping the fallback timer.
+        if (m_peerRequestId == m_rulesResponseRequestId && !m_peerRequestId.isEmpty())
+            m_protocolSession->resolveSuccess(m_peerRequestId);
         clearRulesResponse();
+    }
 }
 
 void WsClient::clearRoomState()
@@ -612,6 +652,16 @@ void WsClient::clearRoomState()
     // Pending observers still need the current room role and seat to address
     // optimistic life, counter, and commander-tax entries during rollback.
     m_protocolSession->discardAll();
+    m_forgeHost->stop();
+    m_peerTransport->stop();
+    m_peerConsent = m_peerOtherEnabled = m_peerResumeNeeded = false;
+    m_peerRequestId.clear();
+    m_directPeerDecisions = m_peerFallbacks = 0;
+    m_peerLatencies.clear();
+    m_lastRulesSnapshotSeq = 0;
+    emit peerTransportChanged();
+    m_playerHostingConsent = false;
+    m_backupHostingConsent = false;
     m_roomSession->clear();
     clearGameState();
     m_reconnectController->setCrossLaunchResumeAllowed(false);

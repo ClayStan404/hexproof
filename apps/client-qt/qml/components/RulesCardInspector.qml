@@ -36,6 +36,16 @@ Surface {
         void rulesSession.snapshotRevision
         return card.attachedTo ? currentCard(card.attachedTo) : ({})
     }
+    readonly property string exiledSummary: {
+        void rulesSession.snapshotRevision
+        if (!(card.exiledCardCount > 0)) return ""
+        const names = (card.exiledCardIds || []).map(id => currentCard(id))
+            .filter(linked => linked.visibleIdentity === true && !!linked.name)
+            .map(linked => linked.name)
+        const hidden = card.exiledCardCount - names.length
+        if (hidden > 0) names.push(qsTr("%1 hidden card(s)").arg(hidden))
+        return qsTr("Exiled with this card: %1").arg(names.join(", "))
+    }
 
     objectName: "rulesCardInspector"
     implicitWidth: Theme.size(400)
@@ -122,6 +132,8 @@ Surface {
         }
         if (card.rulesText)
             lines.push("", card.rulesText)
+        if (exiledSummary.length)
+            lines.push(exiledSummary)
         return lines.join("\n")
     }
 

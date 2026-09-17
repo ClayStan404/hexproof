@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "protocol": "hexproof.v1",
   "definitions": [
+    {"name": "ForgeHostStatus", "goType": "ForgeHostStatus", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "connected", "type": "boolean", "required": true}, {"name": "graceSeconds", "type": "integer", "required": true}, {"name": "hostSeat", "type": "integer", "required": true}, {"name": "backupSeat", "type": "integer", "required": false, "goType": "*int"}, {"name": "backupConnected", "type": "boolean", "required": false}, {"name": "backupApproved", "type": "boolean", "required": false}, {"name": "migrating", "type": "boolean", "required": false}, {"name": "migrationAvailable", "type": "boolean", "required": false}, {"name": "migrationError", "type": "string", "required": false}]},
     {
       "name": "RoomListEntry",
       "goType": "RoomListEntry",
@@ -14,6 +15,7 @@
         {"name": "matchMode", "type": "string", "required": true, "enum": ["MatchBO1", "MatchBO3"]},
         {"name": "cardLoadMode", "type": "string", "required": true, "enum": ["CardLoadPreload", "CardLoadBackground"]},
         {"name": "rulesMode", "type": "string", "required": true, "enum": ["RulesModeManual", "RulesModeForge"]},
+        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
         {"name": "maxSeats", "type": "integer", "required": true},
         {"name": "playerCount", "type": "integer", "required": true},
         {"name": "spectatorCount", "type": "integer", "required": true},
@@ -27,6 +29,11 @@
     }
   ],
   "messages": [
+    {"type": "forge.peer_request", "direction": "clientToServer", "goType": "ForgePeerRequest", "fields": [{"name": "enabled", "type": "boolean", "required": true}, {"name": "retry", "type": "boolean", "required": false}]},
+    {"type": "forge.peer_grant", "direction": "serverToClient", "goType": "ForgePeerGrant", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "gameId", "type": "string", "required": true}, {"name": "bindingId", "type": "string", "required": true}, {"name": "token", "type": "string", "required": true}, {"name": "hostSeat", "type": "integer", "required": true}, {"name": "offerer", "type": "boolean", "required": true}, {"name": "stun", "type": "array", "required": true, "items": {"type": "string"}}]},
+    {"type": "forge.peer_signal", "direction": "clientToServer", "goType": "ForgePeerSignal", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "bindingId", "type": "string", "required": true}, {"name": "data", "type": "string", "required": true}]},
+    {"type": "forge.peer_signaled", "direction": "serverToClient", "goType": "ForgePeerSignal", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "bindingId", "type": "string", "required": true}, {"name": "data", "type": "string", "required": true}]},
+    {"type": "forge.peer_status", "direction": "serverToClient", "goType": "ForgePeerStatus", "fields": [{"name": "bindingId", "type": "string", "required": true}, {"name": "roomId", "type": "string", "required": true}, {"name": "enabled", "type": "boolean", "required": true}, {"name": "otherEnabled", "type": "boolean", "required": true}, {"name": "available", "type": "boolean", "required": true}]},
     {"type": "session.ping", "direction": "clientToServer", "goType": "EmptyPayload", "fields": []},
     {"type": "session.pong", "direction": "serverToClient", "goType": "EmptyPayload", "fields": []},
     {
@@ -95,7 +102,7 @@
           "type": "string",
           "required": true,
           "enum": [
-            "ErrWrongPassword", "ErrRoomFull", "ErrRoomNotFound", "ErrSpectatorsNotAllowed",
+            "ErrPlayerHostTrustRequired", "ErrWrongPassword", "ErrRoomFull", "ErrRoomNotFound", "ErrSpectatorsNotAllowed",
             "ErrSpectatorLimit", "ErrAlreadyInRoom", "ErrNotHost", "ErrNotInRoom",
             "ErrInvalidMessage", "ErrNameRequired", "ErrUnsupportedFormat", "ErrInvalidTarget",
             "ErrCannotKickHost", "ErrInvalidMatchMode", "ErrInvalidCardLoadMode", "ErrNotPlayer",
@@ -119,6 +126,9 @@
         {"name": "requiredVersion", "type": "string", "required": false},
         {"name": "minimumPlayers", "type": "integer", "required": false}
       ]
-    }
+    },
+    {"type": "forge.host_request", "direction": "clientToServer", "goType": "ForgeHostRequest", "fields": [{"name": "action", "type": "string", "required": false}]},
+    {"type": "forge.host_grant", "direction": "serverToClient", "goType": "ForgeHostGrant", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "token", "type": "string", "required": true}, {"name": "runtimeId", "type": "string", "required": true}, {"name": "graceSeconds", "type": "integer", "required": true}, {"name": "standby", "type": "boolean", "required": false}]},
+    {"type": "forge.host_status", "direction": "serverToClient", "goType": "ForgeHostStatus", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "connected", "type": "boolean", "required": true}, {"name": "graceSeconds", "type": "integer", "required": true}, {"name": "hostSeat", "type": "integer", "required": true}, {"name": "backupSeat", "type": "integer", "required": false, "goType": "*int"}, {"name": "backupConnected", "type": "boolean", "required": false}, {"name": "backupApproved", "type": "boolean", "required": false}, {"name": "migrating", "type": "boolean", "required": false}, {"name": "migrationAvailable", "type": "boolean", "required": false}, {"name": "migrationError", "type": "string", "required": false}]}
   ]
 }

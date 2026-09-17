@@ -18,9 +18,11 @@ Page {
     readonly property var rulesSession: wsModel.rulesSession
     readonly property var gameSession: wsModel.gameSession
     readonly property bool roomConnected: wsModel.inRoom === true
+    readonly property bool hostingPaused: roomSession.hostingMode === "player" && (roomSession.hostConnected !== true
+        || roomSession.hostStatus && roomSession.hostStatus.migrating === true)
     readonly property bool sideboarding: gameSession.sideboarding === true
     readonly property bool rulesResponsePending: wsModel.rulesResponsePending === true
-    readonly property bool canConcede: roomConnected && localSeat >= 0
+    readonly property bool canConcede: roomConnected && !hostingPaused && localSeat >= 0
                                        && rulesSession.active && !rulesSession.gameOver
                                        && !sideboarding && !matchUi.matchFinished
     readonly property var matchUi: matchControls
@@ -33,7 +35,7 @@ Page {
     readonly property var interaction: tableInteraction
     readonly property var priority: priorityController
     readonly property var combatInteraction: combatInteraction
-    readonly property bool priorityInputBlocked: backgroundPopup.opened
+    readonly property bool priorityInputBlocked: hostingPaused || backgroundPopup.opened
         || rulesConcedeConfirmation.opened || matchUi.modalOpen === true
         || (presentation && presentation.modalOpen === true)
     property bool showGameLogRail: roomSession.maxSeats > 2

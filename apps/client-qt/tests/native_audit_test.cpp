@@ -5,10 +5,13 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScopeGuard>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -19,6 +22,29 @@ class NativeAuditTest : public QObject
     Q_OBJECT
 
   private slots:
+    void explicitProfileIsIndependentOfPlatformAppData()
+    {
+        const QByteArray original = qgetenv("HEXPROOF_TEST_PROFILE_ROOT");
+        const auto restore = qScopeGuard([original] {
+            if (original.isNull())
+                qunsetenv("HEXPROOF_TEST_PROFILE_ROOT");
+            else
+                qputenv("HEXPROOF_TEST_PROFILE_ROOT", original);
+        });
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        qputenv("HEXPROOF_TEST_PROFILE_ROOT", temporary.path().toUtf8());
+        QCOMPARE(NativeAudit::profileStorageRoot(),
+                 QDir(QFileInfo(temporary.path()).canonicalFilePath())
+                     .filePath(QStringLiteral("data/Hexproof/Hexproof")));
+        for (const QByteArray &invalid :
+             {QByteArray(), QByteArray("relative"), QDir::rootPath().toUtf8(),
+              temporary.filePath(QStringLiteral("missing")).toUtf8()}) {
+            qputenv("HEXPROOF_TEST_PROFILE_ROOT", invalid);
+            QVERIFY(NativeAudit::profileStorageRoot().isEmpty());
+        }
+    }
+
     void windowFixture_data()
     {
         QTest::addColumn<bool>("windowed");
@@ -44,6 +70,7 @@ class NativeAuditTest : public QObject
 
         QQmlApplicationEngine engine;
         NativeAudit audit(&engine);
+        QSignalSpy steps(&audit, &NativeAudit::stepRequested);
         engine.loadData(R"(
 import QtQuick
 Window {
@@ -58,6 +85,7 @@ Window {
         QTRY_COMPARE(window->visibility(), windowed ? QWindow::Windowed : QWindow::Maximized);
         QFile startup(temporary.filePath(QStringLiteral("startup.json")));
         QTRY_VERIFY(startup.exists());
+        QTRY_VERIFY(steps.size() >= 2);
         QVERIFY(startup.open(QIODevice::ReadOnly));
         const QVariantMap observed = QJsonDocument::fromJson(startup.readAll())
                                          .toVariant()

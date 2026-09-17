@@ -33,8 +33,8 @@ public final class NativeMultiBlockRegressionTest {
                 return null;
             });
             JsonObject config = JsonParser.parseString("{\"gameId\":\"native-multiple-blocks\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Defender\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Attacker\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
-            try (NativeSession session = new NativeSession(config, base)) {
-                base.setFailureHandler(session::fail);
+            try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+                base.setTestSession(session);
                 session.game.setAge(GameStage.Play);
                 Player defender = session.game.getPlayers().get(0);
                 Player attacker = session.game.getPlayers().get(1);

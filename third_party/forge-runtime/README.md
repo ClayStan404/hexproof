@@ -6,8 +6,10 @@ upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
-Adapter revision 2 retains the official source pin and adds narrow downstream
-native fixes alongside the GUI metadata/profile hooks: Backup Plan shuffles
+The current adapter is revision 4. Revision 3 added complete sideboard/scry/
+cleanup choices, linked exile and token metadata, and isolated shared workers;
+revision 4 adds private logical-state integrity for verified host replay.
+The official source pin is unchanged. Earlier native fixes remain: Backup Plan shuffles
 returned unused hands, and multiplayer concession safely unwinds abandoned
 objects, transfers surviving choices, and advances priority past departed
 players. The patch is part of the reviewed source contract, not an unchanged

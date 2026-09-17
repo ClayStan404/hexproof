@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "runtimeId": "2be4858216742009afe8a7cffb035fc7671e960d-adapter2-d880a329b1cea98b0e32f0a6c38a6df9487fd3992e6150832fde2de08cec7446",
+  "forgeManifestSha256": "c36ad4ab97bcdfb6f92001b9d9bb65845ca69a5aece1ec6f958537c6a69c6f57",
+  "forge": {
+    "url": "https://github.com/ClayStan404/hexproof/releases/download/v2.0.1/hexproof-forge-runtime-2be4858216742009afe8a7cffb035fc7671e960d-adapter2.tar.gz",
+    "size": 199191851,
+    "sha256": "04ada8bf6b31cde0d564e0537937333a4489b387fca144a20a438b160a29ac74",
+    "format": "tar.gz"
+  },
+  "java": {
+    "linux-amd64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "size": 52059408,
+      "sha256": "2413149700df0f7d440500a84a8f764c535f21e5a5e87d38328b64eec2c5b500",
+      "format": "tar.gz"
+    },
+    "windows-amd64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_x64_windows_hotspot_21.0.12.1_1.zip",
+      "size": 48999141,
+      "sha256": "d35f31e712f0fcf6ac5a093edc90204fbff22f720ba3950bd09d331d5e621636",
+      "format": "zip"
+    },
+    "darwin-arm64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_aarch64_mac_hotspot_21.0.12.1_1.tar.gz",
+      "size": 48144965,
+      "sha256": "dec50fc6f9fcd4fe3ae8cabf5a5fa68f6afc48841f7698e468e9aa5d54beed84",
+      "format": "tar.gz"
+    }
+  }
+}

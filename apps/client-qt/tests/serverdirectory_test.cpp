@@ -20,6 +20,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <functional>
 
 using namespace Qt::StringLiterals;
 using hexproof::client::ServerDirectory;
@@ -41,6 +42,8 @@ class DirectoryHost : public QTcpServer
   public:
     QByteArray primary = "unavailable";
     QByteArray mirror;
+    QByteArray healthCapabilities;
+    std::function<void()> beforeHealthResponse;
     QStringList requests;
 
     DirectoryHost()
@@ -61,9 +64,17 @@ class DirectoryHost : public QTcpServer
                     const QByteArray body = path == u"/catalog"_s  ? primary
                                             : path == u"/mirror"_s ? mirror
                                                                    : QByteArray{};
+                    QByteArray headers;
+                    if (path.endsWith(u"/healthz"_s)) {
+                        if (beforeHealthResponse)
+                            beforeHealthResponse();
+                        if (!healthCapabilities.isEmpty())
+                            headers = "X-Hexproof-Capabilities: " + healthCapabilities + "\r\n";
+                    }
                     socket->write(
                         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
-                        QByteArray::number(body.size()) + "\r\nConnection: close\r\n\r\n" + body);
+                        QByteArray::number(body.size()) + "\r\n" + headers +
+                        "Connection: close\r\n\r\n" + body);
                     socket->disconnectFromHost();
                 });
             }
@@ -105,6 +116,14 @@ void isolateCatalog(const QTemporaryDir &directory)
     qputenv("HEXPROOF_SERVER_DIRECTORY_CACHE", directory.filePath(u"cache.json"_s).toUtf8());
 }
 
+QJsonObject capabilities(bool forge, bool hosting)
+{
+    return {{u"forge"_s, forge},
+            {u"playerHosting"_s, hosting},
+            {u"directPeer"_s, hosting},
+            {u"hostMigration"_s, hosting}};
+}
+
 } // namespace
 
 class TestServerDirectory : public QObject
@@ -125,6 +144,8 @@ class TestServerDirectory : public QObject
     void rejectsInvalidUpdates_data() const;
     void rejectsInvalidUpdates() const;
     void preservesCustomEndpointAndObservedCapabilities() const;
+    void discoversIndependentHostingCapabilities() const;
+    void welcomeOverridesAnOlderProbe() const;
 };
 
 void TestServerDirectory::init()
@@ -415,12 +436,13 @@ void TestServerDirectory::preservesCustomEndpointAndObservedCapabilities() const
                          catalog(1, {first, second}, {host.url(u"/catalog"_s)})));
     ServerDirectory directory;
     QVERIFY(directory.setCustomServerUrl(u"ws://127.0.0.1:57321/ws"_s));
-    directory.recordForgeCapability(first[u"url"_s].toString(), true);
+    directory.recordCapabilities(first[u"url"_s].toString(), capabilities(true, true));
     QCOMPARE(directory.entries()[0].toMap()[u"forge"_s].toInt(), 1);
     host.primary = QJsonDocument(catalog(2, {second, first})).toJson();
     directory.refreshDirectory(true);
     QTRY_COMPARE(directory.source(), u"online"_s);
     QCOMPARE(directory.entries()[1].toMap()[u"forge"_s].toInt(), 1);
+    QCOMPARE(directory.entries()[1].toMap()[u"playerHosting"_s].toInt(), 1);
     QCOMPARE(directory.customServerUrl(), u"ws://127.0.0.1:57321/ws"_s);
     host.primary = QJsonDocument(catalog(3, {})).toJson();
     directory.refreshDirectory(true);
@@ -429,6 +451,64 @@ void TestServerDirectory::preservesCustomEndpointAndObservedCapabilities() const
     QCOMPARE(directory.customServerIndex(), 0);
     QCOMPARE(directory.entries().size(), 1);
     QCOMPARE(directory.serverUrl(0), u"ws://127.0.0.1:57321/ws"_s);
+}
+
+void TestServerDirectory::discoversIndependentHostingCapabilities() const
+{
+    QTemporaryDir files;
+    DirectoryHost host;
+    isolateCatalog(files);
+    QVERIFY(writeCatalog(files.filePath(u"bootstrap.json"_s),
+                         catalog(1, {host.entry(u"relay"_s, false)})));
+    ServerDirectory directory;
+    QCOMPARE(directory.entries()[0].toMap()[u"playerHosting"_s].toInt(), -1);
+    const auto refresh = [&]() {
+        directory.refreshLatencies();
+        QTRY_VERIFY(directory.latencies()[0].toInt() >= 0);
+    };
+    refresh(); // Older servers retain unknown hosting support.
+    QCOMPARE(directory.entries()[0].toMap()[u"playerHosting"_s].toInt(), -1);
+    host.healthCapabilities =
+        QJsonDocument(capabilities(false, true)).toJson(QJsonDocument::Compact);
+    refresh();
+    QCOMPARE(directory.entries()[0].toMap()[u"forge"_s].toInt(), 0);
+    for (const auto &key : {u"playerHosting"_s, u"directPeer"_s, u"hostMigration"_s})
+        QCOMPARE(directory.entries()[0].toMap()[key].toInt(), 1);
+    auto oversized = capabilities(true, false);
+    oversized.insert(u"padding"_s, QString(1100, u'x'));
+    for (const QByteArray &invalid :
+         {QByteArray("{broken"), QByteArray("{\"forge\":false}"),
+          QJsonDocument(oversized).toJson(QJsonDocument::Compact),
+          QByteArray("{\"forge\":false,\"playerHosting\":\"yes\",\"directPeer\":true,"
+                     "\"hostMigration\":true}")}) {
+        host.healthCapabilities = invalid;
+        refresh();
+        QCOMPARE(directory.entries()[0].toMap()[u"playerHosting"_s].toInt(), 1);
+    }
+    host.healthCapabilities =
+        QJsonDocument(capabilities(true, false)).toJson(QJsonDocument::Compact);
+    refresh();
+    QCOMPARE(directory.entries()[0].toMap()[u"forge"_s].toInt(), 1);
+    QCOMPARE(directory.entries()[0].toMap()[u"playerHosting"_s].toInt(), 0);
+}
+
+void TestServerDirectory::welcomeOverridesAnOlderProbe() const
+{
+    QTemporaryDir files;
+    DirectoryHost host;
+    isolateCatalog(files);
+    const auto entry = host.entry(u"relay"_s, false);
+    QVERIFY(writeCatalog(files.filePath(u"bootstrap.json"_s), catalog(1, {entry})));
+    ServerDirectory directory;
+    host.healthCapabilities =
+        QJsonDocument(capabilities(true, false)).toJson(QJsonDocument::Compact);
+    host.beforeHealthResponse = [&]() {
+        directory.recordCapabilities(entry[u"url"_s].toString(), capabilities(false, true));
+    };
+    directory.refreshLatencies();
+    QTRY_VERIFY(directory.latencies()[0].toInt() >= 0);
+    QCOMPARE(directory.entries()[0].toMap()[u"forge"_s].toInt(), 0);
+    QCOMPARE(directory.entries()[0].toMap()[u"playerHosting"_s].toInt(), 1);
 }
 
 QTEST_MAIN(TestServerDirectory)

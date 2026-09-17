@@ -13,6 +13,34 @@ import (
 	"hexproof/server/internal/rulesengine/forge"
 )
 
+func TestForgeLinkedExileUsesOnlyVisibleExileObjects(t *testing.T) {
+	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 0, 1: 1}}
+	view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",
+		Players: []forge.PlayerView{{ID: "player-0"}, {ID: "player-1"}},
+		Zones: []forge.ZoneView{
+			{Zone: "battlefield", OwnerID: "player-0", Cards: []forge.CardView{
+				{ID: "labyrinth-a", ExiledCardCount: 2, ExiledCardIDs: []string{"visible", "hidden", "hand", "departed", "visible"}},
+				{ID: "labyrinth-b"},
+			}},
+			{Zone: "exile", OwnerID: "player-0", Cards: []forge.CardView{
+				{ID: "visible", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Devourer of Destiny"}},
+				{ID: "hidden", Visibility: "hidden", Identity: &forge.CardIdentityView{Name: "SECRET"}},
+			}},
+			{Zone: "hand", OwnerID: "player-0", Cards: []forge.CardView{
+				{ID: "hand", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Returned card"}},
+			}},
+		}}
+	snapshot, err := normalizeForgeSnapshot("ROOM", game, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := snapshot.Zones[0].Cards[0], snapshot.Zones[0].Cards[1]
+	if a.ExiledCardCount != 2 || !reflect.DeepEqual(a.ExiledCardIDs, []string{"visible"}) ||
+		b.ExiledCardCount != 0 || len(b.ExiledCardIDs) != 0 {
+		t.Fatalf("unsafe or misattributed linked exile: %+v / %+v", a, b)
+	}
+}
+
 func TestForgeStackTargetsJoinOnlyViewerObjects(t *testing.T) {
 	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 1, 1: 0}}
 	view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",

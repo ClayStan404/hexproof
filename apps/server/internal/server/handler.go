@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hexproof/server/internal/forgehost"
+	"hexproof/server/internal/peerlink"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
 )
@@ -69,10 +71,15 @@ type Handler struct {
 	passwordJoinLimiter     *fixedWindowLimiter
 	replayRequestLimiter    *fixedWindowLimiter
 	tournaments             *tournamentRegistry
+	playerHosts             map[string]*forgehost.Link
+	playerBackups           map[string]*playerBackup
+	playerPeers             map[string]*playerPeerState
+	playerHostStateMu       sync.Mutex
 	forgeRuntime            *forge.ProcessConfig
+	forgePool               *forge.Pool
 	forgeMu                 sync.Mutex
-	forgeClients            map[*forge.Client]struct{}
-	forgeReservations       map[string]*forge.Client
+	forgeClients            map[forge.Runtime]struct{}
+	forgeReservations       map[string]forge.Runtime
 	forgeGames              map[string]forgeRoomGame
 	forgePromptSequence     atomic.Int64
 	forgeClosed             bool
@@ -97,6 +104,12 @@ func NewHandler() *Handler {
 // NewHandlerWithConfig creates a bounded handler and optional retention store.
 func NewHandlerWithConfig(config Config) (*Handler, error) {
 	config = normalizeConfig(config)
+	if err := peerlink.ValidateSTUNServers(config.PeerSTUNServers); err != nil {
+		return nil, fmt.Errorf("configure peer STUN servers: %w", err)
+	}
+	if config.ForgeGamesPerJVM < 1 || config.ForgeGamesPerJVM > 4 {
+		return nil, fmt.Errorf("Forge games per JVM must be between 1 and 4")
+	}
 	trustedProxies, err := parseTrustedProxies(config.TrustedProxyCIDRs)
 	if err != nil {
 		return nil, err
@@ -108,12 +121,28 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		return nil, err
 	}
 	var forgeRuntime *forge.ProcessConfig
+	var forgePool *forge.Pool
 	if config.ForgeRuntime != nil {
-		probe, probeErr := forge.Start(context.Background(), *config.ForgeRuntime)
+		var probe *forge.Client
+		var probeErr error
+		if config.ForgeGamesPerJVM > 1 {
+			forgePool, probeErr = forge.NewPool(*config.ForgeRuntime, config.ForgeGamesPerJVM)
+			if probeErr == nil {
+				probe, probeErr = forgePool.Acquire(context.Background())
+			}
+		} else {
+			probe, probeErr = forge.Start(context.Background(), *config.ForgeRuntime)
+		}
 		if probeErr != nil {
+			if forgePool != nil {
+				_ = forgePool.Close()
+			}
 			return nil, fmt.Errorf("configure Forge runtime: %w", probeErr)
 		}
 		if closeErr := probe.Close(); closeErr != nil {
+			if forgePool != nil {
+				_ = forgePool.Close()
+			}
 			return nil, fmt.Errorf("close Forge runtime probe: %w", closeErr)
 		}
 		copy := *config.ForgeRuntime
@@ -138,9 +167,13 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		passwordJoinLimiter:     newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		replayRequestLimiter:    newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournaments:             newTournamentRegistry(config.MaxTournaments),
+		playerHosts:             make(map[string]*forgehost.Link),
+		playerBackups:           make(map[string]*playerBackup),
+		playerPeers:             make(map[string]*playerPeerState),
 		forgeRuntime:            forgeRuntime,
-		forgeClients:            make(map[*forge.Client]struct{}),
-		forgeReservations:       make(map[string]*forge.Client),
+		forgePool:               forgePool,
+		forgeClients:            make(map[forge.Runtime]struct{}),
+		forgeReservations:       make(map[string]forge.Runtime),
 		forgeGames:              make(map[string]forgeRoomGame),
 	}, nil
 }

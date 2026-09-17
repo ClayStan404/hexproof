@@ -13,6 +13,7 @@ Item {
     property bool finished: false
     property double started: Date.now()
     property double entered: 0
+    readonly property bool localHosting: auditProbe.environment("HEXPROOF_AUDIT_PLAYER_HOSTED") === "1"
 
     function require(value, message) { if (!value) throw new Error(message) }
     function find(name) { return auditProbe.find(auditWindow, name, ({})) }
@@ -37,6 +38,34 @@ Item {
         }, () => !auditWindow.stack.busy)
         add("Open connection page", () => click("mainMenuConnectButton"),
             () => !!find("serverSelector") && !auditWindow.stack.busy)
+        if (localHosting) {
+            add("Discover local hosting capabilities without Java", () => {
+                require(ws.customServerUrl.startsWith("ws://127.0.0.1:"), "Expected runner-owned hub")
+                ws.refreshServerLatencies()
+            }, () => ws.serverEntries[ws.customServerIndex].playerHosting === 1)
+            add("Inspect independent hosting modes", () => {
+                const entry = ws.serverEntries[ws.customServerIndex]
+                require(entry.forge === 0 && entry.directPeer === 1 && entry.hostMigration === 1,
+                        "Relay capabilities incorrectly depend on server Forge")
+                require(find("serverSelector").displayText.indexOf("Player hosting") >= 0,
+                        "Missing usable player-host mode in selector")
+                require(find("serverSelector").displayText.indexOf("Manual only") < 0,
+                        "Relay is incorrectly labelled manual-only")
+                const detail = find("hostingCapabilitiesLabel")
+                require(detail && detail.visible && detail.text.indexOf("Host migration: Supported") >= 0,
+                        "Missing hosting capability detail")
+                capture("directory-local-hosting")
+            })
+            add("Connect to local relay", () => click("connectSubmitButton"),
+                () => ws.connected && !!find("mainMenuDisconnectButton") && !auditWindow.stack.busy)
+            add("Verify authenticated capabilities", () => {
+                require(ws.playerHostingAvailable && ws.peerTransportAvailable && !ws.forgeRulesAvailable,
+                        "Welcome disagrees with local capabilities")
+            })
+            add("Disconnect local test client", () => click("mainMenuDisconnectButton"),
+                () => !ws.connected && !auditWindow.stack.busy)
+            return
+        }
         add("Refresh online catalog", () => click("refreshServerDirectoryButton"),
             () => !ws.serverDirectoryRefreshing && ws.serverDirectorySource === "online")
         add("Check current fleet and custom endpoint", () => {
@@ -65,8 +94,10 @@ Item {
         auditProbe.record("result", {status: error ? "failed" : "passed", error: error || "",
             assertions: assertions, pendingStep: index < steps.length ? steps[index].name : "",
             elapsedMs: Date.now() - started,
-            requiredScreenshots: ["directory-online.png", "directory-choices.png", "directory-server3.png"],
-            coverage: "Native maximized connection screen, online fleet, Forge labels, stable custom selection and keyboard selection"})
+            requiredScreenshots: localHosting ? ["directory-local-hosting.png"]
+                : ["directory-online.png", "directory-choices.png", "directory-server3.png"],
+            coverage: localHosting ? "Native maximized local relay health discovery, hosting labels and authenticated welcome without Java"
+                : "Native maximized connection screen, online fleet, Forge labels, stable custom selection and keyboard selection"})
         auditProbe.finish(error ? 1 : 0)
     }
     Component.onCompleted: { try { plan() } catch (error) { finish(String(error)) } }

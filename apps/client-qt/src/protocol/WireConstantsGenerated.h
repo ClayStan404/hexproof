@@ -9,6 +9,18 @@
 
 namespace hexproof::protocol {
 
+inline const QString kTypeForgePeerRequest = QStringLiteral("forge.peer_request");
+inline const QString kTypeForgePeerGrant = QStringLiteral("forge.peer_grant");
+inline const QString kTypeForgePeerSignal = QStringLiteral("forge.peer_signal");
+inline const QString kTypeForgePeerSignaled = QStringLiteral("forge.peer_signaled");
+inline const QString kTypeForgePeerStatus = QStringLiteral("forge.peer_status");
+inline const QString kErrPlayerHostLost = QStringLiteral("player_host_lost");
+inline const QString kErrPlayerHostTrustRequired = QStringLiteral("player_host_trust_required");
+inline const QString kTypeForgeHostRequest = QStringLiteral("forge.host_request");
+inline const QString kTypeForgeHostGrant = QStringLiteral("forge.host_grant");
+inline const QString kTypeForgeHostStatus = QStringLiteral("forge.host_status");
+inline const QString kHostingModeServer = QStringLiteral("server");
+inline const QString kHostingModePlayer = QStringLiteral("player");
 inline const QString kProtocolVersion = QStringLiteral("hexproof.v1");
 inline const QString kTypeSessionHello = QStringLiteral("session.hello");
 inline const QString kTypeSessionWelcome = QStringLiteral("session.welcome");
