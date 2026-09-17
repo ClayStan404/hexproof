@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+# Native source identities must be identical on Windows, macOS and Linux.
+third_party/forge-runtime/native-host/** text eol=lf
+third_party/forge-runtime/*.py text eol=lf
+apps/server/internal/runtimepkg/manifest.json text eol=lf
