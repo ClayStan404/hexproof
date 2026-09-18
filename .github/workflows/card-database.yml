@@ -26,6 +26,8 @@ jobs:
         run: >
           sudo apt-get update &&
           sudo apt-get install -y cmake curl gzip jq ninja-build python3 sqlite3 zlib1g-dev
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
       - name: Install Qt
         uses: ./.github/actions/setup-qt
       - name: Download, build, and package latest database
