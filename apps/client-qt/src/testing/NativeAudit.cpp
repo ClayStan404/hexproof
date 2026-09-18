@@ -899,7 +899,8 @@ bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariant
     auto *transport = qobject_cast<WsClient *>(
         m_engine->rootContext()->contextProperty(QStringLiteral("ws")).value<QObject *>());
     if (!transport)
-        return artifactFailure(QStringLiteral("Rules table fixture requires the production client"));
+        return artifactFailure(
+            QStringLiteral("Rules table fixture requires the production client"));
     QString roomId = room.value(QStringLiteral("roomId")).toString();
     if (roomId.isEmpty())
         roomId = QStringLiteral("LAND01");
@@ -907,8 +908,8 @@ bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariant
     if (role.isEmpty())
         role = QStringLiteral("player");
     const int seat = room.value(QStringLiteral("seatIndex")).toInt();
-    const bool host = !room.contains(QStringLiteral("host"))
-                          || room.value(QStringLiteral("host")).toBool();
+    const bool host =
+        !room.contains(QStringLiteral("host")) || room.value(QStringLiteral("host")).toBool();
     transport->m_roomSession->enter(roomId, role, seat, host);
     transport->m_roomSession->applySnapshot(QJsonObject::fromVariantMap(room));
     if (!transport->m_rulesSession->applySnapshot(QJsonObject::fromVariantMap(rules)))
