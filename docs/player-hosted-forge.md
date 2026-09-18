@@ -86,6 +86,11 @@ leased generations remain intact. Import is disabled while the local helper is
 busy, including active hosting. Verified imported archives also support later
 offline repair through **Prepare / retry**.
 
+After a failed or cancelled import, the client rechecks the installed runtime
+without downloading. Hosting readiness is restored only if that check reports
+ready and exits successfully. The original import error remains visible, and
+other preparation or hosting operations stay disabled until recovery finishes.
+
 An optional user-configured HTTPS mirror directory serves files named
 `<sha256>.tar.gz` or `<sha256>.zip`. The original pinned URL remains a fallback.
 Mirror selection is local, never supplied by a room, and cannot select a new

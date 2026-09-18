@@ -33,7 +33,7 @@ class ForgeHostService : public QObject
     }
     bool busy() const
     {
-        return m_process.state() != QProcess::NotRunning;
+        return m_operation != Operation::None || m_process.state() != QProcess::NotRunning;
     }
     bool hosting() const
     {
@@ -59,13 +59,24 @@ class ForgeHostService : public QObject
     void setTransportDiagnostics(const QString &state, int decisions, int fallbacks);
 
   private:
-    void launch(const QStringList &arguments, const QJsonObject &configuration = {});
+    enum class Operation
+    {
+        None,
+        Standard,
+        Import,
+        ImportCheck
+    };
+    void launch(const QStringList &arguments, const QJsonObject &configuration = {},
+                Operation operation = Operation::Standard);
+    void finishOperation(bool succeeded);
     void readOutput();
     QString helperPath() const;
     QString runtimeDirectory() const;
     QProcess m_process;
     QByteArray m_output;
     QString m_state;
+    QString m_importResult;
+    Operation m_operation = Operation::None;
     bool m_ready = false;
     bool m_hosting = false;
     bool m_stopping = false;

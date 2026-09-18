@@ -118,6 +118,14 @@ The initial Forge backend uses the harness `--interactive-server` contract:
   deciding player;
 - `getGameOver`, `endGame`, and `abortGame` close the lifecycle explicitly.
 
+Deck and commander names may use the catalog's combined `Front // Back` form.
+The native adapter first tries the full name, preserving Forge's split-card
+names. If unavailable, it looks up the front with the same set and collector
+number and verifies both face names against that card before accepting it.
+Mainboard and sideboard use the same lookup; commander designation matches
+either the native name or that verified combined name. The hub keeps the
+submitted names and printing metadata unchanged.
+
 By default each game receives a fresh process, including restart and the next
 game of BO3. JSONL input and output are explicitly UTF-8, independent of the
 operating system's console encoding, in both dedicated and shared workers.

@@ -26,11 +26,15 @@ ForgeHostService::ForgeHostService(QObject *parent)
         // Helper/engine diagnostics never enter player-visible logs.
         m_process.readAllStandardError();
     });
-    connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) {
-        if (!m_stopping) {
+    connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (!m_stopping)
             m_state = u"start_failed"_s;
+        // FailedToStart has no finished signal. Release the operation guard
+        // and complete an import recheck even if the helper cannot launch.
+        if (error == QProcess::FailedToStart)
+            finishOperation(false);
+        else
             emit changed();
-        }
     });
     connect(&m_process, &QProcess::finished, this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
@@ -43,9 +47,7 @@ ForgeHostService::ForgeHostService(QObject *parent)
                         m_state != u"cancelled"_s)
                         m_state = u"hosting_failed"_s;
                 }
-                m_hosting = false;
-                m_stopping = false;
-                emit changed();
+                finishOperation(!m_stopping && exitCode == 0 && exitStatus == QProcess::NormalExit);
             });
 }
 
@@ -75,18 +77,20 @@ QString ForgeHostService::runtimeDirectory() const
                                   : QDir(overridePath).absolutePath();
 }
 
-void ForgeHostService::launch(const QStringList &arguments, const QJsonObject &configuration)
+void ForgeHostService::launch(const QStringList &arguments, const QJsonObject &configuration,
+                              Operation operation)
 {
     if (busy())
         return;
-    if (!QFileInfo(helperPath()).isExecutable()) {
-        m_state = u"helper_missing"_s;
-        emit changed();
-        return;
-    }
+    m_operation = operation;
     m_output.clear();
     m_stopping = false;
     m_progress = 0;
+    if (!QFileInfo(helperPath()).isExecutable()) {
+        m_state = u"helper_missing"_s;
+        finishOperation(false);
+        return;
+    }
     m_state = u"verifying"_s;
     QStringList options{u"--runtime-dir"_s, runtimeDirectory(), u"--parent-pipe"_s};
     options.append(arguments);
@@ -95,6 +99,36 @@ void ForgeHostService::launch(const QStringList &arguments, const QJsonObject &c
     m_process.start();
     if (!configuration.isEmpty()) {
         m_process.write(QJsonDocument(configuration).toJson(QJsonDocument::Compact) + '\n');
+    }
+    emit changed();
+}
+
+void ForgeHostService::finishOperation(bool succeeded)
+{
+    const Operation operation = m_operation;
+    m_operation = Operation::None;
+    m_hosting = false;
+    m_stopping = false;
+    if (operation == Operation::Import && (!succeeded || m_state != u"ready"_s)) {
+        // A failed import may leave a valid older installation untouched.
+        // Verify it, rather than trusting the readiness remembered before import.
+        m_importResult = m_state;
+        m_ready = false;
+        m_operation = Operation::ImportCheck;
+        // Keep busy across the handoff and leave the old QProcess callback
+        // before starting another process, including after FailedToStart.
+        QTimer::singleShot(0, this, [this]() {
+            if (m_stopping) {
+                finishOperation(false);
+                return;
+            }
+            m_operation = Operation::None;
+            launch({u"--check"_s}, {}, Operation::ImportCheck);
+        });
+    } else if (operation == Operation::ImportCheck) {
+        m_ready = succeeded && m_state == u"ready"_s;
+        m_state = m_importResult;
+        m_importResult.clear();
     }
     emit changed();
 }
@@ -126,7 +160,7 @@ void ForgeHostService::importPack(const QUrl &source)
         return;
     }
     m_ready = false;
-    launch({u"--import-pack"_s, source.toLocalFile()});
+    launch({u"--import-pack"_s, source.toLocalFile()}, {}, Operation::Import);
 }
 
 QString ForgeHostService::downloadMirror() const
@@ -228,6 +262,11 @@ void ForgeHostService::stop()
     if (!busy())
         return;
     m_stopping = true;
+    if (m_process.state() == QProcess::NotRunning) {
+        // A queued import recheck observes cancellation before it launches.
+        emit changed();
+        return;
+    }
     m_process.closeWriteChannel();
     const qint64 processId = m_process.processId();
     QTimer::singleShot(5000, this, [this, processId]() {
@@ -266,7 +305,7 @@ void ForgeHostService::readOutput()
         }
         if (m_state == u"cache_cleared"_s)
             m_freedBytes = event.value(u"received"_s).toInteger();
-        if (m_state == u"ready"_s)
+        if (m_state == u"ready"_s && m_operation != Operation::ImportCheck)
             m_ready = true;
         if (m_state == u"not_ready"_s || m_state == u"prepare_failed"_s ||
             m_state == u"version_mismatch"_s || m_state == u"start_failed"_s ||
@@ -280,54 +319,56 @@ void ForgeHostService::readOutput()
 
 QString ForgeHostService::status() const
 {
-    if (m_state == u"forge"_s)
+    // Rechecking readiness must not hide the failed/cancelled import result.
+    const QString &state = m_importResult.isEmpty() ? m_state : m_importResult;
+    if (state == u"forge"_s)
         return tr("Downloading Forge…");
-    if (m_state == u"java"_s)
+    if (state == u"java"_s)
         return tr("Downloading Java…");
-    if (m_state == u"importing"_s)
+    if (state == u"importing"_s)
         return tr("Importing the offline Forge pack…");
-    if (m_state == u"pack_version_failed"_s)
+    if (state == u"pack_version_failed"_s)
         return tr("This offline pack does not match this version of Hexproof. Use a matching pack "
                   "or update Hexproof.");
-    if (m_state == u"pack_platform_failed"_s)
+    if (state == u"pack_platform_failed"_s)
         return tr("This offline pack is for another operating system or processor. Choose the pack "
                   "for this computer.");
-    if (m_state == u"import_failed"_s)
+    if (state == u"import_failed"_s)
         return tr("Could not import the offline pack. Check that the file is complete and readable "
                   "and that there is enough free disk space, then retry.");
-    if (m_state == u"extracting"_s)
+    if (state == u"extracting"_s)
         return tr("Installing the local rules engine…");
-    if (m_state == u"verifying"_s)
+    if (state == u"verifying"_s)
         return tr("Checking the local rules engine…");
-    if (m_state == u"disk_space"_s)
+    if (state == u"disk_space"_s)
         return tr("At least 1 GiB of free space is needed. Clear cached downloads or free disk "
                   "space, then retry.");
-    if (m_state == u"cleaning"_s)
+    if (state == u"cleaning"_s)
         return tr("Clearing unused Forge downloads and runtimes…");
-    if (m_state == u"cache_cleared"_s)
+    if (state == u"cache_cleared"_s)
         return tr("Freed %1 MiB. Current and running Forge installations were kept.")
             .arg(QString::number(static_cast<double>(m_freedBytes) / (1024 * 1024), 'f', 1));
-    if (m_state == u"cleanup_failed"_s)
+    if (state == u"cleanup_failed"_s)
         return tr("The cache could not be cleared. Close other preparation windows and retry.");
-    if (m_state == u"cancelled"_s || m_state == u"stopped"_s)
+    if (state == u"cancelled"_s || state == u"stopped"_s)
         return tr("Stopped. You can retry the import or resume the download.");
-    if (m_state == u"host_stopped"_s)
+    if (state == u"host_stopped"_s)
         return tr("Local hosting stopped. The installed runtime is ready for reuse.");
-    if (m_state == u"connected"_s)
+    if (state == u"connected"_s)
         return tr("Local Forge is connected.");
-    if (m_state == u"reconnecting"_s)
+    if (state == u"reconnecting"_s)
         return tr("Reconnecting the hosted engine… Keep Hexproof open.");
-    if (m_state == u"helper_missing"_s)
+    if (state == u"helper_missing"_s)
         return tr("The hosting helper is missing. Reinstall the complete client package.");
-    if (m_state == u"adapter_failed"_s)
+    if (state == u"adapter_failed"_s)
         return tr("The bundled Forge adapter is missing or does not match this client. Reinstall "
                   "the complete client package.");
-    if (m_state == u"version_mismatch"_s)
+    if (state == u"version_mismatch"_s)
         return tr("The server requires a different Forge runtime. Update Hexproof.");
-    if (m_state == u"prepare_failed"_s)
+    if (state == u"prepare_failed"_s)
         return tr("The rules engine could not be prepared. Check the connection and free disk "
                   "space, then retry.");
-    if (m_state.endsWith(u"failed"))
+    if (state.endsWith(u"failed"))
         return tr("Local Forge stopped or could not start. Return to the room and prepare hosting "
                   "again.");
     if (m_ready)

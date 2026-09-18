@@ -9,6 +9,32 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-09-18
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.0.3**; application versions
+  must match exactly. The WebSocket protocol remains `hexproof.v1`, and existing
+  card databases and saved decks remain compatible.
+- The bundled native adapter overlay changes identity through the combined
+  card face resolution. Player-hosted clients receive the new overlay with the
+  package; server-managed Forge runtimes must be rebuilt with the matching
+  current adapter for the fix.
+
+### Fixed
+
+- Start Forge games whose decks or commanders contain modal double-faced cards.
+  The catalog's combined `Front // Back` names are now resolved at startup: the
+  adapter first tries the full name, then falls back to the front-face printing
+  with the same set and collector number, verifying both face names before
+  registering the card. Split cards such as Fire // Ice keep working through
+  their native combined names.
+- Restore player-hosting readiness after a rejected or cancelled offline Forge
+  import when the previously installed runtime remains usable. The client
+  rechecks that installation without downloading, keeps the original import
+  diagnostic visible and leaves preparation or hosting operations disabled
+  until the recheck finishes.
+
 ## [2.0.2] - 2026-09-17
 
 ### Upgrade notes

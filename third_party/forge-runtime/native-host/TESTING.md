@@ -5,6 +5,15 @@ and frozen host source that it has just packaged. Their constructed boards
 isolate native decisions; the Go and Qt suites below exercise the application
 boundary separately.
 
+`NativeDeckRegistrationRegressionTest` registers the reported MH3 250 Disciple
+of Freyalise and ZNR 215 Turntimber Symbiosis printings using combined catalog
+face names, in both mainboard and sideboard. It checks exact printings and
+section counts, name-only and set-only lookup, transforming and Adventure
+cards, unchanged split/aftermath names, and an actual initial native decision
+without opponent/spectator identity disclosure. Commander cases match the
+native front name and combined name across deck entries and designation.
+Unrelated or missing faces must still fail with the fixed private-safe error.
+
 `NativeCallbackRegressionTest` covers canonical remote responses to native
 scry, generic amount, combat damage, and Phyrexian life payment. Damage
 cases include unordered blockers, deathtouch, a sole defender, and deferring an

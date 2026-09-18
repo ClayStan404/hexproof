@@ -3,6 +3,7 @@
 package org.hexproof.forge;
 
 import com.google.gson.*;
+import forge.card.CardDb;
 import forge.deck.*;
 import forge.game.*;
 import forge.game.card.Card;
@@ -93,13 +94,9 @@ final class NativeSession implements AutoCloseable {
                         String name = ci.get("name").getAsString();
                         String set = text(ci, "setCode", "");
                         String number = text(ci, "collectorNumber", "");
-                        PaperCard card = set.isEmpty() ? FModel.getMagicDb().getCommonCards().getCard(name)
-                                : number.isEmpty() ? FModel.getMagicDb().getCommonCards().getCard(name, set)
-                                : FModel.getMagicDb().getCommonCards().getCard(name, set, number);
+                        PaperCard card = findCard(FModel.getMagicDb().getCommonCards(), name, set, number);
                         if (card == null) {
-                            PaperCard variant = set.isEmpty() ? FModel.getMagicDb().getVariantCards().getCard(name)
-                                    : number.isEmpty() ? FModel.getMagicDb().getVariantCards().getCard(name, set)
-                                    : FModel.getMagicDb().getVariantCards().getCard(name, set, number);
+                            PaperCard variant = findCard(FModel.getMagicDb().getVariantCards(), name, set, number);
                             if (variant != null && variant.getRules().getType().isConspiracy()) card = variant;
                         }
                         if (card == null) throw new IllegalArgumentException("Requested card printing is unavailable");
@@ -108,7 +105,7 @@ final class NativeSession implements AutoCloseable {
                     }
                 }
                 if (player.has("commanderNames")) for (JsonElement commander : player.getAsJsonArray("commanderNames")) {
-                    PaperCard card = deck.getMain().toFlatList().stream().filter(c -> c.getName().equalsIgnoreCase(commander.getAsString())).findFirst().orElseThrow(() -> new IllegalArgumentException("Commander missing from deck"));
+                    PaperCard card = deck.getMain().toFlatList().stream().filter(c -> matchesCardName(c, commander.getAsString())).findFirst().orElseThrow(() -> new IllegalArgumentException("Commander missing from deck"));
                     deck.getMain().remove(card, 1);
                     deck.getOrCreate(DeckSection.Commander).add(card, 1);
                 }
@@ -134,6 +131,27 @@ final class NativeSession implements AutoCloseable {
                 guis.add(gui);
             }
         } catch (RuntimeException | Error error) { context.close(); throw error; }
+    }
+    private static PaperCard findCard(CardDb database, String name, String set, String number) {
+        PaperCard card = lookupCard(database, name, set, number);
+        if (card != null) return card;
+        // Catalogs join both faces for modal, transforming and Adventure cards;
+        // Forge indexes those by the front. Split cards already match in full.
+        int separator = name.indexOf(" // ");
+        if (separator < 0) return null;
+        card = lookupCard(database, name.substring(0, separator).trim(), set, number);
+        return card != null && matchesCardName(card, name) ? card : null;
+    }
+    private static PaperCard lookupCard(CardDb database, String name, String set, String number) {
+        return set.isEmpty() ? database.getCard(name)
+                : number.isEmpty() ? database.getCard(name, set) : database.getCard(name, set, number);
+    }
+    private static boolean matchesCardName(PaperCard card, String name) {
+        if (card.getName().equalsIgnoreCase(name)) return true;
+        String[] faces = name.split(" // ", -1);
+        return faces.length == 2 && card.getOtherFace() != null
+                && card.getMainFace().getName().equalsIgnoreCase(faces[0].trim())
+                && card.getOtherFace().getName().equalsIgnoreCase(faces[1].trim());
     }
     JsonObject handle() {
         JsonObject result = object("sessionId", id);

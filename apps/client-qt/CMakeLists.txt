@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.0.2")
+set(HEXPROOF_VERSION "2.0.3")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -926,6 +926,19 @@ qt_add_resources(hexproof_wsclient_test "wsclient_server_directory"
     PREFIX "/"
     FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
 add_test(NAME wsclient COMMAND hexproof_wsclient_test)
+
+qt_add_executable(hexproof_forgehostservice_test tests/forgehostservice_test.cpp)
+target_link_libraries(hexproof_forgehostservice_test PRIVATE hexproof_session Qt6::Test)
+# Keep the fixture helper outside the real client's deployment directory.
+set_target_properties(hexproof_forgehostservice_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../forgehostservice-test")
+add_custom_command(TARGET hexproof_forgehostservice_test POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "$<TARGET_FILE:hexproof_forgehostservice_test>"
+        "$<TARGET_FILE_DIR:hexproof_forgehostservice_test>/hexproof-forge-host${CMAKE_EXECUTABLE_SUFFIX}"
+    VERBATIM)
+add_test(NAME forgehostservice COMMAND hexproof_forgehostservice_test)
+set_tests_properties(forgehostservice PROPERTIES TIMEOUT 90)
 
 qt_add_executable(hexproof_localtestsession_test tests/localtestsession_test.cpp)
 target_compile_definitions(hexproof_localtestsession_test PRIVATE

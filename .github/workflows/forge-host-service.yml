@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Forge host service regression
+
+on:
+  pull_request:
+    paths:
+      - 'apps/client-qt/src/services/ForgeHostService.*'
+      - 'apps/client-qt/src/ApplicationPaths.h'
+      - 'apps/client-qt/tests/forgehostservice/**'
+      - 'apps/client-qt/tests/forgehostservice_test.cpp'
+      - '.github/workflows/forge-host-service.yml'
+      - '.github/actions/setup-qt/**'
+  push:
+    branches: [master]
+    paths:
+      - 'apps/client-qt/src/services/ForgeHostService.*'
+      - 'apps/client-qt/src/ApplicationPaths.h'
+      - 'apps/client-qt/tests/forgehostservice/**'
+      - 'apps/client-qt/tests/forgehostservice_test.cpp'
+      - '.github/workflows/forge-host-service.yml'
+      - '.github/actions/setup-qt/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup-qt
+      - name: Configure isolated helper tests
+        run: cmake -S apps/client-qt/tests/forgehostservice -B build/forgehostservice
+      - name: Build
+        run: cmake --build build/forgehostservice --config Release --parallel 2
+      - name: Test
+        id: tests
+        run: ctest --test-dir build/forgehostservice -C Release --output-on-failure
+      - name: Report Qt test results
+        if: always() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure')
+        run: cmake -E cat build/forgehostservice/forgehostservice-results.txt

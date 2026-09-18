@@ -22,7 +22,7 @@ class PublicExportTests(unittest.TestCase):
         self.write("apps/example.py", "print('public')\n")
         self.write("docs/private-notes.md", "Private notes\n")
         self.write("tools/tests/test_deploy_script.py", "private deployment test\n")
-        for name in (".github/workflows/ci.yml", ".clang-format", ".gitignore", "LICENSE",
+        for name in (".github/workflows/ci.yml", ".clang-format", ".gitattributes", ".gitignore", "LICENSE",
                      "CHANGELOG.md", "THIRD-PARTY-NOTICES.md", "docs/development-policy.md",
                      "docs/rules-engine.md", "docs/player-hosted-forge.md", "packaging/README.md", "protocol/example.json",
                      "testdata/example.json", "third_party/README.md"):
@@ -71,6 +71,7 @@ class PublicExportTests(unittest.TestCase):
         self.assertTrue((self.root / "docs/development-policy.md").exists())
         self.assertTrue((self.target / "docs/rules-engine.md").exists())
         self.assertTrue((self.target / "docs/player-hosted-forge.md").exists())
+        self.assertTrue((self.target / ".gitattributes").exists())
 
     def test_modified_public_source_still_blocks_export(self):
         self.write("apps/example.py", "changed\n")

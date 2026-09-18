@@ -31,6 +31,7 @@ fi
 public_paths=(
     .github
     .clang-format
+    .gitattributes
     .gitignore
     LICENSE
     README.md
