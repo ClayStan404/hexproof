@@ -54,6 +54,7 @@ class NativeAudit final : public QObject
     Q_INVOKABLE QVariant readShared(const QString &name);
     Q_INVOKABLE bool share(const QString &name, const QVariant &value);
     Q_INVOKABLE void fixture(const QString &name, const QVariantMap &detail = {});
+    Q_INVOKABLE bool applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules);
     Q_INVOKABLE bool interruptTransport(QObject *client);
     Q_INVOKABLE bool crashHostingHelper(QObject *client);
     Q_INVOKABLE void finish(int code);

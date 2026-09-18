@@ -116,6 +116,28 @@ void isolateCatalog(const QTemporaryDir &directory)
     qputenv("HEXPROOF_SERVER_DIRECTORY_CACHE", directory.filePath(u"cache.json"_s).toUtf8());
 }
 
+// The embedded production fleet can shrink at any time, so tests that assume
+// the retired five-slot bootstrap shape must isolate their own catalog.
+QJsonArray fiveSlotEntries()
+{
+    QJsonArray entries;
+    const QStringList urls = {u"wss://primary.example/ws"_s, u"wss://secondary.example/ws"_s,
+                              u"wss://tertiary.example/ws"_s, u"wss://quaternary.example/ws"_s,
+                              u"wss://test.example/test/ws"_s};
+    for (int index = 0; index < urls.size(); ++index) {
+        entries.append(QJsonObject{{u"id"_s, u"server-%1"_s.arg(index + 1)},
+                                   {u"name"_s, u"Server %1"_s.arg(index + 1)},
+                                   {u"forge"_s, true},
+                                   {u"url"_s, urls[index]}});
+    }
+    return entries;
+}
+
+bool isolateFiveSlotCatalog(const QTemporaryDir &directory)
+{
+    return writeCatalog(directory.filePath(u"bootstrap.json"_s), catalog(1, fiveSlotEntries()));
+}
+
 QJsonObject capabilities(bool forge, bool hosting)
 {
     return {{u"forge"_s, forge},
@@ -208,6 +230,10 @@ void TestServerDirectory::loadsExternalDirectory() const
 
 void TestServerDirectory::appliesEnvironmentOverrides() const
 {
+    QTemporaryDir files;
+    QVERIFY(files.isValid());
+    isolateCatalog(files);
+    QVERIFY(isolateFiveSlotCatalog(files));
     qputenv("HEXPROOF_SERVER_1_URL", " ws://127.0.0.1:10001/ws ");
     qputenv("HEXPROOF_SERVER_2_URL", "wss://secondary.example/ws");
     qputenv("HEXPROOF_SERVER_3_URL", "wss://tertiary.example/ws");
@@ -222,6 +248,10 @@ void TestServerDirectory::appliesEnvironmentOverrides() const
 
 void TestServerDirectory::mapsConfiguredAndCustomUrls() const
 {
+    QTemporaryDir files;
+    QVERIFY(files.isValid());
+    isolateCatalog(files);
+    QVERIFY(isolateFiveSlotCatalog(files));
     ServerDirectory directory;
     QCOMPARE(directory.indexForUrl(directory.serverUrl(0)), 0);
     QCOMPARE(directory.indexForUrl(directory.serverUrl(1)), 1);
@@ -237,6 +267,10 @@ void TestServerDirectory::mapsConfiguredAndCustomUrls() const
 
 void TestServerDirectory::exposesInitialLatencyState() const
 {
+    QTemporaryDir files;
+    QVERIFY(files.isValid());
+    isolateCatalog(files);
+    QVERIFY(isolateFiveSlotCatalog(files));
     ServerDirectory directory;
     const QVariantList latencies = directory.latencies();
     QCOMPARE(latencies.size(), (directory.configuredServerCount() + 1));
@@ -268,6 +302,10 @@ void TestServerDirectory::probesConfiguredHealthEndpoints() const
 
     const QByteArray endpoint =
         "ws://127.0.0.1:" + QByteArray::number(server.serverPort()) + "/test/ws";
+    QTemporaryDir files;
+    QVERIFY(files.isValid());
+    isolateCatalog(files);
+    QVERIFY(isolateFiveSlotCatalog(files));
     qputenv("HEXPROOF_SERVER_1_URL", endpoint);
     qputenv("HEXPROOF_SERVER_2_URL", endpoint);
     qputenv("HEXPROOF_SERVER_3_URL", endpoint);
@@ -321,6 +359,10 @@ void TestServerDirectory::editingCustomEndpointPreservesConfiguredProbes() const
         }
     });
     const QByteArray endpoint = "ws://127.0.0.1:" + QByteArray::number(server.serverPort()) + "/ws";
+    QTemporaryDir files;
+    QVERIFY(files.isValid());
+    isolateCatalog(files);
+    QVERIFY(isolateFiveSlotCatalog(files));
     for (int index = 1; index <= 32; ++index)
         qputenv(qPrintable(u"HEXPROOF_SERVER_%1_URL"_s.arg(index)), endpoint);
     ServerDirectory directory;

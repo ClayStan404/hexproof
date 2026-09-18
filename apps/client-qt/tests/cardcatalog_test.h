@@ -360,6 +360,7 @@ class TestCardCatalog : public QObject
 
   private slots:
     void simulatesLimitedWeightTotalBoundary() const;
+    void simulatesPairedLimitedProduct() const;
     void prefersMtgchChineseFields() const;
     void rejectsUnverifiedChineseFallbacks() const;
     void rejectsScryfallPlaceholderImages() const;

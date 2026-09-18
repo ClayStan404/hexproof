@@ -79,3 +79,19 @@ Package a complete database for the stable `card-data` release with:
   import/hexproof-default-cards.sqlite \
   build/card-database/release
 ```
+
+## Maintained FRA collation
+
+`build-latest.sh` also runs `build_fra_product.py --database DATABASE.sqlite`
+after importing all sources and before packaging. This derives the FRA recipe
+from the database's current English printings, preserves Scryfall booster flags,
+and records coverage/source revision in `metadata.fra_collation`. An incomplete
+preview is labelled explicitly; a missing entire slot category fails the build.
+See `docs/limited-events.md` for estimated rates and paired-draw semantics.
+This recipe requires the paired-sheet client/server update. Building or packaging
+it does not publish card-data or deploy the application/server.
+
+The CLI updates an explicitly selected build database in a transaction. Run it
+on build output, not a live client profile. The usual full build stages the
+result before replacing its final output. The reviewed pair-name reference
+comes from Draftmancer under the adjacent MIT license.

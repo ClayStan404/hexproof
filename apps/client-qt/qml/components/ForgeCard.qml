@@ -24,9 +24,11 @@ Rectangle {
     signal activated()
 
     function activate() {
-        if (combat && combat.active && objectKind === "card" && combat.activate(objectId)) return
-        if (!tableController.interaction.activateObject(objectKind, objectId, publicFace ? card.name : ""))
-            tableController.openCardDetails(objectId)
+        const combatId = combat && combat.active && objectKind === "card"
+            && card && typeof card.stackActivateId === "function"
+            ? (card.stackActivateId() || objectId) : objectId
+        if (combat && combat.active && objectKind === "card" && combat.activate(combatId)) return
+        tableController.interaction.activateObject(objectKind, objectId, publicFace ? card.name : "")
         activated()
     }
     onPreviewActiveChanged: {
@@ -37,15 +39,27 @@ Rectangle {
     width: 180 * unit
     height: width * (fullFace ? 1.394 : 0.93)
     radius: 8 * unit
-    color: "#172732"
-    border.width: selected || activeFocus ? 3 : actionable ? 2 : 1
-    border.color: selected ? "#e5bd73" : actionable ? "#79b8c5" : activeFocus ? "#eee0c5" : "#536570"
+    antialiasing: true
+    color: selected ? Theme.accent
+                    : actionable ? Theme.primary
+                    : activeFocus ? Theme.warning
+                    : Theme.borderStrong
+    border.width: 0
+    readonly property int strokeWidth: selected || activeFocus ? 3 : actionable ? 2 : 1
     activeFocusOnTab: pointerEnabled
     Keys.onReturnPressed: activate()
     Keys.onSpacePressed: activate()
     Accessible.role: Accessible.Button
     Accessible.name: publicFace ? card.name : qsTr("Hidden card")
     Accessible.onPressAction: activate()
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: root.strokeWidth
+        radius: Math.max(0, root.radius - root.strokeWidth)
+        antialiasing: true
+        color: Theme.withAlpha(Theme.surface, 0.92)
+    }
 
     Item {
         anchors.fill: parent

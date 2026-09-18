@@ -894,6 +894,35 @@ void NativeAudit::fixture(const QString &name, const QVariantMap &detail)
                        {QStringLiteral("monotonicMs"), m_elapsed.elapsed()}});
 }
 
+bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules)
+{
+    auto *transport = qobject_cast<WsClient *>(
+        m_engine->rootContext()->contextProperty(QStringLiteral("ws")).value<QObject *>());
+    if (!transport)
+        return artifactFailure(QStringLiteral("Rules table fixture requires the production client"));
+    QString roomId = room.value(QStringLiteral("roomId")).toString();
+    if (roomId.isEmpty())
+        roomId = QStringLiteral("LAND01");
+    QString role = room.value(QStringLiteral("role")).toString();
+    if (role.isEmpty())
+        role = QStringLiteral("player");
+    const int seat = room.value(QStringLiteral("seatIndex")).toInt();
+    const bool host = !room.contains(QStringLiteral("host"))
+                          || room.value(QStringLiteral("host")).toBool();
+    transport->m_roomSession->enter(roomId, role, seat, host);
+    transport->m_roomSession->applySnapshot(QJsonObject::fromVariantMap(room));
+    if (!transport->m_rulesSession->applySnapshot(QJsonObject::fromVariantMap(rules)))
+        return artifactFailure(QStringLiteral("Rules snapshot was rejected"));
+    transport->setState(WsClient::InRoom);
+    emit transport->inRoomChanged();
+    fixture(QStringLiteral("rules-table-snapshot"),
+            {{QStringLiteral("description"),
+              QStringLiteral("Deterministic Forge table snapshot; not a live engine game.")},
+             {QStringLiteral("roomId"), roomId},
+             {QStringLiteral("gameId"), rules.value(QStringLiteral("gameId"))}});
+    return true;
+}
+
 void NativeAudit::startDriver()
 {
     m_driverStarted = true;

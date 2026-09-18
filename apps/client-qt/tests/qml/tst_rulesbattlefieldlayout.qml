@@ -56,6 +56,8 @@ TestCase {
             function playDraggedHandCardSource(source) { handDrops++; return false }
         }
 
+        RulesBattlefieldLayout { id: grouping }
+
         RulesBattlefieldView {
             id: battlefield
             anchors.fill: parent
@@ -326,6 +328,25 @@ TestCase {
         snapshot.gameId = "next-game"
         apply()
         compare(state.hasCustomPositions, false)
+    }
+
+    function test_stackKeyGroupsCopiesAndTokensByPublicState() {
+        const plains = {cardId: "a", name: "Plains", visibleIdentity: true, token: false, tapped: false}
+        const plainsCopy = {cardId: "b", name: "Plains", visibleIdentity: true, token: false, tapped: false}
+        const tapped = {cardId: "c", name: "Plains", visibleIdentity: true, token: false, tapped: true}
+        const goblin = {cardId: "d", name: "Goblin", visibleIdentity: true, token: true,
+                        tapped: false, power: "1", toughness: "1"}
+        const goblinCopy = {cardId: "e", name: "Goblin", visibleIdentity: true, token: true,
+                            tapped: false, power: "1", toughness: "1"}
+        const printed = {cardId: "f", name: "Goblin", visibleIdentity: true, token: false,
+                         tapped: false, power: "1", toughness: "1"}
+        const hidden = {cardId: "g", name: "Secret", visibleIdentity: false, faceDown: true}
+        compare(grouping.stackKey(plains, "battlefield"), grouping.stackKey(plainsCopy, "battlefield"))
+        verify(grouping.stackKey(plains, "battlefield") !== grouping.stackKey(tapped, "battlefield"))
+        compare(grouping.stackKey(goblin, "battlefield"), grouping.stackKey(goblinCopy, "battlefield"))
+        verify(grouping.stackKey(goblin, "battlefield") !== grouping.stackKey(printed, "battlefield"))
+        verify(grouping.stackKey(hidden, "battlefield") !== grouping.stackKey(plains, "battlefield"))
+        verify(grouping.stackKey(plains, "graveyard") !== grouping.stackKey(plainsCopy, "graveyard"))
     }
 
     function test_faceDownCardsNeverUsePrivateTypeMetadata() {

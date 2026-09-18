@@ -172,6 +172,9 @@ printf '%s\n' 'Building the card database...'
     --limited-products "${staging_root}/source/limited-products.json" \
     --output "${staging_root}/import/hexproof-default-cards.sqlite"
 
+python3 "${script_dir}/build_fra_product.py" \
+    --database "${staging_root}/import/hexproof-default-cards.sqlite"
+
 "${repo_root}/packaging/card-database/build-release-assets.sh" \
     "${staging_root}/import/hexproof-default-cards.sqlite" \
     "${staging_root}/release"

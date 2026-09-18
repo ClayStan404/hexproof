@@ -406,8 +406,9 @@ delivery scope to multiplayer EDH.
 
 R0 and R1 are complete. The first R2 slice decodes `rules.snapshot` into a
 typed Qt session with dedicated player, zone, visible-card, and stack list
-models. Two-seat rooms use opposed creature lanes, left-side lands and other
-permanents, a bottom fanned hand, and a right-side stack and decision dock.
+    models. Two-seat rooms use opposed creature lanes, left-side lands and other
+    permanents, a bottom fanned hand with library, graveyard, exile and command
+    piles at the left of that row, and a right-side stack and decision dock.
 The view does not connect Forge state to the manual room reducer or expose
 manual mutation commands. QML never consumes raw harness
 JSON or generic snapshot maps. Hidden library contents remain represented only
@@ -576,8 +577,9 @@ Battlefield cards visibly show the projected power/toughness, marked damage,
 counters, and attachment status. Player plates include public counter and mana
 summaries. Hovering a visible card, or keyboard-focusing a battlefield or stack
 object, shows a larger image and read-only details in the inspector, subject to
-the specialized-decision hover suppression described above. Clicking an inactive card pins it; other hover previews temporarily
-replace it and leaving restores the pinned card. Closing clears the inspection.
+the specialized-decision hover suppression described above. Left click on an
+inactive card does not pin the inspector; other hover previews temporarily
+replace a pinned card and leaving restores it. Closing clears the inspection.
 For an actionable card, left click performs the current action; right click pins
 inspection without submitting a response. A layout drag must not activate or
 select the card. The inspector uses the full cached image rather than the tabletop thumbnail.

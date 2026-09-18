@@ -101,11 +101,65 @@ Item {
         }
     }
 
-    Rectangle {
+    Item {
         objectName: "tableDefaultBackground"
         anchors.fill: parent
         visible: root.tableLook && !root.glassLook && !root.playmatLook
-        color: Theme.surfaceMuted
+
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.background
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: "#0A1511" }
+                GradientStop { position: 0.42; color: Theme.backgroundRaised }
+                GradientStop { position: 1.0; color: "#07110D" }
+            }
+        }
+
+        Rectangle {
+            width: Math.max(620, root.width * 0.58)
+            height: width * 0.72
+            radius: width / 2
+            antialiasing: true
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.height * 0.06
+            color: "#C4A05A"
+            opacity: 0.07
+        }
+
+        Rectangle {
+            width: Math.max(480, root.width * 0.46)
+            height: width
+            radius: width / 2
+            antialiasing: true
+            x: root.width - width * 0.58
+            y: -height * 0.46
+            color: "#0D4B37"
+            opacity: 0.16
+        }
+
+        Rectangle {
+            width: Math.max(360, root.width * 0.34)
+            height: width
+            radius: width / 2
+            antialiasing: true
+            x: -width * 0.42
+            y: root.height - height * 0.46
+            color: "#755B2B"
+            opacity: 0.08
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: "#4D000000" }
+                GradientStop { position: 0.22; color: "#00000000" }
+                GradientStop { position: 0.78; color: "#00000000" }
+                GradientStop { position: 1.0; color: "#66000000" }
+            }
+        }
     }
 
     Item {

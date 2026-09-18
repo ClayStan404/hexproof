@@ -26,17 +26,30 @@ Rectangle {
     readonly property bool sidePanelOpen: !tableController.sideboarding
         && (tableController.showGameLogRail || inspectionDock.inspector.pinned)
     readonly property real sidePanelWidth: Math.min(width * 0.22, Math.max(284 * unit, Theme.size(240)))
-    readonly property real centerLeft: 340 * unit
-    readonly property real centerWidth: decisionDock.x - 20 * unit - centerLeft
-    readonly property real handTop: root.height - 108 * unit
-    readonly property real battlefieldTop: 82 * unit
-    readonly property real battlefieldBottom: handTop - 82 * unit
+    readonly property real boardLeft: 20 * unit
+    readonly property real boardRight: decisionDock.x - 16 * unit
+    readonly property real boardWidth: Math.max(0, boardRight - boardLeft)
+    readonly property real zonePileWidth: 104 * unit
+    readonly property real zonePileHeight: 120 * unit
+    readonly property real zoneRowGap: 8 * unit
+    readonly property real zoneRowWidth: browsableZones.length * zonePileWidth
+        + Math.max(0, browsableZones.length - 1) * zoneRowGap
+    readonly property real handLeft: boardLeft + zoneRowWidth + 10 * unit
+    readonly property real centerLeft: boardLeft
+    readonly property real centerWidth: boardWidth
+    readonly property real handBandHeight: 126 * unit
+    readonly property real opponentZoneTop: 6 * unit
+    readonly property real handTop: root.height - handBandHeight
+    readonly property real battlefieldTop: opponentZoneTop + zonePileHeight + 6 * unit
+    readonly property real battlefieldBottom: handTop - 6 * unit
     readonly property real battlefieldMiddle: (battlefieldTop + battlefieldBottom) / 2
     readonly property real laneHeight: (battlefieldBottom - battlefieldTop - 12 * unit) / 2
-    readonly property real opponentSupportTop: 52 * unit
-    readonly property real ownSupportTop: battlefieldMiddle + 12 * unit
-    readonly property real opponentSupportHeight: battlefieldMiddle - opponentSupportTop - 12 * unit
-    readonly property real ownSupportHeight: root.height - 92 * unit - ownSupportTop
+    readonly property real landFaceWidth: 108 * unit
+    readonly property real otherFaceWidth: 110 * unit
+    readonly property real landRowNeed: 188 * unit
+    readonly property real otherRowNeed: 120 * unit
+    readonly property real opponentBackHeight: bandFor(opponentLands.stackCount, opponentOther.stackCount)
+    readonly property real ownBackHeight: bandFor(ownLands.stackCount, ownOther.stackCount)
     readonly property string turnOwner: !session.active || session.turn < 1 || session.activeSeat < 0 ? qsTr("Preparing game")
         : session.activeSeat === tableController.localSeat ? qsTr("Your turn")
         : qsTr("%1's turn").arg(tableController.matchUi.playerName(session.activeSeat))
@@ -45,18 +58,29 @@ Rectangle {
     readonly property int locatedSeat: stackTarget && stackTarget.kind === "player" ? stackTarget.seat : -1
     property string displayedGame: session.gameId
     objectName: "forgeDuelTable"
-    color: "#101e29"
+    color: "transparent"
 
     onCommanderFormatChanged: {
         if (zonePopup && !commanderFormat && zonePopup.zone === "command")
             zonePopup.zone = "graveyard"
     }
 
-    function supportHeight(count, peerCount, available) {
-        const rows = Math.max(1, Math.ceil(count / 3))
-        const peerRows = Math.max(1, Math.ceil(peerCount / 3))
-        const minimum = Math.min(96 * unit, available / 2)
-        return Math.max(minimum, Math.min(available - minimum, available * rows / (rows + peerRows)))
+    function bandFor(landCount, otherCount) {
+        return rowNeed(landCount, true) + rowNeed(otherCount, false)
+    }
+    function rowNeed(count, isLand) {
+        if (count <= 0)
+            return 0
+        const face = isLand ? landFaceWidth : otherFaceWidth
+        const gap = 8 * unit
+        const extra = 10 * unit
+        const tileHeight = face * 0.93 + extra
+        const available = Math.max(face, boardWidth - 14 * unit)
+        const columns = Math.max(1, Math.floor((available + gap) / (face + gap)))
+        const need = Math.ceil(count / columns) * tileHeight + 5 * unit
+        const floor = tileHeight + 5 * unit
+        const cap = Math.min(laneHeight * (isLand ? 0.48 : 0.24), isLand ? landRowNeed : otherRowNeed)
+        return Math.max(floor, Math.min(cap, need))
     }
 
     function pointFor(id) {
@@ -70,7 +94,8 @@ Rectangle {
     function playerPoint(seat) {
         for (let i = 0; i < plates.count; ++i) {
             const plate = plates.itemAt(i) as PlayerPlate
-            if (plate && plate.seat === seat) return plate.mapToItem(root, plate.width / 2, plate.height / 2)
+            if (plate && plate.seat === seat)
+                return plate.mapToItem(root, plate.width / 2, plate.lifeCenterY)
         }
         return Qt.point(0, 0)
     }
@@ -79,6 +104,17 @@ Rectangle {
             if (lane.reveal(id)) return true
         }
         return false
+    }
+    function openZone(seat, zone) {
+        zonePopup.ownerSeat = seat
+        zonePopup.zone = zone
+        zonePopup.open()
+    }
+    function zoneOwnerTitle(seat) {
+        if (seat === root.tableController.localSeat)
+            return qsTr("You")
+        const name = root.tableController.matchUi.playerName(seat)
+        return name && name.length ? name : qsTr("Opponent")
     }
     Connections {
         target: root.session
@@ -108,22 +144,62 @@ Rectangle {
             if (root.tableController.rulesResponsePending) zonePopup.close()
         }
     }
-    Rectangle {
+    Item {
+        id: playmatAtmosphere
         anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0; color: "#15252e" }
-            GradientStop { position: 0.48; color: "#192c35" }
-            GradientStop { position: 1; color: "#101b26" }
+
+        Rectangle {
+            objectName: "forgePlaymatVeil"
+            anchors.fill: parent
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: TableBackgrounds.hasImage ? "#26060A0C" : "#4D060A0C" }
+                GradientStop { position: 0.18; color: TableBackgrounds.hasImage ? "#00000000" : "#14060A0C" }
+                GradientStop { position: 0.82; color: TableBackgrounds.hasImage ? "#00000000" : "#14060A0C" }
+                GradientStop { position: 1.0; color: TableBackgrounds.hasImage ? "#33060A0C" : "#66060A0C" }
+            }
+        }
+
+        Rectangle {
+            objectName: "forgeBoardWell"
+            x: Math.max(0, root.boardLeft - 8 * root.unit)
+            y: Math.max(0, root.battlefieldTop - 4 * root.unit)
+            width: root.boardWidth + 16 * root.unit
+            height: Math.max(0, root.battlefieldBottom - y + 4 * root.unit)
+            radius: 18 * root.unit
+            antialiasing: true
+            color: Theme.withAlpha("#05080A", 0.16)
+            visible: !root.tableController.sideboarding
+        }
+
+        Rectangle {
+            y: root.battlefieldMiddle - 12 * root.unit
+            width: parent.width
+            height: 24 * root.unit
+            visible: !root.tableController.sideboarding
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: "#00000000" }
+                GradientStop { position: 0.5; color: Theme.withAlpha(Theme.accent, 0.14) }
+                GradientStop { position: 1.0; color: "#00000000" }
+            }
         }
     }
-    Rectangle { y: ownCreatures.y - 6 * root.unit; width: parent.width; height: 1; color: "#41515a"; opacity: 0.4 }
+
     Drawer {
         id: gameMenu
         objectName: "forgeGameDrawer"
         width: Math.min(300 * root.unit, root.width * 0.3)
         height: root.height
         edge: Qt.RightEdge
-        RulesTableActionRail { anchors.fill: parent; tableController: root.tableController }
+        background: Rectangle {
+            color: Theme.withAlpha(Theme.backgroundRaised, 0.98)
+        }
+        RulesTableActionRail {
+            anchors.fill: parent
+            tableController: root.tableController
+            compactChrome: true
+        }
     }
     ForgeHostingDialog {
         id: hostingOptions
@@ -138,7 +214,7 @@ Rectangle {
         z: 40
         message: I18n.status(root.tableController.wsModel.lastError || "")
     }
-    component PlayerPlate: Rectangle {
+    component PlayerPlate: Item {
         id: plate
         required property int seat
         required property string name
@@ -151,15 +227,14 @@ Rectangle {
             ? root.tableController.combatInteraction.seatActionable(seat) : root.tableController.interaction.seatActionable(seat)
         readonly property bool selected: root.locatedSeat === seat || (root.tableController.combatInteraction.active
             ? root.tableController.combatInteraction.seatSelected(seat) : root.tableController.interaction.seatSelected(seat))
+        readonly property real discSize: 52 * root.unit
+        readonly property real lifeCenterY: lifeDisc.y + lifeDisc.height / 2
         objectName: "rulesPlayerTarget" + seat
         x: root.centerLeft + (root.centerWidth - width) / 2
-        y: isBottom ? root.handTop - 74 * root.unit : 8 * root.unit
-        width: 285 * root.unit
-        height: 62 * root.unit
-        radius: 11 * root.unit
-        color: "#172832"
-        border.width: selected ? 3 : actionable || activeTurn ? 2 : 1
-        border.color: selected ? "#e5bd73" : actionable ? "#79b8c5" : activeTurn ? "#b39a6f" : "#3c5665"
+        y: isBottom ? root.handTop - discSize * 0.58 : 4 * root.unit
+        width: 168 * root.unit
+        height: discSize + 30 * root.unit
+        z: 25
         visible: !root.tableController.sideboarding
         activeFocusOnTab: actionable
         function activate() {
@@ -173,28 +248,64 @@ Rectangle {
         Accessible.name: name + ", " + qsTr("Life %1").arg(life)
         Accessible.onPressAction: activate()
         Column {
-            x: 13 * root.unit
-            y: 10 * root.unit
-            spacing: 7 * root.unit
-            Text { textFormat: Text.PlainText; text: plate.name; width: 190 * root.unit; elide: Text.ElideRight; color: "#e0e6e5"; font.pixelSize: 14 * root.unit; font.weight: Font.DemiBold }
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: plate.isBottom ? plate.discSize + 2 * root.unit : 0
+            width: parent.width
+            spacing: 1 * root.unit
+            Text {
+                textFormat: Text.PlainText
+                width: parent.width
+                text: plate.name
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignHCenter
+                color: Theme.text
+                style: Text.Outline
+                styleColor: Theme.withAlpha("#000000", 0.7)
+                font.pixelSize: 12 * root.unit
+                font.weight: Font.DemiBold
+            }
             Text {
                 objectName: "forgePlayerZones-" + plate.seat
                 textFormat: Text.PlainText
-                width: 208 * root.unit
+                width: parent.width
                 text: [qsTr("Hand · %1").arg(root.tableController.zoneCount(plate.seat, "hand")),
                     qsTr("Library · %1").arg(root.tableController.zoneCount(plate.seat, "library")),
                     plate.manaSummary, plate.countersSummary].filter(v => v.length).join(" · ")
                 elide: Text.ElideRight
-                color: "#9eb4bf"
+                horizontalAlignment: Text.AlignHCenter
+                color: Theme.textSecondary
+                style: Text.Outline
+                styleColor: Theme.withAlpha("#000000", 0.65)
                 font.pixelSize: 10 * root.unit
             }
         }
-        Text { textFormat: Text.PlainText; text: plate.life; anchors.right: parent.right; anchors.rightMargin: 13 * root.unit; anchors.verticalCenter: parent.verticalCenter; color: "#e9d3a2"; font.pixelSize: 29 * root.unit }
+        Rectangle {
+            id: lifeDisc
+            width: plate.discSize
+            height: width
+            radius: width / 2
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: plate.isBottom ? 0 : parent.height - height
+            antialiasing: true
+            color: Theme.withAlpha(Theme.surface, plate.selected || plate.actionable ? 0.88 : 0.62)
+            border.width: plate.selected || plate.activeFocus || plate.actionable || plate.activeTurn ? 2 : 0
+            border.color: plate.selected || plate.activeFocus ? Theme.accent
+                          : plate.actionable ? Theme.primary : Theme.warning
+            Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                text: plate.life
+                color: Theme.accent
+                font.pixelSize: 22 * root.unit
+                font.weight: Font.DemiBold
+            }
+        }
         TapHandler { enabled: plate.actionable; onTapped: plate.activate() }
         AppButton {
             visible: root.tableController.canViewSpectatorHands
             anchors.left: parent.right
-            anchors.leftMargin: 10 * root.unit
+            anchors.leftMargin: 8 * root.unit
+            anchors.verticalCenter: lifeDisc.verticalCenter
             compact: true
             text: qsTr("View hand")
             onClicked: root.tableController.spectatedHandSeat = plate.seat
@@ -212,27 +323,26 @@ Rectangle {
             required property int seat
             required property var commanders
             objectName: "forgeCommanders-" + seat
-            x: root.centerLeft
-            y: seat === root.bottomSeat ? root.handTop - 82 * root.unit : 8 * root.unit
-            width: Math.min(292 * root.unit, (root.centerWidth - 285 * root.unit) / 2 - 10 * root.unit)
-            spacing: 3 * root.unit
+            x: Math.max(root.boardLeft, root.boardLeft + (root.boardWidth - 176 * root.unit) / 2 - width - 8 * root.unit)
+            y: seat === root.bottomSeat ? root.handTop - 50 * root.unit : 6 * root.unit
+            z: 26
+            width: Math.min(220 * root.unit, (root.centerWidth - 176 * root.unit) / 2 - 10 * root.unit)
+            spacing: 4 * root.unit
             visible: root.commanderFormat && !root.tableController.sideboarding
             Repeater {
                 model: commandersPanel.commanders
-                delegate: Rectangle {
+                delegate: Item {
                     id: commanderEntry
                     required property var modelData
                     required property int index
                     readonly property string objectId: modelData.objectId || ""
                     readonly property bool actionable: objectId.length > 0 && root.tableController.interaction.objectActionable("card", objectId)
+                    readonly property bool publicFace: !!modelData.name && modelData.zone !== "hidden"
                     readonly property string summary: qsTr("Casts %1 · Tax +%2 · %3").arg(modelData.casts).arg(modelData.tax)
                         .arg(modelData.zone === "hidden" ? qsTr("Hidden zone") : root.tableController.zoneLabel(modelData.zone))
                     objectName: "forgeCommander-" + commandersPanel.seat + "-" + index
                     width: commandersPanel.width
-                    height: 30 * root.unit
-                    color: "#1c303c"
-                    radius: 5 * root.unit
-                    border.color: actionable ? "#d7b273" : "#4c626e"
+                    height: 44 * root.unit
                     activeFocusOnTab: objectId.length > 0
                     function activate() {
                         if (actionable) root.tableController.interaction.activateObject("card", objectId, modelData.name)
@@ -243,11 +353,51 @@ Rectangle {
                     Accessible.role: Accessible.Button
                     Accessible.name: modelData.name + ", " + summary
                     Accessible.onPressAction: activate()
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 8 * root.unit
+                        antialiasing: true
+                        color: Theme.withAlpha(Theme.surface, commanderEntry.actionable || commanderEntry.activeFocus ? 0.78 : 0.48)
+                        border.width: commanderEntry.actionable || commanderEntry.activeFocus ? 2 : 0
+                        border.color: Theme.accent
+                    }
+                    Image {
+                        x: 4 * root.unit
+                        y: 4 * root.unit
+                        width: 26 * root.unit
+                        height: 36 * root.unit
+                        source: commanderEntry.publicFace
+                                ? root.tableController.cardImage(commanderEntry.modelData.name, "", "")
+                                : root.tableController.cardBackSource
+                        sourceSize.width: 80
+                        sourceSize.height: 112
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                    }
                     Column {
-                        x: 7 * root.unit; y: 3 * root.unit
-                        width: parent.width - 14 * root.unit
-                        Text { textFormat: Text.PlainText; text: commanderEntry.modelData.name; width: parent.width; elide: Text.ElideRight; color: "#e2d1ad"; font.pixelSize: 11 * root.unit }
-                        Text { textFormat: Text.PlainText; text: commanderEntry.summary; width: parent.width; elide: Text.ElideRight; color: "#abc0ca"; font.pixelSize: 10 * root.unit }
+                        x: 34 * root.unit
+                        y: 5 * root.unit
+                        width: parent.width - 40 * root.unit
+                        spacing: 1 * root.unit
+                        Text {
+                            textFormat: Text.PlainText
+                            width: parent.width
+                            text: commanderEntry.modelData.name
+                            elide: Text.ElideRight
+                            color: Theme.accent
+                            font.pixelSize: 11 * root.unit
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            width: parent.width
+                            text: qsTr("+%1 · %2").arg(commanderEntry.modelData.tax)
+                                  .arg(commanderEntry.modelData.zone === "hidden"
+                                       ? qsTr("Hidden") : root.tableController.zoneLabel(commanderEntry.modelData.zone))
+                            elide: Text.ElideRight
+                            color: Theme.textSecondary
+                            font.pixelSize: 10 * root.unit
+                        }
                     }
                     TapHandler { onTapped: commanderEntry.activate() }
                     ToolTip.visible: commanderHover.hovered
@@ -258,72 +408,103 @@ Rectangle {
         }
     }
     ForgeCardLane {
-        id: opponentCreatures
-        objectName: "forgeOpponentCreatures"
-        x: root.centerLeft
-        y: ownCreatures.y - height - 12 * root.unit
-        width: root.centerWidth
-        height: root.laneHeight
+        id: opponentLands
+        objectName: "forgeOpponentLands"
+        x: root.boardLeft
+        y: root.battlefieldTop
+        width: Math.max(0, root.boardRight - root.boardLeft)
+        height: root.rowNeed(stackCount, true)
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.topSeat
-        caption: qsTr("Opponent's creatures")
+        category: "land"
+        showCaption: false
+        maxFaceWidth: root.landFaceWidth
+        locatedId: root.locatedId
+        visible: !root.tableController.sideboarding
+    }
+    ForgeCardLane {
+        id: opponentOther
+        objectName: "forgeOpponentOther"
+        x: root.boardLeft
+        y: opponentLands.y + opponentLands.height
+        width: Math.max(0, root.boardRight - root.boardLeft)
+        height: root.rowNeed(stackCount, false)
+        tableController: root.tableController
+        unit: root.unit
+        ownerSeat: root.topSeat
+        category: "other"
+        showCaption: false
+        maxFaceWidth: root.otherFaceWidth
+        locatedId: root.locatedId
+        visible: !root.tableController.sideboarding
+    }
+    ForgeCardLane {
+        id: opponentCreatures
+        objectName: "forgeOpponentCreatures"
+        x: root.boardLeft
+        y: root.battlefieldTop + root.opponentBackHeight
+        width: root.boardWidth
+        height: Math.max(0, root.laneHeight - root.opponentBackHeight)
+        tableController: root.tableController
+        unit: root.unit
+        ownerSeat: root.topSeat
+        showCaption: false
         locatedId: root.locatedId
         visible: !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: ownCreatures
         objectName: "forgeOwnCreatures"
-        x: root.centerLeft
+        x: root.boardLeft
         y: root.battlefieldMiddle + 6 * root.unit
-        width: root.centerWidth
-        height: root.laneHeight
+        width: root.boardWidth
+        height: Math.max(0, root.laneHeight - root.ownBackHeight)
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.bottomSeat
-        caption: root.tableController.localSeat < 0 ? qsTr("Creatures") : qsTr("Your creatures")
+        showCaption: false
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
-    }
-    ForgeCardLane {
-        id: opponentLands
-        objectName: "forgeOpponentLands"
-        x: 24 * root.unit; y: root.opponentSupportTop; width: 292 * root.unit
-        height: root.supportHeight(visibleCards.length, opponentOther.visibleCards.length, root.opponentSupportHeight)
-        tableController: root.tableController; unit: root.unit; ownerSeat: root.topSeat
-        category: "land"; caption: qsTr("Opponent's lands"); locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
-    }
-    ForgeCardLane {
-        id: ownLands
-        objectName: "forgeOwnLands"
-        x: 24 * root.unit; y: root.ownSupportTop; width: 292 * root.unit
-        height: root.supportHeight(visibleCards.length, ownOther.visibleCards.length, root.ownSupportHeight)
-        tableController: root.tableController; unit: root.unit; ownerSeat: root.bottomSeat
-        category: "land"; caption: qsTr("Your lands"); locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
-    }
-    ForgeCardLane {
-        id: opponentOther
-        objectName: "forgeOpponentOther"
-        x: 24 * root.unit; y: opponentLands.y + opponentLands.height + 12 * root.unit; width: 292 * root.unit
-        height: root.opponentSupportHeight - opponentLands.height
-        tableController: root.tableController; unit: root.unit; ownerSeat: root.topSeat
-        category: "other"; caption: qsTr("Other permanents"); locatedId: root.locatedId
         visible: !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: ownOther
         objectName: "forgeOwnOther"
-        x: 24 * root.unit; y: ownLands.y + ownLands.height + 12 * root.unit; width: 292 * root.unit
-        height: root.ownSupportHeight - ownLands.height
-        tableController: root.tableController; unit: root.unit; ownerSeat: root.bottomSeat
-        category: "other"; caption: qsTr("Other permanents"); locatedId: root.locatedId
+        x: root.boardLeft
+        y: ownCreatures.y + ownCreatures.height
+        width: Math.max(0, root.boardRight - root.boardLeft)
+        height: root.rowNeed(stackCount, false)
+        tableController: root.tableController
+        unit: root.unit
+        ownerSeat: root.bottomSeat
+        category: "other"
+        showCaption: false
+        maxFaceWidth: root.otherFaceWidth
+        locatedId: root.locatedId
+        visible: !root.tableController.sideboarding
+    }
+    ForgeCardLane {
+        id: ownLands
+        objectName: "forgeOwnLands"
+        x: root.boardLeft
+        y: ownOther.y + ownOther.height
+        width: Math.max(0, root.boardRight - root.boardLeft)
+        height: root.rowNeed(stackCount, true)
+        tableController: root.tableController
+        unit: root.unit
+        ownerSeat: root.bottomSeat
+        category: "land"
+        showCaption: false
+        maxFaceWidth: root.landFaceWidth
+        locatedId: root.locatedId
         visible: !root.tableController.sideboarding
     }
     DropArea {
         objectName: "forgeHandDropArea"
-        x: ownCreatures.x; y: ownCreatures.y; width: ownCreatures.width; height: ownCreatures.height
+        x: root.boardLeft
+        y: ownCreatures.y
+        width: root.boardWidth
+        height: Math.max(0, root.battlefieldBottom - ownCreatures.y)
         enabled: !root.tableController.sideboarding && root.tableController.localSeat >= 0
         keys: ["hexproof/rules-card"]
         onDropped: drop => {
@@ -350,46 +531,82 @@ Rectangle {
     }
     ForgeHand {
         objectName: "forgeHand"
-        x: 327 * root.unit
+        x: root.handLeft
         y: root.handTop
-        width: decisionDock.x - x - 20 * root.unit
-        height: 104 * root.unit
+        z: 30
+        width: Math.max(0, decisionDock.x - x - 20 * root.unit)
+        height: root.handBandHeight - 4 * root.unit
         tableController: root.tableController
         unit: root.unit
         visible: !root.tableController.sideboarding
     }
-    Row {
-        x: 24 * root.unit
-        y: root.height - 68 * root.unit
-        spacing: 5 * root.unit
+    Item {
+        id: opponentZoneStrip
+        objectName: "forgeOpponentZoneStrip"
+        x: root.boardLeft
+        y: root.opponentZoneTop
+        width: root.zoneRowWidth
+        height: root.zonePileHeight
         visible: !root.tableController.sideboarding
-        Repeater {
-            model: root.browsableZones
-            delegate: AppButton {
-                id: zoneButton
-                required property string modelData
-                objectName: "forgeZone-" + modelData
-                width: (292 - 5 * (root.browsableZones.length - 1)) * root.unit / root.browsableZones.length
-                height: 56 * root.unit
-                leftPadding: 4 * root.unit
-                rightPadding: 4 * root.unit
-                text: root.tableController.zoneLabel(modelData) + "\n" + root.tableController.zoneCount(root.bottomSeat, modelData)
-                contentItem: Text {
-                    textFormat: Text.PlainText; text: zoneButton.text; color: "#d0dfe5"; font.pixelSize: 11 * root.unit
-                    wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+        z: 20
+        Item {
+            objectName: "forgeOpponentZones"
+            anchors.fill: parent
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Opponent's zones")
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.openZone(root.topSeat, "graveyard")
+            }
+        }
+        Row {
+            spacing: root.zoneRowGap
+            Repeater {
+                model: root.browsableZones
+                delegate: ForgeZonePile {
+                    required property string modelData
+                    objectName: "forgeOpponentZone-" + modelData
+                    width: Math.round(root.zonePileWidth)
+                    height: Math.round(root.zonePileHeight)
+                    tableController: root.tableController
+                    unit: root.unit
+                    ownerSeat: root.topSeat
+                    zone: modelData
+                    compact: true
+                    onActivated: root.openZone(root.topSeat, zone)
                 }
-                onClicked: { zonePopup.zone = modelData; zonePopup.ownerSeat = root.bottomSeat; zonePopup.open() }
             }
         }
     }
-    AppButton {
-        objectName: "forgeOpponentZones"
-        x: 24 * root.unit; y: 8 * root.unit
-        height: 36 * root.unit
-        font.pixelSize: 11 * root.unit
-        compact: true; text: qsTr("Opponent's zones")
+    Item {
+        id: ownZoneStrip
+        objectName: "forgeOwnZoneStrip"
+        x: root.boardLeft
+        y: root.handTop
+        width: root.zoneRowWidth
+        height: root.handBandHeight
         visible: !root.tableController.sideboarding
-        onClicked: { zonePopup.ownerSeat = root.topSeat; zonePopup.zone = "graveyard"; zonePopup.open() }
+        z: 20
+        Row {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 4 * root.unit
+            spacing: root.zoneRowGap
+            Repeater {
+                model: root.browsableZones
+                delegate: ForgeZonePile {
+                    required property string modelData
+                    objectName: "forgeZone-" + modelData
+                    width: Math.round(root.zonePileWidth)
+                    height: Math.round(root.zonePileHeight)
+                    tableController: root.tableController
+                    unit: root.unit
+                    ownerSeat: root.bottomSeat
+                    zone: modelData
+                    compact: true
+                    onActivated: root.openZone(root.bottomSeat, zone)
+                }
+            }
+        }
     }
     Popup {
         id: zonePopup
@@ -402,26 +619,65 @@ Rectangle {
         x: (parent.width - width) / 2
         y: (parent.height - height) / 2
         modal: true; focus: true
-        background: Rectangle { color: "#152631"; border.color: "#81989f"; radius: 12 * root.unit }
+        padding: 0
+        background: Rectangle {
+            radius: 14 * root.unit
+            antialiasing: true
+            color: Theme.withAlpha(Theme.surface, 0.94)
+        }
+        Item {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 36 * root.unit
+            Text {
+                textFormat: Text.PlainText
+                anchors.left: parent.left
+                anchors.right: closeButton.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 16 * root.unit
+                anchors.rightMargin: 8 * root.unit
+                text: qsTr("%1 · %2").arg(root.zoneOwnerTitle(zonePopup.ownerSeat))
+                      .arg(root.tableController.zoneLabel(zonePopup.zone))
+                color: Theme.text
+                font.pixelSize: 15 * root.unit
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+            }
+            AppButton {
+                id: closeButton
+                objectName: "forgeCloseZonePopup"
+                anchors.right: parent.right
+                anchors.rightMargin: 10 * root.unit
+                anchors.verticalCenter: parent.verticalCenter
+                compact: true
+                variant: "ghost"
+                text: qsTr("Close")
+                onClicked: zonePopup.close()
+            }
+        }
         Row {
-            spacing: 5 * root.unit
+            id: zoneTabs
+            x: 14 * root.unit
+            y: 40 * root.unit
+            spacing: 4 * root.unit
             Repeater {
                 model: root.browsableZones
                 delegate: AppButton {
                     required property string modelData
                     objectName: "forgeZoneTab-" + modelData
                     compact: true
-                    variant: zonePopup.zone === modelData ? "highlight" : "secondary"
+                    variant: zonePopup.zone === modelData ? "highlight" : "ghost"
                     text: root.tableController.zoneLabel(modelData)
                     onClicked: zonePopup.zone = modelData
                 }
             }
-            AppButton { objectName: "forgeCloseZonePopup"; compact: true; text: qsTr("Close"); onClicked: zonePopup.close() }
         }
         ForgeCardLane {
             objectName: "forgeZoneCards"
             anchors.fill: parent
-            anchors.topMargin: 48 * root.unit
+            anchors.topMargin: 78 * root.unit
+            anchors.margins: 12 * root.unit
             tableController: root.tableController
             unit: root.unit
             ownerSeat: zonePopup.ownerSeat
@@ -443,8 +699,11 @@ Rectangle {
         externalDamageChoices: true
         showZoneActions: true
         showActions: !root.tableController.sideboarding && root.tableController.hostingPaused !== true
-        radius: 12 * root.unit
-        color: "#f114222c"
+        radius: 16 * root.unit
+        elevated: true
+        color: Theme.useGlass ? "transparent" : Theme.withAlpha(Theme.surface, 0.90)
+        border.width: Theme.useGlass ? 1 : 0
+        border.color: "transparent"
         contextControls: Component {
             ColumnLayout {
                 id: tableControls
@@ -482,7 +741,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         text: root.session.gameOver ? qsTr("Game finished") : root.turnOwner
-                        color: root.session.activeSeat === root.tableController.localSeat ? "#e9c785" : "#c6dbe4"
+                        color: root.session.activeSeat === root.tableController.localSeat ? Theme.accent : Theme.text
                         font.pixelSize: Theme.fontSize(12)
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
@@ -492,7 +751,7 @@ Rectangle {
                         textFormat: Text.PlainText
                         Layout.maximumWidth: tableControls.width * 0.6
                         text: qsTr("Turn %1 · %2").arg(root.session.turn).arg(root.tableController.stepLabel(root.session.step))
-                        color: "#c6bba5"
+                        color: Theme.textSecondary
                         font.pixelSize: Theme.fontSize(10)
                         elide: Text.ElideRight
                     }
@@ -587,6 +846,7 @@ Rectangle {
         visible: ((inspector.pinned && !inspector.previewCardId.length) || root.tableController.showGameLogRail)
             && !root.tableController.sideboarding
         radius: 10 * root.unit
+        border.width: 0
         z: 100
     }
     RulesCardHoverPreview {

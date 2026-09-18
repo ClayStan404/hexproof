@@ -51,16 +51,17 @@ Rectangle {
         function onSnapshotChanged() { refresh.restart() }
     }
     onRelationsEnabledChanged: if (!relationsEnabled) clearSelection()
-    color: "#f2132029"
+    color: Theme.withAlpha(Theme.surface, 0.80)
     radius: 10 * unit
-    border.color: "#53616a"
+    antialiasing: true
+    border.width: 0
     visible: count > 0
     Text {
         textFormat: Text.PlainText
         x: 13 * root.unit
         y: 10 * root.unit
         text: qsTr("Stack · %1").arg(root.count)
-        color: "#e4d3ac"
+        color: Theme.accent
         font.pixelSize: 12 * root.unit
         font.weight: Font.DemiBold
     }
@@ -80,9 +81,19 @@ Rectangle {
         width: column.width
         height: Math.max(138 * root.unit, details.height + 18 * root.unit)
         radius: 7 * root.unit
-        color: "#22323f"
-        border.width: objectId === root.locatedId ? 3 : 1
-        border.color: objectId === root.locatedId ? "#e5bd73" : index === 0 ? "#b39a6f" : "#465460"
+        antialiasing: true
+        readonly property int strokeWidth: objectId === root.locatedId ? 3 : 1
+        color: objectId === root.locatedId ? Theme.accent : index === 0 ? Theme.warning : Theme.borderStrong
+        border.width: 0
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: entry.strokeWidth
+            radius: Math.max(0, parent.radius - entry.strokeWidth)
+            antialiasing: true
+            color: Theme.withAlpha(Theme.surfaceElevated, 0.94)
+        }
+
         ForgeCard {
             objectName: "forgeStackCard-" + entry.objectId
             x: 7 * root.unit
@@ -108,7 +119,7 @@ Rectangle {
                 width: parent.width
                 text: entry.visibleIdentity ? entry.name
                     : entry.rulesText && entry.rulesText !== "Face-down spell" ? entry.rulesText : qsTr("Face-down spell")
-                color: "#f0eee6"
+                color: Theme.text
                 font.pixelSize: 13 * root.unit
                 font.weight: Font.DemiBold
                 wrapMode: Text.WordWrap
@@ -119,7 +130,7 @@ Rectangle {
                 textFormat: Text.PlainText
                 width: parent.width
                 text: root.tableController.matchUi.playerName(entry.controllerSeat)
-                color: "#a7b7c4"
+                color: Theme.textSecondary
                 font.pixelSize: 10 * root.unit
                 elide: Text.ElideRight
             }
@@ -127,7 +138,7 @@ Rectangle {
                 textFormat: Text.PlainText
                 width: parent.width
                 text: entry.rulesText
-                color: "#b6c6cc"
+                color: Theme.textMuted
                 font.pixelSize: 10 * root.unit
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
@@ -165,7 +176,7 @@ Rectangle {
                     contentItem: Text {
                         textFormat: Text.PlainText
                         text: targetButton.text
-                        color: "#d7dfdc"
+                        color: Theme.text
                         font.pixelSize: 10 * root.unit
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight

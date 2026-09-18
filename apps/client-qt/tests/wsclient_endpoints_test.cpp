@@ -181,6 +181,26 @@ void TestWsClient::migratesLegacyPrimaryPublicHubEndpoint() const
 
 void TestWsClient::exposesInitialServerLatencyState() const
 {
+    // Isolate a multi-server catalog: the embedded production fleet can
+    // shrink at any time and must not change this test's expectations.
+    const QString directoryPath = m_settingsDir.filePath(u"latency-servers.json"_s);
+    QFile directoryFile(directoryPath);
+    QVERIFY(directoryFile.open(QIODevice::WriteOnly));
+    const QByteArray directoryPayload = R"({
+  "schemaVersion": 2,
+  "revision": 1,
+  "directoryUrls": [],
+  "servers": [
+    {"id": "server-1", "name": "Server 1", "url": "wss://primary.example/ws", "forge": false},
+    {"id": "server-2", "name": "Server 2", "url": "wss://secondary.example/ws", "forge": true},
+    {"id": "server-3", "name": "Server 3", "url": "wss://tertiary.example/ws", "forge": false},
+    {"id": "server-4", "name": "Server 4", "url": "wss://quaternary.example/ws", "forge": true}
+  ]
+})";
+    QCOMPARE(directoryFile.write(directoryPayload), directoryPayload.size());
+    directoryFile.close();
+    qputenv("HEXPROOF_SERVER_DIRECTORY_FILE", directoryPath.toUtf8());
+
     WsClient client;
     const QVariantList latencies = client.serverLatencies();
     QCOMPARE(latencies.size(), client.customServerIndex() + 1);

@@ -18,8 +18,10 @@ Surface {
     objectName: "rulesCardActionPicker"
     visible: opened
     implicitHeight: choices.implicitHeight + Theme.size(24)
-    color: Theme.surfaceElevated
-    border.color: Theme.primary
+    color: "transparent"
+    radius: 0
+    border.width: 0
+    border.color: "transparent"
 
     function close() {
         opened = false

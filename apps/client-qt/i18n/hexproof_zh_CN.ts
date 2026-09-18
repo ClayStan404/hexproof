@@ -7187,6 +7187,18 @@ your way.</source>
         <source>You</source>
         <translation>自己</translation>
     </message>
+    <message>
+        <source>Table</source>
+        <translation>桌面</translation>
+    </message>
+    <message>
+        <source>Match</source>
+        <translation>对局</translation>
+    </message>
+    <message>
+        <source>Phases</source>
+        <translation>阶段</translation>
+    </message>
 </context>
 <context>
     <name>RulesTargetSelectionPrompt</name>
@@ -14265,6 +14277,26 @@ Downloaded and custom images will be copied and verified before the setting chan
         <source>Player hosted · server relay</source>
         <translation>玩家托管 · 服务器中转</translation>
     </message>
+    <message>
+        <source>You</source>
+        <translation>你</translation>
+    </message>
+    <message>
+        <source>Opponent</source>
+        <translation>对手</translation>
+    </message>
+    <message>
+        <source>Hidden</source>
+        <translation>隐藏</translation>
+    </message>
+    <message>
+        <source>%1 · %2</source>
+        <translation>%1 · %2</translation>
+    </message>
+    <message>
+        <source>+%1 · %2</source>
+        <translation>+%1 · %2</translation>
+    </message>
 </context>
     <context>
         <name>ForgeHand</name>
@@ -14279,6 +14311,25 @@ Downloaded and custom images will be copied and verified before the setting chan
         <message>
             <source>Hands are hidden from spectators in this room</source>
             <translation>此房间的旁观者无法查看手牌</translation>
+        </message>
+    </context>
+    <context>
+        <name>ForgeZonePile</name>
+        <message>
+            <source>Library</source>
+            <translation>牌库</translation>
+        </message>
+        <message>
+            <source>GY</source>
+            <translation>坟场</translation>
+        </message>
+        <message>
+            <source>Exile</source>
+            <translation>放逐区</translation>
+        </message>
+        <message>
+            <source>Cmd</source>
+            <translation>指挥区</translation>
         </message>
     </context>
     <context>

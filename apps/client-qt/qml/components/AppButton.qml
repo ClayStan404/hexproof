@@ -52,16 +52,6 @@ Button {
         return down || hovered ? Theme.surfaceHover : Theme.surfaceElevated
     }
 
-    readonly property color outlineColor: {
-        if (variant === "highlight")
-            return enabled ? Theme.primary : Theme.borderStrong
-        if (!enabled || variant === "primary" || variant === "ghost")
-            return "transparent"
-        if (variant === "danger")
-            return Theme.errorBorder
-        return hovered ? Theme.borderStrong : Theme.border
-    }
-
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
     implicitHeight: compact ? Theme.size(38) : Theme.controlHeight
@@ -73,11 +63,6 @@ Button {
     bottomPadding: 0
     font.pixelSize: Theme.fontSize(compact ? 13 : 14)
     font.weight: Font.DemiBold
-    scale: down ? 0.985 : 1.0
-
-    Behavior on scale {
-        NumberAnimation { duration: Theme.motionFast; easing.type: Easing.OutCubic }
-    }
 
     contentItem: Row {
         id: buttonContent
@@ -116,6 +101,7 @@ Button {
             compact: true
             elevated: control.hovered || control.down || control.activeFocus
             visible: Theme.useGlass && control.enabled && control.glassVariant
+                     && !control.compact
                      && (control.variant !== "ghost"
                          || control.hovered || control.down || control.activeFocus)
         }
@@ -125,20 +111,17 @@ Button {
             radius: Theme.useGlass ? height / 2 : Theme.radiusMedium
             antialiasing: true
             visible: !Theme.useGlass || !control.glassVariant || !control.enabled
+                     || control.compact
             color: control.backgroundColor
-            border.width: 1
-            border.color: control.activeFocus ? Theme.primary : control.outlineColor
 
             Behavior on color { ColorAnimation { duration: Theme.motionFast } }
-            Behavior on border.color { ColorAnimation { duration: Theme.motionFast } }
         }
 
         Rectangle {
             anchors.fill: parent
-            radius: height / 2
+            radius: Theme.useGlass || control.compact ? height / 2 : Theme.radiusMedium
             antialiasing: true
-            visible: Theme.useGlass && control.enabled && control.glassVariant
-                     && control.activeFocus
+            visible: control.activeFocus
             color: "transparent"
             border.width: Theme.size(2)
             border.color: Theme.primary

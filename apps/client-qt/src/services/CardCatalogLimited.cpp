@@ -44,9 +44,73 @@ QVariantMap sheetByName(const QVariantList &sheets, const QString &name)
     return {};
 }
 
+bool samePrinting(const QVariantMap &left, const QVariantMap &right)
+{
+    return left.value(QStringLiteral("setCode")).toString().toUpper() ==
+               right.value(QStringLiteral("setCode")).toString().toUpper() &&
+           left.value(QStringLiteral("collectorNumber")) ==
+               right.value(QStringLiteral("collectorNumber")) &&
+           left.value(QStringLiteral("finish")) == right.value(QStringLiteral("finish"));
+}
+
+QVariantMap pairedCard(const QVariantMap &card, const QVariantList &cards)
+{
+    if (card.value(QStringLiteral("pairCollectorNumber")).toString().isEmpty())
+        return {};
+    QVariantMap target = card;
+    target.insert(QStringLiteral("collectorNumber"),
+                  card.value(QStringLiteral("pairCollectorNumber")));
+    for (const QVariant &value : cards) {
+        if (samePrinting(target, value.toMap()))
+            return value.toMap();
+    }
+    return {};
+}
+
+bool alreadyDrawn(const QVariantMap &card, const QVariantList &drawn)
+{
+    for (const QVariant &value : drawn) {
+        if (samePrinting(card, value.toMap()))
+            return true;
+    }
+    return false;
+}
+
+bool validPairedSheet(const QVariantMap &sheet)
+{
+    const QVariantList cards = sheet.value(QStringLiteral("cards")).toList();
+    if (cards.isEmpty())
+        return false;
+    const bool paired =
+        !cards.first().toMap().value(QStringLiteral("pairCollectorNumber")).toString().isEmpty();
+    for (const QVariant &value : cards) {
+        const QVariantMap card = value.toMap();
+        if (!card.value(QStringLiteral("pairCollectorNumber")).toString().isEmpty() != paired)
+            return false;
+        if (!paired)
+            continue;
+        const QVariantMap partner = pairedCard(card, cards);
+        if (partner.isEmpty() || samePrinting(card, partner) ||
+            partner.value(QStringLiteral("pairCollectorNumber")) !=
+                card.value(QStringLiteral("collectorNumber")) ||
+            partner.value(QStringLiteral("rarity")) != card.value(QStringLiteral("rarity")) ||
+            partner.value(QStringLiteral("weight")) != card.value(QStringLiteral("weight")))
+            return false;
+        int matches = 0;
+        for (const QVariant &other : cards) {
+            if (samePrinting(card, other.toMap()))
+                ++matches;
+        }
+        if (matches != 1)
+            return false;
+    }
+    return true;
+}
+
 QVariantMap localCard(QVariantMap card, int serial)
 {
     card.remove(QStringLiteral("weight"));
+    card.remove(QStringLiteral("pairCollectorNumber"));
     card.insert(QStringLiteral("instanceId"), QStringLiteral("local-%1").arg(serial));
     return card;
 }
@@ -88,7 +152,7 @@ QVariantList CardCatalog::limitedSets() const
             continue;
         QString name = product.value(QStringLiteral("name")).toString();
         const qsizetype separator = name.indexOf(QStringLiteral(" — "));
-        if (separator > 0)
+        if (separator > 0 && product.value(QStringLiteral("authentic")).toBool())
             name = name.left(separator);
         if (name.endsWith(QStringLiteral(" approximate booster"), Qt::CaseInsensitive))
             name = setCode;
@@ -130,9 +194,13 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
     if (product.value(QStringLiteral("productType")).toString() == QStringLiteral("cube")) {
         QVariantList stock;
         for (const QVariant &sheetValue : sheets) {
+            if (sheetValue.toMap().value(QStringLiteral("excludePrevious")).toBool())
+                return {};
             const QVariantList cards = sheetValue.toMap().value(QStringLiteral("cards")).toList();
             for (const QVariant &cardValue : cards) {
                 const QVariantMap card = cardValue.toMap();
+                if (!card.value(QStringLiteral("pairCollectorNumber")).toString().isEmpty())
+                    return {};
                 const int quantity =
                     qBound(1, card.value(QStringLiteral("weight"), 1).toInt(), 10000);
                 for (int copy = 0; copy < quantity; ++copy)
@@ -153,6 +221,10 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
         return result;
     }
 
+    for (const QVariant &sheet : sheets) {
+        if (!validPairedSheet(sheet.toMap()))
+            return {};
+    }
     const QVariantList variants = product.value(QStringLiteral("variants")).toList();
     if (variants.isEmpty())
         return result;
@@ -167,16 +239,46 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
             const QVariantMap slot = slotValue.toMap();
             const QVariantMap sheet =
                 sheetByName(sheets, slot.value(QStringLiteral("sheet")).toString());
-            QVariantList available = sheet.value(QStringLiteral("cards")).toList();
+            const QVariantList sheetCards = sheet.value(QStringLiteral("cards")).toList();
+            QVariantList available = sheetCards;
             const bool replacement = sheet.value(QStringLiteral("withReplacement")).toBool();
+            const bool excludePrevious = sheet.value(QStringLiteral("excludePrevious")).toBool();
             const int count = slot.value(QStringLiteral("count")).toInt();
+            if (count < 1 || count > 30)
+                return {};
             for (int cardIndex = 0; cardIndex < count; ++cardIndex) {
-                const int choice = weightedIndex(available);
+                QVariantList eligible;
+                for (const QVariant &value : available) {
+                    const QVariantMap card = value.toMap();
+                    const QVariantMap partner =
+                        excludePrevious ? pairedCard(card, sheetCards) : QVariantMap{};
+                    if (!excludePrevious ||
+                        (!alreadyDrawn(card, packCards) &&
+                         (partner.isEmpty() || !alreadyDrawn(partner, packCards))))
+                        eligible.append(card);
+                }
+                const int choice = weightedIndex(eligible);
                 if (choice < 0)
                     return {};
-                packCards.append(localCard(available.at(choice).toMap(), ++serial));
-                if (!replacement)
-                    available.removeAt(choice);
+                const QVariantMap card = eligible.at(choice).toMap();
+                QVariantList selected{card};
+                if (!card.value(QStringLiteral("pairCollectorNumber")).toString().isEmpty()) {
+                    selected.append(pairedCard(card, sheetCards));
+                    if (QRandomGenerator::global()->bounded(2) == 0)
+                        selected.swapItemsAt(0, 1);
+                }
+                for (const QVariant &value : selected) {
+                    const QVariantMap drawn = value.toMap();
+                    packCards.append(localCard(drawn, ++serial));
+                    if (!replacement) {
+                        for (qsizetype index = available.size(); index > 0; --index) {
+                            if (available.at(index - 1).toMap() == drawn) {
+                                available.removeAt(index - 1);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
         if (packCards.size() != cardsPerPack)

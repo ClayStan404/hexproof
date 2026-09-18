@@ -185,3 +185,73 @@ void TestCardCatalog::cachesLimitedProductWithMtgchSetIndex() const
                         fallbackNetwork.requestedUrls.cend(),
                         [](const QUrl &url) { return url.path().startsWith(u"/api/v1/card/"_s); }));
 }
+
+void TestCardCatalog::simulatesPairedLimitedProduct() const
+{
+    QFile fixture(
+        QFINDTESTDATA("../../../testdata/protocol/v1/tournament-create-paired-product.json"));
+    QVERIFY(fixture.open(QIODevice::ReadOnly));
+    const QVariantMap product = QJsonDocument::fromJson(fixture.readAll())
+                                    .object()
+                                    .value(u"payload"_s)
+                                    .toObject()
+                                    .value(u"product"_s)
+                                    .toObject()
+                                    .toVariantMap();
+    QTemporaryDir storage;
+    CardCatalog catalog(storage.path());
+    for (int run = 0; run < 20; ++run) {
+        const QVariantList packs = catalog.simulateLimitedPacks(product, 36);
+        QCOMPARE(packs.size(), 36);
+        for (const QVariant &pack : packs) {
+            const QVariantList cards = pack.toMap().value(u"cards"_s).toList();
+            QCOMPARE(cards.size(), 3);
+            const int a = cards.at(0).toMap().value(u"collectorNumber"_s).toInt();
+            const int b = cards.at(1).toMap().value(u"collectorNumber"_s).toInt();
+            QCOMPARE((a - 1) / 2, (b - 1) / 2);
+            QVERIFY(a != b);
+            const int c = cards.at(2).toMap().value(u"collectorNumber"_s).toInt();
+            QVERIFY(c != a && c != b);
+            QVERIFY(!cards.first().toMap().contains(u"pairCollectorNumber"_s));
+        }
+    }
+    QVariantMap malformed = product;
+    QVariantList sheets = malformed.value(u"sheets"_s).toList();
+    QVariantMap sheet = sheets.first().toMap();
+    QVariantList cards = sheet.value(u"cards"_s).toList();
+    cards.removeFirst();
+    sheet.insert(u"cards"_s, cards);
+    sheets[0] = sheet;
+    malformed.insert(u"sheets"_s, sheets);
+    QVERIFY(catalog.simulateLimitedPacks(malformed, 1).isEmpty());
+
+    const QString databasePath = qEnvironmentVariable("HEXPROOF_FRA_DATABASE");
+    if (!databasePath.isEmpty()) {
+        catalog.importCatalogFile(QUrl::fromLocalFile(databasePath), u"default_cards"_s);
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog.busy(), 30000);
+        QVERIFY2(catalog.lastError().isEmpty(), qPrintable(catalog.lastError()));
+        const QVariantList sets = catalog.limitedSets();
+        const auto fraSet = std::find_if(sets.cbegin(), sets.cend(), [](const QVariant &value) {
+            return value.toMap().value(u"id"_s).toString() == u"FRA"_s;
+        });
+        QVERIFY(fraSet != sets.cend());
+        QVERIFY(fraSet->toMap().value(u"name"_s).toString().contains(u"estimated"_s));
+        QVERIFY(!fraSet->toMap().value(u"authentic"_s).toBool());
+        QCOMPARE(
+            catalog.simulateLimitedPacks(catalog.limitedProduct(u"hexproof-fra-play"_s), 6).size(),
+            6);
+    }
+
+    const QString builtPath = qEnvironmentVariable("HEXPROOF_FRA_PRODUCT");
+    if (!builtPath.isEmpty()) {
+        QFile built(builtPath);
+        QVERIFY(built.open(QIODevice::ReadOnly));
+        const QVariantMap fra = QJsonDocument::fromJson(built.readAll()).object().toVariantMap();
+        for (int run = 0; run < 10; ++run) {
+            const QVariantList packs = catalog.simulateLimitedPacks(fra, 36);
+            QCOMPARE(packs.size(), 36);
+            for (const QVariant &pack : packs)
+                QCOMPARE(pack.toMap().value(u"cards"_s).toList().size(), 14);
+        }
+    }
+}

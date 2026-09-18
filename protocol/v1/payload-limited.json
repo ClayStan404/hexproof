@@ -30,6 +30,7 @@
         {"name": "typeLine", "type": "string", "required": false},
         {"name": "rarity", "type": "string", "required": false},
         {"name": "finish", "type": "string", "required": false},
+        {"name": "pairCollectorNumber", "type": "string", "required": false},
         {"name": "weight", "type": "integer", "required": true}
       ]
     },
@@ -39,6 +40,7 @@
       "fields": [
         {"name": "name", "type": "string", "required": true},
         {"name": "withReplacement", "type": "boolean", "required": true},
+        {"name": "excludePrevious", "type": "boolean", "required": false},
         {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardDefinition"}}
       ]
     },

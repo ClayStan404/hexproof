@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.0.3")
+set(HEXPROOF_VERSION "2.0.4")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -419,6 +419,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/ForgeArrow.qml
         qml/components/ForgeCombatInteraction.qml
         qml/components/ForgeDuelTable.qml
+        qml/components/ForgeZonePile.qml
         qml/components/RulesLegacyLayout.qml
         qml/components/RulesCardInspector.qml
         qml/components/RulesCardHoverPreview.qml

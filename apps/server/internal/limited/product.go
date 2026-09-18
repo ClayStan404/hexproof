@@ -102,6 +102,9 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 				return nil, fail(ErrInvalid, "limited product has too many cards")
 			}
 		}
+		if err := validatePairedSheet(*sheet, definition.ProductType == ProductTypeCube); err != nil {
+			return nil, err
+		}
 		sheets[sheet.Name] = *sheet
 	}
 
@@ -123,11 +126,11 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 				slot.Sheet = strings.TrimSpace(slot.Sheet)
 				sheet, ok := sheets[slot.Sheet]
 				if !ok || usedSheets[slot.Sheet] || slot.Count < 1 || slot.Count > 30 ||
-					(!sheet.WithReplacement && slot.Count > len(sheet.Cards)) {
+					(!sheet.WithReplacement && slot.Count*sheetDrawSize(sheet) > len(sheet.Cards)) {
 					return nil, fail(ErrInvalid, "invalid pack slot")
 				}
 				usedSheets[slot.Sheet] = true
-				slotCards += slot.Count
+				slotCards += slot.Count * sheetDrawSize(sheet)
 			}
 			if slotCards != definition.CardsPerPack {
 				return nil, fail(ErrInvalid, "pack variant size does not match product")
@@ -215,17 +218,39 @@ func (p *Product) generatePack(random *rand.Rand, nextID func() string) ([]*Card
 		sheet := p.sheets[slot.Sheet]
 		available := append([]protocol.LimitedCardDefinition(nil), sheet.Cards...)
 		for count := 0; count < slot.Count; count++ {
-			weights := make([]int, len(available))
-			for index, card := range available {
+			eligible := make([]protocol.LimitedCardDefinition, 0, len(available))
+			for _, card := range available {
+				if !sheet.ExcludePrevious || !alreadyDrawn(card, result) {
+					if card.PairCollectorNumber == "" || !sheet.ExcludePrevious || !alreadyDrawn(pairedCard(card, sheet.Cards), result) {
+						eligible = append(eligible, card)
+					}
+				}
+			}
+			weights := make([]int, len(eligible))
+			for index, card := range eligible {
 				weights[index] = card.Weight
 			}
 			cardIndex := chooseWeight(random, weights)
 			if cardIndex < 0 {
 				return nil, fail(ErrInvalid, "product sheet cannot fill pack slot")
 			}
-			result = append(result, newCardInstance(nextID(), available[cardIndex]))
-			if !sheet.WithReplacement {
-				available = append(available[:cardIndex], available[cardIndex+1:]...)
+			selected := []protocol.LimitedCardDefinition{eligible[cardIndex]}
+			if selected[0].PairCollectorNumber != "" {
+				selected = append(selected, pairedCard(selected[0], sheet.Cards))
+				if random.Intn(2) == 0 {
+					selected[0], selected[1] = selected[1], selected[0]
+				}
+			}
+			for _, card := range selected {
+				result = append(result, newCardInstance(nextID(), card))
+				if !sheet.WithReplacement {
+					for index := 0; index < len(available); index++ {
+						if available[index] == card {
+							available = append(available[:index], available[index+1:]...)
+							break
+						}
+					}
+				}
 			}
 		}
 	}

@@ -4,6 +4,17 @@ Hexproof preserves the notices and license terms of the software and data it
 uses. Runtime packages may contain additional notices beside the relevant
 component.
 
+## Draftmancer FRA pair reference
+
+`tools/card-database-builder/fra-pairs.json` adapts the FRA name-pair reference
+from Draftmancer revision `4b4c64f60290ac55d2ffce022d2c0992c98c4897`,
+`src/BoosterFactory.ts`. Copyright (c) 2020 Yoann Maret-Verdant, MIT License.
+The complete notice is preserved in
+`tools/card-database-builder/Draftmancer-LICENSE.txt`.
+Source: <https://github.com/Senryoku/Draftmancer>.
+Card names and identities remain Magic: The Gathering data from Wizards of the
+Coast/Scryfall. The offline FRA test snapshot contains printing metadata only.
+
 ## Mana symbol font
 
 The client bundles the unmodified Mana 1.18 font by Andrew Gioia under the SIL

@@ -278,6 +278,7 @@ class RulesSessionState final : public QObject
     {
         return m_zones.countFor(ownerSeat, zone);
     }
+    Q_INVOKABLE QVariantMap topPublicZoneCard(int ownerSeat, const QString &zone) const;
     Q_INVOKABLE QVariantList castActionsForCard(const QString &cardId) const
     {
         if (!m_promptPending || !m_promptSupported ||

@@ -126,6 +126,25 @@ QVariantMap RulesSessionState::cardForInspection(const QString &cardId) const
     return card;
 }
 
+QVariantMap RulesSessionState::topPublicZoneCard(int ownerSeat, const QString &zone) const
+{
+    QVariantMap face;
+    if (zone.isEmpty())
+        return face;
+    const auto roles = m_zoneCards.roleNames();
+    for (int row = 0; row < m_zoneCards.rowCount(); ++row) {
+        const QModelIndex index = m_zoneCards.index(row);
+        if (m_zoneCards.data(index, RulesCardModel::ZoneOwnerSeatRole).toInt() != ownerSeat)
+            continue;
+        if (m_zoneCards.data(index, RulesCardModel::ZoneRole).toString() != zone)
+            continue;
+        face.clear();
+        for (auto it = roles.cbegin(); it != roles.cend(); ++it)
+            face.insert(QString::fromUtf8(it.value()), m_zoneCards.data(index, it.key()));
+    }
+    return face;
+}
+
 RulesSessionState::RulesSessionState(QObject *parent)
     : QObject(parent),
       m_players(this),

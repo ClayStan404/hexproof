@@ -49,8 +49,10 @@ Surface {
     visible: rulesSession.promptPending
              || rulesSession.gameOver
              || waitingForDecision
-    color: Theme.surfaceElevated
-    border.color: rulesSession.promptPending ? Theme.primary : Theme.borderStrong
+    color: "transparent"
+    radius: 0
+    border.width: 0
+    border.color: "transparent"
 
     Flow {
         id: fixedActions

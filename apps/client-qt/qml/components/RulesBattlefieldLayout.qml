@@ -35,6 +35,27 @@ QtObject {
         return /\bland\b/.test(typeLine) || typeLine.includes("地") ? "land" : "other"
     }
 
+    // Battlefield copies that share a public face and public state occupy one
+    // pile. Hidden, face-down, and zone-browser cards stay unique so a viewer
+    // can still pick one of several identical objects by id.
+    function stackKey(card, zone) {
+        const id = String(card && card.cardId ? card.cardId : "")
+        if (!card || (zone && zone !== "battlefield"))
+            return "id:" + id
+        if (!card.visibleIdentity || card.faceDown || !card.name)
+            return "id:" + id
+        return [String(card.name).trim().toLocaleLowerCase(),
+                card.token === true ? "token" : "card",
+                card.tapped === true ? "tapped" : "untapped",
+                card.attacking === true ? "attacking" : "ready",
+                String(card.power || ""),
+                String(card.toughness || ""),
+                String(card.countersSummary || ""),
+                String(card.damage || 0),
+                String(card.attachedTo || ""),
+                String(card.exiledCardCount || 0)].join("\u001f")
+    }
+
     function remember(seat, cardId, x, y, availableWidth, availableHeight) {
         const positions = Object.assign({}, customPositions)
         positions[key(seat, cardId)] = {

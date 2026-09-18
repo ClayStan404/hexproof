@@ -141,6 +141,13 @@ Page {
         return rulesSession.zoneCount(ownerSeat, zone)
     }
 
+    function topPublicZoneCard(ownerSeat, zone) {
+        void rulesSession.snapshotRevision
+        if (!rulesSession || typeof rulesSession.topPublicZoneCard !== "function")
+            return ({})
+        return rulesSession.topPublicZoneCard(ownerSeat, zone)
+    }
+
     function zoneLabel(zone) {
         switch (zone) {
         case "library": return qsTr("Library")

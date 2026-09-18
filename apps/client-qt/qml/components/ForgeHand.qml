@@ -37,7 +37,7 @@ Item {
         text: root.tableController.handOwnerSeat < 0 ? qsTr("Hands are hidden from spectators in this room")
             : root.tableController.canViewSpectatorHands ? qsTr("%1 — hand (read only)").arg(root.tableController.matchUi.playerName(root.tableController.handOwnerSeat))
             : qsTr("Hand · %1").arg(root.visibleCards.length)
-        color: "#96adb9"
+        color: Theme.textMuted
         font.pixelSize: 10 * root.unit
     }
     component HandSlot: Item {

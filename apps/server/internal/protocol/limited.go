@@ -6,18 +6,20 @@ package protocol
 // LimitedCardDefinition is one weighted printing in a product sheet. Weight
 // is also the physical quantity when the product is a Cube.
 type LimitedCardDefinition struct {
-	Name            string `json:"name"`
-	SetCode         string `json:"setCode"`
-	CollectorNumber string `json:"collectorNumber"`
-	TypeLine        string `json:"typeLine,omitempty"`
-	Rarity          string `json:"rarity,omitempty"`
-	Finish          string `json:"finish,omitempty"`
-	Weight          int    `json:"weight"`
+	Name                string `json:"name"`
+	SetCode             string `json:"setCode"`
+	CollectorNumber     string `json:"collectorNumber"`
+	TypeLine            string `json:"typeLine,omitempty"`
+	Rarity              string `json:"rarity,omitempty"`
+	Finish              string `json:"finish,omitempty"`
+	Weight              int    `json:"weight"`
+	PairCollectorNumber string `json:"pairCollectorNumber,omitempty"`
 }
 
 type LimitedSheetDefinition struct {
 	Name            string                  `json:"name"`
 	WithReplacement bool                    `json:"withReplacement"`
+	ExcludePrevious bool                    `json:"excludePrevious,omitempty"`
 	Cards           []LimitedCardDefinition `json:"cards"`
 }
 

@@ -100,10 +100,16 @@ TestCase {
         return {id:id, ownerSeat:seat, controllerSeat:seat, visible:true, identity:{name:name},
             power:creature ? "2" : "", toughness:creature ? "2" : ""}
     }
-    function snapshot(handCount, creatureCount) {
+    function token(id, seat, name, creature) {
+        const row = card(id, seat, name, creature)
+        row.identity.token = true
+        return row
+    }
+    function snapshot(handCount, creatureCount, distinctCreatures) {
         const hand = [], creatures = []
         for (let i = 0; i < (handCount || 1); ++i) hand.push(card("hand-" + i, 0, "Plains", false))
-        for (let i = 0; i < (creatureCount || 1); ++i) creatures.push(card("own-" + i, 0, "Grizzly Bears", true))
+        for (let i = 0; i < (creatureCount || 1); ++i)
+            creatures.push(card("own-" + i, 0, distinctCreatures ? ("Bear " + i) : "Grizzly Bears", true))
         return {roomId:"DUEL01", gameId:"duel-game", turn:3, step:"main1", activeSeat:0, prioritySeat:0,
             players:[{seat:0, name:"Alice", life:20}, {seat:1, name:"Bob", life:20}],
             zones:[{zone:"hand", ownerSeat:0, count:hand.length, cards:hand},
@@ -302,6 +308,82 @@ TestCase {
         verify(item("rulesScalarChoice-choice:1").visible)
     }
 
+    function test_landsSitAsLeftTableRow() {
+        const state = snapshot()
+        state.zones[4].cards.push(card("land-2", 0, "Plains", false))
+        state.zones[4].cards.push(card("relic", 0, "Sol Ring", false))
+        state.zones[4].count += 2
+        verify(testRulesPrompt.applySnapshot(state))
+        waitForRendering(table)
+        const land = item("forgeCard-land")
+        const land2 = item("forgeCard-land-2")
+        const creature = item("forgeCard-own-0")
+        const lane = item("forgeOwnLands")
+        const piles = item("forgeOwnZoneStrip")
+        tryCompare(land, "fullFace", false)
+        compare(land.fullFace, creature.fullFace)
+        verify(land.width <= 112 * table.presentation.unit)
+        verify(land2.width <= 112 * table.presentation.unit)
+        verify(land.width < creature.width)
+        const landPoint = land.mapToItem(table, 0, 0)
+        const pilePoint = piles.mapToItem(table, 0, 0)
+        const hand = item("forgeHand")
+        verify(piles.y >= hand.y - 4 * table.presentation.unit)
+        verify(landPoint.x <= lane.x + 28 * table.presentation.unit)
+        verify(landPoint.y + land.height <= pilePoint.y + 8 * table.presentation.unit)
+        verify(lane.y + lane.height >= hand.y - 20 * table.presentation.unit)
+        verify(lane.y > item("forgeOwnCreatures").y)
+        compare(lane.visibleCards.length, 2)
+        compare(lane.stackCount, 1)
+        const stacked = land2.mapToItem(lane, 0, 0)
+        const first = land.mapToItem(lane, 0, 0)
+        verify(Math.abs(stacked.x - first.x) <= 12 * table.presentation.unit)
+        verify(item("forgeCardStackCount-land-2").visible)
+        compare(item("forgeCardStackCountLabel-land-2").text, "×2")
+    }
+    function test_identicalPermanentsAndTokensStackTogether() {
+        const state = snapshot(1, 0)
+        const tappedLand = card("land-tapped", 0, "Plains", false)
+        tappedLand.tapped = true
+        const tappedBear = card("bear-tapped", 0, "Grizzly Bears", true)
+        tappedBear.tapped = true
+        state.zones[4].cards = [
+            card("land-a", 0, "Plains", false),
+            card("land-b", 0, "Plains", false),
+            tappedLand,
+            card("treasure-a", 0, "Treasure", false),
+            card("treasure-b", 0, "Treasure", false),
+            token("goblin-a", 0, "Goblin Token", true),
+            token("goblin-b", 0, "Goblin Token", true),
+            card("bear-real", 0, "Grizzly Bears", true),
+            token("bear-token", 0, "Grizzly Bears", true),
+            tappedBear
+        ]
+        state.zones[4].count = state.zones[4].cards.length
+        verify(testRulesPrompt.applySnapshot(state))
+        waitForRendering(table)
+        const lands = item("forgeOwnLands")
+        const other = item("forgeOwnOther")
+        const creatures = item("forgeOwnCreatures")
+        const unit = table.presentation.unit
+        tryVerify(() => lands.visibleCards.length === 3 && lands.stackCount === 2)
+        tryVerify(() => other.visibleCards.length === 2 && other.stackCount === 1)
+        tryVerify(() => creatures.visibleCards.length === 5 && creatures.stackCount === 4)
+        const stackedLand = item("forgeCard-land-b").mapToItem(lands, 0, 0)
+        const firstLand = item("forgeCard-land-a").mapToItem(lands, 0, 0)
+        verify(Math.abs(stackedLand.x - firstLand.x) <= 12 * unit)
+        verify(Math.abs(stackedLand.y - firstLand.y) <= 12 * unit)
+        const splitLand = item("forgeCard-land-tapped").mapToItem(lands, 0, 0)
+        verify(Math.abs(splitLand.x - firstLand.x) > 20 * unit
+               || Math.abs(splitLand.y - firstLand.y) > 20 * unit)
+        compare(item("forgeCardStackCountLabel-land-b").text, "×2")
+        compare(item("forgeCardStackCountLabel-treasure-b").text, "×2")
+        compare(item("forgeCardStackCountLabel-goblin-b").text, "×2")
+        const printed = item("forgeCard-bear-real").mapToItem(creatures, 0, 0)
+        const copied = item("forgeCard-bear-token").mapToItem(creatures, 0, 0)
+        verify(Math.abs(printed.x - copied.x) > 20 * unit
+               || Math.abs(printed.y - copied.y) > 20 * unit)
+    }
     function test_nativeModelsPopulateBothSidesAndHand() {
         tryVerify(() => item("forgeOwnCreatures").visibleCards.length === 1)
         compare(item("forgeOpponentCreatures").visibleCards.length, 1)
@@ -594,7 +676,7 @@ TestCase {
         tryVerify(() => item("forgeHand").visibleCards.length === 0)
     }
     function test_crowdedLanesAndHandRemainReachable() {
-        verify(testRulesPrompt.applySnapshot(snapshot(20, 70)))
+        verify(testRulesPrompt.applySnapshot(snapshot(20, 70, true)))
         const lane = item("forgeOwnCreatures"), hand = item("forgeHand")
         tryVerify(() => lane.visibleCards.length === 70 && hand.visibleCards.length === 20)
         verify(lane.scrollArea.contentHeight > lane.scrollArea.height)
@@ -705,6 +787,53 @@ TestCase {
             tryCompare(item("forgeZonePopup"), "visible", false)
         }
     }
+    function test_zonePilesOpenMatchingBrowser() {
+        const own = item("forgeZone-graveyard")
+        compare(own.width, Math.round(own.width))
+        compare(own.height, Math.round(own.height))
+        compare(own.zone, "graveyard")
+        mouseClick(own)
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        compare(item("forgeZonePopup").zone, "graveyard")
+        compare(item("forgeZonePopup").ownerSeat, 0)
+        mouseClick(item("forgeCloseZonePopup"))
+        tryCompare(item("forgeZonePopup"), "visible", false)
+        mouseClick(item("forgeOpponentZone-exile"))
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        compare(item("forgeZonePopup").zone, "exile")
+        compare(item("forgeZonePopup").ownerSeat, 1)
+        mouseClick(item("forgeCloseZonePopup"))
+        tryCompare(item("forgeZonePopup"), "visible", false)
+    }
+    function test_zonePilesShowPublicTopAndStayOffPermanentLanes() {
+        const state = snapshot()
+        state.zones.push({zone:"exile", ownerSeat:1, count:3,
+            cards:[card("known-exile", 1, "Plains", false)]})
+        state.zones.push({zone:"graveyard", ownerSeat:0, count:2,
+            cards:[card("known-yard", 0, "Grizzly Bears", true)]})
+        verify(testRulesPrompt.applySnapshot(state))
+        waitForRendering(table)
+        const exile = item("forgeOpponentZone-exile")
+        const yard = item("forgeZone-graveyard")
+        compare(exile.count, 3)
+        verify(exile.showsPublicFace)
+        compare(yard.count, 2)
+        verify(yard.showsPublicFace)
+        verify(item("forgeZone-library").count === 50)
+        verify(!item("forgeZone-library").showsPublicFace)
+        const ownLand = item("forgeCard-land")
+        const exilePoint = exile.mapToItem(table, 0, 0)
+        const yardPoint = yard.mapToItem(table, 0, 0)
+        const landPoint = ownLand.mapToItem(table, 0, 0)
+        const hand = item("forgeHand")
+        verify(yard.width >= 96 * table.presentation.unit)
+        verify(yard.height >= 110 * table.presentation.unit)
+        verify(yardPoint.y >= hand.y - 4 * table.presentation.unit)
+        verify(yardPoint.y + yard.height <= table.height + 1)
+        verify(landPoint.y + ownLand.height <= yardPoint.y + 8 * table.presentation.unit)
+        verify(exilePoint.y < table.height * 0.22)
+        verify(exilePoint.x < table.width * 0.28)
+    }
     function test_logPanelKeepsZonesAndDecisionsAccessible_data() {
         return test_decisionsStayBesideBoardAndInsideWindow_data()
     }
@@ -741,14 +870,12 @@ TestCase {
             {kind:"card", objectId:"own-69", label:"Grizzly Bears"}, {kind:"player", seat:1, label:"Bob"}]}]
         verify(testRulesPrompt.applySnapshot(state))
         const lane = item("forgeOwnCreatures"), stack = item("forgeStack"), arrow = item("forgeStackTargetArrow")
-        tryVerify(() => lane.visibleCards.length === 70 && stack.currentTarget !== null)
-        compare(arrow.endPoint.x, 0)
+        tryVerify(() => lane.visibleCards.length === 70 && lane.stackCount === 1 && stack.currentTarget !== null)
         mouseClick(item("forgeStackTarget-bolt-0"))
-        tryVerify(() => lane.scrollArea.contentY > 0 && arrow.visible)
-        verify(item("forgeCard-own-69").located)
+        tryVerify(() => item("forgeCard-own-69").located && arrow.visible && arrow.endPoint.x !== 0)
         verify(!item("forgeCard-own-0").located)
-        lane.scrollArea.contentY = 0
-        tryCompare(arrow, "visible", false)
+        verify(item("forgeCardStackCount-own-69").visible)
+        compare(item("forgeCardStackCountLabel-own-69").text, "×70")
         mouseClick(item("forgeStackTarget-bolt-1"))
         tryCompare(item("rulesPlayerTarget1"), "selected", true)
         tryCompare(arrow, "visible", true)
@@ -795,18 +922,37 @@ TestCase {
     function test_hoverPreviewClosesWithoutMovingTheBoard() {
         action("playLand", "hand-0")
         const lane = item("forgeOwnCreatures"), x = lane.x, width = lane.width
-        mouseMove(item("forgeHandCard-hand-0"), 20, 40)
-        tryCompare(table.inspector, "hasCard", true)
-        const preview = item("rulesCardHoverPreview"), source = item("forgeHandCard-hand-0")
+        mouseMove(table, 30, 70)
+        tryCompare(table.inspector, "hasCard", false)
+        const source = item("forgeHandCard-hand-0")
+        mouseMove(source, Math.round(source.width * 0.75), Math.round(source.height * 0.4))
+        tryCompare(table.inspector, "previewCardId", "hand-0")
+        const preview = item("rulesCardHoverPreview")
         tryCompare(preview, "visible", true)
         const origin = source.mapToItem(table, 0, 0)
-        verify(preview.x >= origin.x + source.width || preview.x + preview.width <= origin.x)
+        const previewPoint = preview.mapToItem(table, 0, 0)
+        verify(previewPoint.x >= origin.x + source.width || previewPoint.x + preview.width <= origin.x
+               || previewPoint.y + preview.height <= origin.y)
         verify(preview.y >= 0 && preview.y + preview.height <= table.height)
+        verify(!item("rulesCardHoverLinkedCards").visible)
+        compare(preview.height, preview.width * 88 / 63)
         verify(!item("rulesInspectionHost").visible)
         mouseMove(table, 30, 70)
         tryCompare(table.inspector, "hasCard", false)
         compare(item("rulesInspectionHost").visible, false)
         compare(lane.x, x); compare(lane.width, width)
+    }
+    function test_leftClickDoesNotPinInspectionAndRightClickDoes() {
+        const land = item("forgeCard-land")
+        const dock = item("rulesInspectionHost")
+        verify(!land.actionable)
+        mouseClick(land)
+        compare(table.inspector.pinnedCardId, "")
+        compare(dock.visible, false)
+        mouseClick(land, land.width / 2, land.height / 2, Qt.RightButton)
+        tryCompare(table.inspector, "pinnedCardId", "land")
+        tryCompare(dock, "visible", true)
+        verify(dock.inspectionOpened)
     }
     function test_hoverAtRightEdgeAndDuringCombatRemainsReadOnly() {
         const state = snapshot()
@@ -864,8 +1010,9 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(snapshot(7, 4)))
         const hand = item("forgeHand")
         tryVerify(() => hand.visibleCards.length === 7)
-        verify(hand.height <= hand.faceHeight * 0.6)
-        verify(item("forgeOwnCreatures").height > 280 * table.presentation.unit)
+        verify(hand.height <= hand.faceHeight * 0.7)
+        verify(item("forgeOwnCreatures").height + item("forgeOwnLands").height
+               > 360 * table.presentation.unit)
         for (const slot of hand.visibleCards) {
             const center = slot.mapToItem(table, slot.width / 2, slot.height / 2)
             verify(center.y >= hand.y && center.y < table.height)
@@ -895,7 +1042,7 @@ TestCase {
         prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
         for (const name of ["forgeOwnLands", "forgeOpponentLands", "forgeOwnOther", "forgeOpponentOther"]) {
             const lane = item(name)
-            tryVerify(() => lane.visibleCards.length === 8)
+            tryVerify(() => lane.visibleCards.length === 8 && lane.stackCount === 1)
             tryVerify(() => lane.scrollArea.contentHeight <= lane.scrollArea.height + 1,
                       5000, name + " should fit all eight exact permanents")
             for (const slot of lane.visibleCards)
@@ -907,8 +1054,8 @@ TestCase {
     }
     function test_creatureGridUsesExactFittedColumns(data) {
         window.width = 1920; window.height = 1011
-        const state = snapshot(7, data.count)
-        state.zones[5].cards = Array.from({length:data.count}, (_, i) => card("other-" + i, 1, "Grizzly Bears", true))
+        const state = snapshot(7, data.count, true)
+        state.zones[5].cards = Array.from({length:data.count}, (_, i) => card("other-" + i, 1, "Bear " + i, true))
         state.zones[5].count = data.count
         verify(testRulesPrompt.applySnapshot(state))
         for (const name of ["forgeOwnCreatures", "forgeOpponentCreatures"]) {
@@ -1026,8 +1173,10 @@ TestCase {
         action("playLand", "hand-0")
         const dock = item("rulesDecisionDock"), opponent = item("rulesPlayerTarget1")
         const top = item("forgeOpponentCreatures"), bottom = item("forgeOwnCreatures")
-        verify(top.height + bottom.height > table.height * 0.7)
+        verify(top.height + bottom.height + item("forgeOwnLands").height
+               + item("forgeOpponentLands").height > table.height * 0.65)
         verify(opponent.y < 12 * table.presentation.unit)
+        verify(item("forgeOwnZoneStrip").y >= item("forgeHand").y - 4 * table.presentation.unit)
         const controls = ["forgeTurnIndicator", "forgeTurnPhase", "forgeGameMenu", "rulesToggleGameLogButton",
             "rulesPriorityStatus", "rulesFullControl", "rulesYieldMenuButton"]
             .concat(data.hosting === "player" ? ["forgeHostingOptions", "forgePeerStatus",
@@ -1135,5 +1284,21 @@ TestCase {
         verify(point.y >= dock.y && point.y + confirm.height <= table.height)
         mouseClick(confirm)
         compare(transport.responses.length, 1)
+    }
+    function test_playmatShowsThroughBattlefield() {
+        const board = item("forgeDuelTable")
+        compare(board.color.a, 0)
+        const veil = findChild(board, "forgePlaymatVeil")
+        verify(veil !== null)
+        compare(veil.width, board.width)
+        const library = item("forgeZone-library")
+        compare(library.width, Math.round(library.width))
+        compare(library.height, Math.round(library.height))
+        const prompt = item("rulesPromptPanel")
+        compare(prompt.color.a, 0)
+        compare(prompt.border.width, 0)
+        const picker = item("rulesCardActionPicker")
+        compare(picker.color.a, 0)
+        compare(picker.border.width, 0)
     }
 }

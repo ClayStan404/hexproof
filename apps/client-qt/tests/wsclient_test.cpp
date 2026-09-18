@@ -1218,6 +1218,9 @@ void TestWsClient::rulesSessionStateExposesTypedSnapshot() const
     QCOMPARE(zoneCards->data(zoneCards->index(0), cardNameRole).toString(), u"Lightning Bolt"_s);
     const auto zoneOwnerRole = zoneCards->roleNames().key(QByteArrayLiteral("zoneOwnerSeat"));
     QCOMPARE(zoneCards->data(zoneCards->index(0), zoneOwnerRole).toInt(), 0);
+    const auto topHand = session.topPublicZoneCard(0, u"hand"_s);
+    QCOMPARE(topHand.value(u"name"_s).toString(), u"Lightning Bolt"_s);
+    QVERIFY(session.topPublicZoneCard(0, u"library"_s).isEmpty());
     QCOMPARE(session.battlefieldCards()->rowCount(), 0);
     QCOMPARE(session.stack()->rowCount(), 0);
 

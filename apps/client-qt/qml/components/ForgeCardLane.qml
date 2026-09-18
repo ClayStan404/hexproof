@@ -12,32 +12,56 @@ Item {
     property string category: "creature"
     property string zone: "battlefield"
     property string caption: ""
+    property bool showCaption: true
+    property real startInset: 0
+    property real maxFaceWidth: 0
     property string locatedId: ""
     property var visibleCards: []
+    property var visibleStackIds: []
+    readonly property int stackCount: visibleStackIds.length
+    readonly property real headerHeight: showCaption && caption.length ? 20 * unit : 0
     readonly property int cardCount: zone === "battlefield" ? visibleCards.length
         : tableController.zoneCount(ownerSeat, zone)
     readonly property Flickable scrollArea: viewport
     readonly property real gap: 8 * unit
+    readonly property bool showFullFace: zone !== "battlefield"
+    readonly property real faceRatio: showFullFace ? 1.394 : 0.93
     readonly property real cardWidth: fittedCardWidth()
-    readonly property real cardHeight: cardWidth * (zone === "battlefield" ? 0.93 : 1.394)
-    readonly property int columns: Math.max(1, Math.floor((viewport.width - 6 * unit + gap) / (cardWidth + gap) + 1e-7))
+    readonly property real cardHeight: cardWidth * faceRatio
+    readonly property real rowAvailable: Math.max(1, viewport.width - startInset - 6 * unit)
+    readonly property int columns: Math.max(1, Math.floor((rowAvailable + gap) / (cardWidth + gap) + 1e-7))
     readonly property real cellHeight: cardHeight + (tableController.combatInteraction.active ? 22 : 10) * unit
+    readonly property real rowLead: {
+        const count = stackCount
+        if (count <= 0 || category !== "creature")
+            return startInset
+        const used = count * (cardWidth + gap) - gap
+        if (count <= columns)
+            return Math.max(startInset, (viewport.width - used) / 2 - 3 * unit)
+        return startInset
+    }
 
-    // Choose the largest readable grid that fits both dimensions. A fixed
-    // minimum-width row used to clip even a few noncreature permanents.
+    // Creatures grow to fill their lane. Lands and other permanents keep a
+    // smaller ceiling so two tiles stay in the near corner instead of
+    // becoming a centered poster row. Layout uses public piles, not raw
+    // object counts, so eight Plains occupy one tile.
     function fittedCardWidth() {
-        const count = Math.max(1, visibleCards.length)
-        const available = Math.max(1, viewport.width - 6 * unit)
-        const maximum = Math.min(available, (category === "creature" ? 180 : zone === "battlefield" ? 96 : 120) * unit)
-        const minimum = Math.min(maximum, (category === "creature" ? 80 : 64) * unit)
+        const count = Math.max(1, stackCount)
+        const available = Math.max(1, viewport.width - startInset - 6 * unit)
+        const ceiling = maxFaceWidth > 0 ? maxFaceWidth
+            : (zone === "battlefield" ? 180 : 120) * unit
+        const maximum = Math.min(available, ceiling)
+        const minimum = Math.min(maximum, 80 * unit)
         const extra = (tableController.combatInteraction.active ? 22 : 10) * unit
-        const ratio = zone === "battlefield" ? 0.93 : 1.394
+        const heightFit = viewport.height > extra + 5 * unit
+            ? (viewport.height - extra - 5 * unit) / faceRatio : minimum
         let best = minimum
         for (let cols = 1; cols <= count; ++cols) {
-            const candidate = Math.min(maximum, (available - (cols - 1) * gap) / cols)
+            const candidate = Math.min(maximum, heightFit,
+                (available - (cols - 1) * gap) / cols)
             if (candidate < minimum) break
             const rows = Math.ceil(count / cols)
-            if (rows * (candidate * ratio + extra) + 5 * unit <= viewport.height)
+            if (rows * (candidate * faceRatio + extra) + 5 * unit <= viewport.height)
                 best = Math.max(best, candidate)
         }
         return best
@@ -50,7 +74,22 @@ Item {
             const item = cards.itemAt(i) as CardSlot
             if (item && item.matches) next.push(item)
         }
+        next.sort((left, right) => {
+            const names = String(left.name || "").localeCompare(String(right.name || ""))
+            return names || String(left.cardId).localeCompare(String(right.cardId))
+        })
+        const stacks = []
+        const byKey = ({})
+        for (const item of next) {
+            const key = grouping.stackKey(item, root.zone)
+            if (!byKey[key]) {
+                byKey[key] = []
+                stacks.push(byKey[key])
+            }
+            byKey[key].push(item.cardId)
+        }
         visibleCards = next
+        visibleStackIds = stacks
     }
     function itemFor(id) { return visibleCards.find(item => item.cardId === id) || null }
     function reveal(id) {
@@ -73,9 +112,11 @@ Item {
     onOwnerSeatChanged: { refresh.restart(); viewport.contentY = 0 }
     Text {
         objectName: root.objectName + "Count"
+        visible: root.headerHeight > 0
+        height: root.headerHeight
         textFormat: Text.PlainText
         text: root.caption + "  /  " + root.cardCount
-        color: "#96adb9"
+        color: Theme.textMuted
         font.pixelSize: 9 * root.unit
         font.letterSpacing: 1
     }
@@ -86,7 +127,7 @@ Item {
         visible: root.zone === "library" && root.cardCount > 0 && root.visibleCards.length === 0
         textFormat: Text.PlainText
         text: qsTr("Library contents are hidden.")
-        color: "#96adb9"
+        color: Theme.textMuted
         font.pixelSize: 13 * root.unit
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
@@ -101,6 +142,7 @@ Item {
         required property string name
         required property string setCode
         required property string collectorNumber
+        required property bool token
         required property bool tapped
         required property bool faceDown
         required property bool attacking
@@ -117,14 +159,69 @@ Item {
         readonly property bool matches: root.zone === "battlefield"
             ? controllerSeat === root.ownerSeat && category === root.category
             : zoneOwnerSeat === root.ownerSeat && zone === root.zone
-        readonly property int position: root.visibleCards.indexOf(slot)
-        visible: matches && position >= 0
+        readonly property string stackKey: grouping.stackKey(slot, root.zone)
+        readonly property int stackIndex: {
+            void root.visibleStackIds
+            for (let i = 0; i < root.visibleStackIds.length; ++i) {
+                if (root.visibleStackIds[i].indexOf(slot.cardId) >= 0)
+                    return i
+            }
+            return -1
+        }
+        readonly property int stackRank: stackIndex >= 0
+            ? root.visibleStackIds[stackIndex].indexOf(slot.cardId) : -1
+        readonly property int stackSize: stackIndex >= 0 ? root.visibleStackIds[stackIndex].length : 1
+        readonly property bool stackFront: {
+            if (stackSize <= 1)
+                return true
+            const ids = root.visibleStackIds[stackIndex]
+            if (root.locatedId && ids.indexOf(root.locatedId) >= 0)
+                return slot.cardId === root.locatedId
+            return stackRank === stackSize - 1
+        }
+        readonly property int pileDepth: {
+            if (stackSize <= 1)
+                return 0
+            if (slot.cardId === root.locatedId)
+                return Math.min(stackSize - 1, 2)
+            return Math.min(Math.max(0, stackRank), 2)
+        }
+        function stackMemberTaken(id) {
+            const combat = root.tableController.combatInteraction
+            if (!combat)
+                return false
+            if (combat.selected(id))
+                return true
+            const links = combat.links
+            if (!links)
+                return false
+            for (let i = 0; i < links.length; ++i) {
+                if (links[i].to === id || links[i].from === id)
+                    return true
+            }
+            return false
+        }
+        function stackActivateId() {
+            const combat = root.tableController.combatInteraction
+            if (!combat || !combat.active || stackSize <= 1 || !stackFront)
+                return slot.cardId
+            const ids = root.visibleStackIds[stackIndex]
+            if (root.locatedId && ids.indexOf(root.locatedId) >= 0)
+                return root.locatedId
+            for (let i = 0; i < ids.length; ++i) {
+                if (combat.actionable(ids[i]) && !stackMemberTaken(ids[i]))
+                    return ids[i]
+            }
+            return slot.cardId
+        }
+        visible: matches && stackIndex >= 0
         width: root.cardWidth
         height: root.cardHeight
-        x: 3 * root.unit + (position % root.columns) * (width + root.gap)
-            + (root.category === "creature" && root.visibleCards.length <= root.columns
-               ? Math.max(0, (viewport.width - root.visibleCards.length * (width + root.gap) + root.gap) / 2 - 3 * root.unit) : 0)
-        y: 3 * root.unit + Math.floor(position / root.columns) * root.cellHeight
+        x: 3 * root.unit + root.rowLead + (stackIndex % root.columns) * (width + root.gap)
+           + pileDepth * 4 * root.unit
+        y: 3 * root.unit + Math.floor(stackIndex / root.columns) * root.cellHeight
+           + pileDepth * 4 * root.unit
+        z: (slot.cardId === root.locatedId ? 1000 : 0) + Math.max(0, stackRank)
         onMatchesChanged: refresh.restart()
         ForgeCard {
             objectName: slot.matches ? "forgeCard-" + slot.cardId : ""
@@ -132,19 +229,41 @@ Item {
             tableController: root.tableController
             card: slot
             unit: root.unit
-            fullFace: root.zone !== "battlefield"
+            fullFace: root.showFullFace
             located: slot.cardId === root.locatedId
             onActiveFocusChanged: if (activeFocus) root.reveal(slot.cardId)
+        }
+        Rectangle {
+            objectName: slot.stackFront && slot.stackSize > 1 ? "forgeCardStackCount-" + slot.cardId : ""
+            visible: slot.stackFront && slot.stackSize > 1
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 3 * root.unit
+            z: 20
+            width: stackCountLabel.implicitWidth + 10 * root.unit
+            height: 18 * root.unit
+            radius: 4 * root.unit
+            color: "#d8b56a"
+            Text {
+                id: stackCountLabel
+                objectName: slot.stackFront && slot.stackSize > 1 ? "forgeCardStackCountLabel-" + slot.cardId : ""
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                text: "×" + slot.stackSize
+                color: "#19232b"
+                font.pixelSize: 11 * root.unit
+                font.weight: Font.Bold
+            }
         }
     }
     Flickable {
         id: viewport
         objectName: root.objectName + "Viewport"
-        y: 20 * root.unit
+        y: root.headerHeight
         width: root.width
         height: Math.max(0, root.height - y)
         contentWidth: width
-        contentHeight: Math.max(height, Math.ceil(root.visibleCards.length / root.columns) * root.cellHeight + 5 * root.unit)
+        contentHeight: Math.max(height, Math.ceil(root.stackCount / root.columns) * root.cellHeight + 5 * root.unit)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }

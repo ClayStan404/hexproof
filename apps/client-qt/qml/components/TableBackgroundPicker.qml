@@ -62,11 +62,20 @@ ColumnLayout {
                 onClicked: root.backgroundSelected(modelData.key)
 
                 background: Rectangle {
-                    color: choice.selected ? Theme.primaryMuted
-                                          : choice.hovered ? Theme.surfaceHover : Theme.surfaceMuted
+                    readonly property int strokeWidth: choice.selected || choice.activeFocus ? Theme.size(2) : 1
                     radius: Theme.radiusSmall
-                    border.width: choice.selected || choice.activeFocus ? Theme.size(2) : 1
-                    border.color: choice.selected || choice.activeFocus ? Theme.primary : Theme.border
+                    antialiasing: true
+                    color: choice.selected || choice.activeFocus ? Theme.primary : Theme.border
+                    border.width: 0
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: parent.strokeWidth
+                        radius: Math.max(0, parent.radius - parent.strokeWidth)
+                        antialiasing: true
+                        color: choice.selected ? Theme.primaryMuted
+                                              : choice.hovered ? Theme.surfaceHover : Theme.surfaceMuted
+                    }
                 }
 
                 contentItem: Column {
@@ -79,15 +88,20 @@ ColumnLayout {
                         Rectangle {
                             anchors.fill: parent
                             visible: choice.modelData.key === "default"
-                            color: Theme.surfaceMuted
+                            gradient: Gradient {
+                                orientation: Gradient.Vertical
+                                GradientStop { position: 0.0; color: "#0A1511" }
+                                GradientStop { position: 1.0; color: "#07110D" }
+                            }
 
                             Rectangle {
                                 x: parent.width * 0.06
                                 y: parent.height * 0.07
                                 width: parent.width * 0.88
                                 height: parent.height * 0.41
-                                color: Theme.surfaceHover
-                                border.color: Theme.border
+                                radius: 4
+                                antialiasing: true
+                                color: Theme.withAlpha(Theme.surfaceHover, 0.72)
                             }
 
                             Rectangle {
@@ -95,8 +109,9 @@ ColumnLayout {
                                 y: parent.height * 0.52
                                 width: parent.width * 0.88
                                 height: parent.height * 0.41
-                                color: Theme.primaryMuted
-                                border.color: Theme.border
+                                radius: 4
+                                antialiasing: true
+                                color: Theme.withAlpha(Theme.primaryMuted, 0.78)
                             }
                         }
 

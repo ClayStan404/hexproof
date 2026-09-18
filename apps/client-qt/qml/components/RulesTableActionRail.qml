@@ -11,6 +11,7 @@ Surface {
     id: root
 
     required property var tableController
+    property bool compactChrome: false
     readonly property bool showTurnState: tableController.rulesSession.active
                                           && !tableController.sideboarding
                                           && !tableController.matchUi.matchFinished
@@ -25,8 +26,9 @@ Surface {
     Layout.preferredWidth: root.tableController.actionRailWidth
     Layout.maximumWidth: root.tableController.actionRailWidth
     Layout.fillHeight: true
-    color: Theme.tableRailFill
-    radius: 0
+    color: compactChrome ? Theme.withAlpha(Theme.backgroundRaised, 0.97)
+                         : Theme.tableRailFill
+    radius: compactChrome ? Theme.radiusMedium : 0
     border.width: 0
 
     Rectangle {
@@ -34,13 +36,25 @@ Surface {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Theme.size(2)
+        visible: !root.compactChrome
         color: Theme.tableDivider
+    }
+
+    component SectionLabel: Text {
+        textFormat: Text.PlainText
+        Layout.fillWidth: true
+        color: Theme.textMuted
+        font.pixelSize: Theme.fontSize(9)
+        font.weight: Font.DemiBold
+        font.capitalization: Font.AllUppercase
+        horizontalAlignment: Text.AlignLeft
+        elide: Text.ElideRight
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.size(4)
-        spacing: Theme.size(4)
+        anchors.margins: Theme.size(root.compactChrome ? 12 : 4)
+        spacing: Theme.size(root.compactChrome ? 6 : 4)
 
         Text {
             textFormat: Text.PlainText
@@ -48,10 +62,10 @@ Surface {
             text: root.tableController.roomSession.roomName
                   || qsTr("Forge rules game")
             color: Theme.text
-            font.pixelSize: Theme.fontSize(10)
+            font.pixelSize: Theme.fontSize(root.compactChrome ? 13 : 10)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
+            horizontalAlignment: root.compactChrome ? Text.AlignLeft : Text.AlignHCenter
         }
 
         Text {
@@ -62,7 +76,7 @@ Surface {
                   + root.tableController.roomSession.roomId
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(9)
-            horizontalAlignment: Text.AlignHCenter
+            horizontalAlignment: root.compactChrome ? Text.AlignLeft : Text.AlignHCenter
             elide: Text.ElideRight
         }
 
@@ -77,8 +91,13 @@ Surface {
                            root.tableController.rulesSession.step))
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(9)
-            horizontalAlignment: Text.AlignHCenter
+            horizontalAlignment: root.compactChrome ? Text.AlignLeft : Text.AlignHCenter
             elide: Text.ElideRight
+        }
+
+        SectionLabel {
+            text: qsTr("Table")
+            visible: root.compactChrome
         }
 
         AppButton {
@@ -87,6 +106,11 @@ Surface {
             compact: true
             text: qsTr("Background")
             onClicked: root.tableController.openBackgroundPicker()
+        }
+
+        SectionLabel {
+            text: qsTr("Match")
+            visible: root.compactChrome
         }
 
         AppButton {
@@ -172,6 +196,11 @@ Surface {
             Layout.fillWidth: true
             implicitHeight: 1
             color: Theme.borderStrong
+        }
+
+        SectionLabel {
+            text: qsTr("Phases")
+            visible: root.compactChrome && root.showTurnState
         }
 
         Text {

@@ -9,6 +9,54 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-09-19
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.0.4**; application versions
+  must match exactly. The WebSocket protocol remains `hexproof.v1`, and existing
+  card databases and saved decks remain compatible.
+- The native adapter overlay is unchanged from 2.0.3, so server-managed Forge
+  runtimes do not need rebuilding for this release.
+- The maintained FRA Play product arrives through the separate card-data
+  channel and needs that release. Paired-product events require both the
+  updated client and server: older implementations treat a paired draw as one
+  independent card instead of two.
+
+### Added
+
+- Add the maintained FRA Play recipe with paired sheets. The card-data build
+  installs the `hexproof-fra-play` product from the imported FRA and SPG
+  printings, following the published Collecting Reality Fracture Play Booster
+  slots including reciprocal echoed pairs, the third distinct printing, the
+  foil and land slots, and the 1/55 Special Guests replacement. The recipe is
+  always `approximate`: estimated sub-1% probabilities are normalized, missing
+  printings redistribute their category's weight or exclude both halves of a
+  missing pair, and the product stays labelled `partial preview, estimated`
+  until the set is complete. Limited sheet definitions gain the optional
+  `pairCollectorNumber` card field and `excludePrevious` sheet flag; one paired
+  slot draw emits both cards and counts as two physical cards. Both the client
+  simulation and the authoritative server generation implement these semantics.
+
+### Changed
+
+- Rework the Forge table. The selected battlefield playmat stays visible under
+  the lane wells, and both players' permanents share one battlefield instead of
+  separate halves.
+- Show zones as face-up card piles with a single-plate browser and a sectioned
+  Settings drawer, replacing the generic zone buttons and nested menus; the
+  piles sit in the hand row.
+- Show lands as a centered, compact table row aligned with the shared card
+  faces, kept compact in the near corner.
+- Stack identical Forge permanents and tokens, and drop the empty padding
+  under Forge card previews.
+- Pin compact life badges to the board seam instead of reserving two empty
+  bands for floating player cards.
+- Flatten the Forge decision dock to a single plate, with the prompt copy and
+  actions directly on it.
+- Stop pinning Forge card inspection on idle left-clicks; the preview follows
+  the hover instead.
+
 ## [2.0.3] - 2026-09-18
 
 ### Upgrade notes
