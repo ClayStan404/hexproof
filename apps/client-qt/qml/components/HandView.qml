@@ -569,51 +569,59 @@ Item {
             delegate: handCardDelegate
         }
 
-        ListView {
-            id: handList
-            objectName: "ownHand"
+        // Wrap the view so its content-tracking implicit size never feeds
+        // back into this layout: fitted card widths depend on the view
+        // height, so an unwrapped view re-polishes the column on every
+        // resize and can loop on slower machines.
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: ListView.Horizontal
-            spacing: Theme.size(7)
-            clip: true
-            interactive: false
-            pixelAligned: false
-            cacheBuffer: count * Theme.size(160)
-            model: handVisualModel
-            boundsBehavior: Flickable.StopAtBounds
-            onCountChanged: {
-                forceLayout()
-                Qt.callLater(root.clampHandScrollPosition)
-            }
-            onContentWidthChanged: Qt.callLater(root.clampHandScrollPosition)
-            onOriginXChanged: Qt.callLater(root.clampHandScrollPosition)
-            onWidthChanged: Qt.callLater(root.clampHandScrollPosition)
-            Component.onCompleted: {
-                forceLayout()
-                Qt.callLater(root.clampHandScrollPosition)
-            }
 
-            moveDisplaced: Transition {
-                NumberAnimation {
-                    properties: "x"
-                    duration: Theme.motionFast
-                    easing.type: Easing.OutCubic
+            ListView {
+                id: handList
+                objectName: "ownHand"
+                anchors.fill: parent
+                orientation: ListView.Horizontal
+                spacing: Theme.size(7)
+                clip: true
+                interactive: false
+                pixelAligned: false
+                cacheBuffer: count * Theme.size(160)
+                model: handVisualModel
+                boundsBehavior: Flickable.StopAtBounds
+                onCountChanged: {
+                    forceLayout()
+                    Qt.callLater(root.clampHandScrollPosition)
                 }
-            }
+                onContentWidthChanged: Qt.callLater(root.clampHandScrollPosition)
+                onOriginXChanged: Qt.callLater(root.clampHandScrollPosition)
+                onWidthChanged: Qt.callLater(root.clampHandScrollPosition)
+                Component.onCompleted: {
+                    forceLayout()
+                    Qt.callLater(root.clampHandScrollPosition)
+                }
 
-            function focusCard(targetIndex) {
-                if (count <= 0)
-                    return
-                const bounded = Math.max(0, Math.min(count - 1,
-                                                     targetIndex))
-                currentIndex = bounded
-                positionViewAtIndex(bounded, ListView.Contain)
-                Qt.callLater(() => {
-                    const item = itemAtIndex(bounded)
-                    if (item)
-                        item.forceActiveFocus()
-                })
+                moveDisplaced: Transition {
+                    NumberAnimation {
+                        properties: "x"
+                        duration: Theme.motionFast
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                function focusCard(targetIndex) {
+                    if (count <= 0)
+                        return
+                    const bounded = Math.max(0, Math.min(count - 1,
+                                                         targetIndex))
+                    currentIndex = bounded
+                    positionViewAtIndex(bounded, ListView.Contain)
+                    Qt.callLater(() => {
+                        const item = itemAtIndex(bounded)
+                        if (item)
+                            item.forceActiveFocus()
+                    })
+                }
             }
         }
     }

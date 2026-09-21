@@ -168,10 +168,19 @@ class ParallelNetwork final : public QNetworkAccessManager
     {
         const auto pending = std::exchange(replies, {});
         for (const auto &reply : pending) {
-            if (reply) {
-                reply->blockSignals(false);
-                emit reply->finished();
-            }
+            if (!reply)
+                continue;
+            // Deliver each completion through the event loop instead of one
+            // synchronous burst: real networks interleave, and a burst lets a
+            // reply reach the resolver after its request slot has advanced,
+            // which reads the already-consumed reply as an empty payload.
+            QMetaObject::invokeMethod(
+                reply,
+                [reply]() {
+                    reply->blockSignals(false);
+                    emit reply->finished();
+                },
+                Qt::QueuedConnection);
         }
     }
 
