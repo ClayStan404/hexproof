@@ -788,7 +788,10 @@ TestCase {
         verify(wheelMouseArea !== null)
         tryVerify(() => hand.count === 18
                   && hand.contentWidth > hand.width)
-        const hoveredCard = findChild(table, "handCard5")
+        // Hover a card well inside the viewport: with eighteen cards the
+        // sixth card's center sits within a few pixels of the right edge,
+        // so wheel delivery there is fragile across environments.
+        const hoveredCard = findChild(table, "handCard1")
         verify(hoveredCard !== null)
 
         hand.contentX = 0
