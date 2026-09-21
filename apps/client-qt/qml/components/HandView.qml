@@ -204,17 +204,22 @@ Item {
         border.color: Theme.primary
     }
 
-    ColumnLayout {
+    // Anchor the strip instead of a ColumnLayout: the fitted card width
+    // depends on the strip height, the overflow slider's visibility depends
+    // on the content width, and both feed back into layout negotiation,
+    // which can re-polish a ColumnLayout in a loop on slower machines.
+    Item {
+        id: handStrip
         anchors.fill: parent
         anchors.margins: Theme.size(4)
-        spacing: Theme.size(3)
 
         RowLayout {
             id: ownHandHeader
             objectName: "ownHandHeader"
-            Layout.fillWidth: true
-            Layout.preferredHeight: ownHandLabel.implicitHeight
-            Layout.maximumHeight: ownHandLabel.implicitHeight
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: ownHandLabel.implicitHeight
             spacing: Theme.size(14)
 
             Text {
@@ -238,8 +243,6 @@ Item {
                 id: handScrollSlider
                 objectName: "handScrollSlider"
                 Layout.fillWidth: true
-                Layout.preferredHeight: ownHandLabel.implicitHeight
-                Layout.maximumHeight: ownHandLabel.implicitHeight
                 implicitHeight: ownHandLabel.implicitHeight
                 visible: to > from
                 enabled: visible
@@ -570,12 +573,15 @@ Item {
         }
 
         // Wrap the view so its content-tracking implicit size never feeds
-        // back into this layout: fitted card widths depend on the view
-        // height, so an unwrapped view re-polishes the column on every
+        // back into layout negotiation: fitted card widths depend on the
+        // view height, so an unwrapped view re-polishes the strip on every
         // resize and can loop on slower machines.
         Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: ownHandHeader.bottom
+            anchors.bottom: parent.bottom
+            anchors.topMargin: Theme.size(3)
 
             ListView {
                 id: handList
