@@ -6,7 +6,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
     property alias query: filterState.query
     property alias filters: filterState
@@ -19,6 +19,16 @@ Popup {
     property bool allowSideboard: true
     property bool considerOnly: false
     property bool filtersAvailable: true
+    property var selectedCard: null
+    readonly property string selectedCardKey: selectedCard
+        ? (selectedCard.instanceId || selectedCard.name || "") : ""
+    readonly property bool canAddSelectedToDeck: {
+        if (!selectedCard)
+            return false
+        if (!deckLibraryModel)
+            return true
+        return deckLibraryModel.canAddCard(selectedCard.name, selectedCard.typeLine)
+    }
     property string typeFilter: ""
     property string setFilter: ""
     property string languageFilter: ""
@@ -26,14 +36,9 @@ Popup {
     property string rarityFilter: ""
     property string legalityFilter: ""
     property string manaFilter: ""
-    property int targetIndex: 0
     readonly property bool filtersActive: filterState.activeCount > 0
         || setFilter.trim().length > 0 || languageFilter.length > 0 || legalityFilter.length > 0
     readonly property bool hasSearchCriteria: query.trim().length > 0 || filtersActive
-    readonly property var deckCards: !deckLibraryModel ? []
-        : considerOnly ? (deckLibraryModel.considerCards || [])
-        : targetIndex === 1 && allowSideboard ? (deckLibraryModel.sideboardCards || [])
-        : (deckLibraryModel.mainCards || [])
     readonly property var legalityOptions: [
         {"label": qsTr("Any format"), "value": ""},
         {"label": qsTr("Standard legal"), "value": "standard"},
@@ -64,22 +69,10 @@ Popup {
     signal searchRequested(string query, string typeFilter, string setFilter,
                            string languageFilter, string colorFilter, string rarityFilter,
                            string legalityFilter, string manaFilter)
-    signal addRequested(var card, bool sideboard)
+    signal addRequested(var card, string destination)
 
-    parent: Overlay.overlay
-    x: Theme.size(12)
-    y: Theme.size(12)
-    width: parent ? parent.width - Theme.size(24) : Theme.size(1000)
-    height: parent ? parent.height - Theme.size(24) : Theme.size(700)
-    padding: Theme.size(16)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape
-    background: Rectangle {
-        color: Theme.backgroundRaised
-        border.color: Theme.borderStrong
-        radius: Theme.radiusMedium
-    }
+    width: Math.min(Theme.size(960), parent ? parent.width - Theme.size(48) : Theme.size(960))
+    height: Math.min(Theme.size(720), parent ? parent.height - Theme.size(56) : Theme.size(720))
     CardFilterState {
         id: filterState
         onQueryChanged: root.scheduleSearch()
@@ -90,189 +83,149 @@ Popup {
     }
     contentItem: ColumnLayout {
         spacing: Theme.size(12)
+
         RowLayout {
             Layout.fillWidth: true
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: qsTr("Card search")
-                font.pixelSize: Theme.fontSize(22)
-                font.bold: true
-                color: Theme.text
+            spacing: Theme.size(10)
+
+            AppPopupHeader {
+                titleText: qsTr("Card search")
+                subtitleText: root.allowSideboard
+                    ? qsTr("Search first, then add the selected card to the main deck, sideboard, or Consider.")
+                    : qsTr("Search first, then add the selected card to the main deck or Consider.")
             }
+
             Text {
                 textFormat: Text.PlainText
-                text: root.searchPending ? qsTr("Searching cards…") : I18n.count("result", root.results.length)
+                text: root.searchPending ? qsTr("Searching cards…")
+                    : I18n.count("result", root.results.length)
                 color: Theme.textMuted
             }
+
             AppButton {
                 objectName: "cardSearchDoneButton"
-                text: qsTr("Done")
+                compact: true
+                variant: "ghost"
+                text: "×"
+                accessibleName: qsTr("Close")
+                Layout.preferredWidth: Theme.size(40)
                 onClicked: root.close()
             }
         }
-        GridLayout {
+
+        CardFilterBar {
+            id: filterBar
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumHeight: 0
-            columns: root.width < Theme.size(660) ? 1 : 2
-            columnSpacing: Theme.size(16)
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumWidth: 0
-                Layout.minimumHeight: 0
-                CardFilterBar {
-                    id: filterBar
-                    Layout.fillWidth: true
-                    filters: filterState
-                    filtersAvailable: root.filtersAvailable
-                    onResetRequested: root.resetFilters()
-                    placeholderText: qsTr("Search English or Chinese names…")
-                    extraFilters: Component {
-                        ColumnLayout {
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Printing and format")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(17)
-                            }
-                            AppTextField {
-                                objectName: "cardSearchSetFilter"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("Set code")
-                                text: root.setFilter
-                                maximumLength: 12
-                                onTextEdited: root.setFilter = text
-                            }
-                            AppComboBox {
-                                objectName: "cardSearchLanguageFilter"
-                                Layout.fillWidth: true
-                                model: [qsTr("All printings"), qsTr("English printings"), qsTr("Chinese printings")]
-                                currentIndex: ["", "en", "zhs"].indexOf(root.languageFilter)
-                                onActivated: index => root.languageFilter = ["", "en", "zhs"][index]
-                            }
-                            AppComboBox {
-                                objectName: "cardSearchLegalityFilter"
-                                Layout.fillWidth: true
-                                model: root.legalityOptions
-                                textRole: "label"
-                                valueRole: "value"
-                                currentIndex: root.optionIndex(root.legalityOptions, root.legalityFilter)
-                                onActivated: index => root.legalityFilter = root.legalityOptions[index].value
-                            }
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: qsTr("Filters narrow database results only; deck legality is not enforced.")
-                                color: Theme.textMuted
-                                wrapMode: Text.WordWrap
-                            }
-                        }
-                    }
-                }
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: root.filtersAvailable ? qsTr("Click a card to add one copy to the selected section.")
-                         : qsTr("Update the local card database to use search filters.")
-                    color: Theme.textMuted
-                    font.pixelSize: Theme.fontSize(11)
-                    wrapMode: Text.WordWrap
-                }
-                CardArtGrid {
-                    id: resultGrid
-                    objectName: "cardSearchResults"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 0
-                    cards: root.opened && root.hasSearchCriteria && !root.searchPending ? root.results : []
-                    catalogModel: root.catalogModel
-                    preferredCardWidth: Math.max(Theme.size(150),
-                        Math.min(Theme.size(230), width / 5 - Theme.size(16)))
-                    emptyText: root.searchPending ? qsTr("Searching cards…")
-                        : !root.hasSearchCriteria ? qsTr("Type a card name or choose filters to see search results.")
-                        : qsTr("No matching cards")
-                    onCardActivated: card => {
-                        if (!root.opened || root.searchPending || !root.hasSearchCriteria) return
-                        if (!root.deckLibraryModel || root.deckLibraryModel.canAddCard(card.name, card.typeLine))
-                            root.addRequested(card, root.allowSideboard && root.targetIndex === 1)
-                    }
-                    onCardInspected: (card, item) => preview.inspect(card, item)
-                    onCardInspectionEnded: item => preview.hide(item)
-                    onVisibleCardsChanged: root.schedulePreviews()
-                    onMovingChanged: {
-                        if (moving) preview.hide()
-                        root.schedulePreviews()
-                    }
-                }
-            }
-            Surface {
-                visible: !!root.deckLibraryModel
-                Layout.fillWidth: root.width < Theme.size(660)
-                Layout.preferredWidth: Theme.size(310)
-                Layout.maximumWidth: root.width < Theme.size(660) ? root.width : Theme.size(350)
-                Layout.fillHeight: true
-                Layout.minimumHeight: 0
-                Layout.preferredHeight: root.width < Theme.size(660) ? Theme.size(220) : -1
-                color: Theme.surfaceMuted
+            compact: true
+            filters: filterState
+            filtersAvailable: root.filtersAvailable
+            onResetRequested: root.resetFilters()
+            placeholderText: qsTr("Search English or Chinese names…")
+            extraFilters: Component {
                 ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(10)
-                    RowLayout {
+                    Text {
+                        textFormat: Text.PlainText
+                        text: qsTr("Printing and format")
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSize(17)
+                    }
+                    AppTextField {
+                        objectName: "cardSearchSetFilter"
                         Layout.fillWidth: true
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: root.considerOnly ? qsTr("Consider")
-                                : root.deckLibraryModel ? (root.deckLibraryModel.currentDeckName || qsTr("Main deck")) : ""
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(18)
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
-                        CardManaCurve { cards: root.deckCards }
+                        placeholderText: qsTr("Set code")
+                        text: root.setFilter
+                        maximumLength: 12
+                        onTextEdited: root.setFilter = text
+                    }
+                    AppComboBox {
+                        objectName: "cardSearchLanguageFilter"
+                        Layout.fillWidth: true
+                        model: [qsTr("All printings"), qsTr("English printings"), qsTr("Chinese printings")]
+                        currentIndex: ["", "en", "zhs"].indexOf(root.languageFilter)
+                        onActivated: index => root.languageFilter = ["", "en", "zhs"][index]
+                    }
+                    AppComboBox {
+                        objectName: "cardSearchLegalityFilter"
+                        Layout.fillWidth: true
+                        model: root.legalityOptions
+                        textRole: "label"
+                        valueRole: "value"
+                        currentIndex: root.optionIndex(root.legalityOptions, root.legalityFilter)
+                        onActivated: index => root.legalityFilter = root.legalityOptions[index].value
                     }
                     Text {
                         textFormat: Text.PlainText
-                        text: qsTr("%1 cards").arg(root.deckCards.reduce((sum, card) => sum + Number(card.count || 1), 0))
-                        color: Theme.accent
-                    }
-                    SegmentedControl {
-                        visible: root.allowSideboard && !root.considerOnly
                         Layout.fillWidth: true
-                        options: [qsTr("Main deck"), qsTr("Sideboard")]
-                        currentIndex: root.targetIndex
-                        onActivated: index => root.targetIndex = index
-                    }
-                    CompactCardList {
-                        objectName: "cardSearchDeckList"
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 0
-                        cards: root.deckCards
-                        onCardActivated: card => {
-                            if (!root.deckLibraryModel) return
-                            if (root.considerOnly)
-                                root.deckLibraryModel.changeConsiderCardCount(card.name, card.setCode, card.collectorNumber, -1)
-                            else root.deckLibraryModel.changeCardCount(card.name, card.setCode, card.collectorNumber,
-                                                                      root.allowSideboard && root.targetIndex === 1, -1)
-                        }
-                        onCardInspected: (card, item) => preview.inspect(card, item)
-                        onCardInspectionEnded: item => preview.hide(item)
-                        onMovingChanged: if (moving) preview.hide()
-                    }
-                    CardMetadataNotice {
-                        Layout.fillWidth: true
-                        cards: root.deckCards
-                    }
-                    AppButton {
-                        Layout.fillWidth: true
-                        text: qsTr("Done")
-                        variant: "primary"
-                        onClicked: root.close()
+                        text: qsTr("Filters narrow database results only; deck legality is not enforced.")
+                        color: Theme.textMuted
+                        wrapMode: Text.WordWrap
                     }
                 }
+            }
+        }
+
+        CardArtGrid {
+            id: resultGrid
+            objectName: "cardSearchResults"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            cards: root.opened && root.hasSearchCriteria && !root.searchPending ? root.results : []
+            catalogModel: root.catalogModel
+            selectedKey: root.selectedCardKey
+            preferredCardWidth: Math.max(Theme.size(150),
+                Math.min(Theme.size(230), width / 4 - Theme.size(16)))
+            prominentScrollBar: true
+            emptyText: root.searchPending ? qsTr("Searching cards…")
+                : !root.hasSearchCriteria ? qsTr("Type a card name or choose filters to see search results.")
+                : qsTr("No matching cards")
+            onCardActivated: card => root.selectedCard = card
+            onCardInspected: (card, item) => preview.inspect(card, item)
+            onCardInspectionEnded: item => preview.hide(item)
+            onVisibleCardsChanged: root.schedulePreviews()
+            onMovingChanged: {
+                if (moving) preview.hide()
+                root.schedulePreviews()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.size(8)
+
+            Text {
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                text: root.selectedCard
+                      ? (root.selectedCard.displayName || root.selectedCard.name)
+                      : qsTr("Select a search result to add it.")
+                color: root.selectedCard ? Theme.text : Theme.textMuted
+                elide: Text.ElideRight
+            }
+
+            AppButton {
+                objectName: "cardSearchAddMain"
+                compact: true
+                text: qsTr("Main deck")
+                enabled: root.canAddSelectedToDeck
+                onClicked: root.addSelected("main")
+            }
+
+            AppButton {
+                objectName: "cardSearchAddSideboard"
+                compact: true
+                visible: root.allowSideboard
+                text: qsTr("Sideboard")
+                enabled: root.canAddSelectedToDeck
+                onClicked: root.addSelected("sideboard")
+            }
+
+            AppButton {
+                objectName: "cardSearchAddConsider"
+                compact: true
+                text: qsTr("Consider")
+                enabled: root.selectedCard !== null
+                onClicked: root.addSelected("consider")
             }
         }
     }
@@ -283,7 +236,7 @@ Popup {
         visible: root.opened
         enabled: false
         z: 1000
-        // Hover art is not part of the search/deck ColumnLayout.
+        // Hover art is not part of the search ColumnLayout.
         CardHoverPreview {
             id: preview
             catalogModel: root.catalogModel
@@ -319,17 +272,20 @@ Popup {
     onLanguageFilterChanged: scheduleSearch()
     onLegalityFilterChanged: scheduleSearch()
     onResultsChanged: {
+        selectedCard = null
         preview.hide()
         schedulePreviews()
     }
     onSearchingChanged: schedulePreviews()
+    onSearchPendingChanged: if (searchPending) selectedCard = null
     onOpened: {
-        targetIndex = 0
+        selectedCard = null
         if (!filtersAvailable) resetFilters()
         filterBar.focusSearch()
         scheduleSearch()
     }
     onClosed: {
+        selectedCard = null
         searchTimer.stop()
         previewTimer.stop()
         updatePreviews([])
@@ -343,6 +299,14 @@ Popup {
     }
     Component.onDestruction: updatePreviews([])
     function openSearch() { open() }
+    function addSelected(destination) {
+        if (!opened || searchPending || !hasSearchCriteria || !selectedCard)
+            return
+        if (destination !== "consider" && deckLibraryModel
+                && !deckLibraryModel.canAddCard(selectedCard.name, selectedCard.typeLine))
+            return
+        addRequested(selectedCard, destination)
+    }
     function updatePreviews(cards) {
         if (catalogModel && typeof catalogModel.setSearchPreviewCards === "function")
             catalogModel.setSearchPreviewCards(cards)

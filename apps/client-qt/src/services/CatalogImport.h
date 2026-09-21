@@ -26,5 +26,8 @@ CatalogImportResult importCompressedDatabaseFile(const QString &sourcePath,
                                                  const QByteArray &expectedCompressedSha256,
                                                  const QByteArray &expectedDatabaseSha256,
                                                  CatalogImportStopToken stopToken = {});
+CatalogImportResult importLocalCatalogFile(const QString &sourcePath, const QString &databasePath,
+                                           const QString &packageType,
+                                           CatalogImportStopToken stopToken = {});
 
 } // namespace hexproof::client::catalogimport

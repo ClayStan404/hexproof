@@ -310,9 +310,9 @@ public hubs are not supported.
 
 ## Optional direct transport
 
-The waiting room shows **Player direct connection (P2P)** below the room header.
-During a game, the lower-right decision dock exposes the same status and actions
-directly, including between games. Both players select **Agree to P2P**; opening
+The waiting room shows compact **P2P** controls in the lower-left footer.
+During a game, the same status and actions are in the top-right Settings
+drawer, including between games. Both players select **Agree to P2P**; opening
 the Hosting dialog is not required. Before opting in, the inline disclosure
 explains network-address sharing and the STUN service. Waiting for consent,
 connecting, direct delivery, relay fallback and recovery states remain visible.

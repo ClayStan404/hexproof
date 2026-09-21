@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "CatalogImport.h"
+#include "CardCatalogArchiveInternal.h"
 #include "CardCatalogCommon.h"
 #include "CardImageProvider.h"
 #include "CatalogStorage.h"
@@ -424,16 +425,19 @@ CatalogImportResult importCompressedDatabaseFile(const QString &sourcePath,
                                                  CatalogImportStopToken stopToken)
 {
     ImportResult result;
-    QByteArray compressedSha256;
-    if (!fileSha256Cancellable(sourcePath, stopToken, &compressedSha256, &result)) {
-        if (!result.cancelled)
-            result.error = QStringLiteral("Could not read the official card database download.");
-        return result;
-    }
-    if (compressedSha256 != expectedCompressedSha256) {
-        result.error =
-            QStringLiteral("The official card database download failed its SHA-256 check.");
-        return result;
+    if (!expectedCompressedSha256.isEmpty()) {
+        QByteArray compressedSha256;
+        if (!fileSha256Cancellable(sourcePath, stopToken, &compressedSha256, &result)) {
+            if (!result.cancelled)
+                result.error =
+                    QStringLiteral("Could not read the official card database download.");
+            return result;
+        }
+        if (compressedSha256 != expectedCompressedSha256) {
+            result.error =
+                QStringLiteral("The official card database download failed its SHA-256 check.");
+            return result;
+        }
     }
 
     gzFile archive = openGzipFile(sourcePath);
@@ -470,7 +474,7 @@ CatalogImportResult importCompressedDatabaseFile(const QString &sourcePath,
         if (received == 0)
             break;
         expandedSize += received;
-        if (expandedSize > expectedExpandedSize ||
+        if ((expectedExpandedSize > 0 && expandedSize > expectedExpandedSize) ||
             expandedSize > kMaximumOfficialCatalogExpandedBytes) {
             result.error = QStringLiteral("The official card database package is too large.");
             failed = true;
@@ -489,7 +493,7 @@ CatalogImportResult importCompressedDatabaseFile(const QString &sourcePath,
     }
     if (!failed && cancelCatalogImportIfRequested(stopToken, &result))
         failed = true;
-    if (!failed &&
+    if (!failed && expectedExpandedSize > 0 &&
         (expandedSize != expectedExpandedSize || hash.result().toHex() != expectedDatabaseSha256)) {
         result.error =
             QStringLiteral("The installed card database failed its size or SHA-256 check.");
@@ -514,6 +518,40 @@ CatalogImportResult importCompressedDatabaseFile(const QString &sourcePath,
     result = importDatabaseFile(expandedPath, databasePath, stopToken);
     QFile::remove(expandedPath);
     return result;
+}
+
+CatalogImportResult importLocalCatalogFile(const QString &sourcePath, const QString &databasePath,
+                                           const QString &packageType,
+                                           CatalogImportStopToken stopToken)
+{
+    ImportResult result;
+    if (cancelCatalogImportIfRequested(stopToken, &result))
+        return result;
+    QFile input(sourcePath);
+    if (!input.open(QIODevice::ReadOnly)) {
+        result.error = QStringLiteral("Could not open the selected catalog file.");
+        return result;
+    }
+    const QByteArray signature = input.peek(16);
+    input.close();
+    if (signature == QByteArrayLiteral("SQLite format 3\0"))
+        return importDatabaseFile(sourcePath, databasePath, stopToken);
+    if (signature.size() >= 2 && static_cast<unsigned char>(signature.at(0)) == 0x1f &&
+        static_cast<unsigned char>(signature.at(1)) == 0x8b) {
+        gzFile archive = openGzipFile(sourcePath);
+        if (!archive) {
+            result.error = QStringLiteral("Could not open the selected catalog file.");
+            return result;
+        }
+        char header[16] = {};
+        const int received = gzread(archive, header, sizeof(header));
+        gzclose(archive);
+        if (received == 16 &&
+            QByteArray::fromRawData(header, 16) == QByteArrayLiteral("SQLite format 3\0")) {
+            return importCompressedDatabaseFile(sourcePath, databasePath, 0, {}, {}, stopToken);
+        }
+    }
+    return importBulkFile(sourcePath, databasePath, packageType, {}, {}, stopToken);
 }
 
 } // namespace hexproof::client::catalogimport

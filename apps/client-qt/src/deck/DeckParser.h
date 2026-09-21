@@ -7,6 +7,7 @@
 #include "Deck.h"
 
 #include <QStringList>
+#include <QVariantMap>
 
 namespace hexproof::client {
 
@@ -37,6 +38,7 @@ class DeckParser
     static DeckParseResult parse(const QString &text, bool blankSectionIsCommander = false,
                                  DeckParseProfile profile = DeckParseProfile::Constructed);
     static QString format(const Deck &deck);
+    static QString formatPublished(const QVariantMap &deck);
 };
 
 } // namespace hexproof::client

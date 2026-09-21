@@ -13,6 +13,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QGuiApplication>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QTextStream>
@@ -245,6 +246,82 @@ bool DeckLibraryModel::saveDeckText(const QString &id, const QUrl &fileUrl)
 bool DeckLibraryModel::saveCurrentDeckText(const QUrl &fileUrl)
 {
     return saveDeckText(m_currentDeckId, fileUrl);
+}
+
+QString DeckLibraryModel::formatPublishedDeckText(const QVariantMap &deck) const
+{
+    return DeckParser::formatPublished(deck);
+}
+
+bool DeckLibraryModel::copyPublishedDeckText(const QVariantMap &deck)
+{
+    const QString text = DeckParser::formatPublished(deck);
+    if (text.trimmed().isEmpty() || (deck.value(QStringLiteral("mainboard")).toList().isEmpty() &&
+                                     deck.value(QStringLiteral("sideboard")).toList().isEmpty())) {
+        setLastError(QStringLiteral("The decklist is empty."));
+        return false;
+    }
+    QGuiApplication *app = qGuiApp;
+    if (!app || !app->clipboard()) {
+        setLastError(QStringLiteral("The clipboard is not available."));
+        return false;
+    }
+    app->clipboard()->setText(text);
+    return true;
+}
+
+bool DeckLibraryModel::savePublishedDeckText(const QVariantMap &deck, const QUrl &fileUrl)
+{
+    const QString text = DeckParser::formatPublished(deck);
+    if (text.trimmed().isEmpty() || (deck.value(QStringLiteral("mainboard")).toList().isEmpty() &&
+                                     deck.value(QStringLiteral("sideboard")).toList().isEmpty())) {
+        setLastError(QStringLiteral("The decklist is empty."));
+        return false;
+    }
+    if (!fileUrl.isLocalFile()) {
+        setLastError(QStringLiteral("Choose a local file to export the deck list."));
+        return false;
+    }
+    const QString path = fileUrl.toLocalFile();
+    if (path.isEmpty()) {
+        setLastError(QStringLiteral("Choose a file to export the deck list."));
+        return false;
+    }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        setLastError(QStringLiteral("The deck list could not be saved."));
+        return false;
+    }
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+    stream << text;
+    if (stream.status() != QTextStream::Ok) {
+        file.cancelWriting();
+        setLastError(QStringLiteral("The deck list could not be saved."));
+        return false;
+    }
+    if (!file.commit()) {
+        setLastError(QStringLiteral("The deck list could not be saved."));
+        return false;
+    }
+    return true;
+}
+
+QUrl DeckLibraryModel::suggestedPublishedDeckUrl(const QString &participantName,
+                                                 const QString &deckName) const
+{
+    QString name = participantName.trimmed();
+    const QString deck = deckName.trimmed();
+    if (!deck.isEmpty())
+        name = name.isEmpty() ? deck : name + QStringLiteral(" - ") + deck;
+    if (name.isEmpty())
+        name = QStringLiteral("decklist");
+    static const QRegularExpression illegal(QStringLiteral(R"([\\/:*?"<>|])"));
+    name.replace(illegal, QStringLiteral("_"));
+    if (!name.endsWith(QStringLiteral(".txt"), Qt::CaseInsensitive))
+        name += QStringLiteral(".txt");
+    const QString folder = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    return QUrl::fromLocalFile(QDir(folder).filePath(name));
 }
 
 } // namespace hexproof::client

@@ -55,16 +55,14 @@ Item {
             stalledUrl: stalledUrl, healthyUrl: savedHealthyUrl,
             note: "TCP accepts without a WebSocket upgrade response; no public hub"
         }))
-        for (const control of ["connectCancelButton", "screenBackButton"]) {
-            add("Open connection page for " + control, () => click("mainMenuConnectButton"),
-                () => !!find("connectSubmitButton") && !auditWindow.stack.busy)
-            add("Enter stalled endpoint for " + control, () => fillUrl(stalledUrl))
-            add("Begin pending handshake for " + control, () => click("connectSubmitButton"),
-                () => ws.connecting)
-            add("Capture cancellable handshake for " + control, () => capture("pending-" + control))
-            add("Cancel using " + control, () => click(control),
-                () => !ws.connecting && !ws.connected && !!find("mainMenuConnectButton") && !auditWindow.stack.busy)
-        }
+        add("Open connection page", () => click("mainMenuConnectButton"),
+            () => !!find("connectSubmitButton") && !auditWindow.stack.busy)
+        add("Enter stalled endpoint", () => fillUrl(stalledUrl))
+        add("Begin pending handshake", () => click("connectSubmitButton"),
+            () => ws.connecting)
+        add("Capture cancellable handshake", () => capture("pending-screenBackButton"))
+        add("Cancel using back", () => click("screenBackButton"),
+            () => !ws.connecting && !ws.connected && !!find("mainMenuConnectButton") && !auditWindow.stack.busy)
         add("Open a new connection after cancelling", () => click("mainMenuConnectButton"),
             () => !!find("connectSubmitButton") && !auditWindow.stack.busy)
         add("Enter healthy local endpoint", () => fillUrl(savedHealthyUrl))
@@ -84,9 +82,9 @@ Item {
         auditProbe.record("result", {status: error ? "failed" : "passed", error: error || "",
             assertions: assertions, pendingStep: index < steps.length ? steps[index].name : "",
             elapsedMs: Date.now() - started,
-            requiredScreenshots: ["pending-connectCancelButton.png", "pending-screenBackButton.png",
+            requiredScreenshots: ["pending-screenBackButton.png",
                                   "connected-after-cancellation.png"],
-            coverage: "Native cancellation by button/back during TCP handshake, fresh connection and disconnect"})
+            coverage: "Native cancellation by back during TCP handshake, fresh connection and disconnect"})
         auditProbe.finish(error ? 1 : 0)
     }
     Component.onCompleted: { try { plan() } catch (error) { finish(String(error)) } }

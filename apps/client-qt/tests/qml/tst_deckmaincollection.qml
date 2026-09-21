@@ -82,6 +82,7 @@ TestCase {
         fakeDeckLibrary.lastMove = []
         fakeDeckLibrary.lastCountChange = []
         collection.customArtEnabled = false
+        collection.commanderFormat = false
     }
 
     function test_customArtActionPreservesPrintingAcrossViews_data() {
@@ -135,6 +136,31 @@ TestCase {
         compare(collection.groups[0].label, "Creatures (6)")
         compare(collection.groups[1].key, "Instants")
         compare(collection.groups[1].label, "Instants (5)")
+    }
+
+    function test_commandersStayInTypeGroupAndLeadIt() {
+        collection.commanderFormat = true
+        collection.cards = testCase.defaultCards.concat([{
+            "name": "Tymna the Weaver", "displayName": "Tymna the Weaver",
+            "category": "Creatures", "typeLine": "Legendary Creature — Human Cleric",
+            "count": 1, "manaValue": 3, "setCode": "C16",
+            "collectorNumber": "48", "commander": true
+        }])
+        collection.viewModeIndex = 1
+        waitForRendering(collection)
+        const creatures = collection.groups[0]
+        compare(creatures.key, "Creatures")
+        compare(creatures.cards[0].name, "Tymna the Weaver")
+        verify(creatures.cards[0].commander)
+        compare(creatures.cards[1].name, "Scion of Draco")
+        verify(!collection.groups.some(group => group.key === "Commanders"))
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(gallery !== null)
+        tryVerify(() => findCardDelegate(gallery, "C16", "48") !== null)
+        const card = findCardDelegate(gallery, "C16", "48")
+        verify(card.commanderCard)
+        const badge = findChild(card, "deckVisualCommanderBadge")
+        verify(badge !== null && badge.visible)
     }
 
     function test_localizedSubtypesAndBackFacesDoNotBecomeLandGroups() {

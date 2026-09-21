@@ -18,6 +18,9 @@ Item {
     property bool cubeFormat: false
     property bool customArtEnabled: false
     property bool searchActive: false
+    property bool showViewControls: true
+    property var filterState: null
+    property string filterPlaceholder: qsTr("Search this deck…")
     property Item sideboardDropTarget: null
     property Flickable outerFlickable: null
     property int viewModeIndex: 1
@@ -74,7 +77,7 @@ Item {
             reuseItems: true
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: AppScrollBar { objectName: "deckGalleryScrollBar" }
             ScrollChainHandler {
                 enabled: root.outerFlickable !== null
                 innerFlickable: groupedDeckGallery
@@ -159,21 +162,48 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: Theme.size(9)
+        spacing: Theme.size(6)
 
-        GridLayout {
+        Flow {
             id: collectionOptions
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            columns: width >= Theme.size(480) ? 3 : (width >= Theme.size(280) ? 2 : 1)
-            columnSpacing: Theme.size(7)
-            rowSpacing: Theme.size(7)
+            visible: root.filterState !== null || root.showViewControls
+            spacing: Theme.size(8)
+            readonly property int viewComboWidth: Theme.size(160)
+            readonly property int groupComboWidth: Theme.size(196)
+            readonly property int sortComboWidth: Theme.size(160)
+            readonly property int comboRowWidth: root.showViewControls
+                ? viewComboWidth + groupComboWidth + sortComboWidth + spacing * 3
+                : 0
+
+            Loader {
+                id: filterLoader
+                active: root.filterState !== null
+                visible: active
+                width: {
+                    if (!active)
+                        return 0
+                    const reserved = collectionOptions.comboRowWidth
+                    const minFilter = Theme.size(240)
+                    return collectionOptions.width >= minFilter + reserved
+                           ? Math.max(minFilter, collectionOptions.width - reserved)
+                           : collectionOptions.width
+                }
+                sourceComponent: CardFilterBar {
+                    width: filterLoader.width
+                    compact: true
+                    filters: root.filterState
+                    placeholderText: root.filterPlaceholder
+                }
+            }
 
             AppComboBox {
                 objectName: "deckEditorViewMode"
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: Theme.size(126)
+                visible: root.showViewControls
+                width: collectionOptions.viewComboWidth
+                implicitWidth: collectionOptions.viewComboWidth
+                implicitHeight: Theme.size(38)
                 model: root.viewOptions
                 currentIndex: root.viewModeIndex
                 displayText: qsTr("View: %1").arg(currentText)
@@ -182,9 +212,10 @@ Item {
 
             AppComboBox {
                 objectName: "deckEditorGroupMode"
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: Theme.size(166)
+                visible: root.showViewControls
+                width: collectionOptions.groupComboWidth
+                implicitWidth: collectionOptions.groupComboWidth
+                implicitHeight: Theme.size(38)
                 model: root.groupOptions
                 currentIndex: root.groupModeIndex
                 displayText: qsTr("Group: %1").arg(currentText)
@@ -193,26 +224,14 @@ Item {
 
             AppComboBox {
                 objectName: "deckEditorSortMode"
-                Layout.fillWidth: true
-                Layout.columnSpan: collectionOptions.columns === 2 ? 2 : 1
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: Theme.size(166)
+                visible: root.showViewControls
+                width: collectionOptions.sortComboWidth
+                implicitWidth: collectionOptions.sortComboWidth
+                implicitHeight: Theme.size(38)
                 model: root.sortOptions
                 currentIndex: root.sortModeIndex
                 displayText: qsTr("Sort: %1").arg(currentText)
                 onActivated: index => root.sortModeIndex = index
-            }
-
-            Text {
-                textFormat: Text.PlainText
-                Layout.columnSpan: collectionOptions.columns
-                Layout.fillWidth: true
-                visible: root.width >= Theme.size(720)
-                text: qsTr("%1 categories · %2 cards")
-                      .arg(root.groups.length)
-                      .arg(root.copyCount(root.cards))
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(10)
             }
         }
 
@@ -234,7 +253,7 @@ Item {
                     boundsBehavior: Flickable.StopAtBounds
                     section.property: "groupKey"
                     section.criteria: ViewSection.FullString
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: AppScrollBar { objectName: "deckListScrollBar" }
                     ScrollChainHandler {
                         enabled: root.outerFlickable !== null
                         innerFlickable: mainList
@@ -350,6 +369,12 @@ Item {
     }
 
     function compareCards(left, right) {
+        if (commanderFormat) {
+            const leftCommander = left && left.commander === true
+            const rightCommander = right && right.commander === true
+            if (leftCommander !== rightCommander)
+                return leftCommander ? -1 : 1
+        }
         if (sortModeIndex === 1) {
             const manaDifference = manaRank(left) - manaRank(right)
             if (manaDifference !== 0)

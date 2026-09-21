@@ -30,7 +30,15 @@ Page {
     readonly property var presentation: tablePresentation.item
     readonly property var inspector: presentation ? presentation.inspectionDock.inspector : null
     readonly property real gameLogRailWidth: gameLogRail ? gameLogRail.width : 0
-    readonly property var gameLogRail: presentation ? presentation.inspectionDock.logRail : null
+    readonly property var gameLogRail: {
+        if (!presentation)
+            return null
+        const embedded = presentation.inspectionDock
+                       ? presentation.inspectionDock.logRail : null
+        if (embedded)
+            return embedded
+        return presentation.gameLogRail || null
+    }
     readonly property var cardActionPicker: presentation ? presentation.decisionDock.actionPicker : null
     readonly property var interaction: tableInteraction
     readonly property var priority: priorityController
@@ -80,6 +88,13 @@ Page {
         Math.round(handCardWidth * 88 / 63)
     readonly property real zoneDockWidth:
         Math.min(Theme.size(270), width * 0.35)
+    property int catalogRevision: 0
+
+    Connections {
+        target: root.cardCatalogModel
+        ignoreUnknownSignals: true
+        function onCatalogChanged() { ++root.catalogRevision }
+    }
 
     onRulesResponsePendingChanged: {
         if (rulesResponsePending && cardActionPicker)
@@ -88,7 +103,7 @@ Page {
 
     function setGameLogVisible(show) {
         showGameLogRail = show
-        if (show && inspector)
+        if (show && inspector && gameLogRail && gameLogRail.floating !== true)
             inspector.clear()
         if (preferencesModel && !compactLayout)
             preferencesModel.tableShowGameLog = show
@@ -199,6 +214,18 @@ Page {
         void cardCatalogModel.imageRevision
         return cardCatalogModel.tableImageSource(
                     name, setCode || "", collectorNumber || "")
+    }
+
+    function cardDisplayName(name) {
+        if (!name)
+            return ""
+        if (!cardCatalogModel
+                || typeof cardCatalogModel.cardDisplayName !== "function")
+            return name
+        void catalogRevision
+        void cardCatalogModel.language
+        void cardCatalogModel.imageRevision
+        return cardCatalogModel.cardDisplayName(name)
     }
 
     function promptOptionLabel(kind, responseId, label) {

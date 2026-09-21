@@ -178,6 +178,8 @@ Item {
         })
         add("Open actual Settings screen", () => click("mainMenuSettingsButton"),
             () => !!find("settingsBody"))
+        add("Open language settings", () => click("settingsLanguageModule", "settingsBody"),
+            () => !!find("settingsLanguageSelector"))
         add("Choose English through Settings", () => {
             if (preferences.uiLanguage === "en") return
             const selector = find("settingsLanguageSelector")
@@ -208,6 +210,8 @@ Item {
                                         selector.height / 2), "Cannot choose art provider")
             }, () => preferences.cardArtProvider === artProvider)
         }
+        add("Return to settings categories", () => click("screenBackButton"),
+            () => !!find("settingsManageArtButton"))
         if (!restarting) {
             add("Open initially empty card-art inventory", () => click("settingsManageArtButton", "settingsBody"),
                 () => !!find("refreshArtInventoryButton"))
@@ -219,11 +223,13 @@ Item {
                         "Cannot record initial inventory")
                 capture("02-empty-art-cache")
             })
-            add("Return to database settings", () => click("screenBackButton"),
-                () => !!find("settingsBody"))
+            add("Return to settings categories", () => click("screenBackButton"),
+                () => !!find("settingsCatalogModule"))
             if (artDownloadOnly) {
                 add("Record preinstalled catalog fixture", () => auditProbe.fixture("preinstalled-catalog", catalogState()))
             } else if (mode === "local-import" || mode === "online-update") {
+                add("Open card database settings", () => click("settingsCatalogModule", "settingsBody"),
+                    () => !!find("settingsImportCatalogButton"))
                 add("Open native catalog file chooser", () => click("settingsImportCatalogButton", "settingsBody"),
                     () => auditProbe.fileDialogState("catalogImportFileDialog").visible === true)
                 add("Select the database through its file chooser", () => {
@@ -233,6 +239,8 @@ Item {
                 }, () => installationFinished(), 180000)
             } else {
                 require(mode === "online-install", "Unknown bootstrap mode: " + mode)
+                add("Open card database settings", () => click("settingsCatalogModule", "settingsBody"),
+                    () => !!find("settingsDownloadCatalogButton"))
                 add("Request the official database through Settings", () => click("settingsDownloadCatalogButton", "settingsBody"),
                     () => !!find("confirmButton"))
                 add("Confirm official database download", () => click("confirmButton"),
@@ -251,6 +259,11 @@ Item {
             capture("03-installed-catalog")
         })
         if (!artDownloadOnly) {
+            add("Open card database settings", () => {
+                if (find("settingsCheckCatalogUpdatesButton"))
+                    return true
+                return click("settingsCatalogModule", "settingsBody")
+            }, () => !!find("settingsCheckCatalogUpdatesButton"))
             add("Check online catalog version through Settings", () => {
                 if (cardCatalog.checkingCatalogVersion)
                     return false

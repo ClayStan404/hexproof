@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QRegularExpression>
 #include <QSet>
+#include <QVariantList>
 
 namespace hexproof::client {
 
@@ -323,6 +324,41 @@ QString DeckParser::format(const Deck &deck)
             lines.append(formatCardLine(card, false));
     }
     return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
+QString DeckParser::formatPublished(const QVariantMap &published)
+{
+    const auto cardsFromList = [](const QVariantList &values) {
+        QVector<DeckCard> cards;
+        cards.reserve(values.size());
+        for (const QVariant &value : values) {
+            const QVariantMap row = value.toMap();
+            DeckCard card;
+            card.name = row.value(QStringLiteral("name")).toString().simplified();
+            card.setCode = row.value(QStringLiteral("setCode")).toString().trimmed();
+            card.collectorNumber =
+                row.value(QStringLiteral("collectorNumber")).toString().trimmed();
+            card.typeLine = row.value(QStringLiteral("typeLine")).toString();
+            card.count = qMax(1, row.value(QStringLiteral("count")).toInt());
+            if (!card.name.isEmpty())
+                cards.append(card);
+        }
+        return cards;
+    };
+
+    Deck deck;
+    deck.name = published.value(QStringLiteral("name")).toString();
+    deck.format = published.value(QStringLiteral("format")).toString();
+    deck.commanders = published.value(QStringLiteral("commanders")).toStringList();
+    if (deck.commanders.isEmpty()) {
+        const QString commander =
+            published.value(QStringLiteral("commander")).toString().simplified();
+        if (!commander.isEmpty())
+            deck.commanders.append(commander);
+    }
+    deck.mainboard = cardsFromList(published.value(QStringLiteral("mainboard")).toList());
+    deck.sideboard = cardsFromList(published.value(QStringLiteral("sideboard")).toList());
+    return format(deck);
 }
 
 } // namespace hexproof::client

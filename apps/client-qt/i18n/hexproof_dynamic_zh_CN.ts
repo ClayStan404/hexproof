@@ -380,6 +380,14 @@
             <translation>应用更新检查失败。</translation>
         </message>
         <message>
+            <source>GitHub rate-limited the application update check. Try again later.</source>
+            <translation>GitHub 限制了应用更新检查频率，请稍后再试。</translation>
+        </message>
+        <message>
+            <source>The application release was not found.</source>
+            <translation>未找到该应用版本。</translation>
+        </message>
+        <message>
             <source>Could not create the update download directory.</source>
             <translation>无法创建更新下载目录。</translation>
         </message>
@@ -436,8 +444,8 @@
             <translation>一副指挥官套牌最多可指定两位指挥官。</translation>
         </message>
         <message>
-            <source>A focused multiplayer tabletop for real decks, human decisions, and games that feel like sitting across from friends.</source>
-            <translation>专注于真实套牌、玩家决策与好友对坐体验的多人牌桌。</translation>
+            <source>Sit at a player-judged table, or let Forge resolve the match. Constructed, Sealed, Draft, and Cube.</source>
+            <translation>可以开手动牌桌，也可以用 Forge 结算对局。支持构筑、现开、轮抓和 Cube。</translation>
         </message>
         <message>
             <source>A two-player commander table at 20 life with command zones and manual commander tax. Rules and card-pool legality are not enforced.</source>
@@ -1756,8 +1764,8 @@
             <translation>有密码</translation>
         </message>
         <message>
-            <source>MANUAL TABLETOP · NATIVE DESKTOP</source>
-            <translation>手动规则牌桌 · 原生桌面端</translation>
+            <source>Native desktop</source>
+            <translation>原生桌面端</translation>
         </message>
         <message>
             <source>MATCH</source>
@@ -1940,8 +1948,8 @@
             <translation>暂无当前玩家</translation>
         </message>
         <message>
-            <source>No accounts · No rules engine</source>
-            <translation>无需账号 · 不内置规则引擎</translation>
+            <source>No accounts · Manual or Forge</source>
+            <translation>无需账号 · 手动或 Forge</translation>
         </message>
         <message>
             <source>No card image is available for this version.</source>
@@ -2126,12 +2134,16 @@ many tables.</source>
             <translation>密码 · 可选</translation>
         </message>
         <message>
-            <source>PLAYER TABLES</source>
-            <translation>玩家牌桌</translation>
+            <source>Player-judged table</source>
+            <translation>玩家自行裁定</translation>
         </message>
         <message>
-            <source>PLAYTEST · GENERIC 1V1 · DUEL COMMANDER · COMMANDER</source>
-            <translation>单人测试 · 通用 1v1 · 法禁 · 指挥官</translation>
+            <source>Rules-enforced 1v1</source>
+            <translation>规则引擎 1v1</translation>
+        </message>
+        <message>
+            <source>Sealed · Draft · Cube</source>
+            <translation>现开 · 轮抓 · Cube</translation>
         </message>
         <message>
             <source>Parsing deck list…</source>
@@ -2906,6 +2918,10 @@ your way.</source>
         <message>
             <source>The deck list could not be saved.</source>
             <translation>无法保存套牌表。</translation>
+        </message>
+        <message>
+            <source>The decklist is empty.</source>
+            <translation>牌表为空。</translation>
         </message>
         <message>
             <source>The deck list file could not be read.</source>

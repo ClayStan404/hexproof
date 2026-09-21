@@ -12,6 +12,9 @@ Surface {
 
     required property var tableController
     property bool compactChrome: false
+    property var hostingDialog: null
+    readonly property bool playerHosted: tableController.roomSession.hostingMode === "player"
+    readonly property var priority: tableController.priority || null
     readonly property bool showTurnState: tableController.rulesSession.active
                                           && !tableController.sideboarding
                                           && !tableController.matchUi.matchFinished
@@ -199,6 +202,36 @@ Surface {
         }
 
         SectionLabel {
+            text: qsTr("Priority")
+            visible: root.compactChrome
+        }
+
+        AppButton {
+            objectName: "rulesFullControl"
+            Layout.fillWidth: true
+            compact: true
+            checkable: true
+            checked: root.priority && root.priority.fullControl
+            enabled: root.priority && root.priority.active
+            text: qsTr("Full control")
+            variant: checked ? "highlight" : "ghost"
+            onClicked: {
+                if (root.priority)
+                    root.priority.setFullControl(checked)
+            }
+        }
+
+        Text {
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            visible: root.compactChrome
+            text: qsTr("Smart priority stays on unless Full control or a phase stop is set.")
+            color: Theme.textMuted
+            font.pixelSize: Theme.fontSize(9)
+            wrapMode: Text.WordWrap
+        }
+
+        SectionLabel {
             text: qsTr("Phases")
             visible: root.compactChrome && root.showTurnState
         }
@@ -380,6 +413,43 @@ Surface {
         Item {
             visible: !root.showTurnState
             Layout.fillHeight: true
+        }
+
+        SectionLabel {
+            text: qsTr("Hosting")
+            visible: root.compactChrome && root.playerHosted
+        }
+
+        Text {
+            objectName: "forgeSettingsHostStatus"
+            Layout.fillWidth: true
+            visible: root.playerHosted
+            textFormat: Text.PlainText
+            text: root.tableController.roomSession.hostStatus && root.tableController.roomSession.hostStatus.migrating === true
+                ? qsTr("Verifying host transfer… The game is paused.") : root.tableController.hostingPaused === true
+                    ? qsTr("Waiting for the host to reconnect… The game is paused.")
+                    : root.tableController.wsModel.peerTransportState === "direct" ? qsTr("Player hosted · direct connection")
+                    : qsTr("Player hosted · server relay")
+            color: root.tableController.hostingPaused === true ? Theme.warning : Theme.textMuted
+            font.pixelSize: Theme.fontSize(11)
+            wrapMode: Text.WordWrap
+        }
+
+        AppButton {
+            objectName: "forgeHostingOptions"
+            Layout.fillWidth: true
+            visible: root.playerHosted && root.hostingDialog
+            compact: true
+            text: qsTr("Hosting")
+            onClicked: root.hostingDialog.open()
+        }
+
+        ForgePeerControls {
+            objectName: "forgeTablePeerConnection"
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            compact: true
+            wsModel: root.tableController.wsModel
         }
 
         Text {

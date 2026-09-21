@@ -62,6 +62,8 @@ Item {
             return !!find("mainMenuSettingsButton")
         })
         add("Open settings", () => click("mainMenuSettingsButton"), () => !!find("settingsBody"))
+        add("Open language settings", () => click("settingsLanguageModule", "settingsBody"),
+            () => !!find("settingsLanguageSelector"))
         add("Select English using the visible language control", () => {
             if (preferences.uiLanguage === "en") return true
             const item = find("settingsLanguageSelector")
@@ -73,6 +75,10 @@ Item {
                 add("Confirm clean catalog state", () => {
                     require(!cardCatalog.installed && deckLibrary.count === 0, "Expected an empty isolated profile")
                 })
+                add("Return to settings categories", () => click("screenBackButton"),
+                    () => !!find("settingsCatalogModule"))
+                add("Open card database settings", () => click("settingsCatalogModule", "settingsBody"),
+                    () => !!find("settingsDownloadCatalogButton") || !!find("settingsImportCatalogButton"))
                 add("Request official catalog download", () => click("settingsDownloadCatalogButton", "settingsBody"),
                     () => !!find("confirmButton"))
                 add("Confirm catalog download", () => click("confirmButton"), () => {
@@ -99,6 +105,10 @@ Item {
             require(savedSequenceMatches(restarting ? "Ctrl+F10" : "F11"), "Persisted sequence mismatch")
         })
         if (!restarting) {
+            add("Return to settings categories", () => click("screenBackButton"),
+                () => !!find("settingsAppearanceModule"))
+            add("Open appearance settings", () => click("settingsAppearanceModule", "settingsBody"),
+                () => !!find("settingsIncreaseScaleButton"))
             for (let n = 1; n <= 10; ++n) {
                 const expected = 1 + n * 0.05
                 add("Increase interface scale to " + Math.round(expected * 100) + "%",
@@ -106,6 +116,8 @@ Item {
                     () => Math.abs(preferences.interfaceScale - expected) < 0.001)
             }
         }
+        add("Return to settings categories", () => click("screenBackButton"),
+            () => !!find("settingsCustomizeShortcutsButton"))
         add("Open keyboard customization", () => click("settingsCustomizeShortcutsButton", "settingsBody"),
             () => !!find("shortcutSettingsScreen"))
         add("Open fullscreen shortcut capture", () => openCapture(), () => preferences.shortcutCaptureActive)

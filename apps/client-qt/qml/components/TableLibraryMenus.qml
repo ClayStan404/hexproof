@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
-import QtQuick.Controls.Basic
 
 Item {
     id: root
@@ -15,49 +14,40 @@ Item {
     readonly property alias ownLibraryMenu: ownLibraryMenu
     readonly property alias opponentLibraryMenu: opponentLibraryMenu
 
-    Menu {
+    AppMenu {
         id: ownLibraryMenu
-        readonly property real widestItemWidth: Math.max(
-                                                    drawCardsMenuItem.implicitWidth,
-                                                    shuffleLibraryMenuItem.implicitWidth,
-                                                    searchLibraryMenuItem.implicitWidth,
-                                                    viewSideboardMenuItem.implicitWidth,
-                                                    viewTopCardMenuItem.implicitWidth,
-                                                    viewTopCardsMenuItem.implicitWidth,
-                                                    moveTopToGraveyardMenuItem.implicitWidth,
-                                                    moveTopToExileMenuItem.implicitWidth,
-                                                    exileTopFaceDownMenuItem.implicitWidth)
-        width: Math.min(root.width - Theme.size(24),
-                        Math.max(Theme.size(420),
-                                 widestItemWidth + leftPadding + rightPadding))
 
-        MenuItem {
+        AppMenuItem {
             id: drawCardsMenuItem
             objectName: "drawCardsAction"
-            text: qsTr("Draw X cards") + ShortcutHints.suffix("table.library.drawX")
+            text: qsTr("Draw X cards")
+            shortcutId: "table.library.drawX"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered: root.drawCardsEditorPopup.showFor(2)
         }
-        MenuItem {
+        AppMenuItem {
             id: shuffleLibraryMenuItem
             objectName: "shuffleLibraryAction"
-            text: qsTr("Shuffle") + ShortcutHints.suffix("table.library.shuffle")
+            text: qsTr("Shuffle")
+            shortcutId: "table.library.shuffle"
             onTriggered: root.tableController.shuffleConfirmation.open()
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             id: searchLibraryMenuItem
-            text: qsTr("Search library") + ShortcutHints.suffix("table.library.search")
+            text: qsTr("Search library")
+            shortcutId: "table.library.search"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered: root.tableController.wsModel.dumpLibrary(
                              root.tableController.roomSession.seatIndex)
         }
-        MenuItem {
+        AppMenuItem {
             id: viewSideboardMenuItem
             objectName: "viewSideboardAction"
-            text: qsTr("View sideboard") + ShortcutHints.suffix("table.sideboard.view") + " · "
-                  + (root.tableController.ownSeatData.sideboardCount
-                     ? root.tableController.ownSeatData.sideboardCount : 0)
+            text: qsTr("View sideboard")
+            shortcutId: "table.sideboard.view"
+            extra: String(root.tableController.ownSeatData.sideboardCount
+                          ? root.tableController.ownSeatData.sideboardCount : 0)
             enabled: root.tableController.canAct
                      && root.tableController.ownSeatData.sideboardCount > 0
             onTriggered: root.publicZoneBrowserPopup.showZone(
@@ -65,19 +55,21 @@ Item {
                              root.tableController.roomSession.seatIndex,
                              "sideboard")
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             id: viewTopCardMenuItem
             objectName: "viewLibraryTopCardAction"
-            text: qsTr("View top card") + ShortcutHints.suffix("table.library.viewTop")
+            text: qsTr("View top card")
+            shortcutId: "table.library.viewTop"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered: root.tableController.wsModel.dumpLibrary(
                              root.tableController.roomSession.seatIndex, 1)
         }
-        MenuItem {
+        AppMenuItem {
             id: viewTopCardsMenuItem
             objectName: "viewLibraryTopCardsAction"
-            text: qsTr("View top X cards…") + ShortcutHints.suffix("table.library.viewTopX")
+            text: qsTr("View top X cards…")
+            shortcutId: "table.library.viewTopX"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered: root.libraryTopCountEditorPopup.showForLibrary(
                              root.tableController.roomSession.seatIndex,
@@ -85,25 +77,25 @@ Item {
                              Math.min(5,
                                       root.tableController.ownSeatData.libraryCount))
         }
-        MenuItem {
+        AppMenuItem {
             id: moveTopToGraveyardMenuItem
             objectName: "moveLibraryTopToGraveyardAction"
             text: qsTr("Put top X cards into graveyard…")
-                  + ShortcutHints.suffix("table.library.millX")
+            shortcutId: "table.library.millX"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered:
                 root.tableController.sessionUi.showLibraryMoveCardsEditor("graveyard")
         }
-        MenuItem {
+        AppMenuItem {
             id: moveTopToExileMenuItem
             objectName: "moveLibraryTopToExileAction"
             text: qsTr("Put top X cards into exile…")
-                  + ShortcutHints.suffix("table.library.exileX")
+            shortcutId: "table.library.exileX"
             enabled: root.tableController.ownSeatData.libraryCount > 0
             onTriggered:
                 root.tableController.sessionUi.showLibraryMoveCardsEditor("exile")
         }
-        MenuItem {
+        AppMenuItem {
             id: exileTopFaceDownMenuItem
             objectName: "exileLibraryTopFaceDownAction"
             text: qsTr("Exile top card face down (no player may look)")
@@ -113,13 +105,13 @@ Item {
         }
     }
 
-    Menu {
+    AppMenu {
         id: opponentLibraryMenu
         objectName: "opponentLibraryMenu"
         property int sourceSeat: -1
         property int sourceLibraryCount: 0
 
-        MenuItem {
+        AppMenuItem {
             objectName: "opponentLibrarySearchAction"
             text: qsTr("Search library")
             enabled: root.tableController.canAct
@@ -128,8 +120,8 @@ Item {
             onTriggered: root.tableController.wsModel.dumpLibrary(
                              opponentLibraryMenu.sourceSeat)
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             objectName: "opponentLibraryViewTopCardAction"
             text: qsTr("View top card")
             enabled: root.tableController.canAct
@@ -138,7 +130,7 @@ Item {
             onTriggered: root.tableController.wsModel.dumpLibrary(
                              opponentLibraryMenu.sourceSeat, 1)
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "opponentLibraryViewTopCardsAction"
             text: qsTr("View top X cards…")
             enabled: root.tableController.canAct

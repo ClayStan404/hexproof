@@ -7,7 +7,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property var cardCatalogModel: null
@@ -15,24 +15,9 @@ Popup {
     property string cardName: ""
     signal faceSelected(string faceName)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(720), parent.width - Theme.size(48))
     height: Math.min(Theme.size(560), parent.height - Theme.size(56))
     padding: Theme.size(22)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function prioritizeFaceImages(availableFaces) {
         if (!cardCatalogModel)
@@ -60,41 +45,12 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.size(10)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Choose card face")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
-                    font.weight: Font.DemiBold
-                }
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: root.cardName
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(11)
-                    elide: Text.ElideRight
-                }
-            }
-
-            AppButton {
-                objectName: "closeCardFacePickerButton"
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTr("Close")
-                Layout.preferredWidth: Theme.size(40)
-                onClicked: root.close()
-            }
+        AppPopupHeader {
+            titleText: qsTr("Choose card face")
+            subtitleText: root.cardName
+            showClose: true
+            closeObjectName: "closeCardFacePickerButton"
+            onCloseRequested: root.close()
         }
 
         RowLayout {

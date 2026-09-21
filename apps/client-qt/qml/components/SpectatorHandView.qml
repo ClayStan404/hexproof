@@ -23,6 +23,9 @@ Item {
     readonly property real handScrollMinimum: handList.originX
     readonly property real handScrollMaximum:
         handScrollMinimum + Math.max(0, handList.contentWidth - handList.width)
+    readonly property real fittedHandCardWidth:
+        Math.max(root.tableController.handCardWidth,
+                 Math.round(Math.max(0, handList.height) * 63 / 88))
 
     function seatData(seatIndex) {
         for (let index = 0; index < seats.length; ++index) {
@@ -38,7 +41,25 @@ Item {
         selectedSeat = seats.length > 0 ? seats[0].seat : -1
     }
 
-    function scrollByWheel(wheel) {
+    function stopHandScrollAnimation() {
+        if (handScrollAnimation.running)
+            handScrollAnimation.stop()
+    }
+
+    function applyHandScroll(nextX, animate) {
+        const bounded = Math.max(
+                    handScrollMinimum, Math.min(handScrollMaximum, nextX))
+        if (animate && Math.abs(bounded - handList.contentX) > 0.5) {
+            handScrollAnimation.to = bounded
+            handScrollAnimation.restart()
+            return
+        }
+        stopHandScrollAnimation()
+        if (handList.contentX !== bounded)
+            handList.contentX = bounded
+    }
+
+    function scrollByWheel(wheel, smooth) {
         if (handScrollMaximum <= handScrollMinimum) {
             wheel.accepted = false
             return
@@ -57,17 +78,39 @@ Item {
             return
         }
         const previousX = handList.contentX
-        handList.contentX = Math.max(
+        const nextX = Math.max(
                     handScrollMinimum,
                     Math.min(handScrollMaximum, previousX - delta))
-        wheel.accepted = handList.contentX !== previousX
+        if (nextX === previousX && !handScrollAnimation.running) {
+            wheel.accepted = false
+            return
+        }
+        applyHandScroll(nextX, smooth === true && pixelDelta === 0)
+        wheel.accepted = true
     }
 
     function clampHandScrollPosition() {
+        if (handScrollAnimation.running) {
+            const target = Math.max(
+                        handScrollMinimum,
+                        Math.min(handScrollMaximum, handScrollAnimation.to))
+            if (target !== handScrollAnimation.to)
+                handScrollAnimation.to = target
+            return
+        }
         const boundedX = Math.max(
                     handScrollMinimum, Math.min(handScrollMaximum, handList.contentX))
         if (handList.contentX !== boundedX)
             handList.contentX = boundedX
+    }
+
+    SmoothedAnimation {
+        id: handScrollAnimation
+        target: handList
+        property: "contentX"
+        reversingMode: SmoothedAnimation.Immediate
+        duration: Theme.motionNormal
+        velocity: Theme.size(1400)
     }
 
     Component.onCompleted: ensureSelectedSeat()
@@ -137,6 +180,9 @@ Item {
                 orientation: ListView.Horizontal
                 spacing: Theme.size(7)
                 clip: true
+                interactive: false
+                pixelAligned: false
+                cacheBuffer: count * Theme.size(160)
                 boundsBehavior: Flickable.StopAtBounds
                 model: root.selectedHandModel
                 onCountChanged: Qt.callLater(root.clampHandScrollPosition)
@@ -150,7 +196,7 @@ Item {
                     required property var modelData
                     required property int index
                     objectName: "spectatorHandCard" + index
-                    width: root.tableController.handCardWidth
+                    width: root.fittedHandCardWidth
                     height: handList.height
                     clip: true
 
@@ -207,7 +253,7 @@ Item {
                 z: 1000
                 acceptedButtons: Qt.NoButton
                 onWheel: function(wheel) {
-                    root.scrollByWheel(wheel)
+                    root.scrollByWheel(wheel, true)
                 }
             }
         }

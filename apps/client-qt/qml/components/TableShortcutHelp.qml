@@ -5,32 +5,17 @@ pragma ComponentBehavior: Bound
 pragma Translator: "Table"
 
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     objectName: "tableShortcutHelp"
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(560), parent.width - Theme.size(48))
     height: Math.min(Theme.size(620), parent.height - Theme.size(56))
     padding: Theme.size(22)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    Overlay.modal: Rectangle { color: "#A6050B09" }
 
     ShortcutActionCatalog { id: shortcutCatalog }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     readonly property var shortcutRows: buildShortcutRows()
 
@@ -50,41 +35,12 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(12)
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.size(12)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTranslate("Table", "Table shortcuts")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
-                    font.weight: Font.DemiBold
-                }
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTranslate("Table", "Shortcuts are paused while a text field or modal editor is open.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(11)
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            AppButton {
-                objectName: "closeShortcutHelpButton"
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTranslate("Table", "Close")
-                Layout.preferredWidth: Theme.size(40)
-                onClicked: root.close()
-            }
+        AppPopupHeader {
+            titleText: qsTranslate("Table", "Table shortcuts")
+            subtitleText: qsTranslate("Table", "Shortcuts are paused while a text field or modal editor is open.")
+            showClose: true
+            closeObjectName: "closeShortcutHelpButton"
+            onCloseRequested: root.close()
         }
 
         Rectangle {

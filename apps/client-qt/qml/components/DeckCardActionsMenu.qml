@@ -2,9 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
-import QtQuick.Controls.Basic
 
-Menu {
+AppMenu {
     id: root
     property bool printingEnabled: false
     property bool customArtEnabled: false

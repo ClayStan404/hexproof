@@ -285,12 +285,18 @@ Item {
         combo("deckLibraryFormatFilter", 10, () => !!find("editLibraryDeckButton"))
         combo("deckLibraryFormatFilter", 0, () => !!find("editLibraryDeckButton"))
         add("Open settings", () => click("deckLibrarySettingsButton"),
+            () => !!find("settingsBody"))
+        add("Open appearance settings", () => click("settingsAppearanceModule", "settingsBody"),
             () => !!find("settingsThemeSelector"))
         add("Change appearance by pointer", () => {
             const control = find("settingsThemeSelector")
             if (!control) return false
             require(auditProbe.click(control, control.width * 0.75, control.height / 2), "Cannot select Glass")
         }, () => preferences.uiTheme === "glass")
+        add("Return to settings categories", () => click("screenBackButton"),
+            () => !!find("settingsLanguageModule"))
+        add("Open language settings", () => click("settingsLanguageModule", "settingsBody"),
+            () => !!find("settingsLanguageSelector"))
         add("Change interface language by pointer", () => {
             const control = find("settingsLanguageSelector")
             if (!control) return false
@@ -301,6 +307,8 @@ Item {
             const control = find("settingsLanguageSelector")
             require(auditProbe.click(control, control.width * 0.25, control.height / 2), "Cannot select English")
         }, () => preferences.uiLanguage === "en")
+        add("Return to settings categories", () => click("screenBackButton"),
+            () => !!find("settingsManageArtButton"))
         add("Open downloaded-art manager", () => click("settingsManageArtButton", "settingsBody"),
             () => !!find("manageCustomCardArtButton"))
         add("Refresh downloaded-art inventory", () => click("refreshArtInventoryButton"),

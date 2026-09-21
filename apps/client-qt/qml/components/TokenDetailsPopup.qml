@@ -6,7 +6,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "TokenPresentation.js" as TokenPresentation
 
-Popup {
+AppPopup {
     id: root
     objectName: "tokenDetailsPopup"
     required property var catalogModel
@@ -16,21 +16,8 @@ Popup {
     readonly property var customArtStore: typeof customCardArtStore !== "undefined"
                                          ? customCardArtStore : null
 
-    parent: Overlay.overlay
     width: Math.min(Theme.size(780), parent.width - Theme.size(48))
     height: Math.min(Theme.size(620), parent.height - Theme.size(56))
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.color: Theme.borderStrong
-    }
 
     function showCard(value) {
         card = value || ({})
@@ -50,26 +37,11 @@ Popup {
 
     contentItem: ColumnLayout {
         spacing: Theme.size(16)
-        RowLayout {
-            Layout.fillWidth: true
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: root.details.displayName
-                font.pixelSize: Theme.fontSize(20)
-                font.weight: Font.DemiBold
-                color: Theme.text
-                elide: Text.ElideRight
-            }
-            AppButton {
-                objectName: "closeTokenDetailsButton"
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTr("Close")
-                Layout.preferredWidth: Theme.size(40)
-                onClicked: root.close()
-            }
+        AppPopupHeader {
+            titleText: root.details.displayName
+            showClose: true
+            closeObjectName: "closeTokenDetailsButton"
+            onCloseRequested: root.close()
         }
         RowLayout {
             Layout.fillWidth: true

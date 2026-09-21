@@ -766,6 +766,35 @@ void TestCardCatalog::downloadsVerifiedOfficialDatabase() const
              "hexproof-default-cards.sqlite.gz"_s);
 }
 
+void TestCardCatalog::importsCompressedOfficialDatabaseFile() const
+{
+    QTemporaryDir source;
+    QTemporaryDir destination;
+    QVERIFY(source.isValid());
+    QVERIFY(destination.isValid());
+    const auto imported = importSupportFixture(
+        source.path(), {supportFixture(u"Teferi Emblem"_s, u"emblem"_s, u"1"_s)});
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    QFile database(source.filePath(u"cards.sqlite"_s));
+    QVERIFY(database.open(QIODevice::ReadOnly));
+    const QByteArray databaseBytes = database.readAll();
+    database.close();
+    const QString compressedPath = source.filePath(u"hexproof-default-cards.sqlite.gz"_s);
+    QVERIFY(writeTestGzip(compressedPath, databaseBytes));
+
+    CardCatalog catalog(destination.path());
+    catalog.importCatalogFile(QUrl::fromLocalFile(compressedPath), u"default_cards"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(!catalog.busy(), 10'000);
+    QVERIFY2(catalog.installed(), qPrintable(catalog.lastError()));
+    QVERIFY(catalog.lastError().isEmpty());
+    QVERIFY(catalog.tokenCatalogInstalled());
+    catalog.searchTokens({}, u"emblem"_s);
+    QTRY_COMPARE(catalog.tokenSearchResults().size(), 1);
+    QCOMPARE(catalog.tokenSearchResults().first().toMap().value(u"name"_s).toString(),
+             u"Teferi Emblem"_s);
+}
+
 void TestCardCatalog::reportsCatalogReleaseVersions() const
 {
     QTemporaryDir storage;

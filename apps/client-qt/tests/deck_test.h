@@ -24,6 +24,7 @@ class TestDeckLibrary : public QObject
     void keepsIncompleteCubeEditableButUnplayable() const;
     void migratesLegacyCubesIntoDeckLibrary() const;
     void formatsExplicitDeckSideboardAndCommanderSections() const;
+    void formatsPublishedTournamentDecklists() const;
     void roundTripsFormattedDeckTextThroughTheParser() const;
     void persistsConsiderWithoutRegisteringItForMatches() const;
     void exportsDeckTextAndSavesUtf8File() const;

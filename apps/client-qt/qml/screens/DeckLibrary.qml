@@ -141,7 +141,7 @@ Page {
 
                     AppButton {
                         objectName: "cacheDeckArtButton"
-                        compact: true
+                        variant: "primary"
                         visible: deckStatusRow.cacheAvailable
                         text: qsTr("Cache library art")
                         onClicked: deckLibrary.refreshMissingArt()

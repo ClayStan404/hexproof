@@ -19,7 +19,8 @@ TestCase {
         height: 720
         visible: true
         function popScreen() {}
-        function pushScreen() {}
+        property string openedScreen: ""
+        function pushScreen(url) { openedScreen = url }
     }
     QtObject {
         id: manager
@@ -74,6 +75,7 @@ TestCase {
         catalog.busy = false
         storage.restartRequired = false
         storage.available = true
+        window.openedScreen = ""
     }
     function page() {
         const value = createTemporaryObject(pageComponent, window.contentItem,
@@ -137,5 +139,12 @@ TestCase {
         compare(manager.lastError, manager.rejection)
         wait(550)
         compare(manager.calls, 11)
+    }
+    function test_downloadSetArtOpensStandaloneScreen() {
+        const value = page()
+        const button = findChild(value, "downloadSetArtButton")
+        verify(button !== null)
+        mouseClick(button)
+        compare(window.openedScreen, "screens/SetArtDownload.qml")
     }
 }

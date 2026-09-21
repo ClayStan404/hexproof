@@ -15,7 +15,7 @@ ColumnLayout {
     readonly property bool optedIn: available && wsModel.directPeerEnabled === true
     readonly property string transport: available && wsModel.peerTransportState !== undefined ? wsModel.peerTransportState : "off"
     visible: eligible
-    spacing: Theme.size(compact ? 5 : 8)
+    spacing: Theme.size(compact ? 4 : 8)
 
     function statusText() {
         if (!available) return qsTr("This server does not support direct connections.")
@@ -39,14 +39,39 @@ ColumnLayout {
         font.pixelSize: Theme.fontSize(14)
         font.weight: Font.DemiBold
     }
-    Text {
-        objectName: "forgePeerStatus"
+    RowLayout {
         Layout.fillWidth: true
-        textFormat: Text.PlainText
-        text: root.compact ? qsTr("P2P: %1").arg(root.statusText()) : root.statusText()
-        color: root.transport === "direct" ? Theme.accent : Theme.textSecondary
-        wrapMode: Text.WordWrap
-        font.pixelSize: Theme.fontSize(root.compact ? 11 : 13)
+        Layout.minimumWidth: 0
+        spacing: Theme.size(root.compact ? 8 : 10)
+
+        Text {
+            objectName: "forgePeerStatus"
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            textFormat: Text.PlainText
+            text: root.compact ? qsTr("P2P: %1").arg(root.statusText()) : root.statusText()
+            color: root.transport === "direct" ? Theme.accent : Theme.textSecondary
+            wrapMode: root.compact ? Text.NoWrap : Text.WordWrap
+            elide: root.compact ? Text.ElideRight : Text.ElideNone
+            font.pixelSize: Theme.fontSize(root.compact ? 12 : 13)
+        }
+        AppButton {
+            objectName: "forgePeerEnable"
+            text: root.optedIn ? qsTr("Use relay only") : qsTr("Agree to P2P")
+            enabled: root.available
+            disabledReason: root.available ? "" : root.statusText()
+            compact: true
+            variant: root.optedIn || root.compact ? "secondary" : "primary"
+            onClicked: root.wsModel.setDirectPeerEnabled(!root.optedIn)
+        }
+        AppButton {
+            objectName: "forgePeerRetry"
+            visible: root.optedIn && root.transport === "relay"
+            text: qsTr("Retry direct")
+            compact: true
+            variant: "ghost"
+            onClicked: root.wsModel.setDirectPeerEnabled(true, true)
+        }
     }
     Text {
         objectName: "forgePeerConsentNotice"
@@ -55,33 +80,8 @@ ColumnLayout {
         textFormat: Text.PlainText
         text: qsTr("Both players must agree to share network addresses and use a STUN service.")
         color: Theme.textMuted
-        wrapMode: Text.WordWrap
-        font.pixelSize: Theme.fontSize(root.compact ? 10 : 12)
-    }
-    Flow {
-        Layout.fillWidth: true
-        Layout.minimumWidth: 0
-        spacing: Theme.size(root.compact ? 5 : 8)
-        AppButton {
-            objectName: "forgePeerEnable"
-            text: root.optedIn ? qsTr("Use relay only") : qsTr("Agree to P2P")
-            enabled: root.available
-            disabledReason: root.available ? "" : root.statusText()
-            compact: root.compact
-            implicitHeight: Theme.size(root.compact ? 30 : 40)
-            font.pixelSize: Theme.fontSize(root.compact ? 11 : 13)
-            variant: root.optedIn ? "secondary" : "primary"
-            onClicked: root.wsModel.setDirectPeerEnabled(!root.optedIn)
-        }
-        AppButton {
-            objectName: "forgePeerRetry"
-            visible: root.optedIn && root.transport === "relay"
-            text: qsTr("Retry direct")
-            compact: root.compact
-            implicitHeight: Theme.size(root.compact ? 30 : 40)
-            font.pixelSize: Theme.fontSize(root.compact ? 11 : 13)
-            variant: "secondary"
-            onClicked: root.wsModel.setDirectPeerEnabled(true, true)
-        }
+        wrapMode: root.compact ? Text.NoWrap : Text.WordWrap
+        elide: root.compact ? Text.ElideRight : Text.ElideNone
+        font.pixelSize: Theme.fontSize(root.compact ? 11 : 12)
     }
 }

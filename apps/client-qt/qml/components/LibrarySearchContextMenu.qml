@@ -5,9 +5,8 @@ pragma ComponentBehavior: Bound
 pragma Translator: "LibrarySearchPopup"
 
 import QtQuick
-import QtQuick.Controls.Basic
 
-Menu {
+AppMenu {
     id: root
 
     required property var popupController
@@ -20,29 +19,29 @@ Menu {
     }
     ConditionalMenuSeparator { visible: root.popupController.reorderMode }
 
-    MenuItem {
+    AppMenuItem {
         objectName: "libraryContextLocalHand"
         text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Hand")
         onTriggered: root.popupController.completeContextSearch("hand", root.popupController.localSeat, false)
     }
-    MenuItem {
+    AppMenuItem {
         objectName: "libraryContextLocalBattlefieldFaceDown"
         text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Battlefield face down")
         onTriggered: root.popupController.completeContextSearch("battlefield", root.popupController.localSeat, false, true)
     }
-    MenuItem {
+    AppMenuItem {
         objectName: "libraryContextLocalBattlefield"
         text: root.popupController.localDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Battlefield")
         onTriggered: root.popupController.completeContextSearch("battlefield", root.popupController.localSeat, false)
     }
-    MenuItem {
+    AppMenuItem {
         objectName: "libraryContextLocalGraveyard"
         text: (root.popupController.reorderMode ? root.popupController.sourceDisplayName
                                                : root.popupController.localDisplayName)
               + " · " + qsTranslate("LibrarySearchPopup", "Graveyard")
         onTriggered: root.popupController.completeContextSearch("graveyard", root.popupController.localSeat, false)
     }
-    MenuItem {
+    AppMenuItem {
         objectName: "libraryContextLocalExile"
         text: (root.popupController.reorderMode ? root.popupController.sourceDisplayName
                                                : root.popupController.localDisplayName)
@@ -76,8 +75,8 @@ Menu {
         text: root.popupController.sourceDisplayName + " · " + qsTranslate("LibrarySearchPopup", "Exile")
         onTriggered: root.popupController.completeContextSearch("exile", root.popupController.sourceSeat, false)
     }
-    MenuSeparator { }
-    MenuItem {
+    AppMenuSeparator { }
+    AppMenuItem {
         objectName: "libraryContextSourceTopOrdered"
         text: qsTranslate("LibrarySearchPopup", "Top of library · in order")
         onTriggered: root.popupController.completeContextSearch("library_top", root.popupController.sourceSeat, false)
@@ -88,7 +87,7 @@ Menu {
         text: qsTranslate("LibrarySearchPopup", "Top of library · random order")
         onTriggered: root.popupController.completeContextSearch("library_top", root.popupController.sourceSeat, true)
     }
-    MenuItem {
+    AppMenuItem {
         objectName: "libraryContextSourceBottomOrdered"
         text: qsTranslate("LibrarySearchPopup", "Bottom of library · in order")
         onTriggered: root.popupController.completeContextSearch("library_bottom", root.popupController.sourceSeat, false)

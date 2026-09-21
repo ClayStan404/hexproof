@@ -8,6 +8,7 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+    objectName: "forgeHostingDialog"
     property var service: null
     property var wsModel: null
     property string feedback: ""

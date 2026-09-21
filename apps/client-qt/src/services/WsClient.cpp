@@ -23,6 +23,15 @@ namespace hexproof::client {
 namespace {
 using namespace hexproof::protocol;
 using namespace Qt::StringLiterals;
+
+void persistLastDisplayName(const QString &name)
+{
+    if (name.isEmpty())
+        return;
+    QSettings settings;
+    settings.setValue(u"network/lastDisplayName"_s, name);
+    settings.sync();
+}
 } // namespace
 
 WsClient::WsClient(QObject *parent)
@@ -97,6 +106,10 @@ WsClient::WsClient(QObject *parent)
             &WsClient::reconnectSecondsRemainingChanged);
     m_serverUrl = m_reconnectController->serverUrl();
     m_displayName = m_reconnectController->displayName();
+    if (m_displayName.isEmpty())
+        m_displayName = settings.value(u"network/lastDisplayName"_s).toString().trimmed();
+    else
+        persistLastDisplayName(m_displayName);
     if (!m_serverUrl.isEmpty() &&
         m_serverDirectory->indexForUrl(m_serverUrl) == m_serverDirectory->customServerIndex() &&
         m_serverDirectory->customServerUrl() != m_serverUrl &&
@@ -202,6 +215,7 @@ bool WsClient::setInitialConnection(const QString &url, const QString &displayNa
         m_reconnectController->clear();
     m_serverUrl = serverUrl;
     m_displayName = name;
+    persistLastDisplayName(name);
     QSettings settings;
     settings.setValue(u"network/customServerUrl"_s, serverUrl);
     settings.sync();
@@ -231,6 +245,7 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
         emit serverUrlChanged();
     }
     m_displayName = displayName.trimmed();
+    persistLastDisplayName(m_displayName);
     if (!m_reconnectController->matches(m_serverUrl, m_displayName))
         m_reconnectController->clear();
     m_intentionalDisconnect = false;

@@ -195,14 +195,16 @@ TestCase {
         verify(viewTopCards !== null)
         verify(moveTopToGraveyard !== null)
         verify(moveTopToExile !== null)
-        verify(!viewTopCard.text.includes("\t"))
-        verify(viewTopCard.text.endsWith("Ctrl+Shift+L"))
-        verify(!viewTopCards.text.includes("\t"))
-        verify(viewTopCards.text.endsWith("Ctrl+L"))
-        verify(moveTopToGraveyard.text.endsWith("Ctrl+Shift+G"))
-        verify(moveTopToExile.text.endsWith("Ctrl+Shift+E"))
+        verify(!viewTopCard.text.includes("Ctrl"))
+        verify(!viewTopCard.text.includes("·"))
+        compare(viewTopCard.shortcutLabel, "Ctrl+Shift+L")
+        verify(!viewTopCards.text.includes("Ctrl"))
+        compare(viewTopCards.shortcutLabel, "Ctrl+L")
+        compare(moveTopToGraveyard.shortcutLabel, "Ctrl+Shift+G")
+        compare(moveTopToExile.shortcutLabel, "Ctrl+Shift+E")
         table.ownLibraryMenu.open()
         tryVerify(() => table.ownLibraryMenu.opened)
+        verify(viewTopCard.height <= 36)
         verify(viewTopCard.contentItem.width + 1
                >= viewTopCard.contentItem.implicitWidth,
                "View-top-card menu text must not be elided")
@@ -215,6 +217,14 @@ TestCase {
         verify(moveTopToExile.contentItem.width + 1
                >= moveTopToExile.contentItem.implicitWidth,
                "Move-to-exile menu text must not be elided")
+        const sideboard = findChild(table, "viewSideboardAction")
+        verify(sideboard !== null)
+        verify(!sideboard.text.includes("·"))
+        verify(!sideboard.text.includes("Ctrl"))
+        verify(sideboard.shortcutLabel.length > 0)
+        verify(sideboard.extra.length > 0)
+        verify(table.ownLibraryMenu.width < 420,
+               "Library menu must size to its actions, not a 420px floor")
         table.ownLibraryMenu.close()
         verify(viewTopCard.enabled)
         viewTopCard.triggered()
@@ -1098,7 +1108,7 @@ TestCase {
         const resultRow = results.itemAtIndex(0)
         const details = findChild(resultRow, "tokenResultDetails")
         verify(details !== null)
-        compare(details.text, "1/1 · Token Creature — Goblin · Haste · TNEO #12")
+        compare(details.text, "1/1 · Token Creature — Goblin · TNEO #12")
         const createButton = findChild(resultRow, "createTokenResultButton")
         verify(createButton !== null)
         const cachedBeforeCreate = mockCatalog.cacheTokenCount

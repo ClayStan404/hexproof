@@ -10,6 +10,7 @@ Rectangle {
     required property var tableController
     property alias inspectionDock: inspectionDock
     property alias decisionDock: decisionDock
+    property alias gameLogRail: floatingLog
     readonly property bool suppressHoverDuringDecision: false
     readonly property bool cardChoiceActive: cardChoiceDialog.requested
     readonly property bool damageChoiceActive: damageDialog.requested
@@ -24,10 +25,11 @@ Rectangle {
     readonly property var browsableZones: commanderFormat
         ? ["library", "graveyard", "exile", "command"] : ["library", "graveyard", "exile"]
     readonly property bool sidePanelOpen: !tableController.sideboarding
-        && (tableController.showGameLogRail || inspectionDock.inspector.pinned)
+        && inspectionDock.inspector.pinned
     readonly property real sidePanelWidth: Math.min(width * 0.22, Math.max(284 * unit, Theme.size(240)))
     readonly property real boardLeft: 20 * unit
-    readonly property real boardRight: decisionDock.x - 16 * unit
+    readonly property real boardRight: width - 24 * unit
+        - (sidePanelOpen ? sidePanelWidth + 16 * unit : 0)
     readonly property real boardWidth: Math.max(0, boardRight - boardLeft)
     readonly property real zonePileWidth: 104 * unit
     readonly property real zonePileHeight: 120 * unit
@@ -199,12 +201,26 @@ Rectangle {
             anchors.fill: parent
             tableController: root.tableController
             compactChrome: true
+            hostingDialog: hostingOptions
         }
     }
     ForgeHostingDialog {
         id: hostingOptions
         service: root.tableController.wsModel.forgeHost || null
         wsModel: root.tableController.wsModel
+    }
+    AppButton {
+        id: settingsButton
+        objectName: "forgeGameMenu"
+        z: 200
+        x: root.width - width - 16 * root.unit
+        y: 10 * root.unit
+        compact: true
+        variant: gameMenu.opened ? "highlight" : "ghost"
+        implicitHeight: Theme.size(32)
+        font.pixelSize: Theme.fontSize(12)
+        text: qsTr("Settings")
+        onClicked: gameMenu.opened ? gameMenu.close() : gameMenu.open()
     }
     InfoBanner {
         objectName: "rulesErrorBanner"
@@ -351,7 +367,9 @@ Rectangle {
                     Keys.onReturnPressed: activate()
                     Keys.onSpacePressed: activate()
                     Accessible.role: Accessible.Button
-                    Accessible.name: modelData.name + ", " + summary
+                    Accessible.name: (typeof root.tableController.cardDisplayName === "function"
+                                      ? root.tableController.cardDisplayName(modelData.name)
+                                      : modelData.name) + ", " + summary
                     Accessible.onPressAction: activate()
                     Rectangle {
                         anchors.fill: parent
@@ -380,9 +398,12 @@ Rectangle {
                         width: parent.width - 40 * root.unit
                         spacing: 1 * root.unit
                         Text {
+                            objectName: "forgeCommanderName-" + commandersPanel.seat + "-" + commanderEntry.index
                             textFormat: Text.PlainText
                             width: parent.width
-                            text: commanderEntry.modelData.name
+                            text: typeof root.tableController.cardDisplayName === "function"
+                                  ? root.tableController.cardDisplayName(commanderEntry.modelData.name)
+                                  : commanderEntry.modelData.name
                             elide: Text.ElideRight
                             color: Theme.accent
                             font.pixelSize: 11 * root.unit
@@ -401,7 +422,9 @@ Rectangle {
                     }
                     TapHandler { onTapped: commanderEntry.activate() }
                     ToolTip.visible: commanderHover.hovered
-                    ToolTip.text: modelData.name + "\n" + summary + "\n" + qsTr("Tax is additional to the spell's cost; Forge calculates payment.")
+                    ToolTip.text: (typeof root.tableController.cardDisplayName === "function"
+                                   ? root.tableController.cardDisplayName(modelData.name)
+                                   : modelData.name) + "\n" + summary + "\n" + qsTr("Tax is additional to the spell's cost; Forge calculates payment.")
                     HoverHandler { id: commanderHover }
                 }
             }
@@ -688,10 +711,14 @@ Rectangle {
     }
     RulesDecisionDock {
         id: decisionDock
-        x: root.width - width - 24 * root.unit - (root.sidePanelOpen ? root.sidePanelWidth + 16 * root.unit : 0)
-        y: root.height - height - 16 * root.unit
-        width: Math.min(root.width * 0.38, Math.max(330 * root.unit, Theme.size(280)))
-        height: Math.min(implicitHeight, root.height - 32 * root.unit)
+        x: root.width - width - 16 * root.unit
+           - (root.sidePanelOpen ? root.sidePanelWidth + 16 * root.unit : 0)
+        y: root.height - height - 12 * root.unit
+        width: Math.min(root.width * 0.42, Math.max(420 * root.unit, Theme.size(340)))
+        height: Math.min(implicitHeight, root.height - 24 * root.unit)
+        z: 180
+        contentMargins: Theme.size(10)
+        hideIdlePriorityStatus: true
         tableController: root.tableController
         // Dialog ownership is permanent. Losing authority closes the dialog;
         // it must never transfer the stale private prompt back to the dock.
@@ -699,6 +726,7 @@ Rectangle {
         externalDamageChoices: true
         showZoneActions: true
         showActions: !root.tableController.sideboarding && root.tableController.hostingPaused !== true
+        visible: !root.tableController.sideboarding || root.tableController.hostingPaused === true
         radius: 16 * root.unit
         elevated: true
         color: Theme.useGlass ? "transparent" : Theme.withAlpha(Theme.surface, 0.90)
@@ -713,83 +741,37 @@ Rectangle {
                 Text {
                     objectName: "forgeHostConnectionStatus"
                     Layout.fillWidth: true
-                    visible: root.tableController.roomSession.hostingMode === "player"
+                    visible: root.tableController.hostingPaused === true
                     textFormat: Text.PlainText
                     text: root.tableController.roomSession.hostStatus && root.tableController.roomSession.hostStatus.migrating === true
-                        ? qsTr("Verifying host transfer… The game is paused.") : root.tableController.hostingPaused === true
-                        ? qsTr("Waiting for the host to reconnect… The game is paused.")
-                        : root.tableController.wsModel.peerTransportState === "direct" ? qsTr("Player hosted · direct connection")
-                        : qsTr("Player hosted · server relay")
-                    color: root.tableController.hostingPaused === true ? Theme.warning : Theme.textMuted
+                        ? qsTr("Verifying host transfer… The game is paused.")
+                        : qsTr("Waiting for the host to reconnect… The game is paused.")
+                    color: Theme.warning
                     font.pixelSize: Theme.fontSize(11)
                     wrapMode: Text.WordWrap
                 }
-                ForgePeerControls {
-                    objectName: "forgeTablePeerConnection"
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    compact: true
-                    wsModel: root.tableController.wsModel
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.size(8)
+                    spacing: Theme.size(2)
                     visible: !root.tableController.sideboarding
                     Text {
                         objectName: "forgeTurnIndicator"
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        Layout.minimumWidth: 0
                         text: root.session.gameOver ? qsTr("Game finished") : root.turnOwner
                         color: root.session.activeSeat === root.tableController.localSeat ? Theme.accent : Theme.text
-                        font.pixelSize: Theme.fontSize(12)
+                        font.pixelSize: Theme.fontSize(16)
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                     }
                     Text {
                         objectName: "forgeTurnPhase"
                         textFormat: Text.PlainText
-                        Layout.maximumWidth: tableControls.width * 0.6
+                        Layout.fillWidth: true
                         text: qsTr("Turn %1 · %2").arg(root.session.turn).arg(root.tableController.stepLabel(root.session.step))
                         color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(10)
+                        font.pixelSize: Theme.fontSize(12)
                         elide: Text.ElideRight
-                    }
-                }
-
-                Flow {
-                    objectName: "forgeTableActions"
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    spacing: Theme.size(5)
-                    AppButton {
-                        objectName: "forgeGameMenu"
-                        compact: true
-                        variant: "ghost"
-                        implicitHeight: Theme.size(30)
-                        font.pixelSize: Theme.fontSize(11)
-                        text: qsTr("Settings")
-                        onClicked: gameMenu.open()
-                    }
-                    AppButton {
-                        objectName: "forgeHostingOptions"
-                        visible: root.tableController.roomSession.hostingMode === "player"
-                        compact: true
-                        variant: "ghost"
-                        implicitHeight: Theme.size(30)
-                        font.pixelSize: Theme.fontSize(11)
-                        text: qsTr("Hosting")
-                        onClicked: hostingOptions.open()
-                    }
-                    AppButton {
-                        objectName: "rulesToggleGameLogButton"
-                        compact: true
-                        variant: root.tableController.showGameLogRail ? "highlight" : "ghost"
-                        implicitHeight: Theme.size(30)
-                        font.pixelSize: Theme.fontSize(11)
-                        enabled: !root.tableController.sideboarding
-                        text: root.tableController.showGameLogRail ? qsTr("Hide log / chat") : qsTr("Show log / chat")
-                        onClicked: root.tableController.setGameLogVisible(!root.tableController.showGameLogRail)
                     }
                 }
             }
@@ -809,7 +791,7 @@ Rectangle {
         x: decisionDock.x
         y: 80 * root.unit
         width: decisionDock.width
-        height: Math.min(365 * root.unit, Math.max(0, decisionDock.y - y - 12 * root.unit))
+        height: Math.min(365 * root.unit, Math.max(0, root.handTop - y - 12 * root.unit))
         tableController: root.tableController
         unit: root.unit
         locatedId: root.stackTarget && root.stackTarget.kind === "spell" ? root.stackTarget.objectId : ""
@@ -838,16 +820,29 @@ Rectangle {
         id: inspectionDock
         verticalInspection: true
         externalHoverPreview: true
+        embedGameLog: false
         x: root.width - width - 24 * root.unit
-        y: 12 * root.unit
+        y: settingsButton.y + settingsButton.height + 8 * root.unit
         width: root.sidePanelWidth
         height: root.height - y - 16 * root.unit
         tableController: root.tableController
-        visible: ((inspector.pinned && !inspector.previewCardId.length) || root.tableController.showGameLogRail)
+        visible: inspector.pinned && !inspector.previewCardId.length
             && !root.tableController.sideboarding
         radius: 10 * root.unit
         border.width: 0
         z: 100
+    }
+    TableGameLogRail {
+        id: floatingLog
+        floating: true
+        tableController: root.tableController
+        floatingDefaultY: settingsButton.y + settingsButton.height + 8 * root.unit
+        floatingDefaultWidth: root.sidePanelWidth
+        floatingDefaultHeight: Math.max(Theme.size(280),
+                                        root.height - floatingDefaultY
+                                        - 16 * root.unit)
+        floatingAvoidItem: inspectionDock
+        z: 150
     }
     RulesCardHoverPreview {
         tableController: root.tableController
@@ -855,9 +850,7 @@ Rectangle {
     }
     Loader {
         objectName: "rulesSideboardLoader"
-        x: 24 * root.unit; y: 12 * root.unit
-        width: root.width - 48 * root.unit
-        height: Math.max(0, decisionDock.y - y - 12 * root.unit)
+        anchors.fill: parent
         active: root.tableController.sideboarding
         visible: active
         sourceComponent: Component {
@@ -868,6 +861,7 @@ Rectangle {
                 gameTableModel: root.tableController.gameTableModel
                 tableModel: root.tableController.sideboardTableModel
                 cardCatalogModel: root.tableController.cardCatalogModel
+                trailingChromeWidth: settingsButton.width + 24 * root.unit
             }
         }
     }

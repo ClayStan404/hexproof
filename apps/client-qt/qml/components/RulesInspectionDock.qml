@@ -12,10 +12,12 @@ Surface {
     property bool inspectionOpened: false
     property bool verticalInspection: false
     property bool externalHoverPreview: false
+    property bool embedGameLog: true
     readonly property bool externalPreviewActive: externalHoverPreview && inspector.previewCardId.length > 0
-    readonly property bool opened: inspectionOpened || tableController.showGameLogRail
+    readonly property bool opened: inspectionOpened
+        || (embedGameLog && tableController.showGameLogRail)
     property alias inspector: inspector
-    property alias logRail: gameLogRail
+    readonly property var logRail: embedGameLog ? logLoader.item : null
 
     objectName: "rulesInspectionHost"
     color: Theme.tableRailFill
@@ -44,7 +46,8 @@ Surface {
         cardBackSource: root.tableController.cardBackSource
         showEmptyCloseButton: root.inspectionOpened
         preferVertical: root.verticalInspection
-        visible: !root.externalPreviewActive && (hasCard || !root.tableController.showGameLogRail)
+        visible: !root.externalPreviewActive
+                 && (hasCard || (root.embedGameLog && !root.tableController.showGameLogRail))
         onHasCardChanged: {
             if (hasCard)
                 root.inspectionOpened = true
@@ -52,11 +55,15 @@ Surface {
         onCleared: root.inspectionOpened = false
     }
 
-    TableGameLogRail {
-        id: gameLogRail
+    Loader {
+        id: logLoader
+        active: root.embedGameLog
         anchors.fill: parent
         anchors.margins: Theme.size(6)
-        tableController: root.tableController
-        visible: root.tableController.showGameLogRail && (!inspector.hasCard || root.externalPreviewActive)
+        sourceComponent: TableGameLogRail {
+            tableController: root.tableController
+            visible: root.tableController.showGameLogRail
+                     && (!inspector.hasCard || root.externalPreviewActive)
+        }
     }
 }

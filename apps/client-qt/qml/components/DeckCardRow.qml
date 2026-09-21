@@ -91,10 +91,14 @@ Surface {
         return qsTr("Select printing")
     }
 
+    readonly property bool commanderCard: !sideboard && card && card.commander === true
+
     implicitHeight: Math.max(Theme.size(sideboard ? 68 : 66), rowContent.implicitHeight + Theme.size(14))
     radius: Theme.radiusMedium
     color: dragArea.drag.active ? Theme.surfaceHover : Theme.surfaceMuted
-    border.color: dragArea.drag.active ? Theme.primary : Theme.border
+    border.width: commanderCard || dragArea.drag.active ? 2 : 1
+    border.color: commanderCard ? Theme.accent
+                  : (dragArea.drag.active ? Theme.primary : Theme.border)
     z: dragArea.drag.active ? 100 : 0
 
     Drag.active: dragArea.drag.active
@@ -223,14 +227,26 @@ Surface {
                 Layout.minimumWidth: Theme.size(sideboard ? 68 : 120)
                 spacing: Theme.size(2)
 
-                Text {
-                    textFormat: Text.PlainText
+                RowLayout {
                     Layout.fillWidth: true
-                    text: root.card.displayName
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(13)
-                    font.weight: Font.Medium
-                    elide: Text.ElideRight
+                    spacing: Theme.size(6)
+
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: root.card.displayName
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSize(13)
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
+                    }
+
+                    StatusPill {
+                        objectName: "deckRowCommanderBadge"
+                        visible: root.commanderCard
+                        text: qsTr("Commander")
+                        statusColor: Theme.accent
+                    }
                 }
 
                 Text {

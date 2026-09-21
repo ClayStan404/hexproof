@@ -88,7 +88,10 @@ Rectangle {
         anchors.margins: Theme.size(18)
         visible: artwork.status !== Image.Ready
         text: root.inspector.hasIdentity
-            ? [root.inspector.card.name, root.inspector.card.rulesText || ""].filter(v => v.length).join("\n\n")
+            ? [typeof root.tableController.cardDisplayName === "function"
+               ? root.tableController.cardDisplayName(root.inspector.card.name)
+               : root.inspector.card.name,
+               root.inspector.card.rulesText || ""].filter(v => v.length).join("\n\n")
             : qsTranslate("ForgeCard", "Hidden card")
         color: Theme.text
         font.pixelSize: Theme.fontSize(18)

@@ -62,7 +62,8 @@ class DeckEditorModelStub : public QObject
     Q_PROPERTY(QString currentDeckId READ currentDeckId CONSTANT)
     Q_PROPERTY(QString currentDeckName READ currentDeckName CONSTANT)
     Q_PROPERTY(QString currentDeckFormat READ currentDeckFormat CONSTANT)
-    Q_PROPERTY(QString currentDeckTableMode READ currentDeckTableMode CONSTANT)
+    Q_PROPERTY(QString currentDeckTableMode READ currentDeckTableMode WRITE setCurrentDeckTableMode
+                   NOTIFY currentDeckChanged)
     Q_PROPERTY(QVariantList mainCards READ mainCards CONSTANT)
     Q_PROPERTY(QVariantList sideboardCards READ sideboardCards CONSTANT)
     Q_PROPERTY(QVariantList considerCards READ considerCards CONSTANT)
@@ -79,6 +80,7 @@ class DeckEditorModelStub : public QObject
     Q_PROPERTY(QVariantList lastMove READ lastMove NOTIFY capturedCallsChanged)
     Q_PROPERTY(QVariantList lastCountChange READ lastCountChange NOTIFY capturedCallsChanged)
     Q_PROPERTY(QVariantList lastPrintingChange READ lastPrintingChange NOTIFY capturedCallsChanged)
+    Q_PROPERTY(QString lastRename READ lastRename NOTIFY capturedCallsChanged)
 
   public:
     explicit DeckEditorModelStub(QObject *parent = nullptr)
@@ -131,7 +133,14 @@ class DeckEditorModelStub : public QObject
     }
     QString currentDeckTableMode() const
     {
-        return QStringLiteral("modern");
+        return m_tableMode;
+    }
+    void setCurrentDeckTableMode(const QString &mode)
+    {
+        if (m_tableMode == mode)
+            return;
+        m_tableMode = mode;
+        emit currentDeckChanged();
     }
     QVariantList mainCards() const
     {
@@ -201,6 +210,10 @@ class DeckEditorModelStub : public QObject
     {
         return m_lastPrintingChange;
     }
+    QString lastRename() const
+    {
+        return m_lastRename;
+    }
 
     Q_INVOKABLE bool canAddCard(const QString &, const QString &) const
     {
@@ -235,11 +248,18 @@ class DeckEditorModelStub : public QObject
         emit capturedCallsChanged();
         return true;
     }
+    Q_INVOKABLE bool renameCurrentDeck(const QString &name)
+    {
+        m_lastRename = name.trimmed();
+        emit capturedCallsChanged();
+        return !m_lastRename.isEmpty();
+    }
     Q_INVOKABLE void resetCapturedCalls()
     {
         m_lastMove.clear();
         m_lastCountChange.clear();
         m_lastPrintingChange.clear();
+        m_lastRename.clear();
         emit capturedCallsChanged();
     }
 
@@ -255,6 +275,8 @@ class DeckEditorModelStub : public QObject
     QVariantList m_lastMove;
     QVariantList m_lastCountChange;
     QVariantList m_lastPrintingChange;
+    QString m_lastRename;
+    QString m_tableMode = QStringLiteral("modern");
 };
 
 class DeckEditorCatalogStub : public QObject

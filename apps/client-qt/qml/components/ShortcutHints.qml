@@ -19,4 +19,9 @@ QtObject {
         }
         return bindings.length > 0 ? " · " + bindings.join(" / ") : ""
     }
+
+    function label(actionIds) {
+        const text = suffix(actionIds)
+        return text.startsWith(" · ") ? text.substring(3) : text
+    }
 }

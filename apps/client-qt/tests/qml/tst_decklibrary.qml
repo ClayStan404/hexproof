@@ -64,7 +64,27 @@ TestCase {
         library.exportedDeck = ""
         window.openedScreen = ""
     }
-    function cleanup() { Theme.uiScale = 1 }
+    function cleanup() {
+        Theme.uiScale = 1
+        Theme.uiTheme = "classic"
+    }
+
+    function test_cacheLibraryArtMatchesImportButtonStyle() {
+        Theme.uiTheme = "glass"
+        const page = createTemporaryObject(pageComponent, window.contentItem,
+                                          {width: window.width, height: window.height})
+        verify(page !== null)
+        waitForRendering(page)
+        const cache = findChild(page, "cacheDeckArtButton")
+        const importButton = findChild(page, "deckLibraryImportButton")
+        verify(cache !== null)
+        verify(importButton !== null)
+        verify(cache.visible)
+        compare(cache.variant, importButton.variant)
+        compare(cache.compact, importButton.compact)
+        compare(cache.implicitHeight, importButton.implicitHeight)
+        verify(Theme.useGlass)
+    }
 
     function test_libraryArtExportTargetsSelectedDeck() {
         const page = createTemporaryObject(pageComponent, window.contentItem,

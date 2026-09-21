@@ -153,6 +153,7 @@ class TestWsClient : public QObject
     void handlesP7DiscoveryAndTableCommands() const;
     void handlesTournamentCommandsAndSnapshots() const;
     void loadsSavedResumeEndpoint() const;
+    void prefillsLastDisplayNameAfterDisconnect() const;
     void prefillsInitialConnection_data();
     void prefillsInitialConnection() const;
     void rejectsInvalidInitialConnection() const;

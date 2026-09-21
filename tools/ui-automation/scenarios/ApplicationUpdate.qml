@@ -48,7 +48,7 @@ Item {
             if (driver.dispatching) return
             driver.dispatching = true
             try {
-                driver.require(Date.now() - driver.entered < (driver.step === 4 ? 360000 : 45000),
+                driver.require(Date.now() - driver.entered < (driver.step === 5 ? 360000 : 45000),
                                "Update stage timed out: " + driver.step)
                 if (appUpdater.downloading) driver.sawDownload = true
                 if (auditWindow.stack.busy) return
@@ -57,10 +57,15 @@ Item {
                     if (driver.click("mainMenuSettingsButton", "mainMenuBody")) driver.next("Open Settings")
                     break
                 case 1:
+                    if (driver.find("checkApplicationUpdatesButton")
+                            || driver.click("settingsUpdatesModule", "settingsBody"))
+                        driver.next("Open application updates")
+                    break
+                case 2:
                     if (appUpdater.checking) break
                     if (driver.click("checkApplicationUpdatesButton", "settingsBody")) driver.next("Check official application release")
                     break
-                case 2:
+                case 3:
                     if (appUpdater.checking) break
                     driver.require(!appUpdater.lastError, "Release check failed: " + appUpdater.lastError)
                     driver.require(appUpdater.releaseAvailable && appUpdater.updateAvailable,
@@ -68,10 +73,10 @@ Item {
                     driver.capture("01-update-available")
                     driver.next("Newer platform package is offered")
                     break
-                case 3:
+                case 4:
                     if (driver.click("downloadApplicationUpdateButton", "settingsBody")) driver.next("Download through the application UI")
                     break
-                case 4:
+                case 5:
                     if (appUpdater.downloading) break
                     driver.require(!appUpdater.lastError && appUpdater.downloadReady,
                                    "Package download failed: " + appUpdater.lastError)

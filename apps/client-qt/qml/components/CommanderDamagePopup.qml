@@ -8,7 +8,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     required property var tableController
@@ -16,24 +16,9 @@ Popup {
     property int pendingTargetSeat: -1
     property bool pendingRecordsCombatDamage: false
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(760), parent.width - Theme.size(48))
     height: Math.min(Theme.size(680), parent.height - Theme.size(48))
     padding: Theme.size(22)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: Theme.modalScrim }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function seatData(seat) {
         return tableController.seatState.seatData(seat)
@@ -99,39 +84,11 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.size(10)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(2)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTranslate("Table", "Commander damage")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(21)
-                    font.weight: Font.DemiBold
-                }
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTranslate("Table", "Totals are tracked per physical commander. Reaching 21 is a reminder, not an automatic loss.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(10)
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            AppButton {
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTranslate("Table", "Close")
-                onClicked: root.close()
-            }
+        AppPopupHeader {
+            titleText: qsTranslate("Table", "Commander damage")
+            subtitleText: qsTranslate("Table", "Totals are tracked per physical commander. Reaching 21 is a reminder, not an automatic loss.")
+            showClose: true
+            onCloseRequested: root.close()
         }
 
         Rectangle {

@@ -16,6 +16,16 @@ TestCase {
         elevated: true
     }
 
+    LiquidGlass {
+        id: fullPane
+        width: 120
+        height: 68
+        radius: 16
+        compact: false
+        quiet: false
+        elevated: true
+    }
+
     AppBackground {
         id: playmat
         width: 320
@@ -116,5 +126,23 @@ TestCase {
         pane.height = 400
         verify(!pane.quiet)
         verify(!pane.well)
+    }
+
+    function test_quietCanStayOffOnShortPanels() {
+        verify(fullPane.height < Theme.size(200))
+        verify(!fullPane.quiet)
+    }
+
+    function test_compactWellDoesNotSampleBackdrop() {
+        Theme.uiTheme = "glass"
+        Theme.backdropScene = playmat
+        playmat.visible = true
+        pane.compact = true
+        pane.height = 48
+        verify(pane.well)
+        verify(pane.drawn)
+        verify(!pane.live)
+        playmat.visible = false
+        Theme.backdropScene = null
     }
 }

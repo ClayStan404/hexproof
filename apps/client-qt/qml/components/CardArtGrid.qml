@@ -17,6 +17,7 @@ GridView {
     property real preferredCardWidth: Theme.size(205)
     property real maximumCardWidth: Theme.size(250)
     property string emptyText: qsTranslate("CardWorkbench", "No cards match the current filters.")
+    property bool prominentScrollBar: false
     signal cardActivated(var card)
     signal cardDoubleActivated(var card)
     signal cardInspected(var card, var sourceItem)
@@ -36,7 +37,10 @@ GridView {
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     cacheBuffer: cellHeight
-    ScrollBar.vertical: ScrollBar { }
+    ScrollBar.vertical: AppScrollBar {
+        objectName: "cardArtGridScrollBar"
+        prominent: root.prominentScrollBar
+    }
     Text {
         textFormat: Text.PlainText
         anchors.centerIn: parent

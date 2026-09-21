@@ -108,18 +108,7 @@ void CatalogInstaller::startImport(ImportKind kind, const QString &source, const
     }
     m_importWatcher.setFuture(QtConcurrent::run(
         BackgroundTaskPools::catalogMaintenance(), [source, destination, package, stopToken]() {
-            if (stopToken.stopRequested())
-                return CatalogImportResult{false, {}, 0, 0, 0, {}, 0, true};
-            QFile input(source);
-            if (!input.open(QIODevice::ReadOnly)) {
-                return CatalogImportResult{
-                    false, QStringLiteral("Could not open the selected catalog file."), 0};
-            }
-            const QByteArray signature = input.peek(16);
-            input.close();
-            if (signature == QByteArrayLiteral("SQLite format 3\0"))
-                return catalogimport::importDatabaseFile(source, destination, stopToken);
-            return catalogimport::importBulkFile(source, destination, package, {}, {}, stopToken);
+            return catalogimport::importLocalCatalogFile(source, destination, package, stopToken);
         }));
 }
 

@@ -5,28 +5,12 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     signal rollRequested(int sides, int count)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(420), parent.width - Theme.size(48))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function showFor(sides, count) {
         sidesField.text = String(sides)
@@ -48,22 +32,9 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Roll dice")
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(19)
-            font.weight: Font.DemiBold
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Choose 1–20 dice with 2–1,000 sides.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(11)
-            wrapMode: Text.WordWrap
+        AppPopupHeader {
+            titleText: qsTr("Roll dice")
+            subtitleText: qsTr("Choose 1–20 dice with 2–1,000 sides.")
         }
 
         RowLayout {

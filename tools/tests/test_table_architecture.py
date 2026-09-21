@@ -310,8 +310,8 @@ class TableArchitectureTests(unittest.TestCase):
         self.assertEqual(text.count("--output-on-failure -LE integration"), 2)
 
     def test_settings_surfaces_preference_save_errors(self) -> None:
-        settings = self.source("apps/client-qt/qml/screens/Settings.qml")
-        self.assertIn("preferences.lastError", settings)
+        language = self.source("apps/client-qt/qml/screens/LanguageSettings.qml")
+        self.assertIn("preferences.lastError", language)
 
 
 if __name__ == "__main__":

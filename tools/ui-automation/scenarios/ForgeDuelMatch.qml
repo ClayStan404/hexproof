@@ -291,7 +291,12 @@ Item {
             return
         }
         case "chooseAction": {
-            if ((stackStudy || pauperStudy) && !table.priority.fullControl) { click("rulesFullControl"); return }
+            if ((stackStudy || pauperStudy) && !table.priority.fullControl) {
+                if (!item("forgeGameDrawer").visible) click("forgeGameMenu")
+                click("rulesFullControl")
+                click("forgeGameMenu")
+                return
+            }
             if (stackStudy && StackStudy.observe(driver)) return
             const land = options.find(option => option.kind === "playLand")
             if (land) { if (cardAction(land)) lands++; return }

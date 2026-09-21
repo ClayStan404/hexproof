@@ -7,7 +7,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property var cards: []
@@ -39,17 +39,9 @@ Popup {
                           string toZone, int toSeat, string libraryPlacement, bool randomize)
     signal castCommanderRequested(string commanderId)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(960), parent.width - Theme.size(48))
     height: Math.min(Theme.size(680), parent.height - Theme.size(56))
     padding: Theme.size(wideLayout ? 22 : 14)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
 
     function applyFilterQuery() {
         const nextQuery = searchField.text.trim().toLocaleLowerCase()
@@ -64,13 +56,6 @@ Popup {
         interval: 120
         repeat: false
         onTriggered: root.applyFilterQuery()
-    }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
     }
 
     function zoneLabel() {
@@ -361,7 +346,7 @@ Popup {
                     Layout.fillWidth: true
                     text: root.ownerDisplayName + " · " + root.zoneLabel()
                     color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
+                    font.pixelSize: Theme.fontSize(18)
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -708,7 +693,7 @@ Popup {
         }
     }
 
-    Menu {
+    AppMenu {
         id: zoneCardMenu
         objectName: "zoneCardMenu"
         title: root.requestedCardIdList().length > 1
@@ -731,7 +716,7 @@ Popup {
                      && root.seatIndex === root.localSeatIndex
         }
 
-        MenuItem {
+        AppMenuItem {
             objectName: "zoneCardToBattlefield"
             text: qsTr("Move to battlefield")
             enabled: root.canMoveCards
@@ -739,7 +724,7 @@ Popup {
                      && root.selectedSourceMovable()
             onTriggered: root.requestSelectedMove("battlefield")
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "zoneCardToHand"
             text: qsTr("Move to hand")
             enabled: root.canMoveCards && root.zoneKey !== "hand"
@@ -798,7 +783,7 @@ Popup {
                      && root.requestedCardsOwnedLocally()
             onTriggered: root.requestSelectedMove("library", "shuffle", false)
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "zoneCardToGraveyard"
             text: qsTr("Move to graveyard")
             enabled: root.canMoveCards
@@ -807,7 +792,7 @@ Popup {
                      && root.zoneKey !== "graveyard"
             onTriggered: root.requestSelectedMove("graveyard")
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "zoneCardToExile"
             text: qsTr("Move to exile")
             enabled: root.canMoveCards

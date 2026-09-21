@@ -18,15 +18,10 @@ TestCase {
         LimitedProductArtPanel {
             id: panel
             anchors.fill: parent
-            tournamentModel: mockTournament
+            product: ({"id": "fdn-play", "name": "Foundations Play Boosters"})
             cardCatalogModel: mockCatalog
             preferencesModel: mockPreferences
         }
-    }
-
-    QtObject {
-        id: mockTournament
-        property var product: ({"id": "fdn-play", "name": "Foundations Play Boosters"})
     }
 
     QtObject {

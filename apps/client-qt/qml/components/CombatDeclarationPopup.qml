@@ -8,7 +8,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property string declarationKind: ""
@@ -25,26 +25,11 @@ Popup {
                                 string targetCardId, int targetSeat,
                                 var tappedSourceCardIds)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(560), parent.width - Theme.size(48))
     height: Math.min(implicitHeight, parent.height - Theme.size(56))
     implicitHeight: Math.min(Theme.size(620), contentColumn.implicitHeight
                              + topPadding + bottomPadding)
     padding: Theme.size(22)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function showFor(kind, sourceCards, targetId, seat, label) {
         declarationKind = kind
@@ -98,25 +83,13 @@ Popup {
         id: contentColumn
         spacing: Theme.size(14)
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: root.attackMode
-                  ? qsTranslate("Table", "Declare attackers") : qsTranslate("Table", "Declare blockers")
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(20)
-            font.weight: Font.DemiBold
-            wrapMode: Text.WordWrap
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: (root.attackMode ? qsTranslate("Table", "Attack") : qsTranslate("Table", "Block"))
-                  + " · " + root.targetLabel
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
+        AppPopupHeader {
+            titleText: root.attackMode
+                       ? qsTranslate("Table", "Declare attackers")
+                       : qsTranslate("Table", "Declare blockers")
+            subtitleText: (root.attackMode ? qsTranslate("Table", "Attack")
+                                           : qsTranslate("Table", "Block"))
+                          + " · " + root.targetLabel
         }
 
         Surface {

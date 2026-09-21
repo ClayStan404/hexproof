@@ -335,21 +335,21 @@ Surface {
         }
     }
 
-    Menu {
+    AppMenu {
         id: responseStatusMenu
 
-        MenuItem {
+        AppMenuItem {
             text: qsTr("No response")
             onTriggered:
                 root.tableController.wsModel.setResponseStatus("pass")
         }
-        MenuItem {
+        AppMenuItem {
             text: qsTr("Please wait")
             onTriggered:
                 root.tableController.wsModel.setResponseStatus("hold")
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             text: qsTr("Clear signal")
             enabled: root.ownPlayer.responseStatus === "pass"
                      || root.ownPlayer.responseStatus === "hold"

@@ -102,7 +102,7 @@ Control {
                 ToolTip.delay: 600
 
                 background: Rectangle {
-                    radius: Theme.useGlass ? height / 2 : Theme.radiusSmall
+                    radius: Theme.useGlass ? Math.round(height / 2) : Theme.radiusSmall
                     antialiasing: true
                     color: segmentButton.checked
                            ? (Theme.useGlass ? Theme.primary : Theme.surfaceElevated)

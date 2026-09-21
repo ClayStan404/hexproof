@@ -18,6 +18,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
+#include <QVariantMap>
 
 #include <atomic>
 #include <chrono>
@@ -295,6 +296,49 @@ void TestDeckLibrary::formatsExplicitDeckSideboardAndCommanderSections() const
                    "Consider\n"
                    "1 Doubling Season (RAV) 158\n"_s);
     QVERIFY(!text.contains(u"Beast"_s));
+}
+
+void TestDeckLibrary::formatsPublishedTournamentDecklists() const
+{
+    const QVariantMap published{
+        {u"name"_s, u"Alice Burn"_s},
+        {u"commanders"_s, QStringList{u"Atraxa, Praetors' Voice"_s}},
+        {u"mainboard"_s, QVariantList{QVariantMap{{u"name"_s, u"Sol Ring"_s},
+                                                  {u"count"_s, 1},
+                                                  {u"setCode"_s, u"CMM"_s},
+                                                  {u"collectorNumber"_s, u"396"_s}},
+                                      QVariantMap{{u"name"_s, u"Atraxa, Praetors' Voice"_s},
+                                                  {u"count"_s, 1},
+                                                  {u"setCode"_s, u"2X2"_s},
+                                                  {u"collectorNumber"_s, u"183"_s}}}},
+        {u"sideboard"_s, QVariantList{QVariantMap{{u"name"_s, u"Negate"_s},
+                                                  {u"count"_s, 2},
+                                                  {u"setCode"_s, u"M20"_s},
+                                                  {u"collectorNumber"_s, u"69"_s}}}},
+    };
+    QCOMPARE(DeckParser::formatPublished(published),
+             u"Deck\n"
+             "1 Sol Ring (CMM) 396\n"
+             "\n"
+             "Sideboard\n"
+             "2 Negate (M20) 69\n"
+             "\n"
+             "Commander\n"
+             "1 Atraxa, Praetors' Voice (2X2) 183 *CMDR*\n"_s);
+
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QCOMPARE(model.formatPublishedDeckText(published), DeckParser::formatPublished(published));
+    const QString path = storage.filePath(u"alice.txt"_s);
+    QVERIFY(model.savePublishedDeckText(published, QUrl::fromLocalFile(path)));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(QString::fromUtf8(file.readAll()), DeckParser::formatPublished(published));
+    QVERIFY(model.suggestedPublishedDeckUrl(u"Alice"_s, u"Burn"_s)
+                .toLocalFile()
+                .endsWith(u"Alice - Burn.txt"_s));
+    QVERIFY(model.formatPublishedDeckText({}).contains(u"Deck\n"_s));
 }
 
 void TestDeckLibrary::roundTripsFormattedDeckTextThroughTheParser() const

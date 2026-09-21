@@ -62,6 +62,21 @@ TestCase {
         }
     }
 
+    function test_sharedStackTrayMatchesRailWash() {
+        const table = createTemporaryObject(tableComponent, tableHost, {width: 1280, height: 800})
+        verify(waitForRendering(table))
+        table.showSharedColumn = true
+        const stack = findChild(table, "sharedZonesView")
+        verify(stack !== null)
+        compare(stack.color, Theme.surfaceMuted)
+        Theme.uiTheme = "glass"
+        compare(stack.color, Theme.tableRailFill)
+        const dock = findChild(table, "ownZoneDock")
+        verify(dock !== null)
+        compare(dock.color, Theme.surfaceElevated)
+        compare(dock.border.width, 1)
+    }
+
     function test_zoneTitlesUseChineseTranslations() {
         testTranslations.setLanguage("zh")
         const table = tableComponent.createObject(tableHost, {width: 1280, height: 800})
@@ -301,13 +316,18 @@ TestCase {
                <= library.mapToItem(dock, 0, 0).y,
                "Counter controls must not overlap the clickable zone piles")
         if (data.partner) {
-            counters.contentY = Math.max(0, counters.contentHeight - counters.height)
-            waitForRendering(counters)
             const tax = findChild(table, "increaseCommanderTaxButton0-1")
-            verify(tax !== null && tax.visible && tax.enabled)
-            verify(tax.mapToItem(counters, 0, 0).y >= 0)
-            verify(tax.mapToItem(counters, 0, tax.height).y <= counters.height + 1,
-                   "Scrolled partner tax controls must be reachable")
+            const increaseLife = findChild(table, "increaseLifeButton0")
+            verify(tax !== null, "increaseCommanderTaxButton0-1")
+            verify(tax.visible && tax.enabled)
+            const origin = tax.mapToItem(dock, 0, 0)
+            const end = tax.mapToItem(dock, tax.width, tax.height)
+            verify(origin.x >= 0 && origin.y >= 0 && end.x <= dock.width + 1
+                   && end.y <= dock.height + 1)
+            compare(Math.round(tax.mapToItem(dock, tax.width, 0).x),
+                    Math.round(increaseLife.mapToItem(dock, increaseLife.width, 0).x))
+            verify(library.height >= Theme.size(80) - 1,
+                   "Partner tax rows must not shrink the zone piles below the reserved floor")
         }
     }
 
@@ -1015,8 +1035,18 @@ TestCase {
         verify(commanderTaxControls.visible)
         verify(commanderTaxLabel !== null)
         verify(secondCommanderTaxLabel !== null)
-        compare(commanderTaxLabel.text, "Tax · Atraxa")
-        compare(secondCommanderTaxLabel.text, "Tax · Tymna the Weaver")
+        compare(commanderTaxLabel.text, "Atraxa")
+        compare(secondCommanderTaxLabel.text, "Tymna the Weaver")
+        const secondCommanderTaxControls = findChild(
+                                               table, "commanderTaxControls0-1")
+        verify(secondCommanderTaxControls !== null)
+        verify(secondCommanderTaxControls.mapToItem(ownDock, 0, 0).y
+               >= commanderTaxControls.mapToItem(ownDock, 0, 0).y
+                  + commanderTaxControls.height)
+        verify(commanderTaxControls.width > ownDock.width * 0.6)
+        verify(secondCommanderTaxControls.width > ownDock.width * 0.6)
+        verify(!commanderTaxLabel.truncated)
+        verify(!secondCommanderTaxLabel.truncated)
         verify(commanderTaxValue !== null)
         verify(secondCommanderTaxValue !== null)
         compare(secondCommanderTaxValue.text, "6")
@@ -1037,6 +1067,9 @@ TestCase {
         compare(decreaseTaxButton.height, decreaseLifeButton.height)
         compare(taxButton.width, increaseLifeButton.width)
         compare(taxButton.height, increaseLifeButton.height)
+        compare(Math.round(taxButton.mapToItem(ownDock, taxButton.width, 0).x),
+                Math.round(increaseLifeButton.mapToItem(
+                               ownDock, increaseLifeButton.width, 0).x))
         verify(castButton === null)
         verify(concedeButton !== null)
         verify(taxButton.enabled)

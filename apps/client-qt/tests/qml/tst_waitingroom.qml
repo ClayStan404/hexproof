@@ -175,14 +175,18 @@ TestCase {
         verify(panel.visible && enable.visible && enable.enabled)
         verify(notice.visible)
         compare(mockWs.peerRequests.length, 0)
+        const seats = findChild(page, "waitingRoomSeats")
+        const actions = findChild(page, "waitingRoomActions")
         const point = enable.mapToItem(page, 0, 0)
         verify(point.y >= 0 && point.y + enable.height <= page.height)
+        verify(panel.mapToItem(page, 0, 0).y >= seats.mapToItem(page, 0, 0).y + seats.height - 1)
+        verify(panel.mapToItem(page, 0, 0).x < actions.mapToItem(page, 0, 0).x)
         mouseClick(enable)
         compare(mockWs.peerRequests, [{enabled:true, retry:false}])
         verify(!notice.visible)
-        compare(status.text, "Waiting for the other player")
+        compare(status.text, "P2P: Waiting for the other player")
         mockWs.peerTransportState = "direct"
-        compare(status.text, "Direct connection active")
+        compare(status.text, "P2P: Direct connection active")
         mockWs.peerTransportState = "relay"
         const retry = findChild(panel, "forgePeerRetry")
         verify(retry.visible)
@@ -204,7 +208,7 @@ TestCase {
         waitForRendering(page)
         verify(panel.visible)
         verify(!findChild(panel, "forgePeerEnable").enabled)
-        compare(findChild(panel, "forgePeerStatus").text, "This server does not support direct connections.")
+        compare(findChild(panel, "forgePeerStatus").text, "P2P: This server does not support direct connections.")
         mockRoomSession.role = "spectator"
         verify(!panel.visible)
         mockRoomSession.role = "player"

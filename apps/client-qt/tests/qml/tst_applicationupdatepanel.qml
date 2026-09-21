@@ -25,6 +25,7 @@ TestCase {
         property bool updateAvailable: true
         property bool exactVersion: true
         property bool releaseAvailable: true
+        property bool cachedRelease: false
         property string currentVersion: "1.0.6"
         property string targetVersion: "1.0.7"
         property string publishedAt: "2026-09-10"
@@ -58,6 +59,12 @@ TestCase {
         updateModel.checking = false
         updateModel.downloading = false
         updateModel.downloadReady = false
+        updateModel.updateAvailable = true
+        updateModel.exactVersion = true
+        updateModel.releaseAvailable = true
+        updateModel.cachedRelease = false
+        updateModel.targetVersion = "1.0.7"
+        updateModel.lastError = ""
         updateModel.lastAction = ""
     }
     function cleanup() { Theme.uiScale = 1 }
@@ -129,5 +136,24 @@ TestCase {
             verify(panel.height > viewport.height)
             verify(viewport.contentItem.contentY > 0)
         }
+    }
+    function test_failedCheckShowsCachedLatestInsteadOfUpToDate() {
+        updateModel.updateAvailable = false
+        updateModel.exactVersion = false
+        updateModel.releaseAvailable = true
+        updateModel.cachedRelease = true
+        updateModel.targetVersion = "2.0.3"
+        updateModel.lastError = "Application update check failed."
+        const viewport = createTemporaryObject(panelComponent, window.contentItem,
+                                               {width: 828, height: window.height})
+        verify(viewport !== null)
+        const panel = viewport.panel
+        verify(waitForPolish(window))
+        const status = findChild(panel, "applicationUpdateStatus")
+        const latest = findChild(panel, "applicationLatestVersion")
+        verify(status !== null)
+        verify(latest !== null)
+        compare(status.text, "Check failed")
+        compare(latest.text, "2.0.3 (cached)")
     }
 }

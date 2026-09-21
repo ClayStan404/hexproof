@@ -303,14 +303,17 @@ TestCase {
 
     function test_menuHintTracksChangedAndUnassignedBinding() {
         const draw = findChild(libraryMenus, "drawCardsAction")
-        compare(draw.text, "Draw X cards · Ctrl+D")
-        verify(preferences.setShortcutSequence("table.library.drawX", "Ctrl+Alt+J"))
-        compare(draw.text, "Draw X cards · Ctrl+Alt+J")
-        verify(preferences.setShortcutSequence("table.library.drawX", ""))
         compare(draw.text, "Draw X cards")
+        compare(draw.shortcutLabel, "Ctrl+D")
+        verify(preferences.setShortcutSequence("table.library.drawX", "Ctrl+Alt+J"))
+        compare(draw.shortcutLabel, "Ctrl+Alt+J")
+        verify(preferences.setShortcutSequence("table.library.drawX", ""))
+        compare(draw.shortcutLabel, "")
         const sideboard = findChild(libraryMenus, "viewSideboardAction")
         verify(preferences.setShortcutSequence("table.sideboard.view", ""))
-        compare(sideboard.text, "View sideboard · 2")
+        compare(sideboard.shortcutLabel, "")
+        // The trailing "2" is the sideboard count, rendered via `extra`.
+        compare(sideboard.extra, "2")
     }
 
     function test_enablesAvailableActions() {

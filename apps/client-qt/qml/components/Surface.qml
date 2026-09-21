@@ -8,6 +8,8 @@ Rectangle {
 
     property bool elevated: false
     property bool interactive: false
+    property bool compact: false
+    property bool quiet: !compact && height > 0 && height < Theme.size(200)
 
     color: Theme.useGlass ? "transparent"
            : (elevated ? Theme.surfaceElevated : Theme.surface)
@@ -24,6 +26,8 @@ Rectangle {
     LiquidGlass {
         anchors.fill: parent
         radius: root.radius
+        compact: root.compact
+        quiet: root.quiet
         elevated: root.elevated || (root.interactive && hoverHandler.hovered)
         visible: Theme.useGlass && root.border.width > 0
     }

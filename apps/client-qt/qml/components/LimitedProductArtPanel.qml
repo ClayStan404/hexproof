@@ -10,13 +10,17 @@ import QtQuick.Layouts
 Surface {
     id: root
 
-    required property var tournamentModel
     required property var cardCatalogModel
     required property var preferencesModel
+    property var product: ({})
 
+    readonly property string productId: root.product && root.product.id
+                                        ? String(root.product.id) : ""
+    readonly property string productName: root.product && root.product.name
+                                          ? String(root.product.name) : ""
     readonly property var localProduct:
-        cardCatalogModel.installed && tournamentModel.product.id
-        ? cardCatalogModel.limitedProduct(tournamentModel.product.id) : ({})
+        cardCatalogModel.installed && root.productId
+        ? cardCatalogModel.limitedProduct(root.productId) : ({})
     readonly property bool hasLocalProduct: !!localProduct.id
 
     implicitHeight: content.implicitHeight + Theme.size(24)
@@ -35,7 +39,9 @@ Surface {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: qsTranslate("TournamentLobby", "Offline product art · %1").arg(root.tournamentModel.product.name)
+                text: root.productName
+                      ? qsTranslate("TournamentLobby", "Offline product art · %1").arg(root.productName)
+                      : qsTranslate("TournamentLobby", "Offline product art")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(13)
                 font.weight: Font.DemiBold
@@ -56,8 +62,8 @@ Surface {
                 objectName: "limitedProductArtProgress"
                 Layout.fillWidth: true
                 implicitHeight: Theme.size(8)
-                visible: root.cardCatalogModel.limitedArtProductId
-                         === root.tournamentModel.product.id
+                visible: root.productId.length > 0
+                         && root.cardCatalogModel.limitedArtProductId === root.productId
                          && root.cardCatalogModel.limitedArtTotal > 0
                 from: 0
                 to: Math.max(1, root.cardCatalogModel.limitedArtTotal)
@@ -88,21 +94,20 @@ Surface {
                             ? qsTranslate("TournamentLobby", "Update the card database to install this product.")
                             : qsTranslate("TournamentLobby", "Another product download is running.")
             text: root.cardCatalogModel.limitedArtCaching
-                  && root.cardCatalogModel.limitedArtProductId
-                     === root.tournamentModel.product.id
+                  && root.cardCatalogModel.limitedArtProductId === root.productId
                   ? qsTranslate("TournamentLobby", "Downloading %1 / %2")
                       .arg(root.cardCatalogModel.limitedArtCompleted)
                       .arg(root.cardCatalogModel.limitedArtTotal)
                   : qsTranslate("TournamentLobby", "Download product art")
-            onClicked: root.cardCatalogModel.cacheLimitedProductArt(
-                           root.tournamentModel.product.id)
+            onClicked: root.cardCatalogModel.cacheLimitedProductArt(root.productId)
         }
     }
 
     function description() {
         if (!root.hasLocalProduct)
             return qsTranslate("TournamentLobby", "This product is missing locally; update the card database first.")
-        if (root.cardCatalogModel.limitedArtProductId === root.tournamentModel.product.id
+        if (root.productId.length > 0
+                && root.cardCatalogModel.limitedArtProductId === root.productId
                 && !root.cardCatalogModel.limitedArtCaching
                 && root.cardCatalogModel.limitedArtTotal > 0) {
             if (root.cardCatalogModel.limitedArtFailed > 0)

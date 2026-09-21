@@ -121,6 +121,12 @@ TestCase {
         page = null
     }
 
+    function test_prefillsDisplayNameFromHub() {
+        const field = findChild(page, "displayNameField")
+        verify(field !== null)
+        compare(field.text, "Tester")
+    }
+
     function test_coldStartKeepsCustomEndpointSelected() {
         const selector = findChild(page, "serverSelector")
         const customField = findChild(page, "customServerField")
@@ -137,17 +143,13 @@ TestCase {
         compare(mockWs.lastConnectedUrl, mockWs.customServerUrl)
     }
 
-    function test_leaveCancelsPendingConnection_data() {
-        return [{tag: "cancel", control: "connectCancelButton"},
-                {tag: "back", control: "screenBackButton"}]
-    }
-
-    function test_leaveCancelsPendingConnection(data) {
+    function test_leaveCancelsPendingConnection() {
         mockWs.versionMismatch = false
         mockWs.connecting = true
         page.refreshConnectionError()
         waitForRendering(page)
-        const control = findChild(page, data.control)
+        verify(findChild(page, "connectCancelButton") === null)
+        const control = findChild(page, "screenBackButton")
         verify(control !== null)
         verify(control.enabled, "A pending handshake must remain cancellable")
         mouseClick(control)
@@ -181,6 +183,26 @@ TestCase {
         }
     }
 
+    function test_formSitsInTheMiddleOfATallPage() {
+        testWindow.width = 1600
+        testWindow.height = 900
+        mockWs.versionMismatch = false
+        try {
+            page.refreshConnectionError()
+            waitForRendering(page)
+            const card = findChild(page, "connectCard")
+            const body = findChild(page, "connectBody")
+            const top = card.mapToItem(body, 0, 0).y
+            const leftover = body.height - card.height
+            verify(leftover > 80, "A tall page must leave space around the form")
+            fuzzyCompare(top, leftover / 2, 2)
+        } finally {
+            mockWs.versionMismatch = true
+            testWindow.width = 1280
+            testWindow.height = 720
+        }
+    }
+
     function test_latencyRefreshDoesNotChangeColdStartSelection() {
         const selector = findChild(page, "serverSelector")
         verify(selector !== null)
@@ -188,7 +210,7 @@ TestCase {
 
         mockWs.serverLatencies = [34, 48, -1, 72, 15, 1]
 
-        tryCompare(selector, "displayText", "Custom server · Forge status unknown · 1 ms")
+        tryCompare(selector, "displayText", "Custom server · 1 ms")
         compare(selector.currentIndex, mockWs.customServerIndex)
         compare(page.selectedServerIndex, mockWs.customServerIndex)
     }
@@ -220,9 +242,11 @@ TestCase {
     }
 
     function test_capabilitiesAndRefreshAction() {
-        verify(page.serverLabel(0).includes("Manual only"))
-        verify(page.serverLabel(1).includes("Server Forge"))
-        verify(page.serverLabel(3).includes("Forge status unknown"))
+        verify(!page.serverLabel(0).includes("Manual only"))
+        verify(page.serverLabel(0).includes("Server 1"))
+        compare(page.playModeSummary(0), "Manual only")
+        compare(page.playModeSummary(1), "Server Forge")
+        compare(page.playModeSummary(3), "Forge status unknown")
         const button = findChild(page, "refreshServerDirectoryButton")
         verify(button !== null)
         const count = mockWs.directoryRefreshCalls
@@ -235,12 +259,32 @@ TestCase {
             {id: "relay", name: "Relay", forge: 0, playerHosting: 1, directPeer: 1, hostMigration: 1},
             {id: "older", name: "Older server", forge: 0},
             {id: "custom", forge: -1}]
-        verify(page.serverLabel(0).includes("Player hosting"))
-        verify(!page.serverLabel(0).includes("Manual only"))
-        verify(page.hostingCapabilities(0).includes("Direct connection: Supported"))
-        verify(page.hostingCapabilities(0).includes("Host migration: Supported"))
-        verify(!page.serverLabel(1).includes("Manual only"))
-        verify(page.hostingCapabilities(1).includes("Player hosting: Unknown"))
+        verify(!page.serverLabel(0).includes("Player hosting"))
+        verify(page.playModeSummary(0).includes("Player hosting"))
+        verify(page.playModeSummary(0).includes("Direct connection"))
+        verify(page.playModeSummary(0).includes("Host migration"))
+        verify(!page.playModeSummary(0).includes("Manual only"))
+        compare(page.playModeSummary(1), "Server Forge unavailable")
+        verify(findChild(page, "hostingCapabilitiesLabel") === null)
+    }
+
+    function test_connectFormOmitsMarketingCopy() {
+        verify(findChild(page, "connectCancelButton") === null)
+        function containsText(item, text) {
+            if (item.text !== undefined && String(item.text).indexOf(text) >= 0)
+                return true
+            for (const child of item.children) {
+                if (containsText(child, text))
+                    return true
+            }
+            return false
+        }
+        verify(!containsText(page, "Enter the tabletop"))
+        verify(!containsText(page, "One connection"))
+        verify(!containsText(page, "Public hub preconfigured"))
+        verify(!containsText(page, "Player hosting"))
+        verify(!containsText(page, "Direct connection"))
+        verify(findChild(page, "hostingCapabilitiesLabel") === null)
     }
 
     function test_connectButtonStaysInsideCardAndReachable() {
@@ -255,13 +299,10 @@ TestCase {
         verify(buttonTopInCard >= -1)
         verify(buttonTopInCard + button.height <= card.height + 1)
 
-        const buttonBottom = button.mapToItem(body.contentItem,
-                                              0, button.height).y
-        verify(body.contentHeight + 0.5 >= buttonBottom)
-        verify(body.contentHeight > body.height)
-
-        body.contentY = Math.max(0, body.contentHeight - body.height)
-        waitForRendering(page)
+        if (body.contentHeight > body.height + 1) {
+            body.contentY = Math.max(0, body.contentHeight - body.height)
+            waitForRendering(page)
+        }
         const buttonTop = button.mapToItem(body, 0, 0).y
         verify(buttonTop >= -1)
         verify(buttonTop + button.height <= body.height + 1)

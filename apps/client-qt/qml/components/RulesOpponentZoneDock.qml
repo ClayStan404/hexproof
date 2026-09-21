@@ -10,7 +10,6 @@ Surface {
 
     required property var tableController
     required property int ownerSeat
-    property bool compact: false
     readonly property var zoneKeys: [
         "library", "graveyard", "exile", "command"
     ]

@@ -38,7 +38,6 @@ Page {
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
         title: qsTr("Connect to server")
-        subtitle: qsTr("Your name is session-only — no account required")
         onBackRequested: root.leaveScreen()
     }
 
@@ -49,71 +48,34 @@ Page {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: Theme.size(18)
-        anchors.bottomMargin: Theme.size(24)
+        anchors.topMargin: Theme.size(14)
+        anchors.bottomMargin: Theme.size(28)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         contentWidth: width
-        contentHeight: contentRow.height > height
-                       ? contentRow.height + Theme.size(24) : height
+        contentHeight: Math.max(height, form.implicitHeight)
         ScrollBar.vertical: ScrollBar {
             policy: connectBody.contentHeight > connectBody.height
                     ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
         }
     }
 
-    RowLayout {
-        id: contentRow
+    ColumnLayout {
+        id: form
+        objectName: "connectCard"
         parent: connectBody.contentItem
-        width: Math.min(connectBody.width - Theme.size(80), Theme.size(980))
+        width: Math.min(Theme.size(760), connectBody.width - Theme.size(72))
         height: implicitHeight
         x: Math.max(0, Math.round((connectBody.width - width) / 2))
         y: Math.max(0, Math.round((connectBody.height - height) / 2))
-        spacing: Theme.size(24)
-
-        Surface {
-            id: formCard
-            objectName: "connectCard"
-            Layout.fillWidth: true
-            Layout.preferredWidth: Theme.size(570)
-            Layout.preferredHeight: Math.max(Theme.isCompactWidth(root.width) || root.compactHeight
-                                             ? 0 : Theme.size(570),
-                                             form.implicitHeight
-                                             + 2 * form.anchors.margins)
-            elevated: true
-
-            ColumnLayout {
-                id: form
-                anchors.fill: parent
-                anchors.margins: Theme.size(root.compactHeight ? 16 : 32)
-                spacing: Theme.size(root.compactHeight ? 6 : 10)
+        spacing: Theme.size(root.compactHeight ? 10 : 14)
 
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("Enter the tabletop")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(28)
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    Layout.bottomMargin: Theme.size(root.compactHeight ? 8 : 16)
-                    text: qsTr("Choose a Hexproof server, then enter the name other players will see.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(14)
-                    lineHeight: 1.35
-                    wrapMode: Text.WordWrap
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTr("SERVER")
+                    text: qsTr("Server")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.1
+                    font.weight: Font.DemiBold
                 }
 
                 AppComboBox {
@@ -158,19 +120,6 @@ Page {
                     }
                 }
 
-                Text {
-                    objectName: "hostingCapabilitiesLabel"
-                    Layout.fillWidth: true
-                    visible: root.selectedServerIndex >= 0
-                             && (root.selectedServerIndex !== root.customServerIndex
-                                 || root.hub.customServerUrl.length > 0)
-                    textFormat: Text.PlainText
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: Theme.fontSize(11)
-                    color: Theme.textMuted
-                    text: root.hostingCapabilities(root.selectedServerIndex)
-                }
-
                 ColumnLayout {
                     Layout.fillWidth: true
                     visible: root.selectedServerIndex
@@ -179,11 +128,10 @@ Page {
 
                     Text {
                         textFormat: Text.PlainText
-                        text: qsTr("SERVER ADDRESS")
+                        text: qsTr("Server address")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(11)
-                        font.weight: Font.Bold
-                        font.letterSpacing: 1.1
+                        font.weight: Font.DemiBold
                     }
 
                     AppTextField {
@@ -209,15 +157,15 @@ Page {
                 Text {
                     textFormat: Text.PlainText
                     Layout.topMargin: Theme.size(8)
-                    text: qsTr("DISPLAY NAME")
+                    text: qsTr("Display name")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.1
+                    font.weight: Font.DemiBold
                 }
 
                 AppTextField {
                     id: nameField
+                    objectName: "displayNameField"
                     Layout.fillWidth: true
                     placeholderText: qsTr("How other players will see you")
                     maximumLength: 40
@@ -259,118 +207,38 @@ Page {
                     onClicked: Qt.openUrlExternally(root.hub.releaseDownloadUrl)
                 }
 
-                Item { Layout.fillHeight: true; Layout.minimumHeight: 8 }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.size(10)
-
-                    AppButton {
-                        objectName: "connectCancelButton"
-                        variant: "ghost"
-                        text: qsTr("Cancel")
-                        onClicked: root.leaveScreen()
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Row {
-                        visible: root.hub.connecting
-                        spacing: Theme.size(9)
-
-                        ActivityRing {
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Opening connection…")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(12)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    AppButton {
-                        objectName: "connectSubmitButton"
-                        variant: "primary"
-                        text: root.hub.connecting ? qsTr("Connecting") : qsTr("Connect")
-                        leadingText: root.hub.connecting ? "" : "→"
-                        enabled: root.selectedServerIndex >= 0
-                                 && (root.selectedServerIndex
-                                     !== root.customServerIndex
-                                     || customServerField.text.trim().length > 0)
-                                 && nameField.text.trim().length > 0
-                                 && !root.hub.connecting
-                        onClicked: root.submit()
-                    }
-                }
-            }
-        }
-
-        Surface {
-            Layout.preferredWidth: Theme.size(300)
-            Layout.fillHeight: true
-            visible: root.width >= 1000
-            color: Theme.surfaceMuted
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: Theme.size(26)
-                spacing: Theme.size(16)
-
-                Rectangle {
-                    Layout.preferredWidth: Theme.size(46)
-                    Layout.preferredHeight: Theme.size(46)
-                    radius: Theme.size(14)
-                    color: Theme.primaryMuted
-
-                    Text {
-                        textFormat: Text.PlainText
-                        anchors.centerIn: parent
-                        text: "↗"
-                        color: Theme.primary
-                        font.pixelSize: Theme.fontSize(22)
-                        font.weight: Font.DemiBold
-                    }
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTr("One connection,\nmany tables.")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(22)
-                    font.weight: Font.DemiBold
-                    lineHeight: 1.05
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("The hub coordinates rooms and game state. Card images stay cached on your device.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(13)
-                    lineHeight: 1.45
-                    wrapMode: Text.WordWrap
-                }
-
-                Item { Layout.fillHeight: true }
-
                 Row {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.size(8)
+                    visible: root.hub.connecting
                     spacing: Theme.size(9)
-                    Rectangle {
-                        width: Theme.size(7); height: Theme.size(7); radius: Theme.size(4)
-                        color: Theme.success
+
+                    ActivityRing {
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
                         textFormat: Text.PlainText
-                        text: qsTr("Public hub preconfigured")
+                        text: qsTr("Opening connection…")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(12)
+                        anchors.verticalCenter: parent.verticalCenter
                     }
                 }
-            }
-        }
+
+                AppButton {
+                    objectName: "connectSubmitButton"
+                    Layout.fillWidth: true
+                    variant: "primary"
+                    text: root.hub.connecting ? qsTr("Connecting") : qsTr("Connect")
+                    leadingText: root.hub.connecting ? "" : "→"
+                    enabled: root.selectedServerIndex >= 0
+                             && (root.selectedServerIndex
+                                 !== root.customServerIndex
+                                 || customServerField.text.trim().length > 0)
+                             && nameField.text.trim().length > 0
+                             && !root.hub.connecting
+                    onClicked: root.submit()
+                }
     }
 
     Timer {
@@ -403,15 +271,6 @@ Page {
             && root.hub.customServerUrl.length === 0) {
             return name
         }
-        if (entry.forge === 1)
-            name += " · " + qsTr("Server Forge")
-        if (entry.playerHosting === 1)
-            name += " · " + qsTr("Player hosting")
-        if (entry.forge !== 1 && entry.playerHosting !== 1)
-            name += " · " + (entry.forge === 0 && entry.playerHosting === 0
-                             ? qsTr("Manual only")
-                             : entry.forge === 0 ? qsTr("Server Forge unavailable")
-                                                 : qsTr("Forge status unknown"))
         const latencies = root.hub.serverLatencies
         const latency = latencies.length > index ? latencies[index] : -2
         if (latency >= 0)
@@ -421,14 +280,24 @@ Page {
         return name + " · " + qsTr("Checking…")
     }
 
-    function hostingCapabilities(index) {
+    function playModeSummary(index) {
         const entry = root.hub.serverEntries[index] || ({})
-        function label(value) {
-            return value === 1 ? qsTr("Supported")
-                 : value === 0 ? qsTr("Unavailable") : qsTr("Unknown")
-        }
-        return qsTr("Player hosting: %1 · Direct connection: %2 · Host migration: %3")
-            .arg(label(entry.playerHosting)).arg(label(entry.directPeer)).arg(label(entry.hostMigration))
+        const parts = []
+        if (entry.forge === 1)
+            parts.push(qsTr("Server Forge"))
+        if (entry.playerHosting === 1)
+            parts.push(qsTr("Player hosting"))
+        if (entry.directPeer === 1)
+            parts.push(qsTr("Direct connection"))
+        if (entry.hostMigration === 1)
+            parts.push(qsTr("Host migration"))
+        if (parts.length)
+            return parts.join(" · ")
+        if (entry.forge === 0 && entry.playerHosting === 0)
+            return qsTr("Manual only")
+        if (entry.forge === 0)
+            return qsTr("Server Forge unavailable")
+        return qsTr("Forge status unknown")
     }
 
     function selectServer(index) {

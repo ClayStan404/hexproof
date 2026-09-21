@@ -40,6 +40,12 @@ ZoneBrowserPopup 1.0 ZoneBrowserPopup.qml
 ActivityRing 1.0 ActivityRing.qml
 AppBackground 1.0 AppBackground.qml
 AppButton 1.0 AppButton.qml
+AppMenu 1.0 AppMenu.qml
+AppMenuItem 1.0 AppMenuItem.qml
+AppMenuSeparator 1.0 AppMenuSeparator.qml
+AppPopup 1.0 AppPopup.qml
+AppPopupHeader 1.0 AppPopupHeader.qml
+AppScrollBar 1.0 AppScrollBar.qml
 GlassChrome 1.0 GlassChrome.qml
 LiquidGlass 1.0 LiquidGlass.qml
 AppComboBox 1.0 AppComboBox.qml
@@ -71,6 +77,8 @@ DiceRollPopup 1.0 DiceRollPopup.qml
 InfoBanner 1.0 InfoBanner.qml
 RoomListQuery 1.0 RoomListQuery.qml
 ScreenHeader 1.0 ScreenHeader.qml
+SettingsPage 1.0 SettingsPage.qml
+SettingsModuleRow 1.0 SettingsModuleRow.qml
 ScrollChainHandler 1.0 ScrollChainHandler.qml
 SegmentedControl 1.0 SegmentedControl.qml
 SideboardPanel 1.0 SideboardPanel.qml

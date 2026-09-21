@@ -47,13 +47,10 @@ Item {
                 const entry = ws.serverEntries[ws.customServerIndex]
                 require(entry.forge === 0 && entry.directPeer === 1 && entry.hostMigration === 1,
                         "Relay capabilities incorrectly depend on server Forge")
-                require(find("serverSelector").displayText.indexOf("Player hosting") >= 0,
-                        "Missing usable player-host mode in selector")
                 require(find("serverSelector").displayText.indexOf("Manual only") < 0,
                         "Relay is incorrectly labelled manual-only")
-                const detail = find("hostingCapabilitiesLabel")
-                require(detail && detail.visible && detail.text.indexOf("Host migration: Supported") >= 0,
-                        "Missing hosting capability detail")
+                require(find("serverSelector").displayText.indexOf("Player hosting") < 0,
+                        "Selector should not repeat hosting capability copy")
                 capture("directory-local-hosting")
             })
             add("Connect to local relay", () => click("connectSubmitButton"),
@@ -86,7 +83,7 @@ Item {
             require(auditProbe.key(Qt.Key_Return), "Cannot accept Server 3")
         }, () => find("serverSelector").currentIndex === 2)
         add("Capture selected server", () => capture("directory-server3"))
-        add("Leave without connecting to a public hub", () => click("connectCancelButton"),
+        add("Leave without connecting to a public hub", () => click("screenBackButton"),
             () => !!find("mainMenuConnectButton") && !auditWindow.stack.busy)
     }
     function finish(error) {

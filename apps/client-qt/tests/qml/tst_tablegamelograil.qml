@@ -51,6 +51,8 @@ TestCase {
         property bool showGameLogRail: true
         property real gameLogRailWidth: 200
         property bool canChat: true
+        property bool sideboarding: false
+        function setGameLogVisible(show) { showGameLogRail = show }
     }
 
     TableGameLogRail {
@@ -78,6 +80,12 @@ TestCase {
     function cleanup() {
         wait(0)
         testTranslations.setLanguage("en")
+        rail.floating = false
+        rail.resetFloatingPosition()
+        rail.width = 160
+        rail.height = 500
+        fakeTable.showGameLogRail = true
+        fakeTable.canChat = true
     }
 
     function longEntries(count) {
@@ -286,5 +294,42 @@ TestCase {
         fakeTable.showGameLogRail = true
         fakeTable.canChat = false
         verify(!rail.chatInput.enabled)
+    }
+
+    function test_floatingPanelCanBeDraggedResetAndClosed() {
+        rail.floating = true
+        tryVerify(() => rail.visible && rail.floating)
+        tryVerify(() => rail.x > testWindow.width / 2)
+        verify(!findChild(rail, "gameLogColumnDivider").visible)
+        const handle = findChild(rail, "gameLogDragHandle")
+        const close = findChild(rail, "closeGameLogButton")
+        const list = findChild(rail, "gameLog")
+        verify(handle !== null && close !== null && list !== null)
+        tryVerify(() => handle.mapToItem(rail, 0, 0).y < 16
+                         && close.mapToItem(rail, 0, 0).y < 16)
+        verify(list.mapToItem(rail, 0, 0).y
+               >= handle.mapToItem(rail, 0, 0).y + 20)
+        const defaultX = rail.x
+        const defaultY = rail.y
+        const defaultW = rail.width
+        const defaultH = rail.height
+        verify(rail.x + rail.width <= testWindow.width)
+        verify(rail.y + rail.height <= testWindow.height)
+        verify(findChild(rail, "gameLogResizeHandle").visible)
+        rail.storedNX = 0.15
+        rail.storedNY = 0.85
+        rail.storedNW = 0.55
+        rail.storedNH = 0.7
+        tryVerify(() => rail.x < defaultX - 40
+                         && rail.width > defaultW + 20
+                         && rail.height !== defaultH)
+        mouseClick(handle, 8, 8, Qt.RightButton)
+        tryVerify(() => Math.abs(rail.x - defaultX) < 2
+                         && Math.abs(rail.y - defaultY) < 2
+                         && Math.abs(rail.width - defaultW) < 2
+                         && Math.abs(rail.height - defaultH) < 2)
+        mouseClick(close)
+        verify(!rail.visible)
+        verify(!fakeTable.showGameLogRail)
     }
 }

@@ -15,7 +15,7 @@ TestCase {
         height: 240
         visible: true
 
-        Menu {
+        AppMenu {
             id: testMenu
 
             ConditionalMenuItem {
@@ -40,6 +40,7 @@ TestCase {
         compare(hiddenItem.height, 0)
         compare(hiddenSeparator.height, 0)
         verify(shownItem.height > 0)
+        verify(shownItem.height <= Theme.size(36))
         testMenu.close()
     }
 }

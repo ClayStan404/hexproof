@@ -11,14 +11,14 @@ Item {
     property bool elevated: false
     property bool compact: false
     readonly property bool well: compact
-    readonly property bool quiet: !compact && height > 0
-                                  && height < Theme.size(200)
+    property bool quiet: !compact && height > 0 && height < Theme.size(200)
     readonly property bool castsPanelShadow: false
     readonly property bool drawn: Theme.useGlass
     readonly property Item backdrop: Theme.backdropScene
                                      ? Theme.backdropScene
                                      : Theme.backdropBlur
-    readonly property bool live: root.backdrop !== null
+    readonly property bool live: !root.compact
+                                 && root.backdrop !== null
                                  && root.backdrop.width > 1
                                  && root.width > 1
                                  && root.height > 1
@@ -81,7 +81,7 @@ Item {
 
     MultiEffect {
         anchors.fill: parent
-        visible: root.drawn && root.live && !root.lensReady
+        visible: root.drawn && root.live && !root.compact && !root.lensReady
         source: grab
         autoPaddingEnabled: false
         maskEnabled: true
@@ -97,7 +97,7 @@ Item {
         id: lens
         objectName: "liquidGlassLens"
         anchors.fill: parent
-        visible: root.drawn
+        visible: root.drawn && !root.compact
         opacity: root.live ? 1 : 0
         fragmentShader: "qrc:/shaders/qml/shaders/liquidglass.frag.qsb"
         property var source: grab
@@ -117,7 +117,10 @@ Item {
         radius: root.radius
         antialiasing: true
         visible: root.drawn && !root.live
-        color: root.elevated ? Theme.glassElevated : Theme.glass
+        color: root.compact
+               ? (root.elevated ? Theme.withAlpha("#FFFFFF", 0.12)
+                                : Theme.withAlpha("#FFFFFF", 0.08))
+               : (root.elevated ? Theme.glassElevated : Theme.glass)
         border.width: 0
     }
 }

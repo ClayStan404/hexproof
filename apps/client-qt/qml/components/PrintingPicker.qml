@@ -7,7 +7,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property string cardName: ""
@@ -39,24 +39,8 @@ Popup {
         }
     }
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(1000), parent.width - Theme.size(48))
     height: Math.min(Theme.size(720), parent.height - Theme.size(56))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
@@ -65,37 +49,13 @@ Popup {
             Layout.fillWidth: true
             spacing: Theme.size(12)
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Select printing") + " · " + root.cardName
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Choose a version to preview its card image before using it.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(13)
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            AppButton {
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTr("Close")
-                Layout.preferredWidth: Theme.size(40)
-                onClicked: root.close()
+            AppPopupHeader {
+                titleText: qsTr("Select printing")
+                subtitleText: root.cardName.length > 0
+                    ? qsTr("%1 · Choose a version to preview its card image before using it.").arg(root.cardName)
+                    : qsTr("Choose a version to preview its card image before using it.")
+                showClose: true
+                onCloseRequested: root.close()
             }
         }
 
@@ -267,7 +227,7 @@ Popup {
                     spacing: Theme.size(7)
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: AppScrollBar { objectName: "printingOptionsScrollBar" }
 
                     delegate: Surface {
                         id: printingDelegate

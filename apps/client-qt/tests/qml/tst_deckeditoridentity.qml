@@ -29,18 +29,24 @@ TestCase {
 
     function init() {
         deckLibrary.resetCapturedCalls()
+        deckLibrary.currentDeckTableMode = "modern"
     }
 
     function cleanup() {
         testWindow.width = 1280
         testWindow.height = 800
         Theme.uiScale = 1
+        Theme.uiTheme = "classic"
+        deckLibrary.currentDeckTableMode = "modern"
         findChild(editor, "exportCurrentDeckDialog").close()
         findChild(editor, "currentDeckArtExportDialog").close()
     }
 
     function test_editorArtExportTargetsCurrentDeck() {
         waitForPolish(testWindow)
+        mouseClick(findChild(editor, "deckEditorMoreButton"))
+        const overflow = findChild(editor, "deckEditorMoreMenu")
+        tryVerify(() => overflow.opened)
         mouseClick(findChild(editor, "exportCurrentDeckButton"))
         const menu = findChild(editor, "exportCurrentDeckDialog")
         tryVerify(() => menu.opened)
@@ -69,18 +75,25 @@ TestCase {
         testWindow.height = data.height
         Theme.uiScale = data.scale
         waitForRendering(editor)
-        const quickSearch = findChild(editor, "deckEditorQuickSearchButton")
-        if (editor.compactLayout) {
-            verify(quickSearch.visible)
-            const position = quickSearch.mapToItem(testWindow.contentItem, 0, 0)
-            verify(position.x >= 0 && position.y >= 0
-                   && position.x + quickSearch.width <= testWindow.width
-                   && position.y + quickSearch.height <= testWindow.height,
-                   "Compact catalog search must remain reachable without scrolling the deck")
-        }
+        const search = findChild(editor, "deckEditorSearchButton")
+        verify(search !== null && search.visible)
+        const searchPoint = search.mapToItem(testWindow.contentItem, 0, 0)
+        verify(searchPoint.x >= 0 && searchPoint.y >= 0
+               && searchPoint.x + search.width <= testWindow.width
+               && searchPoint.y + search.height <= testWindow.height,
+               "Catalog search must remain reachable without scrolling the deck")
         const surface = findChild(editor, "deckEditorMainSurface")
-        for (const name of ["deckNameField", "exportCurrentDeckButton", "cacheCurrentDeckArtButton",
-                            "manageConsiderButton", "deckEditorViewMode", "deckEditorGroupMode", "deckEditorSortMode"]) {
+        for (const name of ["deckEditorMoreButton", "manageConsiderButton",
+                            "deckEditorSearchButton", "manageDeckTokensButton"]) {
+            const item = findChild(editor, name)
+            verify(item !== null, name)
+            const topLeft = item.mapToItem(editor, 0, 0)
+            const bottomRight = item.mapToItem(editor, item.width, item.height)
+            verify(item.width > 0 && item.height > 0, name + " must be usable")
+            verify(topLeft.x >= 0 && topLeft.y >= 0 && bottomRight.x <= editor.width + 1
+                   && bottomRight.y <= editor.height + 1, name + " must not be clipped")
+        }
+        for (const name of ["deckEditorViewMode", "deckEditorGroupMode", "deckEditorSortMode"]) {
             const item = findChild(editor, name)
             verify(item !== null, name)
             const topLeft = item.mapToItem(surface, 0, 0)
@@ -88,6 +101,73 @@ TestCase {
             verify(item.width > 0 && item.height > 0, name + " must be usable")
             verify(topLeft.x >= 0 && topLeft.y >= 0 && bottomRight.x <= surface.width + 1
                    && bottomRight.y <= surface.height + 1, name + " must not be clipped")
+        }
+    }
+
+    function test_editorActionsMatchSearchButtonStyle() {
+        Theme.uiTheme = "glass"
+        waitForRendering(editor)
+        const search = findChild(editor, "deckEditorSearchButton")
+        verify(search !== null)
+        for (const name of ["deckEditorMoreButton", "manageConsiderButton"]) {
+            const button = findChild(editor, name)
+            verify(button !== null, name)
+            compare(button.compact, search.compact)
+            compare(button.variant, search.variant)
+            compare(button.implicitHeight, search.implicitHeight)
+        }
+        verify(Theme.useGlass)
+    }
+
+    function test_headerTitleRenamesDeck() {
+        waitForRendering(editor)
+        const title = findChild(editor, "screenHeaderTitle")
+        verify(title !== null)
+        compare(title.text, deckLibrary.currentDeckName)
+        mouseClick(title)
+        const field = findChild(editor, "screenHeaderTitleField")
+        verify(field !== null)
+        tryVerify(() => field.visible)
+        field.text = "Renamed editor deck"
+        field.editingFinished()
+        compare(deckLibrary.lastRename, "Renamed editor deck")
+        verify(!field.visible)
+        verify(title.visible)
+    }
+
+    function test_commanderUsesFullWidthGallery() {
+        deckLibrary.currentDeckTableMode = "edh"
+        waitForRendering(editor)
+        verify(findChild(editor, "commanderSurface") === null)
+        const sidebar = findChild(editor, "deckEditorSidebar")
+        verify(sidebar !== null)
+        verify(!sidebar.visible)
+        const search = findChild(editor, "deckEditorSearchButton")
+        const tokens = findChild(editor, "manageDeckTokensButton")
+        const surface = findChild(editor, "deckEditorMainSurface")
+        const body = findChild(editor, "deckEditorBody")
+        verify(search !== null && tokens !== null && surface !== null && body !== null)
+        verify(search.visible && tokens.visible)
+        compare(search.parent, tokens.parent)
+        verify(surface.width >= body.width - 2)
+    }
+
+    function test_viewGroupSortShareFilterRowOnWideEditor() {
+        testWindow.width = 1280
+        testWindow.height = 800
+        Theme.uiScale = 1
+        waitForRendering(editor)
+        const surface = findChild(editor, "deckEditorMainSurface")
+        const search = findChild(surface, "workbenchSearch")
+        const view = findChild(editor, "deckEditorViewMode")
+        const group = findChild(editor, "deckEditorGroupMode")
+        const sort = findChild(editor, "deckEditorSortMode")
+        verify(search !== null && view !== null && group !== null && sort !== null)
+        const searchY = search.mapToItem(surface, 0, 0).y
+        for (const item of [view, group, sort]) {
+            const point = item.mapToItem(surface, 0, 0)
+            verify(Math.abs(point.y - searchY) < Theme.size(8),
+                   item.objectName + " must stay on the deck-local search row")
         }
     }
 

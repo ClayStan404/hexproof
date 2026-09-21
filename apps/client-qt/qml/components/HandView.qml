@@ -17,6 +17,9 @@ Item {
     readonly property real handScrollMinimum: handList.originX
     readonly property real handScrollMaximum:
         handScrollMinimum + Math.max(0, handList.contentWidth - handList.width)
+    readonly property real fittedHandCardWidth:
+        Math.max(root.tableController.handCardWidth,
+                 Math.round(Math.max(0, handList.height) * 63 / 88))
 
     function registerCard(cardId, item) {
         cardItems.set(cardId, item)
@@ -51,7 +54,25 @@ Item {
         return found
     }
 
-    function scrollByWheel(wheel) {
+    function stopHandScrollAnimation() {
+        if (handScrollAnimation.running)
+            handScrollAnimation.stop()
+    }
+
+    function applyHandScroll(nextX, animate) {
+        const bounded = Math.max(
+                    handScrollMinimum, Math.min(handScrollMaximum, nextX))
+        if (animate && Math.abs(bounded - handList.contentX) > 0.5) {
+            handScrollAnimation.to = bounded
+            handScrollAnimation.restart()
+            return
+        }
+        stopHandScrollAnimation()
+        if (handList.contentX !== bounded)
+            handList.contentX = bounded
+    }
+
+    function scrollByWheel(wheel, smooth) {
         if (handScrollMaximum <= handScrollMinimum) {
             wheel.accepted = false
             return
@@ -74,16 +95,39 @@ Item {
         }
 
         const previousX = handList.contentX
-        handList.contentX = Math.max(
-            handScrollMinimum, Math.min(handScrollMaximum, previousX - delta))
-        wheel.accepted = handList.contentX !== previousX
+        const nextX = Math.max(
+                    handScrollMinimum,
+                    Math.min(handScrollMaximum, previousX - delta))
+        if (nextX === previousX && !handScrollAnimation.running) {
+            wheel.accepted = false
+            return
+        }
+        applyHandScroll(nextX, smooth === true && pixelDelta === 0)
+        wheel.accepted = true
     }
 
     function clampHandScrollPosition() {
+        if (handScrollAnimation.running) {
+            const target = Math.max(
+                        handScrollMinimum,
+                        Math.min(handScrollMaximum, handScrollAnimation.to))
+            if (target !== handScrollAnimation.to)
+                handScrollAnimation.to = target
+            return
+        }
         const boundedX = Math.max(
             handScrollMinimum, Math.min(handScrollMaximum, handList.contentX))
         if (handList.contentX !== boundedX)
             handList.contentX = boundedX
+    }
+
+    SmoothedAnimation {
+        id: handScrollAnimation
+        target: handList
+        property: "contentX"
+        reversingMode: SmoothedAnimation.Immediate
+        duration: Theme.motionNormal
+        velocity: Theme.size(1400)
     }
 
     DropArea {
@@ -106,14 +150,14 @@ Item {
                     || point.x < 0 || point.x > handList.width) {
                 return
             }
-            const stride = root.tableController.handCardWidth
+            const stride = root.fittedHandCardWidth
                            + handList.spacing
             const contentCenter = handList.contentX + point.x
             const targetIndex = Math.max(
                         0, Math.min(handVisualModel.count - 1,
                                     Math.round((contentCenter
                                                 - handList.originX
-                                                - root.tableController.handCardWidth
+                                                - root.fittedHandCardWidth
                                                   / 2) / stride)))
             const sourceIndex = source.visualIndex
             if (sourceIndex >= 0 && targetIndex >= 0
@@ -166,11 +210,17 @@ Item {
         spacing: Theme.size(3)
 
         RowLayout {
+            id: ownHandHeader
+            objectName: "ownHandHeader"
             Layout.fillWidth: true
+            Layout.preferredHeight: ownHandLabel.implicitHeight
+            Layout.maximumHeight: ownHandLabel.implicitHeight
+            spacing: Theme.size(14)
 
             Text {
                 textFormat: Text.PlainText
                 id: ownHandLabel
+                objectName: "ownHandLabel"
                 text: qsTr("Your hand") + " · "
                       + root.tableController.projectionSync.visibleOwnHandCount()
                 color: root.tableController.rulesAssist.oversizedHand(
@@ -185,30 +235,109 @@ Item {
                 ToolTip.text: qsTr("The usual maximum hand size is 7. Card effects may change it.")
             }
             Item {
+                id: handScrollSlider
+                objectName: "handScrollSlider"
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.size(14)
-                // Keep the header height stable: changing card height changes
-                // card width and can otherwise toggle overflow in a loop.
-                implicitHeight: handScrollSlider.implicitHeight
+                Layout.preferredHeight: ownHandLabel.implicitHeight
+                Layout.maximumHeight: ownHandLabel.implicitHeight
+                implicitHeight: ownHandLabel.implicitHeight
+                visible: to > from
+                enabled: visible
+                property real from: root.handScrollMinimum
+                property real to: root.handScrollMaximum
+                readonly property real value: handList.contentX
+                readonly property real handleTravel:
+                    Math.max(0, width - handScrollThumb.width)
+                readonly property real handleWidth: {
+                    const range = Math.max(0, to - from)
+                    if (range <= 0 || width <= 0 || handList.width <= 0)
+                        return Math.max(Theme.size(28), width)
+                    return Math.max(
+                                Theme.size(28),
+                                width * handList.width
+                                / (handList.width + range))
+                }
 
-                Slider {
-                    id: handScrollSlider
-                    objectName: "handScrollSlider"
+                function contentXForHandle(handleX) {
+                    if (handleTravel <= 0)
+                        return from
+                    return from + (handleX / handleTravel) * (to - from)
+                }
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: Theme.size(3)
+                    radius: height / 2
+                    color: Theme.border
+                }
+
+                MouseArea {
                     anchors.fill: parent
-                    from: root.handScrollMinimum
-                    to: root.handScrollMaximum
-                    value: handList.contentX
-                    enabled: to > from
-                    visible: enabled
-                    palette.window: Theme.primary
-                    palette.light: Theme.primaryMuted
-                    palette.mid: Theme.borderStrong
-                    palette.midlight: Theme.border
-                    palette.dark: Theme.primary
-                    palette.highlight: Theme.primary
-                    onMoved: handList.contentX = value
-                    ToolTip.visible: hovered && enabled
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onPressed: function(mouse) {
+                        const targetX = Math.max(
+                                          0, Math.min(
+                                              handScrollSlider.handleTravel,
+                                              mouse.x - handScrollThumb.width / 2))
+                        root.applyHandScroll(
+                                    handScrollSlider.contentXForHandle(targetX),
+                                    true)
+                    }
+                    ToolTip.visible: containsMouse && !thumbDrag.active
                     ToolTip.text: qsTr("Scroll hand")
+                }
+
+                Rectangle {
+                    id: handScrollThumb
+                    objectName: "handScrollThumb"
+                    width: handScrollSlider.handleWidth
+                    height: Math.max(Theme.size(10), parent.height)
+                    radius: height / 2
+                    y: (parent.height - height) / 2
+                    z: 1
+                    color: thumbDrag.active ? Theme.primaryHover
+                                            : Theme.primary
+
+                    MouseArea {
+                        id: thumbDrag
+                        anchors.fill: parent
+                        preventStealing: true
+                        cursorShape: drag.active ? Qt.ClosedHandCursor
+                                                 : Qt.OpenHandCursor
+                        drag.target: handScrollThumb
+                        drag.axis: Drag.XAxis
+                        drag.minimumX: 0
+                        drag.maximumX: handScrollSlider.handleTravel
+                        drag.smoothed: false
+                        onPressed: root.stopHandScrollAnimation()
+                        onPositionChanged: {
+                            if (!drag.active)
+                                return
+                            root.applyHandScroll(
+                                        handScrollSlider.contentXForHandle(
+                                            handScrollThumb.x),
+                                        false)
+                        }
+                    }
+                }
+
+                Binding {
+                    target: handScrollThumb
+                    property: "x"
+                    value: {
+                        const range = handScrollSlider.to
+                                      - handScrollSlider.from
+                        if (handScrollSlider.handleTravel <= 0 || range === 0)
+                            return 0
+                        return handScrollSlider.handleTravel
+                               * (handScrollSlider.value - handScrollSlider.from)
+                               / range
+                    }
+                    when: !thumbDrag.active
+                    restoreMode: Binding.RestoreNone
                 }
             }
         }
@@ -240,7 +369,7 @@ Item {
                 Accessible.role: Accessible.Button
                 Accessible.name: modelData.name ? modelData.name : qsTr("Card")
                 width: pendingDeparture
-                       ? 0 : root.tableController.handCardWidth
+                       ? 0 : root.fittedHandCardWidth
                 height: handList.height
                 clip: true
                 z: handDrag.drag.active ? 100 : 0
@@ -448,6 +577,9 @@ Item {
             orientation: ListView.Horizontal
             spacing: Theme.size(7)
             clip: true
+            interactive: false
+            pixelAligned: false
+            cacheBuffer: count * Theme.size(160)
             model: handVisualModel
             boundsBehavior: Flickable.StopAtBounds
             onCountChanged: {
@@ -493,7 +625,7 @@ Item {
         z: 1000
         acceptedButtons: Qt.NoButton
         onWheel: function(wheel) {
-            root.scrollByWheel(wheel)
+            root.scrollByWheel(wheel, true)
         }
     }
 }

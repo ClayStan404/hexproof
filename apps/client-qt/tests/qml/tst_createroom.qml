@@ -89,6 +89,12 @@ TestCase {
         verify(page !== null)
         page.anchors.fill = testWindow.contentItem
         waitForRendering(page)
+        tryVerify(() => page.layoutReady)
+    }
+
+    function waitForFormMotion() {
+        wait(Theme.motionNormal + Theme.motionFast)
+        waitForRendering(page)
     }
 
     function cleanup() {
@@ -291,7 +297,7 @@ TestCase {
         page.roomFormat = data.format
         page.deckFormat = data.deckFormat || (data.format === "edh" ? "commander" : data.format)
         page.rulesMode = data.rules
-        waitForRendering(page)
+        waitForFormMotion()
         const details = findChild(page, "createRoomDetails")
         const options = findChild(page, "createRoomOptions")
         const body = findChild(page, "createRoomBody")
@@ -301,9 +307,18 @@ TestCase {
         compare(details.y, options.y)
         verify(Math.abs(details.width - options.width) <= 1)
         verify(body.contentHeight <= body.height + 1,
-               "All fields and actions should fit at 1280x720: " + body.contentHeight + "/" + body.height)
-        const bottom = button.mapToItem(body, 0, button.height)
-        verify(bottom.y <= body.height + 1)
+               "Fields should fit at 1280x720: " + body.contentHeight + "/" + body.height)
+        const content = findChild(page, "createRoomContent")
+        const actions = findChild(page, "createRoomActions")
+        const card = findChild(page, "createRoomCard")
+        verify(content.formFits)
+        const cardTop = card.mapToItem(page, 0, 0).y
+        const cardBottom = card.mapToItem(page, 0, card.height).y
+        const actionsTop = actions.mapToItem(page, 0, 0).y
+        const buttonBottom = button.mapToItem(page, 0, button.height).y
+        verify(buttonBottom <= page.height + 1)
+        verify(actionsTop >= cardTop)
+        verify(buttonBottom <= cardBottom + 1)
     }
 
     function test_narrowScaledFormStacksAndScrolls_data() {
@@ -321,7 +336,7 @@ TestCase {
         testWindow.height = 620
         Theme.uiScale = 1.25
         testTranslations.setLanguage("zh")
-        waitForRendering(page)
+        waitForFormMotion()
         const details = findChild(page, "createRoomDetails")
         const options = findChild(page, "createRoomOptions")
         const body = findChild(page, "createRoomBody")
@@ -369,6 +384,58 @@ TestCase {
         const buttonTop = button.mapToItem(body, 0, 0).y
         verify(buttonTop + button.height <= body.height + 1)
         verify(buttonTop >= -1)
+    }
+
+    function test_rulesModeToggleDoesNotRebuildTheForm() {
+        page.rulesMode = "forge"
+        page.hostingMode = "player"
+        waitForFormMotion()
+        const extras = findChild(page, "forgeHostingExtras")
+        const card = findChild(page, "createRoomCard")
+        verify(extras.height > 1)
+        const cardX = card.x
+        findChild(page, "forgeRulesMode").activated(0)
+        compare(page.rulesMode, "manual")
+        wait(Theme.motionFast)
+        verify(card.visible)
+        compare(card.x, cardX)
+        const submit = findChild(page, "createRoomSubmitButton")
+        verify(submit.mapToItem(page, 0, submit.height).y
+               <= card.mapToItem(page, 0, card.height).y + 1)
+        waitForFormMotion()
+        findChild(page, "forgeRulesMode").activated(1)
+        wait(Theme.motionFast)
+        verify(submit.mapToItem(page, 0, submit.height).y
+               <= card.mapToItem(page, 0, card.height).y + 1)
+        waitForFormMotion()
+        verify(submit.mapToItem(page, 0, submit.height).y
+               <= card.mapToItem(page, 0, card.height).y + 1)
+        findChild(page, "forgeRulesMode").activated(0)
+        waitForFormMotion()
+        compare(findChild(page, "createRoomColumns").columns, 2)
+        verify(findChild(page, "createRoomContent").formFits)
+        verify(extras.height <= 1)
+    }
+
+    function test_passwordSitsWithJoinOptions() {
+        const details = findChild(page, "createRoomDetails")
+        const password = findChild(page, "roomPasswordField")
+        compare(findChild(page, "createRoomColumns").columns, 2)
+        verify(password.mapToItem(page, 0, 0).x
+               >= details.mapToItem(page, details.width, 0).x - 1)
+    }
+
+    function test_tallWindowCentersTheForm() {
+        testWindow.height = 1080
+        waitForFormMotion()
+        const card = findChild(page, "createRoomCard")
+        const content = findChild(page, "createRoomContent")
+        verify(content.formFits)
+        verify(card.y > Theme.size(24))
+        const button = findChild(page, "createRoomSubmitButton")
+        const cardBottom = card.mapToItem(page, 0, card.height).y
+        const buttonBottom = button.mapToItem(page, 0, button.height).y
+        verify(buttonBottom <= cardBottom + 1)
     }
 
     function test_formatsUsePopularOrderAndCustomLast() {

@@ -92,13 +92,10 @@ Surface {
                 spacing: Theme.size(8)
 
                 Text {
+                    objectName: "applicationLatestVersion"
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: root.updater.checking
-                          ? qsTr("Checking…")
-                          : (root.updater.releaseAvailable
-                             ? root.updater.targetVersion
-                             : qsTr("Not checked"))
+                    text: root.latestVersionText()
                     color: root.updater.releaseAvailable ? Theme.text : Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
                     font.weight: Font.DemiBold
@@ -231,6 +228,16 @@ Surface {
         }
     }
 
+    function latestVersionText() {
+        if (root.updater.checking)
+            return qsTr("Checking…")
+        if (!root.updater.releaseAvailable)
+            return qsTr("Not checked")
+        if (root.updater.cachedRelease && root.updater.lastError.length > 0)
+            return qsTr("%1 (cached)").arg(root.updater.targetVersion)
+        return root.updater.targetVersion
+    }
+
     function statusText() {
         if (root.updater.checking)
             return qsTr("Checking")
@@ -241,14 +248,19 @@ Surface {
         if (root.updater.updateAvailable)
             return root.updater.exactVersion
                     ? qsTr("Matching version found") : qsTr("Update available")
+        if (root.updater.lastError.length > 0)
+            return qsTr("Check failed")
         if (root.updater.releaseAvailable)
             return qsTr("Up to date")
         return qsTr("Latest unknown")
     }
 
     function statusColor() {
-        if (root.updater.downloadReady || (root.updater.releaseAvailable
-                                           && !root.updater.updateAvailable))
+        if (root.updater.downloadReady)
+            return Theme.success
+        if (root.updater.lastError.length > 0)
+            return Theme.warning
+        if (root.updater.releaseAvailable && !root.updater.updateAvailable)
             return Theme.success
         if (root.updater.checking || root.updater.downloading)
             return Theme.primary

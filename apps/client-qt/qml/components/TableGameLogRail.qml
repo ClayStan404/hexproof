@@ -13,23 +13,165 @@ Surface {
 
     required property var tableController
     property alias chatInput: chatInputField
+    property bool floating: false
+    property real floatingDefaultY: Theme.size(52)
+    property real floatingDefaultWidth: Theme.size(240)
+    property real floatingDefaultHeight: Theme.size(400)
+    property Item floatingAvoidItem: null
+    property real storedNX: -1
+    property real storedNY: -1
+    property real storedNW: -1
+    property real storedNH: -1
+    property real dragOriginX: 0
+    property real dragOriginY: 0
+    property real draggedX: 0
+    property real draggedY: 0
+    property bool dragStarted: false
+    property real resizeOriginW: 0
+    property real resizeOriginH: 0
+    property real resizedW: 0
+    property real resizedH: 0
+    property bool resizeStarted: false
     readonly property var sourceEntries:
         tableController.tableGameLog ? tableController.tableGameLog : []
     readonly property var catalogModel: tableController.cardCatalogModel || null
     readonly property var publicSeats: tableController.gameTableModel
                                        ? tableController.gameTableModel.seats : []
+    readonly property real floatingEdge: Theme.size(12)
+    readonly property real maximumX: parent
+        ? Math.max(0, parent.width - width - floatingEdge) : 0
+    readonly property real maximumY: parent
+        ? Math.max(0, parent.height - height - floatingEdge) : 0
+    readonly property bool hasCustomPosition: storedNX >= 0 && storedNY >= 0
+    readonly property real defaultX: {
+        if (!parent)
+            return floatingEdge
+        let rightEdge = parent.width - Theme.size(16)
+        if (floatingAvoidItem && floatingAvoidItem.visible)
+            rightEdge = Math.min(rightEdge, floatingAvoidItem.x - Theme.size(8))
+        return Math.max(floatingEdge, rightEdge - width)
+    }
+    readonly property real defaultY: Math.max(
+        floatingEdge, Math.min(floatingDefaultY, maximumY))
+    readonly property real restingX: Math.max(
+        floatingEdge,
+        Math.min(hasCustomPosition ? storedNX * maximumX : defaultX, maximumX))
+    readonly property real restingY: Math.max(
+        floatingEdge,
+        Math.min(hasCustomPosition ? storedNY * maximumY : defaultY, maximumY))
+    readonly property real minimumFloatingWidth: Theme.size(220)
+    readonly property real minimumFloatingHeight: Theme.size(240)
+    readonly property bool hasCustomWidth: storedNW > 0
+    readonly property bool hasCustomHeight: storedNH > 0
+    readonly property real defaultWidth: {
+        if (!parent)
+            return floatingDefaultWidth
+        const maxW = Math.max(minimumFloatingWidth,
+                              parent.width - floatingEdge * 2)
+        return Math.max(minimumFloatingWidth,
+                        Math.min(floatingDefaultWidth, maxW))
+    }
+    readonly property real defaultHeight: {
+        if (!parent)
+            return floatingDefaultHeight
+        const maxH = Math.max(minimumFloatingHeight,
+                              parent.height - floatingEdge * 2)
+        return Math.max(minimumFloatingHeight,
+                        Math.min(floatingDefaultHeight, maxH))
+    }
+    readonly property real restingWidth: {
+        if (!parent)
+            return defaultWidth
+        const raw = hasCustomWidth ? storedNW * parent.width : defaultWidth
+        const maxW = Math.max(minimumFloatingWidth,
+                              parent.width - floatingEdge * 2)
+        return Math.max(minimumFloatingWidth, Math.min(raw, maxW))
+    }
+    readonly property real restingHeight: {
+        if (!parent)
+            return defaultHeight
+        const raw = hasCustomHeight ? storedNH * parent.height : defaultHeight
+        const maxH = Math.max(minimumFloatingHeight,
+                              parent.height - floatingEdge * 2)
+        return Math.max(minimumFloatingHeight, Math.min(raw, maxH))
+    }
     property int catalogRevision: 0
     property int synchronizationGeneration: 0
 
     objectName: "gameLogRail"
-    Layout.minimumWidth: root.tableController.gameLogRailWidth
-    Layout.preferredWidth: root.tableController.gameLogRailWidth
-    Layout.maximumWidth: root.tableController.gameLogRailWidth
-    Layout.fillHeight: true
+    Layout.minimumWidth: root.floating ? implicitWidth : root.tableController.gameLogRailWidth
+    Layout.preferredWidth: root.floating ? implicitWidth : root.tableController.gameLogRailWidth
+    Layout.maximumWidth: root.floating ? implicitWidth : root.tableController.gameLogRailWidth
+    Layout.fillHeight: !root.floating
     visible: root.tableController.showGameLogRail
-    color: Theme.tableRailFill
-    radius: 0
-    border.width: 0
+             && (!root.floating || root.tableController.sideboarding !== true)
+    color: root.floating
+           ? (Theme.useGlass ? "transparent"
+                             : Theme.withAlpha(Theme.surface, 0.92))
+           : Theme.tableRailFill
+    radius: root.floating ? Theme.radiusLarge : 0
+    border.width: root.floating ? 1 : 0
+    elevated: root.floating
+    clip: root.floating
+    z: root.floating ? 150 : 0
+
+    function resetFloatingPosition() {
+        storedNX = -1
+        storedNY = -1
+        storedNW = -1
+        storedNH = -1
+    }
+
+    function clampFloatingWidth(value) {
+        if (!parent)
+            return value
+        const maxW = Math.max(minimumFloatingWidth,
+                              parent.width - root.x - floatingEdge)
+        return Math.max(minimumFloatingWidth, Math.min(value, maxW))
+    }
+
+    function clampFloatingHeight(value) {
+        if (!parent)
+            return value
+        const maxH = Math.max(minimumFloatingHeight,
+                              parent.height - root.y - floatingEdge)
+        return Math.max(minimumFloatingHeight, Math.min(value, maxH))
+    }
+
+    function hideFloatingPanel() {
+        if (typeof tableController.setGameLogVisible === "function")
+            tableController.setGameLogVisible(false)
+        else
+            tableController.showGameLogRail = false
+    }
+
+    Binding {
+        when: root.floating
+        target: root
+        property: "x"
+        value: logDrag.active ? root.draggedX : root.restingX
+    }
+
+    Binding {
+        when: root.floating
+        target: root
+        property: "y"
+        value: logDrag.active ? root.draggedY : root.restingY
+    }
+
+    Binding {
+        when: root.floating
+        target: root
+        property: "width"
+        value: sizeDrag.active ? root.resizedW : root.restingWidth
+    }
+
+    Binding {
+        when: root.floating
+        target: root
+        property: "height"
+        value: sizeDrag.active ? root.resizedH : root.restingHeight
+    }
 
     ListModel {
         id: gameLogModel
@@ -175,6 +317,7 @@ Surface {
         anchors.bottom: parent.bottom
         width: Theme.size(2)
         color: Theme.tableDivider
+        visible: !root.floating
         z: 20
     }
 
@@ -183,18 +326,114 @@ Surface {
         anchors.margins: Theme.size(6)
         spacing: Theme.size(5)
 
-        Text {
-            textFormat: Text.PlainText
+        RowLayout {
             Layout.fillWidth: true
+            Layout.fillHeight: false
             Layout.preferredHeight: Theme.size(44)
-            text: qsTranslate("Table", "Game log")
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(13)
-            font.weight: Font.DemiBold
-            verticalAlignment: Text.AlignVCenter
+            Layout.maximumHeight: Theme.size(44)
+            Layout.alignment: Qt.AlignTop
+            spacing: Theme.size(4)
+
+            Item {
+                id: logDragHandle
+                objectName: "gameLogDragHandle"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Text {
+                    textFormat: Text.PlainText
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: implicitHeight
+                    text: qsTranslate("Table", "Game log")
+                    color: Theme.text
+                    font.pixelSize: Theme.fontSize(13)
+                    font.weight: Font.DemiBold
+                    verticalAlignment: Text.AlignVCenter
+                    wrapMode: Text.NoWrap
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.NoButton
+                    hoverEnabled: root.floating
+                    cursorShape: root.floating
+                                 ? (logDrag.active ? Qt.ClosedHandCursor
+                                                   : Qt.OpenHandCursor)
+                                 : Qt.ArrowCursor
+                }
+
+                TapHandler {
+                    enabled: root.floating
+                    acceptedButtons: Qt.RightButton
+                    onTapped: root.resetFloatingPosition()
+                }
+
+                HoverHandler {
+                    id: logDragHover
+                    enabled: root.floating
+                }
+
+                ToolTip.delay: 800
+                ToolTip.visible: root.floating && logDragHover.hovered
+                ToolTip.text: qsTranslate(
+                                  "BattlefieldViewControls",
+                                  "Drag to move; right-click to reset position")
+
+                DragHandler {
+                    id: logDrag
+                    enabled: root.floating
+                    target: null
+                    dragThreshold: 0
+                    acceptedButtons: Qt.LeftButton
+                    onActiveChanged: {
+                        if (active) {
+                            root.dragStarted = true
+                            root.dragOriginX = root.x
+                            root.dragOriginY = root.y
+                            root.draggedX = root.x
+                            root.draggedY = root.y
+                            return
+                        }
+                        if (!root.dragStarted)
+                            return
+                        root.dragStarted = false
+                        root.storedNX = root.maximumX > 0
+                                ? root.draggedX / root.maximumX : 0
+                        root.storedNY = root.maximumY > 0
+                                ? root.draggedY / root.maximumY : 0
+                    }
+                    onTranslationChanged: {
+                        if (!active)
+                            return
+                        root.draggedX = Math.max(
+                                    root.floatingEdge, Math.min(
+                                        root.maximumX,
+                                        root.dragOriginX + translation.x))
+                        root.draggedY = Math.max(
+                                    root.floatingEdge, Math.min(
+                                        root.maximumY,
+                                        root.dragOriginY + translation.y))
+                    }
+                }
+            }
+
+            AppButton {
+                objectName: "closeGameLogButton"
+                visible: root.floating
+                compact: true
+                variant: "ghost"
+                text: "×"
+                accessibleName: qsTr("Close")
+                Layout.preferredWidth: Theme.size(32)
+                implicitHeight: Theme.size(32)
+                onClicked: root.hideFloatingPanel()
+            }
         }
         Rectangle {
             Layout.fillWidth: true
+            Layout.fillHeight: false
             implicitHeight: 1
             color: Theme.border
         }
@@ -203,6 +442,8 @@ Surface {
             objectName: "gameLog"
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: Theme.size(64)
+            Layout.alignment: Qt.AlignTop
             model: gameLogModel
             spacing: Theme.size(7)
             clip: true
@@ -230,6 +471,10 @@ Surface {
         }
         RowLayout {
             Layout.fillWidth: true
+            Layout.fillHeight: false
+            Layout.preferredHeight: Theme.size(36)
+            Layout.maximumHeight: Theme.size(36)
+            Layout.alignment: Qt.AlignBottom
             spacing: Theme.size(5)
 
             AppTextField {
@@ -257,6 +502,84 @@ Surface {
                 enabled: root.tableController.canChat
                          && chatInputField.text.trim().length > 0
                 onClicked: root.tableController.cardActions.submitChatMessage()
+            }
+        }
+    }
+
+    Item {
+        id: sizeHandle
+        objectName: "gameLogResizeHandle"
+        visible: root.floating
+        z: 30
+        width: Theme.size(22)
+        height: Theme.size(22)
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: Theme.size(2)
+
+        Repeater {
+            model: 3
+            Rectangle {
+                required property int index
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                width: Theme.size(10)
+                height: 2
+                rotation: -45
+                transformOrigin: Item.BottomRight
+                anchors.rightMargin: Theme.size(3 + index * 4)
+                anchors.bottomMargin: Theme.size(3)
+                color: Theme.textMuted
+                opacity: 0.7
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            hoverEnabled: true
+            cursorShape: Qt.SizeFDiagCursor
+        }
+
+        HoverHandler {
+            id: sizeHover
+        }
+
+        ToolTip.delay: 800
+        ToolTip.visible: sizeHover.hovered
+        ToolTip.text: qsTranslate("Table", "Drag to resize")
+
+        DragHandler {
+            id: sizeDrag
+            target: null
+            dragThreshold: 0
+            acceptedButtons: Qt.LeftButton
+            onActiveChanged: {
+                if (active) {
+                    root.resizeStarted = true
+                    root.resizeOriginW = root.width
+                    root.resizeOriginH = root.height
+                    root.resizedW = root.width
+                    root.resizedH = root.height
+                    return
+                }
+                if (!root.resizeStarted)
+                    return
+                root.resizeStarted = false
+                if (!root.parent)
+                    return
+                root.storedNW = root.parent.width > 0
+                        ? root.resizedW / root.parent.width : -1
+                root.storedNH = root.parent.height > 0
+                        ? root.resizedH / root.parent.height : -1
+            }
+            onTranslationChanged: {
+                if (!active)
+                    return
+                root.resizedW = root.clampFloatingWidth(
+                            root.resizeOriginW + translation.x)
+                root.resizedH = root.clampFloatingHeight(
+                            root.resizeOriginH + translation.y)
             }
         }
     }

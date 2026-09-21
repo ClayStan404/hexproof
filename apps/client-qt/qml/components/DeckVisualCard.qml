@@ -53,12 +53,15 @@ Surface {
         return current.imageSourceResolved ? "" : String(current.imageSource || "")
     }
 
+    readonly property bool commanderCard: card && card.commander === true
+
     implicitWidth: Theme.size(184)
     implicitHeight: Theme.size(284)
     radius: Theme.radiusMedium
     color: cardHover.hovered ? Theme.surfaceHover : Theme.surfaceMuted
-    border.width: cardHover.hovered ? 2 : 1
-    border.color: cardHover.hovered ? Theme.primary : Theme.border
+    border.width: commanderCard || cardHover.hovered ? 2 : 1
+    border.color: commanderCard ? Theme.accent
+                  : (cardHover.hovered ? Theme.primary : Theme.border)
     clip: true
 
     HoverHandler {
@@ -123,6 +126,30 @@ Surface {
                 font.pixelSize: Theme.fontSize(12)
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+                objectName: "deckVisualCommanderBadge"
+                visible: root.commanderCard
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.margins: Theme.size(6)
+                implicitWidth: commanderBadgeLabel.implicitWidth + Theme.size(12)
+                implicitHeight: Theme.size(22)
+                radius: height / 2
+                color: Theme.accentMuted
+                border.width: 1
+                border.color: Theme.accent
+
+                Text {
+                    id: commanderBadgeLabel
+                    textFormat: Text.PlainText
+                    anchors.centerIn: parent
+                    text: qsTr("Commander")
+                    color: Theme.accent
+                    font.pixelSize: Theme.fontSize(10)
+                    font.weight: Font.DemiBold
+                }
             }
         }
 

@@ -8,7 +8,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "TokenPresentation.js" as TokenPresentation
 
-Popup {
+AppPopup {
     id: root
 
     required property var tableController
@@ -25,22 +25,9 @@ Popup {
     readonly property string cardLanguage: catalogModel && catalogModel.language || "en"
     readonly property var selectedDetails: TokenPresentation.details(catalogModel, selectedEmblem)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(760), parent.width - Theme.size(32))
     height: Math.min(Theme.size(680), parent.height - Theme.size(32))
     padding: Theme.size(20)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.color: Theme.borderStrong
-    }
 
     function showSeat(seat) {
         viewedSeat = seat
@@ -84,34 +71,12 @@ Popup {
 
     contentItem: ColumnLayout {
         spacing: Theme.size(12)
-        RowLayout {
-            Layout.fillWidth: true
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: qsTr("%1 · Emblems").arg(root.seatData.displayName || qsTr("Player"))
-                font.pixelSize: Theme.fontSize(20)
-                font.weight: Font.DemiBold
-                color: Theme.text
-                elide: Text.ElideRight
-            }
-            AppButton {
-                objectName: "closeEmblemBrowserButton"
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTr("Close")
-                Layout.preferredWidth: Theme.size(40)
-                onClicked: root.close()
-            }
-        }
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Command zone · Emblems are not battlefield permanents.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
+        AppPopupHeader {
+            titleText: qsTr("%1 · Emblems").arg(root.seatData.displayName || qsTr("Player"))
+            subtitleText: qsTr("Command zone · Emblems are not battlefield permanents.")
+            showClose: true
+            closeObjectName: "closeEmblemBrowserButton"
+            onCloseRequested: root.close()
         }
         RowLayout {
             Layout.fillWidth: true

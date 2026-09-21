@@ -366,7 +366,12 @@ TestCase {
     }
 
     function test_draggingNonFirstHandCardToStackKeepsDropLocation(data) {
-        testWindow.width = 1440
+        // Fitted hand cards use the strip height (63/88 aspect), so a full
+        // seven-card hand overflows the hand viewport at 1440 px. Rows that
+        // need every card fully visible use a wider table; clipped rows keep
+        // the narrow viewport their scrolling fixture depends on.
+        const tableWidth = data.clipped ? 1440 : 1920
+        testWindow.width = tableWidth
         testWindow.height = 900
         const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
         seats[0].hand = []
@@ -374,7 +379,7 @@ TestCase {
             seats[0].hand.push({id: "drag-hand-" + index, name: "Spell " + index, ownerSeat: 0})
         seats[0].handCount = data.count
         mockWs.gameSeats = seats
-        const table = tableComponent.createObject(tableHost, {width: 1440, height: 900})
+        const table = tableComponent.createObject(tableHost, {width: tableWidth, height: 900})
         verify(table !== null)
         const hand = findChild(table, "ownHand")
         const stack = findChild(table, "sharedDropArea")
@@ -456,10 +461,21 @@ TestCase {
         handList.contentX = slider.to
         wait(0)
 
-        const movedCard = handList.itemAtIndex(20)
-        const targetCard = handList.itemAtIndex(25)
-        verify(movedCard !== null)
+        const lastIndex = handList.count - 1
+        const targetCard = handList.itemAtIndex(lastIndex)
         verify(targetCard !== null)
+        let movedIndex = -1
+        let movedCard = null
+        for (let index = lastIndex - 1; index >= 0; --index) {
+            const item = handList.itemAtIndex(index)
+            if (item === null)
+                continue
+            movedCard = item
+            movedIndex = index
+            if (lastIndex - index >= 3)
+                break
+        }
+        verify(movedCard !== null)
         const pressPoint = movedCard.mapToItem(
                              table, movedCard.width / 2,
                              movedCard.height / 2)
@@ -470,7 +486,8 @@ TestCase {
                   dropPoint.x - pressPoint.x, dropPoint.y - pressPoint.y,
                   Qt.LeftButton, Qt.NoModifier, 30)
 
-        tryVerify(() => table.ownHand[20].id !== "s0-large-hand-20")
+        const movedId = "s0-large-hand-" + movedIndex
+        tryVerify(() => table.ownHand[movedIndex].id !== movedId)
         compare(slider.from, handList.originX)
         compare(slider.to, handList.originX
                 + Math.max(0, handList.contentWidth - handList.width))
@@ -486,6 +503,88 @@ TestCase {
         const rightCard = handList.itemAtIndex(handList.count - 1)
         const rightPosition = rightCard.mapToItem(handList, 0, 0)
         verify(rightPosition.x + rightCard.width <= handList.width + 1)
+        table.destroy()
+    }
+
+    function test_handCardsGrowIntoSpaceFormerlyUsedBySliderRow() {
+        const handSeats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        handSeats[0].hand = []
+        for (let index = 0; index < 27; ++index) {
+            handSeats[0].hand.push({
+                "id": "s0-fitted-hand-" + index,
+                "name": "Card " + index,
+                "ownerSeat": 0
+            })
+        }
+        handSeats[0].handCount = handSeats[0].hand.length
+        mockWs.gameSeats = handSeats
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+
+        const header = findChild(table, "ownHandHeader")
+        const label = findChild(table, "ownHandLabel")
+        const slider = findChild(table, "handScrollSlider")
+        const handList = findChild(table, "ownHand")
+        verify(header !== null)
+        verify(label !== null)
+        verify(slider !== null)
+        verify(handList !== null)
+        tryCompare(handList, "count", handSeats[0].hand.length)
+        tryVerify(() => handList.contentWidth > handList.width)
+        tryVerify(() => handList.itemAtIndex(0) !== null)
+
+        compare(header.height, label.implicitHeight)
+        verify(slider.visible)
+        verify(slider.height <= header.height + 1)
+        const handCard = handList.itemAtIndex(0)
+        const fittedWidth = Math.max(
+                    table.handCardWidth,
+                    Math.round(handList.height * 63 / 88))
+        compare(handCard.width, fittedWidth)
+        verify(fittedWidth > table.handCardWidth)
+        compare(handCard.height, handList.height)
+        table.destroy()
+    }
+
+    function test_handSliderThumbDragMovesContent() {
+        const handSeats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        handSeats[0].hand = []
+        for (let index = 0; index < 27; ++index) {
+            handSeats[0].hand.push({
+                "id": "s0-scroll-hand-" + index,
+                "name": "Card " + index,
+                "ownerSeat": 0
+            })
+        }
+        handSeats[0].handCount = handSeats[0].hand.length
+        mockWs.gameSeats = handSeats
+        const table = tableComponent.createObject(tableHost, {
+            "width": testWindow.width,
+            "height": testWindow.height
+        })
+        verify(table !== null)
+
+        const slider = findChild(table, "handScrollSlider")
+        const thumb = findChild(table, "handScrollThumb")
+        const handList = findChild(table, "ownHand")
+        verify(slider !== null)
+        verify(thumb !== null)
+        verify(handList !== null)
+        tryCompare(handList, "count", handSeats[0].hand.length)
+        tryVerify(() => handList.contentWidth > handList.width)
+        tryVerify(() => thumb.width >= 28)
+
+        const startX = handList.contentX
+        mouseDrag(thumb, thumb.width / 2, thumb.height / 2,
+                  120, 0, Qt.LeftButton, Qt.NoModifier, 16)
+        tryVerify(() => handList.contentX > startX + 8)
+        compare(slider.from, handList.originX)
+        compare(slider.to, handList.originX
+                + Math.max(0, handList.contentWidth - handList.width))
+        compare(slider.value, handList.contentX)
         table.destroy()
     }
 

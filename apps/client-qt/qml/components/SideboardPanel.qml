@@ -57,6 +57,7 @@ Item {
     readonly property bool limitedDeck: roomSession.deckFormat === "limited"
     readonly property var commanders: sideboardData.commanders
                                       ? sideboardData.commanders : []
+    property real trailingChromeWidth: 0
 
     onSideboardDataChanged: updateClock()
     Component.onCompleted: updateClock()
@@ -96,8 +97,9 @@ Item {
     z: 200
 
     Rectangle {
+        objectName: "sideboardWorkspace"
         anchors.fill: parent
-        color: Theme.modalScrim
+        color: Theme.useGlass ? "transparent" : Theme.background
     }
 
     MouseArea {
@@ -105,19 +107,15 @@ Item {
         acceptedButtons: Qt.AllButtons
     }
 
-    Surface {
+    ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.size(root.compactLayout ? 10 : 16)
-        elevated: true
+        anchors.margins: Theme.size(root.compactLayout ? 12 : 20)
+        spacing: Theme.size(root.compactLayout ? 6 : 12)
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Theme.size(root.compactLayout ? 12 : 20)
-            spacing: Theme.size(root.compactLayout ? 6 : 12)
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(16)
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.rightMargin: root.trailingChromeWidth
+            spacing: Theme.size(16)
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -371,7 +369,6 @@ Item {
                     }
                 }
             }
-        }
     }
 
     LimitedSideboardFilters {

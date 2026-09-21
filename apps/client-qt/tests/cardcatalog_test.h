@@ -444,6 +444,7 @@ class TestCardCatalog : public QObject
     void remoteCloseDoesNotCircuitBreakLaterCards() const;
     void manualRetryBypassesNegativeCache() const;
     void downloadsVerifiedOfficialDatabase() const;
+    void importsCompressedOfficialDatabaseFile() const;
     void reportsCatalogReleaseVersions() const;
     void catalogAutomaticCheckRunsAtMostOncePerDay() const;
     void doesNotBuildCatalogWhenOfficialPackageIsUnavailable() const;

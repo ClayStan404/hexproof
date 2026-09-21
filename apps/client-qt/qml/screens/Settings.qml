@@ -3,717 +3,98 @@
 
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Dialogs
 import QtQuick.Layouts
 import "../components"
 
 Page {
     id: root
+    objectName: "settingsHubScreen"
 
     readonly property var appWindow: ApplicationWindow.window
-
-    property string pendingPackage: ""
+    readonly property var hostingService: typeof ws !== "undefined" && ws.forgeHost ? ws.forgeHost : null
 
     background: AppBackground { }
 
     ForgeHostingDialog {
         id: hostingOptions
-        service: typeof ws !== "undefined" && ws.forgeHost ? ws.forgeHost : null
+        service: root.hostingService
     }
 
-    ScreenHeader {
-        id: header
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.topMargin: Theme.size(22)
-        anchors.leftMargin: Theme.pageMargin
-        anchors.rightMargin: Theme.pageMargin
+    SettingsPage {
+        anchors.fill: parent
         title: qsTr("Settings")
-        subtitle: qsTr("Language, appearance, updates, and local card data")
-        onBackRequested: root.appWindow.popScreen()
-    }
 
-    ScrollView {
-        objectName: "settingsBody"
-        anchors.top: header.bottom
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.topMargin: Theme.size(14)
-        anchors.bottomMargin: Theme.size(28)
-        clip: true
-        contentWidth: availableWidth
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-
-        ColumnLayout {
-            width: Math.min(Theme.size(760), parent.width - Theme.size(72))
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Theme.size(16)
-
-            AppButton {
-                objectName: "settingsForgeHosting"
-                Layout.fillWidth: true
-                text: qsTr("Local Forge: download, import and diagnostics")
-                enabled: hostingOptions.service !== null
-                onClicked: hostingOptions.open()
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: appearanceContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                ColumnLayout {
-                    id: appearanceContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(12)
-
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Appearance")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(20)
-                        font.weight: Font.DemiBold
-                    }
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("Choose Classic or Glass controls and panels. Battlefield backgrounds are selected separately.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(12)
-                        wrapMode: Text.WordWrap
-                    }
-                    SegmentedControl {
-                        objectName: "settingsThemeSelector"
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        options: [qsTr("Classic"), qsTr("Glass")]
-                        currentIndex: preferences.uiTheme === "glass" ? 1 : 0
-                        onActivated: index => preferences.uiTheme = index === 1 ? "glass" : "classic"
-                    }
-                }
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: backgroundPicker.implicitHeight + Theme.size(48)
-                elevated: true
-
-                TableBackgroundPicker {
-                    id: backgroundPicker
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    selectedId: preferences.tableBackground
-                    onBackgroundSelected: key => preferences.tableBackground = key
-                }
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: languageContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                ColumnLayout {
-                    id: languageContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(12)
-
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Interface language")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(20)
-                        font.weight: Font.DemiBold
-                    }
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("Choose the language used by menus, buttons, and game screens.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(12)
-                        wrapMode: Text.WordWrap
-                    }
-                    SegmentedControl {
-                        objectName: "settingsLanguageSelector"
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        options: [qsTr("English"), qsTr("简体中文")]
-                        currentIndex: preferences.uiLanguage === "zh" ? 1 : 0
-                        onActivated: index => preferences.uiLanguage = index === 1 ? "zh" : "en"
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(8)
-                        Layout.bottomMargin: Theme.size(8)
-                        implicitHeight: 1
-                        color: Theme.divider
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Card language and art")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(20)
-                        font.weight: Font.DemiBold
-                    }
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("Choose card names, metadata, and preferred card art independently from the interface.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(12)
-                        wrapMode: Text.WordWrap
-                    }
-                    SegmentedControl {
-                        objectName: "settingsCardLanguageSelector"
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        options: [qsTr("English cards"), qsTr("Chinese cards")]
-                        currentIndex: preferences.cardLanguage === "zh" ? 1 : 0
-                        onActivated: index => preferences.cardLanguage = index === 1 ? "zh" : "en"
-                    }
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        text: qsTr("Preferred card art source")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(13)
-                        font.weight: Font.DemiBold
-                    }
-                    SegmentedControl {
-                        objectName: "settingsCardArtProviderSelector"
-                        Layout.fillWidth: true
-                        options: [qsTr("Automatic (default)"), qsTr("Scryfall"), qsTr("MTGCH"), qsTr("Parallel")]
-                        currentIndex: preferences.cardArtProvider === "scryfall" ? 1
-                                      : preferences.cardArtProvider === "mtgch" ? 2
-                                      : preferences.cardArtProvider === "parallel" ? 3 : 0
-                        onActivated: index => preferences.cardArtProvider = index === 1
-                                              ? "scryfall" : index === 2 ? "mtgch"
-                                              : index === 3 ? "parallel" : "auto"
-                    }
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: preferences.cardArtProvider === "parallel"
-                              ? qsTr("Use both sources to speed up large card downloads, such as EDH games.")
-                              : qsTr("The preferred source is tried first for uncached art. Missing or unavailable images automatically fall back to the other source.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(11)
-                        wrapMode: Text.WordWrap
-                    }
-                    AppToggle {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(4)
-                        text: qsTr("Prefer existing local art for the same card")
-                        checked: preferences.reuseLocalCardArt
-                        onToggled: preferences.reuseLocalCardArt = checked
-                    }
-                    InfoBanner {
-                        Layout.fillWidth: true
-                        message: I18n.status(preferences.lastError)
-                    }
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("When the requested printing is not cached, reuse a cached printing of the same card and language instead of downloading another image.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(11)
-                        wrapMode: Text.WordWrap
-                    }
-                    InfoBanner {
-                        Layout.fillWidth: true
-                        tone: "warning"
-                        message: preferences.cardArtProvider === "parallel"
-                                 ? qsTr("Local art remains first. Scryfall and MTGCH download different cards in parallel, with Chinese art preferred for Chinese cards and automatic fallback.")
-                                 : preferences.cardArtProvider === "auto"
-                                 ? qsTr("Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.")
-                                 : preferences.cardArtProvider === "mtgch"
-                                 ? qsTr("Local art remains first. MTGCH is preferred for new downloads; Scryfall remains the automatic fallback.")
-                                 : qsTr("Local art remains first. Scryfall is preferred for new downloads; MTGCH remains the automatic fallback.")
-                    }
-                }
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: artStorageContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                RowLayout {
-                    id: artStorageContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(18)
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.size(4)
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Card art storage")
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(20)
-                            font.weight: Font.DemiBold
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: qsTr("View disk usage, remove cached images, or import and export shareable card art packs.")
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSize(12)
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                    StatusPill {
-                        visible: cardArtManager.repairNeeded
-                        text: qsTr("Repair recommended")
-                        statusColor: Theme.warning
-                    }
-                    AppButton {
-                        objectName: "settingsManageArtButton"
-                        text: qsTr("Manage…")
-                        onClicked: root.appWindow.pushScreen(
-                                       "screens/CardArtManager.qml")
-                    }
-                }
-            }
-
-            ApplicationUpdatePanel {
-                Layout.fillWidth: true
-                updater: appUpdater
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: scaleContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                ColumnLayout {
-                    id: scaleContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(12)
-
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Interface scale")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(20)
-                        font.weight: Font.DemiBold
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("Adjust text, controls, spacing, and dialogs together while preserving automatic window scaling.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(12)
-                        wrapMode: Text.WordWrap
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        spacing: Theme.size(10)
-
-                        AppButton {
-                            compact: true
-                            variant: "ghost"
-                            text: "−"
-                            accessibleName: qsTr("Decrease interface scale")
-                            Layout.preferredWidth: Theme.size(48)
-                            enabled: preferences.interfaceScale > 0.75
-                            onClicked: root.setInterfaceScale(
-                                preferences.interfaceScale - 0.05)
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.preferredWidth: Theme.size(90)
-                            text: Math.round(preferences.interfaceScale * 100) + "%"
-                            color: Theme.primary
-                            font.pixelSize: Theme.fontSize(22)
-                            font.weight: Font.DemiBold
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-
-                        AppButton {
-                            compact: true
-                            variant: "ghost"
-                            text: "+"
-                            objectName: "settingsIncreaseScaleButton"
-                            accessibleName: qsTr("Increase interface scale")
-                            Layout.preferredWidth: Theme.size(48)
-                            enabled: preferences.interfaceScale < 1.5
-                            onClicked: root.setInterfaceScale(
-                                preferences.interfaceScale + 0.05)
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        AppButton {
-                            compact: true
-                            objectName: "settingsResetScaleButton"
-                            text: qsTr("Reset to 100%")
-                            enabled: Math.abs(preferences.interfaceScale - 1.0) > 0.001
-                            onClicked: root.setInterfaceScale(1.0)
-                        }
-                    }
-
-                    InfoBanner {
-                        Layout.fillWidth: true
-                        tone: "success"
-                        message: qsTr("The scale applies immediately to every theme-aware UI component.")
-                    }
-                }
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: motionContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                ColumnLayout {
-                    id: motionContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(10)
-
-                    Text {
-                        textFormat: Text.PlainText
-                        text: qsTr("Motion effects")
-                        color: Theme.text
-                        font.pixelSize: Theme.fontSize(20)
-                        font.weight: Font.DemiBold
-                    }
-
-                    AppToggle {
-                        Layout.fillWidth: true
-                        text: qsTr("Animate simulated pack openings")
-                        checked: preferences.animatePackOpenings
-                        onToggled: preferences.animatePackOpenings = checked
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("Turn this off to show simulated pack contents immediately. Every opening animation can also be skipped while it is playing.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(12)
-                        wrapMode: Text.WordWrap
-                    }
-                }
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: shortcutContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                RowLayout {
-                    id: shortcutContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(18)
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.size(4)
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Keyboard shortcuts")
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(20)
-                            font.weight: Font.DemiBold
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: qsTr("Reassign, disable, or restore application and table actions.")
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSize(12)
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                    AppButton {
-                        objectName: "settingsCustomizeShortcutsButton"
-                        text: qsTr("Customize…")
-                        onClicked: root.appWindow.pushScreen(
-                                       "screens/ShortcutSettings.qml")
-                    }
-                }
-            }
-
-            Surface {
-                Layout.fillWidth: true
-                implicitHeight: catalogContent.implicitHeight + Theme.size(48)
-                elevated: true
-
-                ColumnLayout {
-                    id: catalogContent
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(24)
-                    spacing: Theme.size(12)
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            spacing: Theme.size(3)
-                            Text {
-                                textFormat: Text.PlainText
-                                text: qsTr("Searchable card database")
-                                color: Theme.text
-                                font.pixelSize: Theme.fontSize(20)
-                                font.weight: Font.DemiBold
-                            }
-                            Text {
-                                textFormat: Text.PlainText
-                                text: cardCatalog.installed
-                                      ? qsTr("%1 installed locally")
-                                        .arg(root.packageLabel(
-                                                 cardCatalog.packageName))
-                                      : qsTr("No full metadata package installed")
-                                color: Theme.textSecondary
-                                font.pixelSize: Theme.fontSize(12)
-                            }
-                        }
-                        Item { Layout.fillWidth: true }
-                        StatusPill {
-                            text: root.catalogStatusText()
-                            statusColor: root.catalogStatusColor()
-                        }
-                    }
-
-                    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.divider }
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: Theme.size(20)
-                        rowSpacing: Theme.size(6)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Installed version")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(11)
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            Layout.fillWidth: true
-                            text: cardCatalog.installed
-                                  ? qsTr("%1 · schema %2")
-                                    .arg(root.catalogVersionDate(
-                                             cardCatalog.installedCatalogVersion))
-                                    .arg(cardCatalog.installedCatalogSchemaVersion)
-                                  : qsTr("Not installed")
-                            color: Theme.text
-                            font.pixelSize: Theme.fontSize(11)
-                            font.weight: Font.DemiBold
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Latest version")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(11)
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.size(8)
-                            Text {
-                                textFormat: Text.PlainText
-                                Layout.fillWidth: true
-                                text: cardCatalog.checkingCatalogVersion
-                                      ? qsTr("Checking…")
-                                      : (cardCatalog.latestCatalogKnown
-                                         ? qsTr("%1 · schema %2")
-                                           .arg(root.catalogVersionDate(
-                                                    cardCatalog.latestCatalogVersion))
-                                           .arg(cardCatalog.latestCatalogSchemaVersion)
-                                         : qsTr("Unavailable"))
-                                color: cardCatalog.latestCatalogKnown
-                                       ? Theme.text : Theme.textMuted
-                                font.pixelSize: Theme.fontSize(11)
-                                font.weight: Font.DemiBold
-                            }
-                            AppButton {
-                                objectName: "settingsCheckCatalogUpdatesButton"
-                                compact: true
-                                variant: "ghost"
-                                text: qsTr("Check updates")
-                                enabled: !cardCatalog.checkingCatalogVersion
-                                         && !cardCatalog.busy
-                                onClicked: cardCatalog.checkCatalogUpdate()
-                            }
-                        }
-                    }
-
-                    InfoBanner {
-                        Layout.fillWidth: true
-                        visible: cardCatalog.catalogVersionError.length > 0
-                        tone: "warning"
-                        message: I18n.status(cardCatalog.catalogVersionError)
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("The database enables full offline search in the deck editor. Images are still downloaded only when a card is used.")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(12)
-                        lineHeight: 1.35
-                        wrapMode: Text.WordWrap
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        spacing: Theme.size(12)
-
-                        Surface {
-                            Layout.fillWidth: true
-                            implicitHeight: Theme.size(158)
-                            radius: Theme.radiusMedium
-                            color: Theme.surfaceMuted
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: Theme.size(14)
-                                spacing: Theme.size(4)
-                                Text { textFormat: Text.PlainText; text: qsTr("Default Cards"); color: Theme.text; font.pixelSize: Theme.fontSize(14); font.weight: Font.DemiBold }
-                                Text {
-                                    textFormat: Text.PlainText
-                                    Layout.fillWidth: true
-                                    text: qsTr("All printings and collector detail · ~80 MiB compressed + Chinese names")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(10)
-                                    wrapMode: Text.WordWrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
-                                Item { Layout.fillHeight: true }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    AppButton {
-                                        objectName: "settingsDownloadCatalogButton"
-                                        Layout.fillWidth: true
-                                        compact: true
-                                        visible: !cardCatalog.installed
-                                                 || cardCatalog.catalogUpdateAvailable
-                                                 || !cardCatalog.enhancedIndexInstalled
-                                                 || !cardCatalog.chineseIndexInstalled
-                                        text: !cardCatalog.installed
-                                              ? qsTr("Download Default")
-                                              : qsTr("Update now")
-                                        enabled: !cardCatalog.busy
-                                        onClicked: root.confirmDownload("default_cards")
-                                    }
-                                    AppButton {
-                                        objectName: "settingsImportCatalogButton"
-                                        compact: true
-                                        text: qsTr("Import…")
-                                        enabled: !cardCatalog.busy
-                                        onClicked: root.chooseImport("default_cards")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Theme.size(6)
-                        visible: cardCatalog.busy
-                        spacing: Theme.size(7)
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text { textFormat: Text.PlainText; text: I18n.status(cardCatalog.status); color: Theme.primary; font.pixelSize: Theme.fontSize(12) }
-                            Item { Layout.fillWidth: true }
-                            Text { textFormat: Text.PlainText; text: Math.round(cardCatalog.progress * 100) + "%"; color: Theme.textMuted; font.pixelSize: Theme.fontSize(11) }
-                        }
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: Theme.size(6)
-                            radius: Theme.size(3)
-                            color: Theme.disabled
-                            Rectangle {
-                                width: parent.width * cardCatalog.progress
-                                height: parent.height
-                                radius: Theme.size(3)
-                                color: Theme.primary
-                                Behavior on width { NumberAnimation { duration: Theme.motionNormal } }
-                            }
-                        }
-                    }
-
-                    InfoBanner {
-                        Layout.fillWidth: true
-                        message: I18n.status(cardCatalog.lastError)
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        text: qsTr("Metadata: Scryfall · Chinese names: MTGCH (CC BY-SA 4.0) · Stored only on this device")
-                        color: Theme.textMuted
-                        font.pixelSize: Theme.fontSize(10)
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-                }
-            }
+        SettingsModuleRow {
+            objectName: "settingsAppearanceModule"
+            Layout.fillWidth: true
+            title: qsTr("Appearance")
+            subtitle: qsTr("Theme, battlefield background, scale, and motion")
+            onActivated: root.appWindow.pushScreen("screens/AppearanceSettings.qml")
         }
-    }
 
-    ConfirmDialog {
-        id: downloadDialog
-        objectName: "settingsCatalogDownloadDialog"
-        titleText: qsTr("Download the card database?")
-        message: qsTr("Hexproof will download and verify the latest prebuilt database. It will not build a database from upstream sources on this device.")
-        confirmText: qsTr("Download")
-        onConfirmed: cardCatalog.downloadCatalog(root.pendingPackage)
-    }
+        SettingsModuleRow {
+            objectName: "settingsLanguageModule"
+            Layout.fillWidth: true
+            title: qsTr("Language & cards")
+            subtitle: qsTr("Menus, card names, and preferred art source")
+            onActivated: root.appWindow.pushScreen("screens/LanguageSettings.qml")
+        }
 
-    FileDialog {
-        id: catalogFileDialog
-        objectName: "catalogImportFileDialog"
-        title: qsTr("Import card database")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [
-            qsTr("Card database files") + " (*.sqlite *.db *.json *.gz)",
-            qsTr("All files") + " (*)"
-        ]
-        onAccepted:
-            cardCatalog.importCatalogFile(selectedFile, root.pendingPackage)
-    }
+        SettingsModuleRow {
+            objectName: "settingsCatalogModule"
+            Layout.fillWidth: true
+            title: qsTr("Card database")
+            subtitle: qsTr("Searchable metadata for the deck editor")
+            statusText: root.catalogStatusText()
+            statusColor: root.catalogStatusColor()
+            onActivated: root.appWindow.pushScreen("screens/CatalogSettings.qml")
+        }
 
-    function confirmDownload(packageType) {
-        root.pendingPackage = packageType
-        downloadDialog.open()
-    }
+        SettingsModuleRow {
+            objectName: "settingsDownloadSetArtButton"
+            Layout.fillWidth: true
+            title: qsTr("Download set art")
+            subtitle: qsTr("Cache every printing from an installed set product")
+            onActivated: root.appWindow.pushScreen("screens/SetArtDownload.qml")
+        }
 
-    function chooseImport(packageType) {
-        root.pendingPackage = packageType
-        catalogFileDialog.open()
-    }
+        SettingsModuleRow {
+            objectName: "settingsManageArtButton"
+            Layout.fillWidth: true
+            title: qsTr("Card art storage")
+            subtitle: qsTr("View disk usage, remove cached images, or share art packs")
+            statusText: cardArtManager.repairNeeded ? qsTr("Repair recommended") : ""
+            statusColor: Theme.warning
+            onActivated: root.appWindow.pushScreen("screens/CardArtManager.qml")
+        }
 
-    function packageLabel(packageType) {
-        return packageType === "default_cards"
-               ? qsTr("Default Cards") : qsTr("Legacy card database")
-    }
+        SettingsModuleRow {
+            objectName: "settingsCustomizeShortcutsButton"
+            Layout.fillWidth: true
+            title: qsTr("Keyboard shortcuts")
+                subtitle: qsTr("Reassign, disable, or restore application and table actions.")
+            onActivated: root.appWindow.pushScreen("screens/ShortcutSettings.qml")
+        }
 
-    function catalogVersionDate(version) {
-        if (!version)
-            return qsTr("Unknown")
-        const parsed = new Date(version)
-        return isNaN(parsed.getTime()) ? qsTr("Unknown")
-                                        : Qt.formatDateTime(parsed, "yyyy-MM-dd")
+        SettingsModuleRow {
+            objectName: "settingsUpdatesModule"
+            Layout.fillWidth: true
+            title: qsTr("Application updates")
+            subtitle: qsTr("Check GitHub Releases and install a verified package")
+            statusText: appUpdater.updateAvailable
+                        ? qsTr("Update %1 available").arg(appUpdater.targetVersion) : ""
+            statusColor: Theme.primary
+            onActivated: root.appWindow.pushScreen("screens/UpdatesSettings.qml")
+        }
+
+        SettingsModuleRow {
+            objectName: "settingsForgeHosting"
+            Layout.fillWidth: true
+            title: qsTr("Local Forge")
+            subtitle: qsTr("Download, import, and diagnose the rules engine")
+            enabled: root.hostingService !== null
+            onActivated: hostingOptions.open()
+        }
     }
 
     function catalogStatusText() {
@@ -741,14 +122,5 @@ Page {
                 && cardCatalog.chineseIndexInstalled)
             return Theme.success
         return Theme.warning
-    }
-
-    function setInterfaceScale(scale) {
-        preferences.interfaceScale = Math.round(scale * 20) / 20
-    }
-
-    Component.onCompleted: {
-        cardCatalog.clearLastError()
-        cardCatalog.checkCatalogUpdateIfDue()
     }
 }

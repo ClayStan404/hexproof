@@ -14,6 +14,8 @@ Surface {
     property bool externalDamageChoices: false
     property bool showZoneActions: false
     property bool showActions: true
+    property bool hideIdlePriorityStatus: false
+    property real contentMargins: Theme.size(6)
     property Component contextControls: null
     readonly property bool externallyPresented:
         (externalCardChoices && ["chooseCards", "mulliganPutBack", "revealCards", "scry",
@@ -27,7 +29,7 @@ Surface {
     property alias actionPicker: actionPicker
 
     objectName: "rulesDecisionDock"
-    implicitHeight: content.implicitHeight + Theme.size(12)
+    implicitHeight: content.implicitHeight + contentMargins * 2
     color: Theme.tableRailFill
     radius: 0
     border.width: 0
@@ -52,8 +54,8 @@ Surface {
     ColumnLayout {
         id: content
         anchors.fill: parent
-        anchors.margins: Theme.size(6)
-        spacing: Theme.size(6)
+        anchors.margins: root.contentMargins
+        spacing: Theme.size(8)
 
         Item {
             objectName: "rulesDecisionBody"
@@ -110,6 +112,7 @@ Surface {
             Layout.maximumHeight: implicitHeight
             visible: root.showActions
             tableController: root.tableController
+            hideIdleStatus: root.hideIdlePriorityStatus
             externallyShownActionIds: root.showZoneActions ? zoneActions.actions.map(action => action.responseId) : []
         }
     }

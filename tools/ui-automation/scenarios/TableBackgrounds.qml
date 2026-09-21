@@ -132,6 +132,8 @@ Item {
             require(preferences.tableBackground === "default", "New profiles must use the default background")
         })
         add("Open settings", () => click("mainMenuSettingsButton"), () => !!find("settingsBody"))
+        add("Open appearance settings", () => click("settingsAppearanceModule", "settingsBody"),
+            () => !!find("settingsThemeSelector"))
         add("Choose ink artwork in global settings", () => selectBackground("ink", "settingsBody"),
             () => preferences.tableBackground === "ink")
         add("Capture global picker", () => capture("settings-picker"))
@@ -139,7 +141,7 @@ Item {
             if (theme === "glass") {
                 add("Prepare settings route for theme selection", () => {
                     auditProbe.fixture("settings-route", {description: "Navigate to settings while preserving the background preference"})
-                    auditWindow.stack.push("qrc:/qml/screens/Settings.qml")
+                    auditWindow.stack.push("qrc:/qml/screens/AppearanceSettings.qml")
                 }, () => !!find("settingsThemeSelector"))
             }
             add("Select " + theme + " theme", () => {

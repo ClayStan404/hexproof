@@ -149,6 +149,11 @@ class DeckLibraryModel : public QAbstractListModel
     Q_INVOKABLE bool copyCurrentDeckText();
     Q_INVOKABLE bool saveDeckText(const QString &id, const QUrl &fileUrl);
     Q_INVOKABLE bool saveCurrentDeckText(const QUrl &fileUrl);
+    Q_INVOKABLE QString formatPublishedDeckText(const QVariantMap &deck) const;
+    Q_INVOKABLE bool copyPublishedDeckText(const QVariantMap &deck);
+    Q_INVOKABLE bool savePublishedDeckText(const QVariantMap &deck, const QUrl &fileUrl);
+    Q_INVOKABLE QUrl suggestedPublishedDeckUrl(const QString &participantName,
+                                               const QString &deckName) const;
     Q_INVOKABLE bool deleteDeck(const QString &id);
     Q_INVOKABLE bool openDeck(const QString &id);
     Q_INVOKABLE void closeDeck();

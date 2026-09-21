@@ -11,6 +11,40 @@ Page {
     objectName: "createRoomPage"
 
     readonly property bool wideLayout: width >= Theme.size(1000)
+    readonly property int formWidth: Math.min(Theme.size(920), width - 2 * Theme.pageMargin)
+    property bool layoutReady: false
+
+    component RevealBlock: Item {
+        id: reveal
+        default property alias contentData: content.data
+        property bool expanded: false
+        implicitHeight: height
+        height: expanded ? Math.ceil(content.implicitHeight) : 0
+        clip: true
+        enabled: expanded
+        opacity: expanded ? 1 : 0
+        visible: expanded || height > 0
+
+        Behavior on height {
+            enabled: root.layoutReady
+            NumberAnimation {
+                duration: Theme.motionNormal
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on opacity {
+            enabled: root.layoutReady
+            NumberAnimation { duration: Theme.motionFast }
+        }
+
+        ColumnLayout {
+            id: content
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            spacing: Theme.size(8)
+        }
+    }
     readonly property var appWindow: ApplicationWindow.window
     readonly property var formatOptions: I18n.deckFormatOptions()
     readonly property var selectableFormatOptions:
@@ -58,6 +92,7 @@ Page {
 
     Component.onCompleted: {
         root.ensureSelectedCube()
+        Qt.callLater(() => { root.layoutReady = true })
     }
 
     ScreenHeader {
@@ -79,32 +114,41 @@ Page {
         onBackRequested: root.appWindow.popScreen()
     }
 
-    Flickable {
-        id: formBody
-        objectName: "createRoomBody"
+    Item {
+        id: contentArea
+        objectName: "createRoomContent"
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.topMargin: Theme.size(14)
         anchors.bottomMargin: Theme.size(24)
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        contentWidth: width
-        contentHeight: Math.max(height, formCard.height)
-        ScrollBar.vertical: ScrollBar {
-            policy: formBody.contentHeight > formBody.height
-                    ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-        }
+        readonly property bool formFits: formCard.implicitHeight <= height
 
-        Surface {
-            id: formCard
-            objectName: "createRoomCard"
-            width: Math.min(Theme.size(1120), formBody.width - 2 * Theme.pageMargin)
-            implicitHeight: form.implicitHeight + Theme.size(48)
-            height: implicitHeight
-            x: Math.max(0, Math.round((formBody.width - width) / 2))
-            elevated: true
+        Flickable {
+            id: formBody
+            objectName: "createRoomBody"
+            anchors.fill: parent
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: width
+            contentHeight: Math.max(height, formCard.y + formCard.height)
+            ScrollBar.vertical: ScrollBar {
+                policy: formBody.contentHeight > formBody.height
+                        ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+            }
+
+            Surface {
+                id: formCard
+                objectName: "createRoomCard"
+                width: root.formWidth
+                implicitHeight: form.implicitHeight + Theme.size(48)
+                height: implicitHeight
+                x: Math.max(0, Math.round((formBody.width - width) / 2))
+                y: contentArea.formFits
+                   ? Math.max(0, Math.round((formBody.height - height) / 2))
+                   : 0
+                elevated: true
 
             ColumnLayout {
                 id: form
@@ -257,6 +301,7 @@ Page {
                             visible: !root.playtestMode && !root.isCubeFormat
                             implicitHeight: rulesModeColumn.implicitHeight + Theme.size(28)
                             radius: Theme.radiusMedium
+                            quiet: false
                             color: Theme.surfaceMuted
 
                             ColumnLayout {
@@ -287,57 +332,55 @@ Page {
                                     }
                                 }
 
-                                SegmentedControl {
-                                    objectName: "forgeHostingMode"
+                                RevealBlock {
+                                    objectName: "forgeHostingExtras"
                                     Layout.fillWidth: true
-                                    visible: root.rulesMode === "forge"
-                                    options: [qsTr("Server hosted"), qsTr("Host on this computer")]
-                                    currentIndex: root.hostingMode === "player" ? 1 : 0
-                                    onActivated: index => {
-                                        root.hostingMode = index === 1 ? "player" : "server"
-                                        if (root.hostingMode === "player" && root.hub.forgeHost)
-                                            root.hub.forgeHost.check()
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    visible: root.rulesMode === "forge" && root.hostingMode === "player"
-                                    Text {
+                                    expanded: root.rulesMode === "forge"
+
+                                    SegmentedControl {
+                                        objectName: "forgeHostingMode"
                                         Layout.fillWidth: true
-                                        textFormat: Text.PlainText
-                                        text: qsTr("Your computer runs Forge. Keep Hexproof open during the match. This is trusted-host play: the host can access hidden cards and control the engine. Public tournaments use server hosting.")
-                                        color: Theme.warning
-                                        wrapMode: Text.WordWrap
-                                        font.pixelSize: Theme.fontSize(11)
-                                    }
-                                    Text {
-                                        Layout.fillWidth: true
-                                        textFormat: Text.PlainText
-                                        text: root.hub.forgeHost ? root.hub.forgeHost.status : ""
-                                        color: Theme.textSecondary
-                                        wrapMode: Text.WordWrap
-                                        font.pixelSize: Theme.fontSize(11)
-                                    }
-                                    ProgressBar {
-                                        Layout.fillWidth: true
-                                        visible: root.hub.forgeHost ? root.hub.forgeHost.busy : false
-                                        value: root.hub.forgeHost ? root.hub.forgeHost.progress : 0
-                                        indeterminate: value <= 0
-                                    }
-                                    AppButton {
-                                        objectName: "prepareForgeHostButton"
-                                        text: root.hub.forgeHost && root.hub.forgeHost.busy ? qsTr("Cancel") : qsTr("Prepare local Forge")
-                                        enabled: root.hub.playerHostingAvailable === true
-                                        onClicked: {
-                                            if (root.hub.forgeHost.busy) root.hub.forgeHost.cancel()
-                                            else root.hub.forgeHost.prepare()
+                                        options: [qsTr("Server hosted"), qsTr("Host on this computer")]
+                                        currentIndex: root.hostingMode === "player" ? 1 : 0
+                                        onActivated: index => {
+                                            root.hostingMode = index === 1 ? "player" : "server"
+                                            if (root.hostingMode === "player" && root.hub.forgeHost)
+                                                root.hub.forgeHost.check()
                                         }
                                     }
-                                    AppButton {
-                                        objectName: "forgeHostingOptions"
-                                        text: qsTr("Downloads and diagnostics")
-                                        variant: "ghost"
-                                        onClicked: hostingOptions.open()
+                                    RevealBlock {
+                                        Layout.fillWidth: true
+                                        expanded: root.hostingMode === "player"
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            textFormat: Text.PlainText
+                                            text: root.hub.forgeHost ? root.hub.forgeHost.status : ""
+                                            color: Theme.textSecondary
+                                            wrapMode: Text.WordWrap
+                                            font.pixelSize: Theme.fontSize(11)
+                                        }
+                                        ProgressBar {
+                                            Layout.fillWidth: true
+                                            visible: root.hub.forgeHost ? root.hub.forgeHost.busy : false
+                                            value: root.hub.forgeHost ? root.hub.forgeHost.progress : 0
+                                            indeterminate: value <= 0
+                                        }
+                                        AppButton {
+                                            objectName: "prepareForgeHostButton"
+                                            text: root.hub.forgeHost && root.hub.forgeHost.busy ? qsTr("Cancel") : qsTr("Prepare local Forge")
+                                            enabled: root.hub.playerHostingAvailable === true
+                                            onClicked: {
+                                                if (root.hub.forgeHost.busy) root.hub.forgeHost.cancel()
+                                                else root.hub.forgeHost.prepare()
+                                            }
+                                        }
+                                        AppButton {
+                                            objectName: "forgeHostingOptions"
+                                            text: qsTr("Downloads and diagnostics")
+                                            variant: "ghost"
+                                            onClicked: hostingOptions.open()
+                                        }
                                     }
                                 }
                                 Text {
@@ -365,6 +408,30 @@ Page {
                         Layout.alignment: Qt.AlignTop
                         spacing: Theme.size(12)
 
+                        Text {
+                            textFormat: Text.PlainText
+                            visible: !root.playtestMode && !root.isCubeFormat
+                            text: qsTr("ROOM PASSWORD · OPTIONAL")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.1
+                        }
+
+                        AppTextField {
+                            id: passwordField
+                            objectName: "roomPasswordField"
+                            Layout.fillWidth: true
+                            visible: !root.playtestMode && !root.isCubeFormat
+                            placeholderText: qsTr("Leave blank for code-only access")
+                            echoMode: TextInput.Password
+                            maximumLength: 72
+                            maximumUtf8Bytes: 72
+                            text: root.roomPassword
+                            onTextEdited: root.roomPassword = text
+                            onAccepted: root.submit()
+                        }
+
                         SegmentedControl {
                             objectName: "cubeVariantControl"
                             Layout.fillWidth: true
@@ -381,6 +448,7 @@ Page {
                             Layout.fillWidth: true
                             implicitHeight: cubeSelection.implicitHeight + Theme.size(28)
                             visible: root.isCubeFormat
+                            quiet: false
                             color: Theme.surfaceMuted
 
                             ColumnLayout {
@@ -532,6 +600,7 @@ Page {
                             visible: !root.playtestMode && !root.isCubeFormat
                             implicitHeight: Theme.size(52)
                             radius: Theme.radiusMedium
+                            quiet: false
                             color: Theme.surfaceMuted
 
                             RowLayout {
@@ -570,6 +639,7 @@ Page {
                                      && root.allowSpectators
                             implicitHeight: Theme.size(52)
                             radius: Theme.radiusMedium
+                            quiet: false
                             color: Theme.surfaceMuted
 
                             RowLayout {
@@ -603,6 +673,7 @@ Page {
                             visible: !root.isCubeFormat
                             implicitHeight: cardLoadingColumn.implicitHeight + Theme.size(28)
                             radius: Theme.radiusMedium
+                            quiet: false
                             color: Theme.surfaceMuted
 
                             ColumnLayout {
@@ -644,30 +715,6 @@ Page {
                             }
                         }
 
-                        Text {
-                            textFormat: Text.PlainText
-                            visible: !root.playtestMode && !root.isCubeFormat
-                            text: qsTr("ROOM PASSWORD · OPTIONAL")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(11)
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1.1
-                        }
-
-                        AppTextField {
-                            id: passwordField
-                            objectName: "roomPasswordField"
-                            Layout.fillWidth: true
-                            visible: !root.playtestMode && !root.isCubeFormat
-                            placeholderText: qsTr("Leave blank for code-only access")
-                            echoMode: TextInput.Password
-                            maximumLength: 72
-                            maximumUtf8Bytes: 72
-                            text: root.roomPassword
-                            onTextEdited: root.roomPassword = text
-                            onAccepted: root.submit()
-                        }
-
                     }
                 }
 
@@ -690,6 +737,7 @@ Page {
                 }
 
                 RowLayout {
+                    objectName: "createRoomActions"
                     Layout.fillWidth: true
                     Layout.topMargin: Theme.size(12)
                     spacing: Theme.size(10)
@@ -716,6 +764,7 @@ Page {
                         onClicked: root.submit()
                     }
                 }
+            }
             }
         }
     }

@@ -40,6 +40,7 @@ TestCase {
     }
     QtObject {
         id: catalog
+        signal catalogChanged()
         property bool installed: false
         property bool busy: false
         property bool enhancedIndexInstalled: false
@@ -57,8 +58,21 @@ TestCase {
         property string status: ""
         property string lastError: ""
         property real progress: 0
+        property bool limitedArtCaching: false
+        property string limitedArtProductId: ""
+        property int limitedArtTotal: 0
+        property int limitedArtCompleted: 0
+        property int limitedArtFailed: 0
         function clearLastError() { lastError = "" }
         function checkCatalogUpdateIfDue() { }
+        function limitedProducts() { return [] }
+        function limitedProduct(id) { return ({}) }
+        function cacheLimitedProductArt(id) { }
+    }
+    QtObject {
+        id: prefs
+        property string cardArtProvider: "auto"
+        property string cardLanguage: "en"
     }
     QtObject {
         id: updater
@@ -96,12 +110,40 @@ TestCase {
             property var appUpdater: updater
         }
     }
+    Component {
+        id: appearanceSettingsComponent
+        AppearanceSettings { }
+    }
+    Component {
+        id: languageSettingsComponent
+        LanguageSettings { }
+    }
+    Component {
+        id: catalogSettingsComponent
+        CatalogSettings {
+            property var cardCatalog: catalog
+        }
+    }
+    Component {
+        id: updatesSettingsComponent
+        UpdatesSettings {
+            property var appUpdater: updater
+        }
+    }
+    Component {
+        id: setArtDownloadComponent
+        SetArtDownload {
+            property var cardCatalog: catalog
+            property var preferences: prefs
+        }
+    }
 
     function init() {
         window.openedScreen = ""
         window.width = 1280
         window.height = 800
         Theme.uiScale = 1
+        Theme.uiTheme = "classic"
         hub.connected = false
         hub.inRoom = false
         hub.displayName = "Navigation test"
@@ -112,6 +154,7 @@ TestCase {
     }
     function cleanup() {
         Theme.uiScale = 1
+        Theme.uiTheme = "classic"
         testTranslations.setLanguage("en")
     }
     function createPage(component) {
@@ -129,6 +172,38 @@ TestCase {
                 return true
         }
         return false
+    }
+
+    function test_wideHomeHeroDescribesManualForgeAndLimited() {
+        window.width = 1600
+        window.height = 900
+        const page = createPage(mainMenuComponent)
+        const hero = findChild(page, "mainMenuHero")
+        verify(hero.visible)
+        compare(findChild(page, "mainMenuHeroManualTitle").text, "Manual")
+        compare(findChild(page, "mainMenuHeroForgeTitle").text, "Forge")
+        compare(findChild(page, "mainMenuHeroLimitedDetail").text, "Sealed · Draft · Cube")
+        verify(!containsText(page, "No rules engine"))
+        verify(!containsText(page, "MANUAL TABLETOP · NATIVE DESKTOP"))
+        window.width = 900
+        window.height = 620
+        waitForRendering(page)
+        verify(!findChild(page, "mainMenuHero").visible)
+    }
+
+    function test_classicHomePanelKeepsAVisibleFrame() {
+        Theme.uiTheme = "classic"
+        const page = createPage(mainMenuComponent)
+        const panel = findChild(page, "mainMenuPanel")
+        verify(panel !== null)
+        compare(panel.border.width, 2)
+        compare(panel.border.color, "#8fb8a4")
+        compare(panel.color, Theme.surface)
+        hub.connected = true
+        waitForRendering(page)
+        compare(panel.border.width, 2)
+        compare(panel.border.color, "#8fb8a4")
+        compare(panel.color, Theme.surface)
     }
 
     function test_homeUsesEventsInsteadOfSeparateLimitedEntry() {
@@ -315,6 +390,25 @@ TestCase {
         verify(!containsText(page, "开始一桌"))
     }
 
+    function test_homeBrowseAndSimulatorMatchPanelButtons() {
+        Theme.uiTheme = "glass"
+        hub.connected = true
+        const page = createPage(mainMenuComponent)
+        const join = findChild(page, "mainMenuJoinRoomButton")
+        const browse = findChild(page, "mainMenuBrowseHubButton")
+        const simulator = findChild(page, "mainMenuPackSimulatorButton")
+        const events = findChild(page, "mainMenuEventsButton")
+        verify(join !== null && browse !== null && simulator !== null && events !== null)
+        compare(browse.compact, false)
+        compare(simulator.compact, false)
+        compare(browse.variant, join.variant)
+        compare(simulator.variant, events.variant)
+        compare(browse.height, join.height)
+        compare(simulator.height, events.height)
+        verify(Theme.useGlass)
+        verify(browse.glassVariant && simulator.glassVariant && join.glassVariant)
+    }
+
     function test_homeOpensSimulator_data() {
         return [{tag: "english-offline", language: "en", width: 1280, height: 800, scale: 1,
                  connected: false, inRoom: false},
@@ -353,5 +447,53 @@ TestCase {
         const page = createPage(settingsComponent)
         verify(!containsText(page, "Pack simulator"))
         compare(findChild(page, "settingsPackSimulatorButton"), null)
+    }
+
+    function test_settingsHubOpensSeparateModules() {
+        const page = createPage(settingsComponent)
+        const modules = [
+            ["settingsAppearanceModule", "screens/AppearanceSettings.qml"],
+            ["settingsLanguageModule", "screens/LanguageSettings.qml"],
+            ["settingsCatalogModule", "screens/CatalogSettings.qml"],
+            ["settingsDownloadSetArtButton", "screens/SetArtDownload.qml"],
+            ["settingsManageArtButton", "screens/CardArtManager.qml"],
+            ["settingsCustomizeShortcutsButton", "screens/ShortcutSettings.qml"],
+            ["settingsUpdatesModule", "screens/UpdatesSettings.qml"]
+        ]
+        compare(findChild(page, "settingsThemeSelector"), null)
+        compare(findChild(page, "settingsLanguageSelector"), null)
+        compare(findChild(page, "settingsDownloadCatalogButton"), null)
+        for (const [name, screen] of modules) {
+            const row = findChild(page, name)
+            verify(row !== null, name)
+            window.openedScreen = ""
+            mouseClick(row)
+            compare(window.openedScreen, screen, name)
+        }
+    }
+
+    function test_settingsModulesLoadIndependently() {
+        const appearance = createPage(appearanceSettingsComponent)
+        verify(findChild(appearance, "settingsThemeSelector") !== null)
+        verify(findChild(appearance, "settingsIncreaseScaleButton") !== null)
+        compare(findChild(appearance, "settingsLanguageSelector"), null)
+
+        const language = createPage(languageSettingsComponent)
+        verify(findChild(language, "settingsLanguageSelector") !== null)
+        verify(findChild(language, "settingsCardLanguageSelector") !== null)
+        compare(findChild(language, "settingsThemeSelector"), null)
+
+        const catalogPage = createPage(catalogSettingsComponent)
+        verify(findChild(catalogPage, "settingsDownloadCatalogButton") !== null
+               || findChild(catalogPage, "settingsImportCatalogButton") !== null)
+        compare(findChild(catalogPage, "settingsThemeSelector"), null)
+
+        const updates = createPage(updatesSettingsComponent)
+        verify(findChild(updates, "checkApplicationUpdatesButton") !== null)
+        compare(findChild(updates, "settingsThemeSelector"), null)
+
+        const setArt = createPage(setArtDownloadComponent)
+        verify(findChild(setArt, "setArtDownloadBody") !== null)
+        compare(findChild(setArt, "settingsThemeSelector"), null)
     }
 }

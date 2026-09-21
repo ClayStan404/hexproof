@@ -145,8 +145,7 @@ Item {
         planSearch()
     }
     function planSearch() {
-        add("Open catalog search", () => click(find("deckEditorQuickSearchButton")
-            ? "deckEditorQuickSearchButton" : "deckEditorSearchButton", "deckEditorBody"),
+        add("Open catalog search", () => click("deckEditorSearchButton"),
             () => !!find("cardSearchDoneButton"))
         add("Load old search results", () => fill("Lightning Bolt", true),
             () => !cardCatalog.searching && !!find("workbenchCard-Lightning Bolt"))

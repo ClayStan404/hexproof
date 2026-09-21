@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property string playerName: ""
@@ -13,23 +13,7 @@ Popup {
     property string currentLabel: ""
     signal labelRequested(string counterKey, string label)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(420), parent.width - Theme.size(48))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function showFor(displayName, key, label) {
         playerName = displayName
@@ -52,23 +36,9 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(16)
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: root.playerName + " · " + qsTr("Rename counter")
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(20)
-            font.weight: Font.DemiBold
-            wrapMode: Text.WordWrap
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Everyone at the table sees this label and count.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
+        AppPopupHeader {
+            titleText: root.playerName + " · " + qsTr("Rename counter")
+            subtitleText: qsTr("Everyone at the table sees this label and count.")
         }
 
         AppTextField {

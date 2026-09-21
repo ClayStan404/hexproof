@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property string titleText: ""
@@ -15,20 +15,14 @@ Popup {
     signal stayRequested()
     signal returnRequested()
 
-    parent: Overlay.overlay
-    x: parent ? Math.round((parent.width - width) / 2) : 0
-    y: parent ? Math.round((parent.height - height) / 2) : 0
     width: parent ? Math.min(Theme.size(520), Math.max(0, parent.width - Theme.size(48))) : 0
     padding: Theme.size(28)
-    modal: true
-    focus: true
     closePolicy: Popup.NoAutoClose
 
-    Overlay.modal: Rectangle { color: "#B3050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
+    background: Surface {
+        elevated: true
         radius: Theme.radiusLarge
+        color: Theme.useGlass ? Theme.tableHandFill : Theme.surfaceElevated
         border.width: Theme.size(2)
         border.color: Theme.primary
     }

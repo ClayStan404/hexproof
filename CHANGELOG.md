@@ -9,6 +9,77 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-09-21
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.0.5**; application versions
+  must match exactly. The WebSocket protocol, the native adapter overlay and
+  the online server directory are unchanged from 2.0.4, so server-managed
+  Forge runtimes need no rebuild.
+
+### Added
+
+- Add a standalone **Download set art** screen under Settings and Card art
+  storage. It reuses the Limited product-art cache so a set or booster
+  product can be downloaded without opening a Set Sealed or Set Draft lobby.
+- Let completed-event decklists export as the same importable
+  Deck / Sideboard / Commander text used by the deck library.
+- Import gzipped Hexproof card databases. Local import treated official
+  `sqlite.gz` files as Scryfall JSONL; a gzipped SQLite header is now detected
+  and decompressed the same way the GitHub update path already does.
+- Fall back when the GitHub update API fails: a stale cached release no longer
+  looks current, and the latest package can be discovered from public
+  github.com checksums when `api.github.com` is rate-limited.
+- Remember the last connect display name across restarts and disconnects,
+  without tying it to resume credentials or the hub.
+
+### Changed
+
+- Rework the connect screen: it is now a full page simplified to server,
+  name, and connect, centered on tall windows, instead of a floating card.
+- Describe Manual, Forge, and Limited (Sealed, Draft, Cube) on the home hero
+  instead of the old seat-count statistics.
+- Split Settings into category modules behind a hub, so appearance, language,
+  catalog and updates each get their own screen.
+- Tighten and center the create-room form: table identity on the left, join
+  options on the right, with glass inner cards and animated rules extras.
+- Group waiting-room player-host status, direct-connection actions and
+  diagnostics into one compact footer strip.
+- Keep the Forge lower-right dock to phase and priority passing. Settings,
+  Full control, log/chat, and player-hosting controls open from a top-right
+  Settings button.
+- Park the Forge phase and pass plate on the bottom-right hand band so the
+  battlefield can use the full right side. Turn and phase show once, with
+  full-width Pass and Next actions.
+- Float the Forge log and chat over the playmat as a full-height panel that
+  can be dragged and resized, with a pinned header; the board and pass plate
+  stay still while it is open.
+- Localize Forge table card names: public labels use the catalog display name
+  for the current card language instead of the engine's English identity.
+- Show complete card faces on Forge zone piles at the standard ratio so art
+  and names are not cropped.
+- Replace the cramped overflowing-hand slider with a proportional thumb that
+  tracks the pointer and eased wheel notches for large hands; hand cards grow
+  into the strip instead of letterboxing under a fixed width.
+- Restyle commander tax to match the life steppers, with partner tax as
+  full-width rows on one dock row.
+- Restore classic panel outlines and limit the glass wash to the stack tray
+  and hand strip, dropping the opaque zone-dock well.
+- Unify table dialog chrome and restyle table context menus.
+- Show completed-event decklists as grouped card art with hover previews
+  instead of a cramped two-column text list.
+- Keep the deck editor's view, group, and sort controls on the same toolbar
+  row as the deck-local search when the window can fit them.
+- Make catalog search an add-only popup, like the token picker, instead of a
+  second live deck editor beside the results.
+- Let catalog search add a selected result to the main deck, sideboard, or
+  Consider after searching. Commander and Cube hide Sideboard.
+- Make overflowing catalog-search results use a high-contrast scrollbar.
+- Use the shared popup chrome for Consider and the printing picker, and the
+  same high-contrast scrollbar on the editor gallery and Consider list.
+- Move deck-editor export and current-deck art caching into a More menu.
+
 ## [2.0.4] - 2026-09-19
 
 ### Upgrade notes

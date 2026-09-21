@@ -376,11 +376,17 @@ TestCase {
         catalog.language = "zh"
         tryCompare(name,"text","多明纳里亚英雄泰菲力徽记")
         verify(details.text.includes("徽记～泰菲力"))
-        verify(details.text.includes("每当你抓一张牌时"))
+        verify(!details.text.includes("每当你抓一张牌时"))
         verify(catalog.cached.some(card => card.requestedLanguage === "zh"))
+        mouseClick(details)
+        tryCompare(picker.detailsPopup, "opened", true)
+        const rules = findChild(picker.detailsPopup, "tokenDetailsRulesText")
+        tryVerify(() => rules.text.includes("每当你抓一张牌时"))
         catalog.metadata.zh.oracleText += " 元数据更新。"
         catalog.imageRevision++
-        tryVerify(() => details.text.includes("元数据更新。"))
+        tryVerify(() => rules.text.includes("元数据更新。"))
+        picker.detailsPopup.close()
+        tryCompare(picker.detailsPopup, "opened", false)
         mouseClick(findChild(row,"createTokenResultButton"))
         compare(selection.name,emblem.name)
         compare(selection.typeLine,emblem.typeLine)

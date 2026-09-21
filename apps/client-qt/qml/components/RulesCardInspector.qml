@@ -31,6 +31,15 @@ Surface {
     readonly property bool hasCard: Object.keys(card).length > 0
     readonly property bool hasIdentity: card.visibleIdentity === true
                                        && card.faceDown !== true && !!card.name
+    readonly property string displayName: {
+        if (!hasIdentity)
+            return ""
+        if (!cardCatalogModel || typeof cardCatalogModel.cardDisplayName !== "function")
+            return card.name
+        void cardCatalogModel.language
+        void cardCatalogModel.imageRevision
+        return cardCatalogModel.cardDisplayName(card.name)
+    }
     readonly property bool horizontalLayout: !preferVertical && (width >= Theme.size(500) || height < Theme.size(440))
     readonly property var attachment: {
         void rulesSession.snapshotRevision
@@ -41,7 +50,13 @@ Surface {
         if (!(card.exiledCardCount > 0)) return ""
         const names = (card.exiledCardIds || []).map(id => currentCard(id))
             .filter(linked => linked.visibleIdentity === true && !!linked.name)
-            .map(linked => linked.name)
+            .map(linked => {
+                if (!cardCatalogModel || typeof cardCatalogModel.cardDisplayName !== "function")
+                    return linked.name
+                void cardCatalogModel.language
+                void cardCatalogModel.imageRevision
+                return cardCatalogModel.cardDisplayName(linked.name)
+            })
         const hidden = card.exiledCardCount - names.length
         if (hidden > 0) names.push(qsTr("%1 hidden card(s)").arg(hidden))
         return qsTr("Exiled with this card: %1").arg(names.join(", "))
@@ -152,7 +167,7 @@ Surface {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
                 text: !root.hasCard ? qsTr("Card preview")
-                      : root.hasIdentity ? root.card.name
+                      : root.hasIdentity ? root.displayName
                       : root.card.zone === "stack" && root.card.faceDown !== true
                         ? qsTr("Stack ability") : qsTr("Face-down card")
                 color: Theme.text
@@ -240,7 +255,7 @@ Surface {
                         textFormat: Text.PlainText
                         anchors.centerIn: parent
                         width: parent.width - Theme.size(16)
-                        text: root.hasIdentity ? root.card.name : qsTr("Face-down card")
+                        text: root.hasIdentity ? root.displayName : qsTr("Face-down card")
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(15)
                         wrapMode: Text.Wrap

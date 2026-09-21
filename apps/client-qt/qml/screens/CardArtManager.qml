@@ -64,11 +64,22 @@ Page {
                                 || (typeof customCardArtStore !== "undefined" && customCardArtStore.busy)
             }
 
-            AppButton {
-                objectName: "manageCustomCardArtButton"
-                visible: typeof customCardArtStore !== "undefined"
-                text: qsTr("Manage custom card art…")
-                onClicked: root.appWindow.pushScreen("screens/CustomCardArtManager.qml")
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.size(10)
+
+                AppButton {
+                    objectName: "downloadSetArtButton"
+                    text: qsTr("Download set art…")
+                    onClicked: root.appWindow.pushScreen("screens/SetArtDownload.qml")
+                }
+                AppButton {
+                    objectName: "manageCustomCardArtButton"
+                    visible: typeof customCardArtStore !== "undefined"
+                    text: qsTr("Manage custom card art…")
+                    onClicked: root.appWindow.pushScreen("screens/CustomCardArtManager.qml")
+                }
+                Item { Layout.fillWidth: true }
             }
 
             Surface {

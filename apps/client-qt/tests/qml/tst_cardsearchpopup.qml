@@ -81,6 +81,9 @@ TestCase {
         searchPopup.searching = false
         searchPopup.resetFilters()
         searchPopup.query = ""
+        searchPopup.selectedCard = null
+        searchPopup.allowSideboard = true
+        searchPopup.considerOnly = false
         searchPopup.results = [{name: "Lightning Bolt", displayName: "Lightning Bolt",
                                 typeLine: "Instant", setCode: "M11", collectorNumber: "149"}]
         previewCatalog.previewCards = []
@@ -146,8 +149,14 @@ TestCase {
         const card = findChild(grid.itemAtIndex(0), "workbenchCard-Counterspell")
         verify(card !== null)
         mouseClick(card, card.width / 2, card.height / 2)
+        compare(addSpy.count, 0, "Selecting a result must not add it yet")
+        compare(searchPopup.selectedCard.name, "Counterspell")
+        const addMain = findChild(searchPopup, "cardSearchAddMain")
+        verify(addMain !== null && addMain.enabled)
+        mouseClick(addMain, addMain.width / 2, addMain.height / 2)
         compare(addSpy.count, 1)
         compare(addSpy.signalArguments[0][0].name, "Counterspell")
+        compare(addSpy.signalArguments[0][1], "main")
         compare(addSpy.signalArguments[0][0].setCode, "MH2")
         compare(addSpy.signalArguments[0][0].collectorNumber, "267")
     }
@@ -229,6 +238,67 @@ TestCase {
         const popupPoint = preview.mapToItem(searchPopup.contentItem.parent,0,0)
         verify(popupPoint.x>=0 && popupPoint.y>=0)
         verify(popupPoint.x+preview.width<=searchPopup.width && popupPoint.y+preview.height<=searchPopup.height)
+    }
+
+    function test_searchAddsWithoutEditingLiveDeck() {
+        searchPopup.allowSideboard = true
+        searchPopup.considerOnly = false
+        searchPopup.query = "Lightning"
+        searchPopup.openSearch()
+        tryCompare(searchPopup, "opened", true)
+        verify(findChild(searchPopup, "cardSearchDeckList") === null,
+               "Catalog search must not keep a live deck list to edit")
+        verify(findChild(searchPopup, "cardSearchDestination") === null)
+        const addMain = findChild(searchPopup, "cardSearchAddMain")
+        const addSideboard = findChild(searchPopup, "cardSearchAddSideboard")
+        const addConsider = findChild(searchPopup, "cardSearchAddConsider")
+        verify(addMain !== null && addSideboard !== null && addConsider !== null)
+        verify(addSideboard.visible)
+        verify(!addMain.enabled && !addSideboard.enabled && !addConsider.enabled)
+        const grid = findChild(searchPopup, "cardSearchResults")
+        tryCompare(grid, "count", 1)
+        waitForPolish(testWindow)
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        const card = findChild(grid.itemAtIndex(0), "workbenchCard-Lightning Bolt")
+        verify(card !== null)
+        mouseClick(card, card.width / 2, card.height / 2)
+        compare(addSpy.count, 0, "Selecting a result must not add it yet")
+        compare(searchPopup.selectedCard.name, "Lightning Bolt")
+        tryVerify(() => addMain.enabled && addSideboard.enabled && addConsider.enabled)
+        mouseClick(addSideboard, addSideboard.width / 2, addSideboard.height / 2)
+        compare(addSpy.count, 1)
+        compare(addSpy.signalArguments[0][0].name, "Lightning Bolt")
+        compare(addSpy.signalArguments[0][1], "sideboard")
+        addSpy.clear()
+        mouseClick(addConsider, addConsider.width / 2, addConsider.height / 2)
+        compare(addSpy.signalArguments[0][1], "consider")
+        searchPopup.close()
+    }
+
+    function test_commanderSearchOmitsSideboardAndCanAddToConsider() {
+        searchPopup.allowSideboard = false
+        searchPopup.considerOnly = false
+        searchPopup.query = "Lightning"
+        searchPopup.openSearch()
+        tryCompare(searchPopup, "opened", true)
+        verify(findChild(searchPopup, "cardSearchAddMain") !== null)
+        verify(!findChild(searchPopup, "cardSearchAddSideboard").visible)
+        const addConsider = findChild(searchPopup, "cardSearchAddConsider")
+        verify(addConsider !== null)
+        const grid = findChild(searchPopup, "cardSearchResults")
+        tryCompare(grid, "count", 1)
+        waitForPolish(testWindow)
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        const card = findChild(grid.itemAtIndex(0), "workbenchCard-Lightning Bolt")
+        mouseClick(card, card.width / 2, card.height / 2)
+        compare(addSpy.count, 0)
+        tryVerify(() => addConsider.enabled)
+        mouseClick(addConsider, addConsider.width / 2, addConsider.height / 2)
+        compare(addSpy.count, 1)
+        compare(addSpy.signalArguments[0][1], "consider")
+        const scrollBar = findChild(grid, "cardArtGridScrollBar")
+        verify(scrollBar !== null)
+        searchPopup.close()
     }
 
     function test_opensLargeResultListAndSearchesByName() {

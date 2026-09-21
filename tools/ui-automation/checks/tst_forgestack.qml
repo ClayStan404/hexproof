@@ -138,12 +138,14 @@ TestCase {
         tryCompare(item("rulesCardHoverPreview"), "visible", true)
         verify(table.gameLogRail.visible && !table.inspector.visible)
         compare(table.gameLogRail.chatInput.text, "Unsent layout-review draft")
-        const log = item("rulesInspectionHost"), decision = item("rulesDecisionDock")
-        verify(log.x >= decision.x + decision.width)
-        verify(log.x >= stackView.x + stackView.width)
+        const log = item("gameLogRail"), decision = item("rulesDecisionDock")
+        verify(log.visible && log.floating)
+        verify(!item("rulesInspectionHost").visible)
+        verify(log.x + log.width <= table.width && log.y + log.height <= table.height)
         for (const name of ["forgeOwnLands", "forgeOpponentLands", "forgeOwnOther", "forgeOpponentOther"]) {
             const support = item(name)
-            verify(support.x + support.width <= decision.x)
+            verify(support.x + support.width > decision.x)
+            verify(support.x + support.width <= table.width)
         }
         waitForRendering(table)
         grabImage(table).save("build/forge-layout-review-2026-09-16/crowded-hover-log-native.png")

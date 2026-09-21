@@ -119,6 +119,14 @@
         <translation>最新版本未知</translation>
     </message>
     <message>
+        <source>Check failed</source>
+        <translation>检查失败</translation>
+    </message>
+    <message>
+        <source>%1 (cached)</source>
+        <translation>%1（缓存）</translation>
+    </message>
+    <message>
         <location line="+14"/>
         <source>Unknown</source>
         <translation>未知</translation>
@@ -362,6 +370,10 @@
         <location line="+1"/>
         <source>Inspect, clean up, import, and share downloaded card images</source>
         <translation>查看、清理、导入和分享已下载的卡图</translation>
+    </message>
+    <message>
+        <source>Download set art…</source>
+        <translation>下载系列卡图…</translation>
     </message>
     <message>
         <location line="+35"/>
@@ -681,6 +693,13 @@
     </message>
 </context>
 <context>
+    <name>AppPopupHeader</name>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+</context>
+<context>
     <name>CardArtRepairNoticePopup</name>
     <message>
         <location filename="../qml/components/CardArtRepairNoticePopup.qml" line="+47"/>
@@ -761,6 +780,50 @@
 </context>
 <context>
     <name>CardSearchPopup</name>
+    <message>
+        <source>Add to Consider</source>
+        <translation>加入考虑区</translation>
+    </message>
+    <message>
+        <source>Search the catalog and click a card to add it.</source>
+        <translation>搜索目录并点击卡牌即可添加。</translation>
+    </message>
+    <message>
+        <source>Search the catalog and click a card to add it to Consider.</source>
+        <translation>搜索目录并点击卡牌即可加入考虑区。</translation>
+    </message>
+    <message>
+        <source>Choose Main, Sideboard, or Consider, then click a card to add it.</source>
+        <translation>先选择主牌、备牌或备选，再点击卡牌添加。</translation>
+    </message>
+    <message>
+        <source>Choose Main or Consider, then click a card to add it.</source>
+        <translation>先选择主牌或备选，再点击卡牌添加。</translation>
+    </message>
+    <message>
+        <source>Click a card to add one copy to %1.</source>
+        <translation>点击卡牌，将一张加入%1。</translation>
+    </message>
+    <message>
+        <source>Search first, then add the selected card to the main deck, sideboard, or Consider.</source>
+        <translation>先搜索并点选卡牌，再加入主牌、备牌或备选。</translation>
+    </message>
+    <message>
+        <source>Search first, then add the selected card to the main deck or Consider.</source>
+        <translation>先搜索并点选卡牌，再加入主牌或备选。</translation>
+    </message>
+    <message>
+        <source>Select a search result to add it.</source>
+        <translation>先点选搜索结果，再添加。</translation>
+    </message>
+    <message>
+        <source>Add to</source>
+        <translation>加入</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
     <message>
         <location filename="../qml/components/CardSearchPopup.qml" line="+230"/>
         <source>%1 cards</source>
@@ -1078,10 +1141,6 @@
         <source>No matching cards</source>
         <translation>没有匹配的卡牌</translation>
     </message>
-    <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
-    </message>
 </context>
 <context>
     <name>CardWorkbench</name>
@@ -1269,23 +1328,7 @@
         <translation>连接服务器</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Your name is session-only — no account required</source>
-        <translation>昵称仅在本次会话中使用，无需账号</translation>
-    </message>
-    <message>
-        <location line="+53"/>
-        <source>Enter the tabletop</source>
-        <translation>进入牌桌</translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Choose a Hexproof server, then enter the name other players will see.</source>
-        <translation>选择 Hexproof 服务器，然后输入其他玩家将看到的名字。</translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>SERVER</source>
+        <source>Server</source>
         <translation>服务器</translation>
     </message>
     <message>
@@ -1300,7 +1343,7 @@
     </message>
     <message>
         <location line="+14"/>
-        <source>SERVER ADDRESS</source>
+        <source>Server address</source>
         <translation>服务器地址</translation>
     </message>
     <message>
@@ -1310,7 +1353,7 @@
     </message>
     <message>
         <location line="+10"/>
-        <source>DISPLAY NAME</source>
+        <source>Display name</source>
         <translation>显示名称</translation>
     </message>
     <message>
@@ -1359,21 +1402,12 @@
         <translation>连接</translation>
     </message>
     <message>
-        <location line="+43"/>
-        <source>One connection,
-many tables.</source>
-        <translation>一次连接，
-畅玩多桌。</translation>
+        <source>Direct connection</source>
+        <translation>直连</translation>
     </message>
     <message>
-        <location line="+10"/>
-        <source>The hub coordinates rooms and game state. Card images stay cached on your device.</source>
-        <translation>服务器负责同步房间和游戏状态，卡图仅缓存在你的设备上。</translation>
-    </message>
-    <message>
-        <location line="+18"/>
-        <source>Public hub preconfigured</source>
-        <translation>已预设公共服务器</translation>
+        <source>Host migration</source>
+        <translation>宿主迁移</translation>
     </message>
     <message>
         <location line="+25"/>
@@ -1995,10 +2029,6 @@ many tables.</source>
         <translation>由本机托管</translation>
     </message>
     <message>
-        <source>Your computer runs Forge. Keep Hexproof open during the match. This is trusted-host play: the host can access hidden cards and control the engine. Public tournaments use server hosting.</source>
-        <translation>由你的电脑运行 Forge，对局期间请保持 Hexproof 开启。此模式适合相互信任的约战：房主可以访问隐藏牌并控制引擎。公共赛事使用服务器托管。</translation>
-    </message>
-    <message>
         <source>Prepare local Forge</source>
         <translation>准备本地 Forge</translation>
     </message>
@@ -2176,6 +2206,10 @@ many tables.</source>
     <message>
         <source>Card actions</source>
         <translation>卡牌操作</translation>
+    </message>
+    <message>
+        <source>Commander</source>
+        <translation>指挥官</translation>
     </message>
 </context>
 <context>
@@ -2530,6 +2564,34 @@ many tables.</source>
         <source>Cache deck art</source>
         <translation>缓存本套牌卡图</translation>
     </message>
+    <message numerus="yes">
+        <source>%n cards</source>
+        <translation>
+            <numerusform>%n 张牌</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n physical card(s)</source>
+        <translation>
+            <numerusform>%n 张实体牌</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Search cards</source>
+        <translation>搜索卡牌</translation>
+    </message>
+    <message>
+        <source>Tokens</source>
+        <translation>衍生物</translation>
+    </message>
+    <message>
+        <source>Tokens · %1</source>
+        <translation>衍生物 · %1</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>更多</translation>
+    </message>
 </context>
 <context>
     <name>DeckLibrary</name>
@@ -2782,6 +2844,10 @@ many tables.</source>
         <source>Battles</source>
         <translation>战役</translation>
     </message>
+    <message>
+        <source>Search this deck…</source>
+        <translation>在此套牌中搜索…</translation>
+    </message>
 </context>
 <context>
     <name>DeckPicker</name>
@@ -2934,6 +3000,10 @@ many tables.</source>
     <message>
         <source>Card actions</source>
         <translation>卡牌操作</translation>
+    </message>
+    <message>
+        <source>Commander</source>
+        <translation>指挥官</translation>
     </message>
 </context>
 <context>
@@ -5470,31 +5540,42 @@ many tables.</source>
         <translation>断开连接</translation>
     </message>
     <message>
-        <location line="+62"/>
-        <source>MANUAL TABLETOP · NATIVE DESKTOP</source>
-        <translation>手动规则牌桌 · 原生桌面端</translation>
+        <source>Native desktop</source>
+        <translation>原生桌面端</translation>
     </message>
     <message>
-        <location line="+11"/>
         <source>Play Magic,
 your way.</source>
         <translation>用你的方式，
 畅玩万智牌。</translation>
     </message>
     <message>
-        <location line="+17"/>
-        <source>A focused multiplayer tabletop for real decks, human decisions, and games that feel like sitting across from friends.</source>
-        <translation>专注于真实套牌、玩家决策与好友对坐体验的多人牌桌。</translation>
+        <source>Sit at a player-judged table, or let Forge resolve the match. Constructed, Sealed, Draft, and Cube.</source>
+        <translation>可以开手动牌桌，也可以用 Forge 结算对局。支持构筑、现开、轮抓和 Cube。</translation>
     </message>
     <message>
-        <location line="+15"/>
-        <source>PLAYER TABLES</source>
-        <translation>玩家牌桌</translation>
+        <source>Manual</source>
+        <translation>手动</translation>
     </message>
     <message>
-        <location line="+12"/>
-        <source>PLAYTEST · GENERIC 1V1 · DUEL COMMANDER · COMMANDER</source>
-        <translation>单人测试 · 通用 1v1 · 法禁 · 指挥官</translation>
+        <source>Player-judged table</source>
+        <translation>玩家自行裁定</translation>
+    </message>
+    <message>
+        <source>Forge</source>
+        <translation>Forge</translation>
+    </message>
+    <message>
+        <source>Rules-enforced 1v1</source>
+        <translation>规则引擎 1v1</translation>
+    </message>
+    <message>
+        <source>Limited</source>
+        <translation>限制赛</translation>
+    </message>
+    <message>
+        <source>Sealed · Draft · Cube</source>
+        <translation>现开 · 轮抓 · Cube</translation>
     </message>
     <message>
         <location line="+24"/>
@@ -5613,8 +5694,8 @@ your way.</source>
     </message>
     <message>
         <location line="+30"/>
-        <source>No accounts · No rules engine</source>
-        <translation>无需账号 · 不内置规则引擎</translation>
+        <source>No accounts · Manual or Forge</source>
+        <translation>无需账号 · 手动或 Forge</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -5928,6 +6009,10 @@ your way.</source>
         <location line="+10"/>
         <source>Choose a version to preview its card image before using it.</source>
         <translation>选择版本并预览卡图，确认后再应用。</translation>
+    </message>
+    <message>
+        <source>%1 · Choose a version to preview its card image before using it.</source>
+        <translation>%1 · 选择版本并预览卡图，确认后再应用。</translation>
     </message>
     <message>
         <location line="+109"/>
@@ -7199,6 +7284,38 @@ your way.</source>
         <source>Phases</source>
         <translation>阶段</translation>
     </message>
+    <message>
+        <source>Priority</source>
+        <translation>优先权</translation>
+    </message>
+    <message>
+        <source>Full control</source>
+        <translation>完全控制</translation>
+    </message>
+    <message>
+        <source>Smart priority stays on unless Full control or a phase stop is set.</source>
+        <translation>除非开启完全控制或设置阶段停顿，否则保持智能优先权。</translation>
+    </message>
+    <message>
+        <source>Hosting</source>
+        <translation>托管</translation>
+    </message>
+    <message>
+        <source>Verifying host transfer… The game is paused.</source>
+        <translation>正在确认托管转移… 对局已暂停。</translation>
+    </message>
+    <message>
+        <source>Waiting for the host to reconnect… The game is paused.</source>
+        <translation>正在等待主持人重连… 对局已暂停。</translation>
+    </message>
+    <message>
+        <source>Player hosted · direct connection</source>
+        <translation>玩家托管 · 直连</translation>
+    </message>
+    <message>
+        <source>Player hosted · server relay</source>
+        <translation>玩家托管 · 服务器中转</translation>
+    </message>
 </context>
 <context>
     <name>RulesTargetSelectionPrompt</name>
@@ -7471,6 +7588,50 @@ your way.</source>
         <location line="-460"/>
         <source>Language, appearance, updates, and local card data</source>
         <translation>语言、外观、更新与本地卡牌数据</translation>
+    </message>
+    <message>
+        <source>Theme, battlefield background, scale, and motion</source>
+        <translation>主题、战场背景、缩放和动画</translation>
+    </message>
+    <message>
+        <source>Language &amp; cards</source>
+        <translation>语言与卡牌</translation>
+    </message>
+    <message>
+        <source>Menus, card names, and preferred art source</source>
+        <translation>菜单、卡牌名称和首选卡图来源</translation>
+    </message>
+    <message>
+        <source>Card database</source>
+        <translation>卡牌数据库</translation>
+    </message>
+    <message>
+        <source>Searchable metadata for the deck editor</source>
+        <translation>套牌编辑器使用的可搜索元数据</translation>
+    </message>
+    <message>
+        <source>Download set art</source>
+        <translation>下载系列卡图</translation>
+    </message>
+    <message>
+        <source>Cache every printing from an installed set product</source>
+        <translation>从已安装的系列产品缓存全部印刷版本</translation>
+    </message>
+    <message>
+        <source>View disk usage, remove cached images, or share art packs</source>
+        <translation>查看占用空间、删除缓存卡图，或分享卡图包</translation>
+    </message>
+    <message>
+        <source>Check GitHub Releases and install a verified package</source>
+        <translation>检查 GitHub Releases 并安装已校验的安装包</translation>
+    </message>
+    <message>
+        <source>Local Forge</source>
+        <translation>本机 Forge</translation>
+    </message>
+    <message>
+        <source>Download, import, and diagnose the rules engine</source>
+        <translation>下载、导入并诊断规则引擎</translation>
     </message>
     <message>
         <source>Appearance</source>
@@ -9526,6 +9687,10 @@ your way.</source>
         <source>Drag the top card to a zone. Hold Shift while dragging to exile to keep it face down; no player may look. Right-click for more actions.</source>
         <translation>拖动牌库顶牌到目标区域。按住 Shift 拖到放逐区可背面朝上放逐，所有人均不可查看。右键打开更多操作。</translation>
     </message>
+    <message>
+        <source>Drag to resize</source>
+        <translation>拖动调整大小</translation>
+    </message>
 </context>
 <context>
     <name>TableAreaMenus</name>
@@ -11037,6 +11202,98 @@ your way.</source>
         <source>Commander: %1</source>
         <translation>指挥官：%1</translation>
     </message>
+    <message>
+        <source>Export</source>
+        <translation>导出</translation>
+    </message>
+    <message>
+        <source>This participant has no recorded cards.</source>
+        <translation>该选手没有已记录的卡牌。</translation>
+    </message>
+    <message>
+        <source>Copy list</source>
+        <translation>复制牌表</translation>
+    </message>
+    <message>
+        <source>Save as file</source>
+        <translation>保存为文件</translation>
+    </message>
+    <message>
+        <source>Save deck list</source>
+        <translation>保存套牌表</translation>
+    </message>
+    <message>
+        <source>Deck lists</source>
+        <translation>套牌表</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>No mainboard cards were recorded.</source>
+        <translation>没有记录主牌。</translation>
+    </message>
+    <message>
+        <source>No sideboard cards were recorded.</source>
+        <translation>没有记录备牌。</translation>
+    </message>
+    <message>
+        <source>Unknown card</source>
+        <translation>未知卡牌</translation>
+    </message>
+    <message>
+        <source>CMDR</source>
+        <translation>指挥官</translation>
+    </message>
+    <message>
+        <source>%1 main · %2 side</source>
+        <translation>%1 主牌 · %2 备牌</translation>
+    </message>
+    <message>
+        <source>Commander</source>
+        <translation>指挥官</translation>
+    </message>
+    <message>
+        <source>Creatures</source>
+        <translation>生物</translation>
+    </message>
+    <message>
+        <source>Planeswalkers</source>
+        <translation>鹏洛客</translation>
+    </message>
+    <message>
+        <source>Artifacts</source>
+        <translation>神器</translation>
+    </message>
+    <message>
+        <source>Enchantments</source>
+        <translation>结界</translation>
+    </message>
+    <message>
+        <source>Spells</source>
+        <translation>咒语</translation>
+    </message>
+    <message>
+        <source>Lands</source>
+        <translation>地</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>其他</translation>
+    </message>
+    <message>
+        <source>Deck list export is unavailable.</source>
+        <translation>无法导出牌表。</translation>
+    </message>
+    <message>
+        <source>Deck list copied</source>
+        <translation>已复制牌表</translation>
+    </message>
+    <message>
+        <source>Deck list saved</source>
+        <translation>已保存牌表</translation>
+    </message>
 </context>
 <context>
     <name>TournamentLobby</name>
@@ -11418,6 +11675,10 @@ your way.</source>
         <location filename="../qml/components/LimitedProductArtPanel.qml" line="+38"/>
         <source>Offline product art · %1</source>
         <translation>离线产品卡图 · %1</translation>
+    </message>
+    <message>
+        <source>Offline product art</source>
+        <translation>离线产品卡图</translation>
     </message>
     <message>
         <location line="+50"/>
@@ -14073,8 +14334,8 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>持续让过，等待响应机会</translation>
     </message>
     <message>
-        <source>Pass…</source>
-        <translation>连续让过…</translation>
+        <source>Pass</source>
+        <translation>让过</translation>
     </message>
     <message>
         <source>Resolve</source>
@@ -14105,8 +14366,8 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>等待游戏处理</translation>
     </message>
     <message>
-        <source>Your action · %1</source>
-        <translation>请行动 · %1</translation>
+        <source>Your action</source>
+        <translation>请行动</translation>
     </message>
 </context>
     <context>
@@ -15077,6 +15338,363 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Retry direct</source>
         <translation>重试直连</translation>
+    </message>
+</context>
+<context>
+    <name>AppearanceSettings</name>
+    <message>
+        <source>Adjust text, controls, spacing, and dialogs together while preserving automatic window scaling.</source>
+        <translation>在保留窗口自动适配的同时，统一调整文字、控件、间距和弹窗大小。</translation>
+    </message>
+    <message>
+        <source>Animate simulated pack openings</source>
+        <translation>模拟开包时播放动画</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>外观</translation>
+    </message>
+    <message>
+        <source>Choose Classic or Glass controls and panels. Battlefield backgrounds are selected separately.</source>
+        <translation>选择经典或玻璃风格的控件和面板，战场背景可单独设置。</translation>
+    </message>
+    <message>
+        <source>Classic</source>
+        <translation>经典</translation>
+    </message>
+    <message>
+        <source>Decrease interface scale</source>
+        <translation>缩小界面缩放</translation>
+    </message>
+    <message>
+        <source>Glass</source>
+        <translation>玻璃</translation>
+    </message>
+    <message>
+        <source>Increase interface scale</source>
+        <translation>放大界面缩放</translation>
+    </message>
+    <message>
+        <source>Interface scale</source>
+        <translation>界面缩放</translation>
+    </message>
+    <message>
+        <source>Motion effects</source>
+        <translation>动画效果</translation>
+    </message>
+    <message>
+        <source>Reset to 100%</source>
+        <translation>恢复到 100%</translation>
+    </message>
+    <message>
+        <source>The scale applies immediately to every theme-aware UI component.</source>
+        <translation>缩放会立即应用到所有遵循主题规范的界面组件。</translation>
+    </message>
+    <message>
+        <source>Theme, battlefield background, scale, and motion</source>
+        <translation>主题、战场背景、缩放和动画</translation>
+    </message>
+    <message>
+        <source>Turn this off to show simulated pack contents immediately. Every opening animation can also be skipped while it is playing.</source>
+        <translation>关闭后将直接显示模拟开包结果；播放动画时也可以随时跳过。</translation>
+    </message>
+</context>
+<context>
+    <name>CatalogSettings</name>
+    <message>
+        <source>%1 installed locally</source>
+        <translation>%1 已安装在本机</translation>
+    </message>
+    <message>
+        <source>%1 · schema %2</source>
+        <translation>%1 · 结构版本 %2</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>All printings and collector detail · ~80 MiB compressed + Chinese names</source>
+        <translation>包含全部印刷版本与收藏编号 · 压缩包约 80 MiB，另含中文牌名</translation>
+    </message>
+    <message>
+        <source>Card database</source>
+        <translation>卡牌数据库</translation>
+    </message>
+    <message>
+        <source>Card database files</source>
+        <translation>卡牌数据库文件</translation>
+    </message>
+    <message>
+        <source>Check updates</source>
+        <translation>检查更新</translation>
+    </message>
+    <message>
+        <source>Checking</source>
+        <translation>正在检查</translation>
+    </message>
+    <message>
+        <source>Checking…</source>
+        <translation>正在检查…</translation>
+    </message>
+    <message>
+        <source>Default Cards</source>
+        <translation>Default Cards</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
+        <source>Download Default</source>
+        <translation>下载 Default</translation>
+    </message>
+    <message>
+        <source>Download the card database?</source>
+        <translation>下载卡牌数据库？</translation>
+    </message>
+    <message>
+        <source>Hexproof will download and verify the latest prebuilt database. It will not build a database from upstream sources on this device.</source>
+        <translation>Hexproof 将下载并校验最新的预构建数据库，不会在此设备上通过上游数据源构建数据库。</translation>
+    </message>
+    <message>
+        <source>Import card database</source>
+        <translation>导入卡牌数据库</translation>
+    </message>
+    <message>
+        <source>Import…</source>
+        <translation>导入…</translation>
+    </message>
+    <message>
+        <source>Installed version</source>
+        <translation>已安装版本</translation>
+    </message>
+    <message>
+        <source>Latest unknown</source>
+        <translation>最新版本未知</translation>
+    </message>
+    <message>
+        <source>Latest version</source>
+        <translation>最新版本</translation>
+    </message>
+    <message>
+        <source>Legacy card database</source>
+        <translation>旧版卡牌数据库</translation>
+    </message>
+    <message>
+        <source>Metadata: Scryfall · Chinese names: MTGCH (CC BY-SA 4.0) · Stored only on this device</source>
+        <translation>元数据：Scryfall · 中文牌名：MTGCH（CC BY-SA 4.0）· 仅存储在本机</translation>
+    </message>
+    <message>
+        <source>No full metadata package installed</source>
+        <translation>尚未安装完整元数据包</translation>
+    </message>
+    <message>
+        <source>Not installed</source>
+        <translation>未安装</translation>
+    </message>
+    <message>
+        <source>Ready to download</source>
+        <translation>可下载</translation>
+    </message>
+    <message>
+        <source>Searchable card database</source>
+        <translation>可搜索卡牌数据库</translation>
+    </message>
+    <message>
+        <source>Searchable metadata for the deck editor</source>
+        <translation>套牌编辑器使用的可搜索元数据</translation>
+    </message>
+    <message>
+        <source>The database enables full offline search in the deck editor. Images are still downloaded only when a card is used.</source>
+        <translation>安装后可在套牌编辑器中完整离线搜索；卡图仍只会在实际使用时下载。</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>不可用</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>已是最新</translation>
+    </message>
+    <message>
+        <source>Update available</source>
+        <translation>有可用更新</translation>
+    </message>
+    <message>
+        <source>Update needed</source>
+        <translation>需要更新</translation>
+    </message>
+    <message>
+        <source>Update now</source>
+        <translation>立即更新</translation>
+    </message>
+</context>
+<context>
+    <name>LanguageSettings</name>
+    <message>
+        <source>Automatic (default)</source>
+        <translation>自动（默认）</translation>
+    </message>
+    <message>
+        <source>Card language and art</source>
+        <translation>卡牌语言与卡图</translation>
+    </message>
+    <message>
+        <source>Chinese cards</source>
+        <translation>中文卡牌</translation>
+    </message>
+    <message>
+        <source>Choose card names, metadata, and preferred card art independently from the interface.</source>
+        <translation>单独选择卡牌名称、元数据与首选卡图语言，不受界面语言影响。</translation>
+    </message>
+    <message>
+        <source>Choose the language used by menus, buttons, and game screens.</source>
+        <translation>选择菜单、按钮与游戏界面使用的语言。</translation>
+    </message>
+    <message>
+        <source>English</source>
+        <translation>English</translation>
+    </message>
+    <message>
+        <source>English cards</source>
+        <translation>英文卡牌</translation>
+    </message>
+    <message>
+        <source>Interface language</source>
+        <translation>界面语言</translation>
+    </message>
+    <message>
+        <source>Language &amp; cards</source>
+        <translation>语言与卡牌</translation>
+    </message>
+    <message>
+        <source>Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.</source>
+        <translation>始终优先使用本地卡图。自动模式下，中文卡牌优先 MTGCH，英文卡牌优先 Scryfall，并在需要时自动回退。</translation>
+    </message>
+    <message>
+        <source>Local art remains first. MTGCH is preferred for new downloads; Scryfall remains the automatic fallback.</source>
+        <translation>本地卡图始终优先；新下载优先使用 MTGCH，并自动回退到 Scryfall。</translation>
+    </message>
+    <message>
+        <source>Local art remains first. Scryfall and MTGCH download different cards in parallel, with Chinese art preferred for Chinese cards and automatic fallback.</source>
+        <translation>始终优先使用本地卡图。Scryfall 与 MTGCH 并行下载不同卡牌，中文模式优先中文卡图，并在需要时自动回退。</translation>
+    </message>
+    <message>
+        <source>Local art remains first. Scryfall is preferred for new downloads; MTGCH remains the automatic fallback.</source>
+        <translation>本地卡图始终优先；新下载优先使用 Scryfall，并自动回退到 MTGCH。</translation>
+    </message>
+    <message>
+        <source>MTGCH</source>
+        <translation>MTGCH</translation>
+    </message>
+    <message>
+        <source>Menus, card names, and preferred art source</source>
+        <translation>菜单、卡牌名称和首选卡图来源</translation>
+    </message>
+    <message>
+        <source>Parallel</source>
+        <translation>双源并行</translation>
+    </message>
+    <message>
+        <source>Prefer existing local art for the same card</source>
+        <translation>优先复用本地已有的同卡卡图</translation>
+    </message>
+    <message>
+        <source>Preferred card art source</source>
+        <translation>卡图首选下载源</translation>
+    </message>
+    <message>
+        <source>Scryfall</source>
+        <translation>Scryfall</translation>
+    </message>
+    <message>
+        <source>The preferred source is tried first for uncached art. Missing or unavailable images automatically fall back to the other source.</source>
+        <translation>尚未缓存的卡图会优先从所选来源下载；缺图或连接失败时会自动尝试另一个来源。</translation>
+    </message>
+    <message>
+        <source>Use both sources to speed up large card downloads, such as EDH games.</source>
+        <translation>同时使用两个来源，加快 EDH 对局等场景下的大批量卡图下载。</translation>
+    </message>
+    <message>
+        <source>When the requested printing is not cached, reuse a cached printing of the same card and language instead of downloading another image.</source>
+        <translation>请求的印刷版本未缓存时，优先复用本地同一张牌、同一语言的其他版本卡图，不再重复下载。</translation>
+    </message>
+    <message>
+        <source>简体中文</source>
+        <translation>简体中文</translation>
+    </message>
+</context>
+<context>
+    <name>Settings</name>
+    <message>
+        <source>Application updates</source>
+        <translation>应用更新</translation>
+    </message>
+    <message>
+        <source>Update %1 available</source>
+        <translation>发现更新 %1</translation>
+    </message>
+</context>
+<context>
+    <name>SetArtDownload</name>
+    <message>
+        <source>Download set art</source>
+        <translation>下载系列卡图</translation>
+    </message>
+    <message>
+        <source>Cache every distinct printing from an installed set product</source>
+        <translation>从已安装的系列产品缓存全部不重复印刷版本</translation>
+    </message>
+    <message>
+        <source>Set product</source>
+        <translation>系列产品</translation>
+    </message>
+    <message>
+        <source>Choose a set or booster product from the installed card database. Hexproof caches every distinct printing and independent face in that product, using the current card language and preferred art source. Already compatible local images are kept.</source>
+        <translation>从已安装的卡牌数据库中选择系列或补充包产品。Hexproof 会按当前卡牌语言和首选卡图来源，缓存该产品中所有不重复的印刷版本和独立牌面；本地已有且兼容的卡图会保留。</translation>
+    </message>
+    <message>
+        <source>Search set, code, or booster product</source>
+        <translation>搜索系列、代码或补充包产品</translation>
+    </message>
+    <message>
+        <source>No set products match this search.</source>
+        <translation>没有符合此搜索的系列产品。</translation>
+    </message>
+    <message>
+        <source>Exact set product collation.</source>
+        <translation>使用精确的系列产品配牌。</translation>
+    </message>
+    <message>
+        <source>Approximate rarity collation — not an exact retail pack.</source>
+        <translation>按稀有度近似配牌，不是精确的零售补充包。</translation>
+    </message>
+    <message>
+        <source>Install the card database first. Set Sealed and Set Draft lobbies still offer the same download for the event product.</source>
+        <translation>请先安装卡牌数据库。系列现开和系列轮抓报名大厅仍会为当前赛事产品提供同一下载。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsPage</name>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+</context>
+<context>
+    <name>UpdatesSettings</name>
+    <message>
+        <source>Application updates</source>
+        <translation>应用更新</translation>
+    </message>
+    <message>
+        <source>Check GitHub Releases and download the verified package for this device.</source>
+        <translation>检查 GitHub Releases，并下载适用于此设备且经过校验的安装包。</translation>
     </message>
 </context>
 </TS>

@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property string titleText: ""
@@ -16,23 +16,7 @@ Popup {
     property int maximumValue: 2147483647
     signal valueRequested(int value)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(420), parent.width - Theme.size(48))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function showFor(value) {
         valueField.text = String(value)
@@ -52,24 +36,9 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
 
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: root.titleText
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(19)
-            font.weight: Font.DemiBold
-            wrapMode: Text.WordWrap
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            visible: root.message.length > 0
-            text: root.message
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(11)
-            wrapMode: Text.WordWrap
+        AppPopupHeader {
+            titleText: root.titleText
+            subtitleText: root.message
         }
 
         AppTextField {

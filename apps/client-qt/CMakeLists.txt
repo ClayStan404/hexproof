@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.0.4")
+set(HEXPROOF_VERSION "2.0.5")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -305,6 +305,12 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/TableBackgroundPicker.qml
         qml/components/TableBackgroundPopup.qml
         qml/components/AppButton.qml
+        qml/components/AppMenu.qml
+        qml/components/AppMenuItem.qml
+        qml/components/AppMenuSeparator.qml
+        qml/components/AppPopup.qml
+        qml/components/AppPopupHeader.qml
+        qml/components/AppScrollBar.qml
         qml/components/GlassChrome.qml
         qml/components/LiquidGlass.qml
         qml/components/AppComboBox.qml
@@ -444,6 +450,8 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/RulesTableActionRail.qml
         qml/components/RulesTargetSelectionPrompt.qml
         qml/components/ScreenHeader.qml
+        qml/components/SettingsPage.qml
+        qml/components/SettingsModuleRow.qml
         qml/components/SegmentedControl.qml
         qml/components/ShortcutActionCatalog.qml
         qml/components/CardArtRepairNoticePopup.qml
@@ -545,6 +553,11 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/screens/MatchLoading.qml
         qml/screens/RoomBrowser.qml
         qml/screens/Settings.qml
+        qml/screens/AppearanceSettings.qml
+        qml/screens/LanguageSettings.qml
+        qml/screens/CatalogSettings.qml
+        qml/screens/UpdatesSettings.qml
+        qml/screens/SetArtDownload.qml
         qml/screens/CardArtManager.qml
         qml/screens/CustomCardArtManager.qml
         qml/screens/ShortcutSettings.qml

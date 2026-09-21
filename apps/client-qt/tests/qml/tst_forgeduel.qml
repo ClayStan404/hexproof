@@ -81,11 +81,15 @@ TestCase {
         }
         QtObject {
             id: catalog
+            property string language: "en"
             property int imageRevision: 0
+            property var names: ({})
             property var requested: []
+            signal catalogChanged()
             function tableImageSource(name, set, number) { requested.push(name); return "" }
             function imageSource(name, set, number) { requested.push(name); return "" }
             function cardTypeLine(name) { return name === "Plains" ? "Basic Land — Plains" : "Creature" }
+            function cardDisplayName(name) { return language === "zh" ? names[name] || name : name }
         }
         RulesTable {
             id: table
@@ -136,6 +140,19 @@ TestCase {
         verify(found !== null, name)
         return found
     }
+    function openSettings() {
+        if (!table.presentation.modalOpen)
+            mouseClick(item("forgeGameMenu"))
+        tryCompare(table.presentation, "modalOpen", true)
+        tryCompare(item("forgeGameDrawer"), "visible", true)
+    }
+    function closeSettings() {
+        if (item("forgeGameDrawer").visible) {
+            keyClick(Qt.Key_Escape)
+            tryCompare(item("forgeGameDrawer"), "visible", false)
+            tryCompare(table.presentation, "modalOpen", false)
+        }
+    }
     function action(kind, id) {
         prompt("chooseAction", {options:[{responseId:"opaque-play", kind:kind, cardId:id, label:"Play"},
             {responseId:"$pass", kind:"pass", label:"Pass"}]})
@@ -162,6 +179,10 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(snapshot()))
         table.showGameLogRail = false
         table.inspector.clear()
+        if (table.gameLogRail && table.gameLogRail.resetFloatingPosition)
+            table.gameLogRail.resetFloatingPosition()
+        if (table.presentation && table.presentation.modalOpen)
+            closeSettings()
         table.priority.setFullControl(false)
         prompt("diceRolled", {options:[{responseId:"$ack", kind:"acknowledge", label:"Continue"}]})
     }
@@ -171,6 +192,8 @@ TestCase {
         tryCompare(popup, "visible", false)
         table.inspector.clear(); testRulesPrompt.clear()
         testTranslations.setLanguage("en")
+        catalog.language = "en"
+        catalog.names = ({})
     }
 
     function test_phaseSnapshotsKeepTableObjects_data() {
@@ -278,7 +301,7 @@ TestCase {
         const dock = item("rulesDecisionDock"), cancel = item("rulesCancelYield")
         const height = dock.height, y = dock.y
         const cancelPoint = cancel.mapToItem(table, 0, 0)
-        const controls = [item("forgeGameMenu"), item("rulesToggleGameLogButton"), item("rulesFullControl")]
+        const controls = [item("forgeTurnIndicator"), item("rulesCancelYield")]
         const controlPoints = controls.map(control => control.mapToItem(table, 0, 0))
         for (let i = 0; i < 3; ++i) {
             tryCompare(transport, "rulesResponsePending", true)
@@ -306,6 +329,33 @@ TestCase {
         compare(table.priority.yieldMode, "")
         verify(dock.expanded)
         verify(item("rulesScalarChoice-choice:1").visible)
+    }
+
+    function test_publicCardNamesFollowCardLanguage() {
+        catalog.names = {"Plains": "平原", "Grizzly Bears": "灰熊", "Lightning Bolt": "闪电击",
+            "Commander": "指挥官"}
+        verify(testRulesPrompt.applySnapshot(snapshot()))
+        waitForRendering(table)
+        compare(item("forgeCardName-land").text, "Plains")
+        compare(item("forgeCardName-own-0").text, "Grizzly Bears")
+        compare(item("forgeCard-land").card.name, "Plains")
+        catalog.language = "zh"
+        tryCompare(item("forgeCardName-land"), "text", "平原")
+        compare(item("forgeCardName-own-0").text, "灰熊")
+        compare(item("forgeCard-land").displayName, "平原")
+        compare(item("forgeCard-land").card.name, "Plains")
+        const state = snapshot()
+        state.stack = [{id:"bolt", controllerSeat:0, identity:{name:"Lightning Bolt"}, text:"Deal 3 damage"}]
+        state.players[0].commanders = [{name:"Commander", casts:1, tax:2, zone:"command", objectId:"cmd"}]
+        room.format = "duel"
+        verify(testRulesPrompt.applySnapshot(state))
+        waitForRendering(table)
+        tryCompare(item("forgeStackName-bolt"), "text", "闪电击")
+        compare(item("forgeCommanderName-0-0").text, "指挥官")
+        catalog.language = "en"
+        tryCompare(item("forgeCardName-land"), "text", "Plains")
+        compare(item("forgeStackName-bolt").text, "Lightning Bolt")
+        compare(item("forgeCommanderName-0-0").text, "Commander")
     }
 
     function test_landsSitAsLeftTableRow() {
@@ -828,6 +878,13 @@ TestCase {
         const hand = item("forgeHand")
         verify(yard.width >= 96 * table.presentation.unit)
         verify(yard.height >= 110 * table.presentation.unit)
+        const yardFace = findChild(yard, "forgeZonePileFace")
+        const yardArt = findChild(yard, "forgeZonePileArt")
+        verify(yardFace !== null && yardArt !== null)
+        compare(yardArt.fillMode, Image.PreserveAspectFit)
+        verify(Math.abs(yardFace.width / yardFace.height - 63 / 88) < 0.03)
+        verify(yardFace.height <= yard.height)
+        verify(yardFace.width <= yard.width)
         verify(yardPoint.y >= hand.y - 4 * table.presentation.unit)
         verify(yardPoint.y + yard.height <= table.height + 1)
         verify(landPoint.y + ownLand.height <= yardPoint.y + 8 * table.presentation.unit)
@@ -844,22 +901,46 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(state))
         combat("chooseAttackers")
         const dock = item("rulesDecisionDock"), originalX = dock.x
+        openSettings()
         mouseClick(item("rulesToggleGameLogButton"))
-        const log = item("rulesInspectionHost"), stack = item("forgeStack")
-        tryVerify(() => table.gameLogRail.visible && log.x >= dock.x + dock.width)
-        verify(log.x >= stack.x + stack.width)
-        verify(log.y >= 0 && log.y < 20 * table.presentation.unit)
+        closeSettings()
+        const log = item("gameLogRail")
+        tryVerify(() => log.visible && log.floating)
+        compare(dock.x, originalX)
+        verify(!item("rulesInspectionHost").visible)
+        verify(item("forgeStack").visible)
+        const settings = item("forgeGameMenu")
+        const handle = item("gameLogDragHandle")
+        const close = item("closeGameLogButton")
+        verify(log.y >= settings.y + settings.height)
+        verify(log.height >= table.height * 0.7)
         verify(log.x + log.width <= table.width && log.y + log.height <= table.height)
+        verify(handle.mapToItem(log, 0, 0).y < Theme.size(20))
+        verify(close.mapToItem(log, 0, 0).y < Theme.size(24))
+        verify(item("gameLog").mapToItem(log, 0, 0).y
+               >= handle.mapToItem(log, 0, 0).y + 20)
         for (const name of ["forgeOwnLands", "forgeOpponentLands", "forgeOwnOther", "forgeOpponentOther",
-                           "forgeOwnCreatures", "forgeOpponentCreatures", "forgeHand"]) {
+                           "forgeOwnCreatures", "forgeOpponentCreatures"]) {
             const lane = item(name)
-            verify(lane.width > 0 && lane.x + lane.width <= dock.x)
+            verify(lane.width > 0 && lane.x + lane.width > dock.x)
+            verify(lane.x + lane.width <= table.width)
         }
+        verify(item("forgeHand").x + item("forgeHand").width <= dock.x)
         table.gameLogRail.chatInput.text = "Preserved draft"
         mouseClick(item("rulesConfirmCombat-attackers"))
         compare(transport.responses.length, 1)
         compare(table.gameLogRail.chatInput.text, "Preserved draft")
+        const startX = log.x, startY = log.y, startW = log.width
+        log.storedNX = 0.18
+        log.storedNW = 0.32
+        tryVerify(() => log.x < startX - 40 && log.width !== startW)
+        mouseClick(handle, 8, 8, Qt.RightButton)
+        tryVerify(() => Math.abs(log.x - startX) < 3
+                         && Math.abs(log.y - startY) < 3
+                         && Math.abs(log.width - startW) < 3)
+        openSettings()
         mouseClick(item("rulesToggleGameLogButton"))
+        closeSettings()
         tryCompare(log, "visible", false)
         compare(dock.x, originalX)
         table.gameLogRail.chatInput.text = ""
@@ -977,7 +1058,7 @@ TestCase {
         table.gameLogRail.chatInput.text = "Unsent draft"
         mouseMove(item("forgeHandCard-hand-0"), 20, 40)
         tryCompare(item("rulesCardHoverPreview"), "visible", true)
-        verify(item("rulesInspectionHost").visible)
+        verify(!item("rulesInspectionHost").visible)
         verify(table.gameLogRail.visible)
         verify(!table.inspector.visible)
         compare(table.gameLogRail.chatInput.text, "Unsent draft")
@@ -1177,37 +1258,66 @@ TestCase {
                + item("forgeOpponentLands").height > table.height * 0.65)
         verify(opponent.y < 12 * table.presentation.unit)
         verify(item("forgeOwnZoneStrip").y >= item("forgeHand").y - 4 * table.presentation.unit)
-        const controls = ["forgeTurnIndicator", "forgeTurnPhase", "forgeGameMenu", "rulesToggleGameLogButton",
-            "rulesPriorityStatus", "rulesFullControl", "rulesYieldMenuButton"]
-            .concat(data.hosting === "player" ? ["forgeHostingOptions", "forgePeerStatus",
-                "forgePeerEnable", "forgePeerConsentNotice"] : [])
-        for (const name of controls) {
+        verify(dock.x + dock.width <= table.width + 1)
+        verify(dock.y + dock.height <= table.height + 1)
+        verify(dock.y + dock.height >= table.height - 20 * table.presentation.unit)
+        verify(item("forgeOwnCreatures").x + item("forgeOwnCreatures").width > dock.x)
+        verify(!item("rulesPriorityStatus").visible)
+        const dockControls = ["forgeTurnIndicator", "forgeTurnPhase", "rulesYieldMenuButton"]
+        for (const name of dockControls) {
             const control = findChild(dock, name)
             verify(control !== null && control.visible, name + " belongs to the decision dock")
             const point = control.mapToItem(dock, 0, 0)
             verify(point.x >= 0 && point.x + control.width <= dock.width + 1, name + " fits dock width")
             verify(point.y >= 0 && point.y + control.height <= dock.height + 1, name + " fits dock height")
         }
-        mouseClick(item("forgeGameMenu"))
-        compare(item("forgeGameMenu").text, data.language === "zh" ? "设置" : "Settings")
-        tryCompare(table.presentation, "modalOpen", true)
-        keyClick(Qt.Key_Escape)
-        tryCompare(table.presentation, "modalOpen", false)
-        tryCompare(item("forgeGameDrawer"), "visible", false)
+        const settingsOnly = ["forgeGameMenu", "rulesToggleGameLogButton", "rulesFullControl"]
+            .concat(data.hosting === "player" ? ["forgeHostingOptions", "forgePeerStatus",
+                "forgePeerEnable", "forgePeerConsentNotice"] : [])
+        for (const name of settingsOnly)
+            verify(findChild(dock, name) === null, name + " stays out of the decision dock")
+        const settings = item("forgeGameMenu")
+        verify(settings.visible)
+        compare(settings.text, data.language === "zh" ? "设置" : "Settings")
+        verify(settings.y < 48)
+        verify(settings.x + settings.width >= table.width - 24 * table.presentation.unit)
+        openSettings()
+        verify(item("rulesFullControl").visible)
+        verify(item("rulesToggleGameLogButton").visible)
+        if (data.hosting === "player") {
+            verify(item("forgeHostingOptions").visible)
+            verify(item("forgeTablePeerConnection").visible)
+        }
+        verify(!table.priority.fullControl)
+        mouseClick(item("rulesFullControl"))
+        verify(table.priority.fullControl)
+        table.priority.setFullControl(false)
+        closeSettings()
     }
     function test_settingsStayAccessibleBetweenGames() {
         match.sideboarding = true
         const dock = item("rulesDecisionDock"), loader = item("rulesSideboardLoader")
         waitForRendering(table)
-        verify(dock.visible && !dock.expanded)
-        verify(!item("rulesActionBar").visible)
-        verify(!item("forgeTurnIndicator").visible)
-        verify(loader.visible && loader.y + loader.height <= dock.y)
-        mouseClick(item("forgeGameMenu"))
-        tryCompare(table.presentation, "modalOpen", true)
-        keyClick(Qt.Key_Escape)
-        tryCompare(item("forgeGameDrawer"), "visible", false)
+        tryVerify(() => loader.item !== null)
+        verify(!dock.visible)
+        verify(item("forgeGameMenu").visible)
+        compare(loader.x, 0)
+        compare(loader.y, 0)
+        compare(loader.width, table.width)
+        compare(loader.height, table.height)
+        const workspace = findChild(loader.item, "sideboardWorkspace")
+        verify(workspace)
+        compare(workspace.width, loader.width)
+        compare(workspace.height, loader.height)
+        const countdown = findChild(loader.item, "sideboardCountdown")
+        const settings = item("forgeGameMenu")
+        const countdownRight = countdown.mapToItem(table, countdown.width, 0).x
+        const settingsLeft = settings.mapToItem(table, 0, 0).x
+        verify(countdownRight <= settingsLeft)
+        openSettings()
+        closeSettings()
         match.sideboarding = false
+        tryCompare(dock, "visible", true)
         tryCompare(item("rulesActionBar"), "visible", true)
         verify(item("forgeTurnIndicator").visible)
     }
@@ -1218,15 +1328,17 @@ TestCase {
     function test_peerControlsOnTableAndBetweenGames(data) {
         room.hostingMode = "player"; room.seatIndex = data.seat
         match.sideboarding = data.sideboarding
+        openSettings()
         const panel = item("forgeTablePeerConnection")
         waitForRendering(table)
         const enable = findChild(panel, "forgePeerEnable")
         verify(panel.visible && enable.visible && enable.enabled)
-        verify(!table.presentation.modalOpen)
+        verify(table.presentation.modalOpen)
         compare(transport.peerRequests.length, 0)
         mouseClick(enable)
         compare(transport.peerRequests, [{enabled:true, retry:false}])
-        verify(!table.presentation.modalOpen)
+        verify(table.presentation.modalOpen)
+        verify(!item("forgeHostingDialog").opened)
         transport.peerTransportState = "direct"
         verify(findChild(panel, "forgePeerStatus").text.includes("Direct connection active"))
         transport.peerTransportState = "relay"
@@ -1240,6 +1352,7 @@ TestCase {
         compare(transport.peerRequests[2], {enabled:false, retry:false})
         room.role = "spectator"
         verify(!panel.visible)
+        closeSettings()
     }
     function test_numberDecisionRemainsInteractive_data() {
         const rows = []
@@ -1276,8 +1389,10 @@ TestCase {
         combat("chooseAttackers")
         const dock = item("rulesDecisionDock"), lane = item("forgeOwnCreatures"), hand = item("forgeHand")
         waitForRendering(table)
-        verify(dock.x >= lane.x + lane.width)
+        verify(lane.x + lane.width > dock.x)
         verify(dock.x >= hand.x + hand.width)
+        verify(dock.x + dock.width <= table.width + 1)
+        verify(dock.y + dock.height <= table.height + 1)
         const confirm = item("rulesConfirmCombat-attackers")
         const point = confirm.mapToItem(table, 0, 0)
         verify(point.x >= dock.x && point.x + confirm.width <= table.width)

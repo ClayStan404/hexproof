@@ -5,25 +5,16 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property var preferencesModel: null
 
     objectName: "tableBackgroundPopup"
-    parent: Overlay.overlay
-    x: parent ? Math.round((parent.width - width) / 2) : 0
-    y: parent ? Math.round((parent.height - height) / 2) : 0
     width: parent ? Math.min(Theme.size(780), Math.max(0, parent.width - Theme.size(32))) : 0
     height: parent ? Math.min(body.implicitHeight + padding * 2,
                              Math.max(0, parent.height - Theme.size(32))) : 0
     padding: Theme.size(20)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-    background: Surface { elevated: true }
 
     contentItem: ColumnLayout {
         id: body

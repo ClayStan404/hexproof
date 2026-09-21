@@ -238,7 +238,12 @@ TestCase {
         handCardMenu.close()
         tryVerify(() => !handCardMenu.opened)
         compare(handSurface.height, table.handAreaHeight)
-        compare(initialHandCard.width, table.handCardWidth)
+        const handList = findChild(table, "ownHand")
+        verify(handList !== null)
+        compare(initialHandCard.width,
+                Math.max(table.handCardWidth,
+                         Math.round(handList.height * 63 / 88)))
+        verify(initialHandCard.width >= table.handCardWidth)
         compare(battlefieldCard.width, table.battlefieldCardWidth)
         verify(battlefieldCard.width < 92)
         const log = findChild(table, "gameLog")

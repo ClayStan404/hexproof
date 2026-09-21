@@ -12,7 +12,7 @@ Surface {
 
     required property var tableController
 
-    color: Theme.surfaceMuted
+    color: Theme.useGlass ? Theme.tableRailFill : Theme.surfaceMuted
     radius: 0
     border.width: 0
 
@@ -396,7 +396,7 @@ Surface {
         }
     }
 
-    Menu {
+    AppMenu {
         id: sharedTargetMenu
         objectName: "sharedTargetMenu"
         property string sourceCardId: ""
@@ -425,8 +425,8 @@ Surface {
             text: qsTr("Target %1").arg(root.targetSeatLabel(3))
             onTriggered: root.targetPlayer(sharedTargetMenu.sourceCardId, 3)
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             objectName: "sharedTargetBattlefieldCardAction"
             text: qsTr("Target a battlefield card…")
             onTriggered: {
@@ -435,7 +435,7 @@ Surface {
                 root.tableController.sharedZones.clearSelection()
             }
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "clearSharedTargetAction"
             text: qsTr("Clear target")
             enabled: root.sourceHasTarget(sharedTargetMenu.sourceCardId)

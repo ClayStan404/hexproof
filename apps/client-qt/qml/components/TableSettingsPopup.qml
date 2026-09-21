@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property bool canSetCounterCount: false
@@ -14,25 +14,9 @@ Popup {
                              bool showInspector, int counterCount,
                              bool showGameLog)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(460), parent.width - Theme.size(48))
     height: Math.min(settingsContent.implicitHeight + padding * 2,
                      parent.height - Theme.size(48))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function showFor(showPlayers, showShared, showInspector, counterCount,
                      canSetCounters, showGameLog) {
@@ -57,22 +41,9 @@ Popup {
             width: settingsScroll.availableWidth
             spacing: Theme.size(14)
 
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: qsTr("Table layout")
-                color: Theme.text
-                font.pixelSize: Theme.fontSize(19)
-                font.weight: Font.DemiBold
-            }
-
-            Text {
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: qsTr("Choose the optional table tools you want to keep visible.")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSize(11)
-                wrapMode: Text.WordWrap
+            AppPopupHeader {
+                titleText: qsTr("Table layout")
+                subtitleText: qsTr("Choose the optional table tools you want to keep visible.")
             }
 
             AppButton {

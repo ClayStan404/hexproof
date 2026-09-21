@@ -14,6 +14,13 @@ Rectangle {
     property string objectKind: "card"
     readonly property string objectId: card.cardId || card.objectId || ""
     readonly property bool publicFace: card.visibleIdentity !== false && !card.faceDown && !!card.name
+    readonly property string displayName: {
+        if (!publicFace)
+            return ""
+        if (typeof tableController.cardDisplayName === "function")
+            return tableController.cardDisplayName(card.name)
+        return card.name
+    }
     readonly property var combat: tableController.combatInteraction
     readonly property bool actionable: combat && combat.active && objectKind === "card"
         ? combat.actionable(objectId) : tableController.interaction.objectActionable(objectKind, objectId)
@@ -50,7 +57,7 @@ Rectangle {
     Keys.onReturnPressed: activate()
     Keys.onSpacePressed: activate()
     Accessible.role: Accessible.Button
-    Accessible.name: publicFace ? card.name : qsTr("Hidden card")
+    Accessible.name: publicFace ? displayName : qsTr("Hidden card")
     Accessible.onPressAction: activate()
 
     Rectangle {
@@ -97,8 +104,9 @@ Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.margins: 7 * root.unit
+            objectName: "forgeCardName-" + root.objectId
             visible: !root.fullFace || art.status !== Image.Ready
-            text: root.publicFace ? root.card.name : qsTr("Hidden card")
+            text: root.publicFace ? root.displayName : qsTr("Hidden card")
             color: "#f3f1e9"
             font.pixelSize: 12 * root.unit
             font.weight: Font.DemiBold

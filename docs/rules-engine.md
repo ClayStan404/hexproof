@@ -434,7 +434,8 @@ Scrolling never substitutes a different same-name card. Selection resets on new
 prompts, game changes, disconnection, sideboarding and viewer-seat changes.
 Targets are read from native metadata, independently of current target-selection
 prompts and without parsing rules text. The Settings drawer retains phase
-stops and match controls. Public-zone browsing opens on demand; command-zone
+stops, Full control, log/chat, match controls, and optional player-hosting
+tools. Public-zone browsing opens on demand; command-zone
 buttons and tabs appear only in Duel Commander. Zone headings use the server's
 zone counts, independently of how many card identities are disclosed. Both
 player plates show hand and library counts, including updates within one turn.
@@ -445,20 +446,24 @@ Hover and keyboard-focus inspection show a full card beside its source, flipping
 left near the window edge and staying within the viewport. This read-only overlay
 does not intercept targeting or combat input, open the fixed inspector, or move
 the battlefield. Modal decisions and authority loss hide it. Explicitly pinned
-card state and log/chat open on demand in a separate right-side column. The
-stack and decision dock shift beside it, keeping lands, other permanents and
-decision controls accessible. Closing the column restores the battlefield's
-width; transient hover inspection does not reserve any column. The resting
+card state opens on demand in a separate right-side column. Log/chat opens as a
+floating panel from Settings: drag its title to move it, drag the
+lower-right corner to resize it, or right-click the title to restore the
+default size and top-right position. Opening the log does not
+reserve a column or move the stack, lanes, or decision dock. Transient hover
+inspection does not reserve any column. The resting
 hand exposes approximately its upper half at the bottom of the window, retaining
 stable visible click/drag slots and horizontal scrolling for unusually large
 hands. Battlefield grids choose readable card sizes from both available width
 and height; lands and other permanents share vertical space according to their
 counts. Extreme boards retain scrolling and exact-object keyboard/target reveal.
-The compact top row combines the turn owner, turn number, phase and game/log
-controls. Decision instructions remain in the right dock rather than occupying
-a second banner above the battlefield. The turn label and active-player border
-use `activeSeat`, independently of the current priority holder. The legacy
-layout keeps its separate allocation.
+A Settings button sits at the top-right corner of the two-seat table. Decision
+instructions remain in the bottom-right dock rather than occupying a second
+banner above the battlefield. The dock overlays the corner of the hand band
+and does not reserve a battlefield column. It shows turn owner, turn number,
+phase, and priority passing. The turn label and active-player border use `activeSeat`,
+independently of the current priority holder. The legacy layout keeps its
+separate allocation.
 
 Known Forge decision headings, common choice labels and engine-authored prompt
 templates use the client's selected language through `RulesText`. Play/draw
@@ -543,14 +548,15 @@ that hint from approving a pass. It is not a new client-side implementation of
 MTG costs.
 The hint is sent only to the deciding player and never changes the legal options.
 
-The action bar offers **Next / Resolve**, **Full control**, and a **Pass…** menu
-for passing until a response, for the rest of the current turn, or through the
-current stack. Full control disables automatic passing and remains active across
-casting, target selection, and payment. The phase rail exposes separate stop
-toggles for the user's turns and other players' turns. A stop pauses the first
-priority window in that phase; explicitly continuing acknowledges that phase
-only, so the stop applies again on a later turn. Stops cannot create a priority
-window in untap or another engine step that does not grant one.
+The action bar offers **Next / Resolve** and a **Pass** menu for passing until
+a response, for the rest of the current turn, or through the current stack.
+**Full control**, log/chat, and phase stops live in Settings. Full control
+disables automatic passing and remains active across casting, target selection,
+and payment. The Settings phase list exposes separate stop toggles for the
+user's turns and other players' turns. A stop pauses the first priority window
+in that phase; explicitly continuing acknowledges that phase only, so the stop
+applies again on a later turn. Stops cannot create a priority window in untap
+or another engine step that does not grant one.
 
 Continuous modes send individually validated `$pass` responses. Stack and
 response modes stop when a new stack-instance id appears; stack mode also ends

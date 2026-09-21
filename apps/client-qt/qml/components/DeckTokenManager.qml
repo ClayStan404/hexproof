@@ -8,7 +8,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "TokenPresentation.js" as TokenPresentation
 
-Popup {
+AppPopup {
     id: root
 
     required property var deckLibraryModel
@@ -26,54 +26,19 @@ Popup {
         for (const token of currentTokens.slice(0, 60)) catalogModel.cacheToken(token)
     }
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(1040), parent.width - Theme.size(48))
     height: Math.min(Theme.size(720), parent.height - Theme.size(56))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: Theme.size(12)
+            spacing: Theme.size(10)
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Deck tokens and emblems")
-                    elide: Text.ElideRight
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(22)
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Saved tokens and emblems appear first in the in-game picker. Click art for rules.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(13)
-                    wrapMode: Text.WordWrap
-                }
+            AppPopupHeader {
+                titleText: qsTr("Deck tokens and emblems")
+                subtitleText: qsTr("Saved tokens and emblems appear first in the in-game picker. Click art for rules.")
             }
 
             StatusPill {

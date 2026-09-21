@@ -34,6 +34,11 @@ constexpr auto kLatestReleaseApi =
     "https://api.github.com/repos/ClayStan404/hexproof/releases/latest";
 constexpr auto kReleaseApiPrefix =
     "https://api.github.com/repos/ClayStan404/hexproof/releases/tags/v";
+constexpr auto kLatestChecksumsUrl =
+    "https://github.com/ClayStan404/hexproof/releases/latest/download/SHA256SUMS";
+constexpr auto kReleaseDownloadPrefix =
+    "https://github.com/ClayStan404/hexproof/releases/download/";
+constexpr auto kReleaseTagPrefix = "https://github.com/ClayStan404/hexproof/releases/tag/";
 constexpr auto kReleaseListUrl = "https://github.com/ClayStan404/hexproof/releases";
 constexpr auto kLastCheckKey = "updates/applicationLastCheckUtc";
 constexpr auto kCachePrefix = "updates/latestApplicationRelease/";
@@ -152,8 +157,13 @@ bool AppUpdateService::exactVersion() const
 bool AppUpdateService::releaseAvailable() const
 {
     return !m_release.version.isEmpty() && !m_release.assetName.isEmpty() &&
-           m_release.assetUrl.isValid() && m_release.assetSize > 0 &&
-           validSha256(m_release.checksum);
+           m_release.assetUrl.isValid() && m_release.assetSize >= 0 &&
+           m_release.assetSize <= kMaximumUpdatePackageBytes && validSha256(m_release.checksum);
+}
+
+bool AppUpdateService::cachedRelease() const
+{
+    return m_cachedRelease && releaseAvailable();
 }
 
 bool AppUpdateService::updateAvailable() const
@@ -228,6 +238,7 @@ void AppUpdateService::checkAutomatically()
 void AppUpdateService::requestRelease(const QUrl &apiUrl, const QString &exactVersion)
 {
     m_lastError.clear();
+    m_apiCheckError.clear();
     m_checking = true;
     m_pendingRelease = {};
     m_requestedExactVersion = exactVersion;
@@ -250,13 +261,15 @@ void AppUpdateService::handleReleaseReply(QNetworkReply *reply)
     const QString exactVersion = m_requestedExactVersion;
     reply->deleteLater();
     if (!networkOk) {
-        finishCheckWithError(QStringLiteral("Application update check failed."));
+        m_apiCheckError = describeCheckFailure(reply);
+        requestFallbackChecksums();
         return;
     }
 
     ReleaseInfo release = parseRelease(payload, exactVersion);
     if (release.version.isEmpty()) {
-        finishCheckWithError(QStringLiteral("The application release metadata is invalid."));
+        m_apiCheckError = QStringLiteral("The application release metadata is invalid.");
+        requestFallbackChecksums();
         return;
     }
     requestChecksums(std::move(release));
@@ -293,6 +306,68 @@ void AppUpdateService::handleChecksumsReply(QNetworkReply *reply)
     applyRelease(std::move(m_pendingRelease));
 }
 
+void AppUpdateService::requestFallbackChecksums()
+{
+    const QUrl url = m_requestedExactVersion.isEmpty()
+                         ? QUrl(QString::fromLatin1(kLatestChecksumsUrl))
+                         : officialDownloadUrl(QStringLiteral("v") + m_requestedExactVersion,
+                                               QStringLiteral("SHA256SUMS"));
+    QNetworkReply *reply = m_network->get(githubRequest(url, QByteArrayLiteral("text/plain")));
+    m_checkReply = reply;
+    network_limits::limitNetworkReply(reply, kMaximumChecksumsBytes);
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply]() { handleFallbackChecksumsReply(reply); });
+}
+
+void AppUpdateService::handleFallbackChecksumsReply(QNetworkReply *reply)
+{
+    if (reply != m_checkReply)
+        return;
+    m_checkReply = nullptr;
+    const bool networkOk = successfulReply(reply);
+    const QByteArray payload = reply->readAll();
+    const QString exactVersion = m_requestedExactVersion;
+    reply->deleteLater();
+    if (!networkOk) {
+        finishCheckWithError(m_apiCheckError.isEmpty()
+                                 ? QStringLiteral("Release checksums are unavailable.")
+                                 : m_apiCheckError);
+        return;
+    }
+
+    ReleaseInfo release = parseFallbackRelease(payload, exactVersion);
+    if (release.version.isEmpty()) {
+        finishCheckWithError(m_apiCheckError.isEmpty()
+                                 ? QStringLiteral("The application release metadata is invalid.")
+                                 : m_apiCheckError);
+        return;
+    }
+    requestAssetHead(std::move(release));
+}
+
+void AppUpdateService::requestAssetHead(ReleaseInfo release)
+{
+    m_pendingRelease = std::move(release);
+    QNetworkReply *reply = m_network->head(
+        githubRequest(m_pendingRelease.assetUrl, QByteArrayLiteral("application/octet-stream")));
+    m_checkReply = reply;
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply]() { handleAssetHeadReply(reply); });
+}
+
+void AppUpdateService::handleAssetHeadReply(QNetworkReply *reply)
+{
+    if (reply != m_checkReply)
+        return;
+    m_checkReply = nullptr;
+    const bool networkOk = successfulReply(reply);
+    const qint64 size = replyContentLength(reply);
+    reply->deleteLater();
+    if (networkOk && size > 0 && size <= kMaximumUpdatePackageBytes)
+        m_pendingRelease.assetSize = size;
+    applyRelease(std::move(m_pendingRelease));
+}
+
 void AppUpdateService::applyRelease(ReleaseInfo release)
 {
     const bool sameDownload = m_release.assetName == release.assetName &&
@@ -300,6 +375,8 @@ void AppUpdateService::applyRelease(ReleaseInfo release)
     m_release = std::move(release);
     m_pendingRelease = {};
     m_requestedExactVersion.clear();
+    m_apiCheckError.clear();
+    m_cachedRelease = false;
     m_checking = false;
     m_lastError.clear();
     if (!sameDownload)
@@ -314,6 +391,7 @@ void AppUpdateService::finishCheckWithError(const QString &error)
     m_checking = false;
     m_pendingRelease = {};
     m_requestedExactVersion.clear();
+    m_apiCheckError.clear();
     setLastError(error);
     emit stateChanged();
 }
@@ -378,10 +456,10 @@ bool AppUpdateService::readDownloadData()
     const QByteArray data = m_downloadReply->readAll();
     if (data.isEmpty())
         return true;
-    if (m_downloadedBytes > m_release.assetSize - data.size() ||
-        m_downloadedBytes > kMaximumUpdatePackageBytes - data.size()) {
+    if (m_downloadedBytes > kMaximumUpdatePackageBytes - data.size())
         return false;
-    }
+    if (m_release.assetSize > 0 && m_downloadedBytes > m_release.assetSize - data.size())
+        return false;
     if (m_downloadFile->write(data) != data.size())
         return false;
     m_downloadHash->addData(data);
@@ -414,7 +492,8 @@ void AppUpdateService::finishDownload(QNetworkReply *reply)
         failDownload(QStringLiteral("Could not write the update package."));
         return;
     }
-    if (!networkOk || m_downloadedBytes != m_release.assetSize) {
+    if (!networkOk || m_downloadedBytes <= 0 ||
+        (m_release.assetSize > 0 && m_downloadedBytes != m_release.assetSize)) {
         failDownload(QStringLiteral("The application update download failed."));
         return;
     }
@@ -559,20 +638,27 @@ int AppUpdateService::compareVersions(const QString &left, const QString &right)
     return 0;
 }
 
+QUrl AppUpdateService::officialDownloadUrl(const QString &tag, const QString &assetName)
+{
+    return QUrl(QString::fromLatin1(kReleaseDownloadPrefix) + tag + QLatin1Char('/') + assetName);
+}
+
+QUrl AppUpdateService::officialTagPageUrl(const QString &tag)
+{
+    return QUrl(QString::fromLatin1(kReleaseTagPrefix) + tag);
+}
+
 bool AppUpdateService::officialReleaseUrl(const QUrl &url, const QString &tag,
                                           const QString &assetName)
 {
-    return url.scheme() == QStringLiteral("https") &&
-           url.host().compare(QStringLiteral("github.com"), Qt::CaseInsensitive) == 0 &&
-           url.path() ==
-               QStringLiteral("/ClayStan404/hexproof/releases/download/%1/%2").arg(tag, assetName);
+    return url.matches(officialDownloadUrl(tag, assetName),
+                       QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::NormalizePathSegments);
 }
 
 bool AppUpdateService::officialReleasePageUrl(const QUrl &url, const QString &tag)
 {
-    return url.scheme() == QStringLiteral("https") &&
-           url.host().compare(QStringLiteral("github.com"), Qt::CaseInsensitive) == 0 &&
-           url.path() == QStringLiteral("/ClayStan404/hexproof/releases/tag/%1").arg(tag);
+    return url.matches(officialTagPageUrl(tag),
+                       QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::NormalizePathSegments);
 }
 
 AppUpdateService::ReleaseInfo AppUpdateService::parseRelease(const QByteArray &payload,
@@ -605,7 +691,7 @@ AppUpdateService::ReleaseInfo AppUpdateService::parseRelease(const QByteArray &p
     result.name = object.value(QStringLiteral("name")).toString().trimmed();
     if (result.name.isEmpty())
         result.name = tag;
-    result.notes = object.value(QStringLiteral("body")).toString().trimmed().left(16 * 1024);
+    result.notes = sanitizeReleaseNotes(object.value(QStringLiteral("body")).toString());
     result.releaseUrl = QUrl(object.value(QStringLiteral("html_url")).toString());
     if (!officialReleasePageUrl(result.releaseUrl, tag)) {
         return {};
@@ -631,6 +717,52 @@ AppUpdateService::ReleaseInfo AppUpdateService::parseRelease(const QByteArray &p
     return result;
 }
 
+AppUpdateService::ReleaseInfo AppUpdateService::parseFallbackRelease(const QByteArray &payload,
+                                                                     const QString &exactVersion)
+{
+    const QString sampleName = platformAssetName(QStringLiteral("0.0.0"));
+    if (sampleName.isEmpty())
+        return {};
+    const QString suffix = sampleName.sliced(QStringLiteral("Hexproof-0.0.0").size());
+    static const QRegularExpression versionPattern(QStringLiteral(R"(^[0-9]+\.[0-9]+\.[0-9]+$)"));
+    QString version;
+    const QList<QByteArray> lines = payload.split('\n');
+    for (QByteArray line : lines) {
+        line = line.trimmed();
+        if (line.size() < 67)
+            continue;
+        QByteArray name = line.mid(64).trimmed();
+        if (name.startsWith('*'))
+            name.remove(0, 1);
+        const QString asset = QString::fromUtf8(name);
+        if (!asset.startsWith(QStringLiteral("Hexproof-")) || !asset.endsWith(suffix))
+            continue;
+        const QString candidate =
+            asset.sliced(QStringLiteral("Hexproof-").size(),
+                         asset.size() - QStringLiteral("Hexproof-").size() - suffix.size());
+        if (!versionPattern.match(candidate).hasMatch() || !validVersion(candidate))
+            continue;
+        version = candidate;
+        break;
+    }
+    if (version.isEmpty() || (!exactVersion.isEmpty() && version != exactVersion))
+        return {};
+
+    ReleaseInfo result;
+    result.version = version;
+    result.exact = !exactVersion.isEmpty();
+    result.assetName = platformAssetName(version);
+    result.checksum = checksumForAsset(payload, result.assetName);
+    if (result.assetName.isEmpty() || result.checksum.size() != 64)
+        return {};
+    const QString tag = QStringLiteral("v") + version;
+    result.name = QStringLiteral("Hexproof %1").arg(version);
+    result.releaseUrl = officialTagPageUrl(tag);
+    result.assetUrl = officialDownloadUrl(tag, result.assetName);
+    result.checksumsUrl = officialDownloadUrl(tag, QStringLiteral("SHA256SUMS"));
+    return result;
+}
+
 QByteArray AppUpdateService::checksumForAsset(const QByteArray &payload, const QString &assetName)
 {
     const QList<QByteArray> lines = payload.split('\n');
@@ -649,13 +781,51 @@ QByteArray AppUpdateService::checksumForAsset(const QByteArray &payload, const Q
     return {};
 }
 
+QString AppUpdateService::sanitizeReleaseNotes(QString notes)
+{
+    static const QRegularExpression markedBlock(
+        QStringLiteral(
+            R"(<!--\s*hexproof-macos-install-notes:start\s*-->.*?<!--\s*hexproof-macos-install-notes:end\s*-->)"),
+        QRegularExpression::DotMatchesEverythingOption);
+    static const QRegularExpression htmlComment(QStringLiteral("<!--.*?-->"),
+                                                QRegularExpression::DotMatchesEverythingOption);
+    static const QRegularExpression extraBlankLines(QStringLiteral("\n{3,}"));
+    notes.replace(markedBlock, QString());
+    notes.replace(htmlComment, QString());
+    notes.replace(extraBlankLines, QStringLiteral("\n\n"));
+    return notes.trimmed().left(16 * 1024);
+}
+
+QString AppUpdateService::describeCheckFailure(const QNetworkReply *reply)
+{
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (status == 403 || status == 429)
+        return QStringLiteral("GitHub rate-limited the application update check. Try again later.");
+    if (status == 404)
+        return QStringLiteral("The application release was not found.");
+    return QStringLiteral("Application update check failed.");
+}
+
+qint64 AppUpdateService::replyContentLength(const QNetworkReply *reply)
+{
+    const QVariant header = reply->header(QNetworkRequest::ContentLengthHeader);
+    if (header.isValid()) {
+        bool ok = false;
+        const qint64 size = header.toLongLong(&ok);
+        if (ok)
+            return size;
+    }
+    return -1;
+}
+
 void AppUpdateService::loadCachedLatestRelease()
 {
     QSettings settings;
     ReleaseInfo cached;
     cached.version = settings.value(QString::fromLatin1(kCachePrefix) + "version").toString();
     cached.name = settings.value(QString::fromLatin1(kCachePrefix) + "name").toString();
-    cached.notes = settings.value(QString::fromLatin1(kCachePrefix) + "notes").toString();
+    cached.notes = sanitizeReleaseNotes(
+        settings.value(QString::fromLatin1(kCachePrefix) + "notes").toString());
     cached.publishedAt =
         settings.value(QString::fromLatin1(kCachePrefix) + "publishedAt").toString();
     cached.releaseUrl = settings.value(QString::fromLatin1(kCachePrefix) + "releaseUrl").toUrl();
@@ -668,7 +838,7 @@ void AppUpdateService::loadCachedLatestRelease()
         settings.value(QString::fromLatin1(kCachePrefix) + "checksum").toByteArray().toLower();
     const QString tag = QStringLiteral("v") + cached.version;
     if (!validVersion(cached.version) || cached.assetName != platformAssetName(cached.version) ||
-        cached.assetSize <= 0 || cached.assetSize > kMaximumUpdatePackageBytes ||
+        cached.assetSize < 0 || cached.assetSize > kMaximumUpdatePackageBytes ||
         !officialReleasePageUrl(cached.releaseUrl, tag) ||
         !officialReleaseUrl(cached.assetUrl, tag, cached.assetName) ||
         !officialReleaseUrl(cached.checksumsUrl, tag, QStringLiteral("SHA256SUMS")) ||
@@ -676,6 +846,7 @@ void AppUpdateService::loadCachedLatestRelease()
         return;
     }
     m_release = std::move(cached);
+    m_cachedRelease = true;
 }
 
 void AppUpdateService::cacheLatestRelease() const

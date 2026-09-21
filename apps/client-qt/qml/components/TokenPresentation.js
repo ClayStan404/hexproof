@@ -22,12 +22,13 @@ function details(catalog, card) {
             oracleText: localized.oracleText || card.oracleText || ""}
 }
 
-function summary(catalog, card, includePrinting) {
+function summary(catalog, card, includePrinting, includeRules) {
     const value = details(catalog, card)
     const parts = []
     if (card.power && card.toughness) parts.push(card.power + "/" + card.toughness)
     if (value.typeLine) parts.push(value.typeLine)
-    if (value.oracleText) parts.push(value.oracleText.trim().replace(/\s*\n\s*/g, " · "))
+    if (includeRules !== false && value.oracleText)
+        parts.push(value.oracleText.trim().replace(/\s*\n\s*/g, " · "))
     if (includePrinting)
         parts.push(String(card.setCode || "").toUpperCase() + " #" + String(card.collectorNumber || ""))
     return parts.join(" · ")

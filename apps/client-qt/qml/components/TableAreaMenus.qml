@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
-import QtQuick.Controls.Basic
 
 Item {
     id: root
@@ -16,20 +15,22 @@ Item {
     readonly property alias handAreaMenu: handAreaMenu
     readonly property alias handCardMenu: handCardMenu
 
-    Menu {
+    AppMenu {
         id: battlefieldAreaMenu
         objectName: "battlefieldAreaMenu"
 
-        MenuItem {
+        AppMenuItem {
             objectName: "untapAllBattlefieldAction"
-            text: qsTr("Untap all") + ShortcutHints.suffix("table.untapAll")
+            text: qsTr("Untap all")
+            shortcutId: "table.untapAll"
             enabled: root.tableController.canAct
                      && root.tableController.gameValues.hasTappedOwnPermanent()
             onTriggered: root.tableController.gameValues.untapOwnBattlefield()
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "arrangeBattlefieldAction"
-            text: qsTr("Arrange battlefield") + ShortcutHints.suffix("table.arrangeBattlefield")
+            text: qsTr("Arrange battlefield")
+            shortcutId: "table.arrangeBattlefield"
             enabled: root.tableController.canAct
                      && root.tableController.zoneState.zoneCardCount(
                          root.tableController.roomSession.seatIndex,
@@ -37,35 +38,40 @@ Item {
             onTriggered:
                 root.tableController.cardMoveCommands.arrangeOwnBattlefield()
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             objectName: "createTokenAction"
-            text: qsTr("Tokens and emblems") + ShortcutHints.suffix("table.createToken")
+            text: qsTr("Tokens and emblems")
+            shortcutId: "table.createToken"
             enabled: root.tableController.canAct
             onTriggered: root.tokenPickerPopup.open()
         }
-        Menu {
+        AppMenu {
             title: qsTr("Random tools")
             enabled: root.tableController.canAct
 
-            MenuItem {
+            AppMenuItem {
                 objectName: "rollDiceAction"
-                text: qsTr("Roll dice…") + ShortcutHints.suffix("table.rollDice")
+                text: qsTr("Roll dice…")
+                shortcutId: "table.rollDice"
                 onTriggered: root.tableController.diceRollPopup.showFor(20, 1)
             }
-            MenuItem {
+            AppMenuItem {
                 objectName: "flipCoinAction"
-                text: qsTr("Flip a coin") + ShortcutHints.suffix("table.flipCoin")
+                text: qsTr("Flip a coin")
+                shortcutId: "table.flipCoin"
                 onTriggered: root.tableController.wsModel.flipCoin()
             }
-            MenuItem {
+            AppMenuItem {
                 objectName: "randomPlayerAction"
-                text: qsTr("Random player") + ShortcutHints.suffix("table.randomPlayer")
+                text: qsTr("Random player")
+                shortcutId: "table.randomPlayer"
                 onTriggered: root.tableController.wsModel.randomSelectPlayer()
             }
-            MenuItem {
+            AppMenuItem {
                 objectName: "randomBattlefieldCardAction"
-                text: qsTr("Random battlefield card") + ShortcutHints.suffix("table.randomBattlefield")
+                text: qsTr("Random battlefield card")
+                shortcutId: "table.randomBattlefield"
                 enabled: root.tableController.selection.allCardIds().length > 0
                 onTriggered: root.tableController.wsModel.randomSelectCards(
                                  root.tableController.selection.allCardIds())
@@ -77,13 +83,15 @@ Item {
         ConditionalMenuItem {
             objectName: "declareDrawAction"
             visible: !root.tableController.isPlaytest
-            text: qsTr("Declare draw") + ShortcutHints.suffix("table.declareDraw")
+            text: qsTr("Declare draw")
+            shortcutId: "table.declareDraw"
             enabled: root.tableController.canAct
             onTriggered: root.tableController.drawConfirmation.open()
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "restartGameAction"
-            text: qsTr("Restart game") + ShortcutHints.suffix("table.restartGame")
+            text: qsTr("Restart game")
+            shortcutId: "table.restartGame"
             enabled: root.tableController.canAct
                      && root.tableController.roomSession.host
             onTriggered: root.tableController.restartConfirmation.open()
@@ -91,7 +99,8 @@ Item {
         ConditionalMenuItem {
             objectName: "concedeAction"
             visible: !root.tableController.isPlaytest
-            text: qsTr("Concede") + ShortcutHints.suffix("table.concede")
+            text: qsTr("Concede")
+            shortcutId: "table.concede"
             enabled: !root.tableController.gameFinished
                      && !root.tableController.ownEliminated
                      && !root.tableController.gameSession.sideboarding
@@ -99,11 +108,11 @@ Item {
         }
     }
 
-    Menu {
+    AppMenu {
         id: handAreaMenu
         objectName: "handAreaMenu"
 
-        MenuItem {
+        AppMenuItem {
             objectName: "manageHandCardsAction"
             text: qsTr("Select and move hand cards…")
             enabled: root.tableController.canAct
@@ -112,97 +121,107 @@ Item {
                              root.tableController.ownSeatData.displayName || "",
                              root.tableController.roomSession.seatIndex, "hand")
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "revealHandAction"
-            text: (root.tableController.ownRevealedCards.length > 0
-                   ? qsTr("Recall hand")
-                   : qsTr("Reveal hand")) + ShortcutHints.suffix("table.toggleHandReveal")
+            text: root.tableController.ownRevealedCards.length > 0
+                  ? qsTr("Recall hand")
+                  : qsTr("Reveal hand")
+            shortcutId: "table.toggleHandReveal"
             enabled: root.tableController.canAct
                      && (root.tableController.projectionSync.visibleOwnHandCount() > 0
                          || root.tableController.ownRevealedCards.length > 0)
                      && !root.tableController.zoneState.handRevealTransitionPending()
             onTriggered: root.tableController.cardActions.toggleHandReveal()
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             objectName: "discardRandomHandCardAction"
-            text: qsTr("Discard a random card") + ShortcutHints.suffix("table.discardRandom")
+            text: qsTr("Discard a random card")
+            shortcutId: "table.discardRandom"
             enabled: root.tableController.canAct
                      && root.tableController.projectionSync.visibleOwnHandCount() > 0
             onTriggered: root.tableController.wsModel.discardHand(false)
         }
-        MenuItem {
+        AppMenuItem {
             objectName: "discardEntireHandAction"
-            text: qsTr("Discard entire hand…") + ShortcutHints.suffix("table.discardAll")
+            text: qsTr("Discard entire hand…")
+            shortcutId: "table.discardAll"
             enabled: root.tableController.canAct
                      && root.tableController.projectionSync.visibleOwnHandCount() > 0
             onTriggered: root.discardHandConfirmation.open()
         }
-        MenuSeparator { }
-        MenuItem {
+        AppMenuSeparator { }
+        AppMenuItem {
             objectName: "mulliganAction"
-            text: qsTr("Mulligan") + ShortcutHints.suffix("table.mulligan")
+            text: qsTr("Mulligan")
+            shortcutId: "table.mulligan"
             enabled: root.tableController.canAct
                      && root.tableController.authoritativeSeats.length > 0
             onTriggered: root.tableController.mulliganConfirmation.open()
         }
     }
 
-    Menu {
+    AppMenu {
         id: handCardMenu
         objectName: "handCardMenu"
 
-        MenuItem {
+        AppMenuItem {
             objectName: "playLandAction"
-            text: qsTr("Play land…") + ShortcutHints.suffix("table.selection.playLand")
+            text: qsTr("Play land…")
+            shortcutId: "table.selection.playLand"
             enabled: root.tableController.isActivePlayer
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id
             onTriggered: root.tableController.landPlay.requestSelectedHandCard()
         }
-        MenuSeparator { }
-        MenuItem {
-            text: qsTr("Move to battlefield") + ShortcutHints.suffix("table.selection.battlefieldFaceUp")
+        AppMenuSeparator { }
+        AppMenuItem {
+            text: qsTr("Move to battlefield")
+            shortcutId: "table.selection.battlefieldFaceUp"
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedHandCard("battlefield")
         }
-        MenuItem {
-            text: qsTr("Move to battlefield face down") + ShortcutHints.suffix("table.selection.battlefieldFaceDown")
+        AppMenuItem {
+            text: qsTr("Move to battlefield face down")
+            shortcutId: "table.selection.battlefieldFaceDown"
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id
             onTriggered: root.tableController.cardMoveCommands.moveSelectedHandCard(
                              "battlefield", true)
         }
-        MenuItem {
-            text: qsTr("Move to graveyard") + ShortcutHints.suffix("table.selection.moveGraveyard")
+        AppMenuItem {
+            text: qsTr("Move to graveyard")
+            shortcutId: "table.selection.moveGraveyard"
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedHandCard("graveyard")
         }
-        MenuItem {
-            text: qsTr("Move to exile") + ShortcutHints.suffix("table.selection.moveExile")
+        AppMenuItem {
+            text: qsTr("Move to exile")
+            shortcutId: "table.selection.moveExile"
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id
             onTriggered:
                 root.tableController.cardMoveCommands.moveSelectedHandCard("exile")
         }
-        MenuSeparator { }
-        MenuItem {
-            text: qsTr("Move to top of library") + ShortcutHints.suffix("table.selection.moveLibraryTop")
+        AppMenuSeparator { }
+        AppMenuItem {
+            text: qsTr("Move to top of library")
+            shortcutId: "table.selection.moveLibraryTop"
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id
             onTriggered: root.tableController.cardMoveCommands.moveSelectedHandToLibrary(
                              "top", -1)
         }
-        MenuItem {
+        AppMenuItem {
             text: qsTr("Move to library position…")
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
@@ -210,8 +229,9 @@ Item {
             onTriggered: root.handLibraryPositionEditorPopup.showFor(
                              root.tableController.selectedHandCard.name)
         }
-        MenuItem {
-            text: qsTr("Move to bottom of library") + ShortcutHints.suffix("table.selection.moveLibraryBottom")
+        AppMenuItem {
+            text: qsTr("Move to bottom of library")
+            shortcutId: "table.selection.moveLibraryBottom"
             enabled: root.tableController.canAct
                      && !!root.tableController.selectedHandCard
                      && !!root.tableController.selectedHandCard.id

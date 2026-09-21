@@ -48,14 +48,16 @@ class StaticReply final : public QNetworkReply
 {
   public:
     StaticReply(const QNetworkRequest &request, QByteArray payload, QByteArray contentType,
-                int status, QNetworkReply::NetworkError error, QObject *parent)
+                int status, QNetworkReply::NetworkError error, QObject *parent,
+                qint64 contentLength = -1)
         : QNetworkReply(parent),
           m_payload(std::move(payload))
     {
         setRequest(request);
         setUrl(request.url());
         setHeader(QNetworkRequest::ContentTypeHeader, QString::fromLatin1(contentType));
-        setHeader(QNetworkRequest::ContentLengthHeader, m_payload.size());
+        setHeader(QNetworkRequest::ContentLengthHeader,
+                  contentLength >= 0 ? contentLength : m_payload.size());
         setAttribute(QNetworkRequest::HttpStatusCodeAttribute, status);
         if (error != QNetworkReply::NoError)
             setError(error, u"Simulated network failure"_s);
@@ -100,20 +102,30 @@ class UpdateNetworkAccessManager final : public QNetworkAccessManager
 {
   public:
     QString version;
+    QString releaseBody = u"Release notes"_s;
     QByteArray package = QByteArrayLiteral("portable application package");
     bool wrongChecksum = false;
+    bool failApi = false;
+    bool failFallbackChecksums = false;
+    bool failHead = false;
+    int apiStatus = 403;
     QList<QUrl> requestedUrls;
 
   protected:
     QNetworkReply *createRequest(Operation operation, const QNetworkRequest &request,
                                  QIODevice *outgoingData) override
     {
-        Q_UNUSED(operation)
         Q_UNUSED(outgoingData)
         requestedUrls.append(request.url());
         const QString assetName = expectedAssetName(version);
         const QString tag = u"v%1"_s.arg(version);
         if (request.url().host() == u"api.github.com"_s) {
+            if (failApi) {
+                return new StaticReply(
+                    request, QByteArrayLiteral("{\"message\":\"API rate limit exceeded\"}"),
+                    QByteArrayLiteral("application/json"), apiStatus,
+                    QNetworkReply::ContentAccessDenied, this);
+            }
             const QJsonArray assets{
                 QJsonObject{
                     {u"name"_s, assetName},
@@ -132,7 +144,7 @@ class UpdateNetworkAccessManager final : public QNetworkAccessManager
                     QJsonObject{
                         {u"tag_name"_s, tag},
                         {u"name"_s, u"Hexproof %1"_s.arg(version)},
-                        {u"body"_s, u"Release notes"_s},
+                        {u"body"_s, releaseBody},
                         {u"published_at"_s, u"2026-08-26T08:00:00Z"_s},
                         {u"html_url"_s,
                          u"https://github.com/ClayStan404/hexproof/releases/tag/%1"_s.arg(tag)},
@@ -143,7 +155,20 @@ class UpdateNetworkAccessManager final : public QNetworkAccessManager
             return new StaticReply(request, payload, QByteArrayLiteral("application/json"), 200,
                                    QNetworkReply::NoError, this);
         }
+        if (operation == HeadOperation) {
+            if (failHead || !request.url().path().endsWith(QLatin1Char('/') + assetName)) {
+                return new StaticReply(request, {}, QByteArrayLiteral("text/plain"), 404,
+                                       QNetworkReply::ContentNotFoundError, this);
+            }
+            return new StaticReply(request, {}, QByteArrayLiteral("application/octet-stream"), 200,
+                                   QNetworkReply::NoError, this, package.size());
+        }
         if (request.url().path().endsWith(u"/SHA256SUMS"_s)) {
+            if (failFallbackChecksums &&
+                request.url().path().contains(u"/releases/latest/download/"_s)) {
+                return new StaticReply(request, {}, QByteArrayLiteral("text/plain"), 404,
+                                       QNetworkReply::ContentNotFoundError, this);
+            }
             const QByteArray checksum =
                 wrongChecksum
                     ? QByteArray(64, '0')
@@ -178,6 +203,12 @@ class TestAppUpdateService final : public QObject
     void rejectsPackageWithWrongChecksum() const;
     void requestsExactServerVersion() const;
     void automaticCheckRunsAtMostOncePerDay() const;
+    void fallsBackToGithubDownloadWhenApiFails() const;
+    void fallsBackToTaggedDownloadWhenExactApiFails() const;
+    void keepsCachedReleaseAndReportsFailureWhenLiveCheckFails() const;
+    void reportsRateLimitWhenApiAndFallbackFail() const;
+    void discoversReleaseWhenPackageHeadIsUnavailable() const;
+    void stripsEmbeddedReleaseNoteComments() const;
 
   private:
     QTemporaryDir m_settings;
@@ -330,6 +361,143 @@ void TestAppUpdateService::automaticCheckRunsAtMostOncePerDay() const
     QVERIFY(!second.checking());
     QCOMPARE(secondNetwork.requestedUrls.size(), 0);
     QCOMPARE(second.targetVersion(), firstNetwork.version);
+}
+
+void TestAppUpdateService::fallsBackToGithubDownloadWhenApiFails() const
+{
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager network;
+    network.failApi = true;
+    AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
+
+    service.checkForUpdates();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
+    QVERIFY2(service.lastError().isEmpty(), qPrintable(service.lastError()));
+    QVERIFY(service.releaseAvailable());
+    QVERIFY(service.updateAvailable());
+    QVERIFY(!service.cachedRelease());
+    QCOMPARE(service.targetVersion(), network.version);
+    QCOMPARE(network.requestedUrls.constFirst().path(),
+             u"/repos/ClayStan404/hexproof/releases/latest"_s);
+    QVERIFY(network.requestedUrls.contains(
+        QUrl(u"https://github.com/ClayStan404/hexproof/releases/latest/download/SHA256SUMS"_s)));
+}
+
+void TestAppUpdateService::fallsBackToTaggedDownloadWhenExactApiFails() const
+{
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager network;
+    network.failApi = true;
+    network.version = u"1.2.3"_s;
+    AppUpdateService service(downloads.path(), &network);
+
+    service.checkForVersion(network.version);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
+    QVERIFY2(service.lastError().isEmpty(), qPrintable(service.lastError()));
+    QVERIFY(service.exactVersion());
+    QCOMPARE(service.targetVersion(), network.version);
+    QCOMPARE(network.requestedUrls.constFirst().path(),
+             u"/repos/ClayStan404/hexproof/releases/tags/v1.2.3"_s);
+    QVERIFY(network.requestedUrls.contains(
+        QUrl(u"https://github.com/ClayStan404/hexproof/releases/download/v1.2.3/SHA256SUMS"_s)));
+}
+
+void TestAppUpdateService::keepsCachedReleaseAndReportsFailureWhenLiveCheckFails() const
+{
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager firstNetwork;
+    firstNetwork.version = u"0.0.1"_s;
+    {
+        AppUpdateService first(downloads.path(), &firstNetwork);
+        first.checkForUpdates();
+        QTRY_VERIFY_WITH_TIMEOUT(!first.checking(), 2'000);
+        QVERIFY(first.releaseAvailable());
+    }
+
+    UpdateNetworkAccessManager secondNetwork;
+    secondNetwork.failApi = true;
+    secondNetwork.failFallbackChecksums = true;
+    secondNetwork.version = u"9.9.9"_s;
+    AppUpdateService second(downloads.path(), &secondNetwork);
+    QVERIFY(second.releaseAvailable());
+    QVERIFY(second.cachedRelease());
+    QCOMPARE(second.targetVersion(), firstNetwork.version);
+
+    second.checkForUpdates();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!second.checking(), 2'000);
+    QVERIFY(!second.lastError().isEmpty());
+    QVERIFY(second.releaseAvailable());
+    QVERIFY(second.cachedRelease());
+    QVERIFY(!second.updateAvailable());
+    QCOMPARE(second.targetVersion(), firstNetwork.version);
+}
+
+void TestAppUpdateService::reportsRateLimitWhenApiAndFallbackFail() const
+{
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager network;
+    network.failApi = true;
+    network.failFallbackChecksums = true;
+    AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
+
+    service.checkForUpdates();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
+    QVERIFY(service.lastError().contains(u"rate-limited"_s, Qt::CaseInsensitive));
+    QVERIFY(!service.releaseAvailable());
+}
+
+void TestAppUpdateService::discoversReleaseWhenPackageHeadIsUnavailable() const
+{
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager network;
+    network.failApi = true;
+    network.failHead = true;
+    AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
+
+    service.checkForUpdates();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
+    QVERIFY2(service.lastError().isEmpty(), qPrintable(service.lastError()));
+    QVERIFY(service.releaseAvailable());
+    QCOMPARE(service.targetVersion(), network.version);
+
+    service.downloadUpdate();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.downloading(), 2'000);
+    QVERIFY2(service.lastError().isEmpty(), qPrintable(service.lastError()));
+    QVERIFY(service.downloadReady());
+}
+
+void TestAppUpdateService::stripsEmbeddedReleaseNoteComments() const
+{
+    QTemporaryDir downloads;
+    QVERIFY(downloads.isValid());
+    UpdateNetworkAccessManager network;
+    AppUpdateService service(downloads.path(), &network);
+    network.version = nextReleaseVersion(service);
+    network.releaseBody = u"<!-- hexproof-macos-install-notes:start -->\n"
+                          "## macOS install notes\n\n"
+                          "hidden install notes\n"
+                          "<!-- hexproof-macos-install-notes:end -->\n\n"
+                          "Actual notes.\n"_s;
+
+    service.checkForUpdates();
+
+    QTRY_VERIFY_WITH_TIMEOUT(!service.checking(), 2'000);
+    QVERIFY2(service.lastError().isEmpty(), qPrintable(service.lastError()));
+    QCOMPARE(service.releaseNotes(), u"Actual notes."_s);
 }
 
 QTEST_GUILESS_MAIN(TestAppUpdateService)

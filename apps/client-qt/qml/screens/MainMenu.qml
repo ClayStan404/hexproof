@@ -120,7 +120,7 @@ Page {
                 variant: "secondary"
                 compact: true
                 text: qsTr("Update %1 available").arg(appUpdater.targetVersion)
-                onClicked: root.appWindow.pushScreen("screens/Settings.qml")
+                onClicked: root.appWindow.pushScreen("screens/UpdatesSettings.qml")
             }
         }
     }
@@ -184,11 +184,10 @@ Page {
 
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("MANUAL TABLETOP · NATIVE DESKTOP")
+                    text: qsTr("Native desktop")
                     color: Theme.primary
                     font.pixelSize: Theme.fontSize(12)
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.8
+                    font.weight: Font.DemiBold
                 }
 
                 Text {
@@ -210,36 +209,73 @@ Page {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    Layout.maximumWidth: Theme.size(500)
+                    Layout.maximumWidth: Theme.size(520)
                     Layout.topMargin: Theme.size(root.compactLayout ? 12 : 24)
-                    text: qsTr("A focused multiplayer tabletop for real decks, human decisions, and games that feel like sitting across from friends.")
+                    text: qsTr("Sit at a player-judged table, or let Forge resolve the match. Constructed, Sealed, Draft, and Cube.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(root.compactLayout ? 14 : 16)
                     lineHeight: 1.45
                     wrapMode: Text.WordWrap
                 }
 
-                RowLayout {
-                    visible: !root.compactLayout
-                    Layout.topMargin: Theme.size(34)
-                    spacing: Theme.size(26)
+                Flow {
+                    objectName: "mainMenuHeroCapabilities"
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.size(32)
+                    spacing: Theme.size(28)
 
                     Column {
                         spacing: Theme.size(4)
-                        Text { textFormat: Text.PlainText; text: "1 / 2 / 4"; color: Theme.accent; font.pixelSize: Theme.fontSize(22); font.weight: Font.DemiBold }
-                        Text { textFormat: Text.PlainText; text: qsTr("PLAYER TABLES"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(10); font.letterSpacing: 1.2 }
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: 1
-                        Layout.preferredHeight: Theme.size(40)
-                        color: Theme.divider
+                        Text {
+                            objectName: "mainMenuHeroManualTitle"
+                            textFormat: Text.PlainText
+                            text: qsTr("Manual")
+                            color: Theme.accent
+                            font.pixelSize: Theme.fontSize(20)
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("Player-judged table")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(12)
+                        }
                     }
 
                     Column {
                         spacing: Theme.size(4)
-                        Text { textFormat: Text.PlainText; text: "BO 1 / BO 3"; color: Theme.accent; font.pixelSize: Theme.fontSize(22); font.weight: Font.DemiBold }
-                        Text { textFormat: Text.PlainText; text: qsTr("PLAYTEST · GENERIC 1V1 · DUEL COMMANDER · COMMANDER"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(10); font.letterSpacing: 1.2 }
+                        Text {
+                            objectName: "mainMenuHeroForgeTitle"
+                            textFormat: Text.PlainText
+                            text: qsTr("Forge")
+                            color: Theme.accent
+                            font.pixelSize: Theme.fontSize(20)
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("Rules-enforced 1v1")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(12)
+                        }
+                    }
+
+                    Column {
+                        spacing: Theme.size(4)
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("Limited")
+                            color: Theme.accent
+                            font.pixelSize: Theme.fontSize(20)
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            objectName: "mainMenuHeroLimitedDetail"
+                            textFormat: Text.PlainText
+                            text: qsTr("Sealed · Draft · Cube")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(12)
+                        }
                     }
                 }
             }
@@ -254,6 +290,9 @@ Page {
                 Layout.alignment: root.compactLayout ? Qt.AlignTop : Qt.AlignVCenter
                 implicitHeight: panelContent.implicitHeight + Theme.size(56)
                 elevated: true
+                color: Theme.useGlass ? "transparent" : Theme.surface
+                border.width: Theme.useGlass ? 1 : 2
+                border.color: Theme.useGlass ? "transparent" : "#8FB8A4"
 
             ColumnLayout {
                 id: panelContent
@@ -355,8 +394,8 @@ Page {
                     spacing: Theme.size(8)
 
                     AppButton {
+                        objectName: "mainMenuBrowseHubButton"
                         Layout.fillWidth: true
-                        compact: true
                         text: qsTr("Browse hub")
                         leadingText: "⌘"
                         enabled: ws.connected && !ws.inRoom
@@ -368,7 +407,6 @@ Page {
                     AppButton {
                         objectName: "mainMenuPackSimulatorButton"
                         Layout.fillWidth: true
-                        compact: true
                         text: qsTr("Pack simulator")
                         leadingText: "✦"
                         onClicked: root.appWindow.pushScreen(
@@ -457,7 +495,7 @@ Page {
 
         Text {
             textFormat: Text.PlainText
-            text: qsTr("No accounts · No rules engine")
+            text: qsTr("No accounts · Manual or Forge")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSize(11)
         }

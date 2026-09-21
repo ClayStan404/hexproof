@@ -28,6 +28,7 @@ class AppUpdateService final : public QObject
     Q_PROPERTY(QString releaseUrl READ releaseUrl NOTIFY stateChanged)
     Q_PROPERTY(bool exactVersion READ exactVersion NOTIFY stateChanged)
     Q_PROPERTY(bool releaseAvailable READ releaseAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool cachedRelease READ cachedRelease NOTIFY stateChanged)
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY stateChanged)
     Q_PROPERTY(bool checking READ checking NOTIFY stateChanged)
     Q_PROPERTY(bool downloading READ downloading NOTIFY stateChanged)
@@ -50,6 +51,7 @@ class AppUpdateService final : public QObject
     QString releaseUrl() const;
     bool exactVersion() const;
     bool releaseAvailable() const;
+    bool cachedRelease() const;
     bool updateAvailable() const;
     bool checking() const;
     bool downloading() const;
@@ -91,6 +93,10 @@ class AppUpdateService final : public QObject
     void handleReleaseReply(QNetworkReply *reply);
     void requestChecksums(ReleaseInfo release);
     void handleChecksumsReply(QNetworkReply *reply);
+    void requestFallbackChecksums();
+    void handleFallbackChecksumsReply(QNetworkReply *reply);
+    void requestAssetHead(ReleaseInfo release);
+    void handleAssetHeadReply(QNetworkReply *reply);
     void applyRelease(ReleaseInfo release);
     void finishCheckWithError(const QString &error);
     void loadCachedLatestRelease();
@@ -110,8 +116,14 @@ class AppUpdateService final : public QObject
     static int compareVersions(const QString &left, const QString &right);
     static bool officialReleaseUrl(const QUrl &url, const QString &tag, const QString &assetName);
     static bool officialReleasePageUrl(const QUrl &url, const QString &tag);
+    static QUrl officialDownloadUrl(const QString &tag, const QString &assetName);
+    static QUrl officialTagPageUrl(const QString &tag);
     static ReleaseInfo parseRelease(const QByteArray &payload, const QString &exactVersion);
+    static ReleaseInfo parseFallbackRelease(const QByteArray &payload, const QString &exactVersion);
     static QByteArray checksumForAsset(const QByteArray &payload, const QString &assetName);
+    static QString sanitizeReleaseNotes(QString notes);
+    static QString describeCheckFailure(const QNetworkReply *reply);
+    static qint64 replyContentLength(const QNetworkReply *reply);
 
     QString m_currentVersion;
     QString m_downloadRoot;
@@ -122,6 +134,8 @@ class AppUpdateService final : public QObject
     ReleaseInfo m_release;
     ReleaseInfo m_pendingRelease;
     QString m_requestedExactVersion;
+    QString m_apiCheckError;
+    bool m_cachedRelease = false;
     bool m_checking = false;
     bool m_automaticCheckStarted = false;
     bool m_downloading = false;

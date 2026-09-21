@@ -7,7 +7,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     property var cards: []
@@ -50,24 +50,9 @@ Popup {
                                        int sourceSeat, string approvalId)
     signal shuffleReminderRequested()
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(1080), parent.width - Theme.size(48))
     height: Math.min(Theme.size(760), parent.height - Theme.size(56))
     padding: Theme.size(22)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     function showCards(libraryCards, librarySeat, libraryApprovalId,
                        ownSeat, ownName, libraryOwnerName,
@@ -490,7 +475,7 @@ Popup {
                              ? qsTr("View top card")
                              : qsTr("Search library"))
                     color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
+                    font.pixelSize: Theme.fontSize(18)
                     font.weight: Font.DemiBold
                 }
                 ScrollView {

@@ -11,9 +11,16 @@ Item {
     id: root
     required property var tableController
     property var externallyShownActionIds: []
+    property bool hideIdleStatus: false
     readonly property var priority: tableController.priority
     readonly property var session: tableController.rulesSession
-    readonly property bool narrowLayout: width < Theme.size(360)
+    readonly property bool informativeStatus: !tableController.roomConnected
+        || session.gameOver
+        || priority.yieldMode.length > 0
+        || priority.fullControl
+        || (priority.stopped && priority.isPriorityPrompt)
+        || tableController.rulesResponsePending
+        || (priority.isPriorityPrompt && priority.automaticallyPassing)
     readonly property var fallbackActions: priority.yieldMode ? [] : priority.options.filter(option =>
         !option.responseId.startsWith("$") && !externallyShownActionIds.includes(option.responseId)
         && !tableController.interaction.actionOnTable(
@@ -41,7 +48,7 @@ Item {
             return qsTr("Waiting for the game")
         if (priority.isPriorityPrompt)
             return priority.automaticallyPassing ? qsTr("Passing priority")
-                : qsTr("Your action · %1").arg(tableController.stepLabel(session.step))
+                : qsTr("Your action")
         return session.promptPending ? tableController.promptTitle(session.promptKind, session.promptTitle)
                                      : qsTr("Waiting for another player")
     }
@@ -49,53 +56,30 @@ Item {
     ColumnLayout {
         id: content
         width: root.width
-        spacing: Theme.size(5)
+        spacing: Theme.size(8)
+
+        Text {
+            objectName: "rulesPriorityStatus"
+            Layout.fillWidth: true
+            visible: !root.hideIdleStatus || root.informativeStatus
+            textFormat: Text.PlainText
+            text: root.statusText()
+            color: root.priority.fullControl || root.priority.stopped ? Theme.accent : Theme.text
+            font.pixelSize: Theme.fontSize(12)
+            font.weight: Font.DemiBold
+            wrapMode: Text.WordWrap
+        }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: Theme.size(8)
-            Text {
-                objectName: "rulesPriorityStatus"
-                textFormat: Text.PlainText
-                Layout.fillWidth: true
-                text: root.statusText()
-                color: root.priority.fullControl || root.priority.stopped ? Theme.accent : Theme.text
-                font.pixelSize: Theme.fontSize(11)
-                font.weight: Font.DemiBold
-                elide: Text.ElideRight
-            }
-            Text {
-                textFormat: Text.PlainText
-                visible: root.priority.active && !root.priority.fullControl && !root.priority.yieldMode
-                text: qsTr("Smart priority enabled")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSize(10)
-                Layout.maximumWidth: root.width * 0.45
-                elide: Text.ElideRight
-            }
-        }
-
-        GridLayout {
-            columns: root.narrowLayout ? 2 : 4
-            Layout.fillWidth: true
-            columnSpacing: Theme.size(7)
-            rowSpacing: Theme.size(5)
+            Layout.minimumWidth: 0
+            spacing: Theme.size(10)
 
             AppButton {
-                objectName: "rulesFullControl"
-                compact: true
-                checkable: true
-                checked: root.priority.fullControl
-                enabled: root.priority.active
-                text: qsTr("Full control")
-                variant: checked ? "highlight" : "ghost"
-                onClicked: root.priority.setFullControl(checked)
-            }
-
-            Item { visible: !root.narrowLayout; Layout.fillWidth: true; Layout.minimumWidth: 0 }
-
-            AppButton {
+                id: cancelButton
                 objectName: "rulesCancelYield"
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
                 visible: root.priority.yieldMode.length > 0
                 compact: true
                 text: qsTr("Cancel passing")
@@ -105,13 +89,15 @@ Item {
             AppButton {
                 id: yieldButton
                 objectName: "rulesYieldMenuButton"
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
                 visible: !root.priority.yieldMode
                 enabled: root.priority.canStartYield
                 compact: true
-                text: qsTr("Pass…")
+                text: qsTr("Pass")
                 onClicked: yieldMenu.open()
 
-                Menu {
+                AppMenu {
                     id: yieldMenu
                     y: -height
                     width: Theme.size(290)
@@ -121,17 +107,17 @@ Item {
                         root.priority.passMenuOpen = false
                         root.priority.beginYield(mode)
                     }
-                    MenuItem {
+                    AppMenuItem {
                         objectName: "rulesYieldUntilResponse"
                         text: qsTr("Until a response or turn ends")
                         onTriggered: yieldMenu.choose("response")
                     }
-                    MenuItem {
+                    AppMenuItem {
                         objectName: "rulesYieldTurn"
                         text: qsTr("Rest of this turn")
                         onTriggered: yieldMenu.choose("turn")
                     }
-                    MenuItem {
+                    AppMenuItem {
                         objectName: "rulesYieldStack"
                         text: qsTr("Current stack")
                         enabled: root.priority.stackIds.length > 0
@@ -141,8 +127,10 @@ Item {
             }
 
             AppButton {
+                id: passOnceButton
                 objectName: "rulesPromptOption-$pass"
-                Layout.columnSpan: root.narrowLayout ? 2 : 1
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
                 visible: root.priority.isPriorityPrompt && !root.priority.yieldMode
                 enabled: root.priority.canPass
                 compact: true

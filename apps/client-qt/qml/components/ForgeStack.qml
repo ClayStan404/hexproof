@@ -115,9 +115,12 @@ Rectangle {
             width: parent.width - x - 8 * root.unit
             spacing: 5 * root.unit
             Text {
+                objectName: "forgeStackName-" + entry.objectId
                 textFormat: Text.PlainText
                 width: parent.width
-                text: entry.visibleIdentity ? entry.name
+                text: entry.visibleIdentity
+                    ? (typeof root.tableController.cardDisplayName === "function"
+                       ? root.tableController.cardDisplayName(entry.name) : entry.name)
                     : entry.rulesText && entry.rulesText !== "Face-down spell" ? entry.rulesText : qsTr("Face-down spell")
                 color: Theme.text
                 font.pixelSize: 13 * root.unit

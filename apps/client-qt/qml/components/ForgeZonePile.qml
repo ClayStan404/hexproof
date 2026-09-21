@@ -39,6 +39,12 @@ Item {
         ? tableController.cardImage(face.name, face.setCode || "", face.collectorNumber || "")
         : tableController.cardBackSource
     readonly property int stackDepth: count <= 0 ? 0 : Math.min(2, count - (count > 0 ? 1 : 0))
+    readonly property real faceBudgetWidth: Math.max(0, width - stackDepth * 2 * unit)
+    readonly property real faceBudgetHeight: Math.max(
+        0, height - (compact ? 0 : 15 * unit) - stackDepth * 2 * unit)
+    readonly property real cardFaceWidth: Math.min(
+        faceBudgetWidth, faceBudgetHeight * 63 / 88)
+    readonly property real cardFaceHeight: cardFaceWidth * 88 / 63
 
     signal activated()
 
@@ -66,12 +72,14 @@ Item {
 
     Rectangle {
         id: pileFace
-        x: 0
+        objectName: "forgeZonePileFace"
+        x: Math.max(0, (root.faceBudgetWidth - width) / 2)
         y: 0
-        width: root.width - root.stackDepth * 2 * root.unit
-        height: root.height - (root.compact ? 0 : 15 * root.unit) - root.stackDepth * 2 * root.unit
+        width: root.count > 0 ? root.cardFaceWidth : root.faceBudgetWidth
+        height: root.count > 0 ? root.cardFaceHeight : root.faceBudgetHeight
         radius: 7 * root.unit
         antialiasing: true
+        clip: true
         z: 3
         color: Theme.withAlpha("#10161A", root.count > 0 ? 0.88 : 0.42)
         border.width: pileMouse.containsMouse || root.activeFocus ? 2 : 1
@@ -79,28 +87,16 @@ Item {
                       : Theme.withAlpha(root.accent, 0.45)
 
         Image {
+            objectName: "forgeZonePileArt"
             anchors.fill: parent
             anchors.margins: 2 * root.unit
             visible: root.count > 0
             source: root.faceSource
             sourceSize.width: 180
             sourceSize.height: 252
-            fillMode: Image.PreserveAspectCrop
+            fillMode: Image.PreserveAspectFit
             asynchronous: true
             smooth: true
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            visible: root.count > 0
-            radius: parent.radius
-            color: "transparent"
-            border.width: 0
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Theme.withAlpha("#000000", 0.08) }
-                GradientStop { position: 0.55; color: "#00000000" }
-                GradientStop { position: 1.0; color: Theme.withAlpha("#000000", 0.46) }
-            }
         }
 
         Text {

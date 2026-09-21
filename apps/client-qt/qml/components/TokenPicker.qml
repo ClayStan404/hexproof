@@ -8,7 +8,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import "TokenPresentation.js" as TokenPresentation
 
-Popup {
+AppPopup {
     id: root
 
     required property var catalogModel
@@ -35,24 +35,8 @@ Popup {
     signal tokenSelected(var token)
     signal emblemSelected(var emblem, int seat)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(760), parent.width - Theme.size(48))
     height: Math.min(Theme.size(650), parent.height - Theme.size(56))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     onOpened: {
         searchField.text = ""
@@ -80,47 +64,11 @@ Popup {
     contentItem: ColumnLayout {
         spacing: Theme.size(14)
 
-        RowLayout {
-            Layout.fillWidth: true
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: root.titleText
-                    elide: Text.ElideRight
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(20)
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Search by name or set and number · Hover to enlarge · Click for rules")
-                    wrapMode: Text.WordWrap
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(12)
-                }
-            }
-
-            ActivityRing {
-                visible: root.catalogModel.tokenSearching === true
-                Layout.preferredWidth: Theme.size(18)
-                Layout.preferredHeight: Theme.size(18)
-            }
-
-            AppButton {
-                compact: true
-                variant: "ghost"
-                text: "×"
-                accessibleName: qsTr("Close")
-                Layout.preferredWidth: Theme.size(40)
-                onClicked: root.close()
-            }
+        AppPopupHeader {
+            titleText: root.titleText
+            subtitleText: qsTr("Search by name or set and number · Hover to enlarge · Click for rules")
+            showClose: true
+            onCloseRequested: root.close()
         }
 
         ColumnLayout {
@@ -172,32 +120,54 @@ Popup {
             visible: root.catalogAvailable || root.hasPreferredTokens
             spacing: Theme.size(12)
 
-            AppTextField {
-                id: searchField
-                objectName: "tokenSearchField"
-                Layout.fillWidth: true
-                placeholderText: qsTr("Search tokens and emblems or TUNF #1…")
-                onTextChanged: searchTimer.restart()
-            }
-
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Theme.size(8)
-                Repeater {
-                    objectName: "tokenKindFilters"
-                    model: [{kind: "all", label: qsTr("All")},
-                            {kind: "token", label: qsTr("Tokens")},
-                            {kind: "emblem", label: qsTr("Emblems")}]
-                    delegate: AppButton {
-                        required property var modelData
-                        objectName: "tokenKindFilter" + modelData.kind
-                        compact: true
-                        text: modelData.label
-                        variant: root.kindFilter === modelData.kind ? "highlight" : "secondary"
-                        onClicked: root.kindFilter = modelData.kind
+
+                AppTextField {
+                    id: searchField
+                    objectName: "tokenSearchField"
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Search tokens and emblems or TUNF #1…")
+                    onTextChanged: searchTimer.restart()
+                }
+
+                ActivityRing {
+                    visible: root.catalogModel.tokenSearching === true
+                    Layout.preferredWidth: Theme.size(18)
+                    Layout.preferredHeight: Theme.size(18)
+                }
+            }
+
+            Surface {
+                Layout.fillWidth: true
+                implicitHeight: Theme.size(48)
+                radius: Theme.radiusMedium
+                compact: true
+                color: Theme.useGlass ? "transparent" : Theme.surfaceMuted
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(4)
+                    spacing: Theme.size(4)
+
+                    Repeater {
+                        objectName: "tokenKindFilters"
+                        model: [{kind: "all", label: qsTr("All")},
+                                {kind: "token", label: qsTr("Tokens")},
+                                {kind: "emblem", label: qsTr("Emblems")}]
+                        delegate: AppButton {
+                            required property var modelData
+                            objectName: "tokenKindFilter" + modelData.kind
+                            Layout.fillWidth: true
+                            compact: true
+                            text: modelData.label
+                            variant: root.kindFilter === modelData.kind
+                                     ? "highlight" : "ghost"
+                            onClicked: root.kindFilter = modelData.kind
+                        }
                     }
                 }
-                Item { Layout.fillWidth: true }
             }
 
             Text {
@@ -467,7 +437,7 @@ Popup {
     }
 
     function tokenDetails(token) {
-        return TokenPresentation.summary(catalogModel, token, true)
+        return TokenPresentation.summary(catalogModel, token, true, false)
     }
 
     function mergeTokens(preferred, catalogResults, searchText) {

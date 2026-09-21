@@ -7,7 +7,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+AppPopup {
     id: root
 
     required property var deckLibraryModel
@@ -20,24 +20,8 @@ Popup {
     signal addRequested()
     signal customArtRequested(var card)
 
-    parent: Overlay.overlay
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
     width: Math.min(Theme.size(1120), parent.width - Theme.size(48))
     height: Math.min(Theme.size(760), parent.height - Theme.size(56))
-    padding: Theme.size(24)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-    Overlay.modal: Rectangle { color: "#A6050B09" }
-
-    background: Rectangle {
-        color: Theme.surfaceElevated
-        radius: Theme.radiusLarge
-        border.width: 1
-        border.color: Theme.borderStrong
-    }
 
     contentItem: ColumnLayout {
         spacing: Theme.size(13)
@@ -46,26 +30,9 @@ Popup {
             Layout.fillWidth: true
             spacing: Theme.size(12)
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.size(3)
-
-                Text {
-                    textFormat: Text.PlainText
-                    text: qsTr("Consider")
-                    color: Theme.text
-                    font.pixelSize: Theme.fontSize(22)
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    text: qsTr("Keep possible changes here, then move one copy into the main deck when needed.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(12)
-                    wrapMode: Text.WordWrap
-                }
+            AppPopupHeader {
+                titleText: qsTr("Consider")
+                subtitleText: qsTr("Keep possible changes here, then move one copy into the main deck when needed.")
             }
 
             StatusPill {
@@ -130,7 +97,7 @@ Popup {
             cellHeight: Theme.size(304)
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: AppScrollBar { objectName: "considerCardScrollBar" }
 
             delegate: Item {
                 id: considerCell

@@ -122,7 +122,7 @@ Page {
                      && (root.tournamentModel.eventType === "set_sealed"
                          || root.tournamentModel.eventType === "set_draft")
                      && root.tournamentModel.product.id
-            tournamentModel: root.tournamentModel
+            product: root.tournamentModel.product
             cardCatalogModel: root.cardCatalogModel
             preferencesModel: root.preferencesModel
         }
@@ -588,6 +588,7 @@ Page {
     TournamentDecklistPopup {
         id: decklistViewer
         cardCatalogModel: root.cardCatalogModel
+        deckLibraryModel: typeof deckLibrary !== "undefined" ? deckLibrary : null
     }
 
     ConfirmDialog {

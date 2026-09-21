@@ -156,18 +156,6 @@ Page {
                         }
                     }
                 }
-                Surface {
-                    objectName: "waitingRoomPeerConnection"
-                    Layout.fillWidth: true
-                    implicitHeight: peerControls.implicitHeight + Theme.size(24)
-                    visible: peerControls.eligible
-                    ForgePeerControls {
-                        id: peerControls
-                        anchors.fill: parent
-                        anchors.margins: Theme.size(12)
-                        wsModel: root.wsModel
-                    }
-                }
                 InfoBanner {
                     objectName: "spectatorHandsPolicyBanner"
                     Layout.fillWidth: true
@@ -586,84 +574,147 @@ Page {
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: Theme.size(8)
+            spacing: Theme.size(10)
 
-            Text {
-                textFormat: Text.PlainText
+            RowLayout {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: root.roomSession.playtest
-                      ? qsTr("Select a deck and ready up to open the playtest table.")
-                      : (root.limitedPairing
-                         ? qsTr("Your submitted Limited deck is locked for this pairing. Ready up to play.")
-                         : qsTr("The match starts automatically once every player is ready."))
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(12)
-            }
+                spacing: Theme.size(16)
 
-            Text {
-                Layout.fillWidth: true
-                visible: root.roomSession.hostingMode === "player"
-                textFormat: Text.PlainText
-                wrapMode: Text.WordWrap
-                text: root.roomSession.hostConnected === true
-                    ? qsTr("Player-hosted game · The creator must keep Hexproof open.")
-                    : qsTr("Waiting for the creator's local Forge connection…")
-                color: root.roomSession.hostConnected === true ? Theme.textMuted : Theme.warning
-                font.pixelSize: Theme.fontSize(12)
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: root.roomSession.hostingMode === "player" && root.engineHost
-                textFormat: Text.PlainText
-                text: root.wsModel.forgeHost ? root.wsModel.forgeHost.status : ""
-                color: Theme.textSecondary
-                wrapMode: Text.WordWrap
-                font.pixelSize: Theme.fontSize(12)
-            }
-            AppButton {
-                objectName: "retryPlayerHosting"
-                visible: root.roomSession.hostingMode === "player" && root.engineHost
-                         && root.roomSession.hostConnected !== true
-                text: root.wsModel.forgeHost && root.wsModel.forgeHost.busy && !root.wsModel.forgeHost.hosting
-                    ? qsTr("Cancel") : root.wsModel.forgeHost && root.wsModel.forgeHost.ready
-                    ? qsTr("Connect local Forge") : qsTr("Prepare local Forge")
-                enabled: root.wsModel.forgeHost ? !root.wsModel.forgeHost.hosting : false
-                onClicked: {
-                    if (root.wsModel.forgeHost.busy) root.wsModel.forgeHost.cancel()
-                    else if (!root.wsModel.forgeHost.ready) root.wsModel.forgeHost.prepare()
-                    else root.wsModel.preparePlayerHosting()
+                Text {
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: root.roomSession.playtest
+                          ? qsTr("Select a deck and ready up to open the playtest table.")
+                          : (root.limitedPairing
+                             ? qsTr("Your submitted Limited deck is locked for this pairing. Ready up to play.")
+                             : qsTr("The match starts automatically once every player is ready."))
+                    color: Theme.textMuted
+                    font.pixelSize: Theme.fontSize(12)
                 }
-            }
-            AppButton {
-                objectName: "forgeHostingOptions"
-                visible: root.roomSession.hostingMode === "player"
-                text: qsTr("Hosting, downloads and diagnostics")
-                variant: "ghost"
-                onClicked: hostingOptions.open()
-            }
-            Text {
-                textFormat: Text.PlainText
-                id: readyBlocker
-                objectName: "readyBlockerText"
-                Layout.fillWidth: true
-                visible: text.length > 0
-                text: root.readyBlockerReason()
-                color: Theme.warning
-                font.pixelSize: Theme.fontSize(12)
-                horizontalAlignment: Text.AlignRight
-                wrapMode: Text.WordWrap
+                Text {
+                    textFormat: Text.PlainText
+                    id: readyBlocker
+                    objectName: "readyBlockerText"
+                    visible: text.length > 0
+                    text: root.readyBlockerReason()
+                    color: Theme.warning
+                    font.pixelSize: Theme.fontSize(12)
+                    horizontalAlignment: Text.AlignRight
+                    wrapMode: Text.WordWrap
+                }
             }
 
             RowLayout {
-                id: waitingRoomActionsHost
-                objectName: "waitingRoomActionsHost"
+                id: waitingRoomFooterBar
                 Layout.fillWidth: true
-                spacing: 0
+                spacing: Theme.size(12)
+
+                Surface {
+                    id: waitingRoomHostStrip
+                    visible: root.roomSession.hostingMode === "player"
+                    compact: true
+                    Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                    Layout.fillWidth: false
+                    Layout.maximumWidth: Math.min(Theme.size(520),
+                                                  Math.max(Theme.size(280), parent.width - Theme.size(420)))
+                    implicitWidth: hostStripBody.implicitWidth + Theme.size(28)
+                    implicitHeight: hostStripBody.implicitHeight + Theme.size(20)
+
+                    ColumnLayout {
+                        id: hostStripBody
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: Theme.size(10)
+                        spacing: Theme.size(8)
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.size(8)
+
+                            Rectangle {
+                                Layout.preferredWidth: Theme.size(8)
+                                Layout.preferredHeight: Theme.size(8)
+                                radius: Theme.size(4)
+                                color: root.roomSession.hostConnected === true
+                                       ? Theme.success : Theme.warning
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                textFormat: Text.PlainText
+                                text: root.roomSession.hostConnected === true
+                                      ? qsTr("Forge · Player hosted")
+                                      : qsTr("Waiting for the creator's local Forge connection…")
+                                color: root.roomSession.hostConnected === true
+                                       ? Theme.text : Theme.warning
+                                font.pixelSize: Theme.fontSize(12)
+                                font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                            }
+                            AppButton {
+                                objectName: "retryPlayerHosting"
+                                visible: root.engineHost
+                                         && root.roomSession.hostConnected !== true
+                                compact: true
+                                text: root.wsModel.forgeHost && root.wsModel.forgeHost.busy
+                                      && !root.wsModel.forgeHost.hosting
+                                      ? qsTr("Cancel") : root.wsModel.forgeHost
+                                      && root.wsModel.forgeHost.ready
+                                      ? qsTr("Connect local Forge") : qsTr("Prepare local Forge")
+                                enabled: root.wsModel.forgeHost
+                                         ? !root.wsModel.forgeHost.hosting : false
+                                onClicked: {
+                                    if (root.wsModel.forgeHost.busy)
+                                        root.wsModel.forgeHost.cancel()
+                                    else if (!root.wsModel.forgeHost.ready)
+                                        root.wsModel.forgeHost.prepare()
+                                    else
+                                        root.wsModel.preparePlayerHosting()
+                                }
+                            }
+                            AppButton {
+                                objectName: "forgeHostingOptions"
+                                compact: true
+                                variant: "ghost"
+                                text: qsTr("Downloads and diagnostics")
+                                accessibleName: qsTr("Hosting, downloads and diagnostics")
+                                onClicked: hostingOptions.open()
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: root.engineHost
+                                     && root.roomSession.hostConnected !== true
+                                     && root.wsModel.forgeHost
+                                     && root.wsModel.forgeHost.status.length > 0
+                            textFormat: Text.PlainText
+                            text: root.wsModel.forgeHost ? root.wsModel.forgeHost.status : ""
+                            color: Theme.textSecondary
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Theme.fontSize(11)
+                        }
+                        ForgePeerControls {
+                            id: peerControls
+                            objectName: "waitingRoomPeerConnection"
+                            Layout.fillWidth: true
+                            compact: true
+                            wsModel: root.wsModel
+                        }
+                    }
+                }
 
                 Item {
                     Layout.fillWidth: true
                 }
+
+                RowLayout {
+                    id: waitingRoomActionsHost
+                    objectName: "waitingRoomActionsHost"
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    Layout.fillWidth: false
+                    spacing: 0
 
                 // A trailing Row plus spacer keeps the group right-aligned;
                 // Flow+AlignRight does not right-align children.
@@ -677,7 +728,7 @@ Page {
                         visible: root.roomSession.role === "player"
                                  && !root.limitedPairing
                         width: Math.min(implicitWidth, Math.max(Theme.size(100),
-                                             waitingRoomActionsHost.width - Theme.size(240)))
+                                             waitingRoomFooterBar.width - Theme.size(240)))
                         text: root.selectedDeckLabel()
                         leadingText: "◇"
                         onClicked: deckPicker.showForFormat(root.roomSession.format,
@@ -686,7 +737,7 @@ Page {
 
                     StatusPill {
                         objectName: "waitingRoomLimitedDeckStatus"
-                        maximumWidth: Math.max(Theme.size(100), waitingRoomActionsHost.width - Theme.size(240))
+                        maximumWidth: Math.max(Theme.size(100), waitingRoomFooterBar.width - Theme.size(240))
                         visible: root.roomSession.role === "player"
                                  && root.limitedPairing
                         text: root.myDeckSelected()
@@ -744,15 +795,16 @@ Page {
                         onClicked: waitingRoomOverflowMenu.popup()
                     }
                 }
+                }
             }
         }
     }
 
-    Menu {
+    AppMenu {
         id: waitingRoomOverflowMenu
         objectName: "waitingRoomOverflowMenu"
 
-        MenuItem {
+        AppMenuItem {
             objectName: "overflowDeckLibraryAction"
             text: qsTr("Deck library")
             onTriggered: root.appWindow.pushScreen("screens/DeckLibrary.qml")

@@ -113,6 +113,24 @@ void TestWsClient::loadsSavedResumeEndpoint() const
     QCOMPARE(client.displayName(), u"Saved player"_s);
 }
 
+void TestWsClient::prefillsLastDisplayNameAfterDisconnect() const
+{
+    {
+        WsClient client;
+        client.connectToCustomServer(u"ws://127.0.0.1:9"_s, u"  Clay  "_s);
+        QCOMPARE(client.displayName(), u"Clay"_s);
+        client.disconnectFromHub();
+        QTRY_COMPARE_WITH_TIMEOUT(client.connectionState(), WsClient::Disconnected, 1000);
+    }
+
+    QSettings settings;
+    QVERIFY(!settings.contains(u"network/resumeToken"_s));
+    QCOMPARE(settings.value(u"network/lastDisplayName"_s).toString(), u"Clay"_s);
+
+    WsClient restarted;
+    QCOMPARE(restarted.displayName(), u"Clay"_s);
+}
+
 void TestWsClient::loadsSecondaryPublicHubSelection() const
 {
     const ServerDirectory directory;

@@ -37,20 +37,25 @@ Surface {
     border.width: 1
     border.color: Theme.borderStrong
 
+    readonly property int pileFloor: Theme.size(
+                                         tableController.hasPartnerCommanders ? 80 : 54)
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.size(8)
         spacing: Theme.size(4)
 
         TableOwnPlayerStatus {
-            Layout.maximumHeight: Math.max(Theme.size(60), root.height - Theme.size(74))
+            Layout.maximumHeight: Math.max(
+                                      Theme.size(60),
+                                      root.height - root.pileFloor - Theme.size(20))
             tableController: root.tableController
         }
 
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: Theme.size(54)
+            Layout.minimumHeight: root.pileFloor
             spacing: Theme.size(4)
 
             TableOwnLibraryPile {
