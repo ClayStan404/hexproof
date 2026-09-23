@@ -1,0 +1,8 @@
+{
+  "type": "room.ai.worker",
+  "payload": {
+    "roomId": "ABCDEF",
+    "source": "local",
+    "token": "synthetic-ai-seat-capability"
+  }
+}

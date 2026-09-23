@@ -18,6 +18,7 @@ endif()
 
 add_executable(hexproof_forgehostservice_test
     ../forgehostservice_test.cpp
+    ../../src/services/ForgeHostDiagnostics.cpp
     ../../src/services/ForgeHostService.cpp
     ../../src/services/ForgeHostService.h)
 target_include_directories(hexproof_forgehostservice_test PRIVATE ../../src)

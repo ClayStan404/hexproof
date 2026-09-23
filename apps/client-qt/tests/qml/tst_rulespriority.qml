@@ -31,7 +31,7 @@ TestCase {
             controller.rulesResponsePending = true
         }
     }
-    RulesPriorityController { id: priority; tableController: controller }
+    RulesPriorityController { id: priority; tableController: controller; settings: preferences }
 
     function snapshot(turn, step, activeSeat, stackIds, gameId) {
         return {roomId: "FLOW", gameId: gameId || "flow-1", turn: turn || 1,
@@ -67,13 +67,52 @@ TestCase {
         picker.opened = false
         responder.responses = []
         responder.lastError = ""
-        priority.phaseStops = ({})
-        priority.fullControl = false
+        preferences.forgePhaseStops = ({})
+        preferences.forgeFullControl = false
         priority.passMenuOpen = false
         priority.resetTransient()
         verify(testRulesPrompt.applySnapshot(snapshot()))
     }
     function cleanup() { testRulesPrompt.clear() }
+
+    function test_preferencesSurviveTableRecreationAndSeatChanges() {
+        priority.setFullControl(true)
+        priority.toggleStop("end", false)
+        controller.localSeat = 1
+        verify(priority.fullControl)
+        verify(priority.hasStop("end", false))
+        const component = Qt.createComponent("../../qml/components/RulesPriorityController.qml")
+        compare(component.status, Component.Ready)
+        const fresh = component.createObject(testCase, {tableController: controller, settings: preferences})
+        verify(fresh.fullControl)
+        verify(fresh.hasStop("end", false))
+        preferences.toggleForgePhaseStop("draw", true)
+        verify(priority.hasStop("draw", true))
+        verify(fresh.hasStop("draw", true))
+        fresh.destroy()
+    }
+    function test_explicitYieldPreservesFullControlPreference() {
+        priority.setFullControl(true)
+        applyPrompt(1, true)
+        expectNoResponse()
+        verify(priority.beginYield("turn"))
+        tryCompare(responder, "responses", [{promptId: 1, responseId: "$pass"}])
+        verify(preferences.forgeFullControl)
+        verify(testRulesPrompt.applySnapshot(snapshot(2)))
+        applyPrompt(2, true)
+        compare(priority.yieldMode, "")
+        wait(140)
+        compare(responder.responses.length, 1)
+    }
+
+    function test_reselectingFullControlCancelsTemporaryYield() {
+        priority.setFullControl(true)
+        applyPrompt(1, true)
+        verify(priority.beginYield("turn"))
+        priority.setFullControl(true)
+        compare(priority.yieldMode, "")
+        expectNoResponse()
+    }
 
     function test_defaultPassingRequiresExplicitEngineEvidence_data() {
         return [{tag: "no available action", eligible: true, passes: true},

@@ -5,6 +5,7 @@ pragma ComponentBehavior: Bound
 pragma Translator: "CardWorkbench"
 import QtQuick
 import QtQuick.Controls.Basic
+import "CardTypes.js" as CardTypes
 
 ListView {
     id: root
@@ -95,8 +96,8 @@ ListView {
         }
         return Array.from(grouped.values()).sort((left, right) => {
             const a = left.card, b = right.card
-            const landA = /land|地/i.test(String(a.typeLine || "").split(/[—–]/)[0]) ? 1 : 0
-            const landB = /land|地/i.test(String(b.typeLine || "").split(/[—–]/)[0]) ? 1 : 0
+            const landA = CardTypes.hasType(a, "Land") ? 1 : 0
+            const landB = CardTypes.hasType(b, "Land") ? 1 : 0
             return landA - landB || Number(a.manaValue || 0) - Number(b.manaValue || 0)
                     || String(a.name).localeCompare(String(b.name))
                     || String(a.setCode || "").localeCompare(String(b.setCode || ""))

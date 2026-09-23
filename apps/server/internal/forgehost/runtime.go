@@ -90,6 +90,11 @@ func (r *Runtime) mutate(ctx context.Context, request Request) (*Publication, er
 		if response.Error != "rejected" && !errors.Is(err, ErrPaused) {
 			r.Invalidate()
 		}
+		if request.Command == "start" && request.Start != nil {
+			if detail := forge.ParseStartFailure(response.StartFailure, *request.Start); detail != nil {
+				return nil, detail
+			}
+		}
 		return nil, err
 	}
 	p := response.Publication
@@ -170,6 +175,11 @@ func (r *Runtime) recordCheckpoint(req Request, p *Publication) {
 		return
 	}
 	if req.Command == "start" && req.Start != nil {
+		// Native AI evaluation threads do not promise deterministic replay.
+		if req.Start.HasAI() {
+			r.checkpoint = nil
+			return
+		}
 		value := Checkpoint{RuntimeID: RuntimeID, Start: *req.Start, InitialDigest: digest, Actions: []ReplayAction{}}
 		raw, err := json.Marshal(value)
 		if err != nil || len(raw) > MaxCheckpointBytes {

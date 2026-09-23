@@ -8,6 +8,7 @@ import QtQuick.Layouts
 Rectangle {
     id: root
     required property var tableController
+    readonly property var appWindow: ApplicationWindow.window
     property alias inspectionDock: inspectionDock
     property alias decisionDock: decisionDock
     property alias gameLogRail: floatingLog
@@ -15,14 +16,24 @@ Rectangle {
     readonly property bool cardChoiceActive: cardChoiceDialog.requested
     readonly property bool damageChoiceActive: damageDialog.requested
     readonly property bool decisionDialogActive: cardChoiceActive || damageChoiceActive
+    readonly property bool inspectingDecision:
+        (cardChoiceActive && cardChoiceDialog.inspectingBattlefield)
+        || (damageChoiceActive && damageDialog.inspectingBattlefield)
     readonly property bool modalOpen: gameMenu.opened || zonePopup.opened || hostingOptions.opened
         || cardChoiceDialog.visible || damageDialog.visible
     readonly property real unit: Math.min(width / 1600, height / 1000)
     readonly property int bottomSeat: tableController.handOwnerSeat >= 0 ? tableController.handOwnerSeat : 0
     readonly property int topSeat: bottomSeat === 0 ? 1 : 0
     readonly property var session: tableController.rulesSession
+    readonly property bool replayMode: tableController.replayMode === true
+    readonly property real replayInfoWidth: (commanderFormat ? 430 : 240) * unit
+    readonly property var combat: tableController.combatInteraction
+    readonly property bool combatAiming: combat.canAct && !!combat.chosenSource
+        && combatPointer.hovered && !modalOpen && (!appWindow || appWindow.active)
     readonly property bool commanderFormat: tableController.roomSession.format === "duel"
-    readonly property var browsableZones: commanderFormat
+    readonly property bool commandZoneAvailable: commanderFormat
+        || tableController.zoneCount(0, "command") > 0 || tableController.zoneCount(1, "command") > 0
+    readonly property var browsableZones: commandZoneAvailable
         ? ["library", "graveyard", "exile", "command"] : ["library", "graveyard", "exile"]
     readonly property bool sidePanelOpen: !tableController.sideboarding
         && inspectionDock.inspector.pinned
@@ -62,8 +73,15 @@ Rectangle {
     objectName: "forgeDuelTable"
     color: "transparent"
 
-    onCommanderFormatChanged: {
-        if (zonePopup && !commanderFormat && zonePopup.zone === "command")
+    HoverHandler {
+        id: combatPointer
+        objectName: "forgeCombatPointer"
+        enabled: root.combat.canAct && !root.modalOpen
+        blocking: false
+    }
+
+    onCommandZoneAvailableChanged: {
+        if (zonePopup && !commandZoneAvailable && zonePopup.zone === "command")
             zonePopup.zone = "graveyard"
     }
 
@@ -85,6 +103,17 @@ Rectangle {
         return Math.max(floor, Math.min(cap, need))
     }
 
+    function laneWidth(top, laneHeight) {
+        let right = root.boardRight
+        // Expanded decisions and the public stack must not cover cards that
+        // players need to inspect, target, tap or assign in combat.
+        for (const panel of [decisionDock, stackPanel]) {
+            if (panel.visible && top < panel.y + panel.height && top + laneHeight > panel.y)
+                right = Math.min(right, panel.x - 12 * root.unit)
+        }
+        return Math.max(0, right - root.boardLeft)
+    }
+
     function pointFor(id) {
         const lanes = [ownCreatures, opponentCreatures, ownLands, opponentLands, ownOther, opponentOther]
         for (const lane of lanes) {
@@ -96,8 +125,10 @@ Rectangle {
     function playerPoint(seat) {
         for (let i = 0; i < plates.count; ++i) {
             const plate = plates.itemAt(i) as PlayerPlate
-            if (plate && plate.seat === seat)
+            if (plate && plate.seat === seat) {
+                void plate.x; void plate.y
                 return plate.mapToItem(root, plate.width / 2, plate.lifeCenterY)
+            }
         }
         return Qt.point(0, 0)
     }
@@ -111,6 +142,11 @@ Rectangle {
         zonePopup.ownerSeat = seat
         zonePopup.zone = zone
         zonePopup.open()
+    }
+    function resumeDecision() {
+        zonePopup.close()
+        cardChoiceDialog.resumeDecision()
+        damageDialog.resumeDecision()
     }
     function zoneOwnerTitle(seat) {
         if (seat === root.tableController.localSeat)
@@ -202,6 +238,7 @@ Rectangle {
             tableController: root.tableController
             compactChrome: true
             hostingDialog: hostingOptions
+            onAudioSettingsRequested: gameMenu.close()
         }
     }
     ForgeHostingDialog {
@@ -211,6 +248,7 @@ Rectangle {
     }
     AppButton {
         id: settingsButton
+        visible: !root.replayMode
         objectName: "forgeGameMenu"
         z: 200
         x: root.width - width - 16 * root.unit
@@ -228,7 +266,7 @@ Rectangle {
         y: 3 * root.unit
         width: 300 * root.unit
         z: 40
-        message: I18n.status(root.tableController.wsModel.lastError || "")
+        message: root.replayMode ? "" : I18n.status(root.tableController.wsModel.lastError || "")
     }
     component PlayerPlate: Item {
         id: plate
@@ -237,22 +275,32 @@ Rectangle {
         required property int life
         required property string countersSummary
         required property string manaSummary
+        required property var manaPool
+        readonly property var roomSeat: root.tableController.roomSession.seats
+            ? root.tableController.roomSession.seats[seat] || ({}) : ({})
+        readonly property string displayName: roomSeat.controller === "forgeAi"
+            ? qsTr("Forge AI · %1").arg(I18n.aiDifficultyLabel(roomSeat.aiDifficulty))
+            : roomSeat.controller === "modelAi" ? I18n.aiSourceLabel(root.tableController.roomSession.aiSource) : name
         readonly property bool isBottom: seat === root.bottomSeat
         readonly property bool activeTurn: root.session.activeSeat === seat && root.session.active && root.session.turn > 0
         readonly property bool actionable: root.tableController.combatInteraction.active
             ? root.tableController.combatInteraction.seatActionable(seat) : root.tableController.interaction.seatActionable(seat)
         readonly property bool selected: root.locatedSeat === seat || (root.tableController.combatInteraction.active
             ? root.tableController.combatInteraction.seatSelected(seat) : root.tableController.interaction.seatSelected(seat))
+        readonly property bool combatHovered: root.combat.hoveredTarget
+            && root.combat.hoveredTarget.kind === "player" && root.combat.hoveredTarget.seat === seat
         readonly property real discSize: 52 * root.unit
         readonly property real lifeCenterY: lifeDisc.y + lifeDisc.height / 2
         objectName: "rulesPlayerTarget" + seat
-        x: root.centerLeft + (root.centerWidth - width) / 2
-        y: isBottom ? root.handTop - discSize * 0.58 : 4 * root.unit
+        x: root.replayMode ? root.boardRight - root.replayInfoWidth + 20 * root.unit
+            : root.centerLeft + (root.centerWidth - width) / 2
+        y: root.replayMode ? (isBottom ? root.handTop : 4 * root.unit)
+            : isBottom ? root.handTop - discSize * 0.58 : 4 * root.unit
         width: 168 * root.unit
         height: discSize + 30 * root.unit
-        z: 25
+        z: 35
         visible: !root.tableController.sideboarding
-        activeFocusOnTab: actionable
+        activeFocusOnTab: actionable || activeFocus
         function activate() {
             if (!actionable) return
             if (root.tableController.combatInteraction.active) root.tableController.combatInteraction.activateSeat(seat)
@@ -261,7 +309,7 @@ Rectangle {
         Keys.onReturnPressed: activate()
         Keys.onSpacePressed: activate()
         Accessible.role: Accessible.Button
-        Accessible.name: name + ", " + qsTr("Life %1").arg(life)
+        Accessible.name: displayName + ", " + qsTr("Life %1").arg(life)
         Accessible.onPressAction: activate()
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -271,7 +319,8 @@ Rectangle {
             Text {
                 textFormat: Text.PlainText
                 width: parent.width
-                text: plate.name
+                objectName: "forgePlayerName-" + plate.seat
+                text: plate.displayName
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.text
@@ -286,7 +335,7 @@ Rectangle {
                 width: parent.width
                 text: [qsTr("Hand · %1").arg(root.tableController.zoneCount(plate.seat, "hand")),
                     qsTr("Library · %1").arg(root.tableController.zoneCount(plate.seat, "library")),
-                    plate.manaSummary, plate.countersSummary].filter(v => v.length).join(" · ")
+                    plate.countersSummary].filter(v => v.length).join(" · ")
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.textSecondary
@@ -294,6 +343,15 @@ Rectangle {
                 styleColor: Theme.withAlpha("#000000", 0.65)
                 font.pixelSize: 10 * root.unit
             }
+        }
+        ForgeManaPool {
+            objectName: "forgeManaPool-" + plate.seat
+            anchors.left: root.replayMode ? plate.left : plate.right
+            anchors.leftMargin: 10 * root.unit
+            y: root.replayMode ? plate.height + 4 * root.unit : lifeDisc.y + (lifeDisc.height - height) / 2
+            manaPool: plate.manaPool
+            seat: plate.seat
+            unit: root.unit
         }
         Rectangle {
             id: lifeDisc
@@ -304,8 +362,8 @@ Rectangle {
             y: plate.isBottom ? 0 : parent.height - height
             antialiasing: true
             color: Theme.withAlpha(Theme.surface, plate.selected || plate.actionable ? 0.88 : 0.62)
-            border.width: plate.selected || plate.activeFocus || plate.actionable || plate.activeTurn ? 2 : 0
-            border.color: plate.selected || plate.activeFocus ? Theme.accent
+            border.width: plate.combatHovered ? 4 : plate.selected || plate.activeFocus || plate.actionable || plate.activeTurn ? 2 : 0
+            border.color: plate.combatHovered ? Theme.primary : plate.selected || plate.activeFocus ? Theme.accent
                           : plate.actionable ? Theme.primary : Theme.warning
             Text {
                 textFormat: Text.PlainText
@@ -317,8 +375,13 @@ Rectangle {
             }
         }
         TapHandler { enabled: plate.actionable; onTapped: plate.activate() }
+        HoverHandler {
+            enabled: root.combat.canAct && plate.actionable
+            cursorShape: plate.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onHoveredChanged: root.combat.hoverSeat(plate.seat, hovered)
+        }
         AppButton {
-            visible: root.tableController.canViewSpectatorHands
+            visible: !root.replayMode && root.tableController.canViewSpectatorHands
             anchors.left: parent.right
             anchors.leftMargin: 8 * root.unit
             anchors.verticalCenter: lifeDisc.verticalCenter
@@ -339,8 +402,9 @@ Rectangle {
             required property int seat
             required property var commanders
             objectName: "forgeCommanders-" + seat
-            x: Math.max(root.boardLeft, root.boardLeft + (root.boardWidth - 176 * root.unit) / 2 - width - 8 * root.unit)
-            y: seat === root.bottomSeat ? root.handTop - 50 * root.unit : 6 * root.unit
+            x: root.replayMode ? root.boardRight - width
+                : Math.max(root.boardLeft, root.boardLeft + (root.boardWidth - 176 * root.unit) / 2 - width - 8 * root.unit)
+            y: seat === root.bottomSeat ? root.handTop - (root.replayMode ? 0 : 50 * root.unit) : 6 * root.unit
             z: 26
             width: Math.min(220 * root.unit, (root.centerWidth - 176 * root.unit) / 2 - 10 * root.unit)
             spacing: 4 * root.unit
@@ -435,7 +499,7 @@ Rectangle {
         objectName: "forgeOpponentLands"
         x: root.boardLeft
         y: root.battlefieldTop
-        width: Math.max(0, root.boardRight - root.boardLeft)
+        width: root.laneWidth(y, height)
         height: root.rowNeed(stackCount, true)
         tableController: root.tableController
         unit: root.unit
@@ -451,7 +515,7 @@ Rectangle {
         objectName: "forgeOpponentOther"
         x: root.boardLeft
         y: opponentLands.y + opponentLands.height
-        width: Math.max(0, root.boardRight - root.boardLeft)
+        width: root.laneWidth(y, height)
         height: root.rowNeed(stackCount, false)
         tableController: root.tableController
         unit: root.unit
@@ -467,7 +531,7 @@ Rectangle {
         objectName: "forgeOpponentCreatures"
         x: root.boardLeft
         y: root.battlefieldTop + root.opponentBackHeight
-        width: root.boardWidth
+        width: root.laneWidth(y, height)
         height: Math.max(0, root.laneHeight - root.opponentBackHeight)
         tableController: root.tableController
         unit: root.unit
@@ -481,7 +545,7 @@ Rectangle {
         objectName: "forgeOwnCreatures"
         x: root.boardLeft
         y: root.battlefieldMiddle + 6 * root.unit
-        width: root.boardWidth
+        width: root.laneWidth(y, height)
         height: Math.max(0, root.laneHeight - root.ownBackHeight)
         tableController: root.tableController
         unit: root.unit
@@ -495,7 +559,7 @@ Rectangle {
         objectName: "forgeOwnOther"
         x: root.boardLeft
         y: ownCreatures.y + ownCreatures.height
-        width: Math.max(0, root.boardRight - root.boardLeft)
+        width: root.laneWidth(y, height)
         height: root.rowNeed(stackCount, false)
         tableController: root.tableController
         unit: root.unit
@@ -511,7 +575,7 @@ Rectangle {
         objectName: "forgeOwnLands"
         x: root.boardLeft
         y: ownOther.y + ownOther.height
-        width: Math.max(0, root.boardRight - root.boardLeft)
+        width: root.laneWidth(y, height)
         height: root.rowNeed(stackCount, true)
         tableController: root.tableController
         unit: root.unit
@@ -539,8 +603,11 @@ Rectangle {
         model: root.tableController.combatInteraction.links
         delegate: ForgeArrow {
             required property var modelData
+            objectName: "forgeCombatArrow-" + modelData.from + "-" + (modelData.player ? "seat-" + modelData.seat : modelData.to)
             anchors.fill: parent
+            z: 70
             unit: root.unit
+            opacity: root.combat.chosenSource && root.combat.chosenSource.objectId === modelData.from ? 0.25 : 1
             lineColor: root.tableController.combatInteraction.attacking ? "#e1bd7f" : "#7ebcca"
             startPoint: {
                 void ownCreatures.visibleCards; void ownCreatures.scrollArea.contentY; void root.width; void root.height
@@ -552,16 +619,64 @@ Rectangle {
             }
         }
     }
+    ForgeArrow {
+        id: combatAimArrow
+        objectName: "forgeCombatAimArrow"
+        anchors.fill: parent
+        z: 80
+        unit: root.unit
+        preview: true
+        visible: root.combatAiming && startPoint.x !== 0
+        readonly property var target: root.combat.hoveredTarget
+        readonly property point targetPoint: !target ? Qt.point(0, 0)
+            : target.kind === "player" ? root.playerPoint(target.seat) : root.pointFor(target.objectId)
+        readonly property bool snapped: targetPoint.x !== 0
+        lineColor: snapped ? Theme.primary : root.combat.attacking ? "#e1bd7f" : "#7ebcca"
+        startPoint: root.combat.chosenSource ? root.pointFor(root.combat.chosenSource.objectId) : Qt.point(0, 0)
+        endPoint: {
+            if (snapped) return targetPoint
+            const pointer = combatPointer.point.position
+            // Make the initial arrow visible even when the click is at its origin.
+            if (Math.hypot(pointer.x - startPoint.x, pointer.y - startPoint.y) < 8 * root.unit)
+                return Qt.point(startPoint.x, startPoint.y - 24 * root.unit)
+            return pointer
+        }
+    }
     ForgeHand {
         objectName: "forgeHand"
         x: root.handLeft
         y: root.handTop
         z: 30
-        width: Math.max(0, decisionDock.x - x - 20 * root.unit)
+        width: Math.max(0, (root.replayMode ? root.boardRight - root.replayInfoWidth : decisionDock.x) - x - 20 * root.unit)
         height: root.handBandHeight - 4 * root.unit
         tableController: root.tableController
         unit: root.unit
         visible: !root.tableController.sideboarding
+    }
+    ForgeHand {
+        objectName: "forgeReplayOpponentHand"
+        visible: root.replayMode
+        x: root.handLeft
+        y: 24 * root.unit
+        width: Math.max(0, root.boardRight - root.replayInfoWidth - x - 20 * root.unit)
+        height: root.handBandHeight - 20 * root.unit
+        tableController: root.tableController
+        ownerSeat: root.topSeat
+        unit: root.unit
+        z: 30
+    }
+    Repeater {
+        model: root.replayMode ? root.tableController.replayFrame.combat || [] : []
+        delegate: ForgeArrow {
+            required property var modelData
+            anchors.fill: parent
+            z: 55
+            unit: root.unit
+            startPoint: root.pointFor(modelData.sourceId)
+            endPoint: modelData.targetSeat !== undefined
+                ? root.playerPoint(modelData.targetSeat) : root.pointFor(modelData.targetId)
+            lineColor: modelData.kind === "block" ? Theme.success : Theme.accent
+        }
     }
     Item {
         id: opponentZoneStrip
@@ -636,6 +751,8 @@ Rectangle {
         objectName: "forgeZonePopup"
         property int ownerSeat: 0
         property string zone: "graveyard"
+        readonly property real headerHeight: Math.max(36 * root.unit,
+            zoneHeaderActions.implicitHeight + Theme.size(8))
         parent: Overlay.overlay
         width: Math.min(760 * root.unit, root.width - 40 * root.unit)
         height: Math.min(440 * root.unit, root.height - 80 * root.unit)
@@ -652,11 +769,11 @@ Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 36 * root.unit
+            height: zonePopup.headerHeight
             Text {
                 textFormat: Text.PlainText
                 anchors.left: parent.left
-                anchors.right: closeButton.left
+                anchors.right: zoneHeaderActions.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 16 * root.unit
                 anchors.rightMargin: 8 * root.unit
@@ -667,22 +784,33 @@ Rectangle {
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
-            AppButton {
-                id: closeButton
-                objectName: "forgeCloseZonePopup"
+            Row {
+                id: zoneHeaderActions
                 anchors.right: parent.right
                 anchors.rightMargin: 10 * root.unit
                 anchors.verticalCenter: parent.verticalCenter
-                compact: true
-                variant: "ghost"
-                text: qsTr("Close")
-                onClicked: zonePopup.close()
+                spacing: Theme.size(6)
+                AppButton {
+                    objectName: "rulesResumeDecisionFromZone"
+                    visible: root.inspectingDecision
+                    text: qsTranslate("RulesDecisionDialog", "Return to choice")
+                    compact: true
+                    onClicked: root.resumeDecision()
+                }
+                AppButton {
+                    objectName: "forgeCloseZonePopup"
+                    compact: true
+                    variant: "ghost"
+                    text: qsTr("Close")
+                    onClicked: zonePopup.close()
+                }
             }
         }
         Row {
             id: zoneTabs
+            objectName: "forgeZoneTabs"
             x: 14 * root.unit
-            y: 40 * root.unit
+            y: zonePopup.headerHeight + 4 * root.unit
             spacing: 4 * root.unit
             Repeater {
                 model: root.browsableZones
@@ -699,7 +827,7 @@ Rectangle {
         ForgeCardLane {
             objectName: "forgeZoneCards"
             anchors.fill: parent
-            anchors.topMargin: 78 * root.unit
+            anchors.topMargin: zoneTabs.y + zoneTabs.height + 8 * root.unit
             anchors.margins: 12 * root.unit
             tableController: root.tableController
             unit: root.unit
@@ -726,7 +854,7 @@ Rectangle {
         externalDamageChoices: true
         showZoneActions: true
         showActions: !root.tableController.sideboarding && root.tableController.hostingPaused !== true
-        visible: !root.tableController.sideboarding || root.tableController.hostingPaused === true
+        visible: !root.replayMode && (!root.tableController.sideboarding || root.tableController.hostingPaused === true)
         radius: 16 * root.unit
         elevated: true
         color: Theme.useGlass ? "transparent" : Theme.withAlpha(Theme.surface, 0.90)
@@ -737,6 +865,64 @@ Rectangle {
                 id: tableControls
                 objectName: "forgeTableControls"
                 spacing: Theme.size(5)
+
+                AppButton {
+                    objectName: "rulesResumeDecision"
+                    Layout.fillWidth: true
+                    visible: root.inspectingDecision
+                    text: qsTranslate("RulesDecisionDialog", "Return to choice")
+                    variant: "primary"
+                    onClicked: root.resumeDecision()
+                }
+
+                Text {
+                    objectName: "forgePlayerControlStatus"
+                    Layout.fillWidth: true
+                    textFormat: Text.PlainText
+                    visible: root.tableController.controlledTurnSeat >= 0
+                    text: qsTr("You control %1's turn").arg(root.tableController.matchUi.playerName(root.tableController.controlledTurnSeat))
+                    color: Theme.primary
+                    font.pixelSize: Theme.fontSize(12)
+                    wrapMode: Text.WordWrap
+                }
+                Text {
+                    objectName: "modelOpponentStatus"
+                    Layout.fillWidth: true
+                    visible: ["local", "online"].includes(root.tableController.roomSession.aiSource || "")
+                             && !root.session.gameOver
+                    textFormat: Text.PlainText
+                    text: {
+                        const status = root.tableController.roomSession.aiStatus || ({})
+                        return I18n.modelStatusLabel(status.state || "waiting", status.code || "")
+                    }
+                    color: (root.tableController.roomSession.aiStatus || ({})).state === "paused"
+                           ? Theme.warning : Theme.textSecondary
+                    font.pixelSize: Theme.fontSize(12)
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    objectName: "modelOpponentRetry"
+                    Layout.fillWidth: true
+                    visible: ["local", "online"].includes(root.tableController.roomSession.aiSource || "")
+                             && (root.tableController.roomSession.aiStatus || ({})).state === "paused"
+                             && root.tableController.roomSession.host && !root.session.gameOver
+                    text: qsTr("Retry model decision")
+                    compact: true
+                    enabled: root.tableController.roomConnected
+                    onClicked: root.tableController.wsModel.retryModelOpponent()
+                }
+                AppButton {
+                    objectName: "modelOpponentSettings"
+                    Layout.fillWidth: true
+                    visible: ["local", "online"].includes(root.tableController.roomSession.aiSource || "")
+                             && (root.tableController.roomSession.aiStatus || ({})).state === "paused"
+                             && root.tableController.roomSession.host && !root.session.gameOver
+                    text: qsTr("Model connection settings")
+                    variant: "ghost"
+                    compact: true
+                    onClicked: root.appWindow.pushScreen("screens/ModelSettings.qml",
+                        {source:root.tableController.roomSession.aiSource})
+                }
 
                 Text {
                     objectName: "forgeHostConnectionStatus"
@@ -858,6 +1044,7 @@ Rectangle {
                 objectName: "rulesSideboardPanel"
                 enabled: root.tableController.roomConnected
                 wsModel: root.tableController.wsModel
+                rulesSession: root.session
                 gameTableModel: root.tableController.gameTableModel
                 tableModel: root.tableController.sideboardTableModel
                 cardCatalogModel: root.tableController.cardCatalogModel

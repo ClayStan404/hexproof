@@ -9,6 +9,8 @@
 #include "models/SideboardTableModel.h"
 #include "protocol/Message.h"
 #include "services/AppUpdateService.h"
+#include "services/AudioController.h"
+#include "services/BackgroundMusicController.h"
 #include "services/CardArtManager.h"
 #include "services/CardArtStorage.h"
 #include "services/CardCatalog.h"
@@ -21,6 +23,7 @@
 #include "services/MatchLoadCoordinator.h"
 #include "services/NetworkRequestFactory.h"
 #include "services/ProfileLock.h"
+#include "services/PublicContentService.h"
 #include "services/TournamentSessionState.h"
 #include "services/TranslationController.h"
 #include "services/WsClient.h"
@@ -74,14 +77,23 @@ class QmlNetworkFactory final : public QQmlNetworkAccessManagerFactory
 
 int main(int argc, char *argv[])
 {
+    // Set the Wayland/portal identity before platform services are constructed.
+    // GNOME also matches this ID to the installed desktop file and dock icon.
+    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.claystan404.hexproof"));
+#ifdef Q_OS_LINUX
+    // Multimedia only plays PCM sound effects here. Skip FFmpeg's eager video
+    // device probing, which otherwise loads irrelevant VDPAU/Vulkan drivers.
+    // Keep explicit user overrides; this does not change Qt Quick rendering.
+    for (const char *name :
+         {"QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "QT_FFMPEG_ENCODING_HW_DEVICE_TYPES"}) {
+        if (!qEnvironmentVariableIsSet(name))
+            qputenv(name, ",");
+    }
+#endif
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("Hexproof"));
     QGuiApplication::setOrganizationName(QStringLiteral("Hexproof"));
     QGuiApplication::setApplicationVersion(QStringLiteral(HEXPROOF_VERSION));
-    // GNOME/Wayland resolves the taskbar/dock icon by matching the window's
-    // app_id against an installed <name>.desktop file. Report the reverse-DNS
-    // desktop file name so the match resolves to our hicolor icon.
-    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.claystan404.hexproof"));
     QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/assets/hexproof.png")));
 
     QCommandLineParser commandLine;
@@ -131,6 +143,8 @@ int main(int argc, char *argv[])
         return 2;
     qputenv("HEXPROOF_SERVER_DIRECTORY_CACHE",
             QDir(storageRoot).filePath(QStringLiteral("network/servers.json")).toUtf8());
+    qputenv("HEXPROOF_FORGE_DIAGNOSTICS_DIR",
+            QDir(storageRoot).filePath(QStringLiteral("forge-diagnostics")).toUtf8());
     if (qEnvironmentVariable("HEXPROOF_FORGE_HOST_RUNTIME_DIR").trimmed().isEmpty())
         qputenv("HEXPROOF_FORGE_HOST_RUNTIME_DIR",
                 QDir(storageRoot).filePath(QStringLiteral("forge-runtime")).toUtf8());
@@ -175,6 +189,48 @@ int main(int argc, char *argv[])
         return 2;
     }
     auto *preferences = new hexproof::client::ClientPreferencesModel(storageRoot, &runtimeOwner);
+    auto *publicContent = new hexproof::client::PublicContentService(storageRoot, &runtimeOwner);
+    publicContent->setLanguage(preferences->uiLanguage());
+    QObject::connect(
+        preferences, &hexproof::client::ClientPreferencesModel::uiLanguageChanged, publicContent,
+        [preferences, publicContent]() { publicContent->setLanguage(preferences->uiLanguage()); });
+    QObject::connect(ws, &hexproof::client::WsClient::inRoomChanged, publicContent,
+                     [ws, publicContent]() {
+                         if (ws->inRoom())
+                             publicContent->deferSponsorAnnouncement();
+                     });
+    ws->setDirectPeerPreferred(preferences->directPeerEnabled());
+    QObject::connect(
+        preferences, &hexproof::client::ClientPreferencesModel::directPeerEnabledChanged, ws,
+        [preferences, ws]() { ws->setDirectPeerPreferred(preferences->directPeerEnabled()); });
+    auto *soundEffects = new hexproof::client::AudioController(&runtimeOwner);
+    soundEffects->setEnabled(preferences->audioEnabled());
+    soundEffects->setVolume(preferences->audioVolume());
+    QObject::connect(preferences, &hexproof::client::ClientPreferencesModel::audioEnabledChanged,
+                     soundEffects, [preferences, soundEffects]() {
+                         soundEffects->setEnabled(preferences->audioEnabled());
+                     });
+    QObject::connect(preferences, &hexproof::client::ClientPreferencesModel::audioVolumeChanged,
+                     soundEffects, [preferences, soundEffects]() {
+                         soundEffects->setVolume(preferences->audioVolume());
+                     });
+    auto *backgroundMusic = new hexproof::client::BackgroundMusicController(&runtimeOwner);
+    backgroundMusic->setEnabled(preferences->musicEnabled());
+    backgroundMusic->setVolume(preferences->musicVolume());
+    backgroundMusic->setTrack(preferences->musicTrack());
+    QObject::connect(preferences, &hexproof::client::ClientPreferencesModel::musicEnabledChanged,
+                     backgroundMusic, [preferences, backgroundMusic]() {
+                         backgroundMusic->setEnabled(preferences->musicEnabled());
+                     });
+    QObject::connect(preferences, &hexproof::client::ClientPreferencesModel::musicVolumeChanged,
+                     backgroundMusic, [preferences, backgroundMusic]() {
+                         backgroundMusic->setVolume(preferences->musicVolume());
+                     });
+    QObject::connect(
+        preferences, &hexproof::client::ClientPreferencesModel::musicTrackChanged, backgroundMusic,
+        [preferences, backgroundMusic]() { backgroundMusic->setTrack(preferences->musicTrack()); });
+    // Start after loading saved preferences; navigation and room state never restart music.
+    backgroundMusic->setActive(true);
     auto *limitedDeckDrafts =
         new hexproof::client::LimitedDeckDraftStore(storageRoot, &runtimeOwner);
     auto *deckLibrary = new hexproof::client::DeckLibraryModel(storageRoot, &runtimeOwner);
@@ -182,6 +238,7 @@ int main(int argc, char *argv[])
     auto *optimisticCommands = new hexproof::client::OptimisticCommandModel(&runtimeOwner);
     auto *sideboardTable = new hexproof::client::SideboardTableModel(&runtimeOwner);
     auto *cardCatalog = new hexproof::client::CardCatalog(storageRoot, &runtimeOwner);
+    ws->modelOpponent()->setCardCatalog(cardCatalog);
     auto *appUpdater = new hexproof::client::AppUpdateService(&runtimeOwner);
     auto *deckLegality = new hexproof::client::DeckLegalityService(storageRoot, &runtimeOwner);
     auto *matchLoader = new hexproof::client::MatchLoadCoordinator(&runtimeOwner);
@@ -315,6 +372,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("limitedDeckDrafts"),
                                              limitedDeckDrafts);
     engine.rootContext()->setContextProperty(QStringLiteral("preferences"), preferences);
+    engine.rootContext()->setContextProperty(QStringLiteral("publicContent"), publicContent);
+    engine.rootContext()->setContextProperty(QStringLiteral("soundEffects"), soundEffects);
+    engine.rootContext()->setContextProperty(QStringLiteral("backgroundMusic"), backgroundMusic);
     engine.rootContext()->setContextProperty(QStringLiteral("deckLibrary"), deckLibrary);
     engine.rootContext()->setContextProperty(QStringLiteral("gameTable"), gameTable);
     engine.rootContext()->setContextProperty(QStringLiteral("optimisticCommands"),
@@ -340,7 +400,9 @@ int main(int argc, char *argv[])
 #ifdef HEXPROOF_NATIVE_AUDIT
     auto *nativeAudit = new hexproof::client::NativeAudit(&engine);
     Q_UNUSED(nativeAudit);
-    engine.rootContext()->setContextProperty(QStringLiteral("localTestMode"), true);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("localTestMode"),
+        qEnvironmentVariable("HEXPROOF_AUDIT_STARTUP_NOTICES") != "1");
 #endif
     engine.setInitialProperties(
         {{QStringLiteral("windowTitle"), QGuiApplication::applicationDisplayName()}});
@@ -348,6 +410,14 @@ int main(int argc, char *argv[])
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.load(url);
+
+    if (!localTestRequested) {
+#ifdef HEXPROOF_NATIVE_AUDIT
+        // Native fixtures must explicitly choose their content origin.
+        if (qEnvironmentVariableIsSet("HEXPROOF_CONTENT_INDEX_URL"))
+#endif
+            QTimer::singleShot(0, publicContent, &hexproof::client::PublicContentService::start);
+    }
 
     if (localTestRequested) {
         auto *setup = new hexproof::client::LocalTestSession(

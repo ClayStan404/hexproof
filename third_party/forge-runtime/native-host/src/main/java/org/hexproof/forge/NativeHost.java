@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 /** JSONL entry point. Shared workers require an explicit bounded capacity. */
 public final class NativeHost {
     public static final String FORGE_COMMIT = "2be4858216742009afe8a7cffb035fc7671e960d";
+    static final int ADAPTER_REVISION = 17;
     static final Gson JSON = new Gson();
     private NativeHost() { }
 
@@ -36,6 +37,7 @@ public final class NativeHost {
             prefs.setPref(FPref.YIELD_AUTO_PASS_NO_ACTIONS, false);
             prefs.setPref(FPref.UI_SHOW_ACTIONABLE_HIGHLIGHTS, true);
             prefs.setPref(FPref.UI_SELECT_FROM_CARD_DISPLAYS, false);
+            prefs.setPref(FPref.UI_ENABLE_AI_CHEATS, false);
             return null;
         });
         if (capacity > 1) {
@@ -56,7 +58,7 @@ public final class NativeHost {
                     String result;
                     if (command.equals("reset")) {
                         if (session != null) throw new IllegalStateException("A process cannot reset an existing game");
-                        result = "";
+                        result = "{\"capabilities\":[\"forge-ai-v1\"],\"adapterRevision\":" + ADAPTER_REVISION + "}";
                     } else if (command.equals("startGame")) {
                         if (session != null) throw new IllegalStateException("A process hosts one game only");
                         session = new NativeSession(JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject(), base);
@@ -66,6 +68,7 @@ public final class NativeHost {
                         if (session == null || !session.id.equals(request.get("sessionId").getAsString())) throw new IllegalArgumentException("Unknown session");
                         result = switch (command) {
                             case "getSnapshot" -> session.snapshot(request.has("viewer") ? request.get("viewer").getAsInt() : -1);
+                            case "getReplay" -> session.replay.read(request.has("after") ? request.get("after").getAsLong() : 0);
                             case "getPrompt" -> session.prompt(request.get("playerIndex").getAsInt());
                             case "getGameOver" -> Boolean.toString(session.gameOver());
                             case "submitAction" -> session.submit(JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject());
@@ -73,10 +76,11 @@ public final class NativeHost {
                             default -> throw new IllegalArgumentException("Unknown command");
                         };
                     }
-                    protocol.println(JSON.toJson(new Response(true, result, "")));
+                    protocol.println(JSON.toJson(new Response(true, result, "", false, null)));
                 } catch (Exception e) {
                     e.printStackTrace(System.err);
-                    protocol.println(JSON.toJson(new Response(false, "", "Native Forge request rejected")));
+                    protocol.println(JSON.toJson(new Response(false, "", "Native Forge request rejected",
+                            session != null && session.hasFailed(), startFailure(e))));
                     protocol.flush();
                     // A rejected player answer leaves the native input intact.
                     // An unrecoverable session failure ends this game process
@@ -91,5 +95,8 @@ public final class NativeHost {
         }
         System.exit(0);
     }
-    private record Response(boolean ok, String result, String error) { }
+    static JsonObject startFailure(Exception error) {
+        return error instanceof NativeDeckException rejected ? rejected.startFailure() : null;
+    }
+    private record Response(boolean ok, String result, String error, boolean fatal, JsonObject startFailure) { }
 }

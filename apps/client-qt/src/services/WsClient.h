@@ -4,6 +4,9 @@
 #pragma once
 
 #include "ForgeHostService.h"
+#include "ForgeReplayService.h"
+#include "HubTransport.h"
+#include "ModelOpponentService.h"
 #include "PeerTransportService.h"
 #include <QElapsedTimer>
 #include <QObject>
@@ -12,7 +15,6 @@
 #include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
-#include <QtWebSockets/QWebSocket>
 
 #include "GameSessionState.h"
 #include "RoomSessionState.h"
@@ -28,7 +30,7 @@ class ReconnectController;
 class ServerDirectory;
 class TournamentSessionState;
 
-// WsClient owns the WebSocket connection to the hub and exposes session/room
+// WsClient owns the connection to the hub and exposes session/room
 // operations to QML. State transitions drive page switching in the UI.
 //
 // State machine:
@@ -50,6 +52,7 @@ class WsClient : public QObject
                    reconnectSecondsRemainingChanged)
     Q_PROPERTY(bool inRoom READ inRoom NOTIFY inRoomChanged)
     Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY serverUrlChanged)
+    Q_PROPERTY(QString serverTransportState READ serverTransportState NOTIFY serverTransportChanged)
     Q_PROPERTY(int serverIndex READ serverIndex NOTIFY serverUrlChanged)
     Q_PROPERTY(int customServerIndex READ customServerIndex NOTIFY serverDirectoryChanged)
     Q_PROPERTY(QVariantList serverEntries READ serverEntries NOTIFY serverDirectoryChanged)
@@ -64,11 +67,15 @@ class WsClient : public QObject
     Q_PROPERTY(QString displayName READ displayName NOTIFY displayNameChanged)
     Q_PROPERTY(QVariantList roomList READ roomList NOTIFY roomListChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(QVariantMap rulesStartFailure READ rulesStartFailure NOTIFY rulesStartFailureChanged)
     Q_PROPERTY(QString clientVersion READ clientVersion CONSTANT)
     Q_PROPERTY(bool versionMismatch READ versionMismatch NOTIFY versionMismatchChanged)
     Q_PROPERTY(QString requiredVersion READ requiredVersion NOTIFY versionMismatchChanged)
     Q_PROPERTY(QString releaseDownloadUrl READ releaseDownloadUrl CONSTANT)
     Q_PROPERTY(bool forgeRulesAvailable READ forgeRulesAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool forgeAIAvailable READ forgeAIAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool aiModelsAvailable READ aiModelsAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(ModelOpponentService *modelOpponent READ modelOpponent CONSTANT)
     Q_PROPERTY(bool playerHostingAvailable READ playerHostingAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(ForgeHostService *forgeHost READ forgeHost CONSTANT)
     Q_PROPERTY(bool peerTransportAvailable READ peerTransportAvailable NOTIFY capabilitiesChanged)
@@ -81,11 +88,16 @@ class WsClient : public QObject
     Q_PROPERTY(RoomSessionState *roomSession READ roomSession CONSTANT)
     Q_PROPERTY(GameSessionState *gameSession READ gameSession CONSTANT)
     Q_PROPERTY(RulesSessionState *rulesSession READ rulesSession CONSTANT)
+    Q_PROPERTY(ForgeReplayService *replays READ replays CONSTANT)
     Q_PROPERTY(
         bool rulesResponsePending READ rulesResponsePending NOTIFY rulesResponsePendingChanged)
     Q_PROPERTY(LimitedSessionState *limitedSession READ limitedSession CONSTANT)
 
   public:
+    ForgeReplayService *replays() const
+    {
+        return m_replays;
+    }
     enum ConnectionState
     {
         Disconnected,
@@ -97,6 +109,7 @@ class WsClient : public QObject
     Q_ENUM(ConnectionState)
 
     explicit WsClient(QObject *parent = nullptr);
+    explicit WsClient(const QString &modelProfileFile, QObject *parent = nullptr);
     ~WsClient() override;
 
     bool rulesResponsePending() const
@@ -160,6 +173,10 @@ class WsClient : public QObject
     QString serverUrl() const
     {
         return m_serverUrl;
+    }
+    QString serverTransportState() const
+    {
+        return m_ws.transportState();
     }
     bool setInitialConnection(const QString &url, const QString &displayName);
     int serverIndex() const;
@@ -290,6 +307,10 @@ class WsClient : public QObject
     {
         return m_lastError;
     }
+    QVariantMap rulesStartFailure() const
+    {
+        return m_rulesStartFailure;
+    }
     QString clientVersion() const;
     bool versionMismatch() const
     {
@@ -300,6 +321,18 @@ class WsClient : public QObject
         return m_requiredVersion;
     }
     QString releaseDownloadUrl() const;
+    bool forgeAIAvailable() const
+    {
+        return m_forgeAIAvailable;
+    }
+    bool aiModelsAvailable() const
+    {
+        return m_aiModelsAvailable;
+    }
+    ModelOpponentService *modelOpponent() const
+    {
+        return m_modelOpponent;
+    }
     bool forgeRulesAvailable() const
     {
         return m_forgeRulesAvailable;
@@ -330,6 +363,7 @@ class WsClient : public QObject
         return m_peerFallbacks;
     }
     QVariantMap peerTransportMetrics() const;
+    void setDirectPeerPreferred(bool enabled);
     Q_INVOKABLE void setDirectPeerEnabled(bool enabled, bool retry = false);
     Q_INVOKABLE void preparePlayerHosting();
     Q_INVOKABLE void playerHostingAction(const QString &action);
@@ -348,25 +382,29 @@ class WsClient : public QObject
     Q_INVOKABLE void refreshServerLatencies();
     Q_INVOKABLE void refreshServerDirectory(bool force = false);
     Q_INVOKABLE void disconnectFromHub();
-    Q_INVOKABLE void createRoom(const QString &name, const QString &format,
-                                const QString &deckFormat, bool allowSpectators,
-                                bool spectatorsSeeHands, const QString &matchMode,
-                                const QString &cardLoadMode, const QString &password,
-                                bool playtest = false,
-                                const QString &rulesMode = QStringLiteral("manual"),
-                                const QString &hostingMode = QString());
+    Q_INVOKABLE void dismissRulesStartFailure();
+    Q_INVOKABLE void
+    createRoom(const QString &name, const QString &format, const QString &deckFormat,
+               bool allowSpectators, bool spectatorsSeeHands, const QString &matchMode,
+               const QString &cardLoadMode, const QString &password, bool playtest = false,
+               const QString &rulesMode = QStringLiteral("manual"),
+               const QString &hostingMode = QString(), const QString &aiDifficulty = QString(),
+               const QString &aiSource = QString());
     Q_INVOKABLE void requestRoomList();
     Q_INVOKABLE void requestTournamentList();
     Q_INVOKABLE QString sendTournamentChat(const QString &text);
     Q_INVOKABLE void createTournament(const QString &name, const QString &format,
-                                      const QString &matchMode, int roundMinutes, int maxPlayers);
+                                      const QString &matchMode, int roundMinutes, int maxPlayers,
+                                      const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void createLimitedTournament(const QString &name, const QString &eventType,
                                              const QString &matchMode, int roundMinutes,
-                                             int maxPlayers, const QVariantMap &product);
+                                             int maxPlayers, const QVariantMap &product,
+                                             const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void createCasualLimitedEvent(const QString &name, const QString &eventType,
                                               const QString &matchMode, int maxPlayers,
                                               const QVariantMap &product,
-                                              const QVariantMap &draftSettings = {});
+                                              const QVariantMap &draftSettings = {},
+                                              const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void createLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void cancelLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void pickLimitedCard(const QString &instanceId);
@@ -407,6 +445,9 @@ class WsClient : public QObject
     Q_INVOKABLE void kickSpectator(int index);
     Q_INVOKABLE void disbandRoom();
     Q_INVOKABLE void selectDeck(const QVariantMap &deck);
+    Q_INVOKABLE void configureAiOpponent(const QString &difficulty,
+                                         const QVariantMap &deck = QVariantMap());
+    Q_INVOKABLE void retryModelOpponent();
     Q_INVOKABLE void setReady(bool ready);
     Q_INVOKABLE void completeLoad(qint64 loadId);
     Q_INVOKABLE void respondRulesPrompt(qint64 promptId, const QString &responseId);
@@ -426,6 +467,8 @@ class WsClient : public QObject
     Q_INVOKABLE void respondRulesPromptWithName(qint64 promptId, const QString &name);
     Q_INVOKABLE void drawCards(int count = 1);
     Q_INVOKABLE void shuffleLibrary();
+    Q_INVOKABLE void setLibraryTopRevealed(bool revealed);
+    Q_INVOKABLE void chooseStartingPlayer(int startingSeat);
     Q_INVOKABLE void mulligan();
     Q_INVOKABLE void discardHand(bool all = false);
     Q_INVOKABLE void moveCard(const QString &cardId, const QString &fromZone, const QString &toZone,
@@ -469,8 +512,9 @@ class WsClient : public QObject
     Q_INVOKABLE void clearCombatArrows(const QVariantList &sourceCardIds);
     Q_INVOKABLE void clearArrow();
     Q_INVOKABLE void setAttachment(const QString &sourceCardId, const QString &targetCardId = {});
+    Q_INVOKABLE void clearSideboardMainboard();
     Q_INVOKABLE void moveSideboardCard(const QVariantMap &card, const QString &fromZone,
-                                       const QString &toZone);
+                                       const QString &toZone, bool clearMainboard = false);
     Q_INVOKABLE void setSideboardCommander(const QString &name, bool designated);
     Q_INVOKABLE void setSideboardReady(bool ready);
     Q_INVOKABLE void nextTurn();
@@ -491,12 +535,12 @@ class WsClient : public QObject
     Q_INVOKABLE void searchLibrary(const QString &cardId, const QString &toZone, bool reveal,
                                    const QVariantMap &position = {}, int sourceSeat = -1,
                                    const QString &approvalId = {}, int toSeat = -1,
-                                   bool faceDown = false);
+                                   bool faceDown = false, bool topCard = false);
     Q_INVOKABLE void searchLibraryCards(const QVariantList &cardIds, const QString &toZone,
                                         bool reveal, bool randomize = false,
                                         const QVariantMap &position = {}, int sourceSeat = -1,
                                         const QString &approvalId = {}, int toSeat = -1,
-                                        bool faceDown = false);
+                                        bool faceDown = false, bool topCard = false);
     Q_INVOKABLE void reorderLibrary(const QVariantList &cardIds);
     Q_INVOKABLE void resolveLibraryView(const QVariantList &selectedCardIds,
                                         const QVariantList &remainderCardIds, const QString &toZone,
@@ -518,6 +562,7 @@ class WsClient : public QObject
     void roomRoleChanged();
     void selectedDeckNameChanged();
     void serverUrlChanged();
+    void serverTransportChanged();
     void customServerUrlChanged();
     void serverLatenciesChanged();
     void serverDirectoryChanged();
@@ -530,6 +575,7 @@ class WsClient : public QObject
     void gameRestarted();
     void gameSnapshotDataChanged(const QVariantMap &snapshot);
     void lastErrorChanged();
+    void rulesStartFailureChanged();
     void versionMismatchChanged();
     void capabilitiesChanged();
     void peerTransportChanged();
@@ -602,10 +648,12 @@ class WsClient : public QObject
     void handleError(const protocol::Envelope &env);
     void setLastError(const QString &code, const QString &message);
     void clearLastError();
+    void clearRulesStartFailure();
     void setVersionMismatch(const QString &requiredVersion);
     void clearVersionMismatch();
     void setForgeRulesAvailable(bool available);
     void clearGameState();
+    void reconcileModelOpponentStatus();
     void clearRulesResponse();
     void reconcileRulesResponse();
     void clearRoomState();
@@ -626,6 +674,7 @@ class WsClient : public QObject
     void handlePeerMessage(const QJsonObject &message);
     void fallbackPeerDecision();
     PeerTransportService *m_peerTransport = nullptr;
+    bool m_directPeerPreferred = true;
     bool m_peerConsent = false;
     bool m_peerTransportAvailable = false;
     bool m_peerOtherEnabled = false;
@@ -643,10 +692,11 @@ class WsClient : public QObject
     RoomSessionState *m_roomSession = nullptr;
     GameSessionState *m_gameSession = nullptr;
     RulesSessionState *m_rulesSession = nullptr;
+    ForgeReplayService *m_replays = nullptr;
     ServerDirectory *m_serverDirectory = nullptr;
     TournamentSessionState *m_tournamentSession = nullptr;
     LimitedSessionState *m_limitedSession = nullptr;
-    QWebSocket m_ws;
+    HubTransport m_ws;
     QThread m_parserThread;
     WsMessageParser *m_messageParser = nullptr;
     quint64 m_transportGeneration = 0;
@@ -654,13 +704,17 @@ class WsClient : public QObject
     QString m_displayName;
     QVariantList m_roomList;
     QString m_lastError;
+    QVariantMap m_rulesStartFailure;
     QString m_requiredVersion;
     bool m_versionMismatch = false;
     bool m_forgeRulesAvailable = false;
+    bool m_forgeAIAvailable = false;
+    bool m_aiModelsAvailable = false;
     bool m_playerHostingAvailable = false;
     bool m_playerHostingConsent = false;
     bool m_backupHostingConsent = false;
     ForgeHostService *m_forgeHost = nullptr;
+    ModelOpponentService *m_modelOpponent = nullptr;
     QTimer m_helloTimer; // handshake timeout while connecting or reconnecting
     QTimer m_keepAliveTimer;
     QTimer m_rulesResponseTimer;

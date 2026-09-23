@@ -12,6 +12,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+func isDiskSpaceError(err error) bool {
+	return errors.Is(err, unix.ENOSPC) || errors.Is(err, unix.EDQUOT)
+}
+
 func tryLockFile(file *os.File, exclusive bool) (bool, error) {
 	mode := unix.LOCK_SH
 	if exclusive {

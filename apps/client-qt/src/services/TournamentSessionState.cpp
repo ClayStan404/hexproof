@@ -99,6 +99,7 @@ void TournamentSessionState::applySnapshot(const QJsonObject &payload)
     m_coordinator = payload.value(u"coordinator"_s).toString(u"swiss"_s);
     m_stage = payload.value(u"stage"_s).toString();
     m_matchMode = payload.value(u"matchMode"_s).toString();
+    m_rulesMode = payload.value(u"rulesMode"_s).toString(u"manual"_s);
     m_status = payload.value(u"status"_s).toString();
     m_role = payload.value(u"role"_s).toString();
     m_participantId = payload.value(u"participantId"_s).toString();
@@ -133,6 +134,7 @@ void TournamentSessionState::clear()
     m_coordinator.clear();
     m_stage.clear();
     m_matchMode.clear();
+    m_rulesMode = u"manual"_s;
     m_status.clear();
     m_role.clear();
     m_participantId.clear();

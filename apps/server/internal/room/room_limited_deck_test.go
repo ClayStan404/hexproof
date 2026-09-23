@@ -129,3 +129,66 @@ func TestLimitedSideboardSupportsUnlimitedOrdinaryBasics(t *testing.T) {
 		t.Fatal("constructed sideboard accepted virtual basic-land supply")
 	}
 }
+
+func TestLimitedClearMainboardPreservesPhysicalPoolAndDropsVirtualBasics(t *testing.T) {
+	r := newTestRoom(t, 2, false)
+	r.Format = protocol.FormatModern
+	r.DeckFormat = protocol.DeckFormatLimited
+	r.Phase = protocol.RoomPhaseStarted
+	r.Game = &GameState{Number: 1, Sideboard: &SideboardState{Players: []SideboardPlayerState{{
+		Ready: true,
+		Mainboard: []protocol.DeckCard{
+			{Name: "Pool card", Count: 23, SetCode: "TST", CollectorNumber: "1"},
+			{Name: "Island", Count: 1, SetCode: "TST", CollectorNumber: "2"},
+			{Name: "Island", Count: 10, SetCode: "TST", CollectorNumber: "2", VirtualBasic: true},
+			{Name: "Forest", Count: 6},
+		},
+		Sideboard: []protocol.DeckCard{{Name: "Pool card", Count: 2, SetCode: "TST", CollectorNumber: "1"}},
+	}}}}
+	request := protocol.SideboardMove{FromZone: protocol.SideboardZoneMain,
+		ToZone: protocol.SideboardZoneSide, ClearMainboard: true}
+	if _, err := r.MoveSideboard("host-conn", request); err != nil {
+		t.Fatal(err)
+	}
+	player := &r.Game.Sideboard.Players[0]
+	if player.Ready || len(player.Mainboard) != 0 || len(player.Sideboard) != 2 ||
+		player.Sideboard[0].Count != 25 || player.Sideboard[1].Count != 1 {
+		t.Fatalf("incorrect bulk partition: %+v", player)
+	}
+	if _, err := r.SetSideboardReady("host-conn", true); err == nil {
+		t.Fatal("cleared mainboard became ready")
+	}
+	r.DeckFormat = protocol.DeckFormatModern
+	if _, err := r.MoveSideboard("host-conn", request); err == nil {
+		t.Fatal("constructed deck accepted Limited clear")
+	}
+}
+
+func TestLimitedPrintedVirtualBasicsStaySeparateFromPoolCopies(t *testing.T) {
+	r := newTestRoom(t, 2, false)
+	r.Format = protocol.FormatModern
+	r.DeckFormat = protocol.DeckFormatLimited
+	r.Phase = protocol.RoomPhaseStarted
+	r.Game = &GameState{Number: 1, Sideboard: &SideboardState{Players: []SideboardPlayerState{{
+		Mainboard: []protocol.DeckCard{{Name: "Island", Count: 1, SetCode: "TST", CollectorNumber: "2"}},
+	}}}}
+	request := protocol.SideboardMove{Name: "Island", SetCode: "TST", CollectorNumber: "2",
+		FromZone: protocol.SideboardZoneBasicLands, ToZone: protocol.SideboardZoneMain}
+	if _, err := r.MoveSideboard("host-conn", request); err != nil {
+		t.Fatal(err)
+	}
+	player := &r.Game.Sideboard.Players[0]
+	if len(player.Mainboard) != 2 || !player.Mainboard[1].VirtualBasic || player.Mainboard[1].SetCode != "TST" {
+		t.Fatalf("printed virtual addition merged with pool: %+v", player.Mainboard)
+	}
+	request.FromZone, request.ToZone = request.ToZone, request.FromZone
+	if _, err := r.MoveSideboard("host-conn", request); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.Mainboard) != 1 || player.Mainboard[0].VirtualBasic || player.Mainboard[0].Count != 1 {
+		t.Fatalf("physical pool copy removed: %+v", player.Mainboard)
+	}
+	if _, err := r.MoveSideboard("host-conn", request); err == nil {
+		t.Fatal("physical pool copy removed as virtual basic")
+	}
+}

@@ -1,0 +1,9 @@
+{
+  "type": "replay.forge_get",
+  "id": "fr1",
+  "payload": {
+    "replayId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "offset": 0
+  }
+}

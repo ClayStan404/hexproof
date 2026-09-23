@@ -37,6 +37,14 @@ GridView {
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     cacheBuffer: cellHeight
+    function finishBoundaryScroll() {
+        // Finish wheel motion at the boundary before a new press. Qt can retain
+        // moving=true after the cards stop and then filter every child click.
+        if (moving && !dragging && !flicking && (atYBeginning || atYEnd))
+            cancelFlick()
+    }
+    onAtYBeginningChanged: if (atYBeginning) Qt.callLater(finishBoundaryScroll)
+    onAtYEndChanged: if (atYEnd) Qt.callLater(finishBoundaryScroll)
     ScrollBar.vertical: AppScrollBar {
         objectName: "cardArtGridScrollBar"
         prominent: root.prominentScrollBar

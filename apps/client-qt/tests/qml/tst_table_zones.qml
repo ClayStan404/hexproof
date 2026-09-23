@@ -282,8 +282,42 @@ TestCase {
         compare(mockWs.lastLibrarySearch.reveal, false)
         compare(mockWs.lastLibrarySearch.randomize, false)
         compare(mockWs.lastLibrarySearch.toSeat, 0)
+        verify(mockWs.lastLibrarySearch.topCard)
         tryVerify(() => !popup.opened)
         table.destroy()
+    }
+
+    function test_topCardHandMoveRetainsViewContext_data() {
+        return [
+            {tag: "own-top", sourceSeat: 0, topCount: 1, reveal: false},
+            {tag: "own-top-revealed", sourceSeat: 0, topCount: 1, reveal: true},
+            {tag: "approved-top", sourceSeat: 1, topCount: 1, reveal: false},
+            {tag: "approved-top-revealed", sourceSeat: 1, topCount: 1, reveal: true},
+            {tag: "full-search", sourceSeat: 0, topCount: 0, reveal: true}
+        ]
+    }
+
+    function test_topCardHandMoveRetainsViewContext(data) {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        const approvalId = data.sourceSeat === 1 ? "top-grant" : ""
+        mockWs.libraryDumped([{id: "viewed-card", name: "Forest"}],
+                             data.sourceSeat, approvalId, data.topCount)
+        const popup = findChild(table, "librarySearchPopup")
+        tryCompare(popup, "opened", true)
+        findChild(popup, "revealLibrarySearch").checked = data.reveal
+        popup.contextCardId = "viewed-card"
+        findChild(popup, "libraryContextLocalHand").triggered()
+        compare(mockWs.searchLibraryCount, 1)
+        compare(mockWs.lastLibrarySearch.cardIds, ["viewed-card"])
+        compare(mockWs.lastLibrarySearch.toZone, "hand")
+        compare(mockWs.lastLibrarySearch.topCard, data.topCount === 1)
+        compare(mockWs.lastLibrarySearch.sourceSeat, data.sourceSeat)
+        compare(mockWs.lastLibrarySearch.approvalId, approvalId)
+        compare(mockWs.lastLibrarySearch.reveal, data.reveal)
+        tryCompare(popup, "opened", false)
     }
 
     function test_lifeControlsOnlyEditOwnSeat() {
@@ -588,6 +622,74 @@ TestCase {
         mockWs.gameSeats = originalSeats
     }
 
+    function test_stationaryLibraryHoverTracksPublicTop_data() {
+        return [{tag: "own-library", seat: 0}, {tag: "opponent-library", seat: 1}]
+    }
+
+    function test_stationaryLibraryHoverTracksPublicTop(data) {
+        const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        seats[data.seat].libraryTopRevealed = true
+        seats[data.seat].libraryTopCard = {id: "top-first", name: "Forest", setCode: "M21", collectorNumber: "274"}
+        mockWs.gameSeats = seats
+        syncTestGameTable()
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        verify(waitForRendering(table))
+        if (data.seat === 1) {
+            findChild(table, "opponentZoneToggle1").clicked()
+            tryVerify(() => findChild(table, "opponentZoneDock1") !== null)
+        }
+        const pile = findChild(table, data.seat === 0 ? "ownLibraryZone" : "searchLibraryButton1")
+        verify(pile !== null)
+        mouseMove(table, 1, 1)
+        mouseMove(pile, pile.width / 2, pile.height / 2)
+        tryCompare(table.presentation, "hoverPreviewVisible", true)
+        compare(table.presentation.inspectedCard.name, "Forest")
+
+        const changed = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        changed[data.seat].libraryTopCard = {id: "top-next", name: "Island", setCode: "M21", collectorNumber: "265"}
+        mockWs.gameSeats = changed
+        syncTestGameTable()
+        tryCompare(table.presentation.inspectedCard, "name", "Island")
+        verify(table.presentation.hoverPreviewVisible)
+
+        const hidden = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        hidden[data.seat].libraryTopRevealed = false
+        delete hidden[data.seat].libraryTopCard
+        mockWs.gameSeats = hidden
+        syncTestGameTable()
+        tryCompare(table.presentation, "hoverPreviewVisible", false)
+    }
+
+    function test_libraryTopRevealMenuTracksAuthoritativeVisibility() {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        const action = findChild(table, "revealLibraryTopContinuouslyAction")
+        verify(action !== null)
+        verify(!action.checked)
+        action.triggered()
+        compare(mockWs.libraryTopRevealRequest, true)
+        const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
+        seats[0].libraryTopRevealed = true
+        seats[0].libraryTopCard = {id: "top-public", name: "Forest", setCode: "M21", collectorNumber: "274"}
+        mockWs.gameSeats = seats
+        syncTestGameTable()
+        tryCompare(action, "checked", true)
+        compare(table.ownSeatData.libraryTopCard.name, "Forest")
+        action.triggered()
+        compare(mockWs.libraryTopRevealRequest, false)
+        seats[0].libraryCount = 0
+        delete seats[0].libraryTopCard
+        mockWs.gameSeats = JSON.parse(JSON.stringify(seats))
+        syncTestGameTable()
+        verify(action.enabled, "An empty library must still allow disabling public top visibility")
+        verify(findChild(table, "ownLibraryZone").enabled)
+    }
+
     function test_opponentLibraryRightClickOffersScopedRequests() {
         const table = tableComponent.createObject(tableHost, {
             "width": testWindow.width,
@@ -676,17 +778,21 @@ TestCase {
         verify(searchPopup.reorderMode)
         searchPopup.setTopCardDestination("s1-top1", "library_bottom")
         searchPopup.setTopCardDestination("s1-top2", "hand")
+        searchPopup.setTopCardReveal("s1-top2", true)
         searchPopup.resolveTopCards()
         compare(mockWs.resolveLibraryCount, 1)
         compare(mockWs.lastLibraryResolve.assignments.length, 3)
         compare(mockWs.lastLibraryResolve.assignments[0].cardId, "s1-top1")
         compare(mockWs.lastLibraryResolve.assignments[0].toZone,
                 "library_bottom")
+        verify(!mockWs.lastLibraryResolve.assignments[0].reveal)
         compare(mockWs.lastLibraryResolve.assignments[1].cardId, "s1-top2")
         compare(mockWs.lastLibraryResolve.assignments[1].toZone, "hand")
+        compare(mockWs.lastLibraryResolve.assignments[1].reveal, true)
         compare(mockWs.lastLibraryResolve.assignments[2].cardId, "s1-top3")
         compare(mockWs.lastLibraryResolve.assignments[2].toZone,
                 "library_top")
+        verify(!mockWs.lastLibraryResolve.assignments[2].reveal)
         compare(mockWs.lastLibraryResolve.sourceSeat, 1)
         compare(mockWs.lastLibraryResolve.approvalId,
                 "zone-dump-remote")

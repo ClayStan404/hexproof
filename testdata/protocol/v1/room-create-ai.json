@@ -1,0 +1,16 @@
+{
+  "type": "room.create",
+  "id": "c1",
+  "payload": {
+    "name": "Friday EDH",
+    "format": "modern",
+    "deckFormat": "custom",
+    "maxSeats": 2,
+    "allowSpectators": true,
+    "spectatorsSeeHands": true,
+    "matchMode": "bo1",
+    "cardLoadMode": "preload",
+    "rulesMode": "forge",
+    "aiDifficulty": "normal"
+  }
+}

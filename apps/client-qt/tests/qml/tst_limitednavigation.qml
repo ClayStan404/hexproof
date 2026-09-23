@@ -23,6 +23,7 @@ TestCase {
     QtObject {
         id: hub
         property bool connected: false
+        property string serverTransportState: ""
         property bool inRoom: false
         property string displayName: "Navigation test"
         property int serverIndex: 0
@@ -113,6 +114,14 @@ TestCase {
     Component {
         id: appearanceSettingsComponent
         AppearanceSettings { }
+    }
+    Component {
+        id: audioSettingsComponent
+        AudioSettings {
+            music: QtObject {
+                readonly property var tracks: [{id: "gitana", title: "Gitana"}]
+            }
+        }
     }
     Component {
         id: languageSettingsComponent
@@ -338,6 +347,11 @@ TestCase {
         waitForRendering(page)
         verifyHeaderGeometry(page)
         compare(findChild(page, "connectedServerStatus").text, "Server 3")
+        hub.serverTransportState = "direct"
+        compare(findChild(page, "connectedServerStatus").text, "Server 3 · Server · direct")
+        hub.serverTransportState = "relay"
+        compare(findChild(page, "connectedServerStatus").text, "Server 3 · Server · relay")
+        hub.serverTransportState = ""
         mouseClick(findChild(page, "mainMenuDisconnectButton"))
         updater.updateAvailable = false
         waitForRendering(page)
@@ -453,6 +467,7 @@ TestCase {
         const page = createPage(settingsComponent)
         const modules = [
             ["settingsAppearanceModule", "screens/AppearanceSettings.qml"],
+            ["settingsAudioModule", "screens/AudioSettings.qml"],
             ["settingsLanguageModule", "screens/LanguageSettings.qml"],
             ["settingsCatalogModule", "screens/CatalogSettings.qml"],
             ["settingsDownloadSetArtButton", "screens/SetArtDownload.qml"],
@@ -463,9 +478,16 @@ TestCase {
         compare(findChild(page, "settingsThemeSelector"), null)
         compare(findChild(page, "settingsLanguageSelector"), null)
         compare(findChild(page, "settingsDownloadCatalogButton"), null)
+        // The hub lists more modules than fit at this window height, so scroll
+        // each row fully into the clipped viewport before clicking it.
+        const body = findChild(page, "settingsBody")
+        const flick = body.contentItem
         for (const [name, screen] of modules) {
             const row = findChild(page, name)
             verify(row !== null, name)
+            const maxScroll = Math.max(0, flick.contentHeight - flick.height)
+            flick.contentY = Math.max(0, Math.min(row.mapToItem(flick, 0, 0).y, maxScroll))
+            waitForRendering(page)
             window.openedScreen = ""
             mouseClick(row)
             compare(window.openedScreen, screen, name)
@@ -477,6 +499,11 @@ TestCase {
         verify(findChild(appearance, "settingsThemeSelector") !== null)
         verify(findChild(appearance, "settingsIncreaseScaleButton") !== null)
         compare(findChild(appearance, "settingsLanguageSelector"), null)
+
+        const audio = createPage(audioSettingsComponent)
+        verify(findChild(audio, "settingsAudioMute") !== null)
+        verify(findChild(audio, "settingsAudioVolume") !== null)
+        compare(findChild(audio, "settingsThemeSelector"), null)
 
         const language = createPage(languageSettingsComponent)
         verify(findChild(language, "settingsLanguageSelector") !== null)

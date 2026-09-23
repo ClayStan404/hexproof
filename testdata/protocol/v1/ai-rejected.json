@@ -1,0 +1,7 @@
+{
+  "type": "ai.rejected",
+  "payload": {
+    "requestId": "decision-1",
+    "code": "invalid_response"
+  }
+}

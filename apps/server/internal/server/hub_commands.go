@@ -370,3 +370,10 @@ func (h *Hub) ResolveApprovedLibraryView(connID string,
 		return locked.ResolveApprovedLibraryView(connID, request)
 	})
 }
+
+func (h *Hub) ChooseStartingPlayer(connID string, request protocol.SideboardChooseStartingPlayer, r *room.Room) (room.Result, error) {
+	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) { return locked.ChooseStartingPlayer(connID, request) })
+}
+func (h *Hub) SetLibraryTopRevealed(connID string, request protocol.GameSetLibraryTopRevealed, r *room.Room) (room.Result, error) {
+	return h.reduceRoom(r, func(locked *room.Room) (room.Result, error) { return locked.SetLibraryTopRevealed(connID, request) })
+}

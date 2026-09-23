@@ -18,12 +18,14 @@ class TestGameTableModel : public QObject
 
   private slots:
     void snapshotReadiness() const;
+    void publicReviewExcludesHiddenZonesAndFaceDownCards() const;
     void updatesAndRestoresPublicTurnCounts() const;
     void emptySnapshotSentinelClearsReadiness() const;
     void keepsEmblemsPublicAndSeparateFromCards() const;
     void indexesSnapshotDomainData() const;
     void replacesIndexesOnSubsequentSnapshots() const;
     void keepsSeatLookupConsistentDuringZoneSignals() const;
+    void keepsCardLookupConsistentDuringZoneSignals() const;
     void skipsCardReindexForMetadataOnlySnapshots() const;
     void emitsOnlyChangedPropertySignals() const;
     void reconcilesZoneCardsById() const;
@@ -54,6 +56,26 @@ void TestGameTableModel::updatesAndRestoresPublicTurnCounts() const
     model.applySnapshot({{u"seats"_s, seats}});
     QCOMPARE(model.seatData(0).value(u"turnCount"_s).toInt(), 8);
     QCOMPARE(model.seatData(1).value(u"turnCount"_s).toInt(), 1);
+}
+
+void TestGameTableModel::publicReviewExcludesHiddenZonesAndFaceDownCards() const
+{
+    GameTableModel model;
+    const QVariantMap known{{u"id"_s, u"known"_s}, {u"name"_s, u"Known card"_s}};
+    const QVariantMap hidden{
+        {u"id"_s, u"morph"_s}, {u"name"_s, u"Private morph"_s}, {u"faceDown"_s, true}};
+    model.applySnapshot(
+        {{u"seats"_s, QVariantList{QVariantMap{{u"seat"_s, 0},
+                                               {u"battlefield"_s, QVariantList{hidden}},
+                                               {u"hand"_s, QVariantList{known}},
+                                               {u"sideboard"_s, QVariantList{known}},
+                                               {u"graveyard"_s, QVariantList{known}}}}}});
+    const QVariantList cards = model.publicReviewCards();
+    QCOMPARE(cards.size(), 1);
+    QCOMPARE(cards.first().toMap().value(u"zone"_s).toString(), u"graveyard"_s);
+    QCOMPARE(cards.first().toMap().value(u"name"_s).toString(), u"Known card"_s);
+    model.clear();
+    QVERIFY(model.publicReviewCards().isEmpty());
 }
 
 void TestGameTableModel::snapshotReadiness() const
@@ -316,6 +338,55 @@ void TestGameTableModel::keepsSeatLookupConsistentDuringZoneSignals() const
     });
 
     QVERIFY(observedStackRemoval);
+}
+
+void TestGameTableModel::keepsCardLookupConsistentDuringZoneSignals() const
+{
+    GameTableModel model;
+    const QVariantMap card{{u"id"_s, u"moving-card"_s}, {u"name"_s, u"Moving card"_s}};
+    const QVariantMap target{{u"id"_s, u"target-card"_s}, {u"name"_s, u"Target card"_s}};
+    model.applySnapshot(
+        {{u"seats"_s, QVariantList{QVariantMap{{u"seat"_s, 0},
+                                               {u"hand"_s, QVariantList{card}},
+                                               {u"battlefield"_s, QVariantList{target}}}}}});
+    const quint64 previousRevision = model.cardIndexRevision();
+    auto *handModel =
+        qobject_cast<hexproof::client::ZoneCardModel *>(model.zoneModel(0, u"hand"_s));
+    auto *battlefieldModel =
+        qobject_cast<hexproof::client::ZoneCardModel *>(model.zoneModel(0, u"battlefield"_s));
+    QVERIFY(handModel);
+    QVERIFY(battlefieldModel);
+    QVariantMap tappedTarget = target;
+    tappedTarget.insert(u"tapped"_s, true);
+    int observedChanges = 0;
+    const auto checkIndexes = [&] {
+        ++observedChanges;
+        QCOMPARE(model.cardData(u"moving-card"_s), card);
+        QCOMPARE(model.cardData(u"target-card"_s), tappedTarget);
+        QVERIFY(!model.cardInZone(u"moving-card"_s, u"hand"_s, 0));
+        QVERIFY(model.cardInZone(u"moving-card"_s, u"battlefield"_s, 0));
+        QCOMPARE(model.visibleZoneSeat(u"moving-card"_s, u"battlefield"_s), 0);
+        QCOMPARE(model.publicReviewCards().size(), 2);
+        QCOMPARE(model.attachmentForSource(u"moving-card"_s).value(u"targetCardId"_s).toString(),
+                 u"target-card"_s);
+        QCOMPARE(model.arrowForSeat(0).value(u"sourceCardId"_s).toString(), u"moving-card"_s);
+        QCOMPARE(model.cardIndexRevision(), previousRevision + 1);
+    };
+    connect(handModel, &QAbstractItemModel::rowsRemoved, &model, checkIndexes);
+    connect(battlefieldModel, &QAbstractItemModel::dataChanged, &model, checkIndexes);
+    connect(battlefieldModel, &QAbstractItemModel::rowsInserted, &model, checkIndexes);
+    model.applySnapshot({
+        {u"seats"_s,
+         QVariantList{QVariantMap{{u"seat"_s, 0},
+                                  {u"hand"_s, QVariantList{}},
+                                  {u"battlefield"_s, QVariantList{tappedTarget, card}}}}},
+        {u"attachments"_s, QVariantList{QVariantMap{{u"sourceCardId"_s, u"moving-card"_s},
+                                                    {u"targetCardId"_s, u"target-card"_s}}}},
+        {u"arrows"_s, QVariantList{QVariantMap{{u"seat"_s, 0},
+                                               {u"sourceCardId"_s, u"moving-card"_s},
+                                               {u"targetCardId"_s, u"target-card"_s}}}},
+    });
+    QCOMPARE(observedChanges, 3);
 }
 
 void TestGameTableModel::skipsCardReindexForMetadataOnlySnapshots() const

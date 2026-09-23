@@ -14,6 +14,7 @@
 class QQmlApplicationEngine;
 class QQuickItem;
 class QQuickWindow;
+class QProcess;
 
 namespace hexproof::client {
 
@@ -37,11 +38,14 @@ class NativeAudit final : public QObject
     Q_INVOKABLE QQuickItem *find(QObject *scope, const QString &name,
                                  const QVariantMap &identity = {});
     Q_INVOKABLE QVariantMap observe(QQuickWindow *window) const;
+    Q_INVOKABLE bool canInteract(QQuickItem *item);
     Q_INVOKABLE bool click(QQuickItem *item, qreal x = -1, qreal y = -1);
     Q_INVOKABLE bool hover(QQuickItem *item);
     Q_INVOKABLE bool doubleClick(QQuickItem *item);
     Q_INVOKABLE bool rightClick(QQuickItem *item);
     Q_INVOKABLE bool activate();
+    Q_INVOKABLE bool beginInput();
+    Q_INVOKABLE void endInput();
     Q_INVOKABLE bool key(int key, int modifiers = 0);
     Q_INVOKABLE bool type(const QString &text);
     Q_INVOKABLE bool text(const QString &value);
@@ -54,7 +58,8 @@ class NativeAudit final : public QObject
     Q_INVOKABLE QVariant readShared(const QString &name);
     Q_INVOKABLE bool share(const QString &name, const QVariant &value);
     Q_INVOKABLE void fixture(const QString &name, const QVariantMap &detail = {});
-    Q_INVOKABLE bool applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules);
+    Q_INVOKABLE bool applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules,
+                                            const QVariantMap &match = {});
     Q_INVOKABLE bool interruptTransport(QObject *client);
     Q_INVOKABLE bool crashHostingHelper(QObject *client);
     Q_INVOKABLE void finish(int code);
@@ -64,6 +69,10 @@ class NativeAudit final : public QObject
     void stepRequested();
 
   private:
+    bool eventFilter(QObject *object, QEvent *event) override;
+    bool osMode() const;
+    QVariantMap osCommand(QVariantMap request);
+    bool osInput(const QString &action, const QVariantMap &detail = {});
     QObject *fileDialogObject(const QString &name) const;
     bool fail(const QString &message);
     bool artifactFailure(const QString &message);
@@ -76,7 +85,13 @@ class NativeAudit final : public QObject
 
     QPointer<QQmlApplicationEngine> m_engine;
     QPointer<QQuickWindow> m_window;
+    QPointer<QQuickWindow> m_osInputWindow;
     QPointer<QObject> m_driver;
+    QProcess *m_osProcess = nullptr;
+    QVariantMap m_osReceipt;
+    QStringList m_osEvents;
+    QVariantList m_osPointerEvents;
+    bool m_osCollecting = false;
     QElapsedTimer m_elapsed;
     QTimer m_heartbeat;
     QString m_output;

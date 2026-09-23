@@ -6,10 +6,113 @@ pragma Singleton
 import QtQuick
 
 QtObject {
+    function rulesStartFailureReason(reason) {
+        switch (reason) {
+        case "deck_rejected": return qsTr("Forge could not start with one or more selected decks.")
+        case "capacity": return qsTr("All Forge game slots are currently occupied. Try again when a slot is available.")
+        case "runtime_unavailable": return qsTr("The Forge runtime is unavailable. Ask the server operator or player host to check it.")
+        case "runtime_timeout": return qsTr("The Forge runtime did not finish starting the game in time.")
+        case "runtime_failed": return qsTr("The Forge runtime stopped while starting the game.")
+        default: return qsTr("Forge could not start the game. The runtime did not provide a specific supported reason.")
+        }
+    }
+
+    function rulesStartFailureDetails(failure) {
+        if (!failure || !failure.reason) return ""
+        const sections = {mainboard: qsTr("Main deck"), sideboard: qsTr("Sideboard"), commanders: qsTr("Commanders")}
+        const codes = {
+            card_unavailable: qsTr("The current Forge runtime cannot recognize this card."),
+            printing_unavailable: qsTr("The current Forge runtime cannot recognize this card or the selected printing."),
+            commander_missing: qsTr("The selected commander could not be found among the usable main-deck cards."),
+            invalid_deck_size: qsTr("The main-deck size is not supported for this game."),
+            invalid_sideboard_size: qsTr("The sideboard size is not supported for this game.")
+        }
+        const lines = [rulesStartFailureReason(failure.reason)]
+        for (const issue of failure.issues || []) {
+            if (!sections[issue.section] || !codes[issue.code]
+                    || !["player", "ai"].includes(issue.deck)) continue
+            const deck = issue.deck === "ai" ? qsTr("AI deck") : qsTr("Your deck")
+            let identity = String(issue.cardName || "")
+            const printing = [issue.setCode, issue.collectorNumber].filter(value => !!value).join(" ")
+            if (printing) identity += (identity ? " " : "") + "(" + printing + ")"
+            const message = (identity ? identity + ": " : "") + codes[issue.code]
+            lines.push(formatStatus(qsTr("%1 · %2: %3"), [deck, sections[issue.section], message]))
+        }
+        if (failure.truncated) lines.push(qsTr("Some additional details were omitted."))
+        if (failure.reason === "deck_rejected")
+            lines.push(qsTr("Change the affected card or printing, or check the Forge runtime, then ready again."))
+        lines.push(qsTr("Your seats and selected decks are kept."))
+        return lines.join("\n\n")
+    }
+
+    function serverTransportLabel(state) {
+        switch (state) {
+        case "direct": return qsTr("Server · direct")
+        case "relay": return qsTr("Server · relay")
+        case "connecting": return qsTr("Finding a server connection…")
+        default: return ""
+        }
+    }
+
     function tr(source) {
         if (source === undefined || source === null)
             return source
         return qsTranslate("HexproofDynamic", String(source))
+    }
+
+    function aiDifficultyLabel(difficulty) {
+        switch (difficulty) {
+        case "easy": return qsTr("Beginner")
+        case "normal": return qsTr("Normal")
+        case "hard": return qsTr("Hard")
+        default: return ""
+        }
+    }
+
+    function aiSourceLabel(source) {
+        switch (source) {
+        case "forge": return qsTr("Forge AI")
+        case "local": return qsTr("Local model")
+        case "online": return qsTr("Online model")
+        default: return ""
+        }
+    }
+
+    function modelStatusLabel(state, code) {
+        if (state === "thinking") return qsTr("Model is thinking…")
+        if (state === "waiting") return qsTr("Model ready")
+        if (state !== "paused") return ""
+        switch (code) {
+        case "budget_exhausted": return qsTr("Model paused: request budget reached")
+        case "timeout": return qsTr("Model paused: request timed out")
+        case "invalid_response": return qsTr("Model paused: the reply was not a valid game decision")
+        case "provider_error": return qsTr("Model paused: check the model connection")
+        case "worker_disconnected": return qsTr("Model paused: the decision worker disconnected")
+        case "unsupported_prompt": return qsTr("Model paused: this decision type is unsupported")
+        case "engine_unavailable": return qsTr("Model paused: the rules engine is unavailable")
+        default: return qsTr("Model paused. Check the connection, then retry or end the game.")
+        }
+    }
+
+    function modelConnectionStatus(status) {
+        switch (status) {
+        case "testing": return qsTr("Testing the saved model connection…")
+        case "passed": return qsTr("Connection test passed. The model returned a valid structured choice.")
+        case "timeout": return qsTr("Connection test timed out. Check the endpoint and model service.")
+        case "provider_error": return qsTr("The model service rejected the request. Check the endpoint, model, API key, and output limit parameter.")
+        case "invalid_response": return qsTr("The model did not return the required structured choice.")
+        case "budget_exhausted": return qsTr("The configured budget is too small for this request.")
+        case "unsupported_prompt": return qsTr("The model cannot answer this decision type.")
+        case "authentication_failed": return qsTr("Authentication failed. Re-enter the API key and check its permissions.")
+        case "endpoint_or_model_not_found": return qsTr("The endpoint or model was not found. Check the API base URL and model identifier.")
+        case "rate_limited": return qsTr("The provider rate limit was reached. Wait before retrying.")
+        case "connection_failed": return qsTr("Could not connect to the model service. Check that it is running and reachable.")
+        case "response_too_large": return qsTr("The model response exceeded the supported size limit.")
+        case "redirect_blocked": return qsTr("The endpoint redirected the request. Configure its final URL explicitly.")
+        case "invalid_config": return qsTr("Configure the endpoint, model, and valid thinking limits first.")
+        case "save_failed": return qsTr("Could not save model settings on this computer.")
+        default: return ""
+        }
     }
 
     function formatLabel(format) {
@@ -644,6 +747,15 @@ QtObject {
         match = source.match(/^(.+) wins the Commander game\.$/)
         if (match)
             return qsTr("%1 wins the Commander game.").arg(match[1])
+        match = source.match(/^(.+) starts Game (\d+)\.$/)
+        if (match)
+            return formatStatus(qsTr("%1 starts Game %2."), [match[1], match[2]])
+        match = source.match(/^(.+) is playing with their library top revealed\.$/)
+        if (match)
+            return qsTr("%1 is playing with their library top revealed.").arg(match[1])
+        match = source.match(/^(.+) stopped playing with their library top revealed\.$/)
+        if (match)
+            return qsTr("%1 stopped playing with their library top revealed.").arg(match[1])
         match = source.match(/^(.+) goes first after losing Game (\d+)\.$/)
         if (match)
             return formatStatus(qsTr("%1 goes first after losing Game %2."),
@@ -683,6 +795,12 @@ QtObject {
         if (match) {
             return formatStatus(qsTr("%1 searched %2 library and put %3 %4."),
                     [match[1], libraryOwnerLabel(match[2]), libraryCardDescriptionLabel(match[3], resolveCardName), searchDestinationLabel(match[4])])
+        }
+        match = source.match(
+                    /^(.+) revealed (.+) from the top (\d+) card\(s\) of (their|.+\'s) library and put them (face down onto .+|onto .+|into .+|on top of .+|on bottom of .+)\.$/)
+        if (match) {
+            return formatStatus(qsTr("%1 revealed %2 from the top %3 card(s) of %4 library and put them %5."),
+                    [match[1], libraryCardDescriptionLabel(match[2], resolveCardName), match[3], libraryOwnerLabel(match[4]), searchDestinationLabel(match[5])])
         }
         match = source.match(
                     /^(.+) resolved the top (\d+) card\(s\) of (their|.+\'s) library and put (\d+) card\(s\) (face down onto .+|onto .+|into .+|on top of .+|on bottom of .+)\.$/)

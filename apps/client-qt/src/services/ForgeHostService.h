@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "ForgeHostDiagnostics.h"
+
 #include <QJsonObject>
 #include <QObject>
 #include <QProcess>
@@ -72,10 +74,13 @@ class ForgeHostService : public QObject
     void readOutput();
     QString helperPath() const;
     QString runtimeDirectory() const;
+    QString diagnosticsDirectory() const;
+    ForgeHostDiagnostics m_diagnostics;
     QProcess m_process;
     QByteArray m_output;
     QString m_state;
     QString m_importResult;
+    QString m_importOperationId;
     Operation m_operation = Operation::None;
     bool m_ready = false;
     bool m_hosting = false;

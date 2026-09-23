@@ -1,0 +1,10 @@
+{
+  "type": "ai.answer",
+  "payload": {
+    "requestId": "decision-1",
+    "response": {
+      "promptId": 74,
+      "responseId": "$ack"
+    }
+  }
+}

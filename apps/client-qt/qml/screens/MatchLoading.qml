@@ -35,6 +35,12 @@ Page {
             width: Math.min(Theme.size(760), loadingBody.width)
             spacing: Theme.size(18)
 
+            RulesStartFailureNotice {
+                objectName: "matchLoadingStartFailure"
+                Layout.fillWidth: true
+                wsModel: root.wsModel
+            }
+
             BrandMark {
                 Layout.alignment: Qt.AlignHCenter
                 markSize: Theme.size(54)

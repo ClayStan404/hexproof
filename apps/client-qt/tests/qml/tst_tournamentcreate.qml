@@ -23,6 +23,7 @@ TestCase {
         id: mockWs
         property bool connected: true
         property bool inRoom: false
+        property bool forgeRulesAvailable: true
         property string lastError: ""
         property var submitted: []
         property var submittedLimited: []
@@ -70,6 +71,7 @@ TestCase {
     }
 
     function init() {
+        mockWs.forgeRulesAvailable = true
         mockWs.submitted = []
         mockWs.submittedLimited = []
         page = pageComponent.createObject(testWindow.contentItem)
@@ -110,9 +112,51 @@ TestCase {
         cap.text = "16"
         verify(button.enabled)
         button.clicked()
-        compare(mockWs.submitted.length, 5)
+        compare(mockWs.submitted.length, 6)
+        compare(mockWs.submitted[5], "manual")
         compare(mockWs.submitted[3], 75)
         compare(mockWs.submitted[4], 16)
+    }
+
+    function test_firstClickAfterWheelBoundarySubmits_data() {
+        return [{tag:"constructed", index:0}, {tag:"sealed", index:1},
+                {tag:"draft", index:2}, {tag:"cube", index:3}]
+    }
+    function test_firstClickAfterWheelBoundarySubmits(data) {
+        const selector = findChild(page, "tournamentEventTypeSelector")
+        selector.currentIndex = data.index
+        selector.activated(data.index)
+        findChild(page, "tournamentNameField").text = "Wheel boundary event"
+        findChild(page, "tournamentPlayerCapField").text = "4"
+        findChild(page, "tournamentRulesMode").activated(1)
+        const body = findChild(page, "tournamentCreateBody")
+        const button = findChild(page, "tournamentCreateSubmitButton")
+        verify(waitForRendering(page))
+        verify(button.enabled)
+        verify(body.contentHeight > body.height)
+        mouseWheel(body, body.width - 10, body.height / 2, 0, -12000)
+        tryVerify(() => body.atYEnd && !body.moving)
+        mouseClick(button, button.width / 2, button.height / 2)
+        compare(data.index === 0 ? mockWs.submitted[5] : mockWs.submittedLimited[6], "forge")
+    }
+
+    function test_forgeAvailabilityAndSubmission() {
+        findChild(page, "tournamentNameField").text = "Forge Swiss"
+        const button = findChild(page, "tournamentCreateSubmitButton")
+        const control = findChild(page, "tournamentRulesMode")
+        control.activated(1)
+        compare(page.rulesMode, "forge")
+        mockWs.forgeRulesAvailable = false
+        verify(!button.enabled)
+        control.activated(0)
+        verify(button.enabled)
+        mockWs.forgeRulesAvailable = true
+        control.activated(1)
+        button.clicked()
+        compare(mockWs.submitted[5], "forge")
+        findChild(page, "tournamentEventTypeSelector").currentIndex = 1
+        button.clicked()
+        compare(mockWs.submittedLimited[6], "forge")
     }
 
     function test_eventsCreatesLimitedModes_data() {
@@ -134,7 +178,7 @@ TestCase {
         button.clicked()
         compare(mockWs.submitted.length, 0)
         compare(mockWs.submittedLimited,
-                ["Limited via Events", data.mode, "bo1", 75, data.cap, {id: "pid-1"}])
+                ["Limited via Events", data.mode, "bo1", 75, data.cap, {id: "pid-1"}, "manual"])
     }
 
     function test_cubeTournamentRemainsInEventsAndValidatesCapacity() {
@@ -152,7 +196,7 @@ TestCase {
         button.clicked()
         compare(mockWs.submittedLimited,
                 ["Cube Swiss", "cube_draft", "bo3", 50, 4,
-                 {id: "cube-1", productType: "cube"}])
+                 {id: "cube-1", productType: "cube"}, "manual"])
         cap.text = "9"
         verify(!button.enabled)
     }

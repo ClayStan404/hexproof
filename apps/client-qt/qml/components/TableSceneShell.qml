@@ -222,6 +222,12 @@ Item {
         id: tableSettingsPopup
         objectName: "tableSettingsPopup"
         onBackgroundRequested: tableBackgroundPopup.open()
+        onAudioRequested: {
+            const window = root.tableController.appWindow
+            if (window && typeof window.pushScreen === "function")
+                window.pushScreen("screens/AudioSettings.qml", root.tableController.preferencesModel
+                                  ? {settings:root.tableController.preferencesModel} : {})
+        }
         onSettingsRequested: function(showPlayers, showShared,
                                       showInspector, counterCount,
                                       showGameLog) {

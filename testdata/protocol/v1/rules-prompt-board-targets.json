@@ -29,6 +29,7 @@
       },
       {
         "responseId": "target:1",
+        "selected": true,
         "kind": "card",
         "label": "Grizzly Bears",
         "objectId": "visible-object",

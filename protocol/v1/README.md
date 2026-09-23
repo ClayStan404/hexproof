@@ -54,6 +54,36 @@ untouched. Parity checks inspect the resulting contracts, not the spelling of
 an import in the generator; package-local source organization may change while
 the wire shape stays identical.
 
+### Forge startup diagnostics
+
+An `error` may carry `rulesStartFailure` after the room returns to waiting.
+All current members receive the bounded reason, while `issues` is private to
+the affected deck's owner (or the room host for an AI deck). It identifies the
+recipient's `player` or `ai` deck, section, fixed issue code, and submitted
+card name/printing when applicable. Other players and spectators receive only
+the reason; spectator hand-visibility opt-ins do not grant deck-error access.
+Only the triggering connection gets the request `id`. The hub reconstructs
+identities from registered deck inputs after validating engine indexes;
+engine exception strings and raw payloads never become public diagnostics.
+
+At most 32 issues are sent, with `truncated` indicating that the bounded list
+may be incomplete. An unavailable printing is not a claim that the card is
+banned or illegal in its format. An old runtime without structured diagnostics
+uses the explicit generic startup-rejected reason instead of a guessed card.
+See [Forge failure behavior](../../docs/rules-engine.md#availability-and-failure-behavior).
+
+### Model decision transport
+
+`payload-model-ai.json` defines independent AI-seat worker messages. A private
+`room.ai.worker` grant reaches only the practice host. The worker connects to
+the same WebSocket endpoint with `ai=1` and authenticates with `ai.attach`;
+ordinary room commands are unavailable on that role. `ai.decision` includes
+only its AI seat's normalized observation and prompt. Every `ai.answer` is
+revalidated against the current game and decision before Forge receives it.
+The normal room stream contains source metadata and `room.ai.status`, never
+worker observations, provider endpoints or API keys. See
+[model opponents](../../docs/model-opponents.md).
+
 ### Optional direct player-host transport
 
 `forge.peer_request` enables/disables consent (or explicitly retries) for a

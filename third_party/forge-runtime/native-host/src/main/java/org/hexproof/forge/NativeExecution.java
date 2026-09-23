@@ -75,6 +75,9 @@ final class NativeExecution implements ThreadUtil.ExecutionContext, AutoCloseabl
     @Override public <T> T cache(String kind, Supplier<T> create) {
         return (T) caches.computeIfAbsent(kind, ignored -> create.get());
     }
+    @Override public Map<String, String> abilityPresentation(String cardName, Map<String, String> parameters) {
+        return NativeCardPresentation.hints(cardName, parameters);
+    }
     @Override public ScheduledFuture<?> schedule(int milliseconds, Runnable action) {
         if (closed || delayed.getQueue().size() >= 128) throw new RejectedExecutionException("Game timer capacity exceeded");
         return delayed.schedule(() -> run(action), milliseconds, TimeUnit.MILLISECONDS);

@@ -110,13 +110,37 @@ func TestNormalizeMulliganAndManaResponses(t *testing.T) {
       "canConfirmFromPool":true,"actions":[{"id":"tap:1","type":"activateAbility",
       "description":"{T}: Add {R}."}]}}`)
 	view, err = NormalizePrompt(mana)
-	if err != nil || len(view.Options) != 4 || view.Detail != "Shock {R}" {
+	if err != nil || len(view.Options) != 4 || view.Detail != "Shock {R}" || view.Title != "Pay Mana Cost: {R}" {
 		t.Fatalf("mana prompt = %+v, %v", view, err)
 	}
 	response, err = BuildPromptResponse(mana, 0, 3,
 		PromptResponse{ResponseID: "$auto-pay"})
 	if err != nil || !containsBytes(response, []byte(`"auto":true`)) {
 		t.Fatalf("mana response = %s, %v", response, err)
+	}
+}
+
+func TestManaTitleUsesLiveCostAlongsideLongEffectText(t *testing.T) {
+	detail := strings.Repeat("A long conditional effect with graveyard, hand and library choices. ", 20) +
+		"\n\nPay Mana Cost: {3}{B}{B}"
+	for _, cost := range []string{"{3}{B}{B}", "{1}{B}", "0", ""} {
+		raw, err := json.Marshal(map[string]any{
+			"promptId": 3, "decidingPlayerId": "player-0",
+			"input": map[string]any{"type": "payManaCost", "manaCost": cost,
+				"presentation": map[string]string{"title": "Pay mana", "description": detail}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		view, err := NormalizePrompt(raw)
+		want := "Pay mana"
+		if cost != "" {
+			want = "Pay Mana Cost: " + cost
+		}
+		if err != nil || view.Title != want || view.Detail == "" || !strings.HasPrefix(detail, view.Detail) ||
+			strings.Contains(view.Detail, "Pay Mana Cost:") {
+			t.Fatalf("live cost %q: view = %+v, error = %v", cost, view, err)
+		}
 	}
 }
 
@@ -169,13 +193,14 @@ func TestNormalizeAndBuildChooseCards(t *testing.T) {
 	raw := json.RawMessage(`{"promptId":51,"decidingPlayerId":"player-1","input":{
       "type":"chooseCards","presentation":{"title":"Discard","description":"Choose cards."},
       "min":1,"max":2,"cards":[
-        {"id":"card-a","identity":{"name":"Plains","setCode":"M21","cardNumber":"309"}},
+        {"id":"card-a","identity":{"name":"Plains","setCode":"M21","cardNumber":"309"},"selected":true},
         {"id":"card-b","identity":{"name":"Island","setCode":"M21","cardNumber":"310"}},
         {"id":"card-c","identity":{"name":"Soldier","setCode":"TM21","cardNumber":"1","isToken":true}}
       ]}}`)
 	view, err := NormalizePrompt(raw)
 	if err != nil || !view.Supported || view.Title != "Discard" || view.CardMinimum != 1 ||
-		view.CardMaximum != 2 || len(view.Cards) != 3 || !view.Cards[2].Token {
+		view.CardMaximum != 2 || len(view.Cards) != 3 || !view.Cards[2].Token ||
+		!view.Cards[0].Selected || view.Cards[1].Selected {
 		t.Fatalf("choose-cards prompt = %+v, %v", view, err)
 	}
 	response, err := BuildPromptResponse(raw, 1, 51, PromptResponse{
@@ -211,6 +236,43 @@ func TestChooseCardsAllowsOptionalEmptySelection(t *testing.T) {
 	if err != nil || string(response) !=
 		`{"output":{"chosenCardIds":[],"type":"chooseCardsDecision"},"type":"chooseCards"}` {
 		t.Fatalf("optional choose-cards response = %s, %v", response, err)
+	}
+}
+
+func TestChooseCardsReadOnlyDisclosure(t *testing.T) {
+	raw := json.RawMessage(`{"promptId":54,"decidingPlayerId":"player-0","input":{
+      "type":"chooseCards","min":1,"max":3,"cards":[
+        {"id":"land","identity":{"name":"Forest"},"readOnly":true},
+        {"id":"creature","identity":{"name":"Grizzly Bears"}},
+        {"id":"land-2","identity":{"name":"Forest"},"readOnly":true}]}}`)
+	view, err := NormalizePrompt(raw)
+	if err != nil || len(view.Cards) != 3 || view.CardMaximum != 1 ||
+		view.Cards[0].ID != "reveal:0" || !view.Cards[0].ReadOnly ||
+		view.Cards[1].ID != "creature" || view.Cards[1].ReadOnly || view.Cards[2].ID != "reveal:2" {
+		t.Fatalf("combined card choice = %+v, %v", view, err)
+	}
+	for _, id := range []string{"land", "reveal:0", "land-2", "reveal:2"} {
+		if _, err := BuildPromptResponse(raw, 0, 54, PromptResponse{ResponseID: "$submit", CardIDs: []string{id}}); err == nil {
+			t.Fatalf("read-only card accepted: %s", id)
+		}
+	}
+	if _, err := BuildPromptResponse(raw, 1, 54, PromptResponse{ResponseID: "$submit", CardIDs: []string{"creature"}}); err == nil {
+		t.Fatal("other seat accepted the private choice")
+	}
+	if _, err := BuildPromptResponse(raw, 0, 53, PromptResponse{ResponseID: "$submit", CardIDs: []string{"creature"}}); err == nil {
+		t.Fatal("stale choice accepted")
+	}
+	response, err := BuildPromptResponse(raw, 0, 54, PromptResponse{ResponseID: "$submit", CardIDs: []string{"creature"}})
+	if err != nil || string(response) != `{"output":{"chosenCardIds":["creature"],"type":"chooseCardsDecision"},"type":"chooseCards"}` {
+		t.Fatalf("eligible choice = %s, %v", response, err)
+	}
+	for _, invalid := range []string{
+		strings.Replace(string(raw), `"min":1`, `"min":2`, 1),
+		strings.Replace(string(raw), `"readOnly":true`, `"readOnly":true,"selected":true`, 1),
+	} {
+		if _, err := NormalizePrompt(json.RawMessage(invalid)); err == nil {
+			t.Fatalf("invalid combined prompt accepted: %s", invalid)
+		}
 	}
 }
 
@@ -264,6 +326,34 @@ func TestNormalizeAndBuildBoardTargets(t *testing.T) {
 		}); err == nil {
 			t.Fatalf("invalid target selection unexpectedly succeeded: %v", selection)
 		}
+	}
+}
+
+func TestNativeReservedBoardTargetsRemainSingleClickResponses(t *testing.T) {
+	raw := json.RawMessage(`{"promptId":7,"decidingPlayerId":"player-0","input":{
+      "type":"chooseBoardTargets","candidates":[
+      {"kind":"card","id":"artifact-a","selected":true},
+      {"kind":"card","id":"artifact-b","selected":true},
+      {"kind":"card","id":"artifact-c","selected":false}],
+      "minTargets":0,"maxTargets":1,"chosenTargets":0,"cancellable":true}}`)
+	view, err := NormalizePrompt(raw)
+	if err != nil || !view.Supported || len(view.Targets) != 3 ||
+		!view.Targets[0].Selected || !view.Targets[1].Selected || view.Targets[2].Selected ||
+		view.MinSelected != 0 || view.MaxSelected != 1 {
+		t.Fatalf("native reservations = %+v, %v", view, err)
+	}
+	for _, selection := range [][]string{{"target:0"}, {"target:2"}, {}} {
+		response, err := BuildPromptResponse(raw, 0, 7, PromptResponse{
+			ResponseID: "$submit", TargetIDs: selection,
+		})
+		if err != nil || strings.Contains(string(response), "selected") {
+			t.Fatalf("reservation must not be echoed into the native click: %s, %v", response, err)
+		}
+	}
+	if _, err := BuildPromptResponse(raw, 0, 7, PromptResponse{
+		ResponseID: "$submit", TargetIDs: []string{"target:0", "target:1"},
+	}); err == nil {
+		t.Fatal("native reservations must not widen the per-click response bounds")
 	}
 }
 

@@ -172,7 +172,7 @@ jobs:
         run: |
           go vet ./...
           go test ./...
-          go test -race ./internal/room ./internal/server ./internal/tournament
+          go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode
           CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
       - name: Configure client
         run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -541,12 +541,17 @@ jobs:
           mkdir -p "$unpack_dir"
           tar -xzf "$archive" -C "$unpack_dir"
           executable="$unpack_dir/hexproof-server-${HEXPROOF_VERSION}-linux-${HEXPROOF_ARCH}/bin/hexproof-server"
+          connector="$unpack_dir/hexproof-server-${HEXPROOF_VERSION}-linux-${HEXPROOF_ARCH}/bin/hexproof-home"
           test -x "$executable"
+          test -x "$connector"
           if [[ "$HEXPROOF_ARCH" == "amd64" ]]; then
             "$executable" -version | grep -F "$HEXPROOF_VERSION"
+            "$connector" -version | grep -F "$HEXPROOF_VERSION"
             file "$executable" | grep -F "x86-64"
+            file "$connector" | grep -F "x86-64"
           else
             file "$executable" | grep -E "ARM aarch64|ARM64"
+            file "$connector" | grep -E "ARM aarch64|ARM64"
           fi
       - name: Upload Linux server
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

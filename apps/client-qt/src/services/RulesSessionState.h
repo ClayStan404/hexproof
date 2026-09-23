@@ -22,6 +22,7 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(bool active READ active NOTIFY snapshotChanged)
     Q_PROPERTY(QString roomId READ roomId NOTIFY snapshotChanged)
     Q_PROPERTY(QString gameId READ gameId NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantList publicReviewCards READ publicReviewCards NOTIFY snapshotChanged)
     Q_PROPERTY(quint64 snapshotRevision READ snapshotRevision NOTIFY snapshotChanged)
     Q_PROPERTY(int turn READ turn NOTIFY snapshotChanged)
     Q_PROPERTY(QString step READ step NOTIFY snapshotChanged)
@@ -279,6 +280,7 @@ class RulesSessionState final : public QObject
         return m_zones.countFor(ownerSeat, zone);
     }
     Q_INVOKABLE QVariantMap topPublicZoneCard(int ownerSeat, const QString &zone) const;
+    Q_INVOKABLE int controllingSeat(int seat) const;
     Q_INVOKABLE QVariantList castActionsForCard(const QString &cardId) const
     {
         if (!m_promptPending || !m_promptSupported ||
@@ -297,6 +299,10 @@ class RulesSessionState final : public QObject
     Q_INVOKABLE QVariantMap cardForInspection(const QString &cardId) const;
 
     bool applySnapshot(const QJsonObject &snapshot);
+    QVariantList publicReviewCards() const
+    {
+        return m_publicReviewCards;
+    }
     bool applyPrompt(const QJsonObject &prompt);
     void clear();
 
@@ -308,6 +314,7 @@ class RulesSessionState final : public QObject
     QString m_roomId;
     QString m_gameId;
     quint64 m_snapshotRevision = 0;
+    QVariantList m_publicReviewCards;
     int m_turn = 0;
     QString m_step;
     int m_activeSeat = -1;

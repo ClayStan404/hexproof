@@ -55,6 +55,8 @@ def run(args):
     setup = {"gameId": f"native-full-{args.scenario}-{args.seed}", "variant": "constructed",
              "seed": args.seed, "startingLife": args.life, "startingPlayerIndex": args.starting_player,
              "players": [{"name": f"Native seat {index}", "deck": deck} for index in range(2)]}
+    if args.ai_difficulty:
+        setup["players"][args.ai_seat].update(ai=True, aiDifficulty=args.ai_difficulty)
     counts = collections.Counter()
     metrics = collections.Counter()
     previous = None
@@ -82,7 +84,9 @@ def run(args):
             return response["result"]
 
         try:
-            call("reset")
+            capability = call("reset")
+            if args.ai_difficulty:
+                assert "forge-ai-v1" in json.loads(capability)["capabilities"]
             handle = json.loads(call("startGame", payload=json.dumps(setup)))
             session = handle["sessionId"]
             for decision in range(args.max_decisions):
@@ -93,6 +97,8 @@ def run(args):
                     raise AssertionError("No stable native prompt before game over")
                 prompt = json.loads(raw)
                 player = int(prompt["decidingPlayerId"].split("-")[1])
+                if args.ai_difficulty:
+                    assert player != args.ai_seat, "Native AI unexpectedly requested remote input"
                 view = json.loads(call("getSnapshot", sessionId=session, viewer=player))
                 public = json.loads(call("getSnapshot", sessionId=session, viewer=-1))
                 if public["turn"] > 0:
@@ -127,6 +133,7 @@ def run(args):
             raise
         finally:
             report = {"scenario": args.scenario, "seed": args.seed, "startingLife": args.life,
+                      "aiDifficulty": args.ai_difficulty, "aiSeat": args.ai_seat if args.ai_difficulty else None,
                       "startingPlayer": args.starting_player,
                       "wireFormat": "canonical-type-output",
                       "passed": error is None and final is not None, "error": error,
@@ -150,6 +157,8 @@ def choose(prompt, view, land, metrics):
         return {"type": "mulliganDecision", "keep": True}
     if kind == "chooseBoolean":
         return {"type": "decision", "value": True}
+    if kind == "acknowledge":
+        return {"type": "acknowledged"}
     if kind == "chooseAction":
         cards = {card["id"]: card for zone in view["zones"] for card in zone["cards"]}
         casts = [action for action in prompt["actions"] if action["type"] in ("cast", "playLand")]
@@ -221,6 +230,8 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--life", type=int, default=20)
     parser.add_argument("--starting-player", type=int, choices=(0, 1), default=0)
+    parser.add_argument("--ai-difficulty", choices=("easy", "normal", "hard"))
+    parser.add_argument("--ai-seat", type=int, choices=(0, 1), default=1)
     parser.add_argument("--max-decisions", type=int, default=3000)
     parser.add_argument("--timeout", type=int, default=45)
     run(parser.parse_args())

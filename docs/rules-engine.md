@@ -7,7 +7,8 @@ preserving the existing manual tabletop as a first-class mode.
 ## Current delivery scope — 2026-09-15
 
 The owner limits the new UI and further rules integration to **1v1 games**:
-ordinary two-player formats and **Duel Commander**. Each game has two players;
+ordinary two-player formats, **Duel Commander**, and **Set Sealed, Set Draft
+and regular Cube**. Each game has two players;
 spectators and participants in a larger tournament are not additional game seats.
 
 Multiplayer Commander/EDH is **out of scope**, not deferred work. Do not require
@@ -38,17 +39,66 @@ not mutate the same live game, and a room cannot change mode after creation.
 
 Forge rooms additionally choose immutable `hostingMode`: `server` (also the
 omitted default) or `player`. Player hosting is optional trusted-host play for
-1v1, including Duel Commander and BO3. Public tournament rooms always use
-server hosting. Creation/listing/joining disclose the mode; joining a hosted
+1v1, including Duel Commander and BO3. Public tournament and Limited/Cube pairing rooms always use
+server hosting. Events propagate their immutable `rulesMode` to every pairing;
+Limited tables use the native Limited deck format and locked submitted pools.
+See [Limited events](limited-events.md#rules-enforced-one-on-one-matches). Creation/listing/joining disclose the mode; joining a hosted
 room, including as spectator, requires `acceptPlayerHost: true`. See
 [player-hosted Forge](player-hosted-forge.md) for its protocol, lifecycle,
 preparation, trust limits, and verification.
 
 ## Runtime choice
 
-Official Forge is the production rules backend. Hexproof's native-human
-adapter reuses Forge's human controller and input queue without opening
-Forge's desktop UI. The old Manabrew adapter, local selector, and packaging
+### Native AI practice
+
+Forge rooms may be created with an optional `aiDifficulty` of `easy`, `normal`,
+or `hard`. This selects one human host and one room-owned AI opponent in
+ordinary constructed 1v1 BO1; it is unavailable for manual Playtest, Commander,
+Limited/Cube pairings, and tournaments. An AI room keeps two engine players.
+AI admission requires explicit support from the selected runtime. AI games use
+dedicated JVMs even if human rooms use shared workers.
+
+The host chooses the AI deck independently in the waiting room using
+`room.ai.configure`, which also accepts a difficulty change. The same deck
+validation applies to the AI. An AI configuration change clears human readiness.
+The AI readies automatically once a valid deck is configured and does not wait
+for client asset loading. Public seat metadata identifies `controller: forgeAi`
+and its difficulty; hidden zones and private decisions remain viewer-specific.
+Only the host may configure the AI, and only while the room is waiting.
+
+Beginner and Normal simplify selected native tactical behaviors; Hard uses
+the official Default heuristic. Difficulty does not alter decks or shuffles,
+and this delivery does not enable simulation-based AI. These are practice
+presets, not certified ratings. Upstream AI strategies may use information
+inside the trusted engine that ordinary players cannot see; normal protocol
+privacy does not establish strict player-view fairness of the AI itself.
+
+Forge's informational AI deck-quality advisory is not shown to the player.
+The client silently acknowledges that specific single-action startup notice
+and proceeds to opening hands, including with existing runtimes. It sends at
+most one acknowledgement per game/prompt and does not act for spectators or
+replays. Other notices and game decisions still require their normal input.
+The advisory does not invalidate the deck or remove any cards.
+
+AI seats have no player connection and cannot become host. They never preserve
+an otherwise abandoned room. The human reconnect window, concession, restart,
+post-match return, and resource cleanup remain supported. Difficulty and deck
+changes take effect on the next game after returning to the waiting room.
+
+Local and online model opponents use the same practice scope and independent
+deck selection. Their `modelAi` seat receives the native human-compatible legal
+decision queue rather than a native AI controller. The desktop runs inference
+through a separate, revocable AI-seat connection with only that seat's permitted
+view. See [model opponents](model-opponents.md) for configuration, information
+boundaries, budgets and paused-decision recovery. Native difficulty presets do
+not apply to model opponents.
+
+### Official runtime
+
+Official Forge is the production rules backend. Hexproof's native adapter
+reuses Forge's human controller and input queue for human seats, and the native
+AI controller for an optional AI opponent, without opening Forge's desktop UI.
+The old Manabrew adapter, local selector, and packaging
 path have been retired; see `forge-native-migration.md` for evidence.
 
 The official source pin includes reviewed downstream changes recorded in
@@ -126,6 +176,29 @@ Mainboard and sideboard use the same lookup; commander designation matches
 either the native name or that verified combined name. The hub keeps the
 submitted names and printing metadata unchanged.
 
+When both set and collector number are supplied, registration must resolve that
+exact printing, accepting Forge's equivalent edition aliases. If unavailable,
+registration returns the existing private-safe unavailable-printing error;
+Forge's name-only fallback must not silently substitute a different printing.
+Name-only and set-only deck entries retain their existing lookup behavior.
+
+Catalog prerelease and promo-pack printings may use a `P`-prefixed three-character
+parent set and a numeric collector number ending in `s` or `p` (for example,
+`PMH3 199s`). When Forge lacks that promo entry, the adapter accepts it only if
+the same card resolves to the exact parent set and unsuffixed collector number.
+The native card retains that supported parent edition for engine operations;
+the submitted promo set and suffixed number remain its display identity in
+snapshots and prompts. Regular, prerelease and promo-pack copies stay distinct.
+Unknown parents, mismatched cards/numbers and other suffixes remain rejected.
+
+Seventh Edition foil numbers (`7ED` with a numeric `★` suffix) and Brothers'
+War Retro Artifacts serialized numbers (`BRR` with a numeric `z` suffix) use
+the exact same-name, same-set unsuffixed printing's rules when Forge lacks the
+treatment entry. The native card is foil; snapshots and prompts retain the
+submitted set and suffixed number. Treatment and ordinary copies remain
+distinct in deck pools. These aliases apply only to those two known set/suffix
+pairs; mismatched names/numbers and arbitrary suffixes still fail registration.
+
 By default each game receives a fresh process, including restart and the next
 game of BO3. JSONL input and output are explicitly UTF-8, independent of the
 operating system's console encoding, in both dedicated and shared workers.
@@ -192,7 +265,14 @@ Snapshot step names use the existing rules-table phase keys (`main1`,
 steps). First-strike and ordinary combat damage share the `combat_damage`
 display category only; Forge still resolves their distinct rules steps.
 
-- A player's hidden zones and pending prompt are requested only for that seat.
+- Each seat receives its own native viewer projection. During player control
+  (for example, Emrakul, the Promised End), native permissions may expose the
+  controlled player's hand to the controlling player. Decisions retain their
+  native acting player for costs, targets and priority, but are delivered only
+  to the authenticated seat of the current controller. This also supports a
+  human controlling a Forge AI seat; the original controller and private-hand
+  permissions return when the effect ends. Optional public `controllingSeat`
+  identifies control without transferring ownership of cards or permanents.
 - Spectators receive an explicit spectator projection; they never receive a
   player's raw engine snapshot as an implementation shortcut. The existing
   immutable `spectatorsSeeHands` opt-in may overlay current hand zones only
@@ -200,7 +280,9 @@ display category only; Forge still resolves their distinct rules steps.
   sideboards, prompts or face-down battlefield identities. Public journals
   always use the original hand-hidden spectator projection, even in these rooms.
 - Engine payloads and deck lists must not enter public logs, error details, or
-  diagnostics.
+  diagnostics. A bounded startup rejection may identify individual submitted
+  cards only to their deck owner (the room host for an AI deck), using the
+  private projection described below; it never discloses an opponent's deck.
 - Hexproof validates room membership, seat ownership, request bounds, and
   prompt ownership before forwarding an action.
 - The deciding player's `rules.prompt` exposes Hexproof-generated response ids;
@@ -251,7 +333,11 @@ The final result offers Stay for public-board review/chat and Return to room.
 Return is unavailable between BO3 games; after a finished match it archives the
 public journal and restores the original registered deck partitions. Review
 does not allow further rules responses or restart. Reconnect into sideboarding
-or finished review restores metadata without recreating a completed engine.
+or finished review restores metadata and the retained, explicitly public
+terminal rules projection without recreating a completed engine. Between-game
+Review opens a read-only card browser for visible battlefield, graveyard,
+exile, and command-zone cards. Hidden hands and face-down identities are
+excluded, including from retained review snapshots.
 
 ## Public activity, chat and replay
 
@@ -280,6 +366,11 @@ client replay browser/viewer; it is not deterministic engine replay or
 hidden-state board reconstruction. Existing retention TTL,
 byte/file bounds and private archive permissions remain in force.
 
+Adapter 17 additionally supports [private visual Forge replays](forge-replays.md)
+through a separate capability-based API. Original participants can download
+both-hand snapshots only after the whole match ends, including all BO3 games.
+This does not broaden the public journal or ordinary live projections.
+
 ## Availability and failure behavior
 
 The server probes its configured Forge runtime and exposes
@@ -298,6 +389,35 @@ retains membership and selected decks, clears readiness, and reports a fixed
 non-sensitive failure. Authoritative-query/projection failures invalidate the
 runtime; ordinary rejected actions and unsupported-deck startup do not abort
 unrelated games.
+
+Every failed initial start, next game, or restart reports an explicit startup
+reason to all current room members after returning the room to waiting.
+Only the initiating connection receives its request correlation ID. The reason
+distinguishes a rejected deck, capacity, unavailable runtime, timeout, runtime
+failure, and an unclassified rejected start. A runtime without structured
+diagnostics uses the last category; the hub never infers illegal cards from a
+generic exception.
+
+Known deck registration failures include an unavailable card printing, a
+missing designated commander, and invalid mainboard/sideboard sizes. The
+runtime reports fixed codes and indexes into the submitted startup request,
+never raw exception text or card names. The hub validates these references and
+reconstructs card names, set codes and collector numbers from its own inputs.
+Only the affected human receives their deck's issues; the room host receives
+AI-deck issues. Opponents and spectators receive the reason without card
+identities, even with spectator hand visibility enabled. These diagnostics do
+not enter public journals or logs. Lists are bounded to 32 issues and mark
+truncation; repeated copies of the same failed printing need only one entry.
+An unavailable printing means that this runtime cannot resolve the submitted
+card/version, not that the card is format-illegal. No legality rule or printing
+substitution changes as part of diagnosis.
+
+The desktop displays the failure prominently at the top of the waiting room,
+including actionable localized reasons and any authorized card details. It
+also supports copying and dismissing the message. The diagnostic survives the
+loading-to-waiting transition and unrelated commands; a new load, successful
+game start, leaving the room, or explicit dismissal clears it. Asset-download
+errors remain separate from Forge startup errors.
 
 A subsequent new game acquires an isolated lease on demand. Concurrent cold
 startups are serialized and failed startups have a short retry cooldown. Normal
@@ -412,8 +532,9 @@ typed Qt session with dedicated player, zone, visible-card, and stack list
 The view does not connect Forge state to the manual room reducer or expose
 manual mutation commands. QML never consumes raw harness
 JSON or generic snapshot maps. Hidden library contents remain represented only
-by normalized zone counts; only renderable battlefield, hand, graveyard, exile,
-and command-zone card projections enter the card model. Two-seat Forge decisions
+by normalized zone counts. Renderable battlefield, hand, graveyard, exile,
+command-zone cards and the explicitly viewer-authorized library top enter the
+card model. No other library identity or ordering is exported. Two-seat Forge decisions
 occupy a reserved area beside the local hand. Ordinary priority uses a compact
 action bar; specialized choices expand upward within a bounded, scrollable
 decision area. The stack is displayed newest-first above it and scrolls
@@ -436,11 +557,26 @@ Targets are read from native metadata, independently of current target-selection
 prompts and without parsing rules text. The Settings drawer retains phase
 stops, Full control, log/chat, match controls, and optional player-hosting
 tools. Public-zone browsing opens on demand; command-zone
-buttons and tabs appear only in Duel Commander. Zone headings use the server's
+buttons and tabs appear in Duel Commander and whenever either seat has command-zone
+objects, including dungeons and emblems in Constructed games. Zone headings use the server's
 zone counts, independently of how many card identities are disclosed. Both
 player plates show hand and library counts, including updates within one turn.
-Library counts never expose private library contents, and the library browser
-explains that its contents are hidden instead of presenting an empty library.
+Library counts never expose private library contents. When native rules allow
+looking at the top card (for example, Traveling Chocobo), the library pile and
+browser display that card. Clicking it can submit an offered native land-play
+or spell action, subject to ordinary timing, payment and land limits. Without
+permission the pile shows its back and the browser explains that its contents
+are hidden. Snapshots immediately replace or remove the visible top as the
+library or permission changes; opponents and spectators gain no private look.
+
+During a controlled opponent's turn, the controlling player's two-seat table
+shows the controlled player's battlefield and permitted hand on the near side,
+with a control status in the decision dock. Native priority prompts, including
+Pass, act for the controlled player; smart priority and phase stops evaluate
+that acting player's turn. The controller's own responses remain separate
+native decisions. Normal orientation and hand return when control ends. Extra
+turn scheduling, including both Emrakul cast triggers and the Promised End's
+uncontrolled compensatory turn, remains entirely within Forge.
 
 Hover and keyboard-focus inspection show a full card beside its source, flipping
 left near the window edge and staying within the viewport. This read-only overlay
@@ -459,8 +595,11 @@ and height; lands and other permanents share vertical space according to their
 counts. Extreme boards retain scrolling and exact-object keyboard/target reveal.
 A Settings button sits at the top-right corner of the two-seat table. Decision
 instructions remain in the bottom-right dock rather than occupying a second
-banner above the battlefield. The dock overlays the corner of the hand band
-and does not reserve a battlefield column. It shows turn owner, turn number,
+banner above the battlefield. The idle dock overlays the corner of the hand band.
+When an expanded decision or the public stack overlaps a battlefield lane,
+that lane fits its cards beside the panel so every physical card remains
+reachable; lanes outside the panel's vertical span retain their full width.
+The dock shows turn owner, turn number,
 phase, and priority passing. The turn label and active-player border use `activeSeat`,
 independently of the current priority holder. The legacy layout keeps its
 separate allocation.
@@ -481,6 +620,14 @@ and uses the existing incremental catalog queue; delegates remain cache-only.
 Leaving the room invalidates queued readiness and visible-card work. No card
 identity is inferred from a hidden count, object id, or descriptive text.
 
+Authorized native card-selection, reveal, order and source-context entries use
+the same printing identity as snapshots of that physical card. Two copies with
+the same name but different set/collector numbers remain distinct cache
+requests, so moving a selected card into the hand or battlefield does not change
+its requested art. Face-down visibility remains viewer-specific; anonymous
+cards never gain printing metadata through these prompts. Local art-language
+fallback and custom overrides still follow the card catalog's image policy.
+
 R2 adds the private normalized `rules.prompt` projection,
 authenticated `rules.respond` command, and typed Qt prompt state. The current
 interactive families are first-player-roll acknowledgement, extra starting-hand
@@ -490,10 +637,30 @@ Legal cards on the table are the primary action controls. Clicking a highlighted
 hand card plays a land or casts it; clicking a highlighted permanent activates
 its ability, including a mana ability during payment. One legal action submits
 directly; multiple actions open a chooser for that card. Space and Return perform
-the same action on a focused card. Legal hand cards can also be dragged onto the
-local battlefield. A click or drop submits the matching normalized action rather
+the same action on a focused card. Hovering or focusing a battlefield permanent
+with a currently legal activated action shows an **Activate ability** hint. This
+also applies to creatures that are already attacking: the current native prompt,
+not the phase name or the attacking marker, determines the click action.
+Legal hand cards can also be dragged onto the local battlefield. A click or drop
+submits the matching normalized action rather
 than mutating the projection. Actions without a directly operable table object,
 including plays from other zones, remain available in the decision dock.
+
+Human Auto-pay consumes usable floating mana first. For a remaining pure generic
+cost of at least two, it prefers a legal, untapped, tap-only colorless land that
+can pay the whole remainder in one activation, choosing the least excess mana.
+Native amount/replacement prediction and spending restrictions still apply.
+This avoids tapping multiple Tron lands under Trinisphere when one Tower pays
+all three. Colored requirements, special payment preferences, converge/sunburst,
+additional activation costs and native AI decisions retain the native policy;
+manual source selection remains available.
+
+Each London-mulligan redraw remains a complete hand while its owner chooses
+whether to keep it or mulligan again. Only keeping the hand opens the put-back
+decision, with the accumulated number of cards owed after free mulligans.
+Keeping the initial hand or owing zero cards skips put-back. Reaching a zero-card
+opening hand ends further mulligans. The put-back decision requires an explicit
+selection and confirmation; it cannot auto-select cards through cancellation.
 The put-back family uses a dedicated card-selection component and the server
 revalidates exact count, uniqueness, and membership in the current private hand
 before constructing Forge's canonical response. Unknown prompt families are
@@ -504,6 +671,19 @@ Forge snapshot is committed to the ordinary Hexproof result/return-to-room
 lifecycle before the engine session is closed. Private prompt cards expose only
 their object id and printable identity to the authenticated deciding player;
 they do not expose rules text or raw engine state.
+
+Incremental native board choices may include an optional `selected` boolean on
+each normalized target. This is the deciding player's existing native reservation
+(for example, improvise or convoke), separate from the next response's selection.
+The client preserves its visible border/checkmark across prompt refreshes and
+groups reserved and unreserved copies separately. A click still submits only one
+opaque response ID; confirming submits an empty next selection when permitted.
+The server never echoes presentation flags into Forge's canonical response.
+Reservations are private prompt state, not projected battlefield taps. Once
+confirmed, native cost reduction records only the permanents actually tapped by
+that payment. Cancelling it restores those taps together with native refundable
+mana abilities, preserving earlier tapped permanents and convoke-specific rules
+history. The client never locally untaps cards to simulate rollback.
 
 Backup Plan uses Forge's actual `InputChooseStartingHand` before mulligans.
 The existing boolean decision presents **View next hand** and **Keep this hand**;
@@ -550,11 +730,18 @@ The hint is sent only to the deciding player and never changes the legal options
 
 The action bar offers **Next / Resolve** and a **Pass** menu for passing until
 a response, for the rest of the current turn, or through the current stack.
-**Full control**, log/chat, and phase stops live in Settings. Full control
-disables automatic passing and remains active across casting, target selection,
-and payment. The Settings phase list exposes separate stop toggles for the
-user's turns and other players' turns. A stop pauses the first priority window
-in that phase; explicitly continuing acknowledges that phase only, so the stop
+Settings offers explicit **Smart priority** (the default) and **Full control**
+choices. Full control disables automatic passing and remains active across
+casting, target selection, and payment. Priority mode and separate phase stops
+for the user's turns and other players' turns are saved in the local profile.
+**Settings → Gameplay** and the in-game Settings drawer edit the same preferences;
+changes apply immediately and survive new games, room changes, and application
+restarts. Starting a temporary Pass mode does not change the saved priority mode;
+Full control resumes when that temporary mode ends. Reselecting either priority
+mode at the table also ends a temporary yield. Full control has no persistent
+explanatory status line in the action dock; its setting and pause behavior remain
+available in Settings. A stop pauses the first priority
+window in that phase; explicitly continuing acknowledges that phase only, so the stop
 applies again on a later turn. Stops cannot create a priority window in untap
 or another engine step that does not grant one.
 
@@ -580,7 +767,15 @@ cancel controls in a stable layout. Per-window pass buttons and optional action
 lists return when continuous passing ends; required decisions remain immediate.
 
 Battlefield cards visibly show the projected power/toughness, marked damage,
-counters, and attachment status. Player plates include public counter and mana
+counters, and attachment status. Native `enteredThisTurn` and `summoningSick`
+flags add localized entry and summoning-sickness labels. Same-name permanents
+with different entry or sickness states remain separate piles, including new
+lands; labels follow native turn and haste updates rather than a client timer.
+Unspent mana has a dedicated, unelided display
+with colored mana symbols and counts, updated after each authoritative snapshot.
+Crowded hands support horizontal wheel/trackpad scrolling over card faces, a
+visible scrollbar above the cards, and keyboard focus that reveals each card
+fully, including the last card. Player plates include public counter and mana
 summaries. Hovering a visible card, or keyboard-focusing a battlefield or stack
 object, shows a larger image and read-only details in the inspector, subject to
 the specialized-decision hover suppression described above. Left click on an
@@ -620,17 +815,37 @@ The new two-seat layout uses automatic grouping and stable card slots. It
 supports dragging a legally playable hand card onto the own battlefield, using
 the current Forge action; permanent dragging does not issue gameplay commands.
 
-Combat prompts share opaque source/target assignments between the two-seat
-board and the existing assignment controls. Click an attacker to toggle its
-single native destination. With multiple destinations, select the attacker and
-then a legal player plate, planeswalker, or battle. Combat player targets carry
-an optional authenticated room `seat`; missing seats retain the dock fallback.
-Select a blocker and then eligible attackers up to its native capacity.
-Arrows show visible selected relationships; clipped objects do not acquire
-invented positions. All choices also remain available in the native assignment
-controls. Submission uses their
-normal validation and explicit declaration button. New prompts, game changes,
-disconnection, sideboarding, and changes of viewer authority clear local choices.
+Combat declarations on the two-seat table use two explicit board clicks: select
+an attacking creature, then a highlighted legal player plate, planeswalker, or
+battle, including when only one destination exists. Select a blocking creature,
+then the attacking creature to block. Pending source badges say **Choose attack
+target** or **Choose creature to block**, respectively. Selecting a source also
+starts a live curved arrow that follows the pointer without a delayed trailing
+animation. Hovering a legal visible destination snaps the arrow to that object
+and strengthens its highlight; clicking fixes the assignment arrow there.
+Hovering alone never changes an assignment. Reassigning dims the previous link
+until the new destination is chosen; cancelling restores its normal appearance.
+Large hover-card previews are suppressed while aiming. The live arrow hides
+outside the active window, under a modal dialog, while a reply is pending, and
+when the source is clipped. Arrow rendering uses scene-graph vectors rather
+than repainting a table-sized image for each pointer movement.
+Ability activation uses the native action/payment windows; a declaration prompt
+accepts only combat assignments. Repeat for additional blockers or for a blocker that can block
+several attackers within its native capacity. Source and
+destination capacities constrain highlighting; partially met minimum-blocker
+requirements can be edited but prevent final submission. Combat candidates are
+temporarily unstacked so each physical creature remains independently reachable.
+Selecting the same source again or pressing Escape cancels the pending selection
+without discarding completed assignments. Selecting an existing pair again
+removes it; selecting a different destination reassigns an ordinary combatant.
+The compact dock shows instructions, assignment counts, clear/remove controls,
+and an explicit declaration button, disabled while a source awaits a destination.
+An optional assignment list shares the same opaque choices and remains available
+for offscreen objects and legacy player targets without an authenticated room
+`seat`. Arrows show visible selected relationships; clipped objects do not acquire
+invented positions. Submission retains the typed model's normal validation.
+New prompts, game changes, disconnection, sideboarding, and changes of viewer
+authority clear local choices.
 
 The hand strip also exposes a horizontal scrollbar and wheel scrolling when
 cards overflow, without replacing the legal hand-card drag action.
@@ -700,6 +915,11 @@ the server refetches the current prompt before reconstructing the exact
 boolean, color-count map, or ordered selection indices. The Qt table uses
 separate scalar-choice and number components rather than extending the action,
 card, target, or combat views.
+Single-choice menus submit the clicked option immediately, including optional
+ability menus. Optional single choices offer a separate empty-choice action
+(**Cancel** for an ability menu, **Choose none** otherwise). They do not show
+quantity controls or a second confirmation. Multiple-choice and weighted-total
+menus retain selection counts and explicit confirmation.
 
 The second R3 slice now supports general Forge `chooseCards` prompts.
 Candidates are normalized to the same minimal private printable identity used
@@ -719,15 +939,33 @@ Standard native card-list inputs reuse the official `setSelectables` minimum
 and maximum so multi-card decisions can be submitted as one complete batch.
 Native subclasses with additional selection constraints keep their own
 incremental validation and do not auto-confirm after the first click.
+Their private candidates retain an optional `selected` marker for choices
+already held by Forge. Both Qt pickers keep these cards visibly marked across
+successive prompts and reconnect. A new click on a marked card means undo;
+the response contains only this next click, never a resubmission of prior
+selections. The marker does not change cardinality or disclose the choice to
+another player or spectator.
 Native cost inputs also preserve Forge's cancellation permission. Only a
 `chooseCards` prompt with `cancellable: true` offers Cancel; `$cancel` carries
 no selected cards and returns to the native cancellation/rollback path.
 Mandatory selections and London put-back cannot gain cancellation from a
 client-supplied response.
-The 1v1 Qt browser filters only this current candidate set. Filtering does not
-change selected identities, native cardinality or cancellation permissions;
-selected cards remain available through a selected-only view. Prompt replacement
-and loss of the deciding seat clear its transient state.
+Private looks accompanying a card choice (including library searches, Collected
+Company and revealed-hand discard) share one selection prompt. It contains the
+exact authorized disclosure and legal candidates, without an earlier reveal
+acknowledgement for the chooser. Additional visible cards carry `readOnly: true`
+and prompt-local `reveal:N` display ids; neither those ids nor their engine ids
+are accepted as selections. Bounds count only eligible cards. The native adapter
+and server both retain candidate-membership validation. No disclosure is inferred
+from a zone, a previous prompt or another player's snapshot.
+The 1v1 Qt browser defaults to all cards in this current authorized list, labels
+ineligible cards **Not selectable**, and offers **Selectable only** alongside the
+existing selected-only view. Filtering does not change selected identities,
+native cardinality or cancellation permissions. Prompt replacement and loss of
+the deciding seat clear its transient state, including both filter switches.
+Standalone reveals, notifications and looks with no ensuing choice retain their
+explicit acknowledgement. Other recipients of a public reveal still receive
+their own disclosure; combining the chooser's view does not broaden visibility.
 
 The third R3 slice supports Forge `reorder` prompts for both cards and
 simultaneous triggers. The server replaces every upstream item id with a
@@ -774,8 +1012,42 @@ Forge are normalized for the catalog; copied ordinary cards retain their actual
 printing. Battlefield cards may expose `exiledCardCount` and `exiledCardIds` for
 cards still exiled with that exact native object. The count includes face-down
 cards, while links only join identities authorized in the viewer's current
-exile projection. Board badges distinguish identical permanents; inspection
-shows linked names or anonymous counts. Leaving exile removes the relationship.
+exile projection. Battlefield summaries, hover previews and inspection show
+linked names or anonymous counts. Leaving exile removes the relationship.
+
+Visible face-up battlefield permanents may also carry optional `annotations`
+entries with `kind` and `value`. Supported kinds are `namedCard`, `chosenType`,
+`chosenColor`, `chosenNumber`, `chosenMode`, and `classLevel`. Visible face-up
+command-zone dungeons may carry `dungeonRoom` for their current room. These come from native
+`CardView` revealed-choice fields, never raw secret choices or arbitrary
+remembered objects. The server allows only these kinds on visible face-up
+battlefield objects, and `dungeonRoom` only in the command zone; the client
+applies the same zone/visibility boundary. Class levels and dungeon rooms update
+from the current snapshot rather than from locally remembered decisions.
+Named-card and linked-card display names follow the catalog language.
+The compact tile shows a bounded summary; hover and the scrollable inspector
+provide additional detail. Permanents with choices or linked exile stay in
+separate piles, even when their printed names or choices match. Each summary
+is rebuilt from the current viewer snapshot, including after reconnect or
+zone changes; no stale annotation or linked identity is retained locally.
+
+Visible face-up battlefield sources can also publish `chosenCardIds` for
+native chosen-card relationships, such as Dauntless Bodyguard's chosen creature.
+Each id must still identify the same native game object, including its game
+timestamp, and must have an identity visible in the viewer's current snapshot.
+Hidden choices are omitted. A zone change or blink clears the old link rather
+than reconnecting it to a new object with the same numeric id. The tile, hover
+and inspector show localized chosen-card names; sources with these links stay
+in separate piles. Choice links are rebuilt from snapshots after reconnect.
+
+Specialized cost selectors keep Forge's completion condition: crew requires
+enough total power, exact exile costs expose their full required count and a
+separate cancel action, and convoke/improvise/waterbend expose only helpers that
+can still reduce the remaining cost. Selected helpers remain clickable for
+deselection. Conditional discard completes when its actual rule is satisfied;
+selecting one creature or two other cards does not leave a hidden confirmation.
+Small finite card-face choices, including available dungeons, are visible menus.
+Unbounded card-name domains retain the catalog-backed text input.
 
 The sixth R3 slice supports both Forge combat-damage prompt families. Damage
 assignment order exposes the complete current assignee list as prompt-local
@@ -801,6 +1073,11 @@ offers incremental, reset, and automatic allocation under that mode. The server
 refetches both the private prompt and viewer snapshot, requires every current
 target exactly once and every available damage point, checks the advertised
 constraints, and only then restores canonical Forge assignee ids.
+When Forge allows deferring an attacker's damage assignment, the preceding
+choice asks whether to assign this creature first or another creature first.
+Deferral moves the creature to the end of the current assignment queue; it
+does not waive its damage or pass priority. The known prompt and options are
+localized while preserving the inserted creature name and response identity.
 
 The seventh R3 slice preserves the additional presentation context used by
 replacement effects, optional prevention payments, optional triggers, and
@@ -817,6 +1094,21 @@ are omitted. Native views with no printable name also omit optional source
 context, including owner-visible face-down cards during Morph payment; the
 decision and its legal payment actions remain available. No card is inferred
 from descriptive text or a hidden zone.
+Independent modal callbacks use their own heading and never inherit the last
+queued payment or targeting message. The native adapter supplies missing display
+annotations for reviewed pinned card scripts: Duress, Deadly Cover-Up and
+Shallow Grave use their existing readable spell descriptions, and Emptiness
+names the graveyard zone and mana-value limit in its target prompt. This hook
+accepts only missing `StackDescription` and `TgtPrompt` fields; native costs,
+target restrictions and resolution stay authoritative. Unknown scripts are not
+translated by guessing the meaning of internal selectors.
+Mana payment headings include Forge's current unpaid cost separately from the
+collapsible effect description, so long card text cannot hide the amount. The
+heading refreshes from the native cost field as payment progresses; it is not
+parsed from descriptive text or used to authorize payment.
+Truncated prompt headings, descriptions and action labels have read-only hover
+explanations below their labels. These stay within the decision sidebar, do not
+receive pointer input, and leave the fixed payment/pass controls visible.
 Scalar decisions show a larger card face with adjacent hover/focus inspection
 placed outside the decision dock so both answers remain unobscured;
 Forge's card text supplies an artwork-failure fallback. Disconnect, seat/role

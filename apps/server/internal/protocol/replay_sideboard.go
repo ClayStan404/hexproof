@@ -53,17 +53,20 @@ type SideboardSeatProjection struct {
 // SideboardProjection is role-specific. Mainboard and Sideboard are present
 // only for the owning seated player; spectators and opponents receive counts.
 type SideboardProjection struct {
-	DeadlineUnixMS int64                     `json:"deadlineUnixMs"`
-	Seats          []SideboardSeatProjection `json:"seats"`
-	Mainboard      []DeckCard                `json:"mainboard,omitempty"`
-	Sideboard      []DeckCard                `json:"sideboard,omitempty"`
-	Commanders     []string                  `json:"commanders,omitempty"`
+	CanChooseStartingPlayer bool                      `json:"canChooseStartingPlayer,omitempty"`
+	ChosenStartingSeat      *int                      `json:"chosenStartingSeat,omitempty"`
+	DeadlineUnixMS          int64                     `json:"deadlineUnixMs"`
+	Seats                   []SideboardSeatProjection `json:"seats"`
+	Mainboard               []DeckCard                `json:"mainboard,omitempty"`
+	Sideboard               []DeckCard                `json:"sideboard,omitempty"`
+	Commanders              []string                  `json:"commanders,omitempty"`
 }
 
 // SideboardMove moves one copy of one already-registered printing between the
 // current match mainboard and sideboard. Limited pairings also use the virtual
 // basic_lands supply for the five unlimited ordinary basic lands.
 type SideboardMove struct {
+	ClearMainboard  bool   `json:"clearMainboard,omitempty"`
 	Name            string `json:"name"`
 	SetCode         string `json:"setCode"`
 	CollectorNumber string `json:"collectorNumber"`
@@ -105,4 +108,13 @@ type SideboardCompleted struct {
 	RoomID     string `json:"roomId"`
 	GameNumber int    `json:"gameNumber"`
 	Reason     string `json:"reason"`
+}
+
+// SideboardChooseStartingPlayer records the previous loser's play/draw choice.
+type SideboardChooseStartingPlayer struct {
+	StartingSeat int `json:"startingSeat"`
+}
+type SideboardStartingPlayerChosen struct {
+	RoomID       string `json:"roomId"`
+	StartingSeat int    `json:"startingSeat"`
 }

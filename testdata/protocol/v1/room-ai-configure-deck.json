@@ -1,0 +1,22 @@
+{
+  "type": "room.ai.configure",
+  "id": "ai-configure-1",
+  "payload": {
+    "difficulty": "normal",
+    "deck": {
+      "name": "Burn",
+      "format": "modern",
+      "deckFormat": "modern",
+      "mainboard": [
+        {
+          "name": "Lightning Bolt",
+          "count": 7,
+          "setCode": "M11",
+          "collectorNumber": "149",
+          "typeLine": "Instant"
+        }
+      ],
+      "sideboard": []
+    }
+  }
+}

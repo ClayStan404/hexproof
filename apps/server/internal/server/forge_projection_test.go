@@ -13,6 +13,133 @@ import (
 	"hexproof/server/internal/rulesengine/forge"
 )
 
+func TestForgeAnnotationsRespectPublicStateZones(t *testing.T) {
+	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 0, 1: 1}}
+	choices := []forge.CardAnnotationView{
+		{Kind: "namedCard", Value: " Lightning Bolt "}, {Kind: "chosenType", Value: "Elf"},
+		{Kind: "chosenColor", Value: "Blue"}, {Kind: "chosenNumber", Value: "0"},
+		{Kind: "chosenMode", Value: "Khans"}, {Kind: "namedCard", Value: "  "},
+		{Kind: "classLevel", Value: "2"}, {Kind: "dungeonRoom", Value: "Cave Entrance"},
+		{Kind: "secretChoice", Value: "SECRET"},
+	}
+	card := forge.CardView{ID: "needle", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Pithing Needle"}, Annotations: choices}
+	for _, test := range []struct {
+		name, zone                  string
+		visible, faceDown, expected bool
+	}{
+		{"public", "battlefield", true, false, true},
+		{"hidden", "battlefield", false, false, false},
+		{"known-face-down", "battlefield", true, true, false},
+		{"hand", "hand", true, false, false},
+		{"exile", "exile", true, false, false},
+		{"command", "command", true, false, false},
+		{"hidden-command", "command", false, false, false},
+		{"face-down-command", "command", true, true, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			input := card
+			input.FaceDown = test.faceDown
+			if !test.visible {
+				input.Visibility = "hidden"
+			}
+			view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",
+				Players: []forge.PlayerView{{ID: "player-0"}, {ID: "player-1"}},
+				Zones:   []forge.ZoneView{{Zone: test.zone, OwnerID: "player-0", Cards: []forge.CardView{input}}}}
+			result, err := normalizeForgeSnapshot("ROOM", game, view)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var want []protocol.RulesCardAnnotation
+			if test.expected {
+				want = []protocol.RulesCardAnnotation{{Kind: "namedCard", Value: "Lightning Bolt"},
+					{Kind: "chosenType", Value: "Elf"}, {Kind: "chosenColor", Value: "Blue"},
+					{Kind: "chosenNumber", Value: "0"}, {Kind: "chosenMode", Value: "Khans"},
+					{Kind: "classLevel", Value: "2"}}
+			} else if test.name == "command" {
+				want = []protocol.RulesCardAnnotation{{Kind: "dungeonRoom", Value: "Cave Entrance"}}
+			}
+			if got := result.Zones[0].Cards[0].Annotations; !reflect.DeepEqual(got, want) {
+				t.Fatalf("unsafe or missing persistent choices: %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestForgeControlledSeatAndArrivalProjection(t *testing.T) {
+	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 1, 1: 0}}
+	card := forge.CardView{ID: "top", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Forest"},
+		EnteredThisTurn: true, SummoningSick: true}
+	view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-0",
+		Players: []forge.PlayerView{{ID: "player-0", ControllingPlayerID: "player-1"}, {ID: "player-1"}},
+		Zones: []forge.ZoneView{{Zone: "library", OwnerID: "player-0", Count: 40, Cards: []forge.CardView{card}},
+			{Zone: "battlefield", OwnerID: "player-0", Count: 1, Cards: []forge.CardView{card}}}}
+	snapshot, err := normalizeForgeSnapshot("ROOM", game, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.ActiveSeat != 1 || snapshot.Players[1].ControllingSeat == nil || *snapshot.Players[1].ControllingSeat != 0 {
+		t.Fatalf("control mapping lost acting seat or controlling seat zero: %+v", snapshot.Players)
+	}
+	if snapshot.Players[0].ControllingSeat != nil {
+		t.Fatal("ordinary player acquired a controller")
+	}
+	if snapshot.Zones[0].Count != 40 || len(snapshot.Zones[0].Cards) != 1 || snapshot.Zones[0].Cards[0].Identity.Name != "Forest" {
+		t.Fatal("permitted library top or hidden count lost")
+	}
+	if snapshot.Zones[0].Cards[0].EnteredThisTurn || snapshot.Zones[0].Cards[0].SummoningSick {
+		t.Fatal("battlefield markers escaped to a hidden zone")
+	}
+	if !snapshot.Zones[1].Cards[0].EnteredThisTurn || !snapshot.Zones[1].Cards[0].SummoningSick {
+		t.Fatal("public arrival state lost")
+	}
+	view.Players[0].ControllingPlayerID = "player-9"
+	if _, err := normalizeForgeSnapshot("ROOM", game, view); err == nil {
+		t.Fatal("unknown controller accepted")
+	}
+}
+
+func TestForgeChosenCardsJoinOnlyCurrentViewerObjects(t *testing.T) {
+	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 0}}
+	for _, test := range []struct {
+		name, zone        string
+		visible, faceDown bool
+	}{
+		{"public", "battlefield", true, false},
+		{"hidden", "battlefield", false, false},
+		{"face-down", "battlefield", true, true},
+		{"hand", "hand", true, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			source := forge.CardView{ID: "bodyguard", Visibility: "visible", FaceDown: test.faceDown,
+				Identity:      &forge.CardIdentityView{Name: "Dauntless Bodyguard"},
+				ChosenCardIDs: []string{"bear", "secret", "missing", "anonymous", "bear", ""}}
+			if !test.visible {
+				source.Visibility = "hidden"
+			}
+			view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-0",
+				Players: []forge.PlayerView{{ID: "player-0"}}, Zones: []forge.ZoneView{
+					{Zone: test.zone, OwnerID: "player-0", Cards: []forge.CardView{source}},
+					{Zone: "battlefield", OwnerID: "player-0", Cards: []forge.CardView{
+						{ID: "bear", Visibility: "visible", Identity: &forge.CardIdentityView{Name: "Grizzly Bears"}},
+						{ID: "secret", Visibility: "hidden", Identity: &forge.CardIdentityView{Name: "SECRET"}},
+						{ID: "anonymous", Visibility: "visible", Identity: &forge.CardIdentityView{}},
+					}},
+				}}
+			snapshot, err := normalizeForgeSnapshot("ROOM", game, view)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var want []string
+			if test.name == "public" {
+				want = []string{"bear"}
+			}
+			if got := snapshot.Zones[0].Cards[0].ChosenCardIDs; !reflect.DeepEqual(got, want) {
+				t.Fatalf("unsafe chosen-card links: %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 func TestForgeLinkedExileUsesOnlyVisibleExileObjects(t *testing.T) {
 	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 0, 1: 1}}
 	view := forge.GameView{GameID: "game", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",

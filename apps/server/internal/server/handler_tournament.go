@@ -95,10 +95,15 @@ func (h *Handler) handleTournamentCreate(sess *Session, env protocol.Envelope) e
 			RoundMinutes: request.RoundMinutes, MaxPlayers: request.MaxPlayers,
 			PlannedRounds: request.PlannedRounds, EventType: request.EventType,
 			Coordinator: request.Coordinator, Product: request.Product,
-			DraftSettings: request.DraftSettings,
+			DraftSettings: request.DraftSettings, RulesMode: request.RulesMode,
 		}, sess.DisplayName, sess.ConnectionID, tournament.CredentialHash(token), now)
 		if err != nil {
 			sendTournamentError(h, sess, env.ID, err)
+			return nil
+		}
+		if event.RulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
+			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
+				"Forge rules mode is not available on this server")
 			return nil
 		}
 		if event.IsCubeRoom() {
@@ -366,6 +371,10 @@ func (h *Handler) handleTournamentStart(sess *Session, env protocol.Envelope) er
 	seed := int64(binary.LittleEndian.Uint64(seedBytes[:]))
 	return h.mutateTournament(sess, env, protocol.TypeTournamentStarted,
 		func(event *tournament.Tournament, actor tournament.Actor) error {
+			if event.RulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
+				return &protocolError{code: protocol.ErrRulesUnavailable,
+					message: "Forge rules mode is not available on this server"}
+			}
 			return event.Start(actor, seed, time.Now())
 		})
 }
@@ -552,6 +561,7 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			"tournament deck format is unsupported")
 		return nil
 	}
+	rulesMode := event.RulesMode
 	matchMode := event.MatchMode
 	roundNumber := 0
 	if round := event.CurrentRound(); round != nil {
@@ -599,6 +609,11 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 		roomID = ""
 	}
 	if roomID == "" {
+		if rulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
+			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable,
+				"Forge rules mode is not available on this server")
+			return nil
+		}
 		roomName := fmt.Sprintf("R%d T%d · %s vs %s", roundNumber, table, leftName, rightName)
 		if coordinator == protocol.LimitedCoordinatorCasual {
 			roomName = fmt.Sprintf("Casual T%d · %s vs %s", table, leftName, rightName)
@@ -611,7 +626,7 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			roomName = string(runes[:protocol.MaxRoomNameRunes])
 		}
 		r, snapshot, seq, roomOperation, createErr := h.hub.createTournamentRoom(
-			roomName, format, deckFormat, matchMode, protocol.CardLoadBackground, maxSeats,
+			roomName, format, deckFormat, matchMode, protocol.CardLoadBackground, rulesMode, maxSeats,
 			binding.TournamentID, request.PairingID, binding.ParticipantID, sess)
 		if createErr != nil {
 			sendTournamentError(h, sess, env.ID, createErr)
@@ -659,7 +674,7 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 				Name: r.Name, Format: r.Format, DeckFormat: r.DeckFormat,
 				MaxSeats:        r.MaxSeats,
 				AllowSpectators: true, MatchMode: r.MatchMode,
-				CardLoadMode: r.CardLoadMode, HasPassword: false,
+				CardLoadMode: r.CardLoadMode, RulesMode: r.RulesMode, HostingMode: r.HostingMode, HasPassword: false,
 			},
 			HostSeat: r.HostSeat,
 		})

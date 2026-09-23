@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "tracks": [
+    {
+      "id": "gitana",
+      "title": "Gitana",
+      "file": "Gitana.mp3",
+      "source": "Owner-provided Gitana.mp3 from the local Downloads directory",
+      "license": "Not specified by the supplied file; not covered by the source code license or the sound-effect pack licenses",
+      "processing": "Unmodified original MP3",
+      "durationSeconds": 174.524063,
+      "sha256": "08f2f63b4fabd018d6e659672695a4666587261a1ab65d4f1ac7139c41d3dd50"
+    },
+    {
+      "id": "bgm2",
+      "title": "BGM 2",
+      "file": "bgm2.ogg",
+      "source": "Owner-provided bgm2.ogg from the repository root",
+      "license": "Not specified by the supplied file; not covered by the source code license or the sound-effect pack licenses",
+      "processing": "Unmodified original Ogg Vorbis",
+      "durationSeconds": 120.0,
+      "sha256": "dec433015e1a89501595f5dd28dbb4de0e54cb44967be15af2aac161f1d06138"
+    },
+    {
+      "id": "bgm3",
+      "title": "BGM 3",
+      "file": "bgm3.ogg",
+      "source": "Owner-provided bgm3.ogg from the repository root",
+      "license": "Not specified by the supplied file; not covered by the source code license or the sound-effect pack licenses",
+      "processing": "Unmodified original Ogg Vorbis",
+      "durationSeconds": 44.570703,
+      "sha256": "ed948ded873748329448de33cab380941f6fbc26c5777eafa59638d756ed8c37"
+    }
+  ]
+}

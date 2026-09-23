@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import static org.hexproof.forge.NativeCallbackRegressionTest.*;
 
-/** Real Collected Company resolution and native single-choice callbacks on synthetic boards. */
+/** Combined private looks and legal choices on real effects and constructed boards. */
 public final class NativeDelayedRevealRegressionTest {
     public static void main(String[] args) throws Exception {
         NativeProfile.create();
@@ -30,7 +30,7 @@ public final class NativeDelayedRevealRegressionTest {
                 prefs.setPref(FPref.UI_SELECT_FROM_CARD_DISPLAYS, false);
                 return null;
             });
-            for (boolean single : List.of(false, true)) {
+            for (String scenario : List.of("company", "single", "fetch", "discard", "no-discard", "no-choice")) {
                 JsonObject config = JsonParser.parseString("{\"gameId\":\"delayed-reveal-test\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Reveal A\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Reveal B\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
                 try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
                     base.setTestSession(session);
@@ -38,11 +38,17 @@ public final class NativeDelayedRevealRegressionTest {
                     Player owner = session.game.getPlayers().get(0);
                     session.game.setStartingPlayer(owner);
                     session.game.getPhaseHandler().devModeSet(PhaseType.MAIN1, owner, false, 1);
-                    run(session, owner, single);
+                    switch (scenario) {
+                        case "company", "single" -> run(session, owner, scenario.equals("single"));
+                        case "fetch" -> fetch(session, owner);
+                        case "discard", "no-discard" -> discard(session, owner, scenario.equals("no-discard"));
+                        case "no-choice" -> noChoice(session, owner);
+                        default -> throw new AssertionError(scenario);
+                    }
                 }
             }
         }
-        System.out.println("PASS native delayed reveal: complete private look before Collected Company and single-card selection");
+        System.out.println("PASS native combined choices: Company, fetch, Thoughtseize, no legal choice, privacy and invalid responses");
     }
 
     private static void run(NativeSession session, Player owner, boolean single) throws Exception {
@@ -97,23 +103,16 @@ public final class NativeDelayedRevealRegressionTest {
                     "Private delayed reveal assigned the wrong deciding player");
             int decision = decisions.getAndIncrement();
             if (decision == 0) {
-                require(type.equals("revealCards"), "Selection appeared before the complete delayed reveal");
-                Set<String> names = new HashSet<>();
-                for (JsonElement element : input.getAsJsonArray("cards"))
-                    names.add(element.getAsJsonObject().getAsJsonObject("identity").get("name").getAsString());
-                require(names.equals(lookedNames), "Delayed reveal omitted nonselectable cards from the top six");
-                return NativeSession.object("type", "revealCardsAcknowledged");
-            }
-            if (decision == 1) {
-                require(type.equals("chooseCards"), "Delayed reveal did not lead to a native card choice");
-                require(input.getAsJsonArray("cards").size() == 2, "CoCo eligibility was expanded to noncreatures or high-cost creatures");
+                require(type.equals("chooseCards"), "Private look must be part of the choice without an acknowledgement");
+                checkCards(input, lookedNames, Set.of("Grizzly Bears", "Llanowar Elves"));
+                rejectCard(session, forest);
                 JsonObject response = NativeSession.object("type", "chooseCardsDecision");
                 JsonArray chosen = new JsonArray();
                 if (single) chosen.add(NativeSession.cardId(bears));
                 response.add("chosenCardIds", chosen);
                 return response;
             }
-            require(!single && decision == 2 && type.equals("reorder"), "Unexpected delayed-reveal callback");
+            require(!single && decision == 1 && type.equals("reorder"), "Unexpected delayed-reveal callback");
             JsonObject response = NativeSession.object("type", "reorderDecision");
             JsonArray ordered = new JsonArray();
             for (JsonElement item : input.getAsJsonArray("items")) ordered.add(item.getAsJsonObject().get("id"));
@@ -121,6 +120,111 @@ public final class NativeDelayedRevealRegressionTest {
             response.add("orderedIds", ordered);
             return response;
         });
-        require(decisions.get() == (single ? 2 : 3), "Missing native delayed-reveal decisions");
+        require(decisions.get() == (single ? 1 : 2), "Missing native delayed-reveal decisions");
+    }
+
+    private static void checkCards(JsonObject input, Set<String> expected, Set<String> eligible) {
+        Set<String> names = new HashSet<>(), selectable = new HashSet<>();
+        for (JsonElement element : input.getAsJsonArray("cards")) {
+            JsonObject card = element.getAsJsonObject();
+            String name = card.getAsJsonObject("identity").get("name").getAsString();
+            names.add(name);
+            if (!card.has("readOnly") || !card.get("readOnly").getAsBoolean()) selectable.add(name);
+        }
+        require(names.equals(expected), "Combined choice changed the authorized disclosure: " + names);
+        require(selectable.equals(eligible), "Combined choice changed legal candidates: " + selectable);
+    }
+
+    private static JsonObject choose(Card card) {
+        JsonObject output = NativeSession.object("type", "chooseCardsDecision");
+        JsonArray cards = new JsonArray();
+        if (card != null) cards.add(NativeSession.cardId(card));
+        output.add("chosenCardIds", cards);
+        return output;
+    }
+
+    private static void rejectCard(NativeSession session, Card card) {
+        String original = session.prompt(0);
+        JsonObject response = NativeSession.object("type", "chooseCards");
+        response.add("output", choose(card));
+        boolean rejected = false;
+        try { session.submit(response); } catch (IllegalArgumentException expected) { rejected = true; }
+        require(rejected && original.equals(session.prompt(0)), "Read-only card submission consumed the choice");
+    }
+
+    private static void fetch(NativeSession session, Player owner) throws Exception {
+        Card swamp = card(session.game, owner, "Swamp", ZoneType.Library);
+        card(session.game, owner, "Island", ZoneType.Library);
+        Card forest = card(session.game, owner, "Forest", ZoneType.Library);
+        card(session.game, owner, "Grizzly Bears", ZoneType.Library);
+        Card source = card(session.game, owner, "Polluted Delta", ZoneType.Battlefield);
+        SpellAbility ability = source.getSpellAbilities().stream()
+                .filter(sa -> sa.getApi() == forge.game.ability.ApiType.ChangeZone).findFirst().orElseThrow();
+        ability.setActivatingPlayer(owner);
+        AtomicInteger decisions = new AtomicInteger();
+        drive(session, owner, () -> {
+            AbilityUtils.resolve(ability);
+            require(owner.getCardsIn(ZoneType.Battlefield).stream().anyMatch(c -> c.getId() == swamp.getId()), "Fetch failed to move the selected land");
+            require(forest.isInZone(ZoneType.Library), "Fetch moved a nonselectable card");
+        }, input -> {
+            require(input.get("type").getAsString().equals("chooseCards"), "Fetch required a separate reveal");
+            checkCards(input, Set.of("Swamp", "Island", "Forest", "Grizzly Bears"), Set.of("Swamp", "Island"));
+            require(!session.snapshot(1).contains("Grizzly Bears") && !session.snapshot(-1).contains("Grizzly Bears"),
+                    "Fetch look escaped the deciding seat");
+            rejectCard(session, forest);
+            decisions.incrementAndGet();
+            return choose(swamp);
+        });
+        require(decisions.get() == 1, "Fetch should need only one choice");
+    }
+
+    private static void discard(NativeSession session, Player owner, boolean noChoice) throws Exception {
+        Player opponent = session.game.getPlayers().get(1);
+        Card land = card(session.game, opponent, "Forest", ZoneType.Hand);
+        Card chosen = noChoice ? null : card(session.game, opponent, "Grizzly Bears", ZoneType.Hand);
+        Card hidden = card(session.game, opponent, "Primeval Titan", ZoneType.Library);
+        Card source = card(session.game, owner, "Thoughtseize", ZoneType.Hand);
+        SpellAbility ability = source.getSpellAbilities().get(0);
+        ability.setActivatingPlayer(owner);
+        ability.getTargets().add(opponent);
+        AtomicInteger decisions = new AtomicInteger();
+        drive(session, owner, () -> {
+            AbilityUtils.resolve(ability);
+            require(land.isInZone(ZoneType.Hand), "Thoughtseize discarded a land");
+            if (!noChoice) require(chosen.isInZone(ZoneType.Graveyard), "Thoughtseize ignored the selected nonland");
+            require(owner.getLife() == 18, "Thoughtseize failed to finish resolving");
+        }, input -> {
+            int decision = decisions.getAndIncrement();
+            require(!input.toString().contains(hidden.getName()), "Thoughtseize disclosed the library");
+            if (decision == 0 && !noChoice) {
+                require(input.get("type").getAsString().equals("chooseCards"), "Thoughtseize required a separate hand reveal");
+                checkCards(input, Set.of("Forest", "Grizzly Bears"), Set.of("Grizzly Bears"));
+                require(!session.snapshot(-1).contains("Grizzly Bears"), "Private selection leaked to spectator");
+                rejectCard(session, land);
+                return choose(chosen);
+            }
+            require(input.get("type").getAsString().equals("revealCards"), "Standalone disclosure was lost");
+            require(input.getAsJsonArray("cards").size() == 1, "Disclosure included extra cards");
+            return NativeSession.object("type", "revealCardsAcknowledged");
+        });
+        require(decisions.get() == (noChoice ? 1 : 2), "Thoughtseize disclosure/choice count changed");
+    }
+
+    private static void noChoice(NativeSession session, Player owner) throws Exception {
+        Card forest = card(session.game, owner, "Forest", ZoneType.Library);
+        Card source = card(session.game, owner, "Collected Company", ZoneType.Hand);
+        AtomicInteger decisions = new AtomicInteger();
+        drive(session, owner, () -> {
+            Card result = owner.getController().chooseSingleEntityForEffect(new CardCollection(),
+                    new DelayedReveal(List.of(forest), ZoneType.Library, owner.getView()),
+                    source.getSpellAbilities().get(0), "No eligible creatures", false, owner, null);
+            require(result == null, "Empty candidates produced a card");
+        }, input -> {
+            require(input.get("type").getAsString().equals("revealCards"), "Empty choice lost its disclosure");
+            require(input.getAsJsonArray("cards").size() == 1, "Empty choice omitted the visible card");
+            decisions.incrementAndGet();
+            return NativeSession.object("type", "revealCardsAcknowledged");
+        });
+        require(decisions.get() == 1, "Empty choice should retain one standalone disclosure");
     }
 }

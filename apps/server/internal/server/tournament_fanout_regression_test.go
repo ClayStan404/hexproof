@@ -116,7 +116,7 @@ func TestDraftPickWireBudget(t *testing.T) {
 		}
 	}
 	total, peak, unchangedPrivate, messages := 0, 0, 0, 0
-	for pick := 0; pick < 42; pick++ {
+	for pick := 0; pick < 45; pick++ {
 		roundBytes := 0
 		for _, actor := range sessions {
 			previous := make(map[*Session]string)
@@ -167,7 +167,7 @@ func TestDraftPickWireBudget(t *testing.T) {
 	if event.Stage != protocol.LimitedStageDeckBuilding {
 		t.Fatal("draft did not reach deck construction")
 	}
-	t.Logf("8 players x 42 manual picks + 24 automatic last picks: %d bytes (%.2f MiB), %d messages; unchanged private snapshots=%d/2688; largest 8-pick burst=%d bytes (%.2fs at 3,000,000 bits/s, JSON only)", total, float64(total)/1048576, messages, unchangedPrivate, peak, float64(peak)*8/3000000)
+	t.Logf("8 players x 45 confirmed picks: %d bytes (%.2f MiB), %d messages; unchanged private snapshots=%d/2880; largest 8-pick burst=%d bytes (%.2fs at 3,000,000 bits/s, JSON only)", total, float64(total)/1048576, messages, unchangedPrivate, peak, float64(peak)*8/3000000)
 }
 
 func drainProjection(t *testing.T, sess *Session) []protocol.Envelope {

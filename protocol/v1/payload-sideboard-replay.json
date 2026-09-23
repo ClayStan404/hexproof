@@ -92,6 +92,8 @@
     }
   ],
   "messages": [
+    {"type": "sideboard.choose_starting_player", "direction": "clientToServer", "goType": "SideboardChooseStartingPlayer", "fields": [{"name": "startingSeat", "type": "integer", "required": true}]},
+    {"type": "sideboard.starting_player_chosen", "direction": "serverToClient", "goType": "SideboardStartingPlayerChosen", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "startingSeat", "type": "integer", "required": true}]},
     {
       "type": "replay.list",
       "direction": "clientToServer",
@@ -184,6 +186,7 @@
       "direction": "clientToServer",
       "goType": "SideboardMove",
       "fields": [
+        {"name": "clearMainboard", "type": "boolean", "required": false},
         {
           "name": "name",
           "type": "string",

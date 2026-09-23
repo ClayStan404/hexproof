@@ -102,7 +102,7 @@ function act(driver) {
         var selected = [], candidates = [];
         for (var index = 0; index < list.count; index++) {
             var tile = list.itemAtIndex(index);
-            if (!tile) continue;
+            if (!tile || !tile.selectable) continue;
             (tile.selected ? selected : candidates).push(tile);
         }
         var wanted = Math.min(session.promptMaxCardSelections, Math.max(1, session.promptMinCardSelections));

@@ -24,6 +24,7 @@ Surface {
         || (externalDamageChoices && tableController.rulesSession.promptKind === "chooseCombatDamageAssignment")
     readonly property bool expanded: showActions && (actionPicker.opened
         || (tableController.rulesSession.promptPending
+            && tableController.silentAiDeckAdvisory !== true
             && !tableController.priority.isPriorityPrompt && !externallyPresented)
         || tableController.rulesSession.gameOver)
     property alias actionPicker: actionPicker

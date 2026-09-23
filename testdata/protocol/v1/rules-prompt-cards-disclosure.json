@@ -1,0 +1,51 @@
+{
+  "type": "rules.prompt",
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "pending": true,
+    "promptId": 72,
+    "kind": "chooseCards",
+    "supported": true,
+    "title": "Choose a nonland card to discard",
+    "detail": "Choose exactly one card.",
+    "options": [],
+    "choices": [],
+    "cards": [
+      {
+        "id": "reveal:0",
+        "name": "Forest",
+        "setCode": "M21",
+        "collectorNumber": "313",
+        "readOnly": true
+      },
+      {
+        "id": "card-2",
+        "name": "Grizzly Bears",
+        "setCode": "M10",
+        "collectorNumber": "183"
+      }
+    ],
+    "scryDestinations": [],
+    "orderItems": [],
+    "contextCards": [],
+    "contextTargets": [],
+    "contextText": "",
+    "requiredSelections": 0,
+    "minCardSelections": 1,
+    "maxCardSelections": 1,
+    "targets": [],
+    "combatSources": [],
+    "combatTargets": [],
+    "damageTargets": [],
+    "totalDamage": 0,
+    "damageDeathtouch": false,
+    "minSelections": 0,
+    "maxSelections": 0,
+    "cancellable": false,
+    "minChoiceTotal": 0,
+    "maxChoiceTotal": 0,
+    "minNumber": 0,
+    "maxNumber": 0
+  }
+}

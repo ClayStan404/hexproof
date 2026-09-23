@@ -300,6 +300,33 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 		if request.Command == "quit" {
 			return
 		}
+		if strings.HasPrefix(mode, "probe-") && request.Command == "reset" {
+			_, _ = fmt.Fprintln(os.Stderr, "private engine detail card deck /private/profile token=secret")
+			switch mode {
+			case "probe-exit":
+				os.Exit(23)
+			case "probe-exit-zero":
+				os.Exit(0)
+			case "probe-signalled":
+				process, _ := os.FindProcess(os.Getpid())
+				_ = process.Kill()
+				time.Sleep(time.Hour)
+			case "probe-eof":
+				_ = os.Stdout.Close()
+				time.Sleep(time.Hour)
+			case "probe-hang":
+				time.Sleep(time.Hour)
+			case "probe-malformed":
+				_, _ = fmt.Fprintln(os.Stdout, "private invalid JSON card deck token=secret")
+				continue
+			case "probe-oversized":
+				_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("private", 128<<10))
+				continue
+			case "probe-rejected", "probe-fatal":
+				_ = encoder.Encode(rpcResponse{Fatal: mode == "probe-fatal", Error: "private engine detail card deck token=secret"})
+				continue
+			}
+		}
 		if strings.HasPrefix(mode, "profile") && request.Command == "reset" {
 			profile := os.Getenv("HEXPROOF_FORGE_PROFILE")
 			if profile == "" {
@@ -342,9 +369,12 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 		switch request.Command {
 		case "reset", "endGame", "abortGame":
 			response.Result = ""
+			if mode == "ai-capable" && request.Command == "reset" {
+				response.Result = `{"capabilities":["forge-ai-v1"]}`
+			}
 		case "submitAction":
-			if mode == "action-rejected" {
-				response = rpcResponse{Error: "private engine detail"}
+			if mode == "action-rejected" || mode == "action-failed" {
+				response = rpcResponse{Error: "private engine detail", Fatal: mode == "action-failed"}
 			} else if mode == "concede" && request.Payload !=
 				`{"type":"directive","directive":{"type":"concede"},"player":1}` {
 				response = rpcResponse{Error: "invalid concede directive"}
@@ -352,6 +382,16 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 				response.Result = ""
 			}
 		case "startGame":
+			if mode == "deck-rejected" || mode == "deck-rejected-malformed" || mode == "start-rejected" {
+				response = rpcResponse{Error: "private engine exception deck token=secret"}
+				if mode != "start-rejected" {
+					response.StartFailure = json.RawMessage(rejectedDeckJSON)
+				}
+				if mode == "deck-rejected-malformed" {
+					response.StartFailure = json.RawMessage(strings.Replace(rejectedDeckJSON, `"playerIndex":0`, `"playerIndex":9`, 1))
+				}
+				break
+			}
 			var startRequest StartGameRequest
 			if err := json.Unmarshal([]byte(request.Payload), &startRequest); err != nil {
 				response = rpcResponse{Error: err.Error()}

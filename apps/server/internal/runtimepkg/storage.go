@@ -17,24 +17,35 @@ import (
 
 var ErrDiskSpace = errors.New("at least 1 GiB of free space is required to prepare Forge")
 
-func requireInstallSpace(base string) error {
+func requireInstallSpace(ctx context.Context, base string) error {
 	available, err := freeBytes(base)
 	if err != nil {
-		return errors.New("cannot check runtime disk space")
+		return classifyFailure(err, "storage", "cache", "storage_failed")
 	}
 	// Conservative workspace budget for the pinned Forge + Java archives and
 	// extraction. Cached, already verified installations skip this reservation.
+	event := Diagnostic{Stage: "storage", Component: "cache", Code: "available", RequiredBytes: 1 << 30}
+	// Avoid overflow on unusual filesystems reporting unsigned capacities.
+	if available <= 1<<63-1 {
+		event.AvailableBytes = int64(available)
+	} else {
+		event.AvailableBytes = 1<<63 - 1
+	}
+	ReportDiagnostic(ctx, event)
 	if available < 1<<30 {
-		return ErrDiskSpace
+		event.Code = "disk_space"
+		return diagnosticFailure(ErrDiskSpace, event)
 	}
 	return nil
 }
 
-func lockFile(ctx context.Context, path string, exclusive bool) (*os.File, error) {
+func lockFile(ctx context.Context, path string, exclusive bool) (_ *os.File, resultErr error) {
+	defer func() { resultErr = classifyFailure(resultErr, "lock", "cache", "lock_failed") }()
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
+	waiting := false
 	for {
 		if err := ctx.Err(); err != nil {
 			file.Close()
@@ -46,6 +57,10 @@ func lockFile(ctx context.Context, path string, exclusive bool) (*os.File, error
 				file.Close()
 			}
 			return file, err
+		}
+		if !waiting {
+			ReportDiagnostic(ctx, Diagnostic{Stage: "lock", Component: "cache", Code: "waiting"})
+			waiting = true
 		}
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
@@ -61,6 +76,7 @@ func lockFile(ctx context.Context, path string, exclusive bool) (*os.File, error
 // Use atomically verifies and pins the current generation against cache
 // cleanup. Keep the returned lease open until every JVM using it is reaped.
 func Use(ctx context.Context, base string) (Installation, io.Closer, error) {
+	ReportDiagnostic(ctx, Diagnostic{Stage: "use", Component: "runtime", Code: "started"})
 	lock, err := lockFile(ctx, filepath.Join(base, ".cache.lock"), false)
 	if err != nil {
 		return Installation{}, nil, err
@@ -74,6 +90,7 @@ func Use(ctx context.Context, base string) (Installation, io.Closer, error) {
 	if err != nil {
 		return Installation{}, nil, err
 	}
+	ReportDiagnostic(ctx, Diagnostic{Stage: "use", Component: "runtime", Code: "completed"})
 	return installed, lease, nil
 }
 
@@ -89,7 +106,14 @@ var generationName = regexp.MustCompile(`^[a-f0-9]{20}-[a-zA-Z0-9_-]+$`)
 // ClearCache removes only reproducible downloads and unused managed
 // generations. Current, leased, unrecognized and pre-lease legacy generations
 // are retained. It never deletes user decks, settings, or arbitrary paths.
-func ClearCache(ctx context.Context, base string) (CleanupResult, error) {
+func ClearCache(ctx context.Context, base string) (_ CleanupResult, resultErr error) {
+	ReportDiagnostic(ctx, Diagnostic{Stage: "cleanup", Component: "cache", Code: "started"})
+	defer func() {
+		resultErr = classifyFailure(resultErr, "cleanup", "cache", "storage_failed")
+		if resultErr == nil {
+			ReportDiagnostic(ctx, Diagnostic{Stage: "cleanup", Component: "cache", Code: "completed"})
+		}
+	}()
 	var result CleanupResult
 	if err := os.MkdirAll(base, 0700); err != nil {
 		return result, err

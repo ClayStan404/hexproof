@@ -49,6 +49,10 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
     m_cardLoadMode = snapshot.value(u"cardLoadMode"_s).toString(kCardLoadPreload);
     m_rulesMode = snapshot.value(u"rulesMode"_s).toString(kRulesModeManual);
     m_hostingMode = snapshot.value(u"hostingMode"_s).toString(u"server"_s);
+    m_aiDifficulty = snapshot.value(u"aiDifficulty"_s).toString();
+    m_aiSource = snapshot.value(u"aiSource"_s).toString();
+    if (m_aiSource.isEmpty() && !m_aiDifficulty.isEmpty())
+        m_aiSource = u"forge"_s;
     m_hostConnected = snapshot.value(u"hostConnected"_s).toBool();
     m_hostStatus = snapshot.value(u"hostStatus"_s).toObject().toVariantMap();
     m_maxSeats = snapshot.value(u"maxSeats"_s).toInt();
@@ -66,6 +70,9 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
             {u"deckSelected"_s, seat.value(u"deckSelected"_s).toBool()},
             {u"ready"_s, seat.value(u"ready"_s).toBool()},
             {u"loaded"_s, seat.value(u"loaded"_s).toBool()},
+            {u"controller"_s, seat.value(u"controller"_s).toString()},
+            {u"aiDifficulty"_s, seat.value(u"aiDifficulty"_s).toString()},
+            {u"aiSource"_s, seat.value(u"aiSource"_s).toString()},
         });
     }
     m_seats = seats;
@@ -153,6 +160,9 @@ void RoomSessionState::clear()
 {
     m_roomId.clear();
     m_roomName.clear();
+    m_aiDifficulty.clear();
+    m_aiSource.clear();
+    m_aiStatus.clear();
     m_format.clear();
     m_deckFormat.clear();
     m_playtest = false;
@@ -191,6 +201,15 @@ void RoomSessionState::applyHostStatus(const QJsonObject &status)
         return;
     m_hostConnected = status.value(u"connected"_s).toBool();
     m_hostStatus = status.toVariantMap();
+    emit snapshotChanged();
+}
+
+void RoomSessionState::applyAIStatus(const QJsonObject &status)
+{
+    if (status.value(u"roomId"_s).toString() != m_roomId)
+        return;
+    m_aiStatus = {{u"state"_s, status.value(u"state"_s).toString()},
+                  {u"code"_s, status.value(u"code"_s).toString()}};
     emit snapshotChanged();
 }
 

@@ -99,7 +99,8 @@ TestCase {
         cap.text = "12"
         verify(button.enabled)
         button.clicked()
-        compare(mockWs.submitted.length, 6)
+        compare(mockWs.submitted.length, 7)
+        compare(mockWs.submitted[6], "manual")
         compare(mockWs.submitted[1], "set_sealed")
         compare(mockWs.submitted[3], 75)
         compare(mockWs.submitted[4], 12)

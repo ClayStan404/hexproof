@@ -74,7 +74,7 @@ func TestLiveCheckpointReplay(t *testing.T) {
 				answer.CardIDs = append(answer.CardIDs, card.ID)
 			}
 		case "chooseAttackers", "chooseBlockers":
-		case "revealCards", "diceRolled":
+		case "acknowledge", "revealCards", "diceRolled":
 			answer.ResponseID = "$ack"
 		default:
 			t.Fatalf("replay fixture needs policy for %s", prompt.Kind)
@@ -109,8 +109,12 @@ func TestLiveCheckpointReplay(t *testing.T) {
 	if restored.Error != "" {
 		t.Fatalf("native replay: %s", restored.Error)
 	}
-	want, _ := json.Marshal(response.Publication)
-	got, _ := json.Marshal(restored.Publication)
+	// Visual observations carry wall-clock timing; the rest of the position,
+	// including private integrity hashes and prompts, must match byte-for-byte.
+	wantPosition, gotPosition := *response.Publication, *restored.Publication
+	wantPosition.Replay, gotPosition.Replay = nil, nil
+	want, _ := json.Marshal(wantPosition)
+	got, _ := json.Marshal(gotPosition)
 	if string(want) != string(got) {
 		t.Fatal("restored publication differs")
 	}

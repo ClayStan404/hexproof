@@ -15,6 +15,8 @@ QtObject {
     property var counters: []
     property int counterCount: 0
     property int libraryCount: 0
+    property bool libraryTopRevealed: false
+    property var libraryTopCard: ({})
     property int handCount: 0
     property int mulliganCount: 0
     property string responseStatus: ""
@@ -47,6 +49,8 @@ QtObject {
                      ? source.counterCount : 0
         libraryCount = source.libraryCount !== undefined
                      ? source.libraryCount : 0
+        libraryTopRevealed = source.libraryTopRevealed === true
+        libraryTopCard = source.libraryTopCard || ({})
         handCount = source.handCount !== undefined ? source.handCount : 0
         mulliganCount = source.mulliganCount !== undefined
                       ? source.mulliganCount : 0

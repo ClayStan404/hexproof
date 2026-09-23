@@ -103,6 +103,7 @@ class TestWsClient : public QObject
 
   private slots:
     void initTestCase();
+    void cleanupTestCase();
     void scopesAndBoundsTournamentChat() const;
     void ignoresStaleTournamentAndLimitedSnapshots() const;
     void limitedProgressPreservesPrivateModels() const;
@@ -122,9 +123,17 @@ class TestWsClient : public QObject
     void sendsTypedDamageResponses() const;
     void rulesResponsesStayLockedUntilAuthoritativeProgress() const;
     void rulesResponsesRecoverAfterTimeoutAndDisconnect() const;
+    void rulesStartFailureSurvivesWaiting_data() const;
+    void rulesStartFailureSurvivesWaiting() const;
+    void rulesStartFailureProjectsKnownRecipientDetails() const;
     void playerHostingRequiresConsentAndPausesOfflineInput() const;
+    void directPeerDefaultRespectsRoomEligibility_data() const;
+    void directPeerDefaultRespectsRoomEligibility() const;
     void directPeerRequiresCapabilityAndRoomConsent() const;
     void hostingMirrorAndDiagnosticPrivacy() const;
+    void configuresForgeAiWithoutReplacingHumanDeck() const;
+    void modelOpponentMetadataAndCommandsStayPrivate() const;
+    void modelWorkerHandshakeFailureCanRetryWithoutLeavingRoom() const;
     void parsesTypedDamagePrompts() const;
     void rollsBackPendingCommandsBeforeRoomIdentityClears() const;
     void destroysParserWorkersDeterministically() const;
@@ -135,7 +144,9 @@ class TestWsClient : public QObject
     void roomSessionStateExposesQmlBindableSnapshot() const;
     void gameSessionStateExposesQmlBindableSnapshot() const;
     void rulesSessionStateExposesTypedSnapshot() const;
+    void rulesSessionStateExposesCurrentPersistentChoices() const;
     void rulesSnapshotModelsPreserveUnchangedRows() const;
+    void rulesControlledTurnAndLibraryPermissions() const;
     void rulesPriorityHintsStayConservative() const;
     void rulesCardActionsUseCurrentNativeCardChoices() const;
     void rulesBoardTargetsUseTypedObjectsAndOptionalSeats() const;
@@ -170,4 +181,8 @@ class TestWsClient : public QObject
 
   private:
     QTemporaryDir m_settingsDir;
+    QByteArray m_previousForgeRuntime;
+    QByteArray m_previousForgeDiagnostics;
+    bool m_hadForgeRuntime = false;
+    bool m_hadForgeDiagnostics = false;
 };

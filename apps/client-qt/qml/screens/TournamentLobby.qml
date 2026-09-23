@@ -99,6 +99,7 @@ Page {
                           + root.eventTypeLabel(root.tournamentModel.eventType,
                                                 root.tournamentModel.format)
                           + " · " + root.matchLabel(root.tournamentModel.matchMode)
+                          + " · " + (root.tournamentModel.rulesMode === "forge" ? qsTr("Forge rules") : qsTr("Manual tabletop"))
                           + (root.isCasual ? "" : " · "
                              + qsTr("%1 minutes").arg(root.tournamentModel.roundMinutes))
                     color: Theme.textMuted

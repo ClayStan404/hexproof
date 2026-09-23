@@ -1,0 +1,7 @@
+{
+  "type": "ai.attach",
+  "payload": {
+    "roomId": "ABCDEF",
+    "token": "synthetic-ai-seat-capability"
+  }
+}

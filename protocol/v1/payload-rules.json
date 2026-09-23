@@ -24,6 +24,7 @@
       "name": "RulesPlayerState",
       "goType": "RulesPlayerState",
       "fields": [
+        {"name": "controllingSeat", "type": "integer", "required": false, "goType": "*int"},
         {"name": "seat", "type": "integer", "required": true},
         {"name": "name", "type": "string", "required": true},
         {"name": "status", "type": "string", "required": true},
@@ -54,6 +55,8 @@
         {"name": "ownerSeat", "type": "integer", "required": true},
         {"name": "controllerSeat", "type": "integer", "required": true},
         {"name": "tapped", "type": "boolean", "required": false},
+        {"name": "enteredThisTurn", "type": "boolean", "required": false},
+        {"name": "summoningSick", "type": "boolean", "required": false},
         {"name": "faceDown", "type": "boolean", "required": false},
         {"name": "attacking", "type": "boolean", "required": false},
         {"name": "power", "type": "string", "required": false},
@@ -62,7 +65,17 @@
         {"name": "damage", "type": "integer", "required": false},
         {"name": "attachedTo", "type": "string", "required": false},
         {"name": "exiledCardCount", "type": "integer", "required": false, "minimum": 0},
-        {"name": "exiledCardIds", "type": "array", "required": false, "items": {"type": "string"}}
+        {"name": "exiledCardIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "chosenCardIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "annotations", "type": "array", "required": false, "items": {"type": "object", "ref": "RulesCardAnnotation"}}
+      ]
+    },
+    {
+      "name": "RulesCardAnnotation",
+      "goType": "RulesCardAnnotation",
+      "fields": [
+        {"name": "kind", "type": "string", "required": true},
+        {"name": "value", "type": "string", "required": true}
       ]
     },
     {
@@ -116,7 +129,9 @@
         {"name": "name", "type": "string", "required": true},
         {"name": "setCode", "type": "string", "required": true},
         {"name": "collectorNumber", "type": "string", "required": true},
-        {"name": "token", "type": "boolean", "required": false}
+        {"name": "token", "type": "boolean", "required": false},
+        {"name": "selected", "type": "boolean", "required": false},
+        {"name": "readOnly", "type": "boolean", "required": false}
       ]
     },
     {
@@ -161,7 +176,8 @@
         {"name": "name", "type": "string", "required": false},
         {"name": "setCode", "type": "string", "required": false},
         {"name": "collectorNumber", "type": "string", "required": false},
-        {"name": "token", "type": "boolean", "required": false}
+        {"name": "token", "type": "boolean", "required": false},
+        {"name": "selected", "type": "boolean", "required": false}
       ]
     },
     {

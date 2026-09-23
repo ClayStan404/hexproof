@@ -87,7 +87,7 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 	defer operation.opMu.Unlock()
 	operation.mu.Lock()
 	seat := r.FindSeatByConnection(sess.ConnectionID)
-	allowed := h.config.AllowPlayerHosting && r.HostingMode == protocol.HostingModePlayer && !r.Disbanded && seat >= 0
+	allowed := h.config.AllowPlayerHosting && r.HostingMode == protocol.HostingModePlayer && !r.HasAI() && !r.Disbanded && seat >= 0
 	phase := r.Phase
 	operation.mu.Unlock()
 	if !allowed {

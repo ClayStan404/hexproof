@@ -9,6 +9,7 @@
 #include <QReadWriteLock>
 #include <QSet>
 #include <QString>
+#include <QStringList>
 #include <QVariantList>
 
 #include <memory>
@@ -39,7 +40,8 @@ class CatalogRepository
                                const QString &rarityFilter, const QString &legalityFilter,
                                const QString &manaFilter = {}) const;
     CatalogSearchResult searchTokens(const QString &text, const QString &language,
-                                     const QString &kind = QStringLiteral("all")) const;
+                                     const QString &kind = QStringLiteral("all"),
+                                     const QStringList &setCodes = {}) const;
 
     QVariantList printings(const QString &name, const QString &language,
                            QString *error = nullptr) const;

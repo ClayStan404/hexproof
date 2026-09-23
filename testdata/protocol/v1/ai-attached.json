@@ -1,0 +1,6 @@
+{
+  "type": "ai.attached",
+  "payload": {
+    "roomId": "ABCDEF"
+  }
+}

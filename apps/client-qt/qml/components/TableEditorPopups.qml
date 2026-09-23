@@ -34,7 +34,7 @@ Item {
                     request.cardIds, request.destination, request.reveal,
                     request.randomize, request.position, request.sourceSeat,
                     request.approvalId, request.destinationSeat,
-                    request.faceDown)
+                    request.faceDown, request.topCard)
     }
 
     function completePendingLibraryPlacement(shuffleFirst) {
@@ -114,7 +114,8 @@ Item {
                 "sourceSeat": sourceSeat,
                 "approvalId": approvalId,
                 "destinationSeat": destinationSeat,
-                "faceDown": faceDown
+                "faceDown": faceDown,
+                "topCard": librarySearchPopup.topCardMode
             }
             const placementNeedsShuffleDecision =
                 librarySearchPopup.offerShuffleOnClose
@@ -337,6 +338,13 @@ Item {
         id: tokenPicker
         objectName: "tokenPicker"
         catalogModel: root.tableController.cardCatalogModel
+        environmentSetCodes: {
+            const room = root.tableController.roomSession
+            const limited = root.tableController.wsModel.limitedSession
+            const product = limited && limited.product ? limited.product : ({})
+            return (room.deckFormat === "limited" || room.deckFormat === "commander_limited")
+                    && product.setCode ? [product.setCode] : []
+        }
         preferredTokens: root.tableController.deckLibraryModel
                          ? root.tableController.deckLibraryModel.activeMatchTokens : []
         allowEmblemRecipient: true

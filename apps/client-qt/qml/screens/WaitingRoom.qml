@@ -20,6 +20,10 @@ Page {
     property int pendingSeat: -1
     property int pendingSpectator: -1
     property string pendingName: ""
+    property bool selectingAiDeck: false
+    readonly property string aiDifficulty: roomSession.aiDifficulty || ""
+    readonly property string aiSource: roomSession.aiSource || (aiDifficulty.length > 0 ? "forge" : "")
+    readonly property bool aiPractice: aiSource.length > 0
     readonly property bool compactLayout: width < Theme.size(1100)
     readonly property bool limitedPairing: roomSession.deckFormat === "limited"
                                           || roomSession.deckFormat === "commander_limited"
@@ -39,6 +43,22 @@ Page {
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
         spacing: Theme.size(18)
+
+        RulesStartFailureNotice {
+            objectName: "waitingRoomStartFailure"
+            Layout.fillWidth: true
+            wsModel: root.wsModel
+        }
+        InfoBanner {
+            objectName: "waitingRoomErrorBanner"
+            Layout.fillWidth: true
+            visible: !root.wsModel.rulesStartFailure?.reason && message.length > 0
+            message: I18n.status(root.wsModel.lastError)
+                     + (root.roomSession.rulesMode === "forge"
+                        && String(root.wsModel.lastError).indexOf("rules_unavailable:") === 0
+                        ? "\n" + qsTr("Forge could not continue. Your seats and selected decks are kept. Ready again to start a fresh game.")
+                        : "")
+        }
 
         Flickable {
             id: waitingRoomBody
@@ -86,10 +106,24 @@ Page {
                                 Layout.fillWidth: true
                                 spacing: Theme.size(8)
                                 StatusPill {
+                                    objectName: "waitingRoomServerTransport"
+                                    text: I18n.serverTransportLabel(root.wsModel.serverTransportState)
+                                    visible: text.length > 0
+                                    statusColor: Theme.textSecondary
+                                }
+                                StatusPill {
                                     text: root.roomSession.playtest
                                           ? qsTr("Playtest") + " · "
                                             + I18n.formatLabel(root.roomSession.deckFormat)
                                           : I18n.formatLabel(root.roomSession.deckFormat)
+                                    statusColor: Theme.accent
+                                }
+                                StatusPill {
+                                    objectName: "waitingRoomAiSummary"
+                                    visible: root.aiPractice
+                                    text: root.aiSource === "forge"
+                                          ? qsTr("Forge AI · %1").arg(I18n.aiDifficultyLabel(root.aiDifficulty))
+                                          : I18n.aiSourceLabel(root.aiSource)
                                     statusColor: Theme.accent
                                 }
                                 StatusPill {
@@ -98,6 +132,14 @@ Page {
                                           ? qsTr("Forge · Player hosted") : qsTr("Forge · Server hosted")
                                     statusColor: Theme.success
                                 }
+                            }
+                            Text {
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                visible: root.roomSession.rulesMode === "forge"
+                                text: qsTr("Recorded matches reveal both hands to the two players after the whole match ends.")
+                                wrapMode: Text.WordWrap
+                                color: Theme.textSecondary
                             }
                             Text {
                                 textFormat: Text.PlainText
@@ -245,6 +287,7 @@ Page {
                             }
 
                             Repeater {
+                                objectName: "waitingRoomSeatRepeater"
                                 model: root.roomSession.seats
 
                                 delegate: Surface {
@@ -297,7 +340,10 @@ Page {
                                                     objectName: "waitingRoomPlayerName"
                                                     Layout.fillWidth: true
                                                     elide: Text.ElideRight
-                                                    text: modelData.occupied ? modelData.displayName : qsTr("Open seat")
+                                                    text: modelData.controller === "modelAi" ? I18n.aiSourceLabel(root.aiSource)
+                                                          : modelData.controller === "forgeAi"
+                                                          ? qsTr("Forge AI · %1").arg(I18n.aiDifficultyLabel(modelData.aiDifficulty))
+                                                          : modelData.occupied ? modelData.displayName : qsTr("Open seat")
                                                     color: modelData.occupied ? Theme.text : Theme.textMuted
                                                     font.pixelSize: Theme.fontSize(14)
                                                     font.weight: modelData.occupied ? Font.DemiBold : Font.Medium
@@ -317,7 +363,9 @@ Page {
                                                 textFormat: Text.PlainText
                                                 Layout.fillWidth: true
                                                 elide: Text.ElideRight
-                                                text: modelData.occupied
+                                                text: ["forgeAi", "modelAi"].includes(modelData.controller)
+                                                      ? (modelData.deckSelected ? qsTr("AI deck selected") : qsTr("Choose a deck for the AI"))
+                                                      : modelData.occupied
                                                       ? (modelData.ready
                                                          ? qsTr("Deck selected and ready")
                                                          : (modelData.deckSelected
@@ -338,6 +386,7 @@ Page {
                                         AppButton {
                                             objectName: "waitingRoomRemovePlayerButton"
                                             visible: root.roomSession.host && modelData.occupied && !modelData.host
+                                                     && !["forgeAi", "modelAi"].includes(modelData.controller)
                                             compact: true
                                             variant: "ghost"
                                             text: qsTr("Remove")
@@ -368,6 +417,62 @@ Page {
                         Layout.maximumWidth: root.compactLayout ? Number.POSITIVE_INFINITY
                                                                 : Theme.size(370)
                         spacing: Theme.size(18)
+
+                        Surface {
+                            objectName: "waitingRoomAiOptions"
+                            Layout.fillWidth: true
+                            visible: root.aiPractice && root.roomSession.host
+                            implicitHeight: aiSetupColumn.implicitHeight + Theme.size(40)
+
+                            ColumnLayout {
+                                id: aiSetupColumn
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Theme.size(20)
+                                spacing: Theme.size(10)
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    textFormat: Text.PlainText
+                                    text: qsTr("AI opponent")
+                                    color: Theme.text
+                                    font.pixelSize: Theme.fontSize(16)
+                                    font.weight: Font.DemiBold
+                                }
+                                SegmentedControl {
+                                    id: aiDifficultyControl
+                                    objectName: "waitingRoomAiDifficultyControl"
+                                    Layout.fillWidth: true
+                                    visible: root.aiSource === "forge"
+                                    options: [I18n.aiDifficultyLabel("easy"),
+                                              I18n.aiDifficultyLabel("normal"),
+                                              I18n.aiDifficultyLabel("hard")]
+                                    currentIndex: Math.max(0, ["easy", "normal", "hard"].indexOf(root.aiDifficulty))
+                                    onActivated: index => {
+                                        root.wsModel.configureAiOpponent(["easy", "normal", "hard"][index])
+                                        currentIndex = Math.max(0, ["easy", "normal", "hard"].indexOf(root.aiDifficulty))
+                                    }
+                                    Connections {
+                                        target: root
+                                        function onAiDifficultyChanged() {
+                                            aiDifficultyControl.currentIndex = Math.max(0,
+                                                ["easy", "normal", "hard"].indexOf(root.aiDifficulty))
+                                        }
+                                    }
+                                }
+                                AppButton {
+                                    objectName: "waitingRoomSelectAiDeckButton"
+                                    Layout.fillWidth: true
+                                    text: root.aiDeckSelected() ? qsTr("Change AI deck") : qsTr("Select AI deck")
+                                    leadingText: "◇"
+                                    onClicked: {
+                                        root.selectingAiDeck = true
+                                        deckPicker.showForFormat(root.roomSession.format, root.roomSession.deckFormat)
+                                    }
+                                }
+                            }
+                        }
 
                         Surface {
                             Layout.fillWidth: true
@@ -559,16 +664,6 @@ Page {
                         }
                     }
                     }
-                InfoBanner {
-                    objectName: "waitingRoomErrorBanner"
-                    Layout.fillWidth: true
-                    message: I18n.status(root.wsModel.lastError)
-                             + (root.roomSession.rulesMode === "forge"
-                                && String(root.wsModel.lastError).indexOf("rules_unavailable:") === 0
-                                ? "\n" + qsTr("Forge could not continue. Your seats and selected decks are kept. Ready again to start a fresh game.")
-                                : "")
-                }
-
             }
         }
 
@@ -584,7 +679,9 @@ Page {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: root.roomSession.playtest
+                    text: root.aiPractice
+                          ? qsTr("The game starts when both decks are selected and you are ready.")
+                          : root.roomSession.playtest
                           ? qsTr("Select a deck and ready up to open the playtest table.")
                           : (root.limitedPairing
                              ? qsTr("Your submitted Limited deck is locked for this pairing. Ready up to play.")
@@ -731,8 +828,10 @@ Page {
                                              waitingRoomFooterBar.width - Theme.size(240)))
                         text: root.selectedDeckLabel()
                         leadingText: "◇"
-                        onClicked: deckPicker.showForFormat(root.roomSession.format,
-                                                            root.roomSession.deckFormat)
+                        onClicked: {
+                            root.selectingAiDeck = false
+                            deckPicker.showForFormat(root.roomSession.format, root.roomSession.deckFormat)
+                        }
                     }
 
                     StatusPill {
@@ -755,6 +854,7 @@ Page {
                         enabled: root.myReady()
                                  || (root.hasEnoughPlayersToStart()
                                      && root.myDeckSelected()
+                                     && (!root.aiPractice || root.aiDeckSelected())
                                      && (root.roomSession.hostingMode !== "player" || root.roomSession.hostConnected === true))
                         disabledReason: root.readyBlockerReason()
                         onClicked: root.wsModel.setReady(!root.myReady())
@@ -835,6 +935,8 @@ Page {
 
     DeckPicker {
         id: deckPicker
+        objectName: "waitingRoomDeckPicker"
+        titleText: root.selectingAiDeck ? qsTr("Select AI deck") : qsTr("Select your deck")
         deckLibraryModel: root.deckLibraryModel
         allowMissingArt: root.roomSession.cardLoadMode === "background"
 
@@ -843,8 +945,12 @@ Page {
                            deckId, deckPicker.allowMissingArt)
             if (!deck.name)
                 return
-            root.deckLibraryModel.setActiveMatchDeck(deckId)
-            root.wsModel.selectDeck(deck)
+            if (root.selectingAiDeck) {
+                root.wsModel.configureAiOpponent(root.aiDifficulty, deck)
+            } else {
+                root.deckLibraryModel.setActiveMatchDeck(deckId)
+                root.wsModel.selectDeck(deck)
+            }
         }
 
         onOpenDeckLibraryRequested:
@@ -905,8 +1011,8 @@ Page {
         if (root.roomSession.deckFormat === "commander_limited")
             return root.roomSession.maxSeats
         if (root.roomSession.format === "edh"
-                && root.roomSession.maxSeats >= 3) {
-            return 3
+                && root.roomSession.maxSeats >= 2) {
+            return 2
         }
         return root.roomSession.maxSeats
     }
@@ -918,6 +1024,14 @@ Page {
     function myDeckSelected() {
         return root.roomSession.seatIndex >= 0 && root.roomSession.seatIndex < root.roomSession.seats.length
                && root.roomSession.seats[root.roomSession.seatIndex].deckSelected
+    }
+
+    function aiDeckSelected() {
+        for (const seat of root.roomSession.seats) {
+            if (["forgeAi", "modelAi"].includes(seat.controller))
+                return seat.deckSelected === true
+        }
+        return false
     }
 
     function myReady() {
@@ -940,6 +1054,8 @@ Page {
             return root.limitedPairing
                    ? qsTr("Waiting for submitted Limited deck")
                    : qsTr("Select a deck before readying up")
+        if (root.aiPractice && !root.aiDeckSelected())
+            return qsTr("Select a deck for the AI before readying up")
         return ""
     }
 

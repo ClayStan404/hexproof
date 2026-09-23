@@ -1,0 +1,110 @@
+{
+  "type": "ai.decision",
+  "payload": {
+    "requestId": "decision-1",
+    "gameId": "ABCDEF-1",
+    "seatIndex": 1,
+    "prompt": {
+      "roomId": "ABCDEF",
+      "gameId": "ABCDEF-1",
+      "pending": true,
+      "promptId": 74,
+      "kind": "acknowledge",
+      "supported": true,
+      "title": "Game notice",
+      "detail": "Choose the starting player.",
+      "options": [
+        {
+          "responseId": "$ack",
+          "kind": "acknowledge",
+          "label": "Continue"
+        }
+      ],
+      "choices": [],
+      "cards": [],
+      "scryDestinations": [],
+      "orderItems": [],
+      "contextCards": [],
+      "contextTargets": [],
+      "contextText": "",
+      "requiredSelections": 0,
+      "minCardSelections": 0,
+      "maxCardSelections": 0,
+      "targets": [],
+      "combatSources": [],
+      "combatTargets": [],
+      "damageTargets": [],
+      "totalDamage": 0,
+      "damageDeathtouch": false,
+      "minSelections": 0,
+      "maxSelections": 0,
+      "cancellable": false,
+      "minChoiceTotal": 0,
+      "maxChoiceTotal": 0,
+      "minNumber": 0,
+      "maxNumber": 0
+    },
+    "snapshot": {
+      "roomId": "ABCDEF",
+      "gameId": "ABCDEF-1",
+      "turn": 1,
+      "step": "main1",
+      "activeSeat": 1,
+      "prioritySeat": 1,
+      "players": [
+        {
+          "seat": 0,
+          "name": "Human",
+          "status": "playing",
+          "life": 20,
+          "counters": [],
+          "manaPool": [
+            {
+              "name": "W",
+              "value": 0
+            }
+          ],
+          "commanders": []
+        },
+        {
+          "seat": 1,
+          "name": "Local model",
+          "status": "playing",
+          "life": 20,
+          "counters": [],
+          "manaPool": [],
+          "commanders": []
+        }
+      ],
+      "zones": [
+        {
+          "zone": "hand",
+          "ownerSeat": 1,
+          "count": 1,
+          "cards": [
+            {
+              "id": "java-card-1",
+              "visible": true,
+              "identity": {
+                "name": "Lightning Bolt",
+                "setCode": "M11",
+                "collectorNumber": "149"
+              },
+              "ownerSeat": 1,
+              "controllerSeat": 1,
+              "counters": []
+            }
+          ]
+        },
+        {
+          "zone": "hand",
+          "ownerSeat": 0,
+          "count": 1,
+          "cards": []
+        }
+      ],
+      "stack": [],
+      "gameOver": false
+    }
+  }
+}

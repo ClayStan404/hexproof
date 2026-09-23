@@ -229,6 +229,22 @@ TestCase {
         compare(activate.count, 1)
         compare(activate.signalArguments[0][0].instanceId, "a")
     }
+    function test_compactListUsesFrontFaceAndLocalizedCardTypes_data() {
+        return [
+            {tag: "spell-land MDFC", typeLine: "Sorcery // Land"},
+            {tag: "English subtype", typeLine: "Creature — Landshark"},
+            {tag: "Chinese tilde subtype", typeLine: "生物～地精"},
+            {tag: "Chinese ASCII tilde subtype", typeLine: "生物~地精"},
+            {tag: "Chinese fullwidth dash subtype", typeLine: "生物－地精"}
+        ]
+    }
+    function test_compactListUsesFrontFaceAndLocalizedCardTypes(data) {
+        const rows = list.aggregate([
+            {instanceId: "land", name: "A land", typeLine: "基本地～海岛", manaValue: 0},
+            {instanceId: "spell", name: "Z spell", typeLine: data.typeLine, manaValue: 3}
+        ])
+        compare(rows.map(row => row.card.instanceId), ["spell", "land"])
+    }
     function test_deckCategorySearchAndSearchFocus() {
         window.requestActivate()
         filters.query = "ramp"

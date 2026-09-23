@@ -250,15 +250,49 @@ TestCase {
         }
         const dash = findChild(list.itemAtIndex(1), "rulesScalarChoice-choice:1")
         mouseClick(dash)
-        compare(prompt.selectedTotal, 1)
-        compare(prompt.selectedIds[0], "choice:1")
-        compare(submissions.length, 0, "Optional single choice retains explicit confirmation")
-        mouseClick(findChild(prompt, "rulesConfirmChoices"))
+        compare(prompt.selectedTotal, 0)
+        compare(prompt.selectedIds.length, 0)
+        verify(!findChild(prompt, "rulesScalarQuantity-choice:1").visible)
+        verify(!findChild(prompt, "rulesConfirmChoices").visible)
         compare(submissions.length, 1)
         compare(submissions[0].choices[0], "choice:1")
         prompt.promptId = 2
         compare(prompt.selectedTotal, 0)
         compare(prompt.selectedIds.length, 0)
+        const skip = findChild(prompt, "rulesSkipChoice")
+        verify(skip.visible)
+        compare(skip.text, "Choose none")
+        mouseClick(skip)
+        compare(submissions[1].id, 2)
+        compare(submissions[1].choices, [])
+    }
+
+    function test_weightedAndRepeatedChoicesRetainConfirmation_data() {
+        return [{tag:"weighted", weighted:true}, {tag:"repeat", weighted:false}]
+    }
+    function test_weightedAndRepeatedChoicesRetainConfirmation(data) {
+        cards.clear()
+        cards.append({responseId:"choice:0", label:"Weighted mode", weight:2, canRepeat:false})
+        cards.append({responseId:"choice:1", label:"Repeatable mode", weight:1, canRepeat:true})
+        const submissions = []
+        const prompt = createTemporaryObject(scalar, testWindow.contentItem,
+            {width:380, minimumTotal:3, maximumTotal:3,
+             wsModel:{respondRulesPromptWithChoices:(id, choices) => submissions.push(choices)}})
+        prompt.height = Qt.binding(() => prompt.implicitHeight)
+        const list = findChild(prompt, "rulesScalarCandidates")
+        tryCompare(list, "count", 2)
+        waitForRendering(prompt)
+        const repeat = findChild(list.itemAtIndex(1), "rulesScalarChoice-choice:1")
+        if (data.weighted) mouseClick(findChild(list.itemAtIndex(0), "rulesScalarChoice-choice:0"))
+        for (let count = 0; count < (data.weighted ? 1 : 3); ++count) mouseClick(repeat)
+        compare(prompt.selectedTotal, 3)
+        compare(submissions.length, 0)
+        verify(findChild(prompt, "rulesScalarQuantity-choice:1").visible)
+        verify(!findChild(prompt, "rulesSkipChoice").visible)
+        const confirm = findChild(prompt, "rulesConfirmChoices")
+        verify(confirm.visible && confirm.enabled)
+        mouseClick(confirm)
+        compare(submissions[0], data.weighted ? ["choice:0", "choice:1"] : ["choice:1", "choice:1", "choice:1"])
     }
 
     function test_narrowContextNumberAndScry_data() {

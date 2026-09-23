@@ -332,6 +332,15 @@ func (r *Room) searchLibrary(connID string, request protocol.GameSearchLibrary,
 	sourceState := &r.Game.Seats[sourceSeat]
 	actorState := &r.Game.Seats[actorSeat]
 	destinationState := &r.Game.Seats[destinationSeat]
+	if request.TopCard {
+		if len(cardIDs) != 1 {
+			return Result{}, newError(protocol.ErrInvalidMove)
+		}
+		if len(sourceState.Library) == 0 ||
+			strings.TrimSpace(cardIDs[0]) != sourceState.Library[0].ID {
+			return Result{}, newError(protocol.ErrCardNotFound)
+		}
+	}
 	requested := make(map[string]int, len(cardIDs))
 	for index, rawID := range cardIDs {
 		cardID := strings.TrimSpace(rawID)
@@ -405,11 +414,23 @@ func (r *Room) searchLibrary(connID string, request protocol.GameSearchLibrary,
 	if sourceSeat != actorSeat {
 		libraryOwner = sourceState.DisplayName + "'s"
 	}
-	r.appendGameLog("library_search", actorSeat,
-		fmt.Sprintf("%s searched %s library and put %s %s.",
-			actorState.DisplayName, libraryOwner, cardDescription,
-			r.libraryDestinationPhrase(
-				request.ToZone, actorSeat, destinationSeat, request.FaceDown)))
+	destinationPhrase := r.libraryDestinationPhrase(
+		request.ToZone, actorSeat, destinationSeat, request.FaceDown)
+	if request.TopCard {
+		if request.Reveal {
+			r.appendGameLog("library_view", actorSeat,
+				fmt.Sprintf("%s revealed %s from the top 1 card(s) of %s library and put them %s.",
+					actorState.DisplayName, cardDescription, libraryOwner, destinationPhrase))
+		} else {
+			r.appendGameLog("library_view", actorSeat,
+				fmt.Sprintf("%s resolved the top 1 card(s) of %s library and put 1 card(s) %s.",
+					actorState.DisplayName, libraryOwner, destinationPhrase))
+		}
+	} else {
+		r.appendGameLog("library_search", actorSeat,
+			fmt.Sprintf("%s searched %s library and put %s %s.",
+				actorState.DisplayName, libraryOwner, cardDescription, destinationPhrase))
+	}
 
 	reply, _ := protocol.NewEnvelope(protocol.TypeGameLibrarySearched,
 		protocol.GameLibrarySearched{
@@ -625,6 +646,8 @@ func (r *Room) resolveAssignedLibraryView(actorSeat, sourceSeat int,
 	graveyard := make([]protocol.GameCard, 0, count)
 	exile := make([]protocol.GameCard, 0, count)
 	destinationKinds := make(map[string]struct{})
+	revealedNames := make(map[string][]string)
+	revealedDestinations := make([]string, 0)
 	for _, assignment := range request.Assignments {
 		cardID := strings.TrimSpace(assignment.CardID)
 		card, found := prefixByID[cardID]
@@ -636,6 +659,12 @@ func (r *Room) resolveAssignedLibraryView(actorSeat, sourceSeat int,
 		}
 		seen[cardID] = struct{}{}
 		destinationKinds[assignment.ToZone] = struct{}{}
+		if assignment.Reveal && !assignment.FaceDown {
+			if len(revealedNames[assignment.ToZone]) == 0 {
+				revealedDestinations = append(revealedDestinations, assignment.ToZone)
+			}
+			revealedNames[assignment.ToZone] = append(revealedNames[assignment.ToZone], card.Name)
+		}
 		card.OwnerSeat = sourceSeat
 		card.Position = nil
 		card.Tapped = false
@@ -690,6 +719,18 @@ func (r *Room) resolveAssignedLibraryView(actorSeat, sourceSeat int,
 	r.appendGameLog("library_view", actorSeat,
 		fmt.Sprintf("%s resolved the top %d card(s) of %s library across %d destination(s).",
 			actorState.DisplayName, count, libraryOwner, len(destinationKinds)))
+	for _, destination := range revealedDestinations {
+		destinationSeat := sourceSeat
+		if destination == protocol.LibraryDestinationHand ||
+			destination == protocol.LibraryDestinationBattlefield {
+			destinationSeat = actorSeat
+		}
+		r.appendGameLog("library_view", actorSeat,
+			fmt.Sprintf("%s revealed %s from the top %d card(s) of %s library and put them %s.",
+				actorState.DisplayName, strings.Join(revealedNames[destination], ", "),
+				count, libraryOwner,
+				r.libraryDestinationPhrase(destination, actorSeat, destinationSeat, false)))
+	}
 	libraryCount := len(top) + len(bottom)
 	reply, _ := protocol.NewEnvelope(protocol.TypeGameLibraryViewResolved,
 		protocol.GameLibraryViewResolved{RoomID: r.ID, Seat: actorSeat,

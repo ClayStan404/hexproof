@@ -42,6 +42,18 @@ def scenario_provenance(path):
                              if source.is_file() and source.suffix in (".qml", ".js")}}
 
 
+def freeze_scenario(path, destination):
+    provenance = scenario_provenance(path)
+    destination.mkdir(parents=True)
+    for source, expected in provenance["localSources"].items():
+        target = destination / Path(source).name
+        shutil.copy2(source, target)
+        if digest(target) != expected:
+            raise ValueError("Scenario source changed while its snapshot was being copied")
+    provenance["snapshot"] = str(destination / path.name)
+    return provenance
+
+
 def git_output(*args):
     return subprocess.check_output(["git", *args], cwd=ROOT).decode().strip()
 
@@ -190,7 +202,20 @@ def process_sample(process):
     return result
 
 
-def seat_result(process, artifacts, reason=None):
+def system_event_received(action, events):
+    if not isinstance(events, dict):
+        return False
+    def positive(name):
+        count = events.get(name)
+        return type(count) is int and count > 0
+    if action in ("key", "type"):
+        return (positive("keyPress") or positive("shortcutOverride")) and positive("keyRelease")
+    required = {"click": "mouseRelease", "rightClick": "mouseRelease",
+                "doubleClick": "mouseRelease", "drag": "mouseRelease", "wheel": "wheel"}
+    return action not in required or positive(required[action])
+
+
+def seat_result(process, artifacts, reason=None, expected_evidence=None):
     """Require native input evidence as well as a scenario's own assertions."""
     try:
         result = json.loads((artifacts / "result.json").read_text(encoding="utf-8"))
@@ -208,13 +233,18 @@ def seat_result(process, artifacts, reason=None):
                        if line.strip()]
             window = startup.get("window") if isinstance(startup, dict) else None
             platform_name = window.get("platform") if isinstance(window, dict) else None
+            if expected_evidence and (not isinstance(startup, dict) or startup.get("evidence") != expected_evidence):
+                raise ValueError("The audit did not use the requested input backend")
             if (not isinstance(platform_name, str) or not platform_name
                     or platform_name.split(":", 1)[0].lower() in ("offscreen", "minimal")
                     or window.get("visible") is not True or window.get("exposed") is not True
-                    or startup.get("evidence") != "native-qt-input"):
+                    or startup.get("evidence") not in ("native-qt-input", "system-input")):
                 raise ValueError("Startup does not establish an exposed native window")
-            if not isinstance(summary, dict) or summary.get("evidence") != "native-qt-input":
+            if not isinstance(summary, dict) or summary.get("evidence") != startup.get("evidence"):
                 raise ValueError("Missing native audit summary")
+            system_input = startup.get("evidence") == "system-input"
+            if system_input and summary.get("osInputVerified") is not True:
+                raise ValueError("System input delivery was not verified")
             inputs = summary.get("inputs")
             if type(inputs) is not int or inputs <= 0 or inputs != len(actions):
                 raise ValueError("Input trace is empty or does not match the audit summary")
@@ -235,10 +265,36 @@ def seat_result(process, artifacts, reason=None):
                             raise ValueError("Native runtime diagnostics: " + line.strip()[:500])
             for sequence, action in enumerate(actions, 1):
                 if (not isinstance(action, dict) or action.get("accepted") is not True
-                        or action.get("evidence") not in ("native-qt-input", "native-x11-input", "native-gtk-input")
+                        or action.get("evidence") not in ("native-qt-input", "native-x11-input", "native-gtk-input", "system-input")
                         or not isinstance(action.get("action"), str) or not action["action"]
                         or type(action.get("sequence")) is not int or action["sequence"] != sequence):
                     raise ValueError("Input trace contains failed or incomplete evidence")
+                if system_input:
+                    receipt = action.get("systemInput", {})
+                    if (action.get("evidence") != "system-input" or receipt.get("status") != "passed"
+                            or receipt.get("backend") != "mutter-virtual-device"
+                            or receipt.get("pid") != startup.get("pid")
+                            or receipt.get("focusVerified") is not True
+                            or receipt.get("deliveryVerified") is not True):
+                        raise ValueError("System input lacks owned-window delivery evidence")
+                    events = receipt.get("spontaneousEvents", {})
+                    if not system_event_received(action["action"], events):
+                        raise ValueError("Requested system event was not received by the window")
+                    if action["action"] == "chooseFile":
+                        steps = receipt.get("systemInputs")
+                        if not isinstance(steps, list) or not steps or not any(
+                                step.get("action") == "type" for step in steps if isinstance(step, dict)):
+                            raise ValueError("System file chooser lacks keyboard path entry")
+                        for step in steps:
+                            if (not isinstance(step, dict) or step.get("status") != "passed"
+                                    or step.get("backend") != "mutter-virtual-device"
+                                    or step.get("pid") != startup.get("pid")
+                                    or step.get("ownerWindow") != receipt.get("window")
+                                    or not step.get("window") or step.get("focusVerified") is not True
+                                    or step.get("deliveryVerified") is not True):
+                                raise ValueError("System file chooser lacks owned dialog delivery")
+                            if not system_event_received(step.get("action"), step.get("spontaneousEvents", {})):
+                                raise ValueError("System file chooser event was not received")
                 if action["action"] == "chooseFile":
                     if (action.get("dialogAccepted") is not True or action.get("dialogClosed") is not True
                             or not isinstance(action.get("selectedFile"), str)
@@ -306,6 +362,8 @@ def seat_result(process, artifacts, reason=None):
 
 
 def run(args):
+    args.os_input_helper = getattr(args, "os_input_helper", None)
+    expected_evidence = "system-input" if args.os_input_helper else "native-qt-input"
     args.player_hosted = getattr(args, "player_hosted", False)
     args.reconnect_window = getattr(args, "reconnect_window", None)
     if platform.system() != "Linux":
@@ -331,6 +389,26 @@ def run(args):
     output.mkdir(parents=True, exist_ok=False)
     shared = output / "shared"
     shared.mkdir()
+    deck_imports = []
+    if args.deck_manifest:
+        manifest = json.loads(args.deck_manifest.read_text(encoding="utf-8"))
+        decks = manifest.get("decks", [])
+        # Format-keyed manual fixtures use saved decks, not per-seat imports.
+        if isinstance(decks, dict):
+            decks = []
+        for seat, deck in enumerate(decks, 1):
+            def rows(cards):
+                return "\n".join(f"{card['count']} {card['name']} ({card['setCode']}) {card['collectorNumber']}"
+                                 for card in cards)
+            contents = rows(deck["mainboard"])
+            if deck.get("sideboard"):
+                contents += "\n\nSideboard\n" + rows(deck["sideboard"])
+            path = output / f"deck-import-seat-{seat}.txt"
+            path.write_text(contents, encoding="utf-8")
+            deck_imports.append({"path": str(path), "sha256": digest(path)})
+    stages = [freeze_scenario(path, output / "scenario-sources" / f"stage-{index}")
+              if getattr(args, "freeze_scenarios", False) else scenario_provenance(path)
+              for index, path in enumerate(scenarios, 1)]
     metadata = {
         "runId": run_id, "commit": git_output("rev-parse", "HEAD"),
         "workingTree": git_output("status", "--short"),
@@ -345,12 +423,14 @@ def run(args):
         "graphicsEnvironment": {name: os.environ[name] for name in
             ("QT_QPA_PLATFORM", "QSG_NO_VSYNC", "QSG_RENDER_LOOP", "QSG_RHI_BACKEND",
              "QT_QUICK_BACKEND", "QT_LOGGING_RULES") if name in os.environ},
-        "evidence": "native-qt-input", "startedAt": time.time(),
+        "evidence": "system-input" if args.os_input_helper else "native-qt-input", "startedAt": time.time(),
+        "osInputHelper": {"path": str(args.os_input_helper), "sha256": digest(args.os_input_helper)} if args.os_input_helper else None,
         "fixture": str(args.fixture_dir) if args.fixture_dir else None,
         "catalog": str(args.catalog) if args.catalog else None,
-        "stages": [scenario_provenance(path) for path in scenarios],
+        "stages": stages,
         "catalogImport": str(args.catalog_import) if args.catalog_import else None,
         "deckManifest": str(args.deck_manifest) if args.deck_manifest else None,
+        "deckImportFiles": deck_imports,
         "startupServices": args.startup_services,
         "freshSettings": args.fresh_settings,
         "networkIsolated": args.network_isolated,
@@ -421,13 +501,15 @@ def run(args):
                 env = dict(os.environ, XDG_CONFIG_HOME=str(profile / "config"),
                            XDG_DATA_HOME=str(profile / "data"), XDG_CACHE_HOME=str(profile / "cache"),
                            HEXPROOF_TEST_PROFILE_ROOT=str(profile),
-                           HEXPROOF_AUDIT_DRIVER=str(scenario),
+                           HEXPROOF_AUDIT_DRIVER=stages[stage - 1].get("snapshot", str(scenario)),
                            HEXPROOF_AUDIT_OUTPUT=str(artifacts), HEXPROOF_AUDIT_SHARED=str(stage_shared),
                            HEXPROOF_AUDIT_STAGE=str(stage),
                            HEXPROOF_AUDIT_STARTUP_SERVICES="1" if args.startup_services else "0",
                            HEXPROOF_AUDIT_NETWORK_ISOLATED="1" if args.network_isolated else "0",
                            HEXPROOF_AUDIT_CATALOG_IMPORT=str(args.catalog_import or ""),
                            HEXPROOF_AUDIT_DECK_MANIFEST=str(args.deck_manifest or ""),
+                           HEXPROOF_AUDIT_DECK_TEXT_FILE=deck_imports[seat - 1]["path"] if seat <= len(deck_imports) else "",
+                           HEXPROOF_AUDIT_OS_INPUT_HELPER=str(args.os_input_helper or ""),
                            HEXPROOF_AUDIT_FILE_DIALOG_HELPER=str(args.file_dialog_helper or ""),
                            HEXPROOF_AUDIT_SEAT=str(seat), HEXPROOF_AUDIT_PLAYERS=str(args.players),
                            HEXPROOF_AUDIT_RUN_ID=run_id,
@@ -479,7 +561,7 @@ def run(args):
                         sample["elapsedMs"] = round((now - started) * 1000)
                         samples.write(json.dumps(sample) + "\n")
                         if process.poll() is not None:
-                            if seat_result(process, artifacts)["status"] != "passed":
+                            if seat_result(process, artifacts, expected_evidence=expected_evidence)["status"] != "passed":
                                 reason = f"Seat process {process.pid} exited without a passing result"
                             continue
                         heartbeat = artifacts / "heartbeat.json"
@@ -494,7 +576,7 @@ def run(args):
             for seat, (process, artifacts, _) in enumerate(stage_seats, 1):
                 if process.poll() is not None:
                     write_json(artifacts / "profile-after.json", profile_checkpoint(artifacts.parent))
-                    completed = seat_result(process, artifacts)
+                    completed = seat_result(process, artifacts, expected_evidence=expected_evidence)
                     if completed["status"] == "passed":
                         try:
                             binding = record_verified_download(artifacts, completed["scenarioResult"], run_id, seat, stage)
@@ -518,7 +600,7 @@ def run(args):
         # stage. The run fails as a whole, while each seat retains its evidence.
         results = []
         for index, (process, artifacts, _) in enumerate(seats):
-            completed = dict(seat_result(process, artifacts, completion_failures.get(artifacts)),
+            completed = dict(seat_result(process, artifacts, completion_failures.get(artifacts), expected_evidence),
                              stage=index // args.players + 1, seat=index % args.players + 1)
             if artifacts in download_bindings:
                 completed["verifiedDownload"] = download_bindings[artifacts]
@@ -542,6 +624,8 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", required=True, type=Path)
+    parser.add_argument("--freeze-scenarios", action="store_true",
+                        help="Run copied sibling QML/JS sources; scenarios must use local sibling imports")
     parser.add_argument("--next-scenario", type=Path, action="append", default=[],
                         help="Exit and relaunch this scenario using the same profiles and local hub")
     parser.add_argument("--catalog-import", type=Path, help="File for actual UI import; never preinstalled")
@@ -550,6 +634,7 @@ def main():
                         help="Run production automatic update checks and startup art audit")
     parser.add_argument("--network-isolated", action="store_true",
                         help="Run one offline client in a Linux network namespace; no hub")
+    parser.add_argument("--os-input-helper", type=Path, help="Explicit system input helper; no Qt event fallback")
     parser.add_argument("--file-dialog-helper", type=Path,
                         help="PID-scoped native X11 file chooser input helper")
     parser.add_argument("--fresh-settings", action="store_true",
@@ -583,7 +668,7 @@ def main():
     def interrupted(_signum, _frame):
         raise KeyboardInterrupt("Runner interrupted; stopping owned test processes")
     signal.signal(signal.SIGTERM, interrupted)
-    for name in ("scenario", "binary", "server_binary", "catalog", "fixture_dir", "catalog_import", "deck_manifest", "file_dialog_helper"):
+    for name in ("scenario", "binary", "server_binary", "catalog", "fixture_dir", "catalog_import", "deck_manifest", "file_dialog_helper", "os_input_helper"):
         if getattr(args, name):
             setattr(args, name, getattr(args, name).resolve())
     args.next_scenario = [path.resolve() for path in args.next_scenario]

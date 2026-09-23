@@ -217,8 +217,11 @@ Page {
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
+                        objectName: "connectTransportStatus"
                         textFormat: Text.PlainText
-                        text: qsTr("Opening connection…")
+                        text: I18n.serverTransportLabel(root.hub.serverTransportState).length > 0
+                              ? I18n.serverTransportLabel(root.hub.serverTransportState)
+                              : qsTr("Opening connection…")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(12)
                         anchors.verticalCenter: parent.verticalCenter

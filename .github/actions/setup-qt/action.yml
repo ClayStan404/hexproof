@@ -15,5 +15,5 @@ runs:
         # https://github.com/miurahr/aqtinstall/pull/1000
         aqtsource: ${{ runner.os == 'Windows' && 'git+https://github.com/miurahr/aqtinstall.git@8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b' || '' }}
         aqtversion: '==3.3.0'
-        modules: qtwebsockets qtimageformats qtshadertools
+        modules: qtwebsockets qtimageformats qtshadertools qtmultimedia
         cache: true

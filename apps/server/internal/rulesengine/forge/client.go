@@ -7,6 +7,7 @@ package forge
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -67,6 +68,7 @@ func JavaOverlayProcessConfig(javaCommand, harnessJAR, forgeHome, overlayJAR str
 }
 
 type rpcRequest struct {
+	After       int64  `json:"after,omitempty"`
 	Command     string `json:"command"`
 	Payload     string `json:"payload,omitempty"`
 	SessionID   string `json:"sessionId,omitempty"`
@@ -75,9 +77,11 @@ type rpcRequest struct {
 }
 
 type rpcResponse struct {
-	OK     bool   `json:"ok"`
-	Result string `json:"result"`
-	Error  string `json:"error"`
+	StartFailure json.RawMessage `json:"startFailure,omitempty"`
+	Fatal        bool            `json:"fatal,omitempty"`
+	OK           bool            `json:"ok"`
+	Result       string          `json:"result"`
+	Error        string          `json:"error"`
 }
 
 type rpcResult struct {
@@ -96,11 +100,15 @@ type rpcJob struct {
 // Client owns one game. The default transport is a dedicated ordered process;
 // a pool lease uses request IDs while retaining per-game call ordering.
 type Client struct {
-	shared   *sharedLease
-	command  *exec.Cmd
-	stdin    io.WriteCloser
-	requests chan rpcJob
-	done     chan struct{}
+	supportsReplay bool
+	supportsAI     bool
+	aiGame         atomic.Bool
+	shared         *sharedLease
+	command        *exec.Cmd
+	stdin          io.WriteCloser
+	requests       chan rpcJob
+	done           chan struct{}
+	reaped         chan struct{}
 
 	maxResponseBytes int
 	closing          atomic.Bool
@@ -110,6 +118,7 @@ type Client struct {
 	closeErr         error
 	waitMu           sync.Mutex
 	waitErr          error
+	boundaryErr      error
 	profileDir       string
 }
 
@@ -117,7 +126,7 @@ type Client struct {
 // child, so callers never receive a half-initialized client.
 func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 	if strings.TrimSpace(config.Command) == "" {
-		return nil, errors.New("forge runtime command is required")
+		return nil, processError("executable_missing", errors.New("forge runtime command is required"))
 	}
 	if config.MaxResponseBytes <= 0 {
 		config.MaxResponseBytes = defaultMaxResponseBytes
@@ -136,7 +145,7 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 		var err error
 		profileDir, err = os.MkdirTemp("", "hexproof-forge-")
 		if err != nil {
-			return nil, fmt.Errorf("create Forge profile: %w", err)
+			return nil, processError("profile_create_failed", err)
 		}
 		command.Env = append(command.Env, "HEXPROOF_FORGE_PROFILE="+profileDir)
 		defer func() {
@@ -147,18 +156,18 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 	}
 	stdin, err := command.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("forge runtime stdin: %w", err)
+		return nil, processError("pipe_setup_failed", err)
 	}
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("forge runtime stdout: %w", err)
+		return nil, processError("pipe_setup_failed", err)
 	}
 	stderr, err := command.StderrPipe()
 	if err != nil {
-		return nil, fmt.Errorf("forge runtime stderr: %w", err)
+		return nil, processError("pipe_setup_failed", err)
 	}
 	if err := command.Start(); err != nil {
-		return nil, fmt.Errorf("start forge runtime: %w", err)
+		return nil, executableError(err)
 	}
 
 	client := &Client{
@@ -166,6 +175,7 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 		stdin:            stdin,
 		requests:         make(chan rpcJob, 32),
 		done:             make(chan struct{}),
+		reaped:           make(chan struct{}),
 		maxResponseBytes: config.MaxResponseBytes,
 		profileDir:       profileDir,
 	}
@@ -176,35 +186,55 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 
 	probeContext, cancelProbe := context.WithTimeout(ctx, config.StartTimeout)
 	defer cancelProbe()
-	if _, err := client.call(probeContext, rpcRequest{Command: "reset"}, false, true); err != nil {
+	capabilities, err := client.call(probeContext, rpcRequest{Command: "reset"}, false, true)
+	if err != nil {
+		if probeContext.Err() != nil {
+			err = probeContext.Err()
+		}
 		client.kill()
 		<-client.done
-		return nil, fmt.Errorf("probe forge runtime: %w", err)
+		return nil, probeError(err)
 	}
+	client.supportsAI = runtimeSupportsAI(capabilities)
+	client.supportsReplay = runtimeSupportsReplay(capabilities)
 	return client, nil
 }
 
 func (client *Client) wait() {
 	err := client.command.Wait()
+	client.waitMu.Lock()
+	client.waitErr = err
+	client.waitMu.Unlock()
+	// The process exit is known before profile cleanup, which can be slow on
+	// antivirus-scanned or busy storage. Keep Done's full cleanup guarantee.
+	close(client.reaped)
 	// This exact directory was created by Start, never supplied by a caller.
 	// Reap before cleanup so even a killed JVM cannot leave mutable preferences
 	// shared with the next game or retain a growing set of per-game profiles.
 	if client.profileDir != "" {
 		_ = os.RemoveAll(client.profileDir)
 	}
-	client.waitMu.Lock()
-	client.waitErr = err
-	client.waitMu.Unlock()
 	close(client.done)
 }
 
 func (client *Client) waitError() error {
 	client.waitMu.Lock()
 	defer client.waitMu.Unlock()
-	if client.waitErr == nil {
-		return ErrClosed
+	if client.boundaryErr != nil {
+		return client.boundaryErr
 	}
-	return fmt.Errorf("%w: process exited: %v", ErrRuntime, client.waitErr)
+	if client.waitErr == nil {
+		return &ProcessError{Code: "process_exited", ExitCode: intPointer(0), cause: ErrClosed}
+	}
+	err := processError("process_exited", errors.Join(ErrRuntime, client.waitErr))
+	var exit *exec.ExitError
+	if errors.As(client.waitErr, &exit) {
+		err.ExitCode = intPointer(exit.ExitCode())
+		if exit.ExitCode() < 0 {
+			err.Code = "process_signalled"
+		}
+	}
+	return err
 }
 
 // Done closes after a dedicated child is reaped, or shared game cleanup is
@@ -287,8 +317,7 @@ func (client *Client) run(stdout io.Reader) {
 				err = writer.Flush()
 			}
 			if err != nil {
-				client.kill()
-				job.result <- rpcResult{err: fmt.Errorf("%w: write request: %v", ErrRuntime, err)}
+				job.result <- rpcResult{err: client.failProcess(processError("pipe_write_failed", errors.Join(ErrRuntime, err)))}
 				return
 			}
 			if job.noResponse {
@@ -302,25 +331,33 @@ func (client *Client) run(stdout io.Reader) {
 				} else if err == nil {
 					err = io.ErrUnexpectedEOF
 				}
-				client.kill()
-				job.result <- rpcResult{err: fmt.Errorf("%w: read response: %w", ErrRuntime, err)}
+				job.result <- rpcResult{err: client.readFailure(err)}
 				return
 			}
 			var response rpcResponse
 			if err := json.Unmarshal(scanner.Bytes(), &response); err != nil {
-				client.kill()
-				job.result <- rpcResult{err: fmt.Errorf("%w: decode response: %v", ErrRuntime, err)}
+				job.result <- rpcResult{err: client.failProcess(processError("protocol_invalid", ErrRuntime))}
 				return
 			}
 			if !response.OK {
+				var failure error = &rejectedRequest{failure: bytes.Clone(response.StartFailure)}
+				if response.Fatal {
+					failure = fmt.Errorf("%w: request failed", ErrRuntime)
+				}
+				if job.request.Command == "reset" {
+					failure = processError("probe_rejected", ErrRuntime)
+				}
+				if response.Fatal {
+					client.failProcess(failure)
+				}
 				// Upstream exceptions can contain private card names or decks.
 				// Rejected player actions or decks are recoverable, but failed
 				// authoritative queries leave the shared runtime untrustworthy.
 				switch job.request.Command {
 				case "getSnapshot", "getPrompt", "getGameOver":
-					client.kill()
+					client.failProcess(failure)
 				}
-				job.result <- rpcResult{err: fmt.Errorf("%w: request rejected", ErrRuntime)}
+				job.result <- rpcResult{err: failure}
 				continue
 			}
 			job.result <- rpcResult{value: response.Result}
@@ -388,7 +425,13 @@ func (client *Client) kill() {
 func (client *Client) StartGame(ctx context.Context,
 	request StartGameRequest) (SessionHandle, error) {
 	if err := request.validate(); err != nil {
-		return SessionHandle{}, err
+		return SessionHandle{}, startValidationError(request, err)
+	}
+	if request.HasAI() {
+		if !client.supportsAI || client.shared != nil {
+			return SessionHandle{}, errors.New("Forge AI requires a capable dedicated runtime")
+		}
+		client.aiGame.Store(true)
 	}
 	payload, err := json.Marshal(request)
 	if err != nil {
@@ -399,7 +442,7 @@ func (client *Client) StartGame(ctx context.Context,
 		Payload: string(payload),
 	}, false, false)
 	if err != nil {
-		return SessionHandle{}, err
+		return SessionHandle{}, startRequestError(err, request)
 	}
 	var handle SessionHandle
 	if err := json.Unmarshal([]byte(result), &handle); err != nil {
@@ -606,4 +649,31 @@ func (client *Client) Close() error {
 		}
 	})
 	return client.closeErr
+}
+
+// SupportsAI reports the native distribution capability. Shared leases still
+// reject AI start; the coordinator must acquire a dedicated process for it.
+func (client *Client) SupportsAI() bool { return client.supportsAI }
+
+func runtimeSupportsAI(raw string) bool {
+	var metadata struct {
+		Capabilities []string `json:"capabilities"`
+	}
+	if json.Unmarshal([]byte(raw), &metadata) != nil {
+		return false
+	}
+	for _, value := range metadata.Capabilities {
+		if value == "forge-ai-v1" {
+			return true
+		}
+	}
+	return false
+}
+
+// RequestTimeout bounds the whole native boundary, including AI computation.
+func (client *Client) RequestTimeout() time.Duration {
+	if client.aiGame.Load() {
+		return 35 * time.Second
+	}
+	return 5 * time.Second
 }

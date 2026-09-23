@@ -126,6 +126,16 @@ QVariantMap RulesSessionState::cardForInspection(const QString &cardId) const
     return card;
 }
 
+int RulesSessionState::controllingSeat(int seat) const
+{
+    for (int row = 0; row < m_players.rowCount(); ++row) {
+        const QModelIndex index = m_players.index(row);
+        if (m_players.data(index, RulesPlayerModel::SeatRole).toInt() == seat)
+            return m_players.data(index, RulesPlayerModel::ControllingSeatRole).toInt();
+    }
+    return seat;
+}
+
 QVariantMap RulesSessionState::topPublicZoneCard(int ownerSeat, const QString &zone) const
 {
     QVariantMap face;
@@ -215,10 +225,11 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
     cards.reserve(cardArray.size());
     for (const QJsonValue &value : cardArray) {
         const QJsonObject card = value.toObject();
-        RulesPromptCardRow row{card.value(u"id"_s).toString(), card.value(u"name"_s).toString(),
-                               card.value(u"setCode"_s).toString(),
-                               card.value(u"collectorNumber"_s).toString(),
-                               card.value(u"token"_s).toBool()};
+        RulesPromptCardRow row{
+            card.value(u"id"_s).toString(),      card.value(u"name"_s).toString(),
+            card.value(u"setCode"_s).toString(), card.value(u"collectorNumber"_s).toString(),
+            card.value(u"token"_s).toBool(),     card.value(u"selected"_s).toBool(),
+            card.value(u"readOnly"_s).toBool()};
         if (row.id.isEmpty() || cardIds.contains(row.id))
             return false;
         cardIds.insert(row.id);
@@ -308,6 +319,9 @@ bool RulesSessionState::applyPrompt(const QJsonObject &prompt)
         if (row.responseId.isEmpty() || row.kind.isEmpty() || row.label.isEmpty() ||
             targetIds.contains(row.responseId) || !parseTargetSeat(target, row))
             return false;
+        if (target.contains(u"selected"_s) && !target.value(u"selected"_s).isBool())
+            return false;
+        row.nativeSelected = target.value(u"selected"_s).toBool();
         targetIds.insert(row.responseId);
         targets.append(std::move(row));
     }
@@ -556,6 +570,7 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
         const QJsonObject player = value.toObject();
         RulesPlayerRow row;
         row.seat = player.value(u"seat"_s).toInt(-1);
+        row.controllingSeat = player.value(u"controllingSeat"_s).toInt(row.seat);
         row.name = player.value(u"name"_s).toString();
         row.status = player.value(u"status"_s).toString();
         row.life = player.value(u"life"_s).toInt();
@@ -603,6 +618,10 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
             cardRow.ownerSeat = card.value(u"ownerSeat"_s).toInt(-1);
             cardRow.controllerSeat = card.value(u"controllerSeat"_s).toInt(-1);
             cardRow.tapped = card.value(u"tapped"_s).toBool();
+            cardRow.enteredThisTurn =
+                zoneRow.zone == u"battlefield"_s && card.value(u"enteredThisTurn"_s).toBool();
+            cardRow.summoningSick =
+                zoneRow.zone == u"battlefield"_s && card.value(u"summoningSick"_s).toBool();
             cardRow.faceDown = card.value(u"faceDown"_s).toBool();
             cardRow.attacking = card.value(u"attacking"_s).toBool();
             cardRow.power = card.value(u"power"_s).toString();
@@ -612,11 +631,29 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
             cardRow.exiledCardCount = card.value(u"exiledCardCount"_s).toInt();
             for (const QJsonValue &linked : card.value(u"exiledCardIds"_s).toArray())
                 cardRow.exiledCardIds.append(linked.toString());
+            if (cardRow.visible && !cardRow.faceDown) {
+                if (cardRow.zone == u"battlefield"_s) {
+                    for (const QJsonValue &linked : card.value(u"chosenCardIds"_s).toArray())
+                        cardRow.chosenCardIds.append(linked.toString());
+                }
+                for (const QJsonValue &value : card.value(u"annotations"_s).toArray()) {
+                    const QJsonObject annotation = value.toObject();
+                    const QString kind = annotation.value(u"kind"_s).toString();
+                    const QString text = annotation.value(u"value"_s).toString();
+                    const bool allowed = kind == u"dungeonRoom"_s
+                                             ? cardRow.zone == u"command"_s
+                                             : cardRow.zone == u"battlefield"_s;
+                    if (allowed && !kind.isEmpty() && !text.isEmpty())
+                        cardRow.annotations.append(
+                            QVariantMap{{u"kind"_s, kind}, {u"value"_s, text}});
+                }
+            }
             cardRow.counters = parseNamedValues(card.value(u"counters"_s).toArray());
             if (cardRow.zone == u"battlefield"_s) {
                 battlefieldCards.append(std::move(cardRow));
             } else if (cardRow.zone == u"hand"_s || cardRow.zone == u"graveyard"_s ||
-                       cardRow.zone == u"exile"_s || cardRow.zone == u"command"_s) {
+                       cardRow.zone == u"exile"_s || cardRow.zone == u"command"_s ||
+                       (cardRow.zone == u"library"_s && cardRow.visible && !cardRow.faceDown)) {
                 zoneCards.append(std::move(cardRow));
             }
         }
@@ -655,6 +692,21 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
     // alongside the first snapshot of its replacement.
     if (!m_gameId.isEmpty() && (roomId != m_roomId || gameId != m_gameId))
         clear();
+    m_publicReviewCards.clear();
+    const auto appendPublicCards = [this](const QVector<RulesCardRow> &rows) {
+        for (const RulesCardRow &card : rows) {
+            if (card.zone == u"hand"_s || !card.visible || card.faceDown || card.name.isEmpty())
+                continue;
+            m_publicReviewCards.append(QVariantMap{{u"name"_s, card.name},
+                                                   {u"setCode"_s, card.setCode},
+                                                   {u"collectorNumber"_s, card.collectorNumber},
+                                                   {u"token"_s, card.token},
+                                                   {u"seat"_s, card.zoneOwnerSeat},
+                                                   {u"zone"_s, card.zone}});
+        }
+    };
+    appendPublicCards(battlefieldCards);
+    appendPublicCards(zoneCards);
     m_roomId = roomId;
     m_gameId = gameId;
     m_turn = snapshot.value(u"turn"_s).toInt();
@@ -680,6 +732,7 @@ void RulesSessionState::clear()
 {
     m_roomId.clear();
     m_gameId.clear();
+    m_publicReviewCards.clear();
     m_turn = 0;
     m_step.clear();
     m_activeSeat = -1;

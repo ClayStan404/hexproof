@@ -30,6 +30,7 @@ func TestLivePlayerHostMigration(t *testing.T) {
 	for _, mode := range []string{"planned", "loss", "planned_bo3", "loss_reconnect", "restart_during_replay"} {
 		t.Run(mode, func(t *testing.T) {
 			config := DefaultConfig()
+			config.RetentionDir = t.TempDir()
 			config.AllowPlayerHosting, config.MessagesPerSecond = true, 10000
 			config.ReconnectWindow = time.Minute
 			srv, handler := newConfiguredTestServer(t, config)

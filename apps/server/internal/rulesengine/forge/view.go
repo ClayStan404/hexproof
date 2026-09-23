@@ -30,13 +30,14 @@ type GameView struct {
 }
 
 type PlayerView struct {
-	ID         string          `json:"id"`
-	Name       string          `json:"name"`
-	Status     string          `json:"status"`
-	Life       int             `json:"life"`
-	Counters   map[string]int  `json:"counters"`
-	ManaPool   map[string]int  `json:"manaPool"`
-	Commanders []CommanderView `json:"commanders,omitempty"`
+	ControllingPlayerID string          `json:"controllingPlayerId,omitempty"`
+	ID                  string          `json:"id"`
+	Name                string          `json:"name"`
+	Status              string          `json:"status"`
+	Life                int             `json:"life"`
+	Counters            map[string]int  `json:"counters"`
+	ManaPool            map[string]int  `json:"manaPool"`
+	Commanders          []CommanderView `json:"commanders,omitempty"`
 }
 
 // CommanderView contains public designation/history and only viewer-visible links.
@@ -63,21 +64,31 @@ type CardIdentityView struct {
 }
 
 type CardView struct {
-	Visibility      string            `json:"visibility"`
-	ID              string            `json:"id"`
-	Identity        *CardIdentityView `json:"identity,omitempty"`
-	OwnerID         string            `json:"ownerId,omitempty"`
-	ControllerID    string            `json:"controllerId,omitempty"`
-	Tapped          bool              `json:"tapped,omitempty"`
-	FaceDown        bool              `json:"isFaceDown,omitempty"`
-	Attacking       bool              `json:"isAttacking,omitempty"`
-	Power           string            `json:"power,omitempty"`
-	Toughness       string            `json:"toughness,omitempty"`
-	Counters        map[string]int    `json:"counters,omitempty"`
-	Damage          int               `json:"damage,omitempty"`
-	AttachedTo      string            `json:"attachedTo,omitempty"`
-	ExiledCardCount int               `json:"exiledCardCount,omitempty"`
-	ExiledCardIDs   []string          `json:"exiledCardIds,omitempty"`
+	Visibility      string               `json:"visibility"`
+	ID              string               `json:"id"`
+	Identity        *CardIdentityView    `json:"identity,omitempty"`
+	OwnerID         string               `json:"ownerId,omitempty"`
+	ControllerID    string               `json:"controllerId,omitempty"`
+	Tapped          bool                 `json:"tapped,omitempty"`
+	EnteredThisTurn bool                 `json:"enteredThisTurn,omitempty"`
+	SummoningSick   bool                 `json:"summoningSick,omitempty"`
+	FaceDown        bool                 `json:"isFaceDown,omitempty"`
+	Attacking       bool                 `json:"isAttacking,omitempty"`
+	Power           string               `json:"power,omitempty"`
+	Toughness       string               `json:"toughness,omitempty"`
+	Counters        map[string]int       `json:"counters,omitempty"`
+	Damage          int                  `json:"damage,omitempty"`
+	AttachedTo      string               `json:"attachedTo,omitempty"`
+	ExiledCardCount int                  `json:"exiledCardCount,omitempty"`
+	ExiledCardIDs   []string             `json:"exiledCardIds,omitempty"`
+	Annotations     []CardAnnotationView `json:"annotations,omitempty"`
+	ChosenCardIDs   []string             `json:"chosenCardIds,omitempty"`
+}
+
+// CardAnnotationView contains a revealed native choice, never arbitrary remembered objects.
+type CardAnnotationView struct {
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
 }
 
 type StackObjectView struct {
@@ -149,6 +160,13 @@ func (view GameView) validate() error {
 	} {
 		if _, ok := playerIDs[playerID]; !ok {
 			return fmt.Errorf("%s id %q is unknown", label, playerID)
+		}
+	}
+	for _, player := range view.Players {
+		if player.ControllingPlayerID != "" {
+			if _, ok := playerIDs[player.ControllingPlayerID]; !ok {
+				return fmt.Errorf("unknown controlling player %q", player.ControllingPlayerID)
+			}
 		}
 	}
 	if view.WinnerID != "" {

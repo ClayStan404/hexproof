@@ -8,8 +8,10 @@ Item {
     id: root
     required property var tableController
     property real unit: 1
+    property int ownerSeat: tableController.handOwnerSeat
     property var visibleCards: []
     readonly property bool crowded: visibleCards.length > 9
+        || cardWidth + 64 * unit * Math.max(0, visibleCards.length - 1) > width
     readonly property real cardWidth: 132 * unit
     readonly property real faceHeight: cardWidth * 1.394
     readonly property real step: crowded ? 88 * unit : Math.min(103 * unit, (width - cardWidth) / Math.max(1, visibleCards.length - 1))
@@ -23,8 +25,23 @@ Item {
         }
         visibleCards = next
     }
+    function scrollBy(amount) {
+        viewport.cancelFlick()
+        viewport.contentX = Math.max(0, Math.min(viewport.contentWidth - viewport.width,
+                                               viewport.contentX + amount))
+    }
+    function scrollWheel(event) {
+        const pixels = event.pixelDelta.x || event.pixelDelta.y
+        const angle = event.angleDelta.x || event.angleDelta.y
+        scrollBy(-(pixels || angle))
+        event.accepted = true
+    }
     function reveal(card) {
-        if (crowded) viewport.contentX = Math.max(0, Math.min(card.x - 8 * unit, viewport.contentWidth - viewport.width))
+        if (card.x < viewport.contentX)
+            viewport.contentX = Math.max(0, card.x - 8 * unit)
+        else if (card.x + card.width > viewport.contentX + viewport.width)
+            viewport.contentX = Math.min(viewport.contentWidth - viewport.width,
+                                        card.x + card.width + 8 * unit - viewport.width)
     }
     Timer { id: refresh; interval: 0; onTriggered: root.collect() }
     Connections {
@@ -34,8 +51,8 @@ Item {
     Text {
         textFormat: Text.PlainText
         y: -16 * root.unit
-        text: root.tableController.handOwnerSeat < 0 ? qsTr("Hands are hidden from spectators in this room")
-            : root.tableController.canViewSpectatorHands ? qsTr("%1 — hand (read only)").arg(root.tableController.matchUi.playerName(root.tableController.handOwnerSeat))
+        text: root.ownerSeat < 0 ? qsTr("Hands are hidden from spectators in this room")
+            : root.tableController.canViewSpectatorHands ? qsTr("%1 — hand (read only)").arg(root.tableController.matchUi.playerName(root.ownerSeat))
             : qsTr("Hand · %1").arg(root.visibleCards.length)
         color: Theme.textMuted
         font.pixelSize: 10 * root.unit
@@ -55,7 +72,7 @@ Item {
         required property string power
         required property string toughness
         required property string countersSummary
-        readonly property bool matches: zone === "hand" && zoneOwnerSeat === root.tableController.handOwnerSeat
+        readonly property bool matches: zone === "hand" && zoneOwnerSeat === root.ownerSeat
         readonly property int position: root.visibleCards.indexOf(slot)
         readonly property real distance: position - (root.visibleCards.length - 1) / 2
         readonly property bool canPlay: root.tableController.canDragHandCard(cardId)
@@ -121,6 +138,7 @@ Item {
             drag.target: slot.canPlay ? ghost : null
             drag.threshold: 6 * root.unit
             preventStealing: slot.canPlay
+            onWheel: event => root.scrollWheel(event)
             onEntered: root.tableController.previewCard(slot.cardId, slot)
             onExited: root.tableController.endCardPreview(slot)
             onPressed: event => {
@@ -149,14 +167,23 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.HorizontalFlick
-        ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AsNeeded }
-        WheelHandler {
-            onWheel: event => {
-                viewport.contentX = Math.max(0, Math.min(viewport.contentWidth - viewport.width,
-                    viewport.contentX - (event.angleDelta.x || event.angleDelta.y)))
-                event.accepted = true
-            }
+        ScrollBar.horizontal: ScrollBar {
+            objectName: "forgeHandScrollBar"
+            parent: root
+            x: 0
+            y: 6 * root.unit
+            width: root.width
+            height: 10 * root.unit
+            z: 100
+            policy: ScrollBar.AlwaysOn
+            visible: viewport.contentWidth > viewport.width
         }
+        WheelHandler {
+            target: null
+            onWheel: event => root.scrollWheel(event)
+        }
+        onContentWidthChanged: contentX = Math.max(0, Math.min(contentX, contentWidth - width))
+        onWidthChanged: contentX = Math.max(0, Math.min(contentX, contentWidth - width))
         Repeater {
             id: cards
             model: root.tableController.rulesSession.zoneCards

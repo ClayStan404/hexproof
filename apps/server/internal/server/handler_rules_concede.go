@@ -52,7 +52,7 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
 	view, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, playerIndex)
 	cancel()
 	if snapshotErr != nil || view.GameID != game.gameID {

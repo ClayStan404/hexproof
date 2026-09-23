@@ -12,14 +12,14 @@
 #include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
-#include <QSysInfo>
 #include <QTimer>
 
 namespace hexproof::client {
 using namespace Qt::StringLiterals;
 
 ForgeHostService::ForgeHostService(QObject *parent)
-    : QObject(parent)
+    : QObject(parent),
+      m_diagnostics(diagnosticsDirectory())
 {
     connect(&m_process, &QProcess::readyReadStandardOutput, this, &ForgeHostService::readOutput);
     connect(&m_process, &QProcess::readyReadStandardError, this, [this]() {
@@ -27,8 +27,16 @@ ForgeHostService::ForgeHostService(QObject *parent)
         m_process.readAllStandardError();
     });
     connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-        if (!m_stopping)
+        if (!m_stopping) {
             m_state = u"start_failed"_s;
+            const QString code = error == QProcess::FailedToStart ? u"helper_start_failed"_s
+                                 : error == QProcess::Crashed     ? u"helper_crashed"_s
+                                 : error == QProcess::ReadError   ? u"helper_read_failed"_s
+                                 : error == QProcess::WriteError  ? u"helper_write_failed"_s
+                                                                  : u"helper_error"_s;
+            m_diagnostics.diagnostic(
+                {{u"component"_s, u"client"_s}, {u"stage"_s, u"helper"_s}, {u"code"_s, code}});
+        }
         // FailedToStart has no finished signal. Release the operation guard
         // and complete an import recheck even if the helper cannot launch.
         if (error == QProcess::FailedToStart)
@@ -47,6 +55,12 @@ ForgeHostService::ForgeHostService(QObject *parent)
                         m_state != u"cancelled"_s)
                         m_state = u"hosting_failed"_s;
                 }
+                m_diagnostics.diagnostic(
+                    {{u"component"_s, u"helper"_s},
+                     {u"stage"_s, u"helper"_s},
+                     {u"code"_s, exitStatus == QProcess::NormalExit ? u"process_exited"_s
+                                                                    : u"process_signalled"_s},
+                     {u"exitCode"_s, exitCode}});
                 finishOperation(!m_stopping && exitCode == 0 && exitStatus == QProcess::NormalExit);
             });
 }
@@ -59,6 +73,8 @@ ForgeHostService::~ForgeHostService()
         m_process.kill();
         m_process.waitForFinished(1000);
     }
+    m_diagnostics.finish(u"cancelled"_s,
+                         {{u"code"_s, u"cancelled"_s}, {u"exitCode"_s, m_process.exitCode()}});
 }
 
 QString ForgeHostService::helperPath() const
@@ -77,21 +93,41 @@ QString ForgeHostService::runtimeDirectory() const
                                   : QDir(overridePath).absolutePath();
 }
 
+QString ForgeHostService::diagnosticsDirectory() const
+{
+    const QString overridePath = qEnvironmentVariable("HEXPROOF_FORGE_DIAGNOSTICS_DIR");
+    return overridePath.isEmpty()
+               ? QDir(defaultStorageRoot()).absoluteFilePath(u"forge-diagnostics"_s)
+               : QDir(overridePath).absolutePath();
+}
+
 void ForgeHostService::launch(const QStringList &arguments, const QJsonObject &configuration,
                               Operation operation)
 {
     if (busy())
         return;
     m_operation = operation;
+    const QString operationName = operation == Operation::ImportCheck      ? u"import_check"_s
+                                  : arguments.contains(u"--import-pack"_s) ? u"import"_s
+                                  : arguments.contains(u"--check"_s)       ? u"check"_s
+                                  : arguments.contains(u"--prepare"_s)     ? u"prepare"_s
+                                  : arguments.contains(u"--clear-cache"_s) ? u"cleanup"_s
+                                                                           : u"host"_s;
+    m_diagnostics.begin(operationName,
+                        operation == Operation::ImportCheck ? m_importOperationId : QString{});
     m_output.clear();
     m_stopping = false;
     m_progress = 0;
     if (!QFileInfo(helperPath()).isExecutable()) {
         m_state = u"helper_missing"_s;
+        m_diagnostics.diagnostic({{u"component"_s, u"client"_s},
+                                  {u"stage"_s, u"helper"_s},
+                                  {u"code"_s, u"helper_missing"_s}});
         finishOperation(false);
         return;
     }
     m_state = u"verifying"_s;
+    m_diagnostics.state(m_state);
     QStringList options{u"--runtime-dir"_s, runtimeDirectory(), u"--parent-pipe"_s};
     options.append(arguments);
     m_process.setProgram(helperPath());
@@ -106,6 +142,11 @@ void ForgeHostService::launch(const QStringList &arguments, const QJsonObject &c
 void ForgeHostService::finishOperation(bool succeeded)
 {
     const Operation operation = m_operation;
+    const QString operationId = m_diagnostics.operationId();
+    m_diagnostics.finish(m_stopping  ? u"cancelled"_s
+                         : succeeded ? u"succeeded"_s
+                                     : u"failed"_s,
+                         {{u"state"_s, m_state}});
     m_operation = Operation::None;
     m_hosting = false;
     m_stopping = false;
@@ -113,6 +154,7 @@ void ForgeHostService::finishOperation(bool succeeded)
         // A failed import may leave a valid older installation untouched.
         // Verify it, rather than trusting the readiness remembered before import.
         m_importResult = m_state;
+        m_importOperationId = operationId;
         m_ready = false;
         m_operation = Operation::ImportCheck;
         // Keep busy across the handoff and leave the old QProcess callback
@@ -129,6 +171,7 @@ void ForgeHostService::finishOperation(bool succeeded)
         m_ready = succeeded && m_state == u"ready"_s;
         m_state = m_importResult;
         m_importResult.clear();
+        m_importOperationId.clear();
     }
     emit changed();
 }
@@ -156,6 +199,11 @@ void ForgeHostService::importPack(const QUrl &source)
         return;
     if (!source.isLocalFile() || !QFileInfo(source.toLocalFile()).isFile()) {
         m_state = u"import_failed"_s;
+        m_diagnostics.begin(u"import"_s);
+        m_diagnostics.diagnostic({{u"component"_s, u"client"_s},
+                                  {u"stage"_s, u"import"_s},
+                                  {u"code"_s, u"import_source_invalid"_s}});
+        m_diagnostics.finish(u"failed"_s, {{u"state"_s, m_state}});
         emit changed();
         return;
     }
@@ -197,19 +245,19 @@ bool ForgeHostService::exportDiagnostics(const QUrl &destination) const
         return false;
     // Deliberate allowlist: never serialize grants, URLs, paths, user names,
     // engine publications, decks, or the helper's raw stdout/stderr.
-    const QJsonObject report{{u"schemaVersion"_s, 1},
-                             {u"applicationVersion"_s, QCoreApplication::applicationVersion()},
-                             {u"helperVersion"_s, m_helperVersion},
-                             {u"runtimeId"_s, m_runtimeId},
-                             {u"operatingSystem"_s, QSysInfo::productType()},
-                             {u"architecture"_s, QSysInfo::currentCpuArchitecture()},
-                             {u"ready"_s, ready()},
-                             {u"hosting"_s, hosting()},
-                             {u"state"_s, m_state},
-                             {u"recentStates"_s, QJsonArray::fromStringList(m_recentStates)},
-                             {u"transport"_s, m_transportState},
-                             {u"directDecisions"_s, m_directDecisions},
-                             {u"relayFallbacks"_s, m_transportFallbacks}};
+    QJsonObject report = m_diagnostics.report(runtimeDirectory());
+    report.insert(u"schemaVersion"_s, 2);
+    report.insert(u"applicationVersion"_s,
+                  ForgeHostDiagnostics::safeVersion(QCoreApplication::applicationVersion()));
+    report.insert(u"helperVersion"_s, ForgeHostDiagnostics::safeVersion(m_helperVersion));
+    report.insert(u"runtimeId"_s, ForgeHostDiagnostics::safeRuntimeId(m_runtimeId));
+    report.insert(u"ready"_s, ready());
+    report.insert(u"hosting"_s, hosting());
+    report.insert(u"state"_s, ForgeHostDiagnostics::safeState(m_state));
+    report.insert(u"recentStates"_s, QJsonArray::fromStringList(m_recentStates));
+    report.insert(u"transport"_s, m_transportState);
+    report.insert(u"directDecisions"_s, m_directDecisions);
+    report.insert(u"relayFallbacks"_s, m_transportFallbacks);
     QSaveFile file(destination.toLocalFile());
     const QByteArray data = QJsonDocument(report).toJson();
     return file.open(QIODevice::WriteOnly) && file.write(data) == data.size() && file.commit();
@@ -259,9 +307,10 @@ void ForgeHostService::cancel()
 
 void ForgeHostService::stop()
 {
-    if (!busy())
+    if (!busy() || m_stopping)
         return;
     m_stopping = true;
+    m_diagnostics.diagnostic({{u"component"_s, u"client"_s}, {u"code"_s, u"cancelled"_s}});
     if (m_process.state() == QProcess::NotRunning) {
         // A queued import recheck observes cancellation before it launches.
         emit changed();
@@ -281,6 +330,9 @@ void ForgeHostService::readOutput()
 {
     m_output += m_process.readAllStandardOutput();
     if (m_output.size() > 8 * 1024 * 1024) {
+        m_diagnostics.diagnostic(
+            {{u"component"_s, u"client"_s}, {u"code"_s, u"helper_output_limit"_s}});
+        m_output.clear();
         stop();
         return;
     }
@@ -295,9 +347,24 @@ void ForgeHostService::readOutput()
             emit peerReply(event.value(u"peerReply"_s).toObject());
             continue;
         }
-        m_state = event.value(u"state"_s).toString();
-        m_runtimeId = event.value(u"runtimeId"_s).toString();
-        m_helperVersion = event.value(u"version"_s).toString();
+        if (event.contains(u"diagnostic"_s)) {
+            m_diagnostics.diagnostic(event.value(u"diagnostic"_s).toObject());
+            continue;
+        }
+        const QString state = ForgeHostDiagnostics::safeState(event.value(u"state"_s).toString());
+        if (state.isEmpty())
+            continue;
+        m_state = state;
+        const auto runtimeId =
+            ForgeHostDiagnostics::safeRuntimeId(event.value(u"runtimeId"_s).toString());
+        const auto version =
+            ForgeHostDiagnostics::safeVersion(event.value(u"version"_s).toString());
+        if (!runtimeId.isEmpty())
+            m_runtimeId = runtimeId;
+        if (!version.isEmpty())
+            m_helperVersion = version;
+        m_diagnostics.setVersions(version, runtimeId);
+        m_diagnostics.state(m_state, event);
         if (m_recentStates.isEmpty() || m_recentStates.last() != m_state) {
             m_recentStates.append(m_state);
             if (m_recentStates.size() > 32)

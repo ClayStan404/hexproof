@@ -49,7 +49,7 @@ func (h *Handler) handleForgePeerRequest(sess *Session, env protocol.Envelope) e
 	defer entry.opMu.Unlock()
 	entry.mu.Lock()
 	seat := r.FindSeatByConnection(sess.ConnectionID)
-	allowed := seat >= 0 && seat < 2 && r.HostingMode == protocol.HostingModePlayer && !r.Disbanded
+	allowed := seat >= 0 && seat < 2 && r.HostingMode == protocol.HostingModePlayer && !r.HasAI() && !r.Disbanded
 	entry.mu.Unlock()
 	if !allowed {
 		h.sendError(sess, env.ID, protocol.ErrNotPlayer, "direct transport requires a player-hosted seat")
@@ -122,7 +122,7 @@ func (h *Handler) sendPeerStatus(r *room.Room, sess *Session, id string) {
 	if seat < 0 {
 		return
 	}
-	status := protocol.ForgePeerStatus{RoomID: r.ID, Available: h.config.AllowPlayerHosting}
+	status := protocol.ForgePeerStatus{RoomID: r.ID, Available: h.config.AllowPlayerHosting && !r.HasAI()}
 	h.forgeMu.Lock()
 	if state := h.playerPeers[r.ID]; state != nil {
 		if state.binding != nil {

@@ -49,7 +49,7 @@ void CardCatalog::finishCatalogOperation(const ImportResult &result)
                m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter, m_lastManaFilter);
     }
     if (m_tokenSearchRequested)
-        searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind);
+        searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind, m_lastTokenSearchSets);
     restartCardFaceExpansion();
     restartLimitedArtFaceExpansion();
     scheduleResolutionWork();

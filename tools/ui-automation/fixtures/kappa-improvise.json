@@ -1,0 +1,99 @@
+{
+  "name": "Kappa improvise interaction regression",
+  "format": "modern",
+  "deckFormat": "modern",
+  "source": "Synthetic 60-card regression fixture; not a tournament deck or full-match evaluation",
+  "mainboard": [
+    {
+      "name": "Island",
+      "setCode": "C15",
+      "collectorNumber": "327",
+      "typeLine": "Basic Land \u2014 Island",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "count": 24
+    },
+    {
+      "name": "Kappa Cannoneer",
+      "setCode": "MH3",
+      "collectorNumber": "270",
+      "typeLine": "Artifact Creature \u2014 Turtle Warrior",
+      "manaCost": "{5}{U}",
+      "manaValue": 6.0,
+      "count": 4
+    },
+    {
+      "name": "Ornithopter",
+      "setCode": "M10",
+      "collectorNumber": "216",
+      "typeLine": "Artifact Creature \u2014 Thopter",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Memnite",
+      "setCode": "SOM",
+      "collectorNumber": "174",
+      "typeLine": "Artifact Creature \u2014 Construct",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Bone Saw",
+      "setCode": "CON",
+      "collectorNumber": "135",
+      "typeLine": "Artifact \u2014 Equipment",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Accorder's Shield",
+      "setCode": "SOM",
+      "collectorNumber": "136",
+      "typeLine": "Artifact \u2014 Equipment",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Welding Jar",
+      "setCode": "MRD",
+      "collectorNumber": "274",
+      "typeLine": "Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Tormod's Crypt",
+      "setCode": "M15",
+      "collectorNumber": "237",
+      "typeLine": "Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Paradise Mantle",
+      "setCode": "5DN",
+      "collectorNumber": "142",
+      "typeLine": "Artifact \u2014 Equipment",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    },
+    {
+      "name": "Spellbook",
+      "setCode": "M10",
+      "collectorNumber": "220",
+      "typeLine": "Artifact \u2014 Book",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "count": 4
+    }
+  ],
+  "sideboard": []
+}

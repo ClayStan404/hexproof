@@ -89,3 +89,39 @@ func distinctBasicPrintings(count int) []protocol.LimitedBasicLand {
 	}
 	return result
 }
+
+func TestPrintedVirtualBasicsStayDistinctFromPhysicalPoolCards(t *testing.T) {
+	event, err := New(Config{
+		TournamentID: "printed-basics", EventType: protocol.LimitedEventSetSealed,
+		Product: testProduct(15, 60), Participants: testParticipants(2),
+	}, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	physical := event.Player("p-1").Pool[0]
+	physical.Name, physical.SetCode, physical.CollectorNumber, physical.TypeLine = "Island", "TST", "99", "Basic Land"
+	basics := []protocol.LimitedBasicLand{{Name: "Island", Count: 39, SetCode: "TST", CollectorNumber: "99"}}
+	deck, err := event.SubmitDeck("p-1", protocol.LimitedSubmitDeck{
+		Name: "Matching art", MainboardInstanceIDs: []string{physical.ID}, BasicLands: basics,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deck.Mainboard) != 2 {
+		t.Fatalf("physical and virtual cards were merged: %#v", deck.Mainboard)
+	}
+	for _, card := range deck.Mainboard {
+		if card.SetCode != "TST" || card.CollectorNumber != "99" || card.Name != "Island" {
+			t.Fatal("the chosen basic land printing was lost")
+		}
+		if card.VirtualBasic && card.Count != 39 || !card.VirtualBasic && card.Count != 1 {
+			t.Fatal("virtual supply ownership was not preserved")
+		}
+	}
+	if !reflect.DeepEqual(event.Snapshot("p-1").BasicLands, basics) {
+		t.Fatal("rejoining lost the owner's basic land printing")
+	}
+	if len(event.Snapshot("p-2").BasicLands) != 0 {
+		t.Fatal("another player received the owner's basic land choices")
+	}
+}

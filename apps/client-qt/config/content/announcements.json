@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "display": {
+    "mode": "recent",
+    "recentDays": 90,
+    "selectedIds": []
+  },
+  "announcements": []
+}

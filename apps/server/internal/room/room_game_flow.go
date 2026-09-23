@@ -516,7 +516,7 @@ func (r *Room) ReturnToRoom(connID string) (Result, error) {
 			deck := cloneDeck(*r.Seats[index].RegisteredDeck)
 			r.Seats[index].Deck = &deck
 		}
-		r.Seats[index].Ready = false
+		r.Seats[index].Ready = r.Seats[index].Controller != "" && r.Seats[index].Deck != nil
 		r.Seats[index].Loaded = false
 	}
 

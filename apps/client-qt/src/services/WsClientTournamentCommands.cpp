@@ -30,12 +30,14 @@ QString WsClient::sendTournamentChat(const QString &text)
 }
 
 void WsClient::createTournament(const QString &name, const QString &format,
-                                const QString &matchMode, int roundMinutes, int maxPlayers)
+                                const QString &matchMode, int roundMinutes, int maxPlayers,
+                                const QString &rulesMode)
 {
     QJsonObject payload{
         {u"name"_s, name},
         {u"format"_s, format},
         {u"matchMode"_s, matchMode},
+        {u"rulesMode"_s, rulesMode},
         {u"roundMinutes"_s, roundMinutes},
         {u"maxPlayers"_s, maxPlayers},
     };
@@ -44,13 +46,14 @@ void WsClient::createTournament(const QString &name, const QString &format,
 
 void WsClient::createLimitedTournament(const QString &name, const QString &eventType,
                                        const QString &matchMode, int roundMinutes, int maxPlayers,
-                                       const QVariantMap &product)
+                                       const QVariantMap &product, const QString &rulesMode)
 {
     QJsonObject payload{
         {u"name"_s, name},
         {u"format"_s, eventType == kLimitedEventCubeDraft ? u"Cube"_s : u"Limited"_s},
         {u"eventType"_s, eventType},
         {u"matchMode"_s, matchMode},
+        {u"rulesMode"_s, rulesMode},
         {u"roundMinutes"_s, roundMinutes},
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},
@@ -61,7 +64,7 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
 void WsClient::createCasualLimitedEvent(const QString &name, const QString &eventType,
                                         const QString &matchMode, int maxPlayers,
                                         const QVariantMap &product,
-                                        const QVariantMap &draftSettings)
+                                        const QVariantMap &draftSettings, const QString &rulesMode)
 {
     QJsonObject payload{
         {u"name"_s, name},
@@ -69,6 +72,7 @@ void WsClient::createCasualLimitedEvent(const QString &name, const QString &even
         {u"eventType"_s, eventType},
         {u"coordinator"_s, kLimitedCoordinatorCasual},
         {u"matchMode"_s, matchMode},
+        {u"rulesMode"_s, rulesMode},
         {u"roundMinutes"_s, 50},
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},

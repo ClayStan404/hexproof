@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <limits>
 #include <memory>
 #include <thread>
 
@@ -1735,6 +1736,283 @@ void TestDeckLibrary::ignoresRemovedThemePreferences() const
     }
 }
 
+void TestDeckLibrary::storesAudioPreferencesAndPreservesMutedVolume() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        QVERIFY(model.audioEnabled());
+        QCOMPARE(model.audioVolume(), 0.35);
+        QSignalSpy enabledSpy(&model, &ClientPreferencesModel::audioEnabledChanged);
+        QSignalSpy volumeSpy(&model, &ClientPreferencesModel::audioVolumeChanged);
+        model.setAudioVolume(0.62);
+        model.setAudioEnabled(false);
+        model.setAudioEnabled(false);
+        model.setAudioVolume(0.62);
+        QCOMPARE(enabledSpy.count(), 1);
+        QCOMPARE(volumeSpy.count(), 1);
+        QCOMPARE(model.audioVolume(), 0.62);
+    }
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(!restored.audioEnabled());
+    QCOMPARE(restored.audioVolume(), 0.62);
+    restored.setAudioEnabled(true);
+    QCOMPARE(ClientPreferencesModel(storage.path()).audioVolume(), 0.62);
+    QVERIFY(ClientPreferencesModel(storage.path()).audioEnabled());
+}
+
+void TestDeckLibrary::validatesAudioPreferences_data() const
+{
+    QTest::addColumn<QJsonObject>("settings");
+    QTest::addColumn<bool>("enabled");
+    QTest::addColumn<qreal>("volume");
+    QTest::newRow("legacy") << QJsonObject{{u"version"_s, 13}, {u"uiLanguage"_s, u"zh"_s}} << true
+                            << 0.35;
+    QTest::newRow("wrong-types") << QJsonObject{{u"audioEnabled"_s, u"false"_s},
+                                                {u"audioVolume"_s, u"0.8"_s}}
+                                 << true << 0.35;
+    QTest::newRow("null") << QJsonObject{{u"audioEnabled"_s, QJsonValue::Null},
+                                         {u"audioVolume"_s, QJsonValue::Null}}
+                          << true << 0.35;
+    QTest::newRow("wrong-numeric-types")
+        << QJsonObject{{u"audioEnabled"_s, 0}, {u"audioVolume"_s, false}} << true << 0.35;
+    QTest::newRow("muted-zero") << QJsonObject{{u"audioEnabled"_s, false}, {u"audioVolume"_s, 0}}
+                                << false << 0.0;
+    QTest::newRow("negative") << QJsonObject{{u"audioVolume"_s, -20}} << true << 0.0;
+    QTest::newRow("excessive") << QJsonObject{{u"audioVolume"_s, 20}} << true << 1.0;
+    QTest::newRow("fraction") << QJsonObject{{u"audioVolume"_s, 0.73}} << true << 0.73;
+}
+
+void TestDeckLibrary::validatesAudioPreferences() const
+{
+    QFETCH(QJsonObject, settings);
+    QFETCH(bool, enabled);
+    QFETCH(qreal, volume);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    settings.insert(u"uiLanguage"_s, u"zh"_s);
+    QFile file(storage.filePath(u"settings.json"_s));
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QVERIFY(file.write(QJsonDocument(settings).toJson()) > 0);
+    file.close();
+    ClientPreferencesModel model(storage.path());
+    QCOMPARE(model.audioEnabled(), enabled);
+    QCOMPARE(model.audioVolume(), volume);
+    QCOMPARE(model.uiLanguage(), u"zh"_s);
+}
+
+void TestDeckLibrary::clampsAudioVolumeAndIgnoresNonFiniteValues() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    model.setAudioVolume(4.0);
+    QCOMPARE(model.audioVolume(), 1.0);
+    model.setAudioVolume(-4.0);
+    QCOMPARE(model.audioVolume(), 0.0);
+    model.setAudioVolume(0.28);
+    QSignalSpy volumeSpy(&model, &ClientPreferencesModel::audioVolumeChanged);
+    model.setAudioVolume(std::numeric_limits<qreal>::quiet_NaN());
+    model.setAudioVolume(std::numeric_limits<qreal>::infinity());
+    model.setAudioVolume(-std::numeric_limits<qreal>::infinity());
+    QCOMPARE(model.audioVolume(), 0.28);
+    QCOMPARE(volumeSpy.count(), 0);
+    QCOMPARE(ClientPreferencesModel(storage.path()).audioVolume(), 0.28);
+}
+
+void TestDeckLibrary::rollsBackAudioPreferencesWhenSavingFails() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    QVERIFY(QDir(storage.path()).mkdir(u"settings.json"_s));
+    QSignalSpy enabledSpy(&model, &ClientPreferencesModel::audioEnabledChanged);
+    QSignalSpy volumeSpy(&model, &ClientPreferencesModel::audioVolumeChanged);
+    model.setAudioEnabled(false);
+    model.setAudioVolume(0.8);
+    QVERIFY(model.audioEnabled());
+    QCOMPARE(model.audioVolume(), 0.35);
+    QCOMPARE(enabledSpy.count(), 0);
+    QCOMPARE(volumeSpy.count(), 0);
+    QVERIFY(!model.lastError().isEmpty());
+    QVERIFY(QDir(storage.path()).rmdir(u"settings.json"_s));
+    model.setAudioEnabled(false);
+    model.setAudioVolume(0.8);
+    QVERIFY(model.lastError().isEmpty());
+    QCOMPARE(enabledSpy.count(), 1);
+    QCOMPARE(volumeSpy.count(), 1);
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(!restored.audioEnabled());
+    QCOMPARE(restored.audioVolume(), 0.8);
+}
+
+void TestDeckLibrary::storesMusicPreferencesIndependentlyOfSoundEffects() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        QVERIFY(model.musicEnabled());
+        QCOMPARE(model.musicVolume(), 0.20);
+        QCOMPARE(model.musicTrack(), u"gitana"_s);
+        model.setAudioVolume(0.62);
+        model.setAudioEnabled(false);
+        QVERIFY(model.musicEnabled());
+        QCOMPARE(model.musicVolume(), 0.20);
+        QSignalSpy enabledSpy(&model, &ClientPreferencesModel::musicEnabledChanged);
+        QSignalSpy volumeSpy(&model, &ClientPreferencesModel::musicVolumeChanged);
+        QSignalSpy trackSpy(&model, &ClientPreferencesModel::musicTrackChanged);
+        model.setMusicVolume(0.28);
+        model.setMusicEnabled(false);
+        model.setMusicTrack(u"another-track"_s);
+        model.setMusicVolume(0.28);
+        model.setMusicEnabled(false);
+        model.setMusicTrack(u"another-track"_s);
+        QCOMPARE(enabledSpy.count(), 1);
+        QCOMPARE(volumeSpy.count(), 1);
+        QCOMPARE(trackSpy.count(), 1);
+        QCOMPARE(model.audioVolume(), 0.62);
+        QVERIFY(!model.audioEnabled());
+    }
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(!restored.musicEnabled());
+    QCOMPARE(restored.musicVolume(), 0.28);
+    QCOMPARE(restored.musicTrack(), u"another-track"_s);
+    restored.setMusicEnabled(true);
+    const ClientPreferencesModel enabled(storage.path());
+    QVERIFY(enabled.musicEnabled());
+    QCOMPARE(enabled.musicVolume(), 0.28);
+    QCOMPARE(enabled.musicTrack(), u"another-track"_s);
+    QCOMPARE(enabled.audioVolume(), 0.62);
+    QVERIFY(!enabled.audioEnabled());
+}
+
+void TestDeckLibrary::validatesMusicPreferences_data() const
+{
+    QTest::addColumn<QJsonObject>("settings");
+    QTest::addColumn<bool>("enabled");
+    QTest::addColumn<qreal>("volume");
+    QTest::addColumn<QString>("track");
+    QTest::newRow("legacy") << QJsonObject{{u"version"_s, 13}} << true << 0.20 << u"gitana"_s;
+    QTest::newRow("wrong-types") << QJsonObject{{u"musicEnabled"_s, u"false"_s},
+                                                {u"musicVolume"_s, u"0.8"_s},
+                                                {u"musicTrack"_s, 42}}
+                                 << true << 0.20 << u"gitana"_s;
+    QTest::newRow("null") << QJsonObject{{u"musicEnabled"_s, QJsonValue::Null},
+                                         {u"musicVolume"_s, QJsonValue::Null},
+                                         {u"musicTrack"_s, QJsonValue::Null}}
+                          << true << 0.20 << u"gitana"_s;
+    QTest::newRow("wrong-numeric-types")
+        << QJsonObject{{u"musicEnabled"_s, 0}, {u"musicVolume"_s, false}} << true << 0.20
+        << u"gitana"_s;
+    QTest::newRow("muted-zero") << QJsonObject{{u"musicEnabled"_s, false}, {u"musicVolume"_s, 0}}
+                                << false << 0.0 << u"gitana"_s;
+    QTest::newRow("negative") << QJsonObject{{u"musicVolume"_s, -20}} << true << 0.0 << u"gitana"_s;
+    QTest::newRow("excessive") << QJsonObject{{u"musicVolume"_s, 20}} << true << 1.0 << u"gitana"_s;
+    QTest::newRow("fraction") << QJsonObject{{u"musicVolume"_s, 0.73}} << true << 0.73
+                              << u"gitana"_s;
+    QTest::newRow("track-normalized") << QJsonObject{{u"musicTrack"_s, u" Another_Track-2 "_s}}
+                                      << true << 0.20 << u"another_track-2"_s;
+    QTest::newRow("track-empty") << QJsonObject{{u"musicTrack"_s, u" "_s}} << true << 0.20
+                                 << u"gitana"_s;
+    QTest::newRow("track-path") << QJsonObject{{u"musicTrack"_s, u"../music.mp3"_s}} << true << 0.20
+                                << u"gitana"_s;
+    QTest::newRow("track-overlong")
+        << QJsonObject{{u"musicTrack"_s, QString(81, u'a')}} << true << 0.20 << u"gitana"_s;
+}
+
+void TestDeckLibrary::validatesMusicPreferences() const
+{
+    QFETCH(QJsonObject, settings);
+    QFETCH(bool, enabled);
+    QFETCH(qreal, volume);
+    QFETCH(QString, track);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    settings.insert(u"audioEnabled"_s, false);
+    settings.insert(u"audioVolume"_s, 0.63);
+    QFile file(storage.filePath(u"settings.json"_s));
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QVERIFY(file.write(QJsonDocument(settings).toJson()) > 0);
+    file.close();
+    const ClientPreferencesModel model(storage.path());
+    QCOMPARE(model.musicEnabled(), enabled);
+    QCOMPARE(model.musicVolume(), volume);
+    QCOMPARE(model.musicTrack(), track);
+    QVERIFY(!model.audioEnabled());
+    QCOMPARE(model.audioVolume(), 0.63);
+}
+
+void TestDeckLibrary::clampsMusicVolumeAndIgnoresNonFiniteValues() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    model.setMusicVolume(4.0);
+    QCOMPARE(model.musicVolume(), 1.0);
+    model.setMusicVolume(-4.0);
+    QCOMPARE(model.musicVolume(), 0.0);
+    model.setMusicVolume(0.28);
+    QSignalSpy volumeSpy(&model, &ClientPreferencesModel::musicVolumeChanged);
+    model.setMusicVolume(std::numeric_limits<qreal>::quiet_NaN());
+    model.setMusicVolume(std::numeric_limits<qreal>::infinity());
+    model.setMusicVolume(-std::numeric_limits<qreal>::infinity());
+    QCOMPARE(model.musicVolume(), 0.28);
+    QCOMPARE(volumeSpy.count(), 0);
+    QCOMPARE(ClientPreferencesModel(storage.path()).musicVolume(), 0.28);
+    QCOMPARE(model.audioVolume(), 0.35);
+}
+
+void TestDeckLibrary::normalizesMusicTrackSelection() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    model.setMusicTrack(u" Another_Track-2 "_s);
+    QCOMPARE(model.musicTrack(), u"another_track-2"_s);
+    QCOMPARE(ClientPreferencesModel(storage.path()).musicTrack(), u"another_track-2"_s);
+    model.setMusicTrack(u"../../music.mp3"_s);
+    QCOMPARE(model.musicTrack(), u"gitana"_s);
+    model.setMusicTrack(QString(80, u'a'));
+    QCOMPARE(model.musicTrack(), QString(80, u'a'));
+    model.setMusicTrack(QString(81, u'a'));
+    QCOMPARE(ClientPreferencesModel(storage.path()).musicTrack(), u"gitana"_s);
+}
+
+void TestDeckLibrary::rollsBackMusicPreferencesWhenSavingFails() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    QVERIFY(QDir(storage.path()).mkdir(u"settings.json"_s));
+    QSignalSpy enabledSpy(&model, &ClientPreferencesModel::musicEnabledChanged);
+    QSignalSpy volumeSpy(&model, &ClientPreferencesModel::musicVolumeChanged);
+    QSignalSpy trackSpy(&model, &ClientPreferencesModel::musicTrackChanged);
+    model.setMusicEnabled(false);
+    model.setMusicVolume(0.8);
+    model.setMusicTrack(u"another-track"_s);
+    QVERIFY(model.musicEnabled());
+    QCOMPARE(model.musicVolume(), 0.20);
+    QCOMPARE(model.musicTrack(), u"gitana"_s);
+    QCOMPARE(enabledSpy.count(), 0);
+    QCOMPARE(volumeSpy.count(), 0);
+    QCOMPARE(trackSpy.count(), 0);
+    QVERIFY(!model.lastError().isEmpty());
+    QVERIFY(QDir(storage.path()).rmdir(u"settings.json"_s));
+    model.setMusicEnabled(false);
+    model.setMusicVolume(0.8);
+    model.setMusicTrack(u"another-track"_s);
+    QVERIFY(model.lastError().isEmpty());
+    QCOMPARE(enabledSpy.count(), 1);
+    QCOMPARE(volumeSpy.count(), 1);
+    QCOMPARE(trackSpy.count(), 1);
+    const ClientPreferencesModel restored(storage.path());
+    QVERIFY(!restored.musicEnabled());
+    QCOMPARE(restored.musicVolume(), 0.8);
+    QCOMPARE(restored.musicTrack(), u"another-track"_s);
+}
+
 void TestDeckLibrary::storesUiThemePreference() const
 {
     QTemporaryDir storage;
@@ -2062,4 +2340,60 @@ void TestDeckLibrary::buildsPrivateMatchDeckPayload() const
     QCOMPARE(card.value(u"typeLine"_s).toString(), u"Instant"_s);
     QVERIFY(!card.contains(u"imageSource"_s));
     QVERIFY(!card.contains(u"localizedName"_s));
+}
+
+void TestDeckLibrary::storesGameplayPreferences() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    QVERIFY(!model.forgeFullControl());
+    QVERIFY(model.forgePhaseStops().isEmpty());
+    QVERIFY(model.directPeerEnabled());
+    model.setForgeFullControl(true);
+    model.toggleForgePhaseStop(u"upkeep"_s, true);
+    model.toggleForgePhaseStop(u"end"_s, false);
+    model.setDirectPeerEnabled(false);
+    ClientPreferencesModel restored(storage.path());
+    QVERIFY(restored.forgeFullControl());
+    QCOMPARE(restored.forgePhaseStops(),
+             (QVariantMap{{u"own:upkeep"_s, true}, {u"other:end"_s, true}}));
+    QVERIFY(!restored.directPeerEnabled());
+    restored.toggleForgePhaseStop(u"upkeep"_s, true);
+    restored.toggleForgePhaseStop(u"untap"_s, true);
+    restored.toggleForgePhaseStop(u"invalid"_s, false);
+    QCOMPARE(ClientPreferencesModel(storage.path()).forgePhaseStops(),
+             (QVariantMap{{u"other:end"_s, true}}));
+}
+
+void TestDeckLibrary::validatesGameplayPreferences() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QFile file(storage.filePath(u"settings.json"_s));
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QVERIFY(file.write(R"({"version":13,"forgeFullControl":"true","directPeerEnabled":0,
+        "forgePhaseStops":{"own:upkeep":true,"other:end":true,"own:untap":true,
+        "own:draw":1,"own:main1":"true","other:main1":false,"unknown":true}})") > 0);
+    file.close();
+    ClientPreferencesModel model(storage.path());
+    QVERIFY(!model.forgeFullControl());
+    QVERIFY(model.directPeerEnabled());
+    QCOMPARE(model.forgePhaseStops(),
+             (QVariantMap{{u"own:upkeep"_s, true}, {u"other:end"_s, true}}));
+}
+
+void TestDeckLibrary::rollsBackGameplayPreferencesWhenSavingFails() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    ClientPreferencesModel model(storage.path());
+    QVERIFY(QDir(storage.path()).mkdir(u"settings.json"_s));
+    model.setForgeFullControl(true);
+    model.toggleForgePhaseStop(u"upkeep"_s, true);
+    model.setDirectPeerEnabled(false);
+    QVERIFY(!model.forgeFullControl());
+    QVERIFY(model.forgePhaseStops().isEmpty());
+    QVERIFY(model.directPeerEnabled());
+    QVERIFY(!model.lastError().isEmpty());
 }

@@ -20,6 +20,7 @@ class GameTableModel : public QAbstractListModel
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(bool hasSnapshot READ hasSnapshot NOTIFY hasSnapshotChanged)
     Q_PROPERTY(QVariantList seats READ seats NOTIFY seatsChanged)
+    Q_PROPERTY(QVariantList publicReviewCards READ publicReviewCards NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList arrows READ arrows NOTIFY arrowsChanged)
     Q_PROPERTY(QVariantList attachments READ attachments NOTIFY attachmentsChanged)
     Q_PROPERTY(QVariantList commanders READ commanders NOTIFY commandersChanged)
@@ -66,6 +67,7 @@ class GameTableModel : public QAbstractListModel
 
     bool hasSnapshot() const;
     QVariantList seats() const;
+    QVariantList publicReviewCards() const;
     QVariantList stackCards() const;
     QVariantList revealedCards() const;
     QVariantList arrows() const;

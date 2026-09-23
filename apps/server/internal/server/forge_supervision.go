@@ -71,6 +71,7 @@ func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame) {
 	}
 	delete(h.forgeGames, r.ID)
 	h.forgeMu.Unlock()
+	h.pauseModelWorker(r.ID, "engine_unavailable", false)
 	reset := false
 	result, err := h.hub.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
 		if locked.Phase != protocol.RoomPhaseStarted || locked.Game != nil {

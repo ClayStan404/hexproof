@@ -86,10 +86,18 @@ QVariantMap WsClient::peerTransportMetrics() const
             {u"p95Ms"_s, ordered.isEmpty() ? 0 : ordered[(ordered.size() - 1) * 95 / 100]}};
 }
 
+void WsClient::setDirectPeerPreferred(bool enabled)
+{
+    m_directPeerPreferred = enabled;
+    if (enabled != m_peerConsent)
+        setDirectPeerEnabled(enabled);
+}
+
 void WsClient::setDirectPeerEnabled(bool enabled, bool retry)
 {
     if (!m_peerTransportAvailable || !inRoom() || m_roomSession->role() != kRolePlayer ||
-        m_roomSession->hostingMode() != kHostingModePlayer)
+        m_roomSession->hostingMode() != kHostingModePlayer || m_roomSession->seatIndex() < 0 ||
+        m_roomSession->seatIndex() > 1 || !m_roomSession->aiSource().isEmpty())
         return;
     m_peerConsent = enabled;
     if (!enabled) {

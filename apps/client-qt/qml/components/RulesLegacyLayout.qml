@@ -50,6 +50,7 @@ RowLayout {
                     objectName: "rulesSideboardPanel"
                     enabled: root.tableController.roomConnected
                     wsModel: root.tableController.wsModel
+                    rulesSession: root.tableController.rulesSession
                     gameTableModel: root.tableController.gameTableModel
                     tableModel: root.tableController.sideboardTableModel
                     cardCatalogModel: root.tableController.cardCatalogModel

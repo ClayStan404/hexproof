@@ -20,6 +20,7 @@ import (
 
 	"hexproof/server/internal/buildinfo"
 	"hexproof/server/internal/forgehost"
+	"hexproof/server/internal/homenode"
 	"hexproof/server/internal/peerlink"
 	"hexproof/server/internal/rulesengine/forge"
 	"hexproof/server/internal/runtimepkg"
@@ -38,6 +39,7 @@ func emit(state string, received, total int64) {
 func main() { os.Exit(run()) }
 func run() int {
 	peerMode := flag.Bool("peer", false, "run the transport-only peer helper without Java")
+	homeMode := flag.Bool("home-connect", false, "connect a home hub through direct or relayed transport without Java")
 	base := flag.String("runtime-dir", "", "application-private runtime directory")
 	prepare := flag.Bool("prepare", false, "download and verify the pinned Java/Forge payload")
 	importPack := flag.String("import-pack", "", "install a local .hexproof-forgepack without downloading")
@@ -48,12 +50,13 @@ func run() int {
 	version := flag.Bool("version", false, "print helper and engine compatibility identity")
 	flag.Parse()
 	modeCount := 0
-	for _, enabled := range []bool{*peerMode, *prepare, *check, *clearCache, *importPack != ""} {
+	for _, enabled := range []bool{*peerMode, *homeMode, *prepare, *check, *clearCache, *importPack != ""} {
 		if enabled {
 			modeCount++
 		}
 	}
 	if modeCount > 1 {
+		reportStep("configuration", "helper", "configuration_invalid")
 		emit("configuration_error", 0, 0)
 		return 2
 	}
@@ -63,18 +66,28 @@ func run() int {
 		return 0
 	}
 	if err := initializeProcessGuard(); err != nil {
+		reportStep("configuration", "helper", "process_guard_failed")
 		emit("process_guard_failed", 0, 0)
 		return 2
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	if *homeMode {
+		err := homenode.RunConnectPipe(ctx, os.Stdin, os.Stdout)
+		if err != nil && ctx.Err() == nil {
+			return 1
+		}
+		return 0
+	}
 	if *peerMode {
 		if err := peerlink.RunPipe(ctx, os.Stdin, os.Stdout); err != nil && ctx.Err() == nil {
 			return 1
 		}
 		return 0
 	}
+	ctx = runtimepkg.WithDiagnostics(ctx, emitDiagnostic)
 	if *base == "" || !filepath.IsAbs(*base) || runtimepkg.Pinned().RuntimeID != forgehost.BaseRuntimeID {
+		reportStep("configuration", "helper", "configuration_invalid")
 		emit("configuration_error", 0, 0)
 		return 2
 	}
@@ -83,10 +96,12 @@ func run() int {
 	if !maintenance {
 		line, err := input.ReadSlice('\n')
 		if err != nil || len(line) > 8192 || json.Unmarshal(line, &config) != nil {
+			reportStep("configuration", "helper", "configuration_invalid")
 			emit("configuration_error", 0, 0)
 			return 2
 		}
 		if config.RuntimeID != forgehost.RuntimeID {
+			reportStep("configuration", "helper", "helper_identity_mismatch")
 			emit("version_mismatch", 0, 0)
 			return 2
 		}
@@ -120,6 +135,7 @@ func run() int {
 		emit("cleaning", 0, 0)
 		result, err := runtimepkg.ClearCache(ctx, *base)
 		if err != nil {
+			emitDiagnostic(runtimepkg.ErrorDiagnostic(err, "cleanup", "runtime"))
 			emit("cleanup_failed", 0, 0)
 			return 1
 		}
@@ -129,16 +145,26 @@ func run() int {
 	emit("verifying", 0, 0)
 	var installation runtimepkg.Installation
 	var err error
+	stage := "check"
 	if *prepare {
+		stage = "prepare"
+		reportStep(stage, "runtime", "started")
 		_, err = runtimepkg.PrepareWithMirror(ctx, *base, *mirror, emit)
 	} else if *importPack != "" {
+		stage = "import"
+		reportStep(stage, "runtime", "started")
 		_, err = runtimepkg.ImportPack(ctx, *base, *importPack, emit)
 	}
 	var lease io.Closer
 	if err == nil {
+		if stage != "check" {
+			reportStep(stage, "runtime", "completed")
+		}
+		stage = "check"
 		installation, lease, err = runtimepkg.Use(ctx, *base)
 	}
 	if err != nil {
+		emitDiagnostic(runtimepkg.ErrorDiagnostic(err, stage, "runtime"))
 		if ctx.Err() != nil {
 			emit("cancelled", 0, 0)
 		} else if errors.Is(err, runtimepkg.ErrDiskSpace) {
@@ -159,20 +185,33 @@ func run() int {
 	defer lease.Close()
 	executable, err := os.Executable()
 	if err != nil {
+		reportStep("overlay", "helper", "executable_lookup_failed")
 		emit("adapter_failed", 0, 0)
 		return 1
 	}
 	overlay, err := runtimepkg.InstallOverlay(ctx, installation,
 		filepath.Join(filepath.Dir(executable), "forge-overlay.jar"), overlaySHA256, forgehost.RuntimeID)
 	if err != nil {
+		emitDiagnostic(runtimepkg.ErrorDiagnostic(err, "overlay", "adapter"))
 		emit("adapter_failed", 0, 0)
 		return 1
 	}
 	start := func(startCtx context.Context) (forge.Runtime, error) {
+		stage := "jvm_start"
+		if maintenance {
+			stage = "jvm_probe"
+		}
+		reportStep(stage, "java", "started")
 		process := forge.JavaOverlayProcessConfig(installation.Java, installation.Harness, installation.ForgeHome, overlay)
 		process.Args = append([]string{"-Xmx768m", "-XX:+UseSerialGC", "-XX:ActiveProcessorCount=2", "-Djava.awt.headless=true", "-Dfile.encoding=UTF-8"}, process.Args...)
 		process.Dir = installation.Root
-		return forge.Start(startCtx, process)
+		runtime, err := forge.Start(startCtx, process)
+		if err != nil {
+			emitDiagnostic(runtimeStartDiagnostic(err, stage))
+			return nil, err
+		}
+		reportStep(stage, "java", "completed")
+		return runtime, nil
 	}
 	if maintenance {
 		// Readiness includes a native adapter probe, not just successful extraction.
@@ -197,6 +236,7 @@ func run() int {
 		},
 	})
 	if err != nil && ctx.Err() == nil {
+		reportStep("hosting", "helper", "hosting_failed")
 		emit("hosting_failed", 0, 0)
 		return 1
 	}

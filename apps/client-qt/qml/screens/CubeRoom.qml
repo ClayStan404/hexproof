@@ -154,6 +154,7 @@ Page {
                     text: qsTr("Room code: %1").arg(root.tournamentModel.tournamentId)
                           + " · " + root.stageLabel
                           + " · " + (root.tournamentModel.matchMode === "bo3" ? qsTr("BO 3") : qsTr("BO 1"))
+                          + " · " + (root.tournamentModel.rulesMode === "forge" ? qsTr("Forge rules") : qsTr("Manual tabletop"))
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(12)
                     elide: Text.ElideRight

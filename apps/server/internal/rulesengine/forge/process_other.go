@@ -5,6 +5,12 @@
 
 package forge
 
-import "os/exec"
+import (
+	"errors"
+	"os/exec"
+	"syscall"
+)
 
 func configurePlatformProcess(command *exec.Cmd) {}
+
+func invalidExecutableError(err error) bool { return errors.Is(err, syscall.ENOEXEC) }

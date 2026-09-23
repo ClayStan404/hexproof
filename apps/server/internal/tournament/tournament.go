@@ -51,6 +51,7 @@ type Config struct {
 	EventType     string
 	Coordinator   string
 	MatchMode     string
+	RulesMode     string
 	RoundMinutes  int
 	MaxPlayers    int
 	PlannedRounds int
@@ -132,6 +133,7 @@ type Tournament struct {
 	Coordinator             string
 	Stage                   string
 	MatchMode               string
+	RulesMode               string
 	RoundMinutes            int
 	MaxPlayers              int
 	PlannedRounds           int
@@ -174,6 +176,27 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	}
 	if config.MatchMode != "bo1" && config.MatchMode != "bo3" {
 		return nil, fail(ErrInvalid, "match mode must be bo1 or bo3")
+	}
+	config.RulesMode = strings.ToLower(strings.TrimSpace(config.RulesMode))
+	if config.RulesMode == "" {
+		config.RulesMode = protocol.RulesModeManual
+	}
+	if config.RulesMode != protocol.RulesModeManual && config.RulesMode != protocol.RulesModeForge {
+		return nil, fail(ErrInvalid, "unsupported rules mode")
+	}
+	if config.RulesMode == protocol.RulesModeForge {
+		if config.EventType == protocol.LimitedEventCommanderCube {
+			return nil, fail(ErrInvalid, "Forge events require two-player matches")
+		}
+		if config.EventType == protocol.LimitedEventConstructed {
+			switch strings.ToLower(config.Format) {
+			case protocol.DeckFormatStandard, protocol.DeckFormatPioneer, protocol.DeckFormatModern,
+				protocol.DeckFormatLegacy, protocol.DeckFormatVintage, protocol.DeckFormatPauper,
+				protocol.DeckFormatDuel, "duel commander":
+			default:
+				return nil, fail(ErrInvalid, "unsupported Forge tournament format")
+			}
+		}
 	}
 	if config.RoundMinutes == 0 {
 		config.RoundMinutes = 50
@@ -286,6 +309,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		Coordinator:           config.Coordinator,
 		Stage:                 protocol.LimitedStageRegistration,
 		MatchMode:             config.MatchMode,
+		RulesMode:             config.RulesMode,
 		RoundMinutes:          config.RoundMinutes,
 		MaxPlayers:            config.MaxPlayers,
 		PlannedRounds:         config.PlannedRounds,

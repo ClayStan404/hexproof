@@ -22,6 +22,20 @@
 
 namespace hexproof::client {
 
+QString normalizedMusicTrack(const QString &track)
+{
+    const QString normalized = track.trimmed().toLower();
+    if (normalized.isEmpty() || normalized.size() > 80)
+        return QStringLiteral("gitana");
+    for (const QChar character : normalized) {
+        if ((character >= u'a' && character <= u'z') || (character >= u'0' && character <= u'9') ||
+            character == u'_' || character == u'-')
+            continue;
+        return QStringLiteral("gitana");
+    }
+    return normalized;
+}
+
 QString normalizedTableBackground(const QString &background)
 {
     const QString normalized = background.trimmed().toLower();
@@ -330,6 +344,31 @@ bool DeckLibraryStorage::writeDecksLocked(const QVector<Deck> &decks, QString *e
     return true;
 }
 
+QVariantMap normalizedForgePhaseStops(const QVariantMap &stops)
+{
+    static const QStringList steps{QStringLiteral("upkeep"),
+                                   QStringLiteral("draw"),
+                                   QStringLiteral("main1"),
+                                   QStringLiteral("begin_combat"),
+                                   QStringLiteral("declare_attackers"),
+                                   QStringLiteral("declare_blockers"),
+                                   QStringLiteral("combat_damage"),
+                                   QStringLiteral("end_combat"),
+                                   QStringLiteral("main2"),
+                                   QStringLiteral("end"),
+                                   QStringLiteral("cleanup")};
+    QVariantMap normalized;
+    for (const QString &prefix : {QStringLiteral("own:"), QStringLiteral("other:")}) {
+        for (const QString &step : steps) {
+            const QString key = prefix + step;
+            const QVariant value = stops.value(key);
+            if (value.metaType().id() == QMetaType::Bool && value.toBool())
+                normalized.insert(key, true);
+        }
+    }
+    return normalized;
+}
+
 DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
 {
     DeckLibraryPreferences preferences;
@@ -374,6 +413,25 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
     const QJsonValue animatePackOpenings = settings.value(QStringLiteral("animatePackOpenings"));
     if (animatePackOpenings.isBool())
         preferences.animatePackOpenings = animatePackOpenings.toBool();
+    const QJsonValue audioEnabled = settings.value(QStringLiteral("audioEnabled"));
+    if (audioEnabled.isBool())
+        preferences.audioEnabled = audioEnabled.toBool();
+    const QJsonValue audioVolume = settings.value(QStringLiteral("audioVolume"));
+    if (audioVolume.isDouble() && std::isfinite(audioVolume.toDouble()))
+        preferences.audioVolume = std::clamp(audioVolume.toDouble(), 0.0, 1.0);
+    const QJsonValue musicEnabled = settings.value(QStringLiteral("musicEnabled"));
+    if (musicEnabled.isBool())
+        preferences.musicEnabled = musicEnabled.toBool();
+    const QJsonValue musicVolume = settings.value(QStringLiteral("musicVolume"));
+    if (musicVolume.isDouble() && std::isfinite(musicVolume.toDouble()))
+        preferences.musicVolume = std::clamp(musicVolume.toDouble(), 0.0, 1.0);
+    preferences.musicTrack =
+        normalizedMusicTrack(settings.value(QStringLiteral("musicTrack")).toString());
+    preferences.forgeFullControl = settings.value(QStringLiteral("forgeFullControl")).toBool(false);
+    preferences.forgePhaseStops = normalizedForgePhaseStops(
+        settings.value(QStringLiteral("forgePhaseStops")).toObject().toVariantMap());
+    preferences.directPeerEnabled =
+        settings.value(QStringLiteral("directPeerEnabled")).toBool(true);
     preferences.sponsorAnnouncementId =
         settings.value(QStringLiteral("sponsorAnnouncementId")).toString().trimmed().left(128);
     preferences.cardArtRepairNoticeVersion =
@@ -463,12 +521,21 @@ bool DeckLibraryStorage::savePreferences(const DeckLibraryPreferences &preferenc
         shortcuts.insert(actionId, sequences);
     }
     const QJsonObject settings{
-        {QStringLiteral("version"), 13},
+        {QStringLiteral("version"), 14},
         {QStringLiteral("uiLanguage"), preferences.uiLanguage},
         {QStringLiteral("cardLanguage"), preferences.cardLanguage},
         {QStringLiteral("cardArtProvider"), preferences.cardArtProvider},
         {QStringLiteral("reuseLocalCardArt"), preferences.reuseLocalCardArt},
         {QStringLiteral("animatePackOpenings"), preferences.animatePackOpenings},
+        {QStringLiteral("audioEnabled"), preferences.audioEnabled},
+        {QStringLiteral("audioVolume"), preferences.audioVolume},
+        {QStringLiteral("musicEnabled"), preferences.musicEnabled},
+        {QStringLiteral("musicVolume"), preferences.musicVolume},
+        {QStringLiteral("musicTrack"), preferences.musicTrack},
+        {QStringLiteral("forgeFullControl"), preferences.forgeFullControl},
+        {QStringLiteral("forgePhaseStops"),
+         QJsonObject::fromVariantMap(normalizedForgePhaseStops(preferences.forgePhaseStops))},
+        {QStringLiteral("directPeerEnabled"), preferences.directPeerEnabled},
         {QStringLiteral("sponsorAnnouncementId"), preferences.sponsorAnnouncementId},
         {QStringLiteral("cardArtRepairNoticeVersion"), preferences.cardArtRepairNoticeVersion},
         {QStringLiteral("interfaceScale"), preferences.interfaceScale},

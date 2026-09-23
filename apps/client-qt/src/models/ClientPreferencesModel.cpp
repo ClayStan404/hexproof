@@ -215,6 +215,126 @@ void ClientPreferencesModel::setUiTheme(const QString &theme)
     emit uiThemeChanged();
 }
 
+void ClientPreferencesModel::setAudioEnabled(bool enabled)
+{
+    if (enabled == m_preferences.audioEnabled)
+        return;
+    const bool previous = m_preferences.audioEnabled;
+    m_preferences.audioEnabled = enabled;
+    if (!save()) {
+        m_preferences.audioEnabled = previous;
+        return;
+    }
+    emit audioEnabledChanged();
+}
+
+void ClientPreferencesModel::setAudioVolume(qreal volume)
+{
+    if (!std::isfinite(volume))
+        return;
+    const qreal normalized = std::clamp(volume, 0.0, 1.0);
+    if (normalized == m_preferences.audioVolume)
+        return;
+    const qreal previous = m_preferences.audioVolume;
+    m_preferences.audioVolume = normalized;
+    if (!save()) {
+        m_preferences.audioVolume = previous;
+        return;
+    }
+    emit audioVolumeChanged();
+}
+
+void ClientPreferencesModel::setMusicEnabled(bool enabled)
+{
+    if (enabled == m_preferences.musicEnabled)
+        return;
+    const bool previous = m_preferences.musicEnabled;
+    m_preferences.musicEnabled = enabled;
+    if (!save()) {
+        m_preferences.musicEnabled = previous;
+        return;
+    }
+    emit musicEnabledChanged();
+}
+
+void ClientPreferencesModel::setMusicVolume(qreal volume)
+{
+    if (!std::isfinite(volume))
+        return;
+    const qreal normalized = std::clamp(volume, 0.0, 1.0);
+    if (normalized == m_preferences.musicVolume)
+        return;
+    const qreal previous = m_preferences.musicVolume;
+    m_preferences.musicVolume = normalized;
+    if (!save()) {
+        m_preferences.musicVolume = previous;
+        return;
+    }
+    emit musicVolumeChanged();
+}
+
+void ClientPreferencesModel::setMusicTrack(const QString &track)
+{
+    const QString normalized = normalizedMusicTrack(track);
+    if (normalized == m_preferences.musicTrack)
+        return;
+    const QString previous = m_preferences.musicTrack;
+    m_preferences.musicTrack = normalized;
+    if (!save()) {
+        m_preferences.musicTrack = previous;
+        return;
+    }
+    emit musicTrackChanged();
+}
+
+void ClientPreferencesModel::setForgeFullControl(bool enabled)
+{
+    if (enabled == m_preferences.forgeFullControl)
+        return;
+    const bool previous = m_preferences.forgeFullControl;
+    m_preferences.forgeFullControl = enabled;
+    if (!save()) {
+        m_preferences.forgeFullControl = previous;
+        return;
+    }
+    emit forgeFullControlChanged();
+}
+
+void ClientPreferencesModel::setDirectPeerEnabled(bool enabled)
+{
+    if (enabled == m_preferences.directPeerEnabled)
+        return;
+    const bool previous = m_preferences.directPeerEnabled;
+    m_preferences.directPeerEnabled = enabled;
+    if (!save()) {
+        m_preferences.directPeerEnabled = previous;
+        return;
+    }
+    emit directPeerEnabledChanged();
+}
+
+void ClientPreferencesModel::setForgePhaseStops(const QVariantMap &stops)
+{
+    const QVariantMap normalized = normalizedForgePhaseStops(stops);
+    if (normalized == m_preferences.forgePhaseStops)
+        return;
+    const QVariantMap previous = m_preferences.forgePhaseStops;
+    m_preferences.forgePhaseStops = normalized;
+    if (!save()) {
+        m_preferences.forgePhaseStops = previous;
+        return;
+    }
+    emit forgePhaseStopsChanged();
+}
+
+void ClientPreferencesModel::toggleForgePhaseStop(const QString &step, bool ownTurn)
+{
+    const QString key = (ownTurn ? QStringLiteral("own:") : QStringLiteral("other:")) + step;
+    QVariantMap stops = m_preferences.forgePhaseStops;
+    stops.insert(key, !stops.value(key).toBool());
+    setForgePhaseStops(stops);
+}
+
 void ClientPreferencesModel::setTableBackground(const QString &background)
 {
     const QString normalized = normalizedTableBackground(background);

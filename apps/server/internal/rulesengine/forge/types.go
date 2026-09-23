@@ -36,6 +36,7 @@ type PlayerConfig struct {
 	Sideboard      []CardIdentity `json:"sideboard,omitempty"`
 	CommanderNames []string       `json:"commanderNames,omitempty"`
 	AI             bool           `json:"ai,omitempty"`
+	AIDifficulty   string         `json:"aiDifficulty,omitempty"`
 }
 
 // StartGameRequest is the typed payload accepted by the upstream headless
@@ -63,6 +64,13 @@ func (request StartGameRequest) validate() error {
 		return errors.New("starting player index is outside the registered players")
 	}
 	for playerIndex, player := range request.Players {
+		if player.AI {
+			if player.AIDifficulty != "easy" && player.AIDifficulty != "normal" && player.AIDifficulty != "hard" {
+				return fmt.Errorf("player %d has an invalid AI difficulty", playerIndex)
+			}
+		} else if player.AIDifficulty != "" {
+			return fmt.Errorf("player %d is not an AI", playerIndex)
+		}
 		if strings.TrimSpace(player.Name) == "" {
 			return fmt.Errorf("player %d name is required", playerIndex)
 		}
@@ -88,4 +96,14 @@ func (request StartGameRequest) validate() error {
 type SessionHandle struct {
 	SessionID     string `json:"sessionId"`
 	PlayerIndexes []int  `json:"playerIndexes"`
+}
+
+// HasAI identifies a native controller without confusing it with a connection.
+func (request StartGameRequest) HasAI() bool {
+	for _, player := range request.Players {
+		if player.AI {
+			return true
+		}
+	}
+	return false
 }

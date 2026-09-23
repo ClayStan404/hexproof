@@ -16,8 +16,8 @@ Item {
     readonly property int count: tableController.zoneCount(ownerSeat, zone)
     readonly property var face: tableController.topPublicZoneCard(ownerSeat, zone)
     readonly property string cardId: face && face.cardId ? face.cardId : ""
-    readonly property bool showsPublicFace: zone !== "library"
-        && !!(face && face.visibleIdentity && !face.faceDown && face.name)
+    readonly property bool showsPublicFace:
+        !!(face && face.visibleIdentity && !face.faceDown && face.name)
     readonly property string shortLabel: {
         switch (zone) {
         case "library": return qsTr("Library")

@@ -16,14 +16,15 @@ var basicLandNames = map[string]string{
 }
 
 type cardKey struct {
-	name      string
-	set       string
-	collector string
-	typeLine  string
+	name         string
+	set          string
+	collector    string
+	typeLine     string
+	virtualBasic bool
 }
 
 func appendDeckCard(cards map[cardKey]int, card *CardInstance) {
-	key := cardKey{card.Name, card.SetCode, card.CollectorNumber, card.TypeLine}
+	key := cardKey{name: card.Name, set: card.SetCode, collector: card.CollectorNumber, typeLine: card.TypeLine}
 	cards[key]++
 }
 
@@ -39,13 +40,19 @@ func deckCards(cards map[cardKey]int) []protocol.DeckCard {
 		if keys[left].set != keys[right].set {
 			return keys[left].set < keys[right].set
 		}
-		return keys[left].collector < keys[right].collector
+		if keys[left].collector != keys[right].collector {
+			return keys[left].collector < keys[right].collector
+		}
+		if keys[left].virtualBasic != keys[right].virtualBasic {
+			return !keys[left].virtualBasic
+		}
+		return keys[left].typeLine < keys[right].typeLine
 	})
 	result := make([]protocol.DeckCard, 0, len(keys))
 	for _, key := range keys {
 		result = append(result, protocol.DeckCard{
 			Name: key.name, Count: cards[key], SetCode: key.set,
-			CollectorNumber: key.collector, TypeLine: key.typeLine,
+			CollectorNumber: key.collector, TypeLine: key.typeLine, VirtualBasic: key.virtualBasic,
 		})
 	}
 	return result
@@ -120,7 +127,7 @@ func (e *Event) submitDeck(participantID string, request protocol.LimitedSubmitD
 		}
 		key := cardKey{
 			name: name, set: strings.ToUpper(strings.TrimSpace(basic.SetCode)),
-			collector: strings.TrimSpace(basic.CollectorNumber), typeLine: "Basic Land",
+			collector: strings.TrimSpace(basic.CollectorNumber), typeLine: "Basic Land", virtualBasic: true,
 		}
 		if (key.set == "") != (key.collector == "") ||
 			!validOptionalText(key.set, protocol.MaxSetCodeRunes) ||

@@ -40,6 +40,26 @@ TestCase {
         testWindow.height = 800
     }
 
+    function test_audioSettingsOpenWithoutLeavingManualMatch() {
+        testWindow.openedScreen = ({})
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width:testWindow.width, height:testWindow.height
+        })
+        verify(table !== null)
+        const popup = findChild(table, "tableSettingsPopup")
+        verify(popup !== null)
+        popup.showFor(false, true, false, 3, true, true)
+        tryCompare(popup, "opened", true)
+        const audio = findChild(popup.contentItem, "openTableAudioButton")
+        verify(audio !== null)
+        mouseClick(audio)
+        tryCompare(popup, "visible", false)
+        compare(testWindow.openedScreen.url, "screens/AudioSettings.qml")
+        compare(testWindow.openedScreen.properties.settings, mockPreferences)
+        compare(mockWs.leaveRoomCount, 0)
+        verify(mockWs.inRoom)
+    }
+
     function test_arrangeBattlefieldStacksSameLaneAttachmentsAndSkipsCrossLane() {
         const arrangeSeats = JSON.parse(JSON.stringify(mockWs.gameSeats))
         arrangeSeats[0].battlefield = [{

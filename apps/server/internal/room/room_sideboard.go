@@ -7,6 +7,7 @@ import (
 	"hexproof/server/internal/protocol"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const sideboardDuration = 5 * time.Minute
@@ -24,6 +25,10 @@ func (r *Room) beginSideboard(previousLoser int, deadline time.Time) {
 		Deadline:      deadline.UTC(),
 		PreviousLoser: previousLoser,
 		Players:       players,
+	}
+	if r.RulesMode != protocol.RulesModeForge && previousLoser >= 0 {
+		chosen := previousLoser
+		r.Game.Sideboard.ChosenStartingSeat = &chosen
 	}
 }
 
@@ -87,6 +92,9 @@ func (r *Room) MoveSideboard(connID string, request protocol.SideboardMove) (Res
 	if r.Format == protocol.FormatDuel {
 		return Result{}, newError(protocol.ErrInvalidSideboardMove)
 	}
+	if request.ClearMainboard {
+		return r.clearLimitedMainboard(seat, request)
+	}
 	if request.FromZone == protocol.SideboardZoneBasicLands ||
 		request.ToZone == protocol.SideboardZoneBasicLands {
 		return r.moveLimitedBasicLand(seat, request)
@@ -122,6 +130,41 @@ func (r *Room) MoveSideboard(connID string, request protocol.SideboardMove) (Res
 	return Result{Reply: &reply, ProjectGame: true}, nil
 }
 
+// clearLimitedMainboard atomically returns physical pool cards and discards
+// virtual additions. Filtering in the client never changes this complete scope.
+func (r *Room) clearLimitedMainboard(seat int, request protocol.SideboardMove) (Result, error) {
+	if r.DeckFormat != protocol.DeckFormatLimited || request.FromZone != protocol.SideboardZoneMain ||
+		request.ToZone != protocol.SideboardZoneSide || request.Name != "" ||
+		request.SetCode != "" || request.CollectorNumber != "" {
+		return Result{}, newError(protocol.ErrInvalidSideboardMove)
+	}
+	player := &r.Game.Sideboard.Players[seat]
+	for _, card := range player.Mainboard {
+		if isVirtualLimitedBasic(card) {
+			continue
+		}
+		merged := false
+		for index := range player.Sideboard {
+			if deckCardMatches(player.Sideboard[index], card) {
+				player.Sideboard[index].Count += card.Count
+				merged = true
+				break
+			}
+		}
+		if !merged {
+			player.Sideboard = append(player.Sideboard, card)
+		}
+	}
+	player.Mainboard = nil
+	player.Ready = false
+	return r.sideboardMovedResult(seat), nil
+}
+
+func isVirtualLimitedBasic(card protocol.DeckCard) bool {
+	return ordinaryBasicLandName(card.Name) != "" && (card.VirtualBasic ||
+		(strings.TrimSpace(card.SetCode) == "" && strings.TrimSpace(card.CollectorNumber) == ""))
+}
+
 func (r *Room) moveLimitedBasicLand(seat int, request protocol.SideboardMove) (Result, error) {
 	if r.DeckFormat != protocol.DeckFormatLimited ||
 		request.FromZone == request.ToZone ||
@@ -129,17 +172,20 @@ func (r *Room) moveLimitedBasicLand(seat int, request protocol.SideboardMove) (R
 			request.ToZone != protocol.SideboardZoneBasicLands) ||
 		(request.FromZone != protocol.SideboardZoneMain &&
 			request.ToZone != protocol.SideboardZoneMain) ||
-		strings.TrimSpace(request.SetCode) != "" ||
-		strings.TrimSpace(request.CollectorNumber) != "" {
+		(strings.TrimSpace(request.SetCode) == "") != (strings.TrimSpace(request.CollectorNumber) == "") {
 		return Result{}, newError(protocol.ErrInvalidSideboardMove)
 	}
 	name := ordinaryBasicLandName(request.Name)
-	if name == "" {
+	if name == "" || utf8.RuneCountInString(request.SetCode) > protocol.MaxSetCodeRunes ||
+		utf8.RuneCountInString(request.CollectorNumber) > protocol.MaxCollectorNumberRunes ||
+		containsControlCharacters(request.SetCode) || containsControlCharacters(request.CollectorNumber) {
 		return Result{}, newError(protocol.ErrInvalidSideboardMove)
 	}
 
 	player := &r.Game.Sideboard.Players[seat]
-	card := protocol.DeckCard{Name: name, Count: 1, TypeLine: "Basic Land"}
+	card := protocol.DeckCard{Name: name, Count: 1, TypeLine: "Basic Land",
+		SetCode: strings.TrimSpace(request.SetCode), CollectorNumber: strings.TrimSpace(request.CollectorNumber),
+		VirtualBasic: true}
 	if request.FromZone == protocol.SideboardZoneBasicLands {
 		if deckCardCount(player.Mainboard)+deckCardCount(player.Sideboard) >=
 			protocol.MaxDeckCards {
@@ -172,9 +218,7 @@ func (r *Room) sideboardMovedResult(seat int) Result {
 func removeVirtualBasicLandCopy(cards *[]protocol.DeckCard, requested protocol.DeckCard) bool {
 	for index := range *cards {
 		card := (*cards)[index]
-		if strings.TrimSpace(card.SetCode) != "" ||
-			strings.TrimSpace(card.CollectorNumber) != "" ||
-			!deckCardMatches(card, requested) || card.Count <= 0 {
+		if !isVirtualLimitedBasic(card) || !deckCardMatches(card, requested) || card.Count <= 0 {
 			continue
 		}
 		(*cards)[index].Count--
@@ -187,7 +231,7 @@ func removeVirtualBasicLandCopy(cards *[]protocol.DeckCard, requested protocol.D
 }
 
 // SetSideboardReady locks or unlocks one pending BO3 deck partition. When both
-// players lock, the pending partitions commit and the previous loser starts.
+// players lock, the pending partitions commit with the chosen starting player.
 func (r *Room) SetSideboardReady(connID string, ready bool) (Result, error) {
 	if err := r.requireStartedGame(); err != nil {
 		return Result{}, err
@@ -302,9 +346,13 @@ func (r *Room) completeSideboard(reason string, commit bool) ([]protocol.Envelop
 			r.Seats[index].Deck = &deck
 		}
 	}
+	startingSeat := sideboard.PreviousLoser
+	if sideboard.ChosenStartingSeat != nil {
+		startingSeat = *sideboard.ChosenStartingSeat
+	}
 	if r.RulesMode == protocol.RulesModeForge {
 		r.prepareNextRulesGame(sideboard.PreviousLoser)
-	} else if err := r.setupGameNumber(nextGameNumber, sideboard.PreviousLoser); err != nil {
+	} else if err := r.setupGameNumber(nextGameNumber, startingSeat); err != nil {
 		for index, deck := range previousDecks {
 			r.Seats[index].Deck = deck
 		}
@@ -347,7 +395,8 @@ func validSideboardZone(zone string) bool {
 }
 
 func deckCardMatches(left, right protocol.DeckCard) bool {
-	return strings.EqualFold(strings.TrimSpace(left.Name), strings.TrimSpace(right.Name)) &&
+	return isVirtualLimitedBasic(left) == isVirtualLimitedBasic(right) &&
+		strings.EqualFold(strings.TrimSpace(left.Name), strings.TrimSpace(right.Name)) &&
 		strings.EqualFold(strings.TrimSpace(left.SetCode), strings.TrimSpace(right.SetCode)) &&
 		strings.TrimSpace(left.CollectorNumber) == strings.TrimSpace(right.CollectorNumber)
 }
@@ -363,17 +412,28 @@ func moveDeckCardCopy(source, target *[]protocol.DeckCard, requested protocol.De
 	if sourceIndex < 0 || (*source)[sourceIndex].Count <= 0 {
 		return false
 	}
+	targetIndex := -1
+	for index, card := range *target {
+		if deckCardMatches(card, (*source)[sourceIndex]) {
+			targetIndex = index
+			break
+		}
+	}
+	// A split adds a transport entry unless it merges into the destination.
+	// Check before mutating either partition so rejected moves remain atomic.
+	if targetIndex < 0 && (*source)[sourceIndex].Count > 1 &&
+		len(*source)+len(*target) >= protocol.MaxDeckEntries {
+		return false
+	}
 	moved := (*source)[sourceIndex]
 	moved.Count = 1
 	(*source)[sourceIndex].Count--
 	if (*source)[sourceIndex].Count == 0 {
 		*source = append((*source)[:sourceIndex], (*source)[sourceIndex+1:]...)
 	}
-	for index := range *target {
-		if deckCardMatches((*target)[index], moved) {
-			(*target)[index].Count++
-			return true
-		}
+	if targetIndex >= 0 {
+		(*target)[targetIndex].Count++
+		return true
 	}
 	*target = append(*target, moved)
 	return true

@@ -1,0 +1,12 @@
+{
+  "type": "game.search_library",
+  "id": "top-card-20",
+  "payload": {
+    "cardIds": ["s0-c8"],
+    "toZone": "hand",
+    "toSeat": 0,
+    "sourceSeat": 0,
+    "reveal": false,
+    "topCard": true
+  }
+}

@@ -268,7 +268,10 @@
           "name": "emblems",
           "type": "array",
           "required": false,
-          "items": {"type": "object", "ref": "GameEmblem"}
+          "items": {
+            "type": "object",
+            "ref": "GameEmblem"
+          }
         },
         {
           "name": "commanderTax",
@@ -294,6 +297,18 @@
             "ResponseStatusPass",
             "ResponseStatusHold"
           ]
+        },
+        {
+          "name": "libraryTopRevealed",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "libraryTopCard",
+          "type": "object",
+          "required": false,
+          "ref": "GameCard",
+          "goType": "*GameCard"
         }
       ]
     },
@@ -473,6 +488,17 @@
           "items": {
             "type": "string"
           }
+        },
+        {
+          "name": "canChooseStartingPlayer",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "chosenStartingSeat",
+          "type": "integer",
+          "required": false,
+          "goType": "*int"
         }
       ]
     },
@@ -480,6 +506,25 @@
       "name": "Seat",
       "goType": "Seat",
       "fields": [
+        {
+          "name": "controller",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "SeatControllerForgeAI",
+            "SeatControllerModelAI"
+          ]
+        },
+        {
+          "name": "aiDifficulty",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "AIDifficultyEasy",
+            "AIDifficultyNormal",
+            "AIDifficultyHard"
+          ]
+        },
         {
           "name": "occupied",
           "type": "boolean",
@@ -667,7 +712,7 @@
           "type": "boolean",
           "required": false
         },
-		{
+        {
           "name": "score",
           "type": "array",
           "required": true,
@@ -702,8 +747,18 @@
       "direction": "serverToClient",
       "goType": "RoomSnapshot",
       "fields": [
-        {"name": "hostConnected", "type": "boolean", "required": false},
-        {"name": "hostStatus", "type": "object", "required": false, "ref": "ForgeHostStatus", "goType": "*ForgeHostStatus"},
+        {
+          "name": "hostConnected",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "hostStatus",
+          "type": "object",
+          "required": false,
+          "ref": "ForgeHostStatus",
+          "goType": "*ForgeHostStatus"
+        },
         {
           "name": "roomId",
           "type": "string",
@@ -779,7 +834,35 @@
             "RulesModeForge"
           ]
         },
-        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
+        {
+          "name": "hostingMode",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "HostingModeServer",
+            "HostingModePlayer"
+          ]
+        },
+        {
+          "name": "aiSource",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "AISourceForge",
+            "AISourceLocal",
+            "AISourceOnline"
+          ]
+        },
+        {
+          "name": "aiDifficulty",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "AIDifficultyEasy",
+            "AIDifficultyNormal",
+            "AIDifficultyHard"
+          ]
+        },
         {
           "name": "hostSeat",
           "type": "integer",

@@ -100,6 +100,45 @@ TestCase {
                + 0.0722 * linear(color.b)
     }
 
+    function test_livePaymentCostStaysVisibleAboveLongDescription() {
+        sidebarWidth = 340
+        testWindow.width = 800
+        for (const cost of ["{3}{B}{B}", "{1}{B}", "0"]) {
+            verify(testRulesPrompt.applyPrompt({
+                roomId:"ACT001", gameId:"action-fixture", pending:true,
+                promptId:9, kind:"payManaCost", supported:true,
+                title:"Pay Mana Cost: " + cost,
+                detail:"A long conditional spell description. ".repeat(30),
+                options:[{responseId:"$cancel", kind:"cancel", label:"Cancel"}],
+                choices:[], cards:[], targets:[], contextCards:[], contextTargets:[],
+                combatSources:[], combatTargets:[], damageTargets:[],
+                scryDestinations:[], totalDamage:0
+            }))
+            waitForRendering(panel)
+            const title = findChild(panel, "rulesPromptTitle")
+            const detail = findChild(panel, "rulesPromptDetail")
+            tryCompare(title, "text", "Pay Mana Cost: " + cost)
+            verify(title.visible && !title.truncated)
+            tryCompare(detail, "truncated", true)
+            const point = title.mapToItem(panel, 0, 0)
+            verify(point.y >= 0 && point.y + title.height <= panel.height)
+        }
+        const cancel = findChild(panel, "rulesPromptOption-$cancel")
+        const detail = findChild(panel, "rulesPromptDetail")
+        const tooltip = findChild(detail, "rulesPromptDetailTooltip")
+        verify(tooltip !== null)
+        mouseMove(detail, detail.width / 2, detail.height / 2)
+        tryCompare(tooltip, "opened", true)
+        verify(!tooltip.enabled, "Read-only explanation must not receive pointer input")
+        const tipPoint = tooltip.background.mapToItem(panel, 0, 0)
+        const cancelPoint = cancel.mapToItem(panel, 0, 0)
+        verify(tipPoint.y >= cancelPoint.y + cancel.height
+            || tipPoint.y + tooltip.background.height <= cancelPoint.y,
+            "Payment explanation must leave the fixed action row visible")
+        mouseClick(cancel)
+        compare(responder.lastResponseId, "$cancel")
+    }
+
     function test_basicActionsStayVisibleBeyondLongAbilityList_data() {
         return [
             {tag: "pass", action: "$pass", label: "Pass priority", width: 800, scale: 1.0},

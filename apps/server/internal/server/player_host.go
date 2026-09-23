@@ -205,7 +205,7 @@ func (h *Handler) servePlayerHost(w http.ResponseWriter, request *http.Request) 
 
 func (h *Handler) startRoomForgeRuntime(ctx context.Context, r *room.Room) (forge.Runtime, error) {
 	if r.HostingMode != "player" {
-		return h.startForgeRuntime(ctx, r.ID)
+		return h.startForgeRuntime(ctx, r.ID, r.AIDifficulty != "")
 	}
 	h.forgeMu.Lock()
 	defer h.forgeMu.Unlock()

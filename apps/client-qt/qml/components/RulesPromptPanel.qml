@@ -158,7 +158,10 @@ Surface {
 
                     HoverHandler { id: titleHover }
                     ToolTip {
+                        objectName: "rulesPromptTitleTooltip"
+                        enabled: false
                         x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        y: parent ? parent.height + Theme.size(6) : 0
                         background: Rectangle {
                             color: Theme.surfaceElevated
                             border.color: Theme.borderStrong
@@ -196,12 +199,17 @@ Surface {
                            ? Theme.textSecondary : Theme.warning
                     font.pixelSize: Theme.fontSize(9)
                     wrapMode: Text.WordWrap
-                    maximumLineCount: 4
+                    // Notices can contain a full advisory card list. Keep it
+                    // scrollable in promptScroll instead of hiding later lines.
+                    maximumLineCount: rulesSession.promptKind === "acknowledge" ? 2147483647 : 4
                     elide: Text.ElideRight
 
                     HoverHandler { id: detailHover }
                     ToolTip {
+                        objectName: "rulesPromptDetailTooltip"
+                        enabled: false
                         x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        y: parent ? parent.height + Theme.size(6) : 0
                         background: Rectangle {
                             color: Theme.surfaceElevated
                             border.color: Theme.borderStrong
@@ -263,6 +271,8 @@ Surface {
                     }
                     ToolTip {
                         x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        y: parent ? parent.height + Theme.size(6) : 0
+                        enabled: false
                         background: Rectangle {
                             color: Theme.surfaceElevated
                             border.color: Theme.borderStrong
@@ -454,6 +464,7 @@ Surface {
             promptId: rulesSession.promptId
             assignmentKind: "attackers"
             selectionState: root.tableController.combatInteraction || null
+            boardSelection: !!selectionState && root.tableController.roomSession.maxSeats <= 2
         }
 
         RulesCombatAssignmentPrompt {
@@ -468,6 +479,7 @@ Surface {
             promptId: rulesSession.promptId
             assignmentKind: "blockers"
             selectionState: root.tableController.combatInteraction || null
+            boardSelection: !!selectionState && root.tableController.roomSession.maxSeats <= 2
         }
 
         RulesScalarChoicePrompt {

@@ -5,6 +5,7 @@ package forge
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -40,15 +41,17 @@ type sharedJob struct {
 // framing failures and in-flight timeouts invalidate the bounded whole worker:
 // the outcome of an engine mutation must never be guessed or silently replayed.
 type sharedWorker struct {
-	command  *exec.Cmd
-	stdin    io.WriteCloser
-	jobs     chan *sharedJob
-	done     chan struct{}
-	invalid  atomic.Bool
-	sequence atomic.Uint64
-	killOnce sync.Once
-	mu       sync.Mutex
-	pending  map[uint64]*sharedJob
+	supportsAI     bool
+	supportsReplay bool
+	command        *exec.Cmd
+	stdin          io.WriteCloser
+	jobs           chan *sharedJob
+	done           chan struct{}
+	invalid        atomic.Bool
+	sequence       atomic.Uint64
+	killOnce       sync.Once
+	mu             sync.Mutex
+	pending        map[uint64]*sharedJob
 }
 
 func startSharedWorker(ctx context.Context, config ProcessConfig, capacity int) (*sharedWorker, error) {
@@ -128,6 +131,8 @@ func startSharedWorker(ctx context.Context, config ProcessConfig, capacity int) 
 		<-worker.done
 		return nil, fmt.Errorf("probe shared Forge runtime: %w", err)
 	}
+	worker.supportsAI = runtimeSupportsAI(result)
+	worker.supportsReplay = runtimeSupportsReplay(result)
 	return worker, nil
 }
 
@@ -194,7 +199,7 @@ func (worker *sharedWorker) read(stdout io.Reader, maxBytes int) {
 		result := rpcResult{value: response.Result}
 		if !response.OK {
 			// Native exception details may contain private deck/card identities.
-			result = rpcResult{err: fmt.Errorf("%w: request rejected", ErrRuntime)}
+			result = rpcResult{err: &rejectedRequest{failure: bytes.Clone(response.StartFailure)}}
 		}
 		job.result <- result
 	}

@@ -147,7 +147,7 @@ func (r *tournamentRegistry) list() []protocol.TournamentListEntry {
 		listed = append(listed, protocol.TournamentListEntry{
 			TournamentID: event.ID, Name: event.Name, Format: event.Format,
 			EventType: event.EventType, Coordinator: event.Coordinator, Stage: event.Stage,
-			MatchMode: event.MatchMode, Status: event.Status,
+			MatchMode: event.MatchMode, RulesMode: event.RulesMode, Status: event.Status,
 			Registered: len(event.Participants), CheckedIn: checkedIn,
 			MaxPlayers: event.MaxPlayers, CurrentRound: len(event.Rounds),
 			PlannedRounds: event.PlannedRounds,

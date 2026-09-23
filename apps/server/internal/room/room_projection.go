@@ -51,6 +51,11 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 			Eliminated:     state.Eliminated,
 			ResponseStatus: state.ResponseStatus,
 		}
+		projection.LibraryTopRevealed = state.LibraryTopRevealed
+		if state.LibraryTopRevealed && len(state.Library) > 0 {
+			top := cloneGameCards(state.Library[:1])[0]
+			projection.LibraryTopCard = &top
+		}
 		if ownerSeat == state.Seat || spectatorSeesHands {
 			projection.Hand = cloneGameCards(state.Hand)
 		}
@@ -79,6 +84,13 @@ func (r *Room) GameSnapshot(connID string) (protocol.GameSnapshot, error) {
 		sideboardProjection = &protocol.SideboardProjection{
 			DeadlineUnixMS: r.Game.Sideboard.Deadline.UnixMilli(),
 			Seats:          sideboardSeats,
+		}
+		if r.RulesMode != protocol.RulesModeForge {
+			sideboardProjection.CanChooseStartingPlayer = ownerSeat >= 0 && ownerSeat == r.Game.Sideboard.PreviousLoser
+			if r.Game.Sideboard.ChosenStartingSeat != nil {
+				chosen := *r.Game.Sideboard.ChosenStartingSeat
+				sideboardProjection.ChosenStartingSeat = &chosen
+			}
 		}
 		if ownerSeat >= 0 {
 			sideboardProjection.Mainboard =
@@ -308,7 +320,8 @@ func (r *Room) Snapshot() protocol.RoomSnapshot {
 	seats := make([]protocol.Seat, len(r.Seats))
 	for i, s := range r.Seats {
 		seats[i] = protocol.Seat{
-			Occupied:     s.Occupied,
+			Occupied:   s.Occupied,
+			Controller: s.Controller, AIDifficulty: s.AIDifficulty,
 			DisplayName:  s.DisplayName,
 			Host:         s.Host,
 			DeckSelected: s.Deck != nil,
@@ -331,6 +344,8 @@ func (r *Room) Snapshot() protocol.RoomSnapshot {
 		CardLoadMode:       r.CardLoadMode,
 		RulesMode:          r.RulesMode,
 		HostingMode:        r.HostingMode,
+		AIDifficulty:       r.AIDifficulty,
+		AISource:           r.AISource,
 		HostSeat:           r.HostSeat,
 		HostConnected:      r.HostConnected,
 		HostStatus:         r.HostStatus,
@@ -356,6 +371,8 @@ func (r *Room) ListEntry() protocol.RoomListEntry {
 		CardLoadMode:       r.CardLoadMode,
 		RulesMode:          r.RulesMode,
 		HostingMode:        r.HostingMode,
+		AIDifficulty:       r.AIDifficulty,
+		AISource:           r.AISource,
 		MaxSeats:           r.MaxSeats,
 		PlayerCount:        playerCount,
 		SpectatorCount:     len(r.Spectators),

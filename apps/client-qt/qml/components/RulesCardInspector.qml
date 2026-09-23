@@ -45,21 +45,13 @@ Surface {
         void rulesSession.snapshotRevision
         return card.attachedTo ? currentCard(card.attachedTo) : ({})
     }
-    readonly property string exiledSummary: {
-        void rulesSession.snapshotRevision
-        if (!(card.exiledCardCount > 0)) return ""
-        const names = (card.exiledCardIds || []).map(id => currentCard(id))
-            .filter(linked => linked.visibleIdentity === true && !!linked.name)
-            .map(linked => {
-                if (!cardCatalogModel || typeof cardCatalogModel.cardDisplayName !== "function")
-                    return linked.name
-                void cardCatalogModel.language
-                void cardCatalogModel.imageRevision
-                return cardCatalogModel.cardDisplayName(linked.name)
-            })
-        const hidden = card.exiledCardCount - names.length
-        if (hidden > 0) names.push(qsTr("%1 hidden card(s)").arg(hidden))
-        return qsTr("Exiled with this card: %1").arg(names.join(", "))
+    readonly property string exiledSummary: persistentState.exiledSummary
+    readonly property string persistentSummary: persistentState.detailSummary
+    RulesCardPersistentState {
+        id: persistentState
+        card: root.card
+        rulesSession: root.rulesSession
+        cardCatalogModel: root.cardCatalogModel
     }
 
     objectName: "rulesCardInspector"
@@ -147,8 +139,8 @@ Surface {
         }
         if (card.rulesText)
             lines.push("", card.rulesText)
-        if (exiledSummary.length)
-            lines.push(exiledSummary)
+        if (persistentSummary.length)
+            lines.push(persistentSummary)
         return lines.join("\n")
     }
 

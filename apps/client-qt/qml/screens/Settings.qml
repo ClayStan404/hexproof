@@ -33,6 +33,22 @@ Page {
         }
 
         SettingsModuleRow {
+            objectName: "settingsAudioModule"
+            Layout.fillWidth: true
+            title: qsTr("Audio")
+            subtitle: qsTr("Operation sounds, volume, and mute")
+            onActivated: root.appWindow.pushScreen("screens/AudioSettings.qml")
+        }
+
+        SettingsModuleRow {
+            objectName: "settingsGameplayModule"
+            Layout.fillWidth: true
+            title: qsTr("Gameplay")
+            subtitle: qsTr("Priority, phase stops, and direct connections")
+            onActivated: root.appWindow.pushScreen("screens/GameplaySettings.qml")
+        }
+
+        SettingsModuleRow {
             objectName: "settingsLanguageModule"
             Layout.fillWidth: true
             title: qsTr("Language & cards")
@@ -94,6 +110,16 @@ Page {
             subtitle: qsTr("Download, import, and diagnose the rules engine")
             enabled: root.hostingService !== null
             onActivated: hostingOptions.open()
+        }
+
+        SettingsModuleRow {
+            objectName: "settingsModelOpponent"
+            Layout.fillWidth: true
+            title: qsTr("Model opponents")
+            subtitle: qsTr("Local and online model connections, credentials, and thinking limits")
+            statusText: qsTr("Experimental")
+            statusColor: Theme.warning
+            onActivated: root.appWindow.pushScreen("screens/ModelSettings.qml")
         }
     }
 

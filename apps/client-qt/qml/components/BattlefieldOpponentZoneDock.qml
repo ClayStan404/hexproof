@@ -222,6 +222,19 @@ Surface {
 
         Item {
             id: libraryPile
+            readonly property var topCard: root.seatData && root.seatData.libraryTopCard
+                                            ? root.seatData.libraryTopCard : ({})
+            function refreshTopCardPreview() {
+                if (libraryTopHover.hovered && libraryPile.topCard.name
+                        && !root.tableController.tableModalOpen)
+                    root.tableController.presentation.inspectCard(libraryPile.topCard, libraryPile)
+                else root.tableController.presentation.hideCardPreview(libraryPile)
+            }
+            onTopCardChanged: refreshTopCardPreview()
+            HoverHandler {
+                id: libraryTopHover
+                onHoveredChanged: libraryPile.refreshTopCardPreview()
+            }
             Layout.row: 1
             Layout.column: 0
             Layout.minimumWidth: Theme.size(60)
@@ -239,7 +252,10 @@ Surface {
                     objectName: "opponentLibraryCardBack" + root.seatIndex
                     anchors.fill: parent
                     visible: root.libraryCount > 0
-                    source: root.tableController.cardBackSource
+                    source: libraryPile.topCard.name
+                            ? (root.tableController.presentation.tableCardImageSource(
+                                   libraryPile.topCard) || root.tableController.cardBackSource)
+                            : root.tableController.cardBackSource
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
                     smooth: true

@@ -21,6 +21,27 @@ Item {
     property bool expandedView: false
     property bool cancellable: false
     property var selectedIds: ({})
+    property int modelRevision: 0
+    readonly property var allCards: {
+        void modelRevision
+        void promptId
+        if (!cardModel) return []
+        return typeof cardModel.items === "function" ? cardModel.items()
+            : Array.from({length: cardModel.count}, (_, i) => cardModel.get(i))
+    }
+    readonly property var selectableIds: {
+        const result = {}
+        for (const card of allCards)
+            if (card.readOnly !== true) result[card.cardId] = true
+        return result
+    }
+    readonly property var nativeSelectedIds: {
+        const result = {}
+        for (const card of allCards)
+            if (card.nativeSelected === true && card.readOnly !== true) result[card.cardId] = true
+        return result
+    }
+    readonly property int nativeSelectedCount: Object.keys(nativeSelectedIds).length
     readonly property int selectedCount: Object.keys(selectedIds).length
     readonly property bool validSelection: selectedCount >= minimumSelections
                                                    && selectedCount <= maximumSelections
@@ -36,6 +57,7 @@ Item {
     }
 
     function toggleCard(cardId) {
+        if (selectableIds[cardId] !== true) return
         const next = Object.assign({}, selectedIds)
         if (next[cardId] === true) {
             delete next[cardId]
@@ -56,7 +78,10 @@ Item {
     Connections {
         target: root.cardModel
         ignoreUnknownSignals: true
-        function onModelReset() { root.resetSelection() }
+        function onModelReset() { root.modelRevision++; root.resetSelection() }
+        function onRowsInserted() { root.modelRevision++ }
+        function onRowsRemoved() { root.modelRevision++ }
+        function onDataChanged() { root.modelRevision++ }
     }
 
     GridLayout {
@@ -80,7 +105,7 @@ Item {
                 id: cardTile
 
                 objectName: "rulesCardCandidate-" + cardId
-                activeFocusOnTab: true
+                activeFocusOnTab: selectable
                 Keys.onSpacePressed: root.toggleCard(cardId)
                 Keys.onReturnPressed: root.toggleCard(cardId)
 
@@ -90,14 +115,23 @@ Item {
                 required property string collectorNumber
                 required property bool token
                 readonly property bool selected: root.selectedIds[cardId] === true
+                readonly property bool nativeSelected: root.nativeSelectedIds[cardId] === true
+                readonly property bool selectable: root.selectableIds[cardId] === true
+                readonly property string selectionLabel: !selectable ? qsTranslate("RulesCardBrowser", "Not selectable") : nativeSelected
+                    ? selected ? qsTr("Undo selection") : qsTr("Already selected")
+                    : selected ? qsTr("Selected") : ""
 
                 width: Theme.size(88)
                 height: cardList.itemHeight
                 radius: Theme.radiusSmall
                 color: Theme.surfaceMuted
-                border.width: selected ? 3 : 1
-                border.color: selected || activeFocus ? Theme.primary : Theme.border
+                border.width: selected || nativeSelected ? 3 : 1
+                border.color: selected || activeFocus ? Theme.primary
+                    : nativeSelected ? Theme.success : Theme.border
                 clip: true
+                Accessible.role: selectable ? Accessible.Button : Accessible.StaticText
+                Accessible.name: name + (selectionLabel ? " · " + selectionLabel : "")
+                Accessible.onPressAction: root.toggleCard(cardId)
 
                 Image {
                     id: art
@@ -133,22 +167,26 @@ Item {
                 }
 
                 Rectangle {
-                    anchors.right: parent.right
+                    anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     anchors.margins: Theme.size(5)
-                    width: Theme.size(24)
-                    height: width
-                    radius: width / 2
-                    visible: cardTile.selected
-                    color: Theme.primary
+                    width: parent.width - Theme.size(8)
+                    height: badgeText.implicitHeight + Theme.size(8)
+                    radius: Theme.radiusSmall
+                    visible: cardTile.selectionLabel.length > 0
+                    color: cardTile.selected ? Theme.primary : cardTile.nativeSelected ? Theme.success : Theme.surfaceElevated
 
                     Text {
+                        id: badgeText
                         textFormat: Text.PlainText
                         anchors.centerIn: parent
-                        text: "✓"
-                        color: Theme.primaryInk
-                        font.pixelSize: Theme.fontSize(12)
+                        width: parent.width - Theme.size(6)
+                        text: cardTile.selectionLabel
+                        color: cardTile.selectable ? Theme.primaryInk : Theme.textSecondary
+                        font.pixelSize: Theme.fontSize(9)
                         font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
                     }
                 }
 
@@ -184,11 +222,22 @@ Item {
 
             Text {
                 textFormat: Text.PlainText
+                objectName: "rulesPreviouslySelectedCards"
+                Layout.fillWidth: true
+                visible: root.nativeSelectedCount > 0
+                text: qsTr("Already selected: %1. Select a marked card to undo it.").arg(root.nativeSelectedCount)
+                color: Theme.success
+                font.pixelSize: Theme.fontSize(11)
+                wrapMode: Text.Wrap
+            }
+
+            Text {
+                textFormat: Text.PlainText
                 Layout.fillWidth: true
                 text: root.minimumSelections === root.maximumSelections
-                      ? qsTr("Selected %1 of %2")
+                      ? (root.nativeSelectedCount > 0 ? qsTr("Next choice: %1 of %2") : qsTr("Selected %1 of %2"))
                         .arg(root.selectedCount).arg(root.maximumSelections)
-                      : qsTr("Selected %1 · choose %2–%3")
+                      : (root.nativeSelectedCount > 0 ? qsTr("Next choice: %1 · choose %2–%3") : qsTr("Selected %1 · choose %2–%3"))
                         .arg(root.selectedCount).arg(root.minimumSelections)
                         .arg(root.maximumSelections)
                 color: root.validSelection ? Theme.success : Theme.textSecondary

@@ -17,5 +17,19 @@ func (h *Hub) UpdateRulesPublicLog(r *room.Room, snapshot protocol.RulesGameSnap
 	defer entry.mu.Unlock()
 	if entry.room == r {
 		r.ObserveRulesPublicState(snapshot)
+		r.RecordRulesReview(snapshot)
 	}
+}
+
+func (h *Hub) RulesReviewProjection(r *room.Room, seq int64) (protocol.Envelope, bool) {
+	entry := h.roomEntryFor(r.ID)
+	if entry == nil {
+		return protocol.Envelope{}, false
+	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.room != r {
+		return protocol.Envelope{}, false
+	}
+	return r.RulesReviewProjection(seq)
 }

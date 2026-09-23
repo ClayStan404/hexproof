@@ -106,7 +106,7 @@ function chooseCards(driver) {
     var field = driver.item("rulesCardFilter");
     var list = driver.item("rulesCardCandidates");
     if (!chooser || !field || !list) return true;
-    var all = session.promptCards.items();
+    var all = session.promptCards.items().filter(card => card.readOnly !== true);
     if (driver.seat === 1 && !driver.privateChoiceResumed) {
         driver.interrupt("private-choice");
         return true;

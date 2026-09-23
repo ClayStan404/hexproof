@@ -139,6 +139,7 @@ QtObject {
         appendZone(cards, keys, tableRoot.stackCards)
         appendZone(cards, keys, tableRoot.revealedCards)
         for (let index = 0; index < seats.length; ++index) {
+            appendVisibleCard(cards, keys, seats[index].libraryTopCard)
             const seat = seats[index].seat
             appendZone(cards, keys,
                        tableRoot.zoneState.zoneCardsForSeat(seat, "graveyard"))

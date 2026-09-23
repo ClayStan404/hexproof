@@ -59,29 +59,149 @@ TestCase {
         return findChild(list.itemAtIndex(index), name + "_" + cardId)
     }
 
-    function test_topCardMoveNeverReveals_data() {
+    function test_topCardMoveRevealIsOptIn_data() {
         const rows = []
         for (const remote of [false, true]) {
-            for (const action of ["LocalHand", "SourceTopOrdered", "SourceBottomOrdered"])
-                rows.push({tag: remote + "-" + action, remote, action})
+            for (const action of ["LocalHand", "SourceTopOrdered", "SourceBottomOrdered",
+                                  "LocalBattlefieldFaceDown"]) {
+                for (const reveal of [false, true])
+                    rows.push({tag: remote + "-" + action + "-" + reveal,
+                               remote, action, reveal})
+            }
         }
         return rows
     }
 
-    function test_topCardMoveNeverReveals(data) {
+    function test_topCardMoveRevealIsOptIn(data) {
         showTopCards(1, data.remote)
         const reveal = findChild(popup, "revealLibrarySearch")
-        verify(!reveal.visible)
+        verify(reveal.visible)
         verify(!reveal.checked)
-        // Even a stale full-search preference must not reveal a private top look.
-        reveal.checked = true
+        reveal.checked = data.reveal
         popup.contextCardId = "card-0"
         findChild(popup, "libraryContext" + data.action).triggered()
         compare(searchSpy.count, 1)
         compare(searchSpy.signalArguments[0][0], ["card-0"])
-        compare(searchSpy.signalArguments[0][2], false)
+        compare(searchSpy.signalArguments[0][2],
+                data.reveal && data.action !== "LocalBattlefieldFaceDown")
         compare(searchSpy.signalArguments[0][5], data.remote ? 1 : 0)
         compare(searchSpy.signalArguments[0][6], data.remote ? "top-grant" : "")
+    }
+
+    function test_revealedBatchIsSeparateFromLaterPrivateAssignments() {
+        showTopCards(4, false)
+        const reveal = findChild(popup, "topSelectedReveal")
+        verify(reveal.visible)
+        verify(!reveal.checked)
+        popup.selectedOrder = ["card-0", "card-1"]
+        mouseClick(reveal)
+        mouseClick(findChild(popup, "assignSelectedTopCards"))
+        verify(!reveal.checked)
+        compare(popup.selectedCount, 0)
+        compare(popup.topCardAssignmentList().filter(card => card.reveal)
+                     .map(card => card.cardId), ["card-0", "card-1"])
+        verify(topChild("card-0", "topCardStatus").text.includes("Reveal in log"))
+        popup.selectedOrder = ["card-2"]
+        mouseClick(findChild(popup, "assignSelectedTopCards"))
+        verify(popup.topCardAssignment("card-0").reveal)
+        verify(!popup.topCardAssignment("card-2").reveal)
+        verify(!popup.topCardAssignment("card-3").reveal)
+        verify(!topChild("card-2", "topCardStatus").text.includes("Reveal in log"))
+        // A pending preference is not applied to already staged cards or the remainder.
+        reveal.checked = true
+        mouseClick(findChild(popup, "completeLibrarySearchButton"))
+        compare(resolveSpy.count, 1)
+        compare(resolveSpy.signalArguments[0][0], [
+            {cardId: "card-0", toZone: "hand", faceDown: false, reveal: true},
+            {cardId: "card-1", toZone: "hand", faceDown: false, reveal: true},
+            {cardId: "card-2", toZone: "hand", faceDown: false},
+            {cardId: "card-3", toZone: "library_top", faceDown: false}
+        ])
+    }
+
+    function test_previewRevealsCanBeReviewedChangedAndCleared() {
+        showTopCards(3, false)
+        popup.assignTopCards(["card-0", "card-1"], "hand", false, true)
+        popup.selectedIndex = 0
+        const preview = findChild(popup, "topCardReveal")
+        const scroll = findChild(popup, "libraryInspectorScroll")
+        scroll.contentItem.contentY = scroll.contentItem.contentHeight - scroll.height
+        verify(waitForRendering(popup.contentItem))
+        verify(preview.checked)
+        mouseClick(preview)
+        verify(!popup.topCardAssignment("card-0").reveal)
+        verify(popup.topCardAssignment("card-1").reveal)
+        mouseClick(preview)
+        verify(popup.topCardAssignment("card-0").reveal)
+
+        popup.setTopCardDestination("card-0", "library_bottom")
+        verify(popup.topCardAssignment("card-0").reveal)
+        popup.setTopCardDestination("card-1", "library_bottom")
+        popup.moveTopCardInGroup("card-1", -1)
+        compare(assignedIds("library_bottom"), ["card-1", "card-0"])
+        compare(popup.topCardAssignmentList().filter(card => card.reveal)
+                     .map(card => card.cardId), ["card-1", "card-0"])
+        compare(popup.selectedCard.id, "card-0")
+        verify(preview.checked)
+
+        popup.setTopCardDestination("card-0", "battlefield")
+        popup.setTopCardFaceDown("card-0", false)
+        verify(popup.topCardAssignment("card-0").reveal)
+        popup.setTopCardFaceDown("card-0", true)
+        verify(!popup.topCardAssignment("card-0").reveal)
+        verify(!preview.enabled)
+        verify(!preview.checked)
+        popup.setTopCardFaceDown("card-0", false)
+        verify(!popup.topCardAssignment("card-0").reveal)
+        popup.useRemainderForTopCards(["card-1"])
+        verify(!popup.topCardAssignment("card-1").reveal)
+        compare(popup.topCardAssignmentList().filter(card => card.reveal), [])
+    }
+
+    function test_contextRevealUsesCurrentBatchAndResets_data() {
+        return [
+            {tag: "selected", selected: true, faceDown: false},
+            {tag: "single", selected: false, faceDown: false},
+            {tag: "face-down", selected: true, faceDown: true}
+        ]
+    }
+
+    function test_contextRevealUsesCurrentBatchAndResets(data) {
+        showTopCards(3, true)
+        const reveal = findChild(popup, "topSelectedReveal")
+        reveal.checked = true
+        popup.selectedOrder = data.selected ? ["card-0", "card-1"] : ["card-1"]
+        popup.contextCardId = "card-0"
+        findChild(popup, "libraryContextLocal"
+                  + (data.faceDown ? "BattlefieldFaceDown" : "Hand")).triggered()
+        verify(!reveal.checked)
+        compare(popup.topCardAssignment("card-0").reveal === true, !data.faceDown)
+        compare(popup.topCardAssignment("card-1").reveal === true,
+                data.selected && !data.faceDown)
+        popup.contextCardId = "card-2"
+        findChild(popup, "libraryContextLocalHand").triggered()
+        verify(!popup.topCardAssignment("card-2").reveal)
+        compare(searchSpy.count, 0)
+        compare(resolveSpy.count, 0)
+    }
+
+    function test_fullSearchKeepsRevealPreferenceSeparateFromTopViews() {
+        popup.showCards([{id: "full", name: "Forest"}], 0, "", 0, "Alice", "Alice", 0)
+        tryCompare(popup, "opened", true)
+        const reveal = findChild(popup, "revealLibrarySearch")
+        verify(reveal.visible)
+        verify(reveal.checked)
+        popup.contextCardId = "full"
+        findChild(popup, "libraryContextLocalHand").triggered()
+        compare(searchSpy.signalArguments[0][2], true)
+        tryCompare(popup, "visible", false)
+        showTopCards(1, false)
+        verify(!reveal.checked)
+        reveal.checked = true
+        popup.close()
+        tryCompare(popup, "visible", false)
+        showTopCards(1, false)
+        verify(!reveal.checked)
     }
 
     function test_batchAssignmentsAndRemainderResolveTogether() {
@@ -91,12 +211,17 @@ TestCase {
         mouseClick(topChild("card-1", "topCardSelect"))
         mouseClick(findChild(popup, "assignSelectedTopCards"))
         compare(assignedIds("hand"), ["card-0", "card-1"])
+        compare(popup.selectedCount, 0)
+        compare(popup.topSelectionAnchor, "")
         compare(popup.topRemainderCount, 5)
         popup.setTopRemainderDestination("library_bottom")
         compare(assignedIds("library_bottom"), ["card-2", "card-3", "card-4", "card-5", "card-6"])
         popup.setTopRemainderDestination("graveyard")
         compare(assignedIds("hand"), ["card-0", "card-1"])
-        popup.useRemainderForTopCards(["card-1"])
+        popup.selectTopCard("card-1", false)
+        mouseClick(findChild(popup, "useTopRemainder"))
+        compare(popup.selectedCount, 0)
+        compare(popup.topSelectionAnchor, "")
         compare(popup.topRemainderCount, 6)
         popup.setTopRemainderDestination("library_bottom")
         popup.assignTopCards(["card-2", "card-3"], "battlefield", true)
@@ -137,6 +262,46 @@ TestCase {
         compare(popup.topSelectionAnchor, "")
     }
 
+    function test_assignmentClearsSelectionBeforeNextDestination_data() {
+        return [
+            {tag: "own-library", remote: false},
+            {tag: "approved-library", remote: true}
+        ]
+    }
+
+    function test_assignmentClearsSelectionBeforeNextDestination(data) {
+        showTopCards(4, data.remote)
+        mouseClick(topChild("card-0", "topCardSelect"))
+        mouseClick(findChild(popup, "assignSelectedTopCards"))
+        compare(assignedIds("hand"), ["card-0"])
+        compare(popup.selectedOrder, [])
+        compare(popup.topSelectionAnchor, "")
+        verify(!topChild("card-0", "topCardSelect").checked)
+        verify(!findChild(popup, "assignSelectedTopCards").enabled)
+        compare(popup.selectedCard.id, "card-0")
+
+        // Shift must not extend a stale range across the regrouped cards.
+        mouseClick(topChild("card-1", "topCardSelect"), 10, 10,
+                   Qt.LeftButton, Qt.ShiftModifier)
+        compare(popup.selectedOrder, ["card-1"])
+        const destination = findChild(popup, "topSelectedDestination")
+        destination.currentIndex = popup.topCardDestinations.findIndex(
+                    option => option.value === "graveyard")
+        mouseClick(findChild(popup, "assignSelectedTopCards"))
+        compare(assignedIds("hand"), ["card-0"])
+        compare(assignedIds("graveyard"), ["card-1"])
+        compare(popup.selectedOrder, [])
+
+        mouseClick(findChild(popup, "completeLibrarySearchButton"))
+        compare(resolveSpy.count, 1)
+        compare(resolveSpy.signalArguments[0][0], [
+            {cardId: "card-0", toZone: "hand", faceDown: false},
+            {cardId: "card-1", toZone: "graveyard", faceDown: false},
+            {cardId: "card-2", toZone: "library_top", faceDown: false},
+            {cardId: "card-3", toZone: "library_top", faceDown: false}
+        ])
+    }
+
     function test_contextAssignmentStagesSelectedOrSingleCard() {
         showTopCards(5, true)
         popup.selectedOrder = ["card-0", "card-1"]
@@ -149,19 +314,26 @@ TestCase {
         tryCompare(menu, "opened", false)
         compare(assignedIds("battlefield"), ["card-0", "card-1"])
         verify(popup.topCardAssignment("card-0").faceDown)
+        compare(popup.selectedOrder, [])
+        popup.selectTopCard("card-4", false)
         popup.contextCardId = "card-3"
         const graveyard = findChild(popup, "libraryContextLocalGraveyard")
         compare(graveyard.text, "Bob · Graveyard")
         graveyard.triggered()
         compare(assignedIds("graveyard"), ["card-3"])
-        compare(popup.selectedOrder, ["card-0", "card-1"])
+        compare(popup.selectedOrder, ["card-4"])
+        compare(popup.topSelectionAnchor, "card-4")
         compare(searchSpy.count, 0)
         compare(resolveSpy.count, 0)
         verify(popup.opened)
         verify(!findChild(popup, "libraryContextSourceHand").visible)
+        popup.selectedOrder = ["card-0", "card-1"]
+        popup.topSelectionAnchor = "card-1"
         popup.contextCardId = "card-0"
         findChild(popup, "libraryContextSourceBottomRandom").triggered()
         compare(assignedIds("library_bottom"), ["card-0", "card-1"])
+        compare(popup.selectedOrder, [])
+        compare(popup.topSelectionAnchor, "")
         verify(popup.topGroupRandomized("library_bottom"))
         verify(!popup.topCardAssignment("card-0").faceDown)
     }
@@ -207,7 +379,7 @@ TestCase {
 
     function test_cancelAndReopenDiscardDraft() {
         showTopCards(4, false)
-        popup.assignTopCards(["card-0"], "hand")
+        popup.assignTopCards(["card-0"], "hand", false, true)
         popup.setTopRemainderDestination("battlefield")
         popup.topRemainderFaceDown = true
         popup.assignTopCards(["card-1"], "battlefield", false)
@@ -218,6 +390,7 @@ TestCase {
         popup.assignTopCards(["absent"], "hand")
         popup.assignTopCards(["card-0"], "unsupported")
         compare(Object.keys(popup.topCardAssignments).length, 2)
+        findChild(popup, "topSelectedReveal").checked = true
         popup.close()
         tryCompare(popup, "visible", false)
         compare(searchSpy.count, 0)
@@ -226,6 +399,8 @@ TestCase {
         compare(popup.topRemainderDestination, "library_top")
         compare(popup.topRemainderCount, 4)
         compare(popup.selectedOrder, [])
+        verify(!findChild(popup, "topSelectedReveal").checked)
+        compare(popup.topCardAssignmentList().filter(card => card.reveal), [])
         compare(assignedIds("library_top"), ["card-0", "card-1", "card-2", "card-3"])
     }
 
@@ -291,9 +466,6 @@ TestCase {
         verify(list.width >= 300, "List width " + list.width + ", popup width " + popup.availableWidth
                + ", inspector width " + findChild(popup, "libraryInspectorScroll").width)
         verify(list.height >= 150)
-        if (data.topCount === 1)
-            return
-
         if (data.topCount > 1) {
             const row = topChild("a", "topCardRow")
             const identity = topChild("a", "topCardIdentity")
@@ -302,8 +474,19 @@ TestCase {
             verify(down.mapToItem(row, down.width, 0).x <= row.width)
             mouseClick(findChild(popup, "selectAllTopCards"))
             compare(popup.selectedCount, 3)
+            const batchReveal = findChild(popup, "topSelectedReveal")
+            const batchScroll = findChild(popup, "libraryInspectorScroll")
+            const batchPoint = batchReveal.mapToItem(batchScroll.contentItem, 0, 0)
+            batchScroll.contentItem.contentY += Math.max(
+                        0, batchPoint.y + batchReveal.height - batchScroll.availableHeight)
+            verify(waitForRendering(popup.contentItem))
+            mouseClick(batchReveal)
+            verify(batchReveal.contentItem.paintedWidth <= batchReveal.contentItem.width + 1)
+            batchScroll.contentItem.contentY = 0
+            verify(waitForRendering(popup.contentItem))
             mouseClick(findChild(popup, "assignSelectedTopCards"))
             compare(assignedIds("hand"), ["a", "b", "c"])
+            compare(popup.topCardAssignmentList().filter(card => card.reveal).length, 3)
         }
 
         if (data.topCount === 0) {
@@ -314,10 +497,20 @@ TestCase {
         scroll.contentItem.contentY = scroll.contentItem.contentHeight - scroll.height
         verify(waitForRendering(popup.contentItem))
         const toggle = findChild(popup, data.topCount > 1
-                                 ? "topCardsRandomizeBottom" : "revealLibrarySearch")
+                                 ? "topCardReveal" : "revealLibrarySearch")
         verify(toggle.width <= scroll.availableWidth + 1,
                "Toggle width " + toggle.width + ", inspector width " + scroll.availableWidth)
         verify(toggle.contentItem.paintedWidth <= toggle.contentItem.width + 1)
+        if (data.topCount === 1) {
+            verify(toggle.visible)
+            verify(!toggle.checked)
+            mouseClick(toggle)
+            popup.contextCardId = "a"
+            findChild(popup, "libraryContextLocalHand").triggered()
+            compare(searchSpy.count, 1)
+            compare(searchSpy.signalArguments[0][2], true)
+            return
+        }
         if (data.topCount === 0) {
             popup.moveSelectedCardInOrder("b", -1)
             verify(waitForRendering(popup.contentItem))

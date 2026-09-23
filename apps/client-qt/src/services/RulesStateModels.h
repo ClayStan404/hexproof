@@ -23,6 +23,7 @@ struct RulesNamedValue
 struct RulesPlayerRow
 {
     int seat = -1;
+    int controllingSeat = -1;
     QString name;
     QString status;
     int life = 0;
@@ -53,6 +54,8 @@ struct RulesCardRow
     int ownerSeat = -1;
     int controllerSeat = -1;
     bool tapped = false;
+    bool enteredThisTurn = false;
+    bool summoningSick = false;
     bool faceDown = false;
     bool attacking = false;
     QString power;
@@ -61,6 +64,8 @@ struct RulesCardRow
     QString attachedTo;
     int exiledCardCount = 0;
     QStringList exiledCardIds;
+    QStringList chosenCardIds;
+    QVariantList annotations;
     QVector<RulesNamedValue> counters;
     bool operator==(const RulesCardRow &) const = default;
 };
@@ -95,6 +100,8 @@ struct RulesPromptCardRow
     QString setCode;
     QString collectorNumber;
     bool token = false;
+    bool nativeSelected = false;
+    bool readOnly = false;
 };
 
 struct RulesPromptTargetRow
@@ -108,6 +115,7 @@ struct RulesPromptTargetRow
     QString collectorNumber;
     bool token = false;
     int seat = -1;
+    bool nativeSelected = false;
 };
 
 class RulesPlayerModel final : public RulesSnapshotModel
@@ -116,11 +124,13 @@ class RulesPlayerModel final : public RulesSnapshotModel
     enum Role
     {
         SeatRole = Qt::UserRole + 1,
+        ControllingSeatRole,
         NameRole,
         StatusRole,
         LifeRole,
         CountersSummaryRole,
         ManaSummaryRole,
+        ManaPoolRole,
         CommandersRole
     };
 
@@ -173,6 +183,8 @@ class RulesCardModel final : public RulesSnapshotModel
         OwnerSeatRole,
         ControllerSeatRole,
         TappedRole,
+        EnteredThisTurnRole,
+        SummoningSickRole,
         FaceDownRole,
         AttackingRole,
         PowerRole,
@@ -181,6 +193,8 @@ class RulesCardModel final : public RulesSnapshotModel
         AttachedToRole,
         ExiledCardCountRole,
         ExiledCardIdsRole,
+        ChosenCardIdsRole,
+        AnnotationsRole,
         CountersSummaryRole
     };
 
@@ -259,7 +273,9 @@ class RulesPromptCardModel final : public QAbstractListModel
         NameRole,
         SetCodeRole,
         CollectorNumberRole,
-        TokenRole
+        TokenRole,
+        NativeSelectedRole,
+        ReadOnlyRole
     };
 
     explicit RulesPromptCardModel(QObject *parent = nullptr);
@@ -287,7 +303,8 @@ class RulesPromptTargetModel final : public QAbstractListModel
         SetCodeRole,
         CollectorNumberRole,
         TokenRole,
-        SeatRole
+        SeatRole,
+        NativeSelectedRole
     };
 
     explicit RulesPromptTargetModel(QObject *parent = nullptr);

@@ -76,6 +76,17 @@ Surface {
             elide: Text.ElideRight
         }
         Text {
+            objectName: "tableServerTransport"
+            Layout.fillWidth: true
+            textFormat: Text.PlainText
+            text: I18n.serverTransportLabel(root.tableController.wsModel.serverTransportState)
+            visible: text.length > 0
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSize(9)
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+        }
+        Text {
             textFormat: Text.PlainText
             objectName: "tableGameNumber"
             Layout.fillWidth: true

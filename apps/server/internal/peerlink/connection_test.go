@@ -26,6 +26,10 @@ func testPair(t *testing.T, wrongBinding bool) ([2]*Connection, [2]chan []byte) 
 }
 
 func testConfiguredPair(t *testing.T, wrongBinding bool, configure func(int, *webrtc.SettingEngine)) ([2]*Connection, [2]chan []byte) {
+	return testTransportPair(t, wrongBinding, configure, nil)
+}
+
+func testTransportPair(t *testing.T, wrongBinding bool, configure func(int, *webrtc.SettingEngine), configureTransport func(int, *Config)) ([2]*Connection, [2]chan []byte) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	signals := make(chan routedSignal, 128)
@@ -36,6 +40,9 @@ func testConfiguredPair(t *testing.T, wrongBinding bool, configure func(int, *we
 		config := Config{BindingID: strings.Repeat("a", 64), Token: strings.Repeat("b", 64), Offerer: i == 0, IncludeLoopback: true}
 		if wrongBinding && i == 1 {
 			config.BindingID = strings.Repeat("c", 64)
+		}
+		if configureTransport != nil {
+			configureTransport(i, &config)
 		}
 		peer, err := newConnection(ctx, config, Callbacks{
 			Signal: func(signal Signal) {
@@ -113,6 +120,9 @@ func testConfiguredPair(t *testing.T, wrongBinding bool, configure func(int, *we
 func TestRealDataChannelReassemblesBothDirectionsAndCloses(t *testing.T) {
 	peers, messages := testPair(t, false)
 	for sender := range 2 {
+		if peers[sender].Transport() != "direct" {
+			t.Fatal("direct ICE route was not identified")
+		}
 		payload := make([]byte, 750000)
 		if _, err := rand.Read(payload); err != nil {
 			t.Fatal(err)

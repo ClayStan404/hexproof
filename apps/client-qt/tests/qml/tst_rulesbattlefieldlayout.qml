@@ -343,6 +343,10 @@ TestCase {
         const hidden = {cardId: "g", name: "Secret", visibleIdentity: false, faceDown: true}
         compare(grouping.stackKey(plains, "battlefield"), grouping.stackKey(plainsCopy, "battlefield"))
         verify(grouping.stackKey(plains, "battlefield") !== grouping.stackKey(tapped, "battlefield"))
+        verify(grouping.stackKey(plains, "battlefield") !== grouping.stackKey(
+            Object.assign({}, plainsCopy, {enteredThisTurn:true}), "battlefield"))
+        verify(grouping.stackKey(goblin, "battlefield") !== grouping.stackKey(
+            Object.assign({}, goblinCopy, {summoningSick:true}), "battlefield"))
         compare(grouping.stackKey(goblin, "battlefield"), grouping.stackKey(goblinCopy, "battlefield"))
         verify(grouping.stackKey(goblin, "battlefield") !== grouping.stackKey(printed, "battlefield"))
         verify(grouping.stackKey(hidden, "battlefield") !== grouping.stackKey(plains, "battlefield"))

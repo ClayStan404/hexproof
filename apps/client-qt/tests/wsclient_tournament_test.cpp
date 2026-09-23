@@ -42,11 +42,17 @@ void TestWsClient::pairedDraftAndOptionalCardsClearOnPublicReplacement() const
     hexproof::client::TournamentSessionState tournament;
     const QJsonObject settings{
         {u"packsPerPlayer"_s, 6}, {u"packsPerBatch"_s, 2}, {u"cardsPerPack"_s, 25}};
-    tournament.applySnapshot(
-        QJsonObject{{u"tournamentId"_s, u"PAIRED"_s}, {u"draftSettings"_s, settings}});
+    tournament.applySnapshot(QJsonObject{{u"tournamentId"_s, u"PAIRED"_s},
+                                         {u"draftSettings"_s, settings},
+                                         {u"rulesMode"_s, u"forge"_s}});
+    QCOMPARE(tournament.rulesMode(), u"forge"_s);
     QCOMPARE(tournament.draftSettings(), settings.toVariantMap());
     tournament.enter(u"ORDINARY"_s, u"participant"_s, u"p-1"_s);
     QVERIFY(tournament.draftSettings().isEmpty());
+    QCOMPARE(tournament.rulesMode(), u"manual"_s);
+    tournament.applySnapshot(QJsonObject{{u"rulesMode"_s, u"forge"_s}});
+    tournament.applySnapshot(QJsonObject{});
+    QCOMPARE(tournament.rulesMode(), u"manual"_s);
 }
 
 void TestWsClient::commanderDraftMetadataAndPrivateSelectionResetTogether() const
@@ -293,10 +299,35 @@ void TestWsClient::sendsCommanderCubeCommandsWithinSizeBounds() const
             {u"eventType"_s, u"commander_cube"_s},
             {u"coordinator"_s, u"casual"_s},
             {u"matchMode"_s, u"bo1"_s},
+            {u"rulesMode"_s, u"manual"_s},
             {u"roundMinutes"_s, 50},
             {u"maxPlayers"_s, 4},
             {u"product"_s, QJsonObject::fromVariantMap(product)},
             {u"draftSettings"_s, QJsonObject::fromVariantMap(draftSettings)}});
+
+    client.createLimitedTournament(u"Forge Sealed"_s, u"set_sealed"_s, u"bo3"_s, 50, 2, product,
+                                   u"forge"_s);
+    expect(hexproof::protocol::kTypeTournamentCreate,
+           {{u"name"_s, u"Forge Sealed"_s},
+            {u"format"_s, u"Limited"_s},
+            {u"eventType"_s, u"set_sealed"_s},
+            {u"matchMode"_s, u"bo3"_s},
+            {u"rulesMode"_s, u"forge"_s},
+            {u"roundMinutes"_s, 50},
+            {u"maxPlayers"_s, 2},
+            {u"product"_s, QJsonObject::fromVariantMap(product)}});
+    client.createCasualLimitedEvent(u"Forge Cube"_s, u"cube_draft"_s, u"bo1"_s, 2, product, {},
+                                    u"forge"_s);
+    expect(hexproof::protocol::kTypeTournamentCreate,
+           {{u"name"_s, u"Forge Cube"_s},
+            {u"format"_s, u"Cube"_s},
+            {u"eventType"_s, u"cube_draft"_s},
+            {u"coordinator"_s, u"casual"_s},
+            {u"matchMode"_s, u"bo1"_s},
+            {u"rulesMode"_s, u"forge"_s},
+            {u"roundMinutes"_s, 50},
+            {u"maxPlayers"_s, 2},
+            {u"product"_s, QJsonObject::fromVariantMap(product)}});
 
     for (int count = 2; count <= 4; ++count) {
         QVariantList players;

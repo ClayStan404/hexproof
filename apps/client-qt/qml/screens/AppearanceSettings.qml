@@ -163,7 +163,7 @@ Page {
             }
             AppToggle {
                 Layout.fillWidth: true
-                text: qsTr("Animate simulated pack openings")
+                text: qsTr("Animate pack openings")
                 checked: preferences.animatePackOpenings
                 onToggled: preferences.animatePackOpenings = checked
             }

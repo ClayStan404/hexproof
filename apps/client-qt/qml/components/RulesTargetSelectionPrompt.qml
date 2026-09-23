@@ -118,7 +118,8 @@ Item {
                 required property string setCode
                 required property string collectorNumber
                 required property bool token
-                readonly property bool selected: root.selectedIds[responseId] === true
+                readonly property bool selected: root.interaction
+                    ? root.interaction.targetSelected(responseId) : root.selectedIds[responseId] === true
 
                 width: Theme.size(98)
                 height: targetList.itemHeight
@@ -251,7 +252,9 @@ Item {
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: root.minimumSelections === root.maximumSelections
+                text: root.interaction && root.interaction.nativeSelectedCount > 0
+                      ? qsTr("Selected: %1").arg(root.interaction.nativeSelectedCount)
+                      : root.minimumSelections === root.maximumSelections
                       ? qsTr("Selected %1 of %2")
                         .arg(root.selectedCount).arg(root.maximumSelections)
                       : qsTr("Selected %1 · choose %2–%3")

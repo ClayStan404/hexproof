@@ -185,7 +185,7 @@ func TestCommanderLimitedAllInvitedSeatsStartWithPrivatePoolAndExactCommandZone(
 		}
 	}
 	ordinary := newTestRoom(t, 4, true)
-	if ordinary.minimumPlayersToStart() != 3 {
-		t.Fatal("Commander Cube changed ordinary EDH's three-player start policy")
+	if ordinary.minimumPlayersToStart() != 2 {
+		t.Fatal("Commander Cube changed ordinary EDH's two-player start policy")
 	}
 }

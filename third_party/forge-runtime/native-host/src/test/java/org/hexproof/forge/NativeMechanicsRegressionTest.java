@@ -48,6 +48,13 @@ public final class NativeMechanicsRegressionTest {
                     case "discard-two" -> discardTwo(session, owner);
                     case "optional-card-batch" -> optionalCardBatch(session, owner);
                     case "shared-type-incremental" -> sharedTypeIncremental(session, owner);
+                    case "discard-unless-creature", "discard-unless-two" -> discardUnless(session, owner, args[1].endsWith("creature"));
+                    case "discard-unless-artifact", "discard-artifact-two", "discard-artifact-undo" -> discardArtifact(session, owner, args[1]);
+                    case "end-turn-cleanup" -> endTurnCleanup(session, owner);
+                    case "dungeon-options" -> dungeonOptions(session, owner);
+                    case "frog-pay", "frog-cancel" -> frogCost(session, owner, args[1].endsWith("cancel"));
+                    case "crew-pay", "crew-cancel" -> crewCost(session, owner, args[1].endsWith("cancel"));
+                    case "waterbend-cap" -> waterbendCap(session, owner);
                     case "needle", "mage" -> naming(session, owner, args[1].equals("mage"));
                     case "bolt-resolution", "counterspell-resolution", "counter-counterspell" -> spellResolution(session, owner, args[1]);
                     default -> throw new IllegalArgumentException("Unknown mechanics scenario");
@@ -55,6 +62,227 @@ public final class NativeMechanicsRegressionTest {
             }
         }
         System.out.println("PASS native mechanics " + args[1]);
+    }
+
+    private static JsonObject boardChoice(Card card) {
+        JsonArray chosen = new JsonArray();
+        if (card != null) {
+            JsonObject target = NativeSession.object("kind", "card");
+            target.addProperty("id", NativeSession.cardId(card)); chosen.add(target);
+        }
+        JsonObject answer = NativeSession.object("type", "boardTargets"); answer.add("chosen", chosen); return answer;
+    }
+
+    private static void rejectChoice(NativeSession session, String type, JsonObject answer) {
+        String before = session.prompt(0);
+        JsonObject envelope = NativeSession.object("type", type); envelope.add("output", answer);
+        boolean rejected = false;
+        try { session.submit(envelope); } catch (IllegalArgumentException expected) { rejected = true; }
+        require(rejected && session.prompt(0).equals(before), "Invalid cost choice consumed or changed the decision");
+    }
+
+    private static void frogCost(NativeSession session, Player owner, boolean cancel) throws Exception {
+        Card frog = card(session.game, owner, "Psychic Frog", ZoneType.Battlefield);
+        for (int i = 0; i < 4; i++) card(session.game, owner, "Forest", ZoneType.Graveyard);
+        SpellAbility ability = frog.getSpellAbilities().stream().filter(a -> a.toString().contains("gains flying")).findFirst().orElseThrow();
+        ability.setActivatingPlayer(owner);
+        AtomicInteger choices = new AtomicInteger();
+        drive(session, owner, () -> {
+            require(PlaySpellAbility.playSpellAbility((PlayerControllerHuman) owner.getController(), owner, ability) != cancel,
+                    "Frog activation did not respect cost cancellation");
+            require(owner.getCardsIn(ZoneType.Graveyard).size() == (cancel ? 4 : 1)
+                    && owner.getCardsIn(ZoneType.Exile).size() == (cancel ? 0 : 3), "Frog cost exiled the wrong count");
+            if (!cancel) session.game.getStack().resolveStack();
+            require(frog.hasKeyword(forge.game.keyword.Keyword.FLYING) != cancel, "Frog resolution lost its effect or applied a cancelled effect");
+        }, input -> {
+            require(input.get("type").getAsString().equals("chooseCards"), "Frog cost bypassed the card picker");
+            require(input.get("min").getAsInt() == 3 && input.get("max").getAsInt() == 3 && input.get("cancellable").getAsBoolean(),
+                    "Frog did not expose an exact three-card cost with cancellation");
+            choices.incrementAndGet();
+            JsonArray ids = new JsonArray(); ids.add(input.getAsJsonArray("cards").get(0).getAsJsonObject().get("id"));
+            JsonObject answer = NativeSession.object("type", "chooseCardsDecision"); answer.add("chosenCardIds", ids);
+            rejectChoice(session, "chooseCards", answer);
+            if (cancel) return NativeSession.object("type", "cancel");
+            for (int i = 1; i < 3; i++) ids.add(input.getAsJsonArray("cards").get(i).getAsJsonObject().get("id"));
+            return answer;
+        });
+        require(choices.get() == 1, "Frog cost was repeated");
+    }
+
+    private static void crewCost(NativeSession session, Player owner, boolean cancel) throws Exception {
+        Card chariot = card(session.game, owner, "Esika's Chariot", ZoneType.Battlefield);
+        Card first = card(session.game, owner, "Grizzly Bears", ZoneType.Battlefield);
+        Card second = card(session.game, owner, "Grizzly Bears", ZoneType.Battlefield);
+        Card untouched = card(session.game, owner, "Memnite", ZoneType.Battlefield);
+        SpellAbility ability = chariot.getSpellAbilities().stream().filter(SpellAbility::isCrew).findFirst().orElseThrow();
+        ability.setActivatingPlayer(owner);
+        AtomicInteger clicks = new AtomicInteger();
+        drive(session, owner, () -> {
+            require(PlaySpellAbility.playSpellAbility((PlayerControllerHuman) owner.getController(), owner, ability) != cancel,
+                    "Crew activation did not respect cancellation");
+            require(first.isTapped() != cancel && second.isTapped() != cancel && !untouched.isTapped(), "Crew tapped the wrong creatures");
+            if (!cancel) session.game.getStack().resolveStack();
+            require(chariot.isCreature() != cancel, "Crew resolution animated incorrectly");
+        }, input -> {
+            require(input.get("type").getAsString().equals("chooseBoardTargets"), "Crew did not retain native total-power selection");
+            int step = clicks.getAndIncrement();
+            require(step <= 2, "Crew selection repeated");
+            require(input.get("minTargets").getAsInt() == (step < 2 ? 1 : 0), "Underpowered crew became confirmable");
+            if (step < 2) rejectChoice(session, "chooseBoardTargets", boardChoice(null));
+            if (step == 1) {
+                require(input.getAsJsonArray("candidates").asList().stream().anyMatch(c ->
+                        c.getAsJsonObject().get("id").getAsString().equals(NativeSession.cardId(first))
+                        && c.getAsJsonObject().get("selected").getAsBoolean()), "Crew selection marker was lost");
+                if (cancel) return NativeSession.object("type", "cancel");
+            }
+            return boardChoice(step == 0 ? first : step == 1 ? second : null);
+        });
+    }
+
+    private static void waterbendCap(NativeSession session, Player owner) throws Exception {
+        Card source = card(session.game, owner, "Invasion Submersible", ZoneType.Battlefield);
+        List<Card> helpers = new ArrayList<>();
+        for (int i = 0; i < 4; i++) helpers.add(card(session.game, owner, "Ornithopter", ZoneType.Battlefield));
+        SpellAbility ability = source.getSpellAbilities().stream().filter(a -> !a.isSpell()).findFirst().orElseThrow();
+        ability.setActivatingPlayer(owner);
+        AtomicInteger clicks = new AtomicInteger();
+        drive(session, owner, () -> {
+            require(PlaySpellAbility.playSpellAbility((PlayerControllerHuman) owner.getController(), owner, ability), "Waterbend activation failed");
+            require(helpers.subList(0, 3).stream().allMatch(Card::isTapped) && !helpers.get(3).isTapped() && !source.isTapped(), "Waterbend exceeded its exact payment");
+            session.game.getStack().resolveStack();
+            require(source.isCreature() && source.getCounters(forge.game.card.CounterEnumType.P1P1) == 3, "Waterbend effect did not resolve");
+        }, input -> {
+            require(input.get("type").getAsString().equals("chooseBoardTargets"), "Unexpected waterbend cost input: " + input);
+            int step = clicks.getAndIncrement();
+            require(step < 6, "Waterbend selector looped");
+            if (step == 3 || step == 5) {
+                require(input.getAsJsonArray("candidates").size() == 3, "Waterbend still offered a fourth helper after reaching its limit");
+                require(!input.toString().contains("up to -"), "Waterbend displayed a negative remaining count");
+                rejectChoice(session, "chooseBoardTargets", boardChoice(helpers.get(3)));
+            }
+            if (step == 4) require(input.getAsJsonArray("candidates").size() == 5, "Deselecting a helper did not restore legal alternatives");
+            return boardChoice(step < 3 ? helpers.get(step) : step < 5 ? helpers.get(0) : null);
+        });
+        require(clicks.get() == 6, "Waterbend did not exercise selection, deselection and confirmation");
+    }
+
+    private static void discardUnless(NativeSession session, Player owner, boolean creature) throws Exception {
+        Card source = card(session.game, owner, "Winternight Stories", ZoneType.Stack);
+        Card bear = card(session.game, owner, "Grizzly Bears", ZoneType.Hand);
+        Card first = card(session.game, owner, "Forest", ZoneType.Hand);
+        Card second = card(session.game, owner, "Island", ZoneType.Hand);
+        SpellAbility discard = AbilityFactory.getAbility(source.getSVar("DBDiscard"), source);
+        discard.setActivatingPlayer(owner);
+        AtomicInteger prompts = new AtomicInteger();
+        drive(session, owner, () -> {
+            AbilityUtils.resolve(discard);
+            require(owner.getCardsIn(ZoneType.Graveyard).size() == (creature ? 1 : 2), "Conditional discard paid the wrong count");
+            require(bear.isInZone(creature ? ZoneType.Graveyard : ZoneType.Hand), "Creature branch discarded the wrong card");
+            require(first.isInZone(creature ? ZoneType.Hand : ZoneType.Graveyard)
+                    && second.isInZone(creature ? ZoneType.Hand : ZoneType.Graveyard), "Two-card branch lost a choice");
+        }, input -> {
+            require(input.get("type").getAsString().equals("chooseCards"), "Conditional discard lost its card input");
+            int index = prompts.getAndIncrement();
+            require(index < (creature ? 1 : 2), "Completed conditional discard was presented again");
+            JsonArray ids = new JsonArray(); ids.add(NativeSession.cardId(creature ? bear : index == 0 ? first : second));
+            JsonObject answer = NativeSession.object("type", "chooseCardsDecision"); answer.add("chosenCardIds", ids); return answer;
+        });
+        require(prompts.get() == (creature ? 1 : 2), "Conditional discard bypassed a required native choice");
+    }
+
+    private static void discardArtifact(NativeSession session, Player owner, String scenario) throws Exception {
+        Card source = card(session.game, owner, "Alpharael, Dreaming Acolyte", ZoneType.Battlefield);
+        Card artifact = card(session.game, owner, "Ornithopter", ZoneType.Hand);
+        Card first = card(session.game, owner, "Forest", ZoneType.Hand);
+        Card second = card(session.game, owner, "Island", ZoneType.Hand);
+        SpellAbility discard = AbilityFactory.getAbility(source.getSVar("DBDiscard"), source);
+        discard.setActivatingPlayer(owner);
+        boolean special = scenario.equals("discard-unless-artifact"), undo = scenario.endsWith("undo");
+        AtomicInteger prompts = new AtomicInteger();
+        drive(session, owner, () -> {
+            AbilityUtils.resolve(discard);
+            require(owner.getCardsIn(ZoneType.Graveyard).size() == (special ? 1 : 2), "Artifact conditional discard paid the wrong count");
+            require(artifact.isInZone(special ? ZoneType.Graveyard : ZoneType.Hand), "Artifact branch discarded the wrong card");
+            require(first.isInZone(special ? ZoneType.Hand : ZoneType.Graveyard)
+                    && second.isInZone(special ? ZoneType.Hand : ZoneType.Graveyard), "Two-card branch lost a choice");
+        }, input -> {
+            require(input.get("type").getAsString().equals("chooseCards"), "Artifact discard lost its card input");
+            int index = prompts.getAndIncrement();
+            require(index < (special ? 1 : undo ? 4 : 2), "Completed artifact discard was presented again");
+            Set<String> marked = new HashSet<>();
+            for (JsonElement item : input.getAsJsonArray("cards")) {
+                JsonObject candidate = item.getAsJsonObject();
+                if (candidate.has("selected") && candidate.get("selected").getAsBoolean())
+                    marked.add(candidate.get("id").getAsString());
+            }
+            require(marked.equals(index == 1 || index == 3 ? Set.of(NativeSession.cardId(first)) : Set.of()),
+                    "Incremental selection or deselection was not visible to the deciding player: " + input);
+            JsonArray ids = new JsonArray();
+            ids.add(NativeSession.cardId(special ? artifact : index == (undo ? 3 : 1) ? second : first));
+            JsonObject answer = NativeSession.object("type", "chooseCardsDecision"); answer.add("chosenCardIds", ids); return answer;
+        });
+        require(prompts.get() == (special ? 1 : undo ? 4 : 2), "Artifact discard bypassed a required choice");
+    }
+
+    private static void endTurnCleanup(NativeSession session, Player owner) throws Exception {
+        Card source = card(session.game, owner, "Ultima", ZoneType.Hand);
+        Card bear = card(session.game, owner, "Grizzly Bears", ZoneType.Battlefield);
+        Card artifact = card(session.game, owner, "Ornithopter", ZoneType.Battlefield);
+        for (int i = 0; i < 5; i++) card(session.game, owner, "Plains", ZoneType.Battlefield);
+        for (int i = 0; i < 9; i++) card(session.game, owner, "Forest", ZoneType.Hand);
+        AtomicInteger cleanups = new AtomicInteger();
+        drive(session, owner, () -> {
+            require(PlaySpellAbility.playSpellAbility((PlayerControllerHuman) owner.getController(), owner, source.getSpellAbilities().get(0)), "Ultima was not cast");
+            session.game.getStack().resolveStack();
+            require(session.game.getStack().isEmpty(), "End-turn effect left a stack object");
+            require(owner.getCardsIn(ZoneType.Hand).size() == 7, "End-turn cleanup did not discard to seven");
+            require(bear.isInZone(ZoneType.Graveyard) && artifact.isInZone(ZoneType.Graveyard), "Ultima skipped its destruction effect");
+        }, input -> {
+            if (input.get("type").getAsString().equals("payManaCost")) return NativeSession.object("type", "pay");
+            if (input.get("type").getAsString().equals("reorder")) {
+                JsonArray order = new JsonArray();
+                for (JsonElement item : input.getAsJsonArray("items")) order.add(item.getAsJsonObject().get("id"));
+                JsonObject answer = NativeSession.object("type", "reorderDecision"); answer.add("orderedIds", order); return answer;
+            }
+            require(input.get("type").getAsString().equals("chooseCards") && session.game.getStack().isEmpty(),
+                    "Expected cleanup card decision after the stack was emptied: " + input);
+            cleanups.incrementAndGet();
+            JsonArray ids = new JsonArray();
+            for (int i = 0; i < input.get("min").getAsInt(); i++) ids.add(input.getAsJsonArray("cards").get(i).getAsJsonObject().get("id"));
+            JsonObject answer = NativeSession.object("type", "chooseCardsDecision"); answer.add("chosenCardIds", ids); return answer;
+        });
+        require(cleanups.get() == 1, "Cleanup choice was skipped or repeated");
+    }
+
+    private static void dungeonOptions(NativeSession session, Player owner) throws Exception {
+        Card source = card(session.game, owner, "Acererak the Archlich", ZoneType.Battlefield);
+        card(session.game, owner, "Forest", ZoneType.Library);
+        SpellAbility venture = AbilityFactory.getAbility(source.getSVar("DBVenture"), source);
+        venture.setActivatingPlayer(owner);
+        AtomicInteger menus = new AtomicInteger();
+        drive(session, owner, () -> {
+            AbilityUtils.resolve(venture);
+            require(owner.getCardsIn(ZoneType.Command).stream().anyMatch(c -> c.getName().equals("Lost Mine of Phandelver")), "Selected dungeon did not enter command zone");
+            Card dungeon = owner.getCardsIn(ZoneType.Command).stream().filter(c -> c.getName().equals("Lost Mine of Phandelver")).findFirst().orElseThrow();
+            for (int viewer : new int[]{0, 1, -1}) {
+                JsonObject view = NativeCardStateRegressionTest.projected(session, dungeon, viewer);
+                require(view.has("annotations") && view.getAsJsonArray("annotations").toString().contains("Cave Entrance"),
+                        "Dungeon room is missing from its public command-zone state");
+            }
+        }, input -> {
+            if (input.get("type").getAsString().equals("scry")) {
+                JsonArray top = new JsonArray(); top.add(input.getAsJsonArray("cards").get(0).getAsJsonObject().get("id"));
+                JsonArray piles = new JsonArray(); piles.add(top); piles.add(new JsonArray());
+                JsonObject answer = NativeSession.object("type", "scryDecision"); answer.add("zoneCardIds", piles); return answer;
+            }
+            require(input.get("type").getAsString().equals("chooseFromSelection"), "Finite dungeon choices became an unbounded card-name field");
+            menus.incrementAndGet();
+            JsonArray options = input.getAsJsonArray("options"), ids = new JsonArray();
+            for (int i = 0; i < options.size(); i++) if (options.get(i).getAsJsonObject().get("label").getAsString().equals("Lost Mine of Phandelver")) ids.add(i);
+            require(ids.size() == 1 && options.size() == 3, "Legal dungeons were not visibly enumerated");
+            JsonObject answer = NativeSession.object("type", "selectionDecision"); answer.add("chosenIndices", ids); return answer;
+        });
+        require(menus.get() == 1, "Dungeon menu repeated");
     }
 
     private static void spellResolution(NativeSession session, Player owner, String scenario) throws Exception {
@@ -132,6 +360,11 @@ public final class NativeMechanicsRegressionTest {
         drive(session, owner, () -> {
             AbilityUtils.resolve(ability);
             require(source.getNamedCard().equals("Black Lotus"), "Effect did not store public name absent from both decks");
+            for (int viewer : new int[]{0, 1, -1}) {
+                JsonObject card = NativeCardStateRegressionTest.projected(session, source, viewer);
+                require(card.has("annotations") && card.get("annotations").toString().contains("Black Lotus"),
+                        "Resolved naming choice is missing from the persistent public snapshot");
+            }
         }, input -> {
             decisions.incrementAndGet();
             require(input.get("type").getAsString().equals("chooseCardName"), "Public naming was reduced to a finite menu");

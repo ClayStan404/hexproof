@@ -75,11 +75,13 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
 
 } // namespace
 
-void CardCatalog::searchTokens(const QString &queryText, const QString &kind)
+void CardCatalog::searchTokens(const QString &queryText, const QString &kind,
+                               const QStringList &setCodes)
 {
     const QString text = queryText.simplified();
     m_tokenSearchRequested = true;
     m_lastTokenSearchQuery = text;
+    m_lastTokenSearchSets = setCodes;
     m_lastTokenSearchKind = kind == QStringLiteral("token") || kind == QStringLiteral("emblem")
                                 ? kind
                                 : QStringLiteral("all");
@@ -141,9 +143,10 @@ void CardCatalog::startLatestTokenSearch()
     const QString language = m_language;
     const QString text = m_lastTokenSearchQuery;
     const QString kind = m_lastTokenSearchKind;
+    const QStringList setCodes = m_lastTokenSearchSets;
     watcher->setFuture(QtConcurrent::run(
-        BackgroundTaskPools::catalogSearch(), [databasePath, text, language, kind]() {
-            return CatalogRepository(databasePath).searchTokens(text, language, kind);
+        BackgroundTaskPools::catalogSearch(), [databasePath, text, language, kind, setCodes]() {
+            return CatalogRepository(databasePath).searchTokens(text, language, kind, setCodes);
         }));
 }
 

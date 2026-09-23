@@ -16,6 +16,7 @@
 #include <QJSValue>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMouseEvent>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
@@ -176,6 +177,20 @@ void visitItems(QQuickItem *root, const std::function<void(QQuickItem *)> &visit
         visitItems(child, visitor);
 }
 
+bool sensitiveInput(QQuickItem *item)
+{
+    for (auto *ancestor = item; ancestor; ancestor = ancestor->parentItem()) {
+        const QVariant echoMode = ancestor->property("echoMode");
+        // TextInput.Normal is zero. All other echo modes conceal credentials.
+        if (echoMode.isValid() && echoMode.toInt() != 0)
+            return true;
+        const int hints = ancestor->property("inputMethodHints").toInt();
+        if (hints & (Qt::ImhSensitiveData | Qt::ImhHiddenText))
+            return true;
+    }
+    return false;
+}
+
 QVariantMap itemDescription(QQuickItem *item)
 {
     const QRectF rect = visibleRect(item);
@@ -190,7 +205,13 @@ QVariantMap itemDescription(QQuickItem *item)
                                              {QStringLiteral("y"), rect.y()},
                                              {QStringLiteral("width"), rect.width()},
                                              {QStringLiteral("height"), rect.height()}}}};
-    for (const char *property : {"text", "checked", "currentIndex", "count", "atYEnd"}) {
+    const QVariant text = item->property("text");
+    if (text.isValid()) {
+        description.insert(QStringLiteral("text"), sensitiveInput(item)
+                                                       ? QStringLiteral("[redacted]")
+                                                       : plainVariant(text));
+    }
+    for (const char *property : {"checked", "currentIndex", "count", "atYEnd"}) {
         const QVariant value = item->property(property);
         if (value.isValid())
             description.insert(QString::fromLatin1(property), plainVariant(value));
@@ -270,6 +291,7 @@ NativeAudit::NativeAudit(QQmlApplicationEngine *engine)
       m_shared(environment(QStringLiteral("AUDIT_SHARED")))
 {
     m_elapsed.start();
+    qApp->installEventFilter(this);
     m_requestedWidth = environment(QStringLiteral("AUDIT_WIDTH")).toInt();
     m_requestedHeight = environment(QStringLiteral("AUDIT_HEIGHT")).toInt();
     engine->rootContext()->setContextProperty(QStringLiteral("auditProbe"), this);
@@ -397,6 +419,9 @@ bool NativeAudit::chooseFile(const QString &name, const QString &path)
             });
         }
         if (!window) {
+            if (osMode())
+                return fail(
+                    QStringLiteral("System file selection requires an owned Qt Quick chooser."));
 #ifdef HEXPROOF_NATIVE_AUDIT_GTK
             if (environment(QStringLiteral("AUDIT_GTK_FILE_DIALOG")) == QStringLiteral("1")) {
                 const auto detail = selectNativeGtkFile(
@@ -471,6 +496,68 @@ bool NativeAudit::chooseFile(const QString &name, const QString &path)
                   started);
             return ok;
         }
+    }
+    if (osMode()) {
+        QVariantList inputs;
+        QVariantMap counts;
+        const auto send = [&](const QString &action, QVariantMap detail = {}) {
+            detail.insert(QStringLiteral("window"), qulonglong(window->winId()));
+            detail.insert(QStringLiteral("ownerWindow"), qulonglong(m_window->winId()));
+            detail.insert(QStringLiteral("dpr"), window->devicePixelRatio());
+            m_osInputWindow = window;
+            const bool delivered = osInput(action, detail);
+            inputs.append(m_osReceipt);
+            const auto events = m_osReceipt.value(QStringLiteral("spontaneousEvents")).toMap();
+            for (auto it = events.cbegin(); it != events.cend(); ++it)
+                counts.insert(it.key(), counts.value(it.key()).toInt() + it.value().toInt());
+            return delivered;
+        };
+        const auto key = [&](int code, int modifiers = 0) {
+            return send(QStringLiteral("key"),
+                        {{QStringLiteral("key"), code}, {QStringLiteral("modifiers"), modifiers}});
+        };
+        if (ok)
+            ok = send(QStringLiteral("activate"));
+        if (ok && fileName && fileName->window() == window) {
+            const QPointF point = visibleRect(fileName).center();
+            ok = send(QStringLiteral("click"),
+                      {{QStringLiteral("point"), QVariantList{point.x(), point.y()}}});
+        } else if (ok) {
+            ok = key(Qt::Key_L, Qt::ControlModifier);
+        }
+        if (ok)
+            ok = key(Qt::Key_A, Qt::ControlModifier);
+        QQuickItem *focus = window ? window->activeFocusItem() : nullptr;
+        ok = ok && focus && !visibleRect(focus).isEmpty() && focus->inherits("QQuickTextInput");
+        if (ok)
+            ok = send(QStringLiteral("type"), {{QStringLiteral("text"), path}}) &&
+                 focus->property("text").toString() == path;
+        if (ok)
+            ok = key(Qt::Key_Return) && verifyCompletion();
+        m_osInputWindow = nullptr;
+        m_osReceipt = {
+            {QStringLiteral("status"), ok ? QStringLiteral("passed") : QStringLiteral("failed")},
+            {QStringLiteral("backend"), QStringLiteral("mutter-virtual-device")},
+            {QStringLiteral("pid"), QCoreApplication::applicationPid()},
+            {QStringLiteral("window"), qulonglong(m_window->winId())},
+            {QStringLiteral("focusVerified"), ok},
+            {QStringLiteral("deliveryVerified"), ok},
+            {QStringLiteral("spontaneousEvents"), counts},
+            {QStringLiteral("systemInputs"), inputs}};
+        if (!ok)
+            fail(QStringLiteral(
+                     "The owned chooser did not accept the requested path through system input: %1")
+                     .arg(m_lastError));
+        trace(QStringLiteral("chooseFile"),
+              {{QStringLiteral("accepted"), ok},
+               {QStringLiteral("dialog"), name},
+               {QStringLiteral("path"), path},
+               {QStringLiteral("selectedFile"), selectedFile},
+               {QStringLiteral("dialogAccepted"), dialogAccepted},
+               {QStringLiteral("dialogClosed"), dialogClosed},
+               {QStringLiteral("dialogBackend"), QStringLiteral("qt-quick")}},
+              started);
+        return ok;
     }
     if (ok) {
         window->requestActivate();
@@ -582,6 +669,179 @@ bool NativeAudit::targetPoint(QQuickItem *item, QPointF *point, qreal x, qreal y
     return true;
 }
 
+bool NativeAudit::canInteract(QQuickItem *item)
+{
+    QPointF point;
+    return targetPoint(item, &point);
+}
+
+bool NativeAudit::osMode() const
+{
+    return !environment(QStringLiteral("AUDIT_OS_INPUT_HELPER")).isEmpty();
+}
+
+bool NativeAudit::eventFilter(QObject *object, QEvent *event)
+{
+    if (m_osCollecting &&
+        (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease ||
+         event->type() == QEvent::MouseButtonDblClick)) {
+        QQuickItem *item = qobject_cast<QQuickItem *>(object);
+        if (object == m_window || (item && item->window() == m_window)) {
+            const auto *mouse = static_cast<QMouseEvent *>(event);
+            QVariantMap row{{QStringLiteral("type"), int(event->type())},
+                            {QStringLiteral("receiverClass"),
+                             QString::fromLatin1(object->metaObject()->className())},
+                            {QStringLiteral("receiverName"), object->objectName()},
+                            {QStringLiteral("spontaneous"), event->spontaneous()},
+                            {QStringLiteral("position"),
+                             QVariantList{mouse->position().x(), mouse->position().y()}}};
+            QQuickItem *grabber = m_window->mouseGrabberItem();
+            if (grabber) {
+                row.insert(QStringLiteral("grabber"), itemDescription(grabber));
+                for (QQuickItem *parent = grabber->parentItem(); parent;
+                     parent = parent->parentItem()) {
+                    if (!parent->objectName().isEmpty()) {
+                        row.insert(QStringLiteral("grabberParent"), parent->objectName());
+                        break;
+                    }
+                }
+            }
+            m_osPointerEvents.append(row);
+        }
+    }
+    if (m_osCollecting && (object == m_window || object == m_osInputWindow) &&
+        event->spontaneous()) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+            m_osEvents.append(QStringLiteral("mousePress"));
+            break;
+        case QEvent::MouseButtonRelease:
+            m_osEvents.append(QStringLiteral("mouseRelease"));
+            break;
+        case QEvent::MouseButtonDblClick:
+            m_osEvents.append(QStringLiteral("mouseDoubleClick"));
+            break;
+        case QEvent::MouseMove:
+            m_osEvents.append(QStringLiteral("mouseMove"));
+            break;
+        case QEvent::KeyPress:
+            m_osEvents.append(QStringLiteral("keyPress"));
+            break;
+        case QEvent::ShortcutOverride:
+            // Qt delivers this native press before a matching shortcut can
+            // consume the ordinary KeyPress event.
+            m_osEvents.append(QStringLiteral("shortcutOverride"));
+            break;
+        case QEvent::KeyRelease:
+            m_osEvents.append(QStringLiteral("keyRelease"));
+            break;
+        case QEvent::Wheel:
+            m_osEvents.append(QStringLiteral("wheel"));
+            break;
+        default:
+            break;
+        }
+    }
+    return QObject::eventFilter(object, event);
+}
+
+QVariantMap NativeAudit::osCommand(QVariantMap request)
+{
+    if (!m_osProcess) {
+        const QFileInfo helper(environment(QStringLiteral("AUDIT_OS_INPUT_HELPER")));
+        if (!helper.isAbsolute() || !helper.isExecutable() ||
+            QGuiApplication::platformName() != QStringLiteral("xcb")) {
+            fail(QStringLiteral(
+                "System input requires an executable absolute helper and XWayland."));
+            return {};
+        }
+        m_osProcess = new QProcess(this);
+        m_osProcess->start(helper.absoluteFilePath(), {});
+        if (!m_osProcess->waitForStarted(2'000)) {
+            fail(QStringLiteral("Cannot start the system input helper."));
+            return {};
+        }
+    }
+    if (m_osProcess->state() == QProcess::NotRunning) {
+        fail(QStringLiteral("System input helper exited: %1")
+                 .arg(QString::fromUtf8(m_osProcess->readAllStandardError())));
+        return {};
+    }
+    request.insert(QStringLiteral("pid"), QCoreApplication::applicationPid());
+    if (!request.contains(QStringLiteral("window")))
+        request.insert(QStringLiteral("window"), m_window ? qulonglong(m_window->winId()) : 0);
+    if (!request.contains(QStringLiteral("dpr")))
+        request.insert(QStringLiteral("dpr"), m_window ? m_window->devicePixelRatio() : 1);
+    m_osProcess->write(QJsonDocument::fromVariant(request).toJson(QJsonDocument::Compact) + '\n');
+    QElapsedTimer waiting;
+    waiting.start();
+    while (!m_osProcess->canReadLine() && m_osProcess->state() != QProcess::NotRunning &&
+           waiting.elapsed() < 20'000)
+        QTest::qWait(5);
+    const auto receipt = QJsonDocument::fromJson(m_osProcess->readLine()).object().toVariantMap();
+    if (receipt.value(QStringLiteral("status")) != QStringLiteral("passed")) {
+        fail(QStringLiteral("System input failed: %1 %2")
+                 .arg(receipt.value(QStringLiteral("error")).toString(),
+                      QString::fromUtf8(m_osProcess->readAllStandardError())));
+    }
+    return receipt;
+}
+
+bool NativeAudit::beginInput()
+{
+    return !osMode() || osCommand({{QStringLiteral("action"), QStringLiteral("begin")}})
+                                .value(QStringLiteral("status")) == QStringLiteral("passed");
+}
+
+void NativeAudit::endInput()
+{
+    if (osMode() && !m_finished)
+        osCommand({{QStringLiteral("action"), QStringLiteral("end")}});
+}
+
+bool NativeAudit::osInput(const QString &action, const QVariantMap &detail)
+{
+    m_osEvents.clear();
+    m_osPointerEvents.clear();
+    m_osCollecting = true;
+    QVariantMap request = detail;
+    request.insert(QStringLiteral("action"), action);
+    m_osReceipt = osCommand(request);
+    const auto received = [&]() {
+        if (action == QStringLiteral("activate") || action == QStringLiteral("hover"))
+            return true;
+        if (action == QStringLiteral("key") || action == QStringLiteral("type")) {
+            const int count = action == QStringLiteral("type")
+                                  ? detail.value(QStringLiteral("text")).toString().toUcs4().size()
+                                  : 1;
+            const auto presses = std::max(m_osEvents.count(QStringLiteral("keyPress")),
+                                          m_osEvents.count(QStringLiteral("shortcutOverride")));
+            return presses >= count && m_osEvents.count(QStringLiteral("keyRelease")) >= count;
+        }
+        if (action == QStringLiteral("wheel"))
+            return m_osEvents.contains(QStringLiteral("wheel"));
+        return (m_osEvents.contains(QStringLiteral("mousePress")) ||
+                m_osEvents.contains(QStringLiteral("mouseDoubleClick"))) &&
+               m_osEvents.contains(QStringLiteral("mouseRelease"));
+    };
+    QElapsedTimer waiting;
+    waiting.start();
+    while (!received() && waiting.elapsed() < 500)
+        QTest::qWait(5);
+    m_osCollecting = false;
+    QVariantMap counts;
+    for (const auto &event : std::as_const(m_osEvents))
+        counts.insert(event, counts.value(event).toInt() + 1);
+    m_osReceipt.insert(QStringLiteral("spontaneousEvents"), counts);
+    m_osReceipt.insert(QStringLiteral("pointerEvents"), m_osPointerEvents);
+    m_osReceipt.insert(QStringLiteral("deliveryVerified"), received());
+    const bool ok = m_osReceipt.value(QStringLiteral("status")) == QStringLiteral("passed") &&
+                    m_osReceipt.value(QStringLiteral("focusVerified")).toBool() && received();
+    if (!ok && m_osReceipt.value(QStringLiteral("status")) == QStringLiteral("passed"))
+        fail(QStringLiteral("The owned window did not receive the requested system input."));
+    return ok;
+}
+
 void NativeAudit::trace(const QString &action, const QVariantMap &detail, qint64 started)
 {
     QVariantMap row = detail;
@@ -590,7 +850,12 @@ void NativeAudit::trace(const QString &action, const QVariantMap &detail, qint64
     row.insert(QStringLiteral("dispatchDurationMs"), m_elapsed.elapsed() - started);
     row.insert(QStringLiteral("window"), windowGeometry(m_window));
     if (!row.contains(QStringLiteral("evidence")))
-        row.insert(QStringLiteral("evidence"), QStringLiteral("native-qt-input"));
+        row.insert(QStringLiteral("evidence"),
+                   osMode() ? QStringLiteral("system-input") : QStringLiteral("native-qt-input"));
+    if (osMode()) {
+        row.insert(QStringLiteral("systemInput"), m_osReceipt);
+        m_osReceipt.clear();
+    }
     row.insert(QStringLiteral("sequence"), ++m_inputCount);
     if (row.value(QStringLiteral("accepted")) == false) {
         ++m_failedActions;
@@ -608,15 +873,20 @@ bool NativeAudit::click(QQuickItem *item, qreal x, qreal y)
 {
     const auto started = m_elapsed.elapsed();
     QPointF point;
-    const bool ok = targetPoint(item, &point, x, y);
+    bool ok = targetPoint(item, &point, x, y);
     QVariantMap detail{{QStringLiteral("accepted"), ok},
                        {QStringLiteral("target"), item ? itemDescription(item) : QVariantMap{}},
                        {QStringLiteral("x"), point.x()},
                        {QStringLiteral("y"), point.y()}};
-    if (ok)
-        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, point.toPoint());
-    else
+    if (ok) {
+        if (osMode())
+            ok = osInput(QStringLiteral("click"),
+                         {{QStringLiteral("point"), QVariantList{point.x(), point.y()}}});
+        else
+            QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, point.toPoint());
+    } else
         detail.insert(QStringLiteral("error"), m_lastError);
+    detail.insert(QStringLiteral("accepted"), ok);
     trace(QStringLiteral("click"), detail, started);
     return ok;
 }
@@ -625,10 +895,15 @@ bool NativeAudit::hover(QQuickItem *item)
 {
     const auto started = m_elapsed.elapsed();
     QPointF point;
-    const bool ok = targetPoint(item, &point);
+    bool ok = targetPoint(item, &point);
     const QVariantMap target = item ? itemDescription(item) : QVariantMap{};
-    if (ok)
-        QTest::mouseMove(m_window, point.toPoint());
+    if (ok) {
+        if (osMode())
+            ok = osInput(QStringLiteral("hover"),
+                         {{QStringLiteral("point"), QVariantList{point.x(), point.y()}}});
+        else
+            QTest::mouseMove(m_window, point.toPoint());
+    }
     trace(QStringLiteral("hover"),
           {{QStringLiteral("accepted"), ok}, {QStringLiteral("target"), target}}, started);
     return ok;
@@ -638,10 +913,15 @@ bool NativeAudit::doubleClick(QQuickItem *item)
 {
     const auto started = m_elapsed.elapsed();
     QPointF point;
-    const bool ok = targetPoint(item, &point);
+    bool ok = targetPoint(item, &point);
     const QVariantMap target = item ? itemDescription(item) : QVariantMap{};
-    if (ok)
-        QTest::mouseDClick(m_window, Qt::LeftButton, Qt::NoModifier, point.toPoint());
+    if (ok) {
+        if (osMode())
+            ok = osInput(QStringLiteral("doubleClick"),
+                         {{QStringLiteral("point"), QVariantList{point.x(), point.y()}}});
+        else
+            QTest::mouseDClick(m_window, Qt::LeftButton, Qt::NoModifier, point.toPoint());
+    }
     trace(QStringLiteral("doubleClick"),
           {{QStringLiteral("accepted"), ok}, {QStringLiteral("target"), target}}, started);
     return ok;
@@ -668,11 +948,13 @@ bool NativeAudit::inputFocus()
 
 bool NativeAudit::activate()
 {
-    if (m_window && m_window->isActive())
+    if (!osMode() && m_window && m_window->isActive())
         return true;
     const auto started = m_elapsed.elapsed();
     bool ok = m_window && m_window->isExposed() && m_window->isVisible();
-    if (ok) {
+    if (ok && osMode())
+        ok = osInput(QStringLiteral("activate"));
+    else if (ok) {
         m_window->requestActivate();
         ok = QTest::qWaitForWindowActive(m_window, 1'000);
     }
@@ -687,10 +969,15 @@ bool NativeAudit::rightClick(QQuickItem *item)
 {
     const auto started = m_elapsed.elapsed();
     QPointF point;
-    const bool ok = targetPoint(item, &point);
+    bool ok = targetPoint(item, &point);
     const QVariantMap target = item ? itemDescription(item) : QVariantMap{};
-    if (ok)
-        QTest::mouseClick(m_window, Qt::RightButton, Qt::NoModifier, point.toPoint());
+    if (ok) {
+        if (osMode())
+            ok = osInput(QStringLiteral("rightClick"),
+                         {{QStringLiteral("point"), QVariantList{point.x(), point.y()}}});
+        else
+            QTest::mouseClick(m_window, Qt::RightButton, Qt::NoModifier, point.toPoint());
+    }
     trace(QStringLiteral("rightClick"),
           {{QStringLiteral("accepted"), ok}, {QStringLiteral("target"), target}}, started);
     return ok;
@@ -699,8 +986,11 @@ bool NativeAudit::rightClick(QQuickItem *item)
 bool NativeAudit::key(int keyCode, int modifiers)
 {
     const auto started = m_elapsed.elapsed();
-    const bool ok = inputFocus();
-    if (ok)
+    bool ok = inputFocus();
+    if (ok && osMode())
+        ok = osInput(QStringLiteral("key"),
+                     {{QStringLiteral("key"), keyCode}, {QStringLiteral("modifiers"), modifiers}});
+    else if (ok)
         QTest::keyClick(m_window, static_cast<Qt::Key>(keyCode), Qt::KeyboardModifiers(modifiers));
     trace(QStringLiteral("key"),
           {{QStringLiteral("accepted"), ok},
@@ -713,8 +1003,10 @@ bool NativeAudit::key(int keyCode, int modifiers)
 bool NativeAudit::type(const QString &value)
 {
     const auto started = m_elapsed.elapsed();
-    const bool ok = inputFocus();
-    if (ok) {
+    bool ok = inputFocus();
+    if (ok && osMode())
+        ok = osInput(QStringLiteral("type"), {{QStringLiteral("text"), value}});
+    else if (ok) {
         // Qt window keyboard events, including Unicode; never modify a text
         // property's value or borrow the user's system clipboard.
         for (char32_t codePoint : value.toUcs4()) {
@@ -744,9 +1036,13 @@ bool NativeAudit::wheel(QQuickItem *item, qreal x, qreal y, int delta)
 {
     const auto started = m_elapsed.elapsed();
     QPointF point;
-    const bool ok = targetPoint(item, &point, x, y);
+    bool ok = targetPoint(item, &point, x, y);
     const QVariantMap target = item ? itemDescription(item) : QVariantMap{};
-    if (ok) {
+    if (ok && osMode())
+        ok = osInput(QStringLiteral("wheel"),
+                     {{QStringLiteral("point"), QVariantList{point.x(), point.y()}},
+                      {QStringLiteral("delta"), delta}});
+    else if (ok) {
         QTest::mouseMove(m_window, point.toPoint());
         QWheelEvent event(point, m_window->mapToGlobal(point), QPoint(), QPoint(0, delta),
                           Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
@@ -770,8 +1066,12 @@ bool NativeAudit::drag(QQuickItem *source, QQuickItem *target, qreal sourceX, qr
 {
     const auto started = m_elapsed.elapsed();
     QPointF start, end;
-    const bool ok = targetPoint(source, &start, sourceX, sourceY) && targetPoint(target, &end);
-    if (ok) {
+    bool ok = targetPoint(source, &start, sourceX, sourceY) && targetPoint(target, &end);
+    if (ok && osMode())
+        ok = osInput(QStringLiteral("drag"),
+                     {{QStringLiteral("point"), QVariantList{start.x(), start.y()}},
+                      {QStringLiteral("end"), QVariantList{end.x(), end.y()}}});
+    else if (ok) {
         QTest::mousePress(m_window, Qt::LeftButton, Qt::NoModifier, start.toPoint());
         QTest::qWait(20);
         for (int i = 1; i <= 12; ++i) {
@@ -894,7 +1194,8 @@ void NativeAudit::fixture(const QString &name, const QVariantMap &detail)
                        {QStringLiteral("monotonicMs"), m_elapsed.elapsed()}});
 }
 
-bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules)
+bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules,
+                                         const QVariantMap &match)
 {
     auto *transport = qobject_cast<WsClient *>(
         m_engine->rootContext()->contextProperty(QStringLiteral("ws")).value<QObject *>());
@@ -914,6 +1215,8 @@ bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariant
     transport->m_roomSession->applySnapshot(QJsonObject::fromVariantMap(room));
     if (!transport->m_rulesSession->applySnapshot(QJsonObject::fromVariantMap(rules)))
         return artifactFailure(QStringLiteral("Rules snapshot was rejected"));
+    if (!match.isEmpty())
+        transport->m_gameSession->applySnapshot(match);
     transport->setState(WsClient::InRoom);
     emit transport->inRoomChanged();
     fixture(QStringLiteral("rules-table-snapshot"),
@@ -939,7 +1242,8 @@ void NativeAudit::startDriver()
                         environment(QStringLiteral("AUDIT_STARTUP_SERVICES")) == "1"},
                        {QStringLiteral("downloadDirectory"),
                         QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)},
-                       {QStringLiteral("evidence"), QStringLiteral("native-qt-input")},
+                       {QStringLiteral("evidence"), osMode() ? QStringLiteral("system-input")
+                                                             : QStringLiteral("native-qt-input")},
                        {QStringLiteral("window"), observe(m_window)}});
     QQmlComponent component(m_engine,
                             QUrl::fromLocalFile(environment(QStringLiteral("AUDIT_DRIVER"))));
@@ -1001,18 +1305,27 @@ void NativeAudit::finish(int code)
         code = 4;
     const bool saved =
         record(QStringLiteral("audit-summary"),
-               QVariantMap{{QStringLiteral("exitCode"), code},
-                           {QStringLiteral("inputs"), m_inputCount},
-                           {QStringLiteral("fixtures"), m_fixtureCount},
-                           {QStringLiteral("failedInputs"), m_failedActions},
-                           {QStringLiteral("artifactFailures"), m_artifactFailures},
-                           {QStringLiteral("qmlWarnings"), m_warnings},
-                           {QStringLiteral("lastError"), m_lastError},
-                           {QStringLiteral("durationMs"), m_elapsed.elapsed()},
-                           {QStringLiteral("evidence"), QStringLiteral("native-qt-input")},
-                           {QStringLiteral("osInputVerified"), false}});
+               QVariantMap{
+                   {QStringLiteral("exitCode"), code},
+                   {QStringLiteral("inputs"), m_inputCount},
+                   {QStringLiteral("fixtures"), m_fixtureCount},
+                   {QStringLiteral("failedInputs"), m_failedActions},
+                   {QStringLiteral("artifactFailures"), m_artifactFailures},
+                   {QStringLiteral("qmlWarnings"), m_warnings},
+                   {QStringLiteral("lastError"), m_lastError},
+                   {QStringLiteral("durationMs"), m_elapsed.elapsed()},
+                   {QStringLiteral("evidence"),
+                    osMode() ? QStringLiteral("system-input") : QStringLiteral("native-qt-input")},
+                   {QStringLiteral("osInputVerified"), osMode() && code == 0 && m_inputCount > 0}});
     if (!saved && code == 0)
         code = 5;
+    if (m_osProcess) {
+        m_osProcess->closeWriteChannel();
+        if (!m_osProcess->waitForFinished(1'000)) {
+            m_osProcess->kill();
+            m_osProcess->waitForFinished(1'000);
+        }
+    }
     QCoreApplication::exit(code);
 }
 

@@ -1,7 +1,7 @@
 # Hexproof server package
 
-The archive contains a static Linux server binary and a systemd service
-template. It does not contain deployment credentials, TLS certificates, or a
+The archive contains static Linux game-server and home-connector binaries and
+a systemd service template. It does not contain deployment credentials, TLS certificates, or a
 reverse-proxy configuration.
 
 Run the server directly for a local installation:
@@ -39,3 +39,11 @@ your distribution:
 The template binds to localhost. Put a TLS-capable reverse proxy or tunnel in
 front of it when clients connect over the Internet, and pass only the proxy
 addresses through `-trusted-proxies`.
+
+For an operator-owned home node, `bin/hexproof-home` supplies the authenticated
+cloud gateway and outbound home connector. Use `hexproof-home gateway -config
+/path/to/gateway.json` or `hexproof-home node -config /path/to/node.json` with
+protected operator configuration. Keep its game backend on loopback and retain
+the ordinary hub's per-role privacy and version checks. See `HOME-SERVERS.md`
+for the connection, fallback, and recovery contract. The connector does not
+make a game survive a home power loss or a stopped hub.

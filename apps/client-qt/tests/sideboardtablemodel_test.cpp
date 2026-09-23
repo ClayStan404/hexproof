@@ -69,6 +69,9 @@ void TestSideboardTableModel::separatesVirtualBasicsFromPoolPrintings() const
         QVariantMap{
             {u"name"_s, u"Island"_s},
             {u"count"_s, 17},
+            {u"setCode"_s, u"TST"_s},
+            {u"collectorNumber"_s, u"2"_s},
+            {u"virtualBasic"_s, true},
             {u"typeLine"_s, u"Basic Land"_s},
         },
         QVariantMap{

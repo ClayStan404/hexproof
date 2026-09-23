@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'apps/client-qt/src/services/ForgeHostService.*'
+      - 'apps/client-qt/src/services/ForgeHostDiagnostics.*'
       - 'apps/client-qt/src/ApplicationPaths.h'
       - 'apps/client-qt/tests/forgehostservice/**'
       - 'apps/client-qt/tests/forgehostservice_test.cpp'
@@ -16,6 +17,7 @@ on:
     branches: [master]
     paths:
       - 'apps/client-qt/src/services/ForgeHostService.*'
+      - 'apps/client-qt/src/services/ForgeHostDiagnostics.*'
       - 'apps/client-qt/src/ApplicationPaths.h'
       - 'apps/client-qt/tests/forgehostservice/**'
       - 'apps/client-qt/tests/forgehostservice_test.cpp'

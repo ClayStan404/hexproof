@@ -72,6 +72,8 @@ QVariant RulesPlayerModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case SeatRole:
         return row.seat;
+    case ControllingSeatRole:
+        return row.controllingSeat;
     case NameRole:
         return row.name;
     case StatusRole:
@@ -82,6 +84,19 @@ QVariant RulesPlayerModel::data(const QModelIndex &index, int role) const
         return namedValueSummary(row.counters, true);
     case ManaSummaryRole:
         return namedValueSummary(row.manaPool);
+    case ManaPoolRole: {
+        QVariantList pool;
+        for (const QString &color : {u"W"_s, u"U"_s, u"B"_s, u"R"_s, u"G"_s, u"C"_s}) {
+            int amount = 0;
+            for (const RulesNamedValue &value : row.manaPool) {
+                if (value.name.compare(color, Qt::CaseInsensitive) == 0)
+                    amount += value.value;
+            }
+            if (amount > 0)
+                pool.append(QVariantMap{{u"color"_s, color}, {u"amount"_s, amount}});
+        }
+        return pool;
+    }
     case CommandersRole:
         return row.commanders;
     default:
@@ -92,11 +107,13 @@ QVariant RulesPlayerModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> RulesPlayerModel::roleNames() const
 {
     return {{SeatRole, "seat"},
+            {ControllingSeatRole, "controllingSeat"},
             {NameRole, "name"},
             {StatusRole, "status"},
             {LifeRole, "life"},
             {CountersSummaryRole, "countersSummary"},
             {ManaSummaryRole, "manaSummary"},
+            {ManaPoolRole, "manaPool"},
             {CommandersRole, "commanders"}};
 }
 
@@ -200,6 +217,10 @@ QVariant RulesCardModel::data(const QModelIndex &index, int role) const
         return row.controllerSeat;
     case TappedRole:
         return row.tapped;
+    case EnteredThisTurnRole:
+        return row.enteredThisTurn;
+    case SummoningSickRole:
+        return row.summoningSick;
     case FaceDownRole:
         return row.faceDown;
     case AttackingRole:
@@ -216,6 +237,10 @@ QVariant RulesCardModel::data(const QModelIndex &index, int role) const
         return row.exiledCardCount;
     case ExiledCardIdsRole:
         return row.exiledCardIds;
+    case ChosenCardIdsRole:
+        return row.chosenCardIds;
+    case AnnotationsRole:
+        return row.annotations;
     case CountersSummaryRole:
         return namedValueSummary(row.counters, true);
     default:
@@ -236,6 +261,8 @@ QHash<int, QByteArray> RulesCardModel::roleNames() const
             {OwnerSeatRole, "ownerSeat"},
             {ControllerSeatRole, "controllerSeat"},
             {TappedRole, "tapped"},
+            {EnteredThisTurnRole, "enteredThisTurn"},
+            {SummoningSickRole, "summoningSick"},
             {FaceDownRole, "faceDown"},
             {AttackingRole, "attacking"},
             {PowerRole, "power"},
@@ -244,6 +271,8 @@ QHash<int, QByteArray> RulesCardModel::roleNames() const
             {AttachedToRole, "attachedTo"},
             {ExiledCardCountRole, "exiledCardCount"},
             {ExiledCardIdsRole, "exiledCardIds"},
+            {ChosenCardIdsRole, "chosenCardIds"},
+            {AnnotationsRole, "annotations"},
             {CountersSummaryRole, "countersSummary"}};
 }
 
@@ -402,9 +431,19 @@ QVariantList RulesPromptOptionModel::items() const
 
 void RulesPromptOptionModel::replace(QVector<RulesPromptOptionRow> rows)
 {
-    beginResetModel();
-    m_rows = std::move(rows);
-    endResetModel();
+    // Remove the old decision while its delegates still have valid indexes.
+    // A reset during asynchronous ListView incubation can otherwise cancel an
+    // index after Qt has already replaced the model with an empty decision.
+    if (!m_rows.isEmpty()) {
+        beginRemoveRows({}, 0, m_rows.size() - 1);
+        m_rows.clear();
+        endRemoveRows();
+    }
+    if (!rows.isEmpty()) {
+        beginInsertRows({}, 0, rows.size() - 1);
+        m_rows = std::move(rows);
+        endInsertRows();
+    }
 }
 
 void RulesPromptOptionModel::clear()
@@ -438,6 +477,10 @@ QVariant RulesPromptCardModel::data(const QModelIndex &index, int role) const
         return row.collectorNumber;
     case TokenRole:
         return row.token;
+    case NativeSelectedRole:
+        return row.nativeSelected;
+    case ReadOnlyRole:
+        return row.readOnly;
     default:
         return {};
     }
@@ -445,11 +488,10 @@ QVariant RulesPromptCardModel::data(const QModelIndex &index, int role) const
 
 QHash<int, QByteArray> RulesPromptCardModel::roleNames() const
 {
-    return {{IdRole, "cardId"},
-            {NameRole, "name"},
-            {SetCodeRole, "setCode"},
-            {CollectorNumberRole, "collectorNumber"},
-            {TokenRole, "token"}};
+    return {{IdRole, "cardId"},        {NameRole, "name"},
+            {SetCodeRole, "setCode"},  {CollectorNumberRole, "collectorNumber"},
+            {TokenRole, "token"},      {NativeSelectedRole, "nativeSelected"},
+            {ReadOnlyRole, "readOnly"}};
 }
 
 QVariantList RulesPromptCardModel::items() const
@@ -461,7 +503,9 @@ QVariantList RulesPromptCardModel::items() const
                                   {u"name"_s, row.name},
                                   {u"setCode"_s, row.setCode},
                                   {u"collectorNumber"_s, row.collectorNumber},
-                                  {u"token"_s, row.token}});
+                                  {u"token"_s, row.token},
+                                  {u"nativeSelected"_s, row.nativeSelected},
+                                  {u"readOnly"_s, row.readOnly}});
     }
     return result;
 }
@@ -512,6 +556,8 @@ QVariant RulesPromptTargetModel::data(const QModelIndex &index, int role) const
         return row.token;
     case SeatRole:
         return row.seat;
+    case NativeSelectedRole:
+        return row.nativeSelected;
     default:
         return {};
     }
@@ -527,7 +573,8 @@ QHash<int, QByteArray> RulesPromptTargetModel::roleNames() const
             {SetCodeRole, "setCode"},
             {CollectorNumberRole, "collectorNumber"},
             {TokenRole, "token"},
-            {SeatRole, "seat"}};
+            {SeatRole, "seat"},
+            {NativeSelectedRole, "nativeSelected"}};
 }
 
 QVariantList RulesPromptTargetModel::items() const
@@ -543,7 +590,8 @@ QVariantList RulesPromptTargetModel::items() const
                                    {u"name"_s, row.name},
                                    {u"setCode"_s, row.setCode},
                                    {u"collectorNumber"_s, row.collectorNumber},
-                                   {u"token"_s, row.token}});
+                                   {u"token"_s, row.token},
+                                   {u"nativeSelected"_s, row.nativeSelected}});
     }
     return targets;
 }

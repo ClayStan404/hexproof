@@ -1,0 +1,10 @@
+{
+  "type": "error",
+  "payload": {
+    "code": "rules_unavailable",
+    "message": "Forge could not start the game; check the selected decks before readying again",
+    "rulesStartFailure": {
+      "reason": "deck_rejected"
+    }
+  }
+}

@@ -10,7 +10,7 @@ Rectangle {
     required property var inspector
     readonly property var sourceItem: inspector.previewSource
     objectName: "rulesCardHoverPreview"
-    readonly property bool hasLinkedSummary: inspector.exiledSummary.length > 0
+    readonly property bool hasLinkedSummary: inspector.persistentSummary.length > 0
     readonly property real linkedBand: hasLinkedSummary ? linkedCards.implicitHeight + Theme.size(10) : 0
     width: Math.min(Theme.size(360), parent.width * 0.42, (parent.height - Theme.size(32)) * 63 / 88)
     height: Math.min(parent.height - Theme.size(24), width * 88 / 63 + linkedBand)
@@ -52,7 +52,7 @@ Rectangle {
         id: artwork
         objectName: "rulesCardHoverPreviewArt"
         width: parent.width
-        height: width * 88 / 63
+        height: Math.max(0, root.height - root.linkedBand)
         asynchronous: true
         fillMode: Image.PreserveAspectFit
         source: {
@@ -74,11 +74,11 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.margins: Theme.size(6)
         visible: root.hasLinkedSummary
-        text: root.inspector.exiledSummary
+        text: root.inspector.persistentSummary
         color: Theme.text
         font.pixelSize: Theme.fontSize(12)
         wrapMode: Text.Wrap
-        maximumLineCount: 3
+        maximumLineCount: 4
         elide: Text.ElideRight
     }
     Text {
@@ -86,6 +86,7 @@ Rectangle {
         textFormat: Text.PlainText
         anchors.fill: parent
         anchors.margins: Theme.size(18)
+        anchors.bottomMargin: root.linkedBand + Theme.size(18)
         visible: artwork.status !== Image.Ready
         text: root.inspector.hasIdentity
             ? [typeof root.tableController.cardDisplayName === "function"

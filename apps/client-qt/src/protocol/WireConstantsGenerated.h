@@ -9,6 +9,50 @@
 
 namespace hexproof::protocol {
 
+inline const QString kTypeForgeReplayGrant = QStringLiteral("replay.forge_grant");
+inline const QString kTypeForgeReplayGet = QStringLiteral("replay.forge_get");
+inline const QString kTypeForgeReplayPage = QStringLiteral("replay.forge_page");
+inline const QString kRulesStartReasonDeckRejected = QStringLiteral("deck_rejected");
+inline const QString kRulesStartReasonCapacity = QStringLiteral("capacity");
+inline const QString kRulesStartReasonRuntimeUnavailable = QStringLiteral("runtime_unavailable");
+inline const QString kRulesStartReasonRuntimeTimeout = QStringLiteral("runtime_timeout");
+inline const QString kRulesStartReasonRuntimeFailed = QStringLiteral("runtime_failed");
+inline const QString kRulesStartReasonStartRejected = QStringLiteral("start_rejected");
+inline const QString kRulesDeckOwnerPlayer = QStringLiteral("player");
+inline const QString kRulesDeckOwnerAI = QStringLiteral("ai");
+inline const QString kRulesDeckSectionCommanders = QStringLiteral("commanders");
+inline const QString kRulesDeckIssueCardUnavailable = QStringLiteral("card_unavailable");
+inline const QString kRulesDeckIssuePrintingUnavailable = QStringLiteral("printing_unavailable");
+inline const QString kRulesDeckIssueCommanderMissing = QStringLiteral("commander_missing");
+inline const QString kRulesDeckIssueInvalidDeckSize = QStringLiteral("invalid_deck_size");
+inline const QString kRulesDeckIssueInvalidSideboardSize = QStringLiteral("invalid_sideboard_size");
+inline const QString kTypeSideboardChooseStartingPlayer =
+    QStringLiteral("sideboard.choose_starting_player");
+inline const QString kTypeSideboardStartingPlayerChosen =
+    QStringLiteral("sideboard.starting_player_chosen");
+inline const QString kTypeGameSetLibraryTopRevealed =
+    QStringLiteral("game.set_library_top_revealed");
+inline const QString kTypeGameLibraryTopRevealedSet =
+    QStringLiteral("game.library_top_revealed_set");
+inline const QString kTypeRoomAIWorker = QStringLiteral("room.ai.worker");
+inline const QString kTypeRoomAIStatus = QStringLiteral("room.ai.status");
+inline const QString kTypeRoomAIRetry = QStringLiteral("room.ai.retry");
+inline const QString kTypeAIAttach = QStringLiteral("ai.attach");
+inline const QString kTypeAIAttached = QStringLiteral("ai.attached");
+inline const QString kTypeAIDecision = QStringLiteral("ai.decision");
+inline const QString kTypeAIAnswer = QStringLiteral("ai.answer");
+inline const QString kTypeAIFailure = QStringLiteral("ai.failure");
+inline const QString kTypeAICancel = QStringLiteral("ai.cancel");
+inline const QString kTypeAIRejected = QStringLiteral("ai.rejected");
+inline const QString kSeatControllerModelAI = QStringLiteral("modelAi");
+inline const QString kAISourceForge = QStringLiteral("forge");
+inline const QString kAISourceLocal = QStringLiteral("local");
+inline const QString kAISourceOnline = QStringLiteral("online");
+inline const QString kTypeRoomAIConfigure = QStringLiteral("room.ai.configure");
+inline const QString kSeatControllerForgeAI = QStringLiteral("forgeAi");
+inline const QString kAIDifficultyEasy = QStringLiteral("easy");
+inline const QString kAIDifficultyNormal = QStringLiteral("normal");
+inline const QString kAIDifficultyHard = QStringLiteral("hard");
 inline const QString kTypeForgePeerRequest = QStringLiteral("forge.peer_request");
 inline const QString kTypeForgePeerGrant = QStringLiteral("forge.peer_grant");
 inline const QString kTypeForgePeerSignal = QStringLiteral("forge.peer_signal");

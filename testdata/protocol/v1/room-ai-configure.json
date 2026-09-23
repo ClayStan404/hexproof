@@ -1,0 +1,7 @@
+{
+  "type": "room.ai.configure",
+  "id": "ai-configure-1",
+  "payload": {
+    "difficulty": "normal"
+  }
+}

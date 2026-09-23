@@ -1,0 +1,12 @@
+{
+  "type": "sideboard.move",
+  "id": "clear-mainboard",
+  "payload": {
+    "name": "",
+    "setCode": "",
+    "collectorNumber": "",
+    "fromZone": "mainboard",
+    "toZone": "sideboard",
+    "clearMainboard": true
+  }
+}

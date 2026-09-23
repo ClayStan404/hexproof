@@ -37,7 +37,7 @@ func (e *Event) startDraftRound() error {
 		}
 		player.Inbox = append(player.Inbox, batch)
 	}
-	return e.drainSingletons()
+	return e.advanceDraft()
 }
 
 func (e *Event) targetPlayer(player *PlayerState) *PlayerState {
@@ -114,7 +114,7 @@ func (e *Event) PickCards(participantID string, instanceIDs []string) (int, erro
 		target := e.targetPlayer(player)
 		target.Inbox = append(target.Inbox, pack)
 	}
-	if err := e.drainSingletons(); err != nil {
+	if err := e.advanceDraft(); err != nil {
 		return 0, err
 	}
 	remaining := 0
@@ -143,16 +143,18 @@ func (e *Event) SetAutoDraft(participantID string, automatic bool) error {
 		return fail(ErrForbidden, "participant does not own a draft seat")
 	}
 	player.AutoDraft = automatic
-	return e.drainSingletons()
+	return e.advanceDraft()
 }
 
-func (e *Event) drainSingletons() error {
+// advanceDraft drains explicitly automated seats, then opens the next batch
+// only when every manual seat has confirmed its final selection.
+func (e *Event) advanceDraft() error {
 	// Every successful iteration removes physical cards from a pack. The
 	// Locked stock and the configured pack count bound even an all-auto pod.
 	for {
 		changed := false
 		for _, player := range e.Players {
-			for len(player.Inbox) > 0 && (player.AutoDraft || player.Inbox[0].cardCount() <= e.picksForPack(player.Inbox[0])) {
+			for len(player.Inbox) > 0 && player.AutoDraft {
 				pack := player.Inbox[0]
 				for _, part := range pack.parts() {
 					if len(part.Cards) <= e.PicksPerSelection() {

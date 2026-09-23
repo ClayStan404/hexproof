@@ -71,7 +71,9 @@ func publicationDigest(p *Publication) (string, error) {
 		}
 		integrity = view.IntegrityHash
 	}
-	raw, err := json.Marshal(p)
+	position := *p
+	position.Replay = nil // Observation timestamps are not deterministic engine state.
+	raw, err := json.Marshal(&position)
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +86,7 @@ func publicationDigest(p *Publication) (string, error) {
 }
 
 func (c *Checkpoint) validate() error {
-	if c == nil || c.RuntimeID != RuntimeID || len(c.Start.Players) != 2 ||
+	if c == nil || c.Start.HasAI() || c.RuntimeID != RuntimeID || len(c.Start.Players) != 2 ||
 		c.Start.GameID == "" || len(c.InitialDigest) != 64 || len(c.Actions) > MaxReplayActions {
 		return ErrReplayMismatch
 	}

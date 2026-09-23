@@ -108,6 +108,7 @@ func newLiveForgeWebSocketServer(t *testing.T, maxGames ...int) (*httptest.Serve
 		}
 	})
 	config := DefaultConfig()
+	config.RetentionDir = t.TempDir()
 	if len(maxGames) > 0 {
 		config.MaxForgeGames = maxGames[0]
 	}
@@ -382,6 +383,9 @@ func runLiveForgePeerStudy(t *testing.T, srv *httptest.Server, handler *Handler,
 	if !validResult {
 		t.Fatal("real engine win did not commit the ordinary match lifecycle result")
 	}
+	if handler.config.RetentionDir != "" {
+		liveForgeVerifyReplay(t, ctx, players, observer, matchMode)
+	}
 	host.command(t, ctx, protocol.TypeGameReturnToRoom, "return", protocol.GameReturnToRoom{})
 	host.until(t, ctx, protocol.TypeGameReturnedToRoom)
 	for _, peer := range append(players, observer) {
@@ -419,6 +423,7 @@ func dialLiveForge(t *testing.T, srv *httptest.Server) *wsClient {
 }
 
 type liveForgePeer struct {
+	replay    protocol.ForgeReplayGrant
 	client    *wsClient
 	seat      int
 	name      string
@@ -490,7 +495,7 @@ func liveForgeAnswer(t *testing.T, actor *liveForgePeer, stats map[string]int) p
 	prompt := actor.prompt
 	answer := protocol.RulesRespond{PromptID: prompt.PromptID, ResponseID: "$submit"}
 	switch prompt.Kind {
-	case "diceRolled", "revealCards":
+	case "acknowledge", "diceRolled", "revealCards":
 		answer.ResponseID = "$ack"
 	case "mulligan":
 		answer.ResponseID = "$keep"
@@ -563,8 +568,10 @@ func liveForgeAnswer(t *testing.T, actor *liveForgePeer, stats map[string]int) p
 	case "chooseAttackers", "chooseBlockers":
 		// These decks have no creatures.
 	case "chooseCards", "mulliganPutBack":
-		for index := 0; index < prompt.CardMinimum; index++ {
-			answer.CardIDs = append(answer.CardIDs, prompt.Cards[index].ID)
+		for _, card := range prompt.Cards {
+			if !card.ReadOnly && len(answer.CardIDs) < prompt.CardMinimum {
+				answer.CardIDs = append(answer.CardIDs, card.ID)
+			}
 		}
 	case "chooseBoolean", "chooseFromSelection":
 		weight := 0
@@ -586,6 +593,13 @@ func (peer *liveForgePeer) accept(t *testing.T, envelope protocol.Envelope, kind
 	t.Helper()
 	assertNormalizedRulesWireArrays(t, envelope)
 	switch envelope.Type {
+	case protocol.TypeForgeReplayGrant:
+		if peer.seat < 0 {
+			t.Fatal("spectator received a private replay capability")
+		}
+		if err := envelope.DecodePayload(&peer.replay); err != nil {
+			t.Fatal(err)
+		}
 	case protocol.TypeError:
 		if kind != protocol.TypeError {
 			t.Fatalf("seat %d received server error during %s: %s", peer.seat, kind, envelope.Payload)
@@ -614,8 +628,10 @@ func (peer *liveForgePeer) accept(t *testing.T, envelope protocol.Envelope, kind
 					t.Fatalf("player %d received a redacted card in their own hand", peer.seat)
 				}
 			}
-			if zone.Zone == "hand" && zone.OwnerSeat == peer.seat && zone.Count > 0 && len(zone.Cards) != zone.Count {
-				t.Fatalf("player %d did not receive their own complete hand", peer.seat)
+			// Finished-game reconnect intentionally restores the public review
+			// board; the separate match replay releases both hands only at completion.
+			if !peer.snapshot.GameOver && zone.Zone == "hand" && zone.OwnerSeat == peer.seat && zone.Count > 0 && len(zone.Cards) != zone.Count {
+				t.Fatalf("player %d did not receive their own complete hand: game=%s over=%v zone=%+v", peer.seat, peer.snapshot.GameID, peer.snapshot.GameOver, zone)
 			}
 		}
 	case protocol.TypeGameSnapshot:

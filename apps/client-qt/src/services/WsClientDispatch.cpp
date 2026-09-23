@@ -11,12 +11,67 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <algorithm>
 
 namespace hexproof::client {
 
 namespace {
 using namespace hexproof::protocol;
 using namespace Qt::StringLiterals;
+
+QVariantMap normalizedRulesStartFailure(const QJsonObject &value, bool player, bool host)
+{
+    const QString reason = value.value(u"reason"_s).toString();
+    if (!QStringList{u"deck_rejected"_s, u"capacity"_s, u"runtime_unavailable"_s,
+                     u"runtime_timeout"_s, u"runtime_failed"_s, u"start_rejected"_s}
+             .contains(reason))
+        return {};
+    QVariantMap result{{u"reason"_s, reason}};
+    QVariantList issues;
+    bool truncated = value.value(u"truncated"_s).toBool();
+    // The hub supplies recipient-scoped diagnostics, never raw runtime text.
+    // Project only known fields, and retain no deck details for spectators.
+    if (player && reason == u"deck_rejected"_s) {
+        const auto entries = value.value(u"issues"_s).toArray();
+        for (const auto &entry : entries) {
+            if (issues.size() >= 32) {
+                truncated = true;
+                break;
+            }
+            const auto issue = entry.toObject();
+            const QString deck = issue.value(u"deck"_s).toString();
+            const QString section = issue.value(u"section"_s).toString();
+            const QString code = issue.value(u"code"_s).toString();
+            if ((deck != u"player"_s && deck != u"ai"_s) || (deck == u"ai"_s && !host) ||
+                !QStringList{u"mainboard"_s, u"sideboard"_s, u"commanders"_s}.contains(section) ||
+                !QStringList{u"card_unavailable"_s, u"printing_unavailable"_s,
+                             u"commander_missing"_s, u"invalid_deck_size"_s,
+                             u"invalid_sideboard_size"_s}
+                     .contains(code))
+                continue;
+            QVariantMap detail{{u"deck"_s, deck}, {u"section"_s, section}, {u"code"_s, code}};
+            for (const auto &field : {u"cardName"_s, u"setCode"_s, u"collectorNumber"_s}) {
+                const QString text = issue.value(field).toString().trimmed();
+                const qsizetype limit = field == u"cardName"_s ? 256 : 64;
+                if (text.isEmpty())
+                    continue;
+                const bool control = std::any_of(text.cbegin(), text.cend(), [](QChar ch) {
+                    return ch.category() == QChar::Other_Control ||
+                           ch.category() == QChar::Other_Format || ch == QChar::LineSeparator ||
+                           ch == QChar::ParagraphSeparator;
+                });
+                if (text.size() <= limit && !control)
+                    detail.insert(field, text);
+                else
+                    truncated = true;
+            }
+            issues.append(detail);
+        }
+    }
+    result.insert(u"issues"_s, issues);
+    result.insert(u"truncated"_s, truncated);
+    return result;
+}
 } // namespace
 
 void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
@@ -30,8 +85,16 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
             return;
         m_lastRulesSnapshotSeq = env.seq;
     }
-    if (env.type == kTypeForgePeerGrant || env.type == kTypeForgePeerSignaled ||
-        env.type == kTypeForgePeerStatus) {
+    if (env.type == kTypeRoomAIWorker) {
+        if (m_aiModelsAvailable && m_roomSession->host() &&
+            env.payload.value(u"roomId"_s).toString() == roomId() &&
+            env.payload.value(u"source"_s).toString() == m_roomSession->aiSource())
+            m_modelOpponent->start(m_serverUrl, env.payload);
+    } else if (env.type == kTypeRoomAIStatus) {
+        m_roomSession->applyAIStatus(env.payload);
+        reconcileModelOpponentStatus();
+    } else if (env.type == kTypeForgePeerGrant || env.type == kTypeForgePeerSignaled ||
+               env.type == kTypeForgePeerStatus) {
         handlePeerEnvelope(env);
     } else if (env.type == kTypeForgeHostGrant) {
         const bool standby = env.payload.value(u"standby"_s).toBool();
@@ -96,6 +159,10 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleRulesSnapshot(env.payload);
     else if (env.type == kTypeRulesPrompt)
         handleRulesPrompt(env.payload);
+    else if (env.type == kTypeForgeReplayGrant)
+        m_replays->acceptGrant(m_serverUrl, env.payload);
+    else if (env.type == kTypeForgeReplayPage)
+        m_replays->acceptPage(m_serverUrl, env.payload);
     else if (env.type == kTypeGameZoneDumpRequested)
         handleZoneDumpRequested(env);
     else if (env.type == kTypeGamePublicZoneMoveRequested)
@@ -219,6 +286,8 @@ void WsClient::handleWelcome(const Envelope &env)
     }
     m_peerTransportAvailable = env.payload.value(u"peerTransportAvailable"_s).toBool();
     m_playerHostingAvailable = env.payload.value(u"playerHostingAvailable"_s).toBool();
+    m_forgeAIAvailable = env.payload.value(u"forgeAIAvailable"_s).toBool();
+    m_aiModelsAvailable = env.payload.value(u"aiModelsAvailable"_s).toBool();
     setForgeRulesAvailable(env.payload.value(u"forgeRulesAvailable"_s).toBool());
     emit capabilitiesChanged();
     m_serverDirectory->recordCapabilities(
@@ -312,7 +381,7 @@ void WsClient::handleSnapshot(const Envelope &env)
     if (m_roomSession->completePendingEntry()) {
         setState(InRoom);
         emit inRoomChanged();
-        if (m_peerResumeNeeded) {
+        if (m_directPeerPreferred || m_peerResumeNeeded) {
             m_peerResumeNeeded = false;
             setDirectPeerEnabled(true);
         }
@@ -330,6 +399,7 @@ void WsClient::handleLoadRequired(const Envelope &env)
     const qint64 loadID = env.payload.value(u"loadId"_s).toInteger();
     if (!m_roomSession->applyLoadRequired(loadID))
         return;
+    clearRulesStartFailure();
     QVariantList cards;
     for (const QJsonValue &value : env.payload.value(u"cardKeys"_s).toArray())
         cards.append(value.toObject().toVariantMap());
@@ -338,6 +408,7 @@ void WsClient::handleLoadRequired(const Envelope &env)
 
 void WsClient::handleMatchStarted(const Envelope &env)
 {
+    clearRulesStartFailure();
     m_roomSession->applyMatchStarted(env.payload.value(u"loadId"_s).toInteger());
     emit matchStarted();
 }
@@ -447,6 +518,16 @@ void WsClient::handleError(const Envelope &env)
     m_roomSession->discardPendingDeck(env.id);
     const QString code = env.payload.value(u"code"_s).toString();
     QString msg = env.payload.value(u"message"_s).toString();
+    if ((code == u"rules_unavailable"_s || code == u"server_limit"_s) && !roomId().isEmpty() &&
+        m_roomSession->rulesMode() == kRulesModeForge) {
+        const auto failure = normalizedRulesStartFailure(
+            env.payload.value(u"rulesStartFailure"_s).toObject(),
+            m_roomSession->role() == kRolePlayer, m_roomSession->host());
+        if (!failure.isEmpty()) {
+            m_rulesStartFailure = failure;
+            emit rulesStartFailureChanged();
+        }
+    }
     if (code == kErrClientVersionMismatch) {
         setVersionMismatch(env.payload.value(u"requiredVersion"_s).toString().trimmed());
         m_intentionalDisconnect = true;

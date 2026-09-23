@@ -16,13 +16,21 @@ TestCase {
         width: 1280
         height: 720
         visible: true
+        property var openedScreen: ({})
         function popScreen() { }
-        function pushScreen(url) { }
+        function pushScreen(url, properties) { openedScreen = {url, properties} }
     }
 
     QtObject {
         id: mockWs
         property bool forgeRulesAvailable: true
+        property bool forgeAIAvailable: true
+        property bool aiModelsAvailable: true
+        property var modelOpponent: QtObject {
+            property bool ready: false
+            signal profilesChanged()
+            function configured(source) { return ready && ["local", "online"].includes(source) }
+        }
         property bool playerHostingAvailable: false
         property var forgeHost: QtObject { property bool ready: false; property bool busy: false; property string status: "Test runtime"; property double progress: 0; function check() {} }
         property bool inRoom: false
@@ -32,12 +40,12 @@ TestCase {
         property string submittedRulesMode: ""
         property var submittedRoom: ({})
         function createRoom(name, format, deckFormat, spectators, hands, matchMode,
-                            loadMode, password, playtest, rulesMode, hostingMode) {
+                            loadMode, password, playtest, rulesMode, hostingMode, aiDifficulty, aiSource) {
             ++createCount
             submittedMatchMode = matchMode
             submittedRulesMode = rulesMode
             submittedRoom = {name, format, deckFormat, spectators, hands, matchMode,
-                             loadMode, password, playtest, rulesMode, hostingMode}
+                             loadMode, password, playtest, rulesMode, hostingMode, aiDifficulty, aiSource}
         }
         property var submittedLimited: []
         property string submittedCoordinator: ""
@@ -74,6 +82,9 @@ TestCase {
     function init() {
         mockWs.createCount = 0
         mockWs.forgeRulesAvailable = true
+        mockWs.forgeAIAvailable = true
+        mockWs.aiModelsAvailable = true
+        mockWs.modelOpponent.ready = false
         mockWs.playerHostingAvailable = false
         mockWs.forgeHost.ready = false
         mockWs.forgeHost.busy = false
@@ -105,6 +116,86 @@ TestCase {
         testTranslations.setLanguage("en")
     }
 
+    function test_aiOpponentConfiguresConstructedBo1() {
+        page.roomName = "AI practice"
+        page.rulesMode = "forge"
+        page.matchMode = "bo3"
+        const opponent = findChild(page, "roomOpponentControl")
+        verify(opponent.visible)
+        opponent.activated(1)
+        compare(page.matchMode, "bo1")
+        const difficulty = findChild(page, "roomAiDifficultyControl")
+        difficulty.activated(2)
+        compare(page.aiDifficulty, "hard")
+        page.submit()
+        compare(mockWs.submittedRoom.aiDifficulty, "hard")
+        compare(mockWs.submittedRoom.matchMode, "bo1")
+        compare(mockWs.submittedRoom.rulesMode, "forge")
+        compare(mockWs.submittedRoom.playtest, false)
+        compare(findChild(page, "roomMatchModeControl").options.length, 1)
+    }
+
+    function test_aiAvailabilityUsesSeparateCapability() {
+        page.roomName = "AI practice"
+        page.rulesMode = "forge"
+        mockWs.forgeAIAvailable = false
+        verify(findChild(page, "roomOpponentControl").enabled)
+        page.aiOpponent = true
+        compare(page.createBlockerReason(), "Forge AI is unavailable with this hosting option.")
+        page.hostingMode = "player"
+        mockWs.playerHostingAvailable = true
+        mockWs.forgeHost.ready = true
+        verify(findChild(page, "roomOpponentControl").enabled)
+        compare(page.createBlockerReason(), "")
+    }
+
+    function test_modelOpponentRequiresConfiguredConnection_data() {
+        return [{tag: "local", source: "local", index: 2}, {tag: "online", source: "online", index: 3}]
+    }
+
+    function test_modelOpponentRequiresConfiguredConnection(data) {
+        page.roomName = "Model practice"
+        page.rulesMode = "forge"
+        page.matchMode = "bo3"
+        findChild(page, "roomOpponentControl").activated(data.index)
+        compare(page.aiSource, data.source)
+        findChild(page, "roomModelSettingsButton").clicked()
+        compare(testWindow.openedScreen.url, "screens/ModelSettings.qml")
+        compare(testWindow.openedScreen.properties.source, data.source)
+        compare(page.matchMode, "bo1")
+        compare(page.createBlockerReason(), "Configure the selected model connection first")
+        verify(!findChild(page, "roomAiDifficultyControl").visible)
+        mockWs.modelOpponent.ready = true
+        mockWs.modelOpponent.profilesChanged()
+        compare(page.createBlockerReason(), "")
+        page.submit()
+        compare(mockWs.submittedRoom.aiSource, data.source)
+        compare(mockWs.submittedRoom.aiDifficulty, "")
+        mockWs.aiModelsAvailable = false
+        compare(page.createBlockerReason(), "Model opponents are unavailable on this server.")
+    }
+
+    function test_aiOpponentResetsForUnsupportedModes() {
+        page.roomName = "AI practice"
+        page.rulesMode = "forge"
+        page.aiOpponent = true
+        page.deckFormat = "duel"
+        page.roomFormat = "duel"
+        compare(page.aiOpponentAvailable, false)
+        compare(page.aiOpponent, false)
+        page.submit()
+        compare(mockWs.submittedRoom.aiDifficulty, "")
+        page.deckFormat = "modern"
+        page.roomFormat = "modern"
+        page.aiOpponent = true
+        page.rulesMode = "manual"
+        compare(page.aiOpponent, false)
+        page.playtestMode = true
+        page.submit()
+        compare(mockWs.submittedRoom.aiDifficulty, "")
+        compare(mockWs.submittedRoom.rulesMode, "manual")
+    }
+
     function test_nameStartsEmptyWithoutExample() {
         testWindow.requestActivate()
         tryVerify(() => testWindow.active)
@@ -121,6 +212,26 @@ TestCase {
         verify(findChild(page, "createRoomSubmitButton").enabled)
     }
 
+    function test_firstClickAfterWheelBoundaryCreatesForgeCube() {
+        testWindow.height = 400
+        mockDecks.cubes = [{deckId:"cube-1", deckName:"Test Cube", mainCount:360,
+                           sideboardCount:0, exactPrintings:true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Wheel boundary Cube"
+        page.deckFormat = "cube"
+        page.rulesMode = "forge"
+        waitForFormMotion()
+        const body = findChild(page, "createRoomBody")
+        const button = findChild(page, "createRoomSubmitButton")
+        verify(button.enabled)
+        verify(body.contentHeight > body.height)
+        mouseWheel(body, body.width - 10, body.height / 2, 0, -12000)
+        tryVerify(() => body.atYEnd && !body.moving)
+        mouseClick(button, button.width / 2, button.height / 2)
+        compare(mockWs.submittedCoordinator, "casual")
+        compare(mockWs.submittedLimited[6], "forge")
+    }
+
     function test_cubeDefaultsToDraftBuildAndFreePlay() {
         mockDecks.cubes = [{deckId: "cube-1", deckName: "Test Cube", mainCount: 360,
                            sideboardCount: 0, exactPrintings: true}]
@@ -128,8 +239,8 @@ TestCase {
         page.roomName = "Cube night"
         page.deckFormat = "cube"
         page.matchMode = "bo3"
-        // Hidden ordinary-room settings must not block the Cube coordinator.
-        page.rulesMode = "forge"
+        // Manual Cube does not require Forge or ordinary room password settings.
+        page.rulesMode = "manual"
         mockWs.forgeRulesAvailable = false
         page.roomPassword = "界".repeat(30)
         const button = findChild(page, "createRoomSubmitButton")
@@ -138,7 +249,8 @@ TestCase {
         verify(button.enabled)
         button.clicked()
         compare(mockWs.submittedCoordinator, "casual")
-        compare(mockWs.submittedLimited.length, 5)
+        compare(mockWs.submittedLimited.length, 7)
+        compare(mockWs.submittedLimited[6], "manual")
         compare(mockWs.submittedLimited[0], "Cube night")
         compare(mockWs.submittedLimited[1], "cube_draft")
         compare(mockWs.submittedLimited[2], "bo3")
@@ -148,6 +260,30 @@ TestCase {
 
         findChild(page, "cubePlayerCapField").text = "9"
         verify(!button.enabled)
+    }
+
+    function test_cubeForgeUsesServerAvailabilityAndHidesPlayerHosting() {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Test Cube", mainCount: 360,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Forge Cube"
+        page.deckFormat = "cube"
+        page.hostingMode = "player"
+        findChild(page, "forgeRulesMode").activated(1)
+        const button = findChild(page, "createRoomSubmitButton")
+        verify(findChild(page, "forgeRulesMode").visible)
+        verify(!findChild(page, "forgeHostingExtras").expanded)
+        mockWs.forgeRulesAvailable = false
+        verify(!button.enabled)
+        mockWs.forgeRulesAvailable = true
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedLimited[6], "forge")
+        page.commanderCube = true
+        findChild(page, "cubePlayerCapField").text = "2"
+        verify(!findChild(page, "forgeRulesMode").visible)
+        mockWs.forgeRulesAvailable = false
+        verify(button.enabled)
     }
 
     function test_wideFormFitsOnePage_data() {

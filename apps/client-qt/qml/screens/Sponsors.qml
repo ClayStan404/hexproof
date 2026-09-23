@@ -11,6 +11,8 @@ Page {
 
     readonly property var appWindow: ApplicationWindow.window
 
+    Component.onCompleted: publicContent.refresh()
+
     background: AppBackground { }
 
     SponsorSupportPopup {
@@ -48,6 +50,8 @@ Page {
             width: Math.min(Theme.size(760), parent.width - Theme.size(72))
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.size(16)
+
+            ContentRefreshBar { Layout.fillWidth: true }
 
             Surface {
                 Layout.fillWidth: true

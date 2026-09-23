@@ -119,7 +119,7 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
             search(m_lastSearchQuery, m_lastTypeFilter, m_lastSetFilter, m_lastLanguageFilter,
                    m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter, m_lastManaFilter);
             if (m_tokenSearchRequested)
-                searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind);
+                searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind, m_lastTokenSearchSets);
         }
         emit busyChanged();
     };
@@ -260,7 +260,7 @@ void CardCatalog::setLanguage(const QString &language)
     emit imageRevisionChanged();
     emit languageChanged();
     if (m_tokenSearchRequested)
-        searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind);
+        searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind, m_lastTokenSearchSets);
     if (installed() && (!m_lastSearchQuery.isEmpty() || !m_lastTypeFilter.isEmpty() ||
                         !m_lastSetFilter.isEmpty() || !m_lastLanguageFilter.isEmpty() ||
                         !m_lastColorFilter.isEmpty() || !m_lastRarityFilter.isEmpty() ||

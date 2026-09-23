@@ -20,22 +20,23 @@ type StartRuntime func(context.Context) (forge.Runtime, error)
 // replacement. The relay allows only one outstanding operation, so older IDs
 // can be rejected using a watermark without retaining unbounded game history.
 type Executor struct {
-	mu           sync.Mutex
-	stateMu      sync.Mutex
-	start        StartRuntime
-	roomID       string
-	engineID     string
-	runtime      forge.Runtime
-	cancel       context.CancelFunc
-	handle       forge.SessionHandle
-	revision     uint64
-	lastID       uint64
-	lastHash     [32]byte
-	lastResponse Response
-	onFailure    func(string)
-	peerContext  *PeerContext
-	peerExpires  time.Time
-	peerPending  *peerPending
+	mu             sync.Mutex
+	stateMu        sync.Mutex
+	start          StartRuntime
+	roomID         string
+	engineID       string
+	runtime        forge.Runtime
+	cancel         context.CancelFunc
+	handle         forge.SessionHandle
+	revision       uint64
+	replaySequence int64
+	lastID         uint64
+	lastHash       [32]byte
+	lastResponse   Response
+	onFailure      func(string)
+	peerContext    *PeerContext
+	peerExpires    time.Time
+	peerPending    *peerPending
 }
 
 func NewExecutor(roomID string, start StartRuntime, onFailure func(string)) *Executor {
@@ -100,7 +101,7 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		e.peerContext = nil
 		if runtime != nil || req.Start == nil || len(req.Start.Players) != 2 ||
 			(req.Start.Variant != "Constructed" && req.Start.Variant != "Commander") ||
-			req.Start.Players[0].AI || req.Start.Players[1].AI {
+			(req.Start.HasAI() && (req.Start.Variant != "Constructed" || req.Start.Players[0].AI || !req.Start.Players[1].AI)) {
 			response.Error = "invalid"
 			return response
 		}
@@ -110,6 +111,7 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		var err error
 		runtime, err = e.start(ctx)
 		if err != nil {
+			response.StartFailure = forge.StartFailureJSON(err)
 			response.Error = "failed"
 			return response
 		}
@@ -125,11 +127,13 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		e.stateMu.Unlock()
 		e.handle, err = runtime.StartGame(ctx, *req.Start)
 		if err != nil {
+			response.StartFailure = forge.StartFailureJSON(err)
 			e.Cancel(req.EngineID)
 			response.Error = "failed"
 			return response
 		}
 		e.revision = 0
+		e.replaySequence = 0
 		go func() {
 			<-runtime.Done()
 			e.stateMu.Lock()
@@ -236,6 +240,13 @@ func (e *Executor) collect(ctx context.Context, runtime forge.Runtime, previous 
 				continue
 			}
 			e.revision++
+			if source, ok := runtime.(forge.ReplaySource); ok {
+				batch, err := source.Replay(ctx, e.handle.SessionID, e.replaySequence)
+				if err == nil && batch != nil {
+					p.Replay = batch
+					e.replaySequence = batch.LastSequence
+				}
+			}
 			p.Revision = e.revision
 			if err := validatePublication(p); err != nil {
 				return nil, err

@@ -74,6 +74,29 @@ Page {
     property string cardLoadMode: "preload"
     property string rulesMode: "manual"
     property string hostingMode: "server"
+    property bool aiOpponent: false
+    property string aiSource: "forge"
+    property string aiDifficulty: "normal"
+    readonly property var modelService: hub.modelOpponent || null
+    property int modelConfigurationRevision: 0
+    readonly property bool modelConfigured: {
+        void modelConfigurationRevision
+        return modelService !== null && modelService.configured(aiSource)
+    }
+    readonly property bool aiOpponentAvailable: !playtestMode && rulesMode === "forge"
+        && roomFormat === "modern" && !isCubeFormat
+        && ["modern", "standard", "pioneer", "legacy", "vintage", "pauper", "custom"].includes(deckFormat)
+    readonly property bool aiBackendAvailable: aiSource === "forge"
+        ? (hostingMode === "player" ? hub.playerHostingAvailable === true : hub.forgeAIAvailable === true)
+        : hub.aiModelsAvailable === true
+    readonly property bool aiPractice: aiOpponentAvailable && aiOpponent
+
+    onAiOpponentAvailableChanged: if (!aiOpponentAvailable) aiOpponent = false
+    onAiPracticeChanged: if (aiPractice) matchMode = "bo1"
+    Connections {
+        target: root.modelService
+        function onProfilesChanged() { ++root.modelConfigurationRevision }
+    }
     property string roomPassword: ""
     property string selectedCubeDeckId: ""
     property bool commanderCube: false
@@ -133,6 +156,14 @@ Page {
             boundsBehavior: Flickable.StopAtBounds
             contentWidth: width
             contentHeight: Math.max(height, formCard.y + formCard.height)
+            function finishBoundaryScroll() {
+                // Keep the first click after a native wheel gesture available
+                // to the form controls when the content reaches its boundary.
+                if (moving && !dragging && !flicking && (atYBeginning || atYEnd))
+                    cancelFlick()
+            }
+            onAtYBeginningChanged: if (atYBeginning) Qt.callLater(finishBoundaryScroll)
+            onAtYEndChanged: if (atYEnd) Qt.callLater(finishBoundaryScroll)
             ScrollBar.vertical: ScrollBar {
                 policy: formBody.contentHeight > formBody.height
                         ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -227,36 +258,6 @@ Page {
                                             root.ensureSelectedCube()
                                     }
                                 }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    Layout.fillWidth: true
-                                    visible: root.deckFormat === "custom"
-                                    text: qsTr("Custom 1v1 keeps manual deck construction and card-pool decisions.")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(10)
-                                    wrapMode: Text.WordWrap
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    Layout.fillWidth: true
-                                    visible: root.roomFormat === "duel"
-                                    text: qsTr("A two-player commander table at 20 life with command zones and manual commander tax.")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(10)
-                                    wrapMode: Text.WordWrap
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    Layout.fillWidth: true
-                                    visible: root.roomFormat === "edh"
-                                    text: qsTr("A four-seat Commander table that can start with three or four players.")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(10)
-                                    wrapMode: Text.WordWrap
-                                }
                             }
 
                             ColumnLayout {
@@ -276,29 +277,19 @@ Page {
                                 SegmentedControl {
                                     objectName: "roomMatchModeControl"
                                     Layout.fillWidth: true
-                                    options: root.roomFormat === "edh" || (root.isCubeFormat && root.commanderCube)
+                                    options: root.aiPractice || root.roomFormat === "edh" || (root.isCubeFormat && root.commanderCube)
                                              ? [qsTr("BO 1")]
                                              : [qsTr("BO 1"),
                                                 qsTr("BO 3")]
-                                    currentIndex: root.isCubeFormat && root.commanderCube ? 0 : root.matchMode === "bo3" ? 1 : 0
+                                    currentIndex: root.aiPractice || (root.isCubeFormat && root.commanderCube) ? 0 : root.matchMode === "bo3" ? 1 : 0
                                     onActivated: index => root.matchMode = index === 1 ? "bo3" : "bo1"
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    Layout.fillWidth: true
-                                    visible: root.roomFormat === "edh"
-                                    text: qsTr("Commander is a single multiplayer game.")
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(10)
-                                    wrapMode: Text.WordWrap
                                 }
                             }
                         }
 
                         Surface {
                             Layout.fillWidth: true
-                            visible: !root.playtestMode && !root.isCubeFormat
+                            visible: !root.playtestMode && !(root.isCubeFormat && root.commanderCube)
                             implicitHeight: rulesModeColumn.implicitHeight + Theme.size(28)
                             radius: Theme.radiusMedium
                             quiet: false
@@ -335,7 +326,7 @@ Page {
                                 RevealBlock {
                                     objectName: "forgeHostingExtras"
                                     Layout.fillWidth: true
-                                    expanded: root.rulesMode === "forge"
+                                    expanded: root.rulesMode === "forge" && !root.isCubeFormat
 
                                     SegmentedControl {
                                         objectName: "forgeHostingMode"
@@ -386,15 +377,15 @@ Page {
                                 Text {
                                     textFormat: Text.PlainText
                                     Layout.fillWidth: true
-                                    text: root.rulesMode === "forge"
-                                          ? (root.hostingMode === "player"
-                                             ? (root.hub.playerHostingAvailable === true ? qsTr("This server can relay player-hosted games.") : qsTr("Player hosting is unavailable on this server."))
-                                             : root.hub.forgeRulesAvailable
-                                             ? qsTr("Forge validates legal actions, priority, the stack, triggers, combat, and state-based actions. Two-player rooms support BO1 and BO3.")
-                                             : qsTr("This server does not provide the Forge rules runtime."))
-                                          : qsTr("Players control every move and resolve unusual interactions together.")
-                                    color: root.rulesMode === "forge" && root.hostingMode === "server" && !root.hub.forgeRulesAvailable
-                                           ? Theme.warning : Theme.textMuted
+                                    visible: root.rulesMode === "forge"
+                                             && ((!root.isCubeFormat && root.hostingMode === "player"
+                                                  && root.hub.playerHostingAvailable !== true)
+                                                 || ((root.isCubeFormat || root.hostingMode === "server")
+                                                     && !root.hub.forgeRulesAvailable))
+                                    text: !root.isCubeFormat && root.hostingMode === "player"
+                                          ? qsTr("Player hosting is unavailable on this server.")
+                                          : qsTr("This server does not provide the Forge rules runtime.")
+                                    color: Theme.warning
                                     font.pixelSize: Theme.fontSize(10)
                                     wrapMode: Text.WordWrap
                                 }
@@ -407,6 +398,97 @@ Page {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
                         spacing: Theme.size(12)
+
+                        Surface {
+                            objectName: "aiOpponentOptions"
+                            Layout.fillWidth: true
+                            visible: root.aiOpponentAvailable
+                            implicitHeight: aiOptionsColumn.implicitHeight + Theme.size(28)
+                            color: Theme.surfaceMuted
+
+                            ColumnLayout {
+                                id: aiOptionsColumn
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Theme.size(14)
+                                spacing: Theme.size(8)
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    textFormat: Text.PlainText
+                                    text: qsTr("Opponent")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(10)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 1.0
+                                }
+                                SegmentedControl {
+                                    objectName: "roomOpponentControl"
+                                    Layout.fillWidth: true
+                                    options: [qsTr("Another player"), qsTr("Forge AI"),
+                                              qsTr("Local model"), qsTr("Online model")]
+                                    currentIndex: root.aiOpponent ? ["forge", "local", "online"].indexOf(root.aiSource) + 1 : 0
+                                    onActivated: index => {
+                                        root.aiSource = ["forge", "local", "online"][Math.max(0, index - 1)]
+                                        root.aiOpponent = index > 0
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: root.aiPractice && !root.aiBackendAvailable
+                                    textFormat: Text.PlainText
+                                    text: root.aiSource === "forge"
+                                          ? qsTr("Forge AI is unavailable with this hosting option.")
+                                          : qsTr("Model opponents are unavailable on this server.")
+                                    color: Theme.warning
+                                    font.pixelSize: Theme.fontSize(11)
+                                    wrapMode: Text.WordWrap
+                                }
+                                RevealBlock {
+                                    Layout.fillWidth: true
+                                    expanded: root.aiPractice
+
+                                    SegmentedControl {
+                                        objectName: "roomAiDifficultyControl"
+                                        Layout.fillWidth: true
+                                        visible: root.aiSource === "forge"
+                                        options: [I18n.aiDifficultyLabel("easy"),
+                                                  I18n.aiDifficultyLabel("normal"),
+                                                  I18n.aiDifficultyLabel("hard")]
+                                        currentIndex: ["easy", "normal", "hard"].indexOf(root.aiDifficulty)
+                                        onActivated: index => root.aiDifficulty = ["easy", "normal", "hard"][index]
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: root.aiSource !== "forge"
+                                        textFormat: Text.PlainText
+                                        text: qsTr("Experimental")
+                                        color: Theme.warning
+                                        font.pixelSize: Theme.fontSize(11)
+                                        wrapMode: Text.WordWrap
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: root.aiSource === "online"
+                                        textFormat: Text.PlainText
+                                        text: qsTr("Starting this game sends the AI's permitted game view, including its hand, to your configured online provider.")
+                                        color: Theme.warning
+                                        font.pixelSize: Theme.fontSize(11)
+                                        wrapMode: Text.WordWrap
+                                    }
+                                    AppButton {
+                                        objectName: "roomModelSettingsButton"
+                                        Layout.fillWidth: true
+                                        visible: root.aiSource !== "forge"
+                                        text: root.modelConfigured ? qsTr("Model settings") : qsTr("Configure model connection")
+                                        variant: "ghost"
+                                        onClicked: root.appWindow.pushScreen("screens/ModelSettings.qml",
+                                                                            {source:root.aiSource})
+                                    }
+                                }
+                            }
+                        }
 
                         Text {
                             textFormat: Text.PlainText
@@ -791,10 +873,10 @@ Page {
                     root.cubePlayerCap(), product, root.cubeDraftSettings())
             else
                 root.hub.createCasualLimitedEvent(submittedName, "cube_draft", matchMode,
-                    root.cubePlayerCap(), product)
+                    root.cubePlayerCap(), product, {}, rulesMode)
             return
         }
-        const submittedMatchMode = root.roomFormat === "edh" ? "bo1" : matchMode
+        const submittedMatchMode = root.aiPractice || root.roomFormat === "edh" ? "bo1" : matchMode
         root.hub.createRoom(submittedName, roomFormat, deckFormat,
                       playtestMode ? false : allowSpectators,
                       playtestMode ? false : spectatorsSeeHands,
@@ -803,7 +885,9 @@ Page {
                       playtestMode ? "" : roomPassword,
                       playtestMode,
                       playtestMode ? "manual" : rulesMode,
-                      !playtestMode && rulesMode === "forge" ? hostingMode : "")
+                      !playtestMode && rulesMode === "forge" ? hostingMode : "",
+                      root.aiPractice && root.aiSource === "forge" ? aiDifficulty : "",
+                      root.aiPractice ? root.aiSource : "")
     }
 
     function createBlockerReason() {
@@ -811,6 +895,11 @@ Page {
             return ""
         if (root.roomName.trim().length === 0)
             return qsTr("Enter a room name")
+        if (root.aiPractice && !root.aiBackendAvailable)
+            return root.aiSource === "forge" ? qsTr("Forge AI is unavailable with this hosting option.")
+                                             : qsTr("Model opponents are unavailable on this server.")
+        if (root.aiPractice && root.aiSource !== "forge" && !root.modelConfigured)
+            return qsTr("Configure the selected model connection first")
         if (root.isCubeFormat && !root.selectedCube.deckId)
             return qsTr("Import and select a Cube-format deck")
         if (root.isCubeFormat && !root.selectedCube.exactPrintings)
@@ -831,7 +920,8 @@ Page {
             if (root.hub.playerHostingAvailable !== true) return qsTr("Player hosting is unavailable on this server.")
             if (!root.hub.forgeHost || !root.hub.forgeHost.ready || root.hub.forgeHost.busy) return qsTr("Prepare the local rules engine first")
         }
-        if (!root.isCubeFormat && root.rulesMode === "forge" && root.hostingMode !== "player" && !root.hub.forgeRulesAvailable)
+        if (!(root.isCubeFormat && root.commanderCube) && root.rulesMode === "forge"
+                && (root.isCubeFormat || root.hostingMode !== "player") && !root.hub.forgeRulesAvailable)
             return qsTr("Forge rules are unavailable on this server")
         if (!root.isCubeFormat && !passwordField.withinUtf8ByteLimit)
             return qsTr("Password cannot exceed 72 UTF-8 bytes.")

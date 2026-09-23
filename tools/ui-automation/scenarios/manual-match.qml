@@ -209,7 +209,9 @@ Item {
                         if (driver.format === "commander" && !gameTable.seatData(room.seatIndex).eliminated && !game.finished) break
                         auditProbe.share("conceded" + driver.seat, {ready: true})
                     }
-                    if (!game.finished || !driver.item("gameResultTitle")) break
+                    // Input selectors require an actionable target; the popup
+                    // background receives pointer events beneath passive labels.
+                    if (!game.finished || !driver.item("resultReturnToRoomButton")) break
                     const survivor = auditProbe.readShared("seated" + driver.players)
                     if (!survivor || game.result.winnerSeat !== survivor.seatIndex)
                         throw new Error("Match winner is not the final non-conceding player")

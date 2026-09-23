@@ -206,9 +206,25 @@ func TestOfflinePackInstallsAndRepairsWithoutNetwork(t *testing.T) {
 	entries := []offlineTestEntry{{name: "forge.tar.gz", data: forge}, {name: "java.tar.gz", data: java}}
 	pack := writeOfflineTestPack(t, offlineTestMetadata(), entries)
 	base := t.TempDir()
-	installed, err := ImportPack(t.Context(), base, pack, nil)
+	var diagnostics []Diagnostic
+	diagnosticCtx := WithDiagnostics(t.Context(), func(event Diagnostic) { diagnostics = append(diagnostics, event) })
+	installed, err := ImportPack(diagnosticCtx, base, pack, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	completed := make(map[string]bool)
+	for _, event := range diagnostics {
+		if event.Code == "completed" {
+			completed[event.Stage+"/"+event.Component] = true
+		}
+		if event.Stage == "download" {
+			t.Fatal("offline import reported an online download")
+		}
+	}
+	for _, stage := range []string{"import/pack", "extract/forge", "extract/java", "verify/runtime", "publish/runtime", "check/runtime"} {
+		if !completed[stage] {
+			t.Fatalf("successful import omitted stage %s: %+v", stage, diagnostics)
+		}
 	}
 	active, lease, err := Use(t.Context(), base)
 	if err != nil || active.Root != installed.Root {

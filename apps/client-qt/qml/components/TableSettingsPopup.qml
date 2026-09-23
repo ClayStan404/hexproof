@@ -10,6 +10,7 @@ AppPopup {
 
     property bool canSetCounterCount: false
     signal backgroundRequested()
+    signal audioRequested()
     signal settingsRequested(bool showPlayers, bool showShared,
                              bool showInspector, int counterCount,
                              bool showGameLog)
@@ -54,6 +55,17 @@ AppPopup {
                 onClicked: {
                     root.close()
                     root.backgroundRequested()
+                }
+            }
+
+            AppButton {
+                objectName: "openTableAudioButton"
+                Layout.fillWidth: true
+                compact: true
+                text: qsTr("Audio")
+                onClicked: {
+                    root.close()
+                    root.audioRequested()
                 }
             }
 

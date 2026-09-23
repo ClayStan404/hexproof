@@ -11,18 +11,15 @@ Surface {
     id: root
 
     required property var tableController
+    readonly property var appWindow: ApplicationWindow.window
     property bool compactChrome: false
     property var hostingDialog: null
+    signal audioSettingsRequested()
     readonly property bool playerHosted: tableController.roomSession.hostingMode === "player"
     readonly property var priority: tableController.priority || null
     readonly property bool showTurnState: tableController.rulesSession.active
                                           && !tableController.sideboarding
                                           && !tableController.matchUi.matchFinished
-    readonly property var phaseSteps: [
-        "untap", "upkeep", "draw", "main1", "begin_combat",
-        "declare_attackers", "declare_blockers", "combat_damage",
-        "end_combat", "main2", "end", "cleanup"
-    ]
 
     objectName: "rulesActionRail"
     Layout.minimumWidth: root.tableController.actionRailWidth
@@ -84,6 +81,18 @@ Surface {
         }
 
         Text {
+            objectName: "rulesServerTransport"
+            Layout.fillWidth: true
+            textFormat: Text.PlainText
+            text: I18n.serverTransportLabel(root.tableController.wsModel.serverTransportState)
+            visible: text.length > 0
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSize(9)
+            horizontalAlignment: root.compactChrome ? Text.AlignLeft : Text.AlignHCenter
+            elide: Text.ElideRight
+        }
+
+        Text {
             textFormat: Text.PlainText
             objectName: "rulesTurnSummary"
             Layout.fillWidth: true
@@ -109,6 +118,20 @@ Surface {
             compact: true
             text: qsTr("Background")
             onClicked: root.tableController.openBackgroundPicker()
+        }
+
+        AppButton {
+            objectName: "rulesAudioButton"
+            Layout.fillWidth: true
+            compact: true
+            text: qsTr("Audio")
+            onClicked: {
+                root.audioSettingsRequested()
+                const window = root.appWindow
+                if (window && typeof window.pushScreen === "function")
+                    window.pushScreen("screens/AudioSettings.qml", root.tableController.preferencesModel
+                                      ? {settings:root.tableController.preferencesModel} : {})
+            }
         }
 
         SectionLabel {
@@ -206,29 +229,10 @@ Surface {
             visible: root.compactChrome
         }
 
-        AppButton {
-            objectName: "rulesFullControl"
+        RulesPriorityMode {
             Layout.fillWidth: true
-            compact: true
-            checkable: true
-            checked: root.priority && root.priority.fullControl
-            enabled: root.priority && root.priority.active
-            text: qsTr("Full control")
-            variant: checked ? "highlight" : "ghost"
-            onClicked: {
-                if (root.priority)
-                    root.priority.setFullControl(checked)
-            }
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            visible: root.compactChrome
-            text: qsTr("Smart priority stays on unless Full control or a phase stop is set.")
-            color: Theme.textMuted
-            font.pixelSize: Theme.fontSize(9)
-            wrapMode: Text.WordWrap
+            settings: root.priority.settings
+            onModeSelected: fullControl => root.priority.setFullControl(fullControl)
         }
 
         SectionLabel {
@@ -281,132 +285,13 @@ Surface {
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-            Column {
+            RulesPhaseStops {
                 width: parent.width
-                spacing: Theme.size(3)
-
-                Row {
-                    width: parent.width
-                    height: Theme.size(22)
-                    Text {
-                        width: parent.width - Theme.size(56)
-                        textFormat: Text.PlainText
-                        text: qsTr("Stops")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSize(9)
-                    }
-                    Repeater {
-                        model: [qsTr("You"), qsTr("Others")]
-                        delegate: Text {
-                            required property string modelData
-                            width: Theme.size(28)
-                            textFormat: Text.PlainText
-                            text: modelData
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSize(8)
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
-                        }
-                    }
-                }
-
-                Repeater {
-                    model: root.phaseSteps
-
-                    delegate: Rectangle {
-                        id: phaseItem
-                        required property string modelData
-                        required property int index
-
-                        objectName: "rulesPhaseItem" + index
-                        width: parent ? parent.width : 0
-                        height: Theme.size(30)
-                        radius: Theme.radiusSmall
-                        color: root.tableController.rulesSession.step
-                               === modelData ? Theme.primaryMuted : "transparent"
-                        border.width: root.tableController.rulesSession.step
-                                      === modelData ? 1 : 0
-                        border.color: Theme.primary
-
-                        Text {
-                            textFormat: Text.PlainText
-                            anchors.fill: parent
-                            anchors.leftMargin: Theme.size(4)
-                            anchors.rightMargin: Theme.size(56)
-                            text: root.tableController.stepLabel(
-                                      phaseItem.modelData)
-                            color: root.tableController.rulesSession.step
-                                   === phaseItem.modelData
-                                   ? Theme.primary : Theme.textDisabled
-                            font.pixelSize: Theme.fontSize(9)
-                            font.weight: root.tableController.rulesSession.step
-                                         === phaseItem.modelData
-                                         ? Font.DemiBold : Font.Normal
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            wrapMode: Text.WordWrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
-                        }
-
-                        Row {
-                            anchors.right: parent.right
-                            height: parent.height
-                            Repeater {
-                                model: [true, false]
-                                delegate: Rectangle {
-                                    id: stopControl
-                                    required property bool modelData
-                                    readonly property var priority: root.tableController.priority || null
-                                    readonly property bool selected: priority
-                                        ? priority.hasStop(phaseItem.modelData, modelData) : false
-                                    readonly property bool available: priority && priority.active
-                                        && phaseItem.modelData !== "untap"
-                                    objectName: "rulesPhaseStop-" + (modelData ? "own-" : "other-")
-                                        + phaseItem.modelData
-                                    width: Theme.size(28)
-                                    height: parent.height
-                                    color: selected ? Theme.primaryMuted : "transparent"
-                                    radius: Theme.radiusSmall
-                                    border.width: activeFocus ? 1 : 0
-                                    border.color: Theme.primary
-                                    activeFocusOnTab: available
-                                    Accessible.role: Accessible.CheckBox
-                                    Accessible.checkable: true
-                                    Accessible.checked: selected
-                                    Accessible.name: modelData
-                                        ? qsTr("Stop at %1 on your turns").arg(root.tableController.stepLabel(phaseItem.modelData))
-                                        : qsTr("Stop at %1 on other players' turns").arg(root.tableController.stepLabel(phaseItem.modelData))
-                                    function toggle() {
-                                        if (available)
-                                            priority.toggleStop(phaseItem.modelData, modelData)
-                                    }
-                                    Accessible.onToggleAction: toggle()
-                                    Keys.onSpacePressed: toggle()
-                                    Keys.onReturnPressed: toggle()
-                                    Rectangle {
-                                        anchors.centerIn: parent
-                                        width: Theme.size(10)
-                                        height: width
-                                        radius: width / 2
-                                        color: stopControl.selected ? Theme.primary : "transparent"
-                                        border.width: 1
-                                        border.color: stopControl.selected ? Theme.primary : Theme.textMuted
-                                        opacity: stopControl.available ? 1 : 0.25
-                                    }
-                                    TapHandler {
-                                        enabled: stopControl.available
-                                        onTapped: stopControl.toggle()
-                                    }
-                                    HoverHandler { id: stopHover }
-                                    ToolTip.visible: stopHover.hovered
-                                    ToolTip.text: stopControl.Accessible.name
-                                    ToolTip.delay: 350
-                                }
-                            }
-                        }
-                    }
-                }
+                compact: true
+                stops: root.priority ? root.priority.phaseStops : ({})
+                currentStep: root.tableController.rulesSession.step
+                editable: root.tableController.localSeat >= 0
+                onStopToggled: (step, ownTurn) => root.priority.toggleStop(step, ownTurn)
             }
         }
 
@@ -450,16 +335,6 @@ Surface {
             Layout.minimumWidth: 0
             compact: true
             wsModel: root.tableController.wsModel
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            Layout.fillWidth: true
-            text: qsTr("Forge controls phases and legal actions")
-            color: Theme.textMuted
-            font.pixelSize: Theme.fontSize(8)
-            wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignHCenter
         }
     }
 }

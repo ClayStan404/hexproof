@@ -145,6 +145,7 @@ func main() {
 	// Ops/tunnel health checks (Cloudflare / curl). Not part of the game protocol.
 	mux.HandleFunc("/healthz", handler.ServeHealth)
 	mux.Handle("/ws", handler)
+	mux.Handle("/ai", handler)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	srv := &http.Server{

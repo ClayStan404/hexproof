@@ -20,6 +20,25 @@ func (h *Handler) fanoutRulesMetadata(r *room.Room) {
 	h.sendProjectionSet(projections)
 }
 
+// Reconnect and sideboard updates can inspect the last public table even after
+// the runtime has exited. Chat-only metadata updates do not resend this board.
+func (h *Handler) fanoutRulesReview(r *room.Room) {
+	h.publishForgeReplay(r)
+	targets, seq, err := h.hub.RulesProjectionTargets(r)
+	if err != nil {
+		return
+	}
+	projection, ok := h.hub.RulesReviewProjection(r, seq)
+	if !ok {
+		return
+	}
+	projections := make(map[string]protocol.Envelope, len(targets))
+	for connectionID := range targets {
+		projections[connectionID] = projection
+	}
+	h.sendProjectionSet(projections)
+}
+
 // RecordRulesStartingSeat stores public initial-turn metadata, never engine
 // cards. Once known it remains stable across subsequent turn changes.
 func (h *Hub) RecordRulesStartingSeat(r *room.Room, game forgeRoomGame, view forge.GameView) {
@@ -52,14 +71,7 @@ func (h *Handler) prepareForgeTransition(r *room.Room, actor *Session, requestID
 	if resetErr == nil {
 		h.fanout(r, reset.Broadcast)
 	}
-	code, message := forgeStartFailure(err)
-	for _, member := range h.sessionsForRoomPointer(r) {
-		id := ""
-		if member == actor {
-			id = requestID
-		}
-		h.sendError(member, id, code, message)
-	}
+	h.sendForgeStartFailure(r, actor, requestID, err)
 	return forgeStartState{}, false
 }
 

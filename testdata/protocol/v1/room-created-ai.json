@@ -1,0 +1,21 @@
+{
+  "type": "room.created",
+  "id": "c1",
+  "payload": {
+    "roomId": "ABCDEF",
+    "settings": {
+      "name": "Friday EDH",
+      "format": "modern",
+      "deckFormat": "custom",
+      "maxSeats": 2,
+      "allowSpectators": true,
+      "spectatorsSeeHands": true,
+      "matchMode": "bo1",
+      "cardLoadMode": "preload",
+      "hasPassword": false,
+      "rulesMode": "forge",
+      "aiDifficulty": "normal"
+    },
+    "hostSeat": 0
+  }
+}

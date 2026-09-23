@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "description": "Legal mono-white constructed deck for native Forge AI lifecycle verification. All decisions use the production controls.",
+  "decks": [
+    {
+      "name": "Forge AI Practice Verification",
+      "deckFormat": "modern",
+      "mainboard": [
+        {
+          "name": "Plains",
+          "count": 24,
+          "setCode": "LEA",
+          "collectorNumber": "286",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Elite Vanguard",
+          "count": 4,
+          "setCode": "M10",
+          "collectorNumber": "9",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Glory Seeker",
+          "count": 4,
+          "setCode": "ONS",
+          "collectorNumber": "31",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Silvercoat Lion",
+          "count": 4,
+          "setCode": "M10",
+          "collectorNumber": "32",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Cat",
+          "cardColors": "W"
+        },
+        {
+          "name": "Blade of the Sixth Pride",
+          "count": 4,
+          "setCode": "FUT",
+          "collectorNumber": "19",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Cat Rebel",
+          "cardColors": "W"
+        },
+        {
+          "name": "Youthful Knight",
+          "count": 4,
+          "setCode": "STH",
+          "collectorNumber": "25",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Knight",
+          "cardColors": "W"
+        },
+        {
+          "name": "Leonin Skyhunter",
+          "count": 4,
+          "setCode": "MRD",
+          "collectorNumber": "11",
+          "manaValue": 2.0,
+          "manaCost": "{W}{W}",
+          "typeLine": "Creature \u2014 Cat Knight",
+          "cardColors": "W"
+        },
+        {
+          "name": "Knight of Meadowgrain",
+          "count": 4,
+          "setCode": "LRW",
+          "collectorNumber": "28",
+          "manaValue": 2.0,
+          "manaCost": "{W}{W}",
+          "typeLine": "Creature \u2014 Kithkin Knight",
+          "cardColors": "W"
+        },
+        {
+          "name": "Benalish Knight",
+          "count": 4,
+          "setCode": "WTH",
+          "collectorNumber": "9",
+          "manaValue": 3.0,
+          "manaCost": "{2}{W}",
+          "typeLine": "Creature \u2014 Human Knight",
+          "cardColors": "W"
+        },
+        {
+          "name": "Serra Angel",
+          "count": 4,
+          "setCode": "LEA",
+          "collectorNumber": "39",
+          "manaValue": 5.0,
+          "manaCost": "{3}{W}{W}",
+          "typeLine": "Creature \u2014 Angel",
+          "cardColors": "W"
+        }
+      ],
+      "sideboard": []
+    }
+  ]
+}

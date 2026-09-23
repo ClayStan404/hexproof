@@ -96,7 +96,7 @@ public final class NativeSynchronousConcedeRegressionTest {
                     catch (Exception error) { throw new CompletionException(error); }
                 }
             }));
-            String expected = naming ? "chooseCardName" : "chooseNumber";
+            String expected = naming ? "chooseFromSelection" : "chooseNumber";
             String pending = awaitPrompt(session);
             while (!JsonParser.parseString(pending).getAsJsonObject().getAsJsonObject("input").get("type").getAsString().equals(expected)) {
                 String type = JsonParser.parseString(pending).getAsJsonObject().getAsJsonObject("input").get("type").getAsString();
@@ -159,8 +159,8 @@ public final class NativeSynchronousConcedeRegressionTest {
                 JsonObject handoff = JsonParser.parseString(session.prompt(0)).getAsJsonObject();
                 require(handoff.get("decidingPlayerId").getAsString().equals("player-3"), "Original decision did not go to the explicitly chosen player");
                 require(handoff.get("promptId").getAsLong() > chooserPrompt.get("promptId").getAsLong(), "Handoff reused a stale prompt id");
-                JsonObject output = NativeSession.object("type", naming ? "cardName" : "numberDecision");
-                if (naming) output.addProperty("name", "Lightning Bolt"); else output.addProperty("chosenNumber", 7);
+                JsonObject output = explicitAnswer(session, naming);
+
                 submitAnswer(session, expected, output);
                 require(unwound.await(2, TimeUnit.SECONDS) && returned.get() && !cancelled.get(), "Explicit replacement answer did not continue the native callback");
                 require(!session.hasFailed() && !session.game.isGameOver(), "Handoff failed the game");
@@ -175,8 +175,8 @@ public final class NativeSynchronousConcedeRegressionTest {
                 require(reassigned.get("decidingPlayerId").getAsString().equals("player-1"), "Rule choice did not pass to the next surviving seat");
                 require(reassigned.get("promptId").getAsLong() > JsonParser.parseString(pending).getAsJsonObject().get("promptId").getAsLong(), "Reassigned prompt reused its old id");
                 require(!returned.get() && !cancelled.get() && !session.game.isGameOver(), "Departure invented a choice or ended the game");
-                JsonObject output = NativeSession.object("type", naming ? "cardName" : "numberDecision");
-                if (naming) output.addProperty("name", "Lightning Bolt"); else output.addProperty("chosenNumber", 7);
+                JsonObject output = explicitAnswer(session, naming);
+
                 submitAnswer(session, expected, output);
                 require(unwound.await(2, TimeUnit.SECONDS) && returned.get() && !cancelled.get(), "Successor could not explicitly answer the rule choice");
                 require(JsonParser.parseString(session.prompt(0)).getAsJsonObject().getAsJsonObject("input").get("type").getAsString().equals("chooseAction"), "Remaining native game did not reach priority");
@@ -196,8 +196,8 @@ public final class NativeSynchronousConcedeRegressionTest {
                 } else {
                     require(session.prompt(0).equals(pending), "Another player's concession changed the pending decision");
                     require(!cancelled.get() && !returned.get(), "Unrelated concession answered or cancelled the menu");
-                    JsonObject output = NativeSession.object("type", naming ? "cardName" : "numberDecision");
-                    if (naming) output.addProperty("name", "Lightning Bolt"); else output.addProperty("chosenNumber", 7);
+                    JsonObject output = explicitAnswer(session, naming);
+
                     submitAnswer(session, expected, output);
                     require(unwound.await(2, TimeUnit.SECONDS) && returned.get() && !cancelled.get(), "Original native menu could not accept its explicit response");
                     require(JsonParser.parseString(session.prompt(0)).getAsJsonObject().getAsJsonObject("input").get("type").getAsString().equals("chooseAction"), "Native game did not continue to priority after the menu");
@@ -228,6 +228,20 @@ public final class NativeSynchronousConcedeRegressionTest {
         }
         return pending;
     }
+    private static JsonObject explicitAnswer(NativeSession session, boolean naming) {
+        JsonObject output = NativeSession.object("type", naming ? "selectionDecision" : "numberDecision");
+        if (naming) {
+            JsonArray options = JsonParser.parseString(session.prompt(0)).getAsJsonObject().getAsJsonObject("input").getAsJsonArray("options");
+            require(options.size() == 2, "Restricted name choice lost its explicit legal options");
+            JsonArray indices = new JsonArray();
+            for (int i = 0; i < options.size(); i++)
+                if (options.get(i).getAsJsonObject().get("label").getAsString().equals("Lightning Bolt")) indices.add(i);
+            require(indices.size() == 1, "Replacement chooser cannot name Lightning Bolt");
+            output.add("chosenIndices", indices);
+        } else output.addProperty("chosenNumber", 7);
+        return output;
+    }
+
     private static void submitAnswer(NativeSession session, String type, JsonObject output) {
         JsonObject response = NativeSession.object("type", type); response.add("output", output);
         session.submit(response);

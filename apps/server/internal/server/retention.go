@@ -310,6 +310,10 @@ func cloneRetainedSideboard(sideboard *room.SideboardState) *room.SideboardState
 		return nil
 	}
 	cloned := *sideboard
+	if sideboard.ChosenStartingSeat != nil {
+		seat := *sideboard.ChosenStartingSeat
+		cloned.ChosenStartingSeat = &seat
+	}
 	cloned.Players = make([]room.SideboardPlayerState, len(sideboard.Players))
 	for index, player := range sideboard.Players {
 		cloned.Players[index] = player

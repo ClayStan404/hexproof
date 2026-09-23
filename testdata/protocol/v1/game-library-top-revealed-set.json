@@ -1,0 +1,9 @@
+{
+  "type": "game.library_top_revealed_set",
+  "id": "game-library-top-revealed-set",
+  "payload": {
+    "roomId": "K7P2QX",
+    "seat": 0,
+    "revealed": true
+  }
+}

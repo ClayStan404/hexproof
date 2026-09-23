@@ -99,7 +99,7 @@ TestCase {
             ]}, {zone: "hand", ownerSeat: 1, count: 1, cards: [
                 {id: "private-hand", visible: false, identity: {name: "Secret hand"}}
             ]}, {zone: "library", ownerSeat: 0, count: 1, cards: [
-                {id: "library-card", visible: true, identity: {name: "Library identity"}}
+                {id: "library-card", visible: false, identity: {name: "Library identity"}}
             ]}],
             stack: [{id: "trigger", controllerSeat: 0, ownerSeat: 0,
                      text: "Put a +1/+1 counter on target creature."}]

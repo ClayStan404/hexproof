@@ -26,16 +26,10 @@ const (
 
 var errForgeCapacity = errors.New("Forge game capacity is full")
 
-func forgeStartFailure(err error) (string, string) {
-	if errors.Is(err, errForgeCapacity) {
-		return protocol.ErrServerLimit, "Forge game capacity is full; wait for a game to finish, then ready again. Your seats and decks are kept"
-	}
-	return protocol.ErrRulesUnavailable, "Forge could not start the game; the room is waiting for players to ready again"
-}
-
 // forgeRoomGame is private lifecycle metadata. Decks and private projections
 // are never cached here; reconnect always asks Forge for a fresh viewer view.
 type forgeRoomGame struct {
+	nativeAI     bool
 	client       forge.Runtime
 	sessionID    string
 	gameID       string
@@ -52,7 +46,7 @@ type forgeStartState struct {
 // startForgeRuntime reserves an isolated game lease: a fresh process by
 // default, or a slot in an explicitly configured shared worker. Serialize
 // admission/cold startups while established games run independently.
-func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.Client, error) {
+func (h *Handler) startForgeRuntime(ctx context.Context, roomID string, dedicated ...bool) (*forge.Client, error) {
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -60,7 +54,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 		h.forgeMu.Lock()
 		if h.forgeClosed || h.forgeRuntime == nil || time.Now().Before(h.forgeRetryAfter) {
 			h.forgeMu.Unlock()
-			return nil, errors.New("Forge rules runtime is unavailable")
+			return nil, errForgeRuntimeUnavailable
 		}
 		// Reserve capacity before spawning Java. A process remains charged
 		// until Wait has reaped it, even if it is unhealthy or closing. Check
@@ -125,7 +119,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 
 		var client *forge.Client
 		var err error
-		if h.forgePool != nil {
+		if h.forgePool != nil && (len(dedicated) == 0 || !dedicated[0]) {
 			client, err = h.forgePool.Acquire(startCtx)
 		} else {
 			client, err = forge.Start(startCtx, config)
@@ -138,7 +132,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 			go h.watchForgeRuntime(client)
 		} else {
 			if err == nil {
-				err = errors.New("Forge rules runtime is unavailable")
+				err = errForgeRuntimeUnavailable
 			}
 			h.forgeRetryAfter = time.Now().Add(forgeRestartCooldown)
 		}
@@ -154,7 +148,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string) (*forge.
 		close(starting)
 		h.forgeMu.Unlock()
 		if err != nil {
-			return nil, errors.New("Forge rules runtime is unavailable")
+			return nil, fmt.Errorf("%w: %w", errForgeRuntimeUnavailable, err)
 		}
 		return client, nil
 	}
@@ -189,7 +183,7 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 	handle, err := client.StartGame(ctx, request)
 	if err != nil {
 		_ = client.Close()
-		return forgeStartState{}, fmt.Errorf("start Forge game: %w", err)
+		return forgeStartState{}, &roomForgeStartFailure{cause: err, seats: seatOrder}
 	}
 	game, err := forgeRoomGameFromHandle(client, request.GameID, seatOrder, handle)
 	if err != nil {
@@ -209,8 +203,10 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 		h.abortUntrackedForgeGame(client, handle.SessionID)
 		return forgeStartState{}, errors.New("Forge game already exists for room")
 	}
+	game.nativeAI = request.HasAI()
 	h.forgeGames[r.ID] = game
 	h.forgeMu.Unlock()
+	h.pauseModelWorker(r.ID, "", false)
 
 	if err := waitForInitialForgePrompt(game); err != nil {
 		h.abortForgeGame(r.ID)
@@ -240,6 +236,9 @@ func forgeStartRequest(r *room.Room, players []room.RulesStartPlayer) (
 		return forge.StartGameRequest{}, nil, fmt.Errorf("generate Forge game seed: %w", err)
 	}
 	variant := "Constructed"
+	if r.DeckFormat == protocol.DeckFormatLimited {
+		variant = "Limited"
+	}
 	startingLife := 20
 	if protocol.IsCommanderFormat(r.Format) {
 		variant = "Commander"
@@ -283,7 +282,8 @@ func forgeStartRequest(r *room.Room, players []room.RulesStartPlayer) (
 			return forge.StartGameRequest{}, nil, err
 		}
 		request.Players = append(request.Players, forge.PlayerConfig{
-			Name:           player.DisplayName,
+			Name: player.DisplayName,
+			AI:   player.Controller == protocol.SeatControllerForgeAI, AIDifficulty: player.AIDifficulty,
 			Deck:           cards,
 			Sideboard:      sideboard,
 			CommanderNames: rulesCommanderNames(player.Deck),
@@ -365,6 +365,10 @@ func (h *Handler) abortForgeGame(roomID string) {
 }
 
 func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
+	if !keepSlot {
+		h.forgeReplays.discard(roomID)
+	}
+	h.pauseModelWorker(roomID, "", false)
 	h.cancelPlayerHostMigration(roomID)
 	h.forgeMu.Lock()
 	game, ok := h.forgeGames[roomID]
@@ -384,6 +388,7 @@ func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
 }
 
 func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bool) {
+	h.pauseModelWorker(roomID, "", false)
 	h.forgeMu.Lock()
 	current, ok := h.forgeGames[roomID]
 	if ok && current.sessionID == game.sessionID {
@@ -411,6 +416,7 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bo
 // WebSocket sessions separately.
 func (h *Handler) Close() error {
 	h.forgeCloseOnce.Do(func() {
+		h.closeModelWorkers()
 		h.tournaments.close()
 		h.forgeMu.Lock()
 		h.forgeClosed = true

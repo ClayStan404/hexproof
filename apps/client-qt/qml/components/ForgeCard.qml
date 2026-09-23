@@ -22,19 +22,39 @@ Rectangle {
         return card.name
     }
     readonly property var combat: tableController.combatInteraction
+    readonly property string persistentSummary: persistentState.boardSummary
+    RulesCardPersistentState {
+        id: persistentState
+        card: root.card
+        rulesSession: root.tableController.rulesSession
+        cardCatalogModel: root.tableController.cardCatalogModel
+    }
+    readonly property bool nativeSelected: objectKind === "card"
+        && tableController.interaction.nativeObjectSelected(objectKind, objectId)
+    readonly property string combatObjectId: combat && combat.active && objectKind === "card"
+        && card && typeof card.stackActivateId === "function"
+        ? (card.stackActivateId() || objectId) : objectId
     readonly property bool actionable: combat && combat.active && objectKind === "card"
-        ? combat.actionable(objectId) : tableController.interaction.objectActionable(objectKind, objectId)
+        ? combat.actionable(combatObjectId) : tableController.interaction.objectActionable(objectKind, objectId)
+    readonly property bool combatDestination: combat && combat.active && objectKind === "card"
+        && combat.targetActionable(objectId)
+    readonly property bool combatHovered: combatDestination && combat.hoveredTarget
+        && combat.hoveredTarget.objectId === objectId
     readonly property bool selected: located || (combat && combat.active && objectKind === "card"
         ? combat.selected(objectId) : tableController.interaction.objectSelected(objectKind, objectId))
     readonly property string combatLabel: combat && combat.active ? combat.labelFor(objectId) : ""
     readonly property bool previewActive: pointerEnabled && visible && (hover.hovered || activeFocus)
+        && !(combat && combat.canAct && combat.chosenSource)
+    readonly property bool abilityActionable: objectKind === "card" && !fullFace
+        && (!combat || !combat.active)
+        && tableController.interaction.actionsForCard(objectId).some(action => action.kind === "activateAbility")
+    readonly property bool showAbilityHint: abilityActionable && previewActive
+    readonly property string interactionLabel: showAbilityHint ? qsTr("Activate ability")
+        : combatLabel || (card.attacking === true ? qsTr("Attacking") : "")
     signal activated()
 
     function activate() {
-        const combatId = combat && combat.active && objectKind === "card"
-            && card && typeof card.stackActivateId === "function"
-            ? (card.stackActivateId() || objectId) : objectId
-        if (combat && combat.active && objectKind === "card" && combat.activate(combatId)) return
+        if (combat && combat.active && objectKind === "card" && combat.activate(combatObjectId)) return
         tableController.interaction.activateObject(objectKind, objectId, publicFace ? card.name : "")
         activated()
     }
@@ -42,22 +62,27 @@ Rectangle {
         if (previewActive) tableController.previewCard(objectId, root)
         else tableController.endCardPreview(root)
     }
-    Component.onDestruction: if (previewActive) tableController.endCardPreview(root)
+    Component.onDestruction: {
+        if (previewActive) tableController.endCardPreview(root)
+        if (combat && objectKind === "card" && hover.hovered) combat.hoverCard(objectId, false)
+    }
     width: 180 * unit
     height: width * (fullFace ? 1.394 : 0.93)
     radius: 8 * unit
     antialiasing: true
-    color: selected ? Theme.accent
+    color: combatHovered ? Theme.primary : selected ? Theme.accent
+                    : combatDestination ? (combat.attacking ? "#e1bd7f" : "#7ebcca")
                     : actionable ? Theme.primary
                     : activeFocus ? Theme.warning
                     : Theme.borderStrong
     border.width: 0
-    readonly property int strokeWidth: selected || activeFocus ? 3 : actionable ? 2 : 1
+    readonly property int strokeWidth: combatHovered ? 4 : selected || activeFocus || combatDestination ? 3 : actionable ? 2 : 1
     activeFocusOnTab: pointerEnabled
     Keys.onReturnPressed: activate()
     Keys.onSpacePressed: activate()
     Accessible.role: Accessible.Button
     Accessible.name: publicFace ? displayName : qsTr("Hidden card")
+    Accessible.description: abilityActionable ? qsTr("Activate ability") : combatLabel
     Accessible.onPressAction: activate()
 
     Rectangle {
@@ -99,11 +124,13 @@ Rectangle {
             }
         }
         Text {
+            id: cardNameLabel
             textFormat: Text.PlainText
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.margins: 7 * root.unit
+            anchors.leftMargin: (root.nativeSelected ? 30 : 7) * root.unit
             objectName: "forgeCardName-" + root.objectId
             visible: !root.fullFace || art.status !== Image.Ready
             text: root.publicFace ? root.displayName : qsTr("Hidden card")
@@ -142,7 +169,18 @@ Rectangle {
                 font.weight: Font.Bold
             }
         }
+        Rectangle {
+            visible: cardStateLabel.visible && cardStateLabel.text.length > 0
+            x: cardStateLabel.x - 3 * root.unit
+            y: cardStateLabel.y + cardStateLabel.height
+               - Math.min(cardStateLabel.implicitHeight, cardStateLabel.height) - 2 * root.unit
+            width: cardStateLabel.width + 6 * root.unit
+            height: Math.min(cardStateLabel.implicitHeight, cardStateLabel.height) + 4 * root.unit
+            radius: 3 * root.unit
+            color: "#e6101a22"
+        }
         Text {
+            id: cardStateLabel
             objectName: "forgeCardState-" + root.objectId
             textFormat: Text.PlainText
             anchors.left: parent.left
@@ -150,35 +188,69 @@ Rectangle {
             anchors.bottom: parent.bottom
             anchors.margins: 6 * root.unit
             anchors.bottomMargin: root.card.power || root.card.toughness ? 34 * root.unit : 6 * root.unit
-            visible: !root.fullFace
-            text: [root.card.countersSummary || "", root.card.damage > 0 ? qsTr("%1 dmg").arg(root.card.damage) : "",
-                   root.card.attachedTo ? qsTr("Attached") : "",
-                   root.card.exiledCardCount > 0 ? qsTr("Exiled: %1").arg(root.card.exiledCardCount) : ""].filter(v => v.length).join(" · ")
+            visible: !root.fullFace || root.persistentSummary.length > 0
+            text: [root.persistentSummary, [root.card.countersSummary || "",
+                   root.card.damage > 0 ? qsTr("%1 dmg").arg(root.card.damage) : "",
+                   root.card.attachedTo ? qsTr("Attached") : ""].filter(v => v.length).join(" · ")]
+                   .filter(v => v.length).join("\n")
+            // Wrapped/elided text can recalculate implicitHeight from height.
+            // Bound it only by the available card space to avoid that cycle.
+            height: Math.max(0, parent.height - anchors.bottomMargin
+                - cardNameLabel.y - cardNameLabel.height - 5 * root.unit)
+            verticalAlignment: Text.AlignBottom
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            clip: true
             color: "#e9c785"
             font.pixelSize: 10 * root.unit
             elide: Text.ElideRight
         }
     }
     Rectangle {
-        visible: root.combatLabel.length > 0 || root.card.attacking === true
+        objectName: "forgeCardNativeSelection-" + root.objectId
+        visible: root.nativeSelected
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.margins: 4 * root.unit
+        width: 24 * root.unit
+        height: width
+        radius: width / 2
+        color: Theme.accent
+        Text {
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: "✓"
+            color: Theme.primaryInk
+            font.pixelSize: 16 * root.unit
+            font.weight: Font.Bold
+        }
+    }
+    Rectangle {
+        visible: root.interactionLabel.length > 0
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: -14 * root.unit
         width: hint.implicitWidth + 14 * root.unit
         height: 19 * root.unit
         radius: 4 * root.unit
-        color: "#e1bf82"
+        color: root.showAbilityHint ? Theme.primary : "#e1bf82"
         Text {
             id: hint
+            objectName: "forgeCardInteractionHint-" + root.objectId
             textFormat: Text.PlainText
             anchors.centerIn: parent
-            text: root.combatLabel || qsTr("Attacking")
+            text: root.interactionLabel
             color: "#19232b"
             font.pixelSize: 9 * root.unit
             font.weight: Font.Bold
         }
     }
-    HoverHandler { id: hover; enabled: root.pointerEnabled; cursorShape: root.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor }
+    HoverHandler {
+        id: hover
+        enabled: root.pointerEnabled
+        cursorShape: root.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onHoveredChanged: if (root.combat && root.objectKind === "card") root.combat.hoverCard(root.objectId, hovered)
+    }
     TapHandler { enabled: root.pointerEnabled; acceptedButtons: Qt.LeftButton; onTapped: root.activate() }
     TapHandler { enabled: root.pointerEnabled; acceptedButtons: Qt.RightButton; onTapped: root.tableController.openCardDetails(root.objectId) }
 }

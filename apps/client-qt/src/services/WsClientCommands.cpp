@@ -59,8 +59,17 @@ void WsClient::playerHostingAction(const QString &action)
 void WsClient::createRoom(const QString &name, const QString &format, const QString &deckFormat,
                           bool allowSpectators, bool spectatorsSeeHands, const QString &matchMode,
                           const QString &cardLoadMode, const QString &password, bool playtest,
-                          const QString &rulesMode, const QString &hostingMode)
+                          const QString &rulesMode, const QString &hostingMode,
+                          const QString &aiDifficulty, const QString &aiSource)
 {
+    const bool modelAI = !playtest && rulesMode == kRulesModeForge &&
+                         (aiSource == u"local"_s || aiSource == u"online"_s);
+    if (modelAI && (!m_aiModelsAvailable || !m_modelOpponent->configured(aiSource)))
+        return;
+    if (modelAI && !m_modelOpponent->arm(aiSource))
+        return;
+    if (!modelAI)
+        m_modelOpponent->stop();
     m_playerHostingConsent =
         !playtest && rulesMode == kRulesModeForge && hostingMode == kHostingModePlayer;
     QJsonObject p;
@@ -78,7 +87,12 @@ void WsClient::createRoom(const QString &name, const QString &format, const QStr
         p.insert(u"hostingMode"_s, hostingMode);
     if (!password.isEmpty())
         p.insert(u"password"_s, password);
-    send(kTypeRoomCreate, p);
+    if (!playtest && rulesMode == kRulesModeForge && !aiDifficulty.isEmpty())
+        p.insert(u"aiDifficulty"_s, aiDifficulty);
+    if (!playtest && rulesMode == kRulesModeForge && !aiSource.isEmpty())
+        p.insert(u"aiSource"_s, aiSource);
+    if (send(kTypeRoomCreate, p).isEmpty() && modelAI)
+        m_modelOpponent->stop();
 }
 
 void WsClient::requestRoomList()
@@ -111,6 +125,7 @@ void WsClient::joinRoom(const QString &roomId, bool asSpectator, const QString &
 
 void WsClient::leaveRoom()
 {
+    m_modelOpponent->stop();
     send(kTypeRoomLeave);
 }
 
@@ -130,6 +145,7 @@ void WsClient::kickSpectator(int index)
 
 void WsClient::disbandRoom()
 {
+    m_modelOpponent->stop();
     send(kTypeRoomDisband);
 }
 
@@ -140,6 +156,31 @@ void WsClient::selectDeck(const QVariantMap &deck)
     const QString requestId = send(kTypeDeckSelect, QJsonObject::fromVariantMap(deck));
     if (!requestId.isEmpty())
         m_roomSession->rememberPendingDeck(requestId, deck.value(u"name"_s).toString());
+}
+
+void WsClient::configureAiOpponent(const QString &difficulty, const QVariantMap &deck)
+{
+    const bool modelAI =
+        m_roomSession->aiSource() == u"local"_s || m_roomSession->aiSource() == u"online"_s;
+    if (!modelAI && difficulty != u"easy"_s && difficulty != u"normal"_s && difficulty != u"hard"_s)
+        return;
+    QJsonObject payload;
+    if (!modelAI)
+        payload.insert(u"difficulty"_s, difficulty);
+    if (!deck.isEmpty())
+        payload.insert(u"deck"_s, QJsonObject::fromVariantMap(deck));
+    send(kTypeRoomAIConfigure, payload);
+}
+
+void WsClient::retryModelOpponent()
+{
+    const QString source = m_roomSession->aiSource();
+    if (!m_roomSession->host() || (source != kAISourceLocal && source != kAISourceOnline))
+        return;
+    if (!m_modelOpponent->active() &&
+        (!m_modelOpponent->configured(source) || !m_modelOpponent->arm(source)))
+        return;
+    send(kTypeRoomAIRetry);
 }
 
 void WsClient::setReady(bool ready)
@@ -717,10 +758,15 @@ void WsClient::setAttachment(const QString &sourceCardId, const QString &targetC
     send(kTypeGameSetAttachment, payload);
 }
 
-void WsClient::moveSideboardCard(const QVariantMap &card, const QString &fromZone,
-                                 const QString &toZone)
+void WsClient::clearSideboardMainboard()
 {
-    if (card.isEmpty() || fromZone == toZone)
+    moveSideboardCard({}, u"mainboard"_s, u"sideboard"_s, true);
+}
+
+void WsClient::moveSideboardCard(const QVariantMap &card, const QString &fromZone,
+                                 const QString &toZone, bool clearMainboard)
+{
+    if ((!clearMainboard && card.isEmpty()) || fromZone == toZone)
         return;
     send(kTypeSideboardMove,
          QJsonObject{
@@ -729,6 +775,7 @@ void WsClient::moveSideboardCard(const QVariantMap &card, const QString &fromZon
              {u"collectorNumber"_s, card.value(u"collectorNumber"_s).toString()},
              {u"fromZone"_s, fromZone},
              {u"toZone"_s, toZone},
+             {u"clearMainboard"_s, clearMainboard},
          });
 }
 
@@ -842,7 +889,7 @@ void WsClient::respondPublicZoneMove(const QString &approvalId, bool approved)
 
 void WsClient::searchLibrary(const QString &cardId, const QString &toZone, bool reveal,
                              const QVariantMap &position, int sourceSeat, const QString &approvalId,
-                             int toSeat, bool faceDown)
+                             int toSeat, bool faceDown, bool topCard)
 {
     QJsonObject payload{
         {u"cardId"_s, cardId},
@@ -859,12 +906,15 @@ void WsClient::searchLibrary(const QString &cardId, const QString &toZone, bool 
         payload.insert(u"approvalId"_s, approvalId.trimmed());
     if (faceDown)
         payload.insert(u"faceDown"_s, true);
+    if (topCard)
+        payload.insert(u"topCard"_s, true);
     send(kTypeGameSearchLibrary, payload);
 }
 
 void WsClient::searchLibraryCards(const QVariantList &cardIds, const QString &toZone, bool reveal,
                                   bool randomize, const QVariantMap &position, int sourceSeat,
-                                  const QString &approvalId, int toSeat, bool faceDown)
+                                  const QString &approvalId, int toSeat, bool faceDown,
+                                  bool topCard)
 {
     if (cardIds.isEmpty())
         return;
@@ -885,6 +935,8 @@ void WsClient::searchLibraryCards(const QVariantList &cardIds, const QString &to
         payload.insert(u"approvalId"_s, approvalId.trimmed());
     if (faceDown)
         payload.insert(u"faceDown"_s, true);
+    if (topCard)
+        payload.insert(u"topCard"_s, true);
     send(kTypeGameSearchLibrary, payload);
 }
 
@@ -949,6 +1001,16 @@ void WsClient::reorderLibrary(const QVariantList &cardIds)
         return;
     send(kTypeGameReorderLibrary,
          QJsonObject{{u"cardIds"_s, QJsonArray::fromVariantList(cardIds)}});
+}
+
+void WsClient::setLibraryTopRevealed(bool revealed)
+{
+    send(kTypeGameSetLibraryTopRevealed, {{u"revealed"_s, revealed}});
+}
+
+void WsClient::chooseStartingPlayer(int startingSeat)
+{
+    send(kTypeSideboardChooseStartingPlayer, {{u"startingSeat"_s, startingSeat}});
 }
 
 } // namespace hexproof::client

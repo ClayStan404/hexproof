@@ -21,6 +21,8 @@ from payload_schema import (
 )
 
 STABLE_PREFIXES = (
+    "AI",
+    "SeatController",
     "Type",
     "Err",
     "Format",
@@ -31,6 +33,8 @@ STABLE_PREFIXES = (
     "RulesMode",
     "HostingMode",
     "RulesDamage",
+    "RulesStartReason",
+    "RulesDeck",
     "GamePhase",
     "Zone",
     "MatchBO",

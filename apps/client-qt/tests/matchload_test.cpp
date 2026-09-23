@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "services/CardArtCache.h"
+#include "services/CardCatalog.h"
+#include "services/CardCatalogCommon.h"
+#include "services/CardImageProvider.h"
 #include "services/MatchCardCacheBinding.h"
 #include "services/MatchLoadCoordinator.h"
 #include "services/RoomSessionState.h"
@@ -8,8 +12,12 @@
 
 #include "models/GameTableModel.h"
 
+#include <QImage>
 #include <QJsonArray>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 
 using namespace Qt::StringLiterals;
@@ -36,6 +44,7 @@ class TestMatchLoadCoordinator : public QObject
     void runtimeBindingCancelsQueuedWorkOnLeave() const;
     void spectatorVisibleCardsUseIndependentAuthorizedBatch() const;
     void promptCardsAndPreferenceRefreshAreCoalesced() const;
+    void exactPrintingArtSurvivesPrivatePromptsAndZoneChanges() const;
 };
 
 QVariantList cardRequests()
@@ -500,7 +509,7 @@ void TestMatchLoadCoordinator::spectatorVisibleCardsUseIndependentAuthorizedBatc
                             {u"identity"_s, bolt.value(u"identity"_s)}};
     const QJsonObject snapshot = rulesSnapshot(
         {cardZone(u"hand"_s, {hidden}), cardZone(u"battlefield"_s, {bolt, hidden}),
-         cardZone(u"library"_s, {projectedCard(u"library-1"_s, u"Not displayed"_s)})},
+         cardZone(u"library"_s, {projectedCard(u"library-1"_s, u"Not displayed"_s, false)})},
         {stack, QJsonObject{{u"id"_s, u"unknown-stack"_s}, {u"text"_s, u"Sol Ring"_s}}});
     QVERIFY(runtime.rules.applySnapshot(snapshot));
     QVERIFY(runtime.rules.applySnapshot(snapshot));
@@ -565,6 +574,136 @@ void TestMatchLoadCoordinator::promptCardsAndPreferenceRefreshAreCoalesced() con
     runtime.binding.refreshVisibleCards();
     QTest::qWait(20);
     QCOMPARE(visible.count(), 2);
+}
+
+void TestMatchLoadCoordinator::exactPrintingArtSurvivesPrivatePromptsAndZoneChanges() const
+{
+    using namespace hexproof::client;
+    class NoNetwork final : public QNetworkAccessManager
+    {
+      public:
+        QList<QUrl> requests;
+
+      protected:
+        QNetworkReply *createRequest(Operation, const QNetworkRequest &request,
+                                     QIODevice *) override
+        {
+            requests.append(request.url());
+            // A regression must fail without ever contacting an external provider.
+            return QNetworkAccessManager::createRequest(
+                GetOperation, QNetworkRequest(QUrl(u"data:application/json,{}"_s)), nullptr);
+        }
+    } network;
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString name = u"Island"_s;
+    const QStringList sets{u"LEA"_s, u"M21"_s};
+    const QStringList numbers{u"286"_s, u"263"_s};
+    const QList<QColor> colors{QColor(Qt::red), QColor(Qt::green), QColor(Qt::blue)};
+    QStringList paths;
+    {
+        CardArtCache cache(storage.path());
+        for (int index = 0; index < colors.size(); ++index) {
+            const QString path = storage.filePath(u"island-%1.png"_s.arg(index));
+            QImage image(16, 24, QImage::Format_RGB32);
+            image.fill(colors[index]);
+            QVERIFY(image.save(path));
+            paths.append(path);
+            CardRecord record;
+            record.requestedName = name;
+            record.name = name;
+            record.setCode = index < 2 ? sets[index] : u"OTHER"_s;
+            record.collectorNumber = index < 2 ? numbers[index] : u"1"_s;
+            record.imagePath = path;
+            record.imageLanguage = u"en"_s;
+            record.resolutionVersion = catalog_internal::kCardResolutionVersion;
+            // An older name-only lookup must not replace either physical printing.
+            cache.rememberSuccess(index < 2 ? cache.key(name, u"en"_s, sets[index], numbers[index])
+                                            : cache.key(name, u"en"_s, {}, {}),
+                                  record);
+        }
+        QVERIFY(cache.save());
+    }
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"en"_s);
+    CardImageProvider provider;
+    catalog.setCardImageProvider(&provider);
+    CacheRuntime runtime;
+    QObject::connect(&runtime.binding, &MatchCardCacheBinding::visibleRulesCardsRequested, &catalog,
+                     &CardCatalog::prioritizeCards);
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    runtime.enter(u"forge"_s);
+    QVERIFY(runtime.rules.applySnapshot(rulesSnapshot()));
+    QJsonArray identities;
+    for (int index = 0; index < 2; ++index) {
+        identities.append(QJsonObject{{u"name"_s, name},
+                                      {u"setCode"_s, sets[index]},
+                                      {u"collectorNumber"_s, numbers[index]}});
+    }
+    const auto verifyArt = [&](QAbstractItemModel *model) {
+        QCOMPARE(model->rowCount(), 2);
+        const auto roles = model->roleNames();
+        for (int row = 0; row < 2; ++row) {
+            const auto value = [&](const QByteArray &role) {
+                return model->data(model->index(row, 0), roles.key(role, -1)).toString();
+            };
+            QCOMPARE(value("name"), name);
+            QCOMPARE(value("setCode"), sets[row]);
+            QCOMPARE(value("collectorNumber"), numbers[row]);
+            const QString source =
+                catalog.tableImageSource(value("name"), value("setCode"), value("collectorNumber"));
+            QVERIFY(source.startsWith(u"image://card-table/"_s));
+            const QImage thumbnail = provider.requestImage(
+                source.mid(QString(u"image://card-table/"_s).size()), nullptr, {});
+            QVERIFY(!thumbnail.isNull());
+            QCOMPARE(thumbnail.pixelColor(0, 0), colors[row]);
+            QCOMPARE(catalog.imageSource(value("name"), value("setCode"), value("collectorNumber")),
+                     QUrl::fromLocalFile(paths[row]).toString());
+        }
+    };
+    QJsonObject prompt{{u"roomId"_s, u"room-1"_s},
+                       {u"gameId"_s, u"rules-game-1"_s},
+                       {u"pending"_s, true},
+                       {u"totalDamage"_s, 0},
+                       {u"supported"_s, true}};
+    for (const QString &key : {u"options"_s, u"choices"_s, u"cards"_s, u"scryDestinations"_s,
+                               u"targets"_s, u"contextCards"_s, u"contextTargets"_s,
+                               u"combatSources"_s, u"combatTargets"_s, u"damageTargets"_s})
+        prompt.insert(key, QJsonArray{});
+    int promptId = 0;
+    for (const QString &kind : {u"chooseCards"_s, u"revealCards"_s, u"reorder"_s}) {
+        QJsonArray cards;
+        for (int index = 0; index < 2; ++index) {
+            QJsonObject card = identities[index].toObject();
+            card.insert(kind == u"reorder"_s ? u"responseId"_s : u"id"_s,
+                        (kind == u"reorder"_s ? u"order:%1"_s : u"card:%1"_s).arg(index));
+            cards.append(card);
+        }
+        prompt.insert(u"promptId"_s, ++promptId);
+        prompt.insert(u"kind"_s, kind);
+        prompt.insert(u"cards"_s, kind == u"reorder"_s ? QJsonArray{} : cards);
+        prompt.insert(u"orderItems"_s, kind == u"reorder"_s ? cards : QJsonArray{});
+        QVERIFY(runtime.rules.applyPrompt(prompt));
+        verifyArt(kind == u"reorder"_s
+                      ? static_cast<QAbstractItemModel *>(runtime.rules.promptOrderItems())
+                      : runtime.rules.promptCards());
+        QTRY_COMPARE(completed.count(), 2);
+        QVERIFY(network.requests.isEmpty());
+    }
+    prompt.insert(u"pending"_s, false);
+    QVERIFY(runtime.rules.applyPrompt(prompt));
+    for (const QString &zone : {u"hand"_s, u"battlefield"_s}) {
+        QJsonArray cards;
+        for (int index = 0; index < 2; ++index)
+            cards.append(QJsonObject{{u"id"_s, u"card:%1"_s.arg(index)},
+                                     {u"visible"_s, true},
+                                     {u"identity"_s, identities[index]}});
+        QVERIFY(runtime.rules.applySnapshot(rulesSnapshot({cardZone(zone, cards)})));
+        verifyArt(zone == u"hand"_s ? runtime.rules.zoneCards() : runtime.rules.battlefieldCards());
+    }
+    QTRY_VERIFY(!catalog.busy());
+    QCOMPARE(completed.count(), 2);
+    QVERIFY(network.requests.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestMatchLoadCoordinator)

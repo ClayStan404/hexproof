@@ -5,6 +5,7 @@ package runtimepkg
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,7 +83,14 @@ func TestCacheLockCancellationAndDiskProbe(t *testing.T) {
 	defer lock.Close()
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Millisecond)
 	defer cancel()
-	if _, err := ClearCache(ctx, base); err != context.DeadlineExceeded {
+	var events []Diagnostic
+	ctx = WithDiagnostics(ctx, func(event Diagnostic) { events = append(events, event) })
+	if _, err := ClearCache(ctx, base); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("cleanup bypassed another preparer's lock or ignored cancellation: %v", err)
+	} else if event := ErrorDiagnostic(err, "cleanup", "runtime"); event.Stage != "lock" || event.Code != "timeout" {
+		t.Fatalf("lock timeout lost its failing stage: %+v", event)
+	}
+	if len(events) != 2 || events[1].Stage != "lock" || events[1].Code != "waiting" {
+		t.Fatalf("lock wait was not recorded exactly once: %+v", events)
 	}
 }

@@ -1,0 +1,7 @@
+{
+  "type": "ai.failure",
+  "payload": {
+    "requestId": "decision-1",
+    "code": "timeout"
+  }
+}

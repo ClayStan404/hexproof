@@ -23,6 +23,17 @@ class ClientPreferencesModel final : public QObject
                    reuseLocalCardArtChanged)
     Q_PROPERTY(bool animatePackOpenings READ animatePackOpenings WRITE setAnimatePackOpenings NOTIFY
                    animatePackOpeningsChanged)
+    Q_PROPERTY(bool audioEnabled READ audioEnabled WRITE setAudioEnabled NOTIFY audioEnabledChanged)
+    Q_PROPERTY(qreal audioVolume READ audioVolume WRITE setAudioVolume NOTIFY audioVolumeChanged)
+    Q_PROPERTY(bool musicEnabled READ musicEnabled WRITE setMusicEnabled NOTIFY musicEnabledChanged)
+    Q_PROPERTY(qreal musicVolume READ musicVolume WRITE setMusicVolume NOTIFY musicVolumeChanged)
+    Q_PROPERTY(QString musicTrack READ musicTrack WRITE setMusicTrack NOTIFY musicTrackChanged)
+    Q_PROPERTY(bool forgeFullControl READ forgeFullControl WRITE setForgeFullControl NOTIFY
+                   forgeFullControlChanged)
+    Q_PROPERTY(QVariantMap forgePhaseStops READ forgePhaseStops WRITE setForgePhaseStops NOTIFY
+                   forgePhaseStopsChanged)
+    Q_PROPERTY(bool directPeerEnabled READ directPeerEnabled WRITE setDirectPeerEnabled NOTIFY
+                   directPeerEnabledChanged)
     Q_PROPERTY(qreal interfaceScale READ interfaceScale WRITE setInterfaceScale NOTIFY
                    interfaceScaleChanged)
     Q_PROPERTY(QString uiTheme READ uiTheme WRITE setUiTheme NOTIFY uiThemeChanged)
@@ -80,6 +91,47 @@ class ClientPreferencesModel final : public QObject
         return m_preferences.animatePackOpenings;
     }
     void setAnimatePackOpenings(bool animate);
+    bool audioEnabled() const
+    {
+        return m_preferences.audioEnabled;
+    }
+    void setAudioEnabled(bool enabled);
+    qreal audioVolume() const
+    {
+        return m_preferences.audioVolume;
+    }
+    void setAudioVolume(qreal volume);
+    bool musicEnabled() const
+    {
+        return m_preferences.musicEnabled;
+    }
+    void setMusicEnabled(bool enabled);
+    qreal musicVolume() const
+    {
+        return m_preferences.musicVolume;
+    }
+    void setMusicVolume(qreal volume);
+    QString musicTrack() const
+    {
+        return m_preferences.musicTrack;
+    }
+    void setMusicTrack(const QString &track);
+    bool forgeFullControl() const
+    {
+        return m_preferences.forgeFullControl;
+    }
+    void setForgeFullControl(bool enabled);
+    QVariantMap forgePhaseStops() const
+    {
+        return m_preferences.forgePhaseStops;
+    }
+    void setForgePhaseStops(const QVariantMap &stops);
+    Q_INVOKABLE void toggleForgePhaseStop(const QString &step, bool ownTurn);
+    bool directPeerEnabled() const
+    {
+        return m_preferences.directPeerEnabled;
+    }
+    void setDirectPeerEnabled(bool enabled);
     qreal interfaceScale() const
     {
         return m_preferences.interfaceScale;
@@ -177,6 +229,14 @@ class ClientPreferencesModel final : public QObject
     void cardArtProviderChanged();
     void reuseLocalCardArtChanged();
     void animatePackOpeningsChanged();
+    void audioEnabledChanged();
+    void audioVolumeChanged();
+    void musicEnabledChanged();
+    void musicVolumeChanged();
+    void musicTrackChanged();
+    void forgeFullControlChanged();
+    void forgePhaseStopsChanged();
+    void directPeerEnabledChanged();
     void interfaceScaleChanged();
     void uiThemeChanged();
     void tableBackgroundChanged();

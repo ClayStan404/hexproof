@@ -7,40 +7,43 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-Popup {
+RulesDecisionDialog {
     id: root
-    required property var tableController
-    readonly property var session: tableController.rulesSession
-    readonly property bool requested: tableController.interaction.contextActive
+    requested: tableController.interaction.contextActive
         && ["chooseCards", "mulliganPutBack", "revealCards", "scry", "reorder",
             "chooseDamageAssignmentOrder"].includes(session.promptKind)
 
     objectName: "rulesCardChoiceDialog"
-    parent: Overlay.overlay
     width: Math.min(Theme.size(1080), parent ? parent.width - Theme.size(40) : 0)
     height: Math.min(Theme.size(["scry", "reorder", "chooseDamageAssignmentOrder"]
         .includes(session.promptKind) ? 520 : 780), parent ? parent.height - Theme.size(40) : 0)
     x: parent ? (parent.width - width) / 2 : 0
     y: parent ? (parent.height - height) / 2 : 0
     padding: Theme.size(18)
-    modal: true
-    focus: true
-    closePolicy: Popup.NoAutoClose
-    visible: requested
     background: Surface { color: Theme.surfaceElevated; border.color: Theme.primary }
 
     contentItem: ColumnLayout {
         spacing: Theme.size(12)
-        Text {
-            textFormat: Text.PlainText
+        RowLayout {
             Layout.fillWidth: true
-            text: root.tableController.promptTitle(root.session.promptKind, root.session.promptTitle)
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(20)
-            font.weight: Font.DemiBold
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
+            spacing: Theme.size(12)
+            Text {
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                text: root.tableController.promptTitle(root.session.promptKind, root.session.promptTitle)
+                color: Theme.text
+                font.pixelSize: Theme.fontSize(20)
+                font.weight: Font.DemiBold
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+            }
+            AppButton {
+                objectName: "rulesChoiceViewBattlefield"
+                text: qsTranslate("RulesDecisionDialog", "View battlefield")
+                enabled: !root.tableController.rulesResponsePending
+                onClicked: root.inspectBattlefield()
+            }
         }
         Text {
             id: detail
@@ -67,6 +70,7 @@ Popup {
             contextText: root.session.promptContextText
         }
         Loader {
+            objectName: "rulesChoiceContent"
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0

@@ -1,0 +1,132 @@
+{
+  "type": "rules.snapshot",
+  "seq": 8,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "turn": 3,
+    "step": "main1",
+    "activeSeat": 1,
+    "prioritySeat": 1,
+    "players": [
+      {
+        "seat": 0,
+        "name": "Alice",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [
+          {
+            "name": "W",
+            "value": 0
+          }
+        ],
+        "commanders": []
+      },
+      {
+        "seat": 1,
+        "name": "Bob",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [],
+        "commanders": [],
+        "controllingSeat": 0
+      }
+    ],
+    "zones": [
+      {
+        "zone": "hand",
+        "ownerSeat": 0,
+        "count": 1,
+        "cards": [
+          {
+            "id": "java-card-1",
+            "visible": true,
+            "identity": {
+              "name": "Lightning Bolt",
+              "setCode": "M11",
+              "collectorNumber": "149"
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": []
+          }
+        ]
+      },
+      {
+        "zone": "hand",
+        "ownerSeat": 1,
+        "count": 1,
+        "cards": [
+          {
+            "id": "controlled-hand",
+            "visible": true,
+            "identity": {
+              "name": "Forest",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": []
+          }
+        ]
+      },
+      {
+        "zone": "library",
+        "ownerSeat": 1,
+        "count": 40,
+        "cards": [
+          {
+            "id": "permitted-top",
+            "visible": true,
+            "identity": {
+              "name": "Island",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": []
+          }
+        ]
+      },
+      {
+        "zone": "battlefield",
+        "ownerSeat": 0,
+        "count": 2,
+        "cards": [
+          {
+            "id": "established",
+            "visible": true,
+            "identity": {
+              "name": "Grizzly Bears",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": []
+          },
+          {
+            "id": "new-arrival",
+            "visible": true,
+            "identity": {
+              "name": "Grizzly Bears",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": [],
+            "enteredThisTurn": true,
+            "summoningSick": true
+          }
+        ]
+      }
+    ],
+    "stack": [],
+    "gameOver": false
+  }
+}

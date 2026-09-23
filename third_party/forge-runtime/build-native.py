@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
-"""Build a local native-human Forge runtime from the pinned official source.
+"""Build a local native Forge runtime from the pinned official source.
 
 The default development build references checked-out card resources. The release
 packager requests a clean build with copied resources and source-backed dependencies.
@@ -198,20 +198,29 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         profile = stage / "test-profile"
         profile.mkdir()
         scenarios = [(name, []) for name in (
-            "NativeProfileRegressionTest", "NativeSnapshotRegressionTest",
+            "NativeProfileRegressionTest", "NativeSnapshotRegressionTest", "NativeAiRegressionTest",
             "NativeEldraziRegressionTest", "NativeDeckRegistrationRegressionTest", "NativeIsolationRegressionTest",
+            "NativeStartFailureRegressionTest", "NativeReplayRegressionTest",
             "NativeOrderingRegressionTest", "NativeDelayedRevealRegressionTest",
             "NativeLethalDamageRegressionTest", "NativeMultiBlockRegressionTest",
-            "NativeStartingHandRegressionTest", "NativeObjectDepartureRegressionTest",
+            "NativeStartingHandRegressionTest", "NativeAutoPayRegressionTest", "NativeMulliganRegressionTest", "NativeObjectDepartureRegressionTest",
             "NativeSynchronousConcedeRegressionTest", "NativeQueuedInputRegressionTest",
-            "NativePriorityRegressionTest", "NativePromptContextRegressionTest")]
+            "NativePriorityRegressionTest", "NativePromptContextRegressionTest", "NativeCardTextRegressionTest",
+            "NativePromptPrintingRegressionTest", "NativeTurnAccessRegressionTest")]
         scenarios += [("NativeCallbackRegressionTest", [scenario])
                       for scenario in ("scry", "generic", "damage", "damage_unordered", "damage_single_defender",
                                        "damage_deathtouch", "damage_skip", "phyrexian")]
         scenarios += [("NativeMechanicsRegressionTest", [scenario]) for scenario in (
             "counter-first", "counter-second", "counter-cancel", "needle", "mage",
             "chord", "discard-cancel", "discard-two", "optional-card-batch", "shared-type-incremental",
+            "discard-unless-creature", "discard-unless-two", "end-turn-cleanup", "dungeon-options",
+            "discard-unless-artifact", "discard-artifact-two", "discard-artifact-undo",
+            "frog-pay", "frog-cancel", "crew-pay", "crew-cancel", "waterbend-cap",
             "bolt-resolution", "counterspell-resolution", "counter-counterspell")]
+        scenarios += [("NativeImproviseRegressionTest", [scenario])
+                      for scenario in ("selection", "cancel-retry", "convoke-cancel")]
+        scenarios += [("NativeCardStateRegressionTest", [scenario])
+                      for scenario in ("annotations", "labyrinth", "class-level", "chosen-card")]
         for test, arguments in scenarios:
             run("java", "-Xmx2g", "-Djava.awt.headless=true", f"-Duser.home={profile}",
                 "-cp", str(test_classes) + os.pathsep + runtime_classpath,

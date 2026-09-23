@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.0.5")
+set(HEXPROOF_VERSION "2.1.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -80,6 +80,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     Core
     Gui
     LinguistTools
+    Multimedia
     Network
     Quick
     QuickEffects
@@ -153,6 +154,7 @@ target_link_libraries(hexproof_deck_library PUBLIC
     Qt6::Gui)
 
 set(HEXPROOF_SESSION_SOURCES
+    src/services/HubTransport.cpp
     src/services/GameSessionState.cpp
     src/services/LimitedSessionState.cpp
     src/services/LimitedDeckDraftStore.cpp
@@ -164,12 +166,15 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/RulesDamageModel.cpp
     src/services/RulesOrderModel.cpp
     src/services/RulesSessionState.cpp
+    src/services/ForgeReplayService.cpp
     src/services/RulesStateModels.cpp
     src/services/ServerDirectory.cpp
     src/services/TournamentSessionState.cpp
     src/services/PeerTransportService.cpp
     src/services/WsClientPeer.cpp
+    src/services/ForgeHostDiagnostics.cpp
     src/services/ForgeHostService.cpp
+    src/services/ModelOpponentService.cpp
     src/services/WsClient.cpp
     src/services/WsClientCommands.cpp
     src/services/WsClientTournamentCommands.cpp
@@ -186,7 +191,8 @@ target_link_libraries(hexproof_session PUBLIC
     Qt6::Core
     Qt6::Gui
     Qt6::Network
-    Qt6::WebSockets)
+    Qt6::WebSockets
+    ZLIB::ZLIB)
 
 qt_add_library(hexproof_local_test STATIC src/testing/LocalTestSession.cpp)
 target_link_libraries(hexproof_local_test PUBLIC hexproof_session)
@@ -280,9 +286,32 @@ target_link_libraries(hexproof_update_service PUBLIC
     Qt6::Gui
     Qt6::Network)
 
+qt_add_library(hexproof_content_service STATIC
+    src/services/PublicContentSchema.cpp
+    src/services/PublicContentService.cpp
+    src/services/PublicContentPresentation.cpp)
+target_include_directories(hexproof_content_service PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(hexproof_content_service PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
+qt_add_resources(hexproof_content_service "content_defaults"
+    PREFIX "/"
+    FILES
+        config/content/sponsors.json
+        config/content/announcements.json
+        assets/sponsors/a1100011.jpg
+        assets/sponsors/afdian-1a326.png
+        assets/sponsors/anjisuan.jpg
+        assets/sponsors/dodo.jpg
+        assets/sponsors/m0nta9e.jpg
+        assets/sponsors/orangezihan.jpeg
+        assets/sponsors/guafu.jpeg
+        assets/sponsors/beidi.jpeg
+        assets/sponsors/qingbao.jpg)
+
 set(HEXPROOF_APPLICATION_SOURCES
     src/main.cpp
     src/models/ClientPreferencesModel.cpp
+    src/services/AudioController.cpp
+    src/services/BackgroundMusicController.cpp
     src/services/MatchCardCacheBinding.cpp
     src/services/MatchLoadCoordinator.cpp
     src/services/TranslationController.cpp
@@ -301,6 +330,8 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/qmldir
         qml/components/ActivityRing.qml
         qml/components/AppBackground.qml
+        qml/components/SoundEffects.qml
+        qml/components/OperationSounds.qml
         qml/components/TableBackgrounds.qml
         qml/components/TableBackgroundPicker.qml
         qml/components/TableBackgroundPopup.qml
@@ -374,6 +405,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/InfoBanner.qml
         qml/components/I18n.qml
         qml/components/RulesText.qml
+        qml/components/RulesStartFailureNotice.qml
         qml/components/LibraryPositionPopup.qml
         qml/components/LandPlayPopup.qml
         qml/components/LibrarySearchCardList.qml
@@ -411,16 +443,20 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/RulesBattlefieldLayout.qml
         qml/components/RulesTableInteraction.qml
         qml/components/RulesPriorityController.qml
+        qml/components/RulesPriorityMode.qml
+        qml/components/RulesPhaseStops.qml
         qml/components/RulesActionBar.qml
         qml/components/RulesInspectionDock.qml
         qml/components/RulesCardSelectionPrompt.qml
         qml/components/RulesCardBrowser.qml
         qml/components/RulesCardChoiceDialog.qml
+        qml/components/RulesDecisionDialog.qml
         qml/components/RulesZoneActions.qml
         qml/components/RulesCardSurface.qml
         qml/components/ForgeCard.qml
         qml/components/ForgeCardLane.qml
         qml/components/ForgeHand.qml
+        qml/components/ForgeManaPool.qml
         qml/components/ForgeStack.qml
         qml/components/ForgeArrow.qml
         qml/components/ForgeCombatInteraction.qml
@@ -428,6 +464,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/ForgeZonePile.qml
         qml/components/RulesLegacyLayout.qml
         qml/components/RulesCardInspector.qml
+        qml/components/RulesCardPersistentState.qml
         qml/components/RulesCardHoverPreview.qml
         qml/components/RulesDecisionDock.qml
         qml/components/RulesCardActionPicker.qml
@@ -457,11 +494,13 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/CardArtRepairNoticePopup.qml
         qml/components/SponsorAnnouncementPopup.qml
         qml/components/SponsorCatalog.qml
+        qml/components/ContentRefreshBar.qml
         qml/components/SponsorHighlight.qml
         qml/components/SponsorList.qml
         qml/components/SponsorSupportPopup.qml
         qml/components/SharedZonesView.qml
         qml/components/SideboardPanel.qml
+        qml/components/SideboardBoardReview.qml
         qml/components/SideboardPreviewLayer.qml
         qml/components/SideboardZoneView.qml
         qml/components/StatusPill.qml
@@ -520,15 +559,6 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/TournamentScoreEditor.qml
         qml/components/ZoneBrowserPopup.qml
         assets/sponsors/alipay-pay.png
-        assets/sponsors/a1100011.jpg
-        assets/sponsors/afdian-1a326.png
-        assets/sponsors/anjisuan.jpg
-        assets/sponsors/dodo.jpg
-        assets/sponsors/m0nta9e.jpg
-        assets/sponsors/orangezihan.jpeg
-        assets/sponsors/guafu.jpeg
-        assets/sponsors/beidi.jpeg
-        assets/sponsors/qingbao.jpg
         assets/sponsors/wechat-pay.png
         qml/assets/card-back.jpg
         qml/assets/playmat-dusk.png
@@ -553,6 +583,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/screens/MatchLoading.qml
         qml/screens/RoomBrowser.qml
         qml/screens/Settings.qml
+        qml/screens/ModelSettings.qml
         qml/screens/AppearanceSettings.qml
         qml/screens/LanguageSettings.qml
         qml/screens/CatalogSettings.qml
@@ -561,8 +592,13 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/screens/CardArtManager.qml
         qml/screens/CustomCardArtManager.qml
         qml/screens/ShortcutSettings.qml
+        qml/screens/AudioSettings.qml
+        qml/screens/GameplaySettings.qml
         qml/screens/Sponsors.qml
+        qml/screens/Announcements.qml
         qml/screens/RulesTable.qml
+        qml/screens/ForgeReplay.qml
+        qml/screens/ForgeReplayLibrary.qml
         qml/screens/Table.qml
         qml/screens/TournamentBrowser.qml
         qml/screens/TournamentCreate.qml
@@ -576,6 +612,21 @@ set(HEXPROOF_APPLICATION_QML_FILES
 qt_add_resources(hexproof "app_qml"
     PREFIX "/"
     FILES ${HEXPROOF_APPLICATION_QML_FILES})
+
+set(HEXPROOF_AUDIO_FILES)
+foreach(cue IN ITEMS click select draw play tap shuffle attack block cast resolve turn damage confirm cancel error)
+    list(APPEND HEXPROOF_AUDIO_FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/${cue}.wav")
+endforeach()
+qt_add_resources(hexproof "operation_audio"
+    PREFIX "/audio" BASE "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio"
+    FILES ${HEXPROOF_AUDIO_FILES})
+set(HEXPROOF_MUSIC_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/Gitana.mp3"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/bgm2.ogg"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/bgm3.ogg")
+qt_add_resources(hexproof "background_music"
+    PREFIX "/music" BASE "${CMAKE_CURRENT_SOURCE_DIR}/assets/music"
+    FILES ${HEXPROOF_MUSIC_FILES})
 
 qt_add_translations(hexproof
     TS_FILES i18n/hexproof_zh_CN.ts
@@ -599,9 +650,11 @@ set(HEXPROOF_APPLICATION_LIBRARIES
     hexproof_session
     hexproof_table_models
     hexproof_update_service
+    hexproof_content_service
     Qt6::Concurrent
     Qt6::Core
     Qt6::Gui
+    Qt6::Multimedia
     Qt6::Network
     Qt6::Quick
     Qt6::QuickEffects
@@ -648,6 +701,12 @@ if(HEXPROOF_BUILD_NATIVE_AUDIT)
     qt_add_resources(hexproof_native_audit "native_app_qml"
         PREFIX "/"
         FILES ${HEXPROOF_APPLICATION_QML_FILES})
+    qt_add_resources(hexproof_native_audit "native_operation_audio"
+        PREFIX "/audio" BASE "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio"
+        FILES ${HEXPROOF_AUDIO_FILES})
+    qt_add_resources(hexproof_native_audit "native_background_music"
+        PREFIX "/music" BASE "${CMAKE_CURRENT_SOURCE_DIR}/assets/music"
+        FILES ${HEXPROOF_MUSIC_FILES})
     qt_add_resources(hexproof_native_audit "native_translations"
         PREFIX "/i18n"
         BASE "${CMAKE_CURRENT_BINARY_DIR}"
@@ -716,6 +775,8 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/runtimepkg/manifest.json"
     VERBATIM)
 file(GLOB_RECURSE HEXPROOF_HOST_GO_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/homenode/*.go"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/peerlink/*.go"
     "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/forgehost/*.go"
     "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/runtimepkg/*"
     "${CMAKE_CURRENT_SOURCE_DIR}/../server/internal/rulesengine/forge/*.go"
@@ -794,6 +855,17 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/qml/assets/mana/OFL.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/qml/assets/mana/README.md"
     DESTINATION licenses/mana)
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/README.md"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/manifest.json"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/Kenney-Casino-License.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/Kenney-Interface-License.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/audio/Kenney-Impact-License.txt"
+    DESTINATION licenses/audio)
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/README.md"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/manifest.json"
+    DESTINATION licenses/music)
 
 # Qt 6.8's generic Linux deployment does not select the
 # platforminputcontexts plugin category automatically. Keep the plugins that
@@ -903,6 +975,21 @@ target_include_directories(hexproof_profilelock_test PRIVATE ${CMAKE_CURRENT_SOU
 target_link_libraries(hexproof_profilelock_test PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME profilelock COMMAND hexproof_profilelock_test)
 
+qt_add_executable(hexproof_audio_test
+    tests/audio_controller_test.cpp
+    src/services/AudioController.cpp
+    src/services/AudioController.h)
+target_include_directories(hexproof_audio_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(hexproof_audio_test PRIVATE Qt6::Core Qt6::Multimedia Qt6::Test)
+add_test(NAME audio COMMAND hexproof_audio_test)
+qt_add_executable(hexproof_music_test
+    tests/music_controller_test.cpp
+    src/services/BackgroundMusicController.cpp
+    src/services/BackgroundMusicController.h)
+target_include_directories(hexproof_music_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(hexproof_music_test PRIVATE Qt6::Core Qt6::Multimedia Qt6::Test)
+add_test(NAME music COMMAND hexproof_music_test)
+
 if(UNIX AND NOT APPLE)
     add_test(NAME desktop-install
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/linux/test-install-desktop.sh")
@@ -920,6 +1007,7 @@ add_test(NAME protocol COMMAND hexproof_test)
 qt_add_executable(hexproof_wsclient_test
     tests/wsclient_test.cpp
     tests/wsclient_commands_test.cpp
+    tests/wsclient_rules_start_failure_test.cpp
     tests/wsclient_endpoints_test.cpp
     tests/wsclient_tournament_test.cpp
     tests/wsclient_reconnect_test.cpp
@@ -941,6 +1029,22 @@ qt_add_resources(hexproof_wsclient_test "wsclient_server_directory"
     FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
 add_test(NAME wsclient COMMAND hexproof_wsclient_test)
 
+qt_add_executable(hexproof_hubtransport_test tests/hubtransport_test.cpp)
+target_link_libraries(hexproof_hubtransport_test PRIVATE hexproof_session Qt6::Test)
+target_compile_definitions(hexproof_hubtransport_test PRIVATE HEXPROOF_VERSION="${PROJECT_VERSION}")
+set_target_properties(hexproof_hubtransport_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../hubtransport-test")
+add_custom_command(TARGET hexproof_hubtransport_test POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "$<TARGET_FILE:hexproof_hubtransport_test>"
+        "$<TARGET_FILE_DIR:hexproof_hubtransport_test>/hexproof-forge-host${CMAKE_EXECUTABLE_SUFFIX}"
+    VERBATIM)
+qt_add_resources(hexproof_hubtransport_test "hubtransport_server_directory"
+    PREFIX "/"
+    FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
+add_test(NAME hubtransport COMMAND hexproof_hubtransport_test)
+set_tests_properties(hubtransport PROPERTIES TIMEOUT 60)
+
 qt_add_executable(hexproof_forgehostservice_test tests/forgehostservice_test.cpp)
 target_link_libraries(hexproof_forgehostservice_test PRIVATE hexproof_session Qt6::Test)
 # Keep the fixture helper outside the real client's deployment directory.
@@ -953,6 +1057,11 @@ add_custom_command(TARGET hexproof_forgehostservice_test POST_BUILD
     VERBATIM)
 add_test(NAME forgehostservice COMMAND hexproof_forgehostservice_test)
 set_tests_properties(forgehostservice PROPERTIES TIMEOUT 90)
+
+qt_add_executable(hexproof_modelopponentservice_test tests/modelopponentservice_test.cpp)
+target_link_libraries(hexproof_modelopponentservice_test PRIVATE hexproof_session Qt6::Test)
+add_test(NAME modelopponentservice COMMAND hexproof_modelopponentservice_test)
+set_tests_properties(modelopponentservice PROPERTIES TIMEOUT 90)
 
 qt_add_executable(hexproof_localtestsession_test tests/localtestsession_test.cpp)
 target_compile_definitions(hexproof_localtestsession_test PRIVATE
@@ -1028,6 +1137,10 @@ target_link_libraries(hexproof_protocolsession_test PRIVATE
     Qt6::Core
     Qt6::Test)
 add_test(NAME protocolsession COMMAND hexproof_protocolsession_test)
+
+qt_add_executable(hexproof_forgereplay_test tests/forgereplay_test.cpp)
+target_link_libraries(hexproof_forgereplay_test PRIVATE hexproof_session Qt6::Test)
+add_test(NAME forgereplay COMMAND hexproof_forgereplay_test)
 
 qt_add_executable(hexproof_limiteddeckdraftstore_test tests/limiteddeckdraftstore_test.cpp)
 target_link_libraries(hexproof_limiteddeckdraftstore_test PRIVATE hexproof_session Qt6::Test)
@@ -1221,6 +1334,7 @@ target_include_directories(hexproof_matchload_test PRIVATE ${CMAKE_CURRENT_SOURC
 target_link_libraries(hexproof_matchload_test PRIVATE
     hexproof_table_models
     hexproof_session
+    hexproof_card_services
     Qt6::Core
     Qt6::Test)
 add_test(NAME matchload COMMAND hexproof_matchload_test)
@@ -1233,6 +1347,7 @@ qt_add_executable(hexproof_qml_test
 target_include_directories(hexproof_qml_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(hexproof_qml_test PRIVATE
+    hexproof_content_service
     hexproof_session
     hexproof_deck_library
     hexproof_table_models
@@ -1241,6 +1356,10 @@ target_link_libraries(hexproof_qml_test PRIVATE
     Qt6::Quick
     Qt6::QuickEffects
     Qt6::QuickTest)
+
+qt_add_executable(hexproof_publiccontent_test tests/publiccontent_test.cpp)
+target_link_libraries(hexproof_publiccontent_test PRIVATE hexproof_content_service Qt6::Test)
+add_test(NAME publiccontent COMMAND hexproof_publiccontent_test)
 qt_add_shaders(hexproof_qml_test "liquidglass_shaders_test"
     BATCHABLE
     PRECOMPILE

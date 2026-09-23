@@ -61,6 +61,8 @@ Page {
     readonly property bool isDraft: eventSelector.currentValue === "set_draft" || isCube
     property var limitedSets: []
     property string matchMode: "bo3"
+    property string rulesMode: "manual"
+    readonly property bool rulesAvailable: rulesMode !== "forge" || root.hub.forgeRulesAvailable === true
 
     background: AppBackground { }
     Component.onCompleted: limitedSets = root.catalog.limitedSets()
@@ -78,7 +80,7 @@ Page {
             title: root.limitedOnly ? qsTr("Create Limited tournament") : qsTr("Create tournament")
             subtitle: root.limitedOnly
                       ? qsTr("Open pools, build 40-card decks, then play Swiss rounds with standings")
-                      : qsTr("Individual Swiss · manual tabletop rules enforcement")
+                      : qsTr("Individual Swiss · choose manual tabletop or Forge rules")
             onBackRequested: root.appWindow.popScreen()
         }
 
@@ -103,6 +105,14 @@ Page {
             boundsBehavior: Flickable.StopAtBounds
             contentWidth: width
             contentHeight: Math.max(height, formCard.height)
+            function finishBoundaryScroll() {
+                // Native wheel gestures can retain motion after reaching the
+                // boundary and consume the next press on the submit button.
+                if (moving && !dragging && !flicking && (atYBeginning || atYEnd))
+                    cancelFlick()
+            }
+            onAtYBeginningChanged: if (atYBeginning) Qt.callLater(finishBoundaryScroll)
+            onAtYEndChanged: if (atYEnd) Qt.callLater(finishBoundaryScroll)
             ScrollBar.vertical: ScrollBar {
                 policy: formBody.contentHeight > formBody.height
                         ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -199,8 +209,8 @@ Page {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
                         text: root.isLimited
-                              ? qsTr("Limited pools and drafting are server-authoritative. Tabletop game rules remain manual.")
-                              : qsTr("This is an announced label. Hexproof does not enforce deck legality or game rules.")
+                              ? qsTr("The server manages pools and drafting. Each match uses the gameplay rules selected below.")
+                              : qsTr("The format names the card pool. Matches follow the gameplay rules selected below.")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(11)
                         wrapMode: Text.WordWrap
@@ -353,6 +363,37 @@ Page {
                         }
                     }
 
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.size(10)
+                        spacing: Theme.size(7)
+                        Text {
+                            textFormat: Text.PlainText
+                            text: qsTr("GAMEPLAY RULES")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            font.weight: Font.Bold
+                        }
+                        SegmentedControl {
+                            objectName: "tournamentRulesMode"
+                            Layout.fillWidth: true
+                            options: [qsTr("Manual tabletop"), qsTr("Forge rules")]
+                            currentIndex: root.rulesMode === "forge" ? 1 : 0
+                            onActivated: index => root.rulesMode = index === 1 ? "forge" : "manual"
+                        }
+                        Text {
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            visible: root.rulesMode === "forge"
+                            text: root.rulesAvailable
+                                  ? qsTr("Every paired match uses server-hosted Forge rules. The rules mode is fixed for this event.")
+                                  : qsTr("Forge rules are unavailable on this server")
+                            color: root.rulesAvailable ? Theme.textMuted : Theme.warning
+                            font.pixelSize: Theme.fontSize(11)
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
                     InfoBanner {
                         Layout.fillWidth: true
                         Layout.topMargin: Theme.size(10)
@@ -374,7 +415,7 @@ Page {
                             objectName: root.limitedOnly ? "limitedRoomCreateSubmitButton" : "tournamentCreateSubmitButton"
                             variant: "primary"
                             text: root.isLimited ? qsTr("Create Limited tournament") : qsTr("Create tournament")
-                            enabled: root.hub.connected && !root.hub.inRoom
+                            enabled: root.hub.connected && !root.hub.inRoom && root.rulesAvailable
                                      && nameField.text.trim().length > 0
                                      && formatSelector.currentIndex >= 0
                                      && minutesField.acceptableInput
@@ -387,7 +428,7 @@ Page {
                                                                formatSelector.currentValue,
                                                                root.matchMode,
                                                                minutesField.numberValue(),
-                                                               capField.numberValue())
+                                                               capField.numberValue(), root.rulesMode)
                                     return
                                 }
                                 const product = root.isCube
@@ -399,7 +440,7 @@ Page {
                                             root.matchMode,
                                             minutesField.numberValue(),
                                             capField.numberValue(),
-                                            product)
+                                            product, root.rulesMode)
                             }
                         }
                     }

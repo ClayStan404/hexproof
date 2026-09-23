@@ -553,7 +553,9 @@ Item {
                         if (driver.format === "commander" && !gameTable.seatData(room.seatIndex).eliminated && !game.finished) break
                         auditProbe.share("conceded" + driver.seat, {ready: true})
                     }
-                    if (!game.finished || !driver.item("gameResultTitle")) break
+                    // Input selectors require an actionable target; the popup
+                    // background receives pointer events beneath passive labels.
+                    if (!game.finished || !driver.item("resultReturnToRoomButton")) break
                     const survivor = auditProbe.readShared("seated" + driver.players)
                     if (!survivor || game.result.winnerSeat !== survivor.seatIndex)
                         throw new Error("Match winner is not the final non-conceding player")
@@ -577,7 +579,9 @@ Item {
                 case 17:
                     if (!driver.allShared("returned")) break
                     ticker.stop()
-                    auditProbe.record("result", {status: "passed", evidence: "native-qt-input", scenario: "full-manual-match",
+                    auditProbe.record("result", {status: "passed",
+                                                evidence: auditProbe.environment("AUDIT_OS_INPUT_HELPER") ? "system-input" : "native-qt-input",
+                                                scenario: "full-manual-match",
                                                 format: driver.format, seat: driver.seat,
                                                 requiredScreenshots: ["01-opening-table.png", "02-after-draw.png", "02-permanent-tapped.png",
                                                     "03-match-result.png", "04-returned-to-room.png", "02-full-zone-cycle.png"]

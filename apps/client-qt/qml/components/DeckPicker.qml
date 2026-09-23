@@ -15,6 +15,7 @@ Popup {
     property string requiredFormat: ""
     property string requiredTableMode: ""
     property bool allowMissingArt: false
+    property string titleText: qsTr("Select a deck")
     signal selected(string deckId, string deckName)
     signal openDeckLibraryRequested()
 
@@ -49,7 +50,7 @@ Popup {
 
                 Text {
                     textFormat: Text.PlainText
-                    text: qsTr("Select a deck")
+                    text: root.titleText
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(20)
                     font.weight: Font.DemiBold

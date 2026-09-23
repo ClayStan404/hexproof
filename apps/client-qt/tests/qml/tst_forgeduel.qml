@@ -11,9 +11,16 @@ TestCase {
     name: "ForgeDuel"
     when: windowShown
     property int serial: 1000
+    QtObject {
+        id: soundRecorder
+        property var cues: []
+        function play(cue) { cues = cues.concat([cue]) }
+    }
     ApplicationWindow {
         id: window
         width: 1600; height: 1000; visible: true
+        property var openedScreen: ({})
+        function pushScreen(url, properties) { openedScreen = {url, properties} }
         QtObject {
             id: room
             property int maxSeats: 2
@@ -29,7 +36,10 @@ TestCase {
             property string hostingMode: "server"
             property bool hostConnected: true
             property var hostStatus: ({migrating:false})
+            property string aiSource: ""
+            property var aiStatus: ({})
             property bool spectatorsSeeHands: false
+            property var seats: []
         }
         QtObject {
             id: match
@@ -57,6 +67,8 @@ TestCase {
             }
             property string lastError: ""
             property var responses: []
+            property int modelRetries: 0
+            function retryModelOpponent() { ++modelRetries }
             function respondRulesPrompt(id, response) {
                 responses = responses.concat([{id:id, response:response}]); rulesResponsePending = true
             }
@@ -85,10 +97,16 @@ TestCase {
             property int imageRevision: 0
             property var names: ({})
             property var requested: []
+            property string imageOverride: ""
             signal catalogChanged()
             function tableImageSource(name, set, number) { requested.push(name); return "" }
-            function imageSource(name, set, number) { requested.push(name); return "" }
-            function cardTypeLine(name) { return name === "Plains" ? "Basic Land — Plains" : "Creature" }
+            function imageSource(name, set, number) { requested.push(name); return imageOverride }
+            function cardTypeLine(name) {
+                if (name === "Plains" || name === "Ugin's Labyrinth") return "Land"
+                if (name === "Test Walker") return "Planeswalker"
+                if (name === "Test Battle") return "Battle"
+                return "Creature"
+            }
             function cardDisplayName(name) { return language === "zh" ? names[name] || name : name }
         }
         RulesTable {
@@ -171,6 +189,8 @@ TestCase {
         room.role = "player"; room.seatIndex = 0; room.spectatorsSeeHands = false
         room.format = "modern"; room.deckFormat = "modern"
         room.hostingMode = "server"
+        room.aiSource = ""
+        room.seats = []
         match.sideboarding = false; transport.inRoom = true
         transport.responses = []; transport.rulesResponsePending = false
         transport.peerTransportAvailable = true; transport.directPeerEnabled = false
@@ -184,6 +204,7 @@ TestCase {
         if (table.presentation && table.presentation.modalOpen)
             closeSettings()
         table.priority.setFullControl(false)
+        preferences.forgePhaseStops = ({})
         prompt("diceRolled", {options:[{responseId:"$ack", kind:"acknowledge", label:"Continue"}]})
     }
     function cleanup() {
@@ -194,6 +215,37 @@ TestCase {
         testTranslations.setLanguage("en")
         catalog.language = "en"
         catalog.names = ({})
+        catalog.imageOverride = ""
+    }
+
+    function test_aiDifficultyRemainsVisibleOnTable() {
+        room.seats = [{controller: "", displayName: "Alice"},
+                      {controller: "forgeAi", aiDifficulty: "hard", displayName: "Forge AI"}]
+        compare(item("forgePlayerName-1").text, "Forge AI · Hard")
+        testTranslations.setLanguage("zh")
+        tryCompare(item("forgePlayerName-1"), "text", "Forge AI · 困难")
+        verify(item("forgePlayerName-1").visible)
+    }
+
+    function test_modelThinkingAndRetryStatus() {
+        room.aiSource = "online"
+        room.aiStatus = {state:"thinking"}
+        room.seats = [{controller:"",displayName:"Alice"}, {controller:"modelAi",displayName:"Online model"}]
+        compare(item("forgePlayerName-1").text, "Online model")
+        compare(item("modelOpponentStatus").text, "Model is thinking…")
+        verify(!item("modelOpponentRetry").visible)
+        room.aiStatus = {state:"paused",code:"provider_error"}
+        verify(item("modelOpponentRetry").visible)
+        item("modelOpponentSettings").clicked()
+        compare(window.openedScreen.url, "screens/ModelSettings.qml")
+        compare(window.openedScreen.properties.source, "online")
+        transport.modelRetries = 0
+        item("modelOpponentRetry").clicked()
+        compare(transport.modelRetries, 1)
+        testTranslations.setLanguage("zh")
+        tryCompare(item("modelOpponentRetry"), "text", "重试模型决策")
+        room.aiSource = ""
+        room.aiStatus = ({})
     }
 
     function test_phaseSnapshotsKeepTableObjects_data() {
@@ -459,6 +511,59 @@ TestCase {
                 choices:["Graveyard", "Library"], labels:["墓地", "牌库"], selected:0}
         ]
     }
+    function test_aiDeckAdvisoryContinuesSilently_data() {
+        return [{tag:"en", language:"en", width:1600, height:1000, scale:1},
+            {tag:"zh", language:"zh", width:1600, height:1000, scale:1},
+            {tag:"compact", language:"zh", width:900, height:620, scale:1},
+            {tag:"scaled", language:"zh", width:1280, height:800, scale:1.35}]
+    }
+    function test_aiDeckAdvisoryContinuesSilently(data) {
+        window.width = data.width; window.height = data.height; Theme.uiScale = data.scale
+        const warning = "AI can't play these cards well from Forge AI's Deck\n=== Main Deck ===\nPrismatic Ending\n=== Sideboard ===\nWrath of the Skies\nYou can continue this game. These cards will remain in the deck."
+        prompt("acknowledge", {title:"AI deck advisory", detail:warning,
+            options:[{responseId:"$ack", kind:"acknowledge", label:"Continue"}]})
+        testTranslations.setLanguage(data.language)
+        tryVerify(() => transport.responses.length === 1)
+        compare(transport.responses[0].response, "$ack")
+        compare(transport.responses[0].id, table.rulesSession.promptId)
+        verify(!item("rulesDecisionDock").expanded)
+        verify(!item("rulesPromptTitle").visible)
+        verify(!item("rulesPromptDetail").visible)
+        verify(!item("rulesPromptOption-$ack").visible)
+        const id = table.rulesSession.promptId
+        prompt("acknowledge", {promptId:id, title:"AI deck advisory", detail:warning,
+            options:[{responseId:"$ack", kind:"acknowledge", label:"Continue"}]})
+        wait(20)
+        compare(transport.responses.length, 1, "Repeated publications must not resubmit a notice")
+    }
+    function test_aiDeckAdvisoryDoesNotRespondForSpectator() {
+        room.role = "spectator"; room.seatIndex = -1
+        prompt("acknowledge", {title:"AI deck advisory",
+            options:[{responseId:"$ack", kind:"acknowledge", label:"Continue"}]})
+        wait(20)
+        compare(transport.responses.length, 0)
+    }
+    function test_gameNoticeStillRequiresAcknowledgement() {
+        prompt("acknowledge", {title:"Game notice", detail:"A real game notice",
+            options:[{responseId:"$ack", kind:"acknowledge", label:"Continue"}]})
+        wait(20)
+        compare(transport.responses.length, 0)
+        verify(item("rulesPromptDetail").visible)
+        mouseClick(item("rulesPromptOption-$ack"))
+        compare(transport.responses.length, 1)
+    }
+    function test_equalBooleanLabelsRemainDistinctDecisions() {
+        prompt("chooseBoolean", {title:"Confirm decision", detail:"A native boolean decision",
+            minChoiceTotal:1, maxChoiceTotal:1,
+            choices:[{responseId:"choice:0", label:"Continue", weight:1, canRepeat:false},
+                {responseId:"choice:1", label:"Continue", weight:1, canRepeat:false}]})
+        compare(item("rulesScalarCandidates").count, 2)
+        verify(item("rulesScalarChoice-choice:0").visible)
+        verify(item("rulesScalarChoice-choice:1").visible)
+        mouseClick(item("rulesScalarChoice-choice:1"))
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].choices, ["choice:1"])
+    }
     function test_localizedForgeDecision(data) {
         prompt("chooseBoolean", {title:"Confirm decision", detail:data.detail,
             minChoiceTotal:1, maxChoiceTotal:1,
@@ -489,6 +594,60 @@ TestCase {
         compare(transport.responses[0].response, "opaque-play")
         mouseClick(item("forgeHandCard-hand-0"))
         compare(transport.responses.length, 1)
+    }
+    function test_londonMulliganKeepsHandBeforeChoosingBottomCards_data() {
+        return [{tag:"one-mulligan", count:1}, {tag:"two-mulligans", count:2}]
+    }
+    function test_londonMulliganKeepsHandBeforeChoosingBottomCards(data) {
+        const popup = item("rulesCardChoiceDialog")
+        let currentHand = []
+        for (let round = 0; round <= data.count; ++round) {
+            const state = snapshot(7)
+            currentHand = state.zones[0].cards.map((entry, index) =>
+                Object.assign({}, entry, {id:"opening-" + round + "-" + index}))
+            state.zones[0].cards = currentHand
+            verify(testRulesPrompt.applySnapshot(state))
+            prompt("mulligan", {title:"Opening hand", detail:"Mulligans taken: " + round,
+                options:[{responseId:"$keep", kind:"keep", label:"Keep hand"},
+                    {responseId:"$mulligan", kind:"mulligan", label:"Take a mulligan"}]})
+            tryCompare(popup, "visible", false)
+            verify(findChild(popup.contentItem, "rulesCardSelectionPrompt") === null)
+            verify(item("rulesPromptOption-$keep").visible)
+            verify(item("rulesPromptOption-$mulligan").visible)
+            mouseClick(item("forgeHandCard-" + currentHand[0].id))
+            compare(transport.responses.length, round)
+            const response = round < data.count ? "$mulligan" : "$keep"
+            mouseClick(item("rulesPromptOption-" + response))
+            compare(transport.responses.length, round + 1)
+            compare(transport.responses[round], {id:table.rulesSession.promptId, response:response})
+            verify(!popup.visible, "Keeping the hand must wait for Forge's separate put-back prompt")
+        }
+        prompt("mulliganPutBack", {title:"Put cards on the bottom of your library",
+            cards:currentHand.map(entry => ({id:entry.id, name:entry.identity.name})),
+            minCardSelections:data.count, maxCardSelections:data.count})
+        tryCompare(popup, "visible", true)
+        const list = findChild(popup.contentItem, "rulesCardCandidates")
+        const confirm = findChild(popup.contentItem, "rulesConfirmCards")
+        tryCompare(list, "count", 7)
+        compare(confirm.text, "Put on library bottom")
+        verify(!confirm.enabled)
+        verify(!findChild(popup.contentItem, "rulesCancelCards").visible)
+        const selected = []
+        waitForRendering(list)
+        for (let index = 0; index < data.count; ++index) {
+            const cardIndex = 1 + index * 2
+            mouseClick(list.itemAtIndex(cardIndex))
+            selected.push(currentHand[cardIndex].id)
+            compare(confirm.enabled, selected.length === data.count)
+            compare(transport.responses.length, data.count + 1)
+        }
+        mouseClick(confirm)
+        compare(transport.responses.length, data.count + 2)
+        compare(transport.responses[data.count + 1],
+            {id:table.rulesSession.promptId, response:"$submit", cards:selected})
+        verify(!confirm.enabled)
+        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+        tryCompare(popup, "visible", false)
     }
     function test_cardChoiceDialogUsesCurrentPrivateCandidates_data() {
         return [{tag:"desktop", width:1600, height:1000, scale:1},
@@ -524,6 +683,146 @@ TestCase {
         prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
         tryCompare(popup, "visible", false)
         verify(!table.priorityInputBlocked)
+    }
+    function test_decisionInspectionRetainsDraft_data() {
+        return ["chooseCards", "mulliganPutBack", "revealCards", "scry", "reorder",
+                "chooseDamageAssignmentOrder", "chooseCombatDamageAssignment"].map(kind => ({tag:kind, kind:kind}))
+    }
+    function test_decisionInspectionRetainsDraft(data) {
+        const state = snapshot()
+        state.zones.push({zone:"graveyard", ownerSeat:0, count:1,
+            cards:[card("grave-card", 0, "Graveyard creature", true)]})
+        state.zones.push({zone:"exile", ownerSeat:1, count:1,
+            cards:[card("exile-card", 1, "Exiled creature", true)]})
+        verify(testRulesPrompt.applySnapshot(state))
+        const isDamage = data.kind === "chooseCombatDamageAssignment"
+        const hasDamage = isDamage || data.kind === "chooseDamageAssignmentOrder"
+        prompt(data.kind, {cards:[{id:"scry:0", name:"First card"}, {id:"scry:1", name:"Second card"}],
+            minCardSelections:1, maxCardSelections:1,
+            scryDestinations:data.kind === "scry" ? ["libraryTop", "libraryBottom"] : [],
+            orderItems:[{responseId:"order:0", name:"First trigger"}, {responseId:"order:1", name:"Second trigger"}],
+            damageSource:hasDamage ? {objectId:"own-0", name:"Trampler", label:"Trampler"} : undefined,
+            totalDamage:hasDamage ? 4 : 0, damageAssignmentMode:"unordered",
+            damageTargets:hasDamage ? [{responseId:"damage-target:0", kind:"card", label:"First blocker", lethalDamage:2},
+                {responseId:"damage-target:1", kind:"card", label:"Second blocker", lethalDamage:2}] : []})
+        const popup = item(isDamage ? "rulesDamageDialog" : "rulesCardChoiceDialog")
+        tryCompare(popup, "opened", true)
+        const loader = findChild(popup.contentItem, isDamage ? "rulesDamageContent" : "rulesChoiceContent")
+        const content = loader.item
+        verify(content !== null)
+        const filter = findChild(popup.contentItem, "rulesCardFilter")
+        if (filter) {
+            filter.text = "Second"
+            const list = findChild(popup.contentItem, data.kind === "revealCards" ? "revealCardList" : "rulesCardCandidates")
+            tryCompare(list, "count", 1)
+            if (data.kind !== "revealCards") {
+                waitForRendering(list)
+                mouseClick(list.itemAtIndex(0))
+                compare(content.selectedCount, 1)
+            }
+        } else if (data.kind === "scry") {
+            verify(content.moveCard("scry:1", 0, 1))
+        } else if (isDamage) {
+            mouseClick(findChild(popup.contentItem, "rulesAutoAssignDamage"))
+            verify(content.validAssignment)
+        } else {
+            content.moveItem(0, 1)
+            compare(findChild(content, "rulesOrderCandidates").model.get(0).responseId,
+                data.kind === "reorder" ? "order:1" : "damage-target:1")
+        }
+        const draft = JSON.stringify(isDamage ? content.assignments : data.kind === "scry"
+            ? content.piles : content.selectedIds || {})
+        const promptId = table.rulesSession.promptId
+        mouseClick(findChild(popup.contentItem, isDamage ? "rulesDamageViewBattlefield" : "rulesChoiceViewBattlefield"))
+        tryCompare(popup, "visible", false)
+        verify(popup.requested && popup.inspectingBattlefield)
+        verify(item("rulesResumeDecision").visible)
+        verify(!table.priorityInputBlocked)
+        compare(transport.responses.length, 0)
+        mouseMove(item("forgeCard-own-0"), 20, 20)
+        verify(testRulesPrompt.applySnapshot(state))
+        verify(popup.inspectingBattlefield, "Ordinary snapshots must not reopen or reset the draft")
+        mouseClick(item("forgeZone-graveyard"))
+        const zone = item("forgeZonePopup")
+        tryCompare(zone, "opened", true)
+        compare(zone.zone, "graveyard")
+        compare(table.zoneCount(0, "graveyard"), 1)
+        mouseClick(item("forgeCloseZonePopup"))
+        tryCompare(zone, "opened", false)
+        mouseClick(item("forgeOpponentZone-exile"))
+        tryCompare(zone, "opened", true)
+        compare(zone.ownerSeat, 1)
+        compare(zone.zone, "exile")
+        waitForRendering(zone.contentItem)
+        const restore = findChild(zone.contentItem, "rulesResumeDecisionFromZone")
+        verify(restore.mapToItem(zone.contentItem, 0, 0).y >= 0)
+        const tabs = findChild(zone.contentItem, "forgeZoneTabs")
+        verify(item("forgeZoneCards").y >= tabs.y + tabs.height)
+        mouseClick(restore)
+        tryCompare(zone, "opened", false)
+        tryCompare(popup, "opened", true)
+        verify(!item("rulesResumeDecision").visible)
+        compare(loader.item, content, "Inspection must keep the same prompt instance alive")
+        compare(table.rulesSession.promptId, promptId)
+        compare(JSON.stringify(isDamage ? content.assignments : data.kind === "scry"
+            ? content.piles : content.selectedIds || {}), draft)
+        if (filter) compare(filter.text, "Second")
+        if (["reorder", "chooseDamageAssignmentOrder"].includes(data.kind))
+            compare(findChild(content, "rulesOrderCandidates").model.get(0).responseId,
+                data.kind === "reorder" ? "order:1" : "damage-target:1")
+        compare(transport.responses.length, 0, "Inspecting and resuming never responds to Forge")
+        if (data.kind === "chooseCards" || data.kind === "mulliganPutBack") {
+            mouseClick(findChild(popup.contentItem, "rulesConfirmCards"))
+            compare(transport.responses[0].cards, ["scry:1"])
+        } else if (data.kind === "revealCards") {
+            mouseClick(findChild(popup.contentItem, "acknowledgeRevealButton"))
+            compare(transport.responses[0].response, "$ack")
+        }
+    }
+    function test_suspendedDecisionCannotSurviveNewContext_data() {
+        return ["disconnect", "spectate", "seat-change", "new-game", "sideboard", "new-prompt", "republish"]
+            .map(change => ({tag:change, change:change}))
+    }
+    function test_suspendedDecisionCannotSurviveNewContext(data) {
+        prompt("chooseCards", {cards:[{id:"private", name:"Private card"}], minCardSelections:1, maxCardSelections:1})
+        const popup = item("rulesCardChoiceDialog")
+        tryCompare(popup, "opened", true)
+        findChild(popup.contentItem, "rulesCardFilter").text = "Private"
+        mouseClick(findChild(popup.contentItem, "rulesChoiceViewBattlefield"))
+        tryCompare(popup, "visible", false)
+        verify(popup.inspectingBattlefield)
+        if (data.change === "disconnect") transport.inRoom = false
+        else if (data.change === "spectate") room.role = "spectator"
+        else if (data.change === "seat-change") room.seatIndex = 1
+        else if (data.change === "sideboard") match.sideboarding = true
+        else if (data.change === "new-game") {
+            const next = snapshot(); next.gameId = "another-game"
+            verify(testRulesPrompt.applySnapshot(next))
+        } else {
+            if (data.change === "republish") --serial
+            prompt("chooseCards", {cards:[{id:"replacement", name:"Replacement card"}], minCardSelections:1, maxCardSelections:1})
+            tryCompare(popup, "opened", true)
+            compare(findChild(popup.contentItem, "rulesCardFilter").text, "")
+        }
+        verify(!popup.inspectingBattlefield)
+        verify(!item("rulesResumeDecision").visible)
+        if (!["new-prompt", "republish"].includes(data.change)) {
+            tryVerify(() => findChild(popup.contentItem, "rulesCardFilter") === null)
+            verify(!item("rulesDecisionDock").expanded)
+        }
+        compare(transport.responses.length, 0)
+    }
+    function test_resumeDecisionFromDockKeepsAcknowledgementExplicit() {
+        prompt("revealCards", {cards:[]})
+        const popup = item("rulesCardChoiceDialog")
+        tryCompare(popup, "opened", true)
+        mouseClick(findChild(popup.contentItem, "rulesChoiceViewBattlefield"))
+        tryCompare(popup, "visible", false)
+        mouseClick(item("rulesResumeDecision"))
+        tryCompare(popup, "opened", true)
+        compare(transport.responses.length, 0)
+        mouseClick(findChild(popup.contentItem, "acknowledgeRevealButton"))
+        compare(transport.responses[0].response, "$ack")
     }
     function test_privateChoiceClosesOnAuthorityChange_data() {
         return [{tag:"disconnect"}, {tag:"spectate"}, {tag:"seat-change"}, {tag:"new-game"}]
@@ -586,7 +885,16 @@ TestCase {
         const source = item("forgeCard-own-0")
         tryCompare(source, "actionable", true)
         mouseClick(source)
+        compare(table.combatInteraction.selectedSource, "opaque-source")
+        compare(Object.keys(table.combatInteraction.assignments).length, 0)
+        verify(!item("rulesConfirmCombat-attackers").enabled)
+        verify(item("rulesPlayerTarget1").actionable)
+        verify(!item("rulesCombatCandidates-attackers").visible)
+        mouseClick(item("rulesPlayerTarget1"))
         compare(table.combatInteraction.assignments["opaque-source"], "opaque-target")
+        waitForRendering(table)
+        mouseClick(item("rulesCombatDetails-attackers"))
+        tryVerify(() => findChild(table, "rulesCombatAssignment-opaque-source") !== null)
         const combo = item("rulesCombatAssignment-opaque-source")
         compare(combo.currentIndex, 1)
         compare(table.combatInteraction.links.length, 1)
@@ -598,28 +906,440 @@ TestCase {
         tryCompare(item("forgeCard-opponent"), "actionable", true)
         mouseClick(item("forgeCard-opponent"))
         compare(table.combatInteraction.links[0].to, "opponent")
+        waitForRendering(table)
+        mouseClick(item("rulesCombatDetails-blockers"))
+        tryVerify(() => findChild(table, "rulesCombatAssignment-opaque-source") !== null)
         item("rulesCombatAssignment-opaque-source").forceActiveFocus(); keyClick(Qt.Key_Up)
         compare(table.combatInteraction.links.length, 0)
+    }
+    function test_creatureClickUsesCurrentAbilityWindow_data() {
+        return [{tag:"before-attack", step:"begin_combat", attacking:false, kind:"chooseAction"},
+                {tag:"after-attack", step:"declare_attackers", attacking:true, kind:"chooseAction"},
+                {tag:"after-block", step:"declare_blockers", attacking:true, kind:"chooseAction"},
+                {tag:"mana-payment", step:"declare_attackers", attacking:true, kind:"payManaCost"}]
+    }
+    function test_creatureClickUsesCurrentAbilityWindow(data) {
+        testTranslations.setLanguage("zh")
+        const state = snapshot()
+        state.step = data.step
+        state.zones[4].cards[0].attacking = data.attacking
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt(data.kind, {options:[{responseId:"ability", cardId:"own-0", kind:"activateAbility", label:"Activate"}]})
+        const source = item("forgeCard-own-0")
+        mouseMove(source, source.width / 2, source.height / 2)
+        tryCompare(source, "showAbilityHint", true)
+        tryCompare(findChild(source, "forgeCardInteractionHint-own-0"), "text", "起动异能")
+        verify(!table.combatInteraction.active)
+        mouseClick(source)
+        compare(transport.responses[0].response, "ability")
+        compare(table.combatInteraction.selectedSource, "")
+        compare(table.combatInteraction.links.length, 0)
+        compare(source.card.attacking, data.attacking)
+        verify(!source.abilityActionable)
+        mouseClick(source)
+        compare(transport.responses.length, 1)
+
+        combat("chooseAttackers")
+        mouseClick(source)
+        tryCompare(findChild(source, "forgeCardInteractionHint-own-0"), "text", "选择攻击目标")
+        compare(table.combatInteraction.selectedSource, "opaque-source")
+        verify(!source.abilityActionable)
+        compare(transport.responses.length, 1)
+        mouseClick(item("rulesPlayerTarget1"))
+        compare(table.combatInteraction.links.length, 1)
+
+        combat("chooseBlockers")
+        mouseClick(source)
+        tryCompare(findChild(source, "forgeCardInteractionHint-own-0"), "text", "选择要阻挡的生物")
+        verify(!source.abilityActionable)
+        compare(transport.responses.length, 1)
+
+        prompt("chooseAction", {options:[{responseId:"next-ability", cardId:"own-0", kind:"activateAbility", label:"Activate"}]})
+        source.forceActiveFocus()
+        tryCompare(source, "showAbilityHint", true)
+        compare(table.combatInteraction.selectedSource, "")
+        compare(table.combatInteraction.links.length, 0)
+        keyClick(Qt.Key_Return)
+        compare(transport.responses[1].response, "next-ability")
+    }
+    function test_creatureMultipleAbilitiesKeepExplicitChoices() {
+        const state = snapshot()
+        state.step = "declare_attackers"
+        state.zones[4].cards[0].attacking = true
+        state.zones[4].cards[0].identity.name = "Psychic Frog"
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {options:[
+            {responseId:"discard", cardId:"own-0", kind:"activateAbility", label:"Discard a card: put a +1/+1 counter on Psychic Frog."},
+            {responseId:"flying", cardId:"own-0", kind:"activateAbility", label:"Exile three cards from your graveyard: Psychic Frog gains flying."}]})
+        const source = item("forgeCard-own-0")
+        mouseClick(source)
+        tryCompare(table.cardActionPicker, "opened", true)
+        compare(transport.responses.length, 0)
+        compare(table.combatInteraction.selectedSource, "")
+        mouseClick(item("rulesCardAction-flying"))
+        compare(transport.responses[0].response, "flying")
+
+        // Native Forge may first select the card, then publish its ability menu.
+        prompt("chooseAction", {options:[{responseId:"frog", cardId:"own-0", kind:"activateAbility", label:"Activate Psychic Frog"}]})
+        mouseClick(source)
+        compare(transport.responses[1].response, "frog")
+        prompt("chooseFromSelection", {title:"Choose an ability", minChoiceTotal:1, maxChoiceTotal:1,
+            choices:[{responseId:"choice:discard", label:"Discard a card", weight:1, canRepeat:false},
+                     {responseId:"choice:flying", label:"Gain flying", weight:1, canRepeat:false}]})
+        verify(!source.abilityActionable)
+        verify(!source.actionable)
+        mouseClick(source)
+        compare(transport.responses.length, 2)
+        mouseClick(item("rulesScalarChoice-choice:flying"))
+        compare(transport.responses[2].choices, ["choice:flying"])
+        compare(table.combatInteraction.links.length, 0)
+    }
+    function test_optionalCastingAbilitySubmitsOnFirstClick_data() {
+        return [{tag:"normal-cast", selected:"choice:normal"},
+                {tag:"impending", selected:"choice:impending"}]
+    }
+    function test_optionalCastingAbilitySubmitsOnFirstClick(data) {
+        const state = snapshot()
+        state.zones[0].cards[0].identity.name = "Overlord of the Balemurk"
+        verify(testRulesPrompt.applySnapshot(state))
+        const impending = "Impending 5— {1}{B} (If you cast this spell for its impending cost, it enters with five time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)"
+        prompt("chooseFromSelection", {title:"Choose an ability", minChoiceTotal:0, maxChoiceTotal:1,
+            choices:[{responseId:"choice:normal", label:"Overlord of the Balemurk - Creature 5 / 5", weight:1, canRepeat:false},
+                     {responseId:"choice:impending", label:impending, weight:1, canRepeat:false}]})
+        const promptId = table.rulesSession.promptId
+        const choice = item("rulesScalarChoice-" + data.selected)
+        verify(choice.visible)
+        verify(choice.enabled)
+        verify(!item("rulesConfirmChoices").visible)
+        verify(!item("rulesScalarQuantity-" + data.selected).visible)
+        compare(item("rulesSkipChoice").text, "Cancel")
+        verify(item("rulesSkipChoice").visible)
+        compare(item("rulesScalarChoice-choice:impending").text, impending)
+        choice.forceActiveFocus()
+        waitForRendering(choice)
+        mouseClick(choice)
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].id, promptId)
+        compare(transport.responses[0].choices, [data.selected])
+        verify(transport.rulesResponsePending)
+        verify(!item("rulesScalarQuantity-" + data.selected).visible)
+        mouseClick(choice)
+        mouseClick(item("rulesSkipChoice"))
+        compare(transport.responses.length, 1)
+    }
+    function test_optionalChoiceCancellationClearsPreviousSelection_data() {
+        return [{tag:"ability", title:"Choose an ability", skip:"Cancel"},
+                {tag:"other-selection", title:"Choose an effect", skip:"Choose none"}]
+    }
+    function test_optionalChoiceCancellationClearsPreviousSelection(data) {
+        prompt("chooseFromSelection", {title:"Choose effects", minChoiceTotal:1, maxChoiceTotal:2,
+            choices:[{responseId:"choice:old", label:"Previous effect", weight:1, canRepeat:false},
+                     {responseId:"choice:other", label:"Other effect", weight:1, canRepeat:false}]})
+        mouseClick(item("rulesScalarChoice-choice:old"))
+        compare(transport.responses.length, 0)
+        verify(item("rulesConfirmChoices").visible)
+        verify(item("rulesConfirmChoices").enabled)
+
+        prompt("chooseFromSelection", {title:data.title, minChoiceTotal:0, maxChoiceTotal:1,
+            choices:[{responseId:"choice:new", label:"Current effect", weight:1, canRepeat:false}]})
+        const optionalId = table.rulesSession.promptId
+        verify(!item("rulesConfirmChoices").visible)
+        const skip = item("rulesSkipChoice")
+        verify(skip.visible)
+        compare(skip.text, data.skip)
+        mouseClick(skip)
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].id, optionalId)
+        compare(transport.responses[0].choices, [])
+        mouseClick(skip)
+        mouseClick(item("rulesScalarChoice-choice:new"))
+        compare(transport.responses.length, 1)
+
+        prompt("chooseFromSelection", {title:"Choose an ability", minChoiceTotal:1, maxChoiceTotal:1,
+            choices:[{responseId:"choice:required", label:"Required effect", weight:1, canRepeat:false}]})
+        verify(!skip.visible)
+        verify(!item("rulesConfirmChoices").visible)
+        mouseClick(item("rulesScalarChoice-choice:required"))
+        compare(transport.responses.length, 2)
+        compare(transport.responses[1].id, table.rulesSession.promptId)
+        compare(transport.responses[1].choices, ["choice:required"])
     }
     function test_combatStateCannotCrossAuthorityOrPromptBoundaries_data() {
         return [{tag:"disconnect"}, {tag:"spectate"}, {tag:"seat-change"}, {tag:"new-prompt"}, {tag:"new-game"}]
     }
-    function test_multipleDefendersUseBoardAndPlayerSeat() {
+    function test_combatAimFollowsPointerAndLocksOnClick_data() {
+        return [{tag:"attackers", kind:"chooseAttackers", target:"rulesPlayerTarget1", suffix:"seat-1",
+                    invalid:"forgeCard-opponent"},
+                {tag:"blockers", kind:"chooseBlockers", target:"forgeCard-opponent", suffix:"opponent",
+                    invalid:"rulesPlayerTarget1"}]
+    }
+    function test_combatSoundsFollowSelectionAndAssignmentOnly_data() {
+        return [{tag:"attack", kind:"chooseAttackers", target:"rulesPlayerTarget1"},
+                {tag:"block", kind:"chooseBlockers", target:"forgeCard-opponent"}]
+    }
+    function test_combatSoundsFollowSelectionAndAssignmentOnly(data) {
+        const previousBackend = SoundEffects.backend
+        SoundEffects.backend = soundRecorder
+        soundRecorder.cues = []
+        try {
+            combat(data.kind)
+            const source = item("forgeCard-own-0"), target = item(data.target)
+            mouseMove(source)
+            compare(soundRecorder.cues, [])
+            mouseClick(source)
+            compare(soundRecorder.cues, ["select"])
+            mouseMove(table.presentation, table.presentation.width / 2, table.presentation.height / 2)
+            mouseMove(target)
+            compare(soundRecorder.cues, ["select"])
+            mouseClick(target)
+            compare(soundRecorder.cues, ["select", data.tag])
+            mouseClick(source)
+            mouseClick(target)
+            compare(soundRecorder.cues, ["select", data.tag, "select", "cancel"])
+            mouseClick(source)
+            source.forceActiveFocus()
+            keyClick(Qt.Key_Escape)
+            compare(soundRecorder.cues, ["select", data.tag, "select", "cancel", "select", "cancel"])
+            mouseClick(source)
+            const beforeReset = soundRecorder.cues.slice()
+            combat(data.kind)
+            transport.inRoom = false
+            compare(soundRecorder.cues, beforeReset)
+        } finally {
+            SoundEffects.backend = previousBackend
+        }
+    }
+    function test_combatAimFollowsPointerAndLocksOnClick(data) {
+        combat(data.kind)
+        const source = item("forgeCard-own-0"), aim = item("forgeCombatAimArrow")
+        verify(!aim.visible)
+        mouseClick(source)
+        compare(table.combatInteraction.selectedSource, "opaque-source")
+        tryCompare(aim, "visible", true)
+        verify(Math.hypot(aim.endPoint.x - aim.startPoint.x, aim.endPoint.y - aim.startPoint.y) > 8)
+        compare(aim.startPoint, table.presentation.pointFor("own-0"))
+        for (const delta of [0, 60, 120]) {
+            const x = Math.round(table.presentation.width - 50 - delta)
+            const y = Math.round(table.presentation.height / 2 - delta / 2)
+            mouseMove(table.presentation, x, y)
+            tryCompare(aim, "snapped", false)
+            tryVerify(() => Math.abs(aim.endPoint.x - x) < 1 && Math.abs(aim.endPoint.y - y) < 1)
+            compare(table.combatInteraction.links.length, 0)
+            compare(transport.responses.length, 0)
+        }
+        mouseMove(item(data.invalid))
+        tryCompare(aim, "snapped", false)
+        compare(table.combatInteraction.hoveredTarget, null)
+        const target = item(data.target)
+        mouseMove(target, target.width / 2, target.height / 2)
+        tryCompare(aim, "snapped", true)
+        const endpoint = data.tag === "attackers" ? table.presentation.playerPoint(1)
+            : table.presentation.pointFor("opponent")
+        compare(aim.endPoint, endpoint)
+        compare(table.combatInteraction.links.length, 0)
+        compare(transport.responses.length, 0)
+        mouseClick(target)
+        tryCompare(aim, "visible", false)
+        compare(table.combatInteraction.selectedSource, "")
+        compare(table.combatInteraction.assignments["opaque-source"], "opaque-target")
+        const fixed = item("forgeCombatArrow-own-0-" + data.suffix)
+        compare(fixed.endPoint, endpoint)
+        verify(fixed.visible)
+        mouseMove(table.presentation, table.presentation.width - 40, table.presentation.height / 2)
+        compare(fixed.endPoint, endpoint)
+        verify(!aim.visible)
+        compare(table.combatInteraction.links.length, 1)
+        compare(transport.responses.length, 0)
+    }
+    function test_combatAimHidesPendingAndOffscreen() {
+        verify(testRulesPrompt.applySnapshot(snapshot(1, 70, true)))
+        combat("chooseAttackers")
+        const source = item("forgeCard-own-0"), aim = item("forgeCombatAimArrow")
+        const lane = item("forgeOwnCreatures")
+        lane.scrollArea.contentY = 0
+        mouseClick(source)
+        tryCompare(aim, "visible", true)
+        transport.rulesResponsePending = true
+        tryCompare(aim, "visible", false)
+        compare(table.combatInteraction.links.length, 0)
+        transport.rulesResponsePending = false
+        mouseMove(source, source.width / 2, source.height / 2)
+        tryCompare(aim, "visible", true)
+        lane.scrollArea.contentY = lane.scrollArea.contentHeight - lane.scrollArea.height
+        tryCompare(aim, "startPoint", Qt.point(0, 0))
+        tryCompare(aim, "visible", false)
+        compare(table.combatInteraction.selectedSource, "opaque-source")
+        compare(table.combatInteraction.links.length, 0)
+        lane.scrollArea.contentY = 0
+        mouseMove(source, source.width / 2, source.height / 2)
+        tryCompare(aim, "visible", true)
+        compare(aim.startPoint, table.presentation.pointFor("own-0"))
+        compare(transport.responses.length, 0)
+    }
+    function test_combatAimDoesNotSnapToScrolledTarget() {
+        const state = snapshot()
+        state.zones[5].cards = Array.from({length:70}, (_, i) => card("opponent-" + i, 1, "Attacker " + i, true))
+        state.zones[5].count = state.zones[5].cards.length
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseBlockers", {
+            combatSources:[{responseId:"source", objectId:"own-0", label:"Bear", name:"Grizzly Bears",
+                validTargetIds:["target"], maxAssignments:1}],
+            combatTargets:[{responseId:"target", kind:"attacker", objectId:"opponent-0", label:"Attacker",
+                minAssignments:0, maxAssignments:8}]
+        })
+        const lane = item("forgeOpponentCreatures"), target = item("forgeCard-opponent-0")
+        const aim = item("forgeCombatAimArrow")
+        lane.scrollArea.contentY = 0
+        mouseClick(item("forgeCard-own-0"))
+        mouseMove(target, target.width / 2, target.height / 2)
+        tryCompare(aim, "snapped", true)
+        compare(aim.endPoint, table.presentation.pointFor("opponent-0"))
+        lane.scrollArea.contentY = lane.scrollArea.contentHeight - lane.scrollArea.height
+        tryCompare(aim, "snapped", false)
+        verify(aim.visible)
+        verify(aim.endPoint.x > 0 && aim.endPoint.y > 0)
+        compare(table.combatInteraction.selectedSource, "source")
+        compare(table.combatInteraction.links.length, 0)
+        compare(transport.responses.length, 0)
+    }
+    function test_multipleDefendersUseBoardAndPlayerSeat_data() {
+        return [{tag:"planeswalker", kind:"planeswalker", name:"Test Walker", seat:1},
+                {tag:"battle", kind:"battle", name:"Test Battle", seat:0}]
+    }
+    function test_multipleDefendersUseBoardAndPlayerSeat(data) {
+        const state = snapshot()
+        state.zones[4 + data.seat].cards.push(card("defender", data.seat, data.name, false))
+        state.zones[4 + data.seat].count++
+        verify(testRulesPrompt.applySnapshot(state))
         prompt("chooseAttackers", {combatSources:[{responseId:"source", objectId:"own-0", label:"Bear", name:"Grizzly Bears",
-            validTargetIds:["player-choice", "walker-choice"], maxAssignments:1}], combatTargets:[
+            validTargetIds:["player-choice", "permanent-choice"], maxAssignments:1}], combatTargets:[
                 {responseId:"player-choice", kind:"player", seat:1, label:"Opponent", minAssignments:0, maxAssignments:1},
-                {responseId:"walker-choice", kind:"planeswalker", objectId:"opponent", label:"Walker", minAssignments:0, maxAssignments:1}]})
+                {responseId:"permanent-choice", kind:data.kind, objectId:"defender", label:data.name, minAssignments:0, maxAssignments:1}]})
+        verify(!item("forgeCard-defender").actionable)
         mouseClick(item("forgeCard-own-0"))
         verify(!item("rulesPlayerTarget0").actionable)
         verify(item("rulesPlayerTarget1").actionable)
+        verify(item("forgeCard-defender").combatDestination)
+        verify(!item("forgeCard-opponent").actionable)
+        const aim = item("forgeCombatAimArrow")
         mouseClick(item("forgeCard-opponent"))
-        compare(table.combatInteraction.assignments.source, "walker-choice")
+        compare(table.combatInteraction.selectedSource, "source")
+        compare(table.combatInteraction.links.length, 0)
+        mouseMove(item("forgeCard-defender"))
+        tryCompare(aim, "snapped", true)
+        compare(aim.endPoint, table.presentation.pointFor("defender"))
+        compare(table.combatInteraction.links.length, 0)
+        mouseClick(item("forgeCard-defender"))
+        tryCompare(aim, "visible", false)
+        compare(table.combatInteraction.assignments.source, "permanent-choice")
+        compare(table.combatInteraction.links[0].to, "defender")
+        const fixed = item("forgeCombatArrow-own-0-defender")
+        compare(fixed.endPoint, table.presentation.pointFor("defender"))
         mouseClick(item("forgeCard-own-0"))
         mouseClick(item("rulesPlayerTarget1"))
         compare(table.combatInteraction.assignments.source, "player-choice")
         compare(table.combatInteraction.links[0].seat, 1)
         mouseClick(item("rulesConfirmCombat-attackers"))
         compare(transport.responses[0].assignments, [{sourceId:"source", targetId:"player-choice"}])
+    }
+    function test_combatSelectionCanBeCancelledRemovedAndCleared_data() {
+        return [{tag:"attackers", kind:"chooseAttackers", target:"rulesPlayerTarget1"},
+                {tag:"blockers", kind:"chooseBlockers", target:"forgeCard-opponent"}]
+    }
+    function test_combatSelectionCanBeCancelledRemovedAndCleared(data) {
+        combat(data.kind)
+        const source = item("forgeCard-own-0"), target = item(data.target), aim = item("forgeCombatAimArrow")
+        mouseClick(source)
+        tryCompare(aim, "visible", true)
+        source.forceActiveFocus()
+        keyClick(Qt.Key_Escape)
+        verify(!aim.visible)
+        compare(table.combatInteraction.selectedSource, "")
+        verify(item("rulesConfirmCombat-" + data.tag).enabled)
+        mouseClick(source); mouseClick(source)
+        verify(!aim.visible)
+        compare(table.combatInteraction.selectedSource, "")
+        mouseClick(source); mouseClick(target)
+        compare(table.combatInteraction.links.length, 1)
+        const fixed = item("forgeCombatArrow-own-0-" + (data.tag === "attackers" ? "seat-1" : "opponent"))
+        const endpoint = fixed.endPoint
+        mouseClick(source)
+        tryCompare(aim, "visible", true)
+        source.forceActiveFocus(); keyClick(Qt.Key_Escape)
+        verify(!aim.visible)
+        compare(fixed.endPoint, endpoint)
+        compare(table.combatInteraction.links.length, 1)
+        mouseClick(source)
+        waitForRendering(table)
+        mouseClick(item("rulesCombatCancelSelection-" + data.tag))
+        verify(!aim.visible)
+        compare(table.combatInteraction.selectedSource, "")
+        compare(table.combatInteraction.links.length, 1)
+        mouseClick(source)
+        mouseClick(item("rulesCombatRemoveAssignment-" + data.tag))
+        compare(table.combatInteraction.links.length, 0)
+        mouseClick(source); mouseClick(target)
+        mouseClick(source); mouseClick(target)
+        compare(table.combatInteraction.links.length, 0)
+        source.forceActiveFocus(); keyClick(Qt.Key_Space)
+        target.forceActiveFocus(); keyClick(Qt.Key_Return)
+        compare(table.combatInteraction.links.length, 1)
+        waitForRendering(table)
+        mouseClick(item("rulesCombatClear-" + data.tag))
+        compare(table.combatInteraction.links.length, 0)
+        mouseClick(item("rulesConfirmCombat-" + data.tag))
+        compare(transport.responses[0].assignments, [])
+    }
+    function test_combatLegacyPlayerMappingRetainsExplicitListFallback() {
+        prompt("chooseAttackers", {combatSources:[{responseId:"source", objectId:"own-0", label:"Bear", name:"Grizzly Bears",
+            validTargetIds:["defender"], maxAssignments:1}], combatTargets:[
+                {responseId:"defender", kind:"player", label:"Bob", minAssignments:0, maxAssignments:1}]})
+        mouseClick(item("forgeCard-own-0"))
+        verify(!item("rulesPlayerTarget0").actionable)
+        verify(!item("rulesPlayerTarget1").actionable)
+        waitForRendering(table)
+        mouseClick(item("rulesCombatDetails-attackers"))
+        tryVerify(() => findChild(table, "rulesCombatAssignment-source") !== null)
+        compare(table.combatInteraction.selectedSource, "")
+        item("rulesCombatAssignment-source").forceActiveFocus(); keyClick(Qt.Key_Down)
+        mouseClick(item("rulesConfirmCombat-attackers"))
+        compare(transport.responses[0].assignments, [{sourceId:"source", targetId:"defender"}])
+    }
+    function test_blockerLegalityAndMinimumsRemainAuthoritative() {
+        const state = snapshot(1, 4)
+        state.zones[5].cards.push(card("opponent-2", 1, "Other Attacker", true))
+        state.zones[5].count++
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseBlockers", {
+            combatSources:[0, 1, 2, 3].map(i => ({responseId:"source-" + i, objectId:"own-" + i,
+                label:"Bear", name:"Grizzly Bears", maxAssignments:i === 3 ? 0 : 1,
+                validTargetIds:i === 2 ? ["menace", "other"] : ["menace"]})),
+            combatTargets:[{responseId:"menace", kind:"attacker", objectId:"opponent", label:"Menace",
+                minAssignments:2, maxAssignments:2, mustReceiveIfAble:true},
+                {responseId:"other", kind:"attacker", objectId:"opponent-2", label:"Other", minAssignments:0, maxAssignments:1}]
+        })
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 4)
+        verify(!item("forgeCard-own-3").actionable)
+        mouseClick(item("forgeCard-own-0"))
+        verify(!item("forgeCard-opponent-2").actionable)
+        mouseClick(item("forgeCard-opponent"))
+        verify(!item("rulesConfirmCombat-blockers").enabled)
+        mouseClick(item("forgeCard-own-1")); mouseClick(item("forgeCard-opponent"))
+        verify(item("rulesConfirmCombat-blockers").enabled)
+        mouseClick(item("forgeCard-own-2"))
+        verify(!item("forgeCard-opponent").actionable)
+        mouseClick(item("forgeCard-opponent"))
+        compare(table.combatInteraction.selectedSource, "source-2")
+        verify(item("forgeCard-opponent-2").actionable)
+        mouseClick(item("forgeCard-opponent-2"))
+        mouseClick(item("rulesConfirmCombat-blockers"))
+        compare(transport.responses[0].assignments, [
+            {sourceId:"source-0", targetId:"menace"}, {sourceId:"source-1", targetId:"menace"},
+            {sourceId:"source-2", targetId:"other"}])
+        verify(!item("forgeCard-own-0").actionable)
+        mouseClick(item("forgeCard-own-0"))
+        compare(table.combatInteraction.selectedSource, "")
+        compare(transport.responses.length, 1)
     }
     function test_commanderHistoryAndActionFollowNativeSnapshot() {
         room.format = "duel"
@@ -653,8 +1373,13 @@ TestCase {
             mouseClick(item("forgeCard-own-0")); mouseClick(item("forgeCard-" + id))
         }
         compare(table.combatInteraction.selectedTargets("source"), ["a", "b"])
+        verify(!item("forgeCard-opponent-3").actionable)
+        verify(item("forgeCard-opponent").actionable)
+        mouseClick(item("forgeCard-opponent"))
+        compare(table.combatInteraction.selectedTargets("source"), ["b"])
+        mouseClick(item("forgeCard-own-0")); mouseClick(item("forgeCard-opponent"))
         mouseClick(item("rulesConfirmCombat-blockers"))
-        compare(transport.responses[0].assignments, [{sourceId:"source", targetId:"a"}, {sourceId:"source", targetId:"b"}])
+        compare(transport.responses[0].assignments, [{sourceId:"source", targetId:"b"}, {sourceId:"source", targetId:"a"}])
     }
     function test_damageDialogShowsTargetsAndFitsWindow_data() {
         return [{tag:"ordered", mode:"ordered", width:1600, height:1000},
@@ -699,7 +1424,11 @@ TestCase {
     function test_combatStateCannotCrossAuthorityOrPromptBoundaries(data) {
         combat("chooseAttackers")
         mouseClick(item("forgeCard-own-0"))
+        mouseClick(item("rulesPlayerTarget1"))
         compare(table.combatInteraction.links.length, 1)
+        mouseClick(item("forgeCard-own-0"))
+        compare(table.combatInteraction.selectedSource, "opaque-source")
+        tryCompare(item("forgeCombatAimArrow"), "visible", true)
         if (data.tag === "disconnect") transport.inRoom = false
         else if (data.tag === "spectate") room.role = "spectator"
         else if (data.tag === "seat-change") room.seatIndex = 1
@@ -707,6 +1436,7 @@ TestCase {
         else { const next = snapshot(); next.gameId = "next-game"; verify(testRulesPrompt.applySnapshot(next)) }
         compare(table.combatInteraction.links.length, 0)
         compare(table.combatInteraction.selectedSource, "")
+        verify(!item("forgeCombatAimArrow").visible)
         compare(transport.responses.length, 0)
     }
     function test_privateHandsAndHiddenIdentityStayRedacted() {
@@ -725,6 +1455,86 @@ TestCase {
         room.spectatorsSeeHands = false
         tryVerify(() => item("forgeHand").visibleCards.length === 0)
     }
+    function test_handWheelReachesLastCardAndReturnsToFirst() {
+        verify(testRulesPrompt.applySnapshot(snapshot(35)))
+        const hand = item("forgeHand")
+        tryCompare(hand, "crowded", true)
+        const viewport = hand.scrollArea
+        tryVerify(() => hand.visibleCards.length === 35)
+        for (let i = 0; i < 30 && !viewport.atXEnd; ++i)
+            mouseWheel(viewport, viewport.width / 2, 70, 0, -240)
+        tryCompare(viewport, "atXEnd", true)
+        const last = item("forgeHandSurface-hand-34")
+        const point = last.mapToItem(viewport, 0, 0)
+        verify(point.x >= 0 && point.x + last.width <= viewport.width + 1)
+        verify(item("forgeHandScrollBar").visible)
+        for (let i = 0; i < 30 && !viewport.atXBeginning; ++i)
+            mouseWheel(viewport, viewport.width / 2, 70, 0, 240)
+        tryCompare(viewport, "atXBeginning", true)
+    }
+    function test_unspentManaUsesDedicatedColoredReadout() {
+        const state = snapshot()
+        state.players[0].manaPool = [{name:"U", value:2}, {name:"R", value:1}, {name:"C", value:3}]
+        verify(testRulesPrompt.applySnapshot(state))
+        const pool = item("forgeManaPool-0")
+        tryCompare(pool, "visible", true)
+        compare(pool.manaPool.length, 3)
+        compare(item("forgeMana-0-U").modelData.amount, 2)
+        state.players[0].manaPool[0].value = 1
+        verify(testRulesPrompt.applySnapshot(state))
+        compare(item("forgeMana-0-U").modelData.amount, 1)
+        state.players[0].manaPool = []
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(pool, "visible", false)
+    }
+    function test_reviewArtworkCannotCollapseGrid_data() {
+        return [{tag:"portrait-desktop", width:1600, height:1000, image:"card-back.jpg"},
+                {tag:"large-raster-compact", width:900, height:620, image:"playmat-dusk.png"}]
+    }
+    function test_reviewArtworkCannotCollapseGrid(data) {
+        window.width = data.width
+        window.height = data.height
+        catalog.imageOverride = Qt.resolvedUrl("../../qml/assets/" + data.image)
+        match.sideboarding = true
+        mouseClick(item("sideboardReviewButton"))
+        const review = item("sideboardBoardReview")
+        tryCompare(review, "opened", true)
+        const grid = findChild(review.contentItem, "sideboardReviewCards")
+        const preview = findChild(review.contentItem, "sideboardReviewPreview")
+        const art = findChild(review.contentItem, "sideboardReviewPreviewImage")
+        tryCompare(art, "status", Image.Ready)
+        verify(waitForRendering(review.contentItem))
+        verify(grid.width >= review.availableWidth * 0.6, "Card grid must keep most of the width")
+        verify(grid.height > 150)
+        verify(preview.width <= review.availableWidth * 0.3 + 1, "Artwork cannot widen the preview column")
+        verify(grid.x + grid.width <= preview.x + 1, "Card grid and preview must not overlap")
+        const last = preview.mapToItem(review.contentItem, preview.width, preview.height)
+        verify(last.x <= review.availableWidth + 1 && last.y <= review.availableHeight + 1)
+        verify(art.width > 0 && art.height > 0)
+        review.close()
+    }
+    function test_sideboardReviewUsesOnlyVisiblePublicZonesAndRefreshesOnReconnect() {
+        const state = snapshot(3)
+        state.zones.push({zone:"graveyard", ownerSeat:1, count:1,
+                         cards:[card("grave", 1, "Known spell", false)]})
+        const hidden = card("hidden-review", 1, "Secret morph", true)
+        hidden.faceDown = true
+        state.zones[5].cards.push(hidden)
+        verify(testRulesPrompt.applySnapshot(state))
+        match.sideboarding = true
+        const panel = item("rulesSideboardPanel")
+        mouseClick(item("sideboardReviewButton"))
+        const review = findChild(panel, "sideboardBoardReview")
+        tryCompare(review, "opened", true)
+        verify(review.reviewCards.some(card => card.name === "Known spell"))
+        verify(!review.reviewCards.some(card => card.name === "Secret morph" || card.zone === "hand"))
+        testRulesPrompt.clear()
+        tryCompare(review, "reviewCards", [])
+        verify(testRulesPrompt.applySnapshot(state))
+        tryVerify(() => review.reviewCards.some(card => card.name === "Known spell"))
+        panel.visible = false
+        tryCompare(review, "opened", false)
+    }
     function test_crowdedLanesAndHandRemainReachable() {
         verify(testRulesPrompt.applySnapshot(snapshot(20, 70, true)))
         const lane = item("forgeOwnCreatures"), hand = item("forgeHand")
@@ -737,6 +1547,169 @@ TestCase {
         verify(hand.scrollArea.contentX > 0)
         const point = item("forgeHandSurface-hand-19").mapToItem(hand.scrollArea, 0, 0)
         verify(point.x >= 0 && point.x + hand.cardWidth <= hand.width + 1)
+    }
+    function test_combatUnstacksEachEligibleCreature_data() {
+        return [{tag:"front-ineligible", cards:2, eligible:1},
+                {tag:"two-eligible", cards:2, eligible:2},
+                {tag:"three-eligible", cards:3, eligible:3}]
+    }
+    function test_combatUnstacksEachEligibleCreature(data) {
+        verify(testRulesPrompt.applySnapshot(snapshot(3, data.cards)))
+        prompt("chooseAttackers", {
+            combatSources:Array.from({length:data.eligible}, (_, i) => ({
+                responseId:"source-" + i, objectId:"own-" + i, label:"Bear", name:"Grizzly Bears",
+                validTargetIds:["defender"], mustAssignIfAble:false, maxAssignments:1})),
+            combatTargets:[{responseId:"defender", kind:"player", seat:1, label:"Opponent",
+                minAssignments:0, maxAssignments:8}]
+        })
+        tryCompare(item("forgeOwnCreatures"), "stackCount", data.cards)
+        verify(table.combatInteraction.canAct)
+        const expected = []
+        for (let i = 0; i < data.eligible; ++i) {
+            const source = item("forgeCard-own-" + i)
+            verify(source.actionable)
+            compare(source.card.stackSize, 1)
+            mouseClick(source)
+            compare(table.combatInteraction.selectedSource, "source-" + i)
+            mouseClick(item("rulesPlayerTarget1"))
+            expected.push({sourceId:"source-" + i, targetId:"defender"})
+            compare(Object.keys(table.combatInteraction.assignments).length, expected.length)
+            compare(table.combatInteraction.assignments["source-" + i], "defender")
+        }
+        mouseClick(item("rulesConfirmCombat-attackers"))
+        compare(transport.responses[0].assignments, expected)
+        action("playLand", "hand-0")
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 1)
+    }
+    function test_blockingRepeatedAttackersKeepsEveryCreatureReachable() {
+        const state = snapshot(1, 3)
+        state.zones[5].cards = [0, 1, 2].map(i => card("attacker-" + i, 1, "Cat", true))
+        state.zones[5].count = 3
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseBlockers", {
+            combatSources:[0, 1, 2].map(i => ({responseId:"blocker-" + i, objectId:"own-" + i,
+                label:"Bear", name:"Grizzly Bears", maxAssignments:1,
+                validTargetIds:["target-0", "target-1", "target-2"]})),
+            combatTargets:[0, 1, 2].map(i => ({responseId:"target-" + i, objectId:"attacker-" + i,
+                kind:"attacker", label:"Cat", minAssignments:1, maxAssignments:3}))
+        })
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 3)
+        tryCompare(item("forgeOpponentCreatures"), "stackCount", 3)
+        for (let i = 0; i < 3; ++i) {
+            mouseClick(item("forgeCard-own-" + i))
+            compare(table.combatInteraction.selectedSource, "blocker-" + i)
+            mouseClick(item("forgeCard-attacker-" + i))
+            compare(table.combatInteraction.assignments["blocker-" + i], "target-" + i)
+        }
+        mouseClick(item("forgeCard-own-0")); mouseClick(item("forgeCard-attacker-2"))
+        compare(table.combatInteraction.assignments["blocker-0"], "target-2")
+        compare(table.combatInteraction.links.filter(link => link.to === "attacker-2").length, 2)
+        mouseClick(item("rulesConfirmCombat-blockers"))
+        compare(transport.responses[0].assignments.length, 3)
+    }
+    function test_expandedCombatKeepsRightmostPileClickable_data() {
+        return ["chooseAttackers", "chooseBlockers"].map(kind => ({tag:kind, kind:kind}))
+    }
+    function test_expandedCombatKeepsRightmostPileClickable(data) {
+        window.width = 1920; window.height = 1011
+        const state = snapshot(7, 7, true)
+        // The last pile reproduced the covered White Orchid Phantom in the
+        // live Legacy game. Include another physical copy in that pile.
+        state.zones[4].cards.push(card("own-7", 0, "Bear 6", true))
+        state.zones[4].count++
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt(data.kind, {
+            combatSources:Array.from({length:8}, (_, i) => ({
+                responseId:"source-" + i, objectId:"own-" + i, label:"Bear " + Math.min(i, 6),
+                name:"Bear " + Math.min(i, 6), validTargetIds:["defender"], maxAssignments:1})),
+            combatTargets:[{responseId:"defender", kind:data.kind === "chooseAttackers" ? "player" : "attacker",
+                objectId:data.kind === "chooseAttackers" ? "" : "opponent", seat:1,
+                label:"Opponent", minAssignments:0, maxAssignments:8}]
+        })
+        const front = item("forgeCard-own-7"), dock = item("rulesDecisionDock")
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 8)
+        tryVerify(() => front.card.stackFront)
+        const point = front.mapToItem(table, 0, 0)
+        verify(point.x + front.width <= dock.x || point.y + front.height <= dock.y,
+               "An expanded combat decision must not cover its battlefield sources")
+        mouseClick(item("forgeCard-own-6"))
+        mouseClick(item(data.kind === "chooseBlockers" ? "forgeCard-opponent" : "rulesPlayerTarget1"))
+        compare(table.combatInteraction.assignments["source-6"], "defender")
+        mouseClick(front)
+        mouseClick(item(data.kind === "chooseBlockers" ? "forgeCard-opponent" : "rulesPlayerTarget1"))
+        compare(table.combatInteraction.assignments["source-7"], "defender")
+        mouseClick(item("rulesConfirmCombat-" + (data.kind === "chooseAttackers" ? "attackers" : "blockers")))
+        compare(transport.responses[0].assignments.length, 2)
+    }
+    function test_nativeCostSelectionsSplitPilesWithoutResubmittingReservations() {
+        verify(testRulesPrompt.applySnapshot(snapshot(1, 3)))
+        const lane = item("forgeOwnCreatures")
+        function costPrompt(selected) {
+            prompt("chooseBoardTargets", {minSelections:0, maxSelections:1, cancellable:true,
+                targets:[0, 1, 2].map(i => ({responseId:"target-" + i, kind:"card",
+                    objectId:"own-" + i, label:"Bear", name:"Grizzly Bears",
+                    selected:selected.includes(i)}))})
+        }
+        costPrompt([])
+        tryCompare(lane, "visibleStackIds", [["own-0", "own-1", "own-2"]])
+        mouseClick(item("forgeCard-own-2"))
+        compare(transport.responses[0].targets, ["target-2"])
+
+        costPrompt([2])
+        tryCompare(lane, "visibleStackIds", [["own-0", "own-1"], ["own-2"]])
+        verify(findChild(item("forgeCard-own-2"), "forgeCardNativeSelection-own-2").visible)
+        const selectedCard = item("forgeCard-own-2")
+        const marker = findChild(selectedCard, "forgeCardNativeSelection-own-2")
+        const name = findChild(selectedCard, "forgeCardName-own-2")
+        verify(name.mapToItem(selectedCard, 0, 0).x >= marker.x + marker.width)
+        verify(item("forgeCard-own-2").selected)
+        compare(table.interaction.nativeSelectedCount, 1)
+        compare(table.interaction.selectedCount, 0)
+        verify(!item("forgeCard-own-1").selected)
+        mouseClick(item("forgeCard-own-1"))
+        compare(transport.responses[1].targets, ["target-1"])
+
+        costPrompt([1, 2])
+        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1", "own-2"]])
+        compare(table.interaction.nativeSelectedCount, 2)
+        compare(table.interaction.selectedCount, 0)
+        mouseClick(item("forgeCard-own-2"))
+        compare(transport.responses[2].targets, ["target-2"])
+
+        costPrompt([1])
+        tryCompare(lane, "visibleStackIds", [["own-0", "own-2"], ["own-1"]])
+        verify(!findChild(item("forgeCard-own-2"), "forgeCardNativeSelection-own-2").visible)
+        verify(findChild(item("forgeCard-own-1"), "forgeCardNativeSelection-own-1").visible)
+        verify(table.interaction.submitTargets("$submit"))
+        compare(transport.responses[3].targets, [])
+
+        prompt("payManaCost", {options:[{responseId:"$cancel", label:"Cancel", kind:"cancel"}]})
+        tryCompare(lane, "visibleStackIds", [["own-0", "own-1", "own-2"]])
+        compare(table.interaction.nativeSelectedCount, 0)
+        verify(!findChild(item("forgeCard-own-1"), "forgeCardNativeSelection-own-1").visible)
+    }
+    function test_ownPlayerTargetAboveHoveredHand_data() {
+        return [{tag:"seven-cards", hand:7, width:1600, height:1000},
+                {tag:"crowded-desktop", hand:12, width:1920, height:1011}]
+    }
+    function test_ownPlayerTargetAboveHoveredHand(data) {
+        window.width = data.width; window.height = data.height
+        verify(testRulesPrompt.applySnapshot(snapshot(data.hand, 1)))
+        prompt("chooseBoardTargets", {minSelections:1, maxSelections:2,
+            targets:[{responseId:"self", kind:"player", seat:0, label:"Alice"},
+                     {responseId:"opponent", kind:"player", seat:1, label:"Bob"}]})
+        const plate = item("rulesPlayerTarget0")
+        const hand = item("forgeHand")
+        const nearest = hand.visibleCards.reduce((best, card) => {
+            const point = card.mapToItem(plate, card.width / 2, 0)
+            const previous = best.mapToItem(plate, best.width / 2, 0)
+            return Math.abs(point.x - plate.width / 2) < Math.abs(previous.x - plate.width / 2) ? card : best
+        })
+        mouseMove(nearest, nearest.width / 2, nearest.height / 2)
+        tryCompare(item("forgeHandSurface-" + nearest.cardId), "y", -18 * table.presentation.unit)
+        mouseClick(plate, plate.width / 2, plate.lifeCenterY)
+        compare(Object.keys(table.interaction.selectedTargetIds), ["self"])
+        compare(transport.responses.length, 0)
     }
     function test_stackOrderPrivacyAndTargetsUseNativeIds() {
         const state = snapshot()
@@ -760,6 +1733,88 @@ TestCase {
         mouseClick(item("forgeStackCard-bolt"))
         compare(transport.responses[0].targets, ["new-target"])
     }
+    function test_controlledTurnUsesPermittedHandAndRestoresOwnHand() {
+        const state = snapshot()
+        state.activeSeat = 1; state.prioritySeat = 1
+        state.players[1].controllingSeat = 0
+        state.zones[1].cards = [card("controlled-land", 1, "Plains", false)]
+        verify(testRulesPrompt.applySnapshot(state))
+        action("playLand", "controlled-land")
+        tryCompare(table, "handOwnerSeat", 1)
+        tryVerify(() => item("forgeHand").visibleCards[0].cardId === "controlled-land")
+        compare(item("forgePlayerControlStatus").text, "You control " + table.matchUi.playerName(1) + "'s turn")
+        verify(item("forgePlayerControlStatus").visible)
+        verify(table.priority.canPass)
+        wait(150)
+        compare(transport.responses.length, 0, "Smart priority skipped the controlled player's main phase")
+        mouseClick(item("forgeHandCard-controlled-land"))
+        compare(transport.responses[0].response, "opaque-play")
+        action("playLand", "controlled-land")
+        verify(table.priority.passOnce())
+        compare(transport.responses[1].response, "$pass")
+
+        // The compensatory extra turn belongs to Bob without Alice's control.
+        delete state.players[1].controllingSeat
+        state.zones[1].cards = []
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {pending:false})
+        tryCompare(table, "handOwnerSeat", 0)
+        tryVerify(() => item("forgeHand").visibleCards[0].cardId === "hand-0")
+        verify(!item("forgePlayerControlStatus").visible)
+        compare(testRulesPrompt.session.cardForInspection("controlled-land"), {})
+    }
+
+    function test_permittedLibraryTopCanBePlayedAndVisibilityRevoked() {
+        table.priority.setFullControl(true)
+        const state = snapshot()
+        state.zones[2].cards = [card("top-land", 0, "Plains", false)]
+        verify(testRulesPrompt.applySnapshot(state))
+        action("playLand", "top-land")
+        const pile = item("forgeZone-library")
+        tryCompare(pile, "cardId", "top-land")
+        verify(pile.showsPublicFace)
+        mouseClick(pile)
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        tryCompare(item("forgeZoneCards"), "stackCount", 1)
+        verify(!item("forgeZoneCardsHiddenNotice").visible)
+        mouseClick(item("forgeCard-top-land"))
+        compare(transport.responses[0].response, "opaque-play")
+
+        state.zones[2].cards = []
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+        tryCompare(pile, "cardId", "")
+        verify(!pile.showsPublicFace)
+        compare(testRulesPrompt.session.cardForInspection("top-land"), {})
+        tryCompare(item("forgeZoneCards"), "stackCount", 0)
+        mouseClick(pile)
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        verify(item("forgeZoneCardsHiddenNotice").visible)
+    }
+
+    function test_newPermanentsStaySeparateUntilTheirStateMatches_data() {
+        return [{tag:"english", chinese:false}, {tag:"chinese", chinese:true}]
+    }
+    function test_newPermanentsStaySeparateUntilTheirStateMatches(data) {
+        if (data.chinese) testTranslations.setLanguage("zh")
+        const state = snapshot(1, 2)
+        const fresh = state.zones[4].cards[1]
+        fresh.enteredThisTurn = true; fresh.summoningSick = true
+        verify(testRulesPrompt.applySnapshot(state))
+        const lane = item("forgeOwnCreatures")
+        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1"]])
+        const label = findChild(item("forgeCard-own-1"), "forgeCardState-own-1")
+        verify(label.visible)
+        compare(label.text, data.chinese ? "本回合进场 · 召唤失调" : "Entered this turn · Summoning sickness")
+        compare(findChild(item("forgeCard-own-0"), "forgeCardState-own-0").text, "")
+        fresh.enteredThisTurn = false
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(lane, "stackCount", 2)
+        fresh.summoningSick = false
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(lane, "visibleStackIds", [["own-0", "own-1"]])
+    }
+
     function test_zonePopupClosesWhenConnectionEnds() {
         mouseClick(item("forgeZone-library"))
         const popup = item("forgeZonePopup")
@@ -922,7 +1977,10 @@ TestCase {
         for (const name of ["forgeOwnLands", "forgeOpponentLands", "forgeOwnOther", "forgeOpponentOther",
                            "forgeOwnCreatures", "forgeOpponentCreatures"]) {
             const lane = item(name)
-            verify(lane.width > 0 && lane.x + lane.width > dock.x)
+            verify(lane.width > 0)
+            verify(lane.x + lane.width <= dock.x || lane.y + lane.height <= dock.y)
+            const stack = item("forgeStack")
+            verify(lane.x + lane.width <= stack.x || lane.y >= stack.y + stack.height)
             verify(lane.x + lane.width <= table.width)
         }
         verify(item("forgeHand").x + item("forgeHand").width <= dock.x)
@@ -1000,6 +2058,154 @@ TestCase {
         tryCompare(stack, "activeTargetIndex", 15)
         compare(transport.responses.length, 0)
     }
+    function test_persistentChoicesAreVisibleAndCopiesStaySeparate_data() {
+        return [{tag:"desktop", w:1920, h:1011}, {tag:"laptop", w:1280, h:800},
+            {tag:"chinese", w:1600, h:1000, chinese:true}]
+    }
+    function test_persistentChoicesAreVisibleAndCopiesStaySeparate(data) {
+        function label(id) { return findChild(item("forgeCard-" + id), "forgeCardState-" + id) }
+        window.width = data.w; window.height = data.h
+        if (data.chinese) {
+            testTranslations.setLanguage("zh"); catalog.language = "zh"
+            catalog.names = ({"Lightning Bolt":"闪电击", "Counterspell":"反击咒语",
+                "Ulamog, the Ceaseless Hunger":"无尽轮回乌拉莫"})
+        }
+        const bolt = data.chinese ? "闪电击" : "Lightning Bolt"
+        const counter = data.chinese ? "反击咒语" : "Counterspell"
+        const ulamog = data.chinese ? "无尽轮回乌拉莫" : "Ulamog, the Ceaseless Hunger"
+        const state = snapshot()
+        const needleA = card("needle-a", 0, "Pithing Needle", false)
+        const needleB = card("needle-b", 0, "Pithing Needle", false)
+        needleA.annotations = [{kind:"namedCard", value:"Lightning Bolt"}]
+        needleB.annotations = [{kind:"namedCard", value:"Counterspell"}]
+        const mazeA = card("maze-a", 0, "Ugin's Labyrinth", false)
+        const mazeB = card("maze-b", 0, "Ugin's Labyrinth", false)
+        mazeA.exiledCardCount = 1; mazeA.exiledCardIds = ["ulamog"]
+        mazeB.exiledCardCount = 1; mazeB.exiledCardIds = ["hidden-exile"]
+        state.zones[4].cards = [needleA, needleB, mazeA, mazeB]; state.zones[4].count = 4
+        state.zones.push({zone:"exile", ownerSeat:0, count:2, cards:[
+            card("ulamog", 0, "Ulamog, the Ceaseless Hunger", true),
+            {id:"hidden-exile", visible:false, faceDown:true, identity:{name:"SECRET"}}]})
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(item("forgeOwnOther"), "stackCount", 2)
+        tryCompare(item("forgeOwnLands"), "stackCount", 2)
+        for (const id of ["needle-a", "needle-b", "maze-a", "maze-b"]) {
+            const tile = item("forgeCard-" + id), stateLabel = label(id)
+            verify(tile.card.stackFront)
+            compare(tile.card.stackSize, 1)
+            verify(stateLabel.visible && stateLabel.height >= stateLabel.font.pixelSize)
+            const title = findChild(tile, "forgeCardName-" + id)
+            verify(stateLabel.y >= title.y + title.height)
+        }
+        verify(label("needle-a").text.includes(bolt))
+        verify(label("needle-b").text.includes(counter))
+        verify(label("maze-a").text.includes(ulamog))
+        verify(label("maze-b").text.includes(data.chinese ? "隐藏牌" : "hidden card"))
+        verify(!label("maze-b").text.includes("SECRET"))
+        mouseMove(item("forgeCard-maze-a"), 20, 30)
+        tryCompare(table.inspector, "previewCardId", "maze-a")
+        tryCompare(item("rulesCardHoverLinkedCards"), "visible", true)
+        verify(item("rulesCardHoverLinkedCards").text.includes(ulamog))
+        mouseMove(item("forgeCard-needle-a"), 20, 30)
+        tryCompare(table.inspector, "previewCardId", "needle-a")
+        verify(item("rulesCardHoverLinkedCards").text.includes(bolt))
+        mouseClick(item("forgeCard-needle-a"), 20, 30, Qt.RightButton)
+        tryCompare(table.inspector, "pinnedCardId", "needle-a")
+        verify(item("rulesCardInspectorState").text.includes(bolt))
+        needleA.annotations = [{kind:"namedCard", value:"Counterspell"}]
+        mazeA.exiledCardCount = 0; mazeA.exiledCardIds = []
+        state.zones[0].cards.push(state.zones[6].cards.shift()); state.zones[0].count++
+        state.zones[6].count--
+        verify(testRulesPrompt.applySnapshot(state))
+        tryVerify(() => label("needle-a").text.includes(counter))
+        verify(!item("rulesCardInspectorState").text.includes(bolt))
+        compare(label("maze-a").text, "")
+        compare(transport.responses.length, 0)
+    }
+    function test_chosenCreaturesRemainVisibleWithoutRevealingHiddenObjects_data() {
+        return [{tag:"desktop", w:1920, h:1011}, {tag:"laptop", w:1280, h:800},
+            {tag:"chinese", w:1600, h:1000, chinese:true}]
+    }
+    function test_chosenCreaturesRemainVisibleWithoutRevealingHiddenObjects(data) {
+        window.width = data.w; window.height = data.h
+        if (data.chinese) {
+            testTranslations.setLanguage("zh"); catalog.language = "zh"
+            catalog.names = ({"Grizzly Bears":"灰棕熊"})
+        }
+        const expected = data.chinese ? "已选择：灰棕熊" : "Chosen: Grizzly Bears"
+        const state = snapshot()
+        const first = card("guard-a", 0, "Dauntless Bodyguard", true)
+        const second = card("guard-b", 0, "Dauntless Bodyguard", true)
+        first.chosenCardIds = ["own-0", "secret", "missing", "own-0"]
+        second.chosenCardIds = ["own-0"]
+        state.zones[4].cards.push(first, second)
+        state.zones[4].count += 2
+        state.zones[1].cards = [{id:"secret", visible:false, identity:{name:"SECRET"}}]
+        verify(testRulesPrompt.applySnapshot(state))
+        const tile = item("forgeCard-guard-a"), other = item("forgeCard-guard-b")
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 3)
+        waitForRendering(tile)
+        tryCompare(tile, "persistentSummary", expected)
+        compare(other.persistentSummary, expected)
+        compare(tile.card.stackSize, 1)
+        compare(other.card.stackSize, 1)
+        mouseMove(tile, 20, 30)
+        tryCompare(table.inspector, "previewCardId", "guard-a")
+        compare(item("rulesCardHoverLinkedCards").text, expected)
+        mouseClick(tile, 20, 30, Qt.RightButton)
+        tryCompare(table.inspector, "pinnedCardId", "guard-a")
+        verify(item("rulesCardInspectorState").text.includes(expected))
+
+        first.chosenCardIds = []
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(tile, "persistentSummary", "")
+        verify(!item("rulesCardInspectorState").text.includes(expected))
+        compare(other.persistentSummary, expected)
+        // Even a stale/malformed link cannot display an identity that is no
+        // longer present in this viewer's snapshot.
+        state.zones[4].cards[0].visible = false
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(other, "persistentSummary", "")
+        state.zones[4].cards[0].visible = true
+        second.faceDown = true
+        verify(testRulesPrompt.applySnapshot(state))
+        compare(testRulesPrompt.session.cardForInspection("guard-b").chosenCardIds.length, 0)
+        compare(transport.responses.length, 0)
+    }
+    function test_dungeonAndClassProgressRemainInspectable() {
+        const state = snapshot()
+        const talent = card("talent", 0, "Artist's Talent", false)
+        talent.annotations = [{kind:"classLevel", value:"2"}]
+        const dungeon = card("dungeon", 0, "Lost Mine of Phandelver", false)
+        dungeon.annotations = [{kind:"dungeonRoom", value:"Cave Entrance"}, {kind:"classLevel", value:"9"}]
+        state.zones[4].cards.push(talent); state.zones[4].count++
+        state.zones.push({zone:"command", ownerSeat:0, count:1, cards:[dungeon]})
+        verify(testRulesPrompt.applySnapshot(state))
+        tryVerify(() => findChild(table, "forgeZone-command") !== null)
+        const tile = item("forgeCard-talent")
+        compare(findChild(tile, "forgeCardState-talent").text, "Class level: 2")
+        mouseClick(item("forgeZone-command"))
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        tryCompare(item("forgeZoneCards"), "zone", "command")
+        tryVerify(() => findChild(item("forgeZonePopup").contentItem, "forgeCard-dungeon") !== null)
+        const dungeonTile = findChild(item("forgeZonePopup").contentItem, "forgeCard-dungeon")
+        waitForRendering(dungeonTile)
+        compare(findChild(dungeonTile, "forgeCardState-dungeon").text, "Room: Cave Entrance")
+        verify(findChild(dungeonTile, "forgeCardState-dungeon").visible,
+            "The current room must be visible on the full-face command-zone card")
+        mouseClick(dungeonTile, 20, 30, Qt.RightButton)
+        tryCompare(table.inspector, "pinnedCardId", "dungeon")
+        compare(table.inspector.persistentSummary, "Room: Cave Entrance")
+        dungeon.annotations = [{kind:"dungeonRoom", value:"Goblin Lair"}]
+        verify(testRulesPrompt.applySnapshot(state))
+        compare(table.inspector.persistentSummary, "Room: Goblin Lair")
+        state.zones.pop()
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(table.inspector, "hasCard", false)
+        tryCompare(item("forgeZoneCards"), "zone", "graveyard")
+        compare(findChild(table, "forgeZone-command"), null)
+    }
+
     function test_hoverPreviewClosesWithoutMovingTheBoard() {
         action("playLand", "hand-0")
         const lane = item("forgeOwnCreatures"), x = lane.x, width = lane.width
@@ -1050,6 +2256,7 @@ TestCase {
         mouseMove(item("forgeCard-own-0"), 20, 30)
         tryCompare(table.inspector, "previewCardId", "own-0")
         mouseClick(item("forgeCard-own-0"))
+        mouseClick(item("rulesPlayerTarget1"))
         compare(table.combatInteraction.assignments["opaque-source"], "opaque-target")
     }
     function test_floatingPreviewPreservesOpenLogAndChatDraft() {
@@ -1271,7 +2478,7 @@ TestCase {
             verify(point.x >= 0 && point.x + control.width <= dock.width + 1, name + " fits dock width")
             verify(point.y >= 0 && point.y + control.height <= dock.height + 1, name + " fits dock height")
         }
-        const settingsOnly = ["forgeGameMenu", "rulesToggleGameLogButton", "rulesFullControl"]
+        const settingsOnly = ["forgeGameMenu", "rulesToggleGameLogButton", "rulesPriorityMode"]
             .concat(data.hosting === "player" ? ["forgeHostingOptions", "forgePeerStatus",
                 "forgePeerEnable", "forgePeerConsentNotice"] : [])
         for (const name of settingsOnly)
@@ -1282,17 +2489,46 @@ TestCase {
         verify(settings.y < 48)
         verify(settings.x + settings.width >= table.width - 24 * table.presentation.unit)
         openSettings()
-        verify(item("rulesFullControl").visible)
+        verify(item("rulesPriorityMode").visible)
         verify(item("rulesToggleGameLogButton").visible)
         if (data.hosting === "player") {
             verify(item("forgeHostingOptions").visible)
             verify(item("forgeTablePeerConnection").visible)
         }
         verify(!table.priority.fullControl)
-        mouseClick(item("rulesFullControl"))
+        mouseClick(item("rulesPriorityMode"), item("rulesPriorityMode").width * 0.75, item("rulesPriorityMode").height / 2)
         verify(table.priority.fullControl)
+        verify(!item("rulesPriorityStatus").visible)
         table.priority.setFullControl(false)
         closeSettings()
+    }
+    function test_audioSettingsOpenFromMatchAndCloseDrawer_data() {
+        return [{tag:"default-preferences", injected:false, width:1600, height:1000},
+                {tag:"table-preferences", injected:true, width:1600, height:1000},
+                {tag:"compact", injected:false, width:900, height:620}]
+    }
+    function test_audioSettingsOpenFromMatchAndCloseDrawer(data) {
+        const previous = table.preferencesModel
+        window.width = data.width
+        window.height = data.height
+        table.preferencesModel = data.injected ? preferences : null
+        window.openedScreen = ({})
+        try {
+            openSettings()
+            const audio = item("rulesAudioButton")
+            verify(audio.visible && audio.enabled)
+            const rail = item("rulesActionRail"), phases = item("rulesPhaseScrollView")
+            verify(phases.height > 0)
+            const point = audio.mapToItem(rail, 0, 0)
+            verify(point.y >= 0 && point.y + audio.height <= rail.height)
+            mouseClick(audio)
+            tryCompare(item("forgeGameDrawer"), "visible", false)
+            compare(window.openedScreen.url, "screens/AudioSettings.qml")
+            compare(window.openedScreen.properties.settings, data.injected ? preferences : undefined)
+            verify(transport.inRoom)
+        } finally {
+            table.preferencesModel = previous
+        }
     }
     function test_settingsStayAccessibleBetweenGames() {
         match.sideboarding = true
@@ -1337,6 +2573,7 @@ TestCase {
         compare(transport.peerRequests.length, 0)
         mouseClick(enable)
         compare(transport.peerRequests, [{enabled:true, retry:false}])
+        verify(preferences.directPeerEnabled)
         verify(table.presentation.modalOpen)
         verify(!item("forgeHostingDialog").opened)
         transport.peerTransportState = "direct"
@@ -1350,6 +2587,7 @@ TestCase {
         waitForRendering(table)
         mouseClick(enable)
         compare(transport.peerRequests[2], {enabled:false, retry:false})
+        verify(!preferences.directPeerEnabled)
         room.role = "spectator"
         verify(!panel.visible)
         closeSettings()
@@ -1389,7 +2627,7 @@ TestCase {
         combat("chooseAttackers")
         const dock = item("rulesDecisionDock"), lane = item("forgeOwnCreatures"), hand = item("forgeHand")
         waitForRendering(table)
-        verify(lane.x + lane.width > dock.x)
+        verify(lane.x + lane.width <= dock.x || lane.y + lane.height <= dock.y)
         verify(dock.x >= hand.x + hand.width)
         verify(dock.x + dock.width <= table.width + 1)
         verify(dock.y + dock.height <= table.height + 1)

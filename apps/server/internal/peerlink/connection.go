@@ -38,6 +38,10 @@ type Config struct {
 	Token     string   `json:"token"`
 	Offerer   bool     `json:"offerer"`
 	STUN      []string `json:"stun,omitempty"`
+	// TURN is used by operator-hosted nodes. Player-hosted room grants retain
+	// their discovery-only contract and do not supply relay credentials.
+	TURN      []TURNServer `json:"turn,omitempty"`
+	RelayOnly bool         `json:"relayOnly,omitempty"`
 	// Loopback candidates are useful for isolated transport tests.
 	IncludeLoopback bool `json:"-"`
 }
@@ -93,7 +97,7 @@ func New(parent context.Context, config Config, callbacks Callbacks) (*Connectio
 }
 
 func newConnection(parent context.Context, config Config, callbacks Callbacks, configure func(*webrtc.SettingEngine)) (*Connection, error) {
-	if !validID(config.BindingID) || !validID(config.Token) || ValidateSTUNServers(config.STUN) != nil {
+	if !validID(config.BindingID) || !validID(config.Token) || ValidateSTUNServers(config.STUN) != nil || ValidateTURNServers(config.TURN) != nil || (config.RelayOnly && len(config.TURN) == 0) {
 		return nil, ErrUnavailable
 	}
 	settings := webrtc.SettingEngine{}
@@ -103,6 +107,11 @@ func newConnection(parent context.Context, config Config, callbacks Callbacks, c
 	settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4, webrtc.NetworkTypeUDP6})
 	settings.SetSCTPMaxMessageSize(chunkBytes + chunkHeader)
 	settings.SetSCTPMaxReceiveBufferSize(1 << 20)
+	if len(config.TURN) > 0 && !config.RelayOnly {
+		// Give direct candidates a bounded head start; a relay remains available
+		// when NAT traversal cannot complete. This is not a live path migration.
+		settings.SetRelayAcceptanceMinWait(time.Second)
+	}
 	if configure != nil {
 		configure(&settings)
 	}
@@ -110,6 +119,14 @@ func newConnection(parent context.Context, config Config, callbacks Callbacks, c
 	rtcConfig := webrtc.Configuration{}
 	if len(config.STUN) > 0 {
 		rtcConfig.ICEServers = []webrtc.ICEServer{{URLs: config.STUN}}
+	}
+	for _, relay := range config.TURN {
+		rtcConfig.ICEServers = append(rtcConfig.ICEServers, webrtc.ICEServer{
+			URLs: relay.URLs, Username: relay.Username, Credential: relay.Credential,
+		})
+	}
+	if config.RelayOnly {
+		rtcConfig.ICETransportPolicy = webrtc.ICETransportPolicyRelay
 	}
 	pc, err := api.NewPeerConnection(rtcConfig)
 	if err != nil {
@@ -271,6 +288,24 @@ func (c *Connection) attach(channel *webrtc.DataChannel) {
 }
 
 func (c *Connection) Ready() bool { c.mu.Lock(); defer c.mu.Unlock(); return c.ready && !c.closed }
+
+// Transport describes the selected route without exposing candidate addresses.
+// The State callback keeps its legacy "direct" = authenticated/ready meaning;
+// callers supporting TURN use this method to distinguish a relayed RTC route.
+func (c *Connection) Transport() string {
+	if !c.Ready() || c.pc == nil || c.pc.SCTP() == nil {
+		return "connecting"
+	}
+	pair, err := c.pc.SCTP().Transport().ICETransport().GetSelectedCandidatePair()
+	if err != nil || pair == nil {
+		return "connecting"
+	}
+	if pair.Local.Typ == webrtc.ICECandidateTypeRelay || pair.Remote.Typ == webrtc.ICECandidateTypeRelay {
+		return "relay"
+	}
+	return "direct"
+}
+
 func (c *Connection) state(state string) {
 	if c.callbacks.State != nil {
 		c.callbacks.State(state)

@@ -13,6 +13,7 @@ Item {
     required property var wsModel
     required property var cardCatalogModel
     required property var tableModel
+    property var rulesSession: null
     required property var gameTableModel
     readonly property var roomSession: wsModel.roomSession
     readonly property var gameSession: wsModel.gameSession
@@ -60,6 +61,13 @@ Item {
     property real trailingChromeWidth: 0
 
     onSideboardDataChanged: updateClock()
+    onVisibleChanged: {
+        if (!visible) {
+            boardReview.close()
+            toolsPopup.close()
+            hoverPreviewVisible = false
+        }
+    }
     Component.onCompleted: updateClock()
 
     Connections {
@@ -243,6 +251,55 @@ Item {
                 }
             }
 
+            Flow {
+                Layout.fillWidth: true
+                spacing: Theme.size(8)
+                AppButton {
+                    objectName: "sideboardReviewButton"
+                    compact: true
+                    text: qsTr("Review previous game")
+                    onClicked: boardReview.open()
+                }
+
+                AppButton {
+                    objectName: "sideboardClearMainboardButton"
+                    compact: true
+                    visible: root.isPlayer && root.limitedDeck
+                    enabled: !root.ownReady && root.mainboard.length > 0
+                    text: qsTr("Remove all mainboard cards")
+                    onClicked: root.wsModel.clearSideboardMainboard()
+                }
+
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: root.sideboardData.canChooseStartingPlayer === true
+                Text {
+                    Layout.fillWidth: true
+                    textFormat: Text.PlainText
+                    text: qsTr("Choose play or draw for the next game")
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    objectName: "sideboardChoosePlayButton"
+                    compact: true
+                    text: qsTr("Play first")
+                    variant: root.sideboardData.chosenStartingSeat === root.roomSession.seatIndex ? "highlight" : "secondary"
+                    enabled: !root.ownReady
+                    onClicked: root.wsModel.chooseStartingPlayer(root.roomSession.seatIndex)
+                }
+                AppButton {
+                    objectName: "sideboardChooseDrawButton"
+                    compact: true
+                    text: qsTr("Draw first")
+                    variant: root.sideboardData.chosenStartingSeat === 1 - root.roomSession.seatIndex ? "highlight" : "secondary"
+                    enabled: !root.ownReady
+                    onClicked: root.wsModel.chooseStartingPlayer(1 - root.roomSession.seatIndex)
+                }
+            }
+
             Item {
                 id: filtersSlot
                 Layout.fillWidth: true
@@ -361,7 +418,10 @@ Item {
                     variant: root.ownReady ? "ghost" : "primary"
                     text: root.readyPending ? qsTr("Waiting…")
                           : root.ownReady ? qsTr("Cancel ready") : qsTr("Ready for next game")
-                    enabled: !root.readyPending && (root.ownReady || limitedFilters.mainboardCount
+                    enabled: !root.readyPending
+                             && (root.sideboardData.canChooseStartingPlayer !== true
+                                 || Number(root.sideboardData.chosenStartingSeat) >= 0)
+                             && (root.ownReady || limitedFilters.mainboardCount
                              >= (root.limitedDeck ? 40 : 7))
                     onClicked: {
                         root.readyPending = true
@@ -430,6 +490,11 @@ Item {
                 onClicked: toolsPopup.close()
             }
         }
+    }
+
+    SideboardBoardReview {
+        id: boardReview
+        panel: root
     }
 
     SideboardPreviewLayer {

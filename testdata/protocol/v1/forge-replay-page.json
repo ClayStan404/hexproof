@@ -1,0 +1,104 @@
+{
+  "type": "replay.forge_page",
+  "id": "fr1",
+  "payload": {
+    "replayId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "schemaVersion": 1,
+    "offset": 0,
+    "total": 1,
+    "complete": true,
+    "frames": [
+      {
+        "sequence": 1,
+        "elapsedMs": 1200,
+        "gameNumber": 1,
+        "kind": "CardChangeZone",
+        "actorSeat": 1,
+        "text": "Bob draws a card.",
+        "snapshot": {
+          "roomId": "ABCDEF",
+          "gameId": "ABCDEF-1",
+          "turn": 1,
+          "step": "main1",
+          "activeSeat": 0,
+          "prioritySeat": 1,
+          "players": [
+            {
+              "seat": 0,
+              "name": "Alice",
+              "status": "playing",
+              "life": 20,
+              "counters": [],
+              "manaPool": [
+                {
+                  "name": "W",
+                  "value": 0
+                }
+              ],
+              "commanders": [
+                {
+                  "name": "Isamaru, Hound of Konda",
+                  "casts": 2,
+                  "tax": 4,
+                  "zone": "hidden"
+                }
+              ]
+            },
+            {
+              "seat": 1,
+              "name": "Bob",
+              "status": "playing",
+              "life": 20,
+              "counters": [],
+              "manaPool": [],
+              "commanders": []
+            }
+          ],
+          "zones": [
+            {
+              "zone": "hand",
+              "ownerSeat": 0,
+              "count": 1,
+              "cards": [
+                {
+                  "id": "java-card-1",
+                  "visible": true,
+                  "identity": {
+                    "name": "Lightning Bolt",
+                    "setCode": "M11",
+                    "collectorNumber": "149"
+                  },
+                  "ownerSeat": 0,
+                  "controllerSeat": 0,
+                  "counters": []
+                }
+              ]
+            },
+            {
+              "zone": "hand",
+              "ownerSeat": 1,
+              "count": 1,
+              "cards": [
+                {
+                  "id": "java-card-2",
+                  "visible": true,
+                  "identity": {
+                    "name": "Island",
+                    "setCode": "M21",
+                    "collectorNumber": "263"
+                  },
+                  "ownerSeat": 1,
+                  "controllerSeat": 1,
+                  "counters": []
+                }
+              ]
+            }
+          ],
+          "stack": [],
+          "gameOver": false
+        },
+        "combat": []
+      }
+    ]
+  }
+}

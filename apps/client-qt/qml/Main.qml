@@ -38,9 +38,15 @@ ApplicationWindow {
     onWidthChanged: syncUiScale()
     onHeightChanged: syncUiScale()
     Component.onCompleted: {
+        SoundEffects.backend = soundEffects
         syncUiTheme()
         syncTableBackground()
         syncUiScale()
+    }
+
+    OperationSounds {
+        wsModel: ws
+        gameTableModel: gameTable
     }
 
     Connections {
@@ -112,8 +118,14 @@ ApplicationWindow {
         }
     }
 
-    function pushScreen(url, properties) { stack.push(url, properties || {}) }
-    function popScreen() { stack.pop() }
+    function pushScreen(url, properties) {
+        SoundEffects.play("click")
+        stack.push(url, properties || {})
+    }
+    function popScreen() {
+        SoundEffects.play("click")
+        stack.pop()
+    }
     function tableScreenProperties() {
         return {
             "wsModel": ws,

@@ -73,21 +73,24 @@ func writeJavaIntegrity(ctx context.Context, root string) error {
 func verifyJavaIntegrity(ctx context.Context, root string) error {
 	raw, err := os.ReadFile(filepath.Join(root, "JAVA-CHECKSUMS.json"))
 	if err != nil {
-		return errors.New("Java integrity record is missing")
+		return err
 	}
 	var files map[string]integrityEntry
 	if len(raw) > 4<<20 || json.Unmarshal(raw, &files) != nil || len(files) == 0 {
-		return errors.New("invalid Java integrity record")
+		return failure("metadata_invalid", "invalid Java integrity record")
 	}
 	for relative, record := range files {
 		if !safeName(relative) {
-			return errors.New("invalid Java path")
+			return failure("unsafe_archive", "invalid Java path")
 		}
 		name := filepath.Join(root, javaDirectory, filepath.FromSlash(relative))
 		if record.Link != "" {
 			actual, err := os.Readlink(name)
-			if err != nil || actual != record.Link {
-				return errors.New("Java link checksum mismatch")
+			if err != nil {
+				return err
+			}
+			if actual != record.Link {
+				return failure("checksum_mismatch", "Java link checksum mismatch")
 			}
 		} else if err := checkHash(ctx, name, record.SHA256); err != nil {
 			return err

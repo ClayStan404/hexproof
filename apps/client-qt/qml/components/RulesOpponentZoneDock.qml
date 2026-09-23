@@ -10,6 +10,8 @@ Surface {
 
     required property var tableController
     required property int ownerSeat
+    // compact is Surface.compact: callers bind lane.compactLane. It shrinks
+    // this dock to the 30 px count bar and selects the compact LiquidGlass well.
     readonly property var zoneKeys: [
         "library", "graveyard", "exile", "command"
     ]

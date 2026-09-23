@@ -6,6 +6,7 @@
     "connectionId": "conn-7F3A",
     "serverVersion": "0.1.0",
     "resumeToken": "fixture-resume-token",
-    "forgeRulesAvailable": false
+    "forgeRulesAvailable": false,
+    "aiModelsAvailable": true
   }
 }

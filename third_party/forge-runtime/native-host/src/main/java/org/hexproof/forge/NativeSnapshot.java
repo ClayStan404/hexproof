@@ -134,6 +134,7 @@ final class NativeSnapshot {
         JsonObject result = new JsonObject();
         result.addProperty("id", playerId(game, player));
         result.addProperty("name", player.getName());
+        if (player.isControlled()) result.addProperty("controllingPlayerId", playerId(game, player.getControllingPlayer()));
         PlayerOutcome outcome = player.getStats().getOutcome();
         result.addProperty("status", outcome != null && outcome.lossState == GameLossReason.Conceded
                 ? "conceded" : player.hasLost() ? "lost" : "playing");
@@ -193,6 +194,8 @@ final class NativeSnapshot {
         else if (battlefield) result.add("identity", new JsonObject());
         if (battlefield) {
             result.addProperty("tapped", card.isTapped());
+            result.addProperty("enteredThisTurn", card.enteredThisTurn());
+            result.addProperty("summoningSick", card.isCreature() && card.isSick());
             result.addProperty("isAttacking", game.getCombat() != null && card.isAttacking());
             if (card.isCreature()) {
                 result.addProperty("power", Integer.toString(card.getNetPower()));
@@ -200,6 +203,33 @@ final class NativeSnapshot {
             }
             result.add("counters", counters(card));
             result.addProperty("damage", card.getDamage());
+            if (visible && !card.isFaceDown()) {
+                // CardView contains only revealed choices. Raw Card getters
+                // also hold secret number/type choices that must stay private.
+                var view = card.getView();
+                JsonArray annotations = new JsonArray();
+                if (view.getNamedCard() != null)
+                    for (String name : view.getNamedCard()) annotation(annotations, "namedCard", name);
+                annotation(annotations, "chosenType", view.getChosenType());
+                annotation(annotations, "chosenType", view.getChosenType2());
+                if (view.getChosenColors() != null)
+                    for (String color : view.getChosenColors()) annotation(annotations, "chosenColor", color);
+                annotation(annotations, "chosenNumber", view.getChosenNumber());
+                annotation(annotations, "chosenMode", view.getChosenMode());
+                if (card.isClassCard() && view.getClassLevel() > 0)
+                    annotation(annotations, "classLevel", Integer.toString(view.getClassLevel()));
+                if (!annotations.isEmpty()) result.add("annotations", annotations);
+                JsonArray chosenCards = new JsonArray();
+                for (Card chosen : card.getChosenCards()) {
+                    if (!view.getChosenCards().contains(chosen.getView())) continue;
+                    Card current = game.getCardState(chosen, null);
+                    // A zone change can reuse the numeric id for a new object.
+                    // Do not reconnect an old choice to that new incarnation.
+                    if (current != null && current.equalsWithGameTimestamp(chosen)
+                            && canSeeIdentity(current, viewer)) chosenCards.add(cardId(current));
+                }
+                if (!chosenCards.isEmpty()) result.add("chosenCardIds", chosenCards);
+            }
             if (card.getAttachedTo() != null) result.addProperty("attachedTo", cardId(card.getAttachedTo()));
             JsonArray linked = new JsonArray();
             int linkedCount = 0;
@@ -214,6 +244,11 @@ final class NativeSnapshot {
                 result.add("exiledCardIds", linked);
             }
         }
+        if (visible && !card.isFaceDown() && card.isInZone(ZoneType.Command)) {
+            JsonArray annotations = new JsonArray();
+            annotation(annotations, "dungeonRoom", card.getView().getCurrentRoom());
+            if (!annotations.isEmpty()) result.add("annotations", annotations);
+        }
         return result;
     }
 
@@ -225,6 +260,14 @@ final class NativeSnapshot {
         return result;
     }
 
+    private static void annotation(JsonArray result, String kind, String value) {
+        if (value == null || value.isBlank()) return;
+        JsonObject entry = new JsonObject();
+        entry.addProperty("kind", kind);
+        entry.addProperty("value", value);
+        result.add(entry);
+    }
+
     static JsonObject identity(Card card) {
         JsonObject result = new JsonObject();
         IPaperCard paper = card.getPaperCard();
@@ -233,6 +276,7 @@ final class NativeSnapshot {
         result.addProperty("name", name);
         boolean matchesPrinting = paper != null && name.equals(paper.getName());
         String edition = matchesPrinting ? paper.getEdition() : "";
+        if (matchesPrinting && paper instanceof NativePromoCard promo) edition = promo.catalogSet;
         if (matchesPrinting && paper.isToken()) {
             // PaperToken uses the parent edition's token numbering. Its Scryfall
             // token set can differ (including editions without the usual T prefix).

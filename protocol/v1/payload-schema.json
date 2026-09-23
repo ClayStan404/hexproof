@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "protocol": "hexproof.v1",
   "definitions": [
+{"name": "DeckSelect", "goType": "DeckSelect", "fields": [{"name": "name", "type": "string", "required": true}, {"name": "format", "type": "string", "required": true, "enum": ["FormatModern", "FormatDuel", "FormatEDH"]}, {"name": "deckFormat", "type": "string", "required": true, "enum": ["DeckFormatCustom", "DeckFormatStandard", "DeckFormatPioneer", "DeckFormatModern", "DeckFormatLegacy", "DeckFormatVintage", "DeckFormatPauper", "DeckFormatDuel", "DeckFormatCommander"]}, {"name": "commander", "type": "string", "required": false}, {"name": "commanders", "type": "array", "required": false, "items": {"type": "string"}}, {"name": "mainboard", "type": "array", "required": true, "items": {"type": "object", "ref": "DeckCard"}}, {"name": "sideboard", "type": "array", "required": true, "items": {"type": "object", "ref": "DeckCard"}}]},
     {
       "name": "RoomSettings",
       "goType": "RoomSettings",
@@ -91,7 +92,9 @@
             "RulesModeForge"
           ]
         },
-        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]}
+        {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
+        {"name": "aiSource", "type": "string", "required": false, "enum": ["AISourceForge", "AISourceLocal", "AISourceOnline"]},
+        {"name": "aiDifficulty", "type": "string", "required": false, "enum": ["AIDifficultyEasy", "AIDifficultyNormal", "AIDifficultyHard"]}
       ]
     },
     {
@@ -121,6 +124,11 @@
         {
           "name": "typeLine",
           "type": "string",
+          "required": false
+        },
+        {
+          "name": "virtualBasic",
+          "type": "boolean",
           "required": false
         }
       ]
@@ -193,6 +201,8 @@
       "direction": "serverToClient",
       "goType": "SessionWelcome",
       "fields": [
+        {"name": "aiModelsAvailable", "type": "boolean", "required": true},
+        {"name": "forgeAIAvailable", "type": "boolean", "required": false},
         {
           "name": "v",
           "type": "string",
@@ -340,6 +350,8 @@
           ]
         },
         {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
+        {"name": "aiSource", "type": "string", "required": false, "enum": ["AISourceForge", "AISourceLocal", "AISourceOnline"]},
+        {"name": "aiDifficulty", "type": "string", "required": false, "enum": ["AIDifficultyEasy", "AIDifficultyNormal", "AIDifficultyHard"]},
         {
           "name": "password",
           "type": "string",

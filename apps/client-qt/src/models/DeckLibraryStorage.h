@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QString>
 #include <QStringList>
+#include <QVariantMap>
 #include <QVector>
 
 #include <atomic>
@@ -18,6 +19,8 @@ class QMutex;
 namespace hexproof::client {
 
 QString normalizedTableBackground(const QString &background);
+QString normalizedMusicTrack(const QString &track);
+QVariantMap normalizedForgePhaseStops(const QVariantMap &stops);
 
 struct DeckLibraryPreferences
 {
@@ -26,6 +29,14 @@ struct DeckLibraryPreferences
     QString cardArtProvider = QStringLiteral("auto");
     bool reuseLocalCardArt = true;
     bool animatePackOpenings = true;
+    bool audioEnabled = true;
+    qreal audioVolume = 0.35;
+    bool musicEnabled = true;
+    qreal musicVolume = 0.20;
+    QString musicTrack = QStringLiteral("gitana");
+    bool forgeFullControl = false;
+    QVariantMap forgePhaseStops;
+    bool directPeerEnabled = true;
     QString sponsorAnnouncementId;
     int cardArtRepairNoticeVersion = 0;
     qreal interfaceScale = 1.0;

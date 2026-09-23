@@ -17,6 +17,14 @@ Item {
     }
     property var assignments: ({})
     property string selectedSource: ""
+    property string hoveredCard: ""
+    property int hoveredSeat: -1
+    readonly property var chosenSource: sources.find(source => source.responseId === selectedSource) || null
+    readonly property var hoveredTarget: {
+        if (!canAct || !chosenSource) return null
+        const target = hoveredSeat >= 0 ? seatTarget(hoveredSeat) : targetFor(hoveredCard)
+        return target && canAssign(chosenSource, target) ? target : null
+    }
     readonly property var links: {
         const result = []
         for (const source of sources) {
@@ -28,7 +36,24 @@ Item {
         return result
     }
     visible: false
-    function resetAssignments() { assignments = ({}); selectedSource = "" }
+    function resetAssignments() { assignments = ({}); selectedSource = ""; hoveredCard = ""; hoveredSeat = -1 }
+    function hoverCard(id, inside) {
+        if (inside) { hoveredCard = id; hoveredSeat = -1 }
+        else if (hoveredCard === id) hoveredCard = ""
+    }
+    function hoverSeat(seat, inside) {
+        if (inside) { hoveredSeat = seat; hoveredCard = "" }
+        else if (hoveredSeat === seat) hoveredSeat = -1
+    }
+    function cancelSelection() {
+        if (selectedSource) SoundEffects.play("cancel")
+        selectedSource = ""
+    }
+    function clearSelectedAssignment() {
+        if (!canAct || !chosenSource) return
+        setAssignment(selectedSource, "")
+        cancelSelection()
+    }
     onActiveChanged: if (!active) resetAssignments()
     Connections {
         target: root.session
@@ -67,27 +92,44 @@ Item {
         assignments = result
     }
     function sourceFor(id) { return sources.find(value => value.objectId === id) || null }
-    function seatTarget(seat) {
-        const chosen = sources.find(value => value.responseId === selectedSource)
-        return chosen ? chosen.validTargets.find(target => target.kind === "player" && target.seat === seat) : null
+    function isCombatant(id) {
+        return !!id && sources.some(source => source.objectId === id
+            || source.validTargets.some(target => target.objectId === id))
     }
-    function seatActionable(seat) { return canAct && !!seatTarget(seat) }
+    function canAssign(source, target) {
+        const selected = selectedTargets(source.responseId)
+        if (selected.includes(target.responseId)) return true
+        if (source.maxAssignments <= 0
+                || (source.maxAssignments > 1 && selected.length >= source.maxAssignments)) return false
+        const count = sources.filter(value => selectedTargets(value.responseId).includes(target.responseId)).length
+        return count < target.maxAssignments
+    }
+    function targetFor(id) {
+        return chosenSource && id ? chosenSource.validTargets.find(target => target.objectId === id) : null
+    }
+    function targetActionable(id) {
+        const target = targetFor(id)
+        return canAct && !!target && canAssign(chosenSource, target)
+    }
+    function seatTarget(seat) {
+        return chosenSource ? chosenSource.validTargets.find(target => target.kind === "player" && target.seat === seat) : null
+    }
+    function seatActionable(seat) {
+        const target = seatTarget(seat)
+        return canAct && !!target && canAssign(chosenSource, target)
+    }
     function seatSelected(seat) {
         return links.some(link => link.player && link.seat === seat)
     }
     function activateSeat(seat) {
         const target = seatTarget(seat)
-        if (!canAct || !target) return false
-        setAssignment(selectedSource, target.responseId)
-        selectedSource = ""
-        return true
+        return activateTarget(target)
     }
     function actionable(id) {
         if (!canAct) return false
         const source = sourceFor(id)
-        if (source && source.maxAssignments > 0) return true
-        const chosen = sources.find(value => value.responseId === selectedSource)
-        return !!chosen && chosen.validTargets.some(target => target.objectId === id)
+        if (source && source.maxAssignments > 0 && source.validTargets.length > 0) return true
+        return targetActionable(id)
     }
     function selected(id) {
         const source = sourceFor(id)
@@ -95,25 +137,32 @@ Item {
     }
     function labelFor(id) {
         const source = sourceFor(id)
+        if (source && source.responseId === selectedSource)
+            return attacking ? qsTr("Choose attack target") : qsTr("Choose creature to block")
         if (source && selectedTargets(source.responseId).length) return attacking ? qsTr("Attacking") : qsTr("Blocking")
-        return source && source.responseId === selectedSource
-            ? attacking ? qsTr("Choose a defender") : qsTr("Choose an attacker") : ""
+        if (targetActionable(id)) return attacking ? qsTr("Attack here") : qsTr("Block this creature")
+        if (attacking && source && source.mustAssignIfAble) return qsTr("Must attack if able")
+        if (!attacking && sources.some(value => value.validTargets.some(target => target.objectId === id && target.mustReceiveIfAble)))
+            return qsTr("Must be blocked if able")
+        return ""
+    }
+    function activateTarget(target) {
+        if (!canAct || !chosenSource || !target || !canAssign(chosenSource, target)) return false
+        const removing = selectedTargets(selectedSource).includes(target.responseId)
+        if (chosenSource.maxAssignments > 1) toggleAssignment(selectedSource, target.responseId, chosenSource.maxAssignments)
+        else setAssignment(selectedSource, selectedTargets(selectedSource).includes(target.responseId) ? "" : target.responseId)
+        selectedSource = ""
+        SoundEffects.play(removing ? "cancel" : attacking ? "attack" : "block")
+        return true
     }
     function activate(id) {
         if (!canAct) return false
         const source = sourceFor(id)
-        if (source && source.maxAssignments > 0) {
-            if (attacking && source.validTargets.length === 1)
-                setAssignment(source.responseId, selectedTargets(source.responseId).length ? "" : source.validTargets[0].responseId)
-            else selectedSource = selectedSource === source.responseId ? "" : source.responseId
+        if (source && source.maxAssignments > 0 && source.validTargets.length > 0) {
+            selectedSource = selectedSource === source.responseId ? "" : source.responseId
+            SoundEffects.play(selectedSource ? "select" : "cancel")
             return true
         }
-        const chosen = sources.find(value => value.responseId === selectedSource)
-        const target = chosen ? chosen.validTargets.find(value => value.objectId === id) : null
-        if (!target) return false
-        if (chosen.maxAssignments > 1) toggleAssignment(chosen.responseId, target.responseId, chosen.maxAssignments)
-        else setAssignment(chosen.responseId, selectedTargets(chosen.responseId).includes(target.responseId) ? "" : target.responseId)
-        selectedSource = ""
-        return true
+        return activateTarget(targetFor(id))
     }
 }

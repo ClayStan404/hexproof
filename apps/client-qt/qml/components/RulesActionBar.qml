@@ -17,7 +17,6 @@ Item {
     readonly property bool informativeStatus: !tableController.roomConnected
         || session.gameOver
         || priority.yieldMode.length > 0
-        || priority.fullControl
         || (priority.stopped && priority.isPriorityPrompt)
         || tableController.rulesResponsePending
         || (priority.isPriorityPrompt && priority.automaticallyPassing)
@@ -40,11 +39,11 @@ Item {
             return qsTr("Passing until a response")
         if (priority.yieldMode === "stack")
             return qsTr("Resolving the current stack")
-        if (priority.fullControl)
-            return qsTr("Full control · every priority window pauses")
         if (priority.stopped && priority.isPriorityPrompt)
             return qsTr("Stopped at %1").arg(tableController.stepLabel(session.step))
         if (tableController.rulesResponsePending)
+            return qsTr("Waiting for the game")
+        if (tableController.silentAiDeckAdvisory === true)
             return qsTr("Waiting for the game")
         if (priority.isPriorityPrompt)
             return priority.automaticallyPassing ? qsTr("Passing priority")

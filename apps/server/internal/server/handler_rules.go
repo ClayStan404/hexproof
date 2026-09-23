@@ -79,7 +79,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		return nil
 	}
 	if promptView.Kind == "chooseCombatDamageAssignment" {
-		ctx, cancel = context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+		ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
 		snapshot, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, playerIndex)
 		cancel()
 		if snapshotErr != nil {
@@ -110,6 +110,9 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 	}
 	cancel()
 	if err != nil {
+		if game.nativeAI && !game.client.Healthy() {
+			h.failForgeGame(r)
+		}
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 			"Forge rejected the decision")
 		return nil

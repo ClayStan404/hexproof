@@ -70,6 +70,68 @@ func TestLiveForgeRuntime(t *testing.T) {
 			}
 		})
 	}
+	t.Run("london_mulligan_keep_before_bottom", func(t *testing.T) {
+		client := liveStartClient(t, config)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		game, err := client.StartGame(ctx, liveStartRequest("london-mulligan", 2, "Constructed", 20,
+			liveDeck("Forest", "Forest", 60, 0)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.AbortGame(context.Background(), game.SessionID)
+		mulligans, bottomed, enteredPlay := 0, false, false
+		kept := [2]bool{}
+		stats := livePlayWithPolicy(t, client, game.SessionID, 2, 12,
+			func(prompt PromptView, view GameView, stats map[string]int) PromptResponse {
+				switch prompt.Kind {
+				case "mulligan":
+					if kept[prompt.PlayerIndex] {
+						t.Fatalf("mulligan decision repeated after keeping: %+v", prompt)
+					}
+					if prompt.PlayerIndex == 0 && mulligans < 2 {
+						mulligans++
+						return PromptResponse{ResponseID: "$mulligan"}
+					}
+					kept[prompt.PlayerIndex] = true
+					return PromptResponse{ResponseID: "$keep"}
+				case "mulliganPutBack":
+					if prompt.PlayerIndex != 0 || !kept[0] || mulligans != 2 || bottomed ||
+						prompt.CardMinimum != 2 || prompt.CardMaximum != 2 || len(prompt.Cards) != 7 {
+						t.Fatalf("put-back must follow keep with seven candidates and exact count two: %+v", prompt)
+					}
+					raw, err := client.Prompt(ctx, game.SessionID, 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, err := BuildPromptResponse(raw, 0, prompt.PromptID,
+						PromptResponse{ResponseID: "$submit", CardIDs: []string{prompt.Cards[1].ID}}); err == nil {
+						t.Fatal("accepted wrong London mulligan put-back count")
+					}
+					raw, err = client.Prompt(ctx, game.SessionID, 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					unchanged, err := NormalizePrompt(raw)
+					if err != nil || unchanged.PromptID != prompt.PromptID || unchanged.Kind != "mulliganPutBack" {
+						t.Fatalf("invalid response changed native prompt: %+v %v", unchanged, err)
+					}
+					bottomed = true
+					return PromptResponse{ResponseID: "$submit", CardIDs: []string{prompt.Cards[1].ID, prompt.Cards[5].ID}}
+				case "chooseCards":
+					t.Fatalf("London mulligan exposed a generic card prompt: %+v", prompt)
+				case "chooseAction":
+					if !kept[0] || !kept[1] || !bottomed {
+						t.Fatalf("priority started before London mulligan completed: kept=%v bottomed=%v", kept, bottomed)
+					}
+					enteredPlay = true
+				}
+				return liveAnswer(t, prompt, view, stats)
+			}, nil)
+		if !enteredPlay || stats["mulliganPutBack"] != 1 || stats["mulligan"] != 4 {
+			t.Fatalf("incomplete London mulligan flow: %v", stats)
+		}
+	})
 	t.Run("trample_two_blockers", func(t *testing.T) {
 		client := liveStartClient(t, config)
 		request := liveStartRequest("trample-two-blockers", 2, "Constructed", 20,
@@ -469,8 +531,10 @@ func liveAnswer(t *testing.T, prompt PromptView, view GameView, stats map[string
 	case "chooseBlockers":
 		// These conformance decks intentionally take damage to finish a game.
 	case "chooseCards", "mulliganPutBack":
-		for i := 0; i < prompt.CardMinimum; i++ {
-			answer.CardIDs = append(answer.CardIDs, prompt.Cards[i].ID)
+		for _, card := range prompt.Cards {
+			if !card.ReadOnly && len(answer.CardIDs) < prompt.CardMinimum {
+				answer.CardIDs = append(answer.CardIDs, card.ID)
+			}
 		}
 	case "chooseBoardTargets":
 		for _, target := range prompt.Targets {

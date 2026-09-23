@@ -149,6 +149,7 @@ func (r *Room) RulesGameSnapshot(connID string) (protocol.GameSnapshot, error) {
 
 func (r *Room) prepareNextRulesGame(startingSeat int) {
 	r.Game = nil
+	r.rulesReview = nil
 	r.LoadID++
 	r.RulesStartingSeat = nil
 	if startingSeat >= 0 {

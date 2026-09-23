@@ -4,6 +4,47 @@ Hexproof preserves the notices and license terms of the software and data it
 uses. Runtime packages may contain additional notices beside the relevant
 component.
 
+## Operation sound effects
+
+The client includes edited CC0 recordings from Kenney's Casino Audio 1.1,
+Interface Sounds 1.0, and Impact Sounds 1.0. Earlier cast/resolve cues used
+JaggedStone's CC0 Magic Spell SFX; those cues now use the owner's replacements.
+Sources, original notices, per-file SHA-256 hashes, and processing details are
+preserved in `apps/client-qt/assets/audio/`. Portable packages include the
+same provenance in `licenses/audio/`. The clips are embedded and require no
+runtime asset service.
+
+Sources: <https://kenney.nl/assets/casino-audio>,
+<https://kenney.nl/assets/interface-sounds>,
+<https://kenney.nl/assets/impact-sounds>,
+<https://opengameart.org/content/magic-spell-sfx>.
+License: <https://creativecommons.org/publicdomain/zero/1.0/>.
+
+The turn cue adapts **UI Decline or Back** (`Decline.wav`) by David Mckee
+(ViRiX), under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+Source: <https://opengameart.org/content/ui-decline-or-back>.
+The derivative preserves the complete cue with mono conversion, volume
+normalization, and a short tail fade. Requested attribution:
+
+> Some of the sounds in this project were created by David Mckee (ViRiX)
+> soundcloud.com/virix
+
+Author: <https://soundcloud.com/virix>.
+
+The cast and resolve cues adapt the owner-provided `cast.wav` and `Accept.mp3`.
+Their complete decoded recordings are converted to mono PCM16 and normalized.
+The supplied files do not identify authors or redistribution licenses, so the
+CC0 default and source code license do not apply to these two recordings.
+Their source and derivative hashes are recorded in the audio manifest.
+
+## Background music
+
+`Gitana.mp3`, `bgm2.ogg`, and `bgm3.ogg` are unmodified recordings supplied by
+the project owner. The supplied files do not identify authors or redistribution
+licenses; they are not covered by the source code license or the sound-effect
+licenses. Their checksums and provenance are recorded in `apps/client-qt/assets/music/`;
+portable packages preserve this record in `licenses/music/`.
+
 ## Draftmancer FRA pair reference
 
 `tools/card-database-builder/fra-pairs.json` adapts the FRA name-pair reference

@@ -35,7 +35,7 @@ func TestCubeTableViewReentryReleasesRoomBeforeRetention(t *testing.T) {
 				// even when the event's unattended grace has already expired.
 				host := &Session{ConnectionID: "offline-player", DisplayName: "Offline player"}
 				r, _, _, table, err := h.hub.createTournamentRoom("Retained table", format, deckFormat,
-					protocol.MatchBO1, protocol.CardLoadBackground, 2, event.ID, "pairing", "player", host)
+					protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeManual, 2, event.ID, "pairing", "player", host)
 				if err != nil {
 					t.Fatal(err)
 				}

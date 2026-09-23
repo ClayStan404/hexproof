@@ -18,7 +18,8 @@ import (
 
 const maxExpandedBytes int64 = 2 << 30
 
-func extract(ctx context.Context, archive, format, destination string) error {
+func extract(ctx context.Context, archive, format, destination string) (resultErr error) {
+	defer func() { resultErr = classifyFailure(resultErr, "extract", diagnosticComponent(ctx), "archive_invalid") }()
 	root, err := os.OpenRoot(destination)
 	if err != nil {
 		return err
@@ -29,7 +30,7 @@ func extract(ctx context.Context, archive, format, destination string) error {
 	write := func(name string, size int64, mode os.FileMode, reader io.Reader) error {
 		total += size
 		if !safeName(name) || size < 0 || total > maxExpandedBytes || count > 100000 {
-			return errors.New("invalid archive entry")
+			return failure("unsafe_archive", "invalid archive entry")
 		}
 		if err := root.MkdirAll(filepath.Dir(filepath.FromSlash(name)), 0700); err != nil {
 			return err
@@ -53,14 +54,14 @@ func extract(ctx context.Context, archive, format, destination string) error {
 		}
 		defer archive.Close()
 		if len(archive.File) > 100000 {
-			return errors.New("archive has too many entries")
+			return failure("unsafe_archive", "archive has too many entries")
 		}
 		for _, entry := range archive.File {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
 			if !safeName(entry.Name) {
-				return errors.New("unsafe archive path")
+				return failure("unsafe_archive", "unsafe archive path")
 			}
 			if entry.FileInfo().IsDir() {
 				if err := root.MkdirAll(filepath.FromSlash(entry.Name), 0700); err != nil {
@@ -69,7 +70,7 @@ func extract(ctx context.Context, archive, format, destination string) error {
 				continue
 			}
 			if !entry.Mode().IsRegular() || entry.UncompressedSize64 > uint64(maxExpandedBytes) {
-				return errors.New("unsupported zip entry")
+				return failure("unsafe_archive", "unsupported zip entry")
 			}
 			reader, err := entry.Open()
 			if err != nil {
@@ -84,7 +85,7 @@ func extract(ctx context.Context, archive, format, destination string) error {
 		return nil
 	}
 	if format != "tar.gz" {
-		return errors.New("unsupported archive format")
+		return failure("archive_invalid", "unsupported archive format")
 	}
 	file, err := os.Open(archive)
 	if err != nil {
@@ -111,10 +112,10 @@ func extract(ctx context.Context, archive, format, destination string) error {
 		}
 		count++
 		if count > 100000 {
-			return errors.New("archive has too many entries")
+			return failure("unsafe_archive", "archive has too many entries")
 		}
 		if !safeName(header.Name) {
-			return errors.New("unsafe archive path")
+			return failure("unsafe_archive", "unsafe archive path")
 		}
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -128,24 +129,24 @@ func extract(ctx context.Context, archive, format, destination string) error {
 		case tar.TypeSymlink, tar.TypeLink:
 			links = append(links, header)
 			if len(links) > 10000 {
-				return errors.New("too many archive links")
+				return failure("unsafe_archive", "too many archive links")
 			}
 		default:
-			return errors.New("unsupported archive entry")
+			return failure("unsafe_archive", "unsupported archive entry")
 		}
 	}
 	// Create links last. os.Root additionally rejects links escaping the private
 	// staging tree. Java license links stay intact on Unix distributions.
 	for _, link := range links {
 		if path.IsAbs(link.Linkname) || strings.ContainsAny(link.Linkname, "\\:\x00") {
-			return errors.New("unsafe archive link")
+			return failure("unsafe_archive", "unsafe archive link")
 		}
 		resolved := link.Linkname
 		if link.Typeflag == tar.TypeSymlink {
 			resolved = path.Join(path.Dir(link.Name), link.Linkname)
 		}
 		if !safeName(resolved) {
-			return errors.New("unsafe archive link")
+			return failure("unsafe_archive", "unsafe archive link")
 		}
 		if link.Typeflag == tar.TypeSymlink {
 			err = root.Symlink(filepath.FromSlash(link.Linkname), filepath.FromSlash(link.Name))

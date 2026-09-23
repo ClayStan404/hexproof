@@ -27,6 +27,9 @@ func liveForgeContinueBO3(t *testing.T, ctx context.Context, srv *httptest.Serve
 		if host.metadata.Result == nil || host.metadata.Result.MatchFinished || host.metadata.Sideboard == nil {
 			t.Fatal("BO3 ended instead of opening its five-minute private sideboard gate")
 		}
+		if handler.config.RetentionDir != "" {
+			liveForgeReplayDenied(t, ctx, host)
+		}
 		previousLoser := 1 - *host.snapshot.WinnerSeat
 		previousGameID := host.snapshot.GameID
 		if gameNumber == 2 {

@@ -1,0 +1,340 @@
+{
+  "version": 1,
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "format": {
+    "sampleRate": 44100,
+    "channels": 1,
+    "encoding": "PCM signed 16-bit little-endian"
+  },
+  "processing": "Decode and downmix with FFmpeg highpass=f=55,lowpass=f=6500 to float32 at 44100 Hz. Trim leading samples below 0.5% of each source peak, retaining 2 ms pre-roll. Sum aligned layers with the given gains, truncate to maximum duration, apply a 4 ms linear fade-in and 35 ms linear fade-out, then normalize the final peak to the specified dBFS and round to signed PCM16.",
+  "tool": "ffmpeg version n9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "cues": [
+    {
+      "cue": "click",
+      "file": "click.wav",
+      "maximumDurationSeconds": 0.1,
+      "durationSeconds": 0.09712018140589569,
+      "peakDbFS": -14,
+      "rmsDbFS": -34.03,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/interface-sounds",
+          "download": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+          "member": "Audio/click_001.ogg",
+          "sha256": "ccfb7fa0cccdd9faec0eb16033c732b1e308d139d80f799161495d58f7adcdb9",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "cb1315b4aee5cdfedd938b15b231733ed185a518a4ba44f95177f7b35509d0b1"
+    },
+    {
+      "cue": "select",
+      "file": "select.wav",
+      "maximumDurationSeconds": 0.26,
+      "durationSeconds": 0.26,
+      "peakDbFS": -12,
+      "rmsDbFS": -34.1,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/casino-audio",
+          "download": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+          "member": "Audio/card-slide-1.ogg",
+          "sha256": "006cf9822d15d7063f8899e56041f41646df30adb6fbd8b974ee5d5420012690",
+          "gain": 1,
+          "leadingTrimSamples": 4067
+        }
+      ],
+      "sha256": "ab89f0ce632b62f49deee9912d4d41301a67692b1ee25f79304e9300b74aec0b"
+    },
+    {
+      "cue": "draw",
+      "file": "draw.wav",
+      "maximumDurationSeconds": 0.42,
+      "durationSeconds": 0.42,
+      "peakDbFS": -9,
+      "rmsDbFS": -32.47,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/casino-audio",
+          "download": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+          "member": "Audio/card-slide-3.ogg",
+          "sha256": "af2ab62656cb3df73316ce5771b8ee1111a840962b21607e3202151e7413c52c",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "7e494676dd0aa93c5fd9b68a5bfbf2e473928e62b90f239ceec74e4fa9600524"
+    },
+    {
+      "cue": "play",
+      "file": "play.wav",
+      "maximumDurationSeconds": 0.46,
+      "durationSeconds": 0.46,
+      "peakDbFS": -9,
+      "rmsDbFS": -34.65,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/casino-audio",
+          "download": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+          "member": "Audio/card-place-1.ogg",
+          "sha256": "d8f26c33a665dcbdcc6f632f6050bc9dd548feb0d4942d4547615926d3926810",
+          "gain": 1,
+          "leadingTrimSamples": 3071
+        }
+      ],
+      "sha256": "01959f40b0cf073fcb364b1368414d1c9562e797c977e250883d293eb3b36252"
+    },
+    {
+      "cue": "tap",
+      "file": "tap.wav",
+      "maximumDurationSeconds": 0.28,
+      "durationSeconds": 0.28,
+      "peakDbFS": -12,
+      "rmsDbFS": -37.97,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/casino-audio",
+          "download": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+          "member": "Audio/card-place-2.ogg",
+          "sha256": "903d5050718595e87864dd755643b476ab1a5533080dcc2dddc72570d33ba9f8",
+          "gain": 1,
+          "leadingTrimSamples": 1737
+        }
+      ],
+      "sha256": "3ade4a2857f5844783ab2e9386442bc4e83a70b85eb5fec985b04ed7bc577dc0"
+    },
+    {
+      "cue": "shuffle",
+      "file": "shuffle.wav",
+      "maximumDurationSeconds": 0.9,
+      "durationSeconds": 0.9,
+      "peakDbFS": -12,
+      "rmsDbFS": -40.3,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/casino-audio",
+          "download": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+          "member": "Audio/card-shuffle.ogg",
+          "sha256": "96c84883a30845ede723a4cf2e8369e9837e7dd4e0d4eb0212b0a7ed21b0f544",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "70554237db91e815c21e57d71d201adbd0e14a28f3f1a40b10f24a4872167674"
+    },
+    {
+      "cue": "attack",
+      "file": "attack.wav",
+      "maximumDurationSeconds": 0.42,
+      "durationSeconds": 0.42,
+      "peakDbFS": -10,
+      "rmsDbFS": -33.0,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/casino-audio",
+          "download": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+          "member": "Audio/card-shove-1.ogg",
+          "sha256": "1ea667aa6795d5f14239192116ebcbd8f3f47eb1c7faaf2ec56844b9067b8b06",
+          "gain": 0.8,
+          "leadingTrimSamples": 0
+        },
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/impact-sounds",
+          "download": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+          "member": "Audio/impactSoft_medium_000.ogg",
+          "sha256": "7d3ba0bb5e60a11b5d3e558c141303dcf494256675fbf753c0d252d2cf0481e3",
+          "gain": 0.25,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "0a41560ae0609f620a4b0c9668583eb1eb112be0b50ffa6b7562036bad82da93"
+    },
+    {
+      "cue": "block",
+      "file": "block.wav",
+      "maximumDurationSeconds": 0.3,
+      "durationSeconds": 0.2755328798185941,
+      "peakDbFS": -11,
+      "rmsDbFS": -31.66,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/impact-sounds",
+          "download": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+          "member": "Audio/impactWood_light_000.ogg",
+          "sha256": "eb45e35b4bed784d3f120de4afec4b0d6ac09d9e143cce8cfcb7d739e1b1f3c3",
+          "gain": 0.7,
+          "leadingTrimSamples": 0
+        },
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/interface-sounds",
+          "download": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+          "member": "Audio/glass_001.ogg",
+          "sha256": "183eebee20eb0a532b0b85104d139cbf2673eb66d95c3cc733ac9ea98362e7e8",
+          "gain": 0.3,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "371e5375db134c2c4a3e96c70649fa12ad8f6759cbd2586aae350b2d7a66586a"
+    },
+    {
+      "cue": "cast",
+      "file": "cast.wav",
+      "maximumDurationSeconds": 2.0,
+      "durationSeconds": 2.0,
+      "peakDbFS": -11,
+      "rmsDbFS": -33.99,
+      "license": "Not specified by the supplied file; not covered by the source code license or the sound-effect pack licenses",
+      "sources": [
+        {
+          "source": "Owner-provided cast.wav from the repository root",
+          "member": "cast.wav",
+          "sha256": "af8f4d5128284735731b710e5a54d00e3bc30622d21f3c46cceaccf17e69c473",
+          "gain": 0.43479525891916204,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "fc1c72377b6d62bdfd9b2d20c2fea9e9b638e65000d7f3dba605fbedbf00777b",
+      "processing": "Overrides the default processing: decode the complete source with FFmpeg, average stereo channels to mono float32 at 44100 Hz, normalize to -11 dBFS peak, and round to signed PCM16. Preserve all decoded frames; no trimming, filtering, fades, pitch changes, time stretching, or layering.",
+      "licenseUrl": null
+    },
+    {
+      "cue": "resolve",
+      "file": "resolve.wav",
+      "maximumDurationSeconds": 3.204172335600907,
+      "durationSeconds": 3.204172335600907,
+      "peakDbFS": -12,
+      "rmsDbFS": -31.95,
+      "license": "Not specified by the supplied file; not covered by the source code license or the sound-effect pack licenses",
+      "sources": [
+        {
+          "source": "Owner-provided Accept.mp3 from the repository root",
+          "member": "Accept.mp3",
+          "sha256": "d5a32a582fe82b1a9d5cdca66bf9928fca04c2df8414ca5d65ed652a5728538d",
+          "gain": 0.7716488742880048,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "bcf620897cb684fe545eba893b5e3d730a9b8d4b28d70e7793bbefd2a13b49ef",
+      "processing": "Overrides the default processing: decode the complete source with FFmpeg, average stereo channels to mono float32 at 44100 Hz, normalize to -12 dBFS peak, and round to signed PCM16. Preserve all decoded frames; no trimming, filtering, fades, pitch changes, time stretching, or layering.",
+      "licenseUrl": null
+    },
+    {
+      "cue": "turn",
+      "file": "turn.wav",
+      "maximumDurationSeconds": 3.204172335600907,
+      "durationSeconds": 3.204172335600907,
+      "peakDbFS": -12,
+      "rmsDbFS": -31.24,
+      "license": "CC-BY-3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "sources": [
+        {
+          "title": "UI Decline or Back",
+          "author": "David Mckee (ViRiX)",
+          "authorUrl": "https://soundcloud.com/virix",
+          "page": "https://opengameart.org/content/ui-decline-or-back",
+          "download": "https://opengameart.org/sites/default/files/Decline.wav",
+          "member": "Decline.wav",
+          "sha256": "560499b879decde5ab68a04c6247e355f76817447a69fdb2b3308f817198d28d",
+          "gain": 0.9139913895697731,
+          "leadingTrimSamples": 0,
+          "attribution": "Some of the sounds in this project were created by David Mckee (ViRiX)\nsoundcloud.com/virix"
+        }
+      ],
+      "sha256": "e12094bcd01fb9786d70edba8d29d8f41e9d1ce37e7cf3b39be4bdf084643ae5",
+      "processing": "Overrides the default processing: preserve all 141304 source frames at 44100 Hz, downmix stereo PCM16 by averaging left and right samples, apply a 25 ms linear fade-out to the existing quiet tail, then normalize to -12 dBFS peak and round to mono signed PCM16. No filtering, pitch changes, time stretching, or layering."
+    },
+    {
+      "cue": "damage",
+      "file": "damage.wav",
+      "maximumDurationSeconds": 0.2,
+      "durationSeconds": 0.11510204081632654,
+      "peakDbFS": -10,
+      "rmsDbFS": -24.11,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/impact-sounds",
+          "download": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+          "member": "Audio/impactSoft_medium_000.ogg",
+          "sha256": "7d3ba0bb5e60a11b5d3e558c141303dcf494256675fbf753c0d252d2cf0481e3",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "ab9292f17d28d98f44909eaab38522bc814b80cc3415b4cd5477fe26174a93a5"
+    },
+    {
+      "cue": "confirm",
+      "file": "confirm.wav",
+      "maximumDurationSeconds": 0.29,
+      "durationSeconds": 0.28984126984126984,
+      "peakDbFS": -13,
+      "rmsDbFS": -23.54,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/interface-sounds",
+          "download": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+          "member": "Audio/confirmation_001.ogg",
+          "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "dd9dad7213a3ca753a07d4401d9a93de5aa4f3784d827dbbb3f2adc214372928"
+    },
+    {
+      "cue": "cancel",
+      "file": "cancel.wav",
+      "maximumDurationSeconds": 0.07,
+      "durationSeconds": 0.0609750566893424,
+      "peakDbFS": -14,
+      "rmsDbFS": -36.34,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/interface-sounds",
+          "download": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+          "member": "Audio/back_001.ogg",
+          "sha256": "07db973f79f6ae0f2edc34561e7592e24d0577455919fb602cb8ecc0da991dcf",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "475219709ff1dcc278d4c6c42232fd4c64fa5e5c7e7397eb00f5f7e3c09d762a"
+    },
+    {
+      "cue": "error",
+      "file": "error.wav",
+      "maximumDurationSeconds": 0.17,
+      "durationSeconds": 0.16165532879818595,
+      "peakDbFS": -13,
+      "rmsDbFS": -28.91,
+      "sources": [
+        {
+          "author": "Kenney",
+          "page": "https://kenney.nl/assets/interface-sounds",
+          "download": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+          "member": "Audio/error_001.ogg",
+          "sha256": "46e67425d16339772e8d328fb36a49426c9467418686e11beeb71ff84b0f6433",
+          "gain": 1,
+          "leadingTrimSamples": 0
+        }
+      ],
+      "sha256": "b3f253766c258c07771f8880787af25760bc24352611e07a4b30335e53e23206"
+    }
+  ]
+}

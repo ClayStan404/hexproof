@@ -258,15 +258,20 @@ ColumnLayout {
                             elide: Text.ElideRight
                         }
                         Text {
+                            objectName: "topCardStatus_" + cardRow.modelData.card.id
                             readonly property bool assigned:
                                 !!root.popupController.topCardAssignments[cardRow.modelData.card.id]
                             readonly property bool faceDown:
                                 root.popupController.topCardAssignment(cardRow.modelData.card.id).faceDown === true
+                            readonly property bool revealed:
+                                !faceDown && root.popupController.topCardAssignment(
+                                    cardRow.modelData.card.id).reveal === true
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
                             visible: assigned || faceDown
                             text: [assigned ? qsTr("Assigned") : "",
-                                   faceDown ? qsTr("Face down") : ""]
+                                   faceDown ? qsTr("Face down") : "",
+                                   revealed ? qsTr("Reveal in log") : ""]
                                   .filter(label => label.length > 0).join(" · ")
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(9)

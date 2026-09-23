@@ -58,7 +58,7 @@ func TestCommanderDraftPackSettingsAndBatchCompletion(t *testing.T) {
 				}
 				assertAutoDraftPoolConservation(t, event)
 				for _, player := range event.Players {
-					if confirmations[player.ID] != ((packs+batch-1)/batch)*9 {
+					if confirmations[player.ID] != ((packs+batch-1)/batch)*10 {
 						t.Fatalf("unexpected manual confirmations: %v", confirmations)
 					}
 				}

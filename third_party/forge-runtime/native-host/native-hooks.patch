@@ -1,3 +1,123 @@
+diff --git a/forge-ai/src/main/java/forge/ai/AiController.java b/forge-ai/src/main/java/forge/ai/AiController.java
+index 4908a2b8a68f342abf7733c87091f1b1fd4be6f6..1e24afe694f8c889522f3c8a8e60fa407b99436f 100644
+--- a/forge-ai/src/main/java/forge/ai/AiController.java
++++ b/forge-ai/src/main/java/forge/ai/AiController.java
+@@ -1679,6 +1679,20 @@ public class AiController {
+ 
+             return null;
+         });
++        // A headless host must retain its game RNG, IDs, cancellation and failure
++        // ownership on evaluation workers. Never continue with a timed-out worker
++        // still able to mutate a live game; the dedicated host is then retired.
++        forge.util.ThreadUtil.ExecutionContext context = forge.util.ThreadUtil.executionContext();
++        if (context != null) {
++            context.gameExecutor().execute(future);
++            try {
++                return future.get(game.getAITimeout(), TimeUnit.SECONDS);
++            } catch (InterruptedException | ExecutionException | TimeoutException e) {
++                future.cancel(true);
++                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
++                throw new IllegalStateException("Hosted AI evaluation failed", e);
++            }
++        }
+         Thread t = new Thread(future, "Game AI Eval");
+         t.setDaemon(true);
+         t.start();
+diff --git a/forge-ai/src/main/java/forge/ai/AiProfileUtil.java b/forge-ai/src/main/java/forge/ai/AiProfileUtil.java
+index 03ab37f96542592798fa5884cbc02f0f9f8ea700..a2fdc8a5c719011edff32a66298a246a3ac10d7b 100644
+--- a/forge-ai/src/main/java/forge/ai/AiProfileUtil.java
++++ b/forge-ai/src/main/java/forge/ai/AiProfileUtil.java
+@@ -141,6 +141,8 @@ public class AiProfileUtil {
+         String val = null;
+         if (!(p instanceof LobbyPlayerAi))
+             return "";
++        String override = ((LobbyPlayerAi) p).getAiProperty(fp0);
++        if (override != null) return override;
+         String profile = ((LobbyPlayerAi) p).getAiProfile();
+        
+         if (loadedProfiles.get(profile) != null) {
+diff --git a/forge-ai/src/main/java/forge/ai/ComputerUtilMana.java b/forge-ai/src/main/java/forge/ai/ComputerUtilMana.java
+index 5f96dead716c57a1fb25f33225dbe7d29da1d299..a84559768b7069d4a14e9a2e2938b0a2b7a4c173 100644
+--- a/forge-ai/src/main/java/forge/ai/ComputerUtilMana.java
++++ b/forge-ai/src/main/java/forge/ai/ComputerUtilMana.java
+@@ -49,6 +49,20 @@ import java.util.*;
+ import java.util.stream.Collectors;
+ 
+ public class ComputerUtilMana {
++    private static final ThreadLocal<Boolean> HUMAN_AUTO_PAY = new ThreadLocal<>();
++
++    /** Keep a human auto-pay preference scoped through Forge's temporary AI controller. */
++    public static void withHumanAutoPay(final Runnable action) {
++        Boolean previous = HUMAN_AUTO_PAY.get();
++        HUMAN_AUTO_PAY.set(true);
++        try {
++            action.run();
++        } finally {
++            if (previous == null) HUMAN_AUTO_PAY.remove();
++            else HUMAN_AUTO_PAY.set(previous);
++        }
++    }
++
+     private final static boolean DEBUG_MANA_PAYMENT = false;
+ 
+     public static boolean canPayManaCost(ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean effect) {
+@@ -324,6 +338,42 @@ public class ComputerUtilMana {
+             }
+         }
+ 
++        // Human Auto-pay should not tap several lands when one safe colorless
++        // source can cover the entire remaining generic cost. Keep native
++        // restrictions, strategic preferences and AI/converge behavior intact.
++        if (Boolean.TRUE.equals(HUMAN_AUTO_PAY.get()) && manaSourceType.isEmpty()
++                && !saHost.hasSVar("AIManaPref") && !saHost.hasConverge()
++                && toPay == ManaCostShard.GENERIC && cost.getGenericManaAmount() > 1
++                && cost.getGenericManaAmount() == cost.getConvertedManaCost()) {
++            SpellAbility singleLand = null;
++            int leastProduced = Integer.MAX_VALUE;
++            for (SpellAbility candidate : maList) {
++                Card land = candidate.getHostCard();
++                Cost activation = candidate.getPayCosts();
++                if (land == saHost || !land.isLand() || land.isCreature() || land.isEnchanted() || land.isTapped()
++                        || candidate.getApi() != ApiType.Mana || candidate.getSubAbility() != null
++                        || !candidate.getParamOrDefault("Produced", "").equals("C")
++                        || activation.getCostParts().size() != 1 || !(activation.getCostParts().get(0) instanceof CostTap)
++                        || AiCardMemory.isRememberedCard(ai, land, MemorySet.PAYS_TAP_COST)
++                        || !canPayShardWithSpellAbility(toPay, ai, candidate, sa, cost, checkCosts, cost.getXManaCostPaidByColor())) {
++                    continue;
++                }
++                String produced = predictMana(candidate, ai, toPay);
++                if (!produced.matches("C(?: C)*")) continue;
++                int amount = produced.split(" ").length;
++                if (amount >= cost.getGenericManaAmount() && amount < leastProduced) {
++                    singleLand = candidate;
++                    leastProduced = amount;
++                }
++            }
++            if (singleLand != null) {
++                List<SpellAbility> preferred = new ArrayList<>(maList);
++                preferred.remove(singleLand);
++                preferred.add(0, singleLand);
++                maList = preferred;
++            }
++        }
++
+         for (final SpellAbility ma : maList) {
+             // this rarely seems like a good idea
+             if (ma.getHostCard() == saHost) {
+diff --git a/forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java b/forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java
+index 09d9ad01ad2b70d2775f87aad27785cba439361b..99b7ce3c4afab5a75fd0005a25f1a38147e8e9bd 100644
+--- a/forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java
++++ b/forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java
+@@ -26,6 +26,9 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
+         Logger.debug("[AI Preferences] " + name + " using profile " + profileName);
+         aiProfile = profileName;
+     }
++    /** Optional per-player overrides supplied by a host; null retains the profile value. */
++    public String getAiProperty(AiProps property) { return null; }
++
+     public String getAiProfile() {
+         return aiProfile;
+     }
 diff --git a/forge-core/src/main/java/forge/util/MyRandom.java b/forge-core/src/main/java/forge/util/MyRandom.java
 index 51ade4c7e2a2eb0947cb2343646950c5972d4335..6d582011ff6576766aad1e77ff1a0e7908511d39 100644
 --- a/forge-core/src/main/java/forge/util/MyRandom.java
@@ -32,14 +152,15 @@ index 51ade4c7e2a2eb0947cb2343646950c5972d4335..6d582011ff6576766aad1e77ff1a0e79
  
          return groups;
 diff --git a/forge-core/src/main/java/forge/util/ThreadUtil.java b/forge-core/src/main/java/forge/util/ThreadUtil.java
-index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5cb65c777b 100644
+index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167397013be 100644
 --- a/forge-core/src/main/java/forge/util/ThreadUtil.java
 +++ b/forge-core/src/main/java/forge/util/ThreadUtil.java
-@@ -1,8 +1,41 @@
+@@ -1,8 +1,45 @@
  package forge.util;
  
  import java.util.concurrent.*;
 +import java.util.Random;
++import java.util.Map;
 +import java.util.function.Supplier;
  
  public class ThreadUtil {
@@ -53,6 +174,9 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5c
 +        int nextId(String kind);
 +        void resetId(String kind, int value);
 +        <T> T cache(String kind, Supplier<T> create);
++        default Map<String, String> abilityPresentation(String cardName, Map<String, String> parameters) {
++            return Map.of();
++        }
 +    }
 +    public interface Scope extends AutoCloseable { @Override void close(); }
 +    private static final ThreadLocal<ExecutionContext> execution = new ThreadLocal<>();
@@ -77,7 +201,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5c
      static {
          System.out.printf("(ThreadUtil first call): Running with priority %d%n", Thread.currentThread().getPriority());
      }
-@@ -41,10 +74,13 @@ public class ThreadUtil {
+@@ -41,10 +78,13 @@ public class ThreadUtil {
      }
  
      public static void invokeInGameThread(Runnable toRun) {
@@ -92,7 +216,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5c
          return getScheduledPool().schedule(inputUpdater, milliseconds, TimeUnit.MILLISECONDS);
      }
  
-@@ -54,7 +90,8 @@ public class ThreadUtil {
+@@ -54,7 +94,8 @@ public class ThreadUtil {
  
      private static ExecutorService service = Executors.newWorkStealingPool();
      public static ExecutorService getServicePool() {
@@ -102,7 +226,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5c
      }
      public static void refreshServicePool() {
          service = Executors.newWorkStealingPool();
-@@ -63,7 +100,7 @@ public class ThreadUtil {
+@@ -63,7 +104,7 @@ public class ThreadUtil {
          Future<T> future = null;
          T result;
          try {
@@ -111,7 +235,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5c
              result = future.get(millis, TimeUnit.MILLISECONDS);
          } catch (Exception e) {
              result = null;
-@@ -74,6 +111,7 @@ public class ThreadUtil {
+@@ -74,6 +115,7 @@ public class ThreadUtil {
          return result;
      }
      public static <T> T executeWithTimeout(Callable<T> task, int milliseconds) {
@@ -119,7 +243,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..a091632522574529c3254a3fb37a0b5c
          ExecutorService executor = Executors.newCachedThreadPool(r -> {
              Thread thread = new Thread(r);
              thread.setDaemon(true);
-@@ -90,7 +128,8 @@ public class ThreadUtil {
+@@ -90,7 +132,8 @@ public class ThreadUtil {
          }
          finally {
             future.cancel(true);
@@ -163,6 +287,50 @@ index aeefd9bdc3b397997a5e0622211b8e82f1216b68..b4b63b4d924377a74c7fe172c31d1cdf
              if (repres != ReplacementResult.NotReplaced && repres != ReplacementResult.Updated) {
                  // reset failed manifested Cards back to original
                  if ((c.isManifested() || c.isCloaked()) && !c.isInPlay()) {
+diff --git a/forge-game/src/main/java/forge/game/GameActionUtil.java b/forge-game/src/main/java/forge/game/GameActionUtil.java
+index e6b2b8f66458f16b2fc1fcb801d27ffa2651bcca..a1e7965449c734ef2ee2174ef0e2ca246b2291e8 100644
+--- a/forge-game/src/main/java/forge/game/GameActionUtil.java
++++ b/forge-game/src/main/java/forge/game/GameActionUtil.java
+@@ -1001,9 +1001,6 @@ public final class GameActionUtil {
+                 oldCard.removeCloneState(oldCard.getPrototypeTimestamp());
+             }
+ 
+-            for (Card c : ability.getTappedForConvoke()) {
+-                c.setTapped(false);
+-            }
+         }
+ 
+         if (ability.getApi() == ApiType.Charm) {
+diff --git a/forge-game/src/main/java/forge/game/ability/AbilityFactory.java b/forge-game/src/main/java/forge/game/ability/AbilityFactory.java
+index 187fe82e43a9cb9d2431a179316bf7621189f4ec..90ba2f2ae79fe9e5dc90d5f2efbbdeba52d104cd 100644
+--- a/forge-game/src/main/java/forge/game/ability/AbilityFactory.java
++++ b/forge-game/src/main/java/forge/game/ability/AbilityFactory.java
+@@ -30,6 +30,7 @@ import forge.game.cost.Cost;
+ import forge.game.spellability.*;
+ import forge.game.zone.ZoneType;
+ import forge.util.FileSection;
++import forge.util.ThreadUtil;
+ import io.sentry.Breadcrumb;
+ import io.sentry.Sentry;
+ 
+@@ -200,6 +201,17 @@ public final class AbilityFactory {
+     public static SpellAbility getAbility(AbilityRecordType type, ApiType api, Map<String, String> mapParams,
+             Cost abCost, final CardState state, final IHasSVars sVarHolder) {
+         final Card hostCard = state.getCard();
++        ThreadUtil.ExecutionContext context = ThreadUtil.executionContext();
++        if (context != null) {
++            Map<String, String> hints = context.abilityPresentation(state.getName(), Map.copyOf(mapParams));
++            if (!hints.isEmpty()) {
++                mapParams = Maps.newHashMap(mapParams);
++                // Hosts may supply missing display text, never costs or targeting rules.
++                for (String key : List.of("StackDescription", "TgtPrompt")) {
++                    if (hints.containsKey(key)) mapParams.putIfAbsent(key, hints.get(key));
++                }
++            }
++        }
+         TargetRestrictions abTgt = mapParams.containsKey("ValidTgts") ? readTarget(mapParams) : null;
+ 
+         if (abCost == null) {
 diff --git a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
 index 0e8e291c0bb807f9e5e628a4fa05d11919edd3df..c670a3ea94b6ec0489f9636a34bdae60f409e8ef 100644
 --- a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
@@ -185,6 +353,53 @@ index 0e8e291c0bb807f9e5e628a4fa05d11919edd3df..c670a3ea94b6ec0489f9636a34bdae60
          Player pl = sa.getActivatingPlayer();
          final Game game = pl.getGame();
  
+diff --git a/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java b/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java
+index dd2eb401f92990c82ebe4fd2aa051b39301c8c9b..56f02f6a3c10edf5f8ab2f7b8847457e5a7aca09 100644
+--- a/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java
++++ b/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java
+@@ -241,23 +241,30 @@ public class DiscardEffect extends SpellAbilityEffect {
+                     chooser = targets.get(0);
+                 }
+ 
+-                if (mode.startsWith("Reveal")) {
+-                    game.getAction().reveal(dPHand, p);
+-                }
+-                if (mode.startsWith("Look") && p != chooser) {
+-                    game.getAction().revealTo(dPHand, chooser);
+-                }
+-
+-                if (!p.canDiscardBy(sa, true)) {
+-                    continue;
+-                }
+-
++                final boolean canDiscard = p.canDiscardBy(sa, true);
+                 final String valid = sa.getParamOrDefault("DiscardValid", "Card");
+                 CardCollection validCards = CardLists.getValidCards(dPHand, valid, source.getController(), source, sa);
+-
+                 int min = sa.hasParam("AnyNumber") || sa.hasParam("Optional") ? 0 : Math.min(validCards.size(), numCards);
+                 int max = sa.hasParam("AnyNumber") ? validCards.size() : Math.min(validCards.size(), numCards);
+ 
++                // Keep every recipient's disclosure, allowing the deciding
++                // controller to show its copy in the immediately following choice.
++                if (mode.startsWith("Reveal")) {
++                    for (Player viewer : game.getPlayers()) {
++                        if (viewer == p) continue;
++                        if (viewer == chooser && canDiscard && max > 0) {
++                            viewer.getController().revealForDiscard(dPHand, p);
++                        } else {
++                            viewer.getController().reveal(dPHand, ZoneType.Hand, p);
++                        }
++                    }
++                }
++                if (mode.startsWith("Look") && p != chooser) {
++                    if (canDiscard && max > 0) chooser.getController().revealForDiscard(dPHand, p);
++                    else game.getAction().revealTo(dPHand, chooser);
++                }
++                if (!canDiscard) continue;
++
+                 // Reveal/Look modes disclose dPHand to the chooser; non-valid revealed cards should remain visible during the choice.
+                 final boolean revealed = mode.startsWith("Reveal") || mode.startsWith("Look");
+                 final CardCollectionView visibleToChooser = revealed ? dPHand : validCards;
 diff --git a/forge-game/src/main/java/forge/game/card/Card.java b/forge-game/src/main/java/forge/game/card/Card.java
 index dcd6d517f51c8d0116afe18983a16b6a20492c36..f69d2e0e3c7a859a7bd6750e41a5e4f6d705d039 100644
 --- a/forge-game/src/main/java/forge/game/card/Card.java
@@ -249,6 +464,22 @@ index 2a4dede7490194dd5f57ea1205d307f2a090346e..b9efe9254f117a4e99c635f0d16034a3
          return result;
      }
      
+diff --git a/forge-game/src/main/java/forge/game/cost/CostAdjustment.java b/forge-game/src/main/java/forge/game/cost/CostAdjustment.java
+index b836db5733776de1657b653911a896a45179c2ce..98bc346cc8a04399268d557128ba6f51d5cedb67 100644
+--- a/forge-game/src/main/java/forge/game/cost/CostAdjustment.java
++++ b/forge-game/src/main/java/forge/game/cost/CostAdjustment.java
+@@ -367,7 +367,10 @@ public class CostAdjustment {
+             }
+             cost.decreaseShard(conv.getValue(), 1);
+             if (!test) {
+-                if (c.tap(true, sa, payer)) tapped.add(c);
++                if (c.tap(true, sa, payer)) {
++                    tapped.add(c);
++                    sa.addTappedForCostReduction(c);
++                }
+             }
+         }
+         if (!tapped.isEmpty()) {
 diff --git a/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java b/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
 index a61fd39d90fd8054b90294609f373aae670ebf79..e6df23bf6695b45d41550433c10ca282e8d7121d 100644
 --- a/forge-game/src/main/java/forge/game/extrahands/BackupPlanService.java
@@ -274,6 +505,61 @@ index 646f3131b54c73e4286a8c4b635761a9d9f94cab..06bfe1036c063656a50d93e1103ad29e
  
      public static Set<Keyword> getKeywordSet(PaperCard card) {
          String name = card.getName();
+diff --git a/forge-game/src/main/java/forge/game/mana/ManaRefundService.java b/forge-game/src/main/java/forge/game/mana/ManaRefundService.java
+index 0ef0812a7e5a2bdf081ea7f300687b707fa0aa6c..f53e7788567e402f80b3d8f1548a3b0c2f10a097 100644
+--- a/forge-game/src/main/java/forge/game/mana/ManaRefundService.java
++++ b/forge-game/src/main/java/forge/game/mana/ManaRefundService.java
+@@ -1,6 +1,7 @@
+ package forge.game.mana;
+ 
+ import forge.game.event.EventValueChangeType;
++import forge.game.card.Card;
+ import forge.game.event.GameEventZone;
+ import forge.game.player.Player;
+ import forge.game.player.PlayerCollection;
+@@ -50,6 +51,13 @@ public class ManaRefundService {
+ 
+         payingAbilities.clear();
+ 
++        // Convoke, improvise and waterbend tap permanents without producing mana.
++        // Only restore cards actually tapped by this payment, including abilities.
++        for (Card card : sa.getTappedForCostReduction()) {
++            card.setTapped(false);
++        }
++        sa.clearTappedForCostReduction();
++
+         // update battlefield of all activating players - to redraw cards used to pay mana as untapped
+         for (Player p : payers) {
+             p.getGame().fireEvent(new GameEventZone(ZoneType.Battlefield, p, EventValueChangeType.ComplexUpdate, null));
+diff --git a/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java b/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java
+index 929d7cb5c9b839c1421f40c839c7ddbde4976a3a..d0811a6241d48fdbfecf10eb3ffacfb31ff52eb8 100644
+--- a/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java
++++ b/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java
+@@ -12,7 +12,7 @@ public class LondonMulligan extends AbstractMulligan {
+ 
+     @Override
+     public boolean canMulligan() {
+-        return !kept && tuckCardsDuringMulligan() <= player.getMaxHandSize();
++        return !kept && tuckCardsDuringMulligan() < player.getMaxHandSize();
+     }
+ 
+     @Override
+@@ -21,9 +21,13 @@ public class LondonMulligan extends AbstractMulligan {
+     }
+ 
+     @Override
+-    public void mulliganDraw() {
+-        player.drawCards(handSizeAfterNextMulligan());
++    public void keep() {
++        super.keep();
++        // Keep the complete redraw available until the player keeps this hand.
+         int tuckingCards = tuckCardsDuringMulligan();
++        if (tuckingCards == 0) {
++            return;
++        }
+         CardCollection hand = new CardCollection(player.getCardsIn(ZoneType.Hand));
+ 
+         for (final Card c : player.getController().tuckCardsViaMulligan(hand, tuckingCards)) {
 diff --git a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java b/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
 index 838c73f239a290cea8525d36ee281480f28d44fb..8b8f44751f32106d715e2f5a1907a4c73fa14cce 100644
 --- a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
@@ -308,7 +594,7 @@ index 838c73f239a290cea8525d36ee281480f28d44fb..8b8f44751f32106d715e2f5a1907a4c7
                  if (chosenSa == null) {
                      break; // that means 'I pass'
 diff --git a/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java b/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java
-index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..c23610f8725190bb2c5f4b24509c032c1f47e4d8 100644
+index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..93c313200dd372f66e9109ad15996c17e1ccd86b 100644
 --- a/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java
 +++ b/forge-game/src/main/java/forge/game/player/PlaySpellAbility.java
 @@ -17,6 +17,8 @@
@@ -330,7 +616,15 @@ index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..c23610f8725190bb2c5f4b24509c032c
              if (!controller.getGame().EXPERIMENTAL_RESTORE_SNAPSHOT) {
                  Card rollback = p.getGame().getCardState(source);
                  if (castFaceDown) {
-@@ -579,6 +584,27 @@ public class PlaySpellAbility {
+@@ -413,6 +418,7 @@ public class PlaySpellAbility {
+         }
+ 
+         sourceAbility.clearManaPaid();
++        sourceAbility.clearTappedForCostReduction();
+         boolean paid = p.getController().payManaCost(cost.getCostMana(), sourceAbility, prompt, null, hcd.isEffect());
+         if (!paid) {
+             new ManaRefundService(sourceAbility).refundManaPaid();
+@@ -579,6 +585,27 @@ public class PlaySpellAbility {
      }
  
      public final boolean playAbility(final boolean mayChooseTargets, final boolean isFree, final boolean skipStack) {
@@ -358,14 +652,27 @@ index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..c23610f8725190bb2c5f4b24509c032c
          final Player player = ability.getActivatingPlayer();
          final Game game = player.getGame();
          boolean refreeze = game.getStack().isFrozen();
+@@ -668,6 +695,7 @@ public class PlaySpellAbility {
+         // reset is also done early here, because if an ability is canceled from targeting it might otherwise lead to refunding mana from earlier cast
+         ability.clearManaPaid();
+         ability.getPayingManaAbilities().clear();
++        ability.clearTappedForCostReduction();
+ 
+         // This line makes use of short-circuit evaluation of boolean values, that is each subsequent argument
+         // is only executed or evaluated if the first argument does not suffice to determine the value of the expression
 diff --git a/forge-game/src/main/java/forge/game/player/PlayerController.java b/forge-game/src/main/java/forge/game/player/PlayerController.java
-index 192ef8737ecd645b75d50782693d5eab948d43a7..3260ed5850a4d0099a43224b01504c12de9f5fa2 100644
+index 192ef8737ecd645b75d50782693d5eab948d43a7..fb10bbf715bbfa0e84cca27929f8aa669346c1f0 100644
 --- a/forge-game/src/main/java/forge/game/player/PlayerController.java
 +++ b/forge-game/src/main/java/forge/game/player/PlayerController.java
-@@ -49,6 +49,56 @@ import java.util.stream.Collectors;
+@@ -49,6 +49,61 @@ import java.util.stream.Collectors;
   */
  public abstract class PlayerController {
  
++    /** A following discard choice supplies these same visible cards to the chooser. */
++    public void revealForDiscard(CardCollectionView cards, Player owner) {
++        reveal(cards, ZoneType.Hand, owner);
++    }
++
 +    /** Abandons a decision only after its player and controlling object left the game. */
 +    public static final class PlayerDecisionCancelled extends java.util.concurrent.CancellationException {
 +        private final Player player;
@@ -435,7 +742,7 @@ index b5b396dc82f9928041f0486277fcf4944b538315..4855d00267ca194d7d513ef3f653d03e
      /** The ID. */
      private int id;
 diff --git a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
-index da6f782e3f8cb7c3f07955c587ba3401be330e38..13fb3efae8dc6bc32d9def701ff997fcd17ab13c 100644
+index da6f782e3f8cb7c3f07955c587ba3401be330e38..6d6cb17b27f96b2c32ebc44623ac9a29833777b2 100644
 --- a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
 +++ b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
 @@ -75,8 +75,8 @@ import forge.game.zone.ZoneType;
@@ -449,6 +756,40 @@ index da6f782e3f8cb7c3f07955c587ba3401be330e38..13fb3efae8dc6bc32d9def701ff997fc
  
      public static class EmptySa extends SpellAbility {
          public EmptySa(Card sourceCard) { super(sourceCard, Cost.Zero); setActivatingPlayer(sourceCard.getController());}
+@@ -138,6 +138,8 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
+     private final Supplier<List<String>> pipsToReduce = Suppliers.memoize(ArrayList::new);
+     private List<AbilitySub> chosenList = null;
+     private final Supplier<CardCollection> tappedForConvoke = Suppliers.memoize(CardCollection::new);
++    // Payment bookkeeping is distinct from the rules-visible convoke history.
++    private CardCollection tappedForCostReduction = new CardCollection();
+     private Card sacrificedAsOffering;
+     private Card sacrificedAsEmerge;
+     private Integer maxWaterbend;
+@@ -1293,6 +1295,7 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
+             }
+ 
+             clone.payingMana = Lists.newArrayList(payingMana);
++            clone.tappedForCostReduction = new CardCollection(tappedForCostReduction);
+             clone.paidAbilities = Lists.newArrayList();
+             clone.setPaidHash(getPaidHash());
+ 
+@@ -1630,6 +1633,16 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
+         tappedForConvoke.get().clear();
+     }
+ 
++    public CardCollection getTappedForCostReduction() {
++        return tappedForCostReduction;
++    }
++    public void addTappedForCostReduction(final Card c) {
++        tappedForCostReduction.add(c);
++    }
++    public void clearTappedForCostReduction() {
++        tappedForCostReduction.clear();
++    }
++
+     public boolean isEmerge() {
+         return isAlternativeCost(AlternativeCost.Emerge);
+     }
 diff --git a/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java b/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java
 index f67dd5b4e88bb898a7a5db2b9d6ffe138d6b9e49..ff8bb2d7468402c2c8afe2fcf9f5ceb48ca14daf 100644
 --- a/forge-game/src/main/java/forge/game/spellability/SpellAbilityStackInstance.java
@@ -596,7 +937,7 @@ index 5932059d5d752a06a1e817a921067a7fac779f34..a5bb20155d86c0190fbf90c709f44102
          return selected;
      }
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
-index 7350155fab629d2bb38a71c032599258a2c53c5b..29f470e35e76689a0370bb9fa682beb62033b2bc 100644
+index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae1fbd9089 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
 +++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
 @@ -48,7 +48,10 @@ public abstract class InputPayMana extends InputSyncronizedBase {
@@ -661,7 +1002,14 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..29f470e35e76689a0370bb9fa682beb6
      protected boolean isAlreadyPaid() {
          if (manaCost.isPaid()) {
              bPaid = true;
-@@ -374,13 +387,18 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -369,18 +382,24 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+     }
+ 
+     protected void runAsAi(Runnable proc) {
+-        player.runWithController(proc, new PlayerControllerAi(game, player, player.getOriginalLobbyPlayer()));
++        ComputerUtilMana.withHumanAutoPay(() ->
++                player.runWithController(proc, new PlayerControllerAi(game, player, player.getOriginalLobbyPlayer())));
+     }
  
      @Override
      protected void onOk() {
@@ -736,13 +1084,48 @@ index 32dafaf9e2da45da0ac294ad1fa9eb66a1912de6..5fd7da4a2bef067f9a21a0e0ac766221
  
      // only for debug purposes
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
-index 39afa242b1e681dc1d7a30eba0eacbaa19313775..e4904d9e63c7202f87b59be752a0000c20a847ff 100644
+index 39afa242b1e681dc1d7a30eba0eacbaa19313775..334a33646609884c03039d5549c2dca2ab0c9ecf 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
 +++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputSelectCardsForConvokeOrImprovise.java
-@@ -133,6 +133,9 @@ public final class InputSelectCardsForConvokeOrImprovise extends InputSelectMany
+@@ -2,6 +2,7 @@ package forge.gamemodes.match.input;
+ 
+ import com.google.common.collect.Maps;
+ import forge.card.ColorSet;
++import forge.card.MagicColor;
+ import forge.card.mana.ManaCost;
+ import forge.card.mana.ManaCostShard;
+ import forge.game.card.Card;
+@@ -66,7 +67,7 @@ public final class InputSelectCardsForConvokeOrImprovise extends InputSelectMany
+         sb.append(TextUtil.concatNoSpace("Choose ", cardType, " to tap for ", description, ".\nRemaining mana cost is ", remainingCost.toString()));
+ 
+         if (maxSelectable != null) {
+-            sb.append(". You may select up to ").append(chosenCards.size() - maxSelectable).append(" more ").append(cardType).append("(s).");
++            sb.append(". You may select up to ").append(Math.max(0, maxSelectable - chosenCards.size())).append(" more ").append(cardType).append("(s).");
+         }
+         return sb.toString();
+     }
+@@ -127,12 +128,26 @@ public final class InputSelectCardsForConvokeOrImprovise extends InputSelectMany
+ 
+     @Override
+     public String getActivateAction(final Card card) {
+-        if (availableCards.contains(card)) {
++        if (availableCards.contains(card) && (chosenCards.containsKey(card) || canReduceWith(card))) {
+             return TextUtil.concatNoSpace("tap ", cardType, " for ", description);
+         }
          return null;
      }
  
++    private boolean canReduceWith(Card card) {
++        if (remainingCost.isPaid() || maxSelectable != null && chosenCards.size() >= maxSelectable) return false;
++        if (artifacts) return new ManaCostBeingPaid(remainingCost).payManaViaConvoke(MagicColor.COLORLESS) != null;
++        byte colors = card.getColor().getColor();
++        if (colors == MagicColor.COLORLESS)
++            return new ManaCostBeingPaid(remainingCost).payManaViaConvoke(colors) != null;
++        for (byte color : MagicColor.WUBRG)
++            if ((colors & color) != 0 && new ManaCostBeingPaid(remainingCost).payManaViaConvoke(color) != null) return true;
++        return false;
++    }
++
 +    /** Candidates already selected by the native cost adjustment. */
 +    public CardCollectionView getAvailableCards() { return availableCards; }
 +
@@ -872,3 +1255,46 @@ index dac033fdecf85bfba545db44f66a615e268418f4..370bbf60c5f77913b5e68649a772b275
          final Pair<String, String> defaults = getDefaultDirs();
          final String defaultUserDir = defaults.getLeft() + File.separator;
          final String defaultDecksDir = defaultUserDir + "decks" + File.separator;
+diff --git a/forge-gui/src/main/java/forge/player/HumanCostDecision.java b/forge-gui/src/main/java/forge/player/HumanCostDecision.java
+index e52eb2a829f72a1c5cc35f4d646be8645d921e16..1d008334144c93093134a1bf8de7cfcd14f3572b 100644
+--- a/forge-gui/src/main/java/forge/player/HumanCostDecision.java
++++ b/forge-gui/src/main/java/forge/player/HumanCostDecision.java
+@@ -470,20 +470,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
+         }
+ 
+         if (!sharedType) {
+-            final List<ZoneType> origin = Lists.newArrayList(cost.from);
+-            final List<Card> chosen = controller.chooseCardsForZoneChange(
+-                    ZoneType.Exile,
+-                    origin,
+-                    ability,
+-                    typeList,
+-                    mandatory ? nNeeded : 0,
+-                    nNeeded,
+-                    null,
+-                    cost.toString(nNeeded),
+-                    null
+-            );
+-
+-            if (chosen.size() < nNeeded) {
++            final CardCollectionView chosen = controller.chooseCardsForCost(typeList, ability, cost,
++                    nNeeded, !mandatory, cost.toString(nNeeded));
++            if (chosen == null || chosen.size() != nNeeded) {
+                 return null;
+             }
+             return PaymentDecision.card(chosen);
+@@ -1437,7 +1426,13 @@ public class HumanCostDecision extends CostDecisionMakerBase {
+ 
+         if (totalPower) {
+             final int i = Integer.parseInt(totalP);
+-            final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, 0, typeList.size(), typeList, ability);
++            final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, 0, typeList.size(), typeList, ability) {
++                private static final long serialVersionUID = 1L;
++                @Override
++                protected boolean hasEnoughTargets() {
++                    return CardLists.getTotalPower(getSelected(), ability) >= i;
++                }
++            };
+             inp.setMessage(Localizer.getInstance().getMessage("lblSelectACreatureToTap"));
+             inp.setCancelAllowed(true);
+             inp.showAndWait();

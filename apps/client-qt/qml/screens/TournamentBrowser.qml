@@ -198,6 +198,7 @@ Page {
                                   tournamentRow.modelData.eventType,
                                   tournamentRow.modelData.format) + " · "
                               + root.matchLabel(tournamentRow.modelData.matchMode)
+                          + " · " + (tournamentRow.modelData.rulesMode === "forge" ? qsTr("Forge rules") : qsTr("Manual tabletop"))
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSize(12)
                         elide: Text.ElideRight

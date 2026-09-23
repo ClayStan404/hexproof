@@ -106,7 +106,7 @@ func (pool *Pool) lease(entry *pooledWorker) *Client {
 		entry.idle.Stop()
 		entry.idle = nil
 	}
-	client := &Client{done: make(chan struct{})}
+	client := &Client{done: make(chan struct{}), supportsAI: entry.worker.supportsAI, supportsReplay: entry.worker.supportsReplay}
 	client.shared = &sharedLease{client: client, pool: pool, entry: entry, worker: entry.worker, gate: make(chan struct{}, 1)}
 	entry.leases[client] = true
 	entry.games++

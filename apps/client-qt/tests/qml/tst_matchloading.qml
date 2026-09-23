@@ -54,6 +54,21 @@ TestCase {
         compare(mockLoader.retryCount, 1)
     }
 
+    function test_engineFailureDoesNotDependOnImageDownloadError() {
+        mockLoader.lastError = ""
+        mockWs.rulesStartFailure = {reason:"deck_rejected", issues:[{
+            deck:"player", section:"sideboard", code:"printing_unavailable",
+            cardName:"Island", setCode:"ZZZZ", collectorNumber:"1"}]}
+        const popup = findChild(page, "rulesStartFailureDialog")
+        tryVerify(() => popup.opened)
+        const details = findChild(popup, "rulesStartFailureText")
+        verify(details.text.indexOf("Island (ZZZZ 1)") >= 0)
+        mouseClick(findChild(popup, "rulesStartFailureDialogCopyButton"))
+        compare(mockWs.copiedFailure, details.text)
+        mockWs.rulesStartFailure = ({})
+        tryVerify(() => !popup.opened)
+    }
+
     function test_separatesLocalArtFromMissingDownloads() {
         mockLoader.total = 353
         mockLoader.completed = 315

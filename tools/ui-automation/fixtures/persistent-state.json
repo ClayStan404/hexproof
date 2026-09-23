@@ -1,0 +1,58 @@
+{
+  "name": "Persistent battlefield state regression",
+  "format": "modern",
+  "deckFormat": "modern",
+  "source": "Synthetic 60-card interaction fixture; not a tournament deck or full-match evaluation",
+  "mainboard": [
+    {
+      "name": "Plains",
+      "count": 44,
+      "setCode": "C15",
+      "collectorNumber": "323",
+      "typeLine": "Basic Land — Plains",
+      "manaCost": "",
+      "manaValue": 0
+    },
+    {
+      "name": "Pithing Needle",
+      "count": 4,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "SOK",
+      "collectorNumber": "158",
+      "catalogName": "Pithing Needle"
+    },
+    {
+      "name": "Ugin's Labyrinth",
+      "count": 4,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "MH3",
+      "collectorNumber": "233",
+      "catalogName": "Ugin's Labyrinth"
+    },
+    {
+      "name": "Ugin, Eye of the Storms",
+      "count": 4,
+      "typeLine": "Legendary Planeswalker — Ugin",
+      "manaCost": "{7}",
+      "manaValue": 7.0,
+      "setCode": "TDM",
+      "collectorNumber": "1",
+      "catalogName": "Ugin, Eye of the Storms"
+    },
+    {
+      "name": "Ulamog, the Ceaseless Hunger",
+      "count": 4,
+      "typeLine": "Legendary Creature — Eldrazi",
+      "manaCost": "{10}",
+      "manaValue": 10.0,
+      "setCode": "BFZ",
+      "collectorNumber": "15",
+      "catalogName": "Ulamog, the Ceaseless Hunger"
+    }
+  ],
+  "sideboard": []
+}

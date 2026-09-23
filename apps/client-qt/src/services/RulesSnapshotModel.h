@@ -11,7 +11,7 @@
 namespace hexproof::client {
 
 // Preserve table delegates across priority snapshots. Prompt models deliberately
-// keep their separate reset semantics because response ids belong to a decision.
+// replace their rows separately because response ids belong to a decision.
 class RulesSnapshotModel : public QAbstractListModel
 {
   public:

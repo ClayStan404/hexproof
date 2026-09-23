@@ -66,6 +66,24 @@ func TestRulesCombatSourceWithNoTargetsKeepsWireArray(t *testing.T) {
 	assertNormalizedRulesWireArrays(t, envelope)
 }
 
+func TestProjectedRulesPromptPreservesReadOnlyCards(t *testing.T) {
+	view, err := forge.NormalizePrompt(json.RawMessage(`{"promptId":1,"decidingPlayerId":"player-0","input":{
+        "type":"chooseCards","min":0,"max":1,"cards":[
+        {"id":"hidden-library-land","identity":{"name":"Forest"},"readOnly":true},
+        {"id":"candidate","identity":{"name":"Island"}}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt, err := projectedRulesPrompt("ROOM", "game-1", view, forgeRoomGame{}, nil)
+	if err != nil || len(prompt.Cards) != 2 || !prompt.Cards[0].ReadOnly || prompt.Cards[1].ReadOnly {
+		t.Fatalf("combined prompt = %+v, %v", prompt, err)
+	}
+	data, err := json.Marshal(prompt)
+	if err != nil || strings.Contains(string(data), "hidden-library-land") || !strings.Contains(string(data), `"readOnly":true`) {
+		t.Fatalf("read-only identity projection = %s, %v", data, err)
+	}
+}
+
 // Go accepts both null and [] when decoding a slice; Qt's protocol model
 // correctly requires arrays. Check the wire before decoding it into Go DTOs,
 // including nested arrays and any future array fields added to these types.
@@ -132,7 +150,7 @@ func TestProjectedRulesPromptTargetsUseViewerProjection(t *testing.T) {
 		Title: "Choose targets", MinSelected: 1, MaxSelected: 2, Cancellable: true,
 		Targets: []forge.PromptTarget{
 			{ResponseID: "target:0", Kind: "player", ID: "player-1"},
-			{ResponseID: "target:1", Kind: "card", ID: "card-a"},
+			{ResponseID: "target:1", Kind: "card", ID: "card-a", Selected: true},
 			{ResponseID: "target:2", Kind: "spell", ID: "stack-a"},
 		},
 	}, game, &forge.GameView{
@@ -158,6 +176,7 @@ func TestProjectedRulesPromptTargetsUseViewerProjection(t *testing.T) {
 		prompt.Targets[0].Seat == nil || *prompt.Targets[0].Seat != 0 ||
 		prompt.Targets[1].Seat != nil || prompt.Targets[2].Seat != nil ||
 		prompt.Targets[1].Name != "Lightning Bolt" ||
+		!prompt.Targets[1].Selected || prompt.Targets[0].Selected || prompt.Targets[2].Selected ||
 		prompt.Targets[2].Name != "Counterspell" || prompt.Minimum != 1 ||
 		prompt.Maximum != 2 || !prompt.Cancellable {
 		t.Fatalf("prompt targets = %+v", prompt)
@@ -289,14 +308,15 @@ func TestProjectedRulesPromptKeepsCardSelectionBounds(t *testing.T) {
 		PromptID: 11, PlayerIndex: 0, Kind: "chooseCards", Supported: true,
 		Title: "Choose cards", CardMinimum: 1, CardMaximum: 2,
 		Cards: []forge.PromptCard{
-			{ID: "card-a", Name: "Plains", SetCode: "M21", CollectorNumber: "309"},
+			{ID: "card-a", Name: "Plains", SetCode: "M21", CollectorNumber: "309", Selected: true},
 			{ID: "card-b", Name: "Island", SetCode: "M21", CollectorNumber: "310"},
 		},
 	}, forgeRoomGame{}, nil)
 	if err != nil {
 		t.Fatalf("projectedRulesPrompt: %v", err)
 	}
-	if len(prompt.Cards) != 2 || prompt.CardMinimum != 1 || prompt.CardMaximum != 2 {
+	if len(prompt.Cards) != 2 || prompt.CardMinimum != 1 || prompt.CardMaximum != 2 ||
+		!prompt.Cards[0].Selected || prompt.Cards[1].Selected {
 		t.Fatalf("card prompt = %+v", prompt)
 	}
 }

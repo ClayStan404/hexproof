@@ -25,11 +25,14 @@ final class NativeSharedHost {
     private String call(JsonObject request) throws Exception {
         String command = request.get("command").getAsString();
         if (closing) throw new IllegalStateException("Worker is closing");
-        if (command.equals("reset")) return "{\"sharedVersion\":1,\"capacity\":" + capacity + "}";
+        if (command.equals("reset")) return "{\"sharedVersion\":1,\"capacity\":" + capacity
+                + ",\"capabilities\":[\"forge-ai-v1\"],\"adapterRevision\":" + NativeHost.ADAPTER_REVISION + "}";
         if (command.equals("startGame")) {
             NativeSession session;
             synchronized (sessions) {
                 JsonObject setup = JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject();
+                if (setup.getAsJsonArray("players").asList().stream().anyMatch(e -> NativeSession.isAi(e.getAsJsonObject())))
+                    throw new IllegalArgumentException("AI games require a dedicated worker");
                 String id = setup.get("gameId").getAsString();
                 if (closing || sessions.size() >= capacity || sessions.containsKey(id))
                     throw new IllegalArgumentException("Worker capacity or duplicate game");
@@ -48,6 +51,7 @@ final class NativeSharedHost {
         try {
             return switch (command) {
                 case "getSnapshot" -> session.snapshot(request.get("viewer").getAsInt());
+                case "getReplay" -> session.replay.read(request.has("after") ? request.get("after").getAsLong() : 0);
                 case "getPrompt" -> session.prompt(request.get("playerIndex").getAsInt());
                 case "getGameOver" -> Boolean.toString(session.gameOver());
                 case "submitAction" -> session.submit(JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject());
@@ -91,6 +95,8 @@ final class NativeSharedHost {
                     } catch (Exception error) {
                         error.printStackTrace(System.err);
                         response.addProperty("ok", false); response.addProperty("error", "Native Forge request rejected");
+                        JsonObject failure = NativeHost.startFailure(error);
+                        if (failure != null) response.add("startFailure", failure);
                     }
                     synchronized (protocol) { protocol.println(NativeHost.JSON.toJson(response)); protocol.flush(); }
                     if (closing) System.exit(3);

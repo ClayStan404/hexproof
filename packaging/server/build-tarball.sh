@@ -49,10 +49,16 @@ mkdir -p "${package_root}/bin" "${package_root}/deploy"
         -ldflags "-X hexproof/server/internal/buildinfo.Version=${version}" \
         -o "${package_root}/bin/hexproof-server" \
         ./cmd/hexproof-server
+    CGO_ENABLED=0 GOOS="${goos}" GOARCH="${arch}" GOTMPDIR="${go_tmp_dir}" \
+        go build -trimpath \
+        -ldflags "-X hexproof/server/internal/buildinfo.Version=${version}" \
+        -o "${package_root}/bin/hexproof-home" \
+        ./cmd/hexproof-home
 )
 cp "${repo_root}/packaging/server/hexproof-server.service.in" \
     "${package_root}/deploy/"
 cp "${repo_root}/packaging/server/README.md" "${package_root}/SELF-HOSTING.md"
+cp "${repo_root}/docs/home-servers.md" "${package_root}/HOME-SERVERS.md"
 cp "${repo_root}/LICENSE" "${package_root}/"
 cp "${repo_root}/THIRD-PARTY-NOTICES.md" "${package_root}/"
 

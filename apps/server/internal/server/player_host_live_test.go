@@ -32,6 +32,7 @@ func TestLivePlayerHostedForgeMatches(t *testing.T) {
 	for _, mode := range []string{protocol.MatchBO1, protocol.MatchBO3} {
 		t.Run(mode, func(t *testing.T) {
 			config := DefaultConfig()
+			config.RetentionDir = t.TempDir()
 			config.AllowPlayerHosting = true
 			config.MessagesPerSecond = 10000
 			config.ReconnectWindow = time.Minute

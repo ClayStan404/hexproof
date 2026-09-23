@@ -90,6 +90,7 @@ Surface {
                 required property int life
                 required property string countersSummary
                 required property string manaSummary
+                required property var manaPool
 
                 readonly property bool isOwn:
                     seat === root.tableController.localSeat
@@ -361,6 +362,16 @@ Surface {
                     HoverHandler { id: countersHover }
                 }
 
+                ForgeManaPool {
+                    anchors.left: parent.left
+                    anchors.bottom: parent.bottom
+                    anchors.margins: Theme.size(8)
+                    manaPool: lane.manaPool
+                    seat: lane.seat
+                    unit: Theme.size(1)
+                    z: 21
+                }
+
                 Text {
                     textFormat: Text.PlainText
                     objectName: "rulesBattlefieldPlayerStatus" + lane.seat
@@ -369,8 +380,8 @@ Surface {
                     anchors.bottom: parent.bottom
                     anchors.margins: Theme.size(8)
                     z: 20
-                    text: [lane.status, lane.manaSummary]
-                          .filter(value => value.length > 0).join(" · ")
+                    visible: !lane.manaPool || !(lane.manaPool.length || lane.manaPool.count || 0)
+                    text: lane.status
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(9)
                     elide: Text.ElideRight

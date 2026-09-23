@@ -30,7 +30,7 @@ func (h *Hub) RulesPlayerTargets(r *room.Room) (map[string]int, error) {
 	}
 	targets := make(map[string]int, r.PlayerCount())
 	for seatIndex, seat := range r.Seats {
-		if seat.Occupied {
+		if seat.Occupied && seat.Controller == "" && seat.ConnectionID != "" {
 			targets[seat.ConnectionID] = seatIndex
 		}
 	}

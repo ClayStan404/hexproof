@@ -2052,6 +2052,66 @@
         <source>Downloads and diagnostics</source>
         <translation>下载和诊断</translation>
     </message>
+    <message>
+        <source>Another player</source>
+        <translation>真人玩家</translation>
+    </message>
+    <message>
+        <source>Opponent</source>
+        <translation>对手</translation>
+    </message>
+    <message>
+        <source>Experimental</source>
+        <translation>实验性功能</translation>
+    </message>
+    <message>
+        <source>Forge AI</source>
+        <translation>Forge AI</translation>
+    </message>
+    <message>
+        <source>Forge AI is unavailable with this hosting option.</source>
+        <translation>当前托管方式不支持 Forge AI。</translation>
+    </message>
+    <message>
+        <source>OPPONENT · Local/online models are experimental</source>
+        <translation>对手 · 本地与在线模型为实验性功能</translation>
+    </message>
+    <message>
+        <source>One game against Forge AI. Choose both decks in the waiting room. Hard uses Forge's default strategy; lower levels simplify tactics.</source>
+        <translation>与 Forge AI 进行单局对战。在等候室分别选择双方套牌。困难档使用 Forge 默认策略，较低档位会简化战术。</translation>
+    </message>
+    <message>
+        <source>Choose both decks in the waiting room. Model strength is uncalibrated; connection and thinking limits are configured in Settings.</source>
+        <translation>在等候室中选择双方套牌。模型强度尚未校准；连接与思考限额可在设置中配置。</translation>
+    </message>
+    <message>
+        <source>Configure model connection</source>
+        <translation>配置模型连接</translation>
+    </message>
+    <message>
+        <source>Configure the selected model connection first</source>
+        <translation>请先配置所选模型的连接</translation>
+    </message>
+    <message>
+        <source>Local model</source>
+        <translation>本地模型</translation>
+    </message>
+    <message>
+        <source>Model opponents are unavailable on this server.</source>
+        <translation>此服务器不支持模型对手。</translation>
+    </message>
+    <message>
+        <source>Model settings</source>
+        <translation>模型设置</translation>
+    </message>
+    <message>
+        <source>Online model</source>
+        <translation>在线模型</translation>
+    </message>
+    <message>
+        <source>Starting this game sends the AI's permitted game view, including its hand, to your configured online provider.</source>
+        <translation>开始对局后，AI 可见的对局信息（包括其手牌）将发送到你配置的在线服务商。</translation>
+    </message>
 </context>
 <context>
     <name>CubeLibrary</name>
@@ -3197,6 +3257,18 @@
 <context>
     <name>I18n</name>
     <message>
+        <source>Server · direct</source>
+        <translation>服务器 · 直连</translation>
+    </message>
+    <message>
+        <source>Server · relay</source>
+        <translation>服务器 · 中转</translation>
+    </message>
+    <message>
+        <source>Finding a server connection…</source>
+        <translation>正在寻找服务器连接…</translation>
+    </message>
+    <message>
         <source>%1 created a %2 token.</source>
         <translation>%1 创建了衍生物：%2。</translation>
     </message>
@@ -3517,6 +3589,10 @@
         <location line="+25"/>
         <source>%1 searched %2 library and put %3 %4.</source>
         <translation>%1 搜寻了%2牌库，并将 %3%4。</translation>
+    </message>
+    <message>
+        <source>%1 revealed %2 from the top %3 card(s) of %4 library and put them %5.</source>
+        <translation>%1 展示了%4牌库顶 %3 张牌中的 %2，并将这些牌%5。</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -4509,6 +4585,242 @@
         <source>The host engine was lost. This game was aborted without a winner. Prepare hosting and ready up to start a new game.</source>
         <translation>房主的规则引擎已失去连接。本局已中止，不计胜负。重新准备托管并准备后可开始新对局。</translation>
     </message>
+    <message>
+        <source>Beginner</source>
+        <translation>入门</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>普通</translation>
+    </message>
+    <message>
+        <source>Hard</source>
+        <translation>困难</translation>
+    </message>
+    <message>
+        <source>Connection test passed. The model returned a valid structured choice.</source>
+        <translation>连接测试通过，模型返回了有效的结构化选择。</translation>
+    </message>
+    <message>
+        <source>Connection test timed out. Check the endpoint and model service.</source>
+        <translation>连接测试超时，请检查接口地址和模型服务。</translation>
+    </message>
+    <message>
+        <source>Forge AI</source>
+        <translation>Forge AI</translation>
+    </message>
+    <message>
+        <source>Local model</source>
+        <translation>本地模型</translation>
+    </message>
+    <message>
+        <source>Model is thinking…</source>
+        <translation>模型正在思考…</translation>
+    </message>
+    <message>
+        <source>Model paused. Check the connection, then retry or end the game.</source>
+        <translation>模型已暂停。请检查连接后重试，或结束对局。</translation>
+    </message>
+    <message>
+        <source>Model paused: check the model connection</source>
+        <translation>模型已暂停：请检查模型连接</translation>
+    </message>
+    <message>
+        <source>Model paused: request budget reached</source>
+        <translation>模型已暂停：已达到请求预算</translation>
+    </message>
+    <message>
+        <source>Model paused: request timed out</source>
+        <translation>模型已暂停：请求超时</translation>
+    </message>
+    <message>
+        <source>Model paused: the decision worker disconnected</source>
+        <translation>模型已暂停：决策连接已断开</translation>
+    </message>
+    <message>
+        <source>Model paused: the reply was not a valid game decision</source>
+        <translation>模型已暂停：回复不是有效的对局决策</translation>
+    </message>
+    <message>
+        <source>Model paused: this decision type is unsupported</source>
+        <translation>模型已暂停：不支持此决策类型</translation>
+    </message>
+    <message>
+        <source>Model ready</source>
+        <translation>模型已就绪</translation>
+    </message>
+    <message>
+        <source>Online model</source>
+        <translation>在线模型</translation>
+    </message>
+    <message>
+        <source>Testing the saved model connection…</source>
+        <translation>正在测试已保存的模型连接…</translation>
+    </message>
+    <message>
+        <source>The configured budget is too small for this request.</source>
+        <translation>配置的预算不足以完成此请求。</translation>
+    </message>
+    <message>
+        <source>The model cannot answer this decision type.</source>
+        <translation>模型无法回答此决策类型。</translation>
+    </message>
+    <message>
+        <source>The model did not return the required structured choice.</source>
+        <translation>模型未返回要求的结构化选择。</translation>
+    </message>
+    <message>
+        <source>The model service rejected the request. Check the endpoint, model, API key, and output limit parameter.</source>
+        <translation>模型服务拒绝了请求。请检查接口地址、模型名称、API 密钥及输出限额参数。</translation>
+    </message>
+    <message>
+        <source>Authentication failed. Re-enter the API key and check its permissions.</source>
+        <translation>身份验证失败。请重新输入 API 密钥并检查其权限。</translation>
+    </message>
+    <message>
+        <source>Configure the endpoint, model, and valid thinking limits first.</source>
+        <translation>请先配置接口地址、模型名称和有效的思考限额。</translation>
+    </message>
+    <message>
+        <source>Could not connect to the model service. Check that it is running and reachable.</source>
+        <translation>无法连接模型服务。请确认服务已启动且网络可达。</translation>
+    </message>
+    <message>
+        <source>Could not save model settings on this computer.</source>
+        <translation>无法在这台电脑上保存模型设置。</translation>
+    </message>
+    <message>
+        <source>Model paused: the rules engine is unavailable</source>
+        <translation>模型已暂停：规则引擎不可用</translation>
+    </message>
+    <message>
+        <source>The endpoint or model was not found. Check the API base URL and model identifier.</source>
+        <translation>未找到接口或模型。请检查 API 基础地址和模型名称。</translation>
+    </message>
+    <message>
+        <source>The endpoint redirected the request. Configure its final URL explicitly.</source>
+        <translation>接口重定向了请求。请直接配置最终接口地址。</translation>
+    </message>
+    <message>
+        <source>The model response exceeded the supported size limit.</source>
+        <translation>模型回复超出了支持的大小限制。</translation>
+    </message>
+    <message>
+        <source>The provider rate limit was reached. Wait before retrying.</source>
+        <translation>已达到服务商的速率限制，请稍后重试。</translation>
+    </message>
+    <message>
+        <source>%1 starts Game %2.</source>
+        <translation>%1 在第 %2 盘先手。</translation>
+    </message>
+    <message>
+        <source>%1 is playing with their library top revealed.</source>
+        <translation>%1 开始持续展示牌库顶牌。</translation>
+    </message>
+    <message>
+        <source>%1 stopped playing with their library top revealed.</source>
+        <translation>%1 停止持续展示牌库顶牌。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Forge could not start with one or more selected decks.</source>
+        <translation>Forge 无法使用一个或多个已选牌组开始对局。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>All Forge game slots are currently occupied. Try again when a slot is available.</source>
+        <translation>Forge 对局名额已满，请在有空闲名额后重试。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The Forge runtime is unavailable. Ask the server operator or player host to check it.</source>
+        <translation>Forge 运行包不可用，请联系服务器管理员或玩家房主检查。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The Forge runtime did not finish starting the game in time.</source>
+        <translation>Forge 运行包未能在规定时间内完成开局。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The Forge runtime stopped while starting the game.</source>
+        <translation>Forge 运行包在开局时停止运行。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Forge could not start the game. The runtime did not provide a specific supported reason.</source>
+        <translation>Forge 无法开始对局，运行包未提供可识别的具体原因。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Main deck</source>
+        <translation>主牌</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Sideboard</source>
+        <translation>备牌</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Commanders</source>
+        <translation>指挥官</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>AI deck</source>
+        <translation>AI 牌组</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Your deck</source>
+        <translation>你的牌组</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The current Forge runtime cannot recognize this card.</source>
+        <translation>当前 Forge 运行包无法识别此牌。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The current Forge runtime cannot recognize this card or the selected printing.</source>
+        <translation>当前 Forge 运行包无法识别此牌或所选印刷。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The selected commander could not be found among the usable main-deck cards.</source>
+        <translation>在可用的主牌中未找到所选指挥官。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The main-deck size is not supported for this game.</source>
+        <translation>此对局不支持该主牌数量。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>The sideboard size is not supported for this game.</source>
+        <translation>此对局不支持该备牌数量。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>%1 · %2: %3</source>
+        <translation>%1 · %2：%3</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Some additional details were omitted.</source>
+        <translation>已省略部分详细信息。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Change the affected card or printing, or check the Forge runtime, then ready again.</source>
+        <translation>请更换有问题的牌或印刷，或检查 Forge 运行包，然后重新准备。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml"/>
+        <source>Your seats and selected decks are kept.</source>
+        <translation>你的席位和已选牌组已保留。</translation>
+    </message>
 </context>
 <context>
     <name>ImportDeck</name>
@@ -5029,6 +5341,18 @@
         <location line="+23"/>
         <source>Reveal card name in the game log</source>
         <translation>在游戏日志中展示牌名</translation>
+    </message>
+    <message>
+        <source>Reveal selected cards in the game log</source>
+        <translation>在游戏日志中展示所选卡牌</translation>
+    </message>
+    <message>
+        <source>Reveal this card in the game log</source>
+        <translation>在游戏日志中展示此牌</translation>
+    </message>
+    <message>
+        <source>Reveal in log</source>
+        <translation>在日志中展示</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -5711,6 +6035,18 @@ your way.</source>
         <source>Tournaments</source>
         <translation type="vanished">比赛</translation>
     </message>
+    <message>
+        <source>Announcements · %1 unread</source>
+        <translation>公告 · %1 条未读</translation>
+    </message>
+    <message>
+        <source>Announcements</source>
+        <translation>公告</translation>
+    </message>
+    <message>
+        <source>Forge replays</source>
+        <translation>Forge 回放</translation>
+    </message>
 </context>
 <context>
     <name>MatchLoading</name>
@@ -6310,6 +6646,10 @@ your way.</source>
         <source>Forge · Server hosted</source>
         <translation>Forge · 服务器托管</translation>
     </message>
+    <message>
+        <source>AI · %1</source>
+        <translation>AI · %1</translation>
+    </message>
 </context>
 <context>
     <name>RulesBattlefieldView</name>
@@ -6378,6 +6718,30 @@ your way.</source>
 <context>
     <name>RulesCardSelectionPrompt</name>
     <message>
+        <source>Next choice: %1 of %2</source>
+        <translation>本次选择 %1 / %2</translation>
+    </message>
+    <message>
+        <source>Next choice: %1 · choose %2–%3</source>
+        <translation>本次选择 %1 · 请选择 %2–%3 张</translation>
+    </message>
+    <message>
+        <source>Already selected</source>
+        <translation>已选定</translation>
+    </message>
+    <message>
+        <source>Undo selection</source>
+        <translation>撤销选择</translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation>已选择</translation>
+    </message>
+    <message>
+        <source>Already selected: %1. Select a marked card to undo it.</source>
+        <translation>已选定 %1 张。选择带标记的牌可撤销该选择。</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
@@ -6429,6 +6793,42 @@ your way.</source>
 </context>
 <context>
     <name>RulesCombatAssignmentPrompt</name>
+    <message>
+        <source>%1: choose a highlighted player or permanent to attack.</source>
+        <translation>%1：点击高亮的玩家或永久物，指定攻击目标。</translation>
+    </message>
+    <message>
+        <source>%1: choose a highlighted creature to block.</source>
+        <translation>%1：点击高亮的攻击生物，指定阻挡对象。</translation>
+    </message>
+    <message>
+        <source>Select a creature, then the player or permanent to attack.</source>
+        <translation>先选择攻击生物，再点击要攻击的玩家或永久物。</translation>
+    </message>
+    <message>
+        <source>Select a blocking creature, then the attacking creature.</source>
+        <translation>先选择阻挡生物，再点击要阻挡的攻击生物。</translation>
+    </message>
+    <message>
+        <source>Cancel selection</source>
+        <translation>取消选择</translation>
+    </message>
+    <message>
+        <source>Clear assignments</source>
+        <translation>清空分配</translation>
+    </message>
+    <message>
+        <source>Hide assignments</source>
+        <translation>收起列表</translation>
+    </message>
+    <message>
+        <source>Assignment list</source>
+        <translation>分配列表</translation>
+    </message>
+    <message>
+        <source>Choose a target or cancel the selection</source>
+        <translation>请选择目标或取消当前选择</translation>
+    </message>
     <message>
         <source>Block %1 / %2</source>
         <translation>阻挡 %1 / %2</translation>
@@ -6663,7 +7063,7 @@ your way.</source>
     </message>
     <message>
         <source>Click a highlighted card to play it or use an ability. Right-click to inspect.</source>
-        <translation>点击高亮的卡牌使用该牌或启动异能，右键查看详情。</translation>
+        <translation>点击高亮的卡牌使用该牌或起动异能，右键查看详情。</translation>
     </message>
     <message>
         <location filename="../qml/components/RulesPromptPanel.qml" line="+64"/>
@@ -6721,6 +7121,14 @@ your way.</source>
 </context>
 <context>
     <name>RulesScalarChoicePrompt</name>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Choose none</source>
+        <translation>不选择</translation>
+    </message>
     <message>
         <location filename="../qml/components/RulesScalarChoicePrompt.qml" line="+32"/>
         <source>White</source>
@@ -6807,7 +7215,7 @@ your way.</source>
     <message>
         <location line="+1"/>
         <source>Graveyard</source>
-        <translation>坟场</translation>
+        <translation>墓地</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -7179,6 +7587,10 @@ your way.</source>
 <context>
     <name>RulesTableActionRail</name>
     <message>
+        <source>Audio</source>
+        <translation>音效</translation>
+    </message>
+    <message>
         <location filename="../qml/components/RulesTableActionRail.qml" line="+99"/>
         <source>Game %1 · %2</source>
         <translation>第 %1 局 · %2</translation>
@@ -7254,7 +7666,7 @@ your way.</source>
     </message>
     <message>
         <source>Others</source>
-        <translation>对手</translation>
+        <translation>其他</translation>
     </message>
     <message>
         <source>Stop at %1 on other players' turns</source>
@@ -7319,6 +7731,10 @@ your way.</source>
 </context>
 <context>
     <name>RulesTargetSelectionPrompt</name>
+    <message>
+        <source>Selected: %1</source>
+        <translation>已选择：%1</translation>
+    </message>
     <message>
         <source>Click highlighted cards or players on the table.</source>
         <translation>点击桌面上高亮的卡牌或玩家。</translation>
@@ -7829,6 +8245,26 @@ your way.</source>
         <source>Local Forge: download, import and diagnostics</source>
         <translation>本机 Forge：下载、导入与诊断</translation>
     </message>
+    <message>
+        <source>Local and online model connections, credentials, and thinking limits</source>
+        <translation>本地与在线模型连接、密钥和思考限额</translation>
+    </message>
+    <message>
+        <source>Model opponents</source>
+        <translation>模型对手</translation>
+    </message>
+    <message>
+        <source>Experimental</source>
+        <translation>实验性功能</translation>
+    </message>
+    <message>
+        <source>Gameplay</source>
+        <translation>对局</translation>
+    </message>
+    <message>
+        <source>Priority, phase stops, and direct connections</source>
+        <translation>优先权、阶段停点与直连</translation>
+    </message>
 </context>
 <context>
     <name>SharedZonesView</name>
@@ -8141,7 +8577,7 @@ your way.</source>
     <message>
         <location line="+1"/>
         <source>Move selected card(s) to graveyard</source>
-        <translation>将选中的牌移至坟场</translation>
+        <translation>将选中的牌移至墓地</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -8657,6 +9093,26 @@ your way.</source>
         <source>Waiting…</source>
         <translation>等待中…</translation>
     </message>
+    <message>
+        <source>Choose play or draw for the next game</source>
+        <translation>选择下一盘的先后手</translation>
+    </message>
+    <message>
+        <source>Draw first</source>
+        <translation>后手</translation>
+    </message>
+    <message>
+        <source>Play first</source>
+        <translation>先手</translation>
+    </message>
+    <message>
+        <source>Remove all mainboard cards</source>
+        <translation>移除所有主牌</translation>
+    </message>
+    <message>
+        <source>Review previous game</source>
+        <translation>检视上一盘场面</translation>
+    </message>
 </context>
 <context>
     <name>SponsorAnnouncementPopup</name>
@@ -8723,6 +9179,10 @@ your way.</source>
         <location line="+11"/>
         <source>Visit profile</source>
         <translation>访问主页</translation>
+    </message>
+    <message>
+        <source>New supporter</source>
+        <translation>新加入的赞助者</translation>
     </message>
 </context>
 <context>
@@ -10273,6 +10733,14 @@ your way.</source>
         <source>Exile top card face down (no player may look)</source>
         <translation>将牌库顶牌背面朝上放逐（所有人不可查看）</translation>
     </message>
+    <message>
+        <source>Play with library top revealed</source>
+        <translation>持续展示牌库顶牌</translation>
+    </message>
+    <message>
+        <source>Stop revealing library top</source>
+        <translation>停止展示牌库顶牌</translation>
+    </message>
 </context>
 <context>
     <name>TableMenus</name>
@@ -10529,6 +10997,10 @@ your way.</source>
 <context>
     <name>TableSettingsPopup</name>
     <message>
+        <source>Audio</source>
+        <translation>音效</translation>
+    </message>
+    <message>
         <location filename="../qml/components/TableSettingsPopup.qml" line="+51"/>
         <source>Table layout</source>
         <translation>牌桌布局</translation>
@@ -10763,6 +11235,10 @@ your way.</source>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
+    <message>
+        <source>Only this Limited environment</source>
+        <translation>仅显示当前限制赛环境</translation>
+    </message>
 </context>
 <context>
     <name>TournamentBrowser</name>
@@ -10959,6 +11435,14 @@ your way.</source>
         <source>Cancelled</source>
         <translation>已取消</translation>
     </message>
+    <message>
+        <source>Forge rules</source>
+        <translation>Forge 规则</translation>
+    </message>
+    <message>
+        <source>Manual tabletop</source>
+        <translation>手动桌面</translation>
+    </message>
 </context>
 <context>
     <name>TournamentCreate</name>
@@ -11068,13 +11552,13 @@ your way.</source>
     </message>
     <message>
         <location line="+54"/>
-        <source>Limited pools and drafting are server-authoritative. Tabletop game rules remain manual.</source>
-        <translation>限制赛牌池和轮抓由服务器管理；牌桌游戏规则仍由玩家手动执行。</translation>
+        <source>The server manages pools and drafting. Each match uses the gameplay rules selected below.</source>
+        <translation>服务器管理牌池和轮抓。每场对局均使用下方选择的游戏规则。</translation>
     </message>
     <message>
         <location line="+1"/>
-        <source>This is an announced label. Hexproof does not enforce deck legality or game rules.</source>
-        <translation>此处仅用于公布赛制；Hexproof 不检查套牌合法性，也不执行游戏规则。</translation>
+        <source>The format names the card pool. Matches follow the gameplay rules selected below.</source>
+        <translation>赛制规定可用牌池。每场对局遵循下方所选的游戏规则。</translation>
     </message>
     <message>
         <source>CUBE</source>
@@ -11173,6 +11657,30 @@ your way.</source>
     <message>
         <source>Use 0 rounds for the official recommended Swiss count based on checked-in attendance. Four checked-in players are required to start.</source>
         <translation type="vanished">轮数填 0 时，将按签到人数采用官方建议的瑞士轮轮数。至少需要 4 名已签到选手才能开始。</translation>
+    </message>
+    <message>
+        <source>Every paired match uses server-hosted Forge rules. The rules mode is fixed for this event.</source>
+        <translation>所有配对对局均由服务器运行 Forge 规则。本次活动的规则模式创建后不可更改。</translation>
+    </message>
+    <message>
+        <source>Forge rules</source>
+        <translation>Forge 规则</translation>
+    </message>
+    <message>
+        <source>Forge rules are unavailable on this server</source>
+        <translation>此服务器不提供 Forge 规则</translation>
+    </message>
+    <message>
+        <source>GAMEPLAY RULES</source>
+        <translation>游戏规则</translation>
+    </message>
+    <message>
+        <source>Individual Swiss · choose manual tabletop or Forge rules</source>
+        <translation>个人瑞士赛 · 可选手动桌面或 Forge 规则</translation>
+    </message>
+    <message>
+        <source>Manual tabletop</source>
+        <translation>手动桌面</translation>
     </message>
 </context>
 <context>
@@ -12644,6 +13152,22 @@ your way.</source>
         <source>From your drafted cards</source>
         <translation>来自已抓牌池</translation>
     </message>
+    <message>
+        <source>Forge rules</source>
+        <translation>Forge 规则</translation>
+    </message>
+    <message>
+        <source>Manual tabletop</source>
+        <translation>手动桌面</translation>
+    </message>
+    <message>
+        <source>Select printing</source>
+        <translation>选择版本</translation>
+    </message>
+    <message>
+        <source>View opened packs</source>
+        <translation>查看已开的补充包</translation>
+    </message>
 </context>
 <context>
     <name>WaitingRoom</name>
@@ -13046,6 +13570,50 @@ your way.</source>
     <message>
         <source>Hosting, downloads and diagnostics</source>
         <translation>托管、下载与诊断</translation>
+    </message>
+    <message>
+        <source>AI deck selected</source>
+        <translation>AI 套牌已选择</translation>
+    </message>
+    <message>
+        <source>AI opponent</source>
+        <translation>AI 对手</translation>
+    </message>
+    <message>
+        <source>Change AI deck</source>
+        <translation>更换 AI 套牌</translation>
+    </message>
+    <message>
+        <source>Choose a deck for the AI</source>
+        <translation>请选择 AI 使用的套牌</translation>
+    </message>
+    <message>
+        <source>Forge AI · %1</source>
+        <translation>Forge AI · %1</translation>
+    </message>
+    <message>
+        <source>Select AI deck</source>
+        <translation>选择 AI 套牌</translation>
+    </message>
+    <message>
+        <source>Select a deck for the AI before readying up</source>
+        <translation>准备前请先选择 AI 套牌</translation>
+    </message>
+    <message>
+        <source>Select your deck</source>
+        <translation>选择你的套牌</translation>
+    </message>
+    <message>
+        <source>Select your deck and the AI deck separately, then ready up. Changing AI settings cancels your ready state.</source>
+        <translation>分别选择你和 AI 的套牌，然后准备。更改 AI 设置会取消你的准备状态。</translation>
+    </message>
+    <message>
+        <source>The game starts when both decks are selected and you are ready.</source>
+        <translation>双方套牌选好且你准备后，对局将自动开始。</translation>
+    </message>
+    <message>
+        <source>Recorded matches reveal both hands to the two players after the whole match ends.</source>
+        <translation>整场比赛结束后，参赛双方可在回放中查看双方手牌。</translation>
     </message>
 </context>
 <context>
@@ -13657,6 +14225,14 @@ your way.</source>
     <message>
         <source>Your match is ready: %1 vs %2</source>
         <translation>对战已就绪：%1 对 %2</translation>
+    </message>
+    <message>
+        <source>Forge rules</source>
+        <translation>Forge 规则</translation>
+    </message>
+    <message>
+        <source>Manual tabletop</source>
+        <translation>手动桌面</translation>
     </message>
 </context>
 <context>
@@ -14284,7 +14860,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     <name>RulesOpponentZoneDock</name>
     <message>
         <source>Command</source>
-        <translation>统帅区</translation>
+        <translation>指挥官区</translation>
     </message>
 </context>
 <context>
@@ -14308,10 +14884,6 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Full control</source>
         <translation>完全控制</translation>
-    </message>
-    <message>
-        <source>Full control · every priority window pauses</source>
-        <translation>完全控制 · 每次获得优先权都暂停</translation>
     </message>
     <message>
         <source>Game finished</source>
@@ -14373,6 +14945,10 @@ Downloaded and custom images will be copied and verified before the setting chan
     <context>
         <name>ForgeCard</name>
         <message>
+            <source>Activate ability</source>
+            <translation>起动异能</translation>
+        </message>
+        <message>
             <source>Exiled: %1</source>
             <translation>已放逐：%1</translation>
         </message>
@@ -14396,6 +14972,22 @@ Downloaded and custom images will be copied and verified before the setting chan
     <context>
         <name>ForgeCombatInteraction</name>
         <message>
+            <source>Attack here</source>
+            <translation>攻击此永久物</translation>
+        </message>
+        <message>
+            <source>Block this creature</source>
+            <translation>阻挡此生物</translation>
+        </message>
+        <message>
+            <source>Must attack if able</source>
+            <translation>若能则必须攻击</translation>
+        </message>
+        <message>
+            <source>Must be blocked if able</source>
+            <translation>若能则必须被阻挡</translation>
+        </message>
+        <message>
             <source>Attacking</source>
             <translation>攻击中</translation>
         </message>
@@ -14404,16 +14996,20 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>阻挡中</translation>
         </message>
         <message>
-            <source>Choose an attacker</source>
-            <translation>选择攻击者</translation>
+            <source>Choose creature to block</source>
+            <translation>选择要阻挡的生物</translation>
         </message>
         <message>
-            <source>Choose a defender</source>
-            <translation>选择防御者</translation>
+            <source>Choose attack target</source>
+            <translation>选择攻击目标</translation>
         </message>
     </context>
     <context>
         <name>ForgeDuelTable</name>
+        <message>
+            <source>You control %1's turn</source>
+            <translation>你正在操控 %1 的回合</translation>
+        </message>
         <message>
             <source>Preparing game</source>
             <translation>对局准备中</translation>
@@ -14512,7 +15108,7 @@ Downloaded and custom images will be copied and verified before the setting chan
         </message>
         <message>
             <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
-            <translation>统帅税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
+            <translation>指挥官税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
         </message>
         <message>
         <source>Waiting for the host to reconnect… The game is paused.</source>
@@ -14558,6 +15154,18 @@ Downloaded and custom images will be copied and verified before the setting chan
         <source>+%1 · %2</source>
         <translation>+%1 · %2</translation>
     </message>
+    <message>
+        <source>Forge AI · %1</source>
+        <translation>Forge AI · %1</translation>
+    </message>
+    <message>
+        <source>Retry model decision</source>
+        <translation>重试模型决策</translation>
+    </message>
+    <message>
+        <source>Model connection settings</source>
+        <translation>模型连接设置</translation>
+    </message>
 </context>
     <context>
         <name>ForgeHand</name>
@@ -14571,7 +15179,7 @@ Downloaded and custom images will be copied and verified before the setting chan
         </message>
         <message>
             <source>Hands are hidden from spectators in this room</source>
-            <translation>此房间的旁观者无法查看手牌</translation>
+            <translation>此房间的观战者无法查看手牌</translation>
         </message>
     </context>
     <context>
@@ -14582,7 +15190,7 @@ Downloaded and custom images will be copied and verified before the setting chan
         </message>
         <message>
             <source>GY</source>
-            <translation>坟场</translation>
+            <translation>墓地</translation>
         </message>
         <message>
             <source>Exile</source>
@@ -14590,7 +15198,7 @@ Downloaded and custom images will be copied and verified before the setting chan
         </message>
         <message>
             <source>Cmd</source>
-            <translation>指挥区</translation>
+            <translation>指挥官</translation>
         </message>
     </context>
     <context>
@@ -14618,6 +15226,22 @@ Downloaded and custom images will be copied and verified before the setting chan
     </context>
     <context>
         <name>RulesCardBrowser</name>
+        <message>
+            <source>Selectable only</source>
+            <translation>仅显示可选牌</translation>
+        </message>
+        <message>
+            <source>Not selectable</source>
+            <translation>不可选择</translation>
+        </message>
+    <message>
+        <source>Already selected</source>
+        <translation>已选定</translation>
+    </message>
+    <message>
+        <source>Undo selection</source>
+        <translation>撤销选择</translation>
+    </message>
         <message>
             <source>Filter by card name</source>
             <translation>按牌名筛选</translation>
@@ -14668,6 +15292,46 @@ Downloaded and custom images will be copied and verified before the setting chan
     <context>
         <name>RulesText</name>
         <message>
+            <source>Choose an ability</source>
+            <translation>选择异能</translation>
+        </message>
+        <message>
+            <source>Assign %1's combat damage first?</source>
+            <translation>先为 %1 分配战斗伤害？</translation>
+        </message>
+        <message>
+            <source>Assign this creature first</source>
+            <translation>先分配这只生物</translation>
+        </message>
+        <message>
+            <source>Assign other creatures first</source>
+            <translation>先分配其他生物</translation>
+        </message>
+        <message>
+            <source>AI deck advisory</source>
+            <translation>AI 套牌提示</translation>
+        </message>
+        <message>
+            <source>Game notice</source>
+            <translation>对局提示</translation>
+        </message>
+        <message>
+            <source>Main deck</source>
+            <translation>主牌</translation>
+        </message>
+        <message>
+            <source>Sideboard</source>
+            <translation>备牌</translation>
+        </message>
+        <message>
+            <source>You can continue this game. These cards will remain in the deck.</source>
+            <translation>你可以继续对局。这些卡牌仍会保留在套牌中。</translation>
+        </message>
+        <message>
+            <source>AI can't play these cards well from %1</source>
+            <translation>AI 不擅长使用 %1 中的下列卡牌：</translation>
+        </message>
+        <message>
             <source>Discard to maximum hand size</source>
             <translation>弃牌至手牌上限</translation>
         </message>
@@ -14681,7 +15345,7 @@ Downloaded and custom images will be copied and verified before the setting chan
         </message>
         <message>
             <source>Select a card from your sideboard and exile</source>
-            <translation>从备牌或放逐区中选择一张牌</translation>
+            <translation>从备牌中选择一张牌并放逐</translation>
         </message>
         <message>
             <source>Choose X for %1</source>
@@ -15190,8 +15854,8 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>导出托管诊断</translation>
     </message>
     <message>
-        <source>Includes versions, platform and recent hosting states. Excludes decks, cards, connection credentials and local paths.</source>
-        <translation>包含版本、平台和最近的托管状态，不包含套牌、卡牌、连接凭据和本地路径。</translation>
+        <source>Includes system information, error codes and recent setup and hosting history, kept across restarts. Excludes decks, cards, connection credentials and local paths.</source>
+        <translation>包含系统信息、错误码和最近的安装及托管记录，重启后仍保留。不包含套牌、卡牌、连接凭据和本地路径。</translation>
     </message>
     <message>
         <source>Close</source>
@@ -15339,6 +16003,14 @@ Downloaded and custom images will be copied and verified before the setting chan
         <source>Retry direct</source>
         <translation>重试直连</translation>
     </message>
+    <message>
+        <source>Enable direct connection</source>
+        <translation>启用直连</translation>
+    </message>
+    <message>
+        <source>Direct connections share network addresses with the other player and use a STUN service. This preference is saved for future games.</source>
+        <translation>直连会向对方共享网络地址，并使用 STUN 服务。此偏好会保存并用于后续对局。</translation>
+    </message>
 </context>
 <context>
     <name>AppearanceSettings</name>
@@ -15397,6 +16069,10 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Turn this off to show simulated pack contents immediately. Every opening animation can also be skipped while it is playing.</source>
         <translation>关闭后将直接显示模拟开包结果；播放动画时也可以随时跳过。</translation>
+    </message>
+    <message>
+        <source>Animate pack openings</source>
+        <translation>播放开包动画</translation>
     </message>
 </context>
 <context>
@@ -15695,6 +16371,772 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Check GitHub Releases and download the verified package for this device.</source>
         <translation>检查 GitHub Releases，并下载适用于此设备且经过校验的安装包。</translation>
+    </message>
+</context>
+<context>
+    <name>RulesCardPersistentState</name>
+    <message>
+        <source>Entered this turn</source>
+        <translation>本回合进场</translation>
+    </message>
+    <message>
+        <source>Summoning sickness</source>
+        <translation>召唤失调</translation>
+    </message>
+    <message>
+        <source>Chosen: %1</source>
+        <translation>已选择：%1</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>白色</translation>
+    </message>
+    <message>
+        <source>Blue</source>
+        <translation>蓝色</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>黑色</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>红色</translation>
+    </message>
+    <message>
+        <source>Green</source>
+        <translation>绿色</translation>
+    </message>
+    <message>
+        <source>Colorless</source>
+        <translation>无色</translation>
+    </message>
+    <message>
+        <source>Named: %1</source>
+        <translation>命名：%1</translation>
+    </message>
+    <message>
+        <source>Type: %1</source>
+        <translation>类别：%1</translation>
+    </message>
+    <message>
+        <source>Color: %1</source>
+        <translation>颜色：%1</translation>
+    </message>
+    <message>
+        <source>Number: %1</source>
+        <translation>数字：%1</translation>
+    </message>
+    <message>
+        <source>Mode: %1</source>
+        <translation>模式：%1</translation>
+    </message>
+    <message>
+        <source>Class level: %1</source>
+        <translation>职业等级：%1</translation>
+    </message>
+    <message>
+        <source>Room: %1</source>
+        <translation>房间：%1</translation>
+    </message>
+    <message>
+        <source>%1 hidden card(s)</source>
+        <translation>%1 张隐藏牌</translation>
+    </message>
+    <message>
+        <source>Exiled with this card: %1</source>
+        <translation>此牌放逐的牌：%1</translation>
+    </message>
+    <message>
+        <source>Exiled: %1</source>
+        <translation>放逐：%1</translation>
+    </message>
+</context>
+<context>
+    <name>ModelSettings</name>
+    <message>
+        <source>API base URL</source>
+        <translation>API 基础地址</translation>
+    </message>
+    <message>
+        <source>API key · optional for anonymous services</source>
+        <translation>API 密钥 · 匿名服务可留空</translation>
+    </message>
+    <message>
+        <source>API key · set for this session</source>
+        <translation>API 密钥 · 已为本次运行设置</translation>
+    </message>
+    <message>
+        <source>Check the endpoint, model, and thinking limits.</source>
+        <translation>请检查接口地址、模型名称和思考限额。</translation>
+    </message>
+    <message>
+        <source>Connect an OpenAI-compatible Chat Completions service</source>
+        <translation>连接兼容 OpenAI Chat Completions 的服务</translation>
+    </message>
+    <message>
+        <source>Conservative token budget per game</source>
+        <translation>每局保守令牌预算</translation>
+    </message>
+    <message>
+        <source>Decision timeout (seconds)</source>
+        <translation>每次决策超时（秒）</translation>
+    </message>
+    <message>
+        <source>Local model</source>
+        <translation>本地模型</translation>
+    </message>
+    <message>
+        <source>Maximum output tokens per request</source>
+        <translation>每次请求的最大输出令牌数</translation>
+    </message>
+    <message>
+        <source>Maximum requests per game</source>
+        <translation>每局最大请求次数</translation>
+    </message>
+    <message>
+        <source>Model connection saved. API keys are kept only until the application closes.</source>
+        <translation>模型连接已保存。API 密钥仅保留到应用关闭。</translation>
+    </message>
+    <message>
+        <source>Model identifier</source>
+        <translation>模型名称</translation>
+    </message>
+    <message>
+        <source>Model opponents (experimental)</source>
+        <translation>模型对手（实验性）</translation>
+    </message>
+    <message>
+        <source>Online model</source>
+        <translation>在线模型</translation>
+    </message>
+    <message>
+        <source>Output limit parameter</source>
+        <translation>输出限额参数</translation>
+    </message>
+    <message>
+        <source>Re-enter the key when saving changes. Saving an empty key removes it from this session.</source>
+        <translation>保存更改时请重新输入密钥。保存空密钥会清除本次运行中的密钥。</translation>
+    </message>
+    <message>
+        <source>Requests reserve estimated input plus the output allowance. This is a usage limit, not a guaranteed price cap. Model strength is uncalibrated.</source>
+        <translation>每次请求会预留估算输入量与最大输出量。这是用量限额，无法保证费用上限。模型强度尚未校准。</translation>
+    </message>
+    <message>
+        <source>Run a compatible model service on your computer, then enter its API base URL and model name. A local address may still forward requests to a cloud provider.</source>
+        <translation>在电脑上运行兼容的模型服务，然后输入 API 基础地址和模型名称。本地地址也可能将请求转发到云端。</translation>
+    </message>
+    <message>
+        <source>Save connection</source>
+        <translation>保存连接</translation>
+    </message>
+    <message>
+        <source>Test saved connection</source>
+        <translation>测试已保存的连接</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>正在测试…</translation>
+    </message>
+    <message>
+        <source>Use the parameter supported by your endpoint. Connection tests use synthetic choices and send no game data.</source>
+        <translation>请选择接口支持的参数。连接测试使用模拟选择，不发送对局数据。</translation>
+    </message>
+    <message>
+        <source>Your chosen provider receives the AI's permitted game view, including its hand. Requests may incur provider charges. API keys stay on this computer.</source>
+        <translation>所选服务商会收到 AI 可见的对局信息，包括其手牌。请求可能产生服务费用。API 密钥仅留在这台电脑上。</translation>
+    </message>
+    <message>
+        <source>Disconnect model opponent</source>
+        <translation>断开模型对手连接</translation>
+    </message>
+    <message>
+        <source>Disconnect the model opponent before editing its connection. The game will pause; after saving, return to the table and retry the model decision to authorize the selected connection.</source>
+        <translation>修改连接前请先断开模型对手。对局会暂停；保存后返回牌桌并重试模型决策，即可授权使用所选连接。</translation>
+    </message>
+    <message>
+        <source>Experimental feature: model replies may fail and pause the game. Full-game reliability is not yet verified.</source>
+        <translation>实验性功能：模型回答可能失败并导致对局暂停，完整对局的可靠性尚未验证。</translation>
+    </message>
+</context>
+<context>
+    <name>AudioSettings</name>
+    <message>
+        <source>Audio</source>
+        <translation>音效</translation>
+    </message>
+    <message>
+        <source>Soft card sounds and brief magic accents for long games</source>
+        <translation>轻柔纸牌声与短促魔法声，适合长时间对局</translation>
+    </message>
+    <message>
+        <source>Operation sounds</source>
+        <translation>操作音效</translation>
+    </message>
+    <message>
+        <source>Mute sound effects</source>
+        <translation>静音</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>音量</translation>
+    </message>
+    <message>
+        <source>Sound effects volume</source>
+        <translation>操作音效音量</translation>
+    </message>
+    <message>
+        <source>Preview all sound effects (%1)</source>
+        <translation>试听全部音效（%1 种）</translation>
+    </message>
+    <message>
+        <source>Draw a card</source>
+        <translation>抓牌</translation>
+    </message>
+    <message>
+        <source>Cast a spell</source>
+        <translation>施放咒语</translation>
+    </message>
+    <message>
+        <source>Your turn</source>
+        <translation>你的回合</translation>
+    </message>
+    <message>
+        <source>Background music</source>
+        <translation>背景音乐</translation>
+    </message>
+    <message>
+        <source>Plays on repeat while Hexproof is open, across menus and matches.</source>
+        <translation>打开 Hexproof 后循环播放，菜单与对局之间切换时持续播放。</translation>
+    </message>
+    <message>
+        <source>Music track</source>
+        <translation>背景音乐曲目</translation>
+    </message>
+    <message>
+        <source>Mute background music</source>
+        <translation>静音背景音乐</translation>
+    </message>
+    <message>
+        <source>Background music volume</source>
+        <translation>背景音乐音量</translation>
+    </message>
+    <message>
+        <source>Button click</source>
+        <translation>按钮点击</translation>
+    </message>
+    <message>
+        <source>Select a card</source>
+        <translation>选中卡牌</translation>
+    </message>
+    <message>
+        <source>Play a card</source>
+        <translation>打出卡牌</translation>
+    </message>
+    <message>
+        <source>Tap / untap</source>
+        <translation>横置 / 重置</translation>
+    </message>
+    <message>
+        <source>Shuffle</source>
+        <translation>洗牌</translation>
+    </message>
+    <message>
+        <source>Declare an attacker</source>
+        <translation>宣告进攻</translation>
+    </message>
+    <message>
+        <source>Assign a blocker</source>
+        <translation>分配阻挡</translation>
+    </message>
+    <message>
+        <source>Resolve a spell / ability</source>
+        <translation>结算咒语 / 异能</translation>
+    </message>
+    <message>
+        <source>Life loss</source>
+        <translation>失去生命</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>确认操作</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消操作</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>错误提示</translation>
+    </message>
+    <message>
+        <source>Click a sound to listen. Each preview stops the previous sound.</source>
+        <translation>点击即可试听，切换时会停止上一段音效。</translation>
+    </message>
+    <message>
+        <source>Unmute sound effects and raise the volume to preview.</source>
+        <translation>请取消静音并调高音量后试听。</translation>
+    </message>
+</context>
+<context>
+    <name>Settings</name>
+    <message>
+        <source>Audio</source>
+        <translation>音效</translation>
+    </message>
+    <message>
+        <source>Operation sounds, volume, and mute</source>
+        <translation>操作音效、音量与静音</translation>
+    </message>
+</context>
+<context>
+    <name>RulesDecisionDialog</name>
+    <message>
+        <source>View battlefield</source>
+        <translation>查看战场</translation>
+    </message>
+    <message>
+        <source>Return to choice</source>
+        <translation>返回选择</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeManaPool</name>
+    <message>
+        <source>Unspent mana</source>
+        <translation>未使用的法术力</translation>
+    </message>
+</context>
+<context>
+    <name>SideboardBoardReview</name>
+    <message>
+        <source>All players</source>
+        <translation>所有玩家</translation>
+    </message>
+    <message>
+        <source>All public zones</source>
+        <translation>所有公开区域</translation>
+    </message>
+    <message>
+        <source>Back to sideboarding</source>
+        <translation>返回换备</translation>
+    </message>
+    <message>
+        <source>Battlefield</source>
+        <translation>战场</translation>
+    </message>
+    <message>
+        <source>Command zone</source>
+        <translation>统帅区</translation>
+    </message>
+    <message>
+        <source>Exile</source>
+        <translation>放逐区</translation>
+    </message>
+    <message>
+        <source>Graveyard</source>
+        <translation>坟墓场</translation>
+    </message>
+    <message>
+        <source>No visible cards in this zone</source>
+        <translation>此区域没有可检视的卡牌</translation>
+    </message>
+    <message>
+        <source>Previous game · public cards</source>
+        <translation>上一盘 · 公开卡牌</translation>
+    </message>
+</context>
+<context>
+    <name>RulesPriorityMode</name>
+    <message>
+        <source>Smart priority</source>
+        <translation>智能优先权</translation>
+    </message>
+    <message>
+        <source>Full control</source>
+        <translation>完全控制</translation>
+    </message>
+</context>
+<context>
+    <name>GameplaySettings</name>
+    <message>
+        <source>Gameplay</source>
+        <translation>对局</translation>
+    </message>
+    <message>
+        <source>Priority, phase stops, and direct connections</source>
+        <translation>优先权、阶段停点与直连</translation>
+    </message>
+    <message>
+        <source>Forge priority</source>
+        <translation>Forge 优先权</translation>
+    </message>
+    <message>
+        <source>Smart priority passes routine priority windows automatically. Full control waits for you at every priority window.</source>
+        <translation>智能优先权会自动让过常规优先权时点；完全控制会在每个优先权时点等待你的操作。</translation>
+    </message>
+    <message>
+        <source>Pause at the selected phases on your turns or other players' turns. Changes here and at the table are saved for future games.</source>
+        <translation>在自己或其他玩家回合的指定阶段停下。此处与牌桌内的修改会同步保存，后续对局继续沿用。</translation>
+    </message>
+    <message>
+        <source>Prefer direct connection (P2P)</source>
+        <translation>优先使用 P2P 直连</translation>
+    </message>
+    <message>
+        <source>Enabled by default for supported player-hosted games with two human players. If direct connection fails, the game uses server relay. Direct connections share network addresses with the other player and use a STUN service.</source>
+        <translation>在支持直连的双真人玩家托管对局中默认启用。连接失败时自动使用服务器中继。直连会向对方共享网络地址，并使用 STUN 服务。</translation>
+    </message>
+</context>
+<context>
+    <name>RulesPhaseStops</name>
+    <message>
+        <source>Others</source>
+        <translation>其他</translation>
+    </message>
+    <message>
+        <source>Stop at %1 on other players' turns</source>
+        <translation>在其他玩家回合的%1停下</translation>
+    </message>
+    <message>
+        <source>Stop at %1 on your turns</source>
+        <translation>在自己回合的%1停下</translation>
+    </message>
+    <message>
+        <source>Stops</source>
+        <translation>停点</translation>
+    </message>
+    <message>
+        <source>You</source>
+        <translation>自己</translation>
+    </message>
+</context>
+<context>
+    <name>RulesStartFailureNotice</name>
+    <message>
+        <location filename="../qml/components/RulesStartFailureNotice.qml"/>
+        <source>Show details</source>
+        <translation>查看详情</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/RulesStartFailureNotice.qml"/>
+        <source>Copy details</source>
+        <translation>复制详情</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/RulesStartFailureNotice.qml"/>
+        <source>Dismiss</source>
+        <translation>清除此提示</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/RulesStartFailureNotice.qml"/>
+        <source>Forge could not start the game</source>
+        <translation>Forge 无法开始对局</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/RulesStartFailureNotice.qml"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+</context>
+<context>
+    <name>ContentRefreshBar</name>
+    <message>
+        <source>Checking for updates…</source>
+        <translation>正在检查更新…</translation>
+    </message>
+    <message>
+        <source>Saved content · Refresh unavailable</source>
+        <translation>本地内容 · 暂时无法刷新</translation>
+    </message>
+    <message>
+        <source>Available offline</source>
+        <translation>离线可用</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+</context>
+<context>
+    <name>Announcements</name>
+    <message>
+        <source>Announcements</source>
+        <translation>公告</translation>
+    </message>
+    <message>
+        <source>Project news, maintenance and past announcements</source>
+        <translation>项目动态、维护通知与历史公告</translation>
+    </message>
+    <message>
+        <source>Current</source>
+        <translation>当前公告</translation>
+    </message>
+    <message>
+        <source>History</source>
+        <translation>历史公告</translation>
+    </message>
+    <message>
+        <source>Mark all as read</source>
+        <translation>全部标为已读</translation>
+    </message>
+    <message>
+        <source>No past announcements yet.</source>
+        <translation>暂无历史公告。</translation>
+    </message>
+    <message>
+        <source>No current announcements.</source>
+        <translation>暂无当前公告。</translation>
+    </message>
+    <message>
+        <source>Unread</source>
+        <translation>未读</translation>
+    </message>
+    <message>
+        <source>Pinned</source>
+        <translation>置顶</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>收起</translation>
+    </message>
+    <message>
+        <source>Read announcement</source>
+        <translation>阅读公告</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeReplay</name>
+    <message>
+        <source>Replay · Game %1 · %2</source>
+        <translation>回放 · 第 %1 局 · %2</translation>
+    </message>
+    <message>
+        <source>%1 wins</source>
+        <translation>%1 获胜</translation>
+    </message>
+    <message>
+        <source>Draw</source>
+        <translation>平局</translation>
+    </message>
+
+    <message>
+        <source>Waiting for a decision</source>
+        <translation>等待玩家操作</translation>
+    </message>
+    <message>
+        <source>Card changes zone</source>
+        <translation>牌张移动至其他区域</translation>
+    </message>
+    <message>
+        <source>Card tap state changes</source>
+        <translation>牌张横置状态改变</translation>
+    </message>
+    <message>
+        <source>Card counters change</source>
+        <translation>牌上指示物改变</translation>
+    </message>
+    <message>
+        <source>Card characteristics change</source>
+        <translation>牌张特征改变</translation>
+    </message>
+    <message>
+        <source>Mana pool changes</source>
+        <translation>法术力池改变</translation>
+    </message>
+    <message>
+        <source>Attachment changes</source>
+        <translation>贴附关系改变</translation>
+    </message>
+    <message>
+        <source>Token created</source>
+        <translation>创建衍生物</translation>
+    </message>
+    <message>
+        <source>Combat ends</source>
+        <translation>战斗结束</translation>
+    </message>
+    <message>
+        <source>Game finished</source>
+        <translation>本局结束</translation>
+    </message>
+    <message>
+        <source>Game state changes</source>
+        <translation>对局状态改变</translation>
+    </message>
+
+    <message>
+        <source>Export Forge replay</source>
+        <translation>导出 Forge 回放</translation>
+    </message>
+    <message>
+        <source>Hexproof replay (*.hpr)</source>
+        <translation>Hexproof 回放 (*.hpr)</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>返回</translation>
+    </message>
+    <message>
+        <source>Replay · Game %1 · Turn %2 · %3</source>
+        <translation>回放 · 第 %1 局 · 第 %2 回合 · %3</translation>
+    </message>
+    <message>
+        <source>Flip table</source>
+        <translation>翻转棋盘</translation>
+    </message>
+    <message>
+        <source>Timeline</source>
+        <translation>时间线</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>导出</translation>
+    </message>
+    <message>
+        <source>This recording is incomplete. Some events may be missing.</source>
+        <translation>此回放不完整，部分事件可能缺失。</translation>
+    </message>
+    <message>
+        <source>Game %1 · Turn %2 · %3</source>
+        <translation>第 %1 局 · 第 %2 回合 · %3</translation>
+    </message>
+    <message>
+        <source>Previous turn</source>
+        <translation>上一回合</translation>
+    </message>
+    <message>
+        <source>Previous</source>
+        <translation>上一步</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>播放</translation>
+    </message>
+    <message>
+        <source>Next</source>
+        <translation>下一步</translation>
+    </message>
+    <message>
+        <source>Next turn</source>
+        <translation>下一回合</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeReplayLibrary</name>
+    <message>
+        <source>Open Forge replay</source>
+        <translation>打开 Forge 回放</translation>
+    </message>
+    <message>
+        <source>Hexproof replay (*.hpr)</source>
+        <translation>Hexproof 回放 (*.hpr)</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>返回</translation>
+    </message>
+    <message>
+        <source>Forge replays</source>
+        <translation>Forge 回放</translation>
+    </message>
+    <message>
+        <source>Open file</source>
+        <translation>打开文件</translation>
+    </message>
+    <message>
+        <source>After the whole match ends, its players can download a replay with both hands. Downloaded replays work offline.</source>
+        <translation>整场比赛结束后，参赛双方可下载包含双方手牌的回放。下载后可离线观看。</translation>
+    </message>
+    <message>
+        <source>Downloading replay…</source>
+        <translation>正在下载回放…</translation>
+    </message>
+    <message>
+        <source>No recorded Forge matches yet.</source>
+        <translation>暂无 Forge 对局回放。</translation>
+    </message>
+    <message>
+        <source>Forge match</source>
+        <translation>Forge 对局</translation>
+    </message>
+    <message>
+        <source>Saved locally</source>
+        <translation>已保存到本地</translation>
+    </message>
+    <message>
+        <source>Ready to download</source>
+        <translation>可下载</translation>
+    </message>
+    <message>
+        <source>Available after the match</source>
+        <translation>整场结束后可下载</translation>
+    </message>
+    <message>
+        <source>Watch</source>
+        <translation>观看</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+</context>
+<context>
+    <name>hexproof::client::ForgeReplayService</name>
+    <message>
+        <source>The replay download timed out.</source>
+        <translation>回放下载超时。</translation>
+    </message>
+    <message>
+        <source>Could not save the replay library.</source>
+        <translation>无法保存回放列表。</translation>
+    </message>
+    <message>
+        <source>Replay is unavailable.</source>
+        <translation>回放不可用。</translation>
+    </message>
+    <message>
+        <source>The replay download is invalid or incomplete.</source>
+        <translation>回放下载数据无效或不完整。</translation>
+    </message>
+    <message>
+        <source>The replay exceeds the size limit.</source>
+        <translation>回放超过大小限制。</translation>
+    </message>
+    <message>
+        <source>This is not a supported finished Forge replay.</source>
+        <translation>此文件不是受支持的已结束 Forge 回放。</translation>
+    </message>
+    <message>
+        <source>The replay contains an invalid frame.</source>
+        <translation>回放包含无效的状态帧。</translation>
+    </message>
+    <message>
+        <source>Could not open the replay file.</source>
+        <translation>无法打开回放文件。</translation>
+    </message>
+    <message>
+        <source>The replay file is invalid or too large.</source>
+        <translation>回放文件无效或过大。</translation>
+    </message>
+    <message>
+        <source>Could not save the replay file.</source>
+        <translation>无法保存回放文件。</translation>
+    </message>
+</context>
+<context>
+    <name>hexproof::client::WsClient</name>
+    <message>
+        <source>Connect to the original server to download this replay.</source>
+        <translation>请连接原服务器以下载此回放。</translation>
+    </message>
+    <message>
+        <source>Could not request the replay.</source>
+        <translation>无法请求回放。</translation>
     </message>
 </context>
 </TS>

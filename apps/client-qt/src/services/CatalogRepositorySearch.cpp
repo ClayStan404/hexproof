@@ -219,7 +219,8 @@ CatalogRepository::search(const QString &text, const QString &language, const QS
 }
 
 CatalogSearchResult CatalogRepository::searchTokens(const QString &text, const QString &language,
-                                                    const QString &kind) const
+                                                    const QString &kind,
+                                                    const QStringList &setCodes) const
 {
     CatalogSearchResult result;
     if (!ensureOpen(&result.error)) {
@@ -228,11 +229,27 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text, const Q
         return result;
     }
     const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
-    const QString layoutFilter =
+    QString layoutFilter =
         kind == QStringLiteral("emblem") ? QStringLiteral("c.layout = 'emblem'")
         : kind == QStringLiteral("token")
             ? QStringLiteral("c.layout IN ('token', 'double_faced_token')")
             : QStringLiteral("c.layout IN ('token', 'double_faced_token', 'emblem')");
+    QStringList tokenSets;
+    for (const QString &set : setCodes) {
+        const QString code = set.trimmed().toUpper();
+        if (!code.isEmpty()) {
+            tokenSets.append(code);
+            tokenSets.append(QLatin1Char('T') + code);
+        }
+    }
+    tokenSets.removeDuplicates();
+    if (!tokenSets.isEmpty()) {
+        QStringList placeholders;
+        for (qsizetype index = 0; index < tokenSets.size(); ++index)
+            placeholders.append(QStringLiteral("?"));
+        layoutFilter += QStringLiteral(" AND upper(c.set_code) IN (%1)")
+                            .arg(placeholders.join(QLatin1Char(',')));
+    }
     {
             const bool hasAliases = m_schema.hasAliases;
             const bool hasLocalizedPrintings = m_schema.hasLocalizedPrintings;
@@ -334,6 +351,8 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text, const Q
                         "c.rowid DESC LIMIT 60")
                         .arg(localizedName, localizedType, powerExpression, toughnessExpression,
                              oracleTextExpression, layoutFilter));
+                for (const QString &set : tokenSets)
+                    exactQuery.addBindValue(set);
                 exactQuery.addBindValue(requestedSet);
                 exactQuery.addBindValue(tokenSet);
                 exactQuery.addBindValue(collectorNumber);
@@ -396,6 +415,8 @@ CatalogSearchResult CatalogRepository::searchTokens(const QString &text, const Q
                         "THEN 1 ELSE 2 END, name COLLATE NOCASE, power, toughness LIMIT 60");
                 }
                 query.prepare(statement);
+                for (const QString &set : tokenSets)
+                    query.addBindValue(set);
                 if (!text.isEmpty()) {
                     const QString escaped = escapedLike(text);
                     const QString contains = QLatin1Char('%') + escaped + QLatin1Char('%');

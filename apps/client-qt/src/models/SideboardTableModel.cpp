@@ -129,7 +129,9 @@ SideboardTableModel::GroupedCards SideboardTableModel::buildGroups(const QVarian
         const int quantity = std::max(1, card.value(QStringLiteral("count"), 1).toInt());
         const QString setCode = card.value(QStringLiteral("setCode")).toString();
         const QString collectorNumber = card.value(QStringLiteral("collectorNumber")).toString();
-        const bool virtualCard = setCode.trimmed().isEmpty() && collectorNumber.trimmed().isEmpty();
+        const bool virtualCard =
+            card.value(QStringLiteral("virtualBasic")).toBool() ||
+            (setCode.trimmed().isEmpty() && collectorNumber.trimmed().isEmpty());
         const QString key = category + QChar(0x0001) + name.trimmed().toCaseFolded() +
                             QChar(0x0001) +
                             (virtualCard ? QStringLiteral("virtual") : QStringLiteral("printed"));

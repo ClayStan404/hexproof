@@ -18,13 +18,14 @@ type RulesCardIdentity struct {
 }
 
 type RulesPlayerState struct {
-	Seat       int                   `json:"seat"`
-	Name       string                `json:"name"`
-	Status     string                `json:"status"`
-	Life       int                   `json:"life"`
-	Counters   []RulesCounter        `json:"counters"`
-	ManaPool   []RulesCounter        `json:"manaPool"`
-	Commanders []RulesCommanderState `json:"commanders"`
+	ControllingSeat *int                  `json:"controllingSeat,omitempty"`
+	Seat            int                   `json:"seat"`
+	Name            string                `json:"name"`
+	Status          string                `json:"status"`
+	Life            int                   `json:"life"`
+	Counters        []RulesCounter        `json:"counters"`
+	ManaPool        []RulesCounter        `json:"manaPool"`
+	Commanders      []RulesCommanderState `json:"commanders"`
 }
 
 // RulesCommanderState is read-only designation/history, never a rules action.
@@ -41,21 +42,31 @@ type RulesCommanderState struct {
 // RulesCardState never includes Identity when Forge redacted the card for the
 // requested viewer.
 type RulesCardState struct {
-	ID              string             `json:"id"`
-	Visible         bool               `json:"visible"`
-	Identity        *RulesCardIdentity `json:"identity,omitempty"`
-	OwnerSeat       int                `json:"ownerSeat"`
-	ControllerSeat  int                `json:"controllerSeat"`
-	Tapped          bool               `json:"tapped,omitempty"`
-	FaceDown        bool               `json:"faceDown,omitempty"`
-	Attacking       bool               `json:"attacking,omitempty"`
-	Power           string             `json:"power,omitempty"`
-	Toughness       string             `json:"toughness,omitempty"`
-	Counters        []RulesCounter     `json:"counters"`
-	Damage          int                `json:"damage,omitempty"`
-	AttachedTo      string             `json:"attachedTo,omitempty"`
-	ExiledCardCount int                `json:"exiledCardCount,omitempty"`
-	ExiledCardIDs   []string           `json:"exiledCardIds,omitempty"`
+	ID              string                `json:"id"`
+	Visible         bool                  `json:"visible"`
+	Identity        *RulesCardIdentity    `json:"identity,omitempty"`
+	OwnerSeat       int                   `json:"ownerSeat"`
+	ControllerSeat  int                   `json:"controllerSeat"`
+	Tapped          bool                  `json:"tapped,omitempty"`
+	EnteredThisTurn bool                  `json:"enteredThisTurn,omitempty"`
+	SummoningSick   bool                  `json:"summoningSick,omitempty"`
+	FaceDown        bool                  `json:"faceDown,omitempty"`
+	Attacking       bool                  `json:"attacking,omitempty"`
+	Power           string                `json:"power,omitempty"`
+	Toughness       string                `json:"toughness,omitempty"`
+	Counters        []RulesCounter        `json:"counters"`
+	Damage          int                   `json:"damage,omitempty"`
+	AttachedTo      string                `json:"attachedTo,omitempty"`
+	ExiledCardCount int                   `json:"exiledCardCount,omitempty"`
+	ExiledCardIDs   []string              `json:"exiledCardIds,omitempty"`
+	ChosenCardIDs   []string              `json:"chosenCardIds,omitempty"`
+	Annotations     []RulesCardAnnotation `json:"annotations,omitempty"`
+}
+
+// RulesCardAnnotation is a read-only revealed choice on a visible permanent.
+type RulesCardAnnotation struct {
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
 }
 
 type RulesZoneState struct {
@@ -110,6 +121,8 @@ type RulesPromptCard struct {
 	SetCode         string `json:"setCode"`
 	CollectorNumber string `json:"collectorNumber"`
 	Token           bool   `json:"token,omitempty"`
+	Selected        bool   `json:"selected,omitempty"`
+	ReadOnly        bool   `json:"readOnly,omitempty"`
 }
 
 // RulesPromptOrderItem is one prompt-local sortable card or trigger.
@@ -143,6 +156,8 @@ type RulesPromptTarget struct {
 	SetCode         string `json:"setCode,omitempty"`
 	CollectorNumber string `json:"collectorNumber,omitempty"`
 	Token           bool   `json:"token,omitempty"`
+	// Selected is an existing native reservation, not a new client selection.
+	Selected bool `json:"selected,omitempty"`
 }
 
 // RulesPromptCombatSource is one attacking or blocking permanent. Its legal

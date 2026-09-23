@@ -40,6 +40,8 @@ public_paths=(
     apps
     docs/rules-engine.md
     docs/player-hosted-forge.md
+    docs/home-servers.md
+    docs/public-content.md
     packaging
     protocol
     testdata
@@ -47,6 +49,8 @@ public_paths=(
     tools
 )
 public_paths+=(':(exclude)tools/tests/test_deploy_script.py')
+public_paths+=(':(exclude)tools/tests/test_home_deployment.py')
+public_paths+=(':(exclude)tools/package-home-node.py')
 
 # The archive reads HEAD, not the working tree. Only changes to exported paths
 # can make that snapshot unexpectedly stale; private notes/images are unrelated.

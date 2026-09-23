@@ -176,9 +176,11 @@ class ParallelNetwork final : public QNetworkAccessManager
             // which reads the already-consumed reply as an empty payload.
             QMetaObject::invokeMethod(
                 reply,
-                [reply]() {
-                    reply->blockSignals(false);
-                    emit reply->finished();
+                [held = QPointer<QNetworkReply>(reply)]() {
+                    if (!held)
+                        return;
+                    held->blockSignals(false);
+                    emit held->finished();
                 },
                 Qt::QueuedConnection);
         }

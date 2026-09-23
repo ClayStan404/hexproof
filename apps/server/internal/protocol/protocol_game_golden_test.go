@@ -224,6 +224,7 @@ func TestGoldenGameActionFixtures(t *testing.T) {
 		if env.Type != TypeGameResolveLibraryView ||
 			env.ID != "resolve-top-assigned-1" ||
 			len(resolve.Assignments) != 3 ||
+			!resolve.Assignments[0].Reveal || resolve.Assignments[1].Reveal ||
 			resolve.Assignments[1].CardID != "s0-c9" ||
 			resolve.Assignments[1].ToZone != LibraryDestinationExile ||
 			!resolve.RandomizeBottom || resolve.RandomizeTop {

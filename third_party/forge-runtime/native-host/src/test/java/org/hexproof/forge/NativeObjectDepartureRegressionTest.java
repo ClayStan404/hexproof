@@ -111,7 +111,7 @@ public final class NativeObjectDepartureRegressionTest {
                     catch (Exception error) { throw new CompletionException(error); }
                 }
             }));
-            String expected = naming ? "chooseCardName" : "chooseNumber";
+            String expected = naming ? "chooseFromSelection" : "chooseNumber";
             JsonObject prompt = awaitPrompt(session);
             while (!inputType(prompt).equals(expected)) {
                 require(inputType(prompt).equals("mulligan"), "Unexpected opening input: " + inputType(prompt));
@@ -121,6 +121,8 @@ public final class NativeObjectDepartureRegressionTest {
                 prompt = awaitPrompt(session);
             }
             opening.get(2, TimeUnit.SECONDS);
+            if (naming) require(prompt.getAsJsonObject("input").getAsJsonArray("options").size() == 2,
+                    "Restricted name choice lost its two explicit legal options");
             require(prompt.get("decidingPlayerId").getAsString().equals("player-0"), "Effect skipped its target's decision");
             if (nested || stale) {
                 rpc.submit(() -> concede(session, 0)).get(2, TimeUnit.SECONDS);

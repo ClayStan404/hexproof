@@ -1,0 +1,7 @@
+{
+  "type": "game.set_library_top_revealed",
+  "id": "game-set-library-top-revealed",
+  "payload": {
+    "revealed": true
+  }
+}

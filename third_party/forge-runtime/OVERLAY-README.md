@@ -8,6 +8,12 @@ before the base JAR. Unchanged Forge code, resources and dependencies come from
 the pinned base distribution. This preserves its source-backed XMLPull
 replacement and other dependency notices.
 
+Reviewed card-text corrections are host-owned display hints, applied by the
+patched ability factory only inside a native execution context. Only missing
+`StackDescription` and `TgtPrompt` annotations are accepted. This keeps local
+and bundled runtimes consistent without rewriting the immutable base card
+resources or changing costs, legal targets, or effect resolution.
+
 The source identity covers every native Java source, the upstream pin and patch.
 `apps/server/internal/forgehost/identity.go` must match
 `python3 third_party/forge-runtime/build-overlay.py --identity`; tool tests and

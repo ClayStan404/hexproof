@@ -22,7 +22,7 @@ func TestTournamentSpectatorDoesNotReceiveDeckLoadManifest(t *testing.T) {
 
 	r, _, _, createOperation, err := handler.hub.createTournamentRoom(
 		"Round 1 Table 1", protocol.FormatModern, protocol.DeckFormatModern,
-		protocol.MatchBO1, protocol.CardLoadBackground, 2,
+		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeManual, 2,
 		"tournament-1", "pairing-1", "participant-a", host)
 	if err != nil {
 		t.Fatalf("create tournament room: %v", err)

@@ -38,6 +38,7 @@ func (r *Room) ResetRulesLog() {
 	r.RulesLog = []protocol.GameLogEntry{}
 	r.RulesNextLogID = 1
 	r.rulesPublicLog = nil
+	r.rulesReview = nil
 }
 
 func (r *Room) AppendRulesLog(kind string, seat int, text string) {

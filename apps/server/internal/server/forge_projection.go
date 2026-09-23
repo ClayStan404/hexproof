@@ -33,7 +33,7 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 	}
 	// Build the public journal only from an explicit spectator view. Reuse that
 	// same envelope for every spectator rather than repeating engine RPCs.
-	ctx, cancel := context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
 	publicView, err := h.forgeProjectionView(ctx, r.ID, game, -1)
 	cancel()
 	if err != nil {
@@ -44,6 +44,7 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 		return nil, err
 	}
 	h.hub.UpdateRulesPublicLog(r, publicSnapshot)
+	h.collectForgeReplay(r, game)
 	h.hub.RecordRulesStartingSeat(r, game, publicView)
 	targets, seq, err := h.hub.RulesProjectionTargets(r)
 	if err != nil {
@@ -63,7 +64,7 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 			}
 			viewer = mapped
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
 		view, snapshotErr := h.forgeProjectionView(ctx, r.ID, game, viewer)
 		cancel()
 		if snapshotErr != nil {
@@ -79,6 +80,26 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 			return nil, err
 		}
 		projections[connectionID] = envelope.WithSeq(seq)
+	}
+	// AI has no owner transport, but explicit spectator hand visibility still
+	// applies to every seat. These private views never become public journals.
+	if r.SpectatorsSeeHands {
+		for seat, player := range game.seatToPlayer {
+			if _, present := ownerSnapshots[seat]; present {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
+			view, err := h.forgeProjectionView(ctx, r.ID, game, player)
+			cancel()
+			if err != nil {
+				return nil, err
+			}
+			snapshot, err := normalizeForgeSnapshot(r.ID, game, view)
+			if err != nil {
+				return nil, err
+			}
+			ownerSnapshots[seat] = snapshot
+		}
 	}
 	spectatorSnapshot := rulesSpectatorSnapshot(publicSnapshot, ownerSnapshots, r.SpectatorsSeeHands)
 	publicEnvelope, err := protocol.NewEnvelope(protocol.TypeRulesSnapshot, spectatorSnapshot)
@@ -168,8 +189,17 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 		if err != nil {
 			return protocol.RulesGameSnapshot{}, err
 		}
+		var controllingSeat *int
+		if player.ControllingPlayerID != "" {
+			mapped, err := seatForID(player.ControllingPlayerID)
+			if err != nil {
+				return protocol.RulesGameSnapshot{}, err
+			}
+			controllingSeat = &mapped
+		}
 		snapshot.Players = append(snapshot.Players, protocol.RulesPlayerState{
-			Seat: seat, Name: player.Name, Status: player.Status, Life: player.Life,
+			ControllingSeat: controllingSeat,
+			Seat:            seat, Name: player.Name, Status: player.Status, Life: player.Life,
 			Counters:   sortedRulesCounters(player.Counters),
 			ManaPool:   sortedRulesCounters(player.ManaPool),
 			Commanders: projectedRulesCommanders(player.Commanders, view),
@@ -201,7 +231,9 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 			projectedCard := protocol.RulesCardState{
 				ID: card.ID, Visible: visible, OwnerSeat: cardOwnerSeat,
 				ControllerSeat: controllerSeat, Tapped: card.Tapped,
-				FaceDown: card.FaceDown, Attacking: card.Attacking,
+				EnteredThisTurn: zone.Zone == "battlefield" && card.EnteredThisTurn,
+				SummoningSick:   zone.Zone == "battlefield" && card.SummoningSick,
+				FaceDown:        card.FaceDown, Attacking: card.Attacking,
 				Power: card.Power, Toughness: card.Toughness,
 				Counters: sortedRulesCounters(card.Counters), Damage: card.Damage,
 				AttachedTo: card.AttachedTo,
@@ -209,6 +241,37 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 			if visible {
 				identity := rulesIdentity(*card.Identity)
 				projectedCard.Identity = &identity
+				if !card.FaceDown {
+					if zone.Zone == "battlefield" {
+						seen := make(map[string]bool)
+						for _, id := range card.ChosenCardIDs {
+							if seen[id] || id == "" {
+								continue
+							}
+							for _, linkedZone := range view.Zones {
+								for _, linked := range linkedZone.Cards {
+									if linked.ID == id && linked.Visibility == "visible" && linked.Identity != nil && strings.TrimSpace(linked.Identity.Name) != "" {
+										projectedCard.ChosenCardIDs = append(projectedCard.ChosenCardIDs, id)
+										seen[id] = true
+									}
+								}
+							}
+						}
+					}
+					for _, annotation := range card.Annotations {
+						allowed := false
+						switch annotation.Kind {
+						case "namedCard", "chosenType", "chosenColor", "chosenNumber", "chosenMode", "classLevel":
+							allowed = zone.Zone == "battlefield"
+						case "dungeonRoom":
+							allowed = zone.Zone == "command"
+						}
+						if value := strings.TrimSpace(annotation.Value); allowed && value != "" {
+							projectedCard.Annotations = append(projectedCard.Annotations,
+								protocol.RulesCardAnnotation{Kind: annotation.Kind, Value: value})
+						}
+					}
+				}
 			}
 			if zone.Zone == "battlefield" && card.ExiledCardCount > 0 {
 				projectedCard.ExiledCardCount = card.ExiledCardCount
@@ -423,6 +486,7 @@ func (h *Handler) sendRulesProjections(projections map[string]protocol.Envelope)
 	h.sendProjectionSet(projections)
 	if r := h.hub.FindRoom(roomID); r != nil {
 		h.fanoutRulesMetadata(r)
+		h.publishForgeReplay(r)
 	}
 }
 

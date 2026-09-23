@@ -89,7 +89,7 @@ TestCase {
             ]}, {zone: "hand", ownerSeat: 1, count: 1, cards: [
                 {id: "private-hand", visible: false, identity: {name: "Secret hand"}}
             ]}, {zone: "library", ownerSeat: 0, count: 1, cards: [
-                {id: "library-card", visible: true, identity: {name: "Secret library"}}
+                {id: "library-card", visible: false, identity: {name: "Secret library"}}
             ]}],
             stack: [{id: "trigger", controllerSeat: 0, ownerSeat: 0,
                      text: "Put a +1/+1 counter on target creature."}]
@@ -120,6 +120,33 @@ TestCase {
         snapshot.zones[0].cards[0].exiledCardIds = []
         verify(testRulesPrompt.applySnapshot(snapshot))
         compare(inspector.exiledSummary, "")
+    }
+
+    function test_revealedChoicesFollowCurrentObjectAndZone() {
+        const choices = [{kind:"namedCard", value:"Lightning Bolt"}, {kind:"chosenType", value:"Elf"},
+            {kind:"chosenColor", value:"Blue"}, {kind:"chosenColor", value:"Red"},
+            {kind:"chosenNumber", value:"0"}, {kind:"chosenMode", value:"Khans"},
+            {kind:"classLevel", value:"2"}, {kind:"dungeonRoom", value:"Cave Entrance"}]
+        snapshot.zones[0].cards[0].annotations = choices
+        snapshot.zones[0].cards[1].annotations = choices
+        snapshot.zones[1].cards[0].annotations = choices
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        verify(inspector.showCard("ballista"))
+        compare(inspector.persistentSummary,
+            "Named: Lightning Bolt\nType: Elf\nColor: Blue, Red\nNumber: 0\nMode: Khans\nClass level: 2")
+        verify(findChild(inspector, "rulesCardInspectorState").text.includes(inspector.persistentSummary))
+        verify(inspector.showCard("hidden"))
+        compare(inspector.persistentSummary, "")
+        verify(inspector.showCard("hand-card"))
+        compare(inspector.persistentSummary, "")
+        verify(inspector.showCard("ballista"))
+        snapshot.zones[0].cards[0].faceDown = true
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        compare(inspector.persistentSummary, "")
+        snapshot.zones[0].cards[0].faceDown = false
+        snapshot.zones[0].cards[0].annotations = []
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        compare(inspector.persistentSummary, "")
     }
 
     function cleanup() {

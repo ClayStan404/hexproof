@@ -27,7 +27,9 @@ Item {
         height: 800
         visible: true
         property string lastBanner: ""
+        property var openedScreen: ({})
         function showBanner(message) { lastBanner = message }
+        function pushScreen(url, properties) { openedScreen = {url, properties} }
     }
 
     Item {
@@ -61,6 +63,8 @@ Item {
         property string currentPhase: "untap"
         property int drawCount: 0
         property int leaveRoomCount: 0
+        property var libraryTopRevealRequest: null
+        function setLibraryTopRevealed(revealed) { libraryTopRevealRequest = revealed }
         property int shuffleLibraryCount: 0
         property var libraryActionOrder: []
         property int mulliganCount: 0
@@ -122,14 +126,22 @@ Item {
         property int lastCommanderTaxDelta: 0
         property int commanderCastCount: 0
         property string lastCommanderCastId: ""
+        property int clearMainboardCount: 0
+        property var limitedSession: ({product: {}})
         property int sideboardMoveCount: 0
         property var lastSideboardMove: ({})
+        property int chosenStartingSeatRequest: -1
+        function chooseStartingPlayer(seat) { chosenStartingSeatRequest = seat }
         property int sideboardReadyCount: 0
         property int sideboardCommanderCount: 0
         property var lastSideboardCommander: ({})
         property bool lastSideboardReady: false
         property string lastSay: ""
         property string lastError: ""
+        property var rulesStartFailure: ({})
+        property string copiedFailure: ""
+        function copyToClipboard(text) { copiedFailure = text }
+        function dismissRulesStartFailure() { rulesStartFailure = ({}) }
         property bool gameFinished: false
         property bool sideboarding: false
         property var sideboardState: ({})
@@ -371,6 +383,7 @@ Item {
             ++commanderCastCount
             lastCommanderCastId = commanderId
         }
+        function clearSideboardMainboard() { ++clearMainboardCount }
         function moveSideboardCard(card, fromZone, toZone) {
             ++sideboardMoveCount
             lastSideboardMove = {
@@ -450,7 +463,7 @@ Item {
         }
         function searchLibraryCards(cardIds, toZone, reveal, randomize,
                                     position, sourceSeat, approvalId, toSeat,
-                                    faceDown) {
+                                    faceDown, topCard) {
             ++searchLibraryCount
             libraryActionOrder = libraryActionOrder.concat(["search"])
             lastLibrarySearch = {
@@ -462,7 +475,8 @@ Item {
                 "sourceSeat": sourceSeat,
                 "approvalId": approvalId,
                 "toSeat": toSeat,
-                "faceDown": faceDown === true
+                "faceDown": faceDown === true,
+                "topCard": topCard === true
             }
         }
         function reorderLibrary(cardIds) {}
@@ -578,6 +592,8 @@ Item {
         property int cacheTokenCount: 0
         property var typeLines: ({})
         property var faces: ({})
+        property var basicPrintings: ({})
+        function printings(name) { return basicPrintings[name] || [] }
         signal cardTypeLineRequested()
         signal cachedCardTypeLineRequested()
         signal imageSourceRequested()
@@ -702,6 +718,7 @@ Item {
         mockWs.drawCount = 0
         mockWs.leaveRoomCount = 0
         mockWs.returnToRoomCount = 0
+        mockWs.libraryTopRevealRequest = null
         mockWs.shuffleLibraryCount = 0
         mockWs.libraryActionOrder = []
         mockWs.mulliganCount = 0
@@ -779,8 +796,11 @@ Item {
         mockWs.sayCount = 0
         mockWs.lastSay = ""
         mockWs.lastError = ""
+        mockWs.rulesStartFailure = ({})
+        mockWs.copiedFailure = ""
         mockWs.gameFinished = false
         mockWs.deckFormat = "modern"
+        mockWs.limitedSession = ({product: {}})
         mockWs.sideboarding = false
         mockWs.sideboardState = ({})
         mockWs.matchScore = [0, 0]
@@ -798,10 +818,13 @@ Item {
         mockWs.lastCommanderCastId = ""
         mockCatalog.typeLines = ({})
         mockCatalog.faces = ({})
+        mockCatalog.basicPrintings = ({})
+        mockWs.clearMainboardCount = 0
         mockWs.sideboardMoveCount = 0
         mockWs.lastSideboardMove = ({})
         mockWs.sideboardCommanderCount = 0
         mockWs.lastSideboardCommander = ({})
+        mockWs.chosenStartingSeatRequest = -1
         mockWs.sideboardReadyCount = 0
         mockWs.lastSideboardReady = false
         mockCatalog.searchTokenCount = 0

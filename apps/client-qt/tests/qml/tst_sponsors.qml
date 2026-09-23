@@ -47,14 +47,19 @@ TestCase {
     ]
 
     QtObject {
-        id: mockPreferences
-        property string seenAnnouncementId: ""
+        id: mockContent
+        property var pendingIds: ["qingbao"]
+        property var seenIds: []
+        property bool offered: false
         property int acknowledgeCount: 0
-        function sponsorAnnouncementSeen(announcementId) {
-            return seenAnnouncementId === announcementId
+        function takeSponsorAnnouncement() {
+            if (offered)
+                return []
+            offered = true
+            return pendingIds.filter(id => seenIds.indexOf(id) < 0)
         }
-        function acknowledgeSponsorAnnouncement(announcementId) {
-            seenAnnouncementId = announcementId
+        function acknowledgeSponsors(ids) {
+            seenIds = seenIds.concat(Array.from(ids))
             ++acknowledgeCount
             return true
         }
@@ -65,8 +70,7 @@ TestCase {
     Component {
         id: popupComponent
         SponsorAnnouncementPopup {
-            preferencesModel: mockPreferences
-            applicationVersion: "1.2.0"
+            contentModel: mockContent
         }
     }
 
@@ -94,8 +98,10 @@ TestCase {
         testWindow.width = 900
         testWindow.height = 620
         Theme.uiScale = 1
-        mockPreferences.seenAnnouncementId = ""
-        mockPreferences.acknowledgeCount = 0
+        mockContent.pendingIds = ["qingbao"]
+        mockContent.seenIds = []
+        mockContent.offered = false
+        mockContent.acknowledgeCount = 0
         profileSpy.target = null
         profileSpy.clear()
         viewSponsorsSpy.target = null
@@ -383,56 +389,50 @@ TestCase {
 
         popup.close()
         tryCompare(popup, "visible", false)
-        tryCompare(mockPreferences, "acknowledgeCount", 1)
-        compare(mockPreferences.seenAnnouncementId,
-                popup.announcementId)
+        tryCompare(mockContent, "acknowledgeCount", 1)
+        compare(mockContent.seenIds, ["qingbao"])
 
         popup.openIfNeeded()
         wait(50)
         verify(!popup.visible, "popup closed")
-        compare(mockPreferences.acknowledgeCount, 1)
+        compare(mockContent.acknowledgeCount, 1)
 
-        // Recreating the component must respect the persisted announcement ID,
+        // Recreating the component must respect the acknowledged sponsor IDs,
         // not just an in-memory flag on the popup that was already dismissed.
         const reopened = createTemporaryObject(popupComponent, testWindow.contentItem)
         reopened.openIfNeeded()
         wait(50)
         verify(!reopened.visible)
-        compare(mockPreferences.acknowledgeCount, 1)
+        compare(mockContent.acknowledgeCount, 1)
     }
 
-    function test_sameVersionDoesNotRepeatSeenAnnouncement() {
-        mockPreferences.seenAnnouncementId = popup.announcementId
+    function test_knownSponsorsDoNotRepeat() {
+        mockContent.seenIds = ["qingbao"]
         popup.openIfNeeded()
         wait(50)
         verify(!popup.visible)
-        compare(mockPreferences.acknowledgeCount, 0)
+        compare(mockContent.acknowledgeCount, 0)
     }
 
-    function test_newVersionOpensAfterPreviousAcknowledgement_data() {
-        return [{tag: "legacy", seen: "founding-sponsors-2026-09"},
-                {tag: "previous-version", seen: "sponsors:1.1.9"}]
-    }
-
-    function test_newVersionOpensAfterPreviousAcknowledgement(data) {
-        mockPreferences.seenAnnouncementId = data.seen
+    function test_newSponsorsAppearOnNextStartup() {
         popup.openIfNeeded()
         tryVerify(() => popup.opened)
+        // An update received while the popup is open must not be acknowledged unseen.
+        mockContent.pendingIds = ["qingbao", "dodo"]
         popup.close()
         tryVerify(() => !popup.visible)
-        compare(mockPreferences.seenAnnouncementId, "sponsors:1.2.0")
+        compare(mockContent.seenIds, ["qingbao"])
+        popup.openIfNeeded()
+        verify(!popup.visible)
 
-        const upgraded = createTemporaryObject(popupComponent, testWindow.contentItem,
-                                                {applicationVersion: "1.2.1"})
-        upgraded.openIfNeeded()
-        tryVerify(() => upgraded.opened)
-        upgraded.close()
-        tryVerify(() => !upgraded.visible)
-        compare(mockPreferences.seenAnnouncementId, "sponsors:1.2.1")
-        upgraded.openIfNeeded()
-        wait(50)
-        verify(!upgraded.visible)
-        compare(mockPreferences.acknowledgeCount, 2)
+        mockContent.offered = false
+        const restarted = createTemporaryObject(popupComponent, testWindow.contentItem)
+        restarted.openIfNeeded()
+        tryVerify(() => restarted.opened)
+        compare(Array.from(restarted.displayedSponsorIds), ["dodo"])
+        restarted.close()
+        tryVerify(() => !restarted.visible)
+        compare(mockContent.acknowledgeCount, 2)
     }
 
     function test_openingFullListAcknowledgesOnlyOnce() {
@@ -444,8 +444,8 @@ TestCase {
         mouseClick(view)
         tryVerify(() => !popup.visible)
         compare(viewSponsorsSpy.count, 1)
-        compare(mockPreferences.acknowledgeCount, 1)
-        compare(mockPreferences.seenAnnouncementId, popup.announcementId)
+        compare(mockContent.acknowledgeCount, 1)
+        compare(mockContent.seenIds, ["qingbao"])
     }
 
     function test_announcementScrollAndCloseRemainAccessible_data() {
@@ -484,6 +484,6 @@ TestCase {
         const dismiss = findChild(popup, "dismissSponsorsButton")
         mouseClick(dismiss)
         tryVerify(() => !popup.visible)
-        compare(mockPreferences.acknowledgeCount, 1)
+        compare(mockContent.acknowledgeCount, 1)
     }
 }

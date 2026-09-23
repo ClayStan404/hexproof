@@ -34,7 +34,7 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), forgePromptTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	view, err := currentRulesPrompt(ctx, game)
 	cancel()
 	if err != nil {
@@ -49,7 +49,7 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 		}
 	}
 	if view != nil && promptNeedsSnapshot(*view) {
-		ctx, cancel = context.WithTimeout(context.Background(), forgeSnapshotTimeout)
+		ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
 		snapshot, snapshotErr := game.client.SnapshotView(ctx, game.sessionID, view.PlayerIndex)
 		cancel()
 		if snapshotErr != nil {
@@ -78,6 +78,7 @@ func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, erro
 		prompts[connectionID] = envelope
 	}
 	h.refreshPeerBinding(r)
+	h.scheduleModelDecision(r, game, view)
 	return prompts, nil
 }
 
@@ -149,7 +150,8 @@ func projectedRulesPrompt(roomID, gameID string,
 	for _, card := range view.Cards {
 		prompt.Cards = append(prompt.Cards, protocol.RulesPromptCard{
 			ID: card.ID, Name: card.Name, SetCode: card.SetCode,
-			CollectorNumber: card.CollectorNumber, Token: card.Token,
+			CollectorNumber: card.CollectorNumber, Token: card.Token, Selected: card.Selected,
+			ReadOnly: card.ReadOnly,
 		})
 	}
 	// Empty collections remain JSON arrays: the Qt model rejects null here
@@ -375,6 +377,7 @@ func projectedRulesTargets(targets []forge.PromptTarget, game forgeRoomGame,
 	for _, target := range targets {
 		projected := protocol.RulesPromptTarget{
 			ResponseID: target.ResponseID, Kind: target.Kind,
+			Selected: target.Selected,
 		}
 		switch target.Kind {
 		case "player":
@@ -527,7 +530,7 @@ func waitForInitialForgePrompt(game forgeRoomGame) error {
 }
 
 func waitForForgePromptChange(game forgeRoomGame, previousPromptID int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), forgePromptTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	defer cancel()
 	ticker := time.NewTicker(forgePromptPollInterval)
 	defer ticker.Stop()

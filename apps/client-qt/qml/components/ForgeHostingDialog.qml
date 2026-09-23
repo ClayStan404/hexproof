@@ -169,7 +169,7 @@ Popup {
             Text {
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
-                text: qsTr("Includes versions, platform and recent hosting states. Excludes decks, cards, connection credentials and local paths.")
+                text: qsTr("Includes system information, error codes and recent setup and hosting history, kept across restarts. Excludes decks, cards, connection credentials and local paths.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
                 wrapMode: Text.WordWrap

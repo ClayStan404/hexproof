@@ -1,0 +1,5629 @@
+{
+  "schema": 1,
+  "retrievedAt": "2026-09-21T18:34:53.761712+00:00",
+  "selection": "First ten distinct archetypes in each public metagame index; published representative list, including sideboard",
+  "indexes": [
+    {
+      "format": "standard",
+      "url": "https://www.mtggoldfish.com/metagame/standard",
+      "sha256": "dc617a92e74d488a9584c46bf9014110191db6950c6834742f90f63c4c98ea9d"
+    },
+    {
+      "format": "pioneer",
+      "url": "https://www.mtggoldfish.com/metagame/pioneer",
+      "sha256": "0ade7ec25d23421bd0da32915202c703ecb5a91b2ae6540a01e663183f1f786f"
+    },
+    {
+      "format": "modern",
+      "url": "https://www.mtggoldfish.com/metagame/modern",
+      "sha256": "ef075023b2b10d1c146adfa1fa356432fd74dbc340e902a3f86e4746a12035be"
+    },
+    {
+      "format": "legacy",
+      "url": "https://www.mtggoldfish.com/metagame/legacy",
+      "sha256": "6eb5e3ef066e63e15dbd7ae0814a5c9ea85c1252788d513a93525531cbcee472"
+    }
+  ],
+  "decks": [
+    {
+      "id": "standard-01-7954747",
+      "format": "standard",
+      "name": "Mono-Green Landfall",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954747",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-mono-green-landfall-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "0b011edd6454890ab666c905cd475205ad34f5c2ef4f9fbff306155e88f27fc8",
+      "mainboard": [
+        {
+          "name": "Fabled Passage",
+          "count": 4
+        },
+        {
+          "name": "Elven Passage",
+          "count": 2
+        },
+        {
+          "name": "Escape Tunnel",
+          "count": 2
+        },
+        {
+          "name": "Ba Sing Se",
+          "count": 3
+        },
+        {
+          "name": "Forest",
+          "count": 14
+        },
+        {
+          "name": "Bushwhack",
+          "count": 1
+        },
+        {
+          "name": "Llanowar Elves",
+          "count": 4
+        },
+        {
+          "name": "Sazh's Chocobo",
+          "count": 4
+        },
+        {
+          "name": "Esper Origins",
+          "count": 4
+        },
+        {
+          "name": "Icetill Explorer",
+          "count": 4
+        },
+        {
+          "name": "Lumbering Worldwagon",
+          "count": 1
+        },
+        {
+          "name": "Surrak, Elusive Hunter",
+          "count": 1
+        },
+        {
+          "name": "Meltstrider's Resolve",
+          "count": 1
+        },
+        {
+          "name": "Earthbender Ascension",
+          "count": 4
+        },
+        {
+          "name": "Glimpse the Core",
+          "count": 2
+        },
+        {
+          "name": "Keen-Eyed Curator",
+          "count": 1
+        },
+        {
+          "name": "Mightform Harmonizer",
+          "count": 4
+        },
+        {
+          "name": "Sapling Nursery",
+          "count": 3
+        },
+        {
+          "name": "Promising Vein",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Meltstrider's Gear",
+          "count": 3
+        },
+        {
+          "name": "Keen-Eyed Curator",
+          "count": 1
+        },
+        {
+          "name": "Torpor Orb",
+          "count": 2
+        },
+        {
+          "name": "Sandman, Shifting Scoundrel",
+          "count": 1
+        },
+        {
+          "name": "Surrak, Elusive Hunter",
+          "count": 2
+        },
+        {
+          "name": "Mossborn Hydra",
+          "count": 4
+        },
+        {
+          "name": "Leatherhead, Swamp Stalker",
+          "count": 1
+        },
+        {
+          "name": "Sapling Nursery",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-02-7954743",
+      "format": "standard",
+      "name": "Izzet Spellementals",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954743",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-izzet-spellementals-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "f264d0042d74afc110e7db3ac421c3f1c89e57617ffdb00603a475d463cd9828",
+      "mainboard": [
+        {
+          "name": "Thundering Falls",
+          "count": 1
+        },
+        {
+          "name": "Sunderflock",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 6
+        },
+        {
+          "name": "Eddymurk Crab",
+          "count": 4
+        },
+        {
+          "name": "Opt",
+          "count": 4
+        },
+        {
+          "name": "Traumatic Critique",
+          "count": 3
+        },
+        {
+          "name": "Burst Lightning",
+          "count": 3
+        },
+        {
+          "name": "Great Hall of the Biblioplex",
+          "count": 1
+        },
+        {
+          "name": "Get Out",
+          "count": 2
+        },
+        {
+          "name": "Winternight Stories",
+          "count": 2
+        },
+        {
+          "name": "Impractical Joke",
+          "count": 2
+        },
+        {
+          "name": "Spell Snare",
+          "count": 2
+        },
+        {
+          "name": "Spell Pierce",
+          "count": 2
+        },
+        {
+          "name": "Hearth Elemental",
+          "count": 4
+        },
+        {
+          "name": "Riverpyre Verge",
+          "count": 4
+        },
+        {
+          "name": "Prismari Charm",
+          "count": 4
+        },
+        {
+          "name": "Steam Vents",
+          "count": 4
+        },
+        {
+          "name": "Spirebluff Canal",
+          "count": 4
+        },
+        {
+          "name": "Sleight of Hand",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Return the Favor",
+          "count": 1
+        },
+        {
+          "name": "Get Out",
+          "count": 1
+        },
+        {
+          "name": "Torch the Tower",
+          "count": 1
+        },
+        {
+          "name": "Sear",
+          "count": 1
+        },
+        {
+          "name": "Hydro-Man, Fluid Felon",
+          "count": 3
+        },
+        {
+          "name": "Winternight Stories",
+          "count": 1
+        },
+        {
+          "name": "Abrade",
+          "count": 1
+        },
+        {
+          "name": "Soul-Guide Lantern",
+          "count": 2
+        },
+        {
+          "name": "Fire Magic",
+          "count": 1
+        },
+        {
+          "name": "Spell Pierce",
+          "count": 1
+        },
+        {
+          "name": "Spell Snare",
+          "count": 1
+        },
+        {
+          "name": "Broadside Barrage",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-03-7954750",
+      "format": "standard",
+      "name": "Dimir Midrange",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954750",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-dimir-midrange-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "738e962e8c388f61f15fa554e5f96e5991f1508d7bcd2104ba374e1b8538c6d1",
+      "mainboard": [
+        {
+          "name": "Spyglass Siren",
+          "count": 4
+        },
+        {
+          "name": "Dream Beavers",
+          "count": 4
+        },
+        {
+          "name": "Cecil, Dark Knight",
+          "count": 1
+        },
+        {
+          "name": "Floodpits Drowner",
+          "count": 4
+        },
+        {
+          "name": "The Wondrous Wasp",
+          "count": 1
+        },
+        {
+          "name": "Wan Shi Tong, Librarian",
+          "count": 1
+        },
+        {
+          "name": "Tishana's Tidebinder",
+          "count": 2
+        },
+        {
+          "name": "Enduring Curiosity",
+          "count": 4
+        },
+        {
+          "name": "Kaito, Bane of Nightmares",
+          "count": 4
+        },
+        {
+          "name": "Spell Snare",
+          "count": 1
+        },
+        {
+          "name": "Spell Pierce",
+          "count": 1
+        },
+        {
+          "name": "We Say Thee Nay!",
+          "count": 2
+        },
+        {
+          "name": "Requiting Hex",
+          "count": 3
+        },
+        {
+          "name": "Shoot the Sheriff",
+          "count": 2
+        },
+        {
+          "name": "Bitter Triumph",
+          "count": 2
+        },
+        {
+          "name": "Watery Grave",
+          "count": 4
+        },
+        {
+          "name": "Gloomlake Verge",
+          "count": 4
+        },
+        {
+          "name": "Hidden Lair",
+          "count": 3
+        },
+        {
+          "name": "Island",
+          "count": 5
+        },
+        {
+          "name": "Swamp",
+          "count": 4
+        },
+        {
+          "name": "Restless Reef",
+          "count": 2
+        },
+        {
+          "name": "Soulstone Sanctuary",
+          "count": 2
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Duress",
+          "count": 3
+        },
+        {
+          "name": "Requiting Hex",
+          "count": 1
+        },
+        {
+          "name": "Strategic Betrayal",
+          "count": 3
+        },
+        {
+          "name": "Raven Eagle",
+          "count": 1
+        },
+        {
+          "name": "Day of Black Sun",
+          "count": 2
+        },
+        {
+          "name": "Annul",
+          "count": 1
+        },
+        {
+          "name": "Disdainful Stroke",
+          "count": 1
+        },
+        {
+          "name": "Flashfreeze",
+          "count": 2
+        },
+        {
+          "name": "Wan Shi Tong, Librarian",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-04-7954763",
+      "format": "standard",
+      "name": "W-U-B-R",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954763",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-4c-control-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "a12f0d17d795148a34329dfce291eaaf0d4944383abbe9f3f6b0c54ac5858f84",
+      "mainboard": [
+        {
+          "name": "Bleachbone Verge",
+          "count": 3
+        },
+        {
+          "name": "Blood Crypt",
+          "count": 4
+        },
+        {
+          "name": "Consult the Star Charts",
+          "count": 2
+        },
+        {
+          "name": "Deadly Cover-Up",
+          "count": 2
+        },
+        {
+          "name": "Duress",
+          "count": 2
+        },
+        {
+          "name": "Firebending Lesson",
+          "count": 2
+        },
+        {
+          "name": "Flashback",
+          "count": 2
+        },
+        {
+          "name": "Great Hall of the Biblioplex",
+          "count": 4
+        },
+        {
+          "name": "Inevitable Defeat",
+          "count": 3
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "Jeskai Revelation",
+          "count": 4
+        },
+        {
+          "name": "Nowhere to Run",
+          "count": 2
+        },
+        {
+          "name": "Plains",
+          "count": 1
+        },
+        {
+          "name": "Riverpyre Verge",
+          "count": 3
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 2
+        },
+        {
+          "name": "Sear",
+          "count": 2
+        },
+        {
+          "name": "Shattered Sanctum",
+          "count": 2
+        },
+        {
+          "name": "Shoot the Sheriff",
+          "count": 2
+        },
+        {
+          "name": "Starting Town",
+          "count": 2
+        },
+        {
+          "name": "Steam Vents",
+          "count": 1
+        },
+        {
+          "name": "Stock Up",
+          "count": 4
+        },
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Tablet of Discovery",
+          "count": 4
+        },
+        {
+          "name": "Together as One",
+          "count": 2
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 2
+        },
+        {
+          "name": "Fire Magic",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Day of Black Sun",
+          "count": 1
+        },
+        {
+          "name": "Disdainful Stroke",
+          "count": 2
+        },
+        {
+          "name": "Duress",
+          "count": 2
+        },
+        {
+          "name": "Flashfreeze",
+          "count": 2
+        },
+        {
+          "name": "Outrageous Robbery",
+          "count": 1
+        },
+        {
+          "name": "Petrified Hamlet",
+          "count": 1
+        },
+        {
+          "name": "Pyroclasm",
+          "count": 1
+        },
+        {
+          "name": "Riverchurn Monument",
+          "count": 1
+        },
+        {
+          "name": "Sage of the Skies",
+          "count": 2
+        },
+        {
+          "name": "Thor, God of Thunder",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "standard-05-7954744",
+      "format": "standard",
+      "name": "Boros Lessons",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954744",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-boros-dwarves-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "062260d852f6437aec6a7b6d320cd8df453806bf0b550ad8e2869aeefb0a8cb2",
+      "mainboard": [
+        {
+          "name": "Thorin Oakenshield",
+          "count": 2
+        },
+        {
+          "name": "Zack Fair",
+          "count": 2
+        },
+        {
+          "name": "Erode",
+          "count": 1
+        },
+        {
+          "name": "Inspiring Vantage",
+          "count": 4
+        },
+        {
+          "name": "Buster Sword",
+          "count": 3
+        },
+        {
+          "name": "Bofur, Reliable Guardian",
+          "count": 2
+        },
+        {
+          "name": "The Lonely Mountain",
+          "count": 2
+        },
+        {
+          "name": "Dwarven Mauler",
+          "count": 4
+        },
+        {
+          "name": "Thorin, Mountain-king",
+          "count": 3
+        },
+        {
+          "name": "Mountain",
+          "count": 3
+        },
+        {
+          "name": "Skateboard",
+          "count": 1
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 3
+        },
+        {
+          "name": "Dain's Company",
+          "count": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 4
+        },
+        {
+          "name": "Mjolnir, Hammer of Thor",
+          "count": 1
+        },
+        {
+          "name": "Kili the Resourceful",
+          "count": 4
+        },
+        {
+          "name": "Leyline Axe",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 2
+        },
+        {
+          "name": "Chainsaw",
+          "count": 3
+        },
+        {
+          "name": "Cloud, Midgar Mercenary",
+          "count": 3
+        },
+        {
+          "name": "Dragonfire Blade",
+          "count": 1
+        },
+        {
+          "name": "Sunbillow Verge",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Requisition Raid",
+          "count": 2
+        },
+        {
+          "name": "Sheltered by Ghosts",
+          "count": 3
+        },
+        {
+          "name": "Swiftfoot Boots",
+          "count": 1
+        },
+        {
+          "name": "Ghost Vacuum",
+          "count": 1
+        },
+        {
+          "name": "Chandra, Spark Hunter",
+          "count": 2
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 3
+        },
+        {
+          "name": "Bilbo's Gambit",
+          "count": 2
+        },
+        {
+          "name": "Erode",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-06-7949477",
+      "format": "standard",
+      "name": "Jund Sacrifice",
+      "date": "Sep 11, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7949477",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-jund-sacrifice-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66502",
+      "originalSource": "https://www.mtgo.com/decklist/standard-challenge-32-2026-09-1112854067",
+      "sourceSha256": "5ab2d7b1722963f6532e98eddbd9e6ee33b91055d2eab8491708c1d93c1b6c36",
+      "mainboard": [
+        {
+          "name": "Susurian Voidborn",
+          "count": 2
+        },
+        {
+          "name": "Starting Town",
+          "count": 4
+        },
+        {
+          "name": "Overgrown Tomb",
+          "count": 4
+        },
+        {
+          "name": "Deadly Precision",
+          "count": 3
+        },
+        {
+          "name": "Mutagen Man, Living Ooze",
+          "count": 2
+        },
+        {
+          "name": "Obsessive Pursuit",
+          "count": 4
+        },
+        {
+          "name": "Callous Inspector",
+          "count": 3
+        },
+        {
+          "name": "Goldvein Hydra",
+          "count": 1
+        },
+        {
+          "name": "Blazemire Verge",
+          "count": 1
+        },
+        {
+          "name": "Lively Dirge",
+          "count": 2
+        },
+        {
+          "name": "Greedy Freebooter",
+          "count": 4
+        },
+        {
+          "name": "Gene Pollinator",
+          "count": 4
+        },
+        {
+          "name": "Blooming Marsh",
+          "count": 4
+        },
+        {
+          "name": "Blood Crypt",
+          "count": 2
+        },
+        {
+          "name": "Biotech Specialist",
+          "count": 4
+        },
+        {
+          "name": "Forest",
+          "count": 1
+        },
+        {
+          "name": "Stomping Ground",
+          "count": 1
+        },
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "The Sackville-Bagginses",
+          "count": 4
+        },
+        {
+          "name": "Sentinel of the Nameless City",
+          "count": 1
+        },
+        {
+          "name": "Wastewood Verge",
+          "count": 2
+        },
+        {
+          "name": "Rottenmouth Viper",
+          "count": 4
+        },
+        {
+          "name": "Multiversal Passage",
+          "count": 1
+        },
+        {
+          "name": "Umbral Collar Zealot",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Maelstrom Pulse",
+          "count": 1
+        },
+        {
+          "name": "Disruptive Stormbrood",
+          "count": 1
+        },
+        {
+          "name": "Strategic Betrayal",
+          "count": 3
+        },
+        {
+          "name": "Professor Dellian Fel",
+          "count": 1
+        },
+        {
+          "name": "Duress",
+          "count": 3
+        },
+        {
+          "name": "Surrak, Elusive Hunter",
+          "count": 2
+        },
+        {
+          "name": "Shoot the Sheriff",
+          "count": 2
+        },
+        {
+          "name": "Gollum the Abandoned",
+          "count": 1
+        },
+        {
+          "name": "The Ooze",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-07-7954755",
+      "format": "standard",
+      "name": "Dimir Excruciator",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954755",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-dimir-excruciator-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "245cc1c4cea71da7b8df789f41153c1612664a6648a3371b6e99b29c9818fecf",
+      "mainboard": [
+        {
+          "name": "Bitter Triumph",
+          "count": 3
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 2
+        },
+        {
+          "name": "Day of Black Sun",
+          "count": 2
+        },
+        {
+          "name": "Deadly Cover-Up",
+          "count": 1
+        },
+        {
+          "name": "Deceit",
+          "count": 4
+        },
+        {
+          "name": "Doomsday Excruciator",
+          "count": 3
+        },
+        {
+          "name": "Duress",
+          "count": 3
+        },
+        {
+          "name": "Emeritus of Ideation",
+          "count": 2
+        },
+        {
+          "name": "Gloomlake Verge",
+          "count": 4
+        },
+        {
+          "name": "Harvester of Misery",
+          "count": 1
+        },
+        {
+          "name": "Malboro",
+          "count": 1
+        },
+        {
+          "name": "Requiting Hex",
+          "count": 4
+        },
+        {
+          "name": "Restless Reef",
+          "count": 4
+        },
+        {
+          "name": "Stock Up",
+          "count": 4
+        },
+        {
+          "name": "Strategic Betrayal",
+          "count": 1
+        },
+        {
+          "name": "Swamp",
+          "count": 9
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 2
+        },
+        {
+          "name": "Watery Grave",
+          "count": 4
+        },
+        {
+          "name": "Winternight Stories",
+          "count": 2
+        },
+        {
+          "name": "Superior Spider-Man",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Day of Black Sun",
+          "count": 1
+        },
+        {
+          "name": "Disdainful Stroke",
+          "count": 1
+        },
+        {
+          "name": "Duress",
+          "count": 1
+        },
+        {
+          "name": "Emeritus of Ideation",
+          "count": 1
+        },
+        {
+          "name": "Flashfreeze",
+          "count": 2
+        },
+        {
+          "name": "Ghost Vacuum",
+          "count": 1
+        },
+        {
+          "name": "M.O.D.O.K.",
+          "count": 1
+        },
+        {
+          "name": "Negate",
+          "count": 1
+        },
+        {
+          "name": "Oildeep Gearhulk",
+          "count": 2
+        },
+        {
+          "name": "Qarsi Revenant",
+          "count": 2
+        },
+        {
+          "name": "Quantum Riddler",
+          "count": 1
+        },
+        {
+          "name": "Strategic Betrayal",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-08-7956759",
+      "format": "standard",
+      "name": "Boros Dragons",
+      "date": "Sep 15, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7956759",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-boros-dragons-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66619",
+      "originalSource": "https://www.mtgo.com/decklist/standard-challenge-32-2026-09-1512854114",
+      "sourceSha256": "a2f957955b34e7c182123cd82530cbb87c9cb35c679e17a457363ff2904e2f49",
+      "mainboard": [
+        {
+          "name": "Maelstrom of the Spirit Dragon",
+          "count": 4
+        },
+        {
+          "name": "Get Lost",
+          "count": 2
+        },
+        {
+          "name": "Clarion Conqueror",
+          "count": 4
+        },
+        {
+          "name": "Inspiring Vantage",
+          "count": 4
+        },
+        {
+          "name": "Magmatic Hellkite",
+          "count": 4
+        },
+        {
+          "name": "Momo, Friendly Flier",
+          "count": 4
+        },
+        {
+          "name": "Nova Hellkite",
+          "count": 4
+        },
+        {
+          "name": "Multiversal Passage",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 1
+        },
+        {
+          "name": "Sarkhan, Dragon Ascendant",
+          "count": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 4
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Sunbillow Verge",
+          "count": 4
+        },
+        {
+          "name": "Smaug the Magnificent",
+          "count": 4
+        },
+        {
+          "name": "Twinmaw Stormbrood",
+          "count": 2
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 4
+        },
+        {
+          "name": "Burst Lightning",
+          "count": 4
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 2
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Pyroclasm",
+          "count": 2
+        },
+        {
+          "name": "Desolation of Smaug",
+          "count": 1
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 3
+        },
+        {
+          "name": "Seam Rip",
+          "count": 4
+        },
+        {
+          "name": "Get Lost",
+          "count": 1
+        },
+        {
+          "name": "Dawn's Truce",
+          "count": 3
+        },
+        {
+          "name": "The Legend of Roku",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "standard-09-7954762",
+      "format": "standard",
+      "name": "Selesnya Landfall",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954762",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-selesnya-landfall-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "dbb10bae527f715ab0ba10c9ac4b1754e69fa472144b6208d7714b7aba81e8c3",
+      "mainboard": [
+        {
+          "name": "Ba Sing Se",
+          "count": 3
+        },
+        {
+          "name": "Plains",
+          "count": 2
+        },
+        {
+          "name": "Hushwood Verge",
+          "count": 1
+        },
+        {
+          "name": "Dyadrine, Synthesis Amalgam",
+          "count": 2
+        },
+        {
+          "name": "Mightform Harmonizer",
+          "count": 4
+        },
+        {
+          "name": "Esper Origins",
+          "count": 3
+        },
+        {
+          "name": "Shared Roots",
+          "count": 2
+        },
+        {
+          "name": "Temple Garden",
+          "count": 4
+        },
+        {
+          "name": "Icetill Explorer",
+          "count": 4
+        },
+        {
+          "name": "Llanowar Elves",
+          "count": 4
+        },
+        {
+          "name": "Erode",
+          "count": 4
+        },
+        {
+          "name": "Sazh's Chocobo",
+          "count": 4
+        },
+        {
+          "name": "Escape Tunnel",
+          "count": 3
+        },
+        {
+          "name": "Earthbender Ascension",
+          "count": 4
+        },
+        {
+          "name": "Fabled Passage",
+          "count": 4
+        },
+        {
+          "name": "Forest",
+          "count": 9
+        },
+        {
+          "name": "Mossborn Hydra",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Torpor Orb",
+          "count": 2
+        },
+        {
+          "name": "Mossborn Hydra",
+          "count": 1
+        },
+        {
+          "name": "Sheltered by Ghosts",
+          "count": 3
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 3
+        },
+        {
+          "name": "Sapling Nursery",
+          "count": 4
+        },
+        {
+          "name": "Dawn's Truce",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "standard-10-7954746",
+      "format": "standard",
+      "name": "Mardu Discard",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7954746",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/standard-mardu-discard-woe",
+      "event": "https://www.mtggoldfish.com/tournament/66585",
+      "originalSource": "https://melee.gg/Tournament/View/445582",
+      "sourceSha256": "9681f20a9f8e9e4cc5604832d0dc0b799fd512b355893c70464b644c220bacf4",
+      "mainboard": [
+        {
+          "name": "Bloodghast",
+          "count": 4
+        },
+        {
+          "name": "Hardened Academic",
+          "count": 4
+        },
+        {
+          "name": "Iron-Shield Elf",
+          "count": 4
+        },
+        {
+          "name": "Marauding Mako",
+          "count": 4
+        },
+        {
+          "name": "Moonshadow",
+          "count": 4
+        },
+        {
+          "name": "Erode",
+          "count": 2
+        },
+        {
+          "name": "Practiced Offense",
+          "count": 4
+        },
+        {
+          "name": "Cool but Rude",
+          "count": 4
+        },
+        {
+          "name": "Blood Crypt",
+          "count": 4
+        },
+        {
+          "name": "Starting Town",
+          "count": 4
+        },
+        {
+          "name": "Godless Shrine",
+          "count": 3
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 3
+        },
+        {
+          "name": "Blazemire Verge",
+          "count": 2
+        },
+        {
+          "name": "Concealed Courtyard",
+          "count": 2
+        },
+        {
+          "name": "Inspiring Vantage",
+          "count": 2
+        },
+        {
+          "name": "Mountain",
+          "count": 2
+        },
+        {
+          "name": "Casey Jones, Vigilante",
+          "count": 1
+        },
+        {
+          "name": "Carnage, Crimson Chaos",
+          "count": 1
+        },
+        {
+          "name": "Burst Lightning",
+          "count": 2
+        },
+        {
+          "name": "Tersa Lightshatter",
+          "count": 2
+        },
+        {
+          "name": "Inti, Seneschal of the Sun",
+          "count": 1
+        },
+        {
+          "name": "Cecil, Dark Knight",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Strategic Betrayal",
+          "count": 2
+        },
+        {
+          "name": "Pyrrhic Strike",
+          "count": 1
+        },
+        {
+          "name": "Seam Rip",
+          "count": 2
+        },
+        {
+          "name": "Requiting Hex",
+          "count": 2
+        },
+        {
+          "name": "The Queen of Dale",
+          "count": 2
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 2
+        },
+        {
+          "name": "Bilbo's Gambit",
+          "count": 1
+        },
+        {
+          "name": "Erode",
+          "count": 1
+        },
+        {
+          "name": "Lorehold Charm",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "pioneer-01-7952296",
+      "format": "pioneer",
+      "name": "Izzet Prowess",
+      "date": "Sep 12, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7952296",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-izzet-prowess",
+      "event": "https://www.mtggoldfish.com/tournament/66552",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1212854085",
+      "sourceSha256": "ee87f19311d0e8974faf29d46f737a7850edeff0a42dc269697b3043cdb41729",
+      "mainboard": [
+        {
+          "name": "Flow State",
+          "count": 3
+        },
+        {
+          "name": "Mountain",
+          "count": 2
+        },
+        {
+          "name": "Burst Lightning",
+          "count": 4
+        },
+        {
+          "name": "Riverglide Pathway",
+          "count": 1
+        },
+        {
+          "name": "Stormchaser's Talent",
+          "count": 4
+        },
+        {
+          "name": "Academic Dispute",
+          "count": 4
+        },
+        {
+          "name": "Sleight of Hand",
+          "count": 4
+        },
+        {
+          "name": "Reckless Rage",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "Emberheart Challenger",
+          "count": 3
+        },
+        {
+          "name": "Riverpyre Verge",
+          "count": 4
+        },
+        {
+          "name": "Soul-Scar Mage",
+          "count": 4
+        },
+        {
+          "name": "Flow State",
+          "count": 1
+        },
+        {
+          "name": "Boomerang Basics",
+          "count": 3
+        },
+        {
+          "name": "Shivan Reef",
+          "count": 4
+        },
+        {
+          "name": "Spirebluff Canal",
+          "count": 4
+        },
+        {
+          "name": "Monastery Swiftspear",
+          "count": 4
+        },
+        {
+          "name": "Steam Vents",
+          "count": 4
+        },
+        {
+          "name": "Experimental Synthesizer",
+          "count": 2
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Iroh's Demonstration",
+          "count": 1
+        },
+        {
+          "name": "Firebending Lesson",
+          "count": 1
+        },
+        {
+          "name": "Octopus Form",
+          "count": 1
+        },
+        {
+          "name": "Boomerang Basics",
+          "count": 1
+        },
+        {
+          "name": "Soul-Guide Lantern",
+          "count": 1
+        },
+        {
+          "name": "Scorching Shot",
+          "count": 2
+        },
+        {
+          "name": "Redcap Melee",
+          "count": 2
+        },
+        {
+          "name": "Quantum Riddler",
+          "count": 2
+        },
+        {
+          "name": "It'll Quench Ya!",
+          "count": 1
+        },
+        {
+          "name": "Spell Pierce",
+          "count": 2
+        },
+        {
+          "name": "Price of Freedom",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "pioneer-02-7955648",
+      "format": "pioneer",
+      "name": "Golgari Midrange",
+      "date": "Sep 14, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7955648",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-golgari-midrange",
+      "event": "https://www.mtggoldfish.com/tournament/66601",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1412854106",
+      "sourceSha256": "5d1b40b54e88640fd7e96a6bdccce6fa1b17e2f5ba31af56e2942269195e3d4d",
+      "mainboard": [
+        {
+          "name": "Bitter Triumph",
+          "count": 2
+        },
+        {
+          "name": "Professor Dellian Fel",
+          "count": 4
+        },
+        {
+          "name": "Restless Cottage",
+          "count": 2
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Boseiju, Who Endures",
+          "count": 1
+        },
+        {
+          "name": "Castle Locthwain",
+          "count": 1
+        },
+        {
+          "name": "Culling Ritual",
+          "count": 1
+        },
+        {
+          "name": "Swamp",
+          "count": 2
+        },
+        {
+          "name": "Overgrown Tomb",
+          "count": 4
+        },
+        {
+          "name": "Llanowar Wastes",
+          "count": 4
+        },
+        {
+          "name": "Graveyard Trespasser",
+          "count": 4
+        },
+        {
+          "name": "Forest",
+          "count": 1
+        },
+        {
+          "name": "Maelstrom Pulse",
+          "count": 1
+        },
+        {
+          "name": "Badgermole Cub",
+          "count": 4
+        },
+        {
+          "name": "Fatal Push",
+          "count": 4
+        },
+        {
+          "name": "Unholy Annex // Ritual Chamber",
+          "count": 4
+        },
+        {
+          "name": "Sheoldred, the Apocalypse",
+          "count": 3
+        },
+        {
+          "name": "Duress",
+          "count": 1
+        },
+        {
+          "name": "Takenuma, Abandoned Mire",
+          "count": 1
+        },
+        {
+          "name": "Blooming Marsh",
+          "count": 4
+        },
+        {
+          "name": "Mutavault",
+          "count": 4
+        },
+        {
+          "name": "Urborg, Tomb of Yawgmoth",
+          "count": 1
+        },
+        {
+          "name": "Abrupt Decay",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Ashiok, Dream Render",
+          "count": 1
+        },
+        {
+          "name": "Culling Ritual",
+          "count": 2
+        },
+        {
+          "name": "Unlicensed Hearse",
+          "count": 2
+        },
+        {
+          "name": "Duress",
+          "count": 1
+        },
+        {
+          "name": "Go Blank",
+          "count": 1
+        },
+        {
+          "name": "Invoke Despair",
+          "count": 2
+        },
+        {
+          "name": "Languish",
+          "count": 1
+        },
+        {
+          "name": "Maelstrom Pulse",
+          "count": 1
+        },
+        {
+          "name": "Nowhere to Run",
+          "count": 2
+        },
+        {
+          "name": "Cruelclaw's Heist",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "pioneer-03-7964958",
+      "format": "pioneer",
+      "name": "Abzan Greasefang",
+      "date": "Sep 20, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7964958",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-abzan-greasefang",
+      "event": "https://www.mtggoldfish.com/tournament/66726",
+      "originalSource": "https://melee.gg/Tournament/View/466385",
+      "sourceSha256": "91a725d5820d6d0d6aced012fdf90f8a469f6d7191b8986a527fc01cd4cc46a8",
+      "mainboard": [
+        {
+          "name": "Bitter Triumph",
+          "count": 2
+        },
+        {
+          "name": "Blooming Marsh",
+          "count": 3
+        },
+        {
+          "name": "Cache Grab",
+          "count": 4
+        },
+        {
+          "name": "Collective Brutality",
+          "count": 1
+        },
+        {
+          "name": "Concealed Courtyard",
+          "count": 3
+        },
+        {
+          "name": "Takenuma, Abandoned Mire",
+          "count": 1
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Esika's Chariot",
+          "count": 4
+        },
+        {
+          "name": "Forest",
+          "count": 1
+        },
+        {
+          "name": "Formidable Speaker",
+          "count": 3
+        },
+        {
+          "name": "Godless Shrine",
+          "count": 2
+        },
+        {
+          "name": "Greasefang, Okiba Boss",
+          "count": 4
+        },
+        {
+          "name": "Jennifer Walters",
+          "count": 1
+        },
+        {
+          "name": "Lush Portico",
+          "count": 1
+        },
+        {
+          "name": "Starting Town",
+          "count": 2
+        },
+        {
+          "name": "Overgrown Tomb",
+          "count": 3
+        },
+        {
+          "name": "Overlord of the Balemurk",
+          "count": 2
+        },
+        {
+          "name": "Parhelion II",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 1
+        },
+        {
+          "name": "Professor of Symbology",
+          "count": 3
+        },
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Fatal Push",
+          "count": 1
+        },
+        {
+          "name": "Temple Garden",
+          "count": 3
+        },
+        {
+          "name": "Brushland",
+          "count": 1
+        },
+        {
+          "name": "Emptiness",
+          "count": 1
+        },
+        {
+          "name": "Thundering Broodwagon",
+          "count": 2
+        },
+        {
+          "name": "Yathan Roadwatcher",
+          "count": 1
+        },
+        {
+          "name": "Boseiju, Who Endures",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Abrupt Decay",
+          "count": 2
+        },
+        {
+          "name": "Collective Brutality",
+          "count": 1
+        },
+        {
+          "name": "Enter the Avatar State",
+          "count": 1
+        },
+        {
+          "name": "Fatal Push",
+          "count": 1
+        },
+        {
+          "name": "Origin of Metalbending",
+          "count": 1
+        },
+        {
+          "name": "Professor Dellian Fel",
+          "count": 2
+        },
+        {
+          "name": "Culling Ritual",
+          "count": 1
+        },
+        {
+          "name": "Ashiok, Dream Render",
+          "count": 1
+        },
+        {
+          "name": "Vanishing Verse",
+          "count": 1
+        },
+        {
+          "name": "Unlicensed Hearse",
+          "count": 2
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 1
+        },
+        {
+          "name": "Path of Peril",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "pioneer-04-7952679",
+      "format": "pioneer",
+      "name": "Jeskai Lessons",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7952679",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-jeskai-lessons",
+      "event": "https://www.mtggoldfish.com/tournament/66554",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-rc-qualifier-2026-09-1312854053",
+      "sourceSha256": "2a29700597c6821247bf09e8047fe1b841822465aacf8778d3c6d243e9f23517",
+      "mainboard": [
+        {
+          "name": "Iroh's Demonstration",
+          "count": 1
+        },
+        {
+          "name": "It'll Quench Ya!",
+          "count": 2
+        },
+        {
+          "name": "Pop Quiz",
+          "count": 1
+        },
+        {
+          "name": "Accumulate Wisdom",
+          "count": 3
+        },
+        {
+          "name": "Combustion Technique",
+          "count": 3
+        },
+        {
+          "name": "Abandon Attachments",
+          "count": 3
+        },
+        {
+          "name": "Tablet of Discovery",
+          "count": 4
+        },
+        {
+          "name": "Divide by Zero",
+          "count": 4
+        },
+        {
+          "name": "Jeskai Revelation",
+          "count": 4
+        },
+        {
+          "name": "Firebending Lesson",
+          "count": 4
+        },
+        {
+          "name": "Thor, God of Thunder",
+          "count": 2
+        },
+        {
+          "name": "Gran-Gran",
+          "count": 4
+        },
+        {
+          "name": "Hallowed Fountain",
+          "count": 1
+        },
+        {
+          "name": "Riverpyre Verge",
+          "count": 1
+        },
+        {
+          "name": "Great Hall of the Biblioplex",
+          "count": 3
+        },
+        {
+          "name": "Hallowed Fountain",
+          "count": 2
+        },
+        {
+          "name": "Island",
+          "count": 3
+        },
+        {
+          "name": "Deserted Beach",
+          "count": 1
+        },
+        {
+          "name": "Spirebluff Canal",
+          "count": 4
+        },
+        {
+          "name": "Steam Vents",
+          "count": 4
+        },
+        {
+          "name": "Riverglide Pathway",
+          "count": 3
+        },
+        {
+          "name": "Spell Pierce",
+          "count": 1
+        },
+        {
+          "name": "Riverpyre Verge",
+          "count": 1
+        },
+        {
+          "name": "Stock Up",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Improvisation Capstone",
+          "count": 1
+        },
+        {
+          "name": "Teachings of the Archaics",
+          "count": 1
+        },
+        {
+          "name": "Negate",
+          "count": 1
+        },
+        {
+          "name": "Annul",
+          "count": 1
+        },
+        {
+          "name": "Abrade",
+          "count": 1
+        },
+        {
+          "name": "Soul-Guide Lantern",
+          "count": 1
+        },
+        {
+          "name": "Change the Equation",
+          "count": 1
+        },
+        {
+          "name": "Price of Freedom",
+          "count": 1
+        },
+        {
+          "name": "Iroh's Demonstration",
+          "count": 1
+        },
+        {
+          "name": "Accumulate Wisdom",
+          "count": 1
+        },
+        {
+          "name": "Combustion Technique",
+          "count": 1
+        },
+        {
+          "name": "Sokka's Haiku",
+          "count": 1
+        },
+        {
+          "name": "Anger of the Gods",
+          "count": 1
+        },
+        {
+          "name": "Airbender's Reversal",
+          "count": 1
+        },
+        {
+          "name": "Ghost Vacuum",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "pioneer-05-7949409",
+      "format": "pioneer",
+      "name": "Mono-Red Prowess",
+      "date": "Sep 10, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7949409",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-mono-red-prowess",
+      "event": "https://www.mtggoldfish.com/tournament/66501",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1012854065",
+      "sourceSha256": "4fdcb6b99e54401a1d3fdc5f148289a74f47ce108597245cdb0b30bc5ee07e5f",
+      "mainboard": [
+        {
+          "name": "Burst Lightning",
+          "count": 3
+        },
+        {
+          "name": "Den of the Bugbear",
+          "count": 1
+        },
+        {
+          "name": "Emberheart Challenger",
+          "count": 4
+        },
+        {
+          "name": "Kumano Faces Kakkazan",
+          "count": 4
+        },
+        {
+          "name": "Monastery Swiftspear",
+          "count": 4
+        },
+        {
+          "name": "Monstrous Rage",
+          "count": 4
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Burst Lightning",
+          "count": 1
+        },
+        {
+          "name": "Ramunap Ruins",
+          "count": 2
+        },
+        {
+          "name": "Reckless Rage",
+          "count": 4
+        },
+        {
+          "name": "Rockface Village",
+          "count": 1
+        },
+        {
+          "name": "Screaming Nemesis",
+          "count": 4
+        },
+        {
+          "name": "Sokenzan, Crucible of Defiance",
+          "count": 1
+        },
+        {
+          "name": "Soul-Scar Mage",
+          "count": 4
+        },
+        {
+          "name": "Sunspine Lynx",
+          "count": 1
+        },
+        {
+          "name": "The Legend of Roku",
+          "count": 1
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Mountain",
+          "count": 3
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Mountain",
+          "count": 2
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Mountain",
+          "count": 3
+        },
+        {
+          "name": "Mutavault",
+          "count": 4
+        },
+        {
+          "name": "Sunspine Lynx",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Flowstone Infusion",
+          "count": 2
+        },
+        {
+          "name": "Magebane Lizard",
+          "count": 4
+        },
+        {
+          "name": "Pyroclasm",
+          "count": 1
+        },
+        {
+          "name": "Redcap Melee",
+          "count": 2
+        },
+        {
+          "name": "Scorching Shot",
+          "count": 3
+        },
+        {
+          "name": "Weathered Runestone",
+          "count": 2
+        },
+        {
+          "name": "Pyroclasm",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "pioneer-06-7952301",
+      "format": "pioneer",
+      "name": "Azorius Control",
+      "date": "Sep 12, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7952301",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-azorius-control",
+      "event": "https://www.mtggoldfish.com/tournament/66552",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1212854085",
+      "sourceSha256": "828276c27786ca83667cc4325f0895c4a8a20bf9522486880e997eb91229e928",
+      "mainboard": [
+        {
+          "name": "Get Lost",
+          "count": 3
+        },
+        {
+          "name": "Castle Ardenvale",
+          "count": 1
+        },
+        {
+          "name": "Change the Equation",
+          "count": 2
+        },
+        {
+          "name": "Consult the Star Charts",
+          "count": 4
+        },
+        {
+          "name": "Deserted Beach",
+          "count": 3
+        },
+        {
+          "name": "Dovin's Veto",
+          "count": 4
+        },
+        {
+          "name": "Eiganjo, Seat of the Empire",
+          "count": 1
+        },
+        {
+          "name": "Emeritus of Ideation",
+          "count": 2
+        },
+        {
+          "name": "Plains",
+          "count": 2
+        },
+        {
+          "name": "Fountainport",
+          "count": 1
+        },
+        {
+          "name": "Get Lost",
+          "count": 1
+        },
+        {
+          "name": "Glacial Fortress",
+          "count": 2
+        },
+        {
+          "name": "Hall of Storm Giants",
+          "count": 2
+        },
+        {
+          "name": "Hallowed Fountain",
+          "count": 4
+        },
+        {
+          "name": "Hengegate Pathway",
+          "count": 4
+        },
+        {
+          "name": "Irrigated Farmland",
+          "count": 2
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "March of Otherworldly Light",
+          "count": 4
+        },
+        {
+          "name": "Farewell",
+          "count": 1
+        },
+        {
+          "name": "Narset, Parter of Veils",
+          "count": 1
+        },
+        {
+          "name": "No More Lies",
+          "count": 4
+        },
+        {
+          "name": "Omen of the Sea",
+          "count": 3
+        },
+        {
+          "name": "Otawara, Soaring City",
+          "count": 1
+        },
+        {
+          "name": "Petrified Hamlet",
+          "count": 2
+        },
+        {
+          "name": "Island",
+          "count": 2
+        },
+        {
+          "name": "Restless Anchorage",
+          "count": 3
+        },
+        {
+          "name": "Field of Ruin",
+          "count": 2
+        },
+        {
+          "name": "Teferi, Hero of Dominaria",
+          "count": 2
+        },
+        {
+          "name": "Temporary Lockdown",
+          "count": 4
+        },
+        {
+          "name": "The Unagi of Kyoshi Island",
+          "count": 1
+        },
+        {
+          "name": "The Wandering Emperor",
+          "count": 3
+        },
+        {
+          "name": "Ultima",
+          "count": 1
+        },
+        {
+          "name": "Supreme Verdict",
+          "count": 2
+        },
+        {
+          "name": "Beza, the Bounding Spring",
+          "count": 2
+        },
+        {
+          "name": "Meticulous Archive",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Erode",
+          "count": 1
+        },
+        {
+          "name": "Farewell",
+          "count": 1
+        },
+        {
+          "name": "High Noon",
+          "count": 2
+        },
+        {
+          "name": "Kutzil's Flanker",
+          "count": 3
+        },
+        {
+          "name": "Narset's Reversal",
+          "count": 2
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 2
+        },
+        {
+          "name": "Three Steps Ahead",
+          "count": 1
+        },
+        {
+          "name": "Yorion, Sky Nomad",
+          "count": 1
+        },
+        {
+          "name": "Beza, the Bounding Spring",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "pioneer-07-7955647",
+      "format": "pioneer",
+      "name": "Dimir Aggro",
+      "date": "Sep 14, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7955647",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-dimir-aggro",
+      "event": "https://www.mtggoldfish.com/tournament/66601",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1412854106",
+      "sourceSha256": "2a84883a4a06acaf27bc472a7ccc63c8bd3600b93df680606dfa633485043eaa",
+      "mainboard": [
+        {
+          "name": "Floodpits Drowner",
+          "count": 4
+        },
+        {
+          "name": "Multiversal Passage",
+          "count": 3
+        },
+        {
+          "name": "Moon-Circuit Hacker",
+          "count": 4
+        },
+        {
+          "name": "Gloomlake Verge",
+          "count": 4
+        },
+        {
+          "name": "Otawara, Soaring City",
+          "count": 1
+        },
+        {
+          "name": "Mutavault",
+          "count": 4
+        },
+        {
+          "name": "Takenuma, Abandoned Mire",
+          "count": 1
+        },
+        {
+          "name": "Darkslick Shores",
+          "count": 4
+        },
+        {
+          "name": "Watery Grave",
+          "count": 4
+        },
+        {
+          "name": "Fatal Push",
+          "count": 4
+        },
+        {
+          "name": "Sheoldred, the Apocalypse",
+          "count": 3
+        },
+        {
+          "name": "Island",
+          "count": 2
+        },
+        {
+          "name": "Mockingbird",
+          "count": 4
+        },
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Unholy Annex // Ritual Chamber",
+          "count": 2
+        },
+        {
+          "name": "Faerie Miscreant",
+          "count": 4
+        },
+        {
+          "name": "Bitter Triumph",
+          "count": 2
+        },
+        {
+          "name": "Kaito, Bane of Nightmares",
+          "count": 4
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Go for the Throat",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Path of Peril",
+          "count": 1
+        },
+        {
+          "name": "Languish",
+          "count": 2
+        },
+        {
+          "name": "Disdainful Stroke",
+          "count": 2
+        },
+        {
+          "name": "Tishana's Tidebinder",
+          "count": 2
+        },
+        {
+          "name": "Duress",
+          "count": 2
+        },
+        {
+          "name": "Graveyard Trespasser",
+          "count": 2
+        },
+        {
+          "name": "Unlicensed Hearse",
+          "count": 2
+        },
+        {
+          "name": "Strategic Betrayal",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "pioneer-08-7949420",
+      "format": "pioneer",
+      "name": "Izzet Phoenix",
+      "date": "Sep 10, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7949420",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/izzet-phoenix-57eb17e3-2b71-4301-99a6-45002ffcfadb",
+      "event": "https://www.mtggoldfish.com/tournament/66501",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1012854065",
+      "sourceSha256": "d48f271f1652b4437646a0106a2fd56f6c9f4488e7b01254e5b86b961e790863",
+      "mainboard": [
+        {
+          "name": "Arclight Phoenix",
+          "count": 4
+        },
+        {
+          "name": "Artist's Talent",
+          "count": 4
+        },
+        {
+          "name": "Consider",
+          "count": 4
+        },
+        {
+          "name": "Fiery Impulse",
+          "count": 4
+        },
+        {
+          "name": "Galvanic Iteration",
+          "count": 1
+        },
+        {
+          "name": "Into the Flood Maw",
+          "count": 3
+        },
+        {
+          "name": "Stormcarved Coast",
+          "count": 1
+        },
+        {
+          "name": "Lightning Axe",
+          "count": 3
+        },
+        {
+          "name": "Riverglide Pathway",
+          "count": 4
+        },
+        {
+          "name": "Otawara, Soaring City",
+          "count": 1
+        },
+        {
+          "name": "Picklock Prankster",
+          "count": 4
+        },
+        {
+          "name": "Prismari Command",
+          "count": 1
+        },
+        {
+          "name": "Proft's Eidetic Memory",
+          "count": 1
+        },
+        {
+          "name": "Sleight of Hand",
+          "count": 4
+        },
+        {
+          "name": "Spirebluff Canal",
+          "count": 4
+        },
+        {
+          "name": "Treasure Cruise",
+          "count": 4
+        },
+        {
+          "name": "Opt",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 4
+        },
+        {
+          "name": "Temporal Trespass",
+          "count": 1
+        },
+        {
+          "name": "Steam Vents",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Disdainful Stroke",
+          "count": 2
+        },
+        {
+          "name": "Brazen Borrower",
+          "count": 2
+        },
+        {
+          "name": "Abrade",
+          "count": 1
+        },
+        {
+          "name": "Ledger Shredder",
+          "count": 4
+        },
+        {
+          "name": "Mystical Dispute",
+          "count": 3
+        },
+        {
+          "name": "Redcap Melee",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "pioneer-09-7966544",
+      "format": "pioneer",
+      "name": "Mono-White Humans",
+      "date": "Sep 20, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7966544",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-mono-white-humans",
+      "event": "https://www.mtggoldfish.com/tournament/66755",
+      "originalSource": "https://melee.gg/Tournament/View/448499",
+      "sourceSha256": "a5a81e4d1afd823efac4d04c873aa6af680e5ff7b1dd824954ec4d37c095f53d",
+      "mainboard": [
+        {
+          "name": "Adeline, Resplendent Cathar",
+          "count": 4
+        },
+        {
+          "name": "Brave the Elements",
+          "count": 4
+        },
+        {
+          "name": "Castle Ardenvale",
+          "count": 2
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 2
+        },
+        {
+          "name": "Coppercoat Vanguard",
+          "count": 3
+        },
+        {
+          "name": "Cosmogrand Zenith",
+          "count": 3
+        },
+        {
+          "name": "Dauntless Bodyguard",
+          "count": 3
+        },
+        {
+          "name": "Eiganjo, Seat of the Empire",
+          "count": 2
+        },
+        {
+          "name": "Hopeful Initiate",
+          "count": 3
+        },
+        {
+          "name": "Mutavault",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 10
+        },
+        {
+          "name": "Recruitment Officer",
+          "count": 3
+        },
+        {
+          "name": "Reluctant Role Model",
+          "count": 3
+        },
+        {
+          "name": "Sheltered by Ghosts",
+          "count": 2
+        },
+        {
+          "name": "Thalia, Guardian of Thraben",
+          "count": 3
+        },
+        {
+          "name": "Thalia's Lieutenant",
+          "count": 4
+        },
+        {
+          "name": "Veteran Survivor",
+          "count": 3
+        },
+        {
+          "name": "Kytheon, Hero of Akros",
+          "count": 2
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Containment Priest",
+          "count": 2
+        },
+        {
+          "name": "Declaration in Stone",
+          "count": 2
+        },
+        {
+          "name": "Get Lost",
+          "count": 2
+        },
+        {
+          "name": "Portable Hole",
+          "count": 2
+        },
+        {
+          "name": "Requisition Raid",
+          "count": 2
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 2
+        },
+        {
+          "name": "Wedding Announcement",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "pioneer-10-7953691",
+      "format": "pioneer",
+      "name": "Dimir Self-Bounce",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7953691",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/pioneer-dimir-self-bounce",
+      "event": "https://www.mtggoldfish.com/tournament/66577",
+      "originalSource": "https://www.mtgo.com/decklist/pioneer-challenge-32-2026-09-1312854095",
+      "sourceSha256": "87cb9942a486e5b4c7e0ebcd7ca7bc69a8c91ab0e1ff31f4cb5d920a82dc0aa9",
+      "mainboard": [
+        {
+          "name": "Boomerang Basics",
+          "count": 4
+        },
+        {
+          "name": "Clearwater Pathway",
+          "count": 4
+        },
+        {
+          "name": "Cryogen Relic",
+          "count": 4
+        },
+        {
+          "name": "Otawara, Soaring City",
+          "count": 1
+        },
+        {
+          "name": "Fear of Isolation",
+          "count": 4
+        },
+        {
+          "name": "Hopeless Nightmare",
+          "count": 4
+        },
+        {
+          "name": "Momentum Breaker",
+          "count": 4
+        },
+        {
+          "name": "Narset, Parter of Veils",
+          "count": 4
+        },
+        {
+          "name": "Nowhere to Run",
+          "count": 4
+        },
+        {
+          "name": "Watery Grave",
+          "count": 4
+        },
+        {
+          "name": "Shipwreck Marsh",
+          "count": 4
+        },
+        {
+          "name": "Stormchaser's Talent",
+          "count": 4
+        },
+        {
+          "name": "Takenuma, Abandoned Mire",
+          "count": 1
+        },
+        {
+          "name": "This Town Ain't Big Enough",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 2
+        },
+        {
+          "name": "Urborg, Tomb of Yawgmoth",
+          "count": 2
+        },
+        {
+          "name": "Petrified Hamlet",
+          "count": 4
+        },
+        {
+          "name": "Swamp",
+          "count": 2
+        },
+        {
+          "name": "Underground River",
+          "count": 2
+        },
+        {
+          "name": "Darkslick Shores",
+          "count": 4
+        },
+        {
+          "name": "Gloomlake Verge",
+          "count": 4
+        },
+        {
+          "name": "Stock Up",
+          "count": 2
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Fatal Push",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Change the Equation",
+          "count": 2
+        },
+        {
+          "name": "Invoke Despair",
+          "count": 3
+        },
+        {
+          "name": "Yorion, Sky Nomad",
+          "count": 1
+        },
+        {
+          "name": "Unlicensed Hearse",
+          "count": 3
+        },
+        {
+          "name": "Grim Bauble",
+          "count": 4
+        },
+        {
+          "name": "Go Blank",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "modern-01-7945486",
+      "format": "modern",
+      "name": "Izzet Prowess",
+      "date": "Sep 5, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7945486",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-izzet-prowess",
+      "event": "https://www.mtggoldfish.com/tournament/66448",
+      "originalSource": "https://melee.gg/Tournament/View/405590",
+      "sourceSha256": "f98b8dcb25378bb3d3cb6a9df3b73978c105d7c37db856c7979cb161703352ec",
+      "mainboard": [
+        {
+          "name": "Dragon's Rage Channeler",
+          "count": 4
+        },
+        {
+          "name": "Thundering Falls",
+          "count": 1
+        },
+        {
+          "name": "Expressive Iteration",
+          "count": 2
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 3
+        },
+        {
+          "name": "Lightning Bolt",
+          "count": 4
+        },
+        {
+          "name": "Stormchaser's Talent",
+          "count": 2
+        },
+        {
+          "name": "Scalding Tarn",
+          "count": 3
+        },
+        {
+          "name": "Preordain",
+          "count": 4
+        },
+        {
+          "name": "Boomerang Basics",
+          "count": 4
+        },
+        {
+          "name": "Mutagenic Growth",
+          "count": 2
+        },
+        {
+          "name": "Mountain",
+          "count": 2
+        },
+        {
+          "name": "Slickshot Show-Off",
+          "count": 2
+        },
+        {
+          "name": "Cori-Steel Cutter",
+          "count": 4
+        },
+        {
+          "name": "Mishra's Bauble",
+          "count": 4
+        },
+        {
+          "name": "Tormod's Crypt",
+          "count": 2
+        },
+        {
+          "name": "Steam Vents",
+          "count": 4
+        },
+        {
+          "name": "Monastery Swiftspear",
+          "count": 4
+        },
+        {
+          "name": "Fiery Islet",
+          "count": 1
+        },
+        {
+          "name": "Bloodstained Mire",
+          "count": 4
+        },
+        {
+          "name": "Lava Dart",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Consign to Memory",
+          "count": 4
+        },
+        {
+          "name": "Spell Snare",
+          "count": 2
+        },
+        {
+          "name": "Spell Pierce",
+          "count": 2
+        },
+        {
+          "name": "Obsidian Charmaw",
+          "count": 2
+        },
+        {
+          "name": "Meltdown",
+          "count": 2
+        },
+        {
+          "name": "Unholy Heat",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "modern-02-7957595",
+      "format": "modern",
+      "name": "Mono-Green Broodscale",
+      "date": "Sep 12, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7957595",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-eldrazi",
+      "event": "https://www.mtggoldfish.com/tournament/66635",
+      "originalSource": "https://melee.gg/Tournament/View/405588",
+      "sourceSha256": "dc4472b9fc3d3c14a9a736a641aee44bc05e5e5365f4a59017c1b1e687e8256f",
+      "mainboard": [
+        {
+          "name": "Gemstone Caverns",
+          "count": 1
+        },
+        {
+          "name": "Ugin's Labyrinth",
+          "count": 3
+        },
+        {
+          "name": "Blade of the Bloodchief",
+          "count": 3
+        },
+        {
+          "name": "Dismember",
+          "count": 1
+        },
+        {
+          "name": "Basking Broodscale",
+          "count": 4
+        },
+        {
+          "name": "Forest",
+          "count": 6
+        },
+        {
+          "name": "Eldrazi Temple",
+          "count": 4
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 1
+        },
+        {
+          "name": "Shifting Woodland",
+          "count": 1
+        },
+        {
+          "name": "Springleaf Drum",
+          "count": 1
+        },
+        {
+          "name": "Kozilek's Command",
+          "count": 4
+        },
+        {
+          "name": "Devourer of Destiny",
+          "count": 3
+        },
+        {
+          "name": "Yavimaya, Cradle of Growth",
+          "count": 1
+        },
+        {
+          "name": "Malevolent Rumble",
+          "count": 4
+        },
+        {
+          "name": "Glaring Fleshraker",
+          "count": 1
+        },
+        {
+          "name": "Ancient Stirrings",
+          "count": 4
+        },
+        {
+          "name": "Sowing Mycospawn",
+          "count": 4
+        },
+        {
+          "name": "Vexing Bauble",
+          "count": 2
+        },
+        {
+          "name": "Haywire Mite",
+          "count": 1
+        },
+        {
+          "name": "Emrakul, the Promised End",
+          "count": 4
+        },
+        {
+          "name": "Soul-Guide Lantern",
+          "count": 1
+        },
+        {
+          "name": "Boseiju, Who Endures",
+          "count": 2
+        },
+        {
+          "name": "Urza's Saga",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Nature's Claim",
+          "count": 2
+        },
+        {
+          "name": "Vexing Bauble",
+          "count": 1
+        },
+        {
+          "name": "Pithing Needle",
+          "count": 1
+        },
+        {
+          "name": "Trinisphere",
+          "count": 3
+        },
+        {
+          "name": "Six",
+          "count": 1
+        },
+        {
+          "name": "Thief of Existence",
+          "count": 1
+        },
+        {
+          "name": "Warping Wail",
+          "count": 1
+        },
+        {
+          "name": "Grafdigger's Cage",
+          "count": 2
+        },
+        {
+          "name": "Dismember",
+          "count": 1
+        },
+        {
+          "name": "Sire of Seven Deaths",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "modern-03-7959159",
+      "format": "modern",
+      "name": "W-U-B-G Goryo's",
+      "date": "Sep 12, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7959159",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-goryo-s-vengeance",
+      "event": "https://www.mtggoldfish.com/tournament/66637",
+      "originalSource": "https://melee.gg/Tournament/View/451148",
+      "sourceSha256": "3b6434fd1892dcd1811b860a0f1bf0562f05d55e73efcc44bca26f7515a57c1e",
+      "mainboard": [
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Faithful Mending",
+          "count": 4
+        },
+        {
+          "name": "Goryo's Vengeance",
+          "count": 4
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 3
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 4
+        },
+        {
+          "name": "Griselbrand",
+          "count": 1
+        },
+        {
+          "name": "Ephemerate",
+          "count": 4
+        },
+        {
+          "name": "Hallowed Fountain",
+          "count": 1
+        },
+        {
+          "name": "Teferi, Time Raveler",
+          "count": 1
+        },
+        {
+          "name": "Breeding Pool",
+          "count": 1
+        },
+        {
+          "name": "Force of Negation",
+          "count": 2
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "March of Otherworldly Light",
+          "count": 1
+        },
+        {
+          "name": "Atraxa, Grand Unifier",
+          "count": 4
+        },
+        {
+          "name": "Spell Snare",
+          "count": 1
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 1
+        },
+        {
+          "name": "Psychic Frog",
+          "count": 4
+        },
+        {
+          "name": "Shadowy Backstreet",
+          "count": 1
+        },
+        {
+          "name": "Meticulous Archive",
+          "count": 1
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 4
+        },
+        {
+          "name": "Watery Grave",
+          "count": 1
+        },
+        {
+          "name": "Prismatic Ending",
+          "count": 2
+        },
+        {
+          "name": "Solitude",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 1
+        },
+        {
+          "name": "Godless Shrine",
+          "count": 1
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 3
+        },
+        {
+          "name": "Quantum Riddler",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Fatal Push",
+          "count": 1
+        },
+        {
+          "name": "Nihil Spellbomb",
+          "count": 1
+        },
+        {
+          "name": "Mystical Dispute",
+          "count": 3
+        },
+        {
+          "name": "Teferi, Time Raveler",
+          "count": 1
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 4
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 3
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 1
+        },
+        {
+          "name": "Spell Snare",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "modern-04-7935876",
+      "format": "modern",
+      "name": "Esper",
+      "date": "Aug 28, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7935876",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-esper-blink",
+      "event": "https://www.mtggoldfish.com/tournament/66287",
+      "originalSource": "https://melee.gg/Tournament/View/441441",
+      "sourceSha256": "db35e4c77175977fb69456d3612f3dcdc663084e1f99edb47a282ccf502100bc",
+      "mainboard": [
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Phelia, Exuberant Shepherd",
+          "count": 4
+        },
+        {
+          "name": "Flickerwisp",
+          "count": 3
+        },
+        {
+          "name": "Witch Enchanter",
+          "count": 4
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 4
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Fatal Push",
+          "count": 4
+        },
+        {
+          "name": "Ephemerate",
+          "count": 3
+        },
+        {
+          "name": "Hallowed Fountain",
+          "count": 1
+        },
+        {
+          "name": "Teferi, Time Raveler",
+          "count": 1
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 1
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 1
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 1
+        },
+        {
+          "name": "Shadowy Backstreet",
+          "count": 1
+        },
+        {
+          "name": "Meticulous Archive",
+          "count": 1
+        },
+        {
+          "name": "Prismatic Ending",
+          "count": 1
+        },
+        {
+          "name": "Watery Grave",
+          "count": 1
+        },
+        {
+          "name": "Emperor of Bones",
+          "count": 3
+        },
+        {
+          "name": "Solitude",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 2
+        },
+        {
+          "name": "Boggart Trawler",
+          "count": 1
+        },
+        {
+          "name": "Godless Shrine",
+          "count": 2
+        },
+        {
+          "name": "Overlord of the Balemurk",
+          "count": 4
+        },
+        {
+          "name": "Quantum Riddler",
+          "count": 4
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "High Noon",
+          "count": 2
+        },
+        {
+          "name": "Nihil Spellbomb",
+          "count": 1
+        },
+        {
+          "name": "Mystical Dispute",
+          "count": 1
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 3
+        },
+        {
+          "name": "White Orchid Phantom",
+          "count": 2
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 3
+        },
+        {
+          "name": "Containment Priest",
+          "count": 1
+        },
+        {
+          "name": "Clarion Conqueror",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "modern-05-7959163",
+      "format": "modern",
+      "name": "Izzet Affinity",
+      "date": "Sep 12, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7959163",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-affinity",
+      "event": "https://www.mtggoldfish.com/tournament/66637",
+      "originalSource": "https://melee.gg/Tournament/View/451148",
+      "sourceSha256": "cd58b731763f1e42f508170ce02facf9ed91e2bbc8abf2939ea5cd4828ad8e3f",
+      "mainboard": [
+        {
+          "name": "Fiery Islet",
+          "count": 4
+        },
+        {
+          "name": "Preordain",
+          "count": 2
+        },
+        {
+          "name": "Island",
+          "count": 2
+        },
+        {
+          "name": "Pithing Needle",
+          "count": 1
+        },
+        {
+          "name": "Engineered Explosives",
+          "count": 4
+        },
+        {
+          "name": "Kappa Cannoneer",
+          "count": 4
+        },
+        {
+          "name": "Welding Jar",
+          "count": 2
+        },
+        {
+          "name": "Skateboard",
+          "count": 1
+        },
+        {
+          "name": "Mox Opal",
+          "count": 4
+        },
+        {
+          "name": "Shadowspear",
+          "count": 1
+        },
+        {
+          "name": "Shivan Reef",
+          "count": 2
+        },
+        {
+          "name": "Mishra's Bauble",
+          "count": 4
+        },
+        {
+          "name": "Pinnacle Emissary",
+          "count": 4
+        },
+        {
+          "name": "Sink into Stupor",
+          "count": 1
+        },
+        {
+          "name": "Tormod's Crypt",
+          "count": 4
+        },
+        {
+          "name": "Weapons Manufacturing",
+          "count": 3
+        },
+        {
+          "name": "Emry, Lurker of the Loch",
+          "count": 2
+        },
+        {
+          "name": "Spirebluff Canal",
+          "count": 4
+        },
+        {
+          "name": "Steam Vents",
+          "count": 1
+        },
+        {
+          "name": "Metallic Rebuke",
+          "count": 3
+        },
+        {
+          "name": "Urza's Saga",
+          "count": 4
+        },
+        {
+          "name": "Claws of Gix",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Cursed Totem",
+          "count": 2
+        },
+        {
+          "name": "Damping Sphere",
+          "count": 2
+        },
+        {
+          "name": "Vexing Bauble",
+          "count": 1
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1
+        },
+        {
+          "name": "Mystical Dispute",
+          "count": 2
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 2
+        },
+        {
+          "name": "Grafdigger's Cage",
+          "count": 1
+        },
+        {
+          "name": "Galvanic Blast",
+          "count": 2
+        },
+        {
+          "name": "Whipflare",
+          "count": 1
+        },
+        {
+          "name": "Swan Song",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "modern-06-7945491",
+      "format": "modern",
+      "name": "Dimir Midrange",
+      "date": "Sep 5, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7945491",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-dimir-midrange",
+      "event": "https://www.mtggoldfish.com/tournament/66448",
+      "originalSource": "https://melee.gg/Tournament/View/405590",
+      "sourceSha256": "44e58d6708894e70c22f95db06970fd808f12efdc33bedc1618fc8be08cb34ac",
+      "mainboard": [
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 1
+        },
+        {
+          "name": "Sheoldred's Edict",
+          "count": 1
+        },
+        {
+          "name": "Kaito, Bane of Nightmares",
+          "count": 1
+        },
+        {
+          "name": "Otawara, Soaring City",
+          "count": 1
+        },
+        {
+          "name": "Counterspell",
+          "count": 2
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Fatal Push",
+          "count": 4
+        },
+        {
+          "name": "Wan Shi Tong, Librarian",
+          "count": 1
+        },
+        {
+          "name": "Murktide Regent",
+          "count": 1
+        },
+        {
+          "name": "Drown in the Loch",
+          "count": 1
+        },
+        {
+          "name": "Darkslick Shores",
+          "count": 1
+        },
+        {
+          "name": "Scalding Tarn",
+          "count": 1
+        },
+        {
+          "name": "Orcish Bowmasters",
+          "count": 3
+        },
+        {
+          "name": "Island",
+          "count": 3
+        },
+        {
+          "name": "Tamiyo, Inquisitive Student",
+          "count": 2
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 2
+        },
+        {
+          "name": "Force of Negation",
+          "count": 3
+        },
+        {
+          "name": "Spell Snare",
+          "count": 2
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 2
+        },
+        {
+          "name": "Psychic Frog",
+          "count": 4
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 4
+        },
+        {
+          "name": "Watery Grave",
+          "count": 3
+        },
+        {
+          "name": "Subtlety",
+          "count": 3
+        },
+        {
+          "name": "Sink into Stupor",
+          "count": 2
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 1
+        },
+        {
+          "name": "Gloomlake Verge",
+          "count": 1
+        },
+        {
+          "name": "Bloodstained Mire",
+          "count": 1
+        },
+        {
+          "name": "Quantum Riddler",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Kaito, Bane of Nightmares",
+          "count": 1
+        },
+        {
+          "name": "Toxic Deluge",
+          "count": 1
+        },
+        {
+          "name": "Nihil Spellbomb",
+          "count": 2
+        },
+        {
+          "name": "Requiting Hex",
+          "count": 1
+        },
+        {
+          "name": "Stern Scolding",
+          "count": 1
+        },
+        {
+          "name": "Mystical Dispute",
+          "count": 2
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 2
+        },
+        {
+          "name": "Engineered Explosives",
+          "count": 2
+        },
+        {
+          "name": "Harbinger of the Seas",
+          "count": 2
+        },
+        {
+          "name": "Sheoldred's Edict",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "modern-07-7959161",
+      "format": "modern",
+      "name": "Boros",
+      "date": "Sep 12, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7959161",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-boros-energy",
+      "event": "https://www.mtggoldfish.com/tournament/66637",
+      "originalSource": "https://melee.gg/Tournament/View/451148",
+      "sourceSha256": "34b1116a1c872706117a65b2a9e23c4c93f9440031214faed99dfeac571d2510",
+      "mainboard": [
+        {
+          "name": "Ajani, Nacatl Pariah",
+          "count": 4
+        },
+        {
+          "name": "Elegant Parlor",
+          "count": 2
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 3
+        },
+        {
+          "name": "Seasoned Pyromancer",
+          "count": 3
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 4
+        },
+        {
+          "name": "Dalkovan Encampment",
+          "count": 2
+        },
+        {
+          "name": "Windswept Heath",
+          "count": 3
+        },
+        {
+          "name": "Arena of Glory",
+          "count": 1
+        },
+        {
+          "name": "Thraben Charm",
+          "count": 2
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1
+        },
+        {
+          "name": "Guide of Souls",
+          "count": 4
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Galvanic Discharge",
+          "count": 4
+        },
+        {
+          "name": "Ragavan, Nimble Pilferer",
+          "count": 4
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 4
+        },
+        {
+          "name": "Ranger-Captain of Eos",
+          "count": 2
+        },
+        {
+          "name": "Goblin Bombardment",
+          "count": 3
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 3
+        },
+        {
+          "name": "Ocelot Pride",
+          "count": 4
+        },
+        {
+          "name": "Prismatic Ending",
+          "count": 1
+        },
+        {
+          "name": "Plains",
+          "count": 3
+        },
+        {
+          "name": "Solitude",
+          "count": 1
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "High Noon",
+          "count": 2
+        },
+        {
+          "name": "Sanctifier en-Vec",
+          "count": 2
+        },
+        {
+          "name": "Vexing Bauble",
+          "count": 2
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1
+        },
+        {
+          "name": "Wear // Tear",
+          "count": 1
+        },
+        {
+          "name": "The Legend of Roku",
+          "count": 1
+        },
+        {
+          "name": "Obsidian Charmaw",
+          "count": 2
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 2
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "modern-08-7944034",
+      "format": "modern",
+      "name": "Mono-Red",
+      "date": "Sep 6, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7944034",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-ruby-storm",
+      "event": "https://www.mtggoldfish.com/tournament/66426",
+      "originalSource": "https://melee.gg/Tournament/View/442877",
+      "sourceSha256": "e989f85561f5094bf90c9884a9c1bc3837132cba0c992f6073cf0f5068829d35",
+      "mainboard": [
+        {
+          "name": "Arid Mesa",
+          "count": 2
+        },
+        {
+          "name": "Artist's Talent",
+          "count": 2
+        },
+        {
+          "name": "Blood Crypt",
+          "count": 1
+        },
+        {
+          "name": "Bloodstained Mire",
+          "count": 2
+        },
+        {
+          "name": "Desperate Ritual",
+          "count": 4
+        },
+        {
+          "name": "Elegant Parlor",
+          "count": 1
+        },
+        {
+          "name": "Fiery Islet",
+          "count": 1
+        },
+        {
+          "name": "Gemstone Caverns",
+          "count": 1
+        },
+        {
+          "name": "Grapeshot",
+          "count": 1
+        },
+        {
+          "name": "Hex Magic",
+          "count": 4
+        },
+        {
+          "name": "Manamorphose",
+          "count": 4
+        },
+        {
+          "name": "Mountain",
+          "count": 4
+        },
+        {
+          "name": "Past in Flames",
+          "count": 3
+        },
+        {
+          "name": "Pyretic Ritual",
+          "count": 4
+        },
+        {
+          "name": "Ral, Monsoon Mage",
+          "count": 4
+        },
+        {
+          "name": "Reckless Impulse",
+          "count": 4
+        },
+        {
+          "name": "Ruby Medallion",
+          "count": 4
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 1
+        },
+        {
+          "name": "Shatterskull Smashing",
+          "count": 1
+        },
+        {
+          "name": "Thundering Falls",
+          "count": 1
+        },
+        {
+          "name": "Valakut Awakening",
+          "count": 1
+        },
+        {
+          "name": "Wish",
+          "count": 2
+        },
+        {
+          "name": "Wooded Foothills",
+          "count": 4
+        },
+        {
+          "name": "Wrenn's Resolve",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Brotherhood's End",
+          "count": 2
+        },
+        {
+          "name": "Galvanic Relay",
+          "count": 1
+        },
+        {
+          "name": "Grapeshot",
+          "count": 1
+        },
+        {
+          "name": "Orim's Chant",
+          "count": 3
+        },
+        {
+          "name": "Past in Flames",
+          "count": 1
+        },
+        {
+          "name": "Prismatic Ending",
+          "count": 3
+        },
+        {
+          "name": "Untimely Malfunction",
+          "count": 1
+        },
+        {
+          "name": "Wear // Tear",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "modern-09-7935884",
+      "format": "modern",
+      "name": "Mono-Green Eldrazi Trudge",
+      "date": "Aug 28, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7935884",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-mono-green-eldrazi",
+      "event": "https://www.mtggoldfish.com/tournament/66287",
+      "originalSource": "https://melee.gg/Tournament/View/441441",
+      "sourceSha256": "5a136907348b0f8ba4332b810c8c743e2d51b7f91be245a59e10077955d140b1",
+      "mainboard": [
+        {
+          "name": "Ugin, Eye of the Storms",
+          "count": 2
+        },
+        {
+          "name": "Slumbering Trudge",
+          "count": 4
+        },
+        {
+          "name": "Forest",
+          "count": 3
+        },
+        {
+          "name": "Ugin's Labyrinth",
+          "count": 4
+        },
+        {
+          "name": "Ulamog, the Ceaseless Hunger",
+          "count": 2
+        },
+        {
+          "name": "Ghost Quarter",
+          "count": 1
+        },
+        {
+          "name": "Green Sun's Zenith",
+          "count": 4
+        },
+        {
+          "name": "Eldrazi Temple",
+          "count": 4
+        },
+        {
+          "name": "Disciple of Freyalise",
+          "count": 4
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 1
+        },
+        {
+          "name": "Shifting Woodland",
+          "count": 1
+        },
+        {
+          "name": "Kozilek's Command",
+          "count": 4
+        },
+        {
+          "name": "Mosswort Bridge",
+          "count": 1
+        },
+        {
+          "name": "Yavimaya, Cradle of Growth",
+          "count": 1
+        },
+        {
+          "name": "Malevolent Rumble",
+          "count": 4
+        },
+        {
+          "name": "Sowing Mycospawn",
+          "count": 4
+        },
+        {
+          "name": "Emrakul, the Promised End",
+          "count": 4
+        },
+        {
+          "name": "Drowner of Truth",
+          "count": 2
+        },
+        {
+          "name": "Boseiju, Who Endures",
+          "count": 2
+        },
+        {
+          "name": "Fanatic of Rhonas",
+          "count": 4
+        },
+        {
+          "name": "Fight Rigging",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Soulless Jailer",
+          "count": 1
+        },
+        {
+          "name": "Thought-Knot Seer",
+          "count": 2
+        },
+        {
+          "name": "Carnage Tyrant",
+          "count": 1
+        },
+        {
+          "name": "Disruptor Flute",
+          "count": 1
+        },
+        {
+          "name": "Torpor Orb",
+          "count": 1
+        },
+        {
+          "name": "Trinisphere",
+          "count": 3
+        },
+        {
+          "name": "Grafdigger's Cage",
+          "count": 2
+        },
+        {
+          "name": "Warping Wail",
+          "count": 2
+        },
+        {
+          "name": "Dismember",
+          "count": 1
+        },
+        {
+          "name": "Elder Gargaroth",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "modern-10-7935880",
+      "format": "modern",
+      "name": "Boros Land Destruction (Kaheera)",
+      "date": "Aug 28, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7935880",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/modern-boros-ponza",
+      "event": "https://www.mtggoldfish.com/tournament/66287",
+      "originalSource": "https://melee.gg/Tournament/View/441441",
+      "sourceSha256": "10168d48f56cb33b835f9adbed090fc2e955890f5a063e541c895fa0bfdc408b",
+      "mainboard": [
+        {
+          "name": "Erode",
+          "count": 4
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 1
+        },
+        {
+          "name": "Cori Mountain Monastery",
+          "count": 4
+        },
+        {
+          "name": "Demolition Field",
+          "count": 4
+        },
+        {
+          "name": "Price of Freedom",
+          "count": 4
+        },
+        {
+          "name": "Avengers Disassembled",
+          "count": 3
+        },
+        {
+          "name": "Sunken Citadel",
+          "count": 3
+        },
+        {
+          "name": "Field of Ruin",
+          "count": 4
+        },
+        {
+          "name": "Mountain",
+          "count": 2
+        },
+        {
+          "name": "Galvanic Discharge",
+          "count": 3
+        },
+        {
+          "name": "Cleansing Wildfire",
+          "count": 4
+        },
+        {
+          "name": "The Legend of Roku",
+          "count": 1
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 3
+        },
+        {
+          "name": "Solitude",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 4
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 4
+        },
+        {
+          "name": "Relic of Progenitus",
+          "count": 4
+        },
+        {
+          "name": "Path to Exile",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "High Noon",
+          "count": 4
+        },
+        {
+          "name": "Surgical Extraction",
+          "count": 2
+        },
+        {
+          "name": "Disruptor Flute",
+          "count": 2
+        },
+        {
+          "name": "Chandra, Awakened Inferno",
+          "count": 1
+        },
+        {
+          "name": "Wear // Tear",
+          "count": 2
+        },
+        {
+          "name": "The Legend of Roku",
+          "count": 1
+        },
+        {
+          "name": "Wrath of God",
+          "count": 2
+        },
+        {
+          "name": "Kaheera, the Orphanguard",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "legacy-01-7956476",
+      "format": "legacy",
+      "name": "Dimir Tempo",
+      "date": "Sep 15, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7956476",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-dimir-tempo",
+      "event": "https://www.mtggoldfish.com/tournament/66618",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1512854111",
+      "sourceSha256": "d8d54a55606ee22fd9115c10d5db2761405568c1a58aa1b3abeb5953609ecd49",
+      "mainboard": [
+        {
+          "name": "Flow State",
+          "count": 3
+        },
+        {
+          "name": "Bloodstained Mire",
+          "count": 1
+        },
+        {
+          "name": "Brainstorm",
+          "count": 4
+        },
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Force of Will",
+          "count": 4
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 4
+        },
+        {
+          "name": "Scalding Tarn",
+          "count": 1
+        },
+        {
+          "name": "Mishra's Bauble",
+          "count": 4
+        },
+        {
+          "name": "Daze",
+          "count": 4
+        },
+        {
+          "name": "Misty Rainforest",
+          "count": 1
+        },
+        {
+          "name": "Nethergoyf",
+          "count": 4
+        },
+        {
+          "name": "Ponder",
+          "count": 3
+        },
+        {
+          "name": "Moonshadow",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 3
+        },
+        {
+          "name": "Snuff Out",
+          "count": 2
+        },
+        {
+          "name": "Bilbo, Thief in the Night",
+          "count": 3
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 1
+        },
+        {
+          "name": "Fatal Push",
+          "count": 3
+        },
+        {
+          "name": "Underground Sea",
+          "count": 4
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 1
+        },
+        {
+          "name": "Wasteland",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Brazen Borrower",
+          "count": 2
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 2
+        },
+        {
+          "name": "Barrowgoyf",
+          "count": 2
+        },
+        {
+          "name": "Nihil Spellbomb",
+          "count": 2
+        },
+        {
+          "name": "Bloodchief's Thirst",
+          "count": 1
+        },
+        {
+          "name": "Null Rod",
+          "count": 2
+        },
+        {
+          "name": "Hydroblast",
+          "count": 2
+        },
+        {
+          "name": "Orcish Bowmasters",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "legacy-02-7965579",
+      "format": "legacy",
+      "name": "Tron",
+      "date": "Sep 20, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7965579",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-tron",
+      "event": "https://www.mtggoldfish.com/tournament/66740",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-2012854517",
+      "sourceSha256": "f3e529c3c553156d5f6873355ae690c827e034c3e7024309465fed39f0eecf9d",
+      "mainboard": [
+        {
+          "name": "Eldrazi Confluence",
+          "count": 2
+        },
+        {
+          "name": "Urza's Tower",
+          "count": 4
+        },
+        {
+          "name": "Force of Negation",
+          "count": 2
+        },
+        {
+          "name": "Urza's Power Plant",
+          "count": 4
+        },
+        {
+          "name": "Giant's Boulder",
+          "count": 2
+        },
+        {
+          "name": "Grim Monolith",
+          "count": 4
+        },
+        {
+          "name": "Urza's Mine",
+          "count": 4
+        },
+        {
+          "name": "Thundertrap Trainer",
+          "count": 1
+        },
+        {
+          "name": "Kozilek's Command",
+          "count": 4
+        },
+        {
+          "name": "Petrified Hamlet",
+          "count": 4
+        },
+        {
+          "name": "The One Ring",
+          "count": 4
+        },
+        {
+          "name": "Sink into Stupor",
+          "count": 2
+        },
+        {
+          "name": "Stock Up",
+          "count": 4
+        },
+        {
+          "name": "Planar Nexus",
+          "count": 4
+        },
+        {
+          "name": "Karn, the Great Creator",
+          "count": 4
+        },
+        {
+          "name": "Ugin, Eye of the Storms",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "Force of Will",
+          "count": 4
+        },
+        {
+          "name": "Expedition Map",
+          "count": 2
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Tormod's Crypt",
+          "count": 1
+        },
+        {
+          "name": "Dismember",
+          "count": 2
+        },
+        {
+          "name": "Mycosynth Lattice",
+          "count": 1
+        },
+        {
+          "name": "Karakas",
+          "count": 1
+        },
+        {
+          "name": "Extinguisher Battleship",
+          "count": 1
+        },
+        {
+          "name": "Force of Negation",
+          "count": 2
+        },
+        {
+          "name": "Invasion Submersible",
+          "count": 1
+        },
+        {
+          "name": "Ensnaring Bridge",
+          "count": 1
+        },
+        {
+          "name": "Engineered Explosives",
+          "count": 1
+        },
+        {
+          "name": "Summon: Bahamut",
+          "count": 2
+        },
+        {
+          "name": "Barrowgoyf",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "legacy-03-7956469",
+      "format": "legacy",
+      "name": "Boros Energy",
+      "date": "Sep 15, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7956469",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-boros-energy",
+      "event": "https://www.mtggoldfish.com/tournament/66618",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1512854111",
+      "sourceSha256": "061b72840566c1577c6d3358d6d5e9c24b61306b9a9ffa71cbf1b77304c0875d",
+      "mainboard": [
+        {
+          "name": "Ajani, Nacatl Pariah",
+          "count": 4
+        },
+        {
+          "name": "Amped Raptor",
+          "count": 4
+        },
+        {
+          "name": "Elegant Parlor",
+          "count": 1
+        },
+        {
+          "name": "Plateau",
+          "count": 3
+        },
+        {
+          "name": "Goblin Bombardment",
+          "count": 2
+        },
+        {
+          "name": "Guide of Souls",
+          "count": 4
+        },
+        {
+          "name": "Plains",
+          "count": 2
+        },
+        {
+          "name": "Ocelot Pride",
+          "count": 1
+        },
+        {
+          "name": "Thalia, Guardian of Thraben",
+          "count": 3
+        },
+        {
+          "name": "Mountain",
+          "count": 1
+        },
+        {
+          "name": "Ocelot Pride",
+          "count": 3
+        },
+        {
+          "name": "Karakas",
+          "count": 2
+        },
+        {
+          "name": "Sunbaked Canyon",
+          "count": 1
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 4
+        },
+        {
+          "name": "Wasteland",
+          "count": 4
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 3
+        },
+        {
+          "name": "Goblin Bombardment",
+          "count": 1
+        },
+        {
+          "name": "Flagstones of Trokair",
+          "count": 3
+        },
+        {
+          "name": "Sunbaked Canyon",
+          "count": 2
+        },
+        {
+          "name": "Erode",
+          "count": 3
+        },
+        {
+          "name": "Lazotep Quarry",
+          "count": 1
+        },
+        {
+          "name": "Swords to Plowshares",
+          "count": 4
+        },
+        {
+          "name": "White Orchid Phantom",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Deafening Silence",
+          "count": 4
+        },
+        {
+          "name": "Pyroblast",
+          "count": 3
+        },
+        {
+          "name": "Leyline of the Void",
+          "count": 4
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 3
+        },
+        {
+          "name": "Containment Priest",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "legacy-04-7946568",
+      "format": "legacy",
+      "name": "Death and Taxes (Yorion) - Black/White",
+      "date": "Sep 8, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7946568",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-death-and-taxes-yorion-black-white-468d6491-e6a9-46c8-b9fb-da35bfca78fa",
+      "event": "https://www.mtggoldfish.com/tournament/66452",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-0812853718",
+      "sourceSha256": "c9f19c197123b1ca809912a9b71dcb77a9ff39210f3d9d4be19e43632eb8ee77",
+      "mainboard": [
+        {
+          "name": "Plains",
+          "count": 5
+        },
+        {
+          "name": "Swamp",
+          "count": 1
+        },
+        {
+          "name": "Flagstones of Trokair",
+          "count": 1
+        },
+        {
+          "name": "Wasteland",
+          "count": 4
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 4
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 4
+        },
+        {
+          "name": "Thalia, Guardian of Thraben",
+          "count": 2
+        },
+        {
+          "name": "Flickerwisp",
+          "count": 1
+        },
+        {
+          "name": "Swords to Plowshares",
+          "count": 4
+        },
+        {
+          "name": "Scrubland",
+          "count": 2
+        },
+        {
+          "name": "Stoneforge Mystic",
+          "count": 4
+        },
+        {
+          "name": "Aether Vial",
+          "count": 4
+        },
+        {
+          "name": "Prismatic Vista",
+          "count": 4
+        },
+        {
+          "name": "Skyclave Apparition",
+          "count": 2
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 4
+        },
+        {
+          "name": "Lion Sash",
+          "count": 1
+        },
+        {
+          "name": "Orcish Bowmasters",
+          "count": 2
+        },
+        {
+          "name": "Shadowy Backstreet",
+          "count": 2
+        },
+        {
+          "name": "White Orchid Phantom",
+          "count": 3
+        },
+        {
+          "name": "Witch Enchanter",
+          "count": 2
+        },
+        {
+          "name": "Recruiter of the Guard",
+          "count": 4
+        },
+        {
+          "name": "Phelia, Exuberant Shepherd",
+          "count": 4
+        },
+        {
+          "name": "Overlord of the Balemurk",
+          "count": 4
+        },
+        {
+          "name": "Pre-War Formalwear",
+          "count": 2
+        },
+        {
+          "name": "Karakas",
+          "count": 4
+        },
+        {
+          "name": "Meteor Sword",
+          "count": 1
+        },
+        {
+          "name": "Cloak and Dagger, Entwined",
+          "count": 1
+        },
+        {
+          "name": "Solitude",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Faerie Macabre",
+          "count": 2
+        },
+        {
+          "name": "Deafening Silence",
+          "count": 3
+        },
+        {
+          "name": "Yorion, Sky Nomad",
+          "count": 1
+        },
+        {
+          "name": "Containment Priest",
+          "count": 1
+        },
+        {
+          "name": "White Orchid Phantom",
+          "count": 1
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 3
+        },
+        {
+          "name": "Disruptor Flute",
+          "count": 2
+        },
+        {
+          "name": "Erode",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "legacy-05-7965593",
+      "format": "legacy",
+      "name": "Doomsday",
+      "date": "Sep 20, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7965593",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-doomsday",
+      "event": "https://www.mtggoldfish.com/tournament/66740",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-2012854517",
+      "sourceSha256": "25ff33bbb47465e8f3959ec5eb2113476156585654fd60a4d47c3c505d90d874",
+      "mainboard": [
+        {
+          "name": "Lotus Petal",
+          "count": 1
+        },
+        {
+          "name": "Force of Will",
+          "count": 1
+        },
+        {
+          "name": "Dark Ritual",
+          "count": 2
+        },
+        {
+          "name": "Force of Will",
+          "count": 2
+        },
+        {
+          "name": "Force of Will",
+          "count": 1
+        },
+        {
+          "name": "Dark Ritual",
+          "count": 2
+        },
+        {
+          "name": "Ponder",
+          "count": 4
+        },
+        {
+          "name": "Doomsday",
+          "count": 2
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 2
+        },
+        {
+          "name": "Thassa's Oracle",
+          "count": 2
+        },
+        {
+          "name": "Daze",
+          "count": 3
+        },
+        {
+          "name": "Lotus Petal",
+          "count": 2
+        },
+        {
+          "name": "Doomsday",
+          "count": 2
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 1
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 1
+        },
+        {
+          "name": "Brainstorm",
+          "count": 4
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 2
+        },
+        {
+          "name": "Underground Sea",
+          "count": 4
+        },
+        {
+          "name": "Street Wraith",
+          "count": 2
+        },
+        {
+          "name": "Edge of Autumn",
+          "count": 1
+        },
+        {
+          "name": "Daze",
+          "count": 1
+        },
+        {
+          "name": "Snow-Covered Island",
+          "count": 1
+        },
+        {
+          "name": "Scalding Tarn",
+          "count": 2
+        },
+        {
+          "name": "Consider",
+          "count": 1
+        },
+        {
+          "name": "Lion's Eye Diamond",
+          "count": 1
+        },
+        {
+          "name": "Tundra",
+          "count": 1
+        },
+        {
+          "name": "Misty Rainforest",
+          "count": 3
+        },
+        {
+          "name": "Personal Tutor",
+          "count": 3
+        },
+        {
+          "name": "Flow State",
+          "count": 3
+        },
+        {
+          "name": "Tamiyo, Inquisitive Student",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Force of Negation",
+          "count": 2
+        },
+        {
+          "name": "Dauthi Voidwalker",
+          "count": 1
+        },
+        {
+          "name": "Portable Hole",
+          "count": 1
+        },
+        {
+          "name": "Force of Negation",
+          "count": 1
+        },
+        {
+          "name": "Brazen Borrower",
+          "count": 1
+        },
+        {
+          "name": "Dauthi Voidwalker",
+          "count": 3
+        },
+        {
+          "name": "Fatal Push",
+          "count": 1
+        },
+        {
+          "name": "Murktide Regent",
+          "count": 4
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "legacy-06-7950743",
+      "format": "legacy",
+      "name": "Rakdos Reanimator",
+      "date": "Sep 11, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7950743",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-rakdos-reanimator",
+      "event": "https://www.mtggoldfish.com/tournament/66525",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1112854074",
+      "sourceSha256": "2c0bcfe63e9aff6947b72746cbdedac24e6cd5abb5259e0b93d3665c0c1161d9",
+      "mainboard": [
+        {
+          "name": "Unmask",
+          "count": 4
+        },
+        {
+          "name": "Archon of Cruelty",
+          "count": 4
+        },
+        {
+          "name": "Badlands",
+          "count": 1
+        },
+        {
+          "name": "Swamp",
+          "count": 2
+        },
+        {
+          "name": "Reanimate",
+          "count": 1
+        },
+        {
+          "name": "Reanimate",
+          "count": 3
+        },
+        {
+          "name": "Faithless Looting",
+          "count": 4
+        },
+        {
+          "name": "Griselbrand",
+          "count": 2
+        },
+        {
+          "name": "Verdant Catacombs",
+          "count": 2
+        },
+        {
+          "name": "Collective Brutality",
+          "count": 3
+        },
+        {
+          "name": "Dark Ritual",
+          "count": 4
+        },
+        {
+          "name": "Animate Dead",
+          "count": 4
+        },
+        {
+          "name": "Bloodstained Mire",
+          "count": 3
+        },
+        {
+          "name": "Raucous Theater",
+          "count": 1
+        },
+        {
+          "name": "Shallow Grave",
+          "count": 4
+        },
+        {
+          "name": "Cabal Therapy",
+          "count": 2
+        },
+        {
+          "name": "Undercity Sewers",
+          "count": 2
+        },
+        {
+          "name": "Underground Sea",
+          "count": 1
+        },
+        {
+          "name": "Atraxa, Grand Unifier",
+          "count": 3
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 2
+        },
+        {
+          "name": "Lotus Petal",
+          "count": 4
+        },
+        {
+          "name": "Raph & Mikey, Troublemakers",
+          "count": 1
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 1
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 1
+        },
+        {
+          "name": "Collective Brutality",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Show and Tell",
+          "count": 4
+        },
+        {
+          "name": "Dauthi Voidwalker",
+          "count": 4
+        },
+        {
+          "name": "Thoughtseize",
+          "count": 3
+        },
+        {
+          "name": "Meltdown",
+          "count": 1
+        },
+        {
+          "name": "Massacre",
+          "count": 2
+        },
+        {
+          "name": "Abrade",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "legacy-07-7962985",
+      "format": "legacy",
+      "name": "Sultai Aluren",
+      "date": "Sep 18, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7962985",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-aluren",
+      "event": "https://www.mtggoldfish.com/tournament/66693",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1812854498",
+      "sourceSha256": "9578a8b0a659b436b6e70cc72f74bb4504fa30538d386e666419780f92a82b28",
+      "mainboard": [
+        {
+          "name": "Acererak the Archlich",
+          "count": 4
+        },
+        {
+          "name": "Aluren",
+          "count": 4
+        },
+        {
+          "name": "Show and Tell",
+          "count": 4
+        },
+        {
+          "name": "Atraxa, Grand Unifier",
+          "count": 4
+        },
+        {
+          "name": "Boseiju, Who Endures",
+          "count": 1
+        },
+        {
+          "name": "Ponder",
+          "count": 4
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 1
+        },
+        {
+          "name": "Omniscience",
+          "count": 2
+        },
+        {
+          "name": "Misty Rainforest",
+          "count": 4
+        },
+        {
+          "name": "Island",
+          "count": 2
+        },
+        {
+          "name": "Hedge Maze",
+          "count": 2
+        },
+        {
+          "name": "Forest",
+          "count": 1
+        },
+        {
+          "name": "Lotus Petal",
+          "count": 4
+        },
+        {
+          "name": "Force of Will",
+          "count": 4
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 1
+        },
+        {
+          "name": "City of Traitors",
+          "count": 1
+        },
+        {
+          "name": "Brainstorm",
+          "count": 4
+        },
+        {
+          "name": "Ancient Tomb",
+          "count": 4
+        },
+        {
+          "name": "Stock Up",
+          "count": 4
+        },
+        {
+          "name": "Tropical Island",
+          "count": 3
+        },
+        {
+          "name": "Veil of Summer",
+          "count": 2
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Carpet of Flowers",
+          "count": 3
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 3
+        },
+        {
+          "name": "Defense Grid",
+          "count": 3
+        },
+        {
+          "name": "Faerie Macabre",
+          "count": 4
+        },
+        {
+          "name": "Veil of Summer",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "legacy-08-7960257",
+      "format": "legacy",
+      "name": "Beanstalk Control (Non-Yorion)",
+      "date": "Sep 16, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7960257",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-beanstalk-control-non-yorion",
+      "event": "https://www.mtggoldfish.com/tournament/66652",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1612854479",
+      "sourceSha256": "7038f82523343f74718bea6e3ba394b75657b5edd5322f7260ffa9963d9cd659",
+      "mainboard": [
+        {
+          "name": "Volcanic Island",
+          "count": 1
+        },
+        {
+          "name": "Swords to Plowshares",
+          "count": 4
+        },
+        {
+          "name": "Ponder",
+          "count": 4
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 1
+        },
+        {
+          "name": "Misty Rainforest",
+          "count": 4
+        },
+        {
+          "name": "Meticulous Archive",
+          "count": 1
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "Murktide Regent",
+          "count": 3
+        },
+        {
+          "name": "Phelia, Exuberant Shepherd",
+          "count": 3
+        },
+        {
+          "name": "Plains",
+          "count": 1
+        },
+        {
+          "name": "Force of Will",
+          "count": 4
+        },
+        {
+          "name": "Force of Negation",
+          "count": 2
+        },
+        {
+          "name": "Quantum Riddler",
+          "count": 4
+        },
+        {
+          "name": "Savannah",
+          "count": 1
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 4
+        },
+        {
+          "name": "Tamiyo, Inquisitive Student",
+          "count": 4
+        },
+        {
+          "name": "Tropical Island",
+          "count": 2
+        },
+        {
+          "name": "Tundra",
+          "count": 3
+        },
+        {
+          "name": "Up the Beanstalk",
+          "count": 4
+        },
+        {
+          "name": "Brainstorm",
+          "count": 4
+        },
+        {
+          "name": "Xander's Lounge",
+          "count": 1
+        },
+        {
+          "name": "Leyline Binding",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Carpet of Flowers",
+          "count": 3
+        },
+        {
+          "name": "Containment Priest",
+          "count": 3
+        },
+        {
+          "name": "Force of Negation",
+          "count": 1
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 3
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 3
+        },
+        {
+          "name": "Pyroblast",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "legacy-09-7952497",
+      "format": "legacy",
+      "name": " Eldrazi",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7952497",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-eldrazi",
+      "event": "https://www.mtggoldfish.com/tournament/66553",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1312854088",
+      "sourceSha256": "c627ab8977c9c339803f96cbfe1cb40dca2b694db7004730629c213443646660",
+      "mainboard": [
+        {
+          "name": "Glaring Fleshraker",
+          "count": 4
+        },
+        {
+          "name": "Eldrazi Linebreaker",
+          "count": 4
+        },
+        {
+          "name": "Kozilek's Command",
+          "count": 4
+        },
+        {
+          "name": "Ancient Tomb",
+          "count": 4
+        },
+        {
+          "name": "Thought-Knot Seer",
+          "count": 4
+        },
+        {
+          "name": "Reality Smasher",
+          "count": 4
+        },
+        {
+          "name": "Sire of Seven Deaths",
+          "count": 1
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 4
+        },
+        {
+          "name": "Chalice of the Void",
+          "count": 4
+        },
+        {
+          "name": "Lotus Petal",
+          "count": 4
+        },
+        {
+          "name": "Eldrazi Temple",
+          "count": 4
+        },
+        {
+          "name": "Secluded Courtyard",
+          "count": 4
+        },
+        {
+          "name": "Eye of Ugin",
+          "count": 3
+        },
+        {
+          "name": "City of Traitors",
+          "count": 1
+        },
+        {
+          "name": "Wastescape Battlemage",
+          "count": 4
+        },
+        {
+          "name": "It That Heralds the End",
+          "count": 3
+        },
+        {
+          "name": "Wasteland",
+          "count": 4
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Disruptor Flute",
+          "count": 3
+        },
+        {
+          "name": "Eldrazi Confluence",
+          "count": 2
+        },
+        {
+          "name": "Null Rod",
+          "count": 2
+        },
+        {
+          "name": "Leyline of the Void",
+          "count": 4
+        },
+        {
+          "name": "Dismember",
+          "count": 2
+        },
+        {
+          "name": "Warping Wail",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "legacy-10-7953457",
+      "format": "legacy",
+      "name": "Izzet Delver",
+      "date": "Sep 13, 2026",
+      "source": "https://www.mtggoldfish.com/deck/7953457",
+      "selectionSource": "https://www.mtggoldfish.com/archetype/legacy-izzet-delver",
+      "event": "https://www.mtggoldfish.com/tournament/66568",
+      "originalSource": "https://www.mtgo.com/decklist/legacy-challenge-32-2026-09-1312854093",
+      "sourceSha256": "4a995c470d81d73ebea26ae0eb811289a2c67d217adf6a070e0ed1f9ac63caf0",
+      "mainboard": [
+        {
+          "name": "Misty Rainforest",
+          "count": 2
+        },
+        {
+          "name": "Dragon's Rage Channeler",
+          "count": 4
+        },
+        {
+          "name": "Brainstorm",
+          "count": 4
+        },
+        {
+          "name": "Force of Will",
+          "count": 4
+        },
+        {
+          "name": "Wasteland",
+          "count": 4
+        },
+        {
+          "name": "Ponder",
+          "count": 4
+        },
+        {
+          "name": "Murktide Regent",
+          "count": 3
+        },
+        {
+          "name": "Island",
+          "count": 1
+        },
+        {
+          "name": "Prismari Charm",
+          "count": 1
+        },
+        {
+          "name": "Polluted Delta",
+          "count": 2
+        },
+        {
+          "name": "Unholy Heat",
+          "count": 1
+        },
+        {
+          "name": "Mishra's Bauble",
+          "count": 3
+        },
+        {
+          "name": "Volcanic Island",
+          "count": 4
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 2
+        },
+        {
+          "name": "Daze",
+          "count": 4
+        },
+        {
+          "name": "Scalding Tarn",
+          "count": 2
+        },
+        {
+          "name": "Lightning Bolt",
+          "count": 4
+        },
+        {
+          "name": "Thundering Falls",
+          "count": 1
+        },
+        {
+          "name": "Flow State",
+          "count": 3
+        },
+        {
+          "name": "Mishra's Bauble",
+          "count": 1
+        },
+        {
+          "name": "Delver of Secrets",
+          "count": 3
+        },
+        {
+          "name": "Cori-Steel Cutter",
+          "count": 3
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Meltdown",
+          "count": 1
+        },
+        {
+          "name": "Hydroblast",
+          "count": 1
+        },
+        {
+          "name": "Grafdigger's Cage",
+          "count": 1
+        },
+        {
+          "name": "Price of Progress",
+          "count": 1
+        },
+        {
+          "name": "Surgical Extraction",
+          "count": 1
+        },
+        {
+          "name": "Pyroblast",
+          "count": 3
+        },
+        {
+          "name": "Force of Negation",
+          "count": 2
+        },
+        {
+          "name": "Flusterstorm",
+          "count": 1
+        },
+        {
+          "name": "Tormod's Crypt",
+          "count": 1
+        },
+        {
+          "name": "Abrade",
+          "count": 1
+        },
+        {
+          "name": "Consign to Memory",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}

@@ -144,7 +144,7 @@ TestCase {
         verify(log.x + log.width <= table.width && log.y + log.height <= table.height)
         for (const name of ["forgeOwnLands", "forgeOpponentLands", "forgeOwnOther", "forgeOpponentOther"]) {
             const support = item(name)
-            verify(support.x + support.width > decision.x)
+            verify(support.x + support.width <= decision.x || support.y + support.height <= decision.y)
             verify(support.x + support.width <= table.width)
         }
         waitForRendering(table)

@@ -224,7 +224,7 @@ func retentionPairing(t *testing.T, h *Handler, event *tournament.Tournament) (*
 	host := retentionSession(h, "table-host")
 	host.ResumeToken = "table-resume"
 	r, _, _, operation, err := h.hub.createTournamentRoom("Pairing", protocol.FormatModern,
-		protocol.DeckFormatModern, protocol.MatchBO3, protocol.CardLoadBackground, 2,
+		protocol.DeckFormatModern, protocol.MatchBO3, protocol.CardLoadBackground, protocol.RulesModeManual, 2,
 		event.ID, "pairing", "player", host)
 	if err != nil {
 		t.Fatal(err)

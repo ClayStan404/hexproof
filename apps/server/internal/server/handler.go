@@ -50,6 +50,7 @@ type Handler struct {
 	hub                     *Hub
 	config                  Config
 	retention               *retentionStore
+	forgeReplays            *forgeReplayStore
 	trustedProxies          []*net.IPNet
 	connSeq                 uint64 // for connection ids
 	activeConnections       int64
@@ -76,6 +77,9 @@ type Handler struct {
 	playerPeers             map[string]*playerPeerState
 	playerHostStateMu       sync.Mutex
 	forgeRuntime            *forge.ProcessConfig
+	modelMu                 sync.Mutex
+	modelWorkers            map[string]*modelWorker
+	forgeNativeAI           bool
 	forgePool               *forge.Pool
 	forgeMu                 sync.Mutex
 	forgeClients            map[forge.Runtime]struct{}
@@ -121,6 +125,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		return nil, err
 	}
 	var forgeRuntime *forge.ProcessConfig
+	var forgeNativeAI bool
 	var forgePool *forge.Pool
 	if config.ForgeRuntime != nil {
 		var probe *forge.Client
@@ -139,6 +144,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 			}
 			return nil, fmt.Errorf("configure Forge runtime: %w", probeErr)
 		}
+		forgeNativeAI = probe.SupportsAI()
 		if closeErr := probe.Close(); closeErr != nil {
 			if forgePool != nil {
 				_ = forgePool.Close()
@@ -155,6 +161,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 			config.MaxRooms, config.MaxConcurrentPasswordChecks),
 		config:                  config,
 		retention:               retention,
+		forgeReplays:            newForgeReplayStore(config),
 		trustedProxies:          trustedProxies,
 		sessions:                make(map[string]*Session),
 		zoneDumpRequests:        make(map[string]zoneDumpRequest),
@@ -171,6 +178,8 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		playerBackups:           make(map[string]*playerBackup),
 		playerPeers:             make(map[string]*playerPeerState),
 		forgeRuntime:            forgeRuntime,
+		forgeNativeAI:           forgeNativeAI,
+		modelWorkers:            make(map[string]*modelWorker),
 		forgePool:               forgePool,
 		forgeClients:            make(map[forge.Runtime]struct{}),
 		forgeReservations:       make(map[string]forge.Runtime),
@@ -183,4 +192,10 @@ func (h *Handler) forgeRulesAvailable() bool {
 	defer h.forgeMu.Unlock()
 	return !h.forgeClosed && h.forgeRuntime != nil &&
 		!time.Now().Before(h.forgeRetryAfter)
+}
+
+func (h *Handler) forgeAIAvailable() bool {
+	h.forgeMu.Lock()
+	defer h.forgeMu.Unlock()
+	return !h.forgeClosed && h.forgeRuntime != nil && h.forgeNativeAI && !time.Now().Before(h.forgeRetryAfter)
 }

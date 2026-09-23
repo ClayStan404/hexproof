@@ -3,6 +3,8 @@
 
 #include "wsclient_test.h"
 #include <QJsonDocument>
+#include <QTcpServer>
+#include <QTcpSocket>
 
 namespace {
 
@@ -41,7 +43,7 @@ void TestWsClient::hostingMirrorAndDiagnosticPrivacy() const
     QVERIFY(file.open(QIODevice::ReadOnly));
     const auto bytes = file.readAll();
     const auto report = QJsonDocument::fromJson(bytes).object();
-    QCOMPARE(report.value(u"schemaVersion"_s).toInt(), 1);
+    QCOMPARE(report.value(u"schemaVersion"_s).toInt(), 2);
     QVERIFY(report.contains(u"architecture"_s));
     QCOMPARE(report.value(u"transport"_s).toString(), u"relay"_s);
     QCOMPARE(report.value(u"directDecisions"_s).toInt(), 12);
@@ -766,6 +768,18 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.type, hexproof::protocol::kTypeGameSearchLibrary);
     QCOMPARE(sent.payload.value(u"cardIds"_s).toArray().size(), 2);
     QVERIFY(sent.payload.value(u"randomize"_s).toBool());
+    QVERIFY(!sent.payload.contains(u"topCard"_s));
+
+    client.searchLibraryCards(QVariantList{u"s0-c8"_s}, hexproof::protocol::kZoneHand, false, false,
+                              {}, 0, {}, 0, false, true);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.type, hexproof::protocol::kTypeGameSearchLibrary);
+    QVERIFY(sent.payload.value(u"topCard"_s).toBool());
+    QCOMPARE(sent.payload.value(u"cardIds"_s).toArray(), QJsonArray{u"s0-c8"_s});
+    QCOMPARE(sent.payload.value(u"toZone"_s).toString(), hexproof::protocol::kZoneHand);
+    QVERIFY(!sent.payload.value(u"reveal"_s).toBool());
 
     client.reorderLibrary(QVariantList{u"s0-c9"_s, u"s0-c8"_s});
     QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
@@ -799,7 +813,7 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.payload.value(u"remainderPlacement"_s).toString(), u"top"_s);
 
     const QVariantList assignments{
-        QVariantMap{{u"cardId"_s, u"s1-c8"_s}, {u"toZone"_s, u"hand"_s}},
+        QVariantMap{{u"cardId"_s, u"s1-c8"_s}, {u"toZone"_s, u"hand"_s}, {u"reveal"_s, true}},
         QVariantMap{{u"cardId"_s, u"s1-c9"_s}, {u"toZone"_s, u"exile"_s}},
         QVariantMap{{u"cardId"_s, u"s1-c10"_s}, {u"toZone"_s, u"library_bottom"_s}},
     };
@@ -809,6 +823,14 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QVERIFY(ok);
     QCOMPARE(sent.type, hexproof::protocol::kTypeGameResolveLibraryView);
     QCOMPARE(sent.payload.value(u"assignments"_s).toArray().size(), 3);
+    QVERIFY(sent.payload.value(u"assignments"_s)
+                .toArray()
+                .at(0)
+                .toObject()
+                .value(u"reveal"_s)
+                .toBool());
+    QVERIFY(!sent.payload.value(u"assignments"_s).toArray().at(1).toObject().contains(u"reveal"_s));
+    QVERIFY(!sent.payload.value(u"assignments"_s).toArray().at(2).toObject().contains(u"reveal"_s));
     QCOMPARE(sent.payload.value(u"assignments"_s).toArray().at(1).toObject().value(u"toZone"_s),
              u"exile"_s);
     QVERIFY(sent.payload.value(u"randomizeBottom"_s).toBool());
@@ -828,6 +850,15 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.payload.value(u"toZone"_s).toString(), hexproof::protocol::kZoneBattlefield);
     QVERIFY(sent.payload.value(u"reveal"_s).toBool());
     QCOMPARE(sent.payload.value(u"position"_s).toObject().value(u"x"_s).toDouble(), 0.5);
+    QVERIFY(!sent.payload.contains(u"topCard"_s));
+
+    client.searchLibrary(u"s1-c8"_s, hexproof::protocol::kZoneHand, false, {}, 1, u"top-grant"_s, 0,
+                         false, true);
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QVERIFY(sent.payload.value(u"topCard"_s).toBool());
+    QCOMPARE(sent.payload.value(u"approvalId"_s).toString(), u"top-grant"_s);
 
     client.drawCards();
     QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
@@ -1084,6 +1115,16 @@ void TestWsClient::sendsDeckAndReadyCommands() const
     QCOMPARE(sent.payload.value(u"fromZone"_s).toString(), hexproof::protocol::kSideboardZoneSide);
     QCOMPARE(sent.payload.value(u"toZone"_s).toString(), hexproof::protocol::kSideboardZoneMain);
     QVERIFY(!sent.payload.contains(u"count"_s));
+
+    client.clearSideboardMainboard();
+    QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+    sent = hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(sent.type, hexproof::protocol::kTypeSideboardMove);
+    QVERIFY(sent.payload.value(u"clearMainboard"_s).toBool());
+    QCOMPARE(sent.payload.value(u"fromZone"_s).toString(), hexproof::protocol::kSideboardZoneMain);
+    QCOMPARE(sent.payload.value(u"toZone"_s).toString(), hexproof::protocol::kSideboardZoneSide);
+    QVERIFY(sent.payload.value(u"name"_s).toString().isEmpty());
 
     client.setSideboardReady(true);
     QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
@@ -1455,6 +1496,7 @@ void TestWsClient::directPeerRequiresCapabilityAndRoomConsent() const
     connect(&server, &QWebSocketServer::newConnection, &server,
             [&]() { peer = takeServerPeer(server); });
     WsClient client;
+    client.setDirectPeerPreferred(false);
     client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Host"_s);
     QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
     Envelope welcome;
@@ -1476,7 +1518,7 @@ void TestWsClient::directPeerRequiresCapabilityAndRoomConsent() const
     QTRY_VERIFY(client.inRoom());
     client.setDirectPeerEnabled(true);
     QVERIFY(!client.directPeerEnabled());
-    // New capabilities do not imply the user's network-address consent.
+    // A saved relay-only preference overrides the default on a new room entry.
     welcome.payload.insert(u"peerTransportAvailable"_s, true);
     sendEnvelope(peer, welcome);
     QTRY_VERIFY(client.peerTransportAvailable());
@@ -1510,4 +1552,419 @@ void TestWsClient::directPeerRequiresCapabilityAndRoomConsent() const
     QTest::qWait(40);
     QVERIFY(transport->bindingId().isEmpty());
     QCOMPARE(client.peerTransportState(), u"off"_s);
+}
+
+void TestWsClient::configuresForgeAiWithoutReplacingHumanDeck() const
+{
+    using namespace hexproof::protocol;
+    QWebSocketServer server(u"AI setup test"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, kProtocolVersion},
+                       {u"connectionId"_s, u"ai-test"_s},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"forgeRulesAvailable"_s, true},
+                       {u"forgeAIAvailable"_s, true}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.connected());
+    QVERIFY(client.forgeAIAvailable());
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    client.createRoom(u"AI practice"_s, u"modern"_s, u"modern"_s, false, false, u"bo1"_s,
+                      u"background"_s, {}, false, u"forge"_s, u"server"_s, u"hard"_s);
+    QTRY_COMPARE(outbound.count(), 1);
+    bool ok = false;
+    auto request = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.type, kTypeRoomCreate);
+    QCOMPARE(request.payload.value(u"aiDifficulty"_s).toString(), u"hard"_s);
+
+    auto *room = client.roomSession();
+    room->enter(u"ABCDEF"_s, kRolePlayer, 0, true);
+    auto snapshot = roomSnapshot(u"AI practice"_s, true).payload;
+    snapshot.insert(u"aiDifficulty"_s, u"hard"_s);
+    auto seats = snapshot.value(u"seats"_s).toArray();
+    seats[1] = QJsonObject{{u"occupied"_s, true},
+                           {u"controller"_s, u"forgeAi"_s},
+                           {u"aiDifficulty"_s, u"hard"_s},
+                           {u"deckSelected"_s, false}};
+    snapshot.insert(u"seats"_s, seats);
+    room->applySnapshot(snapshot);
+    QCOMPARE(room->aiDifficulty(), u"hard"_s);
+    QCOMPARE(room->seats().at(1).toMap().value(u"controller"_s).toString(), u"forgeAi"_s);
+    room->rememberPendingDeck(u"human-deck"_s, u"Human deck"_s);
+    room->takePendingDeck(u"human-deck"_s);
+
+    const QVariantMap deck{{u"name"_s, u"AI deck"_s},
+                           {u"format"_s, u"modern"_s},
+                           {u"main"_s, QVariantList{}},
+                           {u"sideboard"_s, QVariantList{}}};
+    client.configureAiOpponent(u"normal"_s, deck);
+    QTRY_COMPARE(outbound.count(), 1);
+    request = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(request.type, kTypeRoomAIConfigure);
+    QCOMPARE(request.payload.value(u"difficulty"_s).toString(), u"normal"_s);
+    QCOMPARE(request.payload.value(u"deck"_s).toObject().value(u"name"_s).toString(), u"AI deck"_s);
+    QCOMPARE(room->selectedDeckName(), u"Human deck"_s);
+    client.configureAiOpponent(u"easy"_s);
+    QTRY_COMPARE(outbound.count(), 1);
+    request = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QVERIFY(!request.payload.contains(u"deck"_s));
+    client.configureAiOpponent(u"unknown"_s);
+    QTest::qWait(20);
+    QCOMPARE(outbound.count(), 0);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 7));
+    client.respondRulesPrompt(7, u"$pass"_s);
+    QTRY_COMPARE(outbound.count(), 1);
+    const auto *timer = client.findChild<QTimer *>(u"rulesResponseTimer"_s);
+    QVERIFY(timer != nullptr);
+    QCOMPARE(timer->interval(), 45000);
+    QVERIFY(client.rulesResponsePending());
+    snapshot.remove(u"aiDifficulty"_s);
+    room->applySnapshot(snapshot);
+    QVERIFY(room->aiDifficulty().isEmpty());
+    QVERIFY(applyRulesDecision(client, u"rules-prompt.json"_s, 8));
+    client.respondRulesPrompt(8, u"$pass"_s);
+    QTRY_COMPARE(outbound.count(), 2);
+    QCOMPARE(timer->interval(), 30000);
+    room->clear();
+    QVERIFY(room->seats().isEmpty());
+    welcome.payload.remove(u"forgeAIAvailable"_s);
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(!client.forgeAIAvailable());
+}
+
+void TestWsClient::modelOpponentMetadataAndCommandsStayPrivate() const
+{
+    using namespace hexproof::protocol;
+    QWebSocketServer server(u"Model opponent setup test"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    QTemporaryDir profiles;
+    QVERIFY(profiles.isValid());
+    WsClient client(profiles.filePath(u"model-opponents.json"_s));
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY(peer != nullptr);
+    Envelope welcome;
+    welcome.type = kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, kProtocolVersion},
+                       {u"connectionId"_s, u"model-test"_s},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"forgeRulesAvailable"_s, true},
+                       {u"aiModelsAvailable"_s, true}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.connected());
+    QVERIFY(client.aiModelsAvailable());
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    auto *room = client.roomSession();
+    room->enter(u"ABCDEF"_s, kRolePlayer, 0, true);
+    auto snapshot = roomSnapshot(u"Model practice"_s, true).payload;
+    snapshot.insert(u"aiSource"_s, kAISourceOnline);
+    auto seats = snapshot.value(u"seats"_s).toArray();
+    seats[1] = QJsonObject{{u"occupied"_s, true},
+                           {u"controller"_s, kSeatControllerModelAI},
+                           {u"displayName"_s, u"Online model"_s}};
+    snapshot.insert(u"seats"_s, seats);
+    room->applySnapshot(snapshot);
+    QCOMPARE(room->aiSource(), kAISourceOnline);
+    QVERIFY(room->aiDifficulty().isEmpty());
+    QCOMPARE(room->seats().at(1).toMap().value(u"controller"_s).toString(), kSeatControllerModelAI);
+
+    const QVariantMap deck{{u"name"_s, u"Model deck"_s},
+                           {u"format"_s, u"modern"_s},
+                           {u"main"_s, QVariantList{}},
+                           {u"sideboard"_s, QVariantList{}}};
+    client.configureAiOpponent({}, deck);
+    QTRY_COMPARE(outbound.count(), 1);
+    bool ok = false;
+    auto command = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(command.type, kTypeRoomAIConfigure);
+    QCOMPARE(command.payload.size(), 1);
+    QVERIFY(command.payload.contains(u"deck"_s));
+
+    Envelope status;
+    status.type = kTypeRoomAIStatus;
+    status.payload = {
+        {u"roomId"_s, u"ABCDEF"_s}, {u"state"_s, u"paused"_s}, {u"code"_s, u"provider_error"_s}};
+    sendEnvelope(peer, status);
+    QTRY_COMPARE(room->aiStatus().value(u"state"_s).toString(), u"paused"_s);
+    status.payload.insert(u"roomId"_s, u"OTHER1"_s);
+    status.payload.insert(u"state"_s, u"thinking"_s);
+    sendEnvelope(peer, status);
+
+    // A server grant cannot select a provider without local creation consent.
+    Envelope grant;
+    grant.type = kTypeRoomAIWorker;
+    grant.payload = {{u"roomId"_s, u"ABCDEF"_s},
+                     {u"source"_s, kAISourceOnline},
+                     {u"token"_s, QString(64, u'a')}};
+    sendEnvelope(peer, grant);
+    QTest::qWait(50);
+    QVERIFY(client.modelOpponent()->armedSource().isEmpty());
+    QVERIFY(!client.modelOpponent()->active());
+    QCOMPARE(room->aiStatus().value(u"state"_s).toString(), u"paused"_s);
+    QCOMPARE(outbound.count(), 0);
+
+    // Creating a model game sends only safe source metadata to the hub.
+    auto profile = client.modelOpponent()->profile(kAISourceOnline);
+    profile.insert(u"endpoint"_s, u"https://private-model.example/v1"_s);
+    profile.insert(u"model"_s, u"private-model-name"_s);
+    QVERIFY(
+        client.modelOpponent()->saveProfile(kAISourceOnline, profile, u"private-session-key"_s));
+    client.createRoom(u"Model practice"_s, u"modern"_s, u"modern"_s, false, false, u"bo1"_s,
+                      u"background"_s, {}, false, kRulesModeForge, kHostingModeServer, {},
+                      kAISourceOnline);
+    QTRY_COMPARE(outbound.count(), 1);
+    const auto wire = outbound.takeFirst().at(0).toString().toUtf8();
+    command = parse(wire, &ok);
+    QVERIFY(ok);
+    QCOMPARE(command.type, kTypeRoomCreate);
+    QCOMPARE(command.payload.value(u"aiSource"_s).toString(), kAISourceOnline);
+    QVERIFY(!command.payload.contains(u"aiDifficulty"_s));
+    QVERIFY(!wire.contains("private-model"));
+    QVERIFY(!wire.contains("private-session-key"));
+    QCOMPARE(client.modelOpponent()->armedSource(), kAISourceOnline);
+
+    // Explicit retry restores local authorization after a stopped worker.
+    client.modelOpponent()->stop();
+    QVERIFY(client.modelOpponent()->armedSource().isEmpty());
+    client.retryModelOpponent();
+    QTRY_COMPARE(outbound.count(), 1);
+    command = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(command.type, kTypeRoomAIRetry);
+    QVERIFY(command.payload.isEmpty());
+    QCOMPARE(client.modelOpponent()->armedSource(), kAISourceOnline);
+    client.leaveRoom();
+    QVERIFY(client.modelOpponent()->armedSource().isEmpty());
+    room->clear();
+    QVERIFY(room->aiSource().isEmpty());
+    QVERIFY(room->aiStatus().isEmpty());
+}
+
+void TestWsClient::modelWorkerHandshakeFailureCanRetryWithoutLeavingRoom() const
+{
+    using namespace hexproof::protocol;
+    QTcpServer listener;
+    QVERIFY(listener.listen(QHostAddress::LocalHost, 0));
+    QWebSocketServer server(u"Model worker handshake test"_s, QWebSocketServer::NonSecureMode);
+    int connections = 0;
+    connect(&listener, &QTcpServer::newConnection, &listener, [&]() {
+        while (listener.hasPendingConnections()) {
+            auto *socket = listener.nextPendingConnection();
+            if (++connections == 2) {
+                connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+                socket->write("HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n"
+                              "Connection: close\r\n\r\n");
+                socket->disconnectFromHost();
+            } else {
+                server.handleConnection(socket);
+            }
+        }
+    });
+    QWebSocket *peer = nullptr;
+    QWebSocket *worker = nullptr;
+    QJsonObject attachment;
+    connect(&server, &QWebSocketServer::newConnection, &server, [&]() {
+        auto *socket = takeServerPeer(server);
+        if (!peer) {
+            peer = socket;
+            return;
+        }
+        worker = socket;
+        connect(worker, &QWebSocket::textMessageReceived, &server,
+                [&, socket](const QString &message) {
+                    const auto frame = QJsonDocument::fromJson(message.toUtf8()).object();
+                    if (frame.value(u"type"_s).toString() != kTypeAIAttach)
+                        return;
+                    attachment = frame.value(u"payload"_s).toObject();
+                    socket->sendTextMessage(QString::fromUtf8(
+                        QJsonDocument(
+                            QJsonObject{{u"type"_s, kTypeAIAttached},
+                                        {u"payload"_s, QJsonObject{{u"roomId"_s, u"ABCDEF"_s}}}})
+                            .toJson(QJsonDocument::Compact)));
+                });
+    });
+    QTemporaryDir profiles;
+    QVERIFY(profiles.isValid());
+    WsClient client(profiles.filePath(u"model-opponents.json"_s));
+    client.connectTo(u"ws://127.0.0.1:%1"_s.arg(listener.serverPort()), u"Alice"_s);
+    QTRY_VERIFY(peer != nullptr);
+    Envelope welcome;
+    welcome.type = kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, kProtocolVersion},
+                       {u"connectionId"_s, u"model-handshake-test"_s},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"forgeRulesAvailable"_s, true},
+                       {u"aiModelsAvailable"_s, true}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.connected());
+    auto *model = client.modelOpponent();
+    auto profile = model->profile(kAISourceLocal);
+    profile.insert(u"model"_s, u"local-test-model"_s);
+    QVERIFY(model->saveProfile(kAISourceLocal, profile, {}));
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    client.createRoom(u"Model practice"_s, u"modern"_s, u"modern"_s, false, false, kMatchBO1,
+                      kCardLoadBackground, {}, false, kRulesModeForge, kHostingModeServer, {},
+                      kAISourceLocal);
+    QTRY_COMPARE(outbound.count(), 1);
+    bool ok = false;
+    const auto creation = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    Envelope created;
+    created.type = kTypeRoomCreated;
+    created.id = creation.id;
+    created.payload = {{u"roomId"_s, u"ABCDEF"_s}};
+    sendEnvelope(peer, created);
+    auto snapshot = roomSnapshot(u"Model practice"_s, true);
+    snapshot.payload.insert(u"aiSource"_s, kAISourceLocal);
+    snapshot.payload.insert(u"phase"_s, kRoomPhaseStarted);
+    sendEnvelope(peer, snapshot);
+    QTRY_VERIFY(client.inRoom());
+    auto *room = client.roomSession();
+    Envelope status;
+    status.type = kTypeRoomAIStatus;
+    status.payload = {{u"roomId"_s, u"ABCDEF"_s}, {u"state"_s, u"waiting"_s}};
+    sendEnvelope(peer, status);
+    QTRY_COMPARE(room->aiStatus().value(u"state"_s).toString(), u"waiting"_s);
+    Envelope grant;
+    grant.type = kTypeRoomAIWorker;
+    grant.payload = {
+        {u"roomId"_s, u"ABCDEF"_s}, {u"source"_s, kAISourceLocal}, {u"token"_s, QString(64, u'a')}};
+    sendEnvelope(peer, grant);
+    QTRY_COMPARE(model->status(), u"worker_disconnected"_s);
+    QTRY_COMPARE(room->aiStatus().value(u"state"_s).toString(), u"paused"_s);
+    QCOMPARE(room->aiStatus().value(u"code"_s).toString(), u"worker_disconnected"_s);
+    QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
+    QVERIFY(client.connected());
+    QCOMPARE(connections, 2);
+    QCOMPARE(outbound.count(), 0);
+    QSignalSpy roomUpdates(room, &RoomSessionState::snapshotChanged);
+    sendEnvelope(peer, status);
+    QTRY_VERIFY(roomUpdates.count() > 0);
+    QCOMPARE(room->aiStatus().value(u"state"_s).toString(), u"paused"_s);
+
+    client.retryModelOpponent();
+    QTRY_COMPARE(outbound.count(), 1);
+    const auto retry = parse(outbound.takeFirst().at(0).toString().toUtf8(), &ok);
+    QVERIFY(ok);
+    QCOMPARE(retry.type, kTypeRoomAIRetry);
+    grant.payload.insert(u"token"_s, QString(64, u'b'));
+    sendEnvelope(peer, grant);
+    QTRY_VERIFY(model->active());
+    QCOMPARE(connections, 3);
+    QCOMPARE(attachment.value(u"token"_s).toString(), QString(64, u'b'));
+    sendEnvelope(peer, status);
+    QTRY_COMPARE(room->aiStatus().value(u"state"_s).toString(), u"waiting"_s);
+    QCOMPARE(peer->state(), QAbstractSocket::ConnectedState);
+
+    // A late failure from the old room must not replace the new room's status.
+    room->enter(u"OTHER1"_s, kRolePlayer, 0, true);
+    worker->close();
+    QTRY_COMPARE(model->status(), u"worker_disconnected"_s);
+    QCOMPARE(room->aiStatus().value(u"state"_s).toString(), u"waiting"_s);
+    room->enter(u"ABCDEF"_s, kRolePlayer, 0, true);
+    snapshot.payload.insert(u"aiSource"_s, kAISourceOnline);
+    room->applySnapshot(snapshot.payload);
+    QVERIFY(QMetaObject::invokeMethod(model, "statusChanged", Qt::DirectConnection));
+    QCOMPARE(room->aiStatus().value(u"state"_s).toString(), u"waiting"_s);
+}
+
+void TestWsClient::directPeerDefaultRespectsRoomEligibility_data() const
+{
+    QTest::addColumn<QString>("hosting");
+    QTest::addColumn<QString>("ai");
+    QTest::addColumn<QString>("role");
+    QTest::addColumn<bool>("capability");
+    QTest::addColumn<bool>("preferred");
+    QTest::addColumn<bool>("expected");
+    QTest::newRow("human-hosted") << u"player"_s << QString() << u"player"_s << true << true
+                                  << true;
+    QTest::newRow("saved-relay-only")
+        << u"player"_s << QString() << u"player"_s << true << false << false;
+    QTest::newRow("older-server") << u"player"_s << QString() << u"player"_s << false << true
+                                  << false;
+    QTest::newRow("server-hosted")
+        << u"server"_s << QString() << u"player"_s << true << true << false;
+    QTest::newRow("forge-ai") << u"player"_s << u"forge"_s << u"player"_s << true << true << false;
+    QTest::newRow("model-ai") << u"player"_s << u"local"_s << u"player"_s << true << true << false;
+    QTest::newRow("spectator") << u"player"_s << QString() << u"spectator"_s << true << true
+                               << false;
+}
+
+void TestWsClient::directPeerDefaultRespectsRoomEligibility() const
+{
+    using namespace hexproof::protocol;
+    QFETCH(QString, hosting);
+    QFETCH(QString, ai);
+    QFETCH(QString, role);
+    QFETCH(bool, capability);
+    QFETCH(bool, preferred);
+    QFETCH(bool, expected);
+    QWebSocketServer server(u"Default peer preference"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    if (!preferred)
+        client.setDirectPeerPreferred(false);
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Player"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    int requests = 0;
+    connect(peer, &QWebSocket::textMessageReceived, &server, [&](const QString &text) {
+        bool ok = false;
+        const auto message = parse(text.toUtf8(), &ok);
+        if (ok && message.type == kTypeForgePeerRequest)
+            ++requests;
+    });
+    Envelope welcome;
+    welcome.type = kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, kProtocolVersion},
+                       {u"connectionId"_s, u"default-peer"_s},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"peerTransportAvailable"_s, capability}};
+    sendEnvelope(peer, welcome);
+    Envelope joined;
+    joined.type = kTypeRoomJoined;
+    joined.payload = {
+        {u"roomId"_s, u"ABCDEF"_s}, {u"role"_s, role}, {u"seat"_s, role == kRolePlayer ? 1 : -1}};
+    auto snapshot = roomSnapshot(u"Hosted room"_s);
+    snapshot.payload.insert(u"rulesMode"_s, u"forge"_s);
+    snapshot.payload.insert(u"hostingMode"_s, hosting);
+    snapshot.payload.insert(u"aiSource"_s, ai);
+    for (int entry = 0; entry < 2; ++entry) {
+        sendEnvelope(peer, joined);
+        sendEnvelope(peer, snapshot);
+        QTRY_VERIFY(client.inRoom());
+        QTest::qWait(40);
+        QCOMPARE(client.directPeerEnabled(), expected);
+        QCOMPARE(requests, expected ? entry + 1 : 0);
+        sendEnvelope(peer, snapshot);
+        QTest::qWait(40);
+        QCOMPARE(requests, expected ? entry + 1 : 0); // No repeated negotiation on snapshots.
+        if (expected && entry == 1) {
+            client.setDirectPeerPreferred(false);
+            QTRY_COMPARE(requests, 3);
+            QVERIFY(!client.directPeerEnabled());
+            client.setDirectPeerPreferred(true);
+            QTRY_COMPARE(requests, 4);
+            QVERIFY(client.directPeerEnabled());
+        }
+        Envelope left;
+        left.type = kTypeRoomLeft;
+        sendEnvelope(peer, left);
+        QTRY_VERIFY(!client.inRoom());
+    }
 }

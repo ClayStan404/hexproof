@@ -214,6 +214,12 @@ func TestSharedProcessHelper(t *testing.T) {
 			case "startGame":
 				var setup StartGameRequest
 				_ = json.Unmarshal([]byte(request.Payload), &setup)
+				if setup.GameID == "deck-rejected" {
+					response.OK = false
+					response.Error = "private engine exception"
+					response.StartFailure = json.RawMessage(rejectedDeckJSON)
+					break
+				}
 				handle, _ := json.Marshal(SessionHandle{SessionID: setup.GameID, PlayerIndexes: []int{0, 1}})
 				response.Result = string(handle)
 			case "getSnapshot":

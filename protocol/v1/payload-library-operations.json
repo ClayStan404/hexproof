@@ -8,11 +8,14 @@
       "fields": [
         {"name": "cardId", "type": "string", "required": true},
         {"name": "toZone", "type": "string", "required": true, "enum": ["ZoneHand", "ZoneBattlefield", "LibraryDestinationTop", "LibraryDestinationBottom", "ZoneGraveyard", "ZoneExile"]},
-        {"name": "faceDown", "type": "boolean", "required": false}
+        {"name": "faceDown", "type": "boolean", "required": false},
+        {"name": "reveal", "type": "boolean", "required": false}
       ]
     }
   ],
   "messages": [
+    {"type": "game.set_library_top_revealed", "direction": "clientToServer", "goType": "GameSetLibraryTopRevealed", "fields": [{"name": "revealed", "type": "boolean", "required": true}]},
+    {"type": "game.library_top_revealed_set", "direction": "serverToClient", "goType": "GameLibraryTopRevealedSet", "fields": [{"name": "roomId", "type": "string", "required": true}, {"name": "seat", "type": "integer", "required": true}, {"name": "revealed", "type": "boolean", "required": true}]},
     {
       "type": "game.move_cards",
       "direction": "clientToServer",
@@ -141,7 +144,8 @@
         {"name": "position", "type": "object", "required": false, "ref": "CardPosition", "goType": "*CardPosition"},
         {"name": "sourceSeat", "type": "integer", "required": false, "goType": "*int"},
         {"name": "approvalId", "type": "string", "required": false},
-        {"name": "faceDown", "type": "boolean", "required": false}
+        {"name": "faceDown", "type": "boolean", "required": false},
+        {"name": "topCard", "type": "boolean", "required": false}
       ]
     },
     {

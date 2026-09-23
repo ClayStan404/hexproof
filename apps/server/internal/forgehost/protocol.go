@@ -41,6 +41,7 @@ type Request struct {
 // Publication is an immutable decision boundary. Views are ordered spectator,
 // first player, second player; only the hub may distribute individual views.
 type Publication struct {
+	Replay   *forge.ReplayBatch  `json:"replay,omitempty"`
 	Revision uint64              `json:"revision"`
 	Handle   forge.SessionHandle `json:"handle"`
 	Views    []json.RawMessage   `json:"views"`
@@ -49,11 +50,12 @@ type Publication struct {
 }
 
 type Response struct {
-	RoomID      string       `json:"roomId"`
-	EngineID    string       `json:"engineId"`
-	ID          uint64       `json:"id"`
-	Publication *Publication `json:"publication,omitempty"`
-	Error       string       `json:"error,omitempty"`
+	StartFailure json.RawMessage `json:"startFailure,omitempty"`
+	RoomID       string          `json:"roomId"`
+	EngineID     string          `json:"engineId"`
+	ID           uint64          `json:"id"`
+	Publication  *Publication    `json:"publication,omitempty"`
+	Error        string          `json:"error,omitempty"`
 }
 
 type Frame struct {

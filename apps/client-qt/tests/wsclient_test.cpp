@@ -535,10 +535,29 @@ void TestWsClient::handlesTournamentCommandsAndSnapshots() const
 void TestWsClient::initTestCase()
 {
     QVERIFY(m_settingsDir.isValid());
+    m_hadForgeRuntime = qEnvironmentVariableIsSet("HEXPROOF_FORGE_HOST_RUNTIME_DIR");
+    m_previousForgeRuntime = qgetenv("HEXPROOF_FORGE_HOST_RUNTIME_DIR");
+    m_hadForgeDiagnostics = qEnvironmentVariableIsSet("HEXPROOF_FORGE_DIAGNOSTICS_DIR");
+    m_previousForgeDiagnostics = qgetenv("HEXPROOF_FORGE_DIAGNOSTICS_DIR");
+    qputenv("HEXPROOF_FORGE_DIAGNOSTICS_DIR",
+            m_settingsDir.filePath(u"forge-diagnostics"_s).toUtf8());
+    qputenv("HEXPROOF_FORGE_HOST_RUNTIME_DIR", m_settingsDir.filePath(u"forge-runtime"_s).toUtf8());
     QCoreApplication::setOrganizationName(u"HexproofTests"_s);
     QCoreApplication::setApplicationName(u"WsClientTest"_s);
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_settingsDir.path());
+}
+
+void TestWsClient::cleanupTestCase()
+{
+    if (m_hadForgeRuntime)
+        qputenv("HEXPROOF_FORGE_HOST_RUNTIME_DIR", m_previousForgeRuntime);
+    else
+        qunsetenv("HEXPROOF_FORGE_HOST_RUNTIME_DIR");
+    if (m_hadForgeDiagnostics)
+        qputenv("HEXPROOF_FORGE_DIAGNOSTICS_DIR", m_previousForgeDiagnostics);
+    else
+        qunsetenv("HEXPROOF_FORGE_DIAGNOSTICS_DIR");
 }
 
 void TestWsClient::cleanup()
@@ -929,10 +948,24 @@ void TestWsClient::rulesBoardTargetsUseTypedObjectsAndOptionalSeats() const
     QCOMPARE(candidates.at(0).toMap().value(u"seat"_s).toInt(), 0);
     QCOMPARE(candidates.at(1).toMap().value(u"seat"_s).toInt(), -1);
     QCOMPARE(candidates.at(1).toMap().value(u"name"_s).toString(), u"Grizzly Bears"_s);
+    QVERIFY(candidates.at(1).toMap().value(u"nativeSelected"_s).toBool());
+    QVERIFY(!candidates.at(0).toMap().value(u"nativeSelected"_s).toBool());
     auto *targets = session.promptTargets();
+    const int selectedRole = targets->roleNames().key(QByteArrayLiteral("nativeSelected"));
+    QVERIFY(selectedRole > Qt::UserRole);
+    QVERIFY(targets->data(targets->index(1), selectedRole).toBool());
     const int seatRole = targets->roleNames().key(QByteArrayLiteral("seat"));
     QVERIFY(seatRole > Qt::UserRole);
     QCOMPARE(targets->data(targets->index(3), seatRole).toInt(), 2);
+
+    QJsonObject malformed = prompt;
+    QJsonArray malformedTargets = malformed.value(u"targets"_s).toArray();
+    QJsonObject malformedTarget = malformedTargets.at(1).toObject();
+    malformedTarget.insert(u"selected"_s, u"true"_s);
+    malformedTargets[1] = malformedTarget;
+    malformed.insert(u"targets"_s, malformedTargets);
+    QVERIFY(!session.applyPrompt(malformed));
+    QVERIFY(session.applyPrompt(prompt));
 
     QJsonArray legacyTargets = prompt.value(u"targets"_s).toArray();
     QJsonObject legacyPlayer = legacyTargets.at(0).toObject();
@@ -1171,6 +1204,71 @@ void TestWsClient::rulesSnapshotModelsPreserveUnchangedRows() const
     resolvedTarget.text = u"Deal 3 damage to Bob."_s;
     exercise(stack, spell, trigger, nextSpell, resolvedTarget, RulesStackModel::TextRole,
              resolvedTarget.text);
+}
+
+void TestWsClient::rulesSessionStateExposesCurrentPersistentChoices() const
+{
+    bool ok = false;
+    auto snapshot = sharedFixture(u"rules-snapshot-card-annotations.json"_s, &ok).payload;
+    QVERIFY(ok);
+    RulesSessionState session;
+    QVERIFY(session.applySnapshot(snapshot));
+    auto choice = [&session](const QString &id) {
+        return session.cardForInspection(id).value(u"annotations"_s).toList();
+    };
+    QCOMPARE(choice(u"needle-a"_s).first().toMap().value(u"value"_s).toString(),
+             u"Lightning Bolt"_s);
+    QCOMPARE(choice(u"needle-b"_s).first().toMap().value(u"value"_s).toString(), u"Counterspell"_s);
+    QCOMPARE(session.cardForInspection(u"labyrinth"_s).value(u"exiledCardIds"_s).toStringList(),
+             QStringList{u"ulamog"_s});
+    QCOMPARE(session.cardForInspection(u"bodyguard"_s).value(u"chosenCardIds"_s).toStringList(),
+             QStringList{u"bears"_s});
+    auto zones = snapshot.value(u"zones"_s).toArray();
+    auto battlefield = zones[0].toObject();
+    auto cards = battlefield.value(u"cards"_s).toArray();
+    for (qsizetype index = 0; index < cards.size(); ++index) {
+        auto card = cards[index].toObject();
+        const QString id = card.value(u"id"_s).toString();
+        if (id == u"needle-a"_s || id == u"bodyguard"_s)
+            card.insert(u"faceDown"_s, true);
+        else if (id == u"needle-b"_s)
+            card.remove(u"annotations"_s);
+        cards[index] = card;
+    }
+    battlefield.insert(u"cards"_s, cards);
+    zones[0] = battlefield;
+    snapshot.insert(u"zones"_s, zones);
+    QVERIFY(session.applySnapshot(snapshot));
+    QVERIFY(choice(u"needle-a"_s).isEmpty());
+    QVERIFY(choice(u"needle-b"_s).isEmpty());
+    QVERIFY(session.cardForInspection(u"bodyguard"_s)
+                .value(u"chosenCardIds"_s)
+                .toStringList()
+                .isEmpty());
+}
+
+void TestWsClient::rulesControlledTurnAndLibraryPermissions() const
+{
+    bool ok = false;
+    const auto controlled = sharedFixture(u"rules-snapshot-turn-control.json"_s, &ok);
+    QVERIFY(ok);
+    RulesSessionState session;
+    QVERIFY(session.applySnapshot(controlled.payload));
+    QCOMPARE(session.activeSeat(), 1);
+    QCOMPARE(session.controllingSeat(1), 0);
+    QCOMPARE(session.controllingSeat(0), 0);
+    QCOMPARE(session.topPublicZoneCard(1, u"library"_s).value(u"name"_s).toString(), u"Island"_s);
+    QCOMPARE(session.cardForInspection(u"controlled-hand"_s).value(u"zoneOwnerSeat"_s).toInt(), 1);
+    QVERIFY(session.cardForInspection(u"new-arrival"_s).value(u"enteredThisTurn"_s).toBool());
+    QVERIFY(session.cardForInspection(u"new-arrival"_s).value(u"summoningSick"_s).toBool());
+    QVERIFY(!session.cardForInspection(u"established"_s).value(u"enteredThisTurn"_s).toBool());
+    const auto ordinary = sharedFixture(u"rules-snapshot-owner.json"_s, &ok);
+    QVERIFY(ok);
+    QVERIFY(session.applySnapshot(ordinary.payload));
+    QCOMPARE(session.controllingSeat(1), 1);
+    QVERIFY(session.topPublicZoneCard(1, u"library"_s).isEmpty());
+    QVERIFY(session.cardForInspection(u"permitted-top"_s).isEmpty());
+    QVERIFY(session.cardForInspection(u"controlled-hand"_s).isEmpty());
 }
 
 void TestWsClient::rulesSessionStateExposesTypedSnapshot() const

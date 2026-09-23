@@ -156,6 +156,9 @@ void TestCardCatalog::searchesSupportKindsBeforeResultLimit() const
         cards.append(
             supportFixture(u"A Token %1"_s.arg(index), u"token"_s, QString::number(index)));
     cards.append(supportFixture(u"ZZ Teferi Emblem"_s, u"emblem"_s, u"100"_s));
+    QJsonObject environmentToken = supportFixture(u"ZZ Environment Token"_s, u"token"_s, u"200"_s);
+    environmentToken.insert(u"set"_s, u"tneo"_s);
+    cards.append(environmentToken);
     cards.append(supportFixture(u"Double // Back"_s, u"double_faced_token"_s, u"101"_s));
     cards.append(supportFixture(u"Normal Spell"_s, u"front_card"_s, u"105"_s));
     cards.append(supportFixture(u"Normal Spell"_s, u"normal"_s, u"102"_s));
@@ -163,7 +166,7 @@ void TestCardCatalog::searchesSupportKindsBeforeResultLimit() const
     cards.append(supportFixture(u"Normal Spell"_s, u"art_series"_s, u"104"_s));
     const auto imported = importSupportFixture(storage.path(), cards);
     QVERIFY2(imported.ok, qPrintable(imported.error));
-    QCOMPARE(imported.tokenCount, 67);
+    QCOMPARE(imported.tokenCount, 68);
 
     {
         // Release the repository's read lock before CardCatalog's constructor
@@ -172,6 +175,17 @@ void TestCardCatalog::searchesSupportKindsBeforeResultLimit() const
         const auto all = repository.searchTokens({}, u"en"_s);
         QVERIFY2(all.error.isEmpty(), qPrintable(all.error));
         QCOMPARE(all.cards.size(), 60);
+        const auto environment = repository.searchTokens({}, u"en"_s, u"all"_s, {u"TST"_s});
+        QVERIFY2(environment.error.isEmpty(), qPrintable(environment.error));
+        QCOMPARE(environment.cards.size(), 60);
+        const auto neo = repository.searchTokens({}, u"en"_s, u"token"_s, {u"NEO"_s});
+        QCOMPARE(neo.cards.size(), 1);
+        QCOMPARE(neo.cards.first().toMap().value(u"name"_s).toString(), u"ZZ Environment Token"_s);
+        QVERIFY(repository.searchTokens({}, u"en"_s, u"all"_s, {u"OTHER"_s}).cards.isEmpty());
+        QCOMPARE(repository.searchTokens(u"TST #100"_s, u"en"_s, u"all"_s, {u"TST"_s}).cards.size(),
+                 1);
+        QVERIFY(repository.searchTokens(u"TST #100"_s, u"en"_s, u"all"_s, {u"OTHER"_s})
+                    .cards.isEmpty());
         const auto emblems = repository.searchTokens({}, u"en"_s, u"emblem"_s);
         QCOMPARE(emblems.cards.size(), 1);
         QCOMPARE(emblems.cards.first().toMap().value(u"kind"_s).toString(), u"emblem"_s);

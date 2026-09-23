@@ -13,6 +13,7 @@ type TournamentListEntry struct {
 	Coordinator      string `json:"coordinator"`
 	Stage            string `json:"stage"`
 	MatchMode        string `json:"matchMode"`
+	RulesMode        string `json:"rulesMode,omitempty"`
 	Status           string `json:"status"`
 	Registered       int    `json:"registered"`
 	CheckedIn        int    `json:"checkedIn"`
@@ -32,6 +33,7 @@ type TournamentCreate struct {
 	EventType     string                    `json:"eventType,omitempty"`
 	Coordinator   string                    `json:"coordinator,omitempty"`
 	MatchMode     string                    `json:"matchMode"`
+	RulesMode     string                    `json:"rulesMode,omitempty"`
 	RoundMinutes  int                       `json:"roundMinutes"`
 	MaxPlayers    int                       `json:"maxPlayers"`
 	PlannedRounds int                       `json:"plannedRounds,omitempty"`
@@ -164,6 +166,7 @@ type TournamentSnapshot struct {
 	Coordinator    string                      `json:"coordinator"`
 	Stage          string                      `json:"stage"`
 	MatchMode      string                      `json:"matchMode"`
+	RulesMode      string                      `json:"rulesMode,omitempty"`
 	Status         string                      `json:"status"`
 	RoundMinutes   int                         `json:"roundMinutes"`
 	RoundStartedAt string                      `json:"roundStartedAt,omitempty"`

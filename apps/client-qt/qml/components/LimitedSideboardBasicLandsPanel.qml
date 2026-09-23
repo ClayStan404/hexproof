@@ -11,6 +11,20 @@ Surface {
     id: root
 
     required property var panel
+    property var preferredPrintings: ({})
+    Component.onCompleted: rememberPrintings()
+    Connections {
+        target: root.panel
+        function onMainboardChanged() { root.rememberPrintings() }
+    }
+    function rememberPrintings() {
+        const next = Object.assign({}, preferredPrintings)
+        for (const card of panel.mainboard) {
+            if (isVirtualOrdinaryBasic(card))
+                next[String(card.name).toLowerCase()] = card
+        }
+        preferredPrintings = next
+    }
     readonly property var basicNames: ["Plains", "Island", "Swamp",
                                        "Mountain", "Forest"]
 
@@ -96,7 +110,8 @@ Surface {
     }
 
     function isVirtualOrdinaryBasic(card) {
-        if (!card || card.virtualCard !== true)
+        if (!card || (card.virtualCard !== true && card.virtualBasic !== true
+                && (String(card.setCode || "").trim() || String(card.collectorNumber || "").trim())))
             return false
         const normalized = String(card.name || "").trim().toLowerCase()
         return normalized === "plains" || normalized === "island"
@@ -110,8 +125,7 @@ Surface {
             const card = panel.mainboard[index]
             if (String(card.name || "").toLowerCase()
                     === String(name).toLowerCase()
-                    && !String(card.setCode || "").trim()
-                    && !String(card.collectorNumber || "").trim()) {
+                    && isVirtualOrdinaryBasic(card)) {
                 count += Math.max(0, Number(card.count || 0))
             }
         }
@@ -134,8 +148,83 @@ Surface {
         return labels[name] || name
     }
 
+    function printingForNewBasic(name) {
+        const fallback = {"name": name, "setCode": "", "collectorNumber": ""}
+        if (!panel.cardCatalogModel || typeof panel.cardCatalogModel.printings !== "function")
+            return fallback
+        const preferredSets = []
+        function appendSet(value) {
+            const set = String(value || "").trim().toUpperCase()
+            if (set && preferredSets.indexOf(set) < 0)
+                preferredSets.push(set)
+        }
+        function appendCardSets(cards) {
+            const counts = ({})
+            for (const card of cards) {
+                const set = String(card && card.setCode || "").trim().toUpperCase()
+                if (set)
+                    counts[set] = (counts[set] || 0) + Math.max(1, Number(card.count || 1))
+            }
+            const sets = Object.keys(counts).sort((left, right) =>
+                counts[right] - counts[left] || left.localeCompare(right))
+            for (const set of sets)
+                appendSet(set)
+        }
+        const limited = panel.wsModel.limitedSession
+        if (limited && limited.product)
+            appendSet(limited.product.setCode)
+        appendCardSets(basicNames.map(basicName => preferredPrintings[basicName.toLowerCase()]).filter(card => !!card))
+        // Reconnecting after clearing the pending mainboard has no local
+        // printing memory. Its physical pool still identifies the environment.
+        appendCardSets(panel.mainboard.concat(panel.sideboard))
+        const options = panel.cardCatalogModel.printings(name).filter(card =>
+            card.setCode && card.collectorNumber)
+        options.sort((left, right) => {
+            const setOrder = String(left.setCode).toUpperCase().localeCompare(String(right.setCode).toUpperCase())
+            if (setOrder !== 0)
+                return setOrder
+            const leftNumber = Number(left.collectorNumber)
+            const rightNumber = Number(right.collectorNumber)
+            if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)
+                    && leftNumber !== rightNumber)
+                return leftNumber - rightNumber
+            return String(left.collectorNumber).localeCompare(String(right.collectorNumber))
+        })
+        for (const set of preferredSets) {
+            const selected = options.find(card => String(card.setCode).toUpperCase() === set)
+            if (selected)
+                return {"name": name, "setCode": selected.setCode,
+                        "collectorNumber": selected.collectorNumber}
+        }
+        if (options.length === 0)
+            return fallback
+        // Cube pools may contain no set with ordinary basics. Prefer one
+        // shared series for all five colors before choosing an individual art.
+        let sharedSets = Array.from(new Set(options.map(card => String(card.setCode).toUpperCase())))
+        for (const basicName of basicNames) {
+            if (basicName === name)
+                continue
+            const sets = new Set(panel.cardCatalogModel.printings(basicName)
+                .filter(card => card.setCode && card.collectorNumber)
+                .map(card => String(card.setCode).toUpperCase()))
+            sharedSets = sharedSets.filter(set => sets.has(set))
+        }
+        const commonSet = sharedSets.sort()[0] || ""
+        const selected = options.find(card => String(card.setCode).toUpperCase() === commonSet) || options[0]
+        return {"name": name, "setCode": selected.setCode,
+                "collectorNumber": selected.collectorNumber}
+    }
+
     function adjustLimitedBasic(name, amount) {
-        const card = {"name": name, "setCode": "", "collectorNumber": ""}
+        let card = preferredPrintings[name.toLowerCase()]
+                || printingForNewBasic(name)
+        for (const existing of panel.mainboard) {
+            if (String(existing.name || "").toLowerCase() === name.toLowerCase()
+                    && isVirtualOrdinaryBasic(existing)) {
+                card = existing
+                break
+            }
+        }
         panel.wsModel.moveSideboardCard(
                     card,
                     amount > 0 ? "basic_lands" : "mainboard",

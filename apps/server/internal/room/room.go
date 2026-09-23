@@ -19,6 +19,8 @@ import (
 
 // Seat is a player slot. Seats are positional (index 0..MaxSeats-1).
 type Seat struct {
+	Controller              string
+	AIDifficulty            string
 	Occupied                bool
 	DisplayName             string
 	ConnectionID            string
@@ -41,25 +43,26 @@ type Spectator struct {
 // PlayerGameState is the server-authoritative zone state for one seat.
 // Library and Hand are hidden and must only be projected to their owner.
 type PlayerGameState struct {
-	Seat           int
-	DisplayName    string
-	Life           int
-	TurnCount      int
-	Counters       []protocol.GamePlayerCounter
-	CounterCount   int
-	Library        []protocol.GameCard
-	Hand           []protocol.GameCard
-	Sideboard      []protocol.GameCard
-	MulliganCount  int
-	Battlefield    []protocol.GameCard
-	Graveyard      []protocol.GameCard
-	Exile          []protocol.GameCard
-	CommandZone    []protocol.GameCard
-	Emblems        []protocol.GameEmblem
-	CommanderTax   int
-	CommanderTaxes map[string]int
-	Eliminated     bool
-	ResponseStatus string
+	Seat               int
+	DisplayName        string
+	Life               int
+	TurnCount          int
+	Counters           []protocol.GamePlayerCounter
+	CounterCount       int
+	LibraryTopRevealed bool
+	Library            []protocol.GameCard
+	Hand               []protocol.GameCard
+	Sideboard          []protocol.GameCard
+	MulliganCount      int
+	Battlefield        []protocol.GameCard
+	Graveyard          []protocol.GameCard
+	Exile              []protocol.GameCard
+	CommandZone        []protocol.GameCard
+	Emblems            []protocol.GameEmblem
+	CommanderTax       int
+	CommanderTaxes     map[string]int
+	Eliminated         bool
+	ResponseStatus     string
 }
 
 // SideboardPlayerState keeps one player's private pending deck partition.
@@ -74,9 +77,10 @@ type SideboardPlayerState struct {
 // SideboardState is the bounded BO3 between-game state. Wall-clock reads stay
 // outside the reducer; callers inject times into ConcedeAt / ExpireSideboard.
 type SideboardState struct {
-	Deadline      time.Time
-	PreviousLoser int
-	Players       []SideboardPlayerState
+	Deadline           time.Time
+	PreviousLoser      int
+	ChosenStartingSeat *int
+	Players            []SideboardPlayerState
 }
 
 // GameState holds one server-authoritative game and optional BO3 transition.
@@ -120,11 +124,14 @@ type Room struct {
 	CardLoadMode       string
 	RulesMode          string
 	HostingMode        string
+	AISource           string
+	AIDifficulty       string
 	HostConnected      bool
 	HostStatus         *protocol.ForgeHostStatus
 	RulesLog           []protocol.GameLogEntry
 	RulesNextLogID     int64
 	rulesPublicLog     *rulesPublicLogState
+	rulesReview        *protocol.Envelope
 	HasPassword        bool // password hash lives in the server room entry
 	HostSeat           int
 	Seats              []Seat
@@ -221,7 +228,7 @@ func (r *Room) AllocSeq() int64 {
 // FindSeatByConnection returns the seat index for a connection, or -1.
 func (r *Room) FindSeatByConnection(connID string) int {
 	for i, s := range r.Seats {
-		if s.Occupied && s.ConnectionID == connID {
+		if connID != "" && s.Occupied && s.Controller == "" && s.ConnectionID == connID {
 			return i
 		}
 	}
@@ -275,9 +282,11 @@ type Result struct {
 // RulesStartPlayer is the private, exact deck input for one occupied rules
 // seat. It is copied under the room lock and never projected to clients.
 type RulesStartPlayer struct {
-	Seat        int
-	DisplayName string
-	Deck        protocol.DeckSelect
+	Controller   string
+	AIDifficulty string
+	Seat         int
+	DisplayName  string
+	Deck         protocol.DeckSelect
 }
 
 // ZoneDumpTarget identifies the two live players involved in a private

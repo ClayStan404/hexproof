@@ -20,6 +20,20 @@ SPEC.loader.exec_module(RUNNER)
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "The native runner supports Linux only")
 class NativeRunnerTests(unittest.TestCase):
+    def test_frozen_scenario_keeps_lazy_loaded_siblings_after_worktree_edits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "Main.qml").write_text('import "Choice.js" as Choice\n')
+            (source / "Choice.js").write_text('var answer = "original";\n')
+            recorded = RUNNER.freeze_scenario(source / "Main.qml", root / "snapshot")
+            (source / "Choice.js").write_text('var answer = "edited";\n')
+            self.assertEqual(Path(recorded["snapshot"]).read_text(), 'import "Choice.js" as Choice\n')
+            self.assertEqual((root / "snapshot/Choice.js").read_text(), 'var answer = "original";\n')
+            self.assertEqual(RUNNER.digest(root / "snapshot/Choice.js"),
+                             recorded["localSources"][str(source / "Choice.js")])
+
     def test_window_size_is_an_explicit_layout_variant(self):
         cases = [
             ([], False, None, None),
@@ -110,6 +124,84 @@ class NativeRunnerTests(unittest.TestCase):
             process = subprocess.Popen(["false"])
             process.wait()
             self.assertEqual(RUNNER.seat_result(process, artifacts)["status"], "failed")
+
+    def test_system_input_requires_real_delivery_and_cannot_fall_back_to_qt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            process = subprocess.Popen(["true"])
+            process.wait()
+            self.write_passing_evidence(artifacts)
+            self.assertEqual(RUNNER.seat_result(process, artifacts, expected_evidence="system-input")["status"], "failed")
+            for name in ["startup.json", "audit-summary.json"]:
+                data = json.loads((artifacts / name).read_text())
+                data.update(evidence="system-input", pid=123, osInputVerified=True)
+                RUNNER.write_json(artifacts / name, data)
+            receipt = {"status": "passed", "backend": "mutter-virtual-device", "pid": 123,
+                       "focusVerified": True, "deliveryVerified": True,
+                       "spontaneousEvents": {"mousePress": 1, "mouseRelease": 1}}
+            action = {"action": "click", "accepted": True, "sequence": 1,
+                      "evidence": "system-input", "systemInput": receipt}
+            (artifacts / "actions.jsonl").write_text(json.dumps(action) + "\n")
+            self.assertEqual(RUNNER.seat_result(process, artifacts, expected_evidence="system-input")["status"], "passed")
+            for change in [{"pid": 321}, {"focusVerified": False}, {"deliveryVerified": False},
+                           {"spontaneousEvents": {}}, {"backend": "qt"}]:
+                with self.subTest(change=change):
+                    changed = dict(action, systemInput=dict(receipt, **change))
+                    (artifacts / "actions.jsonl").write_text(json.dumps(changed) + "\n")
+                    self.assertEqual(RUNNER.seat_result(process, artifacts)["status"], "failed")
+
+    def test_system_file_import_requires_each_owned_dialog_input_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            process = subprocess.Popen(["true"])
+            process.wait()
+            self.write_passing_evidence(artifacts)
+            for name in ["startup.json", "audit-summary.json"]:
+                data = json.loads((artifacts / name).read_text())
+                data.update(evidence="system-input", pid=123, osInputVerified=True)
+                RUNNER.write_json(artifacts / name, data)
+            step = {"status": "passed", "backend": "mutter-virtual-device", "pid": 123,
+                    "window": 20, "ownerWindow": 10, "action": "type",
+                    "focusVerified": True, "deliveryVerified": True,
+                    "spontaneousEvents": {"keyPress": 12, "keyRelease": 12}}
+            receipt = dict(step, window=10, systemInputs=[step])
+            action = {"action": "chooseFile", "accepted": True, "sequence": 1,
+                      "evidence": "system-input", "systemInput": receipt,
+                      "dialogAccepted": True, "dialogClosed": True,
+                      "path": "/tmp/source.txt", "selectedFile": "file:///tmp/source.txt"}
+            (artifacts / "actions.jsonl").write_text(json.dumps(action) + "\n")
+            self.assertEqual(RUNNER.seat_result(process, artifacts)["status"], "passed")
+            for damage in [{"ownerWindow": 99}, {"pid": 456}, {"deliveryVerified": False},
+                           {"spontaneousEvents": {}}, {"backend": "qt"}]:
+                with self.subTest(damage=damage):
+                    receipt["systemInputs"] = [dict(step, **damage)]
+                    (artifacts / "actions.jsonl").write_text(json.dumps(action) + "\n")
+                    self.assertEqual(RUNNER.seat_result(process, artifacts)["status"], "failed")
+
+    def test_shortcut_delivery_requires_native_press_path_and_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            process = subprocess.Popen(["true"])
+            process.wait()
+            self.write_passing_evidence(artifacts)
+            for name in ("startup.json", "audit-summary.json"):
+                data = json.loads((artifacts / name).read_text())
+                data.update(evidence="system-input", pid=123, osInputVerified=True)
+                RUNNER.write_json(artifacts / name, data)
+            receipt = {"status": "passed", "backend": "mutter-virtual-device", "pid": 123,
+                       "focusVerified": True, "deliveryVerified": True}
+            for events, expected in [({"keyPress": 1, "keyRelease": 1}, "passed"),
+                                     ({"shortcutOverride": 1, "keyRelease": 1}, "passed"),
+                                     ({"keyRelease": 1}, "failed"),
+                                     ({"shortcutOverride": 1}, "failed"),
+                                     ({"keyPress": 1}, "failed"),
+                                     ({"shortcutOverride": True, "keyRelease": 1}, "failed")]:
+                with self.subTest(events=events):
+                    action = {"action": "key", "accepted": True, "sequence": 1,
+                              "evidence": "system-input",
+                              "systemInput": dict(receipt, spontaneousEvents=events)}
+                    (artifacts / "actions.jsonl").write_text(json.dumps(action) + "\n")
+                    self.assertEqual(RUNNER.seat_result(process, artifacts)["status"], expected)
 
     def test_all_native_evidence_files_are_required(self):
         with tempfile.TemporaryDirectory() as directory:

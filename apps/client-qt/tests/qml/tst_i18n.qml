@@ -98,6 +98,17 @@ TestCase {
              expected: "Bolt 将 一张牌 从牌库移至手牌。", names: []},
             {tag: "count", kind: "move_cards", source: "Bolt moved 2 card(s) from hand to graveyard.",
              expected: "Bolt 将 2 张牌 从手牌移至墓地。", names: []},
+            {tag: "top-reveal", kind: "library_view", source: "Bolt revealed Goblin from the top 5 card(s) of their library and put them into hand.",
+             expected: "Bolt 展示了自己的牌库顶 5 张牌中的 地精，并将这些牌置入手牌。", names: ["Goblin"]},
+            {tag: "remote-top-reveal", kind: "library_view", source: "Bolt revealed Island from the top 5 card(s) of Goblin's library and put them into hand.",
+             expected: "Bolt 展示了Goblin 的牌库顶 5 张牌中的 海岛，并将这些牌置入手牌。", names: ["Island"]},
+            // Card names can contain commas; unresolved name lists stay canonical.
+            {tag: "top-reveal-list", kind: "library_view", source: "Bolt revealed Goblin, Island from the top 5 card(s) of their library and put them into hand.",
+             expected: "Bolt 展示了自己的牌库顶 5 张牌中的 Goblin, Island，并将这些牌置入手牌。", names: ["Goblin, Island"]},
+            {tag: "top-reveal-tokens", kind: "library_view", source: "Bolt %2 revealed Unknown %5 from the top 5 card(s) of Goblin %3's library and put them into Bolt %4's hand.",
+             expected: "Bolt %2 展示了Goblin %3 的牌库顶 5 张牌中的 Unknown %5，并将这些牌置入Bolt %4 的手牌。", names: ["Unknown %5"]},
+            {tag: "top-hidden", kind: "library_view", source: "Bolt resolved the top 5 card(s) of their library and put 2 card(s) into hand.",
+             expected: "Bolt 查看了自己的牌库顶的 5 张牌，并将 2 张牌置入手牌。", names: []},
             {tag: "combat", kind: "combat", source: "Bolt declared 2 attacker(s) toward Goblin.",
              expected: "Bolt 声明 2 个攻击者攻击 Goblin。", names: []},
             {tag: "custom-counter", kind: "counter", source: "Bolt set Goblin to 2 (+1).",
@@ -166,6 +177,43 @@ TestCase {
         compare(
             I18n.status("tournament_not_ready: server-specific wording"),
             "比赛当前还不能执行该操作。")
+    }
+
+    function test_translatesPrivateForgeStartDetailsWithoutLosingIdentities() {
+        const failure = {reason:"deck_rejected", truncated:true, issues:[
+            {deck:"player", section:"mainboard", code:"printing_unavailable",
+                cardName:"Forest <literal> %2", setCode:"M21", collectorNumber:"999999"},
+            {deck:"ai", section:"sideboard", code:"card_unavailable", cardName:"AI fixture"},
+            {deck:"player", section:"commanders", code:"commander_missing", cardName:"Commander"},
+            {deck:"player", section:"mainboard", code:"java_exception", cardName:"private trace"}]}
+        const chinese = I18n.rulesStartFailureDetails(failure)
+        verify(chinese.indexOf("Forest <literal> %2 (M21 999999)") >= 0)
+        verify(chinese.indexOf("当前 Forge 运行包无法识别此牌或所选印刷。") >= 0)
+        verify(chinese.indexOf("AI 牌组") >= 0)
+        verify(chinese.indexOf("private trace") < 0)
+        verify(chinese.indexOf("已省略部分详细信息。") >= 0)
+        testTranslations.setLanguage("en")
+        const english = I18n.rulesStartFailureDetails(failure)
+        verify(english.indexOf("Your deck · Main deck: Forest <literal> %2 (M21 999999)") >= 0)
+        verify(english.indexOf("AI deck · Sideboard: AI fixture") >= 0)
+        verify(english.indexOf("usable main-deck cards") >= 0)
+        verify(english.indexOf("private trace") < 0)
+        const publicFailure = I18n.rulesStartFailureDetails({reason:"deck_rejected"})
+        verify(publicFailure.indexOf("Forest") < 0 && publicFailure.indexOf("AI fixture") < 0)
+    }
+
+    function test_translatesForgeFailureReasons_data() {
+        return [
+            {tag:"capacity", reason:"capacity", phrase:"对局名额"},
+            {tag:"unavailable", reason:"runtime_unavailable", phrase:"运行包不可用"},
+            {tag:"timeout", reason:"runtime_timeout", phrase:"规定时间"},
+            {tag:"failed", reason:"runtime_failed", phrase:"停止运行"},
+            {tag:"unknown", reason:"start_rejected", phrase:"具体原因"}
+        ]
+    }
+
+    function test_translatesForgeFailureReasons(data) {
+        verify(I18n.rulesStartFailureReason(data.reason).indexOf(data.phrase) >= 0)
     }
 
     function test_translatesDeckImportWarnings() {
@@ -334,6 +382,14 @@ TestCase {
 
     function test_translatesRemoteLibraryAndFaceDownResolutionLogs() {
         compare(
+            I18n.gameLog("library_view",
+                "Alice resolved the top 1 card(s) of their library and put 1 card(s) into hand."),
+            "Alice 查看了自己的牌库顶的 1 张牌，并将 1 张牌置入手牌。")
+        compare(
+            I18n.gameLog("library_view",
+                "Alice resolved the top 1 card(s) of Bob's library and put 1 card(s) into hand."),
+            "Alice 查看了Bob 的牌库顶的 1 张牌，并将 1 张牌置入手牌。")
+        compare(
             I18n.status(
                 "Alice looked at the top 3 card(s) of Bob's library."),
             "Alice 查看了Bob 的牌库顶的 3 张牌。")
@@ -353,5 +409,25 @@ TestCase {
             I18n.status(
                 "Alice resolved the top 3 card(s) of Bob's library across 3 destination(s)."),
             "Alice 将Bob 的牌库顶 3 张牌分别置入了 3 个目的区域。")
+    }
+
+    function test_translatesTopLibraryRevealLogs_data() {
+        return [
+            {tag: "own-top-card", source: "Alice revealed Lightning Bolt from the top 1 card(s) of their library and put them into hand.",
+             expected: "Alice 展示了自己的牌库顶 1 张牌中的 Lightning Bolt，并将这些牌置入手牌。"},
+            {tag: "multiple-cards", source: "Alice revealed Lightning Bolt, Island from the top 5 card(s) of their library and put them into hand.",
+             expected: "Alice 展示了自己的牌库顶 5 张牌中的 Lightning Bolt, Island，并将这些牌置入手牌。"},
+            {tag: "remote-bottom", source: "Alice revealed Island from the top 3 card(s) of Bob's library and put them on bottom of their library.",
+             expected: "Alice 展示了Bob 的牌库顶 3 张牌中的 Island，并将这些牌置于自己的牌库底。"},
+            {tag: "face-down", source: "Alice revealed Island from the top 3 card(s) of their library and put them face down onto battlefield.",
+             expected: "Alice 展示了自己的牌库顶 3 张牌中的 Island，并将这些牌牌面朝下置入战场。"}
+        ]
+    }
+
+    function test_translatesTopLibraryRevealLogs(data) {
+        compare(I18n.gameLog("library_view", data.source), data.expected)
+        compare(I18n.gameLog("chat", data.source), data.source)
+        testTranslations.setLanguage("en")
+        compare(I18n.gameLog("library_view", data.source), data.source)
     }
 }

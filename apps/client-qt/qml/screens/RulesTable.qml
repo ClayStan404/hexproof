@@ -15,18 +15,31 @@ Page {
     required property var gameTableModel
     required property var sideboardTableModel
     property var preferencesModel: null
-    readonly property var rulesSession: wsModel.rulesSession
-    readonly property var gameSession: wsModel.gameSession
-    readonly property bool roomConnected: wsModel.inRoom === true
+    property bool replayMode: false
+    property var replayFrame: ({})
+    property var rulesSession: wsModel.rulesSession
+    property var gameSession: wsModel.gameSession
+    readonly property bool roomConnected: replayMode || wsModel.inRoom === true
     readonly property bool hostingPaused: roomSession.hostingMode === "player" && (roomSession.hostConnected !== true
         || roomSession.hostStatus && roomSession.hostStatus.migrating === true)
     readonly property bool sideboarding: gameSession.sideboarding === true
-    readonly property bool rulesResponsePending: wsModel.rulesResponsePending === true
+    readonly property bool rulesResponsePending: !replayMode && wsModel.rulesResponsePending === true
+    property int noticeRevision: 0
+    property string acknowledgedAiNotice: ""
+    readonly property bool silentAiDeckAdvisory: {
+        void noticeRevision
+        if (!rulesSession.promptPending || !rulesSession.promptSupported
+            || rulesSession.promptKind !== "acknowledge" || rulesSession.promptTitle !== "AI deck advisory")
+            return false
+        const options = rulesSession.promptOptionItems()
+        return options.length === 1 && options[0].responseId === "$ack"
+            && options[0].kind === "acknowledge"
+    }
     readonly property bool canConcede: roomConnected && !hostingPaused && localSeat >= 0
                                        && rulesSession.active && !rulesSession.gameOver
                                        && !sideboarding && !matchUi.matchFinished
     readonly property var matchUi: matchControls
-    readonly property var tableGameLog: gameTableModel.gameLog
+    readonly property var tableGameLog: replayMode ? [] : gameTableModel.gameLog
     readonly property var presentation: tablePresentation.item
     readonly property var inspector: presentation ? presentation.inspectionDock.inspector : null
     readonly property real gameLogRailWidth: gameLogRail ? gameLogRail.width : 0
@@ -48,26 +61,32 @@ Page {
         || (presentation && presentation.modalOpen === true)
     property bool showGameLogRail: roomSession.maxSeats > 2
         ? (preferencesModel ? preferencesModel.tableShowGameLog : true) : false
-    readonly property bool canChat: roomConnected && roomSession.phase === "started"
+    readonly property bool canChat: !replayMode && roomConnected && roomSession.phase === "started"
                                    && (roomSession.role === "player"
                                        || roomSession.role === "spectator")
     readonly property var cardActions: chatActions
-    readonly property var roomSession: wsModel.roomSession
+    property var roomSession: wsModel.roomSession
     readonly property url cardBackSource:
         Qt.resolvedUrl("../assets/card-back.jpg")
     readonly property int localSeat:
-        roomSession.role === "player" ? roomSession.seatIndex : -1
+        !replayMode && roomSession.role === "player" ? roomSession.seatIndex : -1
     readonly property bool canViewSpectatorHands:
         roomConnected && rulesSession.active && !sideboarding
         && roomSession.role === "spectator"
         && roomSession.spectatorsSeeHands === true
     property int spectatedHandSeat: 0
-    readonly property int handOwnerSeat:
-        localSeat >= 0 ? localSeat
-                      : canViewSpectatorHands ? spectatedHandSeat : -1
+    readonly property int controlledTurnSeat: {
+        void rulesSession.snapshotRevision
+        const active = rulesSession.activeSeat
+        return localSeat >= 0 && active !== localSeat
+            && typeof rulesSession.controllingSeat === "function"
+            && rulesSession.controllingSeat(active) === localSeat ? active : -1
+    }
+    readonly property int handOwnerSeat: controlledTurnSeat >= 0 ? controlledTurnSeat
+        : localSeat >= 0 ? localSeat : canViewSpectatorHands ? spectatedHandSeat : -1
 
     onCanViewSpectatorHandsChanged: {
-        if (!canViewSpectatorHands)
+        if (!replayMode && !canViewSpectatorHands)
             spectatedHandSeat = 0
     }
     readonly property bool compactLayout: Theme.isCompactWidth(width)
@@ -89,6 +108,25 @@ Page {
     readonly property real zoneDockWidth:
         Math.min(Theme.size(270), width * 0.35)
     property int catalogRevision: 0
+
+    Timer {
+        interval: 0
+        running: root.silentAiDeckAdvisory && !root.replayMode && root.roomConnected
+            && !root.hostingPaused && !root.sideboarding && root.localSeat >= 0
+            && root.rulesSession.active && !root.rulesSession.gameOver && !root.rulesResponsePending
+            && root.acknowledgedAiNotice !== root.rulesSession.gameId + ":" + root.rulesSession.promptId
+        onTriggered: {
+            // Only this informational startup notice is implicit; real game
+            // decisions and other acknowledgements still require user input.
+            root.acknowledgedAiNotice = root.rulesSession.gameId + ":" + root.rulesSession.promptId
+            root.wsModel.respondRulesPrompt(root.rulesSession.promptId, "$ack")
+        }
+    }
+
+    Connections {
+        target: root.rulesSession
+        function onPromptChanged() { ++root.noticeRevision }
+    }
 
     Connections {
         target: root.cardCatalogModel
@@ -147,6 +185,7 @@ Page {
     RulesPriorityController {
         id: priorityController
         tableController: root
+        settings: root.preferencesModel || preferences
     }
 
     function zoneCount(ownerSeat, zone) {
@@ -289,7 +328,10 @@ Page {
     }
 
     Keys.onEscapePressed: event => {
-        if (priority.yieldMode.length > 0) {
+        if (combatInteraction.selectedSource.length > 0) {
+            combatInteraction.cancelSelection()
+            event.accepted = true
+        } else if (priority.yieldMode.length > 0) {
             priority.cancelYield()
             event.accepted = true
         } else if (inspector && presentation.inspectionDock.inspectionOpened) {

@@ -30,7 +30,9 @@ ColumnLayout {
     }
     readonly property var matchingCards: {
         const query = search.text.trim().toLocaleLowerCase()
-        return allCards.filter(card => (!selectedOnly.checked || selectedIds[card.cardId] === true)
+        return allCards.filter(card => (!selectedOnly.checked || selectedIds[card.cardId] === true
+            || card.nativeSelected === true)
+            && (!selectableOnly.checked || card.readOnly !== true)
             && (!query || card.name.toLocaleLowerCase().includes(query)))
     }
     signal cardToggled(string cardId)
@@ -41,13 +43,14 @@ ColumnLayout {
     function resetFilter() {
         if (search) search.clear()
         if (selectedOnly) selectedOnly.checked = false
+        if (selectableOnly) selectableOnly.checked = false
         if (cards) cards.positionViewAtBeginning()
     }
     onPromptIdChanged: resetFilter()
     Connections {
         target: root.cardModel
         ignoreUnknownSignals: true
-        function onModelReset() { root.modelRevision++ }
+        function onModelReset() { root.modelRevision++; root.resetFilter() }
         function onRowsInserted() { root.modelRevision++ }
         function onRowsRemoved() { root.modelRevision++ }
         function onDataChanged() { root.modelRevision++ }
@@ -89,6 +92,14 @@ ColumnLayout {
             wrapMode: Text.Wrap
         }
         AppToggle {
+            id: selectableOnly
+            objectName: "rulesSelectableCardsOnly"
+            visible: !root.readOnly
+            text: qsTr("Selectable only")
+            font.pixelSize: Theme.fontSize(11)
+            onCheckedChanged: if (cards) cards.positionViewAtBeginning()
+        }
+        AppToggle {
             id: selectedOnly
             objectName: "rulesSelectedCardsOnly"
             visible: !root.readOnly
@@ -123,9 +134,11 @@ ColumnLayout {
                 event.accepted = true
             }
         }
-        Keys.onSpacePressed: if (currentIndex >= 0 && currentIndex < count && !root.readOnly)
+        Keys.onSpacePressed: if (currentIndex >= 0 && currentIndex < count && !root.readOnly
+            && root.matchingCards[currentIndex].readOnly !== true)
             root.cardToggled(root.matchingCards[currentIndex].cardId)
-        Keys.onReturnPressed: if (currentIndex >= 0 && currentIndex < count && !root.readOnly)
+        Keys.onReturnPressed: if (currentIndex >= 0 && currentIndex < count && !root.readOnly
+            && root.matchingCards[currentIndex].readOnly !== true)
             root.cardToggled(root.matchingCards[currentIndex].cardId)
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
@@ -138,16 +151,22 @@ ColumnLayout {
             readonly property string setCode: modelData.setCode || ""
             readonly property string collectorNumber: modelData.collectorNumber || ""
             readonly property bool selected: root.selectedIds[cardId] === true
+            readonly property bool nativeSelected: !root.readOnly && modelData.nativeSelected === true
+            readonly property bool selectable: !root.readOnly && modelData.readOnly !== true
+            readonly property string selectionLabel: !root.readOnly && !selectable ? qsTr("Not selectable") : nativeSelected
+                ? selected ? qsTr("Undo selection") : qsTr("Already selected")
+                : selected ? qsTr("Selected") : ""
             objectName: (root.readOnly ? "rulesRevealedCard-" : "rulesCardCandidate-") + cardId
             width: cards.cellWidth - Theme.size(10)
             height: cards.cellHeight - Theme.size(10)
             radius: Theme.radiusSmall
             color: Theme.surfaceMuted
-            border.width: selected ? 3 : 1
-            border.color: selected || (cards.activeFocus && cards.currentIndex === index) ? Theme.primary : Theme.border
-            Accessible.role: root.readOnly ? Accessible.StaticText : Accessible.Button
-            Accessible.name: name + (selected ? " · " + qsTr("Selected") : "")
-            Accessible.onPressAction: if (!root.readOnly) root.cardToggled(cardId)
+            border.width: selected || nativeSelected ? 3 : 1
+            border.color: selected || (cards.activeFocus && cards.currentIndex === index) ? Theme.primary
+                : nativeSelected ? Theme.success : Theme.border
+            Accessible.role: selectable ? Accessible.Button : Accessible.StaticText
+            Accessible.name: name + (selectionLabel ? " · " + selectionLabel : "")
+            Accessible.onPressAction: if (selectable) root.cardToggled(cardId)
             Image {
                 id: art
                 anchors.top: parent.top
@@ -191,21 +210,32 @@ ColumnLayout {
                 maximumLineCount: 2
                 elide: Text.ElideRight
             }
-            Text {
-                textFormat: Text.PlainText
+            Rectangle {
                 anchors.top: parent.top
-                anchors.right: parent.right
+                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.margins: Theme.size(6)
-                visible: cardTile.selected
-                text: "✓"
-                color: Theme.primary
-                font.pixelSize: Theme.fontSize(22)
-                font.weight: Font.Bold
+                width: Math.min(parent.width - Theme.size(8), badgeText.implicitWidth + Theme.size(12))
+                height: badgeText.implicitHeight + Theme.size(8)
+                radius: Theme.radiusSmall
+                visible: cardTile.selectionLabel.length > 0
+                color: cardTile.selected ? Theme.primary : cardTile.nativeSelected ? Theme.success : Theme.surfaceElevated
+                Text {
+                    id: badgeText
+                    textFormat: Text.PlainText
+                    anchors.centerIn: parent
+                    width: parent.width - Theme.size(8)
+                    text: cardTile.selectionLabel
+                    color: cardTile.selectable ? Theme.primaryInk : Theme.textSecondary
+                    font.pixelSize: Theme.fontSize(10)
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.Wrap
+                }
             }
             TapHandler {
                 onTapped: {
                     cards.currentIndex = cardTile.index
-                    if (!root.readOnly) root.cardToggled(cardTile.cardId)
+                    if (cardTile.selectable) root.cardToggled(cardTile.cardId)
                 }
             }
             HoverHandler { id: hover }

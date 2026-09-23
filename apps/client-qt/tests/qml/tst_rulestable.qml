@@ -28,6 +28,7 @@ TestCase {
                 life: 20
                 countersSummary: ""
                 manaSummary: ""
+                manaPool: []
             }
             ListElement {
                 seat: 1
@@ -36,6 +37,7 @@ TestCase {
                 life: 20
                 countersSummary: ""
                 manaSummary: ""
+                manaPool: []
             }
         }
 
@@ -465,7 +467,7 @@ TestCase {
         rulesSession.promptPending = true
         rulesSession.promptSupported = true
         rulesSession.promptAutoPassEligible = false
-        table.priority.phaseStops = ({})
+        preferences.forgePhaseStops = ({})
         table.priority.setFullControl(false)
         table.priority.resetTransient()
         rulesSession.promptId = 1
@@ -552,7 +554,7 @@ TestCase {
             const row = players.get(index)
             saved.push({ seat: row.seat, name: row.name, status: row.status,
                          life: row.life, countersSummary: row.countersSummary,
-                         manaSummary: row.manaSummary })
+                         manaSummary: row.manaSummary, manaPool: [] })
         }
         players.clear()
         wait(0)
@@ -716,9 +718,9 @@ TestCase {
     function test_fourPlayerHeaderRemainsClickableBesideNarrowDecisionDock() {
         testWindow.width = 1180
         players.append({seat: 2, name: "Carol", status: "playing", life: 20,
-                        countersSummary: "", manaSummary: ""})
+                        countersSummary: "", manaSummary: "", manaPool: []})
         players.append({seat: 3, name: "Dave", status: "playing", life: 20,
-                        countersSummary: "", manaSummary: ""})
+                        countersSummary: "", manaSummary: "", manaPool: []})
         const battlefield = findChild(table, "rulesBattlefieldPanel")
         try {
             rulesSession.activeSeat = 0

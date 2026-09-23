@@ -9,6 +9,7 @@ var captured = {};
 var reviewDue = {};
 var fixtureDeck = null;
 var paymentAttempts = {};
+var unreachablePayments = {};
 var policyOrder = [
     "Ragavan, Nimble Pilferer", "Guide of Souls", "Ocelot Pride", "Ajani, Nacatl Pariah",
     "Seasoned Pyromancer", "Ranger-Captain of Eos", "Voice of Victory", "Goblin Bombardment",
@@ -120,8 +121,20 @@ function chooseAction(driver, options) {
 function pay(driver, options) {
     for (var id of ["$auto-pay", "$pay"]) {
         if (options.some(option => option.responseId === id)) {
-            driver.click("rulesPromptOption-" + id);
-            driver.payments++;
+            if (driver.click("rulesPromptOption-" + id)) {
+                driver.payments++;
+            } else {
+                var key = driver.session.gameId + ":" + driver.session.promptId + ":" + id;
+                unreachablePayments[key] = (unreachablePayments[key] || 0) + 1;
+                if (unreachablePayments[key] === 12) {
+                    driver.capture("unreachable-payment");
+                    auditProbe.record("unreachable-payment", {
+                        prompt:driver.session.promptDetail, options:options,
+                        observation:auditProbe.observe(auditWindow)
+                    });
+                    driver.require(false, "Payment control is not reachable: " + id);
+                }
+            }
             return;
         }
     }
@@ -199,16 +212,21 @@ function chooseCards(driver) {
     var selected = [], choices = [];
     for (var index = 0; index < list.count; ++index) {
         var card = list.itemAtIndex(index);
-        if (!card) continue;
+        if (!card || !card.selectable) continue;
         choices.push(card);
         if (card.selected) selected.push(card);
     }
     var search = /search|library/i.test(session.promptTitle + " " + session.promptDetail);
     var target = /^Select target\b/.test(session.promptTitle);
+    var companion = /^Choose a companion$/i.test(session.promptTitle);
     if (target) save(driver, "grouped-target");
-    var wanted = search || target ? Math.min(session.promptMaxCardSelections,
+    var wanted = search || target || companion ? Math.min(session.promptMaxCardSelections,
         Math.max(1, session.promptMinCardSelections)) : session.promptMinCardSelections;
     if (confirm && confirm.enabled && selected.length >= wanted) {
+        if (companion) {
+            save(driver, "companion-selected");
+            auditProbe.record("companion-choice", {selected:selected.map(card => card.name)});
+        }
         driver.click("rulesConfirmCards");
         return;
     }
@@ -219,7 +237,7 @@ function chooseCards(driver) {
         return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
     });
     for (var card of choices)
-        if (!card.selected && driver.click(card.objectName)) return;
+        if (!card.selected && !card.nativeSelected && driver.click(card.objectName)) return;
     driver.require(auditProbe.wheel(list, -160), "Cannot scroll native card choices");
 }
 
@@ -233,14 +251,29 @@ function chooseTarget(driver) {
     var candidates = session.boardTargetCandidates().filter(candidate =>
         !interaction.selectedTargetIds[candidate.responseId]);
     var own = ws.roomSession.seatIndex;
-    var target = candidates.find(candidate => candidate.kind === "card"
-        && session.cardForInspection(candidate.objectId).controllerSeat !== own)
-        || candidates.find(candidate => candidate.kind === "player" && candidate.seat !== own)
-        || candidates[0];
-    driver.require(!!target, "Missing legal target");
-    var name = target.kind === "player" ? "rulesPlayerTarget" + target.seat
-        : (target.kind === "spell" ? "forgeStackCard-" : "forgeCard-") + target.objectId;
-    if (!driver.click(name)) driver.click("rulesTarget-" + target.responseId);
+    function preference(candidate) {
+        if (candidate.kind === "card"
+                && session.cardForInspection(candidate.objectId).controllerSeat !== own) return 0;
+        return candidate.kind === "player" && candidate.seat !== own ? 1 : 2;
+    }
+    candidates.sort((left, right) => preference(left) - preference(right));
+    driver.require(candidates.length > 0, "Missing legal target");
+    // The first legal object may be covered by an identical permanent. Choose
+    // an exposed legal target before scrolling; never click through a pile.
+    for (var target of candidates) {
+        var name = target.kind === "player" ? "rulesPlayerTarget" + target.seat
+            : (target.kind === "spell" ? "forgeStackCard-" : "forgeCard-") + target.objectId;
+        if (driver.click(name) || driver.click("rulesTarget-" + target.responseId)) return;
+    }
+    for (var target of candidates) {
+        if (target.kind !== "card") continue;
+        var exposed = driver.table.presentation.children.some(lane => lane.visibleCards
+            && lane.visibleCards.some(card => card.cardId === target.objectId && card.stackFront));
+        if (exposed) {
+            driver.wheelToCard(target.objectId, false);
+            return;
+        }
+    }
 }
 
 function act(driver, offeredOptions) {

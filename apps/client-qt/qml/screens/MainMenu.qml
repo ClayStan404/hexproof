@@ -19,8 +19,7 @@ Page {
     Component.onCompleted: Qt.callLater(function() {
         if (root.suppressStartupNotices)
             return
-        sponsorAnnouncement.openIfNeeded()
-        cardArtRepairNoticeTimer.restart()
+        root.considerStartupNotices()
     })
 
     Item {
@@ -91,6 +90,8 @@ Page {
                 objectName: "connectedServerStatus"
                 visible: ws.connected
                 text: root.connectedServerLabel()
+                      + (I18n.serverTransportLabel(ws.serverTransportState).length > 0
+                         ? " · " + I18n.serverTransportLabel(ws.serverTransportState) : "")
                 statusColor: Theme.accent
                 maximumWidth: topBar.width
             }
@@ -206,18 +207,6 @@ Page {
                     wrapMode: Text.WordWrap
                 }
 
-                Text {
-                    textFormat: Text.PlainText
-                    Layout.fillWidth: true
-                    Layout.maximumWidth: Theme.size(520)
-                    Layout.topMargin: Theme.size(root.compactLayout ? 12 : 24)
-                    text: qsTr("Sit at a player-judged table, or let Forge resolve the match. Constructed, Sealed, Draft, and Cube.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(root.compactLayout ? 14 : 16)
-                    lineHeight: 1.45
-                    wrapMode: Text.WordWrap
-                }
-
                 Flow {
                     objectName: "mainMenuHeroCapabilities"
                     Layout.fillWidth: true
@@ -234,12 +223,6 @@ Page {
                             font.pixelSize: Theme.fontSize(20)
                             font.weight: Font.DemiBold
                         }
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Player-judged table")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(12)
-                        }
                     }
 
                     Column {
@@ -251,12 +234,6 @@ Page {
                             color: Theme.accent
                             font.pixelSize: Theme.fontSize(20)
                             font.weight: Font.DemiBold
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTr("Rules-enforced 1v1")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(12)
                         }
                     }
 
@@ -432,15 +409,51 @@ Page {
                     color: Theme.divider
                 }
 
-                AppButton {
-                    objectName: "mainMenuDeckLibraryButton"
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Deck library")
-                    leadingText: "◇"
-                    onClicked: root.appWindow.pushScreen("screens/DeckLibrary.qml")
+                    spacing: Theme.size(8)
+                    AppButton {
+                        objectName: "mainMenuDeckLibraryButton"
+                        Layout.fillWidth: true
+                        text: qsTr("Deck library")
+                        leadingText: "◇"
+                        onClicked: root.appWindow.pushScreen("screens/DeckLibrary.qml")
+                    }
+                    AppButton {
+                        objectName: "mainMenuForgeReplaysButton"
+                        Layout.fillWidth: true
+                        text: qsTr("Forge replays")
+                        onClicked: root.appWindow.pushScreen("screens/ForgeReplayLibrary.qml")
+                    }
                 }
 
                 AppButton {
+                    objectName: "mainMenuAnnouncementsButton"
+                    Layout.fillWidth: true
+                    variant: publicContent.unreadCount > 0 ? "highlight" : "ghost"
+                    compact: true
+                    text: publicContent.unreadCount > 0
+                          ? qsTr("Announcements · %1 unread").arg(publicContent.unreadCount)
+                          : qsTr("Announcements")
+                    leadingText: publicContent.unreadCount > 0 ? "●" : "◇"
+                    onClicked: root.appWindow.pushScreen("screens/Announcements.qml")
+                }
+
+                Text {
+                    objectName: "mainMenuUnreadAnnouncement"
+                    textFormat: Text.PlainText
+                    Layout.fillWidth: true
+                    visible: publicContent.unreadCount > 0
+                    text: publicContent.latestUnreadTitle
+                    color: Theme.primary
+                    font.pixelSize: Theme.fontSize(12)
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                }
+
+                AppButton {
+                    objectName: "mainMenuSponsorsButton"
                     Layout.fillWidth: true
                     variant: "ghost"
                     compact: true
@@ -511,9 +524,26 @@ Page {
 
     SponsorAnnouncementPopup {
         id: sponsorAnnouncement
-        preferencesModel: preferences
         onViewSponsorsRequested: root.appWindow.pushScreen(
                                      "screens/Sponsors.qml")
+    }
+
+    function considerStartupNotices() {
+        if (root.suppressStartupNotices || !publicContent.startupReady)
+            return
+        if (root.StackView.status === StackView.Inactive
+                || root.StackView.status === StackView.Deactivating || ws.inRoom) {
+            publicContent.deferSponsorAnnouncement()
+            return
+        }
+        if (!cardArtRepairNotice.opened)
+            sponsorAnnouncement.openIfNeeded()
+        cardArtRepairNoticeTimer.restart()
+    }
+
+    Connections {
+        target: publicContent
+        function onStartupReadyChanged() { root.considerStartupNotices() }
     }
 
     CardArtRepairNoticePopup {
@@ -528,7 +558,9 @@ Page {
         id: cardArtRepairNoticeTimer
         interval: 200
         onTriggered: {
-            if (!root.suppressStartupNotices && !sponsorAnnouncement.opened)
+            if (!root.suppressStartupNotices && publicContent.startupReady
+                    && !sponsorAnnouncement.opened && !ws.inRoom
+                    && root.StackView.status !== StackView.Inactive)
                 cardArtRepairNotice.openIfNeeded()
         }
     }

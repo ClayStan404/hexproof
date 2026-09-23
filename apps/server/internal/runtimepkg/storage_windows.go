@@ -10,6 +10,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func isDiskSpaceError(err error) bool {
+	return errors.Is(err, windows.ERROR_DISK_FULL) || errors.Is(err, windows.ERROR_HANDLE_DISK_FULL)
+}
+
 func tryLockFile(file *os.File, exclusive bool) (bool, error) {
 	flags := uint32(windows.LOCKFILE_FAIL_IMMEDIATELY)
 	if exclusive {

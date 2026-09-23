@@ -109,7 +109,7 @@ func (h *Handler) listRooms(sess *Session) []protocol.RoomListEntry {
 		rooms = append(rooms, protocol.RoomListEntry{
 			RoomID: event.ID, RoomKind: "cube", Name: event.Name, Format: format,
 			DeckFormat: protocol.DeckFormatCube, MatchMode: event.MatchMode,
-			CardLoadMode: protocol.CardLoadBackground, RulesMode: protocol.RulesModeManual,
+			CardLoadMode: protocol.CardLoadBackground, RulesMode: event.RulesMode,
 			MaxSeats: event.MaxPlayers, PlayerCount: len(event.Participants),
 			Phase: phase, PlayerJoinable: joinable, AllowSpectators: true,
 			SpectatorCount: spectators, SpectatorJoinable: spectators < protocol.MaxSpectators,

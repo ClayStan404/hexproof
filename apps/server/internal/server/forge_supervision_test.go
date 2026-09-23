@@ -437,6 +437,10 @@ func TestForgeSupervisionHelper(t *testing.T) {
 				continue
 			}
 		case "startGame":
+			if raw, err := os.ReadFile(filepath.Join(dir, "deck-failure.json")); err == nil {
+				_ = encoder.Encode(map[string]any{"ok": false, "error": "private exception card deck token=secret", "startFailure": json.RawMessage(raw)})
+				continue
+			}
 			if _, err := os.Stat(filepath.Join(dir, "fail-game")); err == nil {
 				_ = encoder.Encode(map[string]any{"ok": false, "error": "private next-game deck failure"})
 				continue

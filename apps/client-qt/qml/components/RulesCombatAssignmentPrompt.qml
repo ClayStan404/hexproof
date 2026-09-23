@@ -16,15 +16,19 @@ Item {
     required property int promptId
     required property string assignmentKind
     property var selectionState: null
+    property bool boardSelection: false
+    property bool showDetails: false
     property var assignments: selectionState ? selectionState.assignments : ({})
+    readonly property var chosenSource: boardSelection && selectionState ? selectionState.chosenSource : null
     readonly property int assignedCount: Object.keys(assignments).length
     readonly property bool validSelection: sourceModel
                                                    && sourceModel.validAssignments(assignments)
+    readonly property bool canSubmit: validSelection && (!boardSelection || !chosenSource)
 
     readonly property bool narrowLayout: width < Theme.size(490)
 
-    implicitHeight: narrowLayout
-                    ? Theme.size(162) + selectionControls.implicitHeight
+    implicitHeight: !combatList.visible ? selectionControls.implicitHeight
+                    : narrowLayout || boardSelection ? Theme.size(162) + selectionControls.implicitHeight
                     : Math.max(Theme.size(150), selectionControls.implicitHeight)
 
     function resetAssignments() {
@@ -101,7 +105,7 @@ Item {
     }
 
     function submitAssignments() {
-        if (!validSelection)
+        if (!canSubmit || (selectionState && !selectionState.canAct))
             return
         const result = []
         for (const sourceId of Object.keys(assignments)) {
@@ -111,23 +115,24 @@ Item {
         wsModel.respondRulesPromptWithAssignments(promptId, result)
     }
 
-    onPromptIdChanged: resetAssignments()
+    onPromptIdChanged: { resetAssignments(); showDetails = false }
 
     GridLayout {
         anchors.fill: parent
-        columns: root.narrowLayout ? 1 : 2
+        columns: root.narrowLayout || root.boardSelection ? 1 : 2
         columnSpacing: Theme.size(12)
         rowSpacing: Theme.size(12)
 
         RulesHorizontalListView {
             id: combatList
             objectName: "rulesCombatCandidates-" + root.assignmentKind
+            visible: !root.boardSelection || root.showDetails
 
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.size(150)
             Layout.fillHeight: true
             spacing: Theme.size(8)
-            model: root.sourceModel
+            model: !root.boardSelection || root.showDetails ? root.sourceModel : null
 
             delegate: Rectangle {
                 id: combatTile
@@ -354,9 +359,64 @@ Item {
         ColumnLayout {
             id: selectionControls
 
-            Layout.fillWidth: root.narrowLayout
-            Layout.preferredWidth: root.narrowLayout ? -1 : Theme.size(184)
+            Layout.fillWidth: root.narrowLayout || root.boardSelection
+            Layout.preferredWidth: root.narrowLayout || root.boardSelection ? -1 : Theme.size(184)
             spacing: Theme.size(8)
+
+            Text {
+                objectName: "rulesCombatInstruction-" + root.assignmentKind
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                visible: root.boardSelection
+                text: root.chosenSource
+                      ? root.assignmentKind === "attackers"
+                        ? qsTr("%1: choose a highlighted player or permanent to attack.").arg(root.chosenSource.label)
+                        : qsTr("%1: choose a highlighted creature to block.").arg(root.chosenSource.label)
+                      : root.assignmentKind === "attackers"
+                        ? qsTr("Select a creature, then the player or permanent to attack.")
+                        : qsTr("Select a blocking creature, then the attacking creature.")
+                color: root.chosenSource ? Theme.accent : Theme.textSecondary
+                font.pixelSize: Theme.fontSize(11)
+                wrapMode: Text.Wrap
+            }
+
+            Flow {
+                Layout.fillWidth: true
+                visible: root.boardSelection
+                spacing: Theme.size(6)
+
+                AppButton {
+                    objectName: "rulesCombatCancelSelection-" + root.assignmentKind
+                    visible: !!root.chosenSource
+                    compact: true
+                    text: qsTr("Cancel selection")
+                    onClicked: root.selectionState.cancelSelection()
+                }
+                AppButton {
+                    objectName: "rulesCombatRemoveAssignment-" + root.assignmentKind
+                    visible: !!root.chosenSource && root.selectedTargets(root.chosenSource.responseId).length > 0
+                    compact: true
+                    text: root.assignmentKind === "attackers" ? qsTr("Do not attack") : qsTr("Do not block")
+                    onClicked: root.selectionState.clearSelectedAssignment()
+                }
+                AppButton {
+                    objectName: "rulesCombatClear-" + root.assignmentKind
+                    visible: !root.chosenSource
+                    enabled: root.assignedCount > 0
+                    compact: true
+                    text: qsTr("Clear assignments")
+                    onClicked: root.resetAssignments()
+                }
+                AppButton {
+                    objectName: "rulesCombatDetails-" + root.assignmentKind
+                    compact: true
+                    text: root.showDetails ? qsTr("Hide assignments") : qsTr("Assignment list")
+                    onClicked: {
+                        root.selectionState.cancelSelection()
+                        root.showDetails = !root.showDetails
+                    }
+                }
+            }
 
             Text {
                 textFormat: Text.PlainText
@@ -376,8 +436,9 @@ Item {
                 variant: "primary"
                 text: root.assignmentKind === "attackers"
                       ? qsTr("Declare attackers") : qsTr("Declare blockers")
-                enabled: root.validSelection
-                disabledReason: qsTr("Resolve invalid combat assignments")
+                enabled: root.canSubmit
+                disabledReason: root.chosenSource ? qsTr("Choose a target or cancel the selection")
+                                                 : qsTr("Resolve invalid combat assignments")
                 onClicked: root.submitAssignments()
             }
         }

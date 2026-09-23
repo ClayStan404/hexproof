@@ -6,12 +6,18 @@ package tournament
 import (
 	"math"
 	"sort"
+
+	"hexproof/server/internal/protocol"
 )
 
 type playerPair [2]*Participant
 
 func (t *Tournament) pairPlayers(players []*Participant, roundNumber int) []playerPair {
 	if roundNumber == 1 {
+		if t.Limited != nil && (t.EventType == protocol.LimitedEventSetDraft ||
+			t.EventType == protocol.LimitedEventCubeDraft) {
+			return t.draftOpeningPairs(players)
+		}
 		pairs := make([]playerPair, 0, len(players)/2)
 		for index := 0; index < len(players); index += 2 {
 			pairs = append(pairs, playerPair{players[index], players[index+1]})
@@ -22,6 +28,24 @@ func (t *Tournament) pairPlayers(players []*Participant, roundNumber int) []play
 		return t.minimumCostPairs(players)
 	}
 	return t.greedyPairs(players)
+}
+
+// Draft seats have already been randomized at event start. Prefer the opposite
+// original seat in an even pod, then the greatest circular distance when a bye
+// or withdrawal leaves no exact opposite. Sealed and constructed remain random.
+func (t *Tournament) draftOpeningPairs(players []*Participant) []playerPair {
+	seatCount := len(t.Limited.Players)
+	return minimumCostPairing(players, func(left, right *Participant) int {
+		distance := abs(left.InitialOrder - right.InitialOrder)
+		distance = min(distance, seatCount-distance)
+		cost := seatCount - distance
+		if seatCount%2 == 0 && distance == seatCount/2 {
+			// Preserve every available opposite pair before optimizing the
+			// remaining distances. Draft pods contain at most eight players.
+			cost -= seatCount * seatCount
+		}
+		return cost
+	})
 }
 
 func (t *Tournament) matchPointsByParticipant() map[string]int {
@@ -103,7 +127,10 @@ func (t *Tournament) pairingCosts(players []*Participant) func(*Participant, *Pa
 }
 
 func (t *Tournament) minimumCostPairs(players []*Participant) []playerPair {
-	costFor := t.pairingCosts(players)
+	return minimumCostPairing(players, t.pairingCosts(players))
+}
+
+func minimumCostPairing(players []*Participant, costFor func(*Participant, *Participant) int) []playerPair {
 	type solution struct {
 		cost   int
 		second int

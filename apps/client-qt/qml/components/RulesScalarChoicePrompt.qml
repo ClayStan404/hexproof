@@ -20,14 +20,15 @@ Item {
     required property int maximumTotal
     property var selectedIds: []
     property int selectedTotal: 0
-    readonly property bool directChoice: minimumTotal === 1 && maximumTotal === 1
+    readonly property bool directChoice: minimumTotal >= 0 && minimumTotal <= 1 && maximumTotal === 1
+    readonly property bool optionalSingleChoice: directChoice && minimumTotal === 0
     readonly property bool validSelection: selectedTotal >= minimumTotal
                                                    && selectedTotal <= maximumTotal
 
     readonly property bool narrowLayout: width < Theme.size(490)
 
     property real candidateHeight: Theme.size(38)
-    implicitHeight: candidateHeight + (directChoice ? 0 : Theme.size(46))
+    implicitHeight: candidateHeight + (directChoice && !optionalSingleChoice ? 0 : Theme.size(46))
 
     // ListView estimates variable row heights during layout. Measure after that
     // pass so a prompt switch cannot feed the estimate into its parent layout.
@@ -162,9 +163,8 @@ Item {
                           ? qsTr("%1 · weight %2")
                             .arg(root.choiceLabel(choiceRow.label)).arg(choiceRow.weight)
                           : root.choiceLabel(choiceRow.label)
-                    enabled: root.directChoice
-                             || root.selectedTotal + choiceRow.weight <= root.maximumTotal
-                             || choiceRow.count > 0
+                    enabled: root.directChoice ? choiceRow.weight === 1
+                             : root.selectedTotal + choiceRow.weight <= root.maximumTotal || choiceRow.count > 0
                     objectName: "rulesScalarChoice-" + choiceRow.responseId
                     contentItem: Text {
                         id: choiceText
@@ -182,6 +182,7 @@ Item {
                 }
 
                 RowLayout {
+                    objectName: "rulesScalarQuantity-" + choiceRow.responseId
                     visible: !root.directChoice && (choiceRow.count > 0 || choiceRow.canRepeat)
                     spacing: Theme.size(5)
                     AppButton {
@@ -220,10 +221,11 @@ Item {
 
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.size(38)
-            visible: !root.directChoice
+            visible: !root.directChoice || root.optionalSingleChoice
             spacing: Theme.size(8)
 
             Text {
+                visible: !root.directChoice
                 Layout.fillWidth: root.narrowLayout
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
@@ -237,12 +239,23 @@ Item {
 
             AppButton {
                 objectName: "rulesConfirmChoices"
+                visible: !root.directChoice
                 compact: true
                 variant: "primary"
                 text: qsTr("Confirm choices")
                 enabled: root.validSelection
                 disabledReason: qsTr("Choose a valid total")
                 onClicked: root.submit()
+            }
+
+            AppButton {
+                objectName: "rulesSkipChoice"
+                visible: root.optionalSingleChoice
+                compact: true
+                variant: "secondary"
+                text: root.promptKind === "chooseFromSelection" && root.promptTitle === "Choose an ability"
+                      ? qsTr("Cancel") : qsTr("Choose none")
+                onClicked: root.wsModel.respondRulesPromptWithChoices(root.promptId, [])
             }
         }
     }

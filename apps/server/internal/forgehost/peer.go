@@ -177,7 +177,15 @@ func (r *Runtime) AdoptPeer(commit PeerCommit) error {
 }
 
 // HashPublication also works when a position is not replay-migratable.
-func HashPublication(p *Publication) [32]byte { raw, _ := json.Marshal(p); return sha256.Sum256(raw) }
+func HashPublication(p *Publication) [32]byte {
+	if p == nil {
+		return sha256.Sum256([]byte("null"))
+	}
+	position := *p
+	position.Replay = nil
+	raw, _ := json.Marshal(&position)
+	return sha256.Sum256(raw)
+}
 func (r *Runtime) PublicationHash() [32]byte {
 	r.mu.Lock()
 	defer r.mu.Unlock()

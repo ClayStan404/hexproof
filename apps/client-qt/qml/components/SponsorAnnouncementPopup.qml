@@ -7,10 +7,10 @@ import QtQuick.Layouts
 
 Popup {
     id: root
+    objectName: "sponsorAnnouncementPopup"
 
-    property var preferencesModel: preferences
-    property string applicationVersion: Qt.application.version
-    readonly property string announcementId: "sponsors:" + applicationVersion
+    property var contentModel: publicContent
+    property var displayedSponsorIds: []
     property bool acknowledged: false
     signal viewSponsorsRequested()
 
@@ -75,6 +75,7 @@ Popup {
 
             SponsorList {
                 id: sponsorList
+                newSponsorIds: root.displayedSponsorIds
                 // Keep names, tier counts and links clear of the scrollbar.
                 width: Math.max(0, sponsorScroller.width - Theme.size(14))
                 compact: true
@@ -110,18 +111,16 @@ Popup {
     }
 
     function openIfNeeded() {
-        if (root.preferencesModel
-                && !root.preferencesModel.sponsorAnnouncementSeen(
-                    root.announcementId)) {
+        const ids = root.contentModel.takeSponsorAnnouncement()
+        if (ids.length > 0) {
+            root.displayedSponsorIds = ids
             root.open()
         }
     }
 
     function acknowledge() {
-        if (root.acknowledged || !root.preferencesModel)
+        if (root.acknowledged || !root.contentModel)
             return
-        root.preferencesModel.acknowledgeSponsorAnnouncement(
-            root.announcementId)
-        root.acknowledged = true
+        root.acknowledged = root.contentModel.acknowledgeSponsors(root.displayedSponsorIds)
     }
 }

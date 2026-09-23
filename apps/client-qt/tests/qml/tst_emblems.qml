@@ -34,7 +34,7 @@ TestCase {
         property var prioritized: []
         property bool artAvailable: true
         property var metadata: ({})
-        function searchTokens(query, kind) { lastSearch = {query,kind} }
+        function searchTokens(query, kind, setCodes) { lastSearch = {query,kind,setCodes} }
         function tokenImageSource() { return artAvailable ? testCase.testImage : "" }
         function tokenDisplayName(name) { return language === "zh" ? "多明纳里亚英雄泰菲力徽记" : name }
         function tokenDetails(name) {
@@ -97,6 +97,8 @@ TestCase {
                             zh:{displayName:"多明纳里亚英雄泰菲力徽记", typeLine:"徽记～泰菲力",
                                 oracleText:"每当你抓一张牌时，放逐目标由对手操控的永久物。"}}
         picker.preferredTokens = []
+        picker.environmentSetCodes = []
+        picker.environmentOnly = false
         picker.existingTokensDisabled = false
         picker.allowEmblemRecipient = false
         picker.kindFilter = "all"
@@ -107,6 +109,19 @@ TestCase {
         controller.canAct = true
         controller.battlefieldSeats = [{seat: 0, displayName: "Alice", emblems: [emblem]},
                                       {seat: 1, displayName: "Bob", emblems: [Object.assign({},emblem,{id:"emblem-b"})]}]
+    }
+
+    function test_limitedEnvironmentDefaultsToItsTokenSetAndCanBroaden() {
+        picker.environmentSetCodes = ["NEO"]
+        picker.open()
+        tryCompare(picker, "opened", true)
+        verify(picker.environmentOnly)
+        compare(picker.displayedTokens.length, 1)
+        compare(picker.displayedTokens[0].name, "Goblin")
+        compare(catalog.lastSearch.setCodes[0], "NEO")
+        picker.environmentOnly = false
+        tryCompare(picker.displayedTokens, "length", 2)
+        tryVerify(() => catalog.lastSearch.setCodes.length === 0)
     }
 
     function cleanup() {

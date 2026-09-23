@@ -123,6 +123,26 @@ QVariantList GameTableModel::seats() const
     return m_seats;
 }
 
+QVariantList GameTableModel::publicReviewCards() const
+{
+    QVariantList cards;
+    for (const QVariant &value : m_seats) {
+        const int seat = value.toMap().value(u"seat"_s, -1).toInt();
+        for (const QString &zone : {u"battlefield"_s, u"graveyard"_s, u"exile"_s, u"command"_s}) {
+            for (const QVariant &entry : m_cardsByZone.value(zoneStorageKey(seat, zone))) {
+                QVariantMap card = entry.toMap();
+                if (card.value(u"faceDown"_s).toBool() ||
+                    card.value(u"name"_s).toString().isEmpty())
+                    continue;
+                card.insert(u"seat"_s, seat);
+                card.insert(u"zone"_s, zone);
+                cards.append(card);
+            }
+        }
+    }
+    return cards;
+}
+
 QVariantList GameTableModel::stackCards() const
 {
     return m_stackCards;
@@ -332,13 +352,6 @@ void GameTableModel::replaceSnapshot(const QVariantMap &snapshot, bool hasSnapsh
     m_rowForSeat.clear();
     for (int row = 0; row < m_seats.size(); ++row)
         m_rowForSeat.insert(m_seats.at(row).toMap().value(u"seat"_s, -1).toInt(), row);
-    // Zone contents and the card indexes are refreshed before any seat-row
-    // signal below, so a delegate reacting to dataChanged or to a child zone
-    // model always reads current cards. The child ZoneCardModel instances are
-    // separate models, so their granular signals are valid inside this type's
-    // own reset bracket; do not reorder these three steps independently.
-    applyZoneUpdates(zoneUpdates);
-
     if (attachmentsValueChanged) {
         m_attachments = nextAttachments;
         rebuildAttachmentIndex();
@@ -355,6 +368,11 @@ void GameTableModel::replaceSnapshot(const QVariantMap &snapshot, bool hasSnapsh
         m_commanders = nextCommanders;
     if (commanderDamageValueChanged)
         m_commanderDamage = nextCommanderDamage;
+
+    // Publish snapshot lookups before child models reconcile. Their granular
+    // signals can synchronously read card, seat, attachment and arrow data.
+    // Each child remains a separate model with its own valid Qt notifications.
+    applyZoneUpdates(zoneUpdates);
 
     if (seatStructureChanged) {
         endResetModel();
@@ -495,11 +513,16 @@ void GameTableModel::applyZoneUpdates(const QVector<ZoneUpdate> &updates)
             m_cardsByZone.remove(storageKey);
         else
             m_cardsByZone.insert(storageKey, update.cards);
-        if (update.model)
-            update.model->replaceCards(update.cards);
         indexCards(update.cards, update.zone, update.seat);
     }
     ++m_cardIndexRevision;
+
+    // Stage every changed zone before notifying observers of any one zone:
+    // a card may have moved into a zone reconciled later in this loop.
+    for (const ZoneUpdate &update : updates) {
+        if (update.model)
+            update.model->replaceCards(update.cards);
+    }
 }
 
 void GameTableModel::indexCards(const QVariantList &cards, const QString &zone, int seat)

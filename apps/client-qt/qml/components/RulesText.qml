@@ -26,6 +26,10 @@ QtObject {
             if (label === "Draw") return qsTr("Draw first")
         }
         if (kind !== "chooseBoolean") return label
+        if (/^Assign (.+) combat damage now\?$/.test(title)) {
+            if (label === "Assign now") return qsTr("Assign this creature first")
+            if (label === "Assign later") return qsTr("Assign other creatures first")
+        }
         switch (label) {
         case "OK": return qsTr("OK")
         case "Cancel": return qsTr("Cancel")
@@ -45,8 +49,15 @@ QtObject {
         switch (source) {
         // Exact native-host and adapter headings are listed here so lupdate
         // and the strict translation audit can track every UI string.
+        case "AI deck advisory": return qsTr("AI deck advisory")
+        case "Game notice": return qsTr("Game notice")
+        case "=== Main Deck ===": return qsTr("Main deck")
+        case "=== Sideboard ===": return qsTr("Sideboard")
+        case "You can continue this game. These cards will remain in the deck.":
+            return qsTr("You can continue this game. These cards will remain in the deck.")
         case "Confirm decision": return qsTr("Confirm decision")
         case "Choose an action": return qsTr("Choose an action")
+        case "Choose an ability": return qsTr("Choose an ability")
         case "Opening hand": return qsTr("Opening hand")
         case "Scry": return qsTr("Scry")
         case "Discard to maximum hand size": return qsTr("Discard to maximum hand size")
@@ -97,6 +108,10 @@ QtObject {
             return qsTr("Click on your life total to pay life for phyrexian mana.")
         }
         let match
+        if ((match = source.match(/^Assign (.+) combat damage now\?$/)))
+            return I18n.formatRulesLog(qsTr("Assign %1's combat damage first?"), match.slice(1))
+        if ((match = source.match(/^AI can't play these cards well from (.+)$/)))
+            return I18n.formatRulesLog(qsTr("AI can't play these cards well from %1"), match.slice(1))
         if ((match = source.match(/^Choose X for (.+)$/)))
             return I18n.formatRulesLog(qsTr("Choose X for %1"), match.slice(1))
         if ((match = source.match(/^Mulligans taken: (\d+)$/)))

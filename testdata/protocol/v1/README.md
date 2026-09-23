@@ -2,6 +2,14 @@
 
 Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 
+Model practice adds `room-create-local-model.json`, `room-create-online-model.json`,
+and `room-ai-configure-model.json`. The private host capability is illustrated by
+`room-ai-worker.json`; `room-ai-status.json` and `room-ai-retry.json` carry only
+controlled status/recovery data. `ai-attach.json`, `ai-attached.json`,
+`ai-decision.json`, `ai-answer.json`, `ai-rejected.json`, `ai-failure.json`, and
+`ai-cancel.json` belong exclusively to the independently authorized model-worker
+WebSocket. The decision fixture includes only the model seat's private hand.
+
 ## Wire rules
 
 - Protocol version `v` lives ONLY in the `session.welcome` payload. No other
@@ -14,6 +22,9 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 
 | File | Direction | Purpose |
 |------|-----------|---------|
+| `rules-prompt-cards-selected.json` | server | Previously selected private cards remain marked during incremental native choices; only the next click is submitted |
+| `rules-prompt-cards-disclosure.json` | server | One private card choice includes ineligible disclosed cards with display-only identities; only legal candidates may be submitted |
+| `tournament-create-forge.json` / `tournament-listed-forge.json` / `tournament-snapshot-forge.json` | both | Immutable Forge mode survives event creation, discovery and event projection; omitted mode remains manual |
 | `tournament-chat-*.json` | both | Event-scoped text messages and bounded history; server-authored names and sequences |
 | `forge-peer-*.json` | both | Explicit per-seat direct-transport consent, private binding and bounded signaling; no spectator delivery |
 | `forge-host-request.json` / `forge-host-grant.json` | both | Hosting preparation and a private room capability for a consenting host; never broadcast |
@@ -25,6 +36,9 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `session-resumed.json` | S -> C | Accepted reconnect with role and seat metadata; fresh room/game projections follow |
 | `session-ping.json` / `session-pong.json` | both | Correlated transport heartbeat envelopes |
 | `error.json` / `room-full-error.json` / `wrong-password-error.json` / `tournament-not-ready-error.json` | S -> C | Correlated generic, room-entry, and structured tournament-start errors with echoed `id`; the not-ready error carries a machine-readable `minimumPlayers` detail |
+| `rules-start-failure-*.json` | S -> C | Forge startup reason delivered to every room member, with submitted card identity only for its owner (AI deck: room host); other viewers receive no deck issues, and only the triggering request has a correlated `id` |
+| `room-create-ai.json` / `room-created-ai.json` / `room-snapshot-ai.json` | both | Native AI difficulty and room-owned seat metadata without transport identity or private deck contents |
+| `room-ai-configure.json` / `room-ai-configure-deck.json` | C -> S | Host updates difficulty and optionally submits the private AI deck while waiting |
 | `room-create.json` / `room-created.json` | both | Ordinary room creation request and host acknowledgement |
 | `room-join-player.json` / `room-join-spectator.json` / `room-joined.json` | both | Player/spectator entry requests and correlated membership acknowledgement |
 | `room-leave.json` / `room-left.json` | both | Explicit leave request and correlated acknowledgement |
@@ -56,14 +70,17 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-snapshot-owner.json` | S -> C | Owner sees their seven private hand identities and only opponent counts |
 | `game-snapshot-opponent.json` | S -> C | Opponent gets their own hand while Alice's hand identities remain absent |
 | `rules-snapshot-owner.json` | S -> C | Normalized Forge projection with seat-mapped players and viewer-authorized card identities |
+| `rules-snapshot-turn-control.json` | S -> C | Controlled opponent, permitted hand and library top, and independent permanent entry/sickness flags |
+| `rules-snapshot-card-annotations.json` | S -> C | Independent named-card choices, linked exile, a class level, and a command-zone dungeon room |
 | `rules-snapshot-stack-targets.json` | S -> C | Top-first stack with exact spell, player, duplicate-name card and anonymous permanent target relationships |
-| `rules-prompt.json` / `rules-prompt-auto-pass.json` / `rules-prompt-board-targets.json` / `rules-prompt-reveal.json` / `rules-prompt-scry.json` / `rules-prompt-damage-order.json` / `rules-prompt-damage-assignment.json` / `rules-prompt-replacement.json` / `rules-respond.json` / `rules-respond-scry.json` / `rules-respond-damage-order.json` / `rules-respond-damage-assignment.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choices, including private card disclosure, scry ordering, combat-damage assignment, and read-only replacement-effect context, stable response ids, and identity-free acknowledgements |
+| `rules-prompt.json` / `rules-prompt-auto-pass.json` / `rules-prompt-board-targets.json` / `rules-prompt-reveal.json` / `rules-prompt-acknowledge.json` / `rules-prompt-scry.json` / `rules-prompt-damage-order.json` / `rules-prompt-damage-assignment.json` / `rules-prompt-replacement.json` / `rules-respond.json` / `rules-respond-scry.json` / `rules-respond-damage-order.json` / `rules-respond-damage-assignment.json` / `rules-responded.json` | both | Deciding-player-only normalized Forge choices, including private card disclosure, single-action game notices and AI deck advisories, scry ordering, combat-damage assignment, and read-only replacement-effect context, stable response ids, and identity-free acknowledgements |
 | `rules-prompt-damage-unordered.json` / `rules-prompt-damage-dividefreely.json` | server | Native damage constraints permit blocker splits or the explicit divide-freely exception; defender lethal requirements remain mode-specific |
 | `rules-prompt-multiple-blocks.json` / `rules-respond-multiple-blocks.json` | both | Native per-blocker capacities and distinct source-target pairs allow one blocker to block multiple attackers without exposing engine response ids |
 | `rules-prompt-attack-defenders.json` | S -> C | Opaque attack destinations join visible planeswalkers and authenticated player seats for direct table selection |
 | `rules-prompt-card-name.json` / `rules-respond-card-name.json` | both | Free-text public card naming, validated by Forge against the effect's complete legal candidate set without deriving candidates from private zones |
 | `game-draw.json` / `game-drawn.json` | both | Bounded multi-card draw request and identity-free acknowledgement |
 | `game-return-to-room.json` / `game-returned-to-room.json` | both | End completed-match review and restore the room waiting flow |
+| `game-set-library-top-revealed.json` / `game-library-top-revealed-set.json` | both | Toggle continuous public visibility of only the current top card |
 | `game-shuffle-library.json` / `game-library-shuffled.json` | both | Shuffle the acting player's hidden library with an identity-free acknowledgement |
 | `game-mulligan.json` / `game-mulliganed.json` | both | Manual mulligan request and resulting public hand-size/count acknowledgement |
 | `game-discard-hand.json` / `game-hand-discarded.json` | both | Server-random single-card or atomic whole-hand discard with an identity-free acknowledgement |
@@ -83,9 +100,10 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-dump-zone.json` / `game-zone-dumped.json` | both | Private own-library top-prefix request and requester-only identity response |
 | `game-dump-zone-opponent.json` / `game-zone-dump-pending.json` / `game-zone-dump-requested.json` / `game-respond-zone-dump.json` / `game-zone-dump-responded.json` / `game-zone-dumped-opponent.json` | both | Consent-gated opponent-library request, target response, and requester-only approved dump |
 | `game-search-library.json` / `game-library-searched.json` | both | Atomic multi-card library search with ordered/random movement and reveal-aware public logging |
+| `game-search-library-top-card.json` | C→S | Move the inspected current top card with a private top-view log instead of a library-search log |
 | `game-search-library-opponent.json` / `game-library-searched-opponent.json` | both | Approved remote-library search into either the requester or source player's destination zone |
 | `game-reorder-library.json` / `game-library-reordered.json` | both | Count-only acknowledgement for returning the exact viewed top prefix in a custom order |
-| `game-resolve-library-view*.json` / `game-library-view-resolved.json` | both | Atomic top-X resolution using either the compatible selected/remainder form or one destination assignment per viewed card |
+| `game-resolve-library-view*.json` / `game-library-view-resolved.json` | both | Atomic top-X resolution using either the compatible selected/remainder form or one destination assignment per viewed card, with optional per-card name disclosure |
 | `game-snapshot-shared.json` | S -> C | Stack and revealed cards are public with an authoritative owner seat |
 | `game-set-phase.json` / `game-phase-set.json` | both | Active player changes the shared 11-step phase marker |
 | `game-next-turn.json` / `game-turn-advanced.json` | both | Active player advances the turn and resets the marker to Untap |
@@ -117,10 +135,12 @@ Shared JSON fixtures for the `hexproof.v1` wire protocol (client + server).
 | `game-set-commander-damage.json` / `game-commander-damage-set.json` | both | Public physical-commander damage update with optional atomic life change |
 | `game-snapshot-edh.json` | S -> C | Four public EDH seats, command zone, tax, elimination, and token state |
 | `sideboard-move.json` / `sideboard-moved.json` | both | Move one registered printing between pending BO3 mainboard and sideboard |
+| `sideboard-clear-mainboard.json` | client | Atomically clear a Limited pending mainboard while preserving physical pool copies |
 | `sideboard-set-commander.json` / `sideboard-commander-set.json` | both | Change the next-game Duel Commander designation without changing the registered deck partition |
+| `sideboard-choose-starting-player.json` / `sideboard-starting-player-chosen.json` | both | Previous loser chooses Play or Draw before the next manual game |
 | `sideboard-ready.json` / `sideboard-ready-changed.json` | both | Lock or unlock one player's pending sideboard partition |
 | `sideboard-completed.json` / `sideboard-completed-timeout.json` | S -> C | All-ready and deadline-timeout transitions to the next game |
-| `game-snapshot-sideboard-owner.json` | S -> C | Owner-only pending deck partition plus public readiness/counts |
+| `game-snapshot-sideboard-owner.json` / `game-snapshot-sideboard-limited-owner.json` | S -> C | Owner-only pending deck partition plus public readiness/counts |
 | `game-snapshot-sideboard-spectator.json` | S -> C | Public readiness/counts with all pending card identities redacted |
 | `game-set-arrow.json` | C -> S | Set the acting seat's single public battlefield arrow |
 | `game-arrow-set.json` | S -> C | Correlated arrow update acknowledgement |
@@ -174,3 +194,8 @@ and attachments are public coordination state.
 `game-move-cards-endurance.json`, `game-move-cards-exile-random-top.json`, and
 `game-move-cards-hand-shuffle.json` cover randomized public-zone placement
 and atomic hand recycling without publishing library order.
+
+`forge-replay-grant.json`, `forge-replay-get.json`, and `forge-replay-page.json`
+pin the separate private visual Forge replay channel: recipient capabilities,
+whole-match-gated offset requests, and bounded normalized frame pages. These
+messages do not broaden the public log compatibility API.

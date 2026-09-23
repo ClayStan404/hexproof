@@ -329,7 +329,7 @@ func tournamentSnapshot(event *tournament.Tournament,
 	return protocol.TournamentSnapshot{
 		TournamentID: event.ID, Name: event.Name, Format: event.Format,
 		EventType: event.EventType, Coordinator: event.Coordinator, Stage: event.Stage,
-		MatchMode: event.MatchMode, Status: event.Status,
+		MatchMode: event.MatchMode, RulesMode: event.RulesMode, Status: event.Status,
 		RoundMinutes: event.RoundMinutes, RoundStartedAt: roundStartedAt,
 		MaxPlayers:     event.MaxPlayers,
 		MinimumPlayers: event.MinimumPlayers(),

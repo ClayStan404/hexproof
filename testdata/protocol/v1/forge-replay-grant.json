@@ -1,0 +1,19 @@
+{
+  "type": "replay.forge_grant",
+  "id": "fr1",
+  "payload": {
+    "replayId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "roomName": "Forge replay",
+    "format": "modern",
+    "matchMode": "bo1",
+    "players": [
+      "Alice",
+      "Bob"
+    ],
+    "finished": true,
+    "complete": true,
+    "frameCount": 1,
+    "expiresAt": "2026-10-01T00:00:00Z"
+  }
+}

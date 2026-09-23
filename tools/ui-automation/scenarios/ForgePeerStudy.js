@@ -3,7 +3,9 @@
 .pragma library
 
 function tick(d, ws, probe) {
-    if (!d.peerAudit || d.peerDone || d.spectator || !d.session.active || !d.table || !d.table.presentation) return false
+    if (!d.peerAudit || d.peerDone || d.spectator) return false
+    if (ws.peerTransportState === "connecting") d.peerConnectingObserved = true
+    if (!d.session.active || !d.table || !d.table.presentation) return false
     let shared = probe.readShared("forge-peer-study") || {}
     if (!shared.started && d.seat === 1 && d.session.turn >= 2 && d.session.promptPending
         && d.session.promptKind === "chooseAction" && !ws.rulesResponsePending) {
@@ -14,8 +16,13 @@ function tick(d, ws, probe) {
     d.progress = Date.now()
     if (d.peerStep === 0) {
         if (ws.rulesResponsePending) return true
-        d.require(!d.table.presentation.modalOpen, "Direct connection must be accessible on the table")
-        if (d.click("forgePeerEnable")) { d.peerStep = 1; d.peerStartedAt = Date.now() }
+        // Default-enabled profiles may already have completed negotiation in the lobby.
+        if (ws.directPeerEnabled) {
+            d.peerStep = 1; d.peerStartedAt = Date.now()
+        } else {
+            if (!d.item("forgePeerEnable")) d.click("forgeGameMenu")
+            else if (d.click("forgePeerEnable")) { d.peerStep = 1; d.peerStartedAt = Date.now() }
+        }
         return true
     }
     if (d.peerStep === 1) {
@@ -24,7 +31,7 @@ function tick(d, ws, probe) {
         d.require(Date.now() - d.peerStartedAt < 25000, "Expected peer state was not reached: " + d.peerExpected + "; actual: " + state)
         if (d.peerExpected === "relay") {
             d.require(state !== "direct", "Blocked candidate fixture unexpectedly connected directly")
-            if (!d.peerConnectingObserved || state !== "relay") return true
+            if (state !== "relay") return true
             d.capture("peer-fallback")
         } else {
             if (state !== "direct") return true

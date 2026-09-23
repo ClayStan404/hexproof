@@ -61,7 +61,8 @@ func normalizeChooseCards(input promptInput) ([]PromptCard, int, int, error) {
 	}
 	result := make([]PromptCard, 0, len(input.Cards))
 	seen := make(map[string]struct{}, len(input.Cards))
-	for _, card := range input.Cards {
+	selectable := 0
+	for index, card := range input.Cards {
 		if strings.TrimSpace(card.ID) == "" || len(card.ID) > maxPromptText {
 			return nil, 0, 0, errors.New("Forge card-selection prompt has an invalid card id")
 		}
@@ -69,7 +70,22 @@ func normalizeChooseCards(input promptInput) ([]PromptCard, int, int, error) {
 			return nil, 0, 0, errors.New("Forge card-selection prompt contains duplicate cards")
 		}
 		seen[card.ID] = struct{}{}
-		result = append(result, promptCardView(card))
+		view := promptCardView(card)
+		if card.ReadOnly {
+			if card.Selected {
+				return nil, 0, 0, errors.New("Forge read-only card cannot be selected")
+			}
+			view.ID = "reveal:" + strconv.Itoa(index)
+		} else {
+			selectable++
+		}
+		result = append(result, view)
+	}
+	if minimum > selectable {
+		return nil, 0, 0, errors.New("Forge card-selection prompt has too few selectable cards")
+	}
+	if maximum > selectable {
+		maximum = selectable
 	}
 	return result, minimum, maximum, nil
 }
@@ -80,6 +96,8 @@ func promptCardView(card promptCard) PromptCard {
 		SetCode:         boundedPromptText(card.Identity.SetCode),
 		CollectorNumber: boundedPromptText(card.Identity.CardNumber),
 		Token:           card.Identity.IsToken,
+		Selected:        card.Selected,
+		ReadOnly:        card.ReadOnly,
 	}
 }
 
@@ -142,7 +160,9 @@ func chooseCardsOutput(raw json.RawMessage, responseID string,
 	}
 	allowed := make(map[string]struct{}, len(cards))
 	for _, card := range cards {
-		allowed[card.ID] = struct{}{}
+		if !card.ReadOnly {
+			allowed[card.ID] = struct{}{}
+		}
 	}
 	selected := make([]string, 0, len(cardIDs))
 	seen := make(map[string]struct{}, len(cardIDs))
@@ -198,6 +218,7 @@ func normalizePromptTargets(input promptInput) ([]PromptTarget, int, int, error)
 		targets = append(targets, PromptTarget{
 			ResponseID: "target:" + strconv.Itoa(index), Kind: candidate.Kind,
 			ID: candidate.ID, Oracle: boundedPromptText(candidate.Oracle),
+			Selected: candidate.Selected,
 		})
 	}
 	return targets, minimum, maximum, nil
@@ -243,7 +264,10 @@ func boardTargetsOutput(raw json.RawMessage, responseID string,
 			return nil, errors.New("target response contains a duplicate")
 		}
 		seen[index] = struct{}{}
-		chosen = append(chosen, input.Candidates[index])
+		candidate := input.Candidates[index]
+		// Native selection is presentation state, never part of a response.
+		candidate.Selected = false
+		chosen = append(chosen, candidate)
 	}
 	return map[string]any{"type": "boardTargets", "chosen": chosen}, nil
 }

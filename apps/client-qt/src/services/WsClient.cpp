@@ -35,12 +35,19 @@ void persistLastDisplayName(const QString &name)
 } // namespace
 
 WsClient::WsClient(QObject *parent)
+    : WsClient(QString{}, parent)
+{
+}
+
+WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
     : QObject(parent)
 {
     m_ws.setMaxAllowedIncomingFrameSize(network_limits::kMaximumIncomingWebSocketBytes);
     m_ws.setMaxAllowedIncomingMessageSize(network_limits::kMaximumIncomingWebSocketBytes);
 
     m_forgeHost = new ForgeHostService(this);
+    m_modelOpponent = modelProfileFile.isEmpty() ? new ModelOpponentService(this)
+                                                 : new ModelOpponentService(modelProfileFile, this);
     m_roomSession = new RoomSessionState(this);
     connect(m_roomSession, &RoomSessionState::roomIdChanged, this, &WsClient::roomIdChanged);
     connect(m_roomSession, &RoomSessionState::hostChanged, this, &WsClient::youAreHostChanged);
@@ -48,6 +55,8 @@ WsClient::WsClient(QObject *parent)
     connect(m_roomSession, &RoomSessionState::selectedDeckNameChanged, this,
             &WsClient::selectedDeckNameChanged);
     connect(m_roomSession, &RoomSessionState::snapshotChanged, this, &WsClient::snapshotChanged);
+    connect(m_modelOpponent, &ModelOpponentService::statusChanged, this,
+            &WsClient::reconcileModelOpponentStatus);
 
     m_gameSession = new GameSessionState(this);
     connect(m_gameSession, &GameSessionState::snapshotChanged, this,
@@ -96,6 +105,22 @@ WsClient::WsClient(QObject *parent)
         settings.remove(u"network/customServerUrl"_s);
     }
     m_protocolSession = new ProtocolSession(this);
+    m_replays = new ForgeReplayService(this);
+    connect(m_replays, &ForgeReplayService::requestPage, this,
+            [this](const QString &server, const QJsonObject &payload) {
+                if (!connected() || server != m_serverUrl) {
+                    m_replays->fail(tr("Connect to the original server to download this replay."));
+                    return;
+                }
+                if (send(kTypeForgeReplayGet, payload).isEmpty())
+                    m_replays->fail(tr("Could not request the replay."));
+            });
+    connect(
+        m_protocolSession, &ProtocolSession::commandFailed, m_replays,
+        [this](const QString &, const QString &type, const QVariantMap &, const QString &error) {
+            if (type == kTypeForgeReplayGet)
+                m_replays->fail(error);
+        });
     initializePeerTransport();
     connect(m_protocolSession, &ProtocolSession::commandQueued, this, &WsClient::commandQueued);
     connect(m_protocolSession, &ProtocolSession::commandSucceeded, this,
@@ -139,8 +164,9 @@ WsClient::WsClient(QObject *parent)
     connect(m_messageParser, &WsMessageParser::transportFinished, this, &WsClient::onDisconnected);
     m_parserThread.start();
 
-    connect(&m_ws, &QWebSocket::connected, this, &WsClient::onConnected);
-    connect(&m_ws, &QWebSocket::textMessageReceived, this, [this](const QString &text) {
+    connect(&m_ws, &HubTransport::transportStateChanged, this, &WsClient::serverTransportChanged);
+    connect(&m_ws, &HubTransport::connected, this, &WsClient::onConnected);
+    connect(&m_ws, &HubTransport::textMessageReceived, this, [this](const QString &text) {
         QMetaObject::invokeMethod(
             m_messageParser,
             [parser = m_messageParser, generation = m_transportGeneration, text]() {
@@ -148,7 +174,7 @@ WsClient::WsClient(QObject *parent)
             },
             Qt::QueuedConnection);
     });
-    connect(&m_ws, &QWebSocket::disconnected, this, [this]() {
+    connect(&m_ws, &HubTransport::disconnected, this, [this]() {
         QMetaObject::invokeMethod(
             m_messageParser,
             [parser = m_messageParser, generation = m_transportGeneration]() {
@@ -156,7 +182,7 @@ WsClient::WsClient(QObject *parent)
             },
             Qt::QueuedConnection);
     });
-    connect(&m_ws, &QWebSocket::errorOccurred, this, [this]() { onErrorOccurred(); });
+    connect(&m_ws, &HubTransport::errorOccurred, this, [this]() { onErrorOccurred(); });
 
     m_helloTimer.setSingleShot(true);
     m_helloTimer.setInterval(10000); // 10s handshake timeout
@@ -237,6 +263,8 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
     clearVersionMismatch();
     m_peerTransportAvailable = false;
     m_playerHostingAvailable = false;
+    m_forgeAIAvailable = false;
+    m_aiModelsAvailable = false;
     setForgeRulesAvailable(false);
     emit capabilitiesChanged();
     const QString nextServerUrl = url.trimmed();
@@ -263,7 +291,8 @@ void WsClient::openTransport()
     // their original order within one transport, including its final message.
     m_ws.abort();
     ++m_transportGeneration;
-    m_helloTimer.start();
+    // Home discovery/ICE can take longer than the application hello handshake.
+    m_helloTimer.start(HubTransport::isHomeUrl(QUrl(m_serverUrl)) ? 45000 : 10000);
     m_ws.open(QUrl(m_serverUrl));
 }
 
@@ -483,7 +512,11 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         m_rulesResponseGameId = m_rulesSession->gameId();
         m_rulesResponsePromptId = m_rulesSession->promptId();
         // Cover the maximum ten-minute host grace and 45-second operation deadline.
-        m_rulesResponseTimer.start(m_roomSession->hostingMode() == u"player"_s ? 660000 : 30000);
+        // Native AI permits a 35-second runtime request before authoritative recovery.
+        const int responseTimeout = m_roomSession->hostingMode() == u"player"_s
+                                        ? 660000
+                                        : (m_roomSession->aiDifficulty().isEmpty() ? 30000 : 45000);
+        m_rulesResponseTimer.start(responseTimeout);
         emit rulesResponsePendingChanged();
     }
     m_protocolSession->markQueued(command);
@@ -498,6 +531,7 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
 
 void WsClient::onConnected()
 {
+    m_helloTimer.start(10000);
     // Send session.hello immediately; state advances to Connected on welcome.
     QJsonObject p;
     p.insert(u"displayName"_s, m_displayName);
@@ -541,6 +575,8 @@ void WsClient::onDisconnected(quint64 transportGeneration)
     m_protocolSession->failAll(u"connection closed before the server replied"_s);
     setState(Disconnected);
     m_playerHostingAvailable = false;
+    m_forgeAIAvailable = false;
+    m_aiModelsAvailable = false;
     setForgeRulesAvailable(false);
     emit capabilitiesChanged();
     if (hadRoom) {
@@ -598,6 +634,22 @@ void WsClient::clearLastError()
         return;
     m_lastError.clear();
     emit lastErrorChanged();
+}
+
+void WsClient::dismissRulesStartFailure()
+{
+    clearRulesStartFailure();
+    if (m_lastError.startsWith(u"rules_unavailable:"_s) ||
+        m_lastError.startsWith(u"server_limit:"_s))
+        clearLastError();
+}
+
+void WsClient::clearRulesStartFailure()
+{
+    if (m_rulesStartFailure.isEmpty())
+        return;
+    m_rulesStartFailure.clear();
+    emit rulesStartFailureChanged();
 }
 
 void WsClient::setVersionMismatch(const QString &requiredVersion)
@@ -662,12 +714,28 @@ void WsClient::reconcileRulesResponse()
     }
 }
 
+void WsClient::reconcileModelOpponentStatus()
+{
+    const QString source = m_roomSession->aiSource();
+    if (m_modelOpponent->status() == u"worker_disconnected"_s && m_roomSession->host() &&
+        !roomId().isEmpty() && (source == kAISourceLocal || source == kAISourceOnline) &&
+        m_modelOpponent->roomId() == roomId() && m_modelOpponent->armedSource() == source) {
+        // A failed initial worker handshake is invisible to the hub. Keep
+        // recovery available even if its earlier waiting status arrives late.
+        m_roomSession->applyAIStatus({{u"roomId"_s, roomId()},
+                                      {u"state"_s, u"paused"_s},
+                                      {u"code"_s, u"worker_disconnected"_s}});
+    }
+}
+
 void WsClient::clearRoomState()
 {
+    clearRulesStartFailure();
     // Pending observers still need the current room role and seat to address
     // optimistic life, counter, and commander-tax entries during rollback.
     m_protocolSession->discardAll();
     m_forgeHost->stop();
+    m_modelOpponent->stop();
     m_peerTransport->stop();
     m_peerConsent = m_peerOtherEnabled = m_peerResumeNeeded = false;
     m_peerRequestId.clear();

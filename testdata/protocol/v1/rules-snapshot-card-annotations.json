@@ -1,0 +1,56 @@
+{
+  "type": "rules.snapshot",
+  "seq": 8,
+  "payload": {
+    "roomId": "ABCDEF", "gameId": "ABCDEF-1", "turn": 3, "step": "main1",
+    "activeSeat": 0, "prioritySeat": 0,
+    "players": [], "stack": [], "gameOver": false,
+    "zones": [
+      {
+        "zone": "battlefield", "ownerSeat": 0, "count": 6,
+        "cards": [
+          {
+            "id": "bodyguard", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+            "identity": {"name": "Dauntless Bodyguard", "setCode": "DOM", "collectorNumber": "14"}, "counters": [],
+            "chosenCardIds": ["bears"]
+          },
+          {
+            "id": "bears", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+            "identity": {"name": "Grizzly Bears", "setCode": "LEA", "collectorNumber": "199"}, "counters": []
+          },
+          {
+            "id": "needle-a", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+            "identity": {"name": "Pithing Needle", "setCode": "SOK", "collectorNumber": "158"}, "counters": [],
+            "annotations": [{"kind": "namedCard", "value": "Lightning Bolt"}]
+          },
+          {
+            "id": "needle-b", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+            "identity": {"name": "Pithing Needle", "setCode": "SOK", "collectorNumber": "158"}, "counters": [],
+            "annotations": [{"kind": "namedCard", "value": "Counterspell"}]
+          },
+          {
+            "id": "labyrinth", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+            "identity": {"name": "Ugin's Labyrinth", "setCode": "MH3", "collectorNumber": "233"}, "counters": [],
+            "exiledCardCount": 1, "exiledCardIds": ["ulamog"]
+          },
+          {
+            "id": "talent", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+            "identity": {"name": "Artist's Talent", "setCode": "BLB", "collectorNumber": "124"}, "counters": [],
+            "annotations": [{"kind": "classLevel", "value": "2"}]
+          }
+        ]
+      },
+      {
+        "zone": "exile", "ownerSeat": 0, "count": 1,
+        "cards": [{"id": "ulamog", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+          "identity": {"name": "Ulamog, the Ceaseless Hunger", "setCode": "BFZ", "collectorNumber": "15"}, "counters": []}]
+      },
+      {
+        "zone": "command", "ownerSeat": 0, "count": 1,
+        "cards": [{"id": "dungeon", "visible": true, "ownerSeat": 0, "controllerSeat": 0,
+          "identity": {"name": "Lost Mine of Phandelver", "setCode": "TAFR", "collectorNumber": "21"}, "counters": [],
+          "annotations": [{"kind": "dungeonRoom", "value": "Cave Entrance"}]}]
+      }
+    ]
+  }
+}

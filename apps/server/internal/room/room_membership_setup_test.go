@@ -762,10 +762,8 @@ func TestEDHThreePlayersCanStartWithFourthSeatOpen(t *testing.T) {
 	if _, err := r.SelectDeck("g1", testDeck(protocol.FormatEDH)); err != nil {
 		t.Fatalf("first guest deck: %v", err)
 	}
-	if _, err := r.SetReady("host-conn", true); err == nil ||
-		err.Error() != protocol.ErrSeatsNotFilled {
-		t.Fatalf("two-player EDH ready error = %v, want %q",
-			err, protocol.ErrSeatsNotFilled)
+	if _, err := r.SetReady("host-conn", true); err != nil {
+		t.Fatalf("two-player EDH ready: %v", err)
 	}
 	if _, err := r.Join("g2", "Guest2", false, ""); err != nil {
 		t.Fatalf("join second guest: %v", err)

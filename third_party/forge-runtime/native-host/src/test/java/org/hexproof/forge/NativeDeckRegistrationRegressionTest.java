@@ -27,8 +27,13 @@ public final class NativeDeckRegistrationRegressionTest {
                 prefs.setPref(FPref.UI_SELECT_FROM_CARD_DISPLAYS, false);
                 return null;
             });
+            rejectUnavailablePrintings(base);
+            promoPrintings(base);
+            treatmentPrintings(base);
             registerAndStart(base);
             commanders(base);
+            limited(base);
+            limitedCompanion(base);
             rejectWrongFaces(base);
         }
         System.out.println("Native deck registration regression passed");
@@ -54,6 +59,93 @@ public final class NativeDeckRegistrationRegressionTest {
         return request;
     }
 
+    private static void promoPrintings(NativeGuiBase base) {
+        JsonObject request = config();
+        JsonObject owner = request.getAsJsonArray("players").get(0).getAsJsonObject();
+        JsonArray cards = new JsonArray();
+        for (String[] printing : new String[][] {
+                {"Marsh Flats", "PMH2", "248s"}, {"Meticulous Archive", "PMKM", "264p"},
+                {"Psychic Frog", "PMH3", "199s"}, {"Hedge Maze", "PMKM", "262s"},
+                {"Superior Spider-Man", "PSPM", "155s"},
+                {"Psychic Frog", "PMH3", "199p"}, {"Psychic Frog", "MH3", "199"},
+                {DISCIPLE, "PMH3", "250s"}}) {
+            JsonObject card = NativeSession.object("name", printing[0]);
+            card.addProperty("setCode", printing[1]);
+            card.addProperty("collectorNumber", printing[2]);
+            cards.add(card);
+        }
+        for (int i = 0; i < cards.size(); i++) owner.getAsJsonArray("deck").set(i, cards.get(i));
+        owner.add("sideboard", cards.deepCopy());
+        try (NativeSession session = new NativeSession(request, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
+            var player = session.game.getRegisteredPlayers().get(0);
+            Deck deck = player.getRegisteredPlayer().getDeck();
+            for (DeckSection section : List.of(DeckSection.Main, DeckSection.Sideboard)) {
+                check(deck.get(section).countAll() == (section == DeckSection.Main ? 60 : cards.size()),
+                        "Promo mapping changed deck counts");
+                check(deck.get(section).toFlatList().stream()
+                        .filter(card -> card.getName().equals("Psychic Frog")).distinct().count() == 3,
+                        "Promo pack, prerelease and regular printings were merged");
+                for (PaperCard paper : deck.get(section).toFlatList()) {
+                    if (paper.getName().equals("Forest")) continue;
+                    var physical = forge.game.card.Card.fromPaperCard(paper, player);
+                    var identity = NativeSnapshot.identity(physical);
+                    check(cards.asList().stream().map(JsonElement::getAsJsonObject).anyMatch(expected ->
+                                    expected.get("name").getAsString().startsWith(identity.get("name").getAsString())
+                                    && expected.get("setCode").equals(identity.get("setCode"))
+                                    && expected.get("collectorNumber").equals(identity.get("cardNumber"))),
+                            "Promo display identity changed: " + identity);
+                }
+            }
+            session.start();
+            check(!session.prompt(0).isEmpty(), "Promo deck did not reach its initial decision");
+            check(!session.snapshot(1).contains("Psychic Frog") && !session.snapshot(-1).contains("Psychic Frog"),
+                    "Private promo identities leaked during startup");
+        }
+    }
+
+    private static void treatmentPrintings(NativeGuiBase base) {
+        JsonObject request = config();
+        JsonObject owner = request.getAsJsonArray("players").get(0).getAsJsonObject();
+        JsonArray cards = new JsonArray();
+        for (String[] printing : new String[][] {
+                {"Ensnaring Bridge", "7ED", "294★"}, {"Ensnaring Bridge", "7ED", "294"},
+                {"Liquimetal Coating", "BRR", "91z"}, {"Liquimetal Coating", "BRR", "91"}}) {
+            JsonObject card = NativeSession.object("name", printing[0]);
+            card.addProperty("setCode", printing[1]);
+            card.addProperty("collectorNumber", printing[2]);
+            cards.add(card);
+        }
+        for (int i = 0; i < cards.size(); i++) owner.getAsJsonArray("deck").set(i, cards.get(i));
+        owner.add("sideboard", cards.deepCopy());
+        try (NativeSession session = new NativeSession(request, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
+            var player = session.game.getRegisteredPlayers().get(0);
+            Deck deck = player.getRegisteredPlayer().getDeck();
+            for (DeckSection section : List.of(DeckSection.Main, DeckSection.Sideboard)) {
+                var registered = deck.get(section).toFlatList();
+                for (JsonElement entry : cards) {
+                    JsonObject expected = entry.getAsJsonObject();
+                    String number = expected.get("collectorNumber").getAsString();
+                    PaperCard paper = registered.stream().filter(card -> card.getName().equals(
+                            expected.get("name").getAsString()) && card.getCollectorNumber().equals(number))
+                            .findFirst().orElseThrow(() -> new AssertionError("Treatment merged or missing: " + expected));
+                    boolean special = number.endsWith("★") || number.endsWith("z");
+                    check(!special || paper.isFoil(), "Foil treatment lost native foil state");
+                    var physical = forge.game.card.Card.fromPaperCard(paper, player);
+                    var identity = NativeSnapshot.identity(physical);
+                    check(expected.get("setCode").equals(identity.get("setCode"))
+                            && expected.get("collectorNumber").equals(identity.get("cardNumber")),
+                            "Special treatment display identity changed: " + identity);
+                }
+            }
+            session.start();
+            check(!session.prompt(0).isEmpty(), "Special-treatment deck did not start");
+            check(!session.snapshot(1).contains("Ensnaring Bridge")
+                    && !session.snapshot(-1).contains("Liquimetal Coating"), "Treatment identities leaked");
+        }
+    }
+
     private static void registerAndStart(NativeGuiBase base) {
         JsonObject request = config();
         JsonObject owner = request.getAsJsonArray("players").get(0).getAsJsonObject();
@@ -69,6 +161,14 @@ public final class NativeDeckRegistrationRegressionTest {
         JsonObject setOnly = turntimber.deepCopy();
         setOnly.remove("collectorNumber");
         cards.add(setOnly);
+        JsonObject forest = NativeSession.object("name", "Forest");
+        forest.addProperty("setCode", "m21");
+        forest.addProperty("collectorNumber", "272");
+        cards.add(forest);
+        JsonObject alias = NativeSession.object("name", "Forest");
+        alias.addProperty("setCode", "te");
+        alias.addProperty("collectorNumber", "347");
+        cards.add(alias);
         for (String name : List.of("Fable of the Mirror-Breaker // Reflection of Kiki-Jiki",
                 "Bonecrusher Giant // Stomp", "Fire // Ice", "Dusk // Dawn", "Forest"))
             cards.add(NativeSession.object("name", name));
@@ -82,6 +182,8 @@ public final class NativeDeckRegistrationRegressionTest {
                 List<PaperCard> registered = deck.get(section).toFlatList();
                 checkPrinting(registered, "Disciple of Freyalise", "MH3", "250");
                 checkPrinting(registered, "Turntimber Symbiosis", "ZNR", "215");
+                checkPrinting(registered, "Forest", "M21", "272");
+                checkPrinting(registered, "Forest", "TMP", "347");
                 for (String name : List.of("Fable of the Mirror-Breaker", "Bonecrusher Giant",
                         "Fire // Ice", "Dusk // Dawn", "Forest"))
                     check(registered.stream().anyMatch(card -> card.getName().equals(name)),
@@ -94,6 +196,58 @@ public final class NativeDeckRegistrationRegressionTest {
             check(!session.snapshot(1).contains("Disciple of Freyalise")
                     && !session.snapshot(-1).contains("Disciple of Freyalise"),
                     "Private deck identity leaked during startup");
+        }
+    }
+
+    private static void limited(NativeGuiBase base) {
+        for (String variant : List.of("Limited", "Sealed", "Draft", "Cube")) {
+            JsonObject request = config();
+            request.addProperty("variant", variant);
+            for (JsonElement element : request.getAsJsonArray("players")) {
+                JsonObject player = element.getAsJsonObject();
+                JsonArray main = new JsonArray();
+                JsonArray side = new JsonArray();
+                for (int i = 0; i < 40; i++) main.add(NativeSession.object("name", "Forest"));
+                for (int i = 0; i < 44; i++) side.add(NativeSession.object("name", "Grizzly Bears"));
+                player.add("deck", main);
+                player.add("sideboard", side);
+            }
+            try (NativeSession session = new NativeSession(request, base)) {
+                base.setTestSession(session);
+                var type = session.game.getMatch().getRules().getGameType();
+                check(type.isCardPoolLimited() && type.getDeckFormat().getMainRange().getMinimum() == 40,
+                        "Limited match inherited Constructed deck rules");
+                session.start();
+                check(!session.prompt(0).isEmpty(), "Limited match did not reach human input");
+                for (var player : session.game.getRegisteredPlayers()) {
+                    check(player.getCardsIn(forge.game.zone.ZoneType.Sideboard).size() == 44,
+                            "Limited sideboard was truncated or lost");
+                    check(player.getCardsIn(forge.game.zone.ZoneType.Library).size()
+                            + player.getCardsIn(forge.game.zone.ZoneType.Hand).size() == 40,
+                            "Limited library and hand no longer conserve the submitted deck");
+                }
+                check(!session.snapshot(1).contains("Grizzly Bears")
+                        && !session.snapshot(-1).contains("Grizzly Bears"),
+                        "Limited sideboard identities leaked before a public game action");
+            }
+        }
+    }
+
+    private static void limitedCompanion(NativeGuiBase base) {
+        for (String variant : List.of("Limited", "Constructed")) {
+            JsonObject request = config();
+            request.addProperty("variant", variant);
+            request.getAsJsonArray("players").get(0).getAsJsonObject().getAsJsonArray("sideboard")
+                    .add(NativeSession.object("name", "Yorion, Sky Nomad"));
+            try (NativeSession session = new NativeSession(request, base)) {
+                base.setTestSession(session);
+                session.start();
+                String initial = session.prompt(0);
+                check(initial.contains("Yorion, Sky Nomad") == variant.equals("Limited"),
+                        "Yorion must require 60 cards in Limited and 80 in Constructed: " + initial);
+                check(!session.snapshot(1).contains("Yorion") && !session.snapshot(-1).contains("Yorion"),
+                        "Unselected companion leaked from the private sideboard");
+            }
         }
     }
 
@@ -132,6 +286,36 @@ public final class NativeDeckRegistrationRegressionTest {
             } catch (IllegalArgumentException expected) {
                 check(expected.getMessage().equals("Requested card printing is unavailable"),
                         "Unexpected rejection or private card name in error");
+            }
+        }
+    }
+
+    private static void rejectUnavailablePrintings(NativeGuiBase base) {
+        for (String section : List.of("deck", "sideboard")) {
+            for (String[] printing : new String[][] {
+                    {"Forest", "M21", "999999"}, {"Forest", "ZZZZ", "272"},
+                    {"Psychic Frog", "PMH3", "999999s"}, {"Forest", "PMH3", "199s"},
+                    {"Psychic Frog", "PMH3", "199x"}, {"Psychic Frog", "PMH3", "199"},
+                    {"Ensnaring Bridge", "7ED", "295★"}, {"Forest", "7ED", "294★"},
+                    {"Ensnaring Bridge", "8ED", "300★"}, {"Ensnaring Bridge", "7ED", "294z"},
+                    {"Liquimetal Coating", "BRR", "92z"}, {"Forest", "BRR", "91z"},
+                    {"Liquimetal Coating", "SOM", "171z"}, {"Liquimetal Coating", "BRR", "91★"},
+                    {TURNTIMBER, "ZNR", "999999"}}) {
+                JsonObject request = config();
+                JsonObject card = NativeSession.object("name", printing[0]);
+                card.addProperty("setCode", printing[1]);
+                card.addProperty("collectorNumber", printing[2]);
+                JsonArray cards = request.getAsJsonArray("players").get(0).getAsJsonObject()
+                        .getAsJsonArray(section);
+                if (cards.isEmpty()) cards.add(card);
+                else cards.set(0, card);
+                try (NativeSession ignored = new NativeSession(request, base)) {
+                    throw new AssertionError("Silently substituted an unavailable " + section
+                            + " printing: " + String.join(" | ", printing));
+                } catch (IllegalArgumentException expected) {
+                    check(expected.getMessage().equals("Requested card printing is unavailable"),
+                            "Unexpected printing rejection or private card name in error");
+                }
             }
         }
     }

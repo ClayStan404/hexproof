@@ -336,6 +336,101 @@ Window {
         QCOMPARE(audit.observe(window).value(QStringLiteral("artifactFailures")).toInt(), 3);
         QVERIFY(QFile::exists(temporary.filePath(QStringLiteral("actions.jsonl"))));
     }
+
+    void sensitiveTextIsExcludedFromEvidence_data()
+    {
+        QTest::addColumn<int>("echoMode");
+        QTest::addColumn<int>("inputHints");
+        QTest::newRow("no-echo") << 1 << 0;
+        QTest::newRow("password") << 2 << 0;
+        QTest::newRow("password-while-editing") << 3 << 0;
+        QTest::newRow("normal-with-sensitive-hint") << 0 << int(Qt::ImhSensitiveData);
+        QTest::newRow("normal-with-hidden-hint") << 0 << int(Qt::ImhHiddenText);
+    }
+
+    void sensitiveTextIsExcludedFromEvidence()
+    {
+        QFETCH(int, echoMode);
+        QFETCH(int, inputHints);
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        qputenv("HEXPROOF_AUDIT_OUTPUT", temporary.path().toUtf8());
+        qputenv("HEXPROOF_AUDIT_WIDTH", "900");
+        qputenv("HEXPROOF_AUDIT_HEIGHT", "620");
+        QFile driver(temporary.filePath(QStringLiteral("driver.qml")));
+        QVERIFY(driver.open(QIODevice::WriteOnly));
+        driver.write("import QtQml\nQtObject {}\n");
+        driver.close();
+        qputenv("HEXPROOF_AUDIT_DRIVER", driver.fileName().toUtf8());
+
+        QQmlApplicationEngine engine;
+        NativeAudit audit(&engine);
+        engine.loadData(R"(
+import QtQuick
+import QtQuick.Controls.Basic
+Window {
+    width: 900; height: 620; visible: true
+    property int testEchoMode: 0
+    property int testInputHints: 0
+    TextField {
+        objectName: "sensitiveInput"
+        x: 20; y: 20; width: 300; height: 50
+        echoMode: Window.window.testEchoMode
+        inputMethodHints: Window.window.testInputHints
+        Text { objectName: "sensitiveChild"; visible: false; text: parent.text }
+    }
+    TextField {
+        objectName: "ordinaryInput"
+        x: 20; y: 100; width: 300; height: 50
+        text: "public-value"
+    }
+}
+)");
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        QVERIFY(window);
+        window->setProperty("testEchoMode", echoMode);
+        window->setProperty("testInputHints", inputHints);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QVERIFY(audit.activate());
+        auto *input = audit.find(window, QStringLiteral("sensitiveInput"));
+        QVERIFY(input);
+        QVERIFY(audit.click(input));
+        const QString secret = QStringLiteral("audit-only-sensitive-value");
+        QVERIFY(audit.type(secret));
+        QCOMPARE(input->property("text").toString(), secret);
+        // Clicking a populated password field must not serialize its real text.
+        QVERIFY(audit.click(input));
+        QVERIFY(audit.hover(input));
+        const QVariantMap observed = audit.observe(window);
+        int redacted = 0;
+        bool ordinary = false;
+        for (const auto &value : observed.value(QStringLiteral("items")).toList()) {
+            const auto item = value.toMap();
+            const auto name = item.value(QStringLiteral("objectName")).toString();
+            if (name == QStringLiteral("sensitiveInput") ||
+                name == QStringLiteral("sensitiveChild")) {
+                QCOMPARE(item.value(QStringLiteral("text")).toString(),
+                         QStringLiteral("[redacted]"));
+                ++redacted;
+            } else if (name == QStringLiteral("ordinaryInput")) {
+                QCOMPARE(item.value(QStringLiteral("text")).toString(),
+                         QStringLiteral("public-value"));
+                ordinary = true;
+            }
+        }
+        QCOMPARE(redacted, 2);
+        QVERIFY(ordinary);
+        QVERIFY(audit.record(QStringLiteral("sensitive-observation"), observed));
+        for (const auto &name :
+             {QStringLiteral("sensitive-observation.json"), QStringLiteral("actions.jsonl")}) {
+            QFile evidence(temporary.filePath(name));
+            QVERIFY(evidence.open(QIODevice::ReadOnly));
+            const auto bytes = evidence.readAll();
+            QVERIFY(bytes.contains("[redacted]"));
+            QVERIFY(!bytes.contains(secret.toUtf8()));
+        }
+    }
 };
 
 QTEST_MAIN(NativeAuditTest)

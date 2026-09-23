@@ -1,0 +1,6 @@
+{
+  "type": "ai.cancel",
+  "payload": {
+    "requestId": "decision-1"
+  }
+}

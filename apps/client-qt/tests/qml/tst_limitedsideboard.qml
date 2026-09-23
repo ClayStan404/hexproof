@@ -51,6 +51,38 @@ TestCase {
         testWindow.height = 800
     }
 
+    function test_previousLoserChooserUsesAuthoritativeSelection() {
+        mockWs.deckFormat = "limited"
+        mockWs.sideboarding = true
+        mockWs.gameFinished = true
+        mockWs.sideboardState = {
+            deadlineUnixMs: Date.now() + 300000,
+            canChooseStartingPlayer: true, chosenStartingSeat: 0,
+            seats: [{seat: 0, ready: false, mainboardCount: 40, sideboardCount: 0},
+                    {seat: 1, ready: false, mainboardCount: 40, sideboardCount: 0}],
+            mainboard: [{name: "Forest", count: 40, typeLine: "Basic Land"}], sideboard: []
+        }
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        const play = findChild(table, "sideboardChoosePlayButton")
+        const draw = findChild(table, "sideboardChooseDrawButton")
+        verify(play !== null && draw !== null)
+        verify(play.visible && draw.visible)
+        compare(play.variant, "highlight")
+        mouseClick(draw)
+        compare(mockWs.chosenStartingSeatRequest, 1)
+        compare(play.variant, "highlight", "Selection waits for authoritative projection")
+        mockWs.sideboardState = Object.assign({}, mockWs.sideboardState, {chosenStartingSeat: 1})
+        tryCompare(draw, "variant", "highlight")
+        mouseClick(play)
+        compare(mockWs.chosenStartingSeatRequest, 0)
+        mockWs.sideboardState = Object.assign({}, mockWs.sideboardState, {canChooseStartingPlayer: false})
+        tryCompare(play, "visible", false)
+        verify(!draw.visible)
+    }
+
     function test_compactWorkspace_data() {
         return [{tag: "150-percent", scale: 1.5},
                 {tag: "180-percent", scale: 1.8}]
@@ -126,6 +158,119 @@ TestCase {
         mockWs.sideboardState = acknowledged
         tryCompare(panel, "readyPending", false)
         verify(ready.enabled)
+    }
+
+    function test_clearMainboardIgnoresFiltersAndPreservesPrintedBasicPreference() {
+        mockWs.deckFormat = "limited"
+        mockWs.sideboarding = true
+        mockWs.gameFinished = true
+        mockWs.sideboardState = {
+            deadlineUnixMs: Date.now() + 300000,
+            seats: [{seat:0, ready:false, mainboardCount:40, sideboardCount:1}],
+            mainboard: [{name:"Pool Card", count:23, setCode:"TST", collectorNumber:"1", colors:"R", typeLine:"Creature"},
+                        {name:"Island", count:17, setCode:"TST", collectorNumber:"2", virtualBasic:true, typeLine:"Basic Land"}],
+            sideboard: [{name:"Island", count:1, setCode:"TST", collectorNumber:"2", typeLine:"Basic Land"}]
+        }
+        mockCatalog.basicPrintings = {
+            "Island": [{setCode:"ALT", collectorNumber:"99"}, {setCode:"TST", collectorNumber:"20"}],
+            "Swamp": [{setCode:"ALT", collectorNumber:"10"}, {setCode:"TST", collectorNumber:"12"},
+                      {setCode:"TST", collectorNumber:"3"}]
+        }
+        const table = createTemporaryObject(tableComponent, tableHost, {width:1400, height:800})
+        verify(table !== null)
+        const panel = findChild(table, "sideboardPanel")
+        const basics = findChild(panel, "sideboardBasicLandsPanel")
+        compare(basics.virtualBasicCount("Island"), 17)
+        findChild(panel, "limitedSideboardFilters").colorFilterIndex = 4
+        mouseClick(findChild(panel, "sideboardClearMainboardButton"))
+        compare(mockWs.clearMainboardCount, 1)
+        compare(mockWs.sideboardMoveCount, 0)
+        const next = Object.assign({}, mockWs.sideboardState)
+        next.mainboard = []
+        mockWs.sideboardState = next
+        compare(basics.virtualBasicCount("Island"), 0)
+        basics.adjustLimitedBasic("Island", 1)
+        compare(mockWs.lastSideboardMove.card.setCode, "TST")
+        compare(mockWs.lastSideboardMove.card.collectorNumber, "2")
+        basics.adjustLimitedBasic("Swamp", 1)
+        compare(mockWs.lastSideboardMove.card.setCode, "TST")
+        compare(mockWs.lastSideboardMove.card.collectorNumber, "3")
+        verify(!findChild(panel, "sideboardReadyButton").enabled)
+    }
+
+    function test_coldSideboardRestoresEnvironmentBasicPrinting_data() {
+        return [{tag:"product-overrides-pool", productSet:"ENV", expectedSet:"ENV"},
+                {tag:"missing-product-uses-pool", productSet:"", expectedSet:"POOL"},
+                {tag:"unavailable-product-uses-pool", productSet:"MISSING", expectedSet:"POOL"}]
+    }
+
+    function test_coldSideboardRestoresEnvironmentBasicPrinting(data) {
+        mockWs.deckFormat = "limited"
+        mockWs.sideboarding = true
+        mockWs.gameFinished = true
+        mockWs.limitedSession = {product:{setCode:data.productSet}}
+        // A newly created view after reconnect receives an already empty main
+        // deck and cannot rely on any preferences from the previous instance.
+        mockWs.sideboardState = {
+            deadlineUnixMs:Date.now() + 300000,
+            seats:[{seat:0, ready:false, mainboardCount:0, sideboardCount:40}],
+            mainboard:[],
+            sideboard:[{name:"Bonus Card", count:1, setCode:"ALT", collectorNumber:"1"},
+                       {name:"Pool Card", count:39, setCode:"POOL", collectorNumber:"2"}]
+        }
+        mockCatalog.basicPrintings = {
+            "Swamp":[{setCode:"ALT", collectorNumber:"1"},
+                     {setCode:"ENV", collectorNumber:"4"},
+                     {setCode:"POOL", collectorNumber:"7"}]
+        }
+        const table = createTemporaryObject(tableComponent, tableHost, {width:1400, height:800})
+        verify(table !== null)
+        const basics = findChild(table, "sideboardBasicLandsPanel")
+        compare(Object.keys(basics.preferredPrintings).length, 0)
+        basics.adjustLimitedBasic("Swamp", 1)
+        compare(mockWs.lastSideboardMove.card.setCode, data.expectedSet)
+        compare(mockWs.lastSideboardMove.card.collectorNumber, data.expectedSet === "ENV" ? "4" : "7")
+        compare(mockWs.lastSideboardMove.fromZone, "basic_lands")
+        compare(mockWs.lastSideboardMove.toZone, "mainboard")
+    }
+
+    function test_cubeBasicPrintingHasStableCatalogFallback_data() {
+        return [{tag:"shared-five-color-series", shared:true, empty:false, expectedSet:"SHARED", expectedNumber:"2"},
+                {tag:"individual-printing", shared:false, empty:false, expectedSet:"AAA", expectedNumber:"3"},
+                {tag:"missing-catalog-printings", shared:false, empty:true, expectedSet:"", expectedNumber:""}]
+    }
+
+    function test_cubeBasicPrintingHasStableCatalogFallback(data) {
+        mockWs.deckFormat = "limited"
+        mockWs.sideboarding = true
+        mockWs.gameFinished = true
+        mockWs.sideboardState = {
+            deadlineUnixMs:Date.now() + 300000,
+            seats:[{seat:0, ready:false, mainboardCount:0, sideboardCount:40}],
+            mainboard:[],
+            sideboard:[{name:"Cube Card", count:40, setCode:"NO_BASICS", collectorNumber:"1"}]
+        }
+        const printings = {}
+        if (data.shared) {
+            for (const name of ["Plains", "Island", "Swamp", "Mountain", "Forest"])
+                printings[name] = [{setCode:"ZZZ", collectorNumber:"9"}, {setCode:"SHARED", collectorNumber:"2"}]
+        }
+        printings["Swamp"] = data.empty ? [] : [
+            {setCode:"ZZZ", collectorNumber:"9"}, {setCode:"AAA", collectorNumber:"12"},
+            {setCode:"SHARED", collectorNumber:"2"}, {setCode:"AAA", collectorNumber:"3"}]
+        mockCatalog.basicPrintings = printings
+        const table = createTemporaryObject(tableComponent, tableHost, {width:1400, height:800})
+        verify(table !== null)
+        const basics = findChild(table, "sideboardBasicLandsPanel")
+        basics.adjustLimitedBasic("Swamp", 1)
+        compare(mockWs.lastSideboardMove.card.setCode, data.expectedSet)
+        compare(mockWs.lastSideboardMove.card.collectorNumber, data.expectedNumber)
+        // Catalog delivery order does not alter the chosen fallback printing.
+        printings.Swamp.reverse()
+        mockCatalog.basicPrintings = Object.assign({}, printings)
+        basics.adjustLimitedBasic("Swamp", 1)
+        compare(mockWs.lastSideboardMove.card.setCode, data.expectedSet)
+        compare(mockWs.lastSideboardMove.card.collectorNumber, data.expectedNumber)
     }
 
     function test_filtersAndUnlimitedBasicLandSupply() {

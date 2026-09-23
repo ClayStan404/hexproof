@@ -1,0 +1,36 @@
+{
+  "type": "room.snapshot",
+  "seq": 1,
+  "payload": {
+    "roomId": "ABCDEF",
+    "name": "Friday EDH",
+    "format": "modern",
+    "deckFormat": "custom",
+    "maxSeats": 2,
+    "matchMode": "bo1",
+    "cardLoadMode": "preload",
+    "rulesMode": "forge",
+    "hostSeat": 0,
+    "hasPassword": false,
+    "seats": [
+      {
+        "occupied": true,
+        "displayName": "Alice",
+        "host": true
+      },
+      {
+        "occupied": true,
+        "displayName": "Forge AI",
+        "controller": "forgeAi",
+        "aiDifficulty": "normal",
+        "deckSelected": true,
+        "ready": true
+      }
+    ],
+    "spectators": [],
+    "allowSpectators": true,
+    "spectatorsSeeHands": true,
+    "phase": "waiting",
+    "aiDifficulty": "normal"
+  }
+}

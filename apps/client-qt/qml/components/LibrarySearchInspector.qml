@@ -16,6 +16,7 @@ ColumnLayout {
     property alias randomizeTop: randomizeTopToggle.checked
     property alias randomizeBottom: randomizeBottomToggle.checked
     property alias reveal: revealToggle.checked
+    property alias topSelectedReveal: topControls.reveal
 
     Layout.preferredWidth: Math.min(Theme.size(340), popupController.availableWidth * 0.44)
     Layout.fillWidth: false
@@ -110,6 +111,20 @@ ColumnLayout {
                 font.pixelSize: Theme.fontSize(14)
                 font.weight: Font.DemiBold
                 wrapMode: Text.WordWrap
+            }
+
+            AppToggle {
+                objectName: "topCardReveal"
+                Layout.fillWidth: true
+                visible: root.popupController.reorderMode
+                         && !!root.popupController.selectedCard.id
+                enabled: visible && root.popupController.topCardAssignment(
+                             root.popupController.selectedCard.id).faceDown !== true
+                checked: enabled && root.popupController.topCardAssignment(
+                             root.popupController.selectedCard.id).reveal === true
+                text: qsTr("Reveal this card in the game log")
+                onToggled: root.popupController.setTopCardReveal(
+                               root.popupController.selectedCard.id, checked)
             }
 
             ColumnLayout {
@@ -267,7 +282,6 @@ ColumnLayout {
                 checked: true
                 text: qsTranslate("LibrarySearchPopup", "Reveal card name in the game log")
                 visible: !root.popupController.reorderMode
-                         && !root.popupController.topCardMode
             }
             Text {
                 textFormat: Text.PlainText
@@ -279,7 +293,6 @@ ColumnLayout {
                 font.pixelSize: Theme.fontSize(9)
                 wrapMode: Text.WordWrap
                 visible: !root.popupController.reorderMode
-                         && !root.popupController.topCardMode
             }
         }
     }

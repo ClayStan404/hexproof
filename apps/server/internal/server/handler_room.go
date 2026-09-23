@@ -98,6 +98,21 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 			"Forge rules mode is not available on this server")
 		return nil
 	}
+	if rc.AISource == "" && rc.AIDifficulty != "" {
+		rc.AISource = protocol.AISourceForge
+	}
+	if rc.AISource != "" {
+		if !protocol.ValidAIConfiguration(rc.AISource, rc.AIDifficulty) || rc.RulesMode != protocol.RulesModeForge ||
+			rc.Format != protocol.FormatModern || rc.MatchMode != protocol.MatchBO1 || rc.Playtest ||
+			rc.DeckFormat == protocol.DeckFormatCube || rc.DeckFormat == protocol.DeckFormatLimited {
+			h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "AI practice requires a two-player constructed Forge BO1 room")
+			return nil
+		}
+		if rc.AISource == protocol.AISourceForge && rc.HostingMode != "player" && !h.forgeAIAvailable() {
+			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable, "This runtime does not support Forge AI")
+			return nil
+		}
+	}
 	if rc.Playtest && rc.RulesMode == protocol.RulesModeForge {
 		h.sendError(sess, env.ID, protocol.ErrInvalidRulesMode,
 			"Forge rules mode requires at least two players")
@@ -120,9 +135,9 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	}
 	// Format dictates the multiplayer seat cap (2 or 4); Playtest overrides it
 	// with one private seat. Client MaxSeats is ignored (decisions.md).
-	r, initialSnapshot, initialSeq, operation, err := h.hub.CreateRoomWithHostingMode(
+	r, initialSnapshot, initialSeq, operation, err := h.hub.createRoom(
 		rc.Name, rc.Format, rc.DeckFormat, rc.MatchMode, rc.CardLoadMode, rc.RulesMode, rc.HostingMode,
-		maxSeats, rc.AllowSpectators, rc.SpectatorsSeeHands, rc.Password, sess)
+		maxSeats, rc.AllowSpectators, rc.SpectatorsSeeHands, rc.Password, "", "", "", sess, rc.AIDifficulty, rc.AISource)
 	if err != nil {
 		code, _ := ErrCode(err)
 		if code == "" {
@@ -157,6 +172,8 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 			HasPassword:        r.HasPassword,
 			RulesMode:          r.RulesMode,
 			HostingMode:        r.HostingMode,
+			AIDifficulty:       r.AIDifficulty,
+			AISource:           r.AISource,
 		},
 		HostSeat: r.HostSeat,
 	}
@@ -168,6 +185,7 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	snap, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, initialSnapshot)
 	snap = snap.WithSeq(initialSeq)
 	h.send(sess, snap)
+	h.grantModelWorker(sess, r)
 	if hostLink != nil {
 		h.sendPlayerHostGrant(sess, hostLink, "")
 	}
@@ -534,9 +552,8 @@ func (h *Handler) handlePlayerReady(sess *Session, env protocol.Envelope) error 
 				h.failClosedGameProjections(r, rollbackErr)
 				return nil
 			}
-			code, message := forgeStartFailure(err)
-			h.sendError(sess, env.ID, code, message)
 			h.fanout(r, rollback.Broadcast)
+			h.sendForgeStartFailure(r, sess, env.ID, err)
 			return nil
 		}
 	}
@@ -590,9 +607,8 @@ func (h *Handler) handleClientLoadComplete(sess *Session, env protocol.Envelope)
 				h.failClosedGameProjections(r, rollbackErr)
 				return nil
 			}
-			code, message := forgeStartFailure(err)
-			h.sendError(sess, env.ID, code, message)
 			h.fanout(r, rollback.Broadcast)
+			h.sendForgeStartFailure(r, sess, env.ID, err)
 			return nil
 		}
 	}
@@ -694,6 +710,7 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 		tournamentID: h.hub.TournamentForRoom(r),
 		roomID:       r.ID,
 	}
+	h.revokeModelWorker(r.ID)
 	h.revokePlayerHost(r.ID)
 	h.hub.RemoveRoom(r.ID)
 	h.abortForgeGame(r.ID)
@@ -733,6 +750,7 @@ func (h *Handler) fanoutGameProjections(r *room.Room) {
 	if r != nil && r.RulesMode == protocol.RulesModeForge {
 		if _, live := h.forgeGame(r.ID); !live && r.Game != nil {
 			h.fanoutRulesMetadata(r)
+			h.fanoutRulesReview(r)
 			return
 		}
 		h.fanoutRulesProjections(r)

@@ -68,6 +68,13 @@ Item {
     }
 
     RulesBattlefieldLayout { id: grouping }
+    function cardStackKey(card) {
+        const combat = root.tableController.combatInteraction
+        if (combat.active && combat.isCombatant(card.cardId))
+            return "combat:" + card.cardId
+        const reserved = root.tableController.interaction.nativeObjectSelected("card", card.cardId)
+        return grouping.stackKey(card, root.zone) + (reserved ? "\u001freserved" : "")
+    }
     function collect() {
         const next = []
         for (let i = 0; i < cards.count; ++i) {
@@ -81,7 +88,7 @@ Item {
         const stacks = []
         const byKey = ({})
         for (const item of next) {
-            const key = grouping.stackKey(item, root.zone)
+            const key = root.cardStackKey(item)
             if (!byKey[key]) {
                 byKey[key] = []
                 stacks.push(byKey[key])
@@ -102,12 +109,23 @@ Item {
         const item = itemFor(id)
         if (!item || item.y < viewport.contentY || item.y + item.height > viewport.contentY + viewport.height)
             return Qt.point(0, 0)
+        // mapToItem alone does not notify bindings when an ancestor moves.
+        void root.x; void root.y; void root.width; void root.height
+        void viewport.x; void viewport.y; void item.x
         return item.mapToItem(target, item.width / 2, item.height / 2)
     }
     Timer { id: refresh; interval: 0; onTriggered: root.collect() }
     Connections {
         target: root.tableController.rulesSession
         function onSnapshotChanged() { refresh.restart() }
+    }
+    Connections {
+        target: root.tableController.interaction
+        function onNativeSelectedTargetIdsChanged() { refresh.restart() }
+    }
+    Connections {
+        target: root.tableController.combatInteraction
+        function onSourcesChanged() { refresh.restart() }
     }
     onOwnerSeatChanged: { refresh.restart(); viewport.contentY = 0 }
     Text {
@@ -144,6 +162,8 @@ Item {
         required property string collectorNumber
         required property bool token
         required property bool tapped
+        required property bool enteredThisTurn
+        required property bool summoningSick
         required property bool faceDown
         required property bool attacking
         required property string power
@@ -152,6 +172,9 @@ Item {
         required property int damage
         required property string attachedTo
         required property int exiledCardCount
+        required property var exiledCardIds
+        required property var chosenCardIds
+        required property var annotations
         readonly property string category: {
             void root.tableController.cardCatalogModel.imageRevision
             return grouping.category(slot, root.tableController.cardCatalogModel)
@@ -159,7 +182,7 @@ Item {
         readonly property bool matches: root.zone === "battlefield"
             ? controllerSeat === root.ownerSeat && category === root.category
             : zoneOwnerSeat === root.ownerSeat && zone === root.zone
-        readonly property string stackKey: grouping.stackKey(slot, root.zone)
+        readonly property string stackKey: root.cardStackKey(slot)
         readonly property int stackIndex: {
             void root.visibleStackIds
             for (let i = 0; i < root.visibleStackIds.length; ++i) {
@@ -229,6 +252,7 @@ Item {
             tableController: root.tableController
             card: slot
             unit: root.unit
+            pointerEnabled: slot.stackFront
             fullFace: root.showFullFace
             located: slot.cardId === root.locatedId
             onActiveFocusChanged: if (activeFocus) root.reveal(slot.cardId)

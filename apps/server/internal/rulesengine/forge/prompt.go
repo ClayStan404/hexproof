@@ -46,6 +46,8 @@ type PromptCard struct {
 	SetCode         string
 	CollectorNumber string
 	Token           bool
+	Selected        bool
+	ReadOnly        bool
 }
 
 // PromptScryPile is one ordered destination pile submitted with opaque card
@@ -75,6 +77,7 @@ type PromptTarget struct {
 	Kind       string
 	ID         string
 	Oracle     string
+	Selected   bool
 }
 
 // PromptCombatSource is one attacking or blocking permanent. ValidTargetIDs
@@ -277,6 +280,8 @@ type promptAction struct {
 type promptCard struct {
 	ID       string             `json:"id"`
 	Identity promptCardIdentity `json:"identity"`
+	Selected bool               `json:"selected,omitempty"`
+	ReadOnly bool               `json:"readOnly,omitempty"`
 }
 
 type promptCardIdentity struct {
@@ -293,9 +298,10 @@ type promptOrderItem struct {
 }
 
 type promptTargetRef struct {
-	Kind   string `json:"kind"`
-	ID     string `json:"id"`
-	Oracle string `json:"oracle,omitempty"`
+	Kind     string `json:"kind"`
+	ID       string `json:"id"`
+	Oracle   string `json:"oracle,omitempty"`
+	Selected bool   `json:"selected,omitempty"`
 }
 
 type promptCombatant struct {
@@ -344,6 +350,12 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		return PromptView{}, err
 	}
 	switch input.Type {
+	case "acknowledge":
+		view.Supported = true
+		view.Title = firstPromptText(view.Title, "Game notice")
+		view.Options = []PromptOption{
+			{ResponseID: "$ack", Kind: "acknowledge", Label: "Continue"},
+		}
 	case "diceRolled":
 		view.Supported = true
 		if view.Title == "" {
@@ -472,7 +484,11 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		view.Choices, view.ChoiceMinimum, view.ChoiceMaximum, err = normalizeSelection(input)
 	case "payManaCost":
 		view.Supported = true
-		if view.Title == "" {
+		if cost := boundedPromptText(input.ManaCost); cost != "" {
+			// The live unpaid cost must remain visible even when the effect's
+			// description exceeds the client's collapsed detail area.
+			view.Title = "Pay Mana Cost: " + cost
+		} else if view.Title == "" {
 			view.Title = "Pay mana"
 		}
 		if view.Detail == "" {
@@ -535,6 +551,12 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 	}
 	var output any
 	switch view.Kind {
+	case "acknowledge":
+		if answer.ResponseID == "$ack" && answer.emptySelections() {
+			output = map[string]any{"type": "acknowledged"}
+		} else {
+			err = errors.New("unknown acknowledgement response")
+		}
 	case "diceRolled":
 		if answer.ResponseID == "$ack" && answer.emptySelections() {
 			output = map[string]any{"type": "diceRolledAcknowledged"}

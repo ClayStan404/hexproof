@@ -130,9 +130,12 @@ Rectangle {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
         onClicked: root.activated()
-        onDoubleClicked: mouse => {
+        onDoubleClicked: {
             if (root.doubleClickEnabled) root.doubleActivated()
-            else mouse.accepted = false
+            // Adding a card can replace this grid position with another physical
+            // card before the next click. Accept that click exactly once even
+            // when the native window classifies it as a double-click.
+            else root.activated()
         }
     }
 

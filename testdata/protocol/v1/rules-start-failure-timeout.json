@@ -1,0 +1,11 @@
+{
+  "type": "error",
+  "id": "ready-12",
+  "payload": {
+    "code": "rules_unavailable",
+    "message": "Forge could not start the game in time; the room is waiting",
+    "rulesStartFailure": {
+      "reason": "runtime_timeout"
+    }
+  }
+}

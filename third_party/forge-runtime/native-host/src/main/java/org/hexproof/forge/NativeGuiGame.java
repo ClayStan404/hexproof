@@ -16,6 +16,7 @@ import forge.gamemodes.match.input.*;
 import forge.gui.interfaces.IGuiGame;
 import forge.player.*;
 import forge.util.FSerializableFunction;
+import forge.util.Localizer;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Function;
@@ -105,13 +106,23 @@ final class NativeGuiGame implements InvocationHandler {
             case "confirm" -> bool((String) a[1], ((List<?>) a[3]).get(0).toString(), ((List<?>) a[3]).get(1).toString(), (CardView) a[0]);
             case "showOptionDialog" -> option((String) a[0], (List<?>) a[3]);
             case "chooseSingleEntityForEffect" -> {
-                delayedReveal((DelayedReveal) a[2]);
-                yield chooseOne((String) a[0], (List<?>) a[1], (Boolean) a[3], null);
+                List<?> choices = (List<?>) a[1];
+                DelayedReveal delayed = (DelayedReveal) a[2];
+                if (delayed != null && choices.stream().allMatch(CardView.class::isInstance)) {
+                    List<?> chosen = choose((String) a[0], (Boolean) a[3] ? 0 : 1, 1,
+                            choices, null, delayed.getCards());
+                    yield chosen.isEmpty() ? null : chosen.get(0);
+                }
+                delayedReveal(delayed);
+                yield chooseOne((String) a[0], choices, (Boolean) a[3], null);
             }
             case "chooseEntitiesForEffect" -> {
-                delayedReveal((DelayedReveal) a[4]);
                 List<?> choices = (List<?>) a[1];
-                yield NativeOrdering.order(session, owner(), (String) a[0], choices.size() - (Integer) a[3], choices.size() - (Integer) a[2], choices, null).ordered();
+                DelayedReveal delayed = (DelayedReveal) a[4];
+                boolean cardChoice = choices.stream().allMatch(CardView.class::isInstance);
+                if (!cardChoice) delayedReveal(delayed);
+                yield NativeOrdering.order(session, owner(), (String) a[0], choices.size() - (Integer) a[3], choices.size() - (Integer) a[2], choices, null,
+                        cardChoice && delayed != null ? delayed.getCards() : List.of()).ordered();
             }
             case "reveal" -> { reveal((String) a[0], (List<?>) a[1]); yield null; }
             case "message" -> { acknowledge((String) a[0]); yield null; }
@@ -142,6 +153,13 @@ final class NativeGuiGame implements InvocationHandler {
         JsonObject presentation = object("title", title);
         presentation.addProperty("description", message);
         result.add("presentation", presentation);
+        return result;
+    }
+    private JsonObject callbackInput(String type, String title) {
+        // Modal callbacks supply their own heading. The queued input's last
+        // message can describe an earlier spell, target or payment entirely.
+        JsonObject result = input(type, title);
+        result.getAsJsonObject("presentation").addProperty("description", "");
         return result;
     }
     private void renderInput() {
@@ -251,7 +269,10 @@ final class NativeGuiGame implements InvocationHandler {
             renderCardSelection(current, new ArrayList<>(owner().getCardsIn(ZoneType.Hand)), london.getCardsToReturn(), london.getCardsToReturn());
             return;
         } else if (current instanceof InputSelectEntitiesFromList<?> nativeChoices
-                && nativeChoices.getValidChoices().stream().allMatch(c -> c instanceof Card)) {
+                && nativeChoices.getValidChoices().stream().allMatch(c -> c instanceof Card)
+                && (current.getClass() == InputSelectEntitiesFromList.class
+                    || current.getClass() == InputSelectCardsFromList.class
+                    || !nativeChoices.getValidChoices().stream().allMatch(c -> ((Card) c).isInPlay()))) {
             List<Card> cards = nativeChoices.getValidChoices().stream().map(c -> (Card) c).toList();
             if (current.getClass() == InputSelectEntitiesFromList.class || current.getClass() == InputSelectCardsFromList.class) {
                 // Forge already sends the complete cardinality to its GUI.
@@ -278,6 +299,8 @@ final class NativeGuiGame implements InvocationHandler {
             for (Card c : session.game.getCardsInGame()) {
                 if (!mayExpose(c) || current.getActivateAction(c) == null) continue;
                 JsonObject candidate = object("kind", "card"); candidate.addProperty("id", cardId(c));
+                if (current instanceof InputSelectManyBase<?> selection)
+                    candidate.addProperty("selected", selection.getSelected().contains(c));
                 candidates.add(candidate); choices.put("card:" + cardId(c), () -> select(c));
             }
             if (current instanceof InputSelectTargets targets) {
@@ -314,16 +337,33 @@ final class NativeGuiGame implements InvocationHandler {
         session.publish(owner(), input, source, guarded(current, prepare), true);
     }
     private void renderCardSelection(Input current, List<Card> cards, int min, int max) {
-        JsonObject in = input("chooseCards", "Choose cards");
-        JsonArray identities = new JsonArray(); Map<String, Card> allowed = new HashMap<>();
-        for (Card c : cards) { identities.add(promptCard(c.getView())); allowed.put(cardId(c), c); }
-        in.add("cards", identities); in.addProperty("min", min); in.addProperty("max", max);
-        boolean canCancel = cancelEnabled;
+        boolean mulligan = current instanceof InputLondonMulligan;
+        JsonObject in = input(mulligan ? "mulliganPutBack" : "chooseCards",
+                mulligan ? "Choose cards to put back" : "Choose cards");
+        JsonArray identities = new JsonArray(), ids = new JsonArray(); Map<String, Card> allowed = new HashMap<>();
+        NativePromptCard presentation = new NativePromptCard(session, owner());
+        for (Card c : cards) {
+            JsonObject identity = presentation.describe(c.getView());
+            if (current instanceof InputSelectManyBase<?> selection && selection.getSelected().contains(c))
+                identity.addProperty("selected", true);
+            identities.add(identity);
+            ids.add(cardId(c));
+            allowed.put(cardId(c), c);
+        }
+        in.add("cards", identities);
+        if (mulligan) {
+            in.add("handCardIds", ids); in.addProperty("count", min);
+        } else {
+            in.addProperty("min", min); in.addProperty("max", max);
+        }
+        // London's native Cancel button auto-selects cards; it is not a way to
+        // revoke keeping the hand, so require the player's explicit selection.
+        boolean canCancel = !mulligan && cancelEnabled, couldFinish = okEnabled;
         in.addProperty("cancellable", canCancel);
         session.publish(owner(), in, guarded(current, raw -> {
             if (text(raw, "type", "").equals("cancel") && canCancel) return () -> button(false);
-            requireType(raw, "chooseCardsDecision");
-            JsonArray chosen = raw.getAsJsonArray("chosenCardIds");
+            requireType(raw, mulligan ? "mulliganPutBackDecision" : "chooseCardsDecision");
+            JsonArray chosen = raw.getAsJsonArray(mulligan ? "cardIds" : "chosenCardIds");
             if (chosen.size() < min || chosen.size() > max) throw new IllegalArgumentException("Invalid native card selection count");
             List<Card> selected = new ArrayList<>(); Set<String> seen = new HashSet<>();
             for (JsonElement id : chosen) {
@@ -336,7 +376,7 @@ final class NativeGuiGame implements InvocationHandler {
                 if (human.getInputProxy().getInput() == current
                         && (selected.isEmpty() || current instanceof InputLondonMulligan
                         || (current.getClass() == InputSelectEntitiesFromList.class
-                            || current.getClass() == InputSelectCardsFromList.class) && okEnabled)) button(true);
+                            || current.getClass() == InputSelectCardsFromList.class || !couldFinish) && okEnabled)) button(true);
             };
         }), true);
     }
@@ -446,8 +486,10 @@ final class NativeGuiGame implements InvocationHandler {
                         && (TARGET_ZONE_HEADINGS.contains(text) || "[FINISH TARGETING]".equals(text)))) {
             choices = choices.stream().filter(c -> !TARGET_ZONE_HEADINGS.contains(c)).toList();
         }
-        if (!choices.isEmpty() && choices.get(0) instanceof CardFaceView) {
-            JsonObject in = input("chooseCardName", title);
+        // Small enumerated face choices (for example the three dungeons) need
+        // visible options. Large naming domains retain catalog-backed input.
+        if (choices.size() > 512 && choices.get(0) instanceof CardFaceView) {
+            JsonObject in = callbackInput("chooseCardName", title);
             in.addProperty("message", title); in.addProperty("canCancel", optional);
             Map<String, Object> legal = new HashMap<>();
             for (Object choice : choices) legal.put(((CardFaceView) choice).getName().toLowerCase(Locale.ROOT), choice);
@@ -463,19 +505,23 @@ final class NativeGuiGame implements InvocationHandler {
         List<?> selected = choose(title, optional ? 0 : 1, 1, choices, display);
         return selected.isEmpty() ? null : selected.get(0);
     }
-    @SuppressWarnings("unchecked")
     private List<?> choose(String title, int min, int max, List<?> choices, Object display) {
+        return choose(title, min, max, choices, display, List.of());
+    }
+    @SuppressWarnings("unchecked")
+    private List<?> choose(String title, int min, int max, List<?> choices, Object display, List<CardView> revealed) {
         if (min == -1 && max == -1) { reveal(title, choices); return List.of(); }
         if (choices.size() > 512 || min < 0 || max < min) throw new UnsupportedOperationException("Choice list needs a dedicated bounded protocol");
         int upper = Math.min(max, choices.size());
         if (!choices.isEmpty() && choices.stream().allMatch(c -> c instanceof CardView) && display == null) {
-            JsonObject in = input("chooseCards", title); JsonArray cards = new JsonArray();
+            JsonObject in = callbackInput("chooseCards", title); JsonArray cards = new JsonArray();
             Map<String, Object> allowed = new LinkedHashMap<>();
+            NativePromptCard presentation = new NativePromptCard(session, owner());
             for (Object choice : choices) {
                 CardView card = (CardView) choice;
-                cards.add(promptCard(card)); allowed.put("card-" + card.getId(), choice);
+                cards.add(presentation.describe(card)); allowed.put("card-" + card.getId(), choice);
             }
-            in.add("cards", cards); in.addProperty("min", min); in.addProperty("max", upper);
+            in.add("cards", presentation.withRevealed(cards, revealed)); in.addProperty("min", min); in.addProperty("max", upper);
             return session.ask(owner(), in, raw -> {
                 requireType(raw, "chooseCardsDecision");
                 JsonArray selected = raw.getAsJsonArray("chosenCardIds");
@@ -489,7 +535,7 @@ final class NativeGuiGame implements InvocationHandler {
                 return result;
             });
         }
-        JsonObject in = input("chooseFromSelection", title);
+        JsonObject in = callbackInput("chooseFromSelection", title);
         JsonArray options = new JsonArray();
         for (Object choice : choices) {
             String label = display == null ? label(choice) : ((FSerializableFunction<Object, String>) display).apply(choice);
@@ -514,7 +560,7 @@ final class NativeGuiGame implements InvocationHandler {
         return number(title, min, max, null);
     }
     private int number(String title, int min, int max, Object target) {
-        JsonObject in = input("chooseNumber", title); in.addProperty("min", min); in.addProperty("max", max);
+        JsonObject in = callbackInput("chooseNumber", title); in.addProperty("min", min); in.addProperty("max", max);
         if (target instanceof GameEntityView entity) {
             JsonObject reference = object("kind", entity instanceof CardView ? "card" : "player");
             reference.addProperty("id", entityId(entity));
@@ -531,8 +577,7 @@ final class NativeGuiGame implements InvocationHandler {
         return bool(title, yes, no, null);
     }
     private boolean bool(String title, String yes, String no, CardView card) {
-        JsonObject in = input("chooseBoolean", title); in.addProperty("confirmLabel", yes); in.addProperty("denyLabel", no);
-        in.getAsJsonObject("presentation").addProperty("description", "");
+        JsonObject in = callbackInput("chooseBoolean", title); in.addProperty("confirmLabel", yes); in.addProperty("denyLabel", no);
         return session.ask(owner(), in, promptSource(card, in), raw -> { requireType(raw, "decision"); return raw.get("value").getAsBoolean(); });
     }
     private int option(String title, List<?> options) {
@@ -547,20 +592,26 @@ final class NativeGuiGame implements InvocationHandler {
     }
     private void reveal(String title, List<?> cards) {
         if (cards.stream().allMatch(c -> c instanceof CardView)) {
-            JsonObject in = input("revealCards", title); JsonArray options = new JsonArray();
-            for (Object value : cards) options.add(promptCard((CardView) value));
+            JsonObject in = callbackInput("revealCards", title); JsonArray options = new JsonArray();
+            NativePromptCard presentation = new NativePromptCard(session, owner());
+            for (Object value : cards) options.add(presentation.describe((CardView) value));
             in.add("cards", options);
             session.ask(owner(), in, raw -> { requireType(raw, "revealCardsAcknowledged"); return true; });
-        } else acknowledge(title + "\n" + cards);
+        } else {
+            boolean aiAdvisory = title.startsWith(Localizer.getInstance().getMessage("lblAICantPlayCards"));
+            String detail = title + "\n" + String.join("\n", cards.stream().map(Object::toString).toList());
+            if (aiAdvisory) detail += "\nYou can continue this game. These cards will remain in the deck.";
+            acknowledge(aiAdvisory ? "AI deck advisory" : "Game notice", detail);
+        }
     }
     private void delayedReveal(DelayedReveal delayed) {
         if (delayed != null) reveal(delayed.getMessagePrefix(), delayed.getCards());
     }
-    private void acknowledge(String message) { bool(message, "Continue", "Continue"); }
-    private JsonObject promptCard(CardView card) {
-        JsonObject result = object("id", "card-" + card.getId());
-        JsonObject identity = object("name", card.isFaceDown() && !card.canFaceDownBeShownTo(owner().getView()) ? "Face-down card" : card.getName());
-        result.add("identity", identity); return result;
+    private void acknowledge(String message) { acknowledge("Game notice", message); }
+    private void acknowledge(String title, String message) {
+        JsonObject in = callbackInput("acknowledge", title);
+        in.getAsJsonObject("presentation").addProperty("description", message);
+        session.ask(owner(), in, raw -> { requireType(raw, "acknowledged"); return true; });
     }
     private JsonObject promptSource(CardView card, JsonObject input) {
         // Only the card explicitly supplied with this native decision is a
@@ -570,21 +621,22 @@ final class NativeGuiGame implements InvocationHandler {
         // printed name. Keep the decision usable without optional card context.
         if (Objects.toString(card.getName(), "").isBlank()) return null;
         input.getAsJsonObject("presentation").addProperty("text", card.getText());
-        return promptCard(card);
+        return new NativePromptCard(session, owner()).describe(card);
     }
     private Map<CardView, Integer> assignCombatDamage(CardView attacker, List<CardView> blockers, int amount,
                                                      GameEntityView defender, boolean overrideOrder, boolean maySkip) {
         if (maySkip && !bool("Assign " + attacker.getName() + " combat damage now?", "Assign now", "Assign later")) return null;
         String defenderId = defender == null ? "" : entityId(defender);
         NativeDamageAssignment assignment = new NativeDamageAssignment(attacker, blockers, amount, defender, overrideOrder, defenderId);
-        JsonObject in = input("chooseCombatDamageAssignment", "Assign combat damage");
+        JsonObject in = callbackInput("chooseCombatDamageAssignment", "Assign combat damage");
         in.addProperty("attackerId", "card-" + attacker.getId());
         in.addProperty("totalDamage", amount); in.addProperty("attackerHasDeathtouch", assignment.deathtouch);
         in.addProperty("damageAssignmentMode", assignment.mode());
         JsonArray ids = new JsonArray(), cards = new JsonArray(), hints = new JsonArray();
+        NativePromptCard presentation = new NativePromptCard(session, owner());
         for (CardView blocker : blockers) {
             String id = "card-" + blocker.getId();
-            ids.add(id); cards.add(promptCard(blocker));
+            ids.add(id); cards.add(presentation.describe(blocker));
             JsonObject hint = object("id", id);
             hint.addProperty("lethalDamage", assignment.lethalDamage(blocker));
             hints.add(hint);

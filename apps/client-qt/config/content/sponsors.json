@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "sponsors": [
+    {
+      "id": "qingbao",
+      "name": "情报",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/qingbao.jpg",
+        "sha256": "efad24c191f973f080cde3b26d013aa78206abcccac15f3579969475a503f9a5"
+      },
+      "profileUrl": "https://space.bilibili.com/7963465"
+    },
+    {
+      "id": "dodo",
+      "name": "豆豆(dodo)",
+      "tier": "dockside",
+      "avatar": {
+        "path": "avatars/dodo.jpg",
+        "sha256": "95dffa154735d391cb65eed63524404a9982d28024e1e34388df5a814b2b60ed"
+      },
+      "profileUrl": ""
+    },
+    {
+      "id": "m0nta9e",
+      "name": "M0nta9e不太奇",
+      "tier": "dockside",
+      "avatar": {
+        "path": "avatars/m0nta9e.jpg",
+        "sha256": "5f0bff977835651de490cc1ed33c32ca4555f9fabbdc094711319726ad2655e7"
+      },
+      "profileUrl": ""
+    },
+    {
+      "id": "orangezihan",
+      "name": "Orangezihan",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/orangezihan.jpeg",
+        "sha256": "70213e019853825fce7b76b753edc56d93735b2220f4404017e28b4952aeadac"
+      },
+      "profileUrl": "https://afdian.com/u/5eeb2b8c1ba811ed985d52540025c377"
+    },
+    {
+      "id": "guafu",
+      "name": "寡妇门前是非多",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/guafu.jpeg",
+        "sha256": "803038aff2aaed40a0f985f6f41d9d5f33b38d7db05b1d380b3bab1fa033e865"
+      },
+      "profileUrl": "https://afdian.com/u/76b1c06e60b911ecb38952540025c377"
+    },
+    {
+      "id": "beidi",
+      "name": "贝蒂小熊-乱世不败",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/beidi.jpeg",
+        "sha256": "bb6155c18e2e580c9d44a9f8ed64f3ea5f94be840b9d2c48de640282320b201a"
+      },
+      "profileUrl": "https://afdian.com/u/50a0ee26bef411efa2a35254001e7c00"
+    },
+    {
+      "id": "anjisuan",
+      "name": "鹌姬酸",
+      "tier": "omniscience",
+      "avatar": {
+        "path": "avatars/anjisuan.jpg",
+        "sha256": "4a0a5c65c38026f117422072e5d4fed61fd1911040106681b886dc415d8b5b5a"
+      },
+      "profileUrl": "https://space.bilibili.com/6167941",
+      "featured": true,
+      "description": {
+        "en": "TCG enthusiast and organizer, Magic: The Gathering judge, Shenyang XYZ team. Creates Magic: The Gathering videos on Bilibili. Visit the profile to follow.",
+        "zh": "TCG 爱好者、组织者，万智牌裁判，沈阳 XYZ 战队。在 B 站制作万智牌相关视频，欢迎点击主页关注。"
+      }
+    },
+    {
+      "id": "afdian-1a326",
+      "name": "爱发电用户_1a326",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-1a326.png",
+        "sha256": "dacfb0bb9f8ae5eca89f354fc5bcef39740528121fedb93479f0e434ccd8cc33"
+      },
+      "profileUrl": "https://afdian.com/u/1a32609cb19e11f1b6925254001e7c00"
+    },
+    {
+      "id": "a1100011",
+      "name": "a1100011",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/a1100011.jpg",
+        "sha256": "27a47aa0c24bfac01fdf37f8ed570f09d3a47d61b2b3046a34524d229455ce54"
+      },
+      "profileUrl": ""
+    }
+  ]
+}

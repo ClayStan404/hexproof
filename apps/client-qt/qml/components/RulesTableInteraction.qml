@@ -31,6 +31,13 @@ Item {
                 ? session.boardTargetCandidates() : []
     }
     readonly property var fallbackTargets: targetCandidates.filter(candidate => !targetOnTable(candidate))
+    readonly property var nativeSelectedTargetIds: {
+        const selected = ({})
+        for (const candidate of targetCandidates)
+            if (candidate.nativeSelected === true) selected[candidate.responseId] = true
+        return selected
+    }
+    readonly property int nativeSelectedCount: Object.keys(nativeSelectedTargetIds).length
     readonly property var zoneActions: {
         void promptRevision
         void session.snapshotRevision
@@ -119,7 +126,15 @@ Item {
     }
 
     function objectSelected(kind, objectId) {
-        return objectTargetIds(kind, objectId).some(id => selectedTargetIds[id] === true)
+        return objectTargetIds(kind, objectId).some(id => targetSelected(id))
+    }
+
+    function nativeObjectSelected(kind, objectId) {
+        return objectTargetIds(kind, objectId).some(id => nativeSelectedTargetIds[id] === true)
+    }
+
+    function targetSelected(responseId) {
+        return selectedTargetIds[responseId] === true || nativeSelectedTargetIds[responseId] === true
     }
 
     function seatActionable(seat) {
@@ -127,7 +142,7 @@ Item {
     }
 
     function seatSelected(seat) {
-        return seatTargetIds(seat).some(id => selectedTargetIds[id] === true)
+        return seatTargetIds(seat).some(id => targetSelected(id))
     }
 
     function activateObject(kind, objectId, name) {
@@ -145,6 +160,7 @@ Item {
             return false
         if (actions.length === 1)
             return submitCardAction(objectId, actions[0].responseId)
+        SoundEffects.play("select")
         tableController.cardActionPicker.showFor(objectId, name, actions)
         return true
     }
@@ -173,6 +189,8 @@ Item {
         selectedTargetIds = next
         if (next[responseId] && session.promptMaxSelections === 1)
             submitTargets("$submit")
+        else
+            SoundEffects.play(next[responseId] ? "select" : "cancel")
         return true
     }
 

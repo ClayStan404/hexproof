@@ -15,9 +15,22 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
     Layout.minimumWidth: Theme.size(54)
-    readonly property var topCard: ({})
+    readonly property var topCard: root.tableController.ownSeatData.libraryTopCard || ({})
+    readonly property string topImage: topCard.name
+        ? root.tableController.presentation.tableCardImageSource(topCard) : ""
 
-    HoverHandler { id: emptyLibraryHover }
+    function refreshTopCardPreview() {
+        if (emptyLibraryHover.hovered && root.topCard.name
+                && !root.tableController.tableModalOpen)
+            root.tableController.presentation.inspectCard(root.topCard, root)
+        else root.tableController.presentation.hideCardPreview(root)
+    }
+    onTopCardChanged: refreshTopCardPreview()
+
+    HoverHandler {
+        id: emptyLibraryHover
+        onHoveredChanged: root.refreshTopCardPreview()
+    }
     ToolTip.visible: emptyLibraryHover.hovered
                      && !ownLibraryDrag.drag.active
                      && !root.tableController.tableModalOpen
@@ -66,7 +79,7 @@ Item {
                        parent.height * 63 / 88)
             height: width * 88 / 63
             visible: root.tableController.ownSeatData.libraryCount > 0
-            source: root.tableController.cardBackSource
+            source: root.topImage || root.tableController.cardBackSource
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             smooth: true
@@ -132,7 +145,7 @@ Item {
             root.tableController.roomSession.seatIndex
         readonly property int zoneSeat:
             root.tableController.roomSession.seatIndex
-        property var modelData: ({})
+        property var modelData: root.topCard
         width: Theme.size(64)
         height: Theme.size(90)
         x: (root.width - width) / 2
@@ -153,7 +166,7 @@ Item {
         }
         Image {
             anchors.fill: parent
-            source: root.tableController.cardBackSource
+            source: root.topImage || root.tableController.cardBackSource
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             smooth: true
@@ -186,12 +199,12 @@ Item {
             Qt.LeftButton | Qt.RightButton
         enabled: root.tableController.canAct
                  && !root.tableController.tableModalOpen
-                 && root.tableController.ownSeatData.libraryCount > 0
         hoverEnabled: true
         cursorShape: drag.active
                      ? Qt.ClosedHandCursor
                      : Qt.OpenHandCursor
-        drag.target: ownLibraryDragCard
+        drag.target: root.tableController.ownSeatData.libraryCount > 0
+                     ? ownLibraryDragCard : null
         drag.threshold: Theme.size(5)
         drag.smoothed: false
         preventStealing: true

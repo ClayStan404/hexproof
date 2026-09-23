@@ -91,6 +91,28 @@ func fixturePayloadForType(messageType string) any {
 		return &SessionWelcome{}
 	case TypeSessionPing, TypeSessionPong:
 		return &struct{}{}
+	case TypeRoomAIWorker:
+		return &RoomAIWorker{}
+	case TypeRoomAIStatus:
+		return &RoomAIStatus{}
+	case TypeRoomAIRetry:
+		return &RoomAIRetry{}
+	case TypeAIAttach:
+		return &AIAttach{}
+	case TypeAIAttached:
+		return &AIAttached{}
+	case TypeAIDecision:
+		return &AIDecision{}
+	case TypeAIAnswer:
+		return &AIAnswer{}
+	case TypeAIFailure:
+		return &AIFailure{}
+	case TypeAICancel:
+		return &AICancel{}
+	case TypeAIRejected:
+		return &AIRejected{}
+	case TypeRoomAIConfigure:
+		return &RoomAIConfigure{}
 	case TypeRoomCreate:
 		return &RoomCreate{}
 	case TypeRoomCreated:
@@ -203,6 +225,10 @@ func fixturePayloadForType(messageType string) any {
 		return &GameDraw{}
 	case TypeGameDrawn:
 		return &GameDrawn{}
+	case TypeGameSetLibraryTopRevealed:
+		return &GameSetLibraryTopRevealed{}
+	case TypeGameLibraryTopRevealedSet:
+		return &GameLibraryTopRevealedSet{}
 	case TypeGameShuffleLibrary:
 		return &GameShuffleLibrary{}
 	case TypeGameLibraryShuffled:
@@ -387,6 +413,12 @@ func fixturePayloadForType(messageType string) any {
 		return &ReplayGet{}
 	case TypeReplayLoaded:
 		return &ReplayLoaded{}
+	case TypeForgeReplayGrant:
+		return &ForgeReplayGrant{}
+	case TypeForgeReplayGet:
+		return &ForgeReplayGet{}
+	case TypeForgeReplayPage:
+		return &ForgeReplayPage{}
 	case TypeSideboardMove:
 		return &SideboardMove{}
 	case TypeSideboardMoved:
@@ -395,6 +427,10 @@ func fixturePayloadForType(messageType string) any {
 		return &SideboardSetCommander{}
 	case TypeSideboardCommanderSet:
 		return &SideboardCommanderSet{}
+	case TypeSideboardChooseStartingPlayer:
+		return &SideboardChooseStartingPlayer{}
+	case TypeSideboardStartingPlayerChosen:
+		return &SideboardStartingPlayerChosen{}
 	case TypeSideboardReady:
 		return &SideboardReady{}
 	case TypeSideboardReadyChanged:

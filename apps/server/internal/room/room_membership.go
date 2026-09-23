@@ -157,6 +157,12 @@ func (r *Room) ExpireDisconnected(connID string) (Result, bool, error) {
 	if wasPlayer {
 		r.cancelLoading()
 	}
+	if r.HasAI() && r.HumanPlayerCount() == 0 {
+		r.Disbanded = true
+		event, _ := protocol.NewEnvelope(protocol.TypeRoomDisbanded, protocol.RoomLeft{RoomID: r.ID})
+		event = event.WithSeq(r.allocSeq())
+		return Result{Broadcast: []protocol.Envelope{event}}, true, nil
+	}
 	empty := r.PlayerCount() == 0 && len(r.Spectators) == 0
 	return Result{
 		Broadcast:   []protocol.Envelope{r.snapshotEnvelope()},
@@ -170,7 +176,7 @@ func (r *Room) transferHost() {
 		r.Seats[index].Host = false
 	}
 	for index := range r.Seats {
-		if !r.Seats[index].Occupied {
+		if !r.Seats[index].Occupied || r.Seats[index].Controller != "" {
 			continue
 		}
 		r.Seats[index].Host = true
@@ -257,6 +263,9 @@ func (r *Room) Kick(actorConnID string, seat, spectatorIndex *int) (Result, erro
 	if seat != nil {
 		i := *seat
 		if i < 0 || i >= len(r.Seats) || !r.Seats[i].Occupied {
+			return Result{}, newError(protocol.ErrInvalidTarget)
+		}
+		if r.Seats[i].Controller != "" {
 			return Result{}, newError(protocol.ErrInvalidTarget)
 		}
 		if r.Seats[i].Host {

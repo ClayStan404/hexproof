@@ -1,0 +1,8 @@
+{
+  "type": "sideboard.starting_player_chosen",
+  "id": "sideboard-starting-player-chosen",
+  "payload": {
+    "roomId": "K7P2QX",
+    "startingSeat": 1
+  }
+}

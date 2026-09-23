@@ -308,22 +308,34 @@ AppPopup {
             topRemainderFaceDown = false
     }
 
-    function assignTopCards(cardIds, destination, faceDown) {
+    function deselectTopCards(cardIds) {
+        selectedOrder = selectedOrder.filter(cardId => cardIds.indexOf(cardId) < 0)
+        if (cardIds.indexOf(topSelectionAnchor) >= 0)
+            topSelectionAnchor = ""
+    }
+
+    function assignTopCards(cardIds, destination, faceDown, reveal) {
         if (!reorderMode || !topCardDestinations.some(option => option.value === destination))
             return
         const next = Object.assign({}, topCardAssignments)
         for (const cardId of cardIds) {
             if (!selectedCardForId(cardId).id)
                 continue
+            const current = topCardAssignment(cardId)
             next[cardId] = {
                 "toZone": destination,
                 "faceDown": destination === "battlefield"
                             && (faceDown === undefined
-                                ? topCardAssignment(cardId).faceDown === true
+                                ? current.faceDown === true
                                 : faceDown === true)
             }
+            if (!next[cardId].faceDown
+                && (reveal === undefined ? current.reveal === true : reveal === true))
+                next[cardId].reveal = true
         }
         topCardAssignments = next
+        deselectTopCards(cardIds)
+        inspector.topSelectedReveal = false
     }
 
     function useRemainderForTopCards(cardIds) {
@@ -331,6 +343,8 @@ AppPopup {
         for (const cardId of cardIds)
             delete next[cardId]
         topCardAssignments = next
+        deselectTopCards(cardIds)
+        inspector.topSelectedReveal = false
     }
 
     function moveTopCardRelative(cardId, targetId, after) {
@@ -369,16 +383,24 @@ AppPopup {
         assignTopCards([cardId], current.toZone, faceDown)
     }
 
+    function setTopCardReveal(cardId, reveal) {
+        const current = topCardAssignment(cardId)
+        assignTopCards([cardId], current.toZone, current.faceDown, reveal)
+    }
+
     function topCardAssignmentList() {
         const assignments = []
         for (let index = 0; index < cards.length; ++index) {
             const assignment = topCardAssignment(cards[index].id)
-            assignments.push({
+            const resolved = {
                 "cardId": cards[index].id,
                 "toZone": assignment.toZone,
                 "faceDown": assignment.toZone === "battlefield"
                             && assignment.faceDown === true
-            })
+            }
+            if (!resolved.faceDown && assignment.reveal === true)
+                resolved.reveal = true
+            assignments.push(resolved)
         }
         return assignments
     }
@@ -392,7 +414,7 @@ AppPopup {
         const position = destination === "battlefield"
                          ? {"x": 0.5, "y": 0.5} : ({})
         searchRequested(cardIds, destination,
-                        topCount === 0 && faceDown !== true && inspector.reveal,
+                        faceDown !== true && inspector.reveal,
                         randomize === true, position, sourceSeat, approvalId,
                         destinationSeat, faceDown === true)
         close()
@@ -401,7 +423,8 @@ AppPopup {
     function completeContextSearch(destination, destinationSeat, randomize,
                                    faceDown) {
         if (reorderMode) {
-            assignTopCards(contextCardIdList(), destination, faceDown === true)
+            assignTopCards(contextCardIdList(), destination, faceDown === true,
+                           inspector.topSelectedReveal)
             if (destination === "library_top")
                 inspector.randomizeTop = randomize === true
             else if (destination === "library_bottom")
@@ -449,6 +472,7 @@ AppPopup {
         contextCardId = ""
         filterQuery = ""
         offerShuffleOnClose = false
+        inspector.topSelectedReveal = false
         cardBrowser.resetFilter()
         if (remind)
             shuffleReminderRequested()

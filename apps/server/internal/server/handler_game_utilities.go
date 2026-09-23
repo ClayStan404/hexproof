@@ -115,3 +115,16 @@ func (h *Handler) handleGameCommand(sess *Session, env protocol.Envelope,
 	}
 	return nil
 }
+
+func (h *Handler) handleSideboardChooseStartingPlayer(sess *Session, env protocol.Envelope) error {
+	var request protocol.SideboardChooseStartingPlayer
+	return h.handleGameCommand(sess, env, &request, func(r *room.Room) (room.Result, error) {
+		return h.hub.ChooseStartingPlayer(sess.ConnectionID, request, r)
+	}, gameCommandOptions{})
+}
+func (h *Handler) handleGameSetLibraryTopRevealed(sess *Session, env protocol.Envelope) error {
+	var request protocol.GameSetLibraryTopRevealed
+	return h.handleGameCommand(sess, env, &request, func(r *room.Room) (room.Result, error) {
+		return h.hub.SetLibraryTopRevealed(sess.ConnectionID, request, r)
+	}, gameCommandOptions{})
+}

@@ -13,6 +13,8 @@ AppPopup {
 
     required property var catalogModel
     property var preferredTokens: []
+    property var environmentSetCodes: []
+    property bool environmentOnly: environmentSetCodes.length > 0
     property string titleText: qsTr("Tokens and emblems")
     property string actionText: qsTr("Create")
     property bool existingTokensDisabled: false
@@ -41,9 +43,10 @@ AppPopup {
     onOpened: {
         searchField.text = ""
         kindFilter = "all"
+        environmentOnly = environmentSetCodes.length > 0
         recipientSeat = defaultRecipientSeat
         if (root.catalogAvailable)
-            catalogModel.searchTokens("", kindFilter)
+            catalogModel.searchTokens("", kindFilter, environmentOnly ? environmentSetCodes : [])
         searchField.forceActiveFocus()
         cacheDisplayedTokens()
     }
@@ -53,6 +56,7 @@ AppPopup {
         detailsPopup.close()
     }
     onKindFilterChanged: searchTimer.restart()
+    onEnvironmentOnlyChanged: searchTimer.restart()
     onCardLanguageChanged: if (opened) cacheDisplayedTokens()
     onDisplayedTokensChanged: if (opened) Qt.callLater(cacheDisplayedTokens)
 
@@ -137,6 +141,15 @@ AppPopup {
                     Layout.preferredWidth: Theme.size(18)
                     Layout.preferredHeight: Theme.size(18)
                 }
+            }
+
+            AppToggle {
+                objectName: "tokenEnvironmentFilter"
+                Layout.fillWidth: true
+                visible: root.environmentSetCodes.length > 0
+                text: qsTr("Only this Limited environment")
+                checked: root.environmentOnly
+                onToggled: root.environmentOnly = checked
             }
 
             Surface {
@@ -353,7 +366,8 @@ AppPopup {
         interval: 180
         onTriggered: {
             if (root.opened && root.catalogAvailable)
-                root.catalogModel.searchTokens(searchField.text, root.kindFilter)
+                root.catalogModel.searchTokens(searchField.text, root.kindFilter,
+                                               root.environmentOnly ? root.environmentSetCodes : [])
         }
     }
 
@@ -448,6 +462,13 @@ AppPopup {
         const append = function(token, isPreferred) {
             if (!token || !root.tokenMatches(token, query))
                 return
+            if (root.environmentOnly) {
+                const setCode = String(token.setCode || "").toUpperCase()
+                if (!root.environmentSetCodes.some(code =>
+                        setCode === String(code).toUpperCase()
+                        || setCode === "T" + String(code).toUpperCase()))
+                    return
+            }
             const kind = token.kind === "emblem" ? "emblem" : "token"
             if (root.kindFilter !== "all" && kind !== root.kindFilter)
                 return

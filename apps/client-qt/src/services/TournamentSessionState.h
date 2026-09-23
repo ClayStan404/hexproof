@@ -29,6 +29,7 @@ class TournamentSessionState : public QObject
     Q_PROPERTY(bool cubeRoom READ cubeRoom NOTIFY snapshotChanged)
     Q_PROPERTY(QString stage READ stage NOTIFY snapshotChanged)
     Q_PROPERTY(QString matchMode READ matchMode NOTIFY snapshotChanged)
+    Q_PROPERTY(QString rulesMode READ rulesMode NOTIFY snapshotChanged)
     Q_PROPERTY(QString status READ status NOTIFY snapshotChanged)
     Q_PROPERTY(QString role READ role NOTIFY snapshotChanged)
     Q_PROPERTY(QString participantId READ participantId NOTIFY snapshotChanged)
@@ -102,6 +103,10 @@ class TournamentSessionState : public QObject
     QString matchMode() const
     {
         return m_matchMode;
+    }
+    QString rulesMode() const
+    {
+        return m_rulesMode;
     }
     QString status() const
     {
@@ -213,6 +218,7 @@ class TournamentSessionState : public QObject
     QString m_coordinator;
     QString m_stage;
     QString m_matchMode;
+    QString m_rulesMode = QStringLiteral("manual");
     QString m_status;
     QString m_role;
     QString m_participantId;

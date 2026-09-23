@@ -120,7 +120,7 @@ write("audit-summary.json", {"evidence": "native-qt-input", "inputs": 1, "exitCo
 @unittest.skipUnless(sys.platform.startswith("linux"), "The lifecycle runner is Linux only")
 class NativeLifecycleTests(unittest.TestCase):
     def exercise(self, root, first="pass", second="pass", timeout=5, network_isolated=False,
-                 windowed=False):
+                 windowed=False, manifest_data=None):
         binary = root / "tool-only-fake-client.py"
         binary.write_text(f"#!{sys.executable}\n" + FAKE_CLIENT)
         binary.chmod(0o700)
@@ -130,7 +130,7 @@ class NativeLifecycleTests(unittest.TestCase):
         catalog_import = root / "catalog-to-import.sqlite"
         catalog_import.write_bytes(b"Tool fixture path only; the fake client never imports it")
         manifest = root / "manifest.json"
-        manifest.write_text('{"toolOnly": true}')
+        manifest.write_text(json.dumps(manifest_data if manifest_data is not None else {"toolOnly": True}))
         args = argparse.Namespace(
             scenario=first_scenario, next_scenario=[next_scenario], binary=binary,
             server_binary=None, output=root / "run", catalog=None, fixture_dir=None,
@@ -148,6 +148,24 @@ class NativeLifecycleTests(unittest.TestCase):
             code = RUNNER.run(args)
         report = json.loads((args.output / "report.json").read_text())
         return code, report, args.output
+
+    def test_named_deck_fixtures_and_ordered_imports_survive_restart(self):
+        deck = {"mainboard": [{"count": 1, "name": "Lórien Revealed", "setCode": "LTR",
+                               "collectorNumber": "60"}],
+                "sideboard": [{"count": 2, "name": "Island", "setCode": "LEA",
+                               "collectorNumber": "291"}]}
+        for ordered in (False, True):
+            with self.subTest(ordered=ordered), tempfile.TemporaryDirectory() as directory:
+                manifest = {"toolOnly": True, "decks": [deck] if ordered else {"modern": deck}}
+                code, report, output = self.exercise(Path(directory), manifest_data=manifest)
+                self.assertEqual(code, 0, report)
+                for stage in ("shared", "stage-2-shared"):
+                    self.assertEqual(json.loads((output / stage / "fixture.json").read_text()), manifest)
+                imports = list(output.glob("deck-import-seat-*.txt"))
+                self.assertEqual(len(imports), 1 if ordered else 0)
+                if ordered:
+                    self.assertEqual(imports[0].read_text(encoding="utf-8"),
+                                     "1 Lórien Revealed (LTR) 60\n\nSideboard\n2 Island (LEA) 291")
 
     def test_window_mode_reaches_every_child_and_restart(self):
         for windowed in (False, True):

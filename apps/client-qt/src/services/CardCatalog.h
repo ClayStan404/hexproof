@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QQueue>
 #include <QSet>
+#include <QStringList>
 #include <QUrl>
 #include <QVariantList>
 
@@ -276,8 +277,8 @@ class CardCatalog : public QObject
                                       const QString &collectorNumber, const QString &query) const;
     Q_INVOKABLE void clearLastError();
     Q_INVOKABLE void downloadTokenCatalog();
-    Q_INVOKABLE void searchTokens(const QString &query,
-                                  const QString &kind = QStringLiteral("all"));
+    Q_INVOKABLE void searchTokens(const QString &query, const QString &kind = QStringLiteral("all"),
+                                  const QStringList &setCodes = {});
     Q_INVOKABLE QString tokenImageSource(const QString &name, const QString &setCode,
                                          const QString &collectorNumber) const;
     Q_INVOKABLE QString tokenDisplayName(const QString &name, const QString &setCode,
@@ -495,6 +496,7 @@ class CardCatalog : public QObject
     QString m_lastManaFilter;
     QString m_lastTokenSearchQuery;
     QString m_lastTokenSearchKind = QStringLiteral("all");
+    QStringList m_lastTokenSearchSets;
     QString m_lastTypeFilter;
     QString m_lastSetFilter;
     QString m_lastLanguageFilter;

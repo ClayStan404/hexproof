@@ -1,12 +1,61 @@
 # Official Forge runtime source and build
 
-Hexproof hosts official Forge's human controller through its own JSONL adapter
+Hexproof hosts official Forge's human and AI controllers through its own JSONL adapter
 in `native-host/`. `native-host/upstream.json` is the single source of the
 upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
-The current adapter is revision 4. Revision 3 added complete sideboard/scry/
+The current adapter is revision 17, retaining upstream `2be4858216742009afe8a7cffb035fc7671e960d`.
+Revision 17 adds a bounded private observation journal and acknowledged
+`getReplay` reads on both native transports. It captures intermediate automatic
+resolutions, both hands and combat relationships without changing normal viewer
+redaction. The hub releases visual recordings only after whole-match completion;
+see [private visual replays](../../docs/forge-replays.md).
+Revision 16 reports bounded deck-start rejection coordinates in both JSONL
+transports without exposing submitted card names, exception details or paths.
+Revision 13 keeps each complete London-mulligan redraw available for the keep
+decision. Only keeping the hand opens the explicit library-bottom selection;
+initial keeps and free mulligans skip that selection when no cards are owed.
+Revision 12 presents native informational messages as a single explicit
+acknowledgement. AI deck advisories retain their card names and sections and
+allow the human to continue to opening hands without changing either deck.
+Revision 11 supports one human and one AI in Constructed, with `easy`, `normal`
+and `hard` tactical presets. Hard retains every official Default profile value;
+the other presets reduce selected planning behavior. All use native heuristic
+AI without simulation or enabled preference-based cheats. The native AI still
+has Forge's engine-level information access; these presets are not a claim of
+strict player-view fairness or universally ordered win rates.
+AI sessions require a dedicated JVM. Both reset transports advertise the
+`forge-ai-v1` product capability, but shared workers reject AI game creation.
+Evaluation workers inherit the owning game's RNG and cancellation scope;
+evaluation failure ends the session instead of leaving a worker mutating it.
+Revision 10 retains readable live native cost and target descriptions.
+
+| Preset | Changes from official Default |
+| --- | --- |
+| `hard` | None; native heuristic AI, no simulation. |
+| `normal` | Does not delay unused land drops for concealment; two-damage-spell planning chance is 45% instead of 90%. |
+| `easy` | Normal's land behavior; disables paired damage planning, advanced flash planning, holding combat tricks until blocks, avoidance of already-doomed removal targets, and evasion prediction for assault/attrition attacks. |
+
+These probabilities belong to specific native planning branches, not a global
+chance to play correctly. Basic mana payment, legal targets, attacks, blocks and
+mulligans remain native. Forge can still override a positive chaining chance
+when it considers itself in danger. The easy zero value disables that planner
+even in danger; no tier intentionally misses land drops or spends extra resources.
+
+Revision 9 projects visible chosen-card relationships with native object
+timestamp checks. Revision 8 adds native Limited deck rules and incremental
+private card selections.
+Revision 7 preserves conditional-discard completion and empty-stack cleanup,
+shows finite card-face menus, validates crew/exile/helper cost choices, and
+projects class levels and dungeon rooms. The frozen 40-deck corpus and its
+native/projection/UI replay tooling live in `tools/forge-card-corpus/`.
+It publishes revealed battlefield choices (named cards, types, colors, numbers
+and modes) from native `CardView`, excluding secret choices and face-down cards.
+Revision 5 exposes native improvise/convoke reservations and restores permanents tapped
+for cost reduction when payment is cancelled, without treating improvise as
+convoke for card rules. Revision 3 added complete sideboard/scry/
 cleanup choices, linked exile and token metadata, and isolated shared workers;
 revision 4 adds private logical-state integrity for verified host replay.
 The official source pin is unchanged. Earlier native fixes remain: Backup Plan shuffles

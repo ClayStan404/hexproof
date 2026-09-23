@@ -232,18 +232,18 @@ func (h *Hub) CreateRoomWithHostingMode(name, format, deckFormat, matchMode, car
 // createTournamentRoom tags a pairing room before it becomes visible in the
 // hub registry, so concurrent room-list requests can never observe it as an
 // ordinary public room.
-func (h *Hub) createTournamentRoom(name, format, deckFormat, matchMode, cardLoadMode string,
+func (h *Hub) createTournamentRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode string,
 	maxSeats int, tournamentID, tournamentPairing, tournamentParticipantID string,
 	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
 	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode,
-		protocol.RulesModeManual, "", maxSeats, true,
+		rulesMode, "server", maxSeats, true,
 		false, "", tournamentID, tournamentPairing, tournamentParticipantID, host)
 }
 
 func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, hostingMode string,
 	maxSeats int, allowSpectators, spectatorsSeeHands bool, password, tournamentID, tournamentPairing,
 	tournamentParticipantID string,
-	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
+	host *Session, aiDifficulty ...string) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
 	if !protocol.ValidDeckFormat(deckFormat) ||
 		protocol.TableModeForDeckFormat(deckFormat) != format {
 		return nil, protocol.RoomSnapshot{}, 0, nil,
@@ -288,6 +288,21 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 		r.HostingMode = hostingMode
 		r.DeckFormat = deckFormat
 		r.LimitedDeckLocked = tournamentID != ""
+		source, difficulty := "", ""
+		if len(aiDifficulty) > 0 {
+			difficulty = aiDifficulty[0]
+		}
+		if len(aiDifficulty) > 1 {
+			source = aiDifficulty[1]
+		}
+		if source == "" && difficulty != "" {
+			source = protocol.AISourceForge
+		}
+		if source != "" {
+			if err := r.AddAI(source, difficulty); err != nil {
+				return nil, protocol.RoomSnapshot{}, 0, nil, mapRoomError(err)
+			}
+		}
 		r.SpectatorsSeeHands = allowSpectators && spectatorsSeeHands
 		if tournamentParticipantID != "" {
 			r.Seats[r.HostSeat].TournamentParticipantID = tournamentParticipantID
@@ -663,7 +678,7 @@ func (h *Hub) GameProjections(r *room.Room) (map[string]protocol.Envelope, error
 	projections := make(map[string]protocol.Envelope,
 		locked.PlayerCount()+len(locked.Spectators))
 	for _, seat := range locked.Seats {
-		if !seat.Occupied {
+		if !seat.Occupied || seat.Controller != "" || seat.ConnectionID == "" {
 			continue
 		}
 		envelope, err := gameProjectionEnvelope(locked, seat.ConnectionID, seq)
@@ -690,9 +705,12 @@ func (h *Hub) GameProjections(r *room.Room) (map[string]protocol.Envelope, error
 
 func gameProjectionEnvelope(r *room.Room, connID string,
 	seq int64) (protocol.Envelope, error) {
-	snapshot, err := r.GameSnapshot(connID)
+	var snapshot protocol.GameSnapshot
+	var err error
 	if r.RulesMode == protocol.RulesModeForge {
 		snapshot, err = r.RulesGameSnapshot(connID)
+	} else {
+		snapshot, err = r.GameSnapshot(connID)
 	}
 	if err != nil {
 		return protocol.Envelope{}, mapRoomError(err)
@@ -726,7 +744,7 @@ func (h *Hub) RulesProjectionTargets(r *room.Room) (map[string]int, int64, error
 	}
 	targets := make(map[string]int, r.PlayerCount()+len(r.Spectators))
 	for seatIndex, seat := range r.Seats {
-		if seat.Occupied {
+		if seat.Occupied && seat.Controller == "" && seat.ConnectionID != "" {
 			targets[seat.ConnectionID] = seatIndex
 		}
 	}

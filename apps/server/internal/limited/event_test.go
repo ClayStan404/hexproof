@@ -325,3 +325,42 @@ func deckCardTotal(cards []protocol.DeckCard) int {
 	}
 	return total
 }
+
+func TestFinalDraftCardWaitsForOwnerConfirmation(t *testing.T) {
+	event, err := New(Config{
+		TournamentID: "last-pick", EventType: protocol.LimitedEventSetDraft,
+		Product: testProduct(2, 20), Participants: testParticipants(2),
+	}, 11)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, player := range event.Players {
+		if _, err := event.Pick(player.ID, player.Inbox[0].Cards[0].ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, player := range event.Players {
+		owner := event.Snapshot(player.ID)
+		if len(player.Pool) != 1 || len(owner.CurrentPack) != 1 || owner.PicksRequired != 1 || owner.PackRound != 1 {
+			t.Fatal("the final card was not kept in the owner's pack for confirmation")
+		}
+	}
+	viewer := event.Snapshot("viewer")
+	if len(viewer.CurrentPack) != 0 || len(viewer.CurrentPacks) != 0 || len(viewer.Pool) != 0 {
+		t.Fatal("terminal selections disclosed private identities to a viewer")
+	}
+	first := event.Players[0]
+	if _, err := event.Pick(first.ID, first.Inbox[0].Cards[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if event.packRound != 1 || len(first.Pool) != 2 {
+		t.Fatal("the next round started before the other owner confirmed")
+	}
+	second := event.Players[1]
+	if _, err := event.Pick(second.ID, second.Inbox[0].Cards[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if event.packRound != 2 || event.Direction() != -1 {
+		t.Fatal("confirming every final card did not advance to the next pack")
+	}
+}

@@ -7,7 +7,135 @@ Hexproof versions the coordinated client and server together; both must match
 exactly. Card-database releases use the separate **card-data** channel;
 application changes that use new catalog metadata are included here.
 
-## [Unreleased]
+## [2.1.0] - 2026-09-23
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.1.0**; application versions
+  must match exactly. The `hexproof.v1` WebSocket protocol gained messages for
+  AI seats, model opponents, controlled turns and private replays.
+- The bundled native adapter overlay advanced to revision 21, adding AI
+  presets, exact printings, structured startup diagnostics, visual replays and
+  controlled turns. Rebuild server-managed and creator-hosted Forge runtimes
+  from this release to enable those behaviors; older runtimes keep serving
+  ordinary Forge games with generic fallbacks.
+
+### Added
+
+- Connect operator-owned home hubs using direct WebRTC, authenticated TURN, or
+  ordinary WSS forwarding. Show the active route and preserve room identity,
+  hidden information, and authenticated reconnect across transport changes.
+- Add native Forge AI practice against Beginner, Normal, and Hard presets,
+  with separate human/AI decks in ordinary constructed BO1 rooms. Server-run
+  AI requires the matching capable Forge runtime.
+
+- Add Gameplay settings with explicit Smart priority / Full control choices and
+  saved own/other-turn phase stops shared with the table. Prefer P2P by default
+  in supported human player-hosted rooms, retaining a saved relay-only choice.
+
+- Add the owner's BGM 2 and BGM 3 recordings to the background-music selector.
+- Add skippable Sealed pack reveals, per-basic printing selection with
+  environment defaults, and environment-filtered Limited token searches.
+- Add public-board inspection during manual and Forge sideboarding, plus an
+  atomic Limited mainboard clear action for rebuilding between games.
+- Let the previous loser choose play or draw in manual BO3, start EDH with
+  two players, and continuously reveal the manual library's current top card.
+- Configure experimental local Ollama/LM Studio and online OpenAI-compatible
+  model opponents for Forge constructed BO1 practice. Responses may fail and
+  pause the game; full-game reliability with real models remains unverified.
+  Model connections run on the desktop with session-only API keys, restricted
+  AI observations, bounded requests and explicit recovery when a decision fails.
+  Native Forge AI and its presets are unchanged.
+- Let a human take over a Forge AI's turn: control decisions route to the
+  controlling seat while the native engine keeps the acting player. The client
+  shows the controlled hand, supports Pass for that player, and can play
+  authorized library-top cards. Public entry and summoning-sickness markers
+  separate fresh permanents from older identical copies. This requires native
+  adapter revision 21; the official Forge source pin is unchanged.
+- Record Forge matches as private visual replays. Original participants receive
+  both-hand recordings only after the whole match ends; BO3 sideboarding and
+  spectators remain excluded. The replay player supports event/turn seeking,
+  playback speed, table flipping, inspection and offline `.hpr` import/export.
+  This requires native adapter revision 17; the official Forge source pin is
+  unchanged.
+
+### Fixed
+
+- Prefer one legal tap-only colorless land for a remaining pure generic cost
+  of at least two in human auto-pay, choosing the least excess mana. This
+  avoids tapping multiple Tron lands under Trinisphere when one Tower pays all
+  three; manual source selection remains available.
+- Silently acknowledge Forge's informational AI deck-quality advisory and
+  proceed to opening hands, and drop the persistent full-control status line
+  from the action dock. Other notices and game decisions still require their
+  normal input.
+- Explain Forge startup failures to every room member when loading returns to
+  the waiting room. Keep a visible, copyable reason and show rejected card
+  names/printings only to their deck owner (or the host for an AI deck).
+  Native adapter 16 supplies structured deck diagnostics; older runtimes retain
+  a clear generic failure. No format-legality or printing-substitution rule changes.
+- Replace the cast cue with the owner's `cast.wav` and the spell/ability
+  resolution cue with `Accept.mp3`, preserving each complete sound at the
+  existing cue volume levels.
+- Allow Forge games to start with catalog prerelease and promo-pack printings
+  whose exact parent printing is supported by Forge. Preserve their selected
+  art in prompts and zones, including mixed regular/promo copies. This fixes
+  md2-versus-md1 practice returning immediately to the lobby and requires native
+  adapter revision 15; the official Forge source pin is unchanged.
+- Preserve exact Forge card printings in selection, reveal and ordering dialogs,
+  so cached imported art stays consistent when cards move into the hand or
+  battlefield. Reject unavailable explicit printings instead of silently
+  substituting another version. This requires native adapter revision 14;
+  the official Forge source pin is unchanged.
+- Keep manual-table card, zone, attachment and arrow lookups consistent while
+  card-model notifications are delivered.
+- Classify compact deck-list lands by the front face's card types, including
+  localized subtype separators, so spell/land cards and Goblins stay with spells.
+- Reject sideboard moves that would split the pending deck beyond its entry
+  limit before changing cards or readiness.
+- Avoid duplicate Forge metadata snapshots and unnecessary Limited deck sorting;
+  changing pool grouping preserves the selected deck and mana-plan calculations.
+- Preserve Limited pool/deck scroll positions during card moves, require the
+  final manual draft pick to be confirmed, and pair opposite draft seats in
+  the first Swiss round (with distance-based fallback after byes or drops).
+- Display remaining Forge mana by color and scroll crowded hands through the
+  final card. Retain the completed public Forge table for sideboard reconnects.
+- Give model opponents the exact response shape for each decision, preventing
+  structured choices such as play/draw from being returned as ordinary action
+  IDs. Keep sensitive input text out of native test observations and traces.
+- Keep independent Forge dialogs from repeating an earlier spell's payment
+  text. Duress, Deadly Cover-Up, Shallow Grave and Emptiness now show readable
+  effect or target descriptions in the native adapter. This requires adapter
+  revision 10; the official Forge source pin is unchanged.
+  Payment headings retain the live unpaid mana cost even when the effect's
+  description is too long to fit in the decision panel.
+- Show Dauntless Bodyguard's chosen creature on its battlefield card and hover
+  details, clearing the link when that creature changes zones. Private chosen
+  cards remain hidden. This requires native adapter revision 9.
+- Preserve the first form-button click after wheel scrolling reaches the end
+  of room and tournament creation forms.
+- Keep long Forge hover explanations from covering the fixed payment controls
+  or receiving pointer input after a target-to-payment transition.
+- Complete conditional discards and end-turn cleanup in Forge, expose finite
+  dungeon/name menus, and retain legal completion, selection and cancellation
+  for crew, exile and convoke/improvise/waterbend costs. Show class levels and
+  dungeon rooms, with a command-zone entry whenever it contains objects.
+  Decision transitions no longer reset incubating Qt option delegates.
+  These fixes require native adapter revision 7; the official Forge pin stays unchanged.
+- Show named cards, chosen types/colors/numbers/modes, and linked exile names
+  directly on Forge battlefield permanents, with fuller hover and inspection
+  summaries. Stateful copies remain separate, returned cards clear their links,
+  and hidden exile identities remain anonymous. This requires native adapter
+  revision 6; the official Forge source pin is unchanged.
+- Show selected improvise/convoke permanents with checkmarks and separate piles
+  during Forge payment. Cancelling an insufficient payment restores its artifact
+  and mana-source taps, including repeated Kappa Cannoneer casting attempts.
+  This requires native adapter revision 5; the official Forge source pin is unchanged.
+- Select one eligible creature per click when declaring combat from a Forge
+  pile of identical permanents. Covered cards no longer receive the same tap
+  and undo the selection; the pile highlights legal choices beneath its front.
+- Keep Forge player life badges above the hand so hovered cards cannot hide
+  their values or intercept clicks when choosing the player as a target.
 
 ## [2.0.5] - 2026-09-21
 
@@ -59,6 +187,8 @@ application changes that use new catalog metadata are included here.
   for the current card language instead of the engine's English identity.
 - Show complete card faces on Forge zone piles at the standard ratio so art
   and names are not cropped.
+- Lay out the between-game sideboard as a full-bleed table workspace without
+  a framed inset or scrim ring.
 - Replace the cramped overflowing-hand slider with a proportional thumb that
   tracks the pointer and eased wheel notches for large hands; hand cards grow
   into the strip instead of letterboxing under a fixed width.

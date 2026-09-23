@@ -44,9 +44,16 @@ QtObject {
             return "id:" + id
         if (!card.visibleIdentity || card.faceDown || !card.name)
             return "id:" + id
+        // Stateful copies have separate choices/linked objects, even when their
+        // public counts or printed names are identical.
+        if (card.exiledCardCount > 0 || (card.annotations || []).length > 0
+            || (card.chosenCardIds || []).length > 0)
+            return "id:" + id
         return [String(card.name).trim().toLocaleLowerCase(),
                 card.token === true ? "token" : "card",
                 card.tapped === true ? "tapped" : "untapped",
+                card.enteredThisTurn === true ? "entered" : "established",
+                card.summoningSick === true ? "sick" : "ready",
                 card.attacking === true ? "attacking" : "ready",
                 String(card.power || ""),
                 String(card.toughness || ""),

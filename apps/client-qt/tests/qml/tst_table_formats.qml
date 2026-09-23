@@ -1368,6 +1368,7 @@ TestCase {
         compare(mockWs.lastLibrarySearch.toZone, "library_top")
         compare(mockWs.lastLibrarySearch.cardIds.length, 1)
         compare(mockWs.lastLibrarySearch.cardIds[0], "s0-lib1")
+        verify(!mockWs.lastLibrarySearch.topCard)
         table.destroy()
     }
 
@@ -1400,6 +1401,7 @@ TestCase {
         compare(mockWs.libraryActionOrder.length, 1)
         compare(mockWs.libraryActionOrder[0], "search")
         compare(mockWs.lastLibrarySearch.toZone, "library_top")
+        verify(!mockWs.lastLibrarySearch.topCard)
         table.destroy()
     }
 }

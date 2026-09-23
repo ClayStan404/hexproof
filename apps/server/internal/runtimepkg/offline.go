@@ -30,7 +30,9 @@ type offlinePackManifest struct {
 
 // The caller holds the cache lock. Pack metadata can identify the payload, but
 // only the client's embedded manifest supplies trusted sizes and checksums.
-func importPackArchives(ctx context.Context, base, source string, m Manifest, progress Progress) (map[string]string, error) {
+func importPackArchives(ctx context.Context, base, source string, m Manifest, progress Progress) (_ map[string]string, resultErr error) {
+	ReportDiagnostic(ctx, Diagnostic{Stage: "import", Component: "pack", Code: "started", Source: "offline"})
+	defer func() { resultErr = classifyFailure(resultErr, "import", "pack", "archive_invalid") }()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -50,26 +52,32 @@ func importPackArchives(ctx context.Context, base, source string, m Manifest, pr
 		}
 	}
 	if !info.Mode().IsRegular() || info.Size() > m.Forge.Size+maxJavaSize+(1<<20) {
-		return nil, errors.New("invalid offline pack file")
+		return nil, failure("archive_invalid", "invalid offline pack file")
 	}
 	pack, err := zip.OpenReader(source)
 	if err != nil {
 		return nil, err
 	}
 	defer pack.Close()
-	if len(pack.File) != 3 {
-		return nil, errors.New("offline pack must contain metadata, Forge and Java")
+	if len(pack.File) < 3 {
+		return nil, failure("member_missing", "offline pack must contain metadata, Forge and Java")
+	}
+	if len(pack.File) > 3 {
+		return nil, failure("archive_invalid", "offline pack contains unexpected entries")
 	}
 	entries := make(map[string]*zip.File, 3)
 	for _, entry := range pack.File {
 		if entries[entry.Name] != nil || !entry.Mode().IsRegular() {
-			return nil, errors.New("invalid offline pack entry")
+			return nil, failure("archive_invalid", "invalid offline pack entry")
 		}
 		entries[entry.Name] = entry
 	}
 	metadata := entries["forge-pack.json"]
-	if metadata == nil || metadata.UncompressedSize64 > 4096 {
-		return nil, errors.New("invalid offline pack metadata")
+	if metadata == nil {
+		return nil, failure("member_missing", "offline pack metadata is missing")
+	}
+	if metadata.UncompressedSize64 > 4096 {
+		return nil, failure("metadata_invalid", "invalid offline pack metadata")
 	}
 	reader, err := metadata.Open()
 	if err != nil {
@@ -82,22 +90,26 @@ func importPackArchives(ctx context.Context, base, source string, m Manifest, pr
 	}
 	var manifest offlinePackManifest
 	if len(raw) > 4096 || json.Unmarshal(raw, &manifest) != nil {
-		return nil, errors.New("invalid offline pack metadata")
+		return nil, failure("metadata_invalid", "invalid offline pack metadata")
 	}
 	if manifest.SchemaVersion != 1 || manifest.PackageID != PackageID() {
-		return nil, ErrPackVersion
+		return nil, diagnosticFailure(ErrPackVersion, packIdentityDiagnostic("package_version_mismatch", manifest, platform))
 	}
 	if manifest.Platform != platform {
-		return nil, ErrPackPlatform
+		return nil, diagnosticFailure(ErrPackPlatform, packIdentityDiagnostic("platform_mismatch", manifest, platform))
 	}
+	ReportDiagnostic(ctx, packIdentityDiagnostic("available", manifest, platform))
 	assets := []struct {
 		name  string
 		asset Asset
 	}{{"forge", m.Forge}, {"java", java}}
 	for _, item := range assets {
 		entry := entries[item.name+"."+item.asset.Format]
-		if entry == nil || entry.UncompressedSize64 != uint64(item.asset.Size) {
-			return nil, errors.New("offline pack archive is missing or has the wrong size")
+		if entry == nil {
+			return nil, diagnosticFailure(errors.New("offline pack archive is missing"), Diagnostic{Component: item.name, Code: "member_missing"})
+		}
+		if entry.UncompressedSize64 != uint64(item.asset.Size) {
+			return nil, diagnosticFailure(errors.New("offline pack archive has the wrong size"), Diagnostic{Component: item.name, Code: "size_mismatch", Total: item.asset.Size})
 		}
 	}
 	stage, err := os.MkdirTemp(base, "prepare-"+PackageID()+"-")
@@ -116,6 +128,7 @@ func importPackArchives(ctx context.Context, base, source string, m Manifest, pr
 	}
 	for _, item := range assets {
 		entry := entries[item.name+"."+item.asset.Format]
+		ReportDiagnostic(ctx, Diagnostic{Stage: "import", Component: item.name, Code: "started", Source: "offline", Total: item.asset.Size})
 		if err := copyPackArchive(ctx, entry, filepath.Join(stage, item.name), item.asset, func(n int) {
 			received += int64(n)
 			if progress != nil && (received == total || time.Since(last) >= 100*time.Millisecond) {
@@ -123,8 +136,9 @@ func importPackArchives(ctx context.Context, base, source string, m Manifest, pr
 				last = time.Now()
 			}
 		}); err != nil {
-			return nil, err
+			return nil, classifyFailure(err, "import", item.name, "archive_invalid")
 		}
+		ReportDiagnostic(ctx, Diagnostic{Stage: "import", Component: item.name, Code: "completed", Source: "offline", Received: item.asset.Size, Total: item.asset.Size})
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -141,6 +155,7 @@ func importPackArchives(ctx context.Context, base, source string, m Manifest, pr
 		}
 		paths[item.name] = path
 	}
+	ReportDiagnostic(ctx, Diagnostic{Stage: "import", Component: "pack", Code: "completed", Source: "offline", Received: received, Total: total})
 	return paths, nil
 }
 
@@ -164,7 +179,7 @@ func copyPackArchive(ctx context.Context, entry *zip.File, destination string, a
 		n, readErr := bounded.Read(buffer)
 		copied += int64(n)
 		if copied > asset.Size {
-			return errors.New("offline pack archive is too large")
+			return failure("size_mismatch", "offline pack archive is too large")
 		}
 		if n > 0 {
 			if _, err := writer.Write(buffer[:n]); err != nil {
@@ -179,8 +194,11 @@ func copyPackArchive(ctx context.Context, entry *zip.File, destination string, a
 			return readErr
 		}
 	}
-	if copied != asset.Size || hex.EncodeToString(hash.Sum(nil)) != asset.SHA256 {
-		return errors.New("offline pack archive checksum mismatch")
+	if copied != asset.Size {
+		return failure("size_mismatch", "offline pack archive has the wrong size")
+	}
+	if hex.EncodeToString(hash.Sum(nil)) != asset.SHA256 {
+		return failure("checksum_mismatch", "offline pack archive checksum mismatch")
 	}
 	if err := ctx.Err(); err != nil {
 		return err

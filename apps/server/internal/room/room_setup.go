@@ -179,13 +179,13 @@ func (r *Room) beginLoadingIfReady() (bool, error) {
 		}
 		r.LoadID++
 		for i := range r.Seats {
-			r.Seats[i].Loaded = false
+			r.Seats[i].Loaded = r.Seats[i].Controller != ""
 		}
 		r.Phase = protocol.RoomPhaseStarted
 	} else {
 		r.LoadID++
 		for i := range r.Seats {
-			r.Seats[i].Loaded = false
+			r.Seats[i].Loaded = r.Seats[i].Controller != ""
 		}
 		r.Phase = protocol.RoomPhaseLoading
 	}
@@ -209,6 +209,7 @@ func (r *Room) RulesStartPlayers() ([]RulesStartPlayer, error) {
 		}
 		players = append(players, RulesStartPlayer{
 			Seat: seatIndex, DisplayName: seat.DisplayName, Deck: cloneDeck(*seat.Deck),
+			Controller: seat.Controller, AIDifficulty: seat.AIDifficulty,
 		})
 	}
 	return players, nil
@@ -228,8 +229,8 @@ func (r *Room) minimumPlayersToStart() int {
 	if r.Playtest || r.MaxSeats <= 1 {
 		return 1
 	}
-	if r.Format == protocol.FormatEDH && r.MaxSeats >= 3 {
-		return 3
+	if r.Format == protocol.FormatEDH && r.MaxSeats >= 2 {
+		return 2
 	}
 	return r.MaxSeats
 }
@@ -238,7 +239,7 @@ func (r *Room) resetAfterGameSetupFailure() {
 	r.Phase = protocol.RoomPhaseWaiting
 	r.Game = nil
 	for i := range r.Seats {
-		r.Seats[i].Ready = false
+		r.Seats[i].Ready = r.Seats[i].Controller != "" && r.Seats[i].Deck != nil
 		r.Seats[i].Loaded = false
 	}
 }
@@ -535,8 +536,8 @@ func (r *Room) setupGameNumberWithTurnOrder(gameNumber, fixedStartingSeat int,
 				game.Seats[startingSeat].DisplayName, gameNumber))
 	} else {
 		r.appendGameLog("starting_player", startingSeat,
-			fmt.Sprintf("%s goes first after losing Game %d.",
-				game.Seats[startingSeat].DisplayName, gameNumber-1))
+			fmt.Sprintf("%s starts Game %d.",
+				game.Seats[startingSeat].DisplayName, gameNumber))
 	}
 	for _, seatIndex := range activeSeats {
 		r.appendGameLog("opening_hand", seatIndex,
@@ -638,6 +639,11 @@ func (r *Room) validateDeck(deck protocol.DeckSelect) error {
 			virtualLimitedBasic := (roomDeckFormat == protocol.DeckFormatLimited ||
 				(roomDeckFormat == protocol.DeckFormatCommanderLimited && r.LimitedDeckLocked)) &&
 				setCode == "" && collectorNumber == "" && isOrdinaryBasicLand(name)
+			if card.VirtualBasic && (!(roomDeckFormat == protocol.DeckFormatLimited ||
+				(roomDeckFormat == protocol.DeckFormatCommanderLimited && r.LimitedDeckLocked)) ||
+				!isOrdinaryBasicLand(name) || boardIndex != 0) {
+				return newError(protocol.ErrInvalidDeck)
+			}
 			if name == "" || utf8.RuneCountInString(name) > protocol.MaxCardNameRunes ||
 				containsControlCharacters(name) ||
 				card.Count <= 0 || card.Count > protocol.MaxDeckCards-totalCards ||

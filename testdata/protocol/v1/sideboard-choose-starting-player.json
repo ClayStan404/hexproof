@@ -1,0 +1,7 @@
+{
+  "type": "sideboard.choose_starting_player",
+  "id": "sideboard-choose-starting-player",
+  "payload": {
+    "startingSeat": 1
+  }
+}

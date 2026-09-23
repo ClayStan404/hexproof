@@ -8,9 +8,11 @@ ColumnLayout {
     id: root
     property var wsModel: null
     property bool compact: false
+    property var settings: typeof preferences !== "undefined" ? preferences : null
     readonly property bool eligible: wsModel && wsModel.roomSession
         ? wsModel.roomSession.hostingMode === "player" && wsModel.roomSession.role === "player"
-          && wsModel.roomSession.seatIndex >= 0 : false
+          && wsModel.roomSession.seatIndex >= 0 && wsModel.roomSession.seatIndex < 2
+          && !wsModel.roomSession.aiSource && !wsModel.roomSession.aiDifficulty : false
     readonly property bool available: eligible && wsModel.peerTransportAvailable === true
     readonly property bool optedIn: available && wsModel.directPeerEnabled === true
     readonly property string transport: available && wsModel.peerTransportState !== undefined ? wsModel.peerTransportState : "off"
@@ -57,12 +59,21 @@ ColumnLayout {
         }
         AppButton {
             objectName: "forgePeerEnable"
-            text: root.optedIn ? qsTr("Use relay only") : qsTr("Agree to P2P")
+            text: root.optedIn ? qsTr("Use relay only") : qsTr("Enable direct connection")
             enabled: root.available
             disabledReason: root.available ? "" : root.statusText()
             compact: true
             variant: root.optedIn || root.compact ? "secondary" : "primary"
-            onClicked: root.wsModel.setDirectPeerEnabled(!root.optedIn)
+            onClicked: {
+                const enabled = !root.optedIn
+                if (root.settings) {
+                    root.settings.directPeerEnabled = enabled
+                    if (root.settings.directPeerEnabled !== enabled)
+                        return
+                }
+                if (root.wsModel.directPeerEnabled !== enabled)
+                    root.wsModel.setDirectPeerEnabled(enabled)
+            }
         }
         AppButton {
             objectName: "forgePeerRetry"
@@ -76,9 +87,9 @@ ColumnLayout {
     Text {
         objectName: "forgePeerConsentNotice"
         Layout.fillWidth: true
-        visible: root.available && !root.optedIn
+        visible: root.available && (!root.compact || !root.optedIn)
         textFormat: Text.PlainText
-        text: qsTr("Both players must agree to share network addresses and use a STUN service.")
+        text: qsTr("Direct connections share network addresses with the other player and use a STUN service. This preference is saved for future games.")
         color: Theme.textMuted
         wrapMode: root.compact ? Text.NoWrap : Text.WordWrap
         elide: root.compact ? Text.ElideRight : Text.ElideNone

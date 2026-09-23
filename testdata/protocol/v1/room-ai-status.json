@@ -1,0 +1,8 @@
+{
+  "type": "room.ai.status",
+  "payload": {
+    "roomId": "ABCDEF",
+    "state": "paused",
+    "code": "timeout"
+  }
+}

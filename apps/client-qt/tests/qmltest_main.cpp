@@ -6,10 +6,12 @@
 #include "models/OptimisticCommandModel.h"
 #include "models/SideboardTableModel.h"
 #include "services/LimitedDeckDraftStore.h"
+#include "services/PublicContentService.h"
 #include "services/RulesCombatModel.h"
 #include "services/RulesSessionState.h"
 #include "services/TranslationController.h"
 
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QQmlContext>
@@ -397,8 +399,45 @@ class RulesPromptFixture : public QObject
         return m_session.applyPrompt(QJsonObject::fromVariantMap(prompt));
     }
 
+    Q_INVOKABLE QVariantList corpusCases()
+    {
+        m_corpus.clear();
+        QVariantList cases;
+        const auto path = qEnvironmentVariable("HEXPROOF_FORGE_CORPUS_UI");
+        if (path.isEmpty())
+            return cases;
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly))
+            qFatal("Cannot open Forge corpus UI evidence");
+        while (!file.atEnd()) {
+            const auto line = file.readLine();
+            const auto value = QJsonDocument::fromJson(line).object();
+            if (value.isEmpty())
+                qFatal("Invalid Forge corpus UI record");
+            const auto tag = value.value(QStringLiteral("card")).toString() + QStringLiteral("/") +
+                             value.value(QStringLiteral("case")).toString();
+            cases.append(QVariantMap{{QStringLiteral("tag"), tag},
+                                     {QStringLiteral("index"), m_corpus.size()}});
+            m_corpus.append(line);
+        }
+        return cases;
+    }
+
+    Q_INVOKABLE QVariantMap corpusCase(int index) const
+    {
+        return QJsonDocument::fromJson(m_corpus.value(index)).object().toVariantMap();
+    }
+
+    Q_INVOKABLE QString corpusEnvironment(const QString &name) const
+    {
+        return name.startsWith(QStringLiteral("HEXPROOF_FORGE_CORPUS_"))
+                   ? qEnvironmentVariable(name.toUtf8().constData())
+                   : QString();
+    }
+
   private:
     hexproof::client::RulesSessionState m_session;
+    QList<QByteArray> m_corpus;
 };
 
 class QmlTestSetup : public QObject
@@ -414,6 +453,10 @@ class QmlTestSetup : public QObject
   public slots:
     void qmlEngineAvailable(QQmlEngine *engine)
     {
+        engine->rootContext()->setContextProperty(
+            QStringLiteral("publicContent"),
+            new hexproof::client::PublicContentService(m_preferencesStorage.path(), QStringList{},
+                                                       engine));
         // This also covers component construction before initTestCase(), when
         // per-test failOnWarning() handlers have not yet been installed.
         connect(engine, &QQmlEngine::warnings, this, [this](const QList<QQmlError> &warnings) {

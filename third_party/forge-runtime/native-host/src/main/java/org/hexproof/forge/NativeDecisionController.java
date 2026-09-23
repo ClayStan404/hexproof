@@ -33,6 +33,28 @@ final class NativeDecisionController extends PlayerControllerHuman {
     @Override public Player chooseStartingPlayer(boolean firstGame) {
         return starts == null ? super.chooseStartingPlayer(firstGame) : getGame().getRegisteredPlayers().get(starts);
     }
+    @Override public void revealForDiscard(forge.game.card.CardCollectionView cards, Player owner) {
+        // DiscardEffect calls this only when a choice follows immediately. Its
+        // exact authorized disclosure is supplied again as visibleToChooser.
+    }
+    @Override public forge.game.card.CardCollectionView chooseCardsToDiscardFrom(Player player, SpellAbility ability,
+            CardCollection valid, int min, int max, forge.game.card.CardCollectionView visibleToChooser) {
+        if (player == getPlayer()) return super.chooseCardsToDiscardFrom(player, ability, valid, min, max, visibleToChooser);
+        return deciding(ability, () -> {
+            tempShowCards(visibleToChooser);
+            try {
+                var candidates = forge.game.GameEntityView.getMap(valid);
+                var reveal = new forge.game.player.DelayedReveal(visibleToChooser,
+                        forge.game.zone.ZoneType.Hand, player.getView());
+                var chosen = getGui().chooseEntitiesForEffect(
+                        String.format(forge.util.Localizer.getInstance().getMessage("lblChooseMinCardToDiscard"), min == 0 ? max : min),
+                        candidates.getTrackableKeys(), min, max, reveal);
+                var result = new CardCollection();
+                candidates.addToList(chosen, result);
+                return result;
+            } finally { endTempShowCards(); }
+        });
+    }
     @Override public forge.game.card.CardCollectionView chooseCardsToDiscardToMaximumHandSize(int count) {
         // The desktop uses a specialized incremental input here. Use Forge's
         // complete card-dialog contract so selecting two cards stays one choice.

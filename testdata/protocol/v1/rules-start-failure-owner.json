@@ -1,0 +1,29 @@
+{
+  "type": "error",
+  "id": "load-owner-7",
+  "payload": {
+    "code": "rules_unavailable",
+    "message": "Forge could not start the game; check the selected decks before readying again",
+    "rulesStartFailure": {
+      "reason": "deck_rejected",
+      "issues": [
+        {
+          "deck": "player",
+          "section": "mainboard",
+          "code": "printing_unavailable",
+          "cardName": "Forest",
+          "setCode": "M21",
+          "collectorNumber": "999999"
+        },
+        {
+          "deck": "player",
+          "section": "sideboard",
+          "code": "printing_unavailable",
+          "cardName": "Island",
+          "setCode": "ZZZZ",
+          "collectorNumber": "1"
+        }
+      ]
+    }
+  }
+}

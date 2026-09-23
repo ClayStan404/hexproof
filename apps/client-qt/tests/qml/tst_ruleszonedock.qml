@@ -63,7 +63,7 @@ TestCase {
         snapshot = {roomId: "DOCK01", gameId: "dock-game", turn: 1, step: "main1",
             activeSeat: 0, prioritySeat: 0, players: [], stack: [], zones: [
                 {zone: "library", ownerSeat: 1, count: 43, cards: [
-                    {id: "secret-library", visible: true, identity: {name: "Secret library card"}}]},
+                    {id: "secret-library", visible: false, identity: {name: "Secret library card"}}]},
                 {zone: "graveyard", ownerSeat: 1, count: 2, cards: [
                     {id: "grave-bottom", visible: true, identity: {name: "Opt"}},
                     {id: "grave-top", visible: true, identity: {name: "Consider"}}]},

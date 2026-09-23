@@ -36,6 +36,7 @@ TestCase {
 
     QtObject {
         id: fakeWs
+        property var limitedSession: ({product: {setCode: "FDN"}})
         property int seatIndex: 0
         property int drawCalls: 0
         property int drawCount: 0
@@ -70,6 +71,7 @@ TestCase {
 
     QtObject {
         id: fakeRoomSession
+        property string deckFormat: "modern"
         property int seatIndex: fakeWs.seatIndex
     }
 
@@ -137,7 +139,16 @@ TestCase {
         cardCatalogModel: fakeCatalog
     }
 
+    function test_limitedTableSuppliesEnvironmentTokenSet() {
+        fakeRoomSession.deckFormat = "limited"
+        compare(editors.tokenPicker.environmentSetCodes.length, 1)
+        compare(editors.tokenPicker.environmentSetCodes[0], "FDN")
+        fakeRoomSession.deckFormat = "modern"
+        compare(editors.tokenPicker.environmentSetCodes.length, 0)
+    }
+
     function init() {
+        fakeRoomSession.deckFormat = "modern"
         fakeCatalog.tokenSearchResults = []
         fakeCatalog.prioritizeCalls = 0
         fakeCatalog.prioritizedCards = []

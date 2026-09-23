@@ -364,6 +364,11 @@ Page {
                                         statusColor: Theme.warning
                                     }
                                     StatusPill {
+                                        visible: !!roomRow.modelData.aiDifficulty
+                                        text: qsTr("AI · %1").arg(I18n.aiDifficultyLabel(roomRow.modelData.aiDifficulty))
+                                        statusColor: Theme.accent
+                                    }
+                                    StatusPill {
                                         visible: roomRow.modelData.rulesMode === "forge"
                                         text: roomRow.modelData.hostingMode === "player"
                                               ? qsTr("Forge · Player hosted") : qsTr("Forge · Server hosted")

@@ -1,4 +1,6 @@
 singleton Theme 1.0 Theme.qml
+singleton SoundEffects 1.0 SoundEffects.qml
+OperationSounds 1.0 OperationSounds.qml
 singleton TableBackgrounds 1.0 TableBackgrounds.qml
 TableBackgroundPicker 1.0 TableBackgroundPicker.qml
 TableBackgroundPopup 1.0 TableBackgroundPopup.qml
@@ -87,6 +89,7 @@ SponsorAnnouncementPopup 1.0 SponsorAnnouncementPopup.qml
 SponsorHighlight 1.0 SponsorHighlight.qml
 SponsorList 1.0 SponsorList.qml
 SponsorSupportPopup 1.0 SponsorSupportPopup.qml
+ContentRefreshBar 1.0 ContentRefreshBar.qml
 ShortcutActionCatalog 1.0 ShortcutActionCatalog.qml
 Surface 1.0 Surface.qml
 TokenPicker 1.0 TokenPicker.qml
@@ -97,3 +100,5 @@ TableSettingsPopup 1.0 TableSettingsPopup.qml
 TableBattlefieldGeometry 1.0 TableBattlefieldGeometry.qml
 TableDialogs 1.0 TableDialogs.qml
 TableSelectionController 1.0 TableSelectionController.qml
+RulesPriorityMode 1.0 RulesPriorityMode.qml
+RulesPhaseStops 1.0 RulesPhaseStops.qml

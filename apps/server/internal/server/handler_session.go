@@ -40,6 +40,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer atomic.AddInt64(&h.activeConnections, -1)
 
+	if r.URL.Path == "/ai" || r.URL.Query().Get("ai") == "1" {
+		h.serveModelWorker(w, r)
+		return
+	}
 	if r.URL.Query().Get("engine") == "1" {
 		h.servePlayerHost(w, r)
 		return
@@ -184,6 +188,7 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 				info, envelopes, resumeErr := h.hub.ResumeRoom(
 					hold.oldConnectionID, sess, hold.room)
 				if resumeErr == nil {
+					h.forgeReplays.rebind(hold.room, hold.oldConnectionID, sess.ConnectionID)
 					h.forgeMu.Lock()
 					if backup := h.playerBackups[hold.room.ID]; backup != nil && backup.connectionID == hold.oldConnectionID {
 						backup.connectionID = sess.ConnectionID
@@ -202,6 +207,8 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 						Seat:                   info.Seat,
 						Host:                   info.Host,
 						ForgeRulesAvailable:    h.forgeRulesAvailable(),
+						ForgeAIAvailable:       h.forgeAIAvailable(),
+						AIModelsAvailable:      h.forgeRulesAvailable() || h.config.AllowPlayerHosting,
 						PlayerHostingAvailable: h.config.AllowPlayerHosting,
 						PeerTransportAvailable: h.config.AllowPlayerHosting,
 						HostMigrationAvailable: h.config.AllowPlayerHosting,
@@ -211,6 +218,7 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 					welcomeEnvelope.ID = env.ID
 					h.send(sess, welcomeEnvelope)
 					h.fanoutTo([]*Session{sess}, envelopes)
+					h.grantModelWorker(sess, hold.room)
 					if hold.room.RulesMode == protocol.RulesModeForge &&
 						hold.room.Phase == protocol.RoomPhaseStarted {
 						h.fanoutGameProjections(hold.room)
@@ -245,6 +253,8 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 		ServerVersion:          buildinfo.Version,
 		ResumeToken:            sess.ResumeToken,
 		ForgeRulesAvailable:    h.forgeRulesAvailable(),
+		ForgeAIAvailable:       h.forgeAIAvailable(),
+		AIModelsAvailable:      h.forgeRulesAvailable() || h.config.AllowPlayerHosting,
 		PlayerHostingAvailable: h.config.AllowPlayerHosting,
 		PeerTransportAvailable: h.config.AllowPlayerHosting,
 		HostMigrationAvailable: h.config.AllowPlayerHosting,
@@ -281,6 +291,9 @@ func (h *Handler) holdForReconnect(sess *Session, r *room.Room) {
 	if !stillMember {
 		sess.setRoom(nil)
 		return
+	}
+	if r.IsHost(sess.ConnectionID) {
+		h.pauseModelWorker(r.ID, "worker_disconnected", true)
 	}
 	expiresAt := time.Now().UTC().Add(h.config.ReconnectWindow)
 	hold := resumeHold{
@@ -393,6 +406,9 @@ func (h *Handler) expireResumeHold(expected resumeHold) {
 			h.fanoutGameProjections(expected.room)
 		}
 		return
+	}
+	if expected.room.Disbanded {
+		h.disbandAndFanout(expected.room, result.Broadcast)
 	}
 	retained = h.snapshotRoomRetention(expected.room)
 	cleanup = h.removeRoom(expected.room)

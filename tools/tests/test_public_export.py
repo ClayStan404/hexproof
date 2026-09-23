@@ -22,9 +22,12 @@ class PublicExportTests(unittest.TestCase):
         self.write("apps/example.py", "print('public')\n")
         self.write("docs/private-notes.md", "Private notes\n")
         self.write("tools/tests/test_deploy_script.py", "private deployment test\n")
+        self.write("tools/tests/test_home_deployment.py", "private home deployment test\n")
+        self.write("tools/package-home-node.py", "private home deployment packager\n")
         for name in (".github/workflows/ci.yml", ".clang-format", ".gitattributes", ".gitignore", "LICENSE",
                      "CHANGELOG.md", "THIRD-PARTY-NOTICES.md", "docs/development-policy.md",
-                     "docs/rules-engine.md", "docs/player-hosted-forge.md", "packaging/README.md", "protocol/example.json",
+                     "docs/rules-engine.md", "docs/player-hosted-forge.md", "docs/home-servers.md",
+                     "docs/public-content.md", "packaging/README.md", "protocol/example.json",
                      "testdata/example.json", "third_party/README.md"):
             self.write(name, "Fixture\n")
         self.git("init", "--quiet")
@@ -62,6 +65,8 @@ class PublicExportTests(unittest.TestCase):
         self.assertFalse((self.target / "docs/development-policy.md").exists())
         self.assertFalse((self.target / "hex-img").exists())
         self.assertFalse((self.target / "tools/tests/test_deploy_script.py").exists())
+        self.assertFalse((self.target / "tools/tests/test_home_deployment.py").exists())
+        self.assertFalse((self.target / "tools/package-home-node.py").exists())
         self.assertEqual(image.read_text(), "User reference\n")
 
     def test_committed_internal_policy_is_never_exported(self):
@@ -71,6 +76,8 @@ class PublicExportTests(unittest.TestCase):
         self.assertTrue((self.root / "docs/development-policy.md").exists())
         self.assertTrue((self.target / "docs/rules-engine.md").exists())
         self.assertTrue((self.target / "docs/player-hosted-forge.md").exists())
+        self.assertTrue((self.target / "docs/home-servers.md").exists())
+        self.assertTrue((self.target / "docs/public-content.md").exists())
         self.assertTrue((self.target / ".gitattributes").exists())
 
     def test_modified_public_source_still_blocks_export(self):

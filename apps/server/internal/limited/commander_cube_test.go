@@ -144,13 +144,25 @@ func TestCommanderCubePicksAreAtomicAndPassOnce(t *testing.T) {
 	if _, err := event.PickCards(player.ID, ids); err == nil || eventStateJSON(t, event) != before {
 		t.Fatal("duplicate command consumed another pack")
 	}
-	// The final two cards are both automatic; a lone one must also drain safely.
+	// Terminal selections remain visible until the owner confirms, including
+	// an odd lone card in a two-card profile.
 	for _, remaining := range []int{1, 2} {
 		last := newCommanderCube(t, 2)
-		last.Players[0].Inbox[0].Cards = last.Players[0].Inbox[0].Cards[:remaining]
-		if err := last.drainSingletons(); err != nil || len(last.Players[0].Pool) != remaining ||
-			len(last.Players[0].Inbox) != 0 {
-			t.Fatalf("terminal %d-card pack not automatically assigned: %v", remaining, err)
+		owner := last.Players[0]
+		owner.Inbox[0].Cards = owner.Inbox[0].Cards[:remaining]
+		if err := last.advanceDraft(); err != nil || len(owner.Pool) != 0 || len(owner.Inbox) != 1 {
+			t.Fatalf("terminal %d-card pack skipped owner confirmation: %v", remaining, err)
+		}
+		projection := last.Snapshot(owner.ID)
+		if len(projection.CurrentPack) != remaining || projection.PicksRequired != remaining {
+			t.Fatalf("terminal %d-card pack was not projected with its actual quota", remaining)
+		}
+		ids := make([]string, remaining)
+		for i, card := range projection.CurrentPack {
+			ids[i] = card.InstanceID
+		}
+		if _, err := last.PickCards(owner.ID, ids); err != nil || len(owner.Pool) != remaining || len(owner.Inbox) != 0 {
+			t.Fatalf("terminal %d-card confirmation failed: %v", remaining, err)
 		}
 	}
 }

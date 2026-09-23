@@ -25,6 +25,11 @@ final class NativeOrdering {
 
     static IGuiGame.OrderResult<?> order(NativeSession session, Player owner, String title,
             int remainingMin, int remainingMax, List<?> source, List<?> destination) {
+        return order(session, owner, title, remainingMin, remainingMax, source, destination, List.of());
+    }
+
+    static IGuiGame.OrderResult<?> order(NativeSession session, Player owner, String title,
+            int remainingMin, int remainingMax, List<?> source, List<?> destination, List<CardView> revealed) {
         List<Object> candidates = new ArrayList<>();
         if (source != null) candidates.addAll(source);
         if (destination != null) candidates.addAll(destination);
@@ -36,8 +41,8 @@ final class NativeOrdering {
         if (min > max || total > 512) {
             throw new IllegalArgumentException("Invalid native ordering bounds");
         }
-        List<?> selected = min == total && max == total ? candidates
-                : select(session, owner, title, min, max, candidates);
+        List<?> selected = min == total && max == total && revealed.isEmpty() ? candidates
+                : select(session, owner, title, min, max, candidates, revealed);
         return new IGuiGame.OrderResult<>(reorder(session, owner, title, selected), false);
     }
 
@@ -65,23 +70,24 @@ final class NativeOrdering {
         return result;
     }
 
-    private static List<?> select(NativeSession session, Player owner, String title, int min, int max, List<?> candidates) {
+    private static List<?> select(NativeSession session, Player owner, String title, int min, int max, List<?> candidates, List<CardView> revealed) {
         if (candidates.isEmpty()) return List.of();
         boolean cardsOnly = candidates.stream().allMatch(CardView.class::isInstance);
         JsonObject input = input(cardsOnly ? "chooseCards" : "chooseFromSelection", title);
         JsonArray choices = new JsonArray();
         Map<String, Object> cards = new LinkedHashMap<>();
+        NativePromptCard presentation = new NativePromptCard(session, owner);
         for (Object candidate : candidates) {
             if (cardsOnly) {
                 CardView card = (CardView) candidate;
                 if (cards.put("card-" + card.getId(), candidate) != null) throw new IllegalArgumentException("Duplicate native card candidate");
-                choices.add(promptCard(owner, card));
+                choices.add(presentation.describe(card));
             } else {
                 JsonObject option = object("label", label(owner, candidate));
                 option.addProperty("weight", 1); option.addProperty("canRepeat", false); choices.add(option);
             }
         }
-        input.add(cardsOnly ? "cards" : "options", choices);
+        input.add(cardsOnly ? "cards" : "options", cardsOnly ? presentation.withRevealed(choices, revealed) : choices);
         input.addProperty(cardsOnly ? "min" : "minTotal", min);
         input.addProperty(cardsOnly ? "max" : "maxTotal", max);
         return session.ask(owner, input, raw -> {
@@ -111,12 +117,13 @@ final class NativeOrdering {
         JsonObject input = input("reorder", title);
         JsonArray items = new JsonArray();
         Map<String, Object> allowed = new LinkedHashMap<>();
+        NativePromptCard presentation = new NativePromptCard(session, owner);
         for (int i = 0; i < candidates.size(); i++) {
             Object candidate = candidates.get(i);
             String id = "order-" + i;
             JsonObject item = object("id", id); item.addProperty("oracle", label(owner, candidate));
             CardView card = candidate instanceof CardView c ? c : candidate instanceof SpellAbilityView ability ? ability.getHostCard() : null;
-            if (card != null) item.add("card", promptCard(owner, card));
+            if (card != null) item.add("card", presentation.describe(card));
             items.add(item); allowed.put(id, candidate);
         }
         input.add("items", items);
@@ -140,12 +147,6 @@ final class NativeOrdering {
         if (value instanceof PlayerView player) return player.getName();
         if (value instanceof SpellAbilityView ability) return ability.getDescription();
         return Objects.toString(value, "");
-    }
-
-    private static JsonObject promptCard(Player owner, CardView card) {
-        JsonObject result = object("id", "card-" + card.getId());
-        result.add("identity", object("name", label(owner, card)));
-        return result;
     }
 
     private static JsonObject input(String type, String title) {

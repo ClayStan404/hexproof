@@ -362,7 +362,9 @@ type GameZoneDumped struct {
 // source seat requires the one-use approval id issued with game.zone_dumped.
 // ToSeat may choose the requester or source player's hand/battlefield/public
 // zones for an approved remote search. Position is a normalized anchor used
-// to lay out one or more battlefield cards.
+// to lay out one or more battlefield cards. TopCard restricts the move to the
+// current top card and records a top-card view instead of a search. Reveal
+// explicitly includes selected names in the log unless FaceDown is set.
 type GameSearchLibrary struct {
 	CardID     string        `json:"cardId,omitempty"`
 	CardIDs    []string      `json:"cardIds,omitempty"`
@@ -374,6 +376,7 @@ type GameSearchLibrary struct {
 	SourceSeat *int          `json:"sourceSeat,omitempty"`
 	ApprovalID string        `json:"approvalId,omitempty"`
 	FaceDown   bool          `json:"faceDown,omitempty"`
+	TopCard    bool          `json:"topCard,omitempty"`
 }
 
 // GameLibrarySearched acknowledges the authoritative mutation without
@@ -404,11 +407,13 @@ type GameLibraryReordered struct {
 // LibraryViewAssignment gives one viewed card its destination. Hand and
 // battlefield mean the acting player's zones; graveyard, exile, and both
 // library ends mean the source player's zones. FaceDown is valid only for the
-// battlefield.
+// battlefield. Reveal explicitly includes this card's name in the shared log
+// unless it enters the battlefield face down.
 type LibraryViewAssignment struct {
 	CardID   string `json:"cardId"`
 	ToZone   string `json:"toZone"`
 	FaceDown bool   `json:"faceDown,omitempty"`
+	Reveal   bool   `json:"reveal,omitempty"`
 }
 
 // GameResolveLibraryView atomically resolves the currently viewed top prefix.
@@ -694,4 +699,14 @@ type GameAttachmentSet struct {
 	OwnerSeat    int    `json:"ownerSeat"`
 	SourceCardID string `json:"sourceCardId"`
 	Detached     bool   `json:"detached,omitempty"`
+}
+
+// GameSetLibraryTopRevealed keeps only the current top card public until disabled.
+type GameSetLibraryTopRevealed struct {
+	Revealed bool `json:"revealed"`
+}
+type GameLibraryTopRevealedSet struct {
+	RoomID   string `json:"roomId"`
+	Seat     int    `json:"seat"`
+	Revealed bool   `json:"revealed"`
 }

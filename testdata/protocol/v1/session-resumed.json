@@ -11,6 +11,7 @@
     "role": "player",
     "seat": 0,
     "host": true,
-    "forgeRulesAvailable": false
+    "forgeRulesAvailable": false,
+    "aiModelsAvailable": true
   }
 }

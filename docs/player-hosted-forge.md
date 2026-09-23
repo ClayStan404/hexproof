@@ -6,12 +6,13 @@ Player hosting is an optional trusted-host mode for two-player Forge games,
 including Duel Commander and BO3. Manual tables and server-hosted Forge remain
 available. The room creator initially hosts the engine; public tournament rooms cannot use
 player hosting. An explicitly approved opponent can take over a verifiably
-replayable game. Both players may opt into direct WebRTC delivery with automatic
+replayable game. Supported human rooms prefer direct WebRTC delivery with automatic
 hub-relay fallback. There is no automatic cloud takeover.
 
 The public hub retains membership, seat authorization, operation ordering,
-match lifecycle, public journals, and viewer-specific projections. Relay is the
-default; optional direct delivery still requires hub confirmation of mutations. A bundled Go helper, supervised
+match lifecycle, public journals, and viewer-specific projections. Hub relay
+remains available; direct delivery still requires hub confirmation of mutations.
+A bundled Go helper, supervised
 by Qt, opens a separate authenticated outbound WebSocket to the same endpoint
 and supervises one fresh Forge JVM per game. BO3 and restart never reuse a JVM.
 The existing local process adapter and rules normalization are reused.
@@ -103,9 +104,36 @@ and unrecognized directories are retained. Native file locks serialize
 preparation/cleanup and keep active generations alive until their JVMs exit.
 The helper's `--clear-cache`, `--download-mirror` and `--import-pack` flags expose
 the same paths.
-Diagnostic export writes an explicit allowlist of versions, platform, readiness
-and recent hosting states; it excludes cards, decks, credentials, URLs, local
-paths and raw engine output.
+Diagnostic export writes a versioned JSON support report. Schema 2 retains the
+version/platform/readiness/state summary from schema 1 and adds timed operation
+history, structured failure codes, system versions and disk-space information.
+Preparation, import, installed-runtime checks, cache cleanup and hosting each
+have a random local operation identifier; automatic recovery checks are
+distinguishable from the original failed import. A failed or cancelled import
+must remain diagnosable even when the previous installation passes its recovery
+check. History never restores runtime readiness or a hosting grant.
+
+The helper emits dedicated diagnostic events separately from status/progress
+and private engine traffic. Reports distinguish offline-pack format/member,
+size/checksum, version/platform, filesystem, network/HTTP and JVM startup/probe
+failures. Download source is a category such as `official` or `mirror`, not a URL;
+attempt counters and transferred bytes are safe metadata. Package identity and
+platform mismatches include validated expected/actual identifiers when available.
+Unknown errors keep a safe category rather than embedding arbitrary error text.
+
+The client validates diagnostic fields before both local storage and export.
+History belongs to the client profile, independently of any shared runtime
+cache, so one profile cannot replace another profile's report history.
+Recent history retains at most seven days and 256 events, with a 256 KiB file
+limit, across restarts in application-private storage; progress writes are
+throttled, while stage changes, failures and operation completion are persisted
+promptly. An operation left unfinished by a
+previous client process is marked interrupted. Storage failures do not prevent
+hosting or installation, and the report exposes whether history could be saved.
+Export is an explicit local save with no automatic upload. Cards, decks,
+credentials, URLs, network addresses, local paths and raw engine stdout/stderr
+remain excluded. This is a setup/hosting support report, not an engine trace or
+a full game replay.
 
 ## Implementation and verification stages
 
@@ -310,20 +338,28 @@ public hubs are not supported.
 
 ## Optional direct transport
 
-The waiting room shows compact **P2P** controls in the lower-left footer.
-During a game, the same status and actions are in the top-right Settings
-drawer, including between games. Both players select **Agree to P2P**; opening
-the Hosting dialog is not required. Before opting in, the inline disclosure
-explains network-address sharing and the STUN service. Waiting for consent,
-connecting, direct delivery, relay fallback and recovery states remain visible.
-Eligible players on older servers see a disabled action with the unsupported
-reason. Server-hosted rooms and spectators do not show these controls.
+**Settings → Gameplay → Prefer direct connection (P2P)** is enabled by default.
+The preference applies when entering a supported player-hosted room with two
+human seats, including authenticated reconnects. AI practice, server-hosted
+rooms, and spectators do not negotiate direct transport. A supported room may
+wait for the second human seat to arrive before negotiating.
 
-Consent is scoped to this room and survives an authenticated in-app reconnect;
-leaving the room clears it. The disclosure explains that peers learn each other's
-network address and contact a STUN service. Spectators cannot enable, negotiate,
-or receive this channel. `session.welcome.peerTransportAvailable` distinguishes
-servers implementing the feature from older player-host relay servers.
+The waiting room shows compact **P2P** controls in the lower-left footer.
+During a game, the same status and actions are in the top-right Settings drawer,
+including between games. **Use relay only** and **Enable direct connection**
+update the saved preference immediately; leaving the room clears connection
+state but preserves that choice for future rooms and application launches.
+**Retry direct** retries the current room without changing the preference.
+
+The Gameplay page and expanded P2P controls explain network-address sharing and
+the STUN service. Waiting for the other player, connecting, direct delivery,
+relay fallback, and recovery states remain visible. Eligible players on older
+servers see a disabled action with the unsupported reason. Each authenticated
+connection still sends its own `forge.peer_request`; the server requires both
+seats to enable delivery before issuing a room-scoped grant. Spectators cannot
+enable, negotiate, or receive this channel.
+`session.welcome.peerTransportAvailable` distinguishes supporting servers from
+older player-host relay servers. Failed direct connections continue on hub relay.
 
 The bundled helper's `--peer` mode needs no runtime directory or Java. Only an
 outbound authenticated hub connection is required for signaling. WebRTC can use

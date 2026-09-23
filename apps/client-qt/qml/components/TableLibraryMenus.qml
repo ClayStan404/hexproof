@@ -57,6 +57,16 @@ Item {
         }
         AppMenuSeparator { }
         AppMenuItem {
+            objectName: "revealLibraryTopContinuouslyAction"
+            text: checked ? qsTr("Stop revealing library top")
+                          : qsTr("Play with library top revealed")
+            checkable: true
+            checked: root.tableController.ownSeatData.libraryTopRevealed === true
+            enabled: root.tableController.canAct
+            onTriggered: root.tableController.wsModel.setLibraryTopRevealed(
+                             !root.tableController.ownSeatData.libraryTopRevealed)
+        }
+        AppMenuItem {
             id: viewTopCardMenuItem
             objectName: "viewLibraryTopCardAction"
             text: qsTr("View top card")

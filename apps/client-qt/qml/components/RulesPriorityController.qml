@@ -10,9 +10,11 @@ Item {
 
     required property var tableController
     readonly property var session: tableController.rulesSession
-    property bool fullControl: false
+    required property var settings
+    readonly property bool fullControl: settings.forgeFullControl
     property string yieldMode: ""
-    property var phaseStops: ({})
+    readonly property var phaseStops: settings.forgePhaseStops
+    property var previousPhaseStops: ({})
     property int promptRevision: 0
     property string lastAutomaticPrompt: ""
     property string acknowledgedStop: ""
@@ -30,6 +32,13 @@ Item {
         && session.active && !session.gameOver
     readonly property bool isPriorityPrompt: active && session.promptPending
         && session.promptSupported && session.promptKind === "chooseAction"
+    readonly property int decidingSeat: {
+        void session.snapshotRevision
+        return typeof session.controllingSeat === "function"
+            ? session.controllingSeat(session.prioritySeat) : session.prioritySeat
+    }
+    readonly property int actingSeat: decidingSeat === tableController.localSeat
+        ? session.prioritySeat : tableController.localSeat
     readonly property bool inputBlocked: passMenuOpen || tableController.priorityInputBlocked === true
         || (tableController.cardActionPicker && tableController.cardActionPicker.opened === true)
     readonly property var options: {
@@ -46,20 +55,20 @@ Item {
         return stackIds.length > 0 && typeof session.cardForInspection === "function"
             && stackIds.every(id => {
                 const card = session.cardForInspection(id)
-                return card.zone === "stack" && card.controllerSeat === tableController.localSeat
+                return card.zone === "stack" && card.controllerSeat === root.actingSeat
             })
     }
     readonly property bool quietPhase: stackIds.length === 0
         && (["upkeep", "draw", "end_combat", "cleanup"].includes(session.step)
-            || (session.activeSeat !== tableController.localSeat && ["main1", "main2"].includes(session.step))
-            || (session.activeSeat === tableController.localSeat && session.step === "end"))
+            || (session.activeSeat !== actingSeat && ["main1", "main2"].includes(session.step))
+            || (session.activeSeat === actingSeat && session.step === "end"))
     readonly property bool canAct: isPriorityPrompt && !inputBlocked
-        && !tableController.rulesResponsePending && session.prioritySeat === tableController.localSeat
+        && !tableController.rulesResponsePending && decidingSeat === tableController.localSeat
     readonly property bool canPass: canAct && options.some(option => option.responseId === "$pass")
     readonly property string promptKey: session.gameId + ":" + session.promptId
     readonly property string phaseKey: session.gameId + ":" + session.turn + ":"
         + session.activeSeat + ":" + session.step
-    readonly property bool stopped: active && hasStop(session.step, session.activeSeat === tableController.localSeat)
+    readonly property bool stopped: active && hasStop(session.step, session.activeSeat === actingSeat)
         && acknowledgedStop !== phaseKey
     readonly property bool automaticallyPassing: passTimer.running
     readonly property bool canStartYield: active && !inputBlocked
@@ -72,26 +81,20 @@ Item {
     }
 
     function toggleStop(step, ownTurn) {
-        const key = (ownTurn ? "own:" : "other:") + step
-        const next = Object.assign({}, phaseStops)
-        next[key] = !next[key]
-        phaseStops = next
-        if (next[key] && step === session.step
-                && ownTurn === (session.activeSeat === tableController.localSeat)) {
-            acknowledgedStop = ""
-            cancelYield()
-        }
-        schedule()
+        settings.toggleForgePhaseStop(step, ownTurn)
     }
 
     function setFullControl(value) {
-        fullControl = value
-        if (value)
-            cancelYield(false)
-        else {
-            heldPrompt = ""
-            holdNextPriority = false
-        }
+        settings.forgeFullControl = value
+        // Reselecting the saved mode also ends an explicit temporary yield.
+        if (settings.forgeFullControl === value)
+            applyPriorityMode()
+    }
+
+    function applyPriorityMode() {
+        cancelYield(false)
+        heldPrompt = ""
+        holdNextPriority = false
         schedule()
     }
 
@@ -121,7 +124,6 @@ Item {
         if (!canStartYield || !["response", "turn", "stack"].includes(mode)
                 || (mode === "stack" && stackIds.length === 0))
             return false
-        fullControl = false
         yieldGame = session.gameId
         yieldTurn = session.turn
         yieldSeat = session.activeSeat
@@ -158,7 +160,7 @@ Item {
     }
 
     function shouldPassAutomatically() {
-        return canPass && !fullControl && !stopped && !holdNextPriority && heldPrompt !== promptKey
+        return canPass && (!fullControl || yieldMode.length > 0) && !stopped && !holdNextPriority && heldPrompt !== promptKey
             && lastAutomaticPrompt !== promptKey
             && (yieldMode.length > 0 || quietPhase || ownStack || session.promptAutoPassEligible === true)
     }
@@ -209,7 +211,18 @@ Item {
     }
 
     onCanPassChanged: schedule()
-    onFullControlChanged: schedule()
+    onFullControlChanged: applyPriorityMode()
+    onPhaseStopsChanged: {
+        // Only a newly enabled stop for this phase reopens an acknowledged window.
+        const key = (session.activeSeat === actingSeat ? "own:" : "other:") + session.step
+        if (phaseStops[key] === true && previousPhaseStops[key] !== true) {
+            acknowledgedStop = ""
+            if (active)
+                cancelYield()
+        }
+        previousPhaseStops = phaseStops
+        schedule()
+    }
     onInputBlockedChanged: schedule()
     onStoppedChanged: schedule()
     onActiveChanged: {
@@ -234,7 +247,7 @@ Item {
     }
     Connections {
         target: root.tableController
-        function onLocalSeatChanged() { root.resetTransient(); root.fullControl = false }
+        function onLocalSeatChanged() { root.resetTransient() }
     }
     Connections {
         target: root.tableController.wsModel

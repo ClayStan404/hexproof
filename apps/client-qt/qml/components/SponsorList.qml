@@ -10,6 +10,7 @@ ColumnLayout {
     id: root
 
     property bool compact: false
+    property var newSponsorIds: []
     signal profileRequested(string url)
 
     spacing: Theme.size(compact ? 18 : 24)
@@ -120,6 +121,17 @@ ColumnLayout {
                             Layout.minimumWidth: 0
                             Layout.alignment: Qt.AlignVCenter
                             spacing: Theme.size(5)
+
+                            Text {
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                visible: root.newSponsorIds.indexOf(sponsorCard.modelData.id) >= 0
+                                text: qsTr("New supporter")
+                                color: Theme.primary
+                                font.pixelSize: Theme.fontSize(12)
+                                font.bold: true
+                                wrapMode: Text.WordWrap
+                            }
 
                             Text {
                                 objectName: "sponsorRecognition_" + sponsorCard.modelData.name

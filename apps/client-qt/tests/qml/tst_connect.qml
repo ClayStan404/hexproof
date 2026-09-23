@@ -40,6 +40,7 @@ TestCase {
         function refreshServerDirectory(force) { ++directoryRefreshCalls }
         property int serverIndex: 5
         property bool connecting: false
+        property string serverTransportState: ""
         property bool connected: false
         property bool versionMismatch: true
         property string customServerUrl: "ws://127.0.0.1:57320/ws"
@@ -99,6 +100,7 @@ TestCase {
     function init() {
         testWindow.popCount = 0
         mockWs.connecting = false
+        mockWs.serverTransportState = ""
         mockWs.disconnectCalls = 0
         mockWs.serverEntries = mockWs.defaultEntries()
         mockWs.directoryRefreshCalls = 0
@@ -125,6 +127,20 @@ TestCase {
         const field = findChild(page, "displayNameField")
         verify(field !== null)
         compare(field.text, "Tester")
+    }
+
+    function test_showsHomeServerRouteWhileConnecting() {
+        mockWs.connecting = true
+        mockWs.serverTransportState = "connecting"
+        const status = findChild(page, "connectTransportStatus")
+        verify(status.visible)
+        compare(status.text, "Finding a server connection…")
+        mockWs.serverTransportState = "relay"
+        compare(status.text, "Server · relay")
+        mockWs.serverTransportState = "direct"
+        compare(status.text, "Server · direct")
+        mockWs.serverTransportState = ""
+        compare(status.text, "Opening connection…")
     }
 
     function test_coldStartKeepsCustomEndpointSelected() {

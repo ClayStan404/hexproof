@@ -38,6 +38,8 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypeLimitedSubmitDeck,
 		protocol.TypeLimitedSetDraftControl,
 		protocol.TypeLimitedSetParticipation,
+		protocol.TypeRoomAIConfigure,
+		protocol.TypeRoomAIRetry,
 		protocol.TypeDeckSelect,
 		protocol.TypePlayerReady,
 		protocol.TypeClientLoadComplete,
@@ -46,6 +48,8 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypeForgePeerRequest,
 		protocol.TypeGameDraw,
 		protocol.TypeGameShuffleLibrary,
+		protocol.TypeGameSetLibraryTopRevealed,
+		protocol.TypeSideboardChooseStartingPlayer,
 		protocol.TypeGameMulligan,
 		protocol.TypeGameDiscardHand,
 		protocol.TypeGameMoveCard,
@@ -92,6 +96,7 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypeSideboardReady,
 		protocol.TypeReplayList,
 		protocol.TypeReplayGet,
+		protocol.TypeForgeReplayGet,
 	}
 	optional := []string{protocol.TypeSessionPing, protocol.TypeRoomLeave, protocol.TypeForgePeerSignal}
 	if got, want := len(commandRegistry), len(required)+len(optional); got != want {

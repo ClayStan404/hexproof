@@ -11,11 +11,13 @@ import QtQuick.Layouts
 ColumnLayout {
     id: root
     required property var popupController
+    property alias reveal: selectedReveal.checked
     spacing: Theme.size(8)
 
     function resetControls() {
         selectedDestination.currentIndex = 0
         selectedFaceDown.checked = false
+        selectedReveal.checked = false
     }
 
     RowLayout {
@@ -67,7 +69,8 @@ ColumnLayout {
             enabled: root.popupController.selectedCount > 0
             onClicked: root.popupController.assignTopCards(
                            root.popupController.selectedCardIdList(),
-                           selectedDestination.currentValue, selectedFaceDown.checked)
+                           selectedDestination.currentValue, selectedFaceDown.checked,
+                           selectedReveal.checked)
         }
     }
     AppToggle {
@@ -76,6 +79,17 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: selectedDestination.currentValue === "battlefield"
         text: qsTr("Face down")
+        onToggled: {
+            if (checked)
+                selectedReveal.checked = false
+        }
+    }
+    AppToggle {
+        id: selectedReveal
+        objectName: "topSelectedReveal"
+        Layout.fillWidth: true
+        enabled: !selectedFaceDown.checked
+        text: qsTr("Reveal selected cards in the game log")
     }
 
     Rectangle {

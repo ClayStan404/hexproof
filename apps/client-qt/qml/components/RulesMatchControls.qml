@@ -12,7 +12,7 @@ Item {
     readonly property var gameSession: tableController.gameSession
     readonly property bool matchFinished: gameSession.result.matchFinished === true
                                          && !gameSession.sideboarding
-    readonly property bool canReturn: tableController.roomConnected && matchFinished
+    readonly property bool canReturn: tableController.replayMode !== true && tableController.roomConnected && matchFinished
     readonly property bool canRestart: tableController.roomConnected
                                       && tableController.roomSession.host
                                       && tableController.rulesSession.active
@@ -24,6 +24,8 @@ Item {
         || resultPopup.opened
 
     function playerName(seat) {
+        if (tableController.replayMode === true)
+            return tableController.roomSession.players[seat] || qsTr("Seat %1").arg(Number(seat) + 1)
         // The invokable lookup itself does not establish a model dependency.
         void tableController.gameTableModel.seats
         const player = tableController.gameTableModel.seatData(seat)
@@ -62,6 +64,7 @@ Item {
     }
 
     function synchronizeResult() {
+        if (tableController.replayMode === true) { resultPopup.close(); return }
         if (!matchFinished) {
             shownResultKey = ""
             resultPopup.close()
@@ -92,7 +95,7 @@ Item {
     }
 
     function openLeaveConfirmation() {
-        if (tableController.roomConnected)
+        if (tableController.replayMode !== true && tableController.roomConnected)
             leaveConfirmation.open()
     }
 

@@ -46,6 +46,8 @@ type SessionWelcome struct {
 	Role                   string `json:"role,omitempty"`
 	Seat                   *int   `json:"seat,omitempty"`
 	Host                   bool   `json:"host,omitempty"`
+	AIModelsAvailable      bool   `json:"aiModelsAvailable"`
+	ForgeAIAvailable       bool   `json:"forgeAIAvailable,omitempty"`
 	ForgeRulesAvailable    bool   `json:"forgeRulesAvailable"`
 	PlayerHostingAvailable bool   `json:"playerHostingAvailable,omitempty"`
 	PeerTransportAvailable bool   `json:"peerTransportAvailable,omitempty"`
@@ -62,6 +64,8 @@ type ErrorPayload struct {
 	// the checked-in count the tournament needs before it can start. Clients
 	// localize from it instead of parsing Message.
 	MinimumPlayers int `json:"minimumPlayers,omitempty"`
+	// RulesStartFailure is safe room-wide context with optional owner-only deck details.
+	RulesStartFailure *RulesStartFailure `json:"rulesStartFailure,omitempty"`
 }
 
 // RoomCreate is the payload of room.create (C->S).
@@ -77,6 +81,8 @@ type RoomCreate struct {
 	CardLoadMode       string `json:"cardLoadMode,omitempty"`
 	RulesMode          string `json:"rulesMode"`
 	HostingMode        string `json:"hostingMode,omitempty"`
+	AISource           string `json:"aiSource,omitempty"`
+	AIDifficulty       string `json:"aiDifficulty,omitempty"`
 	Password           string `json:"password,omitempty"`
 }
 
@@ -101,6 +107,8 @@ type RoomSettings struct {
 	HasPassword        bool   `json:"hasPassword"`
 	RulesMode          string `json:"rulesMode"`
 	HostingMode        string `json:"hostingMode,omitempty"`
+	AISource           string `json:"aiSource,omitempty"`
+	AIDifficulty       string `json:"aiDifficulty,omitempty"`
 }
 
 // RoomListEntry is the public, hub-local discovery projection. It never
@@ -116,6 +124,8 @@ type RoomListEntry struct {
 	CardLoadMode       string `json:"cardLoadMode"`
 	RulesMode          string `json:"rulesMode"`
 	HostingMode        string `json:"hostingMode,omitempty"`
+	AISource           string `json:"aiSource,omitempty"`
+	AIDifficulty       string `json:"aiDifficulty,omitempty"`
 	MaxSeats           int    `json:"maxSeats"`
 	PlayerCount        int    `json:"playerCount"`
 	SpectatorCount     int    `json:"spectatorCount"`
@@ -157,6 +167,7 @@ type DeckCard struct {
 	SetCode         string `json:"setCode"`
 	CollectorNumber string `json:"collectorNumber"`
 	TypeLine        string `json:"typeLine,omitempty"`
+	VirtualBasic    bool   `json:"virtualBasic,omitempty"`
 }
 
 // DeckSelect is the payload of deck.select (C->S). It carries the complete
@@ -285,27 +296,29 @@ type GamePlayerCounter struct {
 // GameSeatProjection contains public zone counts and identities plus an
 // optional private hand. Hand is populated only for the owning viewer.
 type GameSeatProjection struct {
-	Seat           int                 `json:"seat"`
-	DisplayName    string              `json:"displayName"`
-	Life           int                 `json:"life"`
-	TurnCount      int                 `json:"turnCount"`
-	Counters       []GamePlayerCounter `json:"counters,omitempty"`
-	CounterCount   int                 `json:"counterCount,omitempty"`
-	LibraryCount   int                 `json:"libraryCount"`
-	HandCount      int                 `json:"handCount"`
-	MulliganCount  int                 `json:"mulliganCount"`
-	Hand           []GameCard          `json:"hand,omitempty"`
-	SideboardCount int                 `json:"sideboardCount,omitempty"`
-	Sideboard      []GameCard          `json:"sideboard,omitempty"`
-	Battlefield    []GameCard          `json:"battlefield"`
-	Graveyard      []GameCard          `json:"graveyard"`
-	Exile          []GameCard          `json:"exile"`
-	CommandZone    []GameCard          `json:"commandZone,omitempty"`
-	Emblems        []GameEmblem        `json:"emblems,omitempty"`
-	CommanderTax   int                 `json:"commanderTax,omitempty"`
-	CommanderTaxes map[string]int      `json:"commanderTaxes,omitempty"`
-	Eliminated     bool                `json:"eliminated,omitempty"`
-	ResponseStatus string              `json:"responseStatus,omitempty"`
+	Seat               int                 `json:"seat"`
+	DisplayName        string              `json:"displayName"`
+	Life               int                 `json:"life"`
+	TurnCount          int                 `json:"turnCount"`
+	Counters           []GamePlayerCounter `json:"counters,omitempty"`
+	CounterCount       int                 `json:"counterCount,omitempty"`
+	LibraryTopRevealed bool                `json:"libraryTopRevealed,omitempty"`
+	LibraryTopCard     *GameCard           `json:"libraryTopCard,omitempty"`
+	LibraryCount       int                 `json:"libraryCount"`
+	HandCount          int                 `json:"handCount"`
+	MulliganCount      int                 `json:"mulliganCount"`
+	Hand               []GameCard          `json:"hand,omitempty"`
+	SideboardCount     int                 `json:"sideboardCount,omitempty"`
+	Sideboard          []GameCard          `json:"sideboard,omitempty"`
+	Battlefield        []GameCard          `json:"battlefield"`
+	Graveyard          []GameCard          `json:"graveyard"`
+	Exile              []GameCard          `json:"exile"`
+	CommandZone        []GameCard          `json:"commandZone,omitempty"`
+	Emblems            []GameEmblem        `json:"emblems,omitempty"`
+	CommanderTax       int                 `json:"commanderTax,omitempty"`
+	CommanderTaxes     map[string]int      `json:"commanderTaxes,omitempty"`
+	Eliminated         bool                `json:"eliminated,omitempty"`
+	ResponseStatus     string              `json:"responseStatus,omitempty"`
 }
 
 // GameCommanderIdentity keeps each designated commander's public identity
@@ -417,6 +430,8 @@ type RoomLeft struct {
 
 // Seat is a player seat projection in a snapshot.
 type Seat struct {
+	Controller   string `json:"controller,omitempty"`
+	AIDifficulty string `json:"aiDifficulty,omitempty"`
 	Occupied     bool   `json:"occupied"`
 	DisplayName  string `json:"displayName,omitempty"`
 	Host         bool   `json:"host,omitempty"`
@@ -445,6 +460,8 @@ type RoomSnapshot struct {
 	CardLoadMode       string                `json:"cardLoadMode"`
 	RulesMode          string                `json:"rulesMode"`
 	HostingMode        string                `json:"hostingMode,omitempty"`
+	AISource           string                `json:"aiSource,omitempty"`
+	AIDifficulty       string                `json:"aiDifficulty,omitempty"`
 	HostConnected      bool                  `json:"hostConnected,omitempty"`
 	HostStatus         *ForgeHostStatus      `json:"hostStatus,omitempty"`
 	HostSeat           int                   `json:"hostSeat"`
@@ -500,4 +517,15 @@ func ValidateWelcome(w SessionWelcome) error {
 		return fmt.Errorf("protocol: welcome version %q != %q", w.V, ProtocolVersion)
 	}
 	return nil
+}
+
+// RoomAIConfigure updates the opponent while the practice room is waiting.
+// Deck is private input; snapshots expose only whether a deck was selected.
+type RoomAIConfigure struct {
+	Difficulty string      `json:"difficulty,omitempty"`
+	Deck       *DeckSelect `json:"deck,omitempty"`
+}
+
+func ValidAIDifficulty(value string) bool {
+	return value == AIDifficultyEasy || value == AIDifficultyNormal || value == AIDifficultyHard
 }
