@@ -48,9 +48,12 @@ public_paths=(
     third_party
     tools
 )
+# These operator-only tools and tests depend on the private deploy/ tree.
 public_paths+=(':(exclude)tools/tests/test_deploy_script.py')
 public_paths+=(':(exclude)tools/tests/test_home_deployment.py')
+public_paths+=(':(exclude)tools/tests/test_home_rollout.py')
 public_paths+=(':(exclude)tools/package-home-node.py')
+public_paths+=(':(exclude)tools/deploy-home-nodes.py')
 
 # The archive reads HEAD, not the working tree. Only changes to exported paths
 # can make that snapshot unexpectedly stale; private notes/images are unrelated.
