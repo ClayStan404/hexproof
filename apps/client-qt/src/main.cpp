@@ -206,14 +206,12 @@ int main(int argc, char *argv[])
     auto *soundEffects = new hexproof::client::AudioController(&runtimeOwner);
     soundEffects->setEnabled(preferences->audioEnabled());
     soundEffects->setVolume(preferences->audioVolume());
-    QObject::connect(preferences, &hexproof::client::ClientPreferencesModel::audioEnabledChanged,
-                     soundEffects, [preferences, soundEffects]() {
-                         soundEffects->setEnabled(preferences->audioEnabled());
-                     });
-    QObject::connect(preferences, &hexproof::client::ClientPreferencesModel::audioVolumeChanged,
-                     soundEffects, [preferences, soundEffects]() {
-                         soundEffects->setVolume(preferences->audioVolume());
-                     });
+    QObject::connect(
+        preferences, &hexproof::client::ClientPreferencesModel::audioEnabledChanged, soundEffects,
+        [preferences, soundEffects]() { soundEffects->setEnabled(preferences->audioEnabled()); });
+    QObject::connect(
+        preferences, &hexproof::client::ClientPreferencesModel::audioVolumeChanged, soundEffects,
+        [preferences, soundEffects]() { soundEffects->setVolume(preferences->audioVolume()); });
     auto *backgroundMusic = new hexproof::client::BackgroundMusicController(&runtimeOwner);
     backgroundMusic->setEnabled(preferences->musicEnabled());
     backgroundMusic->setVolume(preferences->musicVolume());

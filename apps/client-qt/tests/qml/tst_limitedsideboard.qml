@@ -182,7 +182,9 @@ TestCase {
         const basics = findChild(panel, "sideboardBasicLandsPanel")
         compare(basics.virtualBasicCount("Island"), 17)
         findChild(panel, "limitedSideboardFilters").colorFilterIndex = 4
-        mouseClick(findChild(panel, "sideboardClearMainboardButton"))
+        const clearMainboard = findChild(panel, "sideboardClearMainboardButton")
+        verify(waitForRendering(clearMainboard))
+        mouseClick(clearMainboard)
         compare(mockWs.clearMainboardCount, 1)
         compare(mockWs.sideboardMoveCount, 0)
         const next = Object.assign({}, mockWs.sideboardState)
