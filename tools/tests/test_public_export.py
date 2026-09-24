@@ -25,7 +25,7 @@ class PublicExportTests(unittest.TestCase):
         self.write("tools/tests/test_home_deployment.py", "private home deployment test\n")
         self.write("tools/tests/test_home_rollout.py", "private home rollout test\n")
         self.write("tools/package-home-node.py", "private home deployment packager\n")
-        self.write("tools/deploy-home-nodes.py", "private home deployment orchestrator\n")
+        self.write("deploy/deploy-home-release.py", "private release deployment backend\n")
         for name in (".github/workflows/ci.yml", ".clang-format", ".gitattributes", ".gitignore", "LICENSE",
                      "CHANGELOG.md", "THIRD-PARTY-NOTICES.md", "docs/development-policy.md",
                      "docs/rules-engine.md", "docs/player-hosted-forge.md", "docs/home-servers.md",
@@ -70,17 +70,16 @@ class PublicExportTests(unittest.TestCase):
         self.assertFalse((self.target / "tools/tests/test_home_deployment.py").exists())
         self.assertFalse((self.target / "tools/tests/test_home_rollout.py").exists())
         self.assertFalse((self.target / "tools/package-home-node.py").exists())
-        self.assertFalse((self.target / "tools/deploy-home-nodes.py").exists())
+        self.assertFalse((self.target / "deploy/deploy-home-release.py").exists())
         self.assertEqual(image.read_text(), "User reference\n")
 
     def test_private_home_rollout_changes_do_not_block_export(self):
         self.write("tools/tests/test_home_rollout.py", "changed private rollout test\n")
         self.write("tools/package-home-node.py", "changed private packager\n")
-        self.write("tools/deploy-home-nodes.py", "changed private orchestrator\n")
         result = self.run_export()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.target / "README.md").read_text(), "Public readme\n")
-        for name in ("tests/test_home_rollout.py", "package-home-node.py", "deploy-home-nodes.py"):
+        for name in ("tests/test_home_rollout.py", "package-home-node.py"):
             with self.subTest(name=name):
                 self.assertFalse((self.target / "tools" / name).exists())
 

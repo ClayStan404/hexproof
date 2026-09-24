@@ -7,6 +7,24 @@ Hexproof versions the coordinated client and server together; both must match
 exactly. Card-database releases use the separate **card-data** channel;
 application changes that use new catalog metadata are included here.
 
+## [2.2.0] - 2026-09-24
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.2.0**; application versions
+  must match exactly. The WebSocket protocol and native Forge adapter revision
+  remain unchanged from 2.1.0.
+
+### Fixed
+
+- Restore the startup sponsor acknowledgement once per application version,
+  while retaining reminders for newly added sponsors. Both reasons share one
+  popup, and only unacknowledged sponsors receive a new-supporter label.
+- Preserve existing sponsor acknowledgements when upgrading from older
+  clients. Closing the popup acknowledges the running version and the displayed
+  roster; entering a room before it appears leaves the notice for the next
+  launch, and sponsors added while it is open remain pending.
+
 ## [2.1.0] - 2026-09-23
 
 ### Upgrade notes

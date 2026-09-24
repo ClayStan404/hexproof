@@ -46,19 +46,29 @@ treating the same person as new if they later return.
 
 ## Sponsor acknowledgement
 
-Every sponsor has a stable ID. New IDs that have not been acknowledged trigger
-one combined startup popup, with new supporters highlighted. Names, avatars,
-descriptions, tier changes, removal/readdition of an acknowledged ID, and an
-application version change alone do not trigger another popup. The legacy
-version acknowledgement migrates to the bundled sponsor IDs on first use.
+Every application version receives one startup sponsor acknowledgement per
+local profile. New sponsor IDs that have not been acknowledged also trigger a
+popup without waiting for a version upgrade. The two reasons share one popup:
+it shows the current roster and highlights only unacknowledged sponsor IDs.
+Already acknowledged supporters do not receive a new-supporter label merely
+because the application version changed. Names, avatars, descriptions, tier
+changes, and removal/readdition of an acknowledged ID alone do not trigger it.
+
+The acknowledged application version and sponsor IDs are stored independently.
+Legacy `sponsors:<version>` acknowledgements migrate both the version and the
+bundled sponsor IDs; upgrading still shows the new version's acknowledgement.
+Existing ID-only state retains all acknowledged IDs when the version record is
+added. An empty roster opens no popup and does not acknowledge the version.
 
 Startup notices wait at most four seconds for fresh content without blocking
 the window. The popup is offered at most once per process, in the main menu;
 entering a room or leaving the main menu before the startup decision defers it
 to the next launch. Content learned later remains pending for the next launch.
-Closing, Escape, clicking outside, and View full sponsor list acknowledge only
-the IDs captured when that popup opened. New arrivals during the popup are not
-accidentally acknowledged. Sponsor and card-art-repair popups do not overlap.
+Closing, Escape, clicking outside, and View full sponsor list acknowledge the
+running version and only the roster IDs captured when that popup opened. Merely
+offering or deferring a popup does not persist an acknowledgement. New arrivals
+during the popup are not accidentally acknowledged. Sponsor and card-art-repair
+popups do not overlap.
 
 ## Announcements and history
 
@@ -106,6 +116,12 @@ Bundled examples are under `apps/client-qt/config/content/`. Sponsors use
 remain client-owned. Avatars have paths under `avatars/`; profile links must
 use HTTPS. Localized fields require `en`, with an optional `zh` translation.
 
+The gold frame, slow glow, larger avatar, and special-thanks text require
+`featured: true`; assigning a tier alone only selects the group. Include
+`featured: true` when adding an Omniscience supporter to the operational roster
+so every supporter in that tier receives the same recognition. An introduction
+is optional and does not control the effect.
+
 An announcement example:
 
 ```json
@@ -125,19 +141,25 @@ An announcement example:
 }
 ```
 
-Maintain operational source JSON and avatars outside generated output. Before
-editing, start from the latest published documents. Increment each changed
-document's `revision`, and increment the index revision for the publication.
-Do not increment `notificationRevision` for ordinary wording corrections.
+Maintain operational source JSON in `deploy/content/sponsors.json` and
+`deploy/content/announcements.json`; avatar sources are shared with
+`apps/client-qt/assets/sponsors/`. The bundled JSON under
+`apps/client-qt/config/content/` is an offline bootstrap, not the source for
+subsequent publications. Before editing, start from the latest published
+documents. Increment each changed document's `revision`, and increment the
+index revision for the publication. Do not increment `notificationRevision`
+for ordinary wording corrections.
 
 ```sh
 python3 tools/public-content.py \
-  --sponsors /path/to/sponsors.json \
-  --announcements /path/to/announcements.json \
-  --avatars /path/to/avatars \
-  --revision 2 --output build/public-content/revision-2
-python3 deploy/publish-public-content.py build/public-content/revision-2 --target aws
+  --sponsors deploy/content/sponsors.json \
+  --announcements deploy/content/announcements.json \
+  --avatars apps/client-qt/assets/sponsors \
+  --revision 3 --output build/public-content/revision-3
+python3 deploy/publish-public-content.py build/public-content/revision-3 --target aws
 ```
+
+Choose the next index revision from the live index; `3` above is an example.
 
 The package contains immutable release paths and an index. The publishing
 script validates the existing revision and announcement history, uploads and
@@ -153,6 +175,25 @@ and reloading nginx after validation. This is a separate operator deployment,
 not an effect of building or testing the client. Later content publications
 need no configuration reload. No initial public announcement is invented by
 the client; the bundled announcement archive is empty.
+
+The owner authorized initial public activation on 2026-09-24. The `aws` nginx
+snippet now serves the content paths above. Operational announcement history
+is maintained in `deploy/content/announcements.json`; the bundled empty file is
+only an offline bootstrap, not the source for subsequent publications. Before
+the next edit, compare this operational source with the latest published
+document and preserve every existing ID.
+
+The first publication used index/announcement revision 2 and the unchanged
+bundled sponsor document at revision 1. Its global test announcement,
+`announcement-test-20260924-032223`, was initially scheduled from
+`2026-09-24T03:27:13Z` until `2026-09-25T03:27:13Z`. The owner withdrew it on
+2026-09-24; its retained `withdrawn: true` record hides it from both Current
+and History after synchronization, including on clients that cached it earlier.
+Public HTTPS payload hashes and conditional `304` responses passed; the server
+directory bytes and game-hub/gateway process IDs were unchanged. Evidence is in
+`build/public-announcement-test/publish-20260924-032650/`. The prior nginx snippet
+is backed up under
+`/var/backups/hexproof-public-content/publish-20260924-032650/` on `aws`.
 
 Verification covers real loopback HTTP, conditional responses, disk reuse,
 partial failures, removal/empty snapshots, shared-avatar collection, cancellation,

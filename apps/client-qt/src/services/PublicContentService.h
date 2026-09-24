@@ -101,6 +101,7 @@ class PublicContentService final : public QObject
     QNetworkAccessManager m_network;
     QStringList m_sources;
     QStringList m_presentedSponsorIds;
+    QString m_applicationVersion;
     QString m_root;
     QString m_language = QStringLiteral("en");
     QJsonObject m_index;

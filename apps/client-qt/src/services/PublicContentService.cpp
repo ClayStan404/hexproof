@@ -7,6 +7,7 @@
 #include "PublicContentSchema.h"
 
 #include <QBuffer>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -90,7 +91,8 @@ PublicContentService::PublicContentService(const QString &storageRoot, QObject *
 
 PublicContentService::PublicContentService(const QString &storageRoot, const QStringList &sources,
                                            QObject *parent)
-    : QObject(parent)
+    : QObject(parent),
+      m_applicationVersion(QCoreApplication::applicationVersion())
 {
     initializePublicContentResources();
     for (const auto &source : sources) {
@@ -138,15 +140,23 @@ void PublicContentService::load(const QString &storageRoot)
             m_bundledAvatars.insert(hash, u"qrc"_s + path);
     }
     m_state = readObject(QDir(m_root).filePath(u"state.json"_s));
-    if (!m_state.contains(u"seenSponsors"_s)) {
+    if (!m_state.contains(u"seenSponsors"_s) || !m_state.contains(u"seenSponsorVersion"_s)) {
         const auto preferences = readObject(QDir(storageRoot).filePath(u"settings.json"_s));
-        QJsonObject seen;
-        if (!preferences.value(u"sponsorAnnouncementId"_s).toString().isEmpty()) {
-            for (const auto &value : bundled)
-                seen.insert(value.toObject().value(u"id"_s).toString(), true);
-        }
+        const auto legacyId = preferences.value(u"sponsorAnnouncementId"_s).toString();
         auto next = m_state;
-        next.insert(u"seenSponsors"_s, seen);
+        if (!next.contains(u"seenSponsors"_s)) {
+            QJsonObject seen;
+            if (!legacyId.isEmpty()) {
+                for (const auto &value : bundled)
+                    seen.insert(value.toObject().value(u"id"_s).toString(), true);
+            }
+            next.insert(u"seenSponsors"_s, seen);
+        }
+        if (!next.contains(u"seenSponsorVersion"_s)) {
+            const auto prefix = u"sponsors:"_s;
+            next.insert(u"seenSponsorVersion"_s,
+                        legacyId.startsWith(prefix) ? legacyId.sliced(prefix.size()) : QString{});
+        }
         saveState(next);
     }
     const auto cachedIndex = readObject(cachePath(u"index.json"_s));

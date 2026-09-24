@@ -69,7 +69,14 @@ QStringList PublicContentService::takeSponsorAnnouncement()
     if (!m_startupReady || m_sponsorPopupOffered)
         return {};
     m_sponsorPopupOffered = true;
-    m_presentedSponsorIds = newSponsorIds();
+    const bool versionUnseen =
+        !m_applicationVersion.isEmpty() &&
+        m_state.value(u"seenSponsorVersion"_s).toString() != m_applicationVersion;
+    if (!versionUnseen && newSponsorIds().isEmpty())
+        return {};
+    // Capture the whole displayed roster; new-ID highlighting is independent of the trigger.
+    for (const auto &value : m_documents.value(u"sponsors"_s).value(u"sponsors"_s).toArray())
+        m_presentedSponsorIds.append(value.toObject().value(u"id"_s).toString());
     return m_presentedSponsorIds;
 }
 
@@ -80,6 +87,8 @@ void PublicContentService::deferSponsorAnnouncement()
 
 bool PublicContentService::acknowledgeSponsors(const QStringList &ids)
 {
+    if (m_presentedSponsorIds.isEmpty())
+        return false;
     auto seen = m_state.value(u"seenSponsors"_s).toObject();
     for (const auto &id : ids) {
         if (m_presentedSponsorIds.contains(id))
@@ -87,6 +96,10 @@ bool PublicContentService::acknowledgeSponsors(const QStringList &ids)
     }
     auto next = m_state;
     next.insert(u"seenSponsors"_s, seen);
+    if (!m_applicationVersion.isEmpty() &&
+        std::all_of(m_presentedSponsorIds.begin(), m_presentedSponsorIds.end(),
+                    [&ids](const QString &id) { return ids.contains(id); }))
+        next.insert(u"seenSponsorVersion"_s, m_applicationVersion);
     return saveState(next);
 }
 

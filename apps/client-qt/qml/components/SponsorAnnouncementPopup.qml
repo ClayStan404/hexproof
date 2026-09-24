@@ -11,6 +11,7 @@ Popup {
 
     property var contentModel: publicContent
     property var displayedSponsorIds: []
+    property var displayedNewSponsorIds: []
     property bool acknowledged: false
     signal viewSponsorsRequested()
 
@@ -75,7 +76,8 @@ Popup {
 
             SponsorList {
                 id: sponsorList
-                newSponsorIds: root.displayedSponsorIds
+                objectName: "sponsorAnnouncementList"
+                newSponsorIds: root.displayedNewSponsorIds
                 // Keep names, tier counts and links clear of the scrollbar.
                 width: Math.max(0, sponsorScroller.width - Theme.size(14))
                 compact: true
@@ -111,9 +113,11 @@ Popup {
     }
 
     function openIfNeeded() {
+        const newIds = Array.from(root.contentModel.newSponsorIds)
         const ids = root.contentModel.takeSponsorAnnouncement()
         if (ids.length > 0) {
             root.displayedSponsorIds = ids
+            root.displayedNewSponsorIds = newIds
             root.open()
         }
     }

@@ -50,16 +50,22 @@ TestCase {
         id: mockContent
         property var pendingIds: ["qingbao"]
         property var seenIds: []
+        readonly property var newSponsorIds: pendingIds.filter(id => seenIds.indexOf(id) < 0)
+        property string applicationVersion: "2.1.0"
+        property string seenVersion: "2.1.0"
         property bool offered: false
         property int acknowledgeCount: 0
         function takeSponsorAnnouncement() {
             if (offered)
                 return []
             offered = true
-            return pendingIds.filter(id => seenIds.indexOf(id) < 0)
+            if (seenVersion === applicationVersion && newSponsorIds.length === 0)
+                return []
+            return pendingIds.slice()
         }
         function acknowledgeSponsors(ids) {
             seenIds = seenIds.concat(Array.from(ids))
+            seenVersion = applicationVersion
             ++acknowledgeCount
             return true
         }
@@ -100,6 +106,8 @@ TestCase {
         Theme.uiScale = 1
         mockContent.pendingIds = ["qingbao"]
         mockContent.seenIds = []
+        mockContent.applicationVersion = "2.1.0"
+        mockContent.seenVersion = "2.1.0"
         mockContent.offered = false
         mockContent.acknowledgeCount = 0
         profileSpy.target = null
@@ -429,10 +437,33 @@ TestCase {
         const restarted = createTemporaryObject(popupComponent, testWindow.contentItem)
         restarted.openIfNeeded()
         tryVerify(() => restarted.opened)
-        compare(Array.from(restarted.displayedSponsorIds), ["dodo"])
+        compare(Array.from(restarted.displayedSponsorIds), ["qingbao", "dodo"])
+        compare(Array.from(restarted.displayedNewSponsorIds), ["dodo"])
         restarted.close()
         tryVerify(() => !restarted.visible)
         compare(mockContent.acknowledgeCount, 2)
+    }
+
+    function test_newVersionShowsKnownSponsorsWithoutNewLabels() {
+        mockContent.seenIds = ["qingbao"]
+        mockContent.seenVersion = "2.0.5"
+        popup.openIfNeeded()
+        tryVerify(() => popup.opened)
+        compare(Array.from(popup.displayedSponsorIds), ["qingbao"])
+        compare(popup.displayedNewSponsorIds.length, 0)
+        const list = findChild(popup, "sponsorAnnouncementList")
+        verify(list !== null)
+        compare(list.newSponsorIds.length, 0)
+
+        popup.close()
+        tryVerify(() => !popup.visible)
+        compare(mockContent.seenVersion, "2.1.0")
+        compare(mockContent.acknowledgeCount, 1)
+        mockContent.offered = false
+        const restarted = createTemporaryObject(popupComponent, testWindow.contentItem)
+        restarted.openIfNeeded()
+        wait(50)
+        verify(!restarted.visible)
     }
 
     function test_openingFullListAcknowledgesOnlyOnce() {

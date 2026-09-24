@@ -5,6 +5,7 @@
 #include "services/PublicContentService.h"
 
 #include <QBuffer>
+#include <QCoreApplication>
 #include <QDirIterator>
 #include <QFile>
 #include <QImage>
@@ -151,6 +152,137 @@ class TestPublicContent : public QObject
 {
     Q_OBJECT
   private slots:
+    void init()
+    {
+        QCoreApplication::setApplicationVersion(u"2.1.0"_s);
+    }
+
+    void versionNoticesPersistOnlyAfterClosingThePresentedRoster()
+    {
+        ContentHost host;
+        QTemporaryDir root;
+        host.sponsors[u"sponsors"_s] = QJsonArray{host.sponsor(u"alice"_s, false)};
+        host.publish(1);
+        struct Launch
+        {
+            QString version;
+            bool show;
+            bool close;
+            bool defer;
+        };
+        const QList<Launch> launches{
+            {u"2.0.5"_s, true, true, false},  {u"2.0.5"_s, false, false, false},
+            {u"2.1.0"_s, true, false, false}, // An unclosed popup remains pending.
+            {u"2.1.0"_s, false, false, true}, // Entering a room does not acknowledge it.
+            {u"2.1.0"_s, true, true, false},  {u"2.1.0"_s, false, false, false},
+            {u"2.1.1"_s, true, true, false},
+        };
+        bool firstLaunch = true;
+        for (const auto &launch : launches) {
+            QCoreApplication::setApplicationVersion(launch.version);
+            PublicContentService service(root.path(), host.sources());
+            QVERIFY(service.takeSponsorAnnouncement().isEmpty());
+            QVERIFY(!service.acknowledgeSponsors({u"alice"_s}));
+            service.start();
+            QTRY_VERIFY(!service.refreshing());
+            if (!firstLaunch)
+                QVERIFY(service.newSponsorIds().isEmpty());
+            if (launch.defer)
+                service.deferSponsorAnnouncement();
+            const auto presented = service.takeSponsorAnnouncement();
+            QCOMPARE(presented, launch.show ? QStringList{u"alice"_s} : QStringList{});
+            QVERIFY(service.takeSponsorAnnouncement().isEmpty());
+            if (launch.close)
+                QVERIFY(service.acknowledgeSponsors(presented));
+            firstLaunch = false;
+        }
+    }
+
+    void emptyRosterDoesNotConsumeTheVersionNotice()
+    {
+        ContentHost host;
+        QTemporaryDir root;
+        host.publish(1);
+        {
+            PublicContentService service(root.path(), host.sources());
+            service.start();
+            QTRY_VERIFY(!service.refreshing());
+            QVERIFY(service.takeSponsorAnnouncement().isEmpty());
+            QVERIFY(!service.acknowledgeSponsors({}));
+            host.sponsors[u"revision"_s] = 3;
+            host.sponsors[u"sponsors"_s] = QJsonArray{host.sponsor(u"alice"_s, false)};
+            host.publish(2);
+            service.refresh(true);
+            QTRY_VERIFY(!service.refreshing());
+            QVERIFY(service.takeSponsorAnnouncement().isEmpty());
+        }
+        PublicContentService restarted(root.path(), host.sources());
+        restarted.start();
+        QTRY_VERIFY(!restarted.refreshing());
+        QCOMPARE(restarted.takeSponsorAnnouncement(), QStringList{u"alice"_s});
+    }
+
+    void legacyVersionAcknowledgementsMigrate_data()
+    {
+        QTest::addColumn<QString>("legacyId");
+        QTest::addColumn<bool>("show");
+        QTest::newRow("same-version") << u"sponsors:2.1.0"_s << false;
+        QTest::newRow("older-version") << u"sponsors:2.0.5"_s << true;
+        QTest::newRow("unversioned-notice") << u"sponsors-2026-09"_s << true;
+    }
+
+    void legacyVersionAcknowledgementsMigrate()
+    {
+        QFETCH(QString, legacyId);
+        QFETCH(bool, show);
+        QTemporaryDir root;
+        QVERIFY(write(root.filePath(u"settings.json"_s),
+                      json(QJsonObject{{u"sponsorAnnouncementId"_s, legacyId}})));
+        PublicContentService service(root.path(), QStringList{});
+        QVERIFY(service.newSponsorIds().isEmpty());
+        service.start();
+        QTRY_VERIFY(service.startupReady());
+        const auto presented = service.takeSponsorAnnouncement();
+        QCOMPARE(presented.isEmpty(), !show);
+        if (show) {
+            QCOMPARE(presented.size(), service.sponsors().size());
+            QVERIFY(service.acknowledgeSponsors(presented));
+        }
+        PublicContentService restarted(root.path(), QStringList{});
+        restarted.start();
+        QTRY_VERIFY(restarted.startupReady());
+        QVERIFY(restarted.takeSponsorAnnouncement().isEmpty());
+    }
+
+    void existingIdAcknowledgementsSurviveVersionMigration()
+    {
+        ContentHost host;
+        QTemporaryDir root;
+        host.sponsors[u"sponsors"_s] = QJsonArray{host.sponsor(u"alice"_s, false)};
+        host.publish(1);
+        {
+            PublicContentService service(root.path(), host.sources());
+            service.start();
+            QTRY_VERIFY(!service.refreshing());
+            QVERIFY(service.acknowledgeSponsors(service.takeSponsorAnnouncement()));
+        }
+        const auto statePath = cachedFiles(root.path(), u"state.json"_s).first();
+        QFile file(statePath);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        auto state = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
+        state.remove(u"seenSponsorVersion"_s); // State written by the ID-only implementation.
+        QVERIFY(write(statePath, json(state)));
+        QVERIFY(write(root.filePath(u"settings.json"_s),
+                      "{\"sponsorAnnouncementId\":\"sponsors:2.0.5\"}"));
+        PublicContentService upgraded(root.path(), host.sources());
+        QVERIFY(upgraded.newSponsorIds().isEmpty());
+        upgraded.start();
+        QTRY_VERIFY(!upgraded.refreshing());
+        QCOMPARE(upgraded.takeSponsorAnnouncement(), QStringList{u"alice"_s});
+        QVERIFY(upgraded.newSponsorIds().isEmpty());
+    }
+
     void snapshotCacheAndConditionalRefresh()
     {
         ContentHost host;
@@ -448,7 +580,8 @@ class TestPublicContent : public QObject
         PublicContentService restarted(root.path(), host.sources());
         restarted.start();
         QTRY_VERIFY(!restarted.refreshing());
-        QCOMPARE(restarted.takeSponsorAnnouncement(), QStringList{u"later"_s});
+        QCOMPARE(restarted.newSponsorIds(), QStringList{u"later"_s});
+        QCOMPARE(restarted.takeSponsorAnnouncement(), (QStringList{u"newcomer"_s, u"later"_s}));
     }
 
     void rejectsUnsafeData()
