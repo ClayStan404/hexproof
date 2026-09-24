@@ -59,6 +59,7 @@
         {"name": "summoningSick", "type": "boolean", "required": false},
         {"name": "faceDown", "type": "boolean", "required": false},
         {"name": "attacking", "type": "boolean", "required": false},
+        {"name": "blocking", "type": "array", "required": false, "items": {"type": "string"}},
         {"name": "power", "type": "string", "required": false},
         {"name": "toughness", "type": "string", "required": false},
         {"name": "counters", "type": "array", "required": true, "items": {"type": "object", "ref": "RulesCounter"}},

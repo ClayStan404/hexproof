@@ -279,8 +279,17 @@ Page {
         case "$pay": return qsTr("Confirm payment")
         case "$auto-pay": return qsTr("Auto-pay")
         case "$cancel": return qsTr("Cancel")
-        default: return RulesText.text(label)
+        default: return localizedRulesLabel(label)
         }
+    }
+
+    function localizedRulesLabel(label) {
+        const text = String(label || "")
+        const named = text.replace(
+                    /^(.*) — (cast spell|play land|activate ability)$/,
+                    (_, name, action) => cardDisplayName(name) + " — " + action)
+                .replace(/^After (.+)$/, (_, name) => "After " + cardDisplayName(name))
+        return RulesText.text(named)
     }
 
     function promptTitle(kind, title) {

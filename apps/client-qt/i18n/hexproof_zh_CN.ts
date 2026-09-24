@@ -1861,7 +1861,7 @@
     <message>
         <location line="+1"/>
         <source>This server does not provide the Forge rules runtime.</source>
-        <translation>此服务器未提供 Forge 规则运行时。</translation>
+        <translation>此服务器未提供 Forge 规则引擎。</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3471,7 +3471,7 @@
     <message>
         <location line="+1"/>
         <source>Conceded</source>
-        <translation>已认输</translation>
+        <translation>已投降</translation>
     </message>
     <message>
         <location line="-209"/>
@@ -4711,7 +4711,7 @@
     </message>
     <message>
         <source>%1 starts Game %2.</source>
-        <translation>%1 在第 %2 盘先手。</translation>
+        <translation>%1 在第 %2 局先手。</translation>
     </message>
     <message>
         <source>%1 is playing with their library top revealed.</source>
@@ -4724,7 +4724,7 @@
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>Forge could not start with one or more selected decks.</source>
-        <translation>Forge 无法使用一个或多个已选牌组开始对局。</translation>
+        <translation>Forge 无法使用一个或多个已选套牌开始对局。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
@@ -4734,22 +4734,22 @@
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>The Forge runtime is unavailable. Ask the server operator or player host to check it.</source>
-        <translation>Forge 运行包不可用，请联系服务器管理员或玩家房主检查。</translation>
+        <translation>Forge 规则引擎不可用，请联系服务器管理员或玩家房主检查。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>The Forge runtime did not finish starting the game in time.</source>
-        <translation>Forge 运行包未能在规定时间内完成开局。</translation>
+        <translation>Forge 规则引擎未能在规定时间内完成开局。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>The Forge runtime stopped while starting the game.</source>
-        <translation>Forge 运行包在开局时停止运行。</translation>
+        <translation>Forge 规则引擎在开局时停止运行。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>Forge could not start the game. The runtime did not provide a specific supported reason.</source>
-        <translation>Forge 无法开始对局，运行包未提供可识别的具体原因。</translation>
+        <translation>Forge 无法开始对局，规则引擎未提供可识别的具体原因。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
@@ -4769,22 +4769,22 @@
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>AI deck</source>
-        <translation>AI 牌组</translation>
+        <translation>AI 套牌</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>Your deck</source>
-        <translation>你的牌组</translation>
+        <translation>你的套牌</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>The current Forge runtime cannot recognize this card.</source>
-        <translation>当前 Forge 运行包无法识别此牌。</translation>
+        <translation>当前 Forge 规则引擎无法识别此牌。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>The current Forge runtime cannot recognize this card or the selected printing.</source>
-        <translation>当前 Forge 运行包无法识别此牌或所选印刷。</translation>
+        <translation>当前 Forge 规则引擎无法识别此牌或所选印刷版本。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
@@ -4814,12 +4814,12 @@
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>Change the affected card or printing, or check the Forge runtime, then ready again.</source>
-        <translation>请更换有问题的牌或印刷，或检查 Forge 运行包，然后重新准备。</translation>
+        <translation>请更换有问题的牌或印刷版本，或检查 Forge 规则引擎，然后重新准备。</translation>
     </message>
     <message>
         <location filename="../qml/components/I18n.qml"/>
         <source>Your seats and selected decks are kept.</source>
-        <translation>你的席位和已选牌组已保留。</translation>
+        <translation>你的座位和已选套牌已保留。</translation>
     </message>
 </context>
 <context>
@@ -7670,11 +7670,11 @@ your way.</source>
     </message>
     <message>
         <source>Stop at %1 on other players' turns</source>
-        <translation>在其他玩家回合的%1停下</translation>
+        <translation>在其他玩家回合的 %1 停下</translation>
     </message>
     <message>
         <source>Stop at %1 on your turns</source>
-        <translation>在自己回合的%1停下</translation>
+        <translation>在自己回合的 %1 停下</translation>
     </message>
     <message>
         <source>Stops</source>
@@ -7686,7 +7686,7 @@ your way.</source>
     </message>
     <message>
         <source>Table</source>
-        <translation>桌面</translation>
+        <translation>牌桌</translation>
     </message>
     <message>
         <source>Match</source>
@@ -7737,7 +7737,7 @@ your way.</source>
     </message>
     <message>
         <source>Click highlighted cards or players on the table.</source>
-        <translation>点击桌面上高亮的卡牌或玩家。</translation>
+        <translation>点击牌桌上高亮的卡牌或玩家。</translation>
     </message>
     <message>
         <location filename="../qml/components/RulesTargetSelectionPrompt.qml" line="+51"/>
@@ -9095,7 +9095,7 @@ your way.</source>
     </message>
     <message>
         <source>Choose play or draw for the next game</source>
-        <translation>选择下一盘的先后手</translation>
+        <translation>选择下一局的先后手</translation>
     </message>
     <message>
         <source>Draw first</source>
@@ -9111,7 +9111,7 @@ your way.</source>
     </message>
     <message>
         <source>Review previous game</source>
-        <translation>检视上一盘场面</translation>
+        <translation>检视上一局场面</translation>
     </message>
 </context>
 <context>
@@ -10675,7 +10675,7 @@ your way.</source>
         <location line="+1"/>
         <location filename="../qml/components/TableDialogs.qml" line="+1"/>
         <source>The current table is replaced by newly shuffled decks and opening hands. The score and starting player stay unchanged.</source>
-        <translation>当前桌面将替换为重新洗牌后的牌库和起手牌，比分与先手玩家保持不变。</translation>
+        <translation>当前牌桌将替换为重新洗牌后的牌库和起手牌，比分与先手玩家保持不变。</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -11008,7 +11008,7 @@ your way.</source>
     <message>
         <location line="+9"/>
         <source>Choose the optional table tools you want to keep visible.</source>
-        <translation>选择想要保持可见的可选桌面工具。</translation>
+        <translation>选择想要保持可见的可选牌桌工具。</translation>
     </message>
     <message>
         <location line="+10"/>
@@ -11441,7 +11441,7 @@ your way.</source>
     </message>
     <message>
         <source>Manual tabletop</source>
-        <translation>手动桌面</translation>
+        <translation>手动牌桌</translation>
     </message>
 </context>
 <context>
@@ -11586,12 +11586,12 @@ your way.</source>
     <message>
         <location line="+18"/>
         <source>%1 boosters · exact generated collation</source>
-        <translation>%1补充包 · 精确生成的配包</translation>
+        <translation>%1 补充包 · 精确生成的配包</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Play</source>
-        <translation>Play</translation>
+        <translation>游戏</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -11676,11 +11676,11 @@ your way.</source>
     </message>
     <message>
         <source>Individual Swiss · choose manual tabletop or Forge rules</source>
-        <translation>个人瑞士赛 · 可选手动桌面或 Forge 规则</translation>
+        <translation>个人瑞士赛 · 选择手动牌桌或 Forge 规则</translation>
     </message>
     <message>
         <source>Manual tabletop</source>
-        <translation>手动桌面</translation>
+        <translation>手动牌桌</translation>
     </message>
 </context>
 <context>
@@ -12552,7 +12552,7 @@ your way.</source>
     <message>
         <location line="+5"/>
         <source>Drawn games</source>
-        <translation>平局盘数</translation>
+        <translation>平局局数</translation>
     </message>
     <message>
         <location line="+11"/>
@@ -13158,7 +13158,7 @@ your way.</source>
     </message>
     <message>
         <source>Manual tabletop</source>
-        <translation>手动桌面</translation>
+        <translation>手动牌桌</translation>
     </message>
     <message>
         <source>Select printing</source>
@@ -14232,7 +14232,7 @@ your way.</source>
     </message>
     <message>
         <source>Manual tabletop</source>
-        <translation>手动桌面</translation>
+        <translation>手动牌桌</translation>
     </message>
 </context>
 <context>
@@ -15421,7 +15421,7 @@ Downloaded and custom images will be copied and verified before the setting chan
         </message>
         <message>
             <source>Choose a card or player</source>
-            <translation>选择一张牌或一位牌手</translation>
+            <translation>选择一张牌或一位玩家</translation>
         </message>
         <message>
             <source>Choose cards</source>
@@ -15674,6 +15674,14 @@ Downloaded and custom images will be copied and verified before the setting chan
         <message>
             <source>Activate ability</source>
             <translation>起动异能</translation>
+        </message>
+        <message>
+            <source>First</source>
+            <translation>最先</translation>
+        </message>
+        <message>
+            <source>After %1</source>
+            <translation>排在 %1 之后</translation>
         </message>
         <message>
             <source>%1 — %2</source>
@@ -16375,6 +16383,15 @@ Downloaded and custom images will be copied and verified before the setting chan
 </context>
 <context>
     <name>RulesCardPersistentState</name>
+    <message><source>Blocking</source><translation>阻挡中</translation></message>
+    <message><source>Blocked</source><translation>已被阻挡</translation></message>
+    <message><source>Attached</source><translation>已结附</translation></message>
+    <message><source>Attachments: %1</source><translation>结附：%1</translation></message>
+    <message><source>Blocking %1</source><translation>正在阻挡 %1</translation></message>
+    <message><source>Blocked by %1</source><translation>被 %1 阻挡</translation></message>
+    <message><source>Attached to %1</source><translation>结附于 %1</translation></message>
+    <message><source>Attachment: %1</source><translation>结附物：%1</translation></message>
+    <message><source>Hidden card</source><translation>隐藏牌</translation></message>
     <message>
         <source>Entered this turn</source>
         <translation>本回合进场</translation>
@@ -16727,7 +16744,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
     <message>
         <source>Command zone</source>
-        <translation>统帅区</translation>
+        <translation>指挥官区</translation>
     </message>
     <message>
         <source>Exile</source>
@@ -16735,7 +16752,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
     <message>
         <source>Graveyard</source>
-        <translation>坟墓场</translation>
+        <translation>墓地</translation>
     </message>
     <message>
         <source>No visible cards in this zone</source>
@@ -16743,7 +16760,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
     <message>
         <source>Previous game · public cards</source>
-        <translation>上一盘 · 公开卡牌</translation>
+        <translation>上一局 · 公开卡牌</translation>
     </message>
 </context>
 <context>
@@ -16785,7 +16802,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
     <message>
         <source>Enabled by default for supported player-hosted games with two human players. If direct connection fails, the game uses server relay. Direct connections share network addresses with the other player and use a STUN service.</source>
-        <translation>在支持直连的双真人玩家托管对局中默认启用。连接失败时自动使用服务器中继。直连会向对方共享网络地址，并使用 STUN 服务。</translation>
+        <translation>在支持直连的双真人玩家托管对局中默认启用。连接失败时自动使用服务器中转。直连会向对方共享网络地址，并使用 STUN 服务。</translation>
     </message>
 </context>
 <context>
@@ -16796,11 +16813,11 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
     <message>
         <source>Stop at %1 on other players' turns</source>
-        <translation>在其他玩家回合的%1停下</translation>
+        <translation>在其他玩家回合的 %1 停下</translation>
     </message>
     <message>
         <source>Stop at %1 on your turns</source>
-        <translation>在自己回合的%1停下</translation>
+        <translation>在自己回合的 %1 停下</translation>
     </message>
     <message>
         <source>Stops</source>
@@ -16983,7 +17000,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
     <message>
         <source>Flip table</source>
-        <translation>翻转棋盘</translation>
+        <translation>翻转牌桌</translation>
     </message>
     <message>
         <source>Timeline</source>

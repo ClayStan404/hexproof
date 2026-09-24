@@ -25,7 +25,6 @@ QtObject {
             if (label === "Play") return qsTr("Play first")
             if (label === "Draw") return qsTr("Draw first")
         }
-        if (kind !== "chooseBoolean") return label
         if (/^Assign (.+) combat damage now\?$/.test(title)) {
             if (label === "Assign now") return qsTr("Assign this creature first")
             if (label === "Assign later") return qsTr("Assign other creatures first")
@@ -41,7 +40,7 @@ QtObject {
         case "Bottom": return qsTr("Bottom")
         case "Keep this hand": return qsTr("Keep this hand")
         case "View next hand": return qsTr("View next hand")
-        default: return label
+        default: return text(label)
         }
     }
 
@@ -162,6 +161,9 @@ QtObject {
             return qsTr("Stack: %1 to resolve.").arg(match[1])
         if ((match = source.match(/^Storm Count: (\d+)$/)))
             return qsTr("Storm Count: %1").arg(match[1])
+        if (source === "First") return qsTr("First")
+        if ((match = source.match(/^After (.+)$/)))
+            return qsTr("After %1").arg(match[1])
         if ((match = source.match(/^(.+) — (cast spell|play land|activate ability)$/))) {
             const action = match[2] === "cast spell" ? qsTr("Cast spell")
                 : match[2] === "play land" ? qsTr("Play land") : qsTr("Activate ability")

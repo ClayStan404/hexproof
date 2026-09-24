@@ -38,6 +38,7 @@ public_paths=(
     CHANGELOG.md
     THIRD-PARTY-NOTICES.md
     apps
+    docs/guide/README.md
     docs/rules-engine.md
     docs/player-hosted-forge.md
     docs/home-servers.md

@@ -6,7 +6,11 @@ upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
-The current adapter is revision 17, retaining upstream `2be4858216742009afe8a7cffb035fc7671e960d`.
+The current adapter is revision 22, retaining upstream `2be4858216742009afe8a7cffb035fc7671e960d`.
+Revision 22 reads actual colorless mana, publishes confirmed blocking pairs,
+and includes a verified offline catalog printing index. The index's source and
+provenance travel with dedicated packages and creator-hosted overlays; changing
+them changes the runtime identity. See [printing compatibility](../../tools/forge-printings/README.md).
 Revision 17 adds a bounded private observation journal and acknowledged
 `getReplay` reads on both native transports. It captures intermediate automatic
 resolutions, both hands and combat relationships without changing normal viewer

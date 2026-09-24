@@ -74,6 +74,7 @@ type CardView struct {
 	SummoningSick   bool                 `json:"summoningSick,omitempty"`
 	FaceDown        bool                 `json:"isFaceDown,omitempty"`
 	Attacking       bool                 `json:"isAttacking,omitempty"`
+	Blocking        []string             `json:"blocking,omitempty"`
 	Power           string               `json:"power,omitempty"`
 	Toughness       string               `json:"toughness,omitempty"`
 	Counters        map[string]int       `json:"counters,omitempty"`

@@ -31,6 +31,8 @@ TestCase {
             {tag:"activate", source:"Card %2 — activate ability", expected:"Card %2 — 起动异能"},
             {tag:"cast", source:"Lightning Bolt — cast spell", expected:"Lightning Bolt — 施放咒语"},
             {tag:"land", source:"Plains — play land", expected:"Plains — 使用地"},
+            {tag:"order-first", source:"First", expected:"最先"},
+            {tag:"order-after", source:"After Lightning Bolt", expected:"排在 Lightning Bolt 之后"},
             {tag:"mana", source:"Pay Mana Cost: {1}{W/P}", expected:"支付法术力费用：{1}{W/P}"},
             {tag:"priority", source:"Priority: Alice %2\nTurn: 3 (Bob %1)\nPhase: Main phase, precombat\nStack: Empty",
                 expected:"优先权：Alice %2\n回合：3（Bob %1）\n阶段：战前主阶段\n堆叠：空"},
@@ -46,7 +48,7 @@ TestCase {
         compare(RulesText.choice("chooseBoolean", "Play", "Confirm decision", detail), "先手")
         compare(RulesText.choice("chooseFromSelection", "Draw", "Choose options", detail), "Draw")
         compare(RulesText.choice("chooseBoolean", "Draw", "Confirm decision", "Draw a card?"), "Draw")
-        compare(RulesText.choice("chooseFromSelection", "Cancel", "Choose options", ""), "Cancel")
+        compare(RulesText.choice("chooseFromSelection", "Cancel", "Choose options", ""), "取消")
         compare(RulesText.choice("chooseBoolean", "Unknown mode {R}", "Confirm decision", ""), "Unknown mode {R}")
     }
     function test_damageOrderChoiceRequiresNativeContext() {
@@ -54,8 +56,8 @@ TestCase {
         compare(RulesText.choice("chooseBoolean", "Assign now", title, ""), "先分配这只生物")
         compare(RulesText.choice("chooseBoolean", "Assign later", title, ""), "先分配其他生物")
         compare(RulesText.choice("chooseBoolean", "Assign later", "Assign Card %1 %2's combat damage now?", ""), "先分配其他生物")
-        compare(RulesText.choice("chooseFromSelection", "Assign now", title, ""), "Assign now")
-        compare(RulesText.choice("chooseFromSelection", "Assign later", title, ""), "Assign later")
+        compare(RulesText.choice("chooseFromSelection", "Assign now", title, ""), "先分配这只生物")
+        compare(RulesText.choice("chooseFromSelection", "Assign later", title, ""), "先分配其他生物")
         compare(RulesText.choice("chooseBoolean", "Assign now", "Confirm decision", title), "Assign now")
         compare(RulesText.choice("chooseBoolean", "Assign later", "Assign damage now?", ""), "Assign later")
         compare(RulesText.choice("chooseBoolean", "Assign later", "Assign Generous Ent combat damage now? Extra text", ""), "Assign later")

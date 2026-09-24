@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import forge.card.CardStateName;
 import forge.card.MagicColor;
+import forge.card.mana.ManaAtom;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.card.Card;
@@ -141,7 +142,9 @@ final class NativeSnapshot {
         result.addProperty("life", player.getLife());
         result.add("counters", counters(player));
         JsonObject pool = new JsonObject();
-        for (byte color : MagicColor.WUBRGC) {
+        // ManaPool keys use ManaAtom (colorless = 32), not card color identity
+        // MagicColor (colorless = 0). The latter silently drops actual {C}.
+        for (byte color : ManaAtom.MANATYPES) {
             int amount = player.getManaPool().getAmountOfColor(color);
             if (amount > 0) pool.addProperty(MagicColor.toShortString(color), amount);
         }
@@ -197,6 +200,13 @@ final class NativeSnapshot {
             result.addProperty("enteredThisTurn", card.enteredThisTurn());
             result.addProperty("summoningSick", card.isCreature() && card.isSick());
             result.addProperty("isAttacking", game.getCombat() != null && card.isAttacking());
+            JsonArray blocking = new JsonArray();
+            if (game.getCombat() != null) {
+                for (Card attacker : game.getCombat().getAttackers()) {
+                    if (game.getCombat().getBlockers(attacker).contains(card)) blocking.add(cardId(attacker));
+                }
+            }
+            if (!blocking.isEmpty()) result.add("blocking", blocking);
             if (card.isCreature()) {
                 result.addProperty("power", Integer.toString(card.getNetPower()));
                 result.addProperty("toughness", Integer.toString(card.getNetToughness()));

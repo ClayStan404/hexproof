@@ -7,6 +7,32 @@ Hexproof versions the coordinated client and server together; both must match
 exactly. Card-database releases use the separate **card-data** channel;
 application changes that use new catalog metadata are included here.
 
+## [2.2.1] - 2026-09-24
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.2.1**; application versions
+  must match exactly. The `hexproof.v1` protocol adds optional confirmed-blocking
+  references to rules snapshots.
+- The native Forge adapter advances to revision 22. Update server-managed
+  runtimes and creator-hosted overlays to enable colorless mana, confirmed
+  blocking and the verified printing compatibility index.
+
+### Changed
+
+- Reuse the selected table artwork on Home and Events, with readable overlays.
+- Shorten settings copy and improve Chinese interface and Forge action labels.
+
+### Fixed
+
+- Forge now displays actual colorless mana and keeps mana counts readable above
+  cards and hover previews.
+- Confirmed blocking and attachment relationships retain battlefield labels,
+  arrows and inspection details, including distinct identical permanents.
+- A verified offline printing index accepts supported card rules for 10,719
+  catalog printings absent from Forge, including reported serialized Ravnica
+  lands and collector/championship cards, while preserving chosen printings.
+
 ## [2.2.0] - 2026-09-24
 
 ### Upgrade notes

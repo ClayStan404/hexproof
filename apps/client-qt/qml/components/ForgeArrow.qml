@@ -10,6 +10,7 @@ Item {
     property color lineColor: "#e1bd7f"
     property real unit: 1
     property bool preview: false
+    property bool dashed: false
     readonly property bool validAnchors: Number.isFinite(startPoint.x) && Number.isFinite(startPoint.y)
         && Number.isFinite(endPoint.x) && Number.isFinite(endPoint.y)
         && (startPoint.x !== 0 || startPoint.y !== 0) && (endPoint.x !== 0 || endPoint.y !== 0)
@@ -36,6 +37,8 @@ Item {
         ShapePath {
             strokeColor: root.lineColor
             strokeWidth: (root.preview ? 3.2 : 2.4) * root.unit
+            strokeStyle: root.dashed ? ShapePath.DashLine : ShapePath.SolidLine
+            dashPattern: [3, 2]
             capStyle: ShapePath.RoundCap
             fillColor: "transparent"
             startX: root.safeStart.x

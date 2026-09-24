@@ -410,6 +410,18 @@ TestCase {
         compare(item("forgeCommanderName-0-0").text, "Commander")
     }
 
+    function test_actionLabelsFollowCardLanguage() {
+        catalog.names = {"Plains": "平原", "Lightning Bolt": "闪电击"}
+        catalog.language = "zh"
+        testTranslations.setLanguage("zh")
+        compare(table.promptOptionLabel("chooseAction", "land", "Plains — play land"), "平原 — 使用地")
+        compare(table.promptOptionLabel("chooseAction", "bolt", "Lightning Bolt — cast spell"), "闪电击 — 施放咒语")
+        compare(table.promptOptionLabel("chooseFromSelection", "after", "After Lightning Bolt"), "排在 闪电击 之后")
+        testTranslations.setLanguage("en")
+        catalog.language = "en"
+        compare(table.promptOptionLabel("chooseAction", "land", "Plains — play land"), "Plains — Play land")
+    }
+
     function test_landsSitAsLeftTableRow() {
         const state = snapshot()
         state.zones[4].cards.push(card("land-2", 0, "Plains", false))
@@ -426,7 +438,7 @@ TestCase {
         compare(land.fullFace, creature.fullFace)
         verify(land.width <= 112 * table.presentation.unit)
         verify(land2.width <= 112 * table.presentation.unit)
-        verify(land.width < creature.width)
+        verify(land.width < creature.width, "Land " + land.width + " must remain smaller than creature " + creature.width)
         const landPoint = land.mapToItem(table, 0, 0)
         const pilePoint = piles.mapToItem(table, 0, 0)
         const hand = item("forgeHand")
@@ -1480,12 +1492,47 @@ TestCase {
         tryCompare(pool, "visible", true)
         compare(pool.manaPool.length, 3)
         compare(item("forgeMana-0-U").modelData.amount, 2)
+        compare(item("forgeMana-0-C").modelData.amount, 3)
+        compare(pool.parent, item("forgeDuelTable"))
+        verify(pool.z > item("forgeHand").z)
+        verify(pool.z > item("rulesCardHoverPreview").z)
+        tryVerify(() => pool.width > item("forgeMana-0-C").width)
         state.players[0].manaPool[0].value = 1
         verify(testRulesPrompt.applySnapshot(state))
         compare(item("forgeMana-0-U").modelData.amount, 1)
         state.players[0].manaPool = []
         verify(testRulesPrompt.applySnapshot(state))
         tryCompare(pool, "visible", false)
+    }
+    function test_confirmedBlocksAndAttachmentsRemainVisible() {
+        const state = snapshot(1, 3)
+        state.step = "declare_blockers"
+        state.zones[4].cards[0].blocking = ["opponent"]
+        state.zones[4].cards[1].attachedTo = "own-2"
+        state.zones[5].cards[0].attacking = true
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {options:[{responseId:"pass", kind:"pass", label:"Pass"}]})
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 3)
+        compare(table.rulesSession.battlefieldRelationships.length, 2)
+        tryCompare(item("forgeCardInteractionHint-own-0"), "text", "Blocking")
+        compare(item("forgeCardInteractionHint-opponent").text, "Blocked")
+        compare(item("forgeCardInteractionHint-own-1").text, "Attached")
+        compare(item("forgeCardInteractionHint-own-2").text, "Attachments: 1")
+        const block = item("forgeRelationship-block-own-0-opponent")
+        const attachment = item("forgeRelationship-attachment-own-1-own-2")
+        tryCompare(block, "validAnchors", true)
+        tryCompare(attachment, "validAnchors", true)
+        verify(attachment.dashed)
+        verify(!block.dashed)
+        table.openCardDetails("own-2")
+        verify(item("forgeDuelTable").inspectionDock.inspector.persistentSummary.includes("Attachment: Grizzly Bears"))
+
+        state.zones[4].cards[1].attachedTo = "hand-0"
+        state.zones[4].cards[0].blocking = ["hand-0", "missing"]
+        verify(testRulesPrompt.applySnapshot(state))
+        compare(table.rulesSession.battlefieldRelationships.length, 0)
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 1)
+        compare(item("forgeCardInteractionHint-own-0").text, "")
     }
     function test_reviewArtworkCannotCollapseGrid_data() {
         return [{tag:"portrait-desktop", width:1600, height:1000, image:"card-back.jpg"},

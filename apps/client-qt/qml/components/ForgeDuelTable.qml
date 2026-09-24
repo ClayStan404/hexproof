@@ -61,8 +61,8 @@ Rectangle {
     readonly property real otherFaceWidth: 110 * unit
     readonly property real landRowNeed: 188 * unit
     readonly property real otherRowNeed: 120 * unit
-    readonly property real opponentBackHeight: bandFor(opponentLands.stackCount, opponentOther.stackCount)
-    readonly property real ownBackHeight: bandFor(ownLands.stackCount, ownOther.stackCount)
+    readonly property real opponentBackHeight: bandFor(opponentLands, opponentOther)
+    readonly property real ownBackHeight: bandFor(ownLands, ownOther)
     readonly property string turnOwner: !session.active || session.turn < 1 || session.activeSeat < 0 ? qsTr("Preparing game")
         : session.activeSeat === tableController.localSeat ? qsTr("Your turn")
         : qsTr("%1's turn").arg(tableController.matchUi.playerName(session.activeSeat))
@@ -85,15 +85,16 @@ Rectangle {
             zonePopup.zone = "graveyard"
     }
 
-    function bandFor(landCount, otherCount) {
-        return rowNeed(landCount, true) + rowNeed(otherCount, false)
+    function bandFor(lands, others) {
+        return rowNeed(lands.stackCount, true, lands.hasBadges)
+            + rowNeed(others.stackCount, false, others.hasBadges)
     }
-    function rowNeed(count, isLand) {
+    function rowNeed(count, isLand, hasBadges) {
         if (count <= 0)
             return 0
         const face = isLand ? landFaceWidth : otherFaceWidth
         const gap = 8 * unit
-        const extra = 10 * unit
+        const extra = (hasBadges ? 22 : 10) * unit
         const tileHeight = face * 0.93 + extra
         const available = Math.max(face, boardWidth - 14 * unit)
         const columns = Math.max(1, Math.floor((available + gap) / (face + gap)))
@@ -346,9 +347,15 @@ Rectangle {
         }
         ForgeManaPool {
             objectName: "forgeManaPool-" + plate.seat
-            anchors.left: root.replayMode ? plate.left : plate.right
-            anchors.leftMargin: 10 * root.unit
-            y: root.replayMode ? plate.height + 4 * root.unit : lifeDisc.y + (lifeDisc.height - height) / 2
+            // Keep public floating mana readable above hand cards and their
+            // hover previews. Reparenting removes the player plate's z limit.
+            parent: root
+            z: 1001
+            x: Math.min(root.width - width - 8 * root.unit,
+                        plate.x + (root.replayMode ? 0 : plate.width) + 10 * root.unit)
+            y: plate.y + (root.replayMode ? plate.height + 4 * root.unit
+                : lifeDisc.y + (lifeDisc.height - height) / 2)
+            visible: plate.visible && plate.manaPool.length > 0
             manaPool: plate.manaPool
             seat: plate.seat
             unit: root.unit
@@ -500,7 +507,7 @@ Rectangle {
         x: root.boardLeft
         y: root.battlefieldTop
         width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, true)
+        height: root.rowNeed(stackCount, true, hasBadges)
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.topSeat
@@ -516,7 +523,7 @@ Rectangle {
         x: root.boardLeft
         y: opponentLands.y + opponentLands.height
         width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, false)
+        height: root.rowNeed(stackCount, false, hasBadges)
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.topSeat
@@ -560,7 +567,7 @@ Rectangle {
         x: root.boardLeft
         y: ownCreatures.y + ownCreatures.height
         width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, false)
+        height: root.rowNeed(stackCount, false, hasBadges)
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.bottomSeat
@@ -576,7 +583,7 @@ Rectangle {
         x: root.boardLeft
         y: ownOther.y + ownOther.height
         width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, true)
+        height: root.rowNeed(stackCount, true, hasBadges)
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.bottomSeat
@@ -597,6 +604,22 @@ Rectangle {
         onDropped: drop => {
             if (root.tableController.playDraggedHandCardSource(drop.source)) drop.acceptProposedAction()
             else drop.accepted = false
+        }
+    }
+    Repeater {
+        model: root.session.battlefieldRelationships || []
+        delegate: ForgeArrow {
+            required property var modelData
+            objectName: "forgeRelationship-" + modelData.kind + "-" + modelData.sourceId + "-" + modelData.targetId
+            anchors.fill: parent
+            z: 60
+            unit: root.unit
+            dashed: modelData.kind === "attachment"
+            lineColor: dashed ? "#c5a0ee" : "#7ebcca"
+            visible: !root.tableController.sideboarding && !root.modalOpen
+                && !(modelData.kind === "block" && (root.combat.active || root.replayMode))
+            startPoint: root.pointFor(modelData.sourceId)
+            endPoint: root.pointFor(modelData.targetId)
         }
     }
     Repeater {

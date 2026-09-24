@@ -14,7 +14,9 @@ Page {
     readonly property bool suppressStartupNotices: typeof localTestMode !== "undefined"
                                                    && localTestMode
 
-    background: AppBackground { }
+    background: AppBackground {
+        variant: TableBackgrounds.hasImage ? "playmat" : "menu"
+    }
 
     Component.onCompleted: Qt.callLater(function() {
         if (root.suppressStartupNotices)

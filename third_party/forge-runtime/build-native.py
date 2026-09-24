@@ -151,6 +151,7 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         raise ValueError("Native host source is missing")
     run("javac", "--release", "21", "-encoding", "UTF-8", "-cp", os.pathsep.join(map(str, jars)),
         "-d", classes, *java_sources)
+    shutil.copytree(frozen_host / "src/main/resources", classes, dirs_exist_ok=True)
     libraries = stage / "lib"
     libraries.mkdir()
     artifacts = []
@@ -200,6 +201,7 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         scenarios = [(name, []) for name in (
             "NativeProfileRegressionTest", "NativeSnapshotRegressionTest", "NativeAiRegressionTest",
             "NativeEldraziRegressionTest", "NativeDeckRegistrationRegressionTest", "NativeIsolationRegressionTest",
+            "NativePrintingAliasRegressionTest",
             "NativeStartFailureRegressionTest", "NativeReplayRegressionTest",
             "NativeOrderingRegressionTest", "NativeDelayedRevealRegressionTest",
             "NativeLethalDamageRegressionTest", "NativeMultiBlockRegressionTest",

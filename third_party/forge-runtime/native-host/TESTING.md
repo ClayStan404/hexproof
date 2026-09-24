@@ -64,6 +64,16 @@ both deck sections, combined face names, initial input and private projections.
 Unsupported promo suffixes, wrong card/number pairs and missing parents must
 still fail without accepting Forge's name-only fallback.
 
+`NativePrintingAliasRegressionTest` resolves every entry in the bundled catalog
+index through native databases and checks retained display identity and foil
+conversion. It starts a real native match with the four reported RVR/PTC/WC04
+printings, exercises both mainboard and sideboard, and checks that CED/CEI/2ED
+copies of Ancestral Recall remain distinct without disclosing the owner's deck.
+`NativeSnapshotRegressionTest` now checks all six actual `ManaAtom` types for
+owner/opponent/spectator views and disappearance after the pool is cleared.
+The multiple-block regression also checks all eight confirmed relationships in
+all three projections after leaving the declaration input.
+
 `NativeCallbackRegressionTest` covers canonical remote responses to native
 scry, generic amount, combat damage, and Phyrexian life payment. Damage
 cases include unordered blockers, deathtouch, a sole defender, and deferring an

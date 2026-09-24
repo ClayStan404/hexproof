@@ -28,7 +28,7 @@ class PublicExportTests(unittest.TestCase):
         self.write("deploy/deploy-home-release.py", "private release deployment backend\n")
         for name in (".github/workflows/ci.yml", ".clang-format", ".gitattributes", ".gitignore", "LICENSE",
                      "CHANGELOG.md", "THIRD-PARTY-NOTICES.md", "docs/development-policy.md",
-                     "docs/rules-engine.md", "docs/player-hosted-forge.md", "docs/home-servers.md",
+                     "docs/guide/README.md", "docs/rules-engine.md", "docs/player-hosted-forge.md", "docs/home-servers.md",
                      "docs/public-content.md", "packaging/README.md", "protocol/example.json",
                      "testdata/example.json", "third_party/README.md"):
             self.write(name, "Fixture\n")
@@ -88,6 +88,7 @@ class PublicExportTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.target / "docs/development-policy.md").exists())
         self.assertTrue((self.root / "docs/development-policy.md").exists())
+        self.assertEqual((self.target / "docs/guide/README.md").read_text(), "Fixture\n")
         self.assertTrue((self.target / "docs/rules-engine.md").exists())
         self.assertTrue((self.target / "docs/player-hosted-forge.md").exists())
         self.assertTrue((self.target / "docs/home-servers.md").exists())

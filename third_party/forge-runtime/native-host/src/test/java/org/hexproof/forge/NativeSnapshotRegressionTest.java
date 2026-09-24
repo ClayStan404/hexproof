@@ -6,6 +6,7 @@ package org.hexproof.forge;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import forge.card.MagicColor;
+import forge.card.mana.ManaAtom;
 import forge.deck.Deck;
 import forge.game.Game;
 import forge.game.GameEndReason;
@@ -67,6 +68,11 @@ public final class NativeSnapshotRegressionTest {
         Card aura = card(game, owner, "Rancor", ZoneType.Battlefield);
         aura.attachToEntity(battlefield, null);
         owner.getManaPool().addMana(new Mana(MagicColor.GREEN, battlefield, null, owner));
+        for (byte color : ManaAtom.MANATYPES) {
+            if (color != ManaAtom.GREEN) owner.getManaPool().addMana(new Mana(color, battlefield, null, owner));
+        }
+        owner.getManaPool().addMana(new Mana((byte) ManaAtom.COLORLESS, battlefield, null, owner),
+                new Mana((byte) ManaAtom.COLORLESS, battlefield, null, owner));
         owner.setCounters(CounterEnumType.ENERGY, 3);
         Card graveyard = card(game, opponent, "Shock", ZoneType.Graveyard);
         Card commander = card(game, owner, "Isamaru, Hound of Konda", ZoneType.Command);
@@ -158,6 +164,13 @@ public final class NativeSnapshotRegressionTest {
         check(findCard(spectator, battlefield).getAsJsonObject("counters").size() == 1, "public counters lost");
         check(findCard(spectator, aura).get("attachedTo").getAsString().equals(NativeSnapshot.cardId(battlefield)), "attachment relation lost");
         check(spectator.getAsJsonArray("players").get(0).getAsJsonObject().getAsJsonObject("manaPool").get("G").getAsInt() == 1, "public mana pool lost");
+        for (JsonObject snapshot : List.of(own, other, spectator)) {
+            var mana = snapshot.getAsJsonArray("players").get(0).getAsJsonObject().getAsJsonObject("manaPool");
+            check(mana.size() == 6 && mana.get("C").getAsInt() == 3, "Colorless mana missing or conflated with generic mana: " + mana);
+        }
+        owner.getManaPool().clearPool(false);
+        check(NativeSnapshot.capture(game, "snapshot-regression", -1, opponent).getAsJsonArray("players")
+                .get(0).getAsJsonObject().getAsJsonObject("manaPool").isEmpty(), "Spent mana remained visible");
 
         // The native permission oracle authorizes the owner without granting spectators access.
         top.addMayLookAt(100L, List.of(owner));

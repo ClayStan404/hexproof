@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "catalogSha256": "839a38427644782650ac049794fb462fb632593386ffbf0c1ac8fed8c0e189eb",
+  "catalogGeneratedAt": "2026-09-20T08:44:33Z",
+  "forgeRevision": "2be4858216742009afe8a7cffb035fc7671e960d",
+  "indexSha256": "a6a203dfa0ed92535433e937f674e60697ce6de4092bcfe4863f263dbb9a1846",
+  "exactPrintings": 86381,
+  "aliasedPrintings": 10719,
+  "unresolvedPrintings": 3525
+}

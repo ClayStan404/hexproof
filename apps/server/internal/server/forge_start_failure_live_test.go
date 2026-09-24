@@ -119,8 +119,18 @@ func TestLiveForgeStartFailurePrivateDetailsAndRecovery(t *testing.T) {
 					t.Fatal("private registration crossed owner boundary")
 				}
 			}
-			// Correcting the selected printing must permit another ordinary start.
-			host.command(t, ctx, protocol.TypeDeckSelect, "correct-deck", valid)
+			// Missing native printings with verified Oracle-equivalent parents
+			// must start in dedicated, shared and creator-managed sessions.
+			corrected := valid
+			corrected.Mainboard = []protocol.DeckCard{
+				{Name: "Forest", Count: 56, SetCode: "M21", CollectorNumber: "272"},
+				{Name: "Blood Crypt", Count: 1, SetCode: "RVR", CollectorNumber: "397z"},
+				{Name: "Overgrown Tomb", Count: 1, SetCode: "RVR", CollectorNumber: "407z"},
+				{Name: "Fyndhorn Elves", Count: 1, SetCode: "PTC", CollectorNumber: "bl244"},
+				{Name: "Windswept Heath", Count: 1, SetCode: "WC04", CollectorNumber: "jn328"},
+			}
+			corrected.Sideboard = append([]protocol.DeckCard(nil), corrected.Mainboard[1:]...)
+			host.command(t, ctx, protocol.TypeDeckSelect, "correct-deck", corrected)
 			host.until(t, ctx, protocol.TypeDeckSelected)
 			for _, peer := range members[:2] {
 				peer.command(t, ctx, protocol.TypePlayerReady, "retry", protocol.PlayerReady{Ready: true})

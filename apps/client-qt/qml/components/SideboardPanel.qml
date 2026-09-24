@@ -161,11 +161,9 @@ Item {
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        visible: !root.compactLayout
+                        visible: !root.compactLayout && !root.deckChangesAllowed
                         wrapMode: Text.WordWrap
-                        text: root.deckChangesAllowed
-                              ? qsTr("Every card is laid out at once; drag cards between tables.")
-                              : qsTr("Use the star on a mainboard card, then confirm Ready.")
+                        text: qsTr("Use the star on a mainboard card, then confirm Ready.")
                         color: Theme.textMuted
                         font.pixelSize: Theme.fontSize(10)
                     }

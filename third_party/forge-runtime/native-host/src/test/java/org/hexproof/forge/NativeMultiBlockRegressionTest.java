@@ -71,6 +71,16 @@ public final class NativeMultiBlockRegressionTest {
                     return answer;
                 });
                 require(decisions.get() == 1, "Native block declaration was bypassed");
+                for (int viewer : List.of(0, 1, -1)) {
+                    var snapshot = NativeSnapshot.capture(session.game, session.id, viewer, attacker);
+                    JsonObject projected = null;
+                    for (var zone : snapshot.getAsJsonArray("zones"))
+                        for (var row : zone.getAsJsonObject().getAsJsonArray("cards"))
+                            if (row.getAsJsonObject().get("id").getAsString().equals(NativeSession.cardId(watcher)))
+                                projected = row.getAsJsonObject();
+                    require(projected != null && projected.getAsJsonArray("blocking").size() == 8,
+                            "Confirmed multi-block relationships disappeared for viewer " + viewer);
+                }
             }
         }
         System.out.println("PASS native multi-block declaration: eight Watcher assignments, ordinary capacity, duplicates, atomic rejection and privacy");

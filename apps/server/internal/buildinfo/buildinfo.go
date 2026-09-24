@@ -5,4 +5,4 @@
 package buildinfo
 
 // Version is replaced through go build -ldflags for release artifacts.
-var Version = "2.2.0"
+var Version = "2.2.1"

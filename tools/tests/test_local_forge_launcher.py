@@ -45,6 +45,9 @@ class LocalForgeLauncherTests(unittest.TestCase):
         java_source = self.native_host / "src/main/java/org/hexproof/forge"
         java_source.mkdir(parents=True)
         (java_source / "NativeHost.java").write_text("// Synthetic launcher fixture, never compiled.\n")
+        resource = self.native_host / "src/main/resources/org/hexproof/forge/printing-aliases.tsv"
+        resource.parent.mkdir(parents=True)
+        resource.write_text("# Synthetic printing index\n")
         patch = b"reviewed synthetic patch\n"
         (self.native_host / "native.patch").write_bytes(patch)
         self.upstream = {"repository": "https://example.invalid/forge.git", "revision": "a" * 40,
@@ -83,6 +86,10 @@ esac
         artifact = {"path": "lib/official.jar", "sha256": hashlib.sha256(dependency.read_bytes()).hexdigest()}
         with zipfile.ZipFile(runtime / "forge-harness.jar", "w") as jar:
             jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\r\nMain-Class: org.hexproof.forge.NativeHost\r\nClass-Path: lib/official.jar\r\n\r\n")
+            resources = self.native_host / "src/main/resources"
+            for resource in resources.rglob("*"):
+                if resource.is_file():
+                    jar.write(resource, resource.relative_to(resources).as_posix())
         shutil.copytree(self.native_host, runtime / "host-source")
         provenance = dict(self.upstream, developmentOnly=True, corePatches=[self.upstream["patch"]],
                           resourceSource=str(source), artifacts=[artifact],
@@ -153,6 +160,15 @@ print({str(package)!r})
         help_result = self.run_launcher("--help")
         self.assertEqual(help_result.returncode, 0, help_result.stderr)
         self.assertIn("Only official Forge", help_result.stdout)
+
+    def test_changed_printing_index_requires_a_new_runtime(self):
+        self.prepare_native_runtime()
+        resource = self.native_host / "src/main/resources/org/hexproof/forge/printing-aliases.tsv"
+        resource.write_text("# Reviewed new catalog index\n")
+        result = self.run_launcher()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("printing resources changed", result.stderr)
+        self.assertNotIn("server:", result.stdout)
 
     def test_native_prepare_and_mode_can_be_reordered(self):
         self.prepare_native_runtime()

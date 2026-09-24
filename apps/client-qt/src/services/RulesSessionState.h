@@ -23,6 +23,8 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(QString roomId READ roomId NOTIFY snapshotChanged)
     Q_PROPERTY(QString gameId READ gameId NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList publicReviewCards READ publicReviewCards NOTIFY snapshotChanged)
+    Q_PROPERTY(
+        QVariantList battlefieldRelationships READ battlefieldRelationships NOTIFY snapshotChanged)
     Q_PROPERTY(quint64 snapshotRevision READ snapshotRevision NOTIFY snapshotChanged)
     Q_PROPERTY(int turn READ turn NOTIFY snapshotChanged)
     Q_PROPERTY(QString step READ step NOTIFY snapshotChanged)
@@ -303,6 +305,10 @@ class RulesSessionState final : public QObject
     {
         return m_publicReviewCards;
     }
+    QVariantList battlefieldRelationships() const
+    {
+        return m_battlefieldRelationships;
+    }
     bool applyPrompt(const QJsonObject &prompt);
     void clear();
 
@@ -315,6 +321,7 @@ class RulesSessionState final : public QObject
     QString m_gameId;
     quint64 m_snapshotRevision = 0;
     QVariantList m_publicReviewCards;
+    QVariantList m_battlefieldRelationships;
     int m_turn = 0;
     QString m_step;
     int m_activeSeat = -1;

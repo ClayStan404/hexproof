@@ -188,7 +188,7 @@ final class NativeSession implements AutoCloseable {
         failures.rejectIfPresent();
         return decks;
     }
-    private static PaperCard findCard(CardDb database, String name, String set, String number) {
+    static PaperCard findCard(CardDb database, String name, String set, String number) {
         PaperCard card = lookupCard(database, name, set, number);
         if (card != null) return card;
         // Catalogs join both faces for modal, transforming and Adventure cards;
@@ -199,8 +199,21 @@ final class NativeSession implements AutoCloseable {
         return card != null && matchesCardName(card, name) ? card : null;
     }
     private static PaperCard lookupCard(CardDb database, String name, String set, String number) {
+        PaperCard exact = findExactCard(database, name, set, number);
+        if (exact != null || set.isEmpty() || number.isEmpty()) return exact;
+        PaperCard alias = findLegacyPrinting(database, name, set, number);
+        if (alias != null) return alias;
+        return NativePrintingAliases.find(database, name, set, number);
+    }
+    // Also used by the offline index generator: this path must never consult
+    // aliases or accept CardDb's unrelated-printing fallback.
+    static PaperCard findExactCard(CardDb database, String name, String set, String number) {
         PaperCard card = set.isEmpty() ? database.getCard(name)
                 : number.isEmpty() ? database.getCard(name, set) : database.getCard(name, set, number);
+        if (card == null && name.contains(" // ")) {
+            card = findExactCard(database, name.substring(0, name.indexOf(" // ")).trim(), set, number);
+            if (card != null && !matchesCardName(card, name)) return null;
+        }
         if (set.isEmpty() || number.isEmpty()) return card;
         // CardDb falls back to another printing when an explicit lookup fails.
         // Full identities must retain their coordinates; edition aliases still
@@ -210,6 +223,9 @@ final class NativeSession implements AutoCloseable {
         var actual = card == null ? null : editions.get(card.getEdition().toUpperCase(Locale.ROOT));
         if (requested != null && actual != null && requested.getCode().equals(actual.getCode())
                 && number.equals(card.getCollectorNumber())) return card;
+        return null;
+    }
+    private static PaperCard findLegacyPrinting(CardDb database, String name, String set, String number) {
         // Catalog prerelease (s) and promo-pack (p) printings have a P-prefixed
         // parent set. Forge often lists only the parent printing. Resolve that
         // exact parent, never CardDb's unrelated latest-printing fallback.

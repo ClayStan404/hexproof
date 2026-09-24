@@ -50,7 +50,7 @@ Rectangle {
         && tableController.interaction.actionsForCard(objectId).some(action => action.kind === "activateAbility")
     readonly property bool showAbilityHint: abilityActionable && previewActive
     readonly property string interactionLabel: showAbilityHint ? qsTr("Activate ability")
-        : combatLabel || (card.attacking === true ? qsTr("Attacking") : "")
+        : combatLabel || persistentState.relationshipBadge || (card.attacking === true ? qsTr("Attacking") : "")
     signal activated()
 
     function activate() {
@@ -82,7 +82,7 @@ Rectangle {
     Keys.onSpacePressed: activate()
     Accessible.role: Accessible.Button
     Accessible.name: publicFace ? displayName : qsTr("Hidden card")
-    Accessible.description: abilityActionable ? qsTr("Activate ability") : combatLabel
+    Accessible.description: [interactionLabel, persistentState.detailSummary].filter(v => v.length).join("\n")
     Accessible.onPressAction: activate()
 
     Rectangle {
@@ -190,8 +190,7 @@ Rectangle {
             anchors.bottomMargin: root.card.power || root.card.toughness ? 34 * root.unit : 6 * root.unit
             visible: !root.fullFace || root.persistentSummary.length > 0
             text: [root.persistentSummary, [root.card.countersSummary || "",
-                   root.card.damage > 0 ? qsTr("%1 dmg").arg(root.card.damage) : "",
-                   root.card.attachedTo ? qsTr("Attached") : ""].filter(v => v.length).join(" · ")]
+                   root.card.damage > 0 ? qsTr("%1 dmg").arg(root.card.damage) : ""].filter(v => v.length).join(" · ")]
                    .filter(v => v.length).join("\n")
             // Wrapped/elided text can recalculate implicitHeight from height.
             // Bound it only by the available card space to avoid that cycle.
@@ -230,7 +229,7 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: -14 * root.unit
-        width: hint.implicitWidth + 14 * root.unit
+        width: Math.min(root.width, hint.implicitWidth + 14 * root.unit)
         height: 19 * root.unit
         radius: 4 * root.unit
         color: root.showAbilityHint ? Theme.primary : "#e1bf82"
@@ -239,6 +238,9 @@ Rectangle {
             objectName: "forgeCardInteractionHint-" + root.objectId
             textFormat: Text.PlainText
             anchors.centerIn: parent
+            width: parent.width - 8 * root.unit
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
             text: root.interactionLabel
             color: "#19232b"
             font.pixelSize: 9 * root.unit

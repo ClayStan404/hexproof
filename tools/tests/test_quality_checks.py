@@ -315,33 +315,34 @@ class VerificationScriptTests(unittest.TestCase):
             script,
         )
 
-    def test_default_server_output_matches_local_run_command(self) -> None:
+    def test_default_server_output_matches_client_integration_default(self) -> None:
         script = (TOOLS_DIR / "verify.sh").read_text(encoding="utf-8")
-        readme = (TOOLS_DIR.parent / "README.md").read_text(encoding="utf-8")
+        cmake = (TOOLS_DIR.parent / "apps/client-qt/CMakeLists.txt").read_text(
+            encoding="utf-8"
+        )
         self.assertIn(
             'server_binary="${HEXPROOF_SERVER_BINARY_PATH:-$repo_root/build/server/hexproof-server}"',
             script,
         )
-        self.assertIn("./build/server/hexproof-server -bind", readme)
+        self.assertIn(
+            'HEXPROOF_DEFAULT_SERVER_BINARY="${CMAKE_CURRENT_SOURCE_DIR}/../../build/server/hexproof-server"',
+            cmake,
+        )
 
-    def test_public_export_includes_linked_rules_engine_contract(self) -> None:
+    def test_public_export_includes_rules_engine_contract(self) -> None:
         root = TOOLS_DIR.parent
-        readme = (root / "README.md").read_text(encoding="utf-8")
         export_script = (TOOLS_DIR / "export-public-tree.sh").read_text(
             encoding="utf-8"
         )
-        self.assertIn("docs/rules-engine.md", readme)
         self.assertTrue((root / "docs/rules-engine.md").is_file())
         self.assertIn("    docs/rules-engine.md\n", export_script)
 
     def test_public_export_includes_changelog(self) -> None:
         root = TOOLS_DIR.parent
-        readme = (root / "README.md").read_text(encoding="utf-8")
         export_script = (TOOLS_DIR / "export-public-tree.sh").read_text(
             encoding="utf-8"
         )
         self.assertTrue((root / "CHANGELOG.md").is_file())
-        self.assertIn("CHANGELOG.md", readme)
         self.assertIn("    CHANGELOG.md\n", export_script)
 
     def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:

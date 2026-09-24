@@ -41,10 +41,6 @@ Surface {
         return cardCatalogModel.cardDisplayName(card.name)
     }
     readonly property bool horizontalLayout: !preferVertical && (width >= Theme.size(500) || height < Theme.size(440))
-    readonly property var attachment: {
-        void rulesSession.snapshotRevision
-        return card.attachedTo ? currentCard(card.attachedTo) : ({})
-    }
     readonly property string exiledSummary: persistentState.exiledSummary
     readonly property string persistentSummary: persistentState.detailSummary
     RulesCardPersistentState {
@@ -131,11 +127,6 @@ Surface {
             lines.push(card.tapped ? qsTr("Tapped") : qsTr("Untapped"))
             if (card.attacking)
                 lines.push(qsTr("Attacking"))
-        }
-        if (card.attachedTo) {
-            const target = attachment.visibleIdentity === true && attachment.faceDown !== true
-                           && attachment.name ? attachment.name : qsTr("another object")
-            lines.push(qsTr("Attached to %1").arg(target))
         }
         if (card.rulesText)
             lines.push("", card.rulesText)

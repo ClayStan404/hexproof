@@ -38,7 +38,9 @@ Page {
             eventPopup.close()
     }
 
-    background: AppBackground { }
+    background: AppBackground {
+        variant: TableBackgrounds.hasImage ? "playmat" : "menu"
+    }
 
     ColumnLayout {
         anchors.fill: parent

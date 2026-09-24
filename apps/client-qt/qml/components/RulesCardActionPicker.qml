@@ -89,7 +89,8 @@ Surface {
                     required property var modelData
                     objectName: "rulesCardAction-" + modelData.responseId
                     Layout.fillWidth: true
-                    text: modelData.label
+                    text: root.tableController.promptOptionLabel(
+                              "chooseAction", modelData.responseId, modelData.label)
                     onClicked: root.submit(modelData.responseId)
                 }
             }

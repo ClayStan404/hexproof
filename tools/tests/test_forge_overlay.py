@@ -8,8 +8,10 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +21,19 @@ SPEC.loader.exec_module(OVERLAY)
 
 
 class ForgeOverlayTests(unittest.TestCase):
+    def test_printing_data_participates_in_runtime_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            host = Path(temporary) / "host"
+            shutil.copytree(OVERLAY.HOST, host)
+            with patch.object(OVERLAY, "HOST", host):
+                before, records = OVERLAY.identity()
+                name = "src/main/resources/org/hexproof/forge/printing-aliases.tsv"
+                self.assertIn(name, records)
+                resource = host / name
+                resource.write_text(resource.read_text() + "# new reviewed catalog revision\n")
+                after, _ = OVERLAY.identity()
+                self.assertNotEqual(before, after)
+
     def test_helper_identity_covers_current_native_sources(self):
         identity, records = OVERLAY.identity()
         source = (ROOT / "apps/server/internal/forgehost/identity.go").read_text()

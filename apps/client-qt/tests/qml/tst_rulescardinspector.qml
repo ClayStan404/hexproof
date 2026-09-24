@@ -133,18 +133,21 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(snapshot))
         verify(inspector.showCard("ballista"))
         compare(inspector.persistentSummary,
-            "Named: Lightning Bolt\nType: Elf\nColor: Blue, Red\nNumber: 0\nMode: Khans\nClass level: 2")
+            "Attached to Hidden card\nNamed: Lightning Bolt\nType: Elf\nColor: Blue, Red\nNumber: 0\nMode: Khans\nClass level: 2")
         verify(findChild(inspector, "rulesCardInspectorState").text.includes(inspector.persistentSummary))
         verify(inspector.showCard("hidden"))
-        compare(inspector.persistentSummary, "")
+        compare(inspector.persistentSummary, "Attachment: Walking Ballista")
         verify(inspector.showCard("hand-card"))
         compare(inspector.persistentSummary, "")
         verify(inspector.showCard("ballista"))
         snapshot.zones[0].cards[0].faceDown = true
         verify(testRulesPrompt.applySnapshot(snapshot))
-        compare(inspector.persistentSummary, "")
+        compare(inspector.persistentSummary, "Attached to Hidden card")
         snapshot.zones[0].cards[0].faceDown = false
         snapshot.zones[0].cards[0].annotations = []
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        compare(inspector.persistentSummary, "Attached to Hidden card")
+        snapshot.zones[0].cards[0].attachedTo = ""
         verify(testRulesPrompt.applySnapshot(snapshot))
         compare(inspector.persistentSummary, "")
     }
@@ -203,7 +206,8 @@ TestCase {
         verify(inspector.showCard("ballista"))
         const state = findChild(inspector, "rulesCardInspectorState")
         verify(state.text.includes("Damage marked: 2"))
-        verify(state.text.includes("Attached to another object"))
+        compare(state.text.split("Attached to Hidden card").length, 2)
+        verify(!state.text.includes("Secret creature"))
         snapshot.zones[0].cards[0].damage = 0
         snapshot.zones[0].cards[0].power = "5"
         verify(testRulesPrompt.applySnapshot(snapshot))

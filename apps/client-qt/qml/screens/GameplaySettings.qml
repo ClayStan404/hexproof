@@ -38,22 +38,6 @@ Page {
                     Layout.fillWidth: true
                     settings: root.settings
                 }
-                Text {
-                    Layout.fillWidth: true
-                    textFormat: Text.PlainText
-                    text: qsTr("Smart priority passes routine priority windows automatically. Full control waits for you at every priority window.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(13)
-                    wrapMode: Text.WordWrap
-                }
-                Text {
-                    Layout.fillWidth: true
-                    textFormat: Text.PlainText
-                    text: qsTr("Pause at the selected phases on your turns or other players' turns. Changes here and at the table are saved for future games.")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(13)
-                    wrapMode: Text.WordWrap
-                }
                 RulesPhaseStops {
                     Layout.fillWidth: true
                     stops: root.settings.forgePhaseStops
@@ -84,7 +68,7 @@ Page {
                 Text {
                     Layout.fillWidth: true
                     textFormat: Text.PlainText
-                    text: qsTr("Enabled by default for supported player-hosted games with two human players. If direct connection fails, the game uses server relay. Direct connections share network addresses with the other player and use a STUN service.")
+                    text: qsTranslate("ForgePeerControls", "Direct connections share network addresses with the other player and use a STUN service. This preference is saved for future games.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(13)
                     wrapMode: Text.WordWrap

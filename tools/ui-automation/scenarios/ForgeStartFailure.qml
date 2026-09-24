@@ -101,7 +101,7 @@ Item {
             const details = find("rulesStartFailureText")
             require(details && details.text.indexOf("Forest (M21 999999)") >= 0, "Missing first printing identity")
             require(details.text.indexOf("Island (ZZZZ 1)") >= 0, "Missing second printing identity")
-            require(details.text.indexOf("当前 Forge 运行包无法识别此牌或所选印刷") >= 0,
+            require(details.text.indexOf("当前 Forge 规则引擎无法识别此牌或所选印刷版本") >= 0,
                     "Detailed diagnostic was not localized")
             require(details.text.indexOf("private raw engine exception") < 0, "Raw exception reached UI")
             require(ws.rulesStartFailure.issues.length === 2, "Lost private details during return to room")

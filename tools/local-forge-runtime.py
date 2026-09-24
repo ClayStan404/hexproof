@@ -64,6 +64,18 @@ def validate(candidate, expected):
     bundled = {path.relative_to(bundled_root): path.read_bytes() for path in bundled_root.rglob("*.java")}
     if not current or current != bundled:
         raise ValueError(f"Native host source changed since this runtime was built: {candidate}")
+    resources = HOST / "src/main/resources"
+    current_resources = {path.relative_to(resources): path.read_bytes()
+                         for path in resources.rglob("*") if path.is_file()}
+    bundled_resources = candidate / "host-source/src/main/resources"
+    packaged_resources = {path.relative_to(bundled_resources): path.read_bytes()
+                          for path in bundled_resources.rglob("*") if path.is_file()}
+    if not current_resources or current_resources != packaged_resources:
+        raise ValueError(f"Native printing resources changed since this runtime was built: {candidate}")
+    with zipfile.ZipFile(candidate / "forge-harness.jar") as archive:
+        for path, content in current_resources.items():
+            if archive.read(path.as_posix()) != content:
+                raise ValueError(f"Native printing resource differs from its source: {path}")
     if provenance["developmentOnly"] is False:
         specification = importlib.util.spec_from_file_location(
             "forge_source_package", ROOT / "third_party/forge-runtime/source-package.py")

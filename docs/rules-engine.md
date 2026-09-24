@@ -176,9 +176,10 @@ Mainboard and sideboard use the same lookup; commander designation matches
 either the native name or that verified combined name. The hub keeps the
 submitted names and printing metadata unchanged.
 
-When both set and collector number are supplied, registration must resolve that
-exact printing, accepting Forge's equivalent edition aliases. If unavailable,
-registration returns the existing private-safe unavailable-printing error;
+When both set and collector number are supplied, registration first resolves that
+exact printing, accepting Forge's equivalent edition aliases. Missing native
+printings may use the bundled verified catalog index described below.
+Unrecognized identities return the private-safe unavailable-printing error;
 Forge's name-only fallback must not silently substitute a different printing.
 Name-only and set-only deck entries retain their existing lookup behavior.
 
@@ -198,6 +199,28 @@ treatment entry. The native card is foil; snapshots and prompts retain the
 submitted set and suffixed number. Treatment and ordinary copies remain
 distinct in deck pools. These aliases apply only to those two known set/suffix
 pairs; mismatched names/numbers and arbitrary suffixes still fail registration.
+
+Adapter 22 also bundles an offline catalog printing index. Its generator joins
+paper printings by catalog Oracle ID and full name, then selects an exact,
+supported native printing from that same group. Native functional variants
+are excluded from this fallback. Only enumerated name/set/number triples are
+accepted: missing editions, collector-set prefixes, serialized numbers and
+other treatments do not need individual heuristic exceptions. The first index
+contains 10,719 aliases, including RVR 397z/407z, PTC bl244 and WC04 jn328.
+Rules use the verified native parent while snapshots, prompts and deck pools
+retain the submitted set and number. Different catalog sets remain distinct
+even when they share a native parent and collector number. Foil conversion
+retains that identity. No runtime network lookup or client-supplied rules
+fallback is permitted. A genuinely missing native card script still fails;
+the index does not implement unsupported cards. See
+[index generation and provenance](../tools/forge-printings/README.md).
+
+Public mana uses the native mana-type constants, including `{C}`, independently
+of a card's color identity. Snapshots retain confirmed blocker-to-attacker IDs
+in each battlefield card's optional `blocking` array. They survive prompt
+changes and disappear when native combat ends or an object departs. Blocking
+and attachment references join only current battlefield objects, including
+anonymous face-down permanents, and never reveal private-zone references.
 
 By default each game receives a fresh process, including restart and the next
 game of BO3. JSONL input and output are explicitly UTF-8, independent of the

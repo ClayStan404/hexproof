@@ -127,7 +127,7 @@ TestCase {
         const state = findChild(details, "rulesCardInspectorState")
         verify(state.text.includes("Damage marked: 2"))
         verify(state.text.includes("Counters: +1/+1 4"))
-        verify(state.text.includes("Attached to another object"))
+        compare(state.text.split("Attached to Hidden card").length, 2)
         verify(!state.text.includes("Secret"))
         compare(state.textFormat, Text.PlainText)
 

@@ -86,6 +86,10 @@ def make_fixture_trees(directory):
         jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\nMain-Class: " + upstream["mainClass"]
             + "\nClass-Path: " + " ".join(entry["path"] for entry in artifacts) + "\n\n")
         jar.writestr("org/hexproof/forge/NativeHost.class", b"synthetic native host")
+        resources = bundled / "native-host/src/main/resources"
+        for resource in resources.rglob("*"):
+            if resource.is_file():
+                jar.write(resource, resource.relative_to(resources).as_posix())
     PACKAGE.write_json(runtime / "provenance.json", {**upstream, "developmentOnly": False,
         "corePatches": [upstream["patch"]], "artifacts": artifacts,
         "hostArtifact": {"path": "forge-harness.jar", "sha256": PACKAGE.sha256(runtime / "forge-harness.jar")}})

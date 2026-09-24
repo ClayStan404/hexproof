@@ -140,7 +140,9 @@ Rectangle {
             Text {
                 textFormat: Text.PlainText
                 width: parent.width
-                text: entry.rulesText
+                text: typeof root.tableController.promptOptionLabel === "function"
+                      ? root.tableController.promptOptionLabel("", "", entry.rulesText)
+                      : entry.rulesText
                 color: Theme.textMuted
                 font.pixelSize: 10 * root.unit
                 wrapMode: Text.WordWrap

@@ -188,8 +188,8 @@ TestCase {
             {deck:"player", section:"mainboard", code:"java_exception", cardName:"private trace"}]}
         const chinese = I18n.rulesStartFailureDetails(failure)
         verify(chinese.indexOf("Forest <literal> %2 (M21 999999)") >= 0)
-        verify(chinese.indexOf("当前 Forge 运行包无法识别此牌或所选印刷。") >= 0)
-        verify(chinese.indexOf("AI 牌组") >= 0)
+        verify(chinese.indexOf("当前 Forge 规则引擎无法识别此牌或所选印刷版本。") >= 0)
+        verify(chinese.indexOf("AI 套牌") >= 0)
         verify(chinese.indexOf("private trace") < 0)
         verify(chinese.indexOf("已省略部分详细信息。") >= 0)
         testTranslations.setLanguage("en")
@@ -205,7 +205,7 @@ TestCase {
     function test_translatesForgeFailureReasons_data() {
         return [
             {tag:"capacity", reason:"capacity", phrase:"对局名额"},
-            {tag:"unavailable", reason:"runtime_unavailable", phrase:"运行包不可用"},
+            {tag:"unavailable", reason:"runtime_unavailable", phrase:"规则引擎不可用"},
             {tag:"timeout", reason:"runtime_timeout", phrase:"规定时间"},
             {tag:"failed", reason:"runtime_failed", phrase:"停止运行"},
             {tag:"unknown", reason:"start_rejected", phrase:"具体原因"}
@@ -278,7 +278,7 @@ TestCase {
             {tag: "lost", kind: "rules_status", source: "Alice: lost.",
              expected: "Alice：已落败。"},
             {tag: "concede", kind: "rules_status", source: "Alice: conceded.",
-             expected: "Alice：已认输。"},
+             expected: "Alice：已投降。"},
             {tag: "hand-count", kind: "rules_zone_count", source: "Alice: hand count 7 → 6.",
              expected: "Alice：手牌数量 7 → 6。"},
             {tag: "library-count", kind: "rules_zone_count", source: "Alice: library count 53 → 52.",

@@ -84,7 +84,8 @@ Surface {
                     cardBackSource: root.tableController.cardBackSource
                     visibleIdentity: name.length > 0
                     hiddenLabel: rulesText === "Face-down spell" || rulesText.length === 0
-                                 ? qsTr("Face-down spell") : rulesText
+                                 ? qsTr("Face-down spell")
+                                 : root.tableController.promptOptionLabel("", "", rulesText)
                     tapped: false
                     faceDown: !visibleIdentity
                     attacking: false

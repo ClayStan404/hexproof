@@ -84,8 +84,36 @@ QtObject {
     }
     readonly property var persistentLines: arrivalLines.concat(choiceLines,
         chosenSummary.length ? [chosenSummary] : [])
+    readonly property var relationships: {
+        const id = card ? card.cardId || card.objectId || "" : ""
+        return (rulesSession.battlefieldRelationships || []).filter(
+            link => link.sourceId === id || link.targetId === id)
+    }
+    readonly property string relationshipBadge: {
+        const id = card ? card.cardId || card.objectId || "" : ""
+        const labels = []
+        if (relationships.some(link => link.kind === "block" && link.sourceId === id)) labels.push(qsTr("Blocking"))
+        if (relationships.some(link => link.kind === "block" && link.targetId === id)) labels.push(qsTr("Blocked"))
+        if (relationships.some(link => link.kind === "attachment" && link.sourceId === id)) labels.push(qsTr("Attached"))
+        const count = relationships.filter(link => link.kind === "attachment" && link.targetId === id).length
+        if (count) labels.push(qsTr("Attachments: %1").arg(count))
+        return labels.join(" · ")
+    }
+    readonly property var relationshipLines: {
+        void rulesSession.snapshotRevision
+        const id = card ? card.cardId || card.objectId || "" : ""
+        return relationships.map(link => {
+            const source = link.sourceId === id
+            const other = rulesSession.cardForInspection(source ? link.targetId : link.sourceId)
+            const name = other.visibleIdentity && !other.faceDown && other.name
+                ? cardName(other.name) : qsTr("Hidden card")
+            return link.kind === "block"
+                ? (source ? qsTr("Blocking %1") : qsTr("Blocked by %1")).arg(name)
+                : (source ? qsTr("Attached to %1") : qsTr("Attachment: %1")).arg(name)
+        })
+    }
     readonly property string boardSummary: persistentLines.concat(exiledNames.length
         ? [qsTr("Exiled: %1").arg(exiledNames)] : []).join("\n")
-    readonly property string detailSummary: persistentLines.concat(exiledSummary.length
+    readonly property string detailSummary: relationshipLines.concat(persistentLines, exiledSummary.length
         ? [exiledSummary] : []).join("\n")
 }

@@ -13,6 +13,41 @@ import (
 	"hexproof/server/internal/rulesengine/forge"
 )
 
+func TestForgePermanentRelationshipsArePublicAndCurrent(t *testing.T) {
+	game := forgeRoomGame{gameID: "relations", playerToSeat: map[int]int{0: 0, 1: 1}}
+	view := forge.GameView{GameID: "relations", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",
+		Players: []forge.PlayerView{{ID: "player-0", ManaPool: map[string]int{"C": 3, "G": 1}}, {ID: "player-1"}},
+		Zones: []forge.ZoneView{
+			{Zone: "battlefield", OwnerID: "player-0", Count: 2, Cards: []forge.CardView{
+				{ID: "attacker", Attacking: true, FaceDown: true},
+				{ID: "aura", AttachedTo: "attacker"}}},
+			{Zone: "battlefield", OwnerID: "player-1", Count: 2, Cards: []forge.CardView{
+				{ID: "blocker", Blocking: []string{"attacker", "attacker", "hand", "missing", "blocker"}},
+				{ID: "equipment", AttachedTo: "hand"}}},
+			{Zone: "hand", OwnerID: "player-0", Count: 1, Cards: []forge.CardView{
+				{ID: "hand", AttachedTo: "attacker", Blocking: []string{"attacker"}}}}}}
+	snapshot, err := normalizeForgeSnapshot("ROOM", game, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(snapshot.Zones[1].Cards[0].Blocking, []string{"attacker"}) ||
+		snapshot.Zones[0].Cards[1].AttachedTo != "attacker" {
+		t.Fatal("confirmed blocks or public face-down attachment lost")
+	}
+	if snapshot.Zones[0].Cards[0].Identity != nil || snapshot.Zones[1].Cards[1].AttachedTo != "" ||
+		snapshot.Zones[2].Cards[0].AttachedTo != "" || len(snapshot.Zones[2].Cards[0].Blocking) != 0 {
+		t.Fatal("relationship disclosed a private card or escaped its battlefield zone")
+	}
+	if !reflect.DeepEqual(snapshot.Players[0].ManaPool, []protocol.RulesCounter{{Name: "C", Value: 3}, {Name: "G", Value: 1}}) {
+		t.Fatal("colorless mana was lost in the public projection")
+	}
+	view.Zones[0].Cards = view.Zones[0].Cards[1:]
+	snapshot, err = normalizeForgeSnapshot("ROOM", game, view)
+	if err != nil || len(snapshot.Zones[1].Cards[0].Blocking) != 0 || snapshot.Zones[0].Cards[0].AttachedTo != "" {
+		t.Fatal("departed object retained a relationship")
+	}
+}
+
 func TestForgeAnnotationsRespectPublicStateZones(t *testing.T) {
 	game := forgeRoomGame{gameID: "game", playerToSeat: map[int]int{0: 0, 1: 1}}
 	choices := []forge.CardAnnotationView{

@@ -70,6 +70,7 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `game-snapshot-owner.json` | S -> C | Owner sees their seven private hand identities and only opponent counts |
 | `game-snapshot-opponent.json` | S -> C | Opponent gets their own hand while Alice's hand identities remain absent |
 | `rules-snapshot-owner.json` | S -> C | Normalized Forge projection with seat-mapped players and viewer-authorized card identities |
+| `rules-snapshot-relationships.json` | S -> C | Public colorless mana, confirmed blocking pairs and an attachment to a permanent |
 | `rules-snapshot-turn-control.json` | S -> C | Controlled opponent, permitted hand and library top, and independent permanent entry/sickness flags |
 | `rules-snapshot-card-annotations.json` | S -> C | Independent named-card choices, linked exile, a class level, and a command-zone dungeon room |
 | `rules-snapshot-stack-targets.json` | S -> C | Top-first stack with exact spell, player, duplicate-name card and anonymous permanent target relationships |

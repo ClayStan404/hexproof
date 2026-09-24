@@ -208,6 +208,16 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 	sort.Slice(snapshot.Players, func(i, j int) bool {
 		return snapshot.Players[i].Seat < snapshot.Players[j].Seat
 	})
+	publicPermanents := make(map[string]bool)
+	for _, zone := range view.Zones {
+		if zone.Zone == "battlefield" {
+			for _, card := range zone.Cards {
+				if card.ID != "" {
+					publicPermanents[card.ID] = true
+				}
+			}
+		}
+	}
 	for _, zone := range view.Zones {
 		ownerSeat, err := seatForID(zone.OwnerID)
 		if err != nil {
@@ -236,7 +246,20 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 				FaceDown:        card.FaceDown, Attacking: card.Attacking,
 				Power: card.Power, Toughness: card.Toughness,
 				Counters: sortedRulesCounters(card.Counters), Damage: card.Damage,
-				AttachedTo: card.AttachedTo,
+			}
+			if zone.Zone == "battlefield" {
+				// Relationships may expose public face-down objects, never hidden
+				// zone references supplied by a runtime or a stale previous state.
+				if publicPermanents[card.AttachedTo] && card.AttachedTo != card.ID {
+					projectedCard.AttachedTo = card.AttachedTo
+				}
+				seen := make(map[string]bool)
+				for _, id := range card.Blocking {
+					if publicPermanents[id] && id != card.ID && !seen[id] {
+						projectedCard.Blocking = append(projectedCard.Blocking, id)
+						seen[id] = true
+					}
+				}
 			}
 			if visible {
 				identity := rulesIdentity(*card.Identity)

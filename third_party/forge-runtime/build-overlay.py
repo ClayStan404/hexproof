@@ -35,7 +35,8 @@ def digest(path):
 
 def inputs():
     return [HOST / "upstream.json", HOST / "native-hooks.patch",
-            *sorted((HOST / "src/main/java").rglob("*.java"))]
+            *sorted((HOST / "src/main/java").rglob("*.java")),
+            *sorted(path for path in (HOST / "src/main/resources").rglob("*") if path.is_file())]
 
 
 def identity():
@@ -188,6 +189,11 @@ def build(args):
                   "buildRecipeSha256": digest(Path(__file__))}
         content = {path.relative_to(classes).as_posix(): path.read_bytes()
                    for path in classes.rglob("*.class")}
+        resources = frozen / "src/main/resources"
+        for path in resources.rglob("*"):
+            if path.is_file():
+                content[path.relative_to(resources).as_posix()] = path.read_bytes()
+                content["META-INF/sources/native-host/" + path.relative_to(frozen).as_posix()] = path.read_bytes()
         if "org/hexproof/forge/NativeHost.class" not in content:
             raise ValueError("Overlay does not contain its native host")
         content["META-INF/hexproof-overlay.json"] = (json.dumps(record, sort_keys=True, indent=2) + "\n").encode()

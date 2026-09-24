@@ -30,7 +30,10 @@ Item {
     readonly property real cardHeight: cardWidth * faceRatio
     readonly property real rowAvailable: Math.max(1, viewport.width - startInset - 6 * unit)
     readonly property int columns: Math.max(1, Math.floor((rowAvailable + gap) / (cardWidth + gap) + 1e-7))
-    readonly property real cellHeight: cardHeight + (tableController.combatInteraction.active ? 22 : 10) * unit
+    readonly property bool hasBadges: tableController.combatInteraction.active || visibleCards.some(card =>
+        card && (card.attacking || (tableController.rulesSession.battlefieldRelationships || []).some(
+            link => link.sourceId === card.cardId || link.targetId === card.cardId)))
+    readonly property real cellHeight: cardHeight + (hasBadges ? 22 : 10) * unit
     readonly property real rowLead: {
         const count = stackCount
         if (count <= 0 || category !== "creature")
@@ -52,7 +55,7 @@ Item {
             : (zone === "battlefield" ? 180 : 120) * unit
         const maximum = Math.min(available, ceiling)
         const minimum = Math.min(maximum, 80 * unit)
-        const extra = (tableController.combatInteraction.active ? 22 : 10) * unit
+        const extra = (hasBadges ? 22 : 10) * unit
         const heightFit = viewport.height > extra + 5 * unit
             ? (viewport.height - extra - 5 * unit) / faceRatio : minimum
         let best = minimum
@@ -72,6 +75,9 @@ Item {
         const combat = root.tableController.combatInteraction
         if (combat.active && combat.isCombatant(card.cardId))
             return "combat:" + card.cardId
+        const relationships = root.tableController.rulesSession.battlefieldRelationships || []
+        if (relationships.some(link => link.sourceId === card.cardId || link.targetId === card.cardId))
+            return "related:" + card.cardId
         const reserved = root.tableController.interaction.nativeObjectSelected("card", card.cardId)
         return grouping.stackKey(card, root.zone) + (reserved ? "\u001freserved" : "")
     }

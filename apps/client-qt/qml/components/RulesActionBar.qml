@@ -152,7 +152,8 @@ Item {
                 objectName: "rulesPromptOption-" + modelData.responseId
                 compact: true
                 enabled: root.priority.canAct
-                text: modelData.label
+                text: root.tableController.promptOptionLabel(
+                          "chooseAction", modelData.responseId, modelData.label)
                 onClicked: root.priority.respondAction(modelData.responseId)
             }
         }

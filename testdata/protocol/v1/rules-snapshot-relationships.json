@@ -1,0 +1,132 @@
+{
+  "type": "rules.snapshot",
+  "seq": 8,
+  "payload": {
+    "roomId": "ABCDEF",
+    "gameId": "ABCDEF-1",
+    "turn": 1,
+    "step": "declare_blockers",
+    "activeSeat": 0,
+    "prioritySeat": 0,
+    "players": [
+      {
+        "seat": 0,
+        "name": "Alice",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [
+          {
+            "name": "G",
+            "value": 1
+          },
+          {
+            "name": "C",
+            "value": 3
+          }
+        ],
+        "commanders": [
+          {
+            "name": "Isamaru, Hound of Konda",
+            "casts": 2,
+            "tax": 4,
+            "zone": "hidden"
+          }
+        ]
+      },
+      {
+        "seat": 1,
+        "name": "Bob",
+        "status": "playing",
+        "life": 20,
+        "counters": [],
+        "manaPool": [],
+        "commanders": []
+      }
+    ],
+    "zones": [
+      {
+        "zone": "hand",
+        "ownerSeat": 0,
+        "count": 1,
+        "cards": [
+          {
+            "id": "java-card-1",
+            "visible": true,
+            "identity": {
+              "name": "Lightning Bolt",
+              "setCode": "M11",
+              "collectorNumber": "149"
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": []
+          }
+        ]
+      },
+      {
+        "zone": "hand",
+        "ownerSeat": 1,
+        "count": 1,
+        "cards": []
+      },
+      {
+        "zone": "battlefield",
+        "ownerSeat": 0,
+        "count": 1,
+        "cards": [
+          {
+            "id": "attacker",
+            "visible": true,
+            "identity": {
+              "name": "Grizzly Bears",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 0,
+            "controllerSeat": 0,
+            "counters": [],
+            "attacking": true
+          }
+        ]
+      },
+      {
+        "zone": "battlefield",
+        "ownerSeat": 1,
+        "count": 2,
+        "cards": [
+          {
+            "id": "blocker",
+            "visible": true,
+            "identity": {
+              "name": "Grizzly Bears",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": [],
+            "blocking": [
+              "attacker"
+            ]
+          },
+          {
+            "id": "aura",
+            "visible": true,
+            "identity": {
+              "name": "Rancor",
+              "setCode": "",
+              "collectorNumber": ""
+            },
+            "ownerSeat": 1,
+            "controllerSeat": 1,
+            "counters": [],
+            "attachedTo": "blocker"
+          }
+        ]
+      }
+    ],
+    "stack": [],
+    "gameOver": false
+  }
+}
