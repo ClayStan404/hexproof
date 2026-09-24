@@ -410,12 +410,14 @@ func TestSetupFailureFallsBackBeforeSendingGameMessage(t *testing.T) {
 			http.Error(w, "unsupported", 404)
 			return
 		}
+		// Dial can return as soon as Accept writes the upgrade response.
+		// Count the backend before exposing that response to the client.
+		backends.Add(1)
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			return
 		}
 		defer conn.CloseNow()
-		backends.Add(1)
 		kind, raw, err := conn.Read(r.Context())
 		if err == nil {
 			messages.Add(1)
@@ -430,8 +432,9 @@ func TestSetupFailureFallsBackBeforeSendingGameMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer transport.close()
-	if transport.transport() != "relay" || signals.Load() != 1 || backends.Load() != 1 || messages.Load() != 0 {
-		t.Fatal("fallback created an early game stream")
+	route, signalCount, backendCount, messageCount := transport.transport(), signals.Load(), backends.Load(), messages.Load()
+	if route != "relay" || signalCount != 1 || backendCount != 1 || messageCount != 0 {
+		t.Fatalf("fallback created an early game stream: route=%s signals=%d backends=%d messages=%d", route, signalCount, backendCount, messageCount)
 	}
 	if transport.send(ctx, []byte(`{"id":"only-once"}`)) != nil {
 		t.Fatal("send failed")
