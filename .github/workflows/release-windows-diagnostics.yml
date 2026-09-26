@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Release Windows diagnostics
+on:
+  push:
+    branches: [verify/2.3.0-windows-diagnostics]
+permissions:
+  contents: read
+jobs:
+  diagnostics:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - uses: ./.github/actions/setup-forge-build
+      - uses: ./.github/actions/setup-qt
+      - name: Install dependencies
+        shell: pwsh
+        run: vcpkg install zlib:x64-windows
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -S apps/client-qt -B build/client-qt
+          -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build affected suites
+        run: cmake --build build/client-qt --config Release --parallel 4 --target hexproof_modelopponentservice_test hexproof_limiteddeckdraftstore_test hexproof_cardcatalog_test hexproof_qml_test
+      - name: Diagnose complete affected suites
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/diagnostics | Out-Null
+          $failed = @()
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          foreach ($target in @('modelopponentservice', 'limiteddeckdraftstore', 'cardcatalog')) {
+            & "./build/client-qt/Release/hexproof_${target}_test.exe" -o "build/diagnostics/$target.txt,txt" -v1
+            $code = $LASTEXITCODE
+            Get-Content "build/diagnostics/$target.txt"
+            if ($code -ne 0) { $failed += $target }
+          }
+          foreach ($platform in @('offscreen', 'windows')) {
+            $env:QT_QPA_PLATFORM = $platform
+            $env:QT_QUICK_BACKEND = 'software'
+            & ./build/client-qt/Release/hexproof_qml_test.exe -input apps/client-qt/tests/qml -import apps/client-qt/qml -o "build/diagnostics/qml-$platform.txt,txt" -o "build/diagnostics/qml-$platform.xml,junitxml" -v1
+            $code = $LASTEXITCODE
+            Get-Content "build/diagnostics/qml-$platform.txt"
+            if ($code -ne 0) { $failed += "qml-$platform" }
+          }
+          $failed | ConvertTo-Json | Set-Content build/diagnostics/failures.json
+          if ($failed.Count -gt 0) { exit 1 }
+      - name: Preserve all diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: windows-test-diagnostics
+          path: build/diagnostics/
+          retention-days: 14
