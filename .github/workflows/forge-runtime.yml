@@ -84,8 +84,10 @@ jobs:
           echo "HEXPROOF_REAL_FORGE_ROOT=$PWD/build/forge-runtime-check/hexproof-forge-runtime" >> "$GITHUB_ENV"
       - name: Run native Go-to-Java real-game conformance
         working-directory: apps/server
+        # The aggregate includes AI, BO1/BO3 and 32 concurrent-room cases.
+        # Individual matches retain their three-minute progress deadline.
         run: >-
-          go test -p 1 -race -tags engineintegration -count=1 -timeout 10m
+          go test -p 1 -race -tags engineintegration -count=1 -timeout 20m
           ./internal/rulesengine/forge ./internal/server -run '^TestLiveForge' -v
       - name: Retain paired development artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
