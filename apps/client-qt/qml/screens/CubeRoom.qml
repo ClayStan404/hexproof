@@ -151,7 +151,7 @@ Page {
                     textFormat: Text.PlainText
                     objectName: "cubeRoomSummary"
                     Layout.fillWidth: true
-                    text: qsTr("Room code: %1").arg(root.tournamentModel.tournamentId)
+                    text: qsTr("Room code: %1").arg(root.wsModel.globalCode(root.tournamentModel.tournamentId))
                           + " · " + root.stageLabel
                           + " · " + (root.tournamentModel.matchMode === "bo3" ? qsTr("BO 3") : qsTr("BO 1"))
                           + " · " + (root.tournamentModel.rulesMode === "forge" ? qsTr("Forge rules") : qsTr("Manual tabletop"))
@@ -345,7 +345,7 @@ Page {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: qsTr("Room code: %1").arg(root.tournamentModel.tournamentId)
+                    text: qsTr("Room code: %1").arg(root.wsModel.globalCode(root.tournamentModel.tournamentId))
                     color: Theme.accent
                     font.pixelSize: Theme.fontSize(16)
                 }

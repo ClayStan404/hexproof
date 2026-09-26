@@ -37,6 +37,7 @@ class ServerDirectory : public QObject
     bool setCustomServerUrl(const QString &url);
     int indexForUrl(const QString &url) const;
     QString normalizePersistedUrl(const QString &url) const;
+    QString accountRealmForUrl(const QString &url) const;
     QVariantList latencies() const;
 
     void refreshLatencies();

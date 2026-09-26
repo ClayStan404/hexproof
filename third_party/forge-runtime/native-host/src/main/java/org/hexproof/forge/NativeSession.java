@@ -437,6 +437,11 @@ final class NativeSession implements AutoCloseable {
                         for (SynchronousAnswer<?> answer : answers)
                             answer.cancel(new TerminalDecisionCancelled());
                     }
+                    // Game.setGameOver restores original player controllers
+                    // before PlayerControllerHuman.concede releases their queues.
+                    // A mind-slave controller can still own the blocked native
+                    // input, so release every controller created for this session.
+                    for (NativeGuiGame gui : guis) gui.human.getInputQueue().onGameOver(true);
                 } else {
                     Player departed = game.getRegisteredPlayers().get(player);
                     SpellAbility ability = previous == null || previous.answer() == null ? null : previous.answer().ability;

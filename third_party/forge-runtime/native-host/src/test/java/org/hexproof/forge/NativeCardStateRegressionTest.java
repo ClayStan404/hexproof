@@ -107,11 +107,15 @@ public final class NativeCardStateRegressionTest {
             for (int viewer : new int[]{0, 1, -1})
                 require(!projected(session, source, viewer).has("chosenCardIds"), "Face-down source exposed a choice");
         }, input -> {
-            require(input.get("type").getAsString().equals("chooseCards"), "Unexpected Bodyguard input: " + input);
+            require(input.get("type").getAsString().equals("chooseBoardTargets"), "Unexpected Bodyguard input: " + input);
             choices.incrementAndGet();
-            JsonObject response = NativeSession.object("type", "chooseCardsDecision");
-            JsonArray ids = new JsonArray(); ids.add(NativeSession.cardId(target));
-            response.add("chosenCardIds", ids); return response;
+            JsonObject choice = NativeSession.object("kind", "card");
+            choice.addProperty("id", NativeSession.cardId(target));
+            JsonArray chosen = new JsonArray();
+            chosen.add(choice);
+            JsonObject response = NativeSession.object("type", "boardTargets");
+            response.add("chosen", chosen);
+            return response;
         });
         require(choices.get() == 1, "Bodyguard did not request one actual creature choice");
     }

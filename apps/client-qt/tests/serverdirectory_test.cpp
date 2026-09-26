@@ -155,6 +155,7 @@ class TestServerDirectory : public QObject
   private slots:
     void init();
     void cleanup();
+    void scopesAccountCredentialsToTrustedEndpoints() const;
     void exposesDefaultEndpoints() const;
     void loadsExternalDirectory() const;
     void appliesEnvironmentOverrides() const;
@@ -551,6 +552,27 @@ void TestServerDirectory::welcomeOverridesAnOlderProbe() const
     QTRY_VERIFY(directory.latencies()[0].toInt() >= 0);
     QCOMPARE(directory.entries()[0].toMap()[u"forge"_s].toInt(), 0);
     QCOMPARE(directory.entries()[0].toMap()[u"playerHosting"_s].toInt(), 1);
+}
+
+void TestServerDirectory::scopesAccountCredentialsToTrustedEndpoints() const
+{
+    QTemporaryDir files;
+    isolateCatalog(files);
+    QJsonObject server{{u"id"_s, u"official"_s},
+                       {u"name"_s, u"Official"_s},
+                       {u"forge"_s, false},
+                       {u"url"_s, u"wss://official.invalid/ws"_s},
+                       {u"accountRealm"_s, u"hexproof-official"_s}};
+    QVERIFY(writeCatalog(files.filePath(u"bootstrap.json"_s), catalog(1, QJsonArray{server})));
+    ServerDirectory directory;
+    QCOMPARE(directory.accountRealmForUrl(u"wss://official.invalid/ws"_s), u"hexproof-official"_s);
+    QVERIFY(directory.accountRealmForUrl(u"ws://official.invalid/ws"_s).isEmpty());
+    QVERIFY(directory.accountRealmForUrl(u"wss://official.invalid/other/ws"_s).isEmpty());
+    directory.setCustomServerUrl(u"wss://untrusted.invalid/ws"_s);
+    QVERIFY(directory.accountRealmForUrl(directory.customServerUrl()).isEmpty());
+    qputenv("HEXPROOF_SERVER_1_URL", "ws://127.0.0.1:59123/ws");
+    ServerDirectory overridden;
+    QVERIFY(overridden.accountRealmForUrl(u"ws://127.0.0.1:59123/ws"_s).isEmpty());
 }
 
 QTEST_MAIN(TestServerDirectory)

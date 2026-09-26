@@ -113,7 +113,9 @@ void WsClient::joinRoom(const QString &roomId, bool asSpectator, const QString &
     p.insert(u"asSpectator"_s, asSpectator);
     if (acceptPlayerHost)
         p.insert(u"acceptPlayerHost"_s, true);
-    if (!asSpectator) {
+    if (!asSpectator && m_account->authenticated()) {
+        p.insert(u"useAccount"_s, true);
+    } else if (!asSpectator) {
         const QString credential = tournamentCredential(roomId.trimmed().toUpper());
         if (!credential.isEmpty())
             p.insert(u"credential"_s, credential);

@@ -16,6 +16,13 @@ Item {
     property real startInset: 0
     property real maxFaceWidth: 0
     property string locatedId: ""
+    property int combatForward: 0
+    readonly property bool combatPresentation: {
+        const step = tableController.rulesSession.step
+        return combatForward !== 0 && ["begin_combat", "declare_attackers", "declare_blockers",
+            "combat_damage", "end_combat"].includes(step)
+    }
+    readonly property real combatPad: combatPresentation ? 16 * unit : 0
     property var visibleCards: []
     property var visibleStackIds: []
     readonly property int stackCount: visibleStackIds.length
@@ -33,7 +40,21 @@ Item {
     readonly property bool hasBadges: tableController.combatInteraction.active || visibleCards.some(card =>
         card && (card.attacking || (tableController.rulesSession.battlefieldRelationships || []).some(
             link => link.sourceId === card.cardId || link.targetId === card.cardId)))
-    readonly property real cellHeight: cardHeight + (hasBadges ? 22 : 10) * unit
+    readonly property int attachmentDepth: {
+        let depth = 0
+        const links = tableController.rulesSession.battlefieldRelationships || []
+        const counts = ({})
+        for (let index = 0; index < links.length; ++index) {
+            const link = links[index]
+            if (link.kind !== "attachment" || !link.targetId)
+                continue
+            counts[link.targetId] = (counts[link.targetId] || 0) + 1
+            depth = Math.max(depth, counts[link.targetId])
+        }
+        return Math.min(depth, 3)
+    }
+    readonly property real attachmentPeek: attachmentDepth * 16 * unit
+    readonly property real cellHeight: cardHeight + (hasBadges ? 22 : 10) * unit + attachmentPeek
     readonly property real rowLead: {
         const count = stackCount
         if (count <= 0 || category !== "creature")
@@ -55,7 +76,7 @@ Item {
             : (zone === "battlefield" ? 180 : 120) * unit
         const maximum = Math.min(available, ceiling)
         const minimum = Math.min(maximum, 80 * unit)
-        const extra = (hasBadges ? 22 : 10) * unit
+        const extra = (hasBadges ? 22 : 10) * unit + attachmentPeek
         const heightFit = viewport.height > extra + 5 * unit
             ? (viewport.height - extra - 5 * unit) / faceRatio : minimum
         let best = minimum
@@ -75,10 +96,15 @@ Item {
         const combat = root.tableController.combatInteraction
         if (combat.active && combat.isCombatant(card.cardId))
             return "combat:" + card.cardId
+        const interaction = root.tableController.interaction
+        // Keep every directly selectable object reachable, including while its
+        // response is pending. Local selections must not move or hide a copy.
+        if (interaction.objectTargetIds("card", card.cardId).length === 1)
+            return "target:" + card.cardId
         const relationships = root.tableController.rulesSession.battlefieldRelationships || []
         if (relationships.some(link => link.sourceId === card.cardId || link.targetId === card.cardId))
             return "related:" + card.cardId
-        const reserved = root.tableController.interaction.nativeObjectSelected("card", card.cardId)
+        const reserved = interaction.nativeObjectSelected("card", card.cardId)
         return grouping.stackKey(card, root.zone) + (reserved ? "\u001freserved" : "")
     }
     function collect() {
@@ -94,6 +120,8 @@ Item {
         const stacks = []
         const byKey = ({})
         for (const item of next) {
+            if (item.attachedTo)
+                continue
             const key = root.cardStackKey(item)
             if (!byKey[key]) {
                 byKey[key] = []
@@ -127,6 +155,7 @@ Item {
     }
     Connections {
         target: root.tableController.interaction
+        function onTargetCandidatesChanged() { refresh.restart() }
         function onNativeSelectedTargetIdsChanged() { refresh.restart() }
     }
     Connections {
@@ -177,6 +206,8 @@ Item {
         required property string countersSummary
         required property int damage
         required property string attachedTo
+        required property string attackingTarget
+        required property int attackingSeat
         required property int exiledCardCount
         required property var exiledCardIds
         required property var chosenCardIds
@@ -207,6 +238,22 @@ Item {
             if (root.locatedId && ids.indexOf(root.locatedId) >= 0)
                 return slot.cardId === root.locatedId
             return stackRank === stackSize - 1
+        }
+        readonly property var hostedAttachments: {
+            void root.tableController.rulesSession.snapshotRevision
+            if (!slot.matches || !slot.stackFront)
+                return []
+            const links = root.tableController.rulesSession.battlefieldRelationships || []
+            const result = []
+            for (let index = 0; index < links.length; ++index) {
+                const link = links[index]
+                if (link.kind !== "attachment" || link.targetId !== slot.cardId)
+                    continue
+                const attached = root.tableController.rulesSession.cardForInspection(link.sourceId)
+                if (attached && attached.cardId)
+                    result.push(attached)
+            }
+            return result
         }
         readonly property int pileDepth: {
             if (stackSize <= 1)
@@ -248,13 +295,17 @@ Item {
         height: root.cardHeight
         x: 3 * root.unit + root.rowLead + (stackIndex % root.columns) * (width + root.gap)
            + pileDepth * 4 * root.unit
-        y: 3 * root.unit + Math.floor(stackIndex / root.columns) * root.cellHeight
+        y: root.combatPad + 3 * root.unit + Math.floor(stackIndex / root.columns) * root.cellHeight
            + pileDepth * 4 * root.unit
-        z: (slot.cardId === root.locatedId ? 1000 : 0) + Math.max(0, stackRank)
+           + (root.combatPresentation && slot.attacking ? root.combatForward * 14 * root.unit : 0)
+        z: (slot.attacking && root.combatPresentation ? 40 : 0)
+           + (slot.cardId === root.locatedId ? 1000 : 0) + Math.max(0, stackRank)
         onMatchesChanged: refresh.restart()
         ForgeCard {
-            objectName: slot.matches ? "forgeCard-" + slot.cardId : ""
+            id: face
+            objectName: slot.matches && !slot.attachedTo ? "forgeCard-" + slot.cardId : ""
             anchors.fill: parent
+            z: 10
             tableController: root.tableController
             card: slot
             unit: root.unit
@@ -262,6 +313,23 @@ Item {
             fullFace: root.showFullFace
             located: slot.cardId === root.locatedId
             onActiveFocusChanged: if (activeFocus) root.reveal(slot.cardId)
+        }
+        Repeater {
+            model: slot.hostedAttachments
+            delegate: ForgeCard {
+                required property var modelData
+                required property int index
+                objectName: "forgeCard-" + modelData.cardId
+                width: slot.width
+                height: slot.height
+                x: 0
+                y: (index + 1) * 16 * root.unit
+                z: index
+                tableController: root.tableController
+                card: modelData
+                unit: root.unit
+                fullFace: root.showFullFace
+            }
         }
         Rectangle {
             objectName: slot.stackFront && slot.stackSize > 1 ? "forgeCardStackCount-" + slot.cardId : ""
@@ -293,7 +361,9 @@ Item {
         width: root.width
         height: Math.max(0, root.height - y)
         contentWidth: width
-        contentHeight: Math.max(height, Math.ceil(root.stackCount / root.columns) * root.cellHeight + 5 * root.unit)
+        contentHeight: Math.max(height, root.combatPad
+            + Math.ceil(root.stackCount / root.columns) * root.cellHeight + 5 * root.unit
+            + (root.combatPresentation ? 16 * root.unit : 0))
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }

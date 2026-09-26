@@ -14,9 +14,7 @@ Page {
     readonly property bool suppressStartupNotices: typeof localTestMode !== "undefined"
                                                    && localTestMode
 
-    background: AppBackground {
-        variant: TableBackgrounds.hasImage ? "playmat" : "menu"
-    }
+    background: AppBackground { }
 
     Component.onCompleted: Qt.callLater(function() {
         if (root.suppressStartupNotices)
@@ -115,6 +113,15 @@ Page {
                 compact: true
                 text: qsTr("Settings")
                 onClicked: root.appWindow.pushScreen("screens/Settings.qml")
+            }
+
+            AppButton {
+                objectName: "mainMenuAccountButton"
+                visible: typeof ws.account !== "undefined" && ws.account.supported && ws.connected
+                variant: "ghost"
+                compact: true
+                text: qsTr("Account")
+                onClicked: root.appWindow.pushScreen("screens/Account.qml")
             }
 
             AppButton {
@@ -375,7 +382,7 @@ Page {
                     AppButton {
                         objectName: "mainMenuBrowseHubButton"
                         Layout.fillWidth: true
-                        text: qsTr("Browse hub")
+                        text: ws.clusterAvailable ? qsTr("Official lobby") : qsTr("Browse hub")
                         leadingText: "⌘"
                         enabled: ws.connected && !ws.inRoom
                         disabledReason: root.serverActionBlockerReason()
@@ -510,7 +517,7 @@ Page {
 
         Text {
             textFormat: Text.PlainText
-            text: qsTr("No accounts · Manual or Forge")
+            text: qsTr("Manual or Forge")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSize(11)
         }

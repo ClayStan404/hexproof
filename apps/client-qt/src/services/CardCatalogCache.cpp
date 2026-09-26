@@ -8,7 +8,11 @@
 #include "CardImageProvider.h"
 #include "CardResolver.h"
 #include "CatalogStorage.h"
+#include "NetworkRequestFactory.h"
 #include "deck/Deck.h"
+
+#include <QJsonDocument>
+#include <QNetworkReply>
 #include <QTimer>
 
 #include <algorithm>
@@ -366,6 +370,7 @@ void CardCatalog::enqueueRequests(const QList<CardRequest> &requests, bool searc
             if (createdMapping) {
                 scheduleImageRevisionChanged();
             }
+            backfillLocalizedRules(request, local);
             emitCardCacheCompletion(request, true);
             continue;
         }
@@ -387,6 +392,66 @@ void CardCatalog::enqueueRequests(const QList<CardRequest> &requests, bool searc
     }
     emit busyChanged();
     scheduleResolutionWork();
+}
+
+void CardCatalog::backfillLocalizedRules(const CardRequest &request, const CardRecord &record)
+{
+    if (m_shuttingDown || !m_network || request.language != QStringLiteral("zh") ||
+        record.localizedRulesChecked || record.oracleTextLanguage == QStringLiteral("zh"))
+        return;
+    const QString set = !request.setCode.isEmpty() ? request.setCode : record.setCode;
+    const QString collector =
+        !request.collectorNumber.isEmpty() ? request.collectorNumber : record.collectorNumber;
+    if (set.isEmpty() || collector.isEmpty())
+        return;
+    const QString requestKey = cacheKey(request.name, QStringLiteral("zh"), set, collector);
+    if (m_localizedRulesRequests.contains(requestKey))
+        return;
+    m_localizedRulesRequests.insert(requestKey);
+    const QUrl url(QString::fromLatin1(kMtgchCardBaseUrl) +
+                   QString::fromLatin1(QUrl::toPercentEncoding(set.toUpper())) + QLatin1Char('/') +
+                   QString::fromLatin1(QUrl::toPercentEncoding(collector)) + QLatin1Char('/'));
+    QNetworkReply *reply =
+        m_network->get(makeNetworkRequest(url, QByteArrayLiteral("application/json"), 15000));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, requestKey, request, record]() {
+        reply->deleteLater();
+        const bool transient = reply->error() != QNetworkReply::NoError &&
+                               reply->error() != QNetworkReply::ContentNotFoundError;
+        if (m_shuttingDown || transient)
+            return;
+        const QJsonObject object = QJsonDocument::fromJson(reply->readAll()).object();
+        const CardRecord parsed = parseCardObject(object, QStringLiteral("zh"), request.name);
+        const auto store = [this](const QString &key, CardRecord updated, const QString &text,
+                                  bool chinese) {
+            if (updated.name.isEmpty())
+                return;
+            updated.oracleText = text;
+            updated.oracleTextLanguage =
+                chinese ? QStringLiteral("zh") : updated.oracleTextLanguage;
+            updated.localizedRulesChecked = true;
+            m_artCache->rememberSuccess(key, updated);
+        };
+        const bool chinese = parsed.oracleTextLanguage == QStringLiteral("zh");
+        const QString text = chinese ? parsed.oracleText : record.oracleText;
+        CardRecord printing = record;
+        if (printing.name.isEmpty())
+            printing.name = request.name;
+        store(requestKey, printing, text, chinese);
+        const QString nameKey = cacheKey(request.name, QStringLiteral("zh"), {}, {});
+        CardRecord named = m_artCache->exactRecord(nameKey);
+        if (named.name.isEmpty()) {
+            named.name = printing.name;
+            named.requestedName = request.name;
+            named.localizedName = printing.localizedName;
+            named.typeLine = printing.typeLine;
+        }
+        store(nameKey, named, text, chinese);
+        m_artCache->saveAsync();
+        if (chinese) {
+            ++m_imageRevision;
+            emit imageRevisionChanged();
+        }
+    });
 }
 
 CardCatalog::CardRecord CardCatalog::localCachedRecord(const CardRequest &request,

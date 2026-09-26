@@ -183,12 +183,12 @@ func tournamentProjectionIdentity(event *tournament.Tournament, sess *Session,
 	}
 	participant := event.Participant(binding.ParticipantID)
 	privateID := ""
-	if participant != nil && participant.ConnectionID == sess.ConnectionID {
+	if participant != nil && participant.ConnectionID == sess.ConnectionID && (participant.AccountID == "" || participant.AccountID == sess.Account().ID) {
 		privateID = participant.ID
 	}
 	switch binding.Role {
 	case tournament.RoleOrganizer:
-		return privateID, event.OrganizerConnectionID == sess.ConnectionID
+		return privateID, event.OrganizerConnectionID == sess.ConnectionID && (event.OrganizerAccountID == "" || event.OrganizerAccountID == sess.Account().ID)
 	case tournament.RoleParticipant:
 		return privateID, privateID != ""
 	case tournament.RoleViewer:

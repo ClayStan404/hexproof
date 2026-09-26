@@ -38,9 +38,7 @@ Page {
             eventPopup.close()
     }
 
-    background: AppBackground {
-        variant: TableBackgrounds.hasImage ? "playmat" : "menu"
-    }
+    background: AppBackground { }
 
     ColumnLayout {
         anchors.fill: parent
@@ -95,7 +93,7 @@ Page {
                     textFormat: Text.PlainText
                     objectName: "tournamentLobbySummary"
                     Layout.fillWidth: true
-                    text: root.tournamentModel.tournamentId + " · "
+                    text: root.wsModel.globalCode(root.tournamentModel.tournamentId) + " · "
                           + (root.isCasual ? qsTr("Casual room")
                                            : qsTr("Swiss tournament")) + " · "
                           + root.eventTypeLabel(root.tournamentModel.eventType,
@@ -310,7 +308,7 @@ Page {
                                                      && pairingRow.modelData.status
                                                         !== "confirmed"
                                             compact: true
-                                            text: pairingRow.modelData.roomId
+                                            text: root.wsModel.globalCode(pairingRow.modelData.roomId)
                                                   ? qsTr("Return to match")
                                                   : qsTr("Open match")
                                             onClicked: root.wsModel.openTournamentMatch(

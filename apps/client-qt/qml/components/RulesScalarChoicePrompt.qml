@@ -16,6 +16,8 @@ Item {
     property string promptKind: ""
     property string promptTitle: ""
     property string promptDetail: ""
+    property string englishRulesText: ""
+    property string localizedRulesText: ""
     required property int minimumTotal
     required property int maximumTotal
     property var selectedIds: []
@@ -44,7 +46,7 @@ Item {
         selectedTotal = 0
     }
 
-    function choiceLabel(label) {
+    function choiceLabel(label, index) {
         switch (label) {
         case "White": return qsTr("White")
         case "Blue": return qsTr("Blue")
@@ -53,8 +55,13 @@ Item {
         case "Green": return qsTr("Green")
         case "Yes": return qsTr("Yes")
         case "No": return qsTr("No")
-        default: return RulesText.choice(promptKind, label, promptTitle, promptDetail)
         }
+        const modal = RulesText.modalChoice(
+                    promptKind, promptTitle, label, index === undefined ? -1 : index,
+                    choiceList.count, englishRulesText, localizedRulesText)
+        if (modal)
+            return modal
+        return RulesText.choice(promptKind, label, promptTitle, promptDetail)
     }
 
     function selectionCount(responseId) {
@@ -161,8 +168,8 @@ Item {
                     variant: choiceRow.count > 0 ? "highlight" : "secondary"
                     text: choiceRow.weight > 1
                           ? qsTr("%1 · weight %2")
-                            .arg(root.choiceLabel(choiceRow.label)).arg(choiceRow.weight)
-                          : root.choiceLabel(choiceRow.label)
+                            .arg(root.choiceLabel(choiceRow.label, choiceRow.index)).arg(choiceRow.weight)
+                          : root.choiceLabel(choiceRow.label, choiceRow.index)
                     enabled: root.directChoice ? choiceRow.weight === 1
                              : root.selectedTotal + choiceRow.weight <= root.maximumTotal || choiceRow.count > 0
                     objectName: "rulesScalarChoice-" + choiceRow.responseId
@@ -190,7 +197,7 @@ Item {
                         compact: true
                         visible: choiceRow.count > 0
                         text: "−"
-                        accessibleName: qsTr("Remove %1").arg(root.choiceLabel(choiceRow.label))
+                        accessibleName: qsTr("Remove %1").arg(root.choiceLabel(choiceRow.label, choiceRow.index))
                         onActiveFocusChanged: if (activeFocus) choiceList.reveal(choiceRow.index)
                         onClicked: root.removeChoice(choiceRow.responseId, choiceRow.weight)
                     }
@@ -207,7 +214,7 @@ Item {
                         compact: true
                         visible: choiceRow.canRepeat
                         text: "+"
-                        accessibleName: qsTr("Add %1").arg(root.choiceLabel(choiceRow.label))
+                        accessibleName: qsTr("Add %1").arg(root.choiceLabel(choiceRow.label, choiceRow.index))
                         enabled: root.selectedTotal + choiceRow.weight <= root.maximumTotal
                         onActiveFocusChanged: if (activeFocus) choiceList.reveal(choiceRow.index)
                         onClicked: root.addChoice(choiceRow.responseId, choiceRow.weight, true)

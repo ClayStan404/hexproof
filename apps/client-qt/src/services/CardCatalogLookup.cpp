@@ -44,16 +44,21 @@ CardCatalog::CardRecord CardCatalog::lookupCatalog(const CardRequest &request) c
     const QString key = request.name.toLower() + QChar(0x1f) + request.setCode.toUpper() +
                         QChar(0x1f) + request.collectorNumber + QChar(0x1f) + request.language +
                         QChar(0x1f) + QString::number(m_indexVersion);
-    if (m_lookupCache.contains(key))
-        return m_lookupCache.value(key);
-    const CardRecord record = guiCatalog().lookup(CatalogCardQuery{
-        request.name,
-        request.setCode,
-        request.collectorNumber,
-        request.language,
-    });
-    if (record.valid())
-        m_lookupCache.insert(key, record);
+    if (const CardRecord *cached = m_lookupCache.object(key))
+        return *cached;
+    QString error;
+    const CardRecord record = guiCatalog().lookup(
+        CatalogCardQuery{
+            request.name,
+            request.setCode,
+            request.collectorNumber,
+            request.language,
+        },
+        &error);
+    // Missing engine/generated names recur on every prompt refresh. Cache
+    // successful misses until catalog replacement, but retry database failures.
+    if (error.isEmpty())
+        m_lookupCache.insert(key, new CardRecord(record));
     return record;
 }
 

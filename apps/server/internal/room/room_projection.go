@@ -302,6 +302,11 @@ func deckCardCount(cards []protocol.DeckCard) int {
 	return count
 }
 
+// SnapshotEnvelope builds a room.snapshot stamped with the next seq.
+func (r *Room) SnapshotEnvelope() protocol.Envelope {
+	return r.snapshotEnvelope()
+}
+
 // snapshotEnvelope builds a room.snapshot stamped with the next seq.
 func (r *Room) snapshotEnvelope() protocol.Envelope {
 	snap := r.Snapshot()
@@ -325,6 +330,7 @@ func (r *Room) Snapshot() protocol.RoomSnapshot {
 			DisplayName:  s.DisplayName,
 			Host:         s.Host,
 			DeckSelected: s.Deck != nil,
+			DeckLocked:   s.TournamentDeckLocked,
 			Ready:        s.Ready,
 			Loaded:       s.Loaded,
 		}
@@ -356,6 +362,8 @@ func (r *Room) Snapshot() protocol.RoomSnapshot {
 		SpectatorsSeeHands: r.SpectatorsSeeHands,
 		Phase:              r.Phase,
 		LoadID:             loadID,
+		ActionClockMs:      r.actionClockMilliseconds(),
+		ActionClockRunning: r.actionClockRunning(),
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 
 // Seat is a player slot. Seats are positional (index 0..MaxSeats-1).
 type Seat struct {
+	AccountID               string `json:"-"`
 	Controller              string
 	AIDifficulty            string
 	Occupied                bool
@@ -32,6 +33,8 @@ type Seat struct {
 	Deck           *protocol.DeckSelect
 	Ready          bool
 	Loaded         bool
+	// TournamentDeckLocked rejects a later constructed-round deck change.
+	TournamentDeckLocked bool
 }
 
 // Spectator is a non-playing room member.
@@ -115,35 +118,38 @@ type Room struct {
 	Format     string
 	DeckFormat string
 	// LimitedDeckLocked is set only by the server's pool-contained table installer.
-	LimitedDeckLocked  bool
-	MaxSeats           int
-	Playtest           bool
-	AllowSpectators    bool
-	SpectatorsSeeHands bool
-	MatchMode          string
-	CardLoadMode       string
-	RulesMode          string
-	HostingMode        string
-	AISource           string
-	AIDifficulty       string
-	HostConnected      bool
-	HostStatus         *protocol.ForgeHostStatus
-	RulesLog           []protocol.GameLogEntry
-	RulesNextLogID     int64
-	rulesPublicLog     *rulesPublicLogState
-	rulesReview        *protocol.Envelope
-	HasPassword        bool // password hash lives in the server room entry
-	HostSeat           int
-	Seats              []Seat
-	Spectators         []Spectator
-	CreatedAt          time.Time
-	Phase              string
-	LoadID             int64
-	Game               *GameState
-	Score              []int
-	DrawnGames         int  // match-level draw count; reset with Score on a new match
-	RulesStartingSeat  *int // public lifecycle metadata; nil until the engine selects the first player
-	randomIndex        func(int) (int, error)
+	LimitedDeckLocked   bool
+	MaxSeats            int
+	Playtest            bool
+	AllowSpectators     bool
+	SpectatorsSeeHands  bool
+	MatchMode           string
+	CardLoadMode        string
+	RulesMode           string
+	HostingMode         string
+	AISource            string
+	AIDifficulty        string
+	HostConnected       bool
+	HostStatus          *protocol.ForgeHostStatus
+	RulesLog            []protocol.GameLogEntry
+	RulesNextLogID      int64
+	rulesPublicLog      *rulesPublicLogState
+	rulesReview         *protocol.Envelope
+	HasPassword         bool // password hash lives in the server room entry
+	HostSeat            int
+	Seats               []Seat
+	Spectators          []Spectator
+	CreatedAt           time.Time
+	Phase               string
+	LoadID              int64
+	Game                *GameState
+	Score               []int
+	DrawnGames          int  // match-level draw count; reset with Score on a new match
+	RulesStartingSeat   *int // public lifecycle metadata; nil until the engine selects the first player
+	actionClock         *ActionClock
+	TournamentID        string
+	TournamentPairingID string
+	randomIndex         func(int) (int, error)
 	// NextSeq is the per-room monotonic seq counter, 1-based. Mutate only via
 	// allocSeq / AllocSeq to keep accounting centralized in this package.
 	NextSeq   int64

@@ -7,6 +7,51 @@ Hexproof versions the coordinated client and server together; both must match
 exactly. Card-database releases use the separate **card-data** channel;
 application changes that use new catalog metadata are included here.
 
+## [2.3.0] - 2026-09-27
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.3.0**; application versions
+  must match exactly. The `hexproof.v1` protocol adds optional official accounts,
+  cluster routing and tournament action-clock fields.
+- Update server-managed Forge runtimes and creator-hosted overlays to native
+  adapter revision **24**. The upstream Forge source pin remains unchanged.
+- Official accounts and the shared lobby require one configured account
+  authority, a cluster coordinator and a matching trusted server directory.
+  Existing self-hosted hubs retain their node-local guest behavior.
+
+### Added
+
+- Passwordless official accounts with secret login/recovery codes, secure device
+  sessions, revocation, and recovery of room seats, event participation and
+  eligible private replays across official nodes.
+- A unified official lobby with automatic room/event placement based on node
+  capacity, load and latency. Global invitation codes route players and
+  spectators to the owning node; each room and whole event stays on one node.
+- Lock constructed event decks before play and enforce tournament action clocks.
+
+### Changed
+
+- Refine Forge priority, phase, combat and mana controls; show active-turn,
+  attachment and attack-target state directly on the table.
+- Show localized stack ability and modal-choice text, cache Chinese rules with
+  card images, and reduce repeated catalog work during token actions.
+
+### Fixed
+
+- Keep identical targetable permanents individually clickable while selecting
+  multiple targets, then restore ordinary battlefield grouping.
+- Normalize split-card names during import and load so cards such as Unholy
+  Annex // Ritual Chamber resolve without removal and re-addition.
+- Release controlled-player input safely when that player concedes during an
+  Emrakul-controlled turn.
+- Correct companion decline, cast-only exile choices, revealed-card selection,
+  unused mana undo, and repeated prompts for a single opening ability.
+- Keep loyalty counters visible beside linked-exile text and prevent repeated
+  catalog scans from delaying Forge token actions.
+- Preserve selected exact artwork while filling in missing Chinese rules text,
+  without restarting artwork selection or delaying an available image.
+
 ## [2.2.1] - 2026-09-24
 
 ### Upgrade notes

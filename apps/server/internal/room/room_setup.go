@@ -25,6 +25,9 @@ func (r *Room) SelectDeck(connID string, deck protocol.DeckSelect) (Result, erro
 	if err != nil {
 		return Result{}, err
 	}
+	if r.Seats[seat].TournamentDeckLocked {
+		return Result{}, newError(protocol.ErrTournamentForbidden)
+	}
 	if err := r.validateDeck(deck); err != nil {
 		return Result{}, err
 	}

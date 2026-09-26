@@ -56,7 +56,8 @@ ColumnLayout {
             text: (modelData.zoneOwnerSeat === root.tableController.localSeat
                 ? root.tableController.zoneLabel(modelData.zone)
                 : qsTr("Opponent's %1").arg(root.tableController.zoneLabel(modelData.zone))) + " · "
-                + root.tableController.promptOptionLabel("chooseAction", modelData.responseId, modelData.label)
+                + root.tableController.promptOptionLabel("chooseAction", modelData.responseId,
+                                                        modelData.label, modelData.cardId)
             contentItem: Text {
                 id: label
                 textFormat: Text.PlainText

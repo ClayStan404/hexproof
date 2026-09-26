@@ -29,7 +29,8 @@ class PublicExportTests(unittest.TestCase):
         for name in (".github/workflows/ci.yml", ".clang-format", ".gitattributes", ".gitignore", "LICENSE",
                      "CHANGELOG.md", "THIRD-PARTY-NOTICES.md", "docs/development-policy.md",
                      "docs/guide/README.md", "docs/rules-engine.md", "docs/player-hosted-forge.md", "docs/home-servers.md",
-                     "docs/public-content.md", "packaging/README.md", "protocol/example.json",
+                     "docs/public-content.md", "docs/accounts.md", "docs/official-cluster.md",
+                     "deploy/cluster.example.json", "packaging/README.md", "protocol/example.json",
                      "testdata/example.json", "third_party/README.md"):
             self.write(name, "Fixture\n")
         self.git("init", "--quiet")
@@ -93,6 +94,9 @@ class PublicExportTests(unittest.TestCase):
         self.assertTrue((self.target / "docs/player-hosted-forge.md").exists())
         self.assertTrue((self.target / "docs/home-servers.md").exists())
         self.assertTrue((self.target / "docs/public-content.md").exists())
+        self.assertTrue((self.target / "docs/accounts.md").exists())
+        self.assertTrue((self.target / "docs/official-cluster.md").exists())
+        self.assertTrue((self.target / "deploy/cluster.example.json").exists())
         self.assertTrue((self.target / ".gitattributes").exists())
 
     def test_modified_public_source_still_blocks_export(self):

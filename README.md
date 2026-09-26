@@ -7,7 +7,8 @@ backgrounds. Choose a manual table or let Forge handle the rules in supported
 1v1 matches.
 
 Available on **Windows, macOS, and Linux**, in **English and Simplified Chinese**.
-No account required.
+Guest play remains available. Optional passwordless accounts and a unified lobby
+are available on configured official servers.
 
 [Documentation and build guide](docs/guide/README.md)
 

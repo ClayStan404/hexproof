@@ -1,0 +1,12 @@
+{
+  "type": "session.hello",
+  "id": "hello-target",
+  "payload": {
+    "displayName": "Player",
+    "clientVersion": "0.1.0",
+    "protocol": "hexproof.v1",
+    "clusterRealm": "hexproof-official",
+    "clusterTicket": "0000000000000000000000000000000000000000000000000000000000000000",
+    "nodeLatencies": [{"url": "wss://node-two.example/ws", "milliseconds": 42}]
+  }
+}

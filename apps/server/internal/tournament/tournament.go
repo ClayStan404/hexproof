@@ -60,12 +60,14 @@ type Config struct {
 }
 
 type Actor struct {
+	AccountID     string
 	ConnectionID  string
 	Role          string
 	ParticipantID string
 }
 
 type Participant struct {
+	AccountID      string `json:"-"`
 	ID             string
 	DisplayName    string
 	CredentialHash [sha256.Size]byte
@@ -141,6 +143,7 @@ type Tournament struct {
 	OrganizerName           string
 	OrganizerConnectionID   string
 	OrganizerCredential     [sha256.Size]byte
+	OrganizerAccountID      string `json:"-"`
 	OrganizerParticipantID  string
 	CreatedAt               time.Time
 	LastActivityAt          time.Time
@@ -460,6 +463,40 @@ func (t *Tournament) Unregister(actor Actor) error {
 	return nil
 }
 
+// ApplyTimeout records an authoritative match loss for the player whose
+// action clock ran out. It replaces an unconfirmed report.
+func (t *Tournament) ApplyTimeout(pairingID, loserID string, winnerWins, loserWins int, now time.Time) error {
+	if t.Status != StatusRunning || t.Coordinator != protocol.LimitedCoordinatorSwiss {
+		return fail(ErrInvalid, "tournament is not accepting a timeout result")
+	}
+	pairing, err := t.Pairing(pairingID)
+	if err != nil {
+		return err
+	}
+	if pairing.Bye() || pairing.Result != nil {
+		return fail(ErrResultInvalid, "pairing does not accept a timeout result")
+	}
+	score := MatchScore{}
+	switch loserID {
+	case pairing.PlayerAID:
+		score.PlayerAWins = loserWins
+		score.PlayerBWins = winnerWins
+	case pairing.PlayerBID:
+		score.PlayerAWins = winnerWins
+		score.PlayerBWins = loserWins
+	default:
+		return fail(ErrForbidden, "timeout player is not in this pairing")
+	}
+	if err := t.validateScore(score); err != nil {
+		return err
+	}
+	pairing.Pending = nil
+	pairing.Result = &ConfirmedResult{
+		Score: score, ConfirmedBy: "timeout", ConfirmedAt: now.UTC(),
+	}
+	return nil
+}
+
 // RecordDeck retains the last deck selected by a participant in a private
 // pairing room. It remains server-private until the tournament is complete.
 func (t *Tournament) RecordDeck(actor Actor, deck protocol.DeckSelect) bool {
@@ -501,7 +538,18 @@ func cloneLimitedProduct(product protocol.LimitedProductDefinition) protocol.Lim
 // BindCredential resolves and rebinds an organizer or participant credential.
 func (t *Tournament) BindCredential(credential [sha256.Size]byte,
 	connectionID string, now time.Time) (role, participantID string, ok bool) {
+	return t.BindCredentialForAccount(credential, "", connectionID, now)
+}
+
+func (t *Tournament) BindCredentialForAccount(credential [sha256.Size]byte,
+	accountID, connectionID string, now time.Time) (role, participantID string, ok bool) {
+	if accountID != "" && !t.ClaimCredentialAccount(credential, accountID) {
+		return "", "", false
+	}
 	if credential == t.OrganizerCredential {
+		if t.OrganizerAccountID != "" && t.OrganizerAccountID != accountID {
+			return "", "", false
+		}
 		t.OrganizerConnectionID = connectionID
 		t.OrganizerDisconnectedAt = time.Time{}
 		t.LastActivityAt = now.UTC()
@@ -513,6 +561,9 @@ func (t *Tournament) BindCredential(credential [sha256.Size]byte,
 	}
 	for _, participant := range t.Participants {
 		if credential == participant.CredentialHash {
+			if participant.AccountID != "" && participant.AccountID != accountID {
+				return "", "", false
+			}
 			participant.ConnectionID = connectionID
 			participant.DisconnectedAt = time.Time{}
 			t.LastActivityAt = now.UTC()
@@ -559,10 +610,10 @@ func (t *Tournament) actorIsCurrent(actor Actor) bool {
 	}
 	switch actor.Role {
 	case RoleOrganizer:
-		return t.OrganizerConnectionID == actor.ConnectionID
+		return t.OrganizerConnectionID == actor.ConnectionID && (t.OrganizerAccountID == "" || t.OrganizerAccountID == actor.AccountID)
 	case RoleParticipant:
 		participant := t.participantByID[actor.ParticipantID]
-		return participant != nil && participant.ConnectionID == actor.ConnectionID
+		return participant != nil && participant.ConnectionID == actor.ConnectionID && (participant.AccountID == "" || participant.AccountID == actor.AccountID)
 	default:
 		return false
 	}

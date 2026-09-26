@@ -96,7 +96,7 @@ func (h *Handler) listRooms(sess *Session) []protocol.RoomListEntry {
 		}
 		joinable := event.Status == tournament.StatusRegistration && len(event.Participants) < event.MaxPlayers
 		for _, participant := range event.Participants {
-			if participant.ConnectionID == sess.ConnectionID {
+			if sess != nil && participant.ConnectionID == sess.ConnectionID {
 				joinable = true
 				break
 			}
@@ -192,6 +192,8 @@ func (h *Handler) handleCubeRoomJoin(sess *Session, env protocol.Envelope, reque
 						}
 					}
 				}
+			} else if request.UseAccount && sess.Account().ID != "" {
+				_, credentialID = event.AccountRole(sess.Account().ID)
 			} else {
 				sess.tournamentMu.RLock()
 				privateID, valid := tournamentProjectionIdentity(event, sess, previous)
@@ -215,12 +217,16 @@ func (h *Handler) handleCubeRoomJoin(sess *Session, env protocol.Envelope, reque
 		role = tournament.RoleViewer
 	} else if request.Credential != "" {
 		var ok bool
-		role, participantID, ok = event.BindCredential(tournament.CredentialHash(request.Credential),
-			sess.ConnectionID, time.Now().UTC())
+		role, participantID, ok = event.BindCredentialForAccount(tournament.CredentialHash(request.Credential),
+			sess.Account().ID, sess.ConnectionID, time.Now().UTC())
 		if !ok || participantID == "" {
 			entry.mu.Unlock()
 			h.sendError(sess, env.ID, protocol.ErrTournamentForbidden, "invalid Cube room credential")
 			return nil
+		}
+	} else if sess.Account().ID != "" && (env.Type != protocol.TypeTournamentEnter || request.UseAccount) {
+		if accountRole, accountParticipant, ok := event.BindAccount(sess.Account().ID, sess.ConnectionID, time.Now().UTC()); ok {
+			role, participantID = accountRole, accountParticipant
 		}
 	} else if previous.TournamentID == event.ID {
 		sess.tournamentMu.RLock()
@@ -253,6 +259,7 @@ func (h *Handler) handleCubeRoomJoin(sess *Session, env protocol.Envelope, reque
 				tournament.CredentialHash(token), time.Now().UTC())
 			if err == nil {
 				participantID = participant.ID
+				participant.AccountID = sess.Account().ID
 			}
 		}
 		if err != nil {

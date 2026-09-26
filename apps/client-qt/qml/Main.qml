@@ -220,6 +220,14 @@ ApplicationWindow {
         }
     }
 
+    Connections {
+        target: typeof ws.account !== "undefined" ? ws.account : null
+        function onAccountPageRequested() {
+            if (!stack.currentItem || stack.currentItem.objectName !== "accountScreen")
+                root.pushScreen("screens/Account.qml")
+        }
+    }
+
     EventScreenRouter {
         id: eventRouter
         wsModel: ws

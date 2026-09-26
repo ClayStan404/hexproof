@@ -31,7 +31,8 @@
         {"name": "maxPlayers", "type": "integer", "required": true},
         {"name": "currentRound", "type": "integer", "required": true},
         {"name": "plannedRounds", "type": "integer", "required": true},
-        {"name": "registrationOpen", "type": "boolean", "required": true}
+        {"name": "registrationOpen", "type": "boolean", "required": true},
+        {"name": "nodeName", "type": "string", "required": false}
       ]
     },
     {
@@ -176,8 +177,21 @@
       "direction": "clientToServer",
       "goType": "TournamentEnter",
       "fields": [
-        {"name": "tournamentId", "type": "string", "required": true},
-        {"name": "credential", "type": "string", "required": false}
+        {
+          "name": "tournamentId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "credential",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "useAccount",
+          "type": "boolean",
+          "required": false
+        }
       ]
     },
     {

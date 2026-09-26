@@ -4,7 +4,9 @@
 #include "wsclient_test.h"
 
 #include <QAbstractItemModelTester>
+#include <QJsonDocument>
 #include <QPersistentModelIndex>
+#include <QScopeGuard>
 
 void TestWsClient::destroysParserWorkersDeterministically() const
 {
@@ -1670,3 +1672,78 @@ void TestWsClient::updatesHostAuthorityFromRoomSnapshots() const
 }
 
 QTEST_GUILESS_MAIN(TestWsClient)
+
+void TestWsClient::accountLoginAndTakeoverStayInsideTrustedRealm() const
+{
+    QWebSocketServer server(u"Account test"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    const QString url = u"ws://127.0.0.1:%1/ws"_s.arg(server.serverPort());
+    QTemporaryDir directory;
+    QFile config(directory.filePath(u"servers.json"_s));
+    QVERIFY(config.open(QIODevice::WriteOnly));
+    config.write(QJsonDocument(
+                     QJsonObject{{u"schemaVersion"_s, 2},
+                                 {u"revision"_s, 1},
+                                 {u"servers"_s,
+                                  QJsonArray{QJsonObject{{u"id"_s, u"local"_s},
+                                                         {u"name"_s, u"Local"_s},
+                                                         {u"url"_s, url},
+                                                         {u"forge"_s, false},
+                                                         {u"accountRealm"_s, u"account-test"_s}}}}})
+                     .toJson());
+    config.close();
+    qputenv("HEXPROOF_SERVER_DIRECTORY_FILE", config.fileName().toUtf8());
+    auto cleanup = qScopeGuard([] { qunsetenv("HEXPROOF_SERVER_DIRECTORY_FILE"); });
+    QList<Envelope> received;
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server, [&] {
+        peer = takeServerPeer(server);
+        connect(peer, &QWebSocket::textMessageReceived, &server, [&](const QString &wire) {
+            bool ok;
+            received.append(hexproof::protocol::parse(wire.toUtf8(), &ok));
+        });
+    });
+    WsClient client;
+    client.connectAccountToServer(0, u"login"_s, u"private-login"_s);
+    QTRY_VERIFY(!received.isEmpty());
+    QCOMPARE(received[0].type, hexproof::protocol::kTypeSessionHello);
+    QVERIFY(!received[0].payload.contains(u"accountSession"_s));
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.id = received[0].id;
+    welcome.payload = {{u"v"_s, hexproof::protocol::kProtocolVersion},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"connectionId"_s, u"account-connection"_s},
+                       {u"resumeToken"_s, u"old-room-token"_s},
+                       {u"accountRealm"_s, u"account-test"_s}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(received.size() >= 2);
+    const auto login = received[1];
+    QCOMPARE(login.type, hexproof::protocol::kTypeAccountCommand);
+    QCOMPARE(login.payload.value(u"loginCode"_s).toString(), u"private-login"_s);
+    Envelope response;
+    response.type = hexproof::protocol::kTypeAccountState;
+    response.id = login.id;
+    response.payload = {{u"operation"_s, u"login"_s},
+                        {u"accountId"_s, u"test-account"_s},
+                        {u"displayName"_s, u"Alice"_s},
+                        {u"devices"_s, QJsonArray{}},
+                        {u"resources"_s, QJsonArray{}}};
+    sendEnvelope(peer, response);
+    QTRY_VERIFY(client.account()->authenticated());
+    QCOMPARE(client.displayName(), u"Alice"_s);
+    Envelope joined;
+    joined.type = hexproof::protocol::kTypeRoomCreated;
+    joined.payload = {{u"roomId"_s, u"ABCDEF"_s}};
+    sendEnvelope(peer, joined);
+    sendEnvelope(peer, roomSnapshot(u"Account room"_s));
+    QTRY_VERIFY(client.inRoom());
+    Envelope replaced;
+    replaced.type = hexproof::protocol::kTypeError;
+    replaced.payload = {{u"code"_s, u"account_replaced"_s}, {u"message"_s, u"Replaced"_s}};
+    sendEnvelope(peer, replaced);
+    QTRY_COMPARE(client.connectionState(), WsClient::Disconnected);
+    QTest::qWait(1500);
+    QCOMPARE(client.connectionState(), WsClient::Disconnected);
+    QVERIFY(!server.hasPendingConnections());
+}

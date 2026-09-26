@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "AccountDevice",
+      "goType": "AccountDevice",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "createdAt",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "current",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "AccountResource",
+      "goType": "AccountResource",
+      "fields": [
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "nodeName",
+          "type": "string",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "ForgeReplayGrant",
+      "goType": "ForgeReplayGrant",
+      "fields": [
+        {
+          "name": "replayId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "token",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "roomName",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "matchMode",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "players",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "finished",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "complete",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "frameCount",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "account.command",
+      "direction": "clientToServer",
+      "goType": "AccountCommand",
+      "fields": [
+        {
+          "name": "operation",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "deviceName",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "loginCode",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "recoveryCode",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "credential",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "account.state",
+      "direction": "serverToClient",
+      "goType": "AccountState",
+      "fields": [
+        {
+          "name": "operation",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "sessionToken",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "loginCode",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "recoveryCode",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "devices",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "AccountDevice"
+          }
+        },
+        {
+          "name": "resources",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "AccountResource"
+          }
+        },
+        {
+          "name": "replays",
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "ref": "ForgeReplayGrant"
+          }
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "hasMore",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

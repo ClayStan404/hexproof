@@ -11,6 +11,8 @@ import forge.game.combat.*;
 import forge.game.player.*;
 import forge.game.spellability.SpellAbilityView;
 import forge.game.spellability.SpellAbility;
+import forge.game.mana.ManaRefundService;
+import forge.game.zone.MagicStack;
 import forge.game.zone.ZoneType;
 import forge.gamemodes.match.input.*;
 import forge.gui.interfaces.IGuiGame;
@@ -228,6 +230,8 @@ final class NativeGuiGame implements InvocationHandler {
                 options.add(action);
                 actions.put(actionId, () -> select(c));
             }
+            if (paying)
+                addUndoManaActions(options, actions);
             if (paying) {
                 InputPayMana payment = (InputPayMana) current;
                 input.addProperty("manaCost", payment.getUnpaidManaCost());
@@ -274,6 +278,15 @@ final class NativeGuiGame implements InvocationHandler {
                     || current.getClass() == InputSelectCardsFromList.class
                     || !nativeChoices.getValidChoices().stream().allMatch(c -> ((Card) c).isInPlay()))) {
             List<Card> cards = nativeChoices.getValidChoices().stream().map(c -> (Card) c).toList();
+            boolean battlefield = !cards.isEmpty() && cards.stream().allMatch(Card::isInPlay);
+            boolean batch = current.getClass() == InputSelectEntitiesFromList.class
+                    || current.getClass() == InputSelectCardsFromList.class;
+            if (batch && battlefield) {
+                // Identical permanents are distinguishable on the table. Click
+                // them there instead of opening a second card list.
+                renderBattlefieldSelection(current, cards);
+                return;
+            }
             if (current.getClass() == InputSelectEntitiesFromList.class || current.getClass() == InputSelectCardsFromList.class) {
                 // Forge already sends the complete cardinality to its GUI.
                 // Preserve that batch instead of losing selections between
@@ -336,6 +349,95 @@ final class NativeGuiGame implements InvocationHandler {
         JsonObject source = current == messageInput ? promptSource(messageCard, input) : null;
         session.publish(owner(), input, source, guarded(current, prepare), true);
     }
+    private void addUndoManaActions(JsonArray options, Map<String, Runnable> actions) {
+        MagicStack stack = session.game.getStack();
+        if (!stack.canUndo(owner()))
+            return;
+        for (Card card : session.game.getCardsInGame()) {
+            if (!mayExpose(card))
+                continue;
+            boolean undoable = false;
+            for (SpellAbility ability : stack.filterUndoStackByHost(card)) {
+                if (ability.isUndoable())
+                    undoable = true;
+            }
+            if (!undoable)
+                continue;
+            String actionId = "undo:" + card.getId();
+            JsonObject action = object("id", actionId);
+            action.addProperty("type", "undoMana");
+            action.addProperty("cardId", cardId(card));
+            action.addProperty("label", "Undo mana");
+            options.add(action);
+            actions.put(actionId, () -> undoMana(card));
+        }
+    }
+
+    private void undoMana(Card card) {
+        MagicStack stack = session.game.getStack();
+        if (!stack.canUndo(owner()))
+            throw new IllegalArgumentException("Mana payment cannot be undone");
+        for (SpellAbility ability : stack.filterUndoStackByHost(card)) {
+            if (!ability.isUndoable() || !ability.undo())
+                continue;
+            stack.clearUndoStack(ability);
+            new ManaRefundService(ability).refundManaPaid();
+            return;
+        }
+        throw new IllegalArgumentException("That mana is no longer unused");
+    }
+
+    private void renderBattlefieldSelection(Input current, List<Card> cards) {
+        CardSelectionBounds bounds = cardSelectionBounds;
+        Set<Integer> ids = new HashSet<>();
+        for (Card card : cards)
+            ids.add(card.getId());
+        if (bounds == null || !bounds.ids().equals(ids) || bounds.min() < 0 || bounds.max() < bounds.min())
+            throw new IllegalStateException("Native card selection metadata is unavailable");
+        int minimum = bounds.min();
+        int maximum = Math.min(bounds.max(), cards.size());
+        JsonObject in = input("chooseBoardTargets", "Choose a card or player");
+        Map<String, Card> allowed = new LinkedHashMap<>();
+        JsonArray candidates = new JsonArray();
+        for (Card card : cards) {
+            String id = cardId(card);
+            JsonObject candidate = object("kind", "card");
+            candidate.addProperty("id", id);
+            candidates.add(candidate);
+            allowed.put(id, card);
+        }
+        in.add("candidates", candidates);
+        in.addProperty("minTargets", minimum);
+        in.addProperty("maxTargets", maximum);
+        in.addProperty("chosenTargets", 0);
+        in.addProperty("cancellable", cancelEnabled);
+        boolean canCancel = cancelEnabled;
+        session.publish(owner(), in, guarded(current, raw -> {
+            if (text(raw, "type", "").equals("cancel") && canCancel)
+                return () -> button(false);
+            requireType(raw, "boardTargets");
+            JsonArray selected = raw.getAsJsonArray("chosen");
+            if (selected.size() < minimum || selected.size() > maximum)
+                throw new IllegalArgumentException("Invalid battlefield selection count");
+            List<Card> chosen = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            for (JsonElement element : selected) {
+                JsonObject item = element.getAsJsonObject();
+                String id = text(item, "id", "");
+                Card card = allowed.get(id);
+                if (!"card".equals(text(item, "kind", "")) || card == null || !seen.add(id))
+                    throw new IllegalArgumentException("Invalid battlefield selection");
+                chosen.add(card);
+            }
+            return () -> {
+                for (Card card : chosen)
+                    select(card);
+                if (human.getInputProxy().getInput() == current && okEnabled)
+                    button(true);
+            };
+        }), true);
+    }
+
     private void renderCardSelection(Input current, List<Card> cards, int min, int max) {
         boolean mulligan = current instanceof InputLondonMulligan;
         JsonObject in = input(mulligan ? "mulliganPutBack" : "chooseCards",

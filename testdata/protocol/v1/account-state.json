@@ -1,0 +1,31 @@
+{
+  "type": "account.state",
+  "id": "account-login",
+  "payload": {
+    "operation": "login",
+    "accountId": "11111111111111111111111111111111",
+    "displayName": "Alice",
+    "sessionId": "22222222222222222222222222222222",
+    "sessionToken": "HPS1.EXAMPLE-NOT-A-REAL-CREDENTIAL",
+    "devices": [
+      {
+        "id": "22222222222222222222222222222222",
+        "name": "Example device",
+        "createdAt": "2026-09-27T00:00:00Z",
+        "expiresAt": "2026-12-26T00:00:00Z",
+        "current": true
+      }
+    ],
+    "resources": [
+      {
+        "kind": "tournament",
+        "id": "EVENT1",
+        "name": "Friday event",
+        "role": "participant"
+      }
+    ],
+    "replays": [],
+    "offset": 0,
+    "hasMore": false
+  }
+}

@@ -52,6 +52,13 @@ Item {
 
     function resultDetail() {
         const score = scoreSummary()
+        const timeout = gameSession.result.reason === "timeout"
+                ? qsTr("Action time ran out. The player whose clock reached zero loses the match.")
+                : ""
+        if (score.length > 0 && timeout.length > 0)
+            return timeout + "\n" + qsTr("Final score · %1").arg(score)
+        if (timeout.length > 0)
+            return timeout
         return score.length > 0 ? qsTr("Final score · %1").arg(score)
                                : qsTr("The match is complete.")
     }

@@ -22,8 +22,23 @@ func (h *Handler) handleRoomList(sess *Session, env protocol.Envelope) error {
 		return nil
 	}
 	h.evictExpiredTournaments(time.Now().UTC())
-	listed, _ := protocol.NewEnvelope(protocol.TypeRoomListed,
-		protocol.RoomListed{Rooms: h.listRooms(sess)})
+	rooms := h.listRooms(sess)
+	if h.clusterAgent != nil && sess.clusterEnabled {
+		view, err := h.clusterView(sess.Account().ID)
+		if err != nil {
+			h.clusterError(sess, env.ID, err)
+			return nil
+		}
+		rooms = view.Rooms
+		for i := range rooms {
+			for _, resource := range view.Resources {
+				if resource.Kind == "cube" && resource.ID == rooms[i].RoomID {
+					rooms[i].PlayerJoinable = true
+				}
+			}
+		}
+	}
+	listed, _ := protocol.NewEnvelope(protocol.TypeRoomListed, protocol.RoomListed{Rooms: rooms})
 	listed.ID = env.ID
 	h.send(sess, listed)
 	return nil
@@ -715,6 +730,7 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 	h.hub.RemoveRoom(r.ID)
 	h.abortForgeGame(r.ID)
 	h.cancelSideboardExpiration(r.ID)
+	h.cancelActionClock(r.ID)
 
 	h.discardRoomConsentRequests(r.ID)
 

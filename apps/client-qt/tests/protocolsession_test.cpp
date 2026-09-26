@@ -17,6 +17,7 @@ class TestProtocolSession : public QObject
     Q_OBJECT
 
   private slots:
+    void redactsAccountSecretsFromCommandSignals() const;
     void preparesWireWithMonotonicIds() const;
     void queuesAndResolvesSuccess() const;
     void resolvesFailures() const;
@@ -125,6 +126,30 @@ void TestProtocolSession::failsOrDiscardsAllPendingCommands() const
 
     const ProtocolSession::OutboundCommand next = session.prepare(u"replay.list"_s);
     QCOMPARE(next.id, u"4"_s);
+}
+
+void TestProtocolSession::redactsAccountSecretsFromCommandSignals() const
+{
+    ProtocolSession session;
+    QSignalSpy queued(&session, &ProtocolSession::commandQueued);
+    QSignalSpy failed(&session, &ProtocolSession::commandFailed);
+    for (const QString &type : {u"account.command"_s, u"session.hello"_s}) {
+        const QJsonObject payload =
+            type == u"account.command"_s
+                ? QJsonObject{{u"operation"_s, u"login"_s},
+                              {u"loginCode"_s, u"secret"_s},
+                              {u"credential"_s, u"secret"_s}}
+                : QJsonObject{{u"displayName"_s, u"Alice"_s}, {u"accountSession"_s, u"secret"_s}};
+        const auto command = session.prepare(type, payload);
+        QVERIFY(command.wire.contains("secret"));
+        session.markQueued(command);
+        session.resolveFailure(command.id, u"Unavailable"_s);
+        session.reportUnqueuedFailure(type, payload, u"Offline"_s);
+    }
+    for (const auto &row : queued)
+        QVERIFY(!row[2].toMap().values().contains(u"secret"_s));
+    for (const auto &row : failed)
+        QVERIFY(!row[2].toMap().values().contains(u"secret"_s));
 }
 
 QTEST_MAIN(TestProtocolSession)

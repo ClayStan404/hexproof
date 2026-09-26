@@ -43,6 +43,9 @@ public_paths=(
     docs/player-hosted-forge.md
     docs/home-servers.md
     docs/public-content.md
+    docs/accounts.md
+    docs/official-cluster.md
+    deploy/cluster.example.json
     packaging
     protocol
     testdata

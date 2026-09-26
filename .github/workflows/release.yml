@@ -80,7 +80,7 @@ jobs:
         run: >
           sudo apt-get update &&
           sudo apt-get install -y clang-format-18 cmake ninja-build
-          curl jq ripgrep shellcheck zlib1g-dev
+          curl jq ripgrep shellcheck zlib1g-dev libsecret-1-dev
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/server/go.mod
@@ -172,7 +172,7 @@ jobs:
         run: |
           go vet ./...
           go test ./...
-          go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode
+          go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster
           CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
       - name: Configure client
         run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -220,7 +220,7 @@ jobs:
       - name: Install build dependencies
         run: >
           sudo apt-get update &&
-          sudo apt-get install -y cmake ninja-build xvfb zlib1g-dev
+          sudo apt-get install -y cmake ninja-build xvfb zlib1g-dev libsecret-1-dev
       - name: Select Forge build JDK
         uses: ./.github/actions/setup-forge-build
       - name: Install Qt

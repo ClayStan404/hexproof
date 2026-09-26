@@ -28,6 +28,7 @@ const maxForgeReplayBytes = 128 << 20
 const maxForgeReplayFrameBytes = 512 << 10
 
 type forgeRecording struct {
+	AccountIDs     [2]string                   `json:"accountIds,omitempty"`
 	Grant          protocol.ForgeReplayGrant   `json:"grant"`
 	Tokens         [2]string                   `json:"tokens"`
 	Owners         [2]string                   `json:"-"`
@@ -101,6 +102,7 @@ func (h *Handler) collectForgeReplay(r *room.Room, game forgeRoomGame) {
 			record.Grant.Players = append(record.Grant.Players, player.DisplayName)
 			if index < 2 {
 				record.Owners[index] = player.ConnectionID
+				record.AccountIDs[index] = player.AccountID
 			}
 		}
 		s.active[r] = record
@@ -290,6 +292,9 @@ func (s *forgeReplayStore) save(record *forgeRecording) error {
 	if err := os.Rename(file.Name(), filepath.Join(dir, record.Grant.ReplayID+".json.gz")); err != nil {
 		return err
 	}
+	if err := s.saveAccountIndex(record); err != nil {
+		return err
+	}
 	return s.prune(dir)
 }
 
@@ -324,6 +329,7 @@ func (s *forgeReplayStore) prune(dir string) error {
 		if err := os.Remove(file.path); err != nil {
 			return err
 		}
+		_ = os.Remove(filepath.Join(dir, file.id+".owners.json"))
 		total -= file.size
 		if cached := s.completed[file.id]; cached != nil {
 			for r, active := range s.active {
@@ -367,6 +373,11 @@ func (s *forgeReplayStore) load(id string) (*forgeRecording, error) {
 	if err != nil || record.Grant.ReplayID != id || len(record.Frames) > 20000 {
 		return nil, errors.New("invalid Forge replay")
 	}
+	if index, err := s.readAccountIndex(id); err == nil {
+		record.AccountIDs = index.AccountIDs
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
 	record.Bytes = len(raw)
 	if s.bytes+int64(record.Bytes) <= s.config.RetentionMaxBytes {
 		s.completed[id] = &record
@@ -397,7 +408,12 @@ func (h *Handler) handleForgeReplayGet(sess *Session, env protocol.Envelope) err
 		return nil
 	}
 	expires, _ := time.Parse(time.RFC3339, record.Grant.ExpiresAt)
-	authorized := subtle.ConstantTimeCompare([]byte(request.Token), []byte(record.Tokens[0])) | subtle.ConstantTimeCompare([]byte(request.Token), []byte(record.Tokens[1]))
+	authorized := 0
+	for seat, token := range record.Tokens {
+		if record.AccountIDs[seat] == "" || record.AccountIDs[seat] == sess.Account().ID {
+			authorized |= subtle.ConstantTimeCompare([]byte(request.Token), []byte(token))
+		}
+	}
 	if authorized != 1 || !time.Now().Before(expires) || request.Offset > len(record.Frames) {
 		s.mu.Unlock()
 		h.sendError(sess, env.ID, protocol.ErrReplayNotFound, "Replay is unavailable")

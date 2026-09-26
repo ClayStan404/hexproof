@@ -146,6 +146,27 @@ cmake -S apps/client-qt -B build/client-qt -G Ninja \
 The complete schema and release-secret workflow are documented in
 [`apps/client-qt/config/README.md`](../../apps/client-qt/config/README.md).
 
+## Official accounts and shared lobby
+
+Choose **Official lobby (automatic)** to enter through a reachable official node.
+The lobby lists rooms across those nodes; new rooms and whole events are placed
+according to available capacity, load and latency. A global invitation such as
+`N1:ROOM01` routes to its original node. An ongoing game stays on that node.
+Explicit server selection and custom self-hosted addresses remain available.
+
+Official accounts use a generated secret login code instead of a password.
+Back up both the login and recovery codes privately. The recovery code replaces
+lost credentials and revokes old device sessions; losing every backup and valid
+session prevents recovery. The client stores only its revocable device session
+in the operating system credential vault when available.
+
+The same account works on every configured official node and can recover its
+room seat, event participation and eligible completed replays. A single room
+can resume automatically; if several exist, choose one from the account page.
+Guest play remains available, and local deck libraries and settings remain local.
+See [accounts](../accounts.md) and [official cluster setup](../official-cluster.md)
+for operator settings and availability limits.
+
 ## Card database
 
 The application runs without a card database, but deck search, printing
@@ -172,7 +193,8 @@ for pinned-input and offline-import workflows.
 
 ### Rooms and online play
 
-- Join by room code or browse rooms on the connected hub.
+- Join by room code or browse the official shared lobby; custom hubs retain
+  their local room list.
 - Generic 1v1, Duel Commander, and three- or four-player Commander/EDH tables.
 - BO1 and BO3 match flow where applicable, including between-game sideboarding.
 - Solo Playtest through the same authoritative table path used by multiplayer.
@@ -256,7 +278,8 @@ for pinned-input and offline-import workflows.
 
 ### Connected-hub tournaments
 
-- Account-free individual 1v1 Swiss tournaments on one connected hub.
+- Individual 1v1 Swiss tournaments, with optional official-account recovery.
+  Each whole event remains on one hub.
 - Registration, check-in, pairings, private match rooms, reported and confirmed
   results, drops, round timers, standings, and official-style tiebreakers.
 - Standard, Pioneer, Modern, Legacy, Vintage, Pauper, and Duel Commander event
@@ -271,9 +294,9 @@ organizers remain responsible for card text, legal targets, triggers, priority,
 replacement effects, penalties, and unusual interactions. Optional rules rooms
 delegate game rules to a server-hosted or trusted creator-hosted Forge runtime.
 The current Forge interface supports 1v1 matches, including Duel Commander;
-three- and four-player Commander/EDH use manual tables. There are no core
-accounts, ladder, global matchmaking service, collection economy, or web
-client.
+three- and four-player Commander/EDH use manual tables. Official accounts are
+optional. There is no ladder, automatic player matchmaking, collection economy,
+or web client.
 
 Deck validation is advisory and depends on the installed local catalog. A
 missing or outdated catalog produces an unverified result instead of a false

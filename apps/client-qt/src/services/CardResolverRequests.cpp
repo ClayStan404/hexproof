@@ -161,7 +161,7 @@ void CardResolver::beginImageRequest(ArtStage stage)
     if (QCoreApplication::closingDown())
         return;
     retainMetadata(&m_currentRecord);
-    if (m_currentRequest.supportCard && m_currentRequest.language == QStringLiteral("zh") &&
+    if (m_currentRequest.language == QStringLiteral("zh") &&
         !m_currentRecord.localizedRulesChecked && !m_currentMtgchTried && !m_rulesProbeAttempted &&
         m_currentRecord.oracleTextLanguage != QStringLiteral("zh")) {
         const QString set = m_currentRequest.specifiesPrinting() ? m_currentRequest.setCode

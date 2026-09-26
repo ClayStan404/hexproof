@@ -105,10 +105,10 @@ std::optional<QJsonObject> parseDirectory(const QByteArray &bytes, bool online)
         if (!value.isObject())
             return std::nullopt;
         const QJsonObject entry = value.toObject();
-        const QSet<QString> entryKeys = schema == 1
-                                            ? QSet<QString>{u"url"_s, u"legacyUrls"_s}
-                                            : QSet<QString>{u"id"_s,  u"name"_s,  u"sponsor"_s,
-                                                            u"url"_s, u"forge"_s, u"legacyUrls"_s};
+        const QSet<QString> entryKeys =
+            schema == 1 ? QSet<QString>{u"url"_s, u"legacyUrls"_s}
+                        : QSet<QString>{u"id"_s,    u"name"_s,       u"sponsor"_s,     u"url"_s,
+                                        u"forge"_s, u"legacyUrls"_s, u"accountRealm"_s};
         const QString endpoint = normalizedServerUrl(entry.value(u"url"_s).toString());
         const QUrl url(endpoint);
         if (!hasOnlyKeys(entry, entryKeys) || endpoint.isEmpty() || endpoint.size() > 2048 ||
@@ -118,6 +118,19 @@ std::optional<QJsonObject> parseDirectory(const QByteArray &bytes, bool online)
             ((!isLoopback(url) && url.scheme() != u"wss"_s) || !url.userInfo().isEmpty() ||
              url.hasQuery() || QUrl(entry.value(u"url"_s).toString()).hasFragment()))
             return std::nullopt;
+        const auto accountRealm = entry.value(u"accountRealm"_s);
+        if (!accountRealm.isUndefined()) {
+            const QString realm = accountRealm.toString();
+            if (realm.isEmpty() || realm.size() > 64 || !url.userInfo().isEmpty() ||
+                url.hasQuery() || (url.scheme() != u"wss"_s && !isLoopback(url)) ||
+                (realm == u"hexproof-official"_s && (isLoopback(url) || url.scheme() != u"wss"_s)))
+                return std::nullopt;
+            for (const QChar ch : realm) {
+                if (!(ch >= u'a' && ch <= u'z') && !(ch >= u'0' && ch <= u'9') && ch != u'-' &&
+                    ch != u'.')
+                    return std::nullopt;
+            }
+        }
         urls.insert(endpoint);
         if (schema == 2) {
             const QString id = entry.value(u"id"_s).toString();
@@ -290,6 +303,8 @@ void ServerDirectory::applyDirectory(const QJsonObject &document, const QString 
             if (!normalized.isEmpty()) {
                 endpoint = normalized;
                 entry.insert(u"forge"_s, -1);
+                // Endpoint-only test overrides cannot inherit production credentials.
+                entry.remove(u"accountRealm"_s);
             }
         }
         entry.insert(u"url"_s, endpoint);
@@ -314,6 +329,26 @@ QString ServerDirectory::serverUrl(int index) const
 QString ServerDirectory::customServerUrl() const
 {
     return m_customServerUrl;
+}
+
+QString ServerDirectory::accountRealmForUrl(const QString &url) const
+{
+    const QString endpoint = normalizedServerUrl(url);
+    for (const auto &value : m_servers) {
+        const auto entry = value.toMap();
+        if (entry.value(u"url"_s).toString() != endpoint)
+            continue;
+        const QString realm = entry.value(u"accountRealm"_s).toString();
+        if (realm.isEmpty() || realm.size() > 64)
+            return {};
+        for (const QChar ch : realm) {
+            if (!(ch >= u'a' && ch <= u'z') && !(ch >= u'0' && ch <= u'9') && ch != u'-' &&
+                ch != u'.')
+                return {};
+        }
+        return realm;
+    }
+    return {};
 }
 
 bool ServerDirectory::setCustomServerUrl(const QString &value)

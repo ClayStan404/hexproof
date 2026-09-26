@@ -20,6 +20,8 @@ Item {
         || (priority.stopped && priority.isPriorityPrompt)
         || tableController.rulesResponsePending
         || (priority.isPriorityPrompt && priority.automaticallyPassing)
+    readonly property bool emphasis: priority.isPriorityPrompt
+        && !priority.automaticallyPassing && !priority.yieldMode
     readonly property var fallbackActions: priority.yieldMode ? [] : priority.options.filter(option =>
         !option.responseId.startsWith("$") && !externallyShownActionIds.includes(option.responseId)
         && !tableController.interaction.actionOnTable(
@@ -90,9 +92,9 @@ Item {
                 objectName: "rulesYieldMenuButton"
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
-                visible: !root.priority.yieldMode
+                visible: !root.priority.yieldMode && root.session.promptKind !== "payManaCost"
                 enabled: root.priority.canStartYield
-                compact: true
+                compact: !root.emphasis
                 text: qsTr("Pass")
                 onClicked: yieldMenu.open()
 
@@ -132,7 +134,7 @@ Item {
                 Layout.preferredWidth: 1
                 visible: root.priority.isPriorityPrompt && !root.priority.yieldMode
                 enabled: root.priority.canPass
-                compact: true
+                compact: !root.emphasis
                 variant: "primary"
                 text: root.priority.stackIds.length > 0 ? qsTr("Resolve") : qsTr("Next")
                 onClicked: root.priority.passOnce()
@@ -153,7 +155,7 @@ Item {
                 compact: true
                 enabled: root.priority.canAct
                 text: root.tableController.promptOptionLabel(
-                          "chooseAction", modelData.responseId, modelData.label)
+                          "chooseAction", modelData.responseId, modelData.label, modelData.cardId)
                 onClicked: root.priority.respondAction(modelData.responseId)
             }
         }

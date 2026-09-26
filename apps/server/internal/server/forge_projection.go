@@ -253,6 +253,15 @@ func normalizeForgeSnapshot(roomID string, game forgeRoomGame,
 				if publicPermanents[card.AttachedTo] && card.AttachedTo != card.ID {
 					projectedCard.AttachedTo = card.AttachedTo
 				}
+				if publicPermanents[card.AttackingTarget] && card.AttackingTarget != card.ID {
+					projectedCard.AttackingTarget = card.AttackingTarget
+				} else if card.Attacking && card.AttackingPlayer != "" {
+					seat, err := seatForID(card.AttackingPlayer)
+					if err != nil {
+						return protocol.RulesGameSnapshot{}, err
+					}
+					projectedCard.AttackingPlayer = &seat
+				}
 				seen := make(map[string]bool)
 				for _, id := range card.Blocking {
 					if publicPermanents[id] && id != card.ID && !seen[id] {
@@ -511,6 +520,25 @@ func (h *Handler) sendRulesProjections(projections map[string]protocol.Envelope)
 		h.fanoutRulesMetadata(r)
 		h.publishForgeReplay(r)
 	}
+	if roomID != "" {
+		priority := priorityFromProjections(projections)
+		// Run after the caller releases the room operation lock.
+		time.AfterFunc(0, func() {
+			if r := h.hub.FindRoom(roomID); r != nil {
+				h.observeActionClock(r, priority)
+			}
+		})
+	}
+}
+
+func priorityFromProjections(projections map[string]protocol.Envelope) int {
+	for _, envelope := range projections {
+		var snapshot protocol.RulesGameSnapshot
+		if envelope.DecodePayload(&snapshot) == nil && snapshot.RoomID != "" {
+			return snapshot.PrioritySeat
+		}
+	}
+	return -1
 }
 
 func (h *Handler) fanoutRulesProjections(r *room.Room) {

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "AccountSessionState.h"
 #include "ForgeHostService.h"
 #include "ForgeReplayService.h"
 #include "HubTransport.h"
@@ -44,8 +45,10 @@ class WsClient : public QObject
     // Native audit fault injection is linked only by the test executable.
     friend class NativeAudit;
     Q_OBJECT
+    Q_PROPERTY(AccountSessionState *account READ account CONSTANT)
     Q_PROPERTY(ConnectionState connectionState READ connectionState NOTIFY connectionStateChanged)
     Q_PROPERTY(bool connected READ connected NOTIFY connectionStateChanged)
+    Q_PROPERTY(bool clusterAvailable READ clusterAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool connecting READ connecting NOTIFY connectionStateChanged)
     Q_PROPERTY(bool reconnecting READ reconnecting NOTIFY connectionStateChanged)
     Q_PROPERTY(int reconnectSecondsRemaining READ reconnectSecondsRemaining NOTIFY
@@ -94,6 +97,13 @@ class WsClient : public QObject
     Q_PROPERTY(LimitedSessionState *limitedSession READ limitedSession CONSTANT)
 
   public:
+    bool clusterAvailable() const;
+    Q_INVOKABLE QString globalCode(const QString &localCode) const;
+    Q_INVOKABLE void connectToOfficial(const QString &operation, const QString &value);
+    AccountSessionState *account() const
+    {
+        return m_account;
+    }
     ForgeReplayService *replays() const
     {
         return m_replays;
@@ -553,6 +563,9 @@ class WsClient : public QObject
                                                    int sourceSeat = -1,
                                                    const QString &approvalId = {});
     Q_INVOKABLE void copyToClipboard(const QString &text);
+    Q_INVOKABLE void claimLocalAccountData();
+    Q_INVOKABLE void connectAccountToServer(int serverIndex, const QString &operation,
+                                            const QString &value);
 
   signals:
     void connectionStateChanged();
@@ -693,6 +706,7 @@ class WsClient : public QObject
     GameSessionState *m_gameSession = nullptr;
     RulesSessionState *m_rulesSession = nullptr;
     ForgeReplayService *m_replays = nullptr;
+    AccountSessionState *m_account = nullptr;
     ServerDirectory *m_serverDirectory = nullptr;
     TournamentSessionState *m_tournamentSession = nullptr;
     LimitedSessionState *m_limitedSession = nullptr;
@@ -722,6 +736,22 @@ class WsClient : public QObject
     QString m_rulesResponseGameId;
     qint64 m_rulesResponsePromptId = 0;
     QString m_serverUrl;
+    QString m_clusterTicket;
+    QString m_clusterNode;
+    QString m_clusterRequestId;
+    QString m_clusterCommandType;
+    QByteArray m_clusterWire;
+    QString m_clusterDestination;
+    QString m_clusterAccountId;
+    QTimer m_clusterTimer;
+    bool m_clusterRouting = false;
+    QJsonArray clusterLatencies() const;
+    bool clusterCommand(const QString &type, const QJsonObject &payload) const;
+    void clearClusterCommand();
+    void rememberClusterNode();
+    void failClusterRoute(const QString &message);
+    void handleClusterRoute(const protocol::Envelope &env);
+    bool finishClusterRoute(const protocol::Envelope &welcome);
     bool m_resumeAttempted = false;
     bool m_intentionalDisconnect = false;
 };

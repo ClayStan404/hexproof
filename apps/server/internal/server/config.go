@@ -6,12 +6,21 @@ package server
 import (
 	"time"
 
+	"hexproof/server/internal/cluster"
+
 	"hexproof/server/internal/rulesengine/forge"
 )
 
 // Config contains bounded public-hub operational settings. Zero values are
 // normalized to conservative defaults by NewHandlerWithConfig.
 type Config struct {
+	Cluster *cluster.Config
+	// Accounts are opt-in on official hubs. One authority owns the directory;
+	// other official nodes use its authenticated HTTPS service.
+	AccountDir                  string
+	AccountRealm                string
+	AccountAuthority            string
+	AccountServiceKey           string
 	ReconnectWindow             time.Duration
 	HelloTimeout                time.Duration
 	RetentionTTL                time.Duration

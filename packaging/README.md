@@ -21,6 +21,12 @@ Qt 6.5 or newer with the WebSockets, Image Formats, and Shader Tools modules,
 CMake, a C++20 compiler, and zlib. The server script requires the Go version
 declared by `apps/server/go.mod`.
 
+Linux client builds also require `pkg-config` and `libsecret-1-dev`. Automatic
+account login uses the desktop Secret Service (for example GNOME Keyring or
+a compatible KWallet service) and libsecret at runtime. Without an available
+vault the client keeps the session only in memory and explains this in Account.
+Windows links Credential Manager; macOS links Security/CoreFoundation.
+
 CI, application releases, and card-database builds share the pinned Qt 6.11.2
 toolchain in [setup-qt](../.github/actions/setup-qt/action.yml). Upgrade this
 explicit version after validation, rather than following a moving `latest`.

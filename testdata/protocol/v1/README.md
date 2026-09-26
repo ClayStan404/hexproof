@@ -31,6 +31,7 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `forge-host-offer.json` | C -> S | Explicitly volunteer as a trusted backup; current-host approval remains separate |
 | `forge-host-status.json` / `forge-host-status-migrating.json` | S -> C | Public host, standby, approval and transfer status without private engine messages |
 | `session-hello.json` | C -> S | Handshake offer (no top-level `v`) |
+| `session-cluster-hello.json` / `session-route.json` | both | Official-realm routing opt-in, latency hints and private single-use destination ticket; the original command keeps its request ID |
 | `session-welcome.json` | S -> C | Authoritative `v` and opaque resume credential in payload; echoes `id`. No `seq` (session-level, not per-room) |
 | `session-resume-hello.json` | C -> S | Reconnect offer with the opaque credential and last observed room sequence |
 | `session-resumed.json` | S -> C | Accepted reconnect with role and seat metadata; fresh room/game projections follow |
@@ -46,6 +47,7 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `room-disband.json` / `room-disbanded.json` | both | Host disband request and terminal room notification |
 | `room-snapshot-owner.json` / `room-snapshot-opponent.json` | S -> C | Role-neutral waiting-room projections for different viewers |
 | `room-create-playtest.json` / `room-created-playtest.json` / `room-snapshot-playtest.json` | both | Private one-seat Playtest creation and waiting-room projection |
+| `room-listed-cluster.json` / `account-cluster-state.json` | S -> C | Global invitation prefixes, public node labels and recipient-only account resource locations |
 | `room-list.json` / `room-listed.json` | both | Hub-local room discovery request and public join metadata without member or password data |
 | `room-listed-cube.json` / `room-join-cube-credential.json` | both | Room-oriented Cube discovery and authenticated reentry into the same private draft seat |
 | `tournament-create-commander-cube.json` / `room-listed-commander-cube.json` | both | Commander Cube uses a casual coordinator and EDH-tagged Cube room discovery, not Swiss event listing |
@@ -200,3 +202,5 @@ and atomic hand recycling without publishing library order.
 pin the separate private visual Forge replay channel: recipient capabilities,
 whole-match-gated offset requests, and bounded normalized frame pages. These
 messages do not broaden the public log compatibility API.
+
+- `account-command.json`, `account-state.json`: private official account authentication and resource discovery; example credentials are not usable.

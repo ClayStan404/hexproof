@@ -6,7 +6,11 @@ upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
-The current adapter is revision 22, retaining upstream `2be4858216742009afe8a7cffb035fc7671e960d`.
+The current adapter is revision 24, retaining upstream `2be4858216742009afe8a7cffb035fc7671e960d`.
+Revision 24 releases controlled-player input when that player concedes, allowing
+an Emrakul-controlled turn to unwind without stranding the native decision loop.
+Revision 23 corrects companion decline, cast-only exile choices and taking cards
+from a revealed selection. Both revisions retain native legality and privacy.
 Revision 22 reads actual colorless mana, publishes confirmed blocking pairs,
 and includes a verified offline catalog printing index. The index's source and
 provenance travel with dedicated packages and creator-hosted overlays; changing

@@ -58,7 +58,7 @@ func (h *Handler) handleTournamentChatSend(sess *Session, env protocol.Envelope)
 	name := sess.DisplayName
 	allowed := binding.Role == tournament.RoleViewer
 	if binding.Role == tournament.RoleOrganizer {
-		allowed = entry.event.OrganizerConnectionID == sess.ConnectionID
+		allowed = entry.event.OrganizerConnectionID == sess.ConnectionID && (entry.event.OrganizerAccountID == "" || entry.event.OrganizerAccountID == sess.Account().ID)
 		name = entry.event.OrganizerName
 	} else if binding.Role == tournament.RoleParticipant {
 		participant := entry.event.Participant(binding.ParticipantID)

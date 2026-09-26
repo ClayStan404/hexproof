@@ -70,6 +70,7 @@ Rectangle {
         required property int index
         required property string objectId
         required property int controllerSeat
+        required property string sourceId
         required property string name
         required property string setCode
         required property string collectorNumber
@@ -77,6 +78,16 @@ Rectangle {
         required property var targets
         readonly property bool visibleIdentity: name.length > 0
         readonly property bool faceDown: !visibleIdentity
+        readonly property var artCard: {
+            const source = root.tableController.rulesSession.cardForInspection(sourceId)
+            if (source && source.visibleIdentity === true && source.name
+                    && !String(source.name).includes("'s Effect"))
+                return source
+            const cleaned = String(name || "").replace(/ \(\d+\)'s Effect$/, "").replace(/'s Effect$/, "")
+            return {name: cleaned, setCode: setCode, collectorNumber: collectorNumber,
+                visibleIdentity: cleaned.length > 0, faceDown: cleaned.length === 0,
+                cardId: objectId, tapped: false}
+        }
         objectName: "forgeStackEntry-" + objectId
         width: column.width
         height: Math.max(138 * root.unit, details.height + 18 * root.unit)
@@ -101,7 +112,7 @@ Rectangle {
             width: 86 * root.unit
             height: 120 * root.unit
             tableController: root.tableController
-            card: entry
+            card: entry.artCard
             objectKind: "spell"
             unit: root.unit
             fullFace: true
@@ -118,10 +129,19 @@ Rectangle {
                 objectName: "forgeStackName-" + entry.objectId
                 textFormat: Text.PlainText
                 width: parent.width
-                text: entry.visibleIdentity
-                    ? (typeof root.tableController.cardDisplayName === "function"
-                       ? root.tableController.cardDisplayName(entry.name) : entry.name)
-                    : entry.rulesText && entry.rulesText !== "Face-down spell" ? entry.rulesText : qsTr("Face-down spell")
+                text: {
+                    if (!entry.visibleIdentity)
+                        return entry.rulesText && entry.rulesText !== "Face-down spell"
+                                ? entry.rulesText : qsTr("Face-down spell")
+                    const effect = /^(.*) \(\d+\)'s Effect$/.exec(entry.name)
+                            || /^(.*)'s Effect$/.exec(entry.name)
+                    const catalog = root.tableController.cardCatalogModel
+                    if (effect && catalog && catalog.language === "zh"
+                            && typeof root.tableController.cardDisplayName === "function")
+                        return qsTr("%1's effect").arg(root.tableController.cardDisplayName(effect[1]))
+                    return typeof root.tableController.cardDisplayName === "function"
+                            ? root.tableController.cardDisplayName(entry.name) : entry.name
+                }
                 color: Theme.text
                 font.pixelSize: 13 * root.unit
                 font.weight: Font.DemiBold
@@ -138,15 +158,28 @@ Rectangle {
                 elide: Text.ElideRight
             }
             Text {
+                objectName: "forgeStackRules-" + entry.objectId
                 textFormat: Text.PlainText
                 width: parent.width
-                text: typeof root.tableController.promptOptionLabel === "function"
-                      ? root.tableController.promptOptionLabel("", "", entry.rulesText)
-                      : entry.rulesText
+                visible: text.length > 0
+                text: {
+                    const catalog = root.tableController.cardCatalogModel
+                    if (catalog) {
+                        void catalog.imageRevision
+                        void catalog.language
+                    }
+                    const effect = /^(.*) \(\d+\)'s Effect$/.exec(entry.name)
+                            || /^(.*)'s Effect$/.exec(entry.name)
+                    const cardName = effect ? effect[1]
+                            : (entry.artCard && entry.artCard.name) || entry.name
+                    return typeof root.tableController.stackAbilityText === "function"
+                            ? root.tableController.stackAbilityText(cardName, entry.rulesText)
+                            : entry.rulesText
+                }
                 color: Theme.textMuted
                 font.pixelSize: 10 * root.unit
                 wrapMode: Text.WordWrap
-                maximumLineCount: 2
+                maximumLineCount: 4
                 elide: Text.ElideRight
             }
             Repeater {

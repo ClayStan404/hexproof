@@ -25,7 +25,7 @@ jobs:
       - name: Install build dependencies
         run: >
           sudo apt-get update &&
-          sudo apt-get install -y cmake curl gzip jq ninja-build python3 sqlite3 zlib1g-dev
+          sudo apt-get install -y cmake curl gzip jq ninja-build python3 sqlite3 zlib1g-dev libsecret-1-dev
       - name: Select Forge build JDK
         uses: ./.github/actions/setup-forge-build
       - name: Install Qt

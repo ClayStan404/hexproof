@@ -102,6 +102,9 @@ void CardCatalog::completeCardRequest(const CardRequest &request, CardRecord rec
             m_cardImageProvider->invalidatePath(record.imagePath);
         emitRecord(record);
         scheduleImageRevisionChanged();
+        // Fetch missing translated rules independently of the chosen printing.
+        // Metadata must not send exact artwork back through provider selection.
+        backfillLocalizedRules(request, record);
     } else if (cacheFailure) {
         m_artCache->rememberFailure(key);
     }

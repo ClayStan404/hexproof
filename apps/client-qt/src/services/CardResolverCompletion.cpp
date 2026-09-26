@@ -61,7 +61,7 @@ void CardResolver::finishCurrentCard(bool success, bool cacheFailure)
 {
     if (!m_currentRecord.valid() && m_metadataRecord.valid())
         m_currentRecord = m_metadataRecord;
-    if (m_currentRequest.supportCard && m_currentRequest.language == QStringLiteral("zh")) {
+    if (m_currentRequest.language == QStringLiteral("zh")) {
         const bool checked = m_metadataRecord.oracleTextLanguage == QStringLiteral("zh") ||
                              (m_localizedRulesAttempted && !m_localizedRulesTransientFailure);
         m_currentRecord.localizedRulesChecked = checked;

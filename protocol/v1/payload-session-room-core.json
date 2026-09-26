@@ -43,7 +43,8 @@
         {"name": "hasPassword", "type": "boolean", "required": true},
         {"name": "phase", "type": "string", "required": true, "enum": ["RoomPhaseWaiting", "RoomPhaseLoading", "RoomPhaseStarted", "LimitedStageDraft", "LimitedStageDeckBuilding", "RoomPhaseFreePlay"]},
         {"name": "playerJoinable", "type": "boolean", "required": true},
-        {"name": "spectatorJoinable", "type": "boolean", "required": true}
+        {"name": "spectatorJoinable", "type": "boolean", "required": true},
+        {"name": "nodeName", "type": "string", "required": false}
       ]
     }
   ],

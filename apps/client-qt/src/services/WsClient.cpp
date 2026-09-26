@@ -3,6 +3,8 @@
 
 #include "WsClient.h"
 
+#include <QJsonArray>
+
 #include "LimitedSessionState.h"
 #include "NetworkLimits.h"
 #include "ProtocolSession.h"
@@ -106,6 +108,24 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
     }
     m_protocolSession = new ProtocolSession(this);
     m_replays = new ForgeReplayService(this);
+    m_account = new AccountSessionState(this);
+    connect(m_account, &AccountSessionState::commandRequested, this,
+            [this](const QJsonObject &payload) {
+                const QString expected = m_serverDirectory->accountRealmForUrl(m_serverUrl);
+                const QString id =
+                    expected.isEmpty() ? QString{} : send(kTypeAccountCommand, payload);
+                m_account->commandQueued(id);
+            });
+    connect(m_account, &AccountSessionState::replayGranted, this,
+            [this](const QJsonObject &grant) { m_replays->acceptGrant(m_serverUrl, grant); });
+    connect(m_account, &AccountSessionState::loggedOut, this, [this] {
+        m_intentionalDisconnect = true;
+        m_reconnectController->clear();
+        clearRoomState();
+        m_tournamentSession->clear();
+        m_limitedSession->clear();
+        m_ws.close();
+    });
     connect(m_replays, &ForgeReplayService::requestPage, this,
             [this](const QString &server, const QJsonObject &payload) {
                 if (!connected() || server != m_serverUrl) {
@@ -121,6 +141,11 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
             if (type == kTypeForgeReplayGet)
                 m_replays->fail(error);
         });
+    m_clusterTimer.setSingleShot(true);
+    connect(&m_clusterTimer, &QTimer::timeout, this, [this] {
+        failClusterRoute(
+            tr("The node transfer timed out. Reconnect to check your room before trying again."));
+    });
     initializePeerTransport();
     connect(m_protocolSession, &ProtocolSession::commandQueued, this, &WsClient::commandQueued);
     connect(m_protocolSession, &ProtocolSession::commandSucceeded, this,
@@ -254,7 +279,11 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
 {
     const bool hadRoom = !roomId().isEmpty() || m_state == InRoom;
     m_reconnectController->stopRetry();
-    m_protocolSession->failAll(u"connection replaced before the server replied"_s);
+    if (!m_clusterRouting) {
+        m_protocolSession->failAll(u"connection replaced before the server replied"_s);
+        clearClusterCommand();
+    }
+    m_clusterNode.clear();
     if (hadRoom)
         clearRoomState();
     m_tournamentSession->clear();
@@ -272,6 +301,7 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
         m_serverUrl = nextServerUrl;
         emit serverUrlChanged();
     }
+    m_account->prepareRealm(m_serverDirectory->accountRealmForUrl(m_serverUrl));
     m_displayName = displayName.trimmed();
     persistLastDisplayName(m_displayName);
     if (!m_reconnectController->matches(m_serverUrl, m_displayName))
@@ -298,6 +328,7 @@ void WsClient::openTransport()
 
 void WsClient::connectToServer(int serverIndex, const QString &displayName)
 {
+    m_account->setLoginIntent({}, {});
     const QString url = m_serverDirectory->serverUrl(serverIndex);
     if (serverIndex < 0 || serverIndex >= m_serverDirectory->configuredServerCount() ||
         url.isEmpty()) {
@@ -307,8 +338,20 @@ void WsClient::connectToServer(int serverIndex, const QString &displayName)
     connectTo(url, displayName);
 }
 
+void WsClient::connectAccountToServer(int serverIndex, const QString &operation,
+                                      const QString &value)
+{
+    const QString url = m_serverDirectory->serverUrl(serverIndex);
+    if (m_serverDirectory->accountRealmForUrl(url).isEmpty() ||
+        !QStringList{u"create"_s, u"login"_s, u"recover"_s, u"guest"_s}.contains(operation))
+        return;
+    m_account->setLoginIntent(operation, value.trimmed());
+    connectTo(url, operation == u"create"_s || operation == u"guest"_s ? value : u"Player"_s);
+}
+
 void WsClient::connectToCustomServer(const QString &url, const QString &displayName)
 {
+    m_account->setLoginIntent({}, {});
     clearLastError();
     clearVersionMismatch();
     if (url.trimmed().isEmpty() || !m_serverDirectory->setCustomServerUrl(url)) {
@@ -382,6 +425,7 @@ void WsClient::refreshServerDirectory(bool force)
 
 void WsClient::disconnectFromHub()
 {
+    clearClusterCommand();
     m_intentionalDisconnect = true;
     m_reconnectController->stopRetry();
     m_reconnectController->clear();
@@ -416,11 +460,22 @@ void WsClient::copyToClipboard(const QString &text)
 
 QString WsClient::tournamentCredential(const QString &tournamentId) const
 {
-    const QByteArray serverKey =
-        QCryptographicHash::hash(m_serverUrl.toUtf8(), QCryptographicHash::Sha256).toHex();
     QSettings settings;
-    return settings
-        .value(u"tournaments/"_s + QString::fromLatin1(serverKey) + u"/"_s + tournamentId.toUpper())
+    QString endpoint = m_serverUrl;
+    QString localId = tournamentId.toUpper();
+    if (localId.contains(u':')) {
+        const QString realm = m_serverDirectory->accountRealmForUrl(m_serverUrl);
+        if (realm.isEmpty())
+            return {};
+        const QString node = localId.section(u':', 0, 0);
+        endpoint = settings.value(u"officialNodes/"_s + realm + u'/' + node).toString();
+        if (m_serverDirectory->accountRealmForUrl(endpoint) != realm)
+            return {};
+        localId = localId.section(u':', 1);
+    }
+    const QByteArray serverKey =
+        QCryptographicHash::hash(endpoint.toUtf8(), QCryptographicHash::Sha256).toHex();
+    return settings.value(u"tournaments/"_s + QString::fromLatin1(serverKey) + u"/"_s + localId)
         .toString();
 }
 
@@ -447,6 +502,26 @@ void WsClient::removeTournamentCredential(const QString &tournamentId)
                     tournamentId.toUpper());
 }
 
+void WsClient::claimLocalAccountData()
+{
+    if (!m_account->authenticated() || !connected())
+        return;
+    QList<QJsonObject> claims;
+    const auto serverKey =
+        QCryptographicHash::hash(m_serverUrl.toUtf8(), QCryptographicHash::Sha256).toHex();
+    QSettings settings;
+    settings.beginGroup(u"tournaments/"_s + QString::fromLatin1(serverKey));
+    for (const QString &id : settings.childKeys()) {
+        const QString credential = settings.value(id).toString();
+        if (!credential.isEmpty())
+            claims.append({{u"kind"_s, u"tournament"_s},
+                           {u"resourceId"_s, id},
+                           {u"credential"_s, credential}});
+    }
+    claims.append(m_replays->accountClaims(m_serverUrl));
+    m_account->claimAll(claims);
+}
+
 void WsClient::resumeTournamentView()
 {
     if (!m_tournamentSession->inTournament() || (!connected() && !inRoom()))
@@ -458,7 +533,9 @@ void WsClient::resumeTournamentView()
     // table still has participant/organizer membership and can restore it.
     const QString credential =
         m_tournamentSession->role() == u"viewer"_s ? QString{} : tournamentCredential(id);
-    if (!credential.isEmpty())
+    if (m_account->authenticated() && m_tournamentSession->role() != u"viewer"_s)
+        payload.insert(u"useAccount"_s, true);
+    else if (!credential.isEmpty())
         payload.insert(u"credential"_s, credential);
     send(kTypeTournamentEnter, payload);
 }
@@ -486,6 +563,11 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
             setLastError(u"connection"_s, u"action not sent while the connection is unavailable"_s);
             m_protocolSession->reportUnqueuedFailure(type, payload, m_lastError);
         }
+        return {};
+    }
+    if (clusterCommand(type, payload) && !m_clusterRequestId.isEmpty()) {
+        m_protocolSession->reportUnqueuedFailure(
+            type, payload, tr("Wait for the current room request to finish."));
         return {};
     }
     clearLastError();
@@ -519,6 +601,11 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         m_rulesResponseTimer.start(responseTimeout);
         emit rulesResponsePendingChanged();
     }
+    if (clusterCommand(type, payload)) {
+        m_clusterRequestId = command.id;
+        m_clusterCommandType = type;
+        m_clusterWire = command.wire;
+    }
     m_protocolSession->markQueued(command);
     if (directQueued) {
         m_peerDecisionClock.start();
@@ -537,6 +624,18 @@ void WsClient::onConnected()
     p.insert(u"displayName"_s, m_displayName);
     p.insert(u"clientVersion"_s, QStringLiteral(HEXPROOF_VERSION));
     p.insert(u"protocol"_s, kProtocolVersion);
+    const QString accountToken =
+        m_account->helloToken(m_serverDirectory->accountRealmForUrl(m_serverUrl));
+    if (!accountToken.isEmpty())
+        p.insert(u"accountSession"_s, accountToken);
+    if (!m_clusterTicket.isEmpty())
+        p.insert(u"clusterTicket"_s, m_clusterTicket);
+    const QString clusterRealm = m_serverDirectory->accountRealmForUrl(m_serverUrl);
+    if (!clusterRealm.isEmpty())
+        p.insert(u"clusterRealm"_s, clusterRealm);
+    const auto nodeLatencies = clusterLatencies();
+    if (!nodeLatencies.isEmpty())
+        p.insert(u"nodeLatencies"_s, nodeLatencies);
     m_resumeAttempted = m_reconnectController->hasCredentials() &&
                         m_reconnectController->matches(m_serverUrl, m_displayName);
     if (m_resumeAttempted) {
@@ -551,8 +650,15 @@ void WsClient::onDisconnected(quint64 transportGeneration)
 {
     if (transportGeneration != m_transportGeneration)
         return;
-    clearRulesResponse();
+    if (!m_clusterDestination.isEmpty()) {
+        const QString requestId = m_clusterRequestId;
+        clearClusterCommand();
+        m_account->acceptError(requestId, kErrClusterUnavailable,
+                               tr("The connection to the selected official node was lost."));
+    }
+    clearClusterCommand();
     m_peerResumeNeeded = m_peerConsent;
+    clearRulesResponse();
     m_peerTransport->stop();
     m_helloTimer.stop();
     m_reconnectController->flush();
@@ -574,6 +680,7 @@ void WsClient::onDisconnected(quint64 transportGeneration)
     }
     m_protocolSession->failAll(u"connection closed before the server replied"_s);
     setState(Disconnected);
+    m_clusterNode.clear();
     m_playerHostingAvailable = false;
     m_forgeAIAvailable = false;
     m_aiModelsAvailable = false;
@@ -757,6 +864,7 @@ void WsClient::setState(ConnectionState s)
     if (m_state == s)
         return;
     m_state = s;
+    m_account->setTransportReady(connected() && !m_clusterRouting);
     emit connectionStateChanged();
 }
 

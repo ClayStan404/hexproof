@@ -66,6 +66,7 @@ class ForgeReplayService final : public QObject
     }
     void acceptGrant(const QString &server, const QJsonObject &grant);
     void acceptPage(const QString &server, const QJsonObject &page);
+    QList<QJsonObject> accountClaims(const QString &server) const;
     void fail(const QString &message);
     void setSpeed(double speed);
     Q_INVOKABLE bool open(const QString &id);

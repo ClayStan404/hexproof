@@ -17,6 +17,7 @@ import (
 func tournamentActor(sess *Session) tournament.Actor {
 	binding := sess.Tournament()
 	return tournament.Actor{
+		AccountID:     sess.Account().ID,
 		ConnectionID:  sess.ConnectionID,
 		Role:          binding.Role,
 		ParticipantID: binding.ParticipantID,
@@ -44,8 +45,16 @@ func sendTournamentError(h *Handler, sess *Session, id string, err error) {
 
 func (h *Handler) handleTournamentList(sess *Session, env protocol.Envelope) error {
 	h.evictExpiredTournaments(time.Now().UTC())
-	listed, _ := protocol.NewEnvelope(protocol.TypeTournamentListed,
-		protocol.TournamentListed{Tournaments: h.tournaments.list()})
+	events := h.tournaments.list()
+	if h.clusterAgent != nil && sess.clusterEnabled {
+		view, err := h.clusterView(sess.Account().ID)
+		if err != nil {
+			h.clusterError(sess, env.ID, err)
+			return nil
+		}
+		events = view.Events
+	}
+	listed, _ := protocol.NewEnvelope(protocol.TypeTournamentListed, protocol.TournamentListed{Tournaments: events})
 	listed.ID = env.ID
 	h.send(sess, listed)
 	return nil
@@ -123,6 +132,12 @@ func (h *Handler) handleTournamentCreate(sess *Session, env protocol.Envelope) e
 				continue
 			}
 		}
+		event.OrganizerAccountID = sess.Account().ID
+		for _, participant := range event.Participants {
+			if participant.ConnectionID == sess.ConnectionID {
+				participant.AccountID = sess.Account().ID
+			}
+		}
 		if _, err = h.tournaments.create(event); err == nil {
 			break
 		}
@@ -166,7 +181,7 @@ func (h *Handler) handleTournamentEnter(sess *Session, env protocol.Envelope) er
 	}
 	if h.isCubeRoom(request.TournamentID) {
 		return h.handleCubeRoomJoin(sess, env, protocol.RoomJoin{
-			RoomID: request.TournamentID, Credential: request.Credential,
+			RoomID: request.TournamentID, Credential: request.Credential, UseAccount: request.UseAccount,
 		})
 	}
 	h.evictExpiredTournaments(time.Now().UTC())
@@ -193,13 +208,17 @@ func (h *Handler) handleTournamentEnter(sess *Session, env protocol.Envelope) er
 			return nil
 		}
 		var ok bool
-		role, participantID, ok = entry.event.BindCredential(
-			tournament.CredentialHash(request.Credential), sess.ConnectionID, time.Now().UTC())
+		role, participantID, ok = entry.event.BindCredentialForAccount(
+			tournament.CredentialHash(request.Credential), sess.Account().ID, sess.ConnectionID, time.Now().UTC())
 		if !ok {
 			entry.mu.Unlock()
 			h.sendError(sess, env.ID, protocol.ErrTournamentForbidden,
 				"invalid tournament credential")
 			return nil
+		}
+	} else if request.UseAccount && sess.Account().ID != "" {
+		if accountRole, accountParticipant, ok := entry.event.BindAccount(sess.Account().ID, sess.ConnectionID, time.Now().UTC()); ok {
+			role, participantID = accountRole, accountParticipant
 		}
 	}
 	entry.mu.Unlock()
@@ -285,8 +304,16 @@ func (h *Handler) handleTournamentRegister(sess *Session, env protocol.Envelope)
 	}
 	defer entry.opMu.Unlock()
 	entry.mu.Lock()
+	if accountRole, existing := entry.event.AccountRole(sess.Account().ID); existing != "" || (accountRole == tournament.RoleOrganizer && binding.Role != tournament.RoleOrganizer) {
+		entry.mu.Unlock()
+		h.sendError(sess, env.ID, protocol.ErrTournamentForbidden, "This account is already registered; restore its participant identity")
+		return nil
+	}
 	participant, registerErr := entry.event.Register(
 		sess.DisplayName, sess.ConnectionID, tournament.CredentialHash(token), time.Now())
+	if registerErr == nil {
+		participant.AccountID = sess.Account().ID
+	}
 	if registerErr == nil && binding.Role == tournament.RoleOrganizer {
 		entry.event.OrganizerParticipantID = participant.ID
 	}
@@ -577,6 +604,10 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 	}
 	var lockedDeck *protocol.DeckSelect
 	participant := event.Participant(binding.ParticipantID)
+	sealConstructedDeck := event.EventType == protocol.LimitedEventConstructed &&
+		rulesMode == protocol.RulesModeForge
+	constructedDeckLocked := event.EventType == protocol.LimitedEventConstructed &&
+		roundNumber > 1 && participant != nil && participant.Deck != nil
 	if event.EventType != protocol.LimitedEventConstructed &&
 		(participant == nil || participant.Deck == nil) {
 		entry.mu.Unlock()
@@ -585,7 +616,7 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 		return nil
 	}
 	if participant != nil && participant.Deck != nil &&
-		event.EventType != protocol.LimitedEventConstructed {
+		(event.EventType != protocol.LimitedEventConstructed || constructedDeckLocked) {
 		deckCopy := *participant.Deck
 		deckCopy.Commanders = append([]string(nil), participant.Deck.Commanders...)
 		deckCopy.CommanderPrintings = append([]protocol.DeckCard(nil), participant.Deck.CommanderPrintings...)
@@ -633,9 +664,17 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			return nil
 		}
 		var selected room.Result
-		if lockedDeck != nil {
+		if sealConstructedDeck || lockedDeck != nil {
 			roomOperation.mu.Lock()
-			selected, createErr = roomOperation.room.SelectDeck(sess.ConnectionID, *lockedDeck)
+			if sealConstructedDeck {
+				roomOperation.room.EnableActionClock(time.Now().UTC())
+			}
+			if lockedDeck != nil {
+				selected, createErr = roomOperation.room.SelectDeck(sess.ConnectionID, *lockedDeck)
+				if createErr == nil && constructedDeckLocked {
+					createErr = roomOperation.room.SealTournamentDeck(sess.ConnectionID)
+				}
+			}
 			roomOperation.mu.Unlock()
 			if createErr != nil {
 				sess.setRoom(nil)
@@ -679,9 +718,14 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			HostSeat: r.HostSeat,
 		})
 		h.send(sess, created)
-		if lockedDeck == nil {
+		if lockedDeck == nil && !sealConstructedDeck {
 			snapshotEnvelope, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, snapshot)
 			h.send(sess, snapshotEnvelope.WithSeq(seq))
+		} else if lockedDeck == nil {
+			roomOperation.mu.Lock()
+			envelope := roomOperation.room.SnapshotEnvelope()
+			roomOperation.mu.Unlock()
+			h.fanout(r, []protocol.Envelope{envelope})
 		} else {
 			// The creation snapshot predates automatic Limited deck selection.
 			// Send only the reducer's post-selection snapshot so the client
@@ -726,6 +770,9 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 	if lockedDeck != nil {
 		roomOperation.mu.Lock()
 		selected, selectErr := roomOperation.room.SelectDeck(sess.ConnectionID, *lockedDeck)
+		if selectErr == nil && constructedDeckLocked {
+			selectErr = roomOperation.room.SealTournamentDeck(sess.ConnectionID)
+		}
 		roomOperation.mu.Unlock()
 		if selectErr != nil {
 			roomOperation.mu.Lock()

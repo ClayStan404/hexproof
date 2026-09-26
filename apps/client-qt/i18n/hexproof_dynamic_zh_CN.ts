@@ -3563,5 +3563,61 @@ your way.</source>
         <source>direct transport requires a player-hosted seat</source>
         <translation>直连仅适用于玩家托管房间中的对战席位</translation>
     </message>
-</context>
+        <message>
+            <source>Recover</source>
+            <translation>恢复</translation>
+        </message>
+            <message>
+            <source>Account</source>
+            <translation>账号</translation>
+        </message>
+            <message>
+            <source>Account service is unavailable; retry later</source>
+            <translation>账号服务暂不可用，请稍后重试</translation>
+        </message>
+            <message>
+            <source>Account credential is invalid or expired</source>
+            <translation>账号凭据无效或已过期</translation>
+        </message>
+            <message>
+            <source>Account capacity reached</source>
+            <translation>账号数量已达上限</translation>
+        </message>
+            <message>
+            <source>Account request rate limit exceeded</source>
+            <translation>账号操作过于频繁，请稍后重试</translation>
+        </message>
+            <message>
+            <source>Sign out before changing accounts</source>
+            <translation>切换账号前请先退出登录</translation>
+        </message>
+            <message>
+            <source>This account was opened on another connection to this server</source>
+            <translation>此账号已在另一连接上登录了本服务器</translation>
+        </message>
+            <message>
+            <source>Leave the current room before taking over another account seat</source>
+            <translation>请先离开当前房间，再恢复账号的其他座位</translation>
+        </message>
+            <message>
+            <source>No recoverable account seat</source>
+            <translation>没有可恢复的账号座位</translation>
+        </message>
+            <message>
+            <source>The saved resource credential is unavailable or belongs to another account</source>
+            <translation>已保存的关联凭据不可用，或已属于其他账号</translation>
+        </message>
+            <message>
+            <source>Resume the existing account seat before joining another room</source>
+            <translation>请先恢复账号的现有座位，再加入其他房间</translation>
+        </message>
+            <message>
+            <source>This account is already registered; restore its participant identity</source>
+            <translation>此账号已报名，请恢复原参赛身份</translation>
+        </message>
+            <message>
+            <source>Leave the current room or event before recovering an account</source>
+            <translation>恢复账号前请先离开当前房间或赛事</translation>
+        </message>
+    </context>
 </TS>

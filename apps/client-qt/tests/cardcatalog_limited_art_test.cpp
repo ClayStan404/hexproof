@@ -159,12 +159,12 @@ void TestCardCatalog::cachesLimitedProductWithMtgchSetIndex() const
         QCOMPARE(catalog.limitedArtTotal(), 1);
         QCOMPARE(catalog.limitedArtCompleted(), 1);
         QCOMPARE(catalog.limitedArtFailed(), 0);
-        QCOMPARE(network.requestedUrls.size(), 2);
+        QCOMPARE(network.requestedUrls.size(), 3);
         QCOMPARE(network.requestedUrls.at(0).path(), u"/api/v1/set/M11/cards/"_s);
         QCOMPARE(network.requestedUrls.at(1).host(), u"images.mtgch.com"_s);
-        QVERIFY(std::none_of(
-            network.requestedUrls.cbegin(), network.requestedUrls.cend(),
-            [](const QUrl &url) { return url.path().startsWith(u"/api/v1/card/"_s); }));
+        // The set index still supplies the image; only missing translated rules
+        // require a per-card metadata request after that image is cached.
+        QCOMPARE(network.requestedUrls.at(2), QUrl(u"https://mtgch.com/api/v1/card/M11/149/"_s));
         QVERIFY(catalog.printingImageSource(u"Lightning Bolt"_s, u"M11"_s, u"149"_s)
                     .startsWith(u"file:"_s));
     }

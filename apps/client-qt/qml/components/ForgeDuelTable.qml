@@ -66,6 +66,45 @@ Rectangle {
     readonly property string turnOwner: !session.active || session.turn < 1 || session.activeSeat < 0 ? qsTr("Preparing game")
         : session.activeSeat === tableController.localSeat ? qsTr("Your turn")
         : qsTr("%1's turn").arg(tableController.matchUi.playerName(session.activeSeat))
+    readonly property bool turnReady: session.active && session.turn > 0 && session.activeSeat >= 0 && !session.gameOver
+    readonly property bool ownTurn: turnReady && session.activeSeat === tableController.localSeat
+    readonly property bool localPriority: tableController.priority
+        && tableController.priority.isPriorityPrompt
+        && !tableController.priority.automaticallyPassing
+        && !tableController.priority.yieldMode
+    readonly property bool opponentDeciding: turnReady && !tableController.sideboarding
+        && !session.gameOver && !localPriority
+        && session.prioritySeat >= 0 && session.prioritySeat !== tableController.localSeat
+        && !(session.promptPending && session.prioritySeat === tableController.localSeat)
+    property double actionClockMarked: 0
+    property int actionClockTick: 0
+    onActionClockBasisChanged: actionClockMarked = Date.now()
+    readonly property var actionClockBasis: tableController.roomSession.actionClockMs || []
+    function actionClockText(seat) {
+        void actionClockTick
+        const basis = actionClockBasis
+        if (!basis || seat < 0 || seat >= basis.length)
+            return ""
+        let remaining = Number(basis[seat])
+        if (!Number.isFinite(remaining))
+            return ""
+        if (tableController.roomSession.actionClockRunning === seat && actionClockMarked > 0)
+            remaining -= Date.now() - actionClockMarked
+        remaining = Math.max(0, remaining)
+        const total = Math.ceil(remaining / 1000)
+        const minutes = Math.floor(total / 60)
+        const seconds = total % 60
+        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds
+    }
+    Timer {
+        interval: 250
+        running: (root.actionClockBasis || []).length > 0
+        repeat: true
+        onTriggered: root.actionClockTick++
+    }
+    readonly property string turnCalloutText: !turnReady ? ""
+        : session.activeSeat === tableController.localSeat ? qsTr("My turn")
+        : tableController.localSeat < 0 ? turnOwner : qsTr("Opponent's turn")
     readonly property var stackTarget: stackPanel.currentTarget
     readonly property string locatedId: stackTarget && stackTarget.kind === "card" ? stackTarget.objectId : ""
     readonly property int locatedSeat: stackTarget && stackTarget.kind === "player" ? stackTarget.seat : -1
@@ -167,7 +206,25 @@ Rectangle {
                 zonePopup.close()
                 stackPanel.clearSelection()
             }
+            root.scheduleTurnCallout()
         }
+    }
+    Component.onCompleted: announceTurn()
+    function scheduleTurnCallout() {
+        Qt.callLater(root.announceTurn)
+    }
+    function announceTurn() {
+        if (!turnReady || tableController.sideboarding) {
+            turnCallout.shownGame = session.gameId
+            turnCallout.shownSeat = -1
+            turnCallout.opacity = 0
+            return
+        }
+        if (turnCallout.shownGame === session.gameId && turnCallout.shownSeat === session.activeSeat)
+            return
+        turnCallout.shownGame = session.gameId
+        turnCallout.shownSeat = session.activeSeat
+        turnCallout.present(turnCalloutText)
     }
     Connections {
         target: root.tableController
@@ -290,6 +347,9 @@ Rectangle {
             ? root.tableController.combatInteraction.seatSelected(seat) : root.tableController.interaction.seatSelected(seat))
         readonly property bool combatHovered: root.combat.hoveredTarget
             && root.combat.hoveredTarget.kind === "player" && root.combat.hoveredTarget.seat === seat
+        readonly property bool underAttack: (root.session.battlefieldRelationships || []).some(
+            link => link.kind === "attack" && !link.targetId && link.targetSeat === seat)
+        readonly property string clockText: root.actionClockText(seat)
         readonly property real discSize: 52 * root.unit
         readonly property real lifeCenterY: lifeDisc.y + lifeDisc.height / 2
         objectName: "rulesPlayerTarget" + seat
@@ -331,6 +391,18 @@ Rectangle {
                 font.weight: Font.DemiBold
             }
             Text {
+                objectName: "forgeActionClock-" + plate.seat
+                visible: plate.clockText.length > 0
+                textFormat: Text.PlainText
+                width: parent.width
+                text: plate.clockText
+                horizontalAlignment: Text.AlignHCenter
+                color: root.tableController.roomSession.actionClockRunning === plate.seat
+                       ? "#f0c7bc" : Theme.textSecondary
+                font.pixelSize: 13 * root.unit
+                font.weight: Font.Bold
+            }
+            Text {
                 objectName: "forgePlayerZones-" + plate.seat
                 textFormat: Text.PlainText
                 width: parent.width
@@ -369,8 +441,10 @@ Rectangle {
             y: plate.isBottom ? 0 : parent.height - height
             antialiasing: true
             color: Theme.withAlpha(Theme.surface, plate.selected || plate.actionable ? 0.88 : 0.62)
-            border.width: plate.combatHovered ? 4 : plate.selected || plate.activeFocus || plate.actionable || plate.activeTurn ? 2 : 0
-            border.color: plate.combatHovered ? Theme.primary : plate.selected || plate.activeFocus ? Theme.accent
+            border.width: plate.combatHovered || plate.underAttack ? 4
+                          : plate.selected || plate.activeFocus || plate.actionable || plate.activeTurn ? 2 : 0
+            border.color: plate.underAttack ? "#d4654f"
+                          : plate.combatHovered ? Theme.primary : plate.selected || plate.activeFocus ? Theme.accent
                           : plate.actionable ? Theme.primary : Theme.warning
             Text {
                 textFormat: Text.PlainText
@@ -411,7 +485,10 @@ Rectangle {
             objectName: "forgeCommanders-" + seat
             x: root.replayMode ? root.boardRight - width
                 : Math.max(root.boardLeft, root.boardLeft + (root.boardWidth - 176 * root.unit) / 2 - width - 8 * root.unit)
-            y: seat === root.bottomSeat ? root.handTop - (root.replayMode ? 0 : 50 * root.unit) : 6 * root.unit
+            y: seat === root.bottomSeat
+               ? root.handTop - (root.replayMode ? 0 : 50 * root.unit)
+                 - (root.localPriority ? 18 * root.unit : 0)
+               : 6 * root.unit
             z: 26
             width: Math.min(220 * root.unit, (root.centerWidth - 176 * root.unit) / 2 - 10 * root.unit)
             spacing: 4 * root.unit
@@ -501,6 +578,165 @@ Rectangle {
             }
         }
     }
+    Row {
+        id: phaseTrack
+        objectName: "forgePhaseTrack"
+        // Overlay the center seam. It does not change lane geometry, and it
+        // drops below the opponent-deciding banner so the current step stays visible.
+        x: root.boardLeft
+        y: {
+            const centered = root.battlefieldMiddle - height / 2
+            if (!opponentDecidingBanner.visible)
+                return centered
+            return Math.min(opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
+                             root.battlefieldBottom - height)
+        }
+        width: Math.max(0, Math.min(root.boardWidth,
+                         (decisionDock.visible ? decisionDock.x : root.boardRight) - x - 8 * root.unit))
+        height: 18 * root.unit
+        z: 45
+        spacing: 2 * root.unit
+        enabled: false
+        visible: root.turnReady && !root.tableController.sideboarding
+        readonly property var steps: [
+            "untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers",
+            "declare_blockers", "combat_damage", "end_combat", "main2", "end", "cleanup"
+        ]
+        function shortLabel(step) {
+            switch (step) {
+            case "untap": return qsTr("Untap")
+            case "upkeep": return qsTr("Upkeep")
+            case "draw": return qsTr("Draw")
+            case "main1": return qsTr("Main")
+            case "begin_combat": return qsTr("Combat")
+            case "declare_attackers": return qsTr("Attack")
+            case "declare_blockers": return qsTr("Block")
+            case "combat_damage": return qsTr("Damage")
+            case "end_combat": return qsTr("Combat end")
+            case "main2": return qsTr("Main")
+            case "end": return qsTr("End")
+            case "cleanup": return qsTr("Cleanup")
+            default: return step
+            }
+        }
+        Repeater {
+            model: phaseTrack.steps
+            delegate: Rectangle {
+                required property string modelData
+                required property int index
+                objectName: "forgePhase-" + modelData
+                readonly property bool current: root.session.step === modelData
+                readonly property bool past: phaseTrack.steps.indexOf(root.session.step) > index
+                width: Math.max(0, (phaseTrack.width - phaseTrack.spacing * 11) / 12)
+                height: phaseTrack.height
+                radius: 3 * root.unit
+                color: current ? Theme.accent : past ? Theme.withAlpha(Theme.accent, 0.28) : Theme.withAlpha("#101820", 0.55)
+                Text {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    textFormat: Text.PlainText
+                    text: phaseTrack.shortLabel(modelData)
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                    color: current ? Theme.primaryInk : Theme.text
+                    font.pixelSize: 8 * root.unit
+                    font.weight: current ? Font.Bold : Font.Normal
+                }
+            }
+        }
+    }
+    Item {
+        id: opponentDecidingBanner
+        objectName: "forgeOpponentDeciding"
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: root.battlefieldMiddle - height / 2
+        z: 90
+        enabled: false
+        visible: root.opponentDeciding && !root.modalOpen
+        width: decidingLabel.implicitWidth + 28 * root.unit
+        height: decidingLabel.implicitHeight + 14 * root.unit
+        Rectangle {
+            anchors.fill: parent
+            radius: 8 * root.unit
+            color: Theme.withAlpha("#101820", 0.82)
+            border.width: 1
+            border.color: "#d4654f"
+        }
+        Text {
+            id: decidingLabel
+            objectName: "forgeOpponentDecidingText"
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: qsTr("Opponent is deciding")
+            color: "#f0c7bc"
+            font.pixelSize: 18 * root.unit
+            font.weight: Font.Bold
+        }
+    }
+    Rectangle {
+        objectName: "forgeActiveBattlefield"
+        visible: root.turnReady && !root.tableController.sideboarding
+        x: root.boardLeft
+        y: root.session.activeSeat === root.bottomSeat ? root.battlefieldMiddle : root.battlefieldTop
+        width: root.boardWidth
+        height: root.session.activeSeat === root.bottomSeat
+               ? Math.max(0, root.battlefieldBottom - root.battlefieldMiddle)
+               : Math.max(0, root.battlefieldMiddle - root.battlefieldTop)
+        radius: 10 * root.unit
+        color: Theme.withAlpha(root.ownTurn ? Theme.accent : "#d4654f", 0.14)
+        border.width: 2
+        border.color: Theme.withAlpha(root.ownTurn ? Theme.accent : "#d4654f", 0.9)
+    }
+    Item {
+        id: turnCallout
+        objectName: "forgeTurnCallout"
+        anchors.centerIn: parent
+        z: 100
+        enabled: false
+        opacity: 0
+        visible: opacity > 0 && !root.modalOpen
+        width: Math.min(root.width * 0.72, calloutLabel.implicitWidth + 72 * root.unit)
+        height: calloutLabel.implicitHeight + 36 * root.unit
+        property string message: ""
+        property string shownGame: ""
+        property int shownSeat: -1
+        function present(message) {
+            fade.stop()
+            turnCallout.message = message
+            turnCallout.opacity = 1
+            hold.restart()
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: 12 * root.unit
+            color: Theme.withAlpha("#101820", 0.88)
+            border.width: 2
+            border.color: root.ownTurn ? Theme.accent : "#d4654f"
+        }
+        Text {
+            id: calloutLabel
+            objectName: "forgeTurnCalloutText"
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: turnCallout.message
+            color: root.ownTurn ? Theme.accent : "#f0c7bc"
+            font.pixelSize: 44 * root.unit
+            font.weight: Font.Black
+        }
+        Timer {
+            id: hold
+            interval: 1400
+            onTriggered: fade.start()
+        }
+        NumberAnimation {
+            id: fade
+            target: turnCallout
+            property: "opacity"
+            to: 0
+            duration: 420
+        }
+    }
     ForgeCardLane {
         id: opponentLands
         objectName: "forgeOpponentLands"
@@ -544,6 +780,7 @@ Rectangle {
         unit: root.unit
         ownerSeat: root.topSeat
         showCaption: false
+        combatForward: 1
         locatedId: root.locatedId
         visible: !root.tableController.sideboarding
     }
@@ -558,6 +795,7 @@ Rectangle {
         unit: root.unit
         ownerSeat: root.bottomSeat
         showCaption: false
+        combatForward: -1
         locatedId: root.locatedId
         visible: !root.tableController.sideboarding
     }
@@ -614,12 +852,14 @@ Rectangle {
             anchors.fill: parent
             z: 60
             unit: root.unit
-            dashed: modelData.kind === "attachment"
-            lineColor: dashed ? "#c5a0ee" : "#7ebcca"
+            dashed: false
+            lineColor: modelData.kind === "attack" ? "#d4654f" : "#7ebcca"
             visible: !root.tableController.sideboarding && !root.modalOpen
+                && modelData.kind !== "attachment"
                 && !(modelData.kind === "block" && (root.combat.active || root.replayMode))
             startPoint: root.pointFor(modelData.sourceId)
-            endPoint: root.pointFor(modelData.targetId)
+            endPoint: modelData.targetId ? root.pointFor(modelData.targetId)
+                      : root.playerPoint(modelData.targetSeat)
         }
     }
     Repeater {
@@ -668,7 +908,7 @@ Rectangle {
     ForgeHand {
         objectName: "forgeHand"
         x: root.handLeft
-        y: root.handTop
+        y: root.handTop - (root.localPriority ? 18 * root.unit : 0)
         z: 30
         width: Math.max(0, (root.replayMode ? root.boardRight - root.replayInfoWidth : decisionDock.x) - x - 20 * root.unit)
         height: root.handBandHeight - 4 * root.unit
@@ -1001,6 +1241,7 @@ Rectangle {
         y: 80 * root.unit
         width: decisionDock.width
         height: Math.min(365 * root.unit, Math.max(0, root.handTop - y - 12 * root.unit))
+        z: 60
         tableController: root.tableController
         unit: root.unit
         locatedId: root.stackTarget && root.stackTarget.kind === "spell" ? root.stackTarget.objectId : ""

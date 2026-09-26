@@ -34,6 +34,8 @@ class RoomSessionState : public QObject
     Q_PROPERTY(int maxSeats READ maxSeats NOTIFY snapshotChanged)
     Q_PROPERTY(QString phase READ phase NOTIFY snapshotChanged)
     Q_PROPERTY(qint64 loadId READ loadId NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantList actionClockMs READ actionClockMs NOTIFY snapshotChanged)
+    Q_PROPERTY(int actionClockRunning READ actionClockRunning NOTIFY snapshotChanged)
     Q_PROPERTY(bool host READ host NOTIFY hostChanged)
     Q_PROPERTY(QString role READ role NOTIFY roleChanged)
     Q_PROPERTY(int seatIndex READ seatIndex NOTIFY roleChanged)
@@ -128,6 +130,14 @@ class RoomSessionState : public QObject
     {
         return m_loadId;
     }
+    QVariantList actionClockMs() const
+    {
+        return m_actionClockMs;
+    }
+    int actionClockRunning() const
+    {
+        return m_actionClockRunning;
+    }
     bool host() const
     {
         return m_host;
@@ -194,6 +204,8 @@ class RoomSessionState : public QObject
     int m_maxSeats = 0;
     QString m_phase;
     qint64 m_loadId = 0;
+    QVariantList m_actionClockMs;
+    int m_actionClockRunning = -1;
     qint64 m_announcedLoadId = 0;
     bool m_host = false;
     QString m_role;

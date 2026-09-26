@@ -172,10 +172,7 @@ void CardCatalog::scheduleResolutionWork()
         const bool recordUsesMtgch = imageHost == QStringLiteral("images.mtgch.com") ||
                                      imageHost.endsWith(QStringLiteral(".mtgch.com"));
         const bool directRecordUsesPreferredProvider = prefersMtgch == recordUsesMtgch;
-        const bool needsLocalizedRules = request.supportCard &&
-                                         request.language == QStringLiteral("zh") &&
-                                         !directRecord.localizedRulesChecked;
-        if (!needsLocalizedRules && directRecordUsesPreferredProvider && directRecord.valid() &&
+        if (directRecordUsesPreferredProvider && directRecord.valid() &&
             !directRecord.imageUrl.isEmpty() && startDirectImageDownload({request, directRecord})) {
             continue;
         }

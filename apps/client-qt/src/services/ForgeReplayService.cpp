@@ -118,6 +118,20 @@ void ForgeReplayService::acceptGrant(const QString &server, const QJsonObject &g
     saveIndex();
 }
 
+QList<QJsonObject> ForgeReplayService::accountClaims(const QString &server) const
+{
+    QList<QJsonObject> result;
+    for (const auto &value : m_entries) {
+        const auto entry = value.toObject();
+        if (entry.value(u"server"_s).toString() == server &&
+            !entry.value(u"token"_s).toString().isEmpty())
+            result.append({{u"kind"_s, u"replay"_s},
+                           {u"resourceId"_s, entry.value(u"replayId"_s)},
+                           {u"credential"_s, entry.value(u"token"_s)}});
+    }
+    return result;
+}
+
 void ForgeReplayService::download(const QString &id)
 {
     if (busy())

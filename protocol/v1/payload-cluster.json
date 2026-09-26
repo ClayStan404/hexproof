@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v1",
+  "definitions": [
+    {
+      "name": "NodeLatency",
+      "goType": "NodeLatency",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "milliseconds",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "session.route",
+      "direction": "serverToClient",
+      "goType": "SessionRoute",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "realm",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ticket",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "nodeId",
+          "type": "string",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

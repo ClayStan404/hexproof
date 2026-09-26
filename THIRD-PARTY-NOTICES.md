@@ -4,6 +4,13 @@ Hexproof preserves the notices and license terms of the software and data it
 uses. Runtime packages may contain additional notices beside the relevant
 component.
 
+## Linux account credential storage
+
+The Linux client dynamically links GNOME libsecret and its GLib dependencies
+for Secret Service access. libsecret is licensed under LGPL-2.1-or-later.
+Source and license notices: <https://gitlab.gnome.org/GNOME/libsecret>.
+Distribution packages retain the library's original notices and license terms.
+
 ## Operation sound effects
 
 The client includes edited CC0 recordings from Kenney's Casino Audio 1.1,

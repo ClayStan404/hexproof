@@ -37,7 +37,9 @@ class TestDeckLibrary : public QObject
     void parsesMoxfieldPrintingDecorations() const;
     void preservesSpecialCollectorNumbers() const;
     void parsesMultipleCommanders() const;
+    void parsesSplitCardNames_data() const;
     void parsesSplitCardNames() const;
+    void normalizesSavedSplitCardNames() const;
     void parsesBlankLineSideboard() const;
     void parsesBlankLineCommander() const;
     void rejectsOversizedImports() const;

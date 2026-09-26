@@ -127,7 +127,6 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
     static const QRegularExpression exportMarker(
         QStringLiteral(R"((?:^|\s)\*(CMDR|F|E)\*(?=\s|$))"),
         QRegularExpression::CaseInsensitiveOption);
-    static const QRegularExpression splitCardSeparator(QStringLiteral(R"(\s+/\s+)"));
     static const QRegularExpression sideboardPrefix(QStringLiteral(R"(^\s*SB:\s*(.+)$)"),
                                                     QRegularExpression::CaseInsensitiveOption);
 
@@ -218,8 +217,7 @@ DeckParseResult DeckParser::parse(const QString &text, bool blankSectionIsComman
             card.setCode = setMatch.captured(2).toUpper();
             card.collectorNumber = setMatch.captured(3);
         }
-        cardName.replace(splitCardSeparator, QStringLiteral(" // "));
-        card.name = cardName.simplified();
+        card.name = normalizedCardNameSeparators(cardName);
 
         if (card.count <= 0 || card.name.isEmpty()) {
             result.warnings.append(

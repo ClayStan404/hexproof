@@ -52,7 +52,7 @@ class CatalogRepository
     QVariantMap limitedProduct(const QString &productId, QString *error = nullptr) const;
     QVariantList enrichLimitedCards(const QVariantList &cards, QString *error = nullptr,
                                     const QString &language = QStringLiteral("en")) const;
-    CardRecord lookup(const CatalogCardQuery &request) const;
+    CardRecord lookup(const CatalogCardQuery &request, QString *error = nullptr) const;
     CardRecord lookupLocalizedPrinting(const CatalogCardQuery &request,
                                        const CardRecord &catalogIdentity, int indexVersion) const;
     bool cachedScryfallArtIsUsable(const CardRecord &record) const;

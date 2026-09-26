@@ -85,8 +85,14 @@ func fixturePayloadForType(messageType string) any {
 		return &ForgeHostGrant{}
 	case TypeForgeHostStatus:
 		return &ForgeHostStatus{}
+	case TypeAccountCommand:
+		return &AccountCommand{}
+	case TypeAccountState:
+		return &AccountState{}
 	case TypeSessionHello:
 		return &SessionHello{}
+	case TypeSessionRoute:
+		return &SessionRoute{}
 	case TypeSessionWelcome:
 		return &SessionWelcome{}
 	case TypeSessionPing, TypeSessionPong:

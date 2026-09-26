@@ -1,0 +1,10 @@
+{
+  "type": "session.route",
+  "id": "req-8",
+  "payload": {
+    "url": "wss://node-two.example/ws",
+    "realm": "hexproof-official",
+    "ticket": "0000000000000000000000000000000000000000000000000000000000000000",
+    "nodeId": "N2"
+  }
+}

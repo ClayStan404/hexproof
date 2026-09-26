@@ -353,6 +353,24 @@ index 0e8e291c0bb807f9e5e628a4fa05d11919edd3df..c670a3ea94b6ec0489f9636a34bdae60
          Player pl = sa.getActivatingPlayer();
          final Game game = pl.getGame();
  
+diff --git a/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java b/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java
+index 2123ce26be797a4be4b4e4f657189290c0df5db7..c068f0e879bb24fd1172977f243c7aa60c3a1ea0 100644
+--- a/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java
++++ b/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java
+@@ -275,6 +275,13 @@ public class ChooseCardEffect extends SpellAbilityEffect {
+             if (sa.hasParam("Reveal") && !sa.hasParam("Secretly")) {
+                 game.getAction().reveal(chosen, p, dontRevealToOwner, revealTitle ? sa.getParam("RevealTitle") : 
+                     Localizer.getInstance().getMessage("lblChosenCards") + " ", !revealTitle);
++            } else if (!sa.hasParam("Secretly") && choiceZone.equals(List.of(ZoneType.Library)) && !chosen.isEmpty()
++                    && chosen.stream().allMatch(host::hasImprintedCard)) {
++                // A public reveal that imprints the looked-at cards (Atraxa,
++                // Portent of Calamity) still chooses privately. The cards put
++                // into hand or exile were revealed, so opponents must see them.
++                game.getAction().reveal(chosen, p, true,
++                        Localizer.getInstance().getMessage("lblChosenCards") + " ", true);
+             }
+             if (sa.hasParam("ChosenMap")) {
+                 host.addToChosenMap(p, chosen);
 diff --git a/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java b/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java
 index dd2eb401f92990c82ebe4fd2aa051b39301c8c9b..56f02f6a3c10edf5f8ab2f7b8847457e5a7aca09 100644
 --- a/forge-game/src/main/java/forge/game/ability/effects/DiscardEffect.java
@@ -660,6 +678,22 @@ index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..93c313200dd372f66e9109ad15996c17
  
          // This line makes use of short-circuit evaluation of boolean values, that is each subsequent argument
          // is only executed or evaluated if the first argument does not suffice to determine the value of the expression
+diff --git a/forge-game/src/main/java/forge/game/player/Player.java b/forge-game/src/main/java/forge/game/player/Player.java
+index 8f8e6fa814f2c97269d03f77fb3e37b48dbafb65..e11fd2135801f837072414ace2c66de362ad52a2 100644
+--- a/forge-game/src/main/java/forge/game/player/Player.java
++++ b/forge-game/src/main/java/forge/game/player/Player.java
+@@ -3167,6 +3167,11 @@ public class Player extends GameEntity implements Comparable<Player> {
+ 
+         SpellAbility fakeSa = new SpellAbility.EmptySa(ApiType.CompanionChoose, legalCompanions.get(0), this);
+         Card companion = player.chooseSingleEntityForEffect(view, fakeSa, Localizer.getInstance().getMessage("lblChooseACompanion"), true, null);
++        // Companion is optional. Confirming the prompt with no selection returns
++        // null; moving that null into the command zone aborts the game.
++        if (companion == null) {
++            return;
++        }
+ 
+         PlayerZone commandZone = getZone(ZoneType.Command);
+         companion = game.getAction().moveTo(ZoneType.Command, companion, null, AbilityKey.newMap());
 diff --git a/forge-game/src/main/java/forge/game/player/PlayerController.java b/forge-game/src/main/java/forge/game/player/PlayerController.java
 index 192ef8737ecd645b75d50782693d5eab948d43a7..fb10bbf715bbfa0e84cca27929f8aa669346c1f0 100644
 --- a/forge-game/src/main/java/forge/game/player/PlayerController.java
@@ -741,6 +775,46 @@ index b5b396dc82f9928041f0486277fcf4944b538315..4855d00267ca194d7d513ef3f653d03e
  
      /** The ID. */
      private int id;
+diff --git a/forge-game/src/main/java/forge/game/spellability/LandAbility.java b/forge-game/src/main/java/forge/game/spellability/LandAbility.java
+index e8683d2d5fe1c82eb170a0d579fe4f75a778981d..004583cc44175010d6dd1bbba668624e637b6938 100644
+--- a/forge-game/src/main/java/forge/game/spellability/LandAbility.java
++++ b/forge-game/src/main/java/forge/game/spellability/LandAbility.java
+@@ -57,7 +57,34 @@ public class LandAbility extends AbilityStatic {
+  
+         land = Objects.requireNonNullElse(getAlternateHost(land), land);
+ 
+-        return p.canPlayLand(land, false, this);
++        if (!p.canPlayLand(land, false, this)) {
++            return false;
++        }
++        // "You may cast" is Affected$ ...+nonLand, but that check sees the
++        // current face. A spell-front modal card was therefore allowed to play
++        // its land back. Playing a land is not casting that face.
++        return mayPlayAllowsThisFace(land, p);
++    }
++
++    private boolean mayPlayAllowsThisFace(Card land, Player player) {
++        StaticAbility granting = getMayPlay();
++        if (granting == null || !granting.hasParam("Affected")) {
++            return true;
++        }
++        CardState face = getCardState();
++        CardStateName faceName = face == null ? null : face.getStateName();
++        CardStateName previous = land.getCurrentStateName();
++        boolean switched = false;
++        try {
++            if (faceName != null && !faceName.equals(previous) && land.hasState(faceName)) {
++                switched = land.setState(faceName, false);
++            }
++            return land.isValid(granting.getParam("Affected").split(","), player, granting.getHostCard(), granting);
++        } finally {
++            if (switched) {
++                land.setState(previous, false);
++            }
++        }
+     }
+ 
+     @Override
 diff --git a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
 index da6f782e3f8cb7c3f07955c587ba3401be330e38..6d6cb17b27f96b2c32ebc44623ac9a29833777b2 100644
 --- a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java

@@ -10,19 +10,22 @@
       "id": "server-1",
       "name": "Server 1",
       "url": "wss://server-1.invalid/ws",
-      "forge": false
+      "forge": false,
+      "accountRealm": "hexproof-official"
     },
     {
       "id": "server-2",
       "name": "Server 2",
       "url": "wss://server-2.invalid/ws",
-      "forge": true
+      "forge": true,
+      "accountRealm": "hexproof-official"
     },
     {
       "id": "server-3",
       "name": "Server 3",
       "url": "wss://server-3.invalid/ws",
-      "forge": true
+      "forge": true,
+      "accountRealm": "hexproof-official"
     }
   ]
 }

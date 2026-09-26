@@ -69,6 +69,7 @@ TestCase {
         id: connection
         signal commandFailed(string requestId, string commandType, var payload, string error)
         signal welcomeReceived()
+        function globalCode(id) { return id }
         property bool connected: true
         property bool inRoom: false
         property bool reconnecting: false

@@ -1135,6 +1135,8 @@ QtObject {
             "invalid_sideboard_move": qsTr("Invalid sideboard move"),
             "sideboard_not_expired": qsTr("The sideboard timer has not expired"),
             "server_limit": qsTr("The server is at capacity"),
+            "cluster_unavailable": qsTr("The official lobby is temporarily unavailable. Please reconnect and retry."),
+            "cluster_full": qsTr("No available official node has enough capacity for this room or event."),
             "rate_limited": qsTr("Too many actions; try again shortly"),
             "replay_not_found": qsTr("The replay was not found or has expired"),
             "permission_denied": qsTr("The library request was declined"),

@@ -267,7 +267,7 @@ Page {
         return cardCatalogModel.cardDisplayName(name)
     }
 
-    function promptOptionLabel(kind, responseId, label) {
+    function promptOptionLabel(kind, responseId, label, cardId) {
         if (kind === "diceRolled" && responseId === "$ack")
             return qsTr("Roll dice")
         switch (responseId) {
@@ -279,28 +279,114 @@ Page {
         case "$pay": return qsTr("Confirm payment")
         case "$auto-pay": return qsTr("Auto-pay")
         case "$cancel": return qsTr("Cancel")
-        default: return localizedRulesLabel(label)
+        default: return localizedRulesLabel(label, cardId)
         }
     }
 
-    function localizedRulesLabel(label) {
+    function localizedRulesLabel(label, cardId) {
         const text = String(label || "")
+        // Forge token actions use engine names such as "Eldrazi Spawn Token".
+        // Keep spell/face labels intact; resolve tokens from the viewer's identity.
+        const card = cardId ? rulesSession.cardForInspection(cardId) : null
+        const tokenName = card && card.token === true && card.visibleIdentity === true
+            && !card.faceDown ? card.name : ""
         const named = text.replace(
                     /^(.*) — (cast spell|play land|activate ability)$/,
-                    (_, name, action) => cardDisplayName(name) + " — " + action)
+                    (_, name, action) => cardDisplayName(tokenName || name) + " — " + action)
                 .replace(/^After (.+)$/, (_, name) => "After " + cardDisplayName(name))
         return RulesText.text(named)
     }
 
+    property int frozenRulesPromptId: -1
+    property string frozenRulesLanguage: ""
+    property string frozenZhRules: ""
+    property string frozenEnRules: ""
+
+    function cachedRulesText(language) {
+        if (!cardCatalogModel || typeof cardCatalogModel.cardRulesText !== "function")
+            return ""
+        let name = ""
+        let setCode = ""
+        let collectorNumber = ""
+        const cards = rulesSession.promptContextCards
+        if (cards && typeof cards.items === "function") {
+            const rows = cards.items()
+            if (rows.length) {
+                name = rows[0].name || ""
+                setCode = rows[0].setCode || ""
+                collectorNumber = rows[0].collectorNumber || ""
+            }
+        }
+        if (!name) {
+            const match = String(rulesSession.promptTitle || "").match(/^.+ activated (.+) - Choose a mode$/)
+            if (match)
+                name = match[1]
+        }
+        if (!name)
+            return ""
+        return cardCatalogModel.cardRulesText(name, setCode, collectorNumber, language || "") || ""
+    }
+
+    function refreshFrozenRules() {
+        const cardLanguage = cardCatalogModel ? cardCatalogModel.language : ""
+        if (frozenRulesPromptId === rulesSession.promptId && frozenRulesLanguage === cardLanguage)
+            return
+        frozenRulesPromptId = rulesSession.promptId
+        frozenRulesLanguage = cardLanguage
+        frozenZhRules = cachedRulesText("")
+        frozenEnRules = cachedRulesText("en")
+    }
+
+    function stackAbilityText(cardName, rulesText) {
+        if (!rulesText || rulesText === "Face-down spell")
+            return ""
+        if (!cardCatalogModel || cardCatalogModel.language !== "zh"
+                || typeof cardCatalogModel.cardRulesText !== "function")
+            return rulesText
+        const localized = cardCatalogModel.cardRulesText(cardName, "", "", "zh") || ""
+        const english = cardCatalogModel.cardRulesText(cardName, "", "", "en") || ""
+        return RulesText.localizedAbility(rulesText, english, localized)
+    }
+
+    function promptRulesText(language) {
+        return language === "en" ? frozenEnRules : frozenZhRules
+    }
+
+    Connections {
+        target: root.rulesSession
+        function onPromptChanged() { root.refreshFrozenRules() }
+    }
+    Connections {
+        target: root.cardCatalogModel
+        function onLanguageChanged() {
+            root.frozenRulesPromptId = -1
+            root.refreshFrozenRules()
+        }
+    }
+    Component.onCompleted: refreshFrozenRules()
+
     function promptTitle(kind, title) {
         if (kind === "diceRolled")
             return qsTr("Roll to determine the first player")
-        return RulesText.title(kind, title, rulesSession.promptDetail)
+        if (kind === "chooseBoardTargets") {
+            const effect = RulesText.currentEffectTitle(
+                        rulesSession.promptDetail, rulesSession.promptContextText, promptRulesText(""))
+            if (effect)
+                return effect
+        }
+        let source = title
+        const mode = String(title || "").match(/^(.+) activated (.+) - Choose a mode$/)
+        if (mode)
+            source = mode[1] + " activated " + cardDisplayName(mode[2]) + " - Choose a mode"
+        return RulesText.title(kind, source, rulesSession.promptDetail)
     }
 
     function promptDetail(kind, detail) {
         if (kind === "diceRolled")
             return qsTr("Forge will roll to determine who plays first.")
+        if (kind === "chooseBoardTargets"
+                && RulesText.currentEffectTitle(detail, rulesSession.promptContextText, promptRulesText("")))
+            return RulesText.targetInstructionTitle(detail)
         return RulesText.text(detail)
     }
 

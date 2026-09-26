@@ -1,0 +1,9 @@
+{
+  "type": "account.command",
+  "id": "account-login",
+  "payload": {
+    "operation": "login",
+    "loginCode": "HP1.EXAMPLE-NOT-A-REAL-CREDENTIAL",
+    "deviceName": "Example device"
+  }
+}

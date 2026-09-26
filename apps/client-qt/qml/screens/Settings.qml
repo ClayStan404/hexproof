@@ -25,6 +25,15 @@ Page {
         title: qsTr("Settings")
 
         SettingsModuleRow {
+            objectName: "settingsAccountModule"
+            Layout.fillWidth: true
+            visible: typeof ws !== "undefined" && typeof ws.account !== "undefined" && ws.account.supported
+            title: qsTr("Official account")
+            subtitle: qsTr("Login codes, recovery, devices, and saved identities")
+            onActivated: root.appWindow.pushScreen("screens/Account.qml")
+        }
+
+        SettingsModuleRow {
             objectName: "settingsAppearanceModule"
             Layout.fillWidth: true
             title: qsTr("Appearance")

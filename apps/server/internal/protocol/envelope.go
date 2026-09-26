@@ -192,6 +192,7 @@ const (
 // projection shape.
 const (
 	GameResultConcede   = "concede"
+	GameResultTimeout   = "timeout"
 	GameResultDeparture = "departure"
 	GameResultDraw      = "draw"
 	GameResultRules     = "rules_engine"

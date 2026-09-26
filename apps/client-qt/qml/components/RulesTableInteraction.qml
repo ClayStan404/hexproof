@@ -44,7 +44,7 @@ Item {
         if (!contextActive || session.promptKind !== "chooseAction"
                 || typeof session.promptOptionItems !== "function") return []
         return session.promptOptionItems().filter(action => action.cardId
-            && ["cast", "playLand", "activateAbility"].includes(action.kind)
+            && ["cast", "playLand", "activateAbility", "undoMana"].includes(action.kind)
             && !objectOnTable("card", action.cardId)).map(action => {
                 const card = session.cardForInspection(action.cardId)
                 return card.visibleIdentity === true
@@ -238,7 +238,7 @@ Item {
         // revalidates the exact response through actionsForCard().
         return contextActive && (session.promptKind === "chooseAction"
                 || session.promptKind === "payManaCost")
-            && ["cast", "playLand", "activateAbility"].includes(kind)
+            && ["cast", "playLand", "activateAbility", "undoMana"].includes(kind)
             && objectOnTable("card", cardId)
     }
 }

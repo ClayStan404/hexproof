@@ -367,9 +367,11 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
     QTRY_COMPARE_WITH_TIMEOUT(availableSpy.count(), 1, 2'000);
     QCOMPARE(cacheSpy.count(), 1);
     QVERIFY(cacheSpy.first().at(3).toBool());
-    QCOMPARE(network.requestedUrls.size(), 2);
+    QCOMPARE(network.requestedUrls.size(), 3);
     QCOMPARE(network.requestedUrls.at(0).host(), u"api.scryfall.com"_s);
-    QCOMPARE(network.requestedUrls.at(1), QUrl(u"https://images.test/bolt.png"_s));
+    QCOMPARE(network.requestedUrls.at(1), QUrl(u"https://mtgch.com/api/v1/card/M11/146/"_s));
+    QCOMPARE(network.requestedUrls.at(2), QUrl(u"https://images.test/bolt.png"_s));
+    const QList<QUrl> cachedRequests = network.requestedUrls;
     const QList<QVariant> arguments = availableSpy.takeFirst();
     QCOMPARE(arguments.at(1).toString(), u"闪电击"_s);
     QCOMPARE(arguments.at(2).toString(), u"瞬间"_s);
@@ -383,7 +385,7 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
         {u"collectorNumber"_s, u"146"_s},
     }});
     QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 2, 1'000);
-    QCOMPARE(network.requestedUrls.size(), 2);
+    QCOMPARE(network.requestedUrls, cachedRequests);
     QVERIFY(catalog.imageSource(u"Lightning Bolt"_s, u"M11"_s, u"146"_s).startsWith(u"file:"_s));
 
     catalog.setCardArtProvider(u"mtgch"_s);
@@ -393,7 +395,7 @@ void TestCardCatalog::prefersScryfallBeforeMtgchFallback() const
         {u"collectorNumber"_s, u"146"_s},
     }});
     QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 3, 1'000);
-    QCOMPARE(network.requestedUrls.size(), 2);
+    QCOMPARE(network.requestedUrls, cachedRequests);
 }
 
 void TestCardCatalog::automaticProviderUsesLanguagePriority() const

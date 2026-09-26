@@ -185,6 +185,21 @@ class I18nAuditTests(unittest.TestCase):
 
 
 class ServerDirectoryToolTests(unittest.TestCase):
+    def test_account_realms_are_scoped_to_secure_endpoints(self) -> None:
+        entry = {"id": "official", "name": "Official", "forge": False,
+                 "url": "wss://official.example/ws", "accountRealm": "hexproof-official"}
+        document = {"schemaVersion": 2, "revision": 1, "servers": [entry]}
+        self.assertEqual(server_directory.validate_directory(document), document)
+        for key, value in (("accountRealm", ""), ("accountRealm", "wrong realm"),
+                           ("accountRealm", "x" * 65), ("url", "ws://127.0.0.1/ws"),
+                           ("url", "wss://127.0.0.2/ws")):
+            with self.subTest(key=key, value=value):
+                changed = dict(entry, **{key: value})
+                with self.assertRaises(ValueError):
+                    server_directory.validate_directory(dict(document, servers=[changed]))
+        local = dict(entry, url="ws://127.0.0.1/ws", accountRealm="local-test")
+        server_directory.validate_directory(dict(document, servers=[local]))
+
     def test_rejects_invalid_ports_and_control_characters_in_all_url_fields(self) -> None:
         for url in ("wss://server.example:99999/ws", "ws://server.example:abc/ws",
                     "ws://server.example:-1/ws", "ws://server example/ws",

@@ -1552,6 +1552,42 @@
         <source>Refresh list</source>
         <translation>刷新列表</translation>
     </message>
+    <message>
+        <source>Continue as a guest</source>
+        <translation>以游客身份继续</translation>
+    </message>
+    <message>
+        <source>Continue on this device</source>
+        <translation>使用本机已保存的身份</translation>
+    </message>
+    <message>
+        <source>Create an account</source>
+        <translation>创建账号</translation>
+    </message>
+    <message>
+        <source>Log in with a private code</source>
+        <translation>使用私密登录码登录</translation>
+    </message>
+    <message>
+        <source>Private login code</source>
+        <translation>私密登录码</translation>
+    </message>
+    <message>
+        <source>Recover an account</source>
+        <translation>恢复账号</translation>
+    </message>
+    <message>
+        <source>Recovery code</source>
+        <translation>恢复码</translation>
+    </message>
+    <message>
+        <source>Official lobby (automatic)</source>
+        <translation>官方大厅（自动选择）</translation>
+    </message>
+    <message>
+        <source>Rooms are assigned to available official nodes automatically.</source>
+        <translation>新房间会自动分配到有空余资源的官方节点。</translation>
+    </message>
 </context>
 <context>
     <name>CounterLabelPopup</name>
@@ -4821,6 +4857,14 @@
         <source>Your seats and selected decks are kept.</source>
         <translation>你的座位和已选套牌已保留。</translation>
     </message>
+    <message>
+        <source>No available official node has enough capacity for this room or event.</source>
+        <translation>暂时没有官方节点能容纳这个房间或赛事，请稍后重试。</translation>
+    </message>
+    <message>
+        <source>The official lobby is temporarily unavailable. Please reconnect and retry.</source>
+        <translation>官方大厅暂不可用，请重新连接后重试。</translation>
+    </message>
 </context>
 <context>
     <name>ImportDeck</name>
@@ -5049,6 +5093,10 @@
     <message>
         <source>I trust this host</source>
         <translation>我信任此房主</translation>
+    </message>
+    <message>
+        <source>Join by code or select a room from the lobby. No account required.</source>
+        <translation>输入房间号或从大厅选择房间，无需账号。</translation>
     </message>
 </context>
 <context>
@@ -6047,6 +6095,18 @@ your way.</source>
         <source>Forge replays</source>
         <translation>Forge 回放</translation>
     </message>
+    <message>
+        <source>Account</source>
+        <translation>账号</translation>
+    </message>
+    <message>
+        <source>Manual or Forge</source>
+        <translation>手动桌面或 Forge 规则模式</translation>
+    </message>
+    <message>
+        <source>Official lobby</source>
+        <translation>官方大厅</translation>
+    </message>
 </context>
 <context>
     <name>MatchLoading</name>
@@ -6650,6 +6710,14 @@ your way.</source>
         <source>AI · %1</source>
         <translation>AI · %1</translation>
     </message>
+    <message>
+        <source>Rooms across all available official nodes</source>
+        <translation>所有可用官方节点的房间</translation>
+    </message>
+    <message>
+        <source>Official lobby</source>
+        <translation>官方大厅</translation>
+    </message>
 </context>
 <context>
     <name>RulesBattlefieldView</name>
@@ -6993,6 +7061,10 @@ your way.</source>
         <location line="+1"/>
         <source>The match is complete.</source>
         <translation>比赛已结束。</translation>
+    </message>
+    <message>
+        <source>Action time ran out. The player whose clock reached zero loses the match.</source>
+        <translation>操作时间耗尽。时间先归零的玩家输掉这场比赛。</translation>
     </message>
     <message>
         <location line="+99"/>
@@ -8264,6 +8336,14 @@ your way.</source>
     <message>
         <source>Priority, phase stops, and direct connections</source>
         <translation>优先权、阶段停点与直连</translation>
+    </message>
+    <message>
+        <source>Login codes, recovery, devices, and saved identities</source>
+        <translation>登录码、账号恢复、设备与已保存的身份</translation>
+    </message>
+    <message>
+        <source>Official account</source>
+        <translation>官方账号</translation>
     </message>
 </context>
 <context>
@@ -13536,6 +13616,10 @@ your way.</source>
         <translation>选择套牌</translation>
     </message>
     <message>
+        <source>Tournament deck locked</source>
+        <translation>比赛套牌已锁定</translation>
+    </message>
+    <message>
         <source>Forge · Player hosted</source>
         <translation>Forge · 玩家托管</translation>
     </message>
@@ -14965,6 +15049,30 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>攻击中</translation>
         </message>
         <message>
+            <source>Attacking you</source>
+            <translation>正在攻击你</translation>
+        </message>
+        <message>
+            <source>Tap for mana</source>
+            <translation>横置支付费用</translation>
+        </message>
+        <message>
+            <source>Undo mana</source>
+            <translation>撤回法术力</translation>
+        </message>
+        <message>
+            <source>Attacking %1</source>
+            <translation>正在攻击 %1</translation>
+        </message>
+        <message>
+            <source>Attacking a player</source>
+            <translation>正在攻击一名牌手</translation>
+        </message>
+        <message>
+            <source>a permanent</source>
+            <translation>一个永久物</translation>
+        </message>
+        <message>
             <source>Hidden card</source>
             <translation>隐藏牌</translation>
         </message>
@@ -15017,6 +15125,62 @@ Downloaded and custom images will be copied and verified before the setting chan
         <message>
             <source>Your turn</source>
             <translation>你的回合</translation>
+        </message>
+        <message>
+            <source>My turn</source>
+            <translation>我的回合</translation>
+        </message>
+        <message>
+            <source>Opponent's turn</source>
+            <translation>对手回合</translation>
+        </message>
+        <message>
+            <source>Opponent is deciding</source>
+            <translation>对手正在决定</translation>
+        </message>
+        <message>
+            <source>Untap</source>
+            <translation>重置</translation>
+        </message>
+        <message>
+            <source>Upkeep</source>
+            <translation>维持</translation>
+        </message>
+        <message>
+            <source>Draw</source>
+            <translation>抽牌</translation>
+        </message>
+        <message>
+            <source>Main</source>
+            <translation>主阶段</translation>
+        </message>
+        <message>
+            <source>Combat</source>
+            <translation>战斗</translation>
+        </message>
+        <message>
+            <source>Attack</source>
+            <translation>攻击</translation>
+        </message>
+        <message>
+            <source>Block</source>
+            <translation>阻挡</translation>
+        </message>
+        <message>
+            <source>Damage</source>
+            <translation>伤害</translation>
+        </message>
+        <message>
+            <source>Combat end</source>
+            <translation>战斗结束</translation>
+        </message>
+        <message>
+            <source>End</source>
+            <translation>结束</translation>
+        </message>
+        <message>
+            <source>Cleanup</source>
+            <translation>清除</translation>
         </message>
         <message>
             <source>%1's turn</source>
@@ -15222,6 +15386,10 @@ Downloaded and custom images will be copied and verified before the setting chan
         <message>
             <source>Stack · %1</source>
             <translation>堆叠 · %1</translation>
+        </message>
+        <message>
+            <source>%1's effect</source>
+            <translation>%1的异能</translation>
         </message>
     </context>
     <context>
@@ -15492,6 +15660,10 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>当前 Hexproof 版本尚不支持此类决策。</translation>
         </message>
         <message>
+            <source>Undo mana</source>
+            <translation>撤回法术力</translation>
+        </message>
+        <message>
             <source>Choose a mana ability:</source>
             <translation>选择法术力异能</translation>
         </message>
@@ -15690,6 +15862,66 @@ Downloaded and custom images will be copied and verified before the setting chan
         <message>
             <source>First strike combat damage</source>
             <translation>先攻战斗伤害</translation>
+        </message>
+        <message>
+            <source>%1 activated %2 — choose a mode</source>
+            <translation>%1 起动了 %2 — 选择模式</translation>
+        </message>
+        <message>
+            <source>This effect: %1</source>
+            <translation>当前效果：%1</translation>
+        </message>
+        <message>
+            <source>Select target %1</source>
+            <translation>选择目标%1</translation>
+        </message>
+        <message>
+            <source>player</source>
+            <translation>牌手</translation>
+        </message>
+        <message>
+            <source>opponent</source>
+            <translation>对手</translation>
+        </message>
+        <message>
+            <source>creature</source>
+            <translation>生物</translation>
+        </message>
+        <message>
+            <source>permanent</source>
+            <translation>永久物</translation>
+        </message>
+        <message>
+            <source>spell</source>
+            <translation>咒语</translation>
+        </message>
+        <message>
+            <source>artifact</source>
+            <translation>神器</translation>
+        </message>
+        <message>
+            <source>enchantment</source>
+            <translation>结界</translation>
+        </message>
+        <message>
+            <source>planeswalker</source>
+            <translation>鹏洛客</translation>
+        </message>
+        <message>
+            <source>land</source>
+            <translation>地</translation>
+        </message>
+        <message>
+            <source>card</source>
+            <translation>牌</translation>
+        </message>
+        <message>
+            <source>Choose target card in a graveyard</source>
+            <translation>选择坟墓场中的目标牌</translation>
+        </message>
+        <message>
+            <source>Choose target creature with mana value %1 or less</source>
+            <translation>选择法术力值等于或小于 %1 的目标生物</translation>
         </message>
     </context>
 <context>
@@ -16385,6 +16617,7 @@ Downloaded and custom images will be copied and verified before the setting chan
     <name>RulesCardPersistentState</name>
     <message><source>Blocking</source><translation>阻挡中</translation></message>
     <message><source>Blocked</source><translation>已被阻挡</translation></message>
+    <message><source>Attacked</source><translation>被攻击</translation></message>
     <message><source>Attached</source><translation>已结附</translation></message>
     <message><source>Attachments: %1</source><translation>结附：%1</translation></message>
     <message><source>Blocking %1</source><translation>正在阻挡 %1</translation></message>
@@ -17154,6 +17387,219 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Could not request the replay.</source>
         <translation>无法请求回放。</translation>
+    </message>
+    <message>
+        <source>Could not send the request to the selected official node.</source>
+        <translation>无法向选定的官方节点发送请求。</translation>
+    </message>
+    <message>
+        <source>No official entry node is configured.</source>
+        <translation>尚未配置官方入口节点。</translation>
+    </message>
+    <message>
+        <source>The connection moved to another official node.</source>
+        <translation>连接已切换到另一个官方节点。</translation>
+    </message>
+    <message>
+        <source>The connection to the selected official node was lost.</source>
+        <translation>与选定官方节点的连接已断开。</translation>
+    </message>
+    <message>
+        <source>The node transfer timed out. Reconnect to check your room before trying again.</source>
+        <translation>节点切换超时，请先重新连接并检查房间，再重试操作。</translation>
+    </message>
+    <message>
+        <source>The official node transfer could not be verified. Please reconnect.</source>
+        <translation>无法验证官方节点切换，请重新连接。</translation>
+    </message>
+    <message>
+        <source>Wait for the current room request to finish.</source>
+        <translation>请等待当前房间操作完成。</translation>
+    </message>
+</context>
+<context>
+    <name>RulesCardChoiceDialog</name>
+    <message>
+        <source>Use %1's opening ability?</source>
+        <translation>是否使用%1的开局异能？</translation>
+    </message>
+    <message>
+        <source>You may reveal it from your opening hand, or leave it there.</source>
+        <translation>可以从开局手牌展示它，也可以留在手里。</translation>
+    </message>
+    <message>
+        <source>Use it</source>
+        <translation>使用</translation>
+    </message>
+    <message>
+        <source>Leave it</source>
+        <translation>不使用</translation>
+    </message>
+</context>
+<context>
+    <name>Account</name>
+    <message>
+        <source>Accounts are unavailable on this server.</source>
+        <translation>此服务器暂不提供账号功能。</translation>
+    </message>
+    <message>
+        <source>Back up these codes now. They are shown only when generated. Anyone with a login code can access the account; keep the recovery code separately.</source>
+        <translation>请立即备份这些凭据，它们仅在生成时显示。持有登录码即可使用账号，请将恢复码单独保管。</translation>
+    </message>
+    <message>
+        <source>Connect to an official server to manage your account.</source>
+        <translation>连接官方服务器后即可管理账号。</translation>
+    </message>
+    <message>
+        <source>Copy login code</source>
+        <translation>复制登录码</translation>
+    </message>
+    <message>
+        <source>Copy recovery code</source>
+        <translation>复制恢复码</translation>
+    </message>
+    <message>
+        <source>Create account</source>
+        <translation>创建账号</translation>
+    </message>
+    <message>
+        <source>Display name</source>
+        <translation>昵称</translation>
+    </message>
+    <message>
+        <source>Expires: %1</source>
+        <translation>有效期至：%1</translation>
+    </message>
+    <message>
+        <source>Hide codes</source>
+        <translation>隐藏凭据</translation>
+    </message>
+    <message>
+        <source>I have backed up my codes</source>
+        <translation>我已备份凭据</translation>
+    </message>
+    <message>
+        <source>Link saved event and replay identities on this device</source>
+        <translation>关联本机保存的赛事身份与回放</translation>
+    </message>
+    <message>
+        <source>Linking saved identities… %1 remaining</source>
+        <translation>正在关联已保存的身份…剩余 %1 项</translation>
+    </message>
+    <message>
+        <source>Log in</source>
+        <translation>登录</translation>
+    </message>
+    <message>
+        <source>New display name</source>
+        <translation>新昵称</translation>
+    </message>
+    <message>
+        <source>No email or password is required. Without your codes or a signed-in device, a lost account cannot be recovered.</source>
+        <translation>无需邮箱或密码。如果登录码、恢复码和已登录设备全部丢失，将无法找回账号。</translation>
+    </message>
+    <message>
+        <source>Official account</source>
+        <translation>官方账号</translation>
+    </message>
+    <message>
+        <source>One account across official servers. Keep your login and recovery codes private.</source>
+        <translation>一个账号通用于所有官方服务器。请妥善保管登录码和恢复码。</translation>
+    </message>
+    <message>
+        <source>Private login code</source>
+        <translation>私密登录码</translation>
+    </message>
+    <message>
+        <source>Public ID: %1</source>
+        <translation>公开账号 ID：%1</translation>
+    </message>
+    <message>
+        <source>Recover</source>
+        <translation>恢复</translation>
+    </message>
+    <message>
+        <source>Recover account</source>
+        <translation>恢复账号</translation>
+    </message>
+    <message>
+        <source>Recoverable rooms and events on this server</source>
+        <translation>此服务器上可恢复的房间与赛事</translation>
+    </message>
+    <message>
+        <source>Recovery code</source>
+        <translation>恢复码</translation>
+    </message>
+    <message>
+        <source>Recovery replaces both codes and signs out every old device.</source>
+        <translation>恢复账号会更换登录码和恢复码，并使所有旧设备退出登录。</translation>
+    </message>
+    <message>
+        <source>Refresh account resources</source>
+        <translation>刷新账号关联内容</translation>
+    </message>
+    <message>
+        <source>Replace login code and sign out other devices</source>
+        <translation>更换登录码并退出其他设备</translation>
+    </message>
+    <message>
+        <source>Restore my replay library</source>
+        <translation>恢复我的回放记录</translation>
+    </message>
+    <message>
+        <source>Show codes</source>
+        <translation>显示凭据</translation>
+    </message>
+    <message>
+        <source>Sign out of account</source>
+        <translation>退出账号</translation>
+    </message>
+    <message>
+        <source>Sign out other devices</source>
+        <translation>退出其他设备</translation>
+    </message>
+    <message>
+        <source>Sign out this device</source>
+        <translation>退出此设备</translation>
+    </message>
+    <message>
+        <source>Signed-in devices</source>
+        <translation>已登录设备</translation>
+    </message>
+    <message>
+        <source>The system credential vault is unavailable. This login is kept only for this application session; back up your login code.</source>
+        <translation>系统凭据存储不可用，本次登录仅保留到应用关闭。请备份登录码。</translation>
+    </message>
+    <message>
+        <source>This device</source>
+        <translation>本机</translation>
+    </message>
+    <message>
+        <source>Update display name</source>
+        <translation>更新昵称</translation>
+    </message>
+    <message>
+        <source>Recoverable rooms and events across official nodes</source>
+        <translation>官方节点上可恢复的房间与赛事</translation>
+    </message>
+</context>
+<context>
+    <name>hexproof::client::AccountSessionState</name>
+    <message>
+        <source>Account request timed out. Reconnect and retry.</source>
+        <translation>账号请求超时，请重新连接后重试。</translation>
+    </message>
+    <message>
+        <source>Connect to the official server before managing your account.</source>
+        <translation>请先连接官方服务器，再管理账号。</translation>
+    </message>
+    <message>
+        <source>This server does not offer official accounts.</source>
+        <translation>此服务器不提供官方账号功能。</translation>
+    </message>
+    <message>
+        <source>Some saved identities could not be linked. They may have expired or belong to another account.</source>
+        <translation>部分已保存的身份无法关联，可能已过期或属于其他账号。</translation>
     </message>
 </context>
 </TS>

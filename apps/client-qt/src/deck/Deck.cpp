@@ -6,12 +6,25 @@
 #include "DeckFormat.h"
 
 #include <QJsonArray>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <initializer_list>
 #include <utility>
 
 namespace hexproof::client {
+
+QString normalizedCardNameSeparators(const QString &name)
+{
+    if (!name.contains(QLatin1Char('/')))
+        return name.simplified();
+    // Deck exports use single or double slashes, with or without surrounding
+    // whitespace. Normalize at import/load so catalog and cache identities agree.
+    static const QRegularExpression separator(QStringLiteral(R"(\s*/{1,2}\s*)"));
+    QString normalized = name;
+    normalized.replace(separator, QStringLiteral(" // "));
+    return normalized.simplified();
+}
 
 QString normalizedCardName(const QString &name)
 {
@@ -143,7 +156,7 @@ QJsonObject deckCardToJson(const DeckCard &card)
 DeckCard deckCardFromJson(const QJsonObject &object)
 {
     DeckCard card;
-    card.name = object.value(QStringLiteral("name")).toString().simplified();
+    card.name = normalizedCardNameSeparators(object.value(QStringLiteral("name")).toString());
     card.localizedName = object.value(QStringLiteral("localizedName")).toString().simplified();
     card.setCode = object.value(QStringLiteral("setCode")).toString().toUpper();
     card.collectorNumber = object.value(QStringLiteral("collectorNumber")).toString();
@@ -265,13 +278,13 @@ Deck deckFromJson(const QJsonObject &object)
         deck.deckFormat = defaultDeckFormatForTableMode(deck.format);
     const QJsonArray commanders = object.value(QStringLiteral("commanders")).toArray();
     for (const QJsonValue &value : commanders) {
-        const QString commander = value.toString().simplified();
+        const QString commander = normalizedCardNameSeparators(value.toString());
         if (!commander.isEmpty() && !deck.commanders.contains(commander, Qt::CaseInsensitive))
             deck.commanders.append(commander);
     }
     if (deck.commanders.isEmpty()) {
         const QString legacyCommander =
-            object.value(QStringLiteral("commander")).toString().simplified();
+            normalizedCardNameSeparators(object.value(QStringLiteral("commander")).toString());
         if (!legacyCommander.isEmpty())
             deck.commanders.append(legacyCommander);
     }

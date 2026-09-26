@@ -52,7 +52,9 @@ jobs:
         run: |
           python3 -m unittest discover -s tools/tests -p test_forge_source_package.py
           python3 -m unittest discover -s tools/tests -p test_native_forge_builder.py
-          python3 -m unittest discover -s tools/tests -p test_deploy_script.py
+          if test -f tools/tests/test_deploy_script.py; then
+            python3 -m unittest discover -s tools/tests -p test_deploy_script.py
+          fi
       - name: Build paired runtime and source archives
         run: ./third_party/forge-runtime/build.sh
       - name: Verify source package rebuild and archive checksums

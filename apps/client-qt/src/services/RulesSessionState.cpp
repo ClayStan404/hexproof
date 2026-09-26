@@ -625,6 +625,10 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
                 zoneRow.zone == u"battlefield"_s && card.value(u"summoningSick"_s).toBool();
             cardRow.faceDown = card.value(u"faceDown"_s).toBool();
             cardRow.attacking = card.value(u"attacking"_s).toBool();
+            cardRow.attackingTarget = card.value(u"attackingTarget"_s).toString();
+            cardRow.attackingSeat = card.contains(u"attackingPlayer"_s)
+                                        ? card.value(u"attackingPlayer"_s).toInt(-1)
+                                        : -1;
             cardRow.power = card.value(u"power"_s).toString();
             cardRow.toughness = card.value(u"toughness"_s).toString();
             cardRow.damage = card.value(u"damage"_s).toInt();
@@ -658,6 +662,7 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
                                                          {u"targetId"_s, target}});
                 };
                 appendRelationship(u"attachment"_s, cardRow.attachedTo);
+                appendRelationship(u"attack"_s, cardRow.attackingTarget);
                 for (const QJsonValue &target : card.value(u"blocking"_s).toArray())
                     appendRelationship(u"block"_s, target.toString());
                 battlefieldCards.append(std::move(cardRow));
@@ -710,10 +715,26 @@ bool RulesSessionState::applySnapshot(const QJsonObject &snapshot)
     for (RulesCardRow &card : battlefieldCards) {
         if (!permanentIds.contains(card.attachedTo) || card.attachedTo == card.id)
             card.attachedTo.clear();
+        if (!permanentIds.contains(card.attackingTarget) || card.attackingTarget == card.id)
+            card.attackingTarget.clear();
+        if (!card.attacking)
+            card.attackingSeat = -1;
+        else if (card.attackingTarget.isEmpty() && card.attackingSeat >= 0) {
+            relationships.append(QVariantMap{{u"kind"_s, u"attack"_s},
+                                             {u"sourceId"_s, card.id},
+                                             {u"targetId"_s, QString()},
+                                             {u"targetSeat"_s, card.attackingSeat}});
+        }
     }
     for (const QVariant &relation : relationships) {
-        const QString target = relation.toMap().value(u"targetId"_s).toString();
-        if (permanentIds.contains(target) && !m_battlefieldRelationships.contains(relation))
+        const QVariantMap map = relation.toMap();
+        const QString target = map.value(u"targetId"_s).toString();
+        const int targetSeat = map.value(u"targetSeat"_s).toInt();
+        const bool playerAttack = map.value(u"kind"_s).toString() == u"attack"_s &&
+                                  target.isEmpty() && map.contains(u"targetSeat"_s) &&
+                                  targetSeat >= 0;
+        if ((playerAttack || permanentIds.contains(target)) &&
+            !m_battlefieldRelationships.contains(relation))
             m_battlefieldRelationships.append(relation);
     }
     const auto appendPublicCards = [this](const QVector<RulesCardRow> &rows) {

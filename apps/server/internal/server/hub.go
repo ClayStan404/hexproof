@@ -12,16 +12,24 @@ import (
 	"sync"
 	"time"
 
+	"hexproof/server/internal/cluster"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
 )
 
 // Session is one WebSocket connection's state.
 type Session struct {
-	ConnectionID string
-	DisplayName  string
-	ResumeToken  string
-	RemoteIP     string
+	// Cluster fields belong to the connection read loop.
+	clusterGrant      *cluster.Ticket
+	clusterRedirected bool
+	clusterEnabled    bool
+	clusterLatency    map[string]int
+	accountMu         sync.RWMutex
+	account           accountBinding
+	ConnectionID      string
+	DisplayName       string
+	ResumeToken       string
+	RemoteIP          string
 	// Send is buffered; the hub pushes outbound envelopes here, the write pump
 	// drains them onto the WebSocket.
 	Send chan []byte
@@ -40,6 +48,20 @@ type Session struct {
 	// The read loop is the only writer for these fixed-window rate fields.
 	rateWindowStart time.Time
 	rateMessages    int
+}
+
+type accountBinding struct{ ID, Token, SessionID string }
+
+func (s *Session) Account() accountBinding {
+	s.accountMu.RLock()
+	defer s.accountMu.RUnlock()
+	return s.account
+}
+
+func (s *Session) setAccount(binding accountBinding) {
+	s.accountMu.Lock()
+	defer s.accountMu.Unlock()
+	s.account = binding
 }
 
 type tournamentBinding struct {
@@ -118,6 +140,14 @@ func (s *Session) trySend(data []byte) bool {
 		}
 		return false
 	}
+}
+
+// closeAfterSend preserves the ordered final account notice. The write pump
+// drains queued envelopes before ending the transport; authority is already revoked.
+func (s *Session) closeAfterSend() {
+	s.closeMu.Lock()
+	s.closeLocked()
+	s.closeMu.Unlock()
 }
 
 // Close marks the session closed and closes the Send channel. Safe to call
@@ -288,6 +318,8 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 		r.HostingMode = hostingMode
 		r.DeckFormat = deckFormat
 		r.LimitedDeckLocked = tournamentID != ""
+		r.TournamentID = tournamentID
+		r.TournamentPairingID = tournamentPairing
 		source, difficulty := "", ""
 		if len(aiDifficulty) > 0 {
 			difficulty = aiDifficulty[0]

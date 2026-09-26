@@ -63,6 +63,7 @@ struct Deck
     QVector<DeckToken> tokens;
 };
 
+QString normalizedCardNameSeparators(const QString &name);
 QString normalizedCardName(const QString &name);
 bool cardNamesMatch(const QString &left, const QString &right);
 bool cardIdentityMatches(const DeckCard &card, const QString &name, const QString &setCode,

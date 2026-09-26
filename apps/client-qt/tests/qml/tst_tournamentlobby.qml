@@ -79,6 +79,7 @@ TestCase {
     }
     QtObject {
         id: connection
+        function globalCode(id) { return id }
         property bool connected: true
         property string lastError: ""
         property string sentText: ""

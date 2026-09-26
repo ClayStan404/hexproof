@@ -11,6 +11,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDevice>
+#include <QJsonArray>
 #include <QScopeGuard>
 #include <QSemaphore>
 #include <QSet>
@@ -1179,14 +1180,73 @@ Deck
     QCOMPARE(hexproof::client::cardCount(parsed.deck.mainboard), 9);
 }
 
+void TestDeckLibrary::parsesSplitCardNames_data() const
+{
+    QTest::addColumn<QString>("separator");
+    QTest::newRow("single-slash") << u"/"_s;
+    QTest::newRow("single-slash-spaced") << u" / "_s;
+    QTest::newRow("single-slash-left-space") << u" /"_s;
+    QTest::newRow("single-slash-right-space") << u"/ "_s;
+    QTest::newRow("double-slash") << u"//"_s;
+    QTest::newRow("double-slash-spaced") << u" // "_s;
+    QTest::newRow("double-slash-left-space") << u" //"_s;
+    QTest::newRow("double-slash-right-space") << u"// "_s;
+    QTest::newRow("extra-whitespace") << u"  \t/\t  "_s;
+}
+
 void TestDeckLibrary::parsesSplitCardNames() const
 {
-    const auto parsed = DeckParser::parse(u"2 Wear // Tear\n"_s);
+    QFETCH(QString, separator);
+    const auto parsed =
+        DeckParser::parse(u"Deck\n2 Unholy Annex%1Ritual Chamber (TST) 1 *F*\n"
+                          "1 Unholy Annex // Ritual Chamber (TST) 1\n"
+                          "Sideboard\n1 Wear%1Tear\n"
+                          "Commander\n1 Esika, God of the Tree%1The Prismatic Bridge\n"
+                          "Consider\n1 Fire%1Ice\n"_s.arg(separator));
 
     QVERIFY2(parsed.ok(), qPrintable(parsed.error));
-    QCOMPARE(parsed.deck.mainboard.size(), 1);
-    QCOMPARE(parsed.deck.mainboard.first().name, u"Wear // Tear"_s);
-    QCOMPARE(parsed.deck.mainboard.first().count, 2);
+    QVERIFY(parsed.warnings.isEmpty());
+    QCOMPARE(parsed.deck.mainboard.size(), 2);
+    QCOMPARE(parsed.deck.mainboard.first().name, u"Unholy Annex // Ritual Chamber"_s);
+    QCOMPARE(parsed.deck.mainboard.first().count, 3);
+    QCOMPARE(parsed.deck.mainboard.first().setCode, u"TST"_s);
+    QCOMPARE(parsed.deck.mainboard.first().collectorNumber, u"1"_s);
+    QCOMPARE(parsed.deck.sideboard.first().name, u"Wear // Tear"_s);
+    QCOMPARE(parsed.deck.commanders,
+             QStringList{u"Esika, God of the Tree // The Prismatic Bridge"_s});
+    QCOMPARE(parsed.deck.mainboard.last().name, parsed.deck.commanders.first());
+    QCOMPARE(parsed.deck.consider.first().name, u"Fire // Ice"_s);
+    QCOMPARE(DeckParser::format(DeckParser::parse(DeckParser::format(parsed.deck)).deck),
+             DeckParser::format(parsed.deck));
+}
+
+void TestDeckLibrary::normalizesSavedSplitCardNames() const
+{
+    QJsonObject saved{
+        {u"commanders"_s, QJsonArray{u"Esika, God of the Tree/The Prismatic Bridge"_s}},
+        {u"mainboard"_s,
+         QJsonArray{QJsonObject{{u"name"_s, u"Esika, God of the Tree/The Prismatic Bridge"_s},
+                                {u"count"_s, 1},
+                                {u"setCode"_s, u"KHM"_s},
+                                {u"collectorNumber"_s, u"168"_s}}}},
+        {u"sideboard"_s, QJsonArray{QJsonObject{{u"name"_s, u"Wear//Tear"_s}, {u"count"_s, 2}}}},
+        {u"consider"_s, QJsonArray{QJsonObject{{u"name"_s, u"Fire /Ice"_s}, {u"count"_s, 3}}}},
+    };
+    const auto restored = hexproof::client::deckFromJson(saved);
+    QCOMPARE(restored.commanders, QStringList{u"Esika, God of the Tree // The Prismatic Bridge"_s});
+    QCOMPARE(restored.mainboard.first().name, restored.commanders.first());
+    QCOMPARE(restored.mainboard.first().setCode, u"KHM"_s);
+    QCOMPARE(restored.mainboard.first().collectorNumber, u"168"_s);
+    QCOMPARE(restored.sideboard.first().name, u"Wear // Tear"_s);
+    QCOMPARE(restored.sideboard.first().count, 2);
+    QCOMPARE(restored.consider.first().name, u"Fire // Ice"_s);
+    QCOMPARE(restored.consider.first().count, 3);
+    QVERIFY(DeckParser::format(restored).contains(
+        u"1 Esika, God of the Tree // The Prismatic Bridge (KHM) 168 *CMDR*"_s));
+
+    saved.remove(u"commanders"_s);
+    saved.insert(u"commander"_s, u"Esika, God of the Tree//The Prismatic Bridge"_s);
+    QCOMPARE(hexproof::client::deckFromJson(saved).commanders, restored.commanders);
 }
 
 void TestDeckLibrary::parsesBlankLineSideboard() const

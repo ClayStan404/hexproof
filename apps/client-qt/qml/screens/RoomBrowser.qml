@@ -64,8 +64,9 @@ Page {
         anchors.topMargin: Theme.size(22)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        title: qsTr("Rooms on this hub")
-        subtitle: qsTr("Only tables hosted on your connected server are shown")
+        title: ws.clusterAvailable ? qsTr("Official lobby") : qsTr("Rooms on this hub")
+        subtitle: ws.clusterAvailable ? qsTr("Rooms across all available official nodes")
+                                      : qsTr("Only tables hosted on your connected server are shown")
         onBackRequested: root.appWindow.popScreen()
     }
 
@@ -379,7 +380,8 @@ Page {
                                 Text {
                                     textFormat: Text.PlainText
                                     Layout.fillWidth: true
-                                    text: roomRow.modelData.roomId + " · "
+                                    text: (roomRow.modelData.nodeName ? roomRow.modelData.nodeName + " · " : "")
+                                          + roomRow.modelData.roomId + " · "
                                           + I18n.formatLabel(roomRow.modelData.roomKind === "cube"
                                                              && roomRow.modelData.format === "edh"
                                                              ? "commander_cube" : roomRow.modelData.deckFormat

@@ -64,6 +64,15 @@ TestCase {
             customConnectCalls += 1
             lastConnectedUrl = url
         }
+        property string accountOperation: ""
+        property string accountValue: ""
+        function connectAccountToServer(index, operation, value) {
+            accountOperation = operation; accountValue = value
+        }
+        function connectToOfficial(operation, value) {
+            accountOperation = operation; accountValue = value
+            lastConnectedIndex = -2
+        }
         function connectToServer(index, name) {
             configuredConnectCalls += 1
             lastConnectedIndex = index
@@ -255,6 +264,41 @@ TestCase {
         compare(page.selectedServerId, "custom")
         page.submit()
         compare(mockWs.customConnectCalls, 1)
+    }
+
+    function test_officialLoginUsesMaskedCodeWithoutDisplayName() {
+        mockWs.serverEntries = [{id: "official", name: "Official", forge: 0, accountRealm: "test"},
+                                {id: "custom", forge: -1}]
+        page.selectedServerIndex = 0
+        page.accountMode = 1
+        waitForRendering(page)
+        const input = findChild(page, "accountConnectionCode")
+        verify(input.visible)
+        compare(input.echoMode, TextInput.Password)
+        verify(!findChild(page, "displayNameField").visible)
+        input.text = "secret-code"
+        page.submit()
+        compare(mockWs.accountOperation, "login")
+        compare(mockWs.accountValue, "secret-code")
+        compare(input.text, "")
+        page.selectedServerIndex = 1
+        verify(!input.visible)
+    }
+
+    function test_automaticOfficialEntryRetainsAccountLogin() {
+        mockWs.serverEntries = [{id: "official", name: "Official", forge: 0, accountRealm: "test"},
+                                {id: "custom", forge: -1}]
+        page.selectServer(page.automaticServerIndex)
+        page.accountMode = 1
+        waitForRendering(page)
+        verify(page.automaticEntry)
+        const input = findChild(page, "accountConnectionCode")
+        input.text = "private-login"
+        page.submit()
+        compare(mockWs.lastConnectedIndex, -2)
+        compare(mockWs.accountOperation, "login")
+        compare(mockWs.accountValue, "private-login")
+        compare(input.text, "")
     }
 
     function test_capabilitiesAndRefreshAction() {

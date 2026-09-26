@@ -75,7 +75,7 @@ Page {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
                     Layout.bottomMargin: Theme.size(16)
-                    text: qsTr("Join by code or select a room from this hub. No account required.")
+                    text: qsTr("Join by code or select a room from the lobby. No account required.")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(14)
                     wrapMode: Text.WordWrap
@@ -97,7 +97,7 @@ Page {
                     implicitHeight: Theme.size(60)
                     placeholderText: "ABC123"
                     text: root.roomCode
-                    maximumLength: 16
+                    maximumLength: 32
                     horizontalAlignment: TextInput.AlignHCenter
                     font.pixelSize: Theme.fontSize(22)
                     font.weight: Font.DemiBold

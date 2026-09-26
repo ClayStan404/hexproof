@@ -29,6 +29,7 @@ func optionalCommand(handle commandHandler) commandSpec {
 }
 
 var commandRegistry = map[string]commandSpec{
+	protocol.TypeAccountCommand:                requiredCommand((*Handler).handleAccountCommand),
 	protocol.TypeRoomAIRetry:                   requiredCommand((*Handler).handleModelRetry),
 	protocol.TypeForgePeerRequest:              requiredCommand((*Handler).handleForgePeerRequest),
 	protocol.TypeForgePeerSignal:               optionalCommand((*Handler).handleForgePeerSignal),
@@ -169,7 +170,36 @@ func (h *Handler) dispatch(_ context.Context, _ *websocket.Conn, sess *Session, 
 		h.sendError(sess, "", protocol.ErrInvalidMessage, "id required for "+env.Type)
 		return nil
 	}
-	return spec.handle(h, sess, env)
+	if aid := sess.Account().ID; aid != "" {
+		gate := h.accountLock(aid)
+		gate.Lock()
+		defer gate.Unlock()
+		if !h.validateAccountSession(sess, env.ID) {
+			return nil
+		}
+		if sess.Room() == nil && h.accountResumeToken(aid, "") != "" &&
+			(env.Type == protocol.TypeRoomCreate || env.Type == protocol.TypeRoomJoin || env.Type == protocol.TypeTournamentCreate || env.Type == protocol.TypeTournamentOpenMatch || env.Type == protocol.TypeLimitedCreateCasualMatch) {
+			h.sendError(sess, env.ID, protocol.ErrAccountConflict, "Resume the existing account seat before joining another room")
+			return nil
+		}
+	}
+	handled, done := h.routeClusterCommand(sess, &env)
+	if done != nil {
+		defer done()
+	}
+	if handled {
+		return nil
+	}
+	err := spec.handle(h, sess, env)
+	switch env.Type {
+	case protocol.TypeRoomCreate, protocol.TypeRoomJoin, protocol.TypeTournamentCreate,
+		protocol.TypeTournamentEnter, protocol.TypeTournamentRegister, protocol.TypeTournamentOpenMatch,
+		protocol.TypeLimitedCreateCasualMatch:
+		if err == nil {
+			h.bindAccountResources(sess)
+		}
+	}
+	return err
 }
 
 func requiresRequestID(messageType string) bool {

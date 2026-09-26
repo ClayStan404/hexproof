@@ -168,8 +168,10 @@ void WsClient::enterTournament(const QString &tournamentId)
     const QString normalizedId = tournamentId.trimmed().toUpper();
     QJsonObject payload{{u"tournamentId"_s, normalizedId}};
     const QString credential = tournamentCredential(normalizedId);
-    if (!credential.isEmpty())
+    if (!m_account->authenticated() && !credential.isEmpty())
         payload.insert(u"credential"_s, credential);
+    if (m_account->authenticated())
+        payload.insert(u"useAccount"_s, true);
     send(kTypeTournamentEnter, payload);
 }
 

@@ -52,6 +52,8 @@ type RulesCardState struct {
 	SummoningSick   bool                  `json:"summoningSick,omitempty"`
 	FaceDown        bool                  `json:"faceDown,omitempty"`
 	Attacking       bool                  `json:"attacking,omitempty"`
+	AttackingTarget string                `json:"attackingTarget,omitempty"`
+	AttackingPlayer *int                  `json:"attackingPlayer,omitempty"`
 	Blocking        []string              `json:"blocking,omitempty"`
 	Power           string                `json:"power,omitempty"`
 	Toughness       string                `json:"toughness,omitempty"`

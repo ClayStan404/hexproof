@@ -1,0 +1,10 @@
+{
+  "realm": "hexproof-official",
+  "nodeId": "N1",
+  "coordinator": "",
+  "keyFile": "cluster.key",
+  "nodes": [
+    {"id": "N1", "name": "Official 1", "url": "wss://node-one.example/ws", "weight": 1},
+    {"id": "N2", "name": "Official 2", "url": "wss://node-two.example/ws", "weight": 4}
+  ]
+}

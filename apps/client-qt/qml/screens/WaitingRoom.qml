@@ -27,6 +27,11 @@ Page {
     readonly property bool compactLayout: width < Theme.size(1100)
     readonly property bool limitedPairing: roomSession.deckFormat === "limited"
                                           || roomSession.deckFormat === "commander_limited"
+    readonly property bool tournamentDeckLocked: {
+        const seat = roomSession.seatIndex
+        return roomSession.role === "player" && seat >= 0 && seat < roomSession.seats.length
+               && roomSession.seats[seat].deckLocked === true
+    }
 
     background: AppBackground { }
 
@@ -177,7 +182,7 @@ Page {
                                 Text {
                                     objectName: "waitingRoomCode"
                                     textFormat: Text.PlainText
-                                    text: root.roomSession.roomId
+                                    text: root.wsModel.globalCode(root.roomSession.roomId)
                                     color: Theme.accent
                                     font.pixelSize: Theme.fontSize(18)
                                     font.weight: Font.DemiBold
@@ -192,7 +197,7 @@ Page {
                             leadingText: "□"
                             enabled: root.roomSession.roomId.length > 0
                             onClicked: {
-                                root.wsModel.copyToClipboard(root.roomSession.roomId)
+                                root.wsModel.copyToClipboard(root.wsModel.globalCode(root.roomSession.roomId))
                                 root.appWindow.showBanner(qsTr("Room code copied"))
                             }
                         }
@@ -823,7 +828,7 @@ Page {
                     AppButton {
                         objectName: "waitingRoomSelectDeckButton"
                         visible: root.roomSession.role === "player"
-                                 && !root.limitedPairing
+                                 && !root.limitedPairing && !root.tournamentDeckLocked
                         width: Math.min(implicitWidth, Math.max(Theme.size(100),
                                              waitingRoomFooterBar.width - Theme.size(240)))
                         text: root.selectedDeckLabel()
@@ -832,6 +837,14 @@ Page {
                             root.selectingAiDeck = false
                             deckPicker.showForFormat(root.roomSession.format, root.roomSession.deckFormat)
                         }
+                    }
+
+                    StatusPill {
+                        objectName: "waitingRoomTournamentDeckStatus"
+                        maximumWidth: Math.max(Theme.size(100), waitingRoomFooterBar.width - Theme.size(240))
+                        visible: root.tournamentDeckLocked
+                        text: qsTr("Tournament deck locked")
+                        statusColor: Theme.success
                     }
 
                     StatusPill {

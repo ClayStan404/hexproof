@@ -12,11 +12,25 @@ RulesDecisionDialog {
     requested: tableController.interaction.contextActive
         && ["chooseCards", "mulliganPutBack", "revealCards", "scry", "reorder",
             "chooseDamageAssignmentOrder"].includes(session.promptKind)
+    // Forge asks for an order even when one optional opening ability is legal.
+    // That ability is a "you may"; one card has no order to arrange.
+    readonly property var openingAbilityCards: {
+        void session.promptId
+        if (session.promptKind !== "chooseCards"
+                || session.promptTitle !== "Choose cards to activate from opening hand and their order"
+                || session.promptMinCardSelections !== 0
+                || !session.promptCards || typeof session.promptCards.items !== "function")
+            return []
+        return session.promptCards.items().filter(card => card && card.readOnly !== true)
+    }
+    readonly property bool singleOpeningAbility: openingAbilityCards.length === 1
+    readonly property var openingAbilityCard: singleOpeningAbility ? openingAbilityCards[0] : null
 
     objectName: "rulesCardChoiceDialog"
-    width: Math.min(Theme.size(1080), parent ? parent.width - Theme.size(40) : 0)
-    height: Math.min(Theme.size(["scry", "reorder", "chooseDamageAssignmentOrder"]
-        .includes(session.promptKind) ? 520 : 780), parent ? parent.height - Theme.size(40) : 0)
+    width: Math.min(Theme.size(singleOpeningAbility ? 480 : 1080), parent ? parent.width - Theme.size(40) : 0)
+    height: Math.min(Theme.size(singleOpeningAbility ? 560
+        : ["scry", "reorder", "chooseDamageAssignmentOrder"].includes(session.promptKind) ? 520 : 780),
+        parent ? parent.height - Theme.size(40) : 0)
     x: parent ? (parent.width - width) / 2 : 0
     y: parent ? (parent.height - height) / 2 : 0
     padding: Theme.size(18)
@@ -29,8 +43,12 @@ RulesDecisionDialog {
             spacing: Theme.size(12)
             Text {
                 textFormat: Text.PlainText
+                objectName: "rulesChoiceTitle"
                 Layout.fillWidth: true
-                text: root.tableController.promptTitle(root.session.promptKind, root.session.promptTitle)
+                text: root.singleOpeningAbility
+                      ? qsTr("Use %1's opening ability?")
+                        .arg(root.tableController.cardDisplayName(root.openingAbilityCard.name || ""))
+                      : root.tableController.promptTitle(root.session.promptKind, root.session.promptTitle)
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(20)
                 font.weight: Font.DemiBold
@@ -49,7 +67,9 @@ RulesDecisionDialog {
             id: detail
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            text: root.tableController.promptDetail(root.session.promptKind, root.session.promptDetail)
+            text: root.singleOpeningAbility
+                  ? qsTr("You may reveal it from your opening hand, or leave it there.")
+                  : root.tableController.promptDetail(root.session.promptKind, root.session.promptDetail)
             visible: text.length > 0
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(12)
@@ -76,10 +96,56 @@ RulesDecisionDialog {
             Layout.minimumHeight: 0
             active: root.requested
             enabled: !root.tableController.rulesResponsePending
-            sourceComponent: root.session.promptKind === "revealCards" ? reveal
+            sourceComponent: root.singleOpeningAbility ? opening
+                : root.session.promptKind === "revealCards" ? reveal
                 : root.session.promptKind === "scry" ? scry
                 : ["reorder", "chooseDamageAssignmentOrder"].includes(root.session.promptKind)
                     ? order : selection
+        }
+    }
+    Component {
+        id: opening
+        ColumnLayout {
+            spacing: Theme.size(16)
+            Image {
+                objectName: "rulesOpeningAbilityArt"
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: Theme.size(180)
+                Layout.preferredHeight: Theme.size(250)
+                asynchronous: true
+                fillMode: Image.PreserveAspectFit
+                source: {
+                    const card = root.openingAbilityCard
+                    if (!card || !root.tableController.cardCatalogModel
+                            || typeof root.tableController.cardCatalogModel.imageSource !== "function")
+                        return ""
+                    void root.tableController.cardCatalogModel.imageRevision
+                    return root.tableController.cardCatalogModel.imageSource(
+                                card.name || "", card.setCode || "", card.collectorNumber || "")
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.size(10)
+                AppButton {
+                    objectName: "rulesOpeningAbilitySkip"
+                    Layout.fillWidth: true
+                    text: qsTr("Leave it")
+                    enabled: !root.tableController.rulesResponsePending
+                    onClicked: root.tableController.wsModel.respondRulesPromptWithCards(
+                                   root.session.promptId, "$submit", [])
+                }
+                AppButton {
+                    objectName: "rulesOpeningAbilityUse"
+                    Layout.fillWidth: true
+                    variant: "highlight"
+                    text: qsTr("Use it")
+                    enabled: !root.tableController.rulesResponsePending
+                    onClicked: root.tableController.wsModel.respondRulesPromptWithCards(
+                                   root.session.promptId, "$submit",
+                                   [root.openingAbilityCard.cardId])
+                }
+            }
         }
     }
     Component {

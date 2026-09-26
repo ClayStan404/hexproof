@@ -189,6 +189,30 @@
           "type": "integer",
           "required": false,
           "goType": "int64"
+        },
+        {
+          "name": "accountSession",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "clusterTicket",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "nodeLatencies",
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "object",
+            "ref": "NodeLatency"
+          }
+        },
+        {
+          "name": "clusterRealm",
+          "type": "string",
+          "required": false
         }
       ],
       "qtBuilder": {
@@ -201,8 +225,16 @@
       "direction": "serverToClient",
       "goType": "SessionWelcome",
       "fields": [
-        {"name": "aiModelsAvailable", "type": "boolean", "required": true},
-        {"name": "forgeAIAvailable", "type": "boolean", "required": false},
+        {
+          "name": "aiModelsAvailable",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "forgeAIAvailable",
+          "type": "boolean",
+          "required": false
+        },
         {
           "name": "v",
           "type": "string",
@@ -261,9 +293,41 @@
           "type": "boolean",
           "required": true
         },
-        {"name": "playerHostingAvailable", "type": "boolean", "required": false},
-        {"name": "peerTransportAvailable", "type": "boolean", "required": false},
-        {"name": "hostMigrationAvailable", "type": "boolean", "required": false}
+        {
+          "name": "playerHostingAvailable",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "peerTransportAvailable",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "hostMigrationAvailable",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "accountRealm",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "accountId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "accountName",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "clusterNode",
+          "type": "string",
+          "required": false
+        }
       ]
     },
     {
@@ -391,7 +455,11 @@
       "direction": "clientToServer",
       "goType": "RoomJoin",
       "fields": [
-        {"name": "acceptPlayerHost", "type": "boolean", "required": false},
+        {
+          "name": "acceptPlayerHost",
+          "type": "boolean",
+          "required": false
+        },
         {
           "name": "roomId",
           "type": "string",
@@ -410,6 +478,11 @@
         {
           "name": "credential",
           "type": "string",
+          "required": false
+        },
+        {
+          "name": "useAccount",
+          "type": "boolean",
           "required": false
         }
       ],

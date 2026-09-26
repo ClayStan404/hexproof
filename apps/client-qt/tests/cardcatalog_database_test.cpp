@@ -8,6 +8,7 @@
 #include "services/CardArtCache.h"
 #include "services/CardArtManager.h"
 #include "services/CatalogRepository.h"
+#include "services/DeckLegalityService.h"
 
 #include <QScopeGuard>
 #include <QSemaphore>
@@ -146,6 +147,109 @@ bool writeAuditTokenCatalog(const QString &root, const QString &name = u"Goblin"
 }
 
 } // namespace
+
+void TestCardCatalog::resolvesCompactSplitNamesInDeckLibrary_data() const
+{
+    QTest::addColumn<bool>("savedDeck");
+    QTest::newRow("new-import") << false;
+    QTest::newRow("saved-library") << true;
+}
+
+void TestCardCatalog::resolvesCompactSplitNamesInDeckLibrary() const
+{
+    QFETCH(bool, savedDeck);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString canonicalName = u"Unholy Annex // Ritual Chamber"_s;
+    const QJsonArray cards{
+        QJsonObject{{u"id"_s, u"room"_s},
+                    {u"oracle_id"_s, u"oracle-room"_s},
+                    {u"name"_s, canonicalName},
+                    {u"layout"_s, u"split"_s},
+                    {u"type_line"_s, u"Enchantment — Room // Enchantment — Room"_s},
+                    {u"set"_s, u"TST"_s},
+                    {u"collector_number"_s, u"1"_s},
+                    {u"lang"_s, u"en"_s},
+                    {u"legalities"_s, QJsonObject{{u"modern"_s, u"legal"_s}}}},
+        QJsonObject{{u"id"_s, u"swamp"_s},
+                    {u"oracle_id"_s, u"oracle-swamp"_s},
+                    {u"name"_s, u"Swamp"_s},
+                    {u"layout"_s, u"normal"_s},
+                    {u"type_line"_s, u"Basic Land — Swamp"_s},
+                    {u"set"_s, u"TST"_s},
+                    {u"collector_number"_s, u"2"_s},
+                    {u"lang"_s, u"en"_s},
+                    {u"legalities"_s, QJsonObject{{u"modern"_s, u"legal"_s}}}},
+    };
+    const auto imported = importSupportFixture(storage.path(), cards);
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    if (savedDeck) {
+        QFile file(storage.filePath(u"decks.json"_s));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const QByteArray contents = R"({"version":1,"decks":[{
+            "id":"saved-room-deck","name":"Saved room deck","format":"modern",
+            "deckFormat":"modern","mainboard":[
+                {"name":"Unholy Annex/Ritual Chamber","count":4},
+                {"name":"Swamp","count":56}],"sideboard":[]
+        }]})";
+        QCOMPARE(file.write(contents), contents.size());
+    }
+
+    SupportNetworkAccessManager manager;
+    CardCatalog catalog(storage.path(), &manager);
+    QVERIFY(catalog.installed());
+    catalog.search(u"Unholy Annex"_s);
+    QTRY_COMPARE(catalog.searchResults().size(), 1);
+    const QVariantMap searchCard = catalog.searchResults().first().toMap();
+    QCOMPARE(searchCard.value(u"name"_s).toString(), canonicalName);
+
+    QString deckId;
+    {
+        hexproof::client::DeckLegalityService legality(storage.path());
+        hexproof::client::DeckLibraryModel library(storage.path());
+        connect(&library, &hexproof::client::DeckLibraryModel::cardsNeedMetadata, &catalog,
+                &CardCatalog::enrichCardMetadata);
+        connect(&catalog, &CardCatalog::cardMetadataAvailable, &library,
+                &hexproof::client::DeckLibraryModel::applyCatalogMetadata);
+        connect(&library, &hexproof::client::DeckLibraryModel::decksNeedValidation, &legality,
+                &hexproof::client::DeckLegalityService::validateDecks);
+        connect(&legality, &hexproof::client::DeckLegalityService::validationReady, &library,
+                &hexproof::client::DeckLibraryModel::applyDeckValidation);
+        QSignalSpy caching(&library, &hexproof::client::DeckLibraryModel::cardsNeedCaching);
+        QSignalSpy validated(&legality, &hexproof::client::DeckLegalityService::validationReady);
+        if (savedDeck) {
+            library.hydrateCatalogMetadata();
+            library.refreshDeckValidation();
+        } else {
+            QVERIFY(library.importDeck(u"Imported room deck"_s, u"modern"_s,
+                                       u"4 Unholy Annex/Ritual Chamber\n56 Swamp\n"_s));
+        }
+        QCOMPARE(library.rowCount(), 1);
+        deckId =
+            library.data(library.index(0), hexproof::client::DeckLibraryModel::IdRole).toString();
+        QVERIFY(library.openDeck(deckId));
+        QTRY_VERIFY(!validated.isEmpty());
+        QVERIFY(library.currentValidationVerified());
+        QVERIFY2(library.currentValidationIssues().isEmpty(),
+                 qPrintable(library.currentValidationIssues().join(u'\n')));
+        QTRY_VERIFY(!library.deckForMatch(deckId, true).isEmpty());
+        const QVariantMap room =
+            library.deckForMatch(deckId, true).value(u"mainboard"_s).toList().first().toMap();
+        QCOMPARE(room.value(u"name"_s).toString(), canonicalName);
+        QCOMPARE(room.value(u"setCode"_s), searchCard.value(u"setCode"_s));
+        QCOMPARE(room.value(u"collectorNumber"_s), searchCard.value(u"collectorNumber"_s));
+        QCOMPARE(room.value(u"count"_s).toInt(), 4);
+        QCOMPARE(library.currentMainCount(), 60);
+        QCOMPARE(caching.count(), 0);
+        QVERIFY(manager.requestedUrls.isEmpty());
+    }
+    hexproof::client::DeckLibraryModel restored(storage.path());
+    QVERIFY(restored.openDeck(deckId));
+    QVERIFY(
+        restored.exportCurrentDeckText().contains(u"4 Unholy Annex // Ritual Chamber (TST) 1"_s));
+    QCOMPARE(restored.currentMainCount(), 60);
+}
 
 void TestCardCatalog::searchesSupportKindsBeforeResultLimit() const
 {
@@ -328,6 +432,78 @@ void TestCardCatalog::cardDisplayNamesResolveCatalogNamesAndFaces() const
     QCOMPARE(catalog.cardDisplayName({}), QString{});
     catalog.setLanguage(u"en"_s);
     QCOMPARE(catalog.cardDisplayName(u"Lightning Bolt"_s), u"Lightning Bolt"_s);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::catalogMissesAreCachedUntilReplacement() const
+{
+    QTemporaryDir storage;
+    QTemporaryDir replacement;
+    QVERIFY(storage.isValid());
+    QVERIFY(replacement.isValid());
+    const QJsonObject token = supportFixture(u"Eldrazi Spawn"_s, u"token"_s, u"1"_s);
+    QVERIFY(importSupportFixture(storage.path(), {token}).ok);
+    QJsonObject added = token;
+    added.insert(u"name"_s, u"Generated Token"_s);
+    added.insert(u"printed_name"_s, u"测试衍生物"_s);
+    added.insert(u"lang"_s, u"zhs"_s);
+    QVERIFY(importSupportFixture(replacement.path(), {added}).ok);
+
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.cardDisplayName(u"Generated Token"_s), u"Generated Token"_s);
+    // Add a row without catalog invalidation: a repeated missing-name request
+    // must use the cached miss, not rescan the database on every prompt.
+    const QString connection = u"catalog-cached-miss-fixture"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(storage.filePath(u"cards.sqlite"_s));
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY2(query.exec(u"UPDATE cards SET name = 'Generated Token', "
+                            "printed_name = '测试衍生物', lang = 'zhs'"_s),
+                 qPrintable(query.lastError().text()));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    for (int i = 0; i < 10; ++i)
+        QCOMPARE(catalog.cardDisplayName(u"Generated Token"_s), u"Generated Token"_s);
+
+    catalog.importCatalogFile(QUrl::fromLocalFile(replacement.filePath(u"cards.sqlite"_s)),
+                              u"default_cards"_s);
+    QTRY_VERIFY(!catalog.busy());
+    QVERIFY2(catalog.lastError().isEmpty(), qPrintable(catalog.lastError()));
+    QCOMPARE(catalog.cardDisplayName(u"Generated Token"_s), u"测试衍生物"_s);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::catalogLookupErrorsRemainRetryable() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QJsonObject token = supportFixture(u"Eldrazi Spawn"_s, u"token"_s, u"1"_s);
+    token.insert(u"printed_name"_s, u"奥札奇裔"_s);
+    token.insert(u"lang"_s, u"zhs"_s);
+    QVERIFY(importSupportFixture(storage.path(), {token}).ok);
+    FakeNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"zh"_s);
+    // Establish the repository connection, then make a query temporarily fail.
+    QCOMPARE(catalog.cardDisplayName(u"Unknown"_s), u"Unknown"_s);
+    const QString connection = u"catalog-retryable-lookup-fixture"_s;
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(u"QSQLITE"_s, connection);
+        database.setDatabaseName(storage.filePath(u"cards.sqlite"_s));
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(query.exec(u"ALTER TABLE cards RENAME TO temporarily_unavailable"_s));
+        QCOMPARE(catalog.cardDisplayName(u"Eldrazi Spawn"_s), u"Eldrazi Spawn"_s);
+        QVERIFY(query.exec(u"ALTER TABLE temporarily_unavailable RENAME TO cards"_s));
+        QCOMPARE(catalog.cardDisplayName(u"Eldrazi Spawn"_s), u"奥札奇裔"_s);
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
     QVERIFY(network.requestedUrls.isEmpty());
 }
 
@@ -1793,6 +1969,7 @@ void TestCardCatalog::exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() c
     QVERIFY(storage.isValid());
     QVERIFY2(writeBoltCatalog(storage.path()), "test catalog import failed");
     FakeNetworkAccessManager network;
+    network.chineseRulesText = u"闪电击对任意一个目标造成3点伤害。"_s;
     CardCatalog catalog(storage.path(), &network);
     catalog.setLanguage(u"zh"_s);
     catalog.setCardArtProvider(u"scryfall"_s);
@@ -1807,7 +1984,11 @@ void TestCardCatalog::exactArtUsesCatalogEnglishWhenChinesePrintingIsMissing() c
 
     QTRY_COMPARE_WITH_TIMEOUT(cacheSpy.count(), 1, 2'000);
     QVERIFY(cacheSpy.first().at(3).toBool());
-    QCOMPARE(network.requestedUrls, QList<QUrl>{QUrl(u"https://example.test/bolt.jpg"_s)});
+    QTRY_COMPARE(catalog.cardRulesText(u"Lightning Bolt"_s, u"M11"_s, u"149"_s, u"zh"_s),
+                 network.chineseRulesText);
+    QCOMPARE(network.requestedUrls,
+             (QList<QUrl>{QUrl(u"https://example.test/bolt.jpg"_s),
+                          QUrl(u"https://mtgch.com/api/v1/card/M11/149/"_s)}));
     QVERIFY(catalog.printingImageSource(u"Lightning Bolt"_s, u"M11"_s, u"149"_s)
                 .startsWith(u"file:"_s));
 }

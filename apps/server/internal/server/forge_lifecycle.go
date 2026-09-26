@@ -59,27 +59,7 @@ func (h *Handler) startForgeRuntime(ctx context.Context, roomID string, dedicate
 		// Reserve capacity before spawning Java. A process remains charged
 		// until Wait has reaped it, even if it is unhealthy or closing. Check
 		// Done directly so a next game need not wait for its old watcher.
-		occupied := len(h.forgeReservations)
-		reservedClients := make(map[forge.Runtime]bool, occupied)
-		for _, client := range h.forgeReservations {
-			reservedClients[client] = true
-		}
-		for client := range h.forgeClients {
-			if _, local := client.(*forge.Client); !local {
-				continue
-			}
-			if reservedClients[client] {
-				continue
-			}
-			select {
-			case <-client.Done():
-			default:
-				occupied++
-			}
-		}
-		if h.forgeStarting != nil {
-			occupied++
-		}
+		occupied := h.forgeOccupiedLocked()
 		if previous, reserved := h.forgeReservations[roomID]; reserved {
 			// Keep the same match's slot across sideboarding/restart, but
 			// never overlap its previous JVM with the replacement.
@@ -416,6 +396,12 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bo
 // WebSocket sessions separately.
 func (h *Handler) Close() error {
 	h.forgeCloseOnce.Do(func() {
+		if h.clusterAgent != nil {
+			h.clusterAgent.Close()
+		}
+		if h.accountStore != nil {
+			_ = h.accountStore.Close()
+		}
 		h.closeModelWorkers()
 		h.tournaments.close()
 		h.forgeMu.Lock()
@@ -471,4 +457,30 @@ func (h *Handler) Close() error {
 		}
 	})
 	return h.forgeCloseErr
+}
+
+// Caller holds forgeMu. Count each live/cold/reserved lease exactly once.
+func (h *Handler) forgeOccupiedLocked() int {
+	occupied := len(h.forgeReservations)
+	reservedClients := make(map[forge.Runtime]bool, occupied)
+	for _, client := range h.forgeReservations {
+		reservedClients[client] = true
+	}
+	for client := range h.forgeClients {
+		if _, local := client.(*forge.Client); !local {
+			continue
+		}
+		if reservedClients[client] {
+			continue
+		}
+		select {
+		case <-client.Done():
+		default:
+			occupied++
+		}
+	}
+	if h.forgeStarting != nil {
+		occupied++
+	}
+	return occupied
 }

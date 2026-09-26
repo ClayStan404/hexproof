@@ -23,6 +23,14 @@ Rectangle {
     }
     readonly property var combat: tableController.combatInteraction
     readonly property string persistentSummary: persistentState.boardSummary
+    readonly property string loyaltyName: qsTranslate("RulesCounters", "Loyalty")
+    readonly property string loyaltyAmount: {
+        const prefix = loyaltyName + " "
+        const part = (card.countersSummary || "").split(" · ").find(item => item.indexOf(prefix) === 0)
+        return part ? part.slice(prefix.length) : ""
+    }
+    readonly property string otherCounters: (card.countersSummary || "").split(" · ")
+        .filter(item => item.length && item.indexOf(loyaltyName + " ") !== 0).join(" · ")
     RulesCardPersistentState {
         id: persistentState
         card: root.card
@@ -48,9 +56,41 @@ Rectangle {
     readonly property bool abilityActionable: objectKind === "card" && !fullFace
         && (!combat || !combat.active)
         && tableController.interaction.actionsForCard(objectId).some(action => action.kind === "activateAbility")
-    readonly property bool showAbilityHint: abilityActionable && previewActive
-    readonly property string interactionLabel: showAbilityHint ? qsTr("Activate ability")
-        : combatLabel || persistentState.relationshipBadge || (card.attacking === true ? qsTr("Attacking") : "")
+    readonly property bool undoingMana: objectKind === "card" && !fullFace
+        && (!combat || !combat.active)
+        && tableController.rulesSession.promptKind === "payManaCost"
+        && tableController.interaction.actionsForCard(objectId).some(action => action.kind === "undoMana")
+    readonly property bool payingMana: abilityActionable
+        && tableController.rulesSession.promptKind === "payManaCost"
+        && !undoingMana
+    readonly property bool showAbilityHint: abilityActionable && previewActive && !payingMana && !undoingMana
+    readonly property string attackLabel: {
+        if (!card || card.attacking !== true)
+            return ""
+        const seat = card.attackingSeat
+        if (seat >= 0 && !card.attackingTarget) {
+            if (seat === tableController.localSeat)
+                return qsTr("Attacking you")
+            const name = tableController.matchUi && typeof tableController.matchUi.playerName === "function"
+                ? tableController.matchUi.playerName(seat) : ""
+            return name ? qsTr("Attacking %1").arg(name) : qsTr("Attacking a player")
+        }
+        if (card.attackingTarget) {
+            const other = tableController.rulesSession.cardForInspection(card.attackingTarget)
+            const name = other && other.visibleIdentity && !other.faceDown && other.name
+                ? (typeof tableController.cardDisplayName === "function"
+                   ? tableController.cardDisplayName(other.name) : other.name)
+                : qsTr("a permanent")
+            return qsTr("Attacking %1").arg(name)
+        }
+        return qsTr("Attacking")
+    }
+    readonly property bool attackTarget: (tableController.rulesSession.battlefieldRelationships || []).some(
+        link => link.kind === "attack" && link.targetId === objectId)
+    readonly property string interactionLabel: undoingMana ? qsTr("Undo mana")
+        : payingMana ? qsTr("Tap for mana")
+        : showAbilityHint ? qsTr("Activate ability")
+        : combatLabel || [attackLabel, persistentState.relationshipBadge].filter(value => value.length).join(" · ")
     signal activated()
 
     function activate() {
@@ -71,7 +111,10 @@ Rectangle {
     radius: 8 * unit
     antialiasing: true
     color: combatHovered ? Theme.primary : selected ? Theme.accent
+                    : undoingMana ? "#7ebcca"
+                    : payingMana ? "#e1bd7f"
                     : combatDestination ? (combat.attacking ? "#e1bd7f" : "#7ebcca")
+                    : attackTarget ? "#d4654f"
                     : actionable ? Theme.primary
                     : activeFocus ? Theme.warning
                     : Theme.borderStrong
@@ -187,9 +230,10 @@ Rectangle {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: 6 * root.unit
-            anchors.bottomMargin: root.card.power || root.card.toughness ? 34 * root.unit : 6 * root.unit
+            anchors.bottomMargin: root.card.power || root.card.toughness || root.loyaltyAmount.length
+                                  ? 34 * root.unit : 6 * root.unit
             visible: !root.fullFace || root.persistentSummary.length > 0
-            text: [root.persistentSummary, [root.card.countersSummary || "",
+            text: [root.persistentSummary, [root.otherCounters,
                    root.card.damage > 0 ? qsTr("%1 dmg").arg(root.card.damage) : ""].filter(v => v.length).join(" · ")]
                    .filter(v => v.length).join("\n")
             // Wrapped/elided text can recalculate implicitHeight from height.
@@ -203,6 +247,30 @@ Rectangle {
             color: "#e9c785"
             font.pixelSize: 10 * root.unit
             elide: Text.ElideRight
+        }
+        Rectangle {
+            objectName: "forgeCardLoyalty-" + root.objectId
+            visible: root.loyaltyAmount.length > 0
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: 4 * root.unit
+            anchors.bottomMargin: root.card.power || root.card.toughness ? 32 * root.unit : 4 * root.unit
+            width: Math.max(28 * root.unit, loyaltyNumber.implicitWidth + 14 * root.unit)
+            height: 25 * root.unit
+            radius: height / 2
+            color: "#1c2430"
+            border.width: 2
+            border.color: "#e9c785"
+            Text {
+                id: loyaltyNumber
+                objectName: "forgeCardLoyaltyValue-" + root.objectId
+                anchors.centerIn: parent
+                textFormat: Text.PlainText
+                text: root.loyaltyAmount
+                color: "#f3f1e9"
+                font.pixelSize: 14 * root.unit
+                font.weight: Font.Bold
+            }
         }
     }
     Rectangle {
@@ -232,7 +300,7 @@ Rectangle {
         width: Math.min(root.width, hint.implicitWidth + 14 * root.unit)
         height: 19 * root.unit
         radius: 4 * root.unit
-        color: root.showAbilityHint ? Theme.primary : "#e1bf82"
+        color: root.undoingMana ? "#3d6d86" : root.showAbilityHint ? Theme.primary : "#e1bf82"
         Text {
             id: hint
             objectName: "forgeCardInteractionHint-" + root.objectId

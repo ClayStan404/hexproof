@@ -1227,6 +1227,24 @@ bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariant
     return true;
 }
 
+bool NativeAudit::updateRulesTableFixture(const QVariantMap &rules, const QVariantMap &prompt)
+{
+    // Keep the existing table/delegates alive, like incoming rules messages.
+    // Re-entering the room would measure navigation and construction instead.
+    auto *transport = qobject_cast<WsClient *>(
+        m_engine->rootContext()->contextProperty(QStringLiteral("ws")).value<QObject *>());
+    if (!transport || !transport->inRoom())
+        return artifactFailure(QStringLiteral("Rules update fixture requires an active test room"));
+    if (!transport->m_rulesSession->applySnapshot(QJsonObject::fromVariantMap(rules)))
+        return artifactFailure(QStringLiteral("Rules snapshot was rejected"));
+    if (!prompt.isEmpty() &&
+        !transport->m_rulesSession->applyPrompt(QJsonObject::fromVariantMap(prompt)))
+        return artifactFailure(QStringLiteral("Rules prompt was rejected"));
+    fixture(QStringLiteral("rules-table-update"),
+            {{QStringLiteral("gameId"), rules.value(QStringLiteral("gameId"))}});
+    return true;
+}
+
 void NativeAudit::startDriver()
 {
     m_driverStarted = true;

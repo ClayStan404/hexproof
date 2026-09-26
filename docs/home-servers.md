@@ -1,5 +1,10 @@
 # Operator-owned home servers
 
+Official home nodes may participate in the [unified official lobby](official-cluster.md).
+Outbound coordinator reports and the existing published home URL allow automatic
+placement without exposing a new inbound home port. Game ownership and direct/relay
+transport selection stay on that home hub.
+
 ## Product contract
 
 An operator-owned home node runs a complete Hexproof hub and, when enabled,

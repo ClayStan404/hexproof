@@ -71,12 +71,13 @@ Surface {
             delegate: AppButton {
                 required property string responseId
                 required property string label
+                required property string cardId
                 objectName: root.isFixedAction(responseId)
                             ? "rulesPromptOption-" + responseId : ""
                 visible: root.isFixedAction(responseId)
                 compact: true
-                text: root.tableController.promptOptionLabel(
-                          root.rulesSession.promptKind, responseId, label)
+                text: visible ? root.tableController.promptOptionLabel(
+                          root.rulesSession.promptKind, responseId, label, cardId) : ""
                 onClicked: root.tableController.wsModel.respondRulesPrompt(
                                root.rulesSession.promptId, responseId)
             }
@@ -153,7 +154,7 @@ Surface {
                     font.pixelSize: Theme.fontSize(12)
                     font.weight: Font.DemiBold
                     wrapMode: Text.WordWrap
-                    maximumLineCount: 3
+                    maximumLineCount: 6
                     elide: Text.ElideRight
 
                     HoverHandler { id: titleHover }
@@ -183,7 +184,8 @@ Surface {
                     textFormat: Text.PlainText
                     objectName: "rulesPromptDetail"
                     Layout.fillWidth: true
-                    visible: !rulesSession.gameOver
+                    visible: rulesSession.promptKind !== "payManaCost"
+                             && !rulesSession.gameOver
                              && (rulesSession.promptPending
                                  || root.waitingForDecision)
                     text: root.waitingForDecision
@@ -293,8 +295,8 @@ Surface {
                         if (activeFocus)
                             actionOptions.positionViewAtIndex(index, ListView.Contain)
                     }
-                    text: root.tableController.promptOptionLabel(
-                              rulesSession.promptKind, responseId, label)
+                    text: visible ? root.tableController.promptOptionLabel(
+                              rulesSession.promptKind, responseId, label, model.cardId) : ""
                     onClicked: root.tableController.wsModel.respondRulesPrompt(
                                    rulesSession.promptId, responseId)
                 }
@@ -338,7 +340,8 @@ Surface {
             Layout.fillWidth: true
             promptId: rulesSession.promptId
             previewBoundary: root
-            contextEnabled: root.interaction === null || root.interaction.contextActive
+            contextEnabled: (root.interaction === null || root.interaction.contextActive)
+                            && rulesSession.promptKind !== "payManaCost"
             expandedCard: ["chooseBoolean", "chooseFromSelection", "chooseColor", "chooseNumber"].includes(rulesSession.promptKind)
             cardHeight: typeof root.tableController.height === "number"
                 ? Math.min(Theme.size(280), Math.max(Theme.size(100), root.tableController.height - Theme.size(400)))
@@ -346,7 +349,11 @@ Surface {
             cardCatalogModel: root.tableController.cardCatalogModel
             sourceCardModel: rulesSession.promptContextCards
             targetModel: rulesSession.promptContextTargets
-            contextText: rulesSession.promptContextText
+            contextText: rulesSession.promptKind === "chooseBoardTargets"
+                         && RulesText.currentEffectTitle(
+                             rulesSession.promptDetail, rulesSession.promptContextText,
+                             root.tableController.promptRulesText("")).length
+                         ? "" : rulesSession.promptContextText
         }
 
         RulesCardSelectionPrompt {
@@ -496,6 +503,8 @@ Surface {
             promptKind: rulesSession.promptKind
             promptTitle: rulesSession.promptTitle
             promptDetail: rulesSession.promptDetail
+            englishRulesText: root.tableController.promptRulesText("en")
+            localizedRulesText: root.tableController.promptRulesText("")
             minimumTotal: rulesSession.promptMinChoiceTotal
             maximumTotal: rulesSession.promptMaxChoiceTotal
         }

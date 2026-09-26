@@ -823,6 +823,9 @@ void TestCatalogRepository::reportsPrintingsQueryErrors() const
 
     CatalogRepository repository(databasePath);
     QString error;
+    QVERIFY(!repository.lookup({u"Eldrazi Spawn Token"_s, {}, {}, u"zh"_s}, &error).valid());
+    QVERIFY2(!error.isEmpty(), "lookup() must distinguish query failures from missing cards");
+    error.clear();
     QCOMPARE(repository.printings(u"Lightning Bolt"_s, u"en"_s, &error).size(), 0);
     QVERIFY2(!error.isEmpty(), "printings() must surface a catalog query failure");
     error.clear();

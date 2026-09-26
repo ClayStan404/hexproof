@@ -159,6 +159,7 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
     int scryfallImageTimeoutsRemaining = 0;
     int scryfallImageRemoteClosesRemaining = 0;
     QColor imageColor = Qt::transparent;
+    QString chineseRulesText;
 
   protected:
     QNetworkReply *createRequest(Operation operation, const QNetworkRequest &request,
@@ -281,6 +282,7 @@ class FakeNetworkAccessManager final : public QNetworkAccessManager
                 {u"name"_s, u"Lightning Bolt"_s},
                 {u"zhs_name"_s, u"闪电击"_s},
                 {u"zhs_type_line"_s, u"瞬间"_s},
+                {u"zhs_text"_s, chineseRulesText},
                 {u"set"_s, setCode},
                 {u"collector_number"_s, collectorNumber},
                 {u"zhs_image_uris"_s,
@@ -450,6 +452,8 @@ class TestCardCatalog : public QObject
     void doesNotBuildCatalogWhenOfficialPackageIsUnavailable() const;
     void doesNotCacheBusyCatalogFilterMisses() const;
     void hydratesLookupsWhenCatalogChangedFires() const;
+    void resolvesCompactSplitNamesInDeckLibrary_data() const;
+    void resolvesCompactSplitNamesInDeckLibrary() const;
     void clearsQueryErrorAfterSuccessfulPrintings() const;
     void keepsOperationErrorAfterSuccessfulPrintings() const;
     void incrementalCacheDoesNotClearPrintingsError() const;
@@ -461,6 +465,8 @@ class TestCardCatalog : public QObject
     void emblemOnlyCatalogRemainsInstalledAfterLegacyCountRecovery() const;
     void tokenDisplayNameUsesLocalLanguageWithoutNetwork() const;
     void cardDisplayNamesResolveCatalogNamesAndFaces() const;
+    void catalogMissesAreCachedUntilReplacement() const;
+    void catalogLookupErrorsRemainRetryable() const;
     void cardDisplayNamesUseCachedTextWithoutArtwork() const;
     void cachesSupportCardsAlongsidePreferredLanguage() const;
     void supportDetailsAndArtSurviveLanguageChangesAndRestart() const;

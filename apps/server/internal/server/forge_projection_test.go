@@ -18,9 +18,10 @@ func TestForgePermanentRelationshipsArePublicAndCurrent(t *testing.T) {
 	view := forge.GameView{GameID: "relations", ActivePlayerID: "player-0", PriorityPlayerID: "player-1",
 		Players: []forge.PlayerView{{ID: "player-0", ManaPool: map[string]int{"C": 3, "G": 1}}, {ID: "player-1"}},
 		Zones: []forge.ZoneView{
-			{Zone: "battlefield", OwnerID: "player-0", Count: 2, Cards: []forge.CardView{
-				{ID: "attacker", Attacking: true, FaceDown: true},
-				{ID: "aura", AttachedTo: "attacker"}}},
+			{Zone: "battlefield", OwnerID: "player-0", Count: 3, Cards: []forge.CardView{
+				{ID: "attacker", Attacking: true, FaceDown: true, AttackingTarget: "hand", AttackingPlayer: "player-1"},
+				{ID: "aura", AttachedTo: "attacker"},
+				{ID: "walker-attacker", Attacking: true, AttackingTarget: "blocker", AttackingPlayer: "player-0"}}},
 			{Zone: "battlefield", OwnerID: "player-1", Count: 2, Cards: []forge.CardView{
 				{ID: "blocker", Blocking: []string{"attacker", "attacker", "hand", "missing", "blocker"}},
 				{ID: "equipment", AttachedTo: "hand"}}},
@@ -37,6 +38,14 @@ func TestForgePermanentRelationshipsArePublicAndCurrent(t *testing.T) {
 	if snapshot.Zones[0].Cards[0].Identity != nil || snapshot.Zones[1].Cards[1].AttachedTo != "" ||
 		snapshot.Zones[2].Cards[0].AttachedTo != "" || len(snapshot.Zones[2].Cards[0].Blocking) != 0 {
 		t.Fatal("relationship disclosed a private card or escaped its battlefield zone")
+	}
+	attacker := snapshot.Zones[0].Cards[0]
+	if attacker.AttackingTarget != "" || attacker.AttackingPlayer == nil || *attacker.AttackingPlayer != 1 {
+		t.Fatal("player attack target lost or a private card was used as the defender")
+	}
+	walker := snapshot.Zones[0].Cards[2]
+	if walker.AttackingTarget != "blocker" || walker.AttackingPlayer != nil {
+		t.Fatal("permanent attack target lost or replaced by the player")
 	}
 	if !reflect.DeepEqual(snapshot.Players[0].ManaPool, []protocol.RulesCounter{{Name: "C", Value: 3}, {Name: "G", Value: 1}}) {
 		t.Fatal("colorless mana was lost in the public projection")

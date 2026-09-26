@@ -554,6 +554,11 @@
           "name": "loaded",
           "type": "boolean",
           "required": false
+        },
+        {
+          "name": "deckLocked",
+          "type": "boolean",
+          "required": false
         }
       ]
     },
@@ -916,6 +921,21 @@
           "type": "integer",
           "required": false,
           "goType": "int64"
+        },
+        {
+          "name": "actionClockMs",
+          "type": "array",
+          "required": false,
+          "goType": "[]int64",
+          "items": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "actionClockRunning",
+          "type": "integer",
+          "required": false,
+          "nullable": true
         }
       ]
     }

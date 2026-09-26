@@ -24,11 +24,15 @@ import (
 // required and must exactly match the server build. The client MAY offer a
 // protocol string; the server's session.welcome is authoritative.
 type SessionHello struct {
-	DisplayName   string `json:"displayName"`
-	ClientVersion string `json:"clientVersion"`
-	Protocol      string `json:"protocol,omitempty"`
-	ResumeToken   string `json:"resumeToken,omitempty"`
-	LastSeq       int64  `json:"lastSeq,omitempty"`
+	ClusterRealm   string        `json:"clusterRealm,omitempty"`
+	ClusterTicket  string        `json:"clusterTicket,omitempty"`
+	NodeLatencies  []NodeLatency `json:"nodeLatencies,omitempty"`
+	DisplayName    string        `json:"displayName"`
+	ClientVersion  string        `json:"clientVersion"`
+	Protocol       string        `json:"protocol,omitempty"`
+	ResumeToken    string        `json:"resumeToken,omitempty"`
+	LastSeq        int64         `json:"lastSeq,omitempty"`
+	AccountSession string        `json:"accountSession,omitempty"`
 }
 
 // SessionWelcome is the payload of session.welcome (S->C). It is the ONLY
@@ -37,6 +41,7 @@ type SessionHello struct {
 // membership metadata for a restarted client to interpret the fresh room and
 // role-specific game snapshots that immediately follow.
 type SessionWelcome struct {
+	ClusterNode            string `json:"clusterNode,omitempty"`
 	V                      string `json:"v"`
 	ConnectionID           string `json:"connectionId"`
 	ServerVersion          string `json:"serverVersion"`
@@ -52,6 +57,9 @@ type SessionWelcome struct {
 	PlayerHostingAvailable bool   `json:"playerHostingAvailable,omitempty"`
 	PeerTransportAvailable bool   `json:"peerTransportAvailable,omitempty"`
 	HostMigrationAvailable bool   `json:"hostMigrationAvailable,omitempty"`
+	AccountRealm           string `json:"accountRealm,omitempty"`
+	AccountID              string `json:"accountId,omitempty"`
+	AccountName            string `json:"accountName,omitempty"`
 }
 
 // ErrorPayload is the payload of an `error` message.
@@ -115,6 +123,7 @@ type RoomSettings struct {
 // contains password material, member identities, deck selection, connection
 // ids, or hidden game state.
 type RoomListEntry struct {
+	NodeName           string `json:"nodeName,omitempty"`
 	RoomID             string `json:"roomId"`
 	RoomKind           string `json:"roomKind,omitempty"`
 	Name               string `json:"name"`
@@ -143,6 +152,7 @@ type RoomListed struct {
 
 // RoomJoin is the payload of room.join (C->S).
 type RoomJoin struct {
+	UseAccount       bool   `json:"useAccount,omitempty"`
 	AcceptPlayerHost bool   `json:"acceptPlayerHost,omitempty"`
 	RoomID           string `json:"roomId"`
 	AsSpectator      bool   `json:"asSpectator"`
@@ -436,6 +446,7 @@ type Seat struct {
 	DisplayName  string `json:"displayName,omitempty"`
 	Host         bool   `json:"host,omitempty"`
 	DeckSelected bool   `json:"deckSelected,omitempty"`
+	DeckLocked   bool   `json:"deckLocked,omitempty"`
 	Ready        bool   `json:"ready,omitempty"`
 	Loaded       bool   `json:"loaded,omitempty"`
 	// ConnectionID is omitted in projections (never sent to clients).
@@ -472,6 +483,10 @@ type RoomSnapshot struct {
 	SpectatorsSeeHands bool                  `json:"spectatorsSeeHands"`
 	Phase              string                `json:"phase"`
 	LoadID             int64                 `json:"loadId,omitempty"`
+	// ActionClockMs is remaining action time per seat. ActionClockRunning is
+	// the seat whose clock is counting, when a constructed Forge match has one.
+	ActionClockMs      []int64 `json:"actionClockMs,omitempty"`
+	ActionClockRunning *int    `json:"actionClockRunning,omitempty"`
 }
 
 // NewEnvelope builds an Envelope with the given type and JSON-marshaled payload.

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/coder/websocket"
+	"hexproof/server/internal/accounts"
 	"hexproof/server/internal/buildinfo"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
@@ -21,6 +22,7 @@ import (
 )
 
 type resumeHold struct {
+	accountID       string
 	token           string
 	oldConnectionID string
 	displayName     string
@@ -73,6 +75,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// writePump drains sess.Send onto the WebSocket; readLoop reads inbound.
 	go h.writePump(ctx, conn, sess)
 	go websocketHeartbeat(ctx, conn)
+	if h.accounts != nil {
+		go h.watchAccountSession(ctx, sess)
+	}
 
 	readErr := h.readLoop(ctx, conn, sess)
 	if readErr != nil && shouldLogSessionEnd(readErr) {
@@ -80,7 +85,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Explicit room.leave has already cleared the room binding. Any remaining
 	// membership is a transport drop and receives the bounded reconnect hold.
-	if currentRoom := sess.Room(); currentRoom != nil {
+	if aid := sess.Account().ID; aid != "" {
+		gate := h.accountLock(aid)
+		gate.Lock()
+		if currentRoom := sess.Room(); currentRoom != nil {
+			h.holdForReconnect(sess, currentRoom)
+		}
+		gate.Unlock()
+	} else if currentRoom := sess.Room(); currentRoom != nil {
 		h.holdForReconnect(sess, currentRoom)
 	}
 	sess.Close()
@@ -116,6 +128,10 @@ func (h *Handler) writePump(ctx context.Context, conn *websocket.Conn, sess *Ses
 			return
 		case data, ok := <-sess.Send:
 			if !ok {
+				_ = conn.Close(websocket.StatusNormalClosure, "")
+				if sess.cancel != nil {
+					sess.cancel()
+				}
 				return
 			}
 			writeCtx, cancel := context.WithTimeout(ctx, websocketWriteWait)
@@ -181,23 +197,60 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 			"resume credential unavailable")
 		return nil
 	}
+	if hello.AccountSession != "" {
+		if len(hello.AccountSession) > 128 {
+			h.accountError(sess, env.ID, accounts.ErrInvalid)
+			return nil
+		}
+		out, err := h.accountRequest(accounts.Request{Operation: "check", SessionToken: hello.AccountSession})
+		if err != nil {
+			h.accountError(sess, env.ID, err)
+			return nil
+		}
+		gate := h.accountLock(out.Profile.ID)
+		gate.Lock()
+		defer gate.Unlock()
+		if !h.acceptClusterHello(sess, hello, out.Profile.ID, env.ID) {
+			return nil
+		}
+		if !h.bindAccountSession(sess, out, hello.AccountSession) {
+			h.accountError(sess, env.ID, accounts.ErrInvalid)
+			return nil
+		}
+		displayName = out.Profile.Name
+		// Only the account's own hold can replace a lost local resume token.
+		if held := h.accountResumeToken(out.Profile.ID, ""); held != "" && hello.ClusterTicket == "" && (!sess.clusterEnabled || hello.ResumeToken != "") {
+			hello.ResumeToken = held
+		}
+	}
+	if hello.AccountSession == "" && !h.acceptClusterHello(sess, hello, "", env.ID) {
+		return nil
+	}
+	forgeAvailable, aiAvailable, hostingAvailable := h.welcomeCapabilities(sess.clusterEnabled)
+	clusterNode := ""
+	if sess.clusterEnabled {
+		clusterNode = h.clusterNode()
+	}
+	if hello.ClusterTicket != "" {
+		hello.ResumeToken = ""
+	}
 	if hello.ResumeToken != "" {
-		if hold, ok := h.takeResumeHold(hello.ResumeToken, time.Now().UTC()); ok {
+		if hold, ok := h.takeAccountResumeHold(hello.ResumeToken, sess.Account().ID, time.Now().UTC()); ok {
 			operation, err := h.hub.lockRoomOperation(hold.room.ID)
 			if err == nil {
 				info, envelopes, resumeErr := h.hub.ResumeRoom(
 					hold.oldConnectionID, sess, hold.room)
 				if resumeErr == nil {
-					h.forgeReplays.rebind(hold.room, hold.oldConnectionID, sess.ConnectionID)
-					h.forgeMu.Lock()
-					if backup := h.playerBackups[hold.room.ID]; backup != nil && backup.connectionID == hold.oldConnectionID {
-						backup.connectionID = sess.ConnectionID
-					}
-					h.forgeMu.Unlock()
+					h.rebindResumedRoom(sess, hold)
 					sess.DisplayName = hold.displayName
+					if sess.Account().ID != "" {
+						sess.DisplayName = displayName
+					}
 					sess.ResumeToken = resumeToken
 					welcome := protocol.SessionWelcome{
-						V:                      protocol.ProtocolVersion,
+						V:            protocol.ProtocolVersion,
+						ClusterNode:  clusterNode,
+						AccountRealm: h.accountRealm(), AccountID: sess.Account().ID, AccountName: displayName,
 						ConnectionID:           sess.ConnectionID,
 						ServerVersion:          buildinfo.Version,
 						ResumeToken:            sess.ResumeToken,
@@ -206,27 +259,20 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 						Role:                   info.Role,
 						Seat:                   info.Seat,
 						Host:                   info.Host,
-						ForgeRulesAvailable:    h.forgeRulesAvailable(),
-						ForgeAIAvailable:       h.forgeAIAvailable(),
-						AIModelsAvailable:      h.forgeRulesAvailable() || h.config.AllowPlayerHosting,
-						PlayerHostingAvailable: h.config.AllowPlayerHosting,
-						PeerTransportAvailable: h.config.AllowPlayerHosting,
-						HostMigrationAvailable: h.config.AllowPlayerHosting,
+						ForgeRulesAvailable:    forgeAvailable,
+						ForgeAIAvailable:       aiAvailable,
+						AIModelsAvailable:      forgeAvailable || hostingAvailable,
+						PlayerHostingAvailable: hostingAvailable,
+						PeerTransportAvailable: hostingAvailable,
+						HostMigrationAvailable: hostingAvailable,
 					}
 					welcomeEnvelope, _ := protocol.NewEnvelope(
 						protocol.TypeSessionWelcome, welcome)
 					welcomeEnvelope.ID = env.ID
 					h.send(sess, welcomeEnvelope)
-					h.fanoutTo([]*Session{sess}, envelopes)
-					h.grantModelWorker(sess, hold.room)
-					if hold.room.RulesMode == protocol.RulesModeForge &&
-						hold.room.Phase == protocol.RoomPhaseStarted {
-						h.fanoutGameProjections(hold.room)
-						if _, alive := h.forgeGame(hold.room.ID); alive {
-							h.fanoutRulesPrompts(hold.room)
-						}
-					}
+					h.sendResumedRoomState(sess, hold.room, envelopes)
 					operation.opMu.Unlock()
+					h.restoreAccountTableEvent(sess, hold.room)
 					return nil
 				}
 				operation.mu.Lock()
@@ -248,16 +294,18 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 	sess.DisplayName = displayName
 	sess.ResumeToken = resumeToken
 	welcome := protocol.SessionWelcome{
-		V:                      protocol.ProtocolVersion,
+		V:            protocol.ProtocolVersion,
+		ClusterNode:  clusterNode,
+		AccountRealm: h.accountRealm(), AccountID: sess.Account().ID, AccountName: displayName,
 		ConnectionID:           sess.ConnectionID,
 		ServerVersion:          buildinfo.Version,
 		ResumeToken:            sess.ResumeToken,
-		ForgeRulesAvailable:    h.forgeRulesAvailable(),
-		ForgeAIAvailable:       h.forgeAIAvailable(),
-		AIModelsAvailable:      h.forgeRulesAvailable() || h.config.AllowPlayerHosting,
-		PlayerHostingAvailable: h.config.AllowPlayerHosting,
-		PeerTransportAvailable: h.config.AllowPlayerHosting,
-		HostMigrationAvailable: h.config.AllowPlayerHosting,
+		ForgeRulesAvailable:    forgeAvailable,
+		ForgeAIAvailable:       aiAvailable,
+		AIModelsAvailable:      forgeAvailable || hostingAvailable,
+		PlayerHostingAvailable: hostingAvailable,
+		PeerTransportAvailable: hostingAvailable,
+		HostMigrationAvailable: hostingAvailable,
 	}
 	wEnv, _ := protocol.NewEnvelope(protocol.TypeSessionWelcome, welcome)
 	wEnv.ID = env.ID
@@ -295,8 +343,15 @@ func (h *Handler) holdForReconnect(sess *Session, r *room.Room) {
 	if r.IsHost(sess.ConnectionID) {
 		h.pauseModelWorker(r.ID, "worker_disconnected", true)
 	}
+	accountID := ""
+	operation.mu.Lock()
+	if r.FindSeatByConnection(sess.ConnectionID) >= 0 {
+		accountID = sess.Account().ID
+	}
+	operation.mu.Unlock()
 	expiresAt := time.Now().UTC().Add(h.config.ReconnectWindow)
 	hold := resumeHold{
+		accountID:       accountID,
 		token:           sess.ResumeToken,
 		oldConnectionID: sess.ConnectionID,
 		displayName:     sess.DisplayName,
@@ -313,9 +368,13 @@ func (h *Handler) holdForReconnect(sess *Session, r *room.Room) {
 }
 
 func (h *Handler) takeResumeHold(token string, now time.Time) (resumeHold, bool) {
+	return h.takeAccountResumeHold(token, "", now)
+}
+
+func (h *Handler) takeAccountResumeHold(token, accountID string, now time.Time) (resumeHold, bool) {
 	h.resumeMu.Lock()
 	hold, ok := h.resumeHolds[token]
-	if !ok {
+	if !ok || (hold.accountID != "" && hold.accountID != accountID) {
 		h.resumeMu.Unlock()
 		return resumeHold{}, false
 	}
@@ -326,6 +385,12 @@ func (h *Handler) takeResumeHold(token string, now time.Time) (resumeHold, bool)
 	}
 	delete(h.resumeHolds, token)
 	h.resumeMu.Unlock()
+	if !h.adoptAccountResumeHold(&hold, accountID) {
+		if h.restoreResumeHold(hold, time.Now().UTC()) {
+			h.expireResumeHold(hold)
+		}
+		return resumeHold{}, false
+	}
 	return hold, true
 }
 
@@ -506,6 +571,13 @@ func (h *Handler) registerSession(s *Session) {
 }
 
 func (h *Handler) unregisterSession(s *Session) {
+	if aid := s.Account().ID; aid != "" {
+		h.accountConnectionsMu.Lock()
+		if h.accountConnections[aid] == s {
+			delete(h.accountConnections, aid)
+		}
+		h.accountConnectionsMu.Unlock()
+	}
 	h.sessionsMu.Lock()
 	delete(h.sessions, s.ConnectionID)
 	h.sessionsMu.Unlock()

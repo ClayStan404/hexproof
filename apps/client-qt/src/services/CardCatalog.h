@@ -271,6 +271,11 @@ class CardCatalog : public QObject
                                          const QString &collectorNumber) const;
     Q_INVOKABLE QString cardTypeLine(const QString &name, const QString &setCode,
                                      const QString &collectorNumber) const;
+    // Empty language uses the catalog language. Chinese text comes from cached
+    // printed rules; the indexed oracle column stays English.
+    Q_INVOKABLE QString cardRulesText(const QString &name, const QString &setCode,
+                                      const QString &collectorNumber,
+                                      const QString &language = {}) const;
     Q_INVOKABLE QString cachedCardTypeLine(const QString &name, const QString &setCode,
                                            const QString &collectorNumber) const;
     Q_INVOKABLE bool matchesCardQuery(const QString &name, const QString &setCode,
@@ -432,6 +437,7 @@ class CardCatalog : public QObject
     void completeCardRequest(const CardRequest &request, CardRecord record, bool success,
                              bool cacheFailure = false, const QString &failureDetail = {});
     void emitRecord(const CardRecord &record);
+    void backfillLocalizedRules(const CardRequest &request, const CardRecord &record);
     void setResolving(bool resolving);
     void setProgress(qreal progress);
     void setStatus(const QString &status);
@@ -524,6 +530,7 @@ class CardCatalog : public QObject
     int m_aliasCount = 0;
     int m_tokenCount = 0;
     int m_localizedPrintingCount = 0;
+    QSet<QString> m_localizedRulesRequests;
     int m_imageRevision = 0;
     bool m_imageRevisionNotificationPending = false;
     bool m_artIndexFlushing = false;
@@ -545,7 +552,7 @@ class CardCatalog : public QObject
     std::unique_ptr<LimitedArtFaceExpansionState> m_limitedArtFaceExpansion;
     mutable QHash<QString, QVariantList> m_printingsCache;
     mutable QHash<QString, QVariantList> m_cardFacesCache;
-    mutable QHash<QString, CardRecord> m_lookupCache;
+    mutable QCache<QString, CardRecord> m_lookupCache{4096};
     CardImageProvider *m_cardImageProvider = nullptr;
     QQueue<CardRequest> m_cardQueue;
     QQueue<CardRequest> m_fallbackQueue;

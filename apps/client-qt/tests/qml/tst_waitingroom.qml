@@ -76,6 +76,8 @@ TestCase {
         }
         property int copyCount: 0
         property string lastCopied: ""
+        property string nodePrefix: ""
+        function globalCode(id) { return nodePrefix + id }
         function copyToClipboard(text) {
             ++copyCount
             lastCopied = text
@@ -116,6 +118,7 @@ TestCase {
         testWindow.lastBanner = ""
         mockWs.copyCount = 0
         mockWs.lastCopied = ""
+        mockWs.nodePrefix = ""
         mockWs.lastError = ""
         mockWs.rulesStartFailure = ({})
         mockWs.aiRequests = []
@@ -378,6 +381,14 @@ TestCase {
         verify(code !== null)
         compare(title.text, "Friday Night")
         compare(code.text, "ABCDEF")
+    }
+
+    function test_globalInvitationIncludesNodePrefix() {
+        mockWs.nodePrefix = "NODE1234:"
+        const code = findChild(page, "waitingRoomCode")
+        tryCompare(code, "text", "NODE1234:ABCDEF")
+        mouseClick(findChild(page, "copyRoomCodeButton"))
+        compare(mockWs.lastCopied, "NODE1234:ABCDEF")
     }
 
     function test_fallsBackToUntitledRoomName() {

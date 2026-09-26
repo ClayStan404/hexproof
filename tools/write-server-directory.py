@@ -20,6 +20,13 @@ SECRET_NAME = "HEXPROOF_PUBLIC_SERVERS_JSON"
 MAXIMUM_SERVERS = 32
 
 
+def is_loopback(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def validate_server_url(value: object, label: str) -> None:
     if not isinstance(value, str) or len(value) > 2048:
         raise ValueError(f"{label} must be a string")
@@ -82,7 +89,7 @@ def validate_directory(document: object) -> dict[str, object]:
     ids = set()
     urls = set()
     for index, server in enumerate(servers, start=1):
-        fields = {"url", "legacyUrls"} if schema == 1 else {"id", "name", "sponsor", "url", "forge", "legacyUrls"}
+        fields = {"url", "legacyUrls"} if schema == 1 else {"id", "name", "sponsor", "url", "forge", "legacyUrls", "accountRealm"}
         if not isinstance(server, dict) or not set(server).issubset(fields):
             raise ValueError(f"server {index} contains unsupported fields")
         if "url" not in server:
@@ -106,6 +113,12 @@ def validate_directory(document: object) -> dict[str, object]:
                 raise ValueError("server name must be a bounded, nonempty string")
             if type(server.get("forge")) is not bool:
                 raise ValueError("forge must be a boolean")
+            if "accountRealm" in server:
+                realm = server["accountRealm"]
+                if not isinstance(realm, str) or not re.fullmatch(r"[a-z0-9.-]{1,64}", realm):
+                    raise ValueError("accountRealm must be a bounded realm identifier")
+                if realm == "hexproof-official" and (endpoint.scheme != "wss" or (endpoint.hostname == "localhost" or is_loopback(endpoint.hostname))):
+                    raise ValueError("official account endpoints require production TLS")
             sponsor = server.get("sponsor", "")
             if not isinstance(sponsor, str) or len(sponsor) > 120:
                 raise ValueError("sponsor must be a bounded string")

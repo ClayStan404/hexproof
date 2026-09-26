@@ -150,6 +150,7 @@ TestCase {
                 responseId: "$ack"
                 kind: "acknowledge"
                 label: "Continue"
+                cardId: ""
             }
         }
 
@@ -390,6 +391,7 @@ TestCase {
 
         QtObject {
             id: fakeCatalog
+            property string language: "en"
             property int imageRevision: 0
 
             function tableImageSource(name, setCode, collectorNumber) {

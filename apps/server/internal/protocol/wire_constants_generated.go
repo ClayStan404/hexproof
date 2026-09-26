@@ -6,6 +6,15 @@
 package protocol
 
 const (
+	TypeSessionRoute                   = "session.route"
+	ErrClusterUnavailable              = "cluster_unavailable"
+	ErrClusterFull                     = "cluster_full"
+	TypeAccountCommand                 = "account.command"
+	TypeAccountState                   = "account.state"
+	ErrAccountReplaced                 = "account_replaced"
+	ErrAccountInvalid                  = "account_invalid"
+	ErrAccountUnavailable              = "account_unavailable"
+	ErrAccountConflict                 = "account_conflict"
 	TypeForgeReplayGrant               = "replay.forge_grant"
 	TypeForgeReplayGet                 = "replay.forge_get"
 	TypeForgeReplayPage                = "replay.forge_page"

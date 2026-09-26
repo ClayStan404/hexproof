@@ -247,6 +247,39 @@ QString CardCatalog::cachedCardTypeLine(const QString &name, const QString &setC
     });
 }
 
+QString CardCatalog::cardRulesText(const QString &name, const QString &setCode,
+                                   const QString &collectorNumber, const QString &language) const
+{
+    const QString selected = language == QStringLiteral("en") || language == QStringLiteral("zh")
+                                 ? language
+                                 : m_language;
+    const CardRequest request{name.simplified(), setCode.toUpper(), collectorNumber, selected};
+    if (request.name.isEmpty())
+        return {};
+    const auto acceptable = [&](const CardRecord &record) {
+        if (record.oracleText.isEmpty() || !m_artCache->matchesRequestedFace(request, record))
+            return false;
+        if (selected == QStringLiteral("zh")) {
+            return record.oracleTextLanguage == QStringLiteral("zh") ||
+                   (record.oracleTextLanguage.isEmpty() && looksLikeChinese(record.oracleText));
+        }
+        return record.oracleTextLanguage != QStringLiteral("zh") &&
+               !looksLikeChinese(record.oracleText);
+    };
+    const auto textOf = [&](const CardRecord &record) {
+        return acceptable(record) ? record.oracleText : QString{};
+    };
+    const QString key =
+        cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
+    const QString exact = textOf(m_artCache->exactRecord(key));
+    if (!exact.isEmpty())
+        return exact;
+    const QString printing = textOf(m_artCache->resolvedPrintingMetadata(request));
+    if (!printing.isEmpty())
+        return printing;
+    return textOf(m_artCache->localizedMetadataForName(request));
+}
+
 QString CardCatalog::cardTypeLine(const QString &name, const QString &setCode,
                                   const QString &collectorNumber) const
 {

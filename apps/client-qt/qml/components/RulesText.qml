@@ -4,8 +4,9 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // Translate only known engine UI templates. Card/rules text and inserted
-    // player names stay literal; translated text never determines a response.
+    // Translate only known engine UI templates. Inserted player names stay
+    // literal. Modal lines can be replaced by the same printed mode in the
+    // viewer's card language; that replacement never determines a response.
     function text(source) {
         if (!source) return source
         return String(source).split("\n").map(line => translateLine(line)).join("\n")
@@ -86,6 +87,7 @@ QtObject {
         case "This decision type is not supported by this Hexproof build.":
             return qsTr("This decision type is not supported by this Hexproof build.")
         case "Choose a mana ability:": return qsTr("Choose a mana ability:")
+        case "Undo mana": return qsTr("Undo mana")
         case "Choose optional costs": return qsTr("Choose optional costs")
         case "Choose cost order": return qsTr("Choose cost order")
         case "Select order for simultaneous abilities": return qsTr("Select order for simultaneous abilities")
@@ -169,8 +171,179 @@ QtObject {
                 : match[2] === "play land" ? qsTr("Play land") : qsTr("Activate ability")
             return I18n.formatRulesLog(qsTr("%1 — %2"), [match[1], action])
         }
+        if ((match = source.match(/^(.+) activated (.+) - Choose a mode$/)))
+            return I18n.formatRulesLog(qsTr("%1 activated %2 — choose a mode"), match.slice(1))
+        if ((match = source.match(/^Choose target creature with mana value (.+) or less$/)))
+            return qsTr("Choose target creature with mana value %1 or less").arg(match[1])
+        if (source === "Choose target card in a graveyard")
+            return qsTr("Choose target card in a graveyard")
+        if ((match = source.match(/^(?:Select|Choose) target (.+)$/))) {
+            const noun = targetNoun(match[1])
+            if (noun)
+                return qsTr("Select target %1").arg(noun)
+        }
         // Unknown effect descriptions retain their exact text and mana symbols.
         return source
+    }
+
+    function targetNoun(source) {
+        switch (source) {
+        case "player": return qsTr("player")
+        case "opponent": return qsTr("opponent")
+        case "creature": return qsTr("creature")
+        case "permanent": return qsTr("permanent")
+        case "spell": return qsTr("spell")
+        case "artifact": return qsTr("artifact")
+        case "enchantment": return qsTr("enchantment")
+        case "planeswalker": return qsTr("planeswalker")
+        case "land": return qsTr("land")
+        case "card": return qsTr("card")
+        default: return ""
+        }
+    }
+
+    function normalizeMode(source) {
+        return String(source || "").replace(/^[•●・*\-]+\s*/, "")
+            .replace(/\s+/g, " ").trim().toLowerCase()
+    }
+
+    function modalBullets(oracle) {
+        const lines = String(oracle || "").split(/\r?\n/).map(line => line.trim()).filter(line => line.length)
+        const bulleted = lines.filter(line => /^[•●・*]/.test(line))
+        if (bulleted.length < 2)
+            return []
+        return bulleted.map(line => line.replace(/^[•●・*]+\s*/, "").trim()).filter(line => line.length)
+    }
+
+    function sharedPrefixLength(left, right) {
+        const limit = Math.min(left.length, right.length)
+        let index = 0
+        while (index < limit && left[index] === right[index])
+            ++index
+        return index
+    }
+
+    function matchingBulletIndex(label, bullets) {
+        const needle = normalizeMode(label)
+        if (!needle)
+            return -1
+        let found = -1
+        for (let index = 0; index < bullets.length; ++index) {
+            const text = normalizeMode(bullets[index])
+            const prefix = sharedPrefixLength(text, needle)
+            if (text !== needle && prefix < 40)
+                continue
+            if (found >= 0)
+                return -1
+            found = index
+        }
+        return found
+    }
+
+    function modalChoice(kind, title, label, index, count, englishOracle, localizedOracle) {
+        if (kind !== "chooseFromSelection" || !/ activated .+ - Choose a mode$/.test(String(title || "")))
+            return ""
+        void index
+        void count
+        const localized = modalBullets(localizedOracle)
+        const english = modalBullets(englishOracle)
+        if (!english.length || localized.length !== english.length)
+            return ""
+        const found = matchingBulletIndex(label, english)
+        return found >= 0 ? localized[found] : ""
+    }
+
+    function modePosition(haystack, bullet) {
+        const text = normalizeMode(bullet)
+        if (text.length < 12)
+            return -1
+        let at = haystack.indexOf(text)
+        if (at >= 0)
+            return at
+        if (text.length > 40)
+            return haystack.indexOf(text.slice(0, 40))
+        return -1
+    }
+
+    function currentModalIndex(detail, englishOracle) {
+        const bullets = modalBullets(englishOracle)
+        const haystack = normalizeMode(detail)
+        let best = -1
+        let bestAt = 1000000
+        let bestLen = 0
+        for (let index = 0; index < bullets.length; ++index) {
+            const at = modePosition(haystack, bullets[index])
+            const length = normalizeMode(bullets[index]).length
+            if (at >= 0 && (at < bestAt || (at === bestAt && length > bestLen))) {
+                best = index
+                bestAt = at
+                bestLen = length
+            }
+        }
+        return best
+    }
+
+    function matchingSectionIndex(needleSource, sections) {
+        const needle = normalizeMode(needleSource)
+        if (needle.length < 12)
+            return -1
+        let found = -1
+        for (let index = 0; index < sections.length; ++index) {
+            const text = normalizeMode(sections[index])
+            const prefix = sharedPrefixLength(text, needle)
+            const overlap = Math.min(text.length, needle.length)
+            const contains = overlap >= 24 && (text.includes(needle) || needle.includes(text))
+            if (text !== needle && prefix < 40 && !contains)
+                continue
+            if (found >= 0)
+                return -1
+            found = index
+        }
+        return found
+    }
+
+    function localizedAbility(rulesText, englishOracle, localizedOracle) {
+        const localized = String(localizedOracle || "").trim()
+        if (!localized)
+            return rulesText || ""
+        const english = String(englishOracle || "").trim()
+        if (!english)
+            return localized
+        const englishParts = english.split(/\n\n+/).map(part => part.trim()).filter(part => part.length)
+        const localizedParts = localized.split(/\n\n+/).map(part => part.trim()).filter(part => part.length)
+        if (englishParts.length > 1 && englishParts.length === localizedParts.length) {
+            const index = matchingSectionIndex(rulesText, englishParts)
+            if (index >= 0)
+                return localizedParts[index]
+        }
+        return localized
+    }
+
+    function currentEffectTitle(detail, englishOracle, localizedOracle) {
+        const index = currentModalIndex(detail, englishOracle)
+        if (index < 0)
+            return ""
+        const english = modalBullets(englishOracle)
+        const localized = modalBullets(localizedOracle)
+        const shown = localized.length === english.length ? localized[index] : english[index]
+        return qsTr("This effect: %1").arg(shown)
+    }
+
+    function targetInstruction(detail) {
+        const lines = String(detail || "").split("\n").map(line => line.trim()).filter(line => line.length)
+        for (let index = lines.length - 1; index >= 0; --index) {
+            if (/^(?:Select|Choose) target\b/.test(lines[index]))
+                return lines[index]
+        }
+        return ""
+    }
+
+    function targetInstructionTitle(detail) {
+        const instruction = targetInstruction(detail)
+        if (!instruction)
+            return ""
+        const translated = text(instruction)
+        return translated !== instruction ? translated : ""
     }
 
     function phase(source) {

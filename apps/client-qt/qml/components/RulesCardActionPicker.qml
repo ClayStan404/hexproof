@@ -90,7 +90,7 @@ Surface {
                     objectName: "rulesCardAction-" + modelData.responseId
                     Layout.fillWidth: true
                     text: root.tableController.promptOptionLabel(
-                              "chooseAction", modelData.responseId, modelData.label)
+                              "chooseAction", modelData.responseId, modelData.label, modelData.cardId)
                     onClicked: root.submit(modelData.responseId)
                 }
             }

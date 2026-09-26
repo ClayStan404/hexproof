@@ -212,7 +212,7 @@ if ((test_server)); then
         go vet ./...
         go test "${go_test_flags[@]}" ./...
         if ((run_race)); then
-            go test "${go_test_flags[@]}" -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode
+            go test "${go_test_flags[@]}" -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster
         else
             echo "Skipping Go race tests (--quick)."
         fi

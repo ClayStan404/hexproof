@@ -94,9 +94,7 @@ QtObject {
         const labels = []
         if (relationships.some(link => link.kind === "block" && link.sourceId === id)) labels.push(qsTr("Blocking"))
         if (relationships.some(link => link.kind === "block" && link.targetId === id)) labels.push(qsTr("Blocked"))
-        if (relationships.some(link => link.kind === "attachment" && link.sourceId === id)) labels.push(qsTr("Attached"))
-        const count = relationships.filter(link => link.kind === "attachment" && link.targetId === id).length
-        if (count) labels.push(qsTr("Attachments: %1").arg(count))
+        if (relationships.some(link => link.kind === "attack" && link.targetId === id)) labels.push(qsTr("Attacked"))
         return labels.join(" · ")
     }
     readonly property var relationshipLines: {

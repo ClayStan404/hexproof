@@ -21,12 +21,22 @@ import (
 	"time"
 
 	"hexproof/server/internal/buildinfo"
+	"hexproof/server/internal/cluster"
 	"hexproof/server/internal/rulesengine/forge"
 	"hexproof/server/internal/server"
 )
 
 func main() {
 	forgeHarnessDefault, forgeHomeDefault, forgeJavaDefault := forgeRuntimeDefaults()
+	clusterPath := flag.String("cluster-config", os.Getenv("HEXPROOF_CLUSTER_CONFIG"), "optional official cluster configuration JSON")
+	accountDir := flag.String("account-dir", os.Getenv("HEXPROOF_ACCOUNT_DIR"), "private account authority directory (empty disables the local authority)")
+	accountRealmDefault := strings.TrimSpace(os.Getenv("HEXPROOF_ACCOUNT_REALM"))
+	if accountRealmDefault == "" {
+		accountRealmDefault = "hexproof-official"
+	}
+	accountRealm := flag.String("account-realm", accountRealmDefault, "official account realm shared by trusted hubs")
+	accountAuthority := flag.String("account-authority", os.Getenv("HEXPROOF_ACCOUNT_AUTHORITY"), "HTTPS account authority endpoint for a satellite official hub")
+	accountKeyFile := flag.String("account-service-key-file", os.Getenv("HEXPROOF_ACCOUNT_SERVICE_KEY_FILE"), "private file containing the shared hub-to-authority service key")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	bind := flag.String("bind", "127.0.0.1", "bind address")
 	port := flag.Int("port", 57320, "listen port")
@@ -94,6 +104,17 @@ func main() {
 		log.Fatalf("hexproof-server: %v", err)
 	}
 
+	accountKey := ""
+	if *accountKeyFile != "" {
+		raw, readErr := os.ReadFile(*accountKeyFile)
+		if readErr != nil {
+			log.Fatal("hexproof-server: cannot read account service key file")
+		}
+		accountKey = strings.TrimSpace(string(raw))
+		if len(accountKey) < 32 || len(accountKey) > 4096 {
+			log.Fatal("hexproof-server: invalid account service key length")
+		}
+	}
 	var forgeRuntime *forge.ProcessConfig
 	if (*forgeHarness == "") != (*forgeHome == "") {
 		log.Fatal("hexproof-server: -forge-harness and -forge-home must be set together")
@@ -103,7 +124,13 @@ func main() {
 		forgeRuntime = &configured
 	}
 
+	clusterConfig, err := cluster.Load(*clusterPath)
+	if err != nil {
+		log.Fatalf("hexproof-server: %v", err)
+	}
 	handler, err := server.NewHandlerWithConfig(server.Config{
+		Cluster:    clusterConfig,
+		AccountDir: *accountDir, AccountRealm: *accountRealm, AccountAuthority: *accountAuthority, AccountServiceKey: accountKey,
 		ReconnectWindow:             *reconnectWindow,
 		HelloTimeout:                *helloTimeout,
 		RetentionTTL:                *retentionTTL,
@@ -145,6 +172,8 @@ func main() {
 	// Ops/tunnel health checks (Cloudflare / curl). Not part of the game protocol.
 	mux.HandleFunc("/healthz", handler.ServeHealth)
 	mux.Handle("/ws", handler)
+	mux.HandleFunc("/internal/accounts", handler.ServeAccountAuthority)
+	mux.HandleFunc("/internal/cluster", handler.ServeClusterCoordinator)
 	mux.Handle("/ai", handler)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)

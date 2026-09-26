@@ -17,11 +17,28 @@ Page {
     readonly property int customServerIndex: root.hub.customServerIndex
     property int selectedServerIndex: -1
     property string selectedServerId: ""
+    property int accountMode: 0
+    readonly property int officialServerIndex: {
+        for (let i = 0; i < customServerIndex; ++i) {
+            if (String((hub.serverEntries[i] || {}).accountRealm || "").length > 0)
+                return i
+        }
+        return -1
+    }
+    readonly property int automaticServerIndex: customServerIndex + 1
+    readonly property bool automaticEntry: officialServerIndex >= 0
+        && selectedServerIndex === automaticServerIndex
+    readonly property bool accountServer: automaticEntry || (selectedServerIndex >= 0
+        && selectedServerIndex < customServerIndex
+        && String((hub.serverEntries[selectedServerIndex] || {}).accountRealm || "").length > 0)
+    readonly property bool usingCode: accountServer && (accountMode === 1 || accountMode === 3)
     property int latencyRefreshCountdown: 0
     readonly property bool compactHeight: root.height < Theme.size(700)
 
     Component.onCompleted: {
-        root.selectServer(root.hub.serverIndex)
+        const saved = root.hub.serverIndex
+        root.selectServer(root.officialServerIndex >= 0 && saved !== root.customServerIndex
+                          ? root.automaticServerIndex : saved)
         root.hub.refreshServerDirectory()
         Qt.callLater(root.syncServerSelector)
     }
@@ -82,7 +99,7 @@ Page {
                     id: serverSelector
                     objectName: "serverSelector"
                     Layout.fillWidth: true
-                    model: root.customServerIndex + 1
+                    model: root.customServerIndex + 1 + (root.officialServerIndex >= 0 ? 1 : 0)
                     textForIndex: function(index) {
                         return root.serverLabel(index)
                     }
@@ -158,6 +175,7 @@ Page {
                     textFormat: Text.PlainText
                     Layout.topMargin: Theme.size(8)
                     text: qsTr("Display name")
+                    visible: !root.usingCode
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(11)
                     font.weight: Font.DemiBold
@@ -165,6 +183,7 @@ Page {
 
                 AppTextField {
                     id: nameField
+                    visible: !root.usingCode
                     objectName: "displayNameField"
                     Layout.fillWidth: true
                     placeholderText: qsTr("How other players will see you")
@@ -172,6 +191,29 @@ Page {
                     enabled: !root.hub.connecting
                     onAccepted: root.submit()
                     Component.onCompleted: text = root.hub.displayName
+                }
+
+                AppComboBox {
+                    objectName: "accountConnectionMode"
+                    Layout.fillWidth: true
+                    visible: root.accountServer
+                    model: [qsTr("Continue on this device"), qsTr("Log in with a private code"),
+                            qsTr("Create an account"), qsTr("Recover an account"), qsTr("Continue as a guest")]
+                    currentIndex: root.accountMode
+                    enabled: !root.hub.connecting
+                    onActivated: index => { root.accountMode = index; loginCodeField.text = "" }
+                }
+
+                AppTextField {
+                    id: loginCodeField
+                    objectName: "accountConnectionCode"
+                    Layout.fillWidth: true
+                    visible: root.usingCode
+                    maximumLength: 128
+                    echoMode: TextInput.Password
+                    placeholderText: root.accountMode === 3 ? qsTr("Recovery code") : qsTr("Private login code")
+                    enabled: !root.hub.connecting
+                    onAccepted: root.submit()
                 }
 
                 InfoBanner {
@@ -238,7 +280,7 @@ Page {
                              && (root.selectedServerIndex
                                  !== root.customServerIndex
                                  || customServerField.text.trim().length > 0)
-                             && nameField.text.trim().length > 0
+                             && (root.usingCode ? loginCodeField.text.trim().length > 0 : nameField.text.trim().length > 0)
                              && !root.hub.connecting
                     onClicked: root.submit()
                 }
@@ -261,6 +303,8 @@ Page {
     }
 
     function serverLabel(index) {
+        if (root.officialServerIndex >= 0 && index === root.automaticServerIndex)
+            return qsTr("Official lobby (automatic)")
         const entries = root.hub.serverEntries
         if (index < 0 || index >= entries.length)
             return qsTr("Choose a server")
@@ -284,6 +328,8 @@ Page {
     }
 
     function playModeSummary(index) {
+        if (root.automaticEntry)
+            return qsTr("Rooms are assigned to available official nodes automatically.")
         const entry = root.hub.serverEntries[index] || ({})
         const parts = []
         if (entry.forge === 1)
@@ -304,12 +350,21 @@ Page {
     }
 
     function selectServer(index) {
+        if (root.officialServerIndex >= 0 && index === root.automaticServerIndex) {
+            root.selectedServerIndex = index
+            root.selectedServerId = "official-auto"
+            return
+        }
         const entries = root.hub.serverEntries
         root.selectedServerIndex = index >= 0 && index < entries.length ? index : -1
         root.selectedServerId = root.selectedServerIndex >= 0 ? entries[index].id : ""
     }
 
     function reconcileServerSelection() {
+        if (root.selectedServerId === "official-auto" && root.officialServerIndex >= 0) {
+            root.selectedServerIndex = root.automaticServerIndex
+            return
+        }
         const entries = root.hub.serverEntries
         let selected = -1
         for (let index = 0; index < entries.length; ++index) {
@@ -336,11 +391,22 @@ Page {
 
     function submit() {
         if (root.selectedServerIndex < 0
-                || nameField.text.trim().length === 0
+                || (root.usingCode ? loginCodeField.text.trim().length === 0 : nameField.text.trim().length === 0)
                 || root.hub.connecting)
             return
         errorBanner.message = ""
-        if (root.selectedServerIndex === root.customServerIndex) {
+        if (root.automaticEntry) {
+            const operation = root.accountMode === 0 ? "" : root.accountMode === 1 ? "login"
+                              : root.accountMode === 2 ? "create" : root.accountMode === 3 ? "recover" : "guest"
+            root.hub.connectToOfficial(operation, root.usingCode ? loginCodeField.text.trim() : nameField.text.trim())
+            loginCodeField.text = ""
+        } else if (root.accountServer && root.accountMode > 0) {
+            const operation = root.accountMode === 1 ? "login" : root.accountMode === 2 ? "create"
+                              : root.accountMode === 3 ? "recover" : "guest"
+            root.hub.connectAccountToServer(root.selectedServerIndex, operation,
+                root.usingCode ? loginCodeField.text.trim() : nameField.text.trim())
+            loginCodeField.text = ""
+        } else if (root.selectedServerIndex === root.customServerIndex) {
             root.hub.connectToCustomServer(customServerField.text.trim(),
                                            nameField.text.trim())
         } else {

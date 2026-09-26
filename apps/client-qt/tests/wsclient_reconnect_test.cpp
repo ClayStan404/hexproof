@@ -3,6 +3,9 @@
 
 #include "wsclient_test.h"
 
+#include <QJsonDocument>
+#include <QScopeGuard>
+
 void TestWsClient::switchingServersIgnoresOldTransportCompletion() const
 {
     QWebSocketServer first(u"First hub"_s, QWebSocketServer::NonSecureMode);
@@ -95,10 +98,38 @@ void TestWsClient::cancelledConnectionIgnoresQueuedWelcome() const
     QVERIFY(QSettings().value(u"network/resumeToken"_s).toString().isEmpty());
 }
 
+void TestWsClient::resumesRoomAfterUnexpectedDisconnect_data() const
+{
+    QTest::addColumn<bool>("officialGuest");
+    QTest::newRow("self-hosted") << false;
+    QTest::newRow("official-guest") << true;
+}
+
 void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
 {
+    QFETCH(bool, officialGuest);
     QWebSocketServer server(u"Hexproof reconnect test server"_s, QWebSocketServer::NonSecureMode);
     QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    const QString serverUrl = u"ws://127.0.0.1:"_s + QString::number(server.serverPort());
+    QTemporaryDir directory;
+    QFile config(directory.filePath(u"servers.json"_s));
+    if (officialGuest) {
+        QVERIFY(config.open(QIODevice::WriteOnly));
+        config.write(
+            QJsonDocument(
+                QJsonObject{{u"schemaVersion"_s, 2},
+                            {u"revision"_s, 1},
+                            {u"servers"_s,
+                             QJsonArray{QJsonObject{{u"id"_s, u"local"_s},
+                                                    {u"name"_s, u"Local"_s},
+                                                    {u"url"_s, serverUrl},
+                                                    {u"forge"_s, false},
+                                                    {u"accountRealm"_s, u"reconnect-test"_s}}}}})
+                .toJson());
+        config.close();
+        qputenv("HEXPROOF_SERVER_DIRECTORY_FILE", config.fileName().toUtf8());
+    }
+    auto cleanup = qScopeGuard([] { qunsetenv("HEXPROOF_SERVER_DIRECTORY_FILE"); });
 
     QList<QWebSocket *> peers;
     QList<QList<Envelope>> received;
@@ -116,8 +147,10 @@ void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
     });
 
     WsClient client;
-    const QString serverUrl = u"ws://127.0.0.1:"_s + QString::number(server.serverPort());
-    client.connectTo(serverUrl, u"Alice"_s);
+    if (officialGuest)
+        client.connectAccountToServer(0, u"guest"_s, u"Alice"_s);
+    else
+        client.connectTo(serverUrl, u"Alice"_s);
     QTRY_VERIFY_WITH_TIMEOUT(peers.size() == 1, 1000);
     QTRY_VERIFY_WITH_TIMEOUT(!received[0].isEmpty(), 1000);
     QCOMPARE(received[0].first().type, hexproof::protocol::kTypeSessionHello);
@@ -132,8 +165,11 @@ void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
         {u"serverVersion"_s, buildVersion()},
         {u"resumeToken"_s, u"resume-secret"_s},
     };
+    if (officialGuest)
+        welcome.payload.insert(u"accountRealm"_s, u"reconnect-test"_s);
     sendEnvelope(peers[0], welcome);
     QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    QCOMPARE(client.account()->supported(), officialGuest);
 
     Envelope created;
     created.type = hexproof::protocol::kTypeRoomCreated;
@@ -171,6 +207,8 @@ void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
         {u"serverVersion"_s, buildVersion()},
         {u"resumeToken"_s, u"do-not-adopt"_s},
     };
+    if (officialGuest)
+        prematureFreshWelcome.payload.insert(u"accountRealm"_s, u"reconnect-test"_s);
     sendEnvelope(peers[1], prematureFreshWelcome);
     QTRY_VERIFY_WITH_TIMEOUT(client.reconnecting(), 1000);
     QTRY_VERIFY_WITH_TIMEOUT(peers.size() == 3, 5000);
@@ -193,6 +231,8 @@ void TestWsClient::resumesRoomAfterUnexpectedDisconnect() const
         {u"seat"_s, 0},
         {u"host"_s, true},
     };
+    if (officialGuest)
+        resumed.payload.insert(u"accountRealm"_s, u"reconnect-test"_s);
     sendEnvelope(peers[2], resumed);
     Envelope restoredRoom = roomSnapshot(u"Restored room"_s, true, true);
     restoredRoom.seq = 8;

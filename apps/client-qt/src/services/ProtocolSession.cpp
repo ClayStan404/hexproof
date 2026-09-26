@@ -7,6 +7,20 @@
 
 namespace hexproof::client {
 
+namespace {
+QJsonObject safeCommandMetadata(const QString &type, const QJsonObject &payload)
+{
+    QJsonObject metadata = payload;
+    if (type == protocol::kTypeAccountCommand) {
+        metadata = {{QStringLiteral("operation"), payload.value(QStringLiteral("operation"))}};
+    } else if (type == protocol::kTypeSessionHello) {
+        metadata.remove(QStringLiteral("accountSession"));
+        metadata.remove(QStringLiteral("clusterTicket"));
+    }
+    return metadata;
+}
+} // namespace
+
 ProtocolSession::ProtocolSession(QObject *parent)
     : QObject(parent)
 {
@@ -24,14 +38,15 @@ ProtocolSession::OutboundCommand ProtocolSession::prepare(const QString &type,
 
 void ProtocolSession::markQueued(const OutboundCommand &command)
 {
-    m_pendingCommands.insert(command.id, PendingCommand{command.type, command.payload});
-    emit commandQueued(command.id, command.type, command.payload.toVariantMap());
+    const QJsonObject metadata = safeCommandMetadata(command.type, command.payload);
+    m_pendingCommands.insert(command.id, PendingCommand{command.type, metadata});
+    emit commandQueued(command.id, command.type, metadata.toVariantMap());
 }
 
 void ProtocolSession::reportUnqueuedFailure(const QString &type, const QJsonObject &payload,
                                             const QString &error)
 {
-    emit commandFailed({}, type, payload.toVariantMap(), error);
+    emit commandFailed({}, type, safeCommandMetadata(type, payload).toVariantMap(), error);
 }
 
 bool ProtocolSession::resolveSuccess(const QString &requestId)
@@ -70,6 +85,15 @@ void ProtocolSession::failAll(const QString &error)
 void ProtocolSession::discardAll()
 {
     failAll(QStringLiteral("room session ended before the server replied"));
+}
+
+void ProtocolSession::failAllExcept(const QString &requestId, const QString &error)
+{
+    const auto ids = m_pendingCommands.keys();
+    for (const auto &id : ids) {
+        if (id != requestId)
+            resolveFailure(id, error);
+    }
 }
 
 } // namespace hexproof::client

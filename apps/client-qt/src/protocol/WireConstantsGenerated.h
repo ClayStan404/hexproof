@@ -9,6 +9,15 @@
 
 namespace hexproof::protocol {
 
+inline const QString kTypeSessionRoute = QStringLiteral("session.route");
+inline const QString kErrClusterUnavailable = QStringLiteral("cluster_unavailable");
+inline const QString kErrClusterFull = QStringLiteral("cluster_full");
+inline const QString kTypeAccountCommand = QStringLiteral("account.command");
+inline const QString kTypeAccountState = QStringLiteral("account.state");
+inline const QString kErrAccountReplaced = QStringLiteral("account_replaced");
+inline const QString kErrAccountInvalid = QStringLiteral("account_invalid");
+inline const QString kErrAccountUnavailable = QStringLiteral("account_unavailable");
+inline const QString kErrAccountConflict = QStringLiteral("account_conflict");
 inline const QString kTypeForgeReplayGrant = QStringLiteral("replay.forge_grant");
 inline const QString kTypeForgeReplayGet = QStringLiteral("replay.forge_get");
 inline const QString kTypeForgeReplayPage = QStringLiteral("replay.forge_page");

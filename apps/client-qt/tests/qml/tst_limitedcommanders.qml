@@ -37,6 +37,7 @@ TestCase {
         id: connection
         signal commandFailed(string requestId, string commandType, var payload, string message)
         property string serverUrl: "ws://localhost:57320/ws"
+        function globalCode(id) { return id }
         property bool connected: true
         property string lastError: ""
         property var submission: ({})

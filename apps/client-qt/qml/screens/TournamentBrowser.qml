@@ -191,7 +191,8 @@ Page {
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        text: tournamentRow.modelData.tournamentId + " · "
+                        text: (tournamentRow.modelData.nodeName ? tournamentRow.modelData.nodeName + " · " : "")
+                              + tournamentRow.modelData.tournamentId + " · "
                               + root.coordinatorLabel(
                                   tournamentRow.modelData.coordinator) + " · "
                               + root.eventTypeLabel(

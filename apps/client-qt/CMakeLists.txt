@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.2.1")
+set(HEXPROOF_VERSION "2.3.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -154,6 +154,8 @@ target_link_libraries(hexproof_deck_library PUBLIC
     Qt6::Gui)
 
 set(HEXPROOF_SESSION_SOURCES
+    src/services/AccountVault.cpp
+    src/services/AccountSessionState.cpp
     src/services/HubTransport.cpp
     src/services/GameSessionState.cpp
     src/services/LimitedSessionState.cpp
@@ -176,6 +178,7 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/ForgeHostService.cpp
     src/services/ModelOpponentService.cpp
     src/services/WsClient.cpp
+    src/services/WsClientCluster.cpp
     src/services/WsClientCommands.cpp
     src/services/WsClientTournamentCommands.cpp
     src/services/WsClientDispatch.cpp
@@ -188,11 +191,23 @@ target_include_directories(hexproof_session PUBLIC
 target_compile_definitions(hexproof_session PRIVATE
     HEXPROOF_VERSION="${PROJECT_VERSION}")
 target_link_libraries(hexproof_session PUBLIC
+    Qt6::Concurrent
     Qt6::Core
     Qt6::Gui
     Qt6::Network
     Qt6::WebSockets
     ZLIB::ZLIB)
+
+if(WIN32)
+    target_link_libraries(hexproof_session PRIVATE advapi32)
+elseif(APPLE)
+    target_link_libraries(hexproof_session PRIVATE "-framework Security" "-framework CoreFoundation")
+elseif(UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(HEXPROOF_SECRET REQUIRED IMPORTED_TARGET libsecret-1)
+    target_compile_definitions(hexproof_session PRIVATE HEXPROOF_HAVE_LIBSECRET)
+    target_link_libraries(hexproof_session PRIVATE PkgConfig::HEXPROOF_SECRET)
+endif()
 
 qt_add_library(hexproof_local_test STATIC src/testing/LocalTestSession.cpp)
 target_link_libraries(hexproof_local_test PUBLIC hexproof_session)
@@ -573,6 +588,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/assets/mana/README.md
         qml/screens/MainMenu.qml
         qml/screens/Connect.qml
+        qml/screens/Account.qml
         qml/screens/CreateRoom.qml
         qml/screens/LimitedHub.qml
         qml/screens/LimitedRoomCreate.qml
@@ -1009,6 +1025,7 @@ qt_add_executable(hexproof_wsclient_test
     tests/wsclient_commands_test.cpp
     tests/wsclient_rules_start_failure_test.cpp
     tests/wsclient_endpoints_test.cpp
+    tests/wsclient_cluster_test.cpp
     tests/wsclient_tournament_test.cpp
     tests/wsclient_reconnect_test.cpp
     tests/wsclient_test.h
@@ -1126,6 +1143,10 @@ qt_add_resources(hexproof_reconnectcontroller_test "reconnect_server_directory"
     PREFIX "/"
     FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
 add_test(NAME reconnectcontroller COMMAND hexproof_reconnectcontroller_test)
+
+qt_add_executable(hexproof_accountsession_test tests/accountsession_test.cpp)
+target_link_libraries(hexproof_accountsession_test PRIVATE hexproof_session Qt6::Test)
+add_test(NAME accountsession COMMAND hexproof_accountsession_test)
 
 qt_add_executable(hexproof_protocolsession_test
     tests/protocolsession_test.cpp

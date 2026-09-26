@@ -225,6 +225,10 @@ QVariant RulesCardModel::data(const QModelIndex &index, int role) const
         return row.faceDown;
     case AttackingRole:
         return row.attacking;
+    case AttackingTargetRole:
+        return row.attackingTarget;
+    case AttackingSeatRole:
+        return row.attackingSeat;
     case PowerRole:
         return row.power;
     case ToughnessRole:
@@ -265,6 +269,8 @@ QHash<int, QByteArray> RulesCardModel::roleNames() const
             {SummoningSickRole, "summoningSick"},
             {FaceDownRole, "faceDown"},
             {AttackingRole, "attacking"},
+            {AttackingTargetRole, "attackingTarget"},
+            {AttackingSeatRole, "attackingSeat"},
             {PowerRole, "power"},
             {ToughnessRole, "toughness"},
             {DamageRole, "damage"},
@@ -409,7 +415,7 @@ QVariantList RulesPromptOptionModel::cardActionsForCard(const QString &cardId) c
         return actions;
     for (const RulesPromptOptionRow &row : m_rows) {
         if (row.cardId != cardId || (row.kind != u"cast"_s && row.kind != u"playLand"_s &&
-                                     row.kind != u"activateAbility"_s))
+                                     row.kind != u"activateAbility"_s && row.kind != u"undoMana"_s))
             continue;
         actions.append(QVariantMap{
             {u"responseId"_s, row.responseId}, {u"kind"_s, row.kind}, {u"label"_s, row.label}});

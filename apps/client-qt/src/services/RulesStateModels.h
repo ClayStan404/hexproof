@@ -58,6 +58,8 @@ struct RulesCardRow
     bool summoningSick = false;
     bool faceDown = false;
     bool attacking = false;
+    QString attackingTarget;
+    int attackingSeat = -1;
     QString power;
     QString toughness;
     int damage = 0;
@@ -187,6 +189,8 @@ class RulesCardModel final : public RulesSnapshotModel
         SummoningSickRole,
         FaceDownRole,
         AttackingRole,
+        AttackingTargetRole,
+        AttackingSeatRole,
         PowerRole,
         ToughnessRole,
         DamageRole,

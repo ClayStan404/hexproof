@@ -116,6 +116,9 @@ class TestWsClient : public QObject
     void cubeAutoEntryIsReplacedWithItsOwnerSnapshot() const;
     void sendsCubeJoinCredentialsAndInvitationCancellation() const;
     void cleanup();
+    void accountLoginAndTakeoverStayInsideTrustedRealm() const;
+    void routesOfficialCommandOnce_data();
+    void routesOfficialCommandOnce() const;
     void correlatesCommandOutcomes() const;
     void announcesOnlyCurrentRoomRestartBroadcast() const;
     void sendsTypedScryResponse() const;
@@ -175,6 +178,7 @@ class TestWsClient : public QObject
     void processesFinalMessageBeforeDisconnect() const;
     void switchingServersIgnoresOldTransportCompletion() const;
     void cancelledConnectionIgnoresQueuedWelcome() const;
+    void resumesRoomAfterUnexpectedDisconnect_data() const;
     void resumesRoomAfterUnexpectedDisconnect() const;
     void keepsPendingCommandsWhenTransportDropsMidCommand() const;
     void sendsDeckAndReadyCommands() const;

@@ -86,6 +86,11 @@ Meddling Mage naming, and canceling Cathartic Reunion's
 discard cost. It also resolves Seasoned Pyromancer's real discard/draw/token
 script with an explicit two-card batch and verifies an optional native card
 subset completes without another hidden selection step.
+Declining Yorion with an empty confirmation continues to the mulligan and leaves
+the command zone empty. Springleaf Drum can tap a summoning-sick Eldrazi Spawn
+token. Atraxa's revealed library takes are shown to the opponent one chosen card
+at a time. Ragavan grants the spell face of an exiled modal card and not its land
+face.
 The Eye of Ojer Taq craft-cost regression retains two explicit incremental
 choices for its specialized shared-type input and verifies native payment
 exiles both selected creatures. Selecting the first card must not prematurely
@@ -310,6 +315,17 @@ For a surviving object, its controller explicitly selects a replacement chooser
 from the native eligible players, then that chooser supplies the original
 answer. The game must continue to native priority and a real terminal result.
 These are host lifecycle regressions, not full spell-resolution or Qt tests.
+
+`NativeControlledConcedeRegressionTest` casts actual Emrakul, the Promised End
+in a running two-player match, resolves her trigger and waits for priority in
+the controlled turn. Both the controlled player and the controlling player
+concede, with each seat acting as the controller. Additional cases open an
+actual synchronous scry callback above that priority input. All eight cases
+require a terminal boundary within two seconds, release of the temporary
+controller's input, cancellation without an invented menu answer, the correct
+conceding seat and winner in every viewer's snapshot, no surviving prompt,
+and clean RPC/session teardown. Before the fix, native game over restored the
+original controllers but left the temporary controller's priority queue blocked.
 
 `NativeObjectDepartureRegressionTest` resolves actual native stack effects with
 constructed sources, targets, and followup life gain. It covers the object's

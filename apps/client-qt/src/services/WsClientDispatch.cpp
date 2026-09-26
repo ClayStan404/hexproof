@@ -76,6 +76,12 @@ QVariantMap normalizedRulesStartFailure(const QJsonObject &value, bool player, b
 
 void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
 {
+    if (env.type == kTypeSessionRoute) {
+        handleClusterRoute(env);
+        return;
+    }
+    if (!env.id.isEmpty() && env.id == m_clusterRequestId)
+        clearClusterCommand();
     if (env.hasSeq)
         m_reconnectController->observeSequence(env.seq);
     if (env.type != kTypeError && !env.id.isEmpty())
@@ -85,7 +91,13 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
             return;
         m_lastRulesSnapshotSeq = env.seq;
     }
-    if (env.type == kTypeRoomAIWorker) {
+    if (env.type == kTypeAccountState) {
+        m_account->acceptState(env.id, env.payload);
+        if (m_account->authenticated() && m_displayName != m_account->displayName()) {
+            m_displayName = m_account->displayName();
+            emit displayNameChanged();
+        }
+    } else if (env.type == kTypeRoomAIWorker) {
         if (m_aiModelsAvailable && m_roomSession->host() &&
             env.payload.value(u"roomId"_s).toString() == roomId() &&
             env.payload.value(u"source"_s).toString() == m_roomSession->aiSource())
@@ -284,6 +296,11 @@ void WsClient::handleWelcome(const Envelope &env)
         m_ws.close();
         return;
     }
+    const QString realm = m_serverDirectory->accountRealmForUrl(m_serverUrl);
+    m_clusterNode = !realm.isEmpty() && env.payload.value(u"accountRealm"_s).toString() == realm
+                        ? env.payload.value(u"clusterNode"_s).toString()
+                        : QString{};
+    rememberClusterNode();
     m_peerTransportAvailable = env.payload.value(u"peerTransportAvailable"_s).toBool();
     m_playerHostingAvailable = env.payload.value(u"playerHostingAvailable"_s).toBool();
     m_forgeAIAvailable = env.payload.value(u"forgeAIAvailable"_s).toBool();
@@ -296,6 +313,22 @@ void WsClient::handleWelcome(const Envelope &env)
          {u"playerHosting"_s, m_playerHostingAvailable},
          {u"directPeer"_s, m_peerTransportAvailable},
          {u"hostMigration"_s, env.payload.value(u"hostMigrationAvailable"_s).toBool()}});
+    const bool requiresAccount = m_account->requiresAccountLogin();
+    m_account->welcome(env.payload.value(u"accountRealm"_s).toString(),
+                       env.payload.value(u"accountId"_s).toString(),
+                       env.payload.value(u"accountName"_s).toString(),
+                       clusterAvailable() && !m_clusterRouting &&
+                           !env.payload.value(u"resumed"_s).toBool());
+    if (requiresAccount && !m_account->supported()) {
+        m_intentionalDisconnect = true;
+        setLastError(kErrAccountUnavailable, m_account->lastError());
+        m_ws.close();
+        return;
+    }
+    if (m_account->authenticated()) {
+        m_displayName = m_account->displayName();
+        emit displayNameChanged();
+    }
     const bool resumed = env.payload.value(u"resumed"_s).toBool();
     const bool tournamentOnlyReconnect = m_resumeAttempted && m_state == Reconnecting &&
                                          roomId().isEmpty() && m_tournamentSession->inTournament();
@@ -314,6 +347,8 @@ void WsClient::handleWelcome(const Envelope &env)
     m_reconnectController->setCrossLaunchResumeAllowed(resumed && resumedRole == kRolePlayer);
     m_reconnectController->flush();
 
+    if (finishClusterRoute(env))
+        return;
     if (resumed) {
         m_reconnectController->stopRetry();
         m_roomSession->enter(env.payload.value(u"roomId"_s).toString(), resumedRole,
@@ -538,9 +573,18 @@ void WsClient::handleError(const Envelope &env)
     const int minimumPlayers = env.payload.value(u"minimumPlayers"_s).toInt(0);
     if (code == kErrTournamentNotReady && minimumPlayers > 0)
         msg = u"at least %1 checked-in players are required"_s.arg(minimumPlayers);
+    const bool accountWasAuthenticated = m_account->authenticated();
+    m_account->acceptError(env.id, code, msg);
+    if (code == kErrAccountReplaced ||
+        (code == kErrAccountInvalid &&
+         (accountWasAuthenticated || m_state == Connecting || m_state == Reconnecting))) {
+        m_intentionalDisconnect = true;
+        m_reconnectController->stopRetry();
+    }
     setLastError(code, msg);
     m_protocolSession->resolveFailure(env.id, m_lastError);
-    if (m_state == Connecting || m_state == Reconnecting) {
+    if (m_state == Connecting || m_state == Reconnecting || code == kErrAccountReplaced ||
+        (code == kErrAccountInvalid && accountWasAuthenticated)) {
         m_helloTimer.stop();
         m_ws.close();
     }

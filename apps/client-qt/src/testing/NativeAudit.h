@@ -60,6 +60,8 @@ class NativeAudit final : public QObject
     Q_INVOKABLE void fixture(const QString &name, const QVariantMap &detail = {});
     Q_INVOKABLE bool applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules,
                                             const QVariantMap &match = {});
+    Q_INVOKABLE bool updateRulesTableFixture(const QVariantMap &rules,
+                                             const QVariantMap &prompt = {});
     Q_INVOKABLE bool interruptTransport(QObject *client);
     Q_INVOKABLE bool crashHostingHelper(QObject *client);
     Q_INVOKABLE void finish(int code);

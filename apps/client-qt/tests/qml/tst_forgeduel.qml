@@ -107,7 +107,17 @@ TestCase {
                 if (name === "Test Battle") return "Battle"
                 return "Creature"
             }
-            function cardDisplayName(name) { return language === "zh" ? names[name] || name : name }
+            property var nameRequests: []
+            function cardDisplayName(name) {
+                nameRequests.push(name)
+                return language === "zh" ? names[name] || name : name
+            }
+            property var rules: ({})
+            function cardRulesText(name, setCode, collectorNumber, textLanguage) {
+                const selected = textLanguage || language
+                const table = rules[selected] || {}
+                return table[name] || ""
+            }
         }
         RulesTable {
             id: table
@@ -215,6 +225,8 @@ TestCase {
         testTranslations.setLanguage("en")
         catalog.language = "en"
         catalog.names = ({})
+        catalog.nameRequests = []
+        catalog.rules = ({})
         catalog.imageOverride = ""
     }
 
@@ -391,6 +403,10 @@ TestCase {
         compare(item("forgeCardName-land").text, "Plains")
         compare(item("forgeCardName-own-0").text, "Grizzly Bears")
         compare(item("forgeCard-land").card.name, "Plains")
+        catalog.rules = {
+            en: {"Lightning Bolt": "Deal 3 damage to any target."},
+            zh: {"Lightning Bolt": "闪电击对任意目标造成3点伤害。"}
+        }
         catalog.language = "zh"
         tryCompare(item("forgeCardName-land"), "text", "平原")
         compare(item("forgeCardName-own-0").text, "灰熊")
@@ -403,6 +419,7 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(state))
         waitForRendering(table)
         tryCompare(item("forgeStackName-bolt"), "text", "闪电击")
+        compare(item("forgeStackRules-bolt").text, "闪电击对任意目标造成3点伤害。")
         compare(item("forgeCommanderName-0-0").text, "指挥官")
         catalog.language = "en"
         tryCompare(item("forgeCardName-land"), "text", "Plains")
@@ -420,6 +437,46 @@ TestCase {
         testTranslations.setLanguage("en")
         catalog.language = "en"
         compare(table.promptOptionLabel("chooseAction", "land", "Plains — play land"), "Plains — Play land")
+    }
+
+    function test_tokenActionsUseProjectedNamesOnEveryPrompt() {
+        const state = snapshot()
+        state.zones[4].cards = [token("spawn-1", 0, "Eldrazi Spawn", true),
+            token("spawn-2", 0, "Eldrazi Spawn", true)]
+        state.zones[4].count = 2
+        verify(testRulesPrompt.applySnapshot(state))
+        catalog.names = {"Eldrazi Spawn": "奥札奇裔"}
+        catalog.language = "zh"
+        testTranslations.setLanguage("zh")
+        compare(table.promptOptionLabel("chooseAction", "action:1",
+            "Eldrazi Spawn Token — activate ability", "spawn-1"), "奥札奇裔 — 起动异能")
+        for (let revision = 0; revision < 3; ++revision) {
+            catalog.nameRequests = []
+            prompt("chooseAction", {options: [
+                {responseId: "action:1", kind: "activateAbility", cardId: "spawn-1",
+                    label: "Eldrazi Spawn Token — activate ability"},
+                {responseId: "action:2", kind: "activateAbility", cardId: "spawn-2",
+                    label: "Eldrazi Spawn Token — activate ability"},
+                {responseId: "$pass", kind: "pass", label: "Pass priority"}]})
+            verify(!catalog.nameRequests.includes("Eldrazi Spawn Token"),
+                "Engine token labels must not trigger missing-name catalog scans: "
+                + JSON.stringify(catalog.nameRequests))
+        }
+        compare(table.promptOptionLabel("chooseAction", "action:1",
+            "Eldrazi Spawn Token — activate ability", "spawn-1"), "奥札奇裔 — 起动异能")
+        table.cardActionPicker.showFor("spawn-1", "Eldrazi Spawn", [
+            {responseId: "token-action", kind: "activateAbility", cardId: "spawn-1",
+                label: "Eldrazi Spawn Token — activate ability"}])
+        tryCompare(item("rulesCardAction-token-action"), "text", "奥札奇裔 — 起动异能")
+        table.cardActionPicker.close()
+
+        // The choice's spell face must not be replaced by the whole printed card.
+        state.zones[0].cards = [card("adventure", 0, "Brazen Borrower // Petty Theft", false)]
+        state.zones[0].count = 1
+        verify(testRulesPrompt.applySnapshot(state))
+        catalog.names = {"Petty Theft": "小偷小摸"}
+        compare(table.promptOptionLabel("chooseAction", "spell", "Petty Theft — cast spell",
+            "adventure"), "小偷小摸 — 施放咒语")
     }
 
     function test_landsSitAsLeftTableRow() {
@@ -596,6 +653,89 @@ TestCase {
         compare(transport.responses.length, 1)
         compare(transport.responses[0].choices, ["choice:" + data.selected])
         compare(transport.responses[0].id, table.rulesSession.promptId)
+    }
+    function test_modalChoiceAndTargetNameTheCurrentEffect() {
+        const english = "Choose two —\n"
+                + "• Target player creates X 0/1 colorless Eldrazi Spawn creature tokens.\n"
+                + "• Target player scries X, then draws a card."
+        const chinese = "选择两项～\n"
+                + "• 目标牌手派出衍生生物。\n"
+                + "• 目标牌手占卜 X，然后抓一张牌。"
+        catalog.language = "zh"
+        catalog.names = {"Kozilek's Command": "寇基雷的指令"}
+        catalog.rules = {en: {"Kozilek's Command": english}, zh: {"Kozilek's Command": chinese}}
+        testTranslations.setLanguage("zh")
+        prompt("chooseFromSelection", {
+            title: "claystan activated Kozilek's Command - Choose a mode",
+            minChoiceTotal: 2, maxChoiceTotal: 2,
+            choices: [
+                {responseId: "choice:0", label: "Target player creates X 0/1 colorless Eldrazi Spawn creature tokens.", weight: 1, canRepeat: false},
+                {responseId: "choice:1", label: "Target player scries X, then draws a card.", weight: 1, canRepeat: false}
+            ]
+        })
+        compare(item("rulesPromptTitle").text, "claystan 起动了 寇基雷的指令 — 选择模式")
+        compare(item("rulesScalarChoice-choice:0").text, "目标牌手派出衍生生物。")
+        compare(item("rulesScalarChoice-choice:1").text, "目标牌手占卜 X，然后抓一张牌。")
+        prompt("chooseBoardTargets", {
+            title: "Choose a card or player",
+            detail: "Kozilek's Command (5) - Target player creates X 0/1 colorless Eldrazi Spawn creature tokens. "
+                    + "Target player scries X, then draws a card.\nSelect target player",
+            contextText: english,
+            contextCards: [{id: "context-card:0", name: "Kozilek's Command", setCode: "MH3", collectorNumber: "11"}],
+            minSelections: 1, maxSelections: 1,
+            targets: [{responseId: "player:0", kind: "player", label: "You"}]
+        })
+        compare(item("rulesPromptTitle").text, "当前效果：目标牌手派出衍生生物。")
+        compare(item("rulesPromptDetail").text, "选择目标牌手")
+        compare(item("rulesPromptContextText").text, "")
+        prompt("chooseBoardTargets", {
+            title: "Choose a card or player",
+            detail: "Kozilek's Command (5) - Target player scries X, then draws a card.\nSelect target player",
+            contextText: english,
+            contextCards: [{id: "context-card:0", name: "Kozilek's Command", setCode: "MH3", collectorNumber: "11"}],
+            minSelections: 1, maxSelections: 1,
+            targets: [{responseId: "player:0", kind: "player", label: "You"}]
+        })
+        compare(item("rulesPromptTitle").text, "当前效果：目标牌手占卜 X，然后抓一张牌。")
+        compare(item("rulesPromptDetail").text, "选择目标牌手")
+    }
+    function test_singleOpeningAbilityAsksInsteadOfOrdering() {
+        catalog.language = "zh"
+        catalog.names = {"Devourer of Destiny": "命运吞噬者"}
+        testTranslations.setLanguage("zh")
+        prompt("chooseCards", {
+            title: "Choose cards to activate from opening hand and their order",
+            minCardSelections: 0, maxCardSelections: 1,
+            cards: [{id: "card-devourer", name: "Devourer of Destiny", setCode: "MH3", collectorNumber: "1"}]
+        })
+        const popup = item("rulesCardChoiceDialog")
+        tryCompare(popup, "visible", true)
+        tryVerify(() => findChild(popup.contentItem, "rulesOpeningAbilityUse") !== null)
+        compare(findChild(popup.contentItem, "rulesChoiceTitle").text, "是否使用命运吞噬者的开局异能？")
+        verify(findChild(popup.contentItem, "rulesCardSelectionPrompt") === null)
+        mouseClick(findChild(popup.contentItem, "rulesOpeningAbilityUse"))
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].cards, ["card-devourer"])
+        prompt("chooseCards", {
+            title: "Choose cards to activate from opening hand and their order",
+            minCardSelections: 0, maxCardSelections: 2,
+            cards: [{id: "card-a", name: "Leyline of the Void"},
+                    {id: "card-b", name: "Leyline of Sanctity"}]
+        })
+        tryCompare(popup, "visible", true)
+        verify(findChild(popup.contentItem, "rulesCardSelectionPrompt") !== null)
+        verify(findChild(popup.contentItem, "rulesOpeningAbilityUse") === null)
+    }
+    function test_unusedManaUndoesFromTheLand() {
+        testTranslations.setLanguage("zh")
+        prompt("payManaCost", {title:"Pay Mana Cost: {G}",
+            options:[{responseId:"action:0", cardId:"land", kind:"activateAbility", label:"Plains — Tap for mana"},
+                     {responseId:"action:1", cardId:"own-0", kind:"undoMana", label:"Undo mana"}]})
+        compare(item("forgeCardInteractionHint-own-0").text, "撤回法术力")
+        compare(item("rulesPromptOption-action:1").visible, false)
+        mouseClick(item("forgeCard-own-0"))
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].response, "action:1")
     }
     function test_landClickAndPendingResponseProtection() {
         action("playLand", "hand-0")
@@ -939,8 +1079,10 @@ TestCase {
         prompt(data.kind, {options:[{responseId:"ability", cardId:"own-0", kind:"activateAbility", label:"Activate"}]})
         const source = item("forgeCard-own-0")
         mouseMove(source, source.width / 2, source.height / 2)
-        tryCompare(source, "showAbilityHint", true)
-        tryCompare(findChild(source, "forgeCardInteractionHint-own-0"), "text", "起动异能")
+        if (data.kind !== "payManaCost")
+            tryCompare(source, "showAbilityHint", true)
+        tryCompare(findChild(source, "forgeCardInteractionHint-own-0"), "text",
+                   data.kind === "payManaCost" ? "横置支付费用" : "起动异能")
         verify(!table.combatInteraction.active)
         mouseClick(source)
         compare(transport.responses[0].response, "ability")
@@ -1510,28 +1652,42 @@ TestCase {
         state.zones[4].cards[0].blocking = ["opponent"]
         state.zones[4].cards[1].attachedTo = "own-2"
         state.zones[5].cards[0].attacking = true
+        state.zones[5].cards[0].attackingPlayer = 0
+        state.zones[5].cards.push(card("walker-hit", 1, "Goblin Guide", true))
+        state.zones[5].cards[1].attacking = true
+        state.zones[5].cards[1].attackingTarget = "own-2"
+        state.zones[5].count = 2
         verify(testRulesPrompt.applySnapshot(state))
         prompt("chooseAction", {options:[{responseId:"pass", kind:"pass", label:"Pass"}]})
-        tryCompare(item("forgeOwnCreatures"), "stackCount", 3)
-        compare(table.rulesSession.battlefieldRelationships.length, 2)
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 2)
+        compare(table.rulesSession.battlefieldRelationships.length, 4)
         tryCompare(item("forgeCardInteractionHint-own-0"), "text", "Blocking")
-        compare(item("forgeCardInteractionHint-opponent").text, "Blocked")
-        compare(item("forgeCardInteractionHint-own-1").text, "Attached")
-        compare(item("forgeCardInteractionHint-own-2").text, "Attachments: 1")
+        compare(item("forgeCardInteractionHint-opponent").text, "Attacking you · Blocked")
+        compare(item("forgeCardInteractionHint-own-1").text, "")
+        compare(item("forgeCardInteractionHint-own-2").text, "Attacked")
+        compare(item("forgeCardInteractionHint-walker-hit").text, "Attacking Grizzly Bears")
+        const host = item("forgeCard-own-2")
+        const aura = item("forgeCard-own-1")
+        verify(aura.parent === host.parent)
+        verify(aura.y > host.y)
+        verify(aura.z < host.z)
         const block = item("forgeRelationship-block-own-0-opponent")
-        const attachment = item("forgeRelationship-attachment-own-1-own-2")
+        const playerAttack = item("forgeRelationship-attack-opponent-")
+        const permanentAttack = item("forgeRelationship-attack-walker-hit-own-2")
         tryCompare(block, "validAnchors", true)
-        tryCompare(attachment, "validAnchors", true)
-        verify(attachment.dashed)
-        verify(!block.dashed)
+        tryCompare(playerAttack, "validAnchors", true)
+        tryCompare(permanentAttack, "validAnchors", true)
+        verify(!item("forgeRelationship-attachment-own-1-own-2").visible)
+        verify(item("rulesPlayerTarget0").underAttack)
+        verify(!item("rulesPlayerTarget1").underAttack)
         table.openCardDetails("own-2")
         verify(item("forgeDuelTable").inspectionDock.inspector.persistentSummary.includes("Attachment: Grizzly Bears"))
 
         state.zones[4].cards[1].attachedTo = "hand-0"
         state.zones[4].cards[0].blocking = ["hand-0", "missing"]
         verify(testRulesPrompt.applySnapshot(state))
-        compare(table.rulesSession.battlefieldRelationships.length, 0)
-        tryCompare(item("forgeOwnCreatures"), "stackCount", 1)
+        compare(table.rulesSession.battlefieldRelationships.length, 2)
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 2)
         compare(item("forgeCardInteractionHint-own-0").text, "")
     }
     function test_reviewArtworkCannotCollapseGrid_data() {
@@ -1688,7 +1844,82 @@ TestCase {
         mouseClick(item("rulesConfirmCombat-" + (data.kind === "chooseAttackers" ? "attackers" : "blockers")))
         compare(transport.responses[0].assignments.length, 2)
     }
-    function test_nativeCostSelectionsSplitPilesWithoutResubmittingReservations() {
+    function test_repeatedOpponentTargetsAcceptDistinctClicks() {
+        const state = snapshot()
+        state.zones[5].cards = [0, 1].map(i => card("opponent-" + i, 1, "Grizzly Bears", true))
+        state.zones[5].count = 2
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(item("forgeOpponentCreatures"), "stackCount", 1)
+        prompt("chooseBoardTargets", {minSelections:2, maxSelections:2,
+            targets:[0, 1].map(i => ({responseId:"target-" + i, kind:"card",
+                objectId:"opponent-" + i, label:"Bear", name:"Grizzly Bears"}))})
+        mouseClick(item("forgeCard-opponent-1"))
+        compare(table.interaction.selectedCount, 1)
+        mouseClick(item("forgeCard-opponent-0"))
+        compare(table.interaction.selectedCount, 2)
+        mouseClick(item("rulesConfirmTargets"))
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].targets, ["target-1", "target-0"])
+    }
+    function test_targetCandidatesRemainIndividuallyReachable_data() {
+        return [{tag:"own-creatures", seat:0, name:"Grizzly Bears", category:"Creatures", count:2, eligible:2},
+                {tag:"opponent-tokens", seat:1, name:"Cat", category:"Creatures", count:3, eligible:3, token:true},
+                {tag:"opponent-lands", seat:1, name:"Plains", category:"Lands", count:4, eligible:2},
+                {tag:"opponent-other", seat:1, name:"Test Walker", category:"Other", count:2, eligible:2},
+                {tag:"front-ineligible", seat:1, name:"Grizzly Bears", category:"Creatures", count:2, eligible:1}]
+    }
+    function test_targetCandidatesRemainIndividuallyReachable(data) {
+        const state = snapshot(), zone = state.zones[data.seat === 0 ? 4 : 5]
+        zone.cards = Array.from({length:data.count}, (_, i) =>
+            (data.token ? token : card)("copy-" + i, data.seat, data.name, data.category === "Creatures"))
+        zone.count = data.count
+        verify(testRulesPrompt.applySnapshot(state))
+        const lane = item("forge" + (data.seat === 0 ? "Own" : "Opponent") + data.category)
+        tryCompare(lane, "stackCount", 1)
+        const targets = Array.from({length:data.eligible}, (_, i) => ({responseId:"target-" + i,
+            kind:"card", objectId:"copy-" + i, label:data.name, name:data.name}))
+        prompt("chooseBoardTargets", {minSelections:data.eligible, maxSelections:data.eligible, targets:targets})
+        const expandedCount = data.eligible + (data.count > data.eligible ? 1 : 0)
+        tryCompare(lane, "stackCount", expandedCount)
+        const expected = []
+        for (let i = 0; i < data.eligible; ++i) {
+            const face = item("forgeCard-copy-" + i)
+            verify(face.pointerEnabled && face.actionable)
+            compare(face.card.stackSize, 1)
+            mouseClick(face)
+            expected.push("target-" + i)
+            compare(table.interaction.selectedCount, expected.length)
+        }
+        if (data.eligible > 1) {
+            compare(transport.responses.length, 0)
+            const first = item("forgeCard-copy-0")
+            mouseClick(first)
+            verify(!first.selected)
+            compare(table.interaction.selectedCount, data.eligible - 1)
+            mouseClick(first)
+            verify(first.selected)
+            mouseClick(item("rulesConfirmTargets"))
+        }
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].targets.slice().sort(), expected.slice().sort())
+        verify(transport.rulesResponsePending)
+        waitForRendering(table)
+        compare(lane.stackCount, expandedCount)
+
+        // A new publication of the same prompt id can change eligibility without a snapshot.
+        prompt("chooseBoardTargets", {promptId:serial, minSelections:1, maxSelections:1,
+            targets:[{responseId:"replacement", kind:"card", objectId:"copy-" + (data.count - 1),
+                label:data.name, name:data.name}]})
+        tryCompare(lane, "stackCount", 2)
+        compare(table.interaction.selectedCount, 0)
+        const replacement = item("forgeCard-copy-" + (data.count - 1))
+        verify(replacement.pointerEnabled && replacement.actionable)
+        mouseClick(replacement)
+        compare(transport.responses[1].targets, ["replacement"])
+        action("playLand", "hand-0")
+        tryCompare(lane, "stackCount", 1)
+    }
+    function test_nativeCostSelectionsKeepExactCopiesWithoutResubmittingReservations() {
         verify(testRulesPrompt.applySnapshot(snapshot(1, 3)))
         const lane = item("forgeOwnCreatures")
         function costPrompt(selected) {
@@ -1698,12 +1929,12 @@ TestCase {
                     selected:selected.includes(i)}))})
         }
         costPrompt([])
-        tryCompare(lane, "visibleStackIds", [["own-0", "own-1", "own-2"]])
+        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1"], ["own-2"]])
         mouseClick(item("forgeCard-own-2"))
         compare(transport.responses[0].targets, ["target-2"])
 
         costPrompt([2])
-        tryCompare(lane, "visibleStackIds", [["own-0", "own-1"], ["own-2"]])
+        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1"], ["own-2"]])
         verify(findChild(item("forgeCard-own-2"), "forgeCardNativeSelection-own-2").visible)
         const selectedCard = item("forgeCard-own-2")
         const marker = findChild(selectedCard, "forgeCardNativeSelection-own-2")
@@ -1717,14 +1948,14 @@ TestCase {
         compare(transport.responses[1].targets, ["target-1"])
 
         costPrompt([1, 2])
-        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1", "own-2"]])
+        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1"], ["own-2"]])
         compare(table.interaction.nativeSelectedCount, 2)
         compare(table.interaction.selectedCount, 0)
         mouseClick(item("forgeCard-own-2"))
         compare(transport.responses[2].targets, ["target-2"])
 
         costPrompt([1])
-        tryCompare(lane, "visibleStackIds", [["own-0", "own-2"], ["own-1"]])
+        tryCompare(lane, "visibleStackIds", [["own-0"], ["own-1"], ["own-2"]])
         verify(!findChild(item("forgeCard-own-2"), "forgeCardNativeSelection-own-2").visible)
         verify(findChild(item("forgeCard-own-1"), "forgeCardNativeSelection-own-1").visible)
         verify(table.interaction.submitTargets("$submit"))
@@ -1779,6 +2010,19 @@ TestCase {
             {responseId:"new-target", kind:"spell", objectId:"bolt", label:"Bolt"}]})
         mouseClick(item("forgeStackCard-bolt"))
         compare(transport.responses[0].targets, ["new-target"])
+        const pictured = snapshot()
+        pictured.stack = [{id:"effect", sourceId:"own-0", controllerSeat:0,
+            identity:{name:"Grizzly Bears (1)'s Effect"}, text:"At the beginning of your upkeep, draw a card."}]
+        verify(testRulesPrompt.applySnapshot(pictured))
+        compare(item("forgeStackCard-effect").card.name, "Grizzly Bears")
+        compare(item("forgeStackName-effect").text, "Grizzly Bears (1)'s Effect")
+        const track = item("forgePhaseTrack")
+        verify(track.x + track.width <= item("forgeStack").x + 1)
+        const opponentLane = item("forgeOpponentCreatures")
+        const ownLane = item("forgeOwnCreatures")
+        const seam = (opponentLane.y + opponentLane.height + ownLane.y) / 2
+        verify(Math.abs(track.y + track.height / 2 - seam) <= 1)
+        verify(ownLane.y - (opponentLane.y + opponentLane.height) >= 8 * table.presentation.unit)
     }
     function test_controlledTurnUsesPermittedHandAndRestoresOwnHand() {
         const state = snapshot()
@@ -2128,6 +2372,7 @@ TestCase {
         const mazeA = card("maze-a", 0, "Ugin's Labyrinth", false)
         const mazeB = card("maze-b", 0, "Ugin's Labyrinth", false)
         mazeA.exiledCardCount = 1; mazeA.exiledCardIds = ["ulamog"]
+        mazeA.counters = [{name:"LOYALTY", value:7}, {name:"P1P1", value:2}]
         mazeB.exiledCardCount = 1; mazeB.exiledCardIds = ["hidden-exile"]
         state.zones[4].cards = [needleA, needleB, mazeA, mazeB]; state.zones[4].count = 4
         state.zones.push({zone:"exile", ownerSeat:0, count:2, cards:[
@@ -2147,6 +2392,12 @@ TestCase {
         verify(label("needle-a").text.includes(bolt))
         verify(label("needle-b").text.includes(counter))
         verify(label("maze-a").text.includes(ulamog))
+        verify(label("maze-a").text.includes("+1/+1 2"))
+        verify(!label("maze-a").text.includes(data.chinese ? "忠诚" : "Loyalty"))
+        const loyalty = findChild(item("forgeCard-maze-a"), "forgeCardLoyalty-maze-a")
+        verify(loyalty.visible)
+        compare(findChild(loyalty, "forgeCardLoyaltyValue-maze-a").text, "7")
+        verify(label("maze-a").y + label("maze-a").height <= loyalty.y + 1)
         verify(label("maze-b").text.includes(data.chinese ? "隐藏牌" : "hidden card"))
         verify(!label("maze-b").text.includes("SECRET"))
         mouseMove(item("forgeCard-maze-a"), 20, 30)
@@ -2160,7 +2411,7 @@ TestCase {
         tryCompare(table.inspector, "pinnedCardId", "needle-a")
         verify(item("rulesCardInspectorState").text.includes(bolt))
         needleA.annotations = [{kind:"namedCard", value:"Counterspell"}]
-        mazeA.exiledCardCount = 0; mazeA.exiledCardIds = []
+        mazeA.exiledCardCount = 0; mazeA.exiledCardIds = []; mazeA.counters = []
         state.zones[0].cards.push(state.zones[6].cards.shift()); state.zones[0].count++
         state.zones[6].count--
         verify(testRulesPrompt.applySnapshot(state))
@@ -2406,22 +2657,78 @@ TestCase {
     function test_turnOwnerIsIndependentOfPriority() {
         const indicator = item("forgeTurnIndicator")
         compare(indicator.text, "Your turn")
+        const highlight = item("forgeActiveBattlefield")
+        const callout = item("forgeTurnCallout")
+        verify(highlight.visible)
+        verify(highlight.y <= item("forgeOwnCreatures").y)
+        verify(highlight.y + highlight.height > item("forgeOwnCreatures").y)
+        compare(callout.message, "My turn")
+        verify(callout.opacity > 0)
         const state = snapshot()
         state.prioritySeat = 1
         verify(testRulesPrompt.applySnapshot(state))
         compare(indicator.text, "Your turn")
+        compare(callout.message, "My turn")
         verify(item("rulesPlayerTarget0").activeTurn)
         verify(!item("rulesPlayerTarget1").activeTurn)
         state.activeSeat = 1; state.prioritySeat = 0
         verify(testRulesPrompt.applySnapshot(state))
         compare(indicator.text, table.matchUi.playerName(1) + "'s turn")
+        verify(highlight.y + highlight.height <= item("forgeOwnCreatures").y + 1)
+        tryCompare(callout, "message", "Opponent's turn")
+        verify(callout.opacity > 0)
         verify(item("rulesPlayerTarget1").activeTurn)
         room.role = "spectator"
         compare(indicator.text, table.matchUi.playerName(1) + "'s turn")
         state.turn = 0
         verify(testRulesPrompt.applySnapshot(state))
         compare(indicator.text, "Preparing game")
+        tryCompare(highlight, "visible", false)
+        tryCompare(callout, "opacity", 0)
         verify(!item("rulesPlayerTarget1").activeTurn)
+    }
+    function test_priorityPhaseCombatAndManaStayReadable() {
+        const state = snapshot(1, 2)
+        state.step = "declare_attackers"
+        state.prioritySeat = 1
+        state.zones[4].cards[1].attacking = true
+        state.zones[4].cards[1].attackingPlayer = 1
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("", {pending:false, supported:false})
+        const banner = item("forgeOpponentDeciding")
+        tryCompare(banner, "visible", true)
+        compare(item("forgeOpponentDecidingText").text, "Opponent is deciding")
+        const track = item("forgePhaseTrack")
+        verify(track.y >= banner.y + banner.height - 1)
+        verify(track.y + track.height <= item("forgeHand").y)
+        const attack = item("forgePhase-declare_attackers")
+        const draw = item("forgePhase-draw")
+        compare(attack.current, true)
+        compare(draw.past, true)
+        compare(item("forgePhase-end").past, false)
+        const mover = item("forgeCard-own-1").parent
+        const stayed = item("forgeCard-own-0").parent
+        verify(mover.y < stayed.y)
+
+        state.prioritySeat = 0
+        state.step = "main1"
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+        tryCompare(banner, "visible", false)
+        verify(item("forgeHand").y < table.presentation.handTop)
+        compare(item("rulesYieldMenuButton").compact, false)
+        compare(findChild(item("rulesActionBar"), "rulesPromptOption-$pass").compact, false)
+
+        prompt("payManaCost", {title:"Pay Mana Cost: {G}",
+            detail:"Forest — {T}: Add {G}.",
+            contextText:"Forest — {T}: Add {G}.",
+            contextCards:[{id:"context-card:0", name:"Forest"}],
+            options:[{responseId:"ability", cardId:"own-0", kind:"activateAbility", label:"Forest"}]})
+        compare(item("rulesPromptTitle").text, "Pay Mana Cost: {G}")
+        compare(item("rulesPromptDetail").visible, false)
+        compare(item("rulesPromptContext").visible, false)
+        compare(item("rulesYieldMenuButton").visible, false)
+        compare(item("forgeCardInteractionHint-own-0").text, "Tap for mana")
     }
     function test_decisionsStayBesideBoardAndInsideWindow_data() {
         return [{tag:"desktop", w:1600, h:1000}, {tag:"laptop", w:1280, h:800},

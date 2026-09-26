@@ -199,7 +199,15 @@ final class NativeSnapshot {
             result.addProperty("tapped", card.isTapped());
             result.addProperty("enteredThisTurn", card.enteredThisTurn());
             result.addProperty("summoningSick", card.isCreature() && card.isSick());
-            result.addProperty("isAttacking", game.getCombat() != null && card.isAttacking());
+            boolean attacking = game.getCombat() != null && card.isAttacking();
+            result.addProperty("isAttacking", attacking);
+            if (attacking) {
+                GameEntity defender = game.getCombat().getDefenderByAttacker(card);
+                if (defender instanceof Card defendingCard)
+                    result.addProperty("attackingTarget", cardId(defendingCard));
+                else if (defender instanceof Player defendingPlayer)
+                    result.addProperty("attackingPlayer", playerId(game, defendingPlayer));
+            }
             JsonArray blocking = new JsonArray();
             if (game.getCombat() != null) {
                 for (Card attacker : game.getCombat().getAttackers()) {

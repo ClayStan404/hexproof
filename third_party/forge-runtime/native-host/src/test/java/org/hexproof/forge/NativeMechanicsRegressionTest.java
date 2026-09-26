@@ -34,6 +34,11 @@ public final class NativeMechanicsRegressionTest {
                 prefs.setPref(FPref.UI_SELECT_FROM_CARD_DISPLAYS, false);
                 return null;
             });
+            if ("companion-decline".equals(args[1])) {
+                companionDecline(base);
+                System.out.println("PASS native mechanics " + args[1]);
+                return;
+            }
             JsonObject config = JsonParser.parseString("{\"gameId\":\"native-mechanics\",\"seed\":42,\"variant\":\"constructed\",\"startingLife\":20,\"players\":[{\"name\":\"Mechanics A\",\"deck\":[{\"name\":\"Forest\"}]},{\"name\":\"Mechanics B\",\"deck\":[{\"name\":\"Forest\"}]}]}").getAsJsonObject();
             try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
                 base.setTestSession(session);
@@ -57,6 +62,9 @@ public final class NativeMechanicsRegressionTest {
                     case "waterbend-cap" -> waterbendCap(session, owner);
                     case "needle", "mage" -> naming(session, owner, args[1].equals("mage"));
                     case "bolt-resolution", "counterspell-resolution", "counter-counterspell" -> spellResolution(session, owner, args[1]);
+                    case "drum-sick-token" -> drumSickToken(session, owner);
+                    case "atraxa-taken" -> atraxaTaken(session, owner);
+                    case "ragavan-land-face" -> ragavanLandFace(session, owner);
                     default -> throw new IllegalArgumentException("Unknown mechanics scenario");
                 }
             }
@@ -447,12 +455,14 @@ public final class NativeMechanicsRegressionTest {
                     ability, 0, 2, new CardCollection(List.of(first, second)), "Choose up to two creatures");
             require(selected.size() == 1 && selected.getFirst() == second, "Optional native selection did not return the explicit subset");
         }, input -> {
-            require(input.get("type").getAsString().equals("chooseCards"), "Optional native selection was not a card batch");
-            require(input.get("min").getAsInt() == 0 && input.get("max").getAsInt() == 2, "Optional native bounds were changed");
+            require(input.get("type").getAsString().equals("chooseBoardTargets"), "Optional battlefield selection did not use the table");
+            require(input.get("minTargets").getAsInt() == 0 && input.get("maxTargets").getAsInt() == 2, "Optional native bounds were changed");
             decisions.incrementAndGet();
-            JsonObject answer = NativeSession.object("type", "chooseCardsDecision");
-            JsonArray chosen = new JsonArray(); chosen.add(NativeSession.cardId(second));
-            answer.add("chosenCardIds", chosen); return answer;
+            JsonObject answer = NativeSession.object("type", "boardTargets");
+            JsonObject chosenCard = NativeSession.object("kind", "card");
+            chosenCard.addProperty("id", NativeSession.cardId(second));
+            JsonArray chosen = new JsonArray(); chosen.add(chosenCard);
+            answer.add("chosen", chosen); return answer;
         });
         require(decisions.get() == 1, "Optional subset must commit without another hidden selection step");
     }
@@ -519,6 +529,155 @@ public final class NativeMechanicsRegressionTest {
             throw new AssertionError("Unexpected Chord native choice: " + input);
         });
         require(convoked.get() >= 2 && paid.get() == 3, "Chord did not use two chosen convokers and three chosen lands");
+    }
+
+    private static void companionDecline(NativeGuiBase base) throws Exception {
+        JsonObject request = NativeSession.object("gameId", "companion-decline");
+        request.addProperty("variant", "Limited");
+        request.addProperty("seed", 7);
+        request.addProperty("startingLife", 20);
+        request.addProperty("startingPlayerIndex", 0);
+        JsonArray players = new JsonArray();
+        for (int seat = 0; seat < 2; seat++) {
+            JsonObject player = NativeSession.object("name", "Companion seat " + seat);
+            JsonArray deck = new JsonArray();
+            for (int i = 0; i < 60; i++) deck.add(NativeSession.object("name", "Forest"));
+            JsonArray side = new JsonArray();
+            if (seat == 0) side.add(NativeSession.object("name", "Yorion, Sky Nomad"));
+            player.add("deck", deck);
+            player.add("sideboard", side);
+            players.add(player);
+        }
+        request.add("players", players);
+        try (NativeSession session = new NativeSession(request, base); var scope = session.context.enter()) {
+            base.setTestSession(session);
+            session.start();
+            JsonObject input = JsonParser.parseString(session.prompt(0)).getAsJsonObject().getAsJsonObject("input");
+            require(input.get("type").getAsString().equals("chooseCards")
+                            && input.toString().contains("Yorion, Sky Nomad")
+                            && input.get("min").getAsInt() == 0,
+                    "Companion prompt was not an optional card choice: " + input);
+            JsonObject output = NativeSession.object("type", "chooseCardsDecision");
+            output.add("chosenCardIds", new JsonArray());
+            JsonObject response = NativeSession.object("type", "chooseCards");
+            response.add("output", output);
+            session.submit(response);
+            String next = session.prompt(0);
+            require(next.contains("mulligan"), "Declining a companion aborted the game: " + next);
+            require(session.game.getPlayers().get(0).getCardsIn(ZoneType.Command).stream()
+                            .noneMatch(card -> card.getName().contains("Yorion")),
+                    "A declined companion entered the command zone");
+        }
+    }
+
+    private static void drumSickToken(NativeSession session, Player owner) throws Exception {
+        Card drum = card(session.game, owner, "Springleaf Drum", ZoneType.Battlefield);
+        var paper = forge.StaticData.instance().getAllTokens().getToken("c_0_1_eldrazi_spawn_sac");
+        require(paper != null, "Eldrazi Spawn token is missing from the catalog");
+        Card token = CardFactory.getCard(paper, owner, session.game);
+        session.game.getAction().moveToPlay(token, owner, null, forge.game.ability.AbilityKey.newMap());
+        token.setSickness(true);
+        require(token.isInPlay() && token.isSick() && token.canTap(), "Summoning-sick token could not legally be tapped by another card");
+        SpellAbility ability = drum.getSpellAbilities().stream().filter(SpellAbility::isManaAbility).findFirst().orElseThrow();
+        ability.setActivatingPlayer(owner);
+        drive(session, owner, () -> {
+            require(PlaySpellAbility.playSpellAbility((PlayerControllerHuman) owner.getController(), owner, ability),
+                    "Springleaf Drum rejected a summoning-sick Eldrazi token");
+            require(token.isTapped() && drum.isTapped(), "Drum payment did not tap the token and the drum");
+            require(owner.getManaPool().totalMana() == 1, "Drum did not add one mana");
+        }, input -> {
+            String type = input.get("type").getAsString();
+            if (type.equals("chooseBoardTargets")) return boardChoice(token);
+            if (type.equals("chooseCards")) {
+                JsonObject result = NativeSession.object("type", "chooseCardsDecision");
+                JsonArray ids = new JsonArray();
+                ids.add(NativeSession.cardId(token));
+                result.add("chosenCardIds", ids);
+                return result;
+            }
+            if (type.equals("chooseFromSelection")) {
+                JsonObject result = NativeSession.object("type", "selectionDecision");
+                JsonArray indices = new JsonArray();
+                indices.add(0);
+                result.add("chosenIndices", indices);
+                return result;
+            }
+            throw new AssertionError("Unexpected drum input: " + input);
+        });
+    }
+
+    private static void atraxaTaken(NativeSession session, Player owner) throws Exception {
+        Player opponent = session.game.getPlayers().get(1);
+        CardCollection library = new CardCollection();
+        Card bear = CardFactory.getCard(FModel.getMagicDb().getCommonCards().getCard("Grizzly Bears"), owner, session.game);
+        Card bolt = CardFactory.getCard(FModel.getMagicDb().getCommonCards().getCard("Lightning Bolt"), owner, session.game);
+        library.add(bear);
+        library.add(bolt);
+        for (int i = 0; i < 8; i++)
+            library.add(CardFactory.getCard(FModel.getMagicDb().getCommonCards().getCard("Forest"), owner, session.game));
+        owner.getZone(ZoneType.Library).setCards(library);
+        Card atraxa = card(session.game, owner, "Atraxa, Grand Unifier", ZoneType.Battlefield);
+        SpellAbility reveal = AbilityFactory.getAbility(atraxa.getSVar("TrigReveal"), atraxa);
+        reveal.setActivatingPlayer(owner);
+        List<String> takenShown = new ArrayList<>();
+        drive(session, owner, () -> {
+            AbilityUtils.resolve(reveal);
+            require(bear.isInZone(ZoneType.Hand) && bolt.isInZone(ZoneType.Hand),
+                    "Atraxa did not put the revealed creature and instant into hand");
+            require(takenShown.contains("Grizzly Bears") && takenShown.contains("Lightning Bolt"),
+                    "Opponent did not see the cards Atraxa put into hand: " + takenShown);
+        }, input -> {
+            String type = input.get("type").getAsString();
+            JsonObject envelope = JsonParser.parseString(session.prompt(0)).getAsJsonObject();
+            String seat = envelope.get("decidingPlayerId").getAsString();
+            if (type.equals("revealCards")) {
+                JsonArray cards = input.getAsJsonArray("cards");
+                if (seat.equals(session.playerId(opponent)) && cards.size() == 1) {
+                    takenShown.add(cards.get(0).getAsJsonObject().getAsJsonObject("identity").get("name").getAsString());
+                }
+                return NativeSession.object("type", "revealCardsAcknowledged");
+            }
+            if (type.equals("chooseFromSelection")) {
+                JsonObject result = NativeSession.object("type", "selectionDecision");
+                JsonArray indices = new JsonArray();
+                indices.add(0);
+                result.add("chosenIndices", indices);
+                return result;
+            }
+            if (type.equals("chooseCards")) {
+                String id = null;
+                for (JsonElement element : input.getAsJsonArray("cards")) {
+                    JsonObject card = element.getAsJsonObject();
+                    if (card.has("readOnly") && card.get("readOnly").getAsBoolean()) continue;
+                    id = card.get("id").getAsString();
+                    break;
+                }
+                JsonObject result = NativeSession.object("type", "chooseCardsDecision");
+                JsonArray ids = new JsonArray();
+                if (id != null) ids.add(id);
+                result.add("chosenCardIds", ids);
+                return result;
+            }
+            throw new AssertionError("Unexpected Atraxa input: " + input);
+        });
+    }
+
+    private static void ragavanLandFace(NativeSession session, Player owner) throws Exception {
+        Player opponent = session.game.getPlayers().get(1);
+        Card ragavan = card(session.game, owner, "Ragavan, Nimble Pilferer", ZoneType.Battlefield);
+        Card mdfc = card(session.game, opponent, "Bala Ged Recovery", ZoneType.Exile);
+        require(mdfc.isModal() && mdfc.getState(forge.card.CardStateName.Backside).getType().isLand()
+                        && !mdfc.getType().isLand(),
+                "Fixture is not a spell-front land-back modal card");
+        ragavan.addRemembered(mdfc);
+        SpellAbility effect = AbilityFactory.getAbility(ragavan.getSVar("DBEffect"), ragavan);
+        effect.setActivatingPlayer(owner);
+        AbilityUtils.resolve(effect);
+        require(!mdfc.mayPlay(owner).isEmpty(), "Ragavan did not grant permission to cast the exiled card");
+        boolean landFace = mdfc.getAllPossibleAbilities(owner, true).stream().anyMatch(SpellAbility::isLandAbility);
+        boolean spellFace = mdfc.getAllPossibleAbilities(owner, true).stream().anyMatch(ability -> ability.isSpell() && !ability.isLandAbility());
+        require(spellFace, "Ragavan did not offer the spell face");
+        require(!landFace, "Ragavan offered the land face of a card that can only be cast");
     }
 
     private static JsonObject boardChoice(JsonObject input, String id) {

@@ -27,6 +27,7 @@ TestCase {
             property var wsModel: responder
             function stepLabel(step) { return "Waiting" }
             function promptTitle(kind, title) { return title }
+            function promptRulesText(language) { return "" }
             function promptDetail(kind, detail) { return detail }
             function promptOptionLabel(kind, responseId, label) { return label }
         }
@@ -119,22 +120,14 @@ TestCase {
             const detail = findChild(panel, "rulesPromptDetail")
             tryCompare(title, "text", "Pay Mana Cost: " + cost)
             verify(title.visible && !title.truncated)
-            tryCompare(detail, "truncated", true)
+            compare(detail.visible, false)
             const point = title.mapToItem(panel, 0, 0)
             verify(point.y >= 0 && point.y + title.height <= panel.height)
         }
         const cancel = findChild(panel, "rulesPromptOption-$cancel")
-        const detail = findChild(panel, "rulesPromptDetail")
-        const tooltip = findChild(detail, "rulesPromptDetailTooltip")
-        verify(tooltip !== null)
-        mouseMove(detail, detail.width / 2, detail.height / 2)
-        tryCompare(tooltip, "opened", true)
-        verify(!tooltip.enabled, "Read-only explanation must not receive pointer input")
-        const tipPoint = tooltip.background.mapToItem(panel, 0, 0)
+        verify(cancel.visible)
         const cancelPoint = cancel.mapToItem(panel, 0, 0)
-        verify(tipPoint.y >= cancelPoint.y + cancel.height
-            || tipPoint.y + tooltip.background.height <= cancelPoint.y,
-            "Payment explanation must leave the fixed action row visible")
+        verify(cancelPoint.y >= 0 && cancelPoint.y + cancel.height <= panel.height)
         mouseClick(cancel)
         compare(responder.lastResponseId, "$cancel")
     }

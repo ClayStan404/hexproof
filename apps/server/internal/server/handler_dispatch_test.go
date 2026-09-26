@@ -10,6 +10,7 @@ import (
 
 func TestCommandRegistry(t *testing.T) {
 	required := []string{
+		protocol.TypeAccountCommand,
 		protocol.TypeSessionHello,
 		protocol.TypeRoomCreate,
 		protocol.TypeRoomList,

@@ -58,6 +58,12 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
     m_maxSeats = snapshot.value(u"maxSeats"_s).toInt();
     m_phase = snapshot.value(u"phase"_s).toString(kRoomPhaseWaiting);
     m_loadId = m_phase == kRoomPhaseWaiting ? 0 : snapshot.value(u"loadId"_s).toInteger();
+    m_actionClockMs.clear();
+    m_actionClockRunning = -1;
+    if (snapshot.contains(u"actionClockRunning"_s))
+        m_actionClockRunning = snapshot.value(u"actionClockRunning"_s).toInt(-1);
+    for (const QJsonValue &value : snapshot.value(u"actionClockMs"_s).toArray())
+        m_actionClockMs.append(value.toInteger());
 
     QVariantList seats;
     const QJsonArray seatArray = snapshot.value(u"seats"_s).toArray();
@@ -68,6 +74,7 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
             {u"displayName"_s, seat.value(u"displayName"_s).toString()},
             {u"host"_s, seat.value(u"host"_s).toBool()},
             {u"deckSelected"_s, seat.value(u"deckSelected"_s).toBool()},
+            {u"deckLocked"_s, seat.value(u"deckLocked"_s).toBool()},
             {u"ready"_s, seat.value(u"ready"_s).toBool()},
             {u"loaded"_s, seat.value(u"loaded"_s).toBool()},
             {u"controller"_s, seat.value(u"controller"_s).toString()},
@@ -177,6 +184,8 @@ void RoomSessionState::clear()
     m_maxSeats = 0;
     m_phase.clear();
     m_loadId = 0;
+    m_actionClockMs.clear();
+    m_actionClockRunning = -1;
     m_announcedLoadId = 0;
     m_host = false;
     m_role.clear();

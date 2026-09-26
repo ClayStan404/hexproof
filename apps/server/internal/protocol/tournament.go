@@ -6,6 +6,7 @@ package protocol
 // TournamentListEntry is public connected-hub discovery metadata. It never
 // includes participant names, credentials, connection ids, or deck data.
 type TournamentListEntry struct {
+	NodeName         string `json:"nodeName,omitempty"`
 	TournamentID     string `json:"tournamentId"`
 	Name             string `json:"name"`
 	Format           string `json:"format"`
@@ -47,6 +48,7 @@ type TournamentCreated struct {
 }
 
 type TournamentEnter struct {
+	UseAccount   bool   `json:"useAccount,omitempty"`
 	TournamentID string `json:"tournamentId"`
 	Credential   string `json:"credential,omitempty"`
 }

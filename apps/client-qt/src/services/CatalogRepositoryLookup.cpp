@@ -9,10 +9,12 @@ namespace hexproof::client {
 
 using namespace catalog_internal;
 
-CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
+CardRecord CatalogRepository::lookup(const CatalogCardQuery &request, QString *error) const
 {
+    if (error)
+        error->clear();
     CardRecord record;
-    if (!ensureOpen())
+    if (!ensureOpen(error))
         return record;
     const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
     const bool hasAliases = m_schema.hasAliases;
@@ -40,6 +42,17 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
             ? QStringLiteral("CASE WHEN %1 THEN 0 ELSE 1 END, ").arg(catalogPlayablePrintingSql())
             : QString{};
     QSqlQuery query(database);
+    bool failed = false;
+    const auto readFirst = [&]() {
+        const bool executed = query.exec();
+        const bool found = executed && query.next();
+        if (!executed || (!found && query.lastError().isValid())) {
+            failed = true;
+            if (error)
+                *error = query.lastError().text();
+        }
+        return found;
+    };
     const QString select =
         QStringLiteral("SELECT c.name, c.oracle_id, %1, %2, c.set_code, c.collector_number, "
                        "c.image_url, c.lang, c.illustration_id, %3, %4 FROM cards c ")
@@ -64,14 +77,14 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
             query.addBindValue(request.collectorNumber);
         }
         query.addBindValue(preferredLanguage);
-        return query.exec() && query.next();
+        return readFirst();
     };
 
     bool found = !request.name.isEmpty() && lookupIndexedName(QStringLiteral("name"));
-    if (!found && !request.name.isEmpty())
+    if (!found && !failed && !request.name.isEmpty())
         found = lookupIndexedName(QStringLiteral("printed_name"));
 
-    if (!found && exactPrinting) {
+    if (!found && !failed && exactPrinting) {
         query = QSqlQuery(database);
         query.prepare(select +
                       QStringLiteral("WHERE c.set_code = ? COLLATE NOCASE "
@@ -80,8 +93,8 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
         query.addBindValue(request.setCode);
         query.addBindValue(request.collectorNumber);
         query.addBindValue(preferredLanguage);
-        found = query.exec() && query.next();
-    } else if (!found) {
+        found = readFirst();
+    } else if (!found && !failed) {
         query = QSqlQuery(database);
         QString statement =
             select +
@@ -114,7 +127,7 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request) const
         query.addBindValue(request.name);
         query.addBindValue(request.name);
         query.addBindValue(preferredLanguage);
-        found = query.exec() && query.next();
+        found = readFirst();
     }
     if (found) {
         record.requestedName = request.name;

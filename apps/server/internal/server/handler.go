@@ -7,10 +7,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"hexproof/server/internal/accounts"
+	"hexproof/server/internal/cluster"
 	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/peerlink"
 	"hexproof/server/internal/protocol"
@@ -47,6 +50,17 @@ const (
 
 // Handler is the HTTP handler that upgrades to WebSocket and runs a session.
 type Handler struct {
+	clusterAgent            *cluster.Agent
+	clusterRouteLimiter     *fixedWindowLimiter
+	clusterAPI              http.Handler
+	accounts                accounts.Service
+	accountStore            *accounts.Store
+	accountAPI              http.Handler
+	accountLimiter          *fixedWindowLimiter
+	accountCreateLimiter    *fixedWindowLimiter
+	accountLocks            [256]sync.Mutex
+	accountConnectionsMu    sync.Mutex
+	accountConnections      map[string]*Session
 	hub                     *Hub
 	config                  Config
 	retention               *retentionStore
@@ -66,6 +80,8 @@ type Handler struct {
 	resumeHolds             map[string]resumeHold
 	sideboardTimerMu        sync.Mutex
 	sideboardTimers         map[string]*time.Timer
+	actionClockMu           sync.Mutex
+	actionClockTimers       map[string]*time.Timer
 	roomCreateLimiter       *fixedWindowLimiter
 	tournamentCreateLimiter *fixedWindowLimiter
 	tournamentChatLimiter   *fixedWindowLimiter
@@ -124,6 +140,16 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	accountService, accountStore, accountAPI, err := configureAccounts(config)
+	if err != nil {
+		return nil, err
+	}
+	accountConfigured := false
+	defer func() {
+		if !accountConfigured && accountStore != nil {
+			_ = accountStore.Close()
+		}
+	}()
 	var forgeRuntime *forge.ProcessConfig
 	var forgeNativeAI bool
 	var forgePool *forge.Pool
@@ -156,7 +182,13 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		copy.Env = append([]string(nil), config.ForgeRuntime.Env...)
 		forgeRuntime = &copy
 	}
-	return &Handler{
+	accountConfigured = true
+	h := &Handler{
+		accounts: accountService, accountStore: accountStore, accountAPI: accountAPI,
+		accountLimiter:       newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
+		accountCreateLimiter: newFixedWindowLimiter(time.Hour, maxRateLimitKeys),
+		accountConnections:   make(map[string]*Session),
+		clusterRouteLimiter:  newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		hub: NewHubWithLimits(
 			config.MaxRooms, config.MaxConcurrentPasswordChecks),
 		config:                  config,
@@ -168,6 +200,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		publicZoneMoveRequests:  make(map[string]publicZoneMoveRequest),
 		resumeHolds:             make(map[string]resumeHold),
 		sideboardTimers:         make(map[string]*time.Timer),
+		actionClockTimers:       make(map[string]*time.Timer),
 		roomCreateLimiter:       newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournamentCreateLimiter: newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournamentChatLimiter:   newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
@@ -184,7 +217,12 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		forgeClients:            make(map[forge.Runtime]struct{}),
 		forgeReservations:       make(map[string]forge.Runtime),
 		forgeGames:              make(map[string]forgeRoomGame),
-	}, nil
+	}
+	if err := h.configureCluster(); err != nil {
+		_ = h.Close()
+		return nil, fmt.Errorf("configure official cluster: %w", err)
+	}
+	return h, nil
 }
 
 func (h *Handler) forgeRulesAvailable() bool {

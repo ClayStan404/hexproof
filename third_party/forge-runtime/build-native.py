@@ -206,7 +206,7 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
             "NativeOrderingRegressionTest", "NativeDelayedRevealRegressionTest",
             "NativeLethalDamageRegressionTest", "NativeMultiBlockRegressionTest",
             "NativeStartingHandRegressionTest", "NativeAutoPayRegressionTest", "NativeMulliganRegressionTest", "NativeObjectDepartureRegressionTest",
-            "NativeSynchronousConcedeRegressionTest", "NativeQueuedInputRegressionTest",
+            "NativeSynchronousConcedeRegressionTest", "NativeQueuedInputRegressionTest", "NativeControlledConcedeRegressionTest",
             "NativePriorityRegressionTest", "NativePromptContextRegressionTest", "NativeCardTextRegressionTest",
             "NativePromptPrintingRegressionTest", "NativeTurnAccessRegressionTest")]
         scenarios += [("NativeCallbackRegressionTest", [scenario])
@@ -218,7 +218,8 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
             "discard-unless-creature", "discard-unless-two", "end-turn-cleanup", "dungeon-options",
             "discard-unless-artifact", "discard-artifact-two", "discard-artifact-undo",
             "frog-pay", "frog-cancel", "crew-pay", "crew-cancel", "waterbend-cap",
-            "bolt-resolution", "counterspell-resolution", "counter-counterspell")]
+            "bolt-resolution", "counterspell-resolution", "counter-counterspell",
+            "companion-decline", "drum-sick-token", "atraxa-taken", "ragavan-land-face")]
         scenarios += [("NativeImproviseRegressionTest", [scenario])
                       for scenario in ("selection", "cancel-retry", "convoke-cancel")]
         scenarios += [("NativeCardStateRegressionTest", [scenario])

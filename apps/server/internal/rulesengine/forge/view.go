@@ -74,6 +74,8 @@ type CardView struct {
 	SummoningSick   bool                 `json:"summoningSick,omitempty"`
 	FaceDown        bool                 `json:"isFaceDown,omitempty"`
 	Attacking       bool                 `json:"isAttacking,omitempty"`
+	AttackingTarget string               `json:"attackingTarget,omitempty"`
+	AttackingPlayer string               `json:"attackingPlayer,omitempty"`
 	Blocking        []string             `json:"blocking,omitempty"`
 	Power           string               `json:"power,omitempty"`
 	Toughness       string               `json:"toughness,omitempty"`
