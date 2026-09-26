@@ -88,12 +88,15 @@ class LimitedDeckDraftStoreTest : public QObject
         QFile file(dir.filePath("limited-deck-drafts.json"));
         QVERIFY(file.open(QIODevice::ReadOnly));
         const auto json = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
         QCOMPARE(json.value("drafts").toObject().size(), 32);
         store.saveDraft("server", "last", "p-1", {{"value", 1}});
         store.saveDraft("server", "last", "p-1", {{"value", 2}});
-        QTest::qWait(350);
-        LimitedDeckDraftStore reloaded(dir.path());
-        QCOMPARE(reloaded.loadDraft("server", "last", "p-1").value("value").toInt(), 2);
+        const auto savedValue = [&dir]() {
+            LimitedDeckDraftStore reloaded(dir.path());
+            return reloaded.loadDraft("server", "last", "p-1").value("value").toInt();
+        };
+        QTRY_COMPARE(savedValue(), 2);
     }
 
     void boundsRecordsWithExtremeStoredTimestamps()

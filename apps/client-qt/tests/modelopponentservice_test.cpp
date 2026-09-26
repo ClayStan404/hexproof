@@ -265,6 +265,7 @@ void ModelOpponentServiceTest::profilesPersistWithoutSecrets()
     QFile file(path);
     QVERIFY(file.open(QIODevice::ReadOnly));
     const auto stored = file.readAll();
+    file.close();
     QVERIFY(!stored.contains("session-secret"));
     QVERIFY(!stored.contains("EXTRA_SECRET"));
     QVERIFY(!stored.contains("hasKey"));
