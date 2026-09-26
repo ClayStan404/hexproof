@@ -8,6 +8,18 @@
 
 using hexproof::client::CardImageProvider;
 
+void TestCardCatalog::initTestCase()
+{
+    QVERIFY(m_settingsDir.isValid());
+    QCoreApplication::setOrganizationName(u"HexproofTests"_s);
+    QCoreApplication::setApplicationName(u"CardCatalogTest"_s);
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_settingsDir.path());
+    QSettings settings;
+    QVERIFY(settings.isWritable());
+    QCOMPARE(settings.status(), QSettings::NoError);
+}
+
 void TestCardCatalog::prefersMtgchChineseFields() const
 {
     const QJsonObject object{

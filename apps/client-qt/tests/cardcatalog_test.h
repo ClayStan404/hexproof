@@ -361,6 +361,7 @@ class TestCardCatalog : public QObject
     Q_OBJECT
 
   private slots:
+    void initTestCase();
     void simulatesLimitedWeightTotalBoundary() const;
     void simulatesPairedLimitedProduct() const;
     void prefersMtgchChineseFields() const;
@@ -489,4 +490,7 @@ class TestCardCatalog : public QObject
     void boundedExpansionWaitsForCatalogReplacement() const;
     void limitedArtExpansionWaitsForCatalogReplacement() const;
     void exposesIndependentCatalogErrorsWhenMultipleSubsystemsFail() const;
+
+  private:
+    QTemporaryDir m_settingsDir;
 };
