@@ -120,6 +120,9 @@ func newLiveForgeWebSocketServer(t *testing.T, maxGames ...int) (*httptest.Serve
 	// covered independently; keep this opt-in conformance test engine-bound.
 	config.MessagesPerSecond = 10000
 	config.RoomCreatesPerMinute = 10000
+	// All synthetic viewers share loopback, including repeated replay downloads
+	// across waves. Keep the production per-IP replay quota in its own tests.
+	config.ReplayRequestsPerMinute = 10000
 	config.ReconnectWindow = time.Minute
 	srv, handler := newConfiguredTestServer(t, config)
 	t.Cleanup(func() { _ = handler.Close() })
