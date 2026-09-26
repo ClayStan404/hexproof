@@ -1528,9 +1528,21 @@ void TestWsClient::directPeerRequiresCapabilityAndRoomConsent() const
     bool ok = false;
     auto grant = sharedFixture(u"forge-peer-grant.json"_s, &ok);
     QVERIFY(ok);
+    // Observe a later frame on the same ordered parser before changing consent.
+    // A fixed sleep can let a valid earlier grant arrive after consent is enabled.
+    QSignalSpy parsed(&client, &WsClient::roomListChanged);
+    Envelope barrier;
+    barrier.type = kTypeRoomListed;
+    barrier.payload = {{u"rooms"_s, QJsonArray{}}};
+    const auto deliverGrant = [peer, barrier](const Envelope &value, int delay = 0) {
+        QTimer::singleShot(delay, peer, [peer, value, barrier]() {
+            sendEnvelope(peer, value);
+            sendEnvelope(peer, barrier);
+        });
+    };
     grant.payload.insert(u"roomId"_s, u"ABCDEF"_s);
-    sendEnvelope(peer, grant);
-    QTest::qWait(40);
+    deliverGrant(grant, 60);
+    QTRY_COMPARE(parsed.count(), 1);
     auto *transport = client.findChild<hexproof::client::PeerTransportService *>();
     QVERIFY(transport);
     QVERIFY(transport->bindingId().isEmpty());
@@ -1542,14 +1554,14 @@ void TestWsClient::directPeerRequiresCapabilityAndRoomConsent() const
     QVERIFY(ok && request.type == kTypeForgePeerRequest &&
             request.payload.value(u"enabled"_s).toBool());
     grant.payload.insert(u"roomId"_s, u"OTHER"_s);
-    sendEnvelope(peer, grant);
-    QTest::qWait(40);
+    deliverGrant(grant);
+    QTRY_COMPARE(parsed.count(), 2);
     QVERIFY(transport->bindingId().isEmpty());
     client.setDirectPeerEnabled(false);
     QVERIFY(!client.directPeerEnabled());
     grant.payload.insert(u"roomId"_s, u"ABCDEF"_s);
-    sendEnvelope(peer, grant);
-    QTest::qWait(40);
+    deliverGrant(grant);
+    QTRY_COMPARE(parsed.count(), 3);
     QVERIFY(transport->bindingId().isEmpty());
     QCOMPARE(client.peerTransportState(), u"off"_s);
 }
