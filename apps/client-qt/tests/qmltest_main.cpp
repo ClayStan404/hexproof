@@ -12,6 +12,7 @@
 #include "services/TranslationController.h"
 
 #include <QFile>
+#include <QFontDatabase>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QQmlContext>
@@ -451,6 +452,12 @@ class QmlTestSetup : public QObject
     }
 
   public slots:
+    void applicationAvailable()
+    {
+        if (QFontDatabase::families().isEmpty())
+            qFatal("QML layout tests require an installed font database");
+    }
+
     void qmlEngineAvailable(QQmlEngine *engine)
     {
         engine->rootContext()->setContextProperty(
@@ -529,6 +536,15 @@ class QmlTestSetup : public QObject
 int main(int argc, char **argv)
 {
     QTEST_SET_MAIN_SOURCE_PATH
+#ifdef Q_OS_WIN
+    // Windows offscreen uses FreeType instead of the native font database.
+    // Without this directory it searches Qt's empty lib/fonts installation.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR")) {
+        const QByteArray windowsRoot = qgetenv("SystemRoot");
+        if (!windowsRoot.isEmpty())
+            qputenv("QT_QPA_FONTDIR", windowsRoot + "/Fonts");
+    }
+#endif
     QmlTestSetup setup;
     const int result = quick_test_main_with_setup(argc, argv, "hexproof_qml", nullptr, &setup);
     if (!setup.qmlWarnings().isEmpty()) {

@@ -163,9 +163,12 @@ TestCase {
         waitForRendering(table)
     }
     function item(name) {
-        const popup = findChild(table, "forgeZonePopup")
-        const found = findChild(table, name) || (popup ? findChild(popup.contentItem, name) : null)
-        verify(found !== null, name)
+        let found = null
+        tryVerify(() => {
+            const popup = findChild(table, "forgeZonePopup")
+            found = findChild(table, name) || (popup ? findChild(popup.contentItem, name) : null)
+            return found !== null
+        }, 5000, name)
         return found
     }
     function openSettings() {
