@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Release peer consent regression
+
+on:
+  push:
+    branches:
+      - verify/2.3.0-peer-consent
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: WebSocket regression (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-24.04
+          - name: macOS
+            os: macos-15
+          - name: Windows
+            os: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev libsecret-1-dev
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
+      - name: Install Qt
+        uses: ./.github/actions/setup-qt
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: vcpkg install zlib:x64-windows
+      - name: Configure Unix
+        if: runner.os != 'Windows'
+        run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >
+          cmake -S apps/client-qt -B build/client-qt
+          -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build WebSocket tests
+        run: cmake --build build/client-qt --config Release --target hexproof_wsclient_test --parallel 4
+      - name: Test delayed consent and full WebSocket suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build/client-qt -C Release --output-on-failure -R "^wsclient$"
