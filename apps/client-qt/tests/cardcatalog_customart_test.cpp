@@ -209,7 +209,16 @@ QString seedOfficialImage(const QString &profile)
     if (!writePng(record.imagePath, Qt::green))
         return {};
     cache.rememberSuccess(cache.key(record.requestedName, u"en"_s, u"TST"_s, u"1"_s), record);
-    return cache.save() ? record.imagePath : QString{};
+    const QString frontPath = record.imagePath;
+    // Incremental caching expands a transform printing into both faces. Seed
+    // both so background work cannot add an unrelated back-face download.
+    record.requestedName = record.faceName = u"Reverse"_s;
+    record.imageUrl = u"https://custom-test.invalid/back.png"_s;
+    record.imagePath = cache.imagePath(record.requestedName, record.imageUrl, u"en"_s);
+    if (!writePng(record.imagePath, Qt::blue))
+        return {};
+    cache.rememberSuccess(cache.key(record.requestedName, u"en"_s, u"TST"_s, u"1"_s), record);
+    return cache.save() ? frontPath : QString{};
 }
 
 } // namespace
@@ -264,6 +273,7 @@ void CardCatalogCustomArtTest::restoresDuringUnrelatedOrdinaryArtworkWork()
     QVERIFY2(installImage(store, image, binding), qPrintable(store->lastError()));
     QSignalSpy ordinaryChanges(&catalog, &CardCatalog::artCacheContentsChanged);
     QSignalSpy customChanges(&catalog, &CardCatalog::customArtContentsChanged);
+    QSignalSpy cached(&catalog, &CardCatalog::cardCacheFinished);
     if (work == u"hydration"_s) {
         catalog.hydrateCachedCards({request()});
     } else if (work == u"incremental-cache"_s) {
@@ -288,6 +298,8 @@ void CardCatalogCustomArtTest::restoresDuringUnrelatedOrdinaryArtworkWork()
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 5000);
     QVERIFY2(finished.first().first().toMap().value(u"ok"_s).toBool(),
              qPrintable(store->lastError()));
+    if (work == u"incremental-cache"_s)
+        QTRY_COMPARE_WITH_TIMEOUT(cached.count(), 2, 5000);
     QVERIFY(store->entries().isEmpty());
     QCOMPARE(catalog.imageSource(u"Front"_s, u"TST"_s, u"1"_s),
              QUrl::fromLocalFile(officialPath).toString());
