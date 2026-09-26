@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "TestDirectories.h"
+
 #include "services/BackgroundTaskPools.h"
 #include "services/CardArtCache.h"
 #include "services/CardArtStorage.h"
@@ -76,7 +78,7 @@ class CardArtStorageTest final : public QObject
 
 void CardArtStorageTest::waitsForLatestIndexBeforeMigrationWithoutBlocking()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     const QString profile = directory.filePath(u"profile"_s);
     const QString destination = directory.filePath(u"destination"_s);
     QVERIFY(QDir().mkpath(destination));
@@ -151,7 +153,7 @@ void CardArtStorageTest::waitsForLatestIndexBeforeMigrationWithoutBlocking()
 
 void CardArtStorageTest::failedIndexFlushKeepsBothLocationsUnchanged()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     const QString profile = directory.filePath(u"profile"_s);
     const QString destination = directory.filePath(u"destination"_s);
     QVERIFY(QDir().mkpath(destination));
@@ -174,7 +176,7 @@ void CardArtStorageTest::failedIndexFlushKeepsBothLocationsUnchanged()
 
 void CardArtStorageTest::rejectsNonRegularConfigurationBeforeReading()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"directory-config"_s);
     QVERIFY(QDir().mkpath(QDir(profile).filePath(u"card-art-storage.json"_s)));
@@ -202,7 +204,7 @@ void CardArtStorageTest::rejectsNonRegularConfigurationBeforeReading()
 
 void CardArtStorageTest::defaultLocationRetainsLegacyLayout()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     CardArtStorage storage(profile);
@@ -218,7 +220,7 @@ void CardArtStorageTest::defaultLocationRetainsLegacyLayout()
 
 void CardArtStorageTest::copiesBothTreesAndActivatesOnlyAfterRestart()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     const QString base = directory.filePath(u"art destination"_s);
@@ -291,7 +293,7 @@ void CardArtStorageTest::copiesBothTreesAndActivatesOnlyAfterRestart()
 
 void CardArtStorageTest::resetsToDefaultWithoutDeletingCustomSource()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     const QString base = directory.filePath(u"external"_s);
@@ -329,7 +331,7 @@ void CardArtStorageTest::resetsToDefaultWithoutDeletingCustomSource()
 
 void CardArtStorageTest::unavailableConfiguredDiskNeverFallsBack()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     const QString base = directory.filePath(u"external"_s);
@@ -367,7 +369,7 @@ void CardArtStorageTest::unavailableConfiguredDiskNeverFallsBack()
 
 void CardArtStorageTest::rejectsUnownedAndNestedDestinations()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     CardArtStorage storage(directory.filePath(u"profile"_s));
     QVERIFY(
@@ -393,7 +395,7 @@ void CardArtStorageTest::rejectsSymlinkSourceWithoutChangingConfiguration()
 #ifdef Q_OS_WIN
     QSKIP("QFile::link creates Windows shortcuts instead of filesystem symlinks.");
 #else
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     CardArtStorage storage(directory.filePath(u"profile"_s));
     const QString outside = directory.filePath(u"outside.png"_s);
@@ -415,7 +417,7 @@ void CardArtStorageTest::rejectsSymlinkSourceWithoutChangingConfiguration()
 
 void CardArtStorageTest::failedConfigurationCommitKeepsOriginalLocation()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     CardArtStorage storage(profile);
@@ -443,7 +445,7 @@ void CardArtStorageTest::failedConfigurationCommitKeepsOriginalLocation()
 
 void CardArtStorageTest::locksManagedLocationsAndSeparatesProfiles()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     CardArtStorage first(directory.filePath(u"profile"_s));
     CardArtStorage duplicate(directory.filePath(u"profile"_s));
@@ -475,7 +477,7 @@ void CardArtStorageTest::locksManagedLocationsAndSeparatesProfiles()
 
 void CardArtStorageTest::rejectsBusyAndRepeatedMigration()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     CardArtStorage storage(directory.filePath(u"profile"_s));
     const QString base = directory.filePath(u"external"_s);
@@ -498,7 +500,7 @@ void CardArtStorageTest::rejectsBusyAndRepeatedMigration()
 
 void CardArtStorageTest::invalidConfigurationIsVisibleAndDoesNotCreateFallback()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     const QString config = QDir(profile).filePath(u"card-art-storage.json"_s);
@@ -514,7 +516,7 @@ void CardArtStorageTest::invalidConfigurationIsVisibleAndDoesNotCreateFallback()
 
 void CardArtStorageTest::runtimeDiskDisappearanceStopsNewWrites()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     const QString base = directory.filePath(u"external"_s);
@@ -538,7 +540,7 @@ void CardArtStorageTest::runtimeDiskDisappearanceStopsNewWrites()
 
 void CardArtStorageTest::readOnlyCacheRebasesWithoutMutatingTheIndex()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     QString key;
@@ -583,7 +585,7 @@ void CardArtStorageTest::sourceReplacementAtStartDoesNotFollowOutsideTree()
 #ifdef Q_OS_WIN
     QSKIP("QFile::link creates Windows shortcuts instead of filesystem symlinks.");
 #else
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     CardArtStorage storage(directory.filePath(u"profile"_s));
     const QString images = storage.imageRoot();
@@ -619,7 +621,7 @@ void CardArtStorageTest::destinationReplacementAtStartDoesNotWriteOutsideTree()
 #ifdef Q_OS_WIN
     QSKIP("QFile::link creates Windows shortcuts instead of filesystem symlinks.");
 #else
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     CardArtStorage storage(directory.filePath(u"profile"_s));
     QVERIFY(writeFile(QDir(storage.imageRoot()).filePath(u"card.png"_s), "owned image"));

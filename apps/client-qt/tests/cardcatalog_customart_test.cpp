@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "TestDirectories.h"
+
 #include "models/DeckLibraryModel.h"
 #include "services/CardArtCache.h"
 #include "services/CardArtManager.h"
@@ -248,7 +250,7 @@ void CardCatalogCustomArtTest::restoresDuringUnrelatedOrdinaryArtworkWork_data()
 void CardCatalogCustomArtTest::restoresDuringUnrelatedOrdinaryArtworkWork()
 {
     QFETCH(QString, work);
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(writeCatalog(directory.path()));
     const QString officialPath = seedOfficialImage(directory.path());
     QVERIFY(!officialPath.isEmpty());
@@ -298,7 +300,7 @@ void CardCatalogCustomArtTest::restoresDuringUnrelatedOrdinaryArtworkWork()
 
 void CardCatalogCustomArtTest::restoreStillRequiresAvailableUnmigratedStorage()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     const QString profile = directory.filePath(u"profile"_s);
     QVERIFY(writeCatalog(profile));
     const QString image = directory.filePath(u"custom.png"_s);
@@ -353,7 +355,7 @@ void CardCatalogCustomArtTest::restoreStillRequiresAvailableUnmigratedStorage()
 
 void CardCatalogCustomArtTest::backOverrideNeverBecomesFrontAndBothFacesIgnoreLanguage()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
@@ -390,7 +392,7 @@ void CardCatalogCustomArtTest::backOverrideNeverBecomesFrontAndBothFacesIgnoreLa
 
 void CardCatalogCustomArtTest::officialPrintingPreviewAndRemovalKeepDownloadedImage()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     const QString officialPath = seedOfficialImage(directory.path());
@@ -417,7 +419,7 @@ void CardCatalogCustomArtTest::officialPrintingPreviewAndRemovalKeepDownloadedIm
 
 void CardCatalogCustomArtTest::matchReadinessUsesOverridesWithoutNormalCacheOrNetwork()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
@@ -452,7 +454,7 @@ void CardCatalogCustomArtTest::matchReadinessUsesOverridesWithoutNormalCacheOrNe
 
 void CardCatalogCustomArtTest::cardScopeSharesVersionsButPrintingScopeWins()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
@@ -477,7 +479,7 @@ void CardCatalogCustomArtTest::cardScopeSharesVersionsButPrintingScopeWins()
 
 void CardCatalogCustomArtTest::prepareHasOneImageAndMeldUsesResultPrinting()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
@@ -511,7 +513,7 @@ void CardCatalogCustomArtTest::prepareHasOneImageAndMeldUsesResultPrinting()
 
 void CardCatalogCustomArtTest::migrationRequiresRestartAndRejectsNewDownloads()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     QVERIFY(writeCatalog(profile));
@@ -536,7 +538,7 @@ void CardCatalogCustomArtTest::migrationRequiresRestartAndRejectsNewDownloads()
 
 void CardCatalogCustomArtTest::deckDisplayPathsAreTransientAndRefreshAfterRemoval()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
@@ -577,7 +579,7 @@ void CardCatalogCustomArtTest::deckDisplayPathsAreTransientAndRefreshAfterRemova
 
 void CardCatalogCustomArtTest::prepareCharacteristicRequiresAnExactPrinting()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
@@ -600,7 +602,7 @@ void CardCatalogCustomArtTest::prepareCharacteristicRequiresAnExactPrinting()
 
 void CardCatalogCustomArtTest::loneTranslatedBackAliasCannotResolveToFrontOverride()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     const QString databasePath = directory.filePath(u"cards.sqlite"_s);
@@ -613,8 +615,8 @@ void CardCatalogCustomArtTest::loneTranslatedBackAliasCannotResolveToFrontOverri
         QSqlQuery query(database);
         query.prepare(
             u"INSERT INTO card_aliases "
-            "(oracle_id, face_name, localized_name, localized_type, preferred, face_order) "
-            "VALUES (?, ?, ?, ?, 1, 1)"_s);
+            u"(oracle_id, face_name, localized_name, localized_type, preferred, face_order) "
+            u"VALUES (?, ?, ?, ?, 1, 1)"_s);
         query.addBindValue(u"test-oracle-Front // Reverse"_s);
         query.addBindValue(u"Reverse"_s);
         query.addBindValue(u"反面译名"_s);
@@ -655,7 +657,7 @@ void CardCatalogCustomArtTest::sameNamedTokenCacheFallbackNeverCrossesFaces_data
 void CardCatalogCustomArtTest::sameNamedTokenCacheFallbackNeverCrossesFaces()
 {
     QFETCH(bool, reverseCached);
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString canonical = u"Angel // Angel"_s;
     const QString cachedName = reverseCached ? u"Angel"_s : canonical;
@@ -707,7 +709,7 @@ void CardCatalogCustomArtTest::sameNamedTokenCacheFallbackNeverCrossesFaces()
 
 void CardCatalogCustomArtTest::pendingRestartRetainsReadOnlyCustomMatchReadiness()
 {
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     const QString profile = directory.filePath(u"profile"_s);
     QVERIFY(writeCatalog(profile));
@@ -747,7 +749,7 @@ void CardCatalogCustomArtTest::explicitCacheAndRepairStillRequestOfficialArtwork
 void CardCatalogCustomArtTest::explicitCacheAndRepairStillRequestOfficialArtwork()
 {
     QFETCH(bool, retry);
-    QTemporaryDir directory;
+    QTemporaryDir directory(hexproof::test::canonicalTemporaryDirectoryTemplate());
     QVERIFY(directory.isValid());
     QVERIFY(writeCatalog(directory.path()));
     CountingNetwork network;
