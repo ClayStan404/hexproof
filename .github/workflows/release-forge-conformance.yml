@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Release Forge archive conformance
+
+on:
+  push:
+    branches:
+      - verify/2.3.0-forge-conformance
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    name: Exact release runtime (amd64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Select native AMD64 and Java 21
+        run: |
+          test "$(uname -m)" = x86_64
+          sudo apt-get update
+          sudo apt-get install -y openjdk-21-jdk-headless
+          echo /usr/lib/jvm/java-21-openjdk-amd64/bin >> "$GITHUB_PATH"
+      - name: Download and verify reviewed runtime and corresponding sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          identity=2be4858216742009afe8a7cffb035fc7671e960d-adapter24
+          runtime="hexproof-forge-runtime-${identity}.tar.gz"
+          source="hexproof-forge-source-${identity}.tar.gz"
+          mkdir -p build/forge-conformance
+          gh release download v2.3.0 --repo ClayStan404/hexproof \
+            --pattern "$runtime" --pattern "$source" --dir build/forge-conformance
+          printf '%s  %s\n' \
+            4f3d558972de77a14eadcaa0aa043947335713bd23754b2a657e85c09be6409f "build/forge-conformance/$runtime" \
+            1af25356c74a2e4778a0bda7cceec7aba707d891657183495081624779c946d7 "build/forge-conformance/$source" | sha256sum -c -
+          python3 third_party/forge-runtime/source-package.py verify-release \
+            --runtime "build/forge-conformance/$runtime" --source "build/forge-conformance/$source" \
+            --build-tools third_party/forge-runtime
+          tar -xzf "build/forge-conformance/$runtime" -C build/forge-conformance
+          echo "HEXPROOF_REAL_FORGE_ROOT=$PWD/build/forge-conformance/hexproof-forge-runtime" >> "$GITHUB_ENV"
+      - name: Run complete native Go-to-Java conformance with race detection
+        working-directory: apps/server
+        run: >-
+          go test -p 1 -race -tags engineintegration -count=1 -timeout 20m
+          ./internal/rulesengine/forge ./internal/server -run '^TestLiveForge' -v
