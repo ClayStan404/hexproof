@@ -58,10 +58,14 @@ runtimes are never overwritten. A cached verified installation works offline.
 Only the engine host needs this payload. Server-side runtime availability,
 permission to relay player hosting, and local runtime readiness are separate.
 
-The base archive remains the immutable adapter 2 resource/dependency bundle.
-Its old adapter classes are superseded by the packaged overlay, compiled from
-the current reviewed source. The helper embeds that JAR's checksum, verifies
-its source identity and base dependency identity, and copies it to an immutable
+The base archive is an immutable complete engine/resource/dependency bundle,
+pinned by the runtime download manifest. The current base is adapter 25 at
+official revision `0485ad49fb10c8ef5b3eda2a002c963d59be71dc`. An upstream upgrade
+requires a new complete base and matching source archive; the overlay and base
+must use the same official revision. Its adapter classes are superseded by the
+packaged overlay, compiled from the current reviewed source. The helper embeds
+that JAR's checksum, verifies its source identity and base dependency identity,
+and copies it to an immutable
 private path before Java loads it first on the classpath. Peers and the hub use
 the current source identity, not the base archive's historical adapter label.
 Missing/mismatched packaged adapters fail readiness. Every client release must

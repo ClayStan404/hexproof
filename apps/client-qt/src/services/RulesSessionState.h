@@ -9,8 +9,10 @@
 #include "RulesOrderModel.h"
 #include "RulesStateModels.h"
 
+#include <QHash>
 #include <QJsonObject>
 #include <QObject>
+#include <QSortFilterProxyModel>
 #include <QString>
 #include <QStringList>
 
@@ -282,6 +284,7 @@ class RulesSessionState final : public QObject
         return m_zones.countFor(ownerSeat, zone);
     }
     Q_INVOKABLE QVariantMap topPublicZoneCard(int ownerSeat, const QString &zone) const;
+    Q_INVOKABLE QAbstractItemModel *battlefieldCardsForSeat(int seat);
     Q_INVOKABLE int controllingSeat(int seat) const;
     Q_INVOKABLE QVariantList castActionsForCard(const QString &cardId) const
     {
@@ -334,6 +337,7 @@ class RulesSessionState final : public QObject
     RulesPlayerModel m_players;
     RulesZoneModel m_zones;
     RulesCardModel m_battlefieldCards;
+    QHash<int, QSortFilterProxyModel *> m_seatBattlefields;
     RulesCardModel m_zoneCards;
     RulesStackModel m_stack;
     bool m_promptPending = false;

@@ -171,6 +171,7 @@ func main() {
 	mux := http.NewServeMux()
 	// Ops/tunnel health checks (Cloudflare / curl). Not part of the game protocol.
 	mux.HandleFunc("/healthz", handler.ServeHealth)
+	mux.HandleFunc("/readyz", handler.ServeReadiness)
 	mux.Handle("/ws", handler)
 	mux.HandleFunc("/internal/accounts", handler.ServeAccountAuthority)
 	mux.HandleFunc("/internal/cluster", handler.ServeClusterCoordinator)

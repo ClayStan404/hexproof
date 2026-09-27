@@ -83,13 +83,24 @@ func clusterCommand(env protocol.Envelope) (demand cluster.Demand, resourceField
 // Called before the domain handler, while only the account gate may be held.
 // done publishes after all domain locks have been released. Remote routing is
 // an acknowledgement of placement only: it must not execute the command here.
-func (h *Handler) routeClusterCommand(sess *Session, env *protocol.Envelope) (handled bool, done func()) {
+func (h *Handler) routeClusterCommand(ctx context.Context, sess *Session, env *protocol.Envelope) (handled bool, done func()) {
 	if h.clusterAgent == nil || !sess.clusterEnabled || sess.DisplayName == "" {
 		return false, nil
 	}
 	if sess.clusterRedirected {
 		h.clusterError(sess, env.ID, cluster.ErrInvalid)
 		return true, nil
+	}
+	// Reject before allocation. Existing tickets still pass through consumption
+	// so target-side admission can reject them and release their reservation.
+	if sess.clusterGrant == nil && env.Type == protocol.TypeRoomCreate {
+		var request protocol.RoomCreate
+		if env.DecodePayload(&request) == nil {
+			if err := validateRoomRulesFormat(request.Format, request.RulesMode); err != nil {
+				h.sendError(sess, env.ID, err.code, err.message)
+				return true, nil
+			}
+		}
 	}
 	demand, field, eligible := clusterCommand(*env)
 	if !eligible && sess.clusterGrant == nil {
@@ -134,11 +145,11 @@ func (h *Handler) routeClusterCommand(sess *Session, env *protocol.Envelope) (ha
 			h.sendError(sess, env.ID, protocol.ErrRateLimited, "Official node transfer rate limit exceeded")
 			return true, nil
 		}
-		if err := h.clusterAgent.Publish(context.Background(), ""); err != nil {
+		if err := h.clusterAgent.Publish(ctx, ""); err != nil {
 			h.clusterError(sess, env.ID, err)
 			return true, nil
 		}
-		out, err := h.clusterAgent.Do(context.Background(), cluster.Request{Operation: "allocate", Target: target,
+		out, err := h.clusterAgent.Do(ctx, cluster.Request{Operation: "allocate", Target: target,
 			AccountID: sess.Account().ID, CommandType: env.Type, Digest: clusterDigest(*env), Demand: demand, Latency: sess.clusterLatency})
 		if err != nil {
 			h.clusterError(sess, env.ID, err)
@@ -151,7 +162,7 @@ func (h *Handler) routeClusterCommand(sess *Session, env *protocol.Envelope) (ha
 			h.send(sess, route)
 			return true, nil
 		}
-		out, err = h.clusterAgent.Do(context.Background(), cluster.Request{Operation: "take", Token: out.Ticket.Token, AccountID: sess.Account().ID})
+		out, err = h.clusterAgent.Do(ctx, cluster.Request{Operation: "take", Token: out.Ticket.Token, AccountID: sess.Account().ID})
 		if err != nil {
 			h.clusterError(sess, env.ID, err)
 			return true, nil
@@ -167,12 +178,12 @@ func (h *Handler) routeClusterCommand(sess *Session, env *protocol.Envelope) (ha
 		env.Payload, _ = json.Marshal(payload)
 	}
 	if grant != nil {
-		done = func() { _ = h.clusterAgent.Publish(context.Background(), grant.Token) }
+		done = func() { h.clusterAgent.Complete(grant.Token) }
 	}
 	return false, done
 }
 
-func (h *Handler) acceptClusterHello(sess *Session, hello protocol.SessionHello, accountID, requestID string) bool {
+func (h *Handler) acceptClusterHello(ctx context.Context, sess *Session, hello protocol.SessionHello, accountID, requestID string) bool {
 	sess.clusterEnabled = h.clusterAgent != nil && hello.ClusterRealm == h.accountRealm()
 	if len(hello.ClusterRealm) > 64 || len(hello.NodeLatencies) > 16 || len(hello.ClusterTicket) > 128 {
 		h.clusterError(sess, requestID, cluster.ErrInvalid)
@@ -183,7 +194,7 @@ func (h *Handler) acceptClusterHello(sess *Session, hello protocol.SessionHello,
 			h.clusterError(sess, requestID, cluster.ErrInvalid)
 			return false
 		}
-		out, err := h.clusterAgent.Do(context.Background(), cluster.Request{Operation: "take", Token: hello.ClusterTicket, AccountID: accountID})
+		out, err := h.clusterAgent.Do(ctx, cluster.Request{Operation: "take", Token: hello.ClusterTicket, AccountID: accountID})
 		if err != nil {
 			h.clusterError(sess, requestID, err)
 			return false

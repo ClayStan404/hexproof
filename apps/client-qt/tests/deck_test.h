@@ -85,6 +85,8 @@ class TestDeckLibrary : public QObject
     void preservesCorruptPreferencesBeforeWriting() const;
     void keepsDamagedPreferencesWhenRenameFails() const;
     void storesUiAndCardLanguagesSeparately() const;
+    void acceptsAllUiLanguageCodes() const;
+    void restoresUiLanguageFromSettingsFile() const;
     void storesCardArtProviderPreference() const;
     void storesLocalArtReusePreference() const;
     void storesPackOpeningAnimationPreference() const;

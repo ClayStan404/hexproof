@@ -127,11 +127,13 @@ func (h *Handler) clusterReport() cluster.Report {
 	return r
 }
 
-func (h *Handler) clusterView(accountID string) (cluster.Result, error) {
-	if err := h.clusterAgent.Publish(context.Background(), ""); err != nil {
+func (h *Handler) clusterView(ctx context.Context, accountID string) (out cluster.Result, err error) {
+	finish := h.control.clusterView.start()
+	defer func() { finish(err) }()
+	if err := h.clusterAgent.Refresh(ctx); err != nil {
 		return cluster.Result{}, err
 	}
-	return h.clusterAgent.Do(context.Background(), cluster.Request{Operation: "view", AccountID: accountID})
+	return h.clusterAgent.Do(ctx, cluster.Request{Operation: "view", AccountID: accountID})
 }
 
 func (h *Handler) clusterError(sess *Session, requestID string, err error) {
@@ -145,11 +147,11 @@ func (h *Handler) clusterError(sess *Session, requestID string, err error) {
 	h.sendError(sess, requestID, code, message)
 }
 
-func (h *Handler) accountVisibleResources(sess *Session) []protocol.AccountResource {
+func (h *Handler) accountVisibleResources(ctx context.Context, sess *Session) []protocol.AccountResource {
 	if h.clusterAgent == nil || !sess.clusterEnabled {
 		return h.accountResources(sess)
 	}
-	if out, err := h.clusterView(sess.Account().ID); err == nil {
+	if out, err := h.clusterView(ctx, sess.Account().ID); err == nil {
 		return out.Resources
 	}
 	// Authentication and the current node remain usable during coordinator loss.

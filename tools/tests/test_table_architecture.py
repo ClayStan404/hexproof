@@ -300,9 +300,14 @@ class TableArchitectureTests(unittest.TestCase):
             text = self.source(workflow)
             self.assertIn("python3 -m unittest discover -s tools/tests", text)
 
-    def test_ci_races_tournament_package(self) -> None:
+    def test_ci_automatically_races_gameplay_and_control_plane(self) -> None:
         text = self.source(".github/workflows/ci.yml")
         self.assertIn("go test -race ./internal/room ./internal/server ./internal/tournament", text)
+        race_step = next(step for step in text.split("      - name:")
+                         if "run: go test -race" in step)
+        self.assertNotIn("if:", race_step)
+        for package in ("accounts", "cluster", "syncutil"):
+            self.assertIn(f"./internal/{package}", race_step)
 
     def test_ci_jobs_without_server_exclude_the_integration_label(self) -> None:
         text = self.source(".github/workflows/ci.yml")

@@ -37,8 +37,8 @@ void CardCatalog::processSearchPreview()
     if (m_searchPreviewCards.isEmpty() || !m_searchPreviewIdentity.isEmpty() ||
         m_searchPreviewLanguage != m_language || m_shuttingDown ||
         QCoreApplication::closingDown() || !artWritesAllowed() || m_resolving ||
-        cacheProgressActive() || m_faceExpansion || m_searching || m_tokenSearching ||
-        !m_queuedKeys.isEmpty() || m_incrementalCacheScheduled)
+        cacheProgressActive() || m_faceExpansion || m_search.searching() ||
+        m_search.tokenSearching() || !m_queuedKeys.isEmpty() || m_incrementalCacheScheduled)
         return;
 
     const QVariantMap card = m_searchPreviewCards.takeFirst().toMap();

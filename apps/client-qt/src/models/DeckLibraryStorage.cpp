@@ -3,6 +3,7 @@
 
 #include "DeckLibraryStorage.h"
 
+#include "UiLanguages.h"
 #include "deck/DeckFormat.h"
 
 #include <QDateTime>
@@ -395,8 +396,9 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
         settings.value(QStringLiteral("uiLanguage")).toString(legacyLanguage);
     const QString cardLanguage =
         settings.value(QStringLiteral("cardLanguage")).toString(legacyLanguage);
-    if (uiLanguage == QStringLiteral("zh") || uiLanguage == QStringLiteral("en"))
-        preferences.uiLanguage = uiLanguage;
+    // Unknown UI codes fall back to English; card language keeps its own
+    // smaller catalog-backed set and must not adopt UI-only codes.
+    preferences.uiLanguage = uiLanguages::normalize(uiLanguage);
     if (cardLanguage == QStringLiteral("zh") || cardLanguage == QStringLiteral("en"))
         preferences.cardLanguage = cardLanguage;
     const QString cardArtProvider =

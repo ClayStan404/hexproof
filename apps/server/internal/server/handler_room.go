@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/protocol"
@@ -16,7 +17,16 @@ import (
 	"unicode/utf8"
 )
 
-func (h *Handler) handleRoomList(sess *Session, env protocol.Envelope) error {
+// validateRoomRulesFormat applies before local or cluster room admission.
+func validateRoomRulesFormat(format, rulesMode string) *protocolError {
+	if rulesMode == protocol.RulesModeForge && !protocol.IsTwoPlayerFormat(format) && format != protocol.FormatEDH {
+		return &protocolError{code: protocol.ErrUnsupportedFormat,
+			message: "Forge rooms require a supported two-player or Commander/EDH format"}
+	}
+	return nil
+}
+
+func (h *Handler) handleRoomList(ctx context.Context, sess *Session, env protocol.Envelope) error {
 	if sess.DisplayName == "" {
 		h.sendError(sess, env.ID, protocol.ErrNameRequired, "hello first")
 		return nil
@@ -24,7 +34,7 @@ func (h *Handler) handleRoomList(sess *Session, env protocol.Envelope) error {
 	h.evictExpiredTournaments(time.Now().UTC())
 	rooms := h.listRooms(sess)
 	if h.clusterAgent != nil && sess.clusterEnabled {
-		view, err := h.clusterView(sess.Account().ID)
+		view, err := h.clusterView(ctx, sess.Account().ID)
 		if err != nil {
 			h.clusterError(sess, env.ID, err)
 			return nil
@@ -98,6 +108,10 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	}
 	if code := room.ValidateRulesMode(rc.RulesMode); code != "" {
 		h.sendError(sess, env.ID, code, code)
+		return nil
+	}
+	if err := validateRoomRulesFormat(rc.Format, rc.RulesMode); err != nil {
+		h.sendError(sess, env.ID, err.code, err.message)
 		return nil
 	}
 	if rc.HostingMode != "" && rc.HostingMode != "server" && rc.HostingMode != "player" {
@@ -883,7 +897,7 @@ func (h *Handler) fanoutTo(members []*Session, envelopes []protocol.Envelope) {
 			return
 		}
 		for _, m := range members {
-			if !m.trySend(data) {
+			if !h.queueSessionMessage(m, data) {
 				log.Printf("fail-closed session %s: send buffer full or already closed",
 					m.ConnectionID)
 			}

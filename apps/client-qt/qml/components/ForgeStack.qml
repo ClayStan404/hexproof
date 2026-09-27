@@ -8,13 +8,28 @@ Rectangle {
     id: root
     required property var tableController
     property real unit: 1
+    property bool collapsed: false
+    property real defaultX: 0
+    property real defaultY: 0
+    property rect movementBounds: Qt.rect(0, 0, parent ? parent.width : 0, parent ? parent.height : 0)
+    property point storedPosition: Qt.point(-1, -1)
+    readonly property real headerHeight: 40 * unit
+    readonly property real maximumX: Math.max(movementBounds.x, movementBounds.x + movementBounds.width - width)
+    readonly property real maximumY: Math.max(movementBounds.y, movementBounds.y + movementBounds.height - height)
+    x: Math.max(movementBounds.x, Math.min(maximumX, storedPosition.x < 0 ? defaultX
+        : movementBounds.x + storedPosition.x * movementBounds.width))
+    y: Math.max(movementBounds.y, Math.min(maximumY, storedPosition.y < 0 ? defaultY
+        : movementBounds.y + storedPosition.y * movementBounds.height))
+    implicitHeight: headerHeight + column.height + 7 * unit
     readonly property int count: entries.count
     readonly property Item scrollArea: viewport
+    property Item focusedItem: null
     property string activeObjectId: ""
     property int activeTargetIndex: 0
     property int revision: 0
     property string locatedId: ""
-    readonly property bool relationsEnabled: tableController.roomConnected && !tableController.sideboarding
+    readonly property bool relationsEnabled: visible && !collapsed
+        && tableController.roomConnected && !tableController.sideboarding
     readonly property var activeEntry: {
         void revision
         return relationsEnabled ? entryFor(activeObjectId) || entries.itemAt(0) : null
@@ -23,6 +38,16 @@ Rectangle {
         ? activeEntry.targets[Math.min(activeTargetIndex, activeEntry.targets.length - 1)] : null
     signal targetRequested(var target)
 
+    function resetPosition() { storedPosition = Qt.point(-1, -1) }
+    function moveTo(nextX, nextY) {
+        const boundedX = Math.max(movementBounds.x, Math.min(maximumX, nextX))
+        const boundedY = Math.max(movementBounds.y, Math.min(maximumY, nextY))
+        // Normalize against the viewport so a dragged header stays in place
+        // when collapse changes the panel's dimensions.
+        storedPosition = Qt.point(
+            movementBounds.width > 0 ? (boundedX - movementBounds.x) / movementBounds.width : 0,
+            movementBounds.height > 0 ? (boundedY - movementBounds.y) / movementBounds.height : 0)
+    }
     function entryFor(id) {
         for (let i = 0; i < entries.count; ++i) {
             const entry = entries.itemAt(i) as StackEntry
@@ -31,6 +56,14 @@ Rectangle {
         return null
     }
     function clearSelection() { activeObjectId = ""; activeTargetIndex = 0 }
+    function revealFocusedItem() {
+        const item = focusedItem
+        if (!item || !item.activeFocus || collapsed || viewport.height <= 0) return
+        const y = item.mapToItem(column, 0, 0).y
+        if (y < viewport.contentY) viewport.contentY = y
+        else if (y + item.height > viewport.contentY + viewport.height)
+            viewport.contentY = y + item.height - viewport.height
+    }
     function reveal(id) {
         const entry = entryFor(id)
         if (!entry) return false
@@ -39,31 +72,90 @@ Rectangle {
     }
     function pointFor(id, target) {
         void revision
+        void root.x; void root.y; void root.width; void root.height
         const entry = entryFor(id)
-        if (!visible || !entry || viewport.height <= 0) return Qt.point(0, 0)
+        if (!visible || collapsed || !entry || viewport.height <= 0) return Qt.point(0, 0)
         const y = entry.y + 24 * unit
         if (y < viewport.contentY || y > viewport.contentY + viewport.height) return Qt.point(0, 0)
         return entry.mapToItem(target, 0, 24 * unit)
     }
-    Timer { id: refresh; interval: 0; onTriggered: root.revision++ }
+    Timer {
+        id: refresh
+        interval: 0
+        onTriggered: {
+            root.revision++
+            if (!root.count) root.collapsed = false
+        }
+    }
     Connections {
         target: root.tableController.rulesSession
         function onSnapshotChanged() { refresh.restart() }
     }
     onRelationsEnabledChanged: if (!relationsEnabled) clearSelection()
-    color: Theme.withAlpha(Theme.surface, 0.80)
+    color: Theme.withAlpha(Theme.surface, 0.96)
     radius: 10 * unit
     antialiasing: true
-    border.width: 0
+    border.width: 1
+    border.color: Theme.borderStrong
     visible: count > 0
-    Text {
-        textFormat: Text.PlainText
-        x: 13 * root.unit
-        y: 10 * root.unit
-        text: qsTr("Stack · %1").arg(root.count)
-        color: Theme.accent
-        font.pixelSize: 12 * root.unit
-        font.weight: Font.DemiBold
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        hoverEnabled: true
+        onWheel: wheel => { wheel.accepted = true }
+        TapHandler { acceptedButtons: Qt.AllButtons; gesturePolicy: TapHandler.WithinBounds }
+    }
+    Item {
+        id: dragHandle
+        objectName: "forgeStackDragHandle"
+        x: 10 * root.unit
+        width: root.width - x - stackToggle.width - 10 * root.unit
+        height: root.headerHeight
+        Text {
+            anchors.fill: parent
+            textFormat: Text.PlainText
+            text: qsTr("Stack · %1").arg(root.count)
+            color: Theme.accent
+            font.pixelSize: 12 * root.unit
+            font.weight: Font.DemiBold
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        HoverHandler {
+            id: dragHover
+            cursorShape: stackDrag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+        }
+        ToolTip.visible: dragHover.hovered
+        ToolTip.delay: 800
+        ToolTip.text: qsTranslate("BattlefieldViewControls", "Drag to move; right-click to reset position")
+        TapHandler {
+            acceptedButtons: Qt.RightButton
+            gesturePolicy: TapHandler.WithinBounds
+            onTapped: root.resetPosition()
+        }
+        DragHandler {
+            id: stackDrag
+            target: null
+            acceptedButtons: Qt.LeftButton
+            dragThreshold: 0
+            property point origin: Qt.point(0, 0)
+            onActiveChanged: if (active) origin = Qt.point(root.x, root.y)
+            onTranslationChanged: if (active) root.moveTo(origin.x + translation.x, origin.y + translation.y)
+        }
+    }
+    AppButton {
+        id: stackToggle
+        objectName: "forgeStackToggle"
+        x: root.width - width - 5 * root.unit
+        y: 4 * root.unit
+        width: 32 * root.unit; height: 32 * root.unit
+        compact: true
+        variant: "ghost"
+        text: root.collapsed ? "+" : "−"
+        accessibleName: qsTr("Stack · %1").arg(root.count)
+        checkable: true
+        checked: !root.collapsed
+        onClicked: root.collapsed = !root.collapsed
     }
     component StackEntry: Rectangle {
         id: entry
@@ -106,6 +198,7 @@ Rectangle {
         }
 
         ForgeCard {
+            id: stackCard
             objectName: "forgeStackCard-" + entry.objectId
             x: 7 * root.unit
             y: 7 * root.unit
@@ -114,10 +207,14 @@ Rectangle {
             tableController: root.tableController
             card: entry.artCard
             objectKind: "spell"
+            exclusiveTap: true
             unit: root.unit
             fullFace: true
             located: entry.objectId === root.locatedId
-            onActiveFocusChanged: if (activeFocus) viewport.contentY = Math.max(0, Math.min(entry.y, viewport.contentHeight - viewport.height))
+            onActiveFocusChanged: if (activeFocus) {
+                root.focusedItem = stackCard
+                root.revealFocusedItem()
+            }
         }
         Column {
             id: details
@@ -199,10 +296,8 @@ Rectangle {
                         : modelData.kind === "spell" ? qsTr("Face-down spell") : qsTr("Hidden card")))
                     enabled: root.relationsEnabled
                     onActiveFocusChanged: if (activeFocus) {
-                        const y = mapToItem(column, 0, 0).y
-                        if (y < viewport.contentY) viewport.contentY = y
-                        else if (y + height > viewport.contentY + viewport.height)
-                            viewport.contentY = y + height - viewport.height
+                        root.focusedItem = targetButton
+                        root.revealFocusedItem()
                     }
                     onClicked: {
                         root.activeObjectId = entry.objectId
@@ -233,9 +328,12 @@ Rectangle {
         objectName: "forgeStackViewport"
         anchors.fill: parent
         anchors.margins: 7 * root.unit
-        anchors.topMargin: 33 * root.unit
+        anchors.topMargin: root.headerHeight
+        visible: !root.collapsed
         contentWidth: width
         contentHeight: column.height
+        onHeightChanged: Qt.callLater(root.revealFocusedItem)
+        onContentHeightChanged: Qt.callLater(root.revealFocusedItem)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }

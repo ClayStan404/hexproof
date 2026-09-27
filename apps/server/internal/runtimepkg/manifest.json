@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "runtimeId": "2be4858216742009afe8a7cffb035fc7671e960d-adapter2-d880a329b1cea98b0e32f0a6c38a6df9487fd3992e6150832fde2de08cec7446",
-  "forgeManifestSha256": "c36ad4ab97bcdfb6f92001b9d9bb65845ca69a5aece1ec6f958537c6a69c6f57",
+  "runtimeId": "0485ad49fb10c8ef5b3eda2a002c963d59be71dc-adapter25-e783b8c8739748ca7aadc00e79b6890e6cc509c0868e81113ef0613f259a421a",
+  "forgeManifestSha256": "a37fdfeb0edbdece38814d8569770d6ff3badeb2dc44641b169da63be6fdda20",
   "forge": {
-    "url": "https://github.com/ClayStan404/hexproof/releases/download/v2.0.1/hexproof-forge-runtime-2be4858216742009afe8a7cffb035fc7671e960d-adapter2.tar.gz",
-    "size": 199191851,
-    "sha256": "04ada8bf6b31cde0d564e0537937333a4489b387fca144a20a438b160a29ac74",
+    "url": "https://github.com/ClayStan404/hexproof/releases/download/forge-runtime-0485ad49fb10c8ef5b3eda2a002c963d59be71dc-adapter25/hexproof-forge-runtime-0485ad49fb10c8ef5b3eda2a002c963d59be71dc-adapter25.tar.gz",
+    "size": 200612302,
+    "sha256": "5c81a01c73949a3001ef6d702e5a0d8a6482426eb43b15dca3bde4c73b314f67",
     "format": "tar.gz"
   },
   "java": {

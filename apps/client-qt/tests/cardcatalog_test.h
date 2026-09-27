@@ -485,6 +485,8 @@ class TestCardCatalog : public QObject
     void tokenSearchRefreshesAfterCatalogReplacement() const;
     void cardSearchInvalidatesDuringCatalogReplacement_data() const;
     void cardSearchInvalidatesDuringCatalogReplacement() const;
+    void searchChangedHandlerCannotPublishSupersededCards() const;
+    void searchResultsHandlerCanCancelReplacement() const;
     void directImageRetryKeepsCacheOperationActive() const;
     void emptyTokenRequestInvalidatesEnrichment() const;
     void boundedExpansionWaitsForCatalogReplacement() const;

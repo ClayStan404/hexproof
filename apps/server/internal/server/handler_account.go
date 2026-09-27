@@ -5,11 +5,9 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"net/http"
 	"sort"
-	"sync"
 	"time"
 
 	"hexproof/server/internal/accounts"
@@ -52,16 +50,13 @@ func (h *Handler) ServeAccountAuthority(w http.ResponseWriter, r *http.Request) 
 	h.accountAPI.ServeHTTP(w, r)
 }
 
-func (h *Handler) accountLock(id string) *sync.Mutex {
-	hash := sha256.Sum256([]byte(id))
-	return &h.accountLocks[hash[0]]
-}
-
-func (h *Handler) accountRequest(q accounts.Request) (accounts.Result, error) {
+func (h *Handler) accountRequest(ctx context.Context, q accounts.Request) (out accounts.Result, err error) {
+	finish := h.control.accountRPC.start()
+	defer func() { finish(err) }()
 	if h.accounts == nil {
 		return accounts.Result{}, errors.New("accounts unavailable")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	return h.accounts.Do(ctx, q)
 }
@@ -79,7 +74,7 @@ func (h *Handler) accountError(sess *Session, requestID string, err error) {
 
 // The account gate precedes tournament/room locks. It serializes handover with
 // every old connection's mutation; connection id remains the reducer's actor.
-func (h *Handler) validateAccountSession(sess *Session, requestID string) bool {
+func (h *Handler) validateAccountSession(ctx context.Context, sess *Session, requestID string) bool {
 	a := sess.Account()
 	if a.ID == "" {
 		return true
@@ -91,7 +86,7 @@ func (h *Handler) validateAccountSession(sess *Session, requestID string) bool {
 		h.accountError(sess, requestID, accounts.ErrInvalid)
 		return false
 	}
-	out, err := h.accountRequest(accounts.Request{Operation: "check", SessionToken: a.Token})
+	out, err := h.accountRequest(ctx, accounts.Request{Operation: "check", SessionToken: a.Token})
 	if err != nil || out.Profile.ID != a.ID {
 		if err == nil {
 			err = accounts.ErrInvalid
@@ -141,7 +136,7 @@ func (h *Handler) bindAccountSession(sess *Session, out accounts.Result, token s
 	return true
 }
 
-func (h *Handler) handleAccountCommand(sess *Session, env protocol.Envelope) error {
+func (h *Handler) handleAccountCommand(ctx context.Context, sess *Session, env protocol.Envelope) error {
 	if sess.DisplayName == "" || h.accounts == nil {
 		h.accountError(sess, env.ID, errors.New("accounts unavailable"))
 		return nil
@@ -176,22 +171,27 @@ func (h *Handler) handleAccountCommand(sess *Session, env protocol.Envelope) err
 			return nil
 		}
 		if q.Operation == "attach" {
-			out, err = h.accountRequest(accounts.Request{Operation: "check", SessionToken: q.Credential})
+			out, err = h.accountRequest(ctx, accounts.Request{Operation: "status", SessionToken: q.Credential})
 			out.SessionToken = q.Credential
 		} else {
-			out, err = h.accountRequest(accounts.Request{Operation: q.Operation, Name: q.Name, DeviceName: q.DeviceName,
+			out, err = h.accountRequest(ctx, accounts.Request{Operation: q.Operation, Name: q.Name, DeviceName: q.DeviceName,
 				LoginCode: q.LoginCode, RecoveryCode: q.RecoveryCode})
 		}
 		if err != nil {
 			h.accountError(sess, env.ID, err)
 			return nil
 		}
-		gate := h.accountLock(out.Profile.ID)
-		gate.Lock()
-		defer gate.Unlock()
+		unlock, lockErr := h.lockAccount(ctx, out.Profile.ID)
+		if lockErr != nil {
+			if q.Operation != "attach" {
+				h.discardAccountSession(out.SessionToken)
+			}
+			return lockErr
+		}
+		defer unlock()
 		if !h.bindAccountSession(sess, out, out.SessionToken) {
 			if q.Operation != "attach" {
-				_, _ = h.accountRequest(accounts.Request{Operation: "logout", SessionToken: out.SessionToken})
+				h.discardAccountSession(out.SessionToken)
 			}
 			h.sendError(sess, env.ID, protocol.ErrAccountConflict, "Leave the current room before taking over another account seat")
 			return nil
@@ -207,21 +207,21 @@ func (h *Handler) handleAccountCommand(sess *Session, env protocol.Envelope) err
 		}
 		switch q.Operation {
 		case "status", "rotate", "rename", "revoke", "revoke_others", "logout":
-			out, err = h.accountRequest(accounts.Request{Operation: q.Operation, Name: q.Name, SessionToken: a.Token, SessionID: q.SessionID})
+			out, err = h.accountRequest(ctx, accounts.Request{Operation: q.Operation, Name: q.Name, SessionToken: a.Token, SessionID: q.SessionID})
 		case "resume":
 			if !h.resumeAccountRoom(sess, q.ResourceID) {
 				h.sendError(sess, env.ID, protocol.ErrRoomNotFound, "No recoverable account seat")
 				return nil
 			}
-			out, err = h.accountRequest(accounts.Request{Operation: "status", SessionToken: a.Token})
+			out, err = h.accountRequest(ctx, accounts.Request{Operation: "status", SessionToken: a.Token})
 		case "claim":
 			if !h.claimAccountResource(sess, q) {
 				h.sendError(sess, env.ID, protocol.ErrAccountConflict, "The saved resource credential is unavailable or belongs to another account")
 				return nil
 			}
-			out, err = h.accountRequest(accounts.Request{Operation: "status", SessionToken: a.Token})
+			out, err = h.accountRequest(ctx, accounts.Request{Operation: "status", SessionToken: a.Token})
 		case "replays":
-			out, err = h.accountRequest(accounts.Request{Operation: "status", SessionToken: a.Token})
+			out, err = h.accountRequest(ctx, accounts.Request{Operation: "status", SessionToken: a.Token})
 		default:
 			h.accountError(sess, env.ID, accounts.ErrInvalid)
 			return nil
@@ -233,7 +233,7 @@ func (h *Handler) handleAccountCommand(sess *Session, env protocol.Envelope) err
 	}
 	state := protocol.AccountState{Operation: q.Operation, AccountID: out.Profile.ID, DisplayName: out.Profile.Name,
 		SessionID: out.SessionID, SessionToken: out.SessionToken, LoginCode: out.LoginCode, RecoveryCode: out.RecoveryCode,
-		Devices: []protocol.AccountDevice{}, Resources: h.accountVisibleResources(sess), Replays: []protocol.ForgeReplayGrant{}, Offset: q.Offset}
+		Devices: []protocol.AccountDevice{}, Resources: h.accountVisibleResources(ctx, sess), Replays: []protocol.ForgeReplayGrant{}, Offset: q.Offset}
 	for _, d := range out.Devices {
 		state.Devices = append(state.Devices, protocol.AccountDevice{ID: d.ID, Name: d.Name,
 			CreatedAt: d.CreatedAt, ExpiresAt: d.ExpiresAt, Current: d.ID == out.SessionID})
@@ -365,7 +365,7 @@ func (h *Handler) watchAccountSession(ctx context.Context, sess *Session) {
 			if a.ID == "" {
 				continue
 			}
-			out, err := h.accountRequest(accounts.Request{Operation: "check", SessionToken: a.Token})
+			out, err := h.accountRequest(ctx, accounts.Request{Operation: "check", SessionToken: a.Token})
 			if err != nil || out.Profile.ID != a.ID {
 				sess.Close()
 				return
@@ -379,4 +379,10 @@ func (h *Handler) accountRealm() string {
 		return ""
 	}
 	return h.config.AccountRealm
+}
+
+// A newly issued credential must be revoked even if its requesting connection
+// disappeared before local binding. Cleanup has an independent bounded lifetime.
+func (h *Handler) discardAccountSession(token string) {
+	_, _ = h.accountRequest(context.Background(), accounts.Request{Operation: "logout", SessionToken: token})
 }

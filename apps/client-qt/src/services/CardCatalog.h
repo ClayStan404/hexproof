@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "CatalogSearchController.h"
 #include "CatalogTypes.h"
 
 #include <QCache>
@@ -143,7 +144,7 @@ class CardCatalog : public QObject
     }
     bool busy() const
     {
-        return m_catalogBusy || m_resolving || m_searching || m_tokenSearching ||
+        return m_catalogBusy || m_resolving || m_search.searching() || m_search.tokenSearching() ||
                m_limitedArtCaching || m_artCacheBusy || m_customArtBusy || m_artStorageBusy;
     }
     qreal progress() const
@@ -192,19 +193,19 @@ class CardCatalog : public QObject
     }
     QVariantList searchResults() const
     {
-        return m_searchResults;
+        return m_search.cards();
     }
     bool searching() const
     {
-        return m_searching;
+        return m_search.searching();
     }
     QVariantList tokenSearchResults() const
     {
-        return m_tokenSearchResults;
+        return m_search.tokens();
     }
     bool tokenSearching() const
     {
-        return m_tokenSearching;
+        return m_search.tokenSearching();
     }
     QString language() const
     {
@@ -444,9 +445,7 @@ class CardCatalog : public QObject
     void setLastError(const QString &error);
     void clearOperationError();
     void setCardSearchError(const QString &error);
-    void clearCardSearchError();
     void setTokenSearchError(const QString &error);
-    void clearTokenSearchError();
     void setPrintingsError(const QString &error);
     void clearPrintingsError();
     static SearchResult searchDatabase(const QString &databasePath, const QString &query,
@@ -481,8 +480,8 @@ class CardCatalog : public QObject
     void processCachedHydrationBatch();
     void processIncrementalCacheBatch();
     void processCardMetadataBatch();
-    void startLatestCardSearch();
-    void startLatestTokenSearch();
+    void configureSearches();
+    void refreshSearches();
     void finishCatalogOperation(const ImportResult &result);
     QString m_storageRoot;
     QString m_databasePath;
@@ -498,32 +497,13 @@ class CardCatalog : public QObject
     QString m_cardSearchError;
     QString m_tokenSearchError;
     QString m_printingsError;
-    QString m_lastSearchQuery;
-    QString m_lastManaFilter;
-    QString m_lastTokenSearchQuery;
-    QString m_lastTokenSearchKind = QStringLiteral("all");
-    QStringList m_lastTokenSearchSets;
-    QString m_lastTypeFilter;
-    QString m_lastSetFilter;
-    QString m_lastLanguageFilter;
-    QString m_lastColorFilter;
-    QString m_lastRarityFilter;
-    QString m_lastLegalityFilter;
-    QVariantList m_searchResults;
-    QVariantList m_tokenSearchResults;
+    CatalogSearchController m_search;
     qreal m_progress = 0.0;
     bool m_catalogBusy = false;
     bool m_shuttingDown = false;
     bool m_resolving = false;
-    bool m_searching = false;
-    bool m_tokenSearching = false;
-    bool m_tokenSearchRequested = false;
-    bool m_cardSearchWorkerRunning = false;
-    bool m_tokenSearchWorkerRunning = false;
     int m_totalRequests = 0;
     int m_completedRequests = 0;
-    int m_searchGeneration = 0;
-    int m_tokenSearchGeneration = 0;
     int m_tokenEnrichGeneration = 0;
     int m_indexVersion = 0;
     int m_latestCatalogSchemaVersion = 0;

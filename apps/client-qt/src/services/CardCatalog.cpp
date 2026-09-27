@@ -102,6 +102,22 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
     for (auto &resolver : m_parallelResolvers)
         resolver = std::make_unique<CardResolver>(*m_cardResolver, resolverCallbacks);
     connect(this, &CardCatalog::cardCacheFinished, this, &CardCatalog::handleLimitedArtCacheResult);
+    connect(&m_search, &CatalogSearchController::cardsChanged, this,
+            &CardCatalog::searchResultsChanged);
+    connect(&m_search, &CatalogSearchController::tokensChanged, this,
+            &CardCatalog::tokenSearchResultsChanged);
+    connect(&m_search, &CatalogSearchController::searchingChanged, this, [this] {
+        emit searchingChanged();
+        emit busyChanged();
+    });
+    connect(&m_search, &CatalogSearchController::tokenSearchingChanged, this, [this] {
+        emit tokenSearchingChanged();
+        emit busyChanged();
+    });
+    connect(&m_search, &CatalogSearchController::cardSearchFinished, this,
+            &CardCatalog::setCardSearchError);
+    connect(&m_search, &CatalogSearchController::tokenSearchFinished, this,
+            &CardCatalog::setTokenSearchError);
 
     CatalogInstaller *installer = m_catalogInstaller.get();
     installer->onBusyChanged = [this](bool busy) {
@@ -116,10 +132,7 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
         m_catalogBusy = busy;
         if (busy) {
             ++m_tokenEnrichGeneration;
-            search(m_lastSearchQuery, m_lastTypeFilter, m_lastSetFilter, m_lastLanguageFilter,
-                   m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter, m_lastManaFilter);
-            if (m_tokenSearchRequested)
-                searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind, m_lastTokenSearchSets);
+            refreshSearches();
         }
         emit busyChanged();
     };
@@ -259,15 +272,7 @@ void CardCatalog::setLanguage(const QString &language)
     ++m_imageRevision;
     emit imageRevisionChanged();
     emit languageChanged();
-    if (m_tokenSearchRequested)
-        searchTokens(m_lastTokenSearchQuery, m_lastTokenSearchKind, m_lastTokenSearchSets);
-    if (installed() && (!m_lastSearchQuery.isEmpty() || !m_lastTypeFilter.isEmpty() ||
-                        !m_lastSetFilter.isEmpty() || !m_lastLanguageFilter.isEmpty() ||
-                        !m_lastColorFilter.isEmpty() || !m_lastRarityFilter.isEmpty() ||
-                        !m_lastLegalityFilter.isEmpty() || !m_lastManaFilter.isEmpty())) {
-        search(m_lastSearchQuery, m_lastTypeFilter, m_lastSetFilter, m_lastLanguageFilter,
-               m_lastColorFilter, m_lastRarityFilter, m_lastLegalityFilter, m_lastManaFilter);
-    }
+    refreshSearches();
 }
 
 void CardCatalog::setCardArtProvider(const QString &provider)
@@ -392,11 +397,6 @@ void CardCatalog::setCardSearchError(const QString &error)
         emit lastErrorChanged();
 }
 
-void CardCatalog::clearCardSearchError()
-{
-    setCardSearchError({});
-}
-
 void CardCatalog::setTokenSearchError(const QString &error)
 {
     if (m_tokenSearchError == error)
@@ -406,11 +406,6 @@ void CardCatalog::setTokenSearchError(const QString &error)
     emit tokenSearchErrorChanged();
     if (lastError() != previous)
         emit lastErrorChanged();
-}
-
-void CardCatalog::clearTokenSearchError()
-{
-    setTokenSearchError({});
 }
 
 void CardCatalog::setPrintingsError(const QString &error)

@@ -119,6 +119,7 @@ class TestWsClient : public QObject
     void accountLoginAndTakeoverStayInsideTrustedRealm() const;
     void routesOfficialCommandOnce_data();
     void routesOfficialCommandOnce() const;
+    void clusterTransferConsumesPrivateCommandOnce() const;
     void correlatesCommandOutcomes() const;
     void announcesOnlyCurrentRoomRestartBroadcast() const;
     void sendsTypedScryResponse() const;
@@ -149,6 +150,7 @@ class TestWsClient : public QObject
     void rulesSessionStateExposesTypedSnapshot() const;
     void rulesSessionStateExposesCurrentPersistentChoices() const;
     void rulesSnapshotModelsPreserveUnchangedRows() const;
+    void rulesSeatBattlefieldsTrackControlAndPrivacy() const;
     void rulesControlledTurnAndLibraryPermissions() const;
     void rulesPriorityHintsStayConservative() const;
     void rulesCardActionsUseCurrentNativeCardChoices() const;

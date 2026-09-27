@@ -80,8 +80,7 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleClusterRoute(env);
         return;
     }
-    if (!env.id.isEmpty() && env.id == m_clusterRequestId)
-        clearClusterCommand();
+    m_clusterTransfer.resolve(env.id);
     if (env.hasSeq)
         m_reconnectController->observeSequence(env.seq);
     if (env.type != kTypeError && !env.id.isEmpty())
@@ -317,7 +316,7 @@ void WsClient::handleWelcome(const Envelope &env)
     m_account->welcome(env.payload.value(u"accountRealm"_s).toString(),
                        env.payload.value(u"accountId"_s).toString(),
                        env.payload.value(u"accountName"_s).toString(),
-                       clusterAvailable() && !m_clusterRouting &&
+                       clusterAvailable() && !m_clusterTransfer.routing() &&
                            !env.payload.value(u"resumed"_s).toBool());
     if (requiresAccount && !m_account->supported()) {
         m_intentionalDisconnect = true;

@@ -52,6 +52,16 @@ Item {
                                 target.height / 2), "Cannot select " + name)
         return true
     }
+    function comboBox(name, index, scrollName) {
+        const target = find(name)
+        if (!target) { if (scrollName) click(name, scrollName); return false }
+        require(auditProbe.click(target), "Cannot open " + name)
+        require(auditProbe.key(Qt.Key_Home), "Cannot reset " + name)
+        for (let step = 0; step < index; ++step)
+            require(auditProbe.key(Qt.Key_Down), "Cannot navigate " + name)
+        require(auditProbe.key(Qt.Key_Return), "Cannot confirm " + name)
+        return true
+    }
     function plan() {
         require(/^ws:\/\/(127\.0\.0\.1|\[::1\]):[0-9]+\/ws$/.test(endpoint),
                 "Failure audit requires an isolated loopback fixture server")
@@ -65,7 +75,8 @@ Item {
         add("Open settings", () => click("mainMenuSettingsButton"), () => !!find("settingsBody"))
         add("Open language settings", () => click("settingsLanguageModule", "settingsBody"),
             () => !!find("settingsLanguageSelector"))
-        add("Select Chinese using the visible control", () => segment("settingsLanguageSelector", 1),
+        add("Select Chinese using the visible control",
+            () => comboBox("settingsLanguageSelector", 1, "settingsBody"),
             () => preferences.uiLanguage === "zh")
         add("Return to settings categories", () => click("screenBackButton"), () => !!find("settingsBody"))
         add("Return to main menu", () => click("screenBackButton"), () => !!find("mainMenuConnectButton"))

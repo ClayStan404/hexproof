@@ -42,6 +42,9 @@ func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := r.client.Do(req)
 	if err != nil {
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
+		}
 		return Result{}, ErrUnavailable
 	}
 	defer resp.Body.Close()
@@ -59,6 +62,9 @@ func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
 		return Result{}, ErrUnavailable
 	}
 	raw, err = io.ReadAll(io.LimitReader(resp.Body, maxMessageBytes+1))
+	if err != nil && ctx.Err() != nil {
+		return Result{}, ctx.Err()
+	}
 	var out Result
 	if err != nil || len(raw) > maxMessageBytes || json.Unmarshal(raw, &out) != nil {
 		return Result{}, ErrUnavailable

@@ -137,9 +137,8 @@ jobs:
         run: go vet ./...
       - name: Test
         run: go test ./...
-      - name: Test room, server, and tournament race safety
-        if: github.event_name == 'workflow_dispatch'
-        run: go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster
+      - name: Test gameplay and control-plane race safety
+        run: go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil
       - name: Fuzz protocol, reducer, and retention boundaries
         if: github.event_name == 'workflow_dispatch'
         shell: bash

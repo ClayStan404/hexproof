@@ -4,6 +4,7 @@
 #pragma once
 
 #include "AccountSessionState.h"
+#include "ClusterTransfer.h"
 #include "ForgeHostService.h"
 #include "ForgeReplayService.h"
 #include "HubTransport.h"
@@ -736,15 +737,8 @@ class WsClient : public QObject
     QString m_rulesResponseGameId;
     qint64 m_rulesResponsePromptId = 0;
     QString m_serverUrl;
-    QString m_clusterTicket;
     QString m_clusterNode;
-    QString m_clusterRequestId;
-    QString m_clusterCommandType;
-    QByteArray m_clusterWire;
-    QString m_clusterDestination;
-    QString m_clusterAccountId;
-    QTimer m_clusterTimer;
-    bool m_clusterRouting = false;
+    ClusterTransfer m_clusterTransfer;
     QJsonArray clusterLatencies() const;
     bool clusterCommand(const QString &type, const QJsonObject &payload) const;
     void clearClusterCommand();

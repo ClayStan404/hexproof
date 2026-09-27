@@ -108,6 +108,14 @@ TestCase {
         waitForRendering(page)
     }
 
+    function selectFormat(format) {
+        const selector = findChild(page, "roomFormatSelector")
+        const index = page.selectableFormatOptions.findIndex(option => option.value === format)
+        verify(index >= 0)
+        selector.currentIndex = index
+        selector.activated(index)
+    }
+
     function cleanup() {
         if (page !== null)
             page.destroy()
@@ -606,11 +614,85 @@ TestCase {
         page.submit()
         compare(mockWs.submittedMatchMode, "bo3")
         compare(mockWs.submittedRulesMode, "forge")
-        page.roomFormat = "edh"
+        selectFormat("commander")
         compare(modes.options.length, 1)
         page.submit()
         compare(mockWs.submittedMatchMode, "bo1")
+        compare(mockWs.submittedRulesMode, "forge")
     }
+
+    function test_commanderKeepsForgeAndClearsAi_data() {
+        return [{tag:"server-human", hosting:"server", opponentIndex:0},
+                {tag:"server-ai", hosting:"server", opponentIndex:1},
+                {tag:"player-human", hosting:"player", opponentIndex:0},
+                {tag:"player-ai", hosting:"player", opponentIndex:1}]
+    }
+    function test_commanderKeepsForgeAndClearsAi(data) {
+        page.roomName = "Commander table"
+        mockWs.playerHostingAvailable = true
+        mockWs.forgeHost.ready = true
+        findChild(page, "forgeRulesMode").activated(1)
+        findChild(page, "forgeHostingMode").activated(data.hosting === "player" ? 1 : 0)
+        findChild(page, "roomOpponentControl").activated(data.opponentIndex)
+        selectFormat("commander")
+        compare(page.roomFormat, "edh")
+        compare(page.rulesMode, "forge")
+        compare(page.hostingMode, "server")
+        compare(page.aiPractice, false)
+        compare(page.aiOpponent, false)
+        compare(findChild(page, "forgeRulesMode").options.length, 2)
+        verify(!findChild(page, "forgeHostingExtras").expanded)
+        waitForFormMotion()
+        verify(!findChild(page, "roomOpponentControl").visible)
+        verify(findChild(page, "createRoomSubmitButton").enabled)
+        findChild(page, "createRoomSubmitButton").clicked()
+        compare(mockWs.createCount, 1)
+        compare(mockWs.submittedRoom.format, "edh")
+        compare(mockWs.submittedRoom.matchMode, "bo1")
+        compare(mockWs.submittedRoom.rulesMode, "forge")
+        compare(mockWs.submittedRoom.hostingMode, "server")
+        compare(mockWs.submittedRoom.aiDifficulty, "")
+        compare(mockWs.submittedRoom.aiSource, "")
+    }
+    function test_commanderSubmitNormalizesStaleHostingAndAi() {
+        page.roomName = "Commander table"
+        selectFormat("commander")
+        page.rulesMode = "forge"
+        page.hostingMode = "player"
+        page.aiOpponent = true
+        page.submit()
+        compare(mockWs.createCount, 1)
+        compare(mockWs.submittedRoom.rulesMode, "forge")
+        compare(mockWs.submittedRoom.hostingMode, "server")
+        compare(mockWs.submittedRoom.aiDifficulty, "")
+        compare(mockWs.submittedRoom.aiSource, "")
+    }
+
+    function test_duelCommanderStillOffersForge_data() {
+        return [{tag: "server", hosting: "server"}, {tag: "player", hosting: "player"}]
+    }
+
+    function test_duelCommanderStillOffersForge(data) {
+        page.roomName = "Duel table"
+        mockWs.playerHostingAvailable = true
+        mockWs.forgeHost.ready = true
+        selectFormat("duel")
+        const rules = findChild(page, "forgeRulesMode")
+        compare(rules.options.length, 2)
+        rules.activated(1)
+        findChild(page, "forgeHostingMode").activated(data.hosting === "player" ? 1 : 0)
+        compare(page.rulesMode, "forge")
+        verify(findChild(page, "createRoomSubmitButton").enabled)
+        findChild(page, "createRoomSubmitButton").clicked()
+        compare(mockWs.createCount, 1)
+        compare(mockWs.submittedRoom.format, "duel")
+        compare(mockWs.submittedRoom.deckFormat, "duel")
+        compare(mockWs.submittedRoom.rulesMode, "forge")
+        compare(mockWs.submittedRoom.hostingMode, data.hosting)
+        compare(mockWs.submittedRoom.aiDifficulty, "")
+        compare(mockWs.submittedRoom.aiSource, "")
+    }
+
     function test_playerHostingHasIndependentCapabilityAndReadiness() {
         page.roomName = "Trusted duel"
         page.rulesMode = "forge"

@@ -10,6 +10,15 @@ Page {
     objectName: "languageSettingsScreen"
     background: AppBackground { }
 
+    function uiLanguageIndex() {
+        const stored = preferences.uiLanguage
+        for (let index = 0; index < uiLanguages.length; ++index) {
+            if (uiLanguages[index].code === stored)
+                return index
+        }
+        return 0
+    }
+
     SettingsPage {
         anchors.fill: parent
         title: qsTr("Language & cards")
@@ -41,13 +50,19 @@ Page {
                 font.pixelSize: Theme.fontSize(12)
                 wrapMode: Text.WordWrap
             }
-            SegmentedControl {
+            AppComboBox {
                 objectName: "settingsLanguageSelector"
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.size(6)
-                options: [qsTr("English"), qsTr("简体中文")]
-                currentIndex: preferences.uiLanguage === "zh" ? 1 : 0
-                onActivated: index => preferences.uiLanguage = index === 1 ? "zh" : "en"
+                model: uiLanguages
+                textRole: "label"
+                valueRole: "code"
+                currentIndex: uiLanguageIndex()
+                Accessible.name: qsTr("Interface language")
+                onActivated: index => {
+                    preferences.uiLanguage = currentValue
+                    currentIndex = Qt.binding(function() { return uiLanguageIndex() })
+                }
             }
 
             Rectangle {

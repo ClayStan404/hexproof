@@ -3,6 +3,8 @@
 
 #include "TranslationController.h"
 
+#include "UiLanguages.h"
+
 #include <QCoreApplication>
 #include <QDebug>
 #include <QQmlEngine>
@@ -24,24 +26,31 @@ TranslationController::~TranslationController()
 
 void TranslationController::setLanguage(const QString &language)
 {
-    const QString normalized = language.compare(QStringLiteral("zh"), Qt::CaseInsensitive) == 0
-                                   ? QStringLiteral("zh")
-                                   : QStringLiteral("en");
+    const QString normalized = uiLanguages::normalize(language);
     if (normalized == m_language)
         return;
 
     removeTranslators();
     m_language = normalized;
-    if (m_language == QStringLiteral("zh")) {
-        const bool dynamicLoaded =
-            m_dynamicTranslator.load(QStringLiteral(":/i18n/hexproof_dynamic_zh_CN.qm"));
-        const bool uiLoaded = m_uiTranslator.load(QStringLiteral(":/i18n/hexproof_zh_CN.qm"));
-        if (!dynamicLoaded || !uiLoaded) {
-            qWarning() << "Could not load embedded Simplified Chinese translations";
-        } else {
-            QCoreApplication::installTranslator(&m_dynamicTranslator);
-            QCoreApplication::installTranslator(&m_uiTranslator);
+    for (const uiLanguages::UiLanguage &entry : uiLanguages::languages()) {
+        if (entry.code != normalized)
+            continue;
+        // English ships no catalogs: its source strings are the fallback for
+        // every entry, so an unsupported catalog install cannot leave stale
+        // translations installed for this language.
+        if (!entry.uiCatalog.isEmpty()) {
+            const bool dynamicLoaded = m_dynamicTranslator.load(
+                QStringLiteral(":/i18n/") + entry.dynamicCatalog + QStringLiteral(".qm"));
+            const bool uiLoaded = m_uiTranslator.load(QStringLiteral(":/i18n/") + entry.uiCatalog +
+                                                      QStringLiteral(".qm"));
+            if (!dynamicLoaded || !uiLoaded) {
+                qWarning() << "Could not load embedded" << normalized << "translations";
+            } else {
+                QCoreApplication::installTranslator(&m_dynamicTranslator);
+                QCoreApplication::installTranslator(&m_uiTranslator);
+            }
         }
+        break;
     }
     if (m_engine)
         m_engine->retranslate();

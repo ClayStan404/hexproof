@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "ApplicationPaths.h"
+#include "UiLanguages.h"
 #include "models/ClientPreferencesModel.h"
 #include "models/DeckLibraryModel.h"
 #include "models/GameTableModel.h"
@@ -17,6 +18,7 @@
 #include "services/CardImageProvider.h"
 #include "services/CustomCardArtStore.h"
 #include "services/DeckLegalityService.h"
+#include "services/DraftSimulator.h"
 #include "services/LimitedDeckDraftStore.h"
 #include "services/LimitedSessionState.h"
 #include "services/MatchCardCacheBinding.h"
@@ -236,6 +238,23 @@ int main(int argc, char *argv[])
     auto *optimisticCommands = new hexproof::client::OptimisticCommandModel(&runtimeOwner);
     auto *sideboardTable = new hexproof::client::SideboardTableModel(&runtimeOwner);
     auto *cardCatalog = new hexproof::client::CardCatalog(storageRoot, &runtimeOwner);
+    auto *draftSimulator = new hexproof::client::DraftSimulator(&runtimeOwner);
+    draftSimulator->setPackGenerator([cardCatalog](const QVariantMap &product, int count) {
+        QVariantList packs = cardCatalog->simulateLimitedPacks(product, count);
+        for (QVariant &value : packs) {
+            QVariantMap pack = value.toMap();
+            pack.insert(QStringLiteral("cards"), cardCatalog->enrichLimitedCards(
+                                                     pack.value(QStringLiteral("cards")).toList()));
+            value = pack;
+        }
+        return packs;
+    });
+    draftSimulator->setDeckSaver([deckLibrary](const QString &name, const QVariantMap &deck) {
+        return deckLibrary->importDeck(name, QStringLiteral("custom"),
+                                       deckLibrary->formatPublishedDeckText(deck))
+                   ? QString{}
+                   : deckLibrary->lastError();
+    });
     ws->modelOpponent()->setCardCatalog(cardCatalog);
     auto *appUpdater = new hexproof::client::AppUpdateService(&runtimeOwner);
     auto *deckLegality = new hexproof::client::DeckLegalityService(storageRoot, &runtimeOwner);
@@ -365,6 +384,8 @@ int main(int argc, char *argv[])
     cardCatalog->setCardImageProvider(cardImageProvider);
     engine.rootContext()->setContextProperty(QStringLiteral("ws"), ws);
     engine.rootContext()->setContextProperty(QStringLiteral("localTestMode"), localTestRequested);
+    engine.rootContext()->setContextProperty(QStringLiteral("uiLanguages"),
+                                             hexproof::client::uiLanguages::qmlOptions());
     engine.rootContext()->setContextProperty(QStringLiteral("tournament"), ws->tournamentSession());
     engine.rootContext()->setContextProperty(QStringLiteral("limited"), ws->limitedSession());
     engine.rootContext()->setContextProperty(QStringLiteral("limitedDeckDrafts"),
@@ -379,6 +400,7 @@ int main(int argc, char *argv[])
                                              optimisticCommands);
     engine.rootContext()->setContextProperty(QStringLiteral("sideboardTable"), sideboardTable);
     engine.rootContext()->setContextProperty(QStringLiteral("cardCatalog"), cardCatalog);
+    engine.rootContext()->setContextProperty(QStringLiteral("draftSimulator"), draftSimulator);
     engine.rootContext()->setContextProperty(QStringLiteral("cardArtManager"), cardArtManager);
     engine.rootContext()->setContextProperty(QStringLiteral("customCardArtStore"),
                                              cardCatalog->customArtStore());

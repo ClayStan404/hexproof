@@ -26,6 +26,9 @@ Item {
     function playerName(seat) {
         if (tableController.replayMode === true)
             return tableController.roomSession.players[seat] || qsTr("Seat %1").arg(Number(seat) + 1)
+        const roomPlayer = (tableController.roomSession.seats || [])[seat]
+        if (roomPlayer && roomPlayer.displayName)
+            return roomPlayer.displayName
         // The invokable lookup itself does not establish a model dependency.
         void tableController.gameTableModel.seats
         const player = tableController.gameTableModel.seatData(seat)

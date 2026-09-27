@@ -14,35 +14,48 @@ import (
 )
 
 type commandHandler func(*Handler, *Session, protocol.Envelope) error
+type contextCommandHandler func(*Handler, context.Context, *Session, protocol.Envelope) error
 
 type commandSpec struct {
 	requiresID bool
-	handle     commandHandler
+	handle     contextCommandHandler
 }
 
 func requiredCommand(handle commandHandler) commandSpec {
-	return commandSpec{requiresID: true, handle: handle}
+	spec := optionalCommand(handle)
+	spec.requiresID = true
+	return spec
 }
 
 func optionalCommand(handle commandHandler) commandSpec {
-	return commandSpec{handle: handle}
+	return commandSpec{handle: func(h *Handler, ctx context.Context, sess *Session, env protocol.Envelope) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		// Once admitted, domain transitions finish their own bounded commit/cleanup.
+		return handle(h, sess, env)
+	}}
+}
+
+func requiredContextCommand(handle contextCommandHandler) commandSpec {
+	return commandSpec{requiresID: true, handle: handle}
 }
 
 var commandRegistry = map[string]commandSpec{
-	protocol.TypeAccountCommand:                requiredCommand((*Handler).handleAccountCommand),
+	protocol.TypeAccountCommand:                requiredContextCommand((*Handler).handleAccountCommand),
 	protocol.TypeRoomAIRetry:                   requiredCommand((*Handler).handleModelRetry),
 	protocol.TypeForgePeerRequest:              requiredCommand((*Handler).handleForgePeerRequest),
 	protocol.TypeForgePeerSignal:               optionalCommand((*Handler).handleForgePeerSignal),
 	protocol.TypeForgeHostRequest:              requiredCommand((*Handler).handleForgeHostRequest),
-	protocol.TypeSessionHello:                  requiredCommand((*Handler).handleHello),
+	protocol.TypeSessionHello:                  requiredContextCommand((*Handler).handleHello),
 	protocol.TypeSessionPing:                   optionalCommand(handleSessionPing),
 	protocol.TypeRoomCreate:                    requiredCommand((*Handler).handleRoomCreate),
-	protocol.TypeRoomList:                      requiredCommand((*Handler).handleRoomList),
+	protocol.TypeRoomList:                      requiredContextCommand((*Handler).handleRoomList),
 	protocol.TypeRoomJoin:                      requiredCommand((*Handler).handleRoomJoin),
 	protocol.TypeRoomLeave:                     optionalCommand((*Handler).handleRoomLeave),
 	protocol.TypeRoomKick:                      requiredCommand((*Handler).handleRoomKick),
 	protocol.TypeRoomDisband:                   requiredCommand((*Handler).handleRoomDisband),
-	protocol.TypeTournamentList:                requiredCommand((*Handler).handleTournamentList),
+	protocol.TypeTournamentList:                requiredContextCommand((*Handler).handleTournamentList),
 	protocol.TypeTournamentChatSend:            requiredCommand((*Handler).handleTournamentChatSend),
 	protocol.TypeTournamentCreate:              requiredCommand((*Handler).handleTournamentCreate),
 	protocol.TypeTournamentEnter:               requiredCommand((*Handler).handleTournamentEnter),
@@ -160,7 +173,10 @@ func (h *Handler) readLoop(ctx context.Context, conn *websocket.Conn, sess *Sess
 // dispatch routes one envelope using the same registry that owns request-id
 // policy. Adding a command therefore cannot update routing without also making
 // an explicit id-policy choice.
-func (h *Handler) dispatch(_ context.Context, _ *websocket.Conn, sess *Session, env protocol.Envelope) error {
+func (h *Handler) dispatch(ctx context.Context, _ *websocket.Conn, sess *Session, env protocol.Envelope) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	spec, ok := commandRegistry[env.Type]
 	if !ok {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "unknown type: "+env.Type)
@@ -171,10 +187,12 @@ func (h *Handler) dispatch(_ context.Context, _ *websocket.Conn, sess *Session, 
 		return nil
 	}
 	if aid := sess.Account().ID; aid != "" {
-		gate := h.accountLock(aid)
-		gate.Lock()
-		defer gate.Unlock()
-		if !h.validateAccountSession(sess, env.ID) {
+		unlock, err := h.lockAccount(ctx, aid)
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		if !h.validateAccountSession(ctx, sess, env.ID) {
 			return nil
 		}
 		if sess.Room() == nil && h.accountResumeToken(aid, "") != "" &&
@@ -183,14 +201,14 @@ func (h *Handler) dispatch(_ context.Context, _ *websocket.Conn, sess *Session, 
 			return nil
 		}
 	}
-	handled, done := h.routeClusterCommand(sess, &env)
+	handled, done := h.routeClusterCommand(ctx, sess, &env)
 	if done != nil {
 		defer done()
 	}
 	if handled {
 		return nil
 	}
-	err := spec.handle(h, sess, env)
+	err := spec.handle(h, ctx, sess, env)
 	switch env.Type {
 	case protocol.TypeRoomCreate, protocol.TypeRoomJoin, protocol.TypeTournamentCreate,
 		protocol.TypeTournamentEnter, protocol.TypeTournamentRegister, protocol.TypeTournamentOpenMatch,

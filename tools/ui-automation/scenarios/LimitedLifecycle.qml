@@ -12,6 +12,7 @@ Item {
     readonly property bool bo3: auditProbe.environment("AUDIT_VARIANT").endsWith("-bo3")
     readonly property string mode: auditProbe.environment("AUDIT_VARIANT").replace(/-forge(?:-bo3)?$/, "")
     readonly property bool cube: mode === "cube_draft"
+    readonly property bool pendingEditAudit: auditProbe.environment("HEXPROOF_AUDIT_LIMITED_PENDING_EDIT") === "1"
     property int packSize: 15
     property var steps: []
     property var assertions: []
@@ -27,6 +28,9 @@ Item {
     property string chosenId: ""
     property string movedId: ""
     property string deckFingerprint: ""
+    property string pendingFingerprint: ""
+    property string pendingAddedBasic: ""
+    property string pendingRemovedBasic: ""
     property var expectedMain: []
     property var expectedBasics: []
     property var recoveryPack: []
@@ -440,8 +444,53 @@ Item {
                     capture("recovered-construction")
                 })
             }
+            if (actor === 1 && pendingEditAudit) {
+                add("Submit the initial deck before editing", actor, () => {
+                    require(!limited.deckSubmitted && expectedBasics.length > 0, "Expected an initial submission with basics")
+                    pendingRemovedBasic = expectedBasics[0].name
+                    pendingAddedBasic = pendingRemovedBasic === "Plains" ? "Island" : "Plains"
+                    return click("limitedSubmitDeckButton")
+                })
+                add("Open basic lands while the acknowledgement is delayed", actor,
+                    () => click("limitedBasicLandsButton"), () => !!find("limitedBasicLandsDone"))
+                add("Edit the deck before its first acknowledgement", actor, () => {
+                    require(!limited.deckSubmitted, "Acknowledgement arrived before the edit; use the delayed loopback fixture")
+                    return click("limitedBasicLandAdd-" + pendingAddedBasic, "limitedBasicLandScroll")
+                }, () => {
+                    if (builder().selectedCount !== 41) return false
+                    require(!limited.deckSubmitted, "Edit was not made while submission was in flight")
+                    pendingFingerprint = builder().selectionFingerprint()
+                    auditProbe.record("submission-in-flight-edit", {acknowledged:false, selectedCount:41,
+                        addedBasic:pendingAddedBasic, fingerprint:pendingFingerprint})
+                    return true
+                })
+                add("Close basic lands during submission", actor, () => click("limitedBasicLandsDone"),
+                    () => !find("limitedBasicLandsDone"))
+                add("Keep the new edit after the older acknowledgement", actor, () => {}, () => {
+                    if (!limited.deckSubmitted) return false
+                    require(same(limited.mainboardInstanceIds, expectedMain)
+                        && same(Array.from(limited.basicLands).map(value => value.name + ":" + value.count),
+                                expectedBasics.map(value => value.name + ":" + value.count)), "Unexpected initial submitted deck")
+                    require(builder().selectedCount === 41 && builder().hasUnsubmittedChanges
+                        && builder().selectionFingerprint() === pendingFingerprint, "Older acknowledgement replaced the pending edit")
+                    capture("submission-edit-preserved")
+                    return true
+                })
+                add("Open replacement basic lands", actor, () => click("limitedBasicLandsButton"),
+                    () => !!find("limitedBasicLandsDone"))
+                add("Bring the edited deck back to forty cards", actor,
+                    () => click("limitedBasicLandRemove-" + pendingRemovedBasic, "limitedBasicLandScroll"),
+                    () => builder().selectedCount === 40 && builder().hasUnsubmittedChanges)
+                add("Record the replacement deck", actor, () => {
+                    expectedBasics = builder().basicNames.map(name => Object.assign({name:name, count:builder().basicValue(name)},
+                        builder().basicPrinting(name))).filter(value => value.count > 0)
+                    return click("limitedBasicLandsDone")
+                }, () => !find("limitedBasicLandsDone"))
+            }
             add("Submit the physical deck " + actor, actor, () => click("limitedSubmitDeckButton"),
-                () => limited.deckSubmitted && same(limited.mainboardInstanceIds, expectedMain))
+                () => limited.deckSubmitted && same(limited.mainboardInstanceIds, expectedMain)
+                    && same(Array.from(limited.basicLands).map(value => value.name + ":" + value.count),
+                            expectedBasics.map(value => value.name + ":" + value.count)))
             add("Verify accepted partition " + actor, actor, () => {
                 require(same(Array.from(limited.basicLands).map(value => value.name + ":" + value.count),
                     expectedBasics.map(value => value.name + ":" + value.count)), "Server changed ordinary basics")

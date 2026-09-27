@@ -337,6 +337,67 @@ Window {
         QVERIFY(QFile::exists(temporary.filePath(QStringLiteral("actions.jsonl"))));
     }
 
+    void disabledPointerHandlerDoesNotCoverInput()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        qputenv("HEXPROOF_AUDIT_OUTPUT", temporary.path().toUtf8());
+        qputenv("HEXPROOF_AUDIT_WIDTH", "900");
+        qputenv("HEXPROOF_AUDIT_HEIGHT", "620");
+        QFile driver(temporary.filePath(QStringLiteral("driver.qml")));
+        QVERIFY(driver.open(QIODevice::WriteOnly));
+        driver.write("import QtQml\nQtObject {}\n");
+        driver.close();
+        qputenv("HEXPROOF_AUDIT_DRIVER", driver.fileName().toUtf8());
+
+        QQmlApplicationEngine engine;
+        NativeAudit audit(&engine);
+        engine.loadData(R"(
+import QtQuick
+Window {
+    width: 900; height: 620; visible: true
+    property int clicks: 0
+    property bool handlerEnabled: true
+    property bool mouseCoverVisible: false
+    MouseArea {
+        objectName: "underneath"
+        x: 100; y: 100; width: 200; height: 100
+        onClicked: Window.window.clicks++
+    }
+    Item {
+        objectName: "handlerPlate"
+        property string label: "Player"
+        x: 100; y: 100; width: 200; height: 100
+        TapHandler { enabled: parent.Window.window.handlerEnabled }
+        HoverHandler { enabled: parent.Window.window.handlerEnabled }
+    }
+    MouseArea {
+        x: 100; y: 100; width: 200; height: 100
+        visible: Window.window.mouseCoverVisible
+        TapHandler { enabled: false }
+    }
+}
+)");
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QVERIFY(audit.activate());
+        QVERIFY(!audit.find(window, QStringLiteral("underneath")));
+        window->setProperty("handlerEnabled", false);
+        // Window input proves that disabled handlers allow the click through.
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, QPoint(200, 150));
+        QCOMPARE(window->property("clicks").toInt(), 1);
+        auto *target = audit.find(window, QStringLiteral("underneath"));
+        QVERIFY2(target, qPrintable(audit.lastError()));
+        QVERIFY(audit.click(target));
+        QCOMPARE(window->property("clicks").toInt(), 2);
+        window->setProperty("mouseCoverVisible", true);
+        QVERIFY(!audit.find(window, QStringLiteral("underneath")));
+        window->setProperty("mouseCoverVisible", false);
+        window->setProperty("handlerEnabled", true);
+        QVERIFY(!audit.find(window, QStringLiteral("underneath")));
+    }
+
     void sensitiveTextIsExcludedFromEvidence_data()
     {
         QTest::addColumn<int>("echoMode");

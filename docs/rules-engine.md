@@ -4,25 +4,29 @@ This document defines the architecture for Hexproof's optional enforced-rules
 mode. It supersedes the former product-wide prohibition on a rules engine while
 preserving the existing manual tabletop as a first-class mode.
 
-## Current delivery scope — 2026-09-15
+## Current delivery scope — 2026-09-27
 
-The owner limits the new UI and further rules integration to **1v1 games**:
-ordinary two-player formats, **Duel Commander**, and **Set Sealed, Set Draft
-and regular Cube**. Each game has two players;
-spectators and participants in a larger tournament are not additional game seats.
+Forge supports ordinary two-player formats, Duel Commander, Set Sealed, Set
+Draft and regular Cube, plus **two-, three- and four-player Commander/EDH**.
+EDH rooms retain a four-seat cap and start with all occupied seats when at
+least two players are ready. Unoccupied seats never become engine players.
+EDH uses the native Commander variant, 40 starting life and BO1; two-player
+EDH does not become 20-life Duel Commander.
 
-Multiplayer Commander/EDH is **out of scope**, not deferred work. Do not require
-three/four-player layouts, multiplayer priority rotation, or continuation after
-a non-terminal player elimination for this delivery. Duel Commander still
-requires its native commander designation, command-zone, casting, payment, and
-match-flow interactions. Apply the selected format's native rules; excluding
-multiplayer EDH does not remove the commander support needed by Duel Commander.
+Commander room creation offers Manual tabletop and Forge rules. Forge EDH
+uses server hosting; creator hosting and AI practice retain their existing
+1v1 restrictions. Commander Cube remains manual. The server preserves runtime
+availability checks, cluster capacity admission and all viewer privacy rules.
 
-This scope supersedes earlier multiplayer EDH delivery requirements. Existing
-EDH capabilities and dated verification below describe prior implementation;
-this documentation update does not claim that those runtime paths have been
-removed or disabled. See [the UI redesign](forge-ui-redesign.md) for the current
-presentation plan.
+The Forge UI is independent of manual-table geometry. Two participants use the
+existing opposed 1v1 presentation, three use two opponents above the viewer,
+and four use four equal battlefield panels with the viewer at bottom-left.
+The actual participant roster, not the room capacity or surviving-player
+count, determines the layout. Eliminated seats remain visible while native
+Forge continues the game. See [the EDH redesign](forge-ui-redesign.md#commanderedh-expansion--2026-09-27).
+
+This owner-authorized scope supersedes the September 15 1v1-only restriction.
+It does not change manual rooms, engine authority, deployment or release scope.
 
 ## Product modes
 
@@ -280,10 +284,12 @@ and `zone` are joined only to an identity-visible card in that viewer's current
 zones or stack. Otherwise `objectId` is absent and `zone` is `hidden`; the
 summary cannot reveal a hidden hand object, face-down identity, or non-top
 library card. Independent commanders retain independent cast histories. These
-fields are read-only and reset with a fresh engine game. The Duel table shows
-both players' summaries and routes offered commander actions through the same
-opaque action controls as other cards. Forge's payment prompt determines the
-final payable cost.
+fields are read-only and reset with a fresh engine game. When available, the
+command zone has one pile per participant, immediately after exile. Its browser
+shows the independent commander histories, including public designation and
+hidden-location summaries; the battlefield does not repeat commander art or
+summaries in a second panel. Commander cards use the same offered opaque action
+controls as other cards. Forge's payment prompt determines the final payable cost.
 
 Snapshot step names use the existing rules-table phase keys (`main1`,
 `begin_combat`, `declare_attackers`, `declare_blockers`, `combat_damage`,
@@ -548,18 +554,26 @@ spectator privacy tests pass for every newly exposed state shape.
 
 ### Current implementation status
 
-The owner-requested replacement UI now presents real two-seat Forge sessions;
+The owner-requested replacement UI presents two-, three- and four-seat Forge sessions;
 see [the Forge table redesign](forge-ui-redesign.md). `ForgeDuelTable` uses the
-existing typed session, native prompts, and WebSocket response path. Its geometry
-is independent of the manual table. Existing rooms with more than two seats
-retain `RulesLegacyLayout`; that compatibility path does not extend the current
-delivery scope to multiplayer EDH.
+existing typed session, native prompts, and WebSocket response path. Its shared
+chrome retains the existing 1v1 layout for two participants. Three/four participants
+use `ForgeMultiplayerBattlefield` and `ForgePlayerField`; none of these views
+uses the manual table or the historical `RulesLegacyLayout`. Multiplayer fields
+combine player information and public zone piles along the outside edge: above
+the upper fields and below the lower fields. Upright battlefield cards face the
+narrow center phase strip. Land/other columns follow their public pile counts,
+and the creature lanes use the remaining width and height. Turn and priority
+are indicated on each player's field without a second center status banner.
+When the phase strip is hidden, including starting-player selection and
+mulligans, the fields reclaim its space and retain only the narrow column-sized
+gutter between rows. The phase strip returns when the first turn begins.
 
 R0 and R1 are complete. The first R2 slice decodes `rules.snapshot` into a
 typed Qt session with dedicated player, zone, visible-card, and stack list
     models. Two-seat rooms use opposed creature lanes, left-side lands and other
     permanents, a bottom fanned hand with library, graveyard, exile and command
-    piles at the left of that row, and a right-side stack and decision dock.
+    piles at the left of that row, a floating stack and a bottom-right decision dock.
 The view does not connect Forge state to the manual room reducer or expose
 manual mutation commands. QML never consumes raw harness
 JSON or generic snapshot maps. Hidden library contents remain represented only
@@ -568,8 +582,14 @@ command-zone cards and the explicitly viewer-authorized library top enter the
 card model. No other library identity or ordering is exported. Two-seat Forge decisions
 occupy a reserved area beside the local hand. Ordinary priority uses a compact
 action bar; specialized choices expand upward within a bounded, scrollable
-decision area. The stack is displayed newest-first above it and scrolls
-independently. Each entry shows the ability text from the rules snapshot.
+decision area. In every Forge format the stack appears as a floating panel only
+while nonempty, newest-first with independent scrolling. Drag its header to
+move it, right-click the header to restore its default position, or use the
+header button to collapse/expand it. Collapsing keeps the stack count visible;
+after the stack empties, its next appearance is expanded. Moving, opening or
+collapsing the stack never resizes the battlefield. Positions remain bounded
+when the window changes size and reset for a new game. Each entry shows the
+ability text from the rules snapshot.
 When the card language is Chinese and that printing's Chinese rules are
 already cached, the entry shows the matching Chinese passage; otherwise it
 keeps the snapshot text. The native stack and normalized array are top-first. Each entry's
@@ -591,9 +611,9 @@ Targets are read from native metadata, independently of current target-selection
 prompts and without parsing rules text. The Settings drawer retains phase
 stops, Full control, log/chat, match controls, and optional player-hosting
 tools. Public-zone browsing opens on demand; command-zone
-buttons and tabs appear in Duel Commander and whenever either seat has command-zone
+buttons and tabs appear in Duel Commander/EDH and whenever a participant has command-zone
 objects, including dungeons and emblems in Constructed games. Zone headings use the server's
-zone counts, independently of how many card identities are disclosed. Both
+zone counts, independently of how many card identities are disclosed. All
 player plates show hand and library counts, including updates within one turn.
 Library counts never expose private library contents. When native rules allow
 looking at the top card (for example, Traveling Chocobo), the library pile and
@@ -627,12 +647,17 @@ stable visible click/drag slots and horizontal scrolling for unusually large
 hands. Battlefield grids choose readable card sizes from both available width
 and height; lands and other permanents share vertical space according to their
 counts. Extreme boards retain scrolling and exact-object keyboard/target reveal.
-A Settings button sits at the top-right corner of the two-seat table. Decision
+A Settings button sits at the top-right corner of the table. Decision
 instructions remain in the bottom-right dock rather than occupying a second
 banner above the battlefield. The idle dock overlays the corner of the hand band.
-When an expanded decision or the public stack overlaps a battlefield lane,
+When an expanded decision overlaps a battlefield lane,
 that lane fits its cards beside the panel so every physical card remains
 reachable; lanes outside the panel's vertical span retain their full width.
+Three/four-player fields extend to the right edge instead of reserving a
+permanent sidebar. The movable stack overlays that space without changing
+card positions; collapse or move it to inspect cards underneath. Its background
+consumes pointer input so dragging or right-clicking it cannot activate covered
+cards. Stack target arrows follow the panel and hide while it is collapsed.
 The dock shows turn owner, turn number,
 phase, and priority passing. A phase track overlays the center seam of the
 battlefield and does not reserve a row or move the lanes. It marks the

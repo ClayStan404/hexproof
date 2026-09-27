@@ -163,10 +163,10 @@ class I18nAuditTests(unittest.TestCase):
                 '</context></TS>',
                 encoding="utf-8",
             )
-            keys, duplicates, unfinished = i18n.catalog_messages(path)
-            self.assertEqual(keys, {("Main", "Hello")})
-            self.assertEqual(duplicates, [])
-            self.assertEqual(unfinished, [])
+            report = i18n.parse_catalog(path, 1)
+            self.assertEqual(report.valid_key_set, {("Main", "Hello")})
+            self.assertEqual(report.duplicates, [])
+            self.assertEqual(report.unfinished, [])
 
     def test_unfinished_and_duplicate_messages_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -179,9 +179,9 @@ class I18nAuditTests(unittest.TestCase):
                 '</context></TS>',
                 encoding="utf-8",
             )
-            _, duplicates, unfinished = i18n.catalog_messages(path)
-            self.assertEqual(duplicates, [("Main", "Hello")])
-        self.assertEqual(unfinished, [("Main", "Hello")])
+            report = i18n.parse_catalog(path, 1)
+            self.assertEqual(report.duplicates, [("Main", "Hello")])
+            self.assertEqual(report.unfinished, [("Main", "Hello")])
 
 
 class ServerDirectoryToolTests(unittest.TestCase):
@@ -584,9 +584,9 @@ class CardServiceBoundaryTests(unittest.TestCase):
             "    if: github.event_name == 'workflow_dispatch'",
             ci,
         )
-        self.assertGreaterEqual(
-            ci.count("if: github.event_name == 'workflow_dispatch'"), 4
-        )
+        fuzz_step = next(step for step in ci.split("      - name:")
+                         if "-fuzztime" in step)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", fuzz_step)
         self.assertIn("FuzzParseEnvelope", ci)
         self.assertIn("FuzzGameMoveSequencePreservesCards", ci)
         self.assertIn("FuzzDecodeRetainedRoom", ci)

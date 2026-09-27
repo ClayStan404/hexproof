@@ -73,7 +73,11 @@ Page {
     property string matchMode: "bo1"
     property string cardLoadMode: "preload"
     property string rulesMode: "manual"
+    readonly property bool forgeFormatAvailable: !isCubeFormat || !commanderCube
+    readonly property bool playerHostingAvailable: !isCubeFormat && roomFormat !== "edh"
     property string hostingMode: "server"
+    onPlayerHostingAvailableChanged: if (!playerHostingAvailable) hostingMode = "server"
+    onHostingModeChanged: if (!playerHostingAvailable && hostingMode !== "server") hostingMode = "server"
     property bool aiOpponent: false
     property string aiSource: "forge"
     property string aiDifficulty: "normal"
@@ -91,6 +95,8 @@ Page {
         : hub.aiModelsAvailable === true
     readonly property bool aiPractice: aiOpponentAvailable && aiOpponent
 
+    onForgeFormatAvailableChanged: if (!forgeFormatAvailable) rulesMode = "manual"
+    onRulesModeChanged: if (!forgeFormatAvailable && rulesMode !== "manual") rulesMode = "manual"
     onAiOpponentAvailableChanged: if (!aiOpponentAvailable) aiOpponent = false
     onAiPracticeChanged: if (aiPractice) matchMode = "bo1"
     Connections {
@@ -315,18 +321,20 @@ Page {
                                 SegmentedControl {
                                     Layout.fillWidth: true
                                     objectName: "forgeRulesMode"
-                                    options: [qsTr("Manual tabletop"),
-                                              qsTr("Forge rules")]
+                                    options: root.forgeFormatAvailable
+                                             ? [qsTr("Manual tabletop"), qsTr("Forge rules")]
+                                             : [qsTr("Manual tabletop")]
                                     currentIndex: root.rulesMode === "forge" ? 1 : 0
                                     onActivated: index => {
-                                        root.rulesMode = index === 1 ? "forge" : "manual"
+                                        root.rulesMode = root.forgeFormatAvailable && index === 1
+                                                         ? "forge" : "manual"
                                     }
                                 }
 
                                 RevealBlock {
                                     objectName: "forgeHostingExtras"
                                     Layout.fillWidth: true
-                                    expanded: root.rulesMode === "forge" && !root.isCubeFormat
+                                    expanded: root.rulesMode === "forge" && root.playerHostingAvailable
 
                                     SegmentedControl {
                                         objectName: "forgeHostingMode"
@@ -863,6 +871,7 @@ Page {
         const submittedName = playtestMode
                               ? qsTr("Solo playtest")
                               : roomName.trim()
+        const submittedRulesMode = !playtestMode && root.forgeFormatAvailable ? rulesMode : "manual"
         if (root.isCubeFormat) {
             const product = root.decks.cubeProduct(
                                 root.selectedCubeDeckId)
@@ -873,7 +882,7 @@ Page {
                     root.cubePlayerCap(), product, root.cubeDraftSettings())
             else
                 root.hub.createCasualLimitedEvent(submittedName, "cube_draft", matchMode,
-                    root.cubePlayerCap(), product, {}, rulesMode)
+                    root.cubePlayerCap(), product, {}, submittedRulesMode)
             return
         }
         const submittedMatchMode = root.aiPractice || root.roomFormat === "edh" ? "bo1" : matchMode
@@ -884,8 +893,8 @@ Page {
                       cardLoadMode,
                       playtestMode ? "" : roomPassword,
                       playtestMode,
-                      playtestMode ? "manual" : rulesMode,
-                      !playtestMode && rulesMode === "forge" ? hostingMode : "",
+                      submittedRulesMode,
+                      submittedRulesMode === "forge" ? (playerHostingAvailable ? hostingMode : "server") : "",
                       root.aiPractice && root.aiSource === "forge" ? aiDifficulty : "",
                       root.aiPractice ? root.aiSource : "")
     }
@@ -915,13 +924,12 @@ Page {
                 .arg(root.cubePlayerCap()).arg(root.cubeCardsRequired())
         if (root.isCubeFormat && Number(root.selectedCube.sideboardCount) > 0)
             return qsTr("Move every Cube card into the main pool")
-        if (!root.isCubeFormat && root.rulesMode === "forge" && root.hostingMode === "player") {
-            if (root.roomFormat === "edh") return qsTr("Player hosting supports two-player formats, including Duel Commander.")
+        if (root.playerHostingAvailable && root.rulesMode === "forge" && root.hostingMode === "player") {
             if (root.hub.playerHostingAvailable !== true) return qsTr("Player hosting is unavailable on this server.")
             if (!root.hub.forgeHost || !root.hub.forgeHost.ready || root.hub.forgeHost.busy) return qsTr("Prepare the local rules engine first")
         }
         if (!(root.isCubeFormat && root.commanderCube) && root.rulesMode === "forge"
-                && (root.isCubeFormat || root.hostingMode !== "player") && !root.hub.forgeRulesAvailable)
+                && (!root.playerHostingAvailable || root.hostingMode !== "player") && !root.hub.forgeRulesAvailable)
             return qsTr("Forge rules are unavailable on this server")
         if (!root.isCubeFormat && !passwordField.withinUtf8ByteLimit)
             return qsTr("Password cannot exceed 72 UTF-8 bytes.")

@@ -140,7 +140,7 @@ func TestAccountRecoveryConflictDoesNotConsumeBackup(t *testing.T) {
 			cfg := DefaultConfig()
 			cfg.AccountDir, cfg.AccountRealm = t.TempDir(), "official-test"
 			srv, h := newConfiguredTestServer(t, cfg)
-			created, err := h.accountRequest(accounts.Request{Operation: "create", Name: "Owner", DeviceName: "Original"})
+			created, err := h.accountRequest(context.Background(), accounts.Request{Operation: "create", Name: "Owner", DeviceName: "Original"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -162,7 +162,7 @@ func TestAccountRecoveryConflictDoesNotConsumeBackup(t *testing.T) {
 			if failure.Code != protocol.ErrAccountConflict {
 				t.Fatalf("unexpected recovery failure: %s", failure.Code)
 			}
-			if _, err := h.accountRequest(accounts.Request{Operation: "check", SessionToken: created.SessionToken}); err != nil {
+			if _, err := h.accountRequest(context.Background(), accounts.Request{Operation: "check", SessionToken: created.SessionToken}); err != nil {
 				t.Fatal("rejected recovery revoked the old device")
 			}
 			fresh := dial(t, srv)
@@ -199,7 +199,7 @@ func TestAccountAttachConflictPreservesExistingDevice(t *testing.T) {
 	if failure.Code != protocol.ErrAccountConflict {
 		t.Fatalf("unexpected attach failure: %s", failure.Code)
 	}
-	if _, err := h.accountRequest(accounts.Request{Operation: "check", SessionToken: created.SessionToken}); err != nil {
+	if _, err := h.accountRequest(context.Background(), accounts.Request{Operation: "check", SessionToken: created.SessionToken}); err != nil {
 		t.Fatal("rejected attachment revoked a preexisting device")
 	}
 	accountCommand(t, owner, protocol.AccountCommand{Operation: "status"})

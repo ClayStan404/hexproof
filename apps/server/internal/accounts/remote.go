@@ -64,6 +64,9 @@ func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
 	req.Header.Set("X-Hexproof-Account-Realm", r.realm)
 	resp, err := r.client.Do(req)
 	if err != nil {
+		if ctx.Err() != nil {
+			return Result{}, ctx.Err()
+		}
 		return Result{}, errors.New("account authority unavailable")
 	}
 	defer resp.Body.Close()
@@ -77,6 +80,9 @@ func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
 		return Result{}, errors.New("account authority unavailable")
 	}
 	raw, err = io.ReadAll(io.LimitReader(resp.Body, maxRecordBytes+1))
+	if err != nil && ctx.Err() != nil {
+		return Result{}, ctx.Err()
+	}
 	var out Result
 	if err != nil || len(raw) > maxRecordBytes || json.Unmarshal(raw, &out) != nil || !validID(out.Profile.ID) || !validText(out.Profile.Name, 64) {
 		return Result{}, errors.New("invalid account authority response")

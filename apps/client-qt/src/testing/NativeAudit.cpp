@@ -142,16 +142,27 @@ bool pointerReceiver(QQuickItem *item)
         }
         return false;
     }
-    if (item->acceptedMouseButtons() != Qt::NoButton)
-        return true;
+    bool hasPointerHandler = false;
     for (QObject *child : item->children()) {
         // Pointer handlers are not QQuickItems. Inspect their public QML
         // properties without depending on Qt Quick private headers.
-        if (child->inherits("QQuickPointerHandler") && child->property("enabled").toBool() &&
-            child->property("acceptedButtons").toInt() != 0)
+        if (!child->inherits("QQuickPointerHandler"))
+            continue;
+        hasPointerHandler = true;
+        if (child->property("enabled").toBool() && child->property("acceptedButtons").toInt() != 0)
             return true;
     }
-    return false;
+    // Qt retains acceptedMouseButtons after disabling an Item's handlers.
+    // A plain QQuickItem has no independent mouse consumer; actual controls
+    // and custom item subclasses still retain their own input coverage.
+    if (hasPointerHandler) {
+        const QMetaObject *nativeType = item->metaObject();
+        while (nativeType && !nativeType->metaType().isValid())
+            nativeType = nativeType->superClass();
+        if (nativeType == &QQuickItem::staticMetaObject)
+            return false;
+    }
+    return item->acceptedMouseButtons() != Qt::NoButton;
 }
 
 QQuickItem *receiverAt(QQuickItem *root, const QPointF &point)

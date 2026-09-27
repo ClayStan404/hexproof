@@ -74,7 +74,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// writePump drains sess.Send onto the WebSocket; readLoop reads inbound.
 	go h.writePump(ctx, conn, sess)
-	go websocketHeartbeat(ctx, conn)
+	go websocketHeartbeat(ctx, conn, cancel)
 	if h.accounts != nil {
 		go h.watchAccountSession(ctx, sess)
 	}
@@ -86,12 +86,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Explicit room.leave has already cleared the room binding. Any remaining
 	// membership is a transport drop and receives the bounded reconnect hold.
 	if aid := sess.Account().ID; aid != "" {
-		gate := h.accountLock(aid)
-		gate.Lock()
+		// Cleanup must finish after transport cancellation to preserve the seat hold.
+		unlock, _ := h.lockAccount(context.Background(), aid)
 		if currentRoom := sess.Room(); currentRoom != nil {
 			h.holdForReconnect(sess, currentRoom)
 		}
-		gate.Unlock()
+		unlock()
 	} else if currentRoom := sess.Room(); currentRoom != nil {
 		h.holdForReconnect(sess, currentRoom)
 	}
@@ -101,7 +101,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func websocketHeartbeat(ctx context.Context, conn *websocket.Conn) {
+func websocketHeartbeat(ctx context.Context, conn *websocket.Conn, cancel context.CancelFunc) {
+	defer cancel()
 	ticker := time.NewTicker(websocketPingEvery)
 	defer ticker.Stop()
 	for {
@@ -139,6 +140,7 @@ func (h *Handler) writePump(ctx context.Context, conn *websocket.Conn, sess *Ses
 			cancel()
 			if err != nil {
 				log.Printf("write %s: %v", sess.ConnectionID, err)
+				sess.Close()
 				_ = conn.CloseNow()
 				return
 			}
@@ -158,7 +160,7 @@ func shouldLogSessionEnd(err error) bool {
 	}
 }
 
-func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
+func (h *Handler) handleHello(ctx context.Context, sess *Session, env protocol.Envelope) error {
 	if sess.DisplayName != "" {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "session already welcomed")
 		return nil
@@ -202,15 +204,17 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 			h.accountError(sess, env.ID, accounts.ErrInvalid)
 			return nil
 		}
-		out, err := h.accountRequest(accounts.Request{Operation: "check", SessionToken: hello.AccountSession})
+		out, err := h.accountRequest(ctx, accounts.Request{Operation: "check", SessionToken: hello.AccountSession})
 		if err != nil {
 			h.accountError(sess, env.ID, err)
 			return nil
 		}
-		gate := h.accountLock(out.Profile.ID)
-		gate.Lock()
-		defer gate.Unlock()
-		if !h.acceptClusterHello(sess, hello, out.Profile.ID, env.ID) {
+		unlock, err := h.lockAccount(ctx, out.Profile.ID)
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		if !h.acceptClusterHello(ctx, sess, hello, out.Profile.ID, env.ID) {
 			return nil
 		}
 		if !h.bindAccountSession(sess, out, hello.AccountSession) {
@@ -223,7 +227,7 @@ func (h *Handler) handleHello(sess *Session, env protocol.Envelope) error {
 			hello.ResumeToken = held
 		}
 	}
-	if hello.AccountSession == "" && !h.acceptClusterHello(sess, hello, "", env.ID) {
+	if hello.AccountSession == "" && !h.acceptClusterHello(ctx, sess, hello, "", env.ID) {
 		return nil
 	}
 	forgeAvailable, aiAvailable, hostingAvailable := h.welcomeCapabilities(sess.clusterEnabled)
@@ -499,7 +503,7 @@ func (h *Handler) send(sess *Session, env protocol.Envelope) {
 		sess.Close()
 		return
 	}
-	if !sess.trySend(data) {
+	if !h.queueSessionMessage(sess, data) {
 		log.Printf("fail-closed session %s: send buffer full or already closed",
 			sess.ConnectionID)
 	}

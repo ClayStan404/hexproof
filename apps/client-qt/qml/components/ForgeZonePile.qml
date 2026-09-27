@@ -12,12 +12,13 @@ Item {
     required property int ownerSeat
     required property string zone
     property bool compact: false
+    property bool summary: false
 
     readonly property int count: tableController.zoneCount(ownerSeat, zone)
     readonly property var face: tableController.topPublicZoneCard(ownerSeat, zone)
     readonly property string cardId: face && face.cardId ? face.cardId : ""
     readonly property bool showsPublicFace:
-        !!(face && face.visibleIdentity && !face.faceDown && face.name)
+        !summary && !!(face && face.visibleIdentity && !face.faceDown && face.name)
     readonly property string shortLabel: {
         switch (zone) {
         case "library": return qsTr("Library")
@@ -35,10 +36,10 @@ Item {
         default: return Theme.borderStrong
         }
     }
-    readonly property url faceSource: showsPublicFace
+    readonly property url faceSource: summary ? "" : showsPublicFace
         ? tableController.cardImage(face.name, face.setCode || "", face.collectorNumber || "")
         : tableController.cardBackSource
-    readonly property int stackDepth: count <= 0 ? 0 : Math.min(2, count - (count > 0 ? 1 : 0))
+    readonly property int stackDepth: summary || count <= 0 ? 0 : Math.min(2, count - 1)
     readonly property real faceBudgetWidth: Math.max(0, width - stackDepth * 2 * unit)
     readonly property real faceBudgetHeight: Math.max(
         0, height - (compact ? 0 : 15 * unit) - stackDepth * 2 * unit)
@@ -48,6 +49,9 @@ Item {
 
     signal activated()
 
+    activeFocusOnTab: true
+    Keys.onReturnPressed: activated()
+    Keys.onSpacePressed: activated()
     Accessible.role: Accessible.Button
     Accessible.name: tableController.zoneLabel(zone) + " · " + count
     Accessible.onPressAction: activated()
@@ -75,8 +79,8 @@ Item {
         objectName: "forgeZonePileFace"
         x: Math.max(0, (root.faceBudgetWidth - width) / 2)
         y: 0
-        width: root.count > 0 ? root.cardFaceWidth : root.faceBudgetWidth
-        height: root.count > 0 ? root.cardFaceHeight : root.faceBudgetHeight
+        width: !root.summary && root.count > 0 ? root.cardFaceWidth : root.faceBudgetWidth
+        height: !root.summary && root.count > 0 ? root.cardFaceHeight : root.faceBudgetHeight
         radius: 7 * root.unit
         antialiasing: true
         clip: true
@@ -90,7 +94,7 @@ Item {
             objectName: "forgeZonePileArt"
             anchors.fill: parent
             anchors.margins: 2 * root.unit
-            visible: root.count > 0
+            visible: !root.summary && root.count > 0
             source: root.faceSource
             sourceSize.width: 180
             sourceSize.height: 252
@@ -105,7 +109,7 @@ Item {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: 4 * root.unit
-            visible: root.compact && root.count > 0
+            visible: !root.summary && root.compact && root.count > 0
             text: root.shortLabel
             color: "#F3F1E9"
             style: Text.Outline
@@ -119,16 +123,31 @@ Item {
         Text {
             textFormat: Text.PlainText
             anchors.centerIn: parent
-            visible: root.count <= 0
+            visible: !root.summary && root.count <= 0
             text: root.shortLabel
             color: Theme.textMuted
             font.pixelSize: 10 * root.unit
             font.weight: Font.DemiBold
         }
+
+        Text {
+            objectName: "forgeZoneSummary"
+            visible: root.summary
+            anchors.fill: parent
+            anchors.margins: 3 * root.unit
+            textFormat: Text.PlainText
+            text: root.shortLabel + "\n" + root.count
+            color: root.count > 0 ? Theme.text : Theme.textMuted
+            font.pixelSize: 11 * root.unit
+            font.weight: Font.DemiBold
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
     }
 
     Rectangle {
-        visible: root.count > 0
+        visible: !root.summary && root.count > 0
         anchors.right: pileFace.right
         anchors.top: pileFace.top
         anchors.margins: -3 * root.unit
@@ -152,7 +171,7 @@ Item {
 
     Text {
         textFormat: Text.PlainText
-        visible: !root.compact
+        visible: !root.compact && !root.summary
         anchors.horizontalCenter: pileFace.horizontalCenter
         anchors.top: pileFace.bottom
         anchors.topMargin: 2 * root.unit

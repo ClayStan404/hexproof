@@ -43,6 +43,7 @@ Item {
     property bool productionSetup: false
     readonly property bool formatStudy: existingLimitedMatch || variant.startsWith("format-")
     property double priorityUiReadyAt: 0
+    property string decisionWaitReason: ""
     property var navigationRetries: ({})
     readonly property bool spectator: !existingLimitedMatch && seat > 2
     property bool checkedRuntime: false
@@ -152,6 +153,8 @@ Item {
                 reservedTokens:ws.modelOpponent.reservedTokens, aiStatus:ws.roomSession.aiStatus} : null,
             gameId:session.gameId, turn:session.turn, step:session.step,
             promptId:session.promptId, promptKind:session.promptKind, promptPending:session.promptPending,
+            promptSupported:session.promptSupported, decisionWaitReason:decisionWaitReason,
+            priorityUiDelayMs:Math.max(0, priorityUiReadyAt - Date.now()), capturedStack:capturedStack,
             rulesResponsePending:ws.rulesResponsePending, roomConnected:table ? table.roomConnected : false,
             priorityState:table && table.priority ? {blocked:table.priorityInputBlocked, canPass:table.priority.canPass,
                 fullControl:table.priority.fullControl, automatic:table.priority.automaticallyPassing,
@@ -175,11 +178,9 @@ Item {
             sideboardMoves:boardMoveStage, score:ws.gameSession.score}
     }
     function commander() {
-        // Read the actual typed delegate even when an inspection overlay covers
-        // it. Input selectors intentionally reject covered targets.
-        const panel = table && table.presentation ? table.presentation.children.find(child =>
-            child.objectName === "forgeCommanders-" + ws.roomSession.seatIndex) : null
-        return panel && panel.commanders.length ? panel.commanders[0] : null
+        const entries = table && table.presentation
+            ? table.presentation.commandersFor(ws.roomSession.seatIndex) : []
+        return entries.length ? entries[0] : null
     }
     function interrupt(where) {
         resumeState = {where:where, gameId:session.gameId, promptId:session.promptId,
@@ -272,11 +273,6 @@ Item {
             progress = Date.now()
             return true
         }
-        const commanderControl = format === "duel" ? item("forgeCommander-" + ws.roomSession.seatIndex + "-0") : null
-        if (commanderControl && commanderControl.objectId === option.cardId && commanderControl.actionable) {
-            require(auditProbe.click(commanderControl), "Cannot activate commander action")
-            progress = Date.now(); return true
-        }
         if (click("rulesZoneAction-" + option.responseId)) return true
         if (click("rulesPromptOption-" + option.responseId)) return true
         const zoneIndex = table.interaction.zoneActions.findIndex(action =>
@@ -347,27 +343,40 @@ Item {
         }
     }
     function act() {
+        decisionWaitReason = "pending supported prompt"
         if (!session.promptPending || ws.rulesResponsePending || !session.promptSupported) return
+        decisionWaitReason = "window focus"
         if (!auditWindow.active) require(auditProbe.activate(), "Cannot focus the deciding player")
         // Focusing pumps real events. Re-read the decision before resolving a
         // control; automatic priority may have advanced while focus changed.
         if (!session.promptPending || ws.rulesResponsePending || !session.promptSupported) return
+        decisionWaitReason = "automatic priority"
         if (session.promptKind === "chooseAction" && table.priority.automaticallyPassing) return
+        decisionWaitReason = "priority settings settle"
         if (Date.now() < priorityUiReadyAt) return
         const fullControl = improviseStudy || stackStudy || pauperStudy || graveyardPaymentStudy || (!capturedStack && !persistentStateStudy)
         if (session.promptKind === "chooseAction" && table.priority.fullControl !== fullControl) {
+            decisionWaitReason = "priority settings input"
             // Wait for the drawer's actual control across its opening transition.
             // Configure priority before applying the modal gameplay-input guard.
             // Keep the first stack visible before returning to smart priority.
             const mode = item("rulesPriorityMode")
-            if (!mode) click("forgeGameMenu")
-            else if (auditProbe.click(mode, mode.width * (fullControl ? 0.75 : 0.25), mode.height / 2)) {
+            if (!mode) {
+                if (!table.presentation.modalOpen) click("forgeGameMenu")
+            } else {
+                const x = mode.width * (fullControl ? 0.75 : 0.25)
+                const y = mode.height / 2
+                const point = mode.mapToItem(auditWindow.contentItem, x, y)
+                if (point.x < 0 || point.x >= auditWindow.width || point.y < 0 || point.y >= auditWindow.height) return
+                require(auditProbe.click(mode, x, y), "Cannot select priority mode")
                 require(auditProbe.key(Qt.Key_Escape), "Cannot close priority settings")
                 priorityUiReadyAt = Date.now() + 500
             }
             return
         }
+        decisionWaitReason = "gameplay input unblocked"
         if (table.priorityInputBlocked && !table.presentation.decisionDialogActive) return
+        decisionWaitReason = "native game action"
         if (session.promptId !== promptId) {
             promptId = session.promptId; decisions++; progress = Date.now()
             seenKinds[session.promptKind] = true
@@ -564,9 +573,10 @@ Item {
         if (PeerStudy.tick(driver, ws, auditProbe)) return
         if (MigrationStudy.tick(driver, ws, auditProbe)) return
         if (recoveryAudit && recoverHostedGame()) return
-        // A real-deck turn can contain many decisions. Spectators and the
-        // human facing a model observe its published progress, not its prompts.
-        if ((spectator || modelPractice) && session.active && session.snapshotRevision !== observedSnapshot) {
+        // A player may wait through a long opponent turn without receiving a
+        // private prompt. Published state changes still demonstrate progress;
+        // the runner's absolute deadline bounds the entire match.
+        if (session.active && session.snapshotRevision !== observedSnapshot) {
             observedSnapshot = session.snapshotRevision
             progress = Date.now()
         }

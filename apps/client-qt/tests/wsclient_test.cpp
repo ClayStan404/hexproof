@@ -1106,6 +1106,75 @@ void TestWsClient::rulesPriorityHintsStayConservative() const
     QVERIFY(session.stackObjectIds().isEmpty());
 }
 
+void TestWsClient::rulesSeatBattlefieldsTrackControlAndPrivacy() const
+{
+    using namespace hexproof::client;
+    bool ok = false;
+    auto snapshot = sharedFixture(u"rules-snapshot-owner.json"_s, &ok).payload;
+    QVERIFY(ok);
+    QJsonArray cards;
+    for (int index = 0; index < 12; ++index) {
+        cards.append(QJsonObject{{u"id"_s, u"permanent-%1"_s.arg(index)},
+                                 {u"ownerSeat"_s, 0},
+                                 {u"controllerSeat"_s, index % 4},
+                                 {u"visible"_s, true},
+                                 {u"identity"_s, QJsonObject{{u"name"_s, u"Grizzly Bears"_s}}},
+                                 {u"power"_s, u"2"_s},
+                                 {u"toughness"_s, u"2"_s}});
+    }
+    auto zones = snapshot.value(u"zones"_s).toArray();
+    zones.append(QJsonObject{{u"zone"_s, u"battlefield"_s},
+                             {u"ownerSeat"_s, 0},
+                             {u"count"_s, cards.size()},
+                             {u"cards"_s, cards}});
+    snapshot.insert(u"zones"_s, zones);
+    RulesSessionState session;
+    auto *near = session.battlefieldCardsForSeat(0);
+    auto *opponent = session.battlefieldCardsForSeat(1);
+    auto *far = session.battlefieldCardsForSeat(3);
+    QAbstractItemModelTester nearTester(near,
+                                        QAbstractItemModelTester::FailureReportingMode::QtTest);
+    QAbstractItemModelTester opponentTester(opponent,
+                                            QAbstractItemModelTester::FailureReportingMode::QtTest);
+    QAbstractItemModelTester farTester(far, QAbstractItemModelTester::FailureReportingMode::QtTest);
+    QVERIFY(session.applySnapshot(snapshot));
+    QCOMPARE(session.battlefieldCards()->rowCount(), 12);
+    for (int seat = 0; seat < 4; ++seat) {
+        auto *model = session.battlefieldCardsForSeat(seat);
+        QCOMPARE(model->rowCount(), 3);
+        QCOMPARE(model->roleNames(), session.battlefieldCards()->roleNames());
+        for (int row = 0; row < model->rowCount(); ++row)
+            QCOMPARE(model->index(row, 0).data(RulesCardModel::ControllerSeatRole).toInt(), seat);
+    }
+    QCOMPARE(session.battlefieldCardsForSeat(-1), nullptr);
+    QPersistentModelIndex stable(near->index(0, 0));
+    QSignalSpy resets(near, &QAbstractItemModel::modelReset);
+    auto stolen = cards[1].toObject();
+    stolen.insert(u"controllerSeat"_s, 3);
+    cards[1] = stolen;
+    auto hidden = cards[0].toObject();
+    hidden.insert(u"visible"_s, false);
+    hidden.insert(u"faceDown"_s, true);
+    cards[0] = hidden;
+    auto battlefield = zones.last().toObject();
+    battlefield.insert(u"cards"_s, cards);
+    zones[zones.size() - 1] = battlefield;
+    snapshot.insert(u"zones"_s, zones);
+    QVERIFY(session.applySnapshot(snapshot));
+    QCOMPARE(opponent->rowCount(), 2);
+    QCOMPARE(far->rowCount(), 4);
+    QCOMPARE(resets.count(), 0);
+    QVERIFY(stable.isValid());
+    QCOMPARE(stable.data(RulesCardModel::IdRole).toString(), u"permanent-0"_s);
+    QVERIFY(stable.data(RulesCardModel::NameRole).toString().isEmpty());
+    QVERIFY(stable.data(RulesCardModel::FaceDownRole).toBool());
+    session.clear();
+    QCOMPARE(near->rowCount(), 0);
+    QCOMPARE(opponent->rowCount(), 0);
+    QCOMPARE(far->rowCount(), 0);
+    QCOMPARE(session.battlefieldCardsForSeat(0), near);
+}
+
 void TestWsClient::rulesSnapshotModelsPreserveUnchangedRows() const
 {
     using namespace hexproof::client;

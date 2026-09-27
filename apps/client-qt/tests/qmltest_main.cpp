@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
+#include "UiLanguages.h"
 #include "models/ClientPreferencesModel.h"
 #include "models/GameTableModel.h"
 #include "models/OptimisticCommandModel.h"
 #include "models/SideboardTableModel.h"
+#include "services/DraftSimulator.h"
 #include "services/LimitedDeckDraftStore.h"
 #include "services/PublicContentService.h"
 #include "services/RulesCombatModel.h"
@@ -472,6 +474,8 @@ class QmlTestSetup : public QObject
         });
         auto *translations = new hexproof::client::TranslationController(engine, engine);
         engine->rootContext()->setContextProperty(QStringLiteral("testTranslations"), translations);
+        engine->rootContext()->setContextProperty(QStringLiteral("uiLanguages"),
+                                                  hexproof::client::uiLanguages::qmlOptions());
         engine->rootContext()->setContextProperty(
             QStringLiteral("preferences"),
             new hexproof::client::ClientPreferencesModel(m_preferencesStorage.path(), engine));
@@ -525,6 +529,27 @@ class QmlTestSetup : public QObject
         engine->rootContext()->setContextProperty(
             QStringLiteral("testLimitedDraftStore"),
             new hexproof::client::LimitedDeckDraftStore(m_draftStorage.path(), engine));
+        auto *simulator = new hexproof::client::DraftSimulator(engine);
+        simulator->setPackGenerator([](const QVariantMap &product, int count) {
+            QVariantList packs;
+            for (int pack = 0; pack < count; ++pack) {
+                QVariantList cards;
+                for (int card = 0; card < product.value(QStringLiteral("cardsPerPack")).toInt();
+                     ++card)
+                    cards.append(QVariantMap{{"name", "Test creature"},
+                                             {"setCode", "TST"},
+                                             {"collectorNumber", QString::number(card)},
+                                             {"typeLine", "Creature"},
+                                             {"rarity", "common"},
+                                             {"cardColors", "U"},
+                                             {"manaCost", "{1}{U}"},
+                                             {"manaValue", 2}});
+                packs.append(QVariantMap{{"cards", cards}});
+            }
+            return packs;
+        });
+        simulator->setDeckSaver([](const QString &, const QVariantMap &) { return QString{}; });
+        engine->rootContext()->setContextProperty(QStringLiteral("testDraftSimulator"), simulator);
     }
 
   private:

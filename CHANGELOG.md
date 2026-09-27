@@ -7,6 +7,62 @@ Hexproof versions the coordinated client and server together; both must match
 exactly. Card-database releases use the separate **card-data** channel;
 application changes that use new catalog metadata are included here.
 
+## [Unreleased]
+
+## [2.4.0] - 2026-09-28
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.4.0**; application versions
+  must match exactly.
+- Update server-managed Forge runtimes to native adapter revision **25**, based
+  on official Forge revision `0485ad49fb10c8ef5b3eda2a002c963d59be71dc`.
+  Creator-hosted games use the matching verified base and bundled overlay.
+- Dependency readiness and aggregate control-plane diagnostics are available
+  through `/readyz`; `/healthz` retains its liveness behavior.
+
+### Fixed
+
+- Reject populated unfinished translations in the strict i18n audit, and use
+  localized Magic terminology consistently across gameplay prompts and logs.
+- Translate the new offline draft practice screens and errors in every shipped
+  interface language when integrating the concurrent client changes.
+- Isolate account command admission and durable account writes so slow work for
+  one identity cannot stall unrelated players. Propagate cancellation through
+  pending admission and account/cluster requests while preserving atomic commits.
+- Keep cluster capability reads independent of network latency, bound concurrent
+  control requests and reject stale responses after node re-registration.
+- Prevent a search-status observer's new query from being overwritten by the
+  preceding search completion.
+- Replace cached cluster directory metadata completely when nodes publish
+  changed capabilities, keeping room creation choices current.
+
+### Changed
+
+- Give official-node transfer, card/token search and Limited deck construction
+  explicit state owners while preserving their existing client interfaces.
+- Present every Forge format on the dedicated table, with a movable,
+  collapsible stack, compact player controls and battlefields that adapt card
+  grouping and spacing to the available area. Commander zones use the same
+  inspection and casting controls throughout.
+- Upgrade the Forge base, improving exact printing coverage and incorporating
+  upstream token-resolution, casting and AI fixes.
+
+### Added
+
+- Add Japanese, French, German, Spanish, Italian, Brazilian Portuguese and
+  Traditional Chinese interface languages, independent of card language.
+- Add offline solo draft practice with the new practice screens and errors
+  localized in every shipped interface language.
+- Add server-hosted Commander/EDH for two to four players with 40 starting life,
+  BO1 games, commander controls and stable seats after elimination. Three-player
+  and four-player tables retain separate public fields and private hands.
+- Separate dependency readiness from server liveness, with bounded aggregate
+  control-plane timings and publication failure/recovery diagnostics.
+- Run gameplay and control-plane race checks automatically for server changes.
+- Add repeatable account, storage and cluster interference benchmarks with
+  historical comparisons, latency percentiles and preserved measurement logs.
+
 ## [2.3.0] - 2026-09-27
 
 ### Upgrade notes

@@ -150,7 +150,7 @@ func (h *Handler) sendModel(sess *Session, kind string, payload any) {
 		sess.Close()
 		return
 	}
-	sess.trySend(raw)
+	h.queueSessionMessage(sess, raw)
 }
 
 func (h *Handler) serveModelWorker(w http.ResponseWriter, request *http.Request) {
@@ -197,7 +197,7 @@ func (h *Handler) serveModelWorker(w http.ResponseWriter, request *http.Request)
 	}
 	conn.SetReadLimit(1 << 20)
 	go h.writePump(ctx, conn, sess)
-	go websocketHeartbeat(ctx, conn)
+	go websocketHeartbeat(ctx, conn, stop)
 	h.sendModel(sess, protocol.TypeAIAttached, protocol.AIAttached{RoomID: r.ID})
 	h.refreshModelDecision(r)
 	h.publishModelStatus(r)

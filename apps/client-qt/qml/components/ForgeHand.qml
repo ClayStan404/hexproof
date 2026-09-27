@@ -8,6 +8,7 @@ Item {
     id: root
     required property var tableController
     property real unit: 1
+    property bool showCount: true
     property int ownerSeat: tableController.handOwnerSeat
     property var visibleCards: []
     readonly property bool crowded: visibleCards.length > 9
@@ -49,8 +50,10 @@ Item {
         function onSnapshotChanged() { refresh.restart() }
     }
     Text {
+        objectName: "forgeHandCaption"
+        visible: root.showCount || root.ownerSeat < 0 || root.tableController.canViewSpectatorHands
         textFormat: Text.PlainText
-        y: -16 * root.unit
+        y: (root.showCount ? -16 : 6) * root.unit
         text: root.ownerSeat < 0 ? qsTr("Hands are hidden from spectators in this room")
             : root.tableController.canViewSpectatorHands ? qsTr("%1 — hand (read only)").arg(root.tableController.matchUi.playerName(root.ownerSeat))
             : qsTr("Hand · %1").arg(root.visibleCards.length)

@@ -22,17 +22,20 @@ Rectangle {
     readonly property bool modalOpen: gameMenu.opened || zonePopup.opened || hostingOptions.opened
         || cardChoiceDialog.visible || damageDialog.visible
     readonly property real unit: Math.min(width / 1600, height / 1000)
-    readonly property int bottomSeat: tableController.handOwnerSeat >= 0 ? tableController.handOwnerSeat : 0
-    readonly property int topSeat: bottomSeat === 0 ? 1 : 0
+    property var playerSeats: []
+    readonly property bool multiplayer: playerSeats.length > 2
+    readonly property int bottomSeat: playerSeats.includes(tableController.handOwnerSeat)
+        ? tableController.handOwnerSeat : playerSeats.length ? playerSeats[0] : 0
+    readonly property int topSeat: playerSeats.find(seat => seat !== bottomSeat) ?? (bottomSeat === 0 ? 1 : 0)
     readonly property var session: tableController.rulesSession
     readonly property bool replayMode: tableController.replayMode === true
-    readonly property real replayInfoWidth: (commanderFormat ? 430 : 240) * unit
+    readonly property real replayInfoWidth: 240 * unit
     readonly property var combat: tableController.combatInteraction
     readonly property bool combatAiming: combat.canAct && !!combat.chosenSource
         && combatPointer.hovered && !modalOpen && (!appWindow || appWindow.active)
-    readonly property bool commanderFormat: tableController.roomSession.format === "duel"
+    readonly property bool commanderFormat: ["duel", "edh"].includes(tableController.roomSession.format)
     readonly property bool commandZoneAvailable: commanderFormat
-        || tableController.zoneCount(0, "command") > 0 || tableController.zoneCount(1, "command") > 0
+        || playerSeats.some(seat => tableController.zoneCount(seat, "command") > 0)
     readonly property var browsableZones: commandZoneAvailable
         ? ["library", "graveyard", "exile", "command"] : ["library", "graveyard", "exile"]
     readonly property bool sidePanelOpen: !tableController.sideboarding
@@ -47,13 +50,13 @@ Rectangle {
     readonly property real zoneRowGap: 8 * unit
     readonly property real zoneRowWidth: browsableZones.length * zonePileWidth
         + Math.max(0, browsableZones.length - 1) * zoneRowGap
-    readonly property real handLeft: boardLeft + zoneRowWidth + 10 * unit
+    readonly property real handLeft: multiplayer ? boardLeft : boardLeft + zoneRowWidth + 10 * unit
     readonly property real centerLeft: boardLeft
     readonly property real centerWidth: boardWidth
     readonly property real handBandHeight: 126 * unit
     readonly property real opponentZoneTop: 6 * unit
     readonly property real handTop: root.height - handBandHeight
-    readonly property real battlefieldTop: opponentZoneTop + zonePileHeight + 6 * unit
+    readonly property real battlefieldTop: multiplayer ? 12 * unit : opponentZoneTop + zonePileHeight + 6 * unit
     readonly property real battlefieldBottom: handTop - 6 * unit
     readonly property real battlefieldMiddle: (battlefieldTop + battlefieldBottom) / 2
     readonly property real laneHeight: (battlefieldBottom - battlefieldTop - 12 * unit) / 2
@@ -67,6 +70,7 @@ Rectangle {
         : session.activeSeat === tableController.localSeat ? qsTr("Your turn")
         : qsTr("%1's turn").arg(tableController.matchUi.playerName(session.activeSeat))
     readonly property bool turnReady: session.active && session.turn > 0 && session.activeSeat >= 0 && !session.gameOver
+    readonly property bool phaseTrackVisible: turnReady && !tableController.sideboarding
     readonly property bool ownTurn: turnReady && session.activeSeat === tableController.localSeat
     readonly property bool localPriority: tableController.priority
         && tableController.priority.isPriorityPrompt
@@ -104,13 +108,49 @@ Rectangle {
     }
     readonly property string turnCalloutText: !turnReady ? ""
         : session.activeSeat === tableController.localSeat ? qsTr("My turn")
-        : tableController.localSeat < 0 ? turnOwner : qsTr("Opponent's turn")
+        : tableController.localSeat < 0 || multiplayer ? turnOwner : qsTr("Opponent's turn")
     readonly property var stackTarget: stackPanel.currentTarget
     readonly property string locatedId: stackTarget && stackTarget.kind === "card" ? stackTarget.objectId : ""
     readonly property int locatedSeat: stackTarget && stackTarget.kind === "player" ? stackTarget.seat : -1
-    property string displayedGame: session.gameId
+    property string displayedGame: ""
     objectName: "forgeDuelTable"
     color: "transparent"
+
+    function refreshSeats() {
+        const seats = []
+        for (let index = 0; index < roster.count; ++index) {
+            const item = roster.itemAt(index) as SeatEntry
+            if (item) seats.push(item.seat)
+        }
+        playerSeats = seats
+    }
+    component SeatEntry: Item {
+        required property int seat
+        required property var commanders
+        visible: false
+    }
+    function commandersFor(seat) {
+        for (let index = 0; index < roster.count; ++index) {
+            const player = roster.itemAt(index) as SeatEntry
+            if (player && player.seat === seat) return player.commanders
+        }
+        return []
+    }
+    Repeater {
+        id: roster
+        model: root.session.players
+        onItemAdded: Qt.callLater(root.refreshSeats)
+        onItemRemoved: Qt.callLater(root.refreshSeats)
+        delegate: SeatEntry {}
+    }
+    ForgeMultiplayerBattlefield {
+        id: multiplayerBoard
+        presentation: root
+        x: root.boardLeft; y: root.battlefieldTop
+        width: root.boardWidth; height: root.battlefieldBottom - y
+        z: 1
+        visible: root.multiplayer && !root.tableController.sideboarding
+    }
 
     HoverHandler {
         id: combatPointer
@@ -143,18 +183,20 @@ Rectangle {
         return Math.max(floor, Math.min(cap, need))
     }
 
-    function laneWidth(top, laneHeight) {
+    function unobscuredRight(top, extent) {
         let right = root.boardRight
-        // Expanded decisions and the public stack must not cover cards that
-        // players need to inspect, target, tap or assign in combat.
-        for (const panel of [decisionDock, stackPanel]) {
-            if (panel.visible && top < panel.y + panel.height && top + laneHeight > panel.y)
+        // Keep native decision controls clear of cards. The movable stack
+        // floats over the battlefield and never reserves a column.
+        for (const panel of [decisionDock, settingsButton]) {
+            if (panel.visible && top < panel.y + panel.height && top + extent > panel.y)
                 right = Math.min(right, panel.x - 12 * root.unit)
         }
-        return Math.max(0, right - root.boardLeft)
+        return right
     }
+    function laneWidth(top, laneHeight) { return Math.max(0, unobscuredRight(top, laneHeight) - root.boardLeft) }
 
     function pointFor(id) {
+        if (multiplayer) return multiplayerBoard.pointFor(id, root)
         const lanes = [ownCreatures, opponentCreatures, ownLands, opponentLands, ownOther, opponentOther]
         for (const lane of lanes) {
             const point = lane.pointFor(id, root)
@@ -163,6 +205,7 @@ Rectangle {
         return Qt.point(0, 0)
     }
     function playerPoint(seat) {
+        if (multiplayer) return multiplayerBoard.playerPoint(seat, root)
         for (let i = 0; i < plates.count; ++i) {
             const plate = plates.itemAt(i) as PlayerPlate
             if (plate && plate.seat === seat) {
@@ -173,6 +216,7 @@ Rectangle {
         return Qt.point(0, 0)
     }
     function reveal(id) {
+        if (multiplayer) return multiplayerBoard.reveal(id)
         for (const lane of [ownCreatures, opponentCreatures, ownLands, opponentLands, ownOther, opponentOther]) {
             if (lane.reveal(id)) return true
         }
@@ -200,16 +244,19 @@ Rectangle {
             stackPanel.clearSelection()
         }
         function onSnapshotChanged() {
+            Qt.callLater(root.refreshSeats)
             if (root.displayedGame !== root.session.gameId) {
                 root.displayedGame = root.session.gameId
                 gameMenu.close()
                 zonePopup.close()
                 stackPanel.clearSelection()
+                stackPanel.resetPosition()
+                stackPanel.collapsed = false
             }
             root.scheduleTurnCallout()
         }
     }
-    Component.onCompleted: announceTurn()
+    Component.onCompleted: { displayedGame = session.gameId; refreshSeats(); announceTurn() }
     function scheduleTurnCallout() {
         Qt.callLater(root.announceTurn)
     }
@@ -473,116 +520,14 @@ Rectangle {
     }
     Repeater {
         id: plates
-        model: root.session.players
+        model: root.multiplayer ? null : root.session.players
         delegate: PlayerPlate {}
-    }
-    Repeater {
-        model: root.session.players
-        delegate: Column {
-            id: commandersPanel
-            required property int seat
-            required property var commanders
-            objectName: "forgeCommanders-" + seat
-            x: root.replayMode ? root.boardRight - width
-                : Math.max(root.boardLeft, root.boardLeft + (root.boardWidth - 176 * root.unit) / 2 - width - 8 * root.unit)
-            y: seat === root.bottomSeat
-               ? root.handTop - (root.replayMode ? 0 : 50 * root.unit)
-                 - (root.localPriority ? 18 * root.unit : 0)
-               : 6 * root.unit
-            z: 26
-            width: Math.min(220 * root.unit, (root.centerWidth - 176 * root.unit) / 2 - 10 * root.unit)
-            spacing: 4 * root.unit
-            visible: root.commanderFormat && !root.tableController.sideboarding
-            Repeater {
-                model: commandersPanel.commanders
-                delegate: Item {
-                    id: commanderEntry
-                    required property var modelData
-                    required property int index
-                    readonly property string objectId: modelData.objectId || ""
-                    readonly property bool actionable: objectId.length > 0 && root.tableController.interaction.objectActionable("card", objectId)
-                    readonly property bool publicFace: !!modelData.name && modelData.zone !== "hidden"
-                    readonly property string summary: qsTr("Casts %1 · Tax +%2 · %3").arg(modelData.casts).arg(modelData.tax)
-                        .arg(modelData.zone === "hidden" ? qsTr("Hidden zone") : root.tableController.zoneLabel(modelData.zone))
-                    objectName: "forgeCommander-" + commandersPanel.seat + "-" + index
-                    width: commandersPanel.width
-                    height: 44 * root.unit
-                    activeFocusOnTab: objectId.length > 0
-                    function activate() {
-                        if (actionable) root.tableController.interaction.activateObject("card", objectId, modelData.name)
-                        else if (objectId.length > 0) root.tableController.openCardDetails(objectId)
-                    }
-                    Keys.onReturnPressed: activate()
-                    Keys.onSpacePressed: activate()
-                    Accessible.role: Accessible.Button
-                    Accessible.name: (typeof root.tableController.cardDisplayName === "function"
-                                      ? root.tableController.cardDisplayName(modelData.name)
-                                      : modelData.name) + ", " + summary
-                    Accessible.onPressAction: activate()
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 8 * root.unit
-                        antialiasing: true
-                        color: Theme.withAlpha(Theme.surface, commanderEntry.actionable || commanderEntry.activeFocus ? 0.78 : 0.48)
-                        border.width: commanderEntry.actionable || commanderEntry.activeFocus ? 2 : 0
-                        border.color: Theme.accent
-                    }
-                    Image {
-                        x: 4 * root.unit
-                        y: 4 * root.unit
-                        width: 26 * root.unit
-                        height: 36 * root.unit
-                        source: commanderEntry.publicFace
-                                ? root.tableController.cardImage(commanderEntry.modelData.name, "", "")
-                                : root.tableController.cardBackSource
-                        sourceSize.width: 80
-                        sourceSize.height: 112
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                    }
-                    Column {
-                        x: 34 * root.unit
-                        y: 5 * root.unit
-                        width: parent.width - 40 * root.unit
-                        spacing: 1 * root.unit
-                        Text {
-                            objectName: "forgeCommanderName-" + commandersPanel.seat + "-" + commanderEntry.index
-                            textFormat: Text.PlainText
-                            width: parent.width
-                            text: typeof root.tableController.cardDisplayName === "function"
-                                  ? root.tableController.cardDisplayName(commanderEntry.modelData.name)
-                                  : commanderEntry.modelData.name
-                            elide: Text.ElideRight
-                            color: Theme.accent
-                            font.pixelSize: 11 * root.unit
-                            font.weight: Font.DemiBold
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            width: parent.width
-                            text: qsTr("+%1 · %2").arg(commanderEntry.modelData.tax)
-                                  .arg(commanderEntry.modelData.zone === "hidden"
-                                       ? qsTr("Hidden") : root.tableController.zoneLabel(commanderEntry.modelData.zone))
-                            elide: Text.ElideRight
-                            color: Theme.textSecondary
-                            font.pixelSize: 10 * root.unit
-                        }
-                    }
-                    TapHandler { onTapped: commanderEntry.activate() }
-                    ToolTip.visible: commanderHover.hovered
-                    ToolTip.text: (typeof root.tableController.cardDisplayName === "function"
-                                   ? root.tableController.cardDisplayName(modelData.name)
-                                   : modelData.name) + "\n" + summary + "\n" + qsTr("Tax is additional to the spell's cost; Forge calculates payment.")
-                    HoverHandler { id: commanderHover }
-                }
-            }
-        }
     }
     Row {
         id: phaseTrack
         objectName: "forgePhaseTrack"
-        // Overlay the center seam. It does not change lane geometry, and it
-        // drops below the opponent-deciding banner so the current step stays visible.
+        // Multiplayer fields reserve this strip only while it is visible.
+        // In 1v1 it overlays the lanes and drops below the deciding banner.
         x: root.boardLeft
         y: {
             const centered = root.battlefieldMiddle - height / 2
@@ -591,13 +536,12 @@ Rectangle {
             return Math.min(opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
                              root.battlefieldBottom - height)
         }
-        width: Math.max(0, Math.min(root.boardWidth,
-                         (decisionDock.visible ? decisionDock.x : root.boardRight) - x - 8 * root.unit))
+        width: root.laneWidth(y, height)
         height: 18 * root.unit
         z: 45
         spacing: 2 * root.unit
         enabled: false
-        visible: root.turnReady && !root.tableController.sideboarding
+        visible: root.phaseTrackVisible
         readonly property var steps: [
             "untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers",
             "declare_blockers", "combat_damage", "end_combat", "main2", "end", "cleanup"
@@ -649,12 +593,12 @@ Rectangle {
     Item {
         id: opponentDecidingBanner
         objectName: "forgeOpponentDeciding"
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: root.boardLeft + (root.boardWidth - width) / 2
         y: root.battlefieldMiddle - height / 2
         z: 90
         enabled: false
-        visible: root.opponentDeciding && !root.modalOpen
-        width: decidingLabel.implicitWidth + 28 * root.unit
+        visible: !root.multiplayer && root.opponentDeciding && !root.modalOpen
+        width: Math.min(root.boardWidth, decidingLabel.implicitWidth + 28 * root.unit)
         height: decidingLabel.implicitHeight + 14 * root.unit
         Rectangle {
             anchors.fill: parent
@@ -667,16 +611,20 @@ Rectangle {
             id: decidingLabel
             objectName: "forgeOpponentDecidingText"
             anchors.centerIn: parent
+            width: parent.width - 28 * root.unit
             textFormat: Text.PlainText
-            text: qsTr("Opponent is deciding")
+            text: root.multiplayer ? root.tableController.matchUi.playerName(root.session.prioritySeat)
+                + " · " + qsTranslate("RulesBattlefieldView", "Priority") : qsTr("Opponent is deciding")
             color: "#f0c7bc"
             font.pixelSize: 18 * root.unit
             font.weight: Font.Bold
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
         }
     }
     Rectangle {
         objectName: "forgeActiveBattlefield"
-        visible: root.turnReady && !root.tableController.sideboarding
+        visible: !root.multiplayer && root.turnReady && !root.tableController.sideboarding
         x: root.boardLeft
         y: root.session.activeSeat === root.bottomSeat ? root.battlefieldMiddle : root.battlefieldTop
         width: root.boardWidth
@@ -718,11 +666,14 @@ Rectangle {
             id: calloutLabel
             objectName: "forgeTurnCalloutText"
             anchors.centerIn: parent
+            width: parent.width - 72 * root.unit
             textFormat: Text.PlainText
             text: turnCallout.message
             color: root.ownTurn ? Theme.accent : "#f0c7bc"
             font.pixelSize: 44 * root.unit
             font.weight: Font.Black
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
         }
         Timer {
             id: hold
@@ -746,12 +697,12 @@ Rectangle {
         height: root.rowNeed(stackCount, true, hasBadges)
         tableController: root.tableController
         unit: root.unit
-        ownerSeat: root.topSeat
+        ownerSeat: root.multiplayer ? -1 : root.topSeat
         category: "land"
         showCaption: false
         maxFaceWidth: root.landFaceWidth
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: opponentOther
@@ -762,12 +713,12 @@ Rectangle {
         height: root.rowNeed(stackCount, false, hasBadges)
         tableController: root.tableController
         unit: root.unit
-        ownerSeat: root.topSeat
+        ownerSeat: root.multiplayer ? -1 : root.topSeat
         category: "other"
         showCaption: false
         maxFaceWidth: root.otherFaceWidth
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: opponentCreatures
@@ -778,11 +729,11 @@ Rectangle {
         height: Math.max(0, root.laneHeight - root.opponentBackHeight)
         tableController: root.tableController
         unit: root.unit
-        ownerSeat: root.topSeat
+        ownerSeat: root.multiplayer ? -1 : root.topSeat
         showCaption: false
         combatForward: 1
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: ownCreatures
@@ -793,11 +744,11 @@ Rectangle {
         height: Math.max(0, root.laneHeight - root.ownBackHeight)
         tableController: root.tableController
         unit: root.unit
-        ownerSeat: root.bottomSeat
+        ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         showCaption: false
         combatForward: -1
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: ownOther
@@ -808,12 +759,12 @@ Rectangle {
         height: root.rowNeed(stackCount, false, hasBadges)
         tableController: root.tableController
         unit: root.unit
-        ownerSeat: root.bottomSeat
+        ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         category: "other"
         showCaption: false
         maxFaceWidth: root.otherFaceWidth
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
         id: ownLands
@@ -824,12 +775,12 @@ Rectangle {
         height: root.rowNeed(stackCount, true, hasBadges)
         tableController: root.tableController
         unit: root.unit
-        ownerSeat: root.bottomSeat
+        ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         category: "land"
         showCaption: false
         maxFaceWidth: root.landFaceWidth
         locatedId: root.locatedId
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
     }
     DropArea {
         objectName: "forgeHandDropArea"
@@ -837,7 +788,7 @@ Rectangle {
         y: ownCreatures.y
         width: root.boardWidth
         height: Math.max(0, root.battlefieldBottom - ownCreatures.y)
-        enabled: !root.tableController.sideboarding && root.tableController.localSeat >= 0
+        enabled: !root.multiplayer && !root.tableController.sideboarding && root.tableController.localSeat >= 0
         keys: ["hexproof/rules-card"]
         onDropped: drop => {
             if (root.tableController.playDraggedHandCardSource(drop.source)) drop.acceptProposedAction()
@@ -907,6 +858,7 @@ Rectangle {
     }
     ForgeHand {
         objectName: "forgeHand"
+        showCount: !root.multiplayer
         x: root.handLeft
         y: root.handTop - (root.localPriority ? 18 * root.unit : 0)
         z: 30
@@ -948,7 +900,7 @@ Rectangle {
         y: root.opponentZoneTop
         width: root.zoneRowWidth
         height: root.zonePileHeight
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
         z: 20
         Item {
             objectName: "forgeOpponentZones"
@@ -971,7 +923,7 @@ Rectangle {
                     height: Math.round(root.zonePileHeight)
                     tableController: root.tableController
                     unit: root.unit
-                    ownerSeat: root.topSeat
+                    ownerSeat: root.multiplayer ? -1 : root.topSeat
                     zone: modelData
                     compact: true
                     onActivated: root.openZone(root.topSeat, zone)
@@ -986,7 +938,7 @@ Rectangle {
         y: root.handTop
         width: root.zoneRowWidth
         height: root.handBandHeight
-        visible: !root.tableController.sideboarding
+        visible: !root.multiplayer && !root.tableController.sideboarding
         z: 20
         Row {
             anchors.bottom: parent.bottom
@@ -1001,7 +953,7 @@ Rectangle {
                     height: Math.round(root.zonePileHeight)
                     tableController: root.tableController
                     unit: root.unit
-                    ownerSeat: root.bottomSeat
+                    ownerSeat: root.multiplayer ? -1 : root.bottomSeat
                     zone: modelData
                     compact: true
                     onActivated: root.openZone(root.bottomSeat, zone)
@@ -1087,10 +1039,36 @@ Rectangle {
                 }
             }
         }
+        Column {
+            id: commanderHistory
+            objectName: "forgeCommanderHistory"
+            x: 14 * root.unit
+            y: zoneTabs.y + zoneTabs.height + 8 * root.unit
+            width: parent.width - 28 * root.unit
+            spacing: 4 * root.unit
+            visible: zonePopup.zone === "command"
+            Repeater {
+                model: commanderHistory.visible ? root.commandersFor(zonePopup.ownerSeat) : []
+                delegate: Text {
+                    required property var modelData
+                    required property int index
+                    readonly property string commanderName: root.tableController.cardDisplayName(modelData.name)
+                    readonly property string summary: qsTr("Casts %1 · Tax +%2 · %3").arg(modelData.casts).arg(modelData.tax)
+                        .arg(modelData.zone === "hidden" ? qsTr("Hidden zone") : root.tableController.zoneLabel(modelData.zone))
+                    objectName: "forgeCommanderHistory-" + zonePopup.ownerSeat + "-" + index
+                    width: commanderHistory.width
+                    textFormat: Text.PlainText
+                    text: commanderName + " · " + summary
+                    color: Theme.textSecondary
+                    font.pixelSize: 12 * root.unit
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
         ForgeCardLane {
             objectName: "forgeZoneCards"
             anchors.fill: parent
-            anchors.topMargin: zoneTabs.y + zoneTabs.height + 8 * root.unit
+            anchors.topMargin: commanderHistory.y + (commanderHistory.visible ? commanderHistory.height : 0) + 8 * root.unit
             anchors.margins: 12 * root.unit
             tableController: root.tableController
             unit: root.unit
@@ -1105,7 +1083,8 @@ Rectangle {
         x: root.width - width - 16 * root.unit
            - (root.sidePanelOpen ? root.sidePanelWidth + 16 * root.unit : 0)
         y: root.height - height - 12 * root.unit
-        width: Math.min(root.width * 0.42, Math.max(420 * root.unit, Theme.size(340)))
+        width: root.multiplayer ? Math.min(root.width * 0.3, Math.max(330 * root.unit, Theme.size(280)))
+            : Math.min(root.width * 0.42, Math.max(420 * root.unit, Theme.size(340)))
         height: Math.min(implicitHeight, root.height - 24 * root.unit)
         z: 180
         contentMargins: Theme.size(10)
@@ -1237,11 +1216,14 @@ Rectangle {
     ForgeStack {
         id: stackPanel
         objectName: "forgeStack"
-        x: decisionDock.x
-        y: 80 * root.unit
-        width: decisionDock.width
-        height: Math.min(365 * root.unit, Math.max(0, root.handTop - y - 12 * root.unit))
-        z: 60
+        defaultX: decisionDock.visible && defaultY + height > decisionDock.y
+            ? Math.max(root.boardLeft, decisionDock.x - width - 12 * root.unit) : root.boardRight - width
+        defaultY: Math.min(80 * root.unit, Math.max(12 * root.unit, decisionDock.y - height - 12 * root.unit))
+        movementBounds: Qt.rect(root.boardLeft, 12 * root.unit, root.boardWidth,
+            Math.max(0, root.handTop - 24 * root.unit))
+        width: collapsed ? Math.min(180 * root.unit, decisionDock.width) : decisionDock.width
+        height: collapsed ? headerHeight : Math.min(implicitHeight, 365 * root.unit, movementBounds.height)
+        z: 140
         tableController: root.tableController
         unit: root.unit
         locatedId: root.stackTarget && root.stackTarget.kind === "spell" ? root.stackTarget.objectId : ""
@@ -1255,6 +1237,7 @@ Rectangle {
     ForgeArrow {
         objectName: "forgeStackTargetArrow"
         anchors.fill: parent
+        z: 80
         unit: root.unit
         visible: startPoint.x !== 0 && endPoint.x !== 0 && !root.tableController.sideboarding && !root.modalOpen
         startPoint: stackPanel.activeEntry ? stackPanel.pointFor(stackPanel.activeEntry.objectId, root) : Qt.point(0, 0)

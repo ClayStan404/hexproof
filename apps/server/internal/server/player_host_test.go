@@ -297,7 +297,8 @@ func TestPlayerHostingRejectsUnsupportedRooms(t *testing.T) {
 			if err := host.recvType(protocol.TypeError).DecodePayload(&failure); err != nil {
 				t.Fatal(err)
 			}
-			if failure.Code != protocol.ErrRulesUnavailable {
+			wantCode := protocol.ErrRulesUnavailable
+			if failure.Code != wantCode {
 				t.Fatalf("unexpected failure: %s", failure.Code)
 			}
 		})

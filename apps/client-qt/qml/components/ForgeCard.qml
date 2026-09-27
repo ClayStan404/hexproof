@@ -10,6 +10,7 @@ Rectangle {
     property real unit: 1
     property bool fullFace: false
     property bool pointerEnabled: true
+    property bool exclusiveTap: false
     property bool located: false
     property string objectKind: "card"
     readonly property string objectId: card.cardId || card.objectId || ""
@@ -321,6 +322,16 @@ Rectangle {
         cursorShape: root.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onHoveredChanged: if (root.combat && root.objectKind === "card") root.combat.hoverCard(root.objectId, hovered)
     }
-    TapHandler { enabled: root.pointerEnabled; acceptedButtons: Qt.LeftButton; onTapped: root.activate() }
-    TapHandler { enabled: root.pointerEnabled; acceptedButtons: Qt.RightButton; onTapped: root.tableController.openCardDetails(root.objectId) }
+    TapHandler {
+        enabled: root.pointerEnabled
+        acceptedButtons: Qt.LeftButton
+        gesturePolicy: root.exclusiveTap ? TapHandler.WithinBounds : TapHandler.DragThreshold
+        onTapped: root.activate()
+    }
+    TapHandler {
+        enabled: root.pointerEnabled
+        acceptedButtons: Qt.RightButton
+        gesturePolicy: root.exclusiveTap ? TapHandler.WithinBounds : TapHandler.DragThreshold
+        onTapped: root.tableController.openCardDetails(root.objectId)
+    }
 }

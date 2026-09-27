@@ -5,30 +5,44 @@ package cluster
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
+
+	"hexproof/server/internal/syncutil"
 )
 
-// Agent serializes reports and reservation completion. A completed ticket is
-// released only with a snapshot taken after its domain operation has finished.
-// A replaced node is fenced until an operator restarts it; it must not fight
-// the replacement for ownership by repeatedly registering the same node ID.
+const agentRequestTimeout = 3 * time.Second
+const maxAgentRequests = 8
+
+// Agent orders reports and completed reservations while independent RPCs and
+// cached capability reads remain independent of report/network latency.
+// Registration is owned by publication; a fenced process never re-registers.
 type Agent struct {
-	reportSequence     uint64
-	mu                 sync.Mutex
-	service            Service
-	nodeID, generation string
-	fenced             bool
-	snapshot           func() Report
-	completed          []string
-	cancel             context.CancelFunc
-	done               chan struct{}
-	capabilities       Result
+	mu                   sync.Mutex
+	publishGate          syncutil.Gate
+	service              Service
+	nodeID, generation   string
+	reported, fenced     bool
+	snapshot             func() Report
+	reportSequence       uint64
+	lastReportedSequence uint64
+	completed            map[string]struct{}
+	capabilities         Result
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	done, wake           chan struct{}
+	slots                chan struct{}
+	lastReport           time.Time
+	lastReportError      string
+	reportFailures       uint64
 }
 
 func Start(service Service, nodeID string, snapshot func() Report) *Agent {
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &Agent{service: service, nodeID: nodeID, snapshot: snapshot, cancel: cancel, done: make(chan struct{})}
+	a := &Agent{service: service, nodeID: nodeID, snapshot: snapshot, ctx: ctx,
+		cancel: cancel, done: make(chan struct{}), wake: make(chan struct{}, 1),
+		slots: make(chan struct{}, maxAgentRequests), completed: make(map[string]struct{})}
 	_ = a.Publish(ctx, "")
 	go func() {
 		defer close(a.done)
@@ -39,8 +53,9 @@ func Start(service Service, nodeID string, snapshot func() Report) *Agent {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				_ = a.Publish(ctx, "")
+			case <-a.wake:
 			}
+			_ = a.Publish(ctx, "")
 		}
 	}()
 	return a
@@ -48,61 +63,208 @@ func Start(service Service, nodeID string, snapshot func() Report) *Agent {
 
 func (a *Agent) Close() { a.cancel(); <-a.done }
 
-func (a *Agent) request(ctx context.Context, q Request) (Result, error) {
-	if a.fenced {
-		return Result{}, ErrFenced
+func (a *Agent) requestContext(parent context.Context) (context.Context, func()) {
+	ctx, cancel := context.WithTimeout(parent, agentRequestTimeout)
+	stop := context.AfterFunc(a.ctx, cancel)
+	if a.ctx.Err() != nil {
+		cancel()
 	}
-	if a.generation == "" {
-		out, err := a.service.Do(ctx, Request{Operation: "register", NodeID: a.nodeID})
-		if err != nil {
-			return Result{}, err
-		}
-		a.generation = out.Generation
-	}
-	q.NodeID, q.Generation = a.nodeID, a.generation
-	out, err := a.service.Do(ctx, q)
-	if err == ErrFenced {
-		a.fenced = true
-	}
-	if err == ErrRegistration {
-		a.generation = ""
-	}
-	return out, err
+	return ctx, func() { stop(); cancel() }
 }
 
-func (a *Agent) Publish(ctx context.Context, completed string) error {
+// Complete queues committed work independently of a departed player's context.
+// The publisher snapshots state only after the token has entered this queue.
+func (a *Agent) Complete(token string) {
+	a.mu.Lock()
+	if token != "" && len(a.completed) < 2048 {
+		a.completed[token] = struct{}{}
+	}
+	a.mu.Unlock()
+	select {
+	case a.wake <- struct{}{}:
+	default:
+	}
+}
+
+// acceptResult rejects replies belonging to a registration that has since
+// become invalid. A delayed response can never fence a newer registration.
+func (a *Agent) acceptResult(generation string, err error) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if completed != "" {
-		a.completed = append(a.completed, completed)
+	if a.generation != generation || a.fenced {
+		return ErrUnavailable
 	}
-	// Tokens have a short lifetime; bound the retry queue during an outage.
-	if len(a.completed) > 2048 {
-		a.completed = a.completed[len(a.completed)-2048:]
-	}
-	a.reportSequence++
-	r := a.snapshot()
-	out, err := a.request(ctx, Request{Operation: "report", ReportSequence: a.reportSequence, Report: &r, Completed: a.completed})
-	if err == nil {
-		a.completed = nil
-		a.capabilities = out
+	switch err {
+	case ErrFenced:
+		a.fenced = true
+		a.reported = false
+	case ErrRegistration:
+		a.generation = ""
+		a.reported = false
 	}
 	return err
 }
 
-func (a *Agent) Do(ctx context.Context, q Request) (Result, error) {
+func (a *Agent) Publish(parent context.Context, completed string) error {
+	return a.publish(parent, completed, nil)
+}
+
+// Refresh shares a publication with concurrent readers only if its snapshot
+// started after this read. Local read-after-write discovery remains immediate.
+func (a *Agent) Refresh(ctx context.Context) error {
+	a.mu.Lock()
+	observed := a.reportSequence
+	a.mu.Unlock()
+	return a.publish(ctx, "", &observed)
+}
+
+func (a *Agent) publish(parent context.Context, completed string, observed *uint64) (err error) {
+	if completed != "" {
+		a.Complete(completed)
+	}
+	ctx, cancel := a.requestContext(parent)
+	defer cancel()
+	if err = a.publishGate.Lock(ctx); err != nil {
+		return err
+	}
+	defer a.publishGate.Unlock()
+	defer func() { a.recordPublication(err) }()
+	a.mu.Lock()
+	generation, fenced := a.generation, a.fenced
+	refreshed := observed != nil && a.reported && a.lastReportedSequence > *observed
+	a.mu.Unlock()
+	if fenced {
+		return ErrFenced
+	}
+	if refreshed {
+		return nil
+	}
+	if generation == "" {
+		out, callErr := a.service.Do(ctx, Request{Operation: "register", NodeID: a.nodeID})
+		if callErr != nil {
+			return callErr
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		generation = out.Generation
+		a.mu.Lock()
+		a.generation, a.reported = generation, false
+		a.mu.Unlock()
+	}
+	a.mu.Lock()
+	a.reportSequence++
+	sequence := a.reportSequence
+	sent := make([]string, 0, len(a.completed))
+	for token := range a.completed {
+		sent = append(sent, token)
+	}
+	a.mu.Unlock()
+	report := a.snapshot()
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	out, callErr := a.service.Do(ctx, Request{Operation: "report", NodeID: a.nodeID,
+		Generation: generation, ReportSequence: sequence, Report: &report, Completed: sent})
+	if err = a.acceptResult(generation, callErr); err != nil {
+		return err
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	// Register/report is owned by Publish. New requests cannot silently use a
-	// registration without a health/capacity snapshot after coordinator restart.
-	if a.generation == "" || a.fenced {
+	// Another concurrent RPC may have invalidated this generation meanwhile.
+	if a.generation != generation || a.fenced {
+		return ErrUnavailable
+	}
+	for _, token := range sent {
+		delete(a.completed, token)
+	}
+	a.capabilities, a.reported = out, true
+	a.lastReportedSequence = sequence
+	a.lastReport = time.Now()
+	return nil
+}
+
+func (a *Agent) Do(parent context.Context, q Request) (Result, error) {
+	ctx, cancel := a.requestContext(parent)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	select {
+	case a.slots <- struct{}{}:
+		defer func() { <-a.slots }()
+	case <-ctx.Done():
+		return Result{}, ctx.Err()
+	}
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	a.mu.Lock()
+	generation, ready := a.generation, a.reported && !a.fenced
+	a.mu.Unlock()
+	if generation == "" || !ready {
 		return Result{}, ErrUnavailable
 	}
-	return a.request(ctx, q)
+	q.NodeID, q.Generation = a.nodeID, generation
+	out, err := a.service.Do(ctx, q)
+	if err = a.acceptResult(generation, err); err != nil {
+		return Result{}, err
+	}
+	return out, nil
 }
 
 func (a *Agent) Capabilities() Result {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.capabilities
+}
+
+// Status contains bounded operational metadata, never resources or credentials.
+type Status struct {
+	Ready              bool      `json:"ready"`
+	LastReport         time.Time `json:"lastReport,omitempty"`
+	LastError          string    `json:"lastError,omitempty"`
+	ReportFailures     uint64    `json:"reportFailures"`
+	InFlight           int       `json:"inFlight"`
+	PendingCompletions int       `json:"pendingCompletions"`
+}
+
+func (a *Agent) Status() Status {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return Status{Ready: a.reported && !a.fenced && a.ctx.Err() == nil &&
+		time.Since(a.lastReport) < NodeLifetime, LastReport: a.lastReport,
+		LastError: a.lastReportError, ReportFailures: a.reportFailures,
+		InFlight: len(a.slots), PendingCompletions: len(a.completed)}
+}
+
+func (a *Agent) recordPublication(err error) {
+	category := ""
+	if err != nil {
+		category = "unavailable"
+		switch err {
+		case ErrFenced:
+			category = "fenced"
+		case ErrRegistration:
+			category = "registration_required"
+		case context.Canceled:
+			category = "cancelled"
+		case context.DeadlineExceeded:
+			category = "timeout"
+		}
+	}
+	a.mu.Lock()
+	changed := a.lastReportError != category
+	a.lastReportError = category
+	if err != nil {
+		a.reportFailures++
+	}
+	a.mu.Unlock()
+	if changed && category != "cancelled" {
+		if category == "" {
+			slog.Info("cluster publication recovered")
+		} else {
+			slog.Warn("cluster publication failed", "category", category)
+		}
+	}
 }

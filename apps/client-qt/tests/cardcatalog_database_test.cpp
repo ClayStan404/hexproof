@@ -2321,6 +2321,49 @@ void TestCardCatalog::cardSearchInvalidatesDuringCatalogReplacement() const
              failedImport ? u"Lightning Bolt"_s : u"Lightning Strike"_s);
 }
 
+void TestCardCatalog::searchChangedHandlerCannotPublishSupersededCards() const
+{
+    QTemporaryDir storage;
+    QVERIFY(writeBoltAndTokenCatalog(storage.path()));
+    CardCatalog catalog(storage.path());
+    bool changedQuery = false;
+    bool sawSupersededCards = false;
+    connect(&catalog, &CardCatalog::searchingChanged, &catalog, [&] {
+        if (!catalog.searching() && !changedQuery) {
+            changedQuery = true;
+            catalog.search(u"no-such-card"_s);
+        }
+    });
+    connect(&catalog, &CardCatalog::searchResultsChanged, &catalog, [&] {
+        if (changedQuery && !catalog.searchResults().isEmpty())
+            sawSupersededCards = true;
+    });
+    catalog.search(u"Lightning"_s);
+    QTRY_VERIFY(changedQuery && !catalog.searching());
+    QVERIFY(!sawSupersededCards);
+    QVERIFY(catalog.searchResults().isEmpty());
+}
+
+void TestCardCatalog::searchResultsHandlerCanCancelReplacement() const
+{
+    QTemporaryDir storage;
+    QVERIFY(writeBoltAndTokenCatalog(storage.path()));
+    CardCatalog catalog(storage.path());
+    catalog.search(u"Lightning"_s);
+    QTRY_COMPARE(catalog.searchResults().size(), 1);
+    bool cancelled = false;
+    connect(&catalog, &CardCatalog::searchResultsChanged, &catalog, [&] {
+        if (!cancelled && catalog.searchResults().isEmpty()) {
+            cancelled = true;
+            catalog.search({});
+        }
+    });
+    catalog.search(u"Bolt"_s);
+    QVERIFY(cancelled);
+    QVERIFY(!catalog.searching());
+    QVERIFY(catalog.searchResults().isEmpty());
+}
+
 void TestCardCatalog::directImageRetryKeepsCacheOperationActive() const
 {
     QTemporaryDir storage;

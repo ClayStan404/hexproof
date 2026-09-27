@@ -199,7 +199,7 @@ func (h *Handler) servePlayerHost(w http.ResponseWriter, request *http.Request) 
 	conn.SetReadLimit(forgehost.MaxFrameBytes)
 	ctx, stop := context.WithCancel(request.Context())
 	defer stop()
-	go websocketHeartbeat(ctx, conn)
+	go websocketHeartbeat(ctx, conn, stop)
 	_ = link.Serve(ctx, conn, hello)
 }
 

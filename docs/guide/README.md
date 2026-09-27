@@ -293,8 +293,10 @@ Manual rooms preserve Hexproof's free-form tabletop: players and tournament
 organizers remain responsible for card text, legal targets, triggers, priority,
 replacement effects, penalties, and unusual interactions. Optional rules rooms
 delegate game rules to a server-hosted or trusted creator-hosted Forge runtime.
-The current Forge interface supports 1v1 matches, including Duel Commander;
-three- and four-player Commander/EDH use manual tables. Official accounts are
+The Forge interface supports 1v1 matches, including Duel Commander, and
+server-hosted Commander/EDH with two to four players. Commander starts at 40 life
+and uses BO1. Two players use opposed halves, three place both opponents above
+you, and four use four equal battlefield panels. Official accounts are
 optional. There is no ladder, automatic player matchmaking, collection economy,
 or web client.
 

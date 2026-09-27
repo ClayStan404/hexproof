@@ -23,6 +23,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"hexproof/server/internal/syncutil"
 )
 
 var (
@@ -88,11 +90,18 @@ type record struct {
 }
 
 type Store struct {
-	mu      sync.Mutex
-	dir     string
-	lock    *os.File
-	records map[string]record
-	now     func() time.Time
+	mu         sync.Mutex
+	operations sync.WaitGroup
+	closeOnce  sync.Once
+	closeErr   error
+	closed     bool
+	creating   int
+	gates      syncutil.KeyedGate
+	saveRecord func(record) error
+	dir        string
+	lock       *os.File
+	records    map[string]record
+	now        func() time.Time
 }
 
 func Open(dir string) (*Store, error) {
@@ -148,14 +157,16 @@ func Open(dir string) (*Store, error) {
 }
 
 func (s *Store) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.lock == nil {
-		return nil
-	}
-	err := s.lock.Close()
-	s.lock = nil
-	return err
+	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.closed = true
+		s.mu.Unlock()
+		s.operations.Wait()
+		if s.lock != nil {
+			s.closeErr = s.lock.Close()
+		}
+	})
+	return s.closeErr
 }
 
 func validID(value string) bool {
@@ -209,11 +220,50 @@ func credentialID(value, prefix string) string {
 	return parts[1]
 }
 
-func (s *Store) Do(_ context.Context, q Request) (Result, error) {
+func (s *Store) Do(ctx context.Context, q Request) (Result, error) {
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.lock == nil {
+	if s.closed || s.lock == nil {
+		s.mu.Unlock()
 		return Result{}, errors.New("account store closed")
+	}
+	if q.Operation == "create" {
+		if len(s.records)+s.creating >= MaxAccounts {
+			s.mu.Unlock()
+			return Result{}, ErrLimit
+		}
+		s.creating++
+	}
+	s.operations.Add(1)
+	s.mu.Unlock()
+	defer s.operations.Done()
+	if q.Operation == "create" {
+		defer func() { s.mu.Lock(); s.creating--; s.mu.Unlock() }()
+	}
+	id := credentialID(q.SessionToken, "HPS1")
+	switch q.Operation {
+	case "create":
+		id = randomID()
+	case "login":
+		id = credentialID(q.LoginCode, "HP1")
+	case "recover":
+		id = credentialID(q.RecoveryCode, "HPR1")
+	}
+	if id == "" {
+		return Result{}, ErrInvalid
+	}
+	unlock, err := s.gates.Lock(ctx, id)
+	if err != nil {
+		return Result{}, err
+	}
+	defer unlock()
+	s.mu.Lock()
+	existing, exists := s.records[id]
+	s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
 	}
 	now := s.now().UTC()
 	var r record
@@ -225,20 +275,17 @@ func (s *Store) Do(_ context.Context, q Request) (Result, error) {
 		if !validText(q.Name, 64) {
 			return out, ErrInvalid
 		}
-		if len(s.records) >= MaxAccounts {
-			return out, ErrLimit
-		}
-		r = record{Version: 1, Profile: Profile{ID: randomID(), Name: q.Name, CreatedAt: now.Format(time.RFC3339)}}
+		r = record{Version: 1, Profile: Profile{ID: id, Name: q.Name, CreatedAt: now.Format(time.RFC3339)}}
 		out.LoginCode = secret("HP1", r.Profile.ID)
 		out.RecoveryCode = secret("HPR1", r.Profile.ID)
 		r.LoginHash, r.RecoveryHash = digest(out.LoginCode), digest(out.RecoveryCode)
 	case "login":
-		r, ok = s.records[credentialID(q.LoginCode, "HP1")]
+		r, ok = existing, exists
 		if !ok || !matches(q.LoginCode, r.LoginHash) {
 			return out, ErrInvalid
 		}
 	case "recover":
-		r, ok = s.records[credentialID(q.RecoveryCode, "HPR1")]
+		r, ok = existing, exists
 		if !ok || !matches(q.RecoveryCode, r.RecoveryHash) {
 			return out, ErrInvalid
 		}
@@ -247,7 +294,7 @@ func (s *Store) Do(_ context.Context, q Request) (Result, error) {
 		r.LoginHash, r.RecoveryHash = digest(out.LoginCode), digest(out.RecoveryCode)
 		r.Devices = nil
 	default:
-		r, ok = s.records[credentialID(q.SessionToken, "HPS1")]
+		r, ok = existing, exists
 		if !ok {
 			return out, ErrInvalid
 		}
@@ -261,6 +308,10 @@ func (s *Store) Do(_ context.Context, q Request) (Result, error) {
 		if currentID == "" {
 			return out, ErrInvalid
 		}
+	}
+	// Validation is a frequent read: no device copying, sorting, or disk access.
+	if q.Operation == "check" {
+		return Result{Profile: r.Profile, SessionID: currentID}, nil
 	}
 	// Copy slices before a mutation: a failed durable write must not alter memory.
 	live := make([]deviceRecord, 0, len(r.Devices))
@@ -306,10 +357,21 @@ func (s *Store) Do(_ context.Context, q Request) (Result, error) {
 		return out, ErrInvalid
 	}
 	if q.Operation != "check" && q.Operation != "status" {
-		if err := s.save(r); err != nil {
+		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
+		persist := s.saveRecord
+		if persist == nil {
+			persist = s.save
+		}
+		// Once persistence starts, finish the atomic disk/memory commit even if
+		// the caller leaves. Only this account's gate spans filesystem I/O.
+		if err := persist(r); err != nil {
+			return Result{}, err
+		}
+		s.mu.Lock()
 		s.records[r.Profile.ID] = r
+		s.mu.Unlock()
 	}
 	out.Profile, out.SessionID = r.Profile, currentID
 	out.Devices = make([]Device, 0, len(r.Devices))

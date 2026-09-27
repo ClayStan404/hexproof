@@ -62,12 +62,37 @@ Node reports expire, restarting node registrations fence previous generations,
 and allocation leases expire if a client disappears. Monotonic report sequences
 prevent delayed HTTP requests from overwriting newer capacity snapshots. Coordinator interruption
 stops new placement/discovery; already-established games continue on their hubs.
+Each accepted report replaces the node's complete directory snapshot. Omitted
+optional room/event fields and removed account-resource entries do not carry
+over from a previous report, including when rooms are reordered or removed.
 Account-authority availability is a separate dependency and retains the
 existing account validation behavior described in `accounts.md`.
 Coordinator memory is rebuilt by node reports after restart. It is not a game
 backup. Node/Forge process loss still follows existing failure behavior; live
 cross-node migration, replicated games and process-restart recovery are outside
 this slice.
+
+The node agent orders publications separately from its cached state and allows
+up to eight independent directory/allocation RPCs. Each wait and call shares a
+three-second budget and inherits caller and agent-shutdown cancellation.
+Concurrent discovery requests can share a publication whose snapshot began
+after their read, preserving immediate local discovery. Completed reservations
+are queued independently of a disconnected player and released only with a
+subsequent snapshot; unsuccessful publications retain them for retry. Late
+responses from an older registration cannot fence a replacement generation.
+
+`GET /healthz` remains the existing liveness response. `GET` or `HEAD /readyz`
+returns 503 when a configured account authority is unreachable or the cluster
+report is stale/fenced; disabled dependencies do not prevent readiness. Account
+probes use an empty credential, a one-second deadline and a one-second shared
+probe cache, separate from gameplay credential validation. JSON includes only
+dependency status, bounded error categories, report/completion counts, queue
+send failures and aggregate account RPC, account admission and discovery
+timings. Timing buckets are exclusive upper bounds of 10, 50, 100, 500, 1,000,
+5,000 milliseconds and infinity. No account IDs, room IDs, tokens, payloads or
+endpoint details are exposed. Publication logs record error-category changes
+and recovery without credentials. Exposing the new probe through a production
+proxy remains an operator deployment choice.
 
 ## Operator setup
 

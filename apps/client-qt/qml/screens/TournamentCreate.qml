@@ -89,6 +89,13 @@ Page {
             visible: root.isLimited
             Item { Layout.fillWidth: true }
             AppButton {
+                objectName: "tournamentDraftPracticeButton"
+                compact: true
+                visible: root.isDraft
+                text: qsTr("Draft practice")
+                onClicked: root.appWindow.pushScreen("screens/DraftPractice.qml")
+            }
+            AppButton {
                 compact: true
                 variant: "ghost"
                 text: qsTr("Pack simulator")

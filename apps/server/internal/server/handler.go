@@ -18,6 +18,7 @@ import (
 	"hexproof/server/internal/peerlink"
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
+	"hexproof/server/internal/syncutil"
 )
 
 // Lock order for room mutations:
@@ -50,6 +51,7 @@ const (
 
 // Handler is the HTTP handler that upgrades to WebSocket and runs a session.
 type Handler struct {
+	control                 controlMetrics
 	clusterAgent            *cluster.Agent
 	clusterRouteLimiter     *fixedWindowLimiter
 	clusterAPI              http.Handler
@@ -58,7 +60,7 @@ type Handler struct {
 	accountAPI              http.Handler
 	accountLimiter          *fixedWindowLimiter
 	accountCreateLimiter    *fixedWindowLimiter
-	accountLocks            [256]sync.Mutex
+	accountLocks            syncutil.KeyedGate
 	accountConnectionsMu    sync.Mutex
 	accountConnections      map[string]*Session
 	hub                     *Hub

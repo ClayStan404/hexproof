@@ -218,7 +218,7 @@ func TestClusterWholeCubeOwnershipAndPrivacy(t *testing.T) {
 		t.Fatal("event split between hubs")
 	}
 	_ = handlers[1].clusterAgent.Publish(context.Background(), "")
-	view, err := handlers[0].clusterView("")
+	view, err := handlers[0].clusterView(context.Background(), "")
 	if err != nil || len(view.Rooms) != 1 || view.Rooms[0].RoomKind != "cube" || view.Rooms[0].RoomID != "N2:"+result.TournamentID || len(view.Events) != 0 || len(view.Resources) != 0 {
 		t.Fatalf("Cube public projection: %+v %v", view, err)
 	}
@@ -263,7 +263,7 @@ func TestClusterCustomConnectionStaysLocalAndPrivateRoomsStayHidden(t *testing.T
 	private.send(request)
 	private.recvType(protocol.TypeRoomCreated)
 	_ = handlers[1].clusterAgent.Publish(context.Background(), "")
-	view, err := handlers[0].clusterView("")
+	view, err := handlers[0].clusterView(context.Background(), "")
 	if err != nil || len(view.Rooms) != 1 || view.Rooms[0].RoomID != "N1:"+roomID || len(view.Resources) != 0 {
 		t.Fatalf("private room leaked: %+v %v", view, err)
 	}

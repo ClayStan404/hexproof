@@ -8,8 +8,8 @@ import "../../qml/components"
 import "../../qml/screens"
 
 TestCase {
-    // The historical layout remains available to existing multiplayer rooms.
-    // Ordinary 1v1 integration is exercised with real models in tst_forgeduel.qml.
+    // Exercise retained legacy components explicitly. Production rooms of every
+    // size use the Forge presentation tested with real models in tst_forgeduel.qml.
     name: "RulesLegacyTable"
     when: windowShown
 
@@ -401,6 +401,9 @@ TestCase {
 
         RulesTable {
             id: table
+            tablePresentationComponent: Component {
+                RulesLegacyLayout { tableController: table }
+            }
             anchors.fill: parent
             wsModel: fakeWs
             cardCatalogModel: fakeCatalog

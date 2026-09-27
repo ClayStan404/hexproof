@@ -210,7 +210,7 @@ func (h *Handler) sendTournamentProjection(entry *tournamentEntry, sess *Session
 	sess.tournamentMu.RLock()
 	currentPrivateID, valid := tournamentProjectionIdentity(entry.event, sess, binding)
 	if valid && currentPrivateID == privateID {
-		sess.trySend(data)
+		h.queueSessionMessage(sess, data)
 	}
 	sess.tournamentMu.RUnlock()
 	entry.mu.Unlock()
@@ -239,7 +239,7 @@ func (h *Handler) closeTournamentMembership(entry *tournamentEntry, sess *Sessio
 	}
 	sess.tournament = tournamentBinding{generation: expected.generation + 1}
 	entry.event.Disconnect(sess.ConnectionID, time.Now())
-	sess.trySend(data)
+	h.queueSessionMessage(sess, data)
 }
 
 func tournamentSnapshot(event *tournament.Tournament,

@@ -75,79 +75,23 @@ QVariantList enrichCardMetadataBatch(const QString &databasePath, const QString 
 
 } // namespace
 
+void CardCatalog::configureSearches()
+{
+    m_search.setContext(m_databasePath, m_language, installed() && !m_catalogBusy,
+                        tokenCatalogInstalled() && !m_catalogBusy);
+}
+
+void CardCatalog::refreshSearches()
+{
+    configureSearches();
+    m_search.refresh();
+}
+
 void CardCatalog::searchTokens(const QString &queryText, const QString &kind,
                                const QStringList &setCodes)
 {
-    const QString text = queryText.simplified();
-    m_tokenSearchRequested = true;
-    m_lastTokenSearchQuery = text;
-    m_lastTokenSearchSets = setCodes;
-    m_lastTokenSearchKind = kind == QStringLiteral("token") || kind == QStringLiteral("emblem")
-                                ? kind
-                                : QStringLiteral("all");
-    ++m_tokenSearchGeneration;
-    if (!tokenCatalogInstalled() || m_catalogBusy) {
-        if (m_tokenSearching) {
-            m_tokenSearching = false;
-            emit tokenSearchingChanged();
-            emit busyChanged();
-        }
-        if (!m_tokenSearchResults.isEmpty()) {
-            m_tokenSearchResults.clear();
-            emit tokenSearchResultsChanged();
-        }
-        return;
-    }
-    if (!m_tokenSearchResults.isEmpty()) {
-        m_tokenSearchResults.clear();
-        emit tokenSearchResultsChanged();
-    }
-    if (!m_tokenSearching) {
-        m_tokenSearching = true;
-        emit tokenSearchingChanged();
-        emit busyChanged();
-    }
-    startLatestTokenSearch();
-}
-
-void CardCatalog::startLatestTokenSearch()
-{
-    if (m_tokenSearchWorkerRunning || !m_tokenSearching)
-        return;
-
-    m_tokenSearchWorkerRunning = true;
-    const int generation = m_tokenSearchGeneration;
-    auto *watcher = new QFutureWatcher<CatalogSearchResult>(this);
-    connect(watcher, &QFutureWatcher<CatalogSearchResult>::finished, this,
-            [this, watcher, generation]() {
-                const CatalogSearchResult result = watcher->result();
-                watcher->deleteLater();
-                m_tokenSearchWorkerRunning = false;
-                if (generation != m_tokenSearchGeneration) {
-                    startLatestTokenSearch();
-                    return;
-                }
-                m_tokenSearching = false;
-                emit tokenSearchingChanged();
-                emit busyChanged();
-                if (!result.error.isEmpty())
-                    setTokenSearchError(result.error);
-                else
-                    clearTokenSearchError();
-                if (m_tokenSearchResults != result.cards) {
-                    m_tokenSearchResults = result.cards;
-                    emit tokenSearchResultsChanged();
-                }
-            });
-    const QString databasePath = m_databasePath;
-    const QString language = m_language;
-    const QString text = m_lastTokenSearchQuery;
-    const QString kind = m_lastTokenSearchKind;
-    const QStringList setCodes = m_lastTokenSearchSets;
-    watcher->setFuture(QtConcurrent::run(
-        BackgroundTaskPools::catalogSearch(), [databasePath, text, language, kind, setCodes]() {
-            return CatalogRepository(databasePath).searchTokens(text, language, kind, setCodes);
-        }));
+    configureSearches();
+    m_search.searchTokens(queryText, kind, setCodes);
 }
 
 void CardCatalog::enrichCardMetadata(const QVariantList &cards)
@@ -302,94 +246,9 @@ void CardCatalog::search(const QString &queryText, const QString &typeFilter,
                          const QString &colorFilter, const QString &rarityFilter,
                          const QString &legalityFilter, const QString &manaFilter)
 {
-    const QString text = queryText.simplified();
-    m_lastSearchQuery = text;
-    m_lastTypeFilter = typeFilter.simplified();
-    m_lastSetFilter = setFilter.simplified().toUpper();
-    m_lastLanguageFilter = languageFilter.toLower();
-    m_lastColorFilter = colorFilter.simplified().toUpper();
-    m_lastRarityFilter = rarityFilter.simplified().toLower();
-    m_lastLegalityFilter = legalityFilter.simplified().toLower();
-    m_lastManaFilter = manaFilter.simplified();
-    const bool hasFilter = !m_lastTypeFilter.isEmpty() || !m_lastSetFilter.isEmpty() ||
-                           !m_lastLanguageFilter.isEmpty() || !m_lastColorFilter.isEmpty() ||
-                           !m_lastRarityFilter.isEmpty() || !m_lastLegalityFilter.isEmpty() ||
-                           !m_lastManaFilter.isEmpty();
-    if (m_catalogBusy || !installed() || (text.isEmpty() && !hasFilter)) {
-        ++m_searchGeneration;
-        if (m_searching) {
-            m_searching = false;
-            emit searchingChanged();
-            emit busyChanged();
-        }
-        const QVariantList results;
-        if (m_searchResults != results) {
-            m_searchResults = results;
-            emit searchResultsChanged();
-        }
-        return;
-    }
-
-    ++m_searchGeneration;
-    if (!m_searchResults.isEmpty()) {
-        m_searchResults.clear();
-        emit searchResultsChanged();
-    }
-    if (!m_searching) {
-        m_searching = true;
-        emit searchingChanged();
-        emit busyChanged();
-    }
-    startLatestCardSearch();
-}
-
-void CardCatalog::startLatestCardSearch()
-{
-    if (m_cardSearchWorkerRunning || !m_searching)
-        return;
-
-    m_cardSearchWorkerRunning = true;
-    const int generation = m_searchGeneration;
-    auto *watcher = new QFutureWatcher<CatalogSearchResult>(this);
-    connect(watcher, &QFutureWatcher<CatalogSearchResult>::finished, this,
-            [this, watcher, generation]() {
-                const CatalogSearchResult result = watcher->result();
-                watcher->deleteLater();
-                m_cardSearchWorkerRunning = false;
-                if (generation != m_searchGeneration) {
-                    startLatestCardSearch();
-                    return;
-                }
-                m_searching = false;
-                emit searchingChanged();
-                emit busyChanged();
-                if (!result.error.isEmpty())
-                    setCardSearchError(result.error);
-                else
-                    clearCardSearchError();
-                if (m_searchResults != result.cards) {
-                    m_searchResults = result.cards;
-                    emit searchResultsChanged();
-                }
-            });
-    const QString databasePath = m_databasePath;
-    const QString language = m_language;
-    const QString normalizedType = m_lastTypeFilter;
-    const QString normalizedSet = m_lastSetFilter;
-    const QString normalizedLanguage = m_lastLanguageFilter;
-    const QString normalizedColor = m_lastColorFilter;
-    const QString normalizedRarity = m_lastRarityFilter;
-    const QString normalizedLegality = m_lastLegalityFilter;
-    const QString normalizedMana = m_lastManaFilter;
-    const QString text = m_lastSearchQuery;
-    watcher->setFuture(QtConcurrent::run(
-        BackgroundTaskPools::catalogSearch(),
-        [databasePath, text, language, normalizedType, normalizedSet, normalizedLanguage,
-         normalizedColor, normalizedRarity, normalizedLegality, normalizedMana]() {
-            return CatalogRepository(databasePath)
-                .search(text, language, normalizedType, normalizedSet, normalizedLanguage,
-                        normalizedColor, normalizedRarity, normalizedLegality, normalizedMana);
-        }));
+    configureSearches();
+    m_search.search({queryText, typeFilter, setFilter, languageFilter, colorFilter, rarityFilter,
+                     legalityFilter, manaFilter});
 }
 
 } // namespace hexproof::client

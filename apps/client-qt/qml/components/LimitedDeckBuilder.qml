@@ -17,100 +17,69 @@ Item {
     property var draftStore: typeof limitedDeckDrafts !== "undefined" ? limitedDeckDrafts : null
     property string participantId: ""
     property bool cubeFreePlay: false
-    readonly property bool constructionDraftStage: limitedModel.stage === "deck_building"
-        || (cubeFreePlay && (limitedModel.eventType === "cube_draft"
-            || limitedModel.eventType === "commander_cube") && limitedModel.stage === "competition")
+    property bool localPractice: false
+    property bool viewReady: false
+    readonly property alias constructionDraftStage: constructionController.constructionDraftStage
     readonly property string draftServer: wsModel.serverUrl || ""
-    readonly property string draftEventId: limitedModel.tournamentId || ""
-    readonly property string draftIdentity: draftServer && draftEventId && participantId
-        ? JSON.stringify([draftServer, draftEventId, participantId]) : ""
-    property string restoredDraftIdentity: ""
-    property var selectedCards: ({})
-    property var commanderInstanceIds: []
-    property var commanderColors: []
-    property int selectionRevision: 0
-    property var basics: ({"Plains": 0, "Island": 0, "Swamp": 0,
-                           "Mountain": 0, "Forest": 0})
-    property int basicsRevision: 0
-    property var basicPrintings: ({})
-    property var defaultBasicPrintings: ({})
-    property string basicPrintingCatalogIdentity: ""
+    readonly property alias draftEventId: constructionController.draftEventId
+    readonly property alias draftIdentity: constructionController.draftIdentity
+    property alias restoredDraftIdentity: constructionController.restoredDraftIdentity
+    property alias selectedCards: constructionController.selectedCards
+    property alias commanderInstanceIds: constructionController.commanderInstanceIds
+    property alias commanderColors: constructionController.commanderColors
+    property alias selectionRevision: constructionController.selectionRevision
+    property alias basics: constructionController.basics
+    property alias basicsRevision: constructionController.basicsRevision
+    property alias basicPrintings: constructionController.basicPrintings
+    property alias defaultBasicPrintings: constructionController.defaultBasicPrintings
+    property alias basicPrintingCatalogIdentity: constructionController.basicPrintingCatalogIdentity
     property var pendingScrollPositions: null
-    property bool sealedOpeningSeen: false
+    property alias sealedOpeningSeen: constructionController.sealedOpeningSeen
     property bool animatePackOpenings: typeof preferences !== "undefined" && preferences.animatePackOpenings
-    property bool autoBasicLands: true
-    property bool constructionReady: false
-    property bool restoredSubmittedDeck: false
-    property string firstSubmissionFingerprint: ""
+    property alias autoBasicLands: constructionController.autoBasicLands
+    property alias constructionReady: constructionController.constructionReady
+    property alias restoredSubmittedDeck: constructionController.restoredSubmittedDeck
+    property alias firstSubmissionFingerprint: constructionController.firstSubmissionFingerprint
     property int groupingModeIndex: 0
-    property int metadataRevision: 0
+    property alias metadataRevision: constructionController.metadataRevision
     property var cachedArtKeys: ({})
     property bool basicLandsExpanded: false
-    property bool initialPoolChosen: false
-    readonly property bool commanderDraft: limitedModel.eventType === "commander_cube"
-    readonly property int minimumDeckCards: Number(limitedModel.minimumDeckCards) > 0
-        ? Number(limitedModel.minimumDeckCards) : commanderDraft ? 60 : 40
-    readonly property bool draftEvent: limitedModel.eventType === "set_draft" || limitedModel.eventType === "cube_draft" || commanderDraft
+    property alias initialPoolChosen: constructionController.initialPoolChosen
+    readonly property alias commanderDraft: constructionController.commanderDraft
+    readonly property alias minimumDeckCards: constructionController.minimumDeckCards
+    readonly property alias draftEvent: constructionController.draftEvent
     property alias filters: poolFilters
     property alias mainFilters: deckFilters
     property alias inspectedCard: preview.card
     property alias hoverPreviewVisible: preview.visible
-    readonly property var basicNames: ["Plains", "Island", "Swamp", "Mountain", "Forest"]
+    readonly property alias basicNames: constructionController.basicNames
     readonly property var groupingModes: ["mana", "color", "type", "name"]
     readonly property var groupingOptions: [qsTranslate("TournamentLobby", "Mana value"), qsTranslate("TournamentLobby", "Color"), qsTranslate("TournamentLobby", "Card type"), qsTranslate("TournamentLobby", "Name")]
     readonly property string groupingMode: groupingModes[groupingModeIndex]
     readonly property bool filtersActive: poolFilters.active
-    readonly property var enrichedPool: enrichPoolCards()
-    readonly property int selectedPoolCount: countSelected()
-    readonly property var optionalCards: {
-        void metadataRevision
-        if (!commanderDraft) return []
-        const cards = limitedModel.optionalCards || []
-        return cardCatalogModel && typeof cardCatalogModel.enrichLimitedCards === "function"
-            ? cardCatalogModel.enrichLimitedCards(cards) : cards
-    }
-    readonly property var selectedOptionalCards: {
-        void selectionRevision
-        return optionalCards.filter(card => !!selectedCards[card.instanceId])
-    }
-    readonly property var fallbackCommanders: {
-        void metadataRevision
-        if (!commanderDraft) return []
-        const cards = limitedModel.fallbackCommanders || []
-        const enriched = cardCatalogModel && typeof cardCatalogModel.enrichLimitedCards === "function"
-            ? cardCatalogModel.enrichLimitedCards(cards) : cards
-        return enriched.map(card => Object.assign({}, commanderSelection.withColor(card, commanderColors), {fallbackCommander: true}))
-    }
-    readonly property var selectedFallbackCommanders: fallbackCommanders.filter(card => commanderInstanceIds.indexOf(card.instanceId) >= 0)
-    readonly property int selectedCount: selectedPoolCount + selectedFallbackCommanders.length + countBasics()
-    readonly property bool hasUnsubmittedChanges: submissionDiffers()
-    readonly property var participatingPlayers: (limitedModel.participants || []).filter(player => !player.withdrawn)
-    readonly property bool automaticTableAfterSubmission: cubeFreePlay && limitedModel.stage === "deck_building"
-        && (limitedModel.eventType === "cube_draft" || commanderDraft)
-        && participatingPlayers.length >= 2 && participatingPlayers.length <= (commanderDraft ? 8 : 2)
-        && participatingPlayers.some(player => player.participantId === participantId)
-    readonly property var mainDeckCards: cardsForSelection(true).concat(selectedOptionalCards, selectedFallbackCommanders)
-        .map(card => commanderSelection.withColor(card, commanderColors))
-    readonly property var basicLandPlan: landPlanner.recommend(mainDeckCards, minimumDeckCards)
-    readonly property var landAssessment: landPlanner.analyze(mainDeckCards, basics, minimumDeckCards)
-    readonly property string landWarning: landAssessment.lowLandCount
-        ? qsTranslate("TournamentLobby", "%1 lands in %2 cards. Consider at least %3 lands; this is a reminder, not a submission restriction.")
-            .arg(landAssessment.landCount).arg(landAssessment.totalCards).arg(landAssessment.minimumSuggestedLands)
-        : ""
-    readonly property var commanderCards: mainDeckCards.filter(card => commanderInstanceIds.indexOf(card.instanceId) >= 0)
-    readonly property bool commandersValid: !commanderDraft || (commanderInstanceIds.length > 0
-        && commanderSelection.sanitize(commanderInstanceIds, commanderCandidates()).length === commanderInstanceIds.length
-        && commanderSelection.colorsValid(commanderColors, commanderInstanceIds, commanderCandidates()))
-    readonly property var commanderAdvice: commanderDraft
-        ? commanderSelection.advisory(mainDeckCards, commanderInstanceIds, basics, commanderColors) : []
-    readonly property var commanderGuidance: commanderAdvice.concat(commanderDraft
-        && !commanderSelection.colorsValid(commanderColors, commanderInstanceIds, commanderCandidates())
-        ? [qsTranslate("TournamentLobby", "Choose a color for each selected Piper before submitting.")] : [])
-    readonly property var sideboardCards: cardsForSelection(false)
+    readonly property alias enrichedPool: constructionController.enrichedPool
+    readonly property alias selectedPoolCount: constructionController.selectedPoolCount
+    readonly property alias optionalCards: constructionController.optionalCards
+    readonly property alias selectedOptionalCards: constructionController.selectedOptionalCards
+    readonly property alias fallbackCommanders: constructionController.fallbackCommanders
+    readonly property alias selectedFallbackCommanders: constructionController.selectedFallbackCommanders
+    readonly property alias selectedCount: constructionController.selectedCount
+    readonly property alias hasUnsubmittedChanges: constructionController.hasUnsubmittedChanges
+    readonly property alias participatingPlayers: constructionController.participatingPlayers
+    readonly property alias automaticTableAfterSubmission: constructionController.automaticTableAfterSubmission
+    readonly property alias mainDeckCards: constructionController.mainDeckCards
+    readonly property alias basicLandPlan: constructionController.basicLandPlan
+    readonly property alias landAssessment: constructionController.landAssessment
+    readonly property alias landWarning: constructionController.landWarning
+    readonly property alias commanderCards: constructionController.commanderCards
+    readonly property alias commandersValid: constructionController.commandersValid
+    readonly property alias commanderAdvice: constructionController.commanderAdvice
+    readonly property alias commanderGuidance: constructionController.commanderGuidance
+    readonly property alias sideboardCards: constructionController.sideboardCards
     readonly property var visibleSideboardCards: poolFilters.filter(sideboardCards)
     readonly property var sideboardGroups: grouping.groupCards(visibleSideboardCards)
-    readonly property int selectedLandCount: landAssessment.landCount
-    readonly property int selectedNonlandCount: selectedCount - selectedLandCount
+    readonly property alias selectedLandCount: constructionController.selectedLandCount
+    readonly property alias selectedNonlandCount: constructionController.selectedNonlandCount
     readonly property bool compactColumns: width < Theme.size(660)
     property int compactPaneIndex: 0
     readonly property bool compactDeckControls: compactColumns || height < Theme.size(440)
@@ -129,46 +98,48 @@ Item {
     readonly property var visibleDeckListCards: deckFilters.filter(deckListCards)
     CardFilterState { id: poolFilters }
     CardFilterState { id: deckFilters }
-    LimitedBasicLandPlan { id: landPlanner }
-    LimitedCommanderSelection { id: commanderSelection }
+    // Stable view aliases above expose one construction owner to existing screens.
+    LimitedDeckConstructionController {
+        id: constructionController
+        limitedModel: root.limitedModel
+        cardCatalogModel: root.cardCatalogModel
+        draftStore: root.draftStore
+        draftServer: root.draftServer
+        participantId: root.participantId
+        cubeFreePlay: root.cubeFreePlay
+        localPractice: root.localPractice
+        active: root.visible
+        onMutationStarted: hidePreview => {
+            root.preserveConstructionScroll()
+            if (hidePreview) root.hideCardPreview()
+        }
+        onSubmissionRequested: (ids, lands, commanders, colors) => {
+            if (root.commanderDraft)
+                root.wsModel.submitLimitedCommanderDeck(qsTranslate("TournamentLobby", "Limited deck"), ids, lands, commanders, colors)
+            else
+                root.wsModel.submitLimitedDeck(qsTranslate("TournamentLobby", "Limited deck"), ids, lands)
+        }
+    }
 
     Component.onCompleted: {
-        refreshBasicPrintings()
-        restoreConstruction()
-        restoreSubmission()
-        constructionReady = true
-        updateAutoBasics()
+        viewReady = true
         cachePoolCards()
         Qt.callLater(maybeOpenSealedPacks)
     }
-
-    onMainDeckCardsChanged: Qt.callLater(updateAutoBasics)
-    onMinimumDeckCardsChanged: Qt.callLater(updateAutoBasics)
 
     Connections {
         target: root.limitedModel
         ignoreUnknownSignals: true
         function onSnapshotChanged() {
-            root.refreshBasicPrintings()
-            root.restoreConstruction()
-            root.restoreSubmission()
             Qt.callLater(root.maybeOpenSealedPacks)
         }
     }
 
-    onDraftIdentityChanged: Qt.callLater(restoreConstruction)
-
     Connections {
         target: root.cardCatalogModel
         ignoreUnknownSignals: true
-        function onCatalogChanged() {
-            root.metadataRevision++
-            root.refreshBasicPrintings()
-        }
         function onLanguageChanged() {
             root.cachedArtKeys = ({})
-            root.metadataRevision++
-            root.refreshBasicPrintings()
         }
     }
 
@@ -427,7 +398,11 @@ Item {
                             textFormat: Text.PlainText
                             objectName: "limitedDeckSubmissionStatus"
                             Layout.fillWidth: true
-                            text: root.limitedModel.deckSubmitted && root.hasUnsubmittedChanges
+                            text: root.localPractice
+                                  ? (root.limitedModel.deckSubmitted && !root.hasUnsubmittedChanges
+                                     ? qsTranslate("TournamentLobby", "Saved to deck library")
+                                     : qsTranslate("TournamentLobby", "Build a deck, then save a local copy."))
+                                  : root.limitedModel.deckSubmitted && root.hasUnsubmittedChanges
                                   ? qsTranslate("TournamentLobby", "Unsubmitted deck changes")
                                   : root.limitedModel.deckSubmitted && root.limitedModel.stage === "deck_building"
                                   ? qsTranslate("TournamentLobby", "Deck submitted · Waiting for participants: %1").arg(root.submissionProgress())
@@ -443,10 +418,14 @@ Item {
                             Layout.fillWidth: true
                             compact: root.compactDeckControls
                             variant: "primary"
-                            text: root.limitedModel.deckSubmitted ? qsTranslate("TournamentLobby", "Update deck") : qsTranslate("TournamentLobby", "Submit deck")
+                            text: root.localPractice
+                                  ? (root.limitedModel.deckSubmitted ? qsTranslate("TournamentLobby", "Save new copy")
+                                                                    : qsTranslate("TournamentLobby", "Save to deck library"))
+                                  : root.limitedModel.deckSubmitted ? qsTranslate("TournamentLobby", "Update deck") : qsTranslate("TournamentLobby", "Submit deck")
                             enabled: root.selectedCount >= root.minimumDeckCards && root.commandersValid
                                      && root.limitedModel.pool.length > 0
                                      && root.wsModel.connected !== false
+                                     && (!root.localPractice || !root.limitedModel.deckSubmitted || root.hasUnsubmittedChanges)
                             onClicked: root.submit()
                         }
                     }
@@ -714,133 +693,33 @@ Item {
     onDefaultBasicPrintingsChanged: Qt.callLater(cachePoolCards)
     onBasicPrintingsChanged: Qt.callLater(cachePoolCards)
 
-    function cardSelected(instanceId) {
-        const revision = selectionRevision
-        return !!selectedCards[instanceId] || revision < 0
-    }
+    function cardSelected(instanceId) { return constructionController.cardSelected(instanceId) }
 
-    function cardsForSelection(wantSelected) {
-        const revision = selectionRevision
-        const result = []
-        for (let index = 0; index < enrichedPool.length; ++index) {
-            const card = enrichedPool[index]
-            if (!!selectedCards[card.instanceId] === wantSelected)
-                result.push(card)
-        }
-        // Each visible view owns its sorting. Gallery grouping must not
-        // invalidate the selected deck, mana plan or compact-list delegates.
-        return revision < 0 ? [] : result
-    }
+    function cardsForSelection(wantSelected) { return constructionController.cardsForSelection(wantSelected) }
 
-    function enrichPoolCards() {
-        const revision = metadataRevision
-        if (!visible) return []
-        const pool = limitedModel.pool || []
-        if (cardCatalogModel
-                && typeof cardCatalogModel.enrichLimitedCards === "function") {
-            const enriched = cardCatalogModel.enrichLimitedCards(pool)
-            return revision < 0 ? [] : enriched
-        }
-        return revision < 0 ? [] : pool
-    }
+    function enrichPoolCards() { return constructionController.enrichPoolCards() }
 
-    function moveToMainDeck(instanceId) {
-        if (!(limitedModel.pool || []).concat(optionalCards).some(card => card.instanceId === instanceId)) return
-        preserveConstructionScroll()
-        hideCardPreview()
-        const changed = Object.assign({}, selectedCards)
-        changed[instanceId] = true
-        selectedCards = changed
-        selectionRevision++
-        updateAutoBasics()
-        saveConstruction()
-    }
-    function removeFromMainDeck(card) {
-        if (card.virtualBasic) adjustBasic(card.name, -1)
-        else moveToSideboard(card.instanceId)
-    }
-    function chooseInitialPool(keepPicks) {
-        if (initialPoolChosen || limitedModel.deckSubmitted) return
-        const chosen = {}
-        if (keepPicks) {
-            for (const card of limitedModel.pool) chosen[card.instanceId] = true
-        }
-        selectedCards = chosen
-        selectionRevision++
-        initialPoolChosen = true
-        updateAutoBasics()
-        saveConstruction()
-    }
+    function moveToMainDeck(instanceId) { return constructionController.moveToMainDeck(instanceId) }
 
-    function moveToSideboard(instanceId) {
-        preserveConstructionScroll()
-        hideCardPreview()
-        const changed = Object.assign({}, selectedCards)
-        delete changed[instanceId]
-        selectedCards = changed
-        commanderInstanceIds = commanderInstanceIds.filter(id => id !== instanceId)
-        commanderColors = commanderColors.filter(choice => choice.instanceId !== instanceId)
-        selectionRevision++
-        updateAutoBasics()
-        saveConstruction()
-    }
+    function removeFromMainDeck(card) { return constructionController.removeFromMainDeck(card) }
 
-    function selectedPhysicalCards() {
-        void selectionRevision
-        return (limitedModel.pool || []).filter(card => !!selectedCards[card.instanceId])
-    }
+    function chooseInitialPool(keepPicks) { return constructionController.chooseInitialPool(keepPicks) }
 
-    function commanderCandidates() {
-        return selectedPhysicalCards().concat(fallbackCommanders)
-    }
+    function moveToSideboard(instanceId) { return constructionController.moveToSideboard(instanceId) }
 
-    function toggleCommander(instanceId) {
-        if (!commanderDraft) return
-        const cards = enrichedPool.concat(fallbackCommanders)
-        if (!commanderSelection.canSelect(instanceId, commanderInstanceIds, cards)) return
-        preserveConstructionScroll()
-        hideCardPreview()
-        // Selecting a drafted commander also includes that physical instance in
-        // the deck; the server still validates commanders against the mainboard.
-        if (commanderInstanceIds.indexOf(instanceId) < 0 && !selectedCards[instanceId]
-                && enrichedPool.some(card => card.instanceId === instanceId)) {
-            selectedCards = Object.assign({}, selectedCards, {[instanceId]: true})
-            selectionRevision++
-        }
-        commanderInstanceIds = commanderInstanceIds.indexOf(instanceId) >= 0
-            ? commanderInstanceIds.filter(id => id !== instanceId)
-            : commanderInstanceIds.concat([instanceId])
-        commanderColors = commanderSelection.sanitizeColors(commanderColors, commanderInstanceIds, cards)
-        updateAutoBasics()
-        saveConstruction()
-    }
+    function selectedPhysicalCards() { return constructionController.selectedPhysicalCards() }
 
-    function setCommanderColor(instanceId, color) {
-        const card = commanderCandidates().find(candidate => candidate.instanceId === instanceId)
-        if (!commanderDraft || commanderInstanceIds.indexOf(instanceId) < 0 || !card
-                || !commanderSelection.isPiper(card) || !/^[WUBRG]$/.test(color)) return
-        commanderColors = commanderSelection.sanitizeColors(
-            commanderColors.filter(choice => choice.instanceId !== instanceId).concat([{instanceId: instanceId, color: color}]),
-            commanderInstanceIds, commanderCandidates())
-        saveConstruction()
-    }
+    function commanderCandidates() { return constructionController.commanderCandidates() }
 
-    function countSelected() {
-        const revision = selectionRevision
-        return Object.keys(selectedCards).length + (revision < 0 ? 0 : 0)
-    }
+    function toggleCommander(instanceId) { return constructionController.toggleCommander(instanceId) }
 
-    function basicValue(name) {
-        const revision = basicsRevision
-        return Number(basics[name] || 0) + (revision < 0 ? 0 : 0)
-    }
+    function setCommanderColor(instanceId, color) { return constructionController.setCommanderColor(instanceId, color) }
 
-    function countBasics() {
-        let total = 0
-        for (let index = 0; index < basicNames.length; ++index)
-            total += basicValue(basicNames[index])
-        return total
-    }
+    function countSelected() { return constructionController.countSelected() }
+
+    function basicValue(name) { return constructionController.basicValue(name) }
+
+    function countBasics() { return constructionController.countBasics() }
 
     function basicLabel(name) {
         const labels = {
@@ -851,31 +730,11 @@ Item {
         return labels[name] || name
     }
 
-    function adjustBasic(name, amount) {
-        preserveConstructionScroll()
-        autoBasicLands = false
-        const changed = Object.assign({}, basics)
-        changed[name] = Math.max(0, Number(changed[name] || 0) + amount)
-        basics = changed
-        basicsRevision++
-        saveConstruction()
-    }
+    function adjustBasic(name, amount) { return constructionController.adjustBasic(name, amount) }
 
-    function setAutoBasicLands(enabled) {
-        autoBasicLands = enabled
-        updateAutoBasics()
-        saveConstruction()
-    }
+    function setAutoBasicLands(enabled) { return constructionController.setAutoBasicLands(enabled) }
 
-    function updateAutoBasics() {
-        if (!constructionReady || !visible || !autoBasicLands) return
-        const proposed = basicLandPlan.basics
-        if (basicNames.every(name => basicValue(name) === proposed[name])) return
-        preserveConstructionScroll()
-        basics = Object.assign({}, proposed)
-        basicsRevision++
-        saveConstruction()
-    }
+    function updateAutoBasics() { return constructionController.updateAutoBasics() }
 
     function clearFilters() {
         poolFilters.reset()
@@ -888,7 +747,7 @@ Item {
     function hideCardPreview(item) { preview.hide(item) }
 
     function cachePoolCards() {
-        if (!visible || !cardCatalogModel || typeof cardCatalogModel.cacheCardsIncrementally !== "function") return
+        if (!viewReady || !visible || !cardCatalogModel || typeof cardCatalogModel.cacheCardsIncrementally !== "function") return
         const basicCards = basicNames.map(name => Object.assign({name: name}, basicPrinting(name)))
             .filter(card => card.setCode && card.collectorNumber)
         const fresh = (limitedModel.pool || []).concat(fallbackCommanders, optionalCards, basicCards).filter(card => {
@@ -900,206 +759,24 @@ Item {
         if (fresh.length) cardCatalogModel.cacheCardsIncrementally(fresh)
     }
 
-    function submit() {
-        updateAutoBasics()
-        if (commanderDraft && (!commandersValid || selectedCount < minimumDeckCards)) return
-        const ids = Object.keys(selectedCards)
-        const lands = []
-        for (let index = 0; index < basicNames.length; ++index) {
-            const count = basicValue(basicNames[index])
-            if (count > 0)
-                lands.push(Object.assign({"name": basicNames[index], "count": count}, basicPrinting(basicNames[index])))
-        }
-        // Keep the earliest in-flight baseline: more edits/submissions may precede its reply.
-        if (!limitedModel.deckSubmitted && !firstSubmissionFingerprint)
-            firstSubmissionFingerprint = selectionFingerprint()
-        if (commanderDraft)
-            wsModel.submitLimitedCommanderDeck(qsTranslate("TournamentLobby", "Limited deck"), ids, lands, commanderInstanceIds, commanderColors)
-        else
-            wsModel.submitLimitedDeck(qsTranslate("TournamentLobby", "Limited deck"), ids, lands)
-    }
+    function submit() { return constructionController.submit() }
 
-    function submissionProgress() {
-        let submitted = 0
-        let active = 0
-        for (let index = 0; index < limitedModel.participants.length; ++index) {
-            if (limitedModel.participants[index].withdrawn) continue
-            active++
-            if (limitedModel.participants[index].deckSubmitted)
-                submitted++
-        }
-        return submitted + " / " + active
-    }
+    function submissionProgress() { return constructionController.submissionProgress() }
 
-    function saveConstruction() {
-        if (!draftStore || !draftIdentity || limitedModel.deckSubmitted
-                || !constructionDraftStage) return
-        const savedPrintings = Object.assign({}, basicPrintings)
-        for (const name of basicNames) {
-            if (basicValue(name) > 0 && basicPrinting(name).setCode)
-                savedPrintings[name] = basicPrinting(name)
-        }
-        draftStore.saveDraft(draftServer, draftEventId, participantId, {
-            mainboardInstanceIds: Object.keys(selectedCards),
-            commanderInstanceIds: commanderInstanceIds,
-            commanderColors: commanderColors,
-            basics: basics, basicPrintings: savedPrintings, initialPoolChosen: initialPoolChosen,
-            autoBasicLands: autoBasicLands, sealedOpeningSeen: sealedOpeningSeen
-        })
-    }
+    function saveConstruction() { return constructionController.saveConstruction() }
 
-    function restoreConstruction() {
-        // A sitting-out Cube player can build their first deck after the rest
-        // of the room enters free play. Keep that local draft recoverable too.
-        if (!draftStore || !draftIdentity || !constructionDraftStage
-                || restoredDraftIdentity === draftIdentity) return
-        if (restoredDraftIdentity && restoredDraftIdentity !== draftIdentity) {
-            selectedCards = ({})
-            commanderInstanceIds = []
-            commanderColors = []
-            basics = ({"Plains": 0, "Island": 0, "Swamp": 0, "Mountain": 0, "Forest": 0})
-            initialPoolChosen = false
-            basicPrintings = ({})
-            sealedOpeningSeen = false
-            autoBasicLands = true
-            restoredSubmittedDeck = false
-            firstSubmissionFingerprint = ""
-            selectionRevision++
-            basicsRevision++
-        }
-        restoredDraftIdentity = draftIdentity
-        if (limitedModel.deckSubmitted) return
-        const draft = draftStore.loadDraft(draftServer, draftEventId, participantId)
-        // QVariantList is a QML sequence, not a JavaScript Array.
-        sealedOpeningSeen = draft.sealedOpeningSeen === true
-        basicPrintings = sanitizeBasicPrintings(draft.basicPrintings || {})
-        const ids = draft.mainboardInstanceIds
-        if (!ids || typeof ids === "string" || typeof ids.length !== "number") return
-        // Existing manual drafts never opt in merely because the client updated.
-        autoBasicLands = draft.autoBasicLands === true
-        const available = new Set((limitedModel.pool || []).concat(optionalCards).map(card => card.instanceId))
-        const restored = {}
-        for (const id of ids) if (available.has(id)) restored[id] = true
-        const lands = {}
-        for (const name of basicNames) {
-            const value = Number((draft.basics || {})[name] || 0)
-            lands[name] = Number.isFinite(value) ? Math.max(0, Math.min(1000, Math.floor(value))) : 0
-        }
-        selectedCards = restored
-        commanderInstanceIds = commanderDraft
-            ? commanderSelection.sanitize(draft.commanderInstanceIds, commanderCandidates()) : []
-        commanderColors = commanderSelection.sanitizeColors(draft.commanderColors, commanderInstanceIds, commanderCandidates())
-        basics = lands
-        initialPoolChosen = draft.initialPoolChosen === true
-        selectionRevision++
-        basicsRevision++
-    }
+    function restoreConstruction() { return constructionController.restoreConstruction() }
 
-    function submissionDiffers() {
-        if (!constructionReady) return false
-        void selectionRevision
-        void basicsRevision
-        if (!limitedModel.deckSubmitted)
-            return selectedCount > 0
-        const submittedIds = []
-        for (const id of limitedModel.mainboardInstanceIds || []) submittedIds.push(id)
-        const selectedIds = Object.keys(selectedCards).sort()
-        submittedIds.sort()
-        if (JSON.stringify(selectedIds) !== JSON.stringify(submittedIds)) return true
-        if (commanderDraft) {
-            const submittedCommanders = []
-            for (const id of limitedModel.commanderInstanceIds || []) submittedCommanders.push(id)
-            if (JSON.stringify(commanderInstanceIds.slice().sort()) !== JSON.stringify(submittedCommanders.sort())) return true
-            const submittedColors = commanderSelection.sanitizeColors(limitedModel.commanderColors, submittedCommanders, commanderCandidates())
-            if (JSON.stringify(commanderColors) !== JSON.stringify(submittedColors)) return true
-        }
-        const submittedBasics = {}
-        for (const land of limitedModel.basicLands || [])
-            submittedBasics[land.name] = land
-        for (const name of basicNames) {
-            const submitted = submittedBasics[name] || {}
-            if (basicValue(name) !== Number(submitted.count || 0)) return true
-            if (basicValue(name) > 0 && printingIdentity(basicPrinting(name)) !== printingIdentity(submitted)) return true
-        }
-        return false
-    }
+    function submissionDiffers() { return constructionController.submissionDiffers() }
 
-    function selectionFingerprint() {
-        return JSON.stringify([
-            Object.keys(selectedCards).sort(),
-            commanderDraft ? commanderInstanceIds.slice().sort() : [],
-            commanderDraft ? commanderColors : [],
-            basicNames.map(name => [basicValue(name), printingIdentity(basicPrinting(name))])
-        ])
-    }
+    function selectionFingerprint() { return constructionController.selectionFingerprint() }
 
-    function discardUnsubmittedChanges() {
-        if (limitedModel.deckSubmitted) {
-            restoreSubmission(true)
-            return
-        }
-        autoBasicLands = false
-        firstSubmissionFingerprint = ""
-        selectedCards = ({})
-        commanderInstanceIds = []
-        commanderColors = []
-        basics = ({"Plains": 0, "Island": 0, "Swamp": 0, "Mountain": 0, "Forest": 0})
-        basicPrintings = ({})
-        initialPoolChosen = false
-        selectionRevision++
-        basicsRevision++
-        if (draftStore && draftIdentity)
-            draftStore.removeDraft(draftServer, draftEventId, participantId)
-    }
+    function discardUnsubmittedChanges() { return constructionController.discardUnsubmittedChanges() }
 
-    function restoreSubmission(force = false) {
-        if (!limitedModel.deckSubmitted)
-            return
-        if (!force && !restoredSubmittedDeck && firstSubmissionFingerprint
-                && selectionFingerprint() !== firstSubmissionFingerprint && submissionDiffers()) {
-            // This first acknowledgement confirms an older local submission, not
-            // permission to overwrite edits made while it was in flight.
-            restoredSubmittedDeck = true
-            firstSubmissionFingerprint = ""
-            return
-        }
-        if (!force && restoredSubmittedDeck) {
-            if (!submissionDiffers() && draftStore && draftIdentity)
-                draftStore.removeDraft(draftServer, draftEventId, participantId)
-            return
-        }
-        autoBasicLands = false
-        const restoredCards = {}
-        for (let index = 0;
-                index < limitedModel.mainboardInstanceIds.length; ++index) {
-            restoredCards[limitedModel.mainboardInstanceIds[index]] = true
-        }
-        const restoredBasics = {"Plains": 0, "Island": 0, "Swamp": 0,
-                                "Mountain": 0, "Forest": 0}
-        const restoredPrintings = {}
-        for (let index = 0; index < limitedModel.basicLands.length; ++index) {
-            const land = limitedModel.basicLands[index]
-            if (restoredBasics[land.name] !== undefined) {
-                restoredBasics[land.name] = Number(land.count || 0)
-                restoredPrintings[land.name] = land
-            }
-        }
-        selectedCards = restoredCards
-        commanderInstanceIds = commanderDraft
-            ? commanderSelection.sanitize(limitedModel.commanderInstanceIds, commanderCandidates()) : []
-        commanderColors = commanderSelection.sanitizeColors(limitedModel.commanderColors, commanderInstanceIds, commanderCandidates())
-        basics = restoredBasics
-        basicPrintings = sanitizeBasicPrintings(restoredPrintings)
-        sealedOpeningSeen = true
-        selectionRevision++
-        basicsRevision++
-        restoredSubmittedDeck = true
-        firstSubmissionFingerprint = ""
-        if (draftStore && draftIdentity)
-            draftStore.removeDraft(draftServer, draftEventId, participantId)
-    }
+    function restoreSubmission(force = false) { return constructionController.restoreSubmission(force) }
+
     function preserveConstructionScroll() {
-        if (pendingScrollPositions) return
+        if (!viewReady || pendingScrollPositions) return
         pendingScrollPositions = [availablePool.contentY - availablePool.originY,
                                   mainDeckList.contentY - mainDeckList.originY]
         Qt.callLater(restoreConstructionScroll)
@@ -1116,42 +793,13 @@ Item {
         }
     }
 
-    function refreshBasicPrintings() {
-        if (!visible) return
-        const identity = JSON.stringify([metadataRevision, (limitedModel.product || {}).setCode || ""])
-        if (identity === basicPrintingCatalogIdentity) return
-        basicPrintingCatalogIdentity = identity
-        defaultBasicPrintings = resolveBasicPrintings()
-    }
+    function refreshBasicPrintings() { return constructionController.refreshBasicPrintings() }
 
-    function resolveBasicPrintings() {
-        if (!cardCatalogModel || typeof cardCatalogModel.printings !== "function") return ({})
-        const preferred = String((limitedModel.product || {}).setCode || "").toUpperCase()
-        const options = {}
-        let sharedSets = null
-        for (const name of basicNames) {
-            options[name] = cardCatalogModel.printings(name).filter(card => card.setCode && card.collectorNumber)
-            const sets = new Set(options[name].map(card => String(card.setCode).toUpperCase()))
-            sharedSets = sharedSets === null ? Array.from(sets) : sharedSets.filter(set => sets.has(set))
-        }
-        const fallback = (sharedSets || []).sort()[0] || ""
-        const result = {}
-        for (const name of basicNames) {
-            const choices = options[name]
-            const chosen = choices.find(card => String(card.setCode).toUpperCase() === preferred)
-                || choices.find(card => String(card.setCode).toUpperCase() === fallback) || choices[0]
-            if (chosen) result[name] = {setCode: String(chosen.setCode).toUpperCase(), collectorNumber: String(chosen.collectorNumber)}
-        }
-        return result
-    }
+    function resolveBasicPrintings() { return constructionController.resolveBasicPrintings() }
 
-    function basicPrinting(name) {
-        return basicPrintings[name] !== undefined ? basicPrintings[name] : defaultBasicPrintings[name] || ({})
-    }
+    function basicPrinting(name) { return constructionController.basicPrinting(name) }
 
-    function printingIdentity(printing) {
-        return JSON.stringify([String(printing.setCode || "").toUpperCase(), String(printing.collectorNumber || "")])
-    }
+    function printingIdentity(printing) { return constructionController.printingIdentity(printing) }
 
     function basicPrintingLabel(name) {
         const printing = basicPrinting(name)
@@ -1159,30 +807,9 @@ Item {
             : qsTranslate("TournamentLobby", "Select printing")
     }
 
-    function sanitizeBasicPrintings(values) {
-        const result = {}
-        for (const name of basicNames) {
-            if (values[name] === undefined) continue
-            const value = values[name] || {}
-            const set = String(value.setCode || "").trim().toUpperCase()
-            const collector = String(value.collectorNumber || "").trim()
-            if (set && collector && set.length <= 16 && collector.length <= 32)
-                result[name] = {setCode: set, collectorNumber: collector}
-            else if (!set && !collector) result[name] = {}
-        }
-        return result
-    }
+    function sanitizeBasicPrintings(values) { return constructionController.sanitizeBasicPrintings(values) }
 
-    function setBasicPrinting(name, printing) {
-        if (basicNames.indexOf(name) < 0) return
-        const values = sanitizeBasicPrintings({[name]: printing})
-        if (!values[name] || !values[name].setCode) return
-        preserveConstructionScroll()
-        basicPrintings = Object.assign({}, basicPrintings, values)
-        if (cardCatalogModel && typeof cardCatalogModel.cacheCardsIncrementally === "function")
-            cardCatalogModel.cacheCardsIncrementally([Object.assign({name: name}, values[name])])
-        saveConstruction()
-    }
+    function setBasicPrinting(name, printing) { return constructionController.setBasicPrinting(name, printing) }
 
     function sealedPacks() {
         if (limitedModel.eventType !== "set_sealed" || !participantId) return []

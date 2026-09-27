@@ -28,6 +28,16 @@ realm and HTTPS (loopback HTTP is permitted for local tests); redirects are
 never followed. Account operations are bounded and failures do not fall back
 to a guest identity. Guest entry remains available explicitly.
 
+Admission and durable writes serialize per account; unrelated identities do not
+share a hash-bucket lock or wait for another account's disk flush. Waiting and
+authority RPCs inherit the caller's cancellation, with a five-second RPC limit.
+An atomic file commit already in progress finishes before publishing its memory
+state. Closing the store waits for these operations before releasing the
+directory lock. Frequent internal credential checks return only profile/session
+identity; explicit status requests still return the device inventory. Every
+authenticated command still checks the authority; valid credentials are not
+cached to bypass immediate revocation.
+
 ## First-version behavior
 
 - Create, login, recovery, code rotation, display name update, logout, device

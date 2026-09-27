@@ -367,6 +367,7 @@ Surface {
                 TapHandler {
                     enabled: root.floating
                     acceptedButtons: Qt.RightButton
+                    gesturePolicy: TapHandler.WithinBounds
                     onTapped: root.resetFloatingPosition()
                 }
 

@@ -274,6 +274,9 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 	maxSeats int, allowSpectators, spectatorsSeeHands bool, password, tournamentID, tournamentPairing,
 	tournamentParticipantID string,
 	host *Session, aiDifficulty ...string) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
+	if err := validateRoomRulesFormat(format, rulesMode); err != nil {
+		return nil, protocol.RoomSnapshot{}, 0, nil, err
+	}
 	if !protocol.ValidDeckFormat(deckFormat) ||
 		protocol.TableModeForDeckFormat(deckFormat) != format {
 		return nil, protocol.RoomSnapshot{}, 0, nil,

@@ -32,6 +32,12 @@ Page {
             onBackRequested: root.appWindow.popScreen()
         }
 
+        AppButton {
+            objectName: "openDraftPracticeButton"
+            text: qsTr("Draft practice")
+            onClicked: root.appWindow.pushScreen("screens/DraftPractice.qml")
+        }
+
         Flickable {
             id: simulatorBody
             objectName: "packSimulatorBody"

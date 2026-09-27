@@ -5,6 +5,7 @@
 
 #include "ApplicationPaths.h"
 #include "ShortcutRegistry.h"
+#include "UiLanguages.h"
 
 #include <QKeySequence>
 #include <QSet>
@@ -123,8 +124,7 @@ ClientPreferencesModel::ClientPreferencesModel(const QString &storageRoot, QObje
 
 void ClientPreferencesModel::setUiLanguage(const QString &language)
 {
-    const QString normalized =
-        language.toLower() == QStringLiteral("zh") ? QStringLiteral("zh") : QStringLiteral("en");
+    const QString normalized = uiLanguages::normalize(language);
     if (normalized == m_preferences.uiLanguage)
         return;
     const QString previous = m_preferences.uiLanguage;

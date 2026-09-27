@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "RulesCardGrouping.js" as CardGrouping
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
@@ -489,7 +490,7 @@ Surface {
 
                                 readonly property string category: {
                                     void root.tableController.cardCatalogModel.imageRevision
-                                    return layoutState.category(cardSlot, root.tableController.cardCatalogModel)
+                                    return CardGrouping.category(cardSlot, root.tableController.cardCatalogModel)
                                 }
                                 readonly property var arrangedPosition: layoutState.position(
                                     lane.seat, cardId, lane.arrangement.positions[cardId],

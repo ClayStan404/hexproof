@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"strings"
@@ -43,11 +44,11 @@ func sendTournamentError(h *Handler, sess *Session, id string, err error) {
 	h.sendErrorDetail(sess, id, code, message, minimumPlayers)
 }
 
-func (h *Handler) handleTournamentList(sess *Session, env protocol.Envelope) error {
+func (h *Handler) handleTournamentList(ctx context.Context, sess *Session, env protocol.Envelope) error {
 	h.evictExpiredTournaments(time.Now().UTC())
 	events := h.tournaments.list()
 	if h.clusterAgent != nil && sess.clusterEnabled {
-		view, err := h.clusterView(sess.Account().ID)
+		view, err := h.clusterView(ctx, sess.Account().ID)
 		if err != nil {
 			h.clusterError(sess, env.ID, err)
 			return nil

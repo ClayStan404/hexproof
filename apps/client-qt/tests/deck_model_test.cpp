@@ -23,6 +23,7 @@
 #include <QTest>
 #include <QUrl>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <limits>
@@ -1638,6 +1639,72 @@ void TestDeckLibrary::storesUiAndCardLanguagesSeparately() const
     ClientPreferencesModel restored(storage.path());
     QCOMPARE(restored.uiLanguage(), u"zh"_s);
     QCOMPARE(restored.cardLanguage(), u"zh"_s);
+}
+
+void TestDeckLibrary::acceptsAllUiLanguageCodes() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    {
+        ClientPreferencesModel model(storage.path());
+        for (const QString &code :
+             {u"zh"_s, u"zh_TW"_s, u"ja"_s, u"fr"_s, u"de"_s, u"es"_s, u"it"_s, u"pt_BR"_s}) {
+            model.setUiLanguage(code);
+            QCOMPARE(model.uiLanguage(), code);
+        }
+        // Legacy-friendly spellings and unknown values normalize deterministically.
+        model.setUiLanguage(u"JA"_s);
+        QCOMPARE(model.uiLanguage(), u"ja"_s);
+        model.setUiLanguage(u" zh_CN "_s);
+        QCOMPARE(model.uiLanguage(), u"zh"_s);
+        model.setUiLanguage(u"pt_BR"_s);
+        QCOMPARE(model.uiLanguage(), u"pt_BR"_s);
+        model.setUiLanguage(u"klingon"_s);
+        QCOMPARE(model.uiLanguage(), u"en"_s);
+        // The card catalog keeps its own smaller language set.
+        model.setCardLanguage(u"ja"_s);
+        QCOMPARE(model.cardLanguage(), u"en"_s);
+        model.setCardLanguage(u"zh"_s);
+        QCOMPARE(model.cardLanguage(), u"zh"_s);
+        model.setUiLanguage(u"pt_BR"_s);
+    }
+    ClientPreferencesModel restored(storage.path());
+    QCOMPARE(restored.uiLanguage(), u"pt_BR"_s);
+    QCOMPARE(restored.cardLanguage(), u"zh"_s);
+}
+
+void TestDeckLibrary::restoresUiLanguageFromSettingsFile() const
+{
+    struct Row
+    {
+        QString name;
+        QString uiLanguage;
+        QString expected;
+    };
+    const std::array rows = {
+        Row{u"legacy-language-key"_s, QString(), u"zh"_s},
+        Row{u"legacy-english"_s, u"en"_s, u"en"_s},
+        Row{u"stored-ja"_s, u"ja"_s, u"ja"_s},
+        Row{u"stored-tw"_s, u"zh_TW"_s, u"zh_TW"_s},
+        Row{u"stored-br"_s, u"pt_BR"_s, u"pt_BR"_s},
+        Row{u"alias-zh-cn"_s, u"zh_CN"_s, u"zh"_s},
+        Row{u"unknown"_s, u"xx"_s, u"en"_s},
+    };
+    for (const Row &row : rows) {
+        QTemporaryDir storage;
+        QVERIFY(storage.isValid());
+        QJsonObject settings{{u"version"_s, 13}};
+        if (row.name == u"legacy-language-key"_s)
+            settings.insert(u"language"_s, u"zh"_s);
+        else
+            settings.insert(u"uiLanguage"_s, row.uiLanguage);
+        QFile file(storage.filePath(u"settings.json"_s));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write(QJsonDocument(settings).toJson()) > 0);
+        file.close();
+        ClientPreferencesModel model(storage.path());
+        QCOMPARE(model.uiLanguage(), row.expected);
+    }
 }
 
 void TestDeckLibrary::storesCardArtProviderPreference() const

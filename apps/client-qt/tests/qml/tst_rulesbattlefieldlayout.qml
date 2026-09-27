@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtTest
 import "../../qml/components"
+import "../../qml/components/RulesCardGrouping.js" as CardGrouping
 
 TestCase {
     name: "RulesBattlefieldLayout"
@@ -55,8 +56,6 @@ TestCase {
             function openCardDetails(cardId) { inspected = cardId }
             function playDraggedHandCardSource(source) { handDrops++; return false }
         }
-
-        RulesBattlefieldLayout { id: grouping }
 
         RulesBattlefieldView {
             id: battlefield
@@ -341,16 +340,16 @@ TestCase {
         const printed = {cardId: "f", name: "Goblin", visibleIdentity: true, token: false,
                          tapped: false, power: "1", toughness: "1"}
         const hidden = {cardId: "g", name: "Secret", visibleIdentity: false, faceDown: true}
-        compare(grouping.stackKey(plains, "battlefield"), grouping.stackKey(plainsCopy, "battlefield"))
-        verify(grouping.stackKey(plains, "battlefield") !== grouping.stackKey(tapped, "battlefield"))
-        verify(grouping.stackKey(plains, "battlefield") !== grouping.stackKey(
+        compare(CardGrouping.stackKey(plains, "battlefield"), CardGrouping.stackKey(plainsCopy, "battlefield"))
+        verify(CardGrouping.stackKey(plains, "battlefield") !== CardGrouping.stackKey(tapped, "battlefield"))
+        verify(CardGrouping.stackKey(plains, "battlefield") !== CardGrouping.stackKey(
             Object.assign({}, plainsCopy, {enteredThisTurn:true}), "battlefield"))
-        verify(grouping.stackKey(goblin, "battlefield") !== grouping.stackKey(
+        verify(CardGrouping.stackKey(goblin, "battlefield") !== CardGrouping.stackKey(
             Object.assign({}, goblinCopy, {summoningSick:true}), "battlefield"))
-        compare(grouping.stackKey(goblin, "battlefield"), grouping.stackKey(goblinCopy, "battlefield"))
-        verify(grouping.stackKey(goblin, "battlefield") !== grouping.stackKey(printed, "battlefield"))
-        verify(grouping.stackKey(hidden, "battlefield") !== grouping.stackKey(plains, "battlefield"))
-        verify(grouping.stackKey(plains, "graveyard") !== grouping.stackKey(plainsCopy, "graveyard"))
+        compare(CardGrouping.stackKey(goblin, "battlefield"), CardGrouping.stackKey(goblinCopy, "battlefield"))
+        verify(CardGrouping.stackKey(goblin, "battlefield") !== CardGrouping.stackKey(printed, "battlefield"))
+        verify(CardGrouping.stackKey(hidden, "battlefield") !== CardGrouping.stackKey(plains, "battlefield"))
+        verify(CardGrouping.stackKey(plains, "graveyard") !== CardGrouping.stackKey(plainsCopy, "graveyard"))
     }
 
     function test_faceDownCardsNeverUsePrivateTypeMetadata() {

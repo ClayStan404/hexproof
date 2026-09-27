@@ -46,6 +46,22 @@ bool parseTargetSeat(const QJsonObject &target, RulesPromptTargetRow &row)
 }
 } // namespace
 
+QAbstractItemModel *RulesSessionState::battlefieldCardsForSeat(int seat)
+{
+    if (seat < 0)
+        return nullptr;
+    if (auto *model = m_seatBattlefields.value(seat))
+        return model;
+    // Filter the already-redacted projection before QML creates card delegates.
+    // A permanent follows its controller, including cards owned by another seat.
+    auto *model = new QSortFilterProxyModel(this);
+    model->setSourceModel(&m_battlefieldCards);
+    model->setFilterRole(RulesCardModel::ControllerSeatRole);
+    model->setFilterRegularExpression(u"^%1$"_s.arg(seat));
+    m_seatBattlefields.insert(seat, model);
+    return model;
+}
+
 QVariantList RulesSessionState::cardActionsForCard(const QString &cardId) const
 {
     if (!m_promptPending || !m_promptSupported ||

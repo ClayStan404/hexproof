@@ -19,6 +19,7 @@ Page {
     property var replayFrame: ({})
     property var rulesSession: wsModel.rulesSession
     property var gameSession: wsModel.gameSession
+    property Component tablePresentationComponent: forgePresentation
     readonly property bool roomConnected: replayMode || wsModel.inRoom === true
     readonly property bool hostingPaused: roomSession.hostingMode === "player" && (roomSession.hostConnected !== true
         || roomSession.hostStatus && roomSession.hostStatus.migrating === true)
@@ -59,8 +60,7 @@ Page {
     readonly property bool priorityInputBlocked: hostingPaused || backgroundPopup.opened
         || rulesConcedeConfirmation.opened || matchUi.modalOpen === true
         || (presentation && presentation.modalOpen === true)
-    property bool showGameLogRail: roomSession.maxSeats > 2
-        ? (preferencesModel ? preferencesModel.tableShowGameLog : true) : false
+    property bool showGameLogRail: false
     readonly property bool canChat: !replayMode && roomConnected && roomSession.phase === "started"
                                    && (roomSession.role === "player"
                                        || roomSession.role === "spectator")
@@ -90,7 +90,8 @@ Page {
             spectatedHandSeat = 0
     }
     readonly property bool compactLayout: Theme.isCompactWidth(width)
-    readonly property bool stackTargetsVisible: !sideboarding && (roomSession.maxSeats <= 2 || !compactLayout)
+    readonly property bool stackTargetsVisible: !sideboarding
+        && (tablePresentationComponent === forgePresentation || roomSession.maxSeats <= 2 || !compactLayout)
     readonly property bool persistentInspectionDock: width >= Theme.size(1180)
     readonly property real inspectionDockWidth: Math.min(Theme.size(320),
                                                          Math.max(Theme.size(230), width * 0.2))
@@ -149,8 +150,6 @@ Page {
 
     onCompactLayoutChanged: {
         if (compactLayout) showGameLogRail = false
-        else if (roomSession.maxSeats > 2)
-            showGameLogRail = preferencesModel ? preferencesModel.tableShowGameLog : true
     }
 
     QtObject {
@@ -461,15 +460,11 @@ Page {
     Loader {
         id: tablePresentation
         anchors.fill: parent
-        sourceComponent: root.roomSession.maxSeats > 2 ? legacyLayout : duelLayout
+        sourceComponent: root.tablePresentationComponent
     }
     Component {
-        id: duelLayout
+        id: forgePresentation
         ForgeDuelTable { tableController: root }
-    }
-    Component {
-        id: legacyLayout
-        RulesLegacyLayout { tableController: root }
     }
 
     ConfirmDialog {

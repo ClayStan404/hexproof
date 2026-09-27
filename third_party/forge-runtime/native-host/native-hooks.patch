@@ -255,7 +255,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
 \ No newline at end of file
 +}
 diff --git a/forge-game/src/main/java/forge/game/Game.java b/forge-game/src/main/java/forge/game/Game.java
-index cdc70dd5e0dd1c87bb221940666eac862f13a685..b8da49f5c0ab0160870bf6f6a3b5713813e221f4 100644
+index 7ffcaf076270ffea18564bcfbb3780b194080b36..c9d24c2536ccc6009aa073d331b98114fccd2f8c 100644
 --- a/forge-game/src/main/java/forge/game/Game.java
 +++ b/forge-game/src/main/java/forge/game/Game.java
 @@ -64,8 +64,8 @@ public class Game {
@@ -270,7 +270,7 @@ index cdc70dd5e0dd1c87bb221940666eac862f13a685..b8da49f5c0ab0160870bf6f6a3b57138
      private boolean noGUIUser;
  
 diff --git a/forge-game/src/main/java/forge/game/GameAction.java b/forge-game/src/main/java/forge/game/GameAction.java
-index aeefd9bdc3b397997a5e0622211b8e82f1216b68..b4b63b4d924377a74c7fe172c31d1cdf25529e6a 100644
+index 0a7ca0f7c17e642821d2a32d8197daff2371de15..30add4da28c5ad3400d73e58eba7b93f55139ace 100644
 --- a/forge-game/src/main/java/forge/game/GameAction.java
 +++ b/forge-game/src/main/java/forge/game/GameAction.java
 @@ -334,6 +334,13 @@ public class GameAction {
@@ -288,10 +288,10 @@ index aeefd9bdc3b397997a5e0622211b8e82f1216b68..b4b63b4d924377a74c7fe172c31d1cdf
                  // reset failed manifested Cards back to original
                  if ((c.isManifested() || c.isCloaked()) && !c.isInPlay()) {
 diff --git a/forge-game/src/main/java/forge/game/GameActionUtil.java b/forge-game/src/main/java/forge/game/GameActionUtil.java
-index e6b2b8f66458f16b2fc1fcb801d27ffa2651bcca..a1e7965449c734ef2ee2174ef0e2ca246b2291e8 100644
+index d993b4ea7dc4d9973445b481ad99a88711cf867d..c51769b342fb7c049aff0535fa92b8f768bc6bf0 100644
 --- a/forge-game/src/main/java/forge/game/GameActionUtil.java
 +++ b/forge-game/src/main/java/forge/game/GameActionUtil.java
-@@ -1001,9 +1001,6 @@ public final class GameActionUtil {
+@@ -1005,9 +1005,6 @@ public final class GameActionUtil {
                  oldCard.removeCloneState(oldCard.getPrototypeTimestamp());
              }
  
@@ -332,7 +332,7 @@ index 187fe82e43a9cb9d2431a179316bf7621189f4ec..90ba2f2ae79fe9e5dc90d5f2efbbdeba
  
          if (abCost == null) {
 diff --git a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
-index 0e8e291c0bb807f9e5e628a4fa05d11919edd3df..c670a3ea94b6ec0489f9636a34bdae60f409e8ef 100644
+index 9d90c5c341dd79efff1d80f9afd8a53c518f4be3..ebcabb77756a0d8f8ad12763b29630bca63a37c3 100644
 --- a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
 +++ b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
 @@ -1300,7 +1300,17 @@ public class AbilityUtils {
@@ -419,10 +419,10 @@ index dd2eb401f92990c82ebe4fd2aa051b39301c8c9b..56f02f6a3c10edf5f8ab2f7b8847457e
                  final boolean revealed = mode.startsWith("Reveal") || mode.startsWith("Look");
                  final CardCollectionView visibleToChooser = revealed ? dPHand : validCards;
 diff --git a/forge-game/src/main/java/forge/game/card/Card.java b/forge-game/src/main/java/forge/game/card/Card.java
-index dcd6d517f51c8d0116afe18983a16b6a20492c36..f69d2e0e3c7a859a7bd6750e41a5e4f6d705d039 100644
+index 7c6c6c929dc93166652d3ab868a6f3730387f496..956e23a7082808c2e6a00f6cb26428abbd336d10 100644
 --- a/forge-game/src/main/java/forge/game/card/Card.java
 +++ b/forge-game/src/main/java/forge/game/card/Card.java
-@@ -7460,6 +7460,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
+@@ -7474,6 +7474,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
  
      private static final Map<PaperCard, Card> cp2card = Maps.newHashMap();
      public static Card getCardForUi(IPaperCard pc) {
@@ -679,10 +679,10 @@ index fa902c5081b7d7e8cb06ffa1ce53ce338a7829c6..93c313200dd372f66e9109ad15996c17
          // This line makes use of short-circuit evaluation of boolean values, that is each subsequent argument
          // is only executed or evaluated if the first argument does not suffice to determine the value of the expression
 diff --git a/forge-game/src/main/java/forge/game/player/Player.java b/forge-game/src/main/java/forge/game/player/Player.java
-index 8f8e6fa814f2c97269d03f77fb3e37b48dbafb65..e11fd2135801f837072414ace2c66de362ad52a2 100644
+index 9ea2491a2af69543d58763847aa4fb2977792b60..c3fe3bc6f8749838152c7958f99fd4b3e79ddc71 100644
 --- a/forge-game/src/main/java/forge/game/player/Player.java
 +++ b/forge-game/src/main/java/forge/game/player/Player.java
-@@ -3167,6 +3167,11 @@ public class Player extends GameEntity implements Comparable<Player> {
+@@ -3176,6 +3176,11 @@ public class Player extends GameEntity implements Comparable<Player> {
  
          SpellAbility fakeSa = new SpellAbility.EmptySa(ApiType.CompanionChoose, legalCompanions.get(0), this);
          Card companion = player.chooseSingleEntityForEffect(view, fakeSa, Localizer.getInstance().getMessage("lblChooseACompanion"), true, null);
@@ -816,7 +816,7 @@ index e8683d2d5fe1c82eb170a0d579fe4f75a778981d..004583cc44175010d6dd1bbba668624e
  
      @Override
 diff --git a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
-index da6f782e3f8cb7c3f07955c587ba3401be330e38..6d6cb17b27f96b2c32ebc44623ac9a29833777b2 100644
+index 2c547750f0573f50978628edd932d2bb697c08b1..76e90481777ad23f1bc56467f6da89e66ce1fe7f 100644
 --- a/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
 +++ b/forge-game/src/main/java/forge/game/spellability/SpellAbility.java
 @@ -75,8 +75,8 @@ import forge.game.zone.ZoneType;

@@ -200,7 +200,7 @@ TestCase {
         window.requestActivate(); tryCompare(window, "active", true)
         Theme.uiScale = 1
         room.role = "player"; room.seatIndex = 0; room.spectatorsSeeHands = false
-        room.format = "modern"; room.deckFormat = "modern"
+        room.format = "modern"; room.deckFormat = "modern"; room.maxSeats = 2
         room.hostingMode = "server"
         room.aiSource = ""
         room.seats = []
@@ -231,6 +231,409 @@ TestCase {
         catalog.nameRequests = []
         catalog.rules = ({})
         catalog.imageOverride = ""
+    }
+
+    function edhSnapshot(seats, localSeat, crowded) {
+        const data = snapshot()
+        data.players = []; data.zones = []
+        data.activeSeat = seats[seats.length - 1]; data.prioritySeat = data.activeSeat
+        for (const seat of seats) {
+            const commanderId = "cmd-" + seat
+            data.players.push({seat:seat, name:"Player " + seat, life:40, status:"playing",
+                commanders:[{name:"Isamaru, Hound of Konda", casts:seat, tax:seat * 2,
+                    zone:"command", objectId:commanderId}]})
+            const permanents = []
+            for (let i = 0; i < (typeof crowded === "number" ? crowded : crowded ? 18 : 3); ++i)
+                permanents.push(card("creature-" + seat + "-" + i, seat, "Bear " + i, true))
+            permanents.push(card("land-" + seat, seat, "Plains", false))
+            data.zones.push({zone:"battlefield", ownerSeat:seat, count:permanents.length, cards:permanents},
+                {zone:"hand", ownerSeat:seat, count:7, cards:seat === localSeat ? [card("my-hand", seat, "Plains", false)] : []},
+                {zone:"library", ownerSeat:seat, count:83, cards:[]},
+                {zone:"command", ownerSeat:seat, count:1, cards:[card(commanderId, seat, "Isamaru, Hound of Konda", true)]})
+        }
+        return data
+    }
+    function test_edhSeatLayouts_data() {
+        return [{tag:"two-in-four-seat-room", seats:[0,1], local:0, width:1600, height:1000},
+            {tag:"two-sparse", seats:[1,3], local:3, width:1600, height:1000},
+            {tag:"three-sparse", seats:[0,2,3], local:2, width:1600, height:1000},
+            {tag:"four", seats:[0,1,2,3], local:0, width:1920, height:1010},
+            {tag:"four-other-viewer", seats:[0,1,2,3], local:3, width:1280, height:720}]
+    }
+    function test_edhSeatLayouts(data) {
+        room.format = "edh"; room.deckFormat = "commander"; room.maxSeats = 4; room.seatIndex = data.local
+        window.width = data.width; window.height = data.height
+        verify(testRulesPrompt.applySnapshot(edhSnapshot(data.seats, data.local)))
+        tryCompare(table.presentation, "playerSeats", data.seats)
+        compare(table.presentation.bottomSeat, data.local)
+        compare(table.presentation.commanderFormat, true)
+        compare(findChild(table, "rulesGameLayout"), null)
+        compare(item("forgeHand").ownerSeat, data.local)
+        for (const seat of data.seats) {
+            compare(findChild(table, "forgeCommanders-" + seat), null)
+            verify(item("rulesPlayerTarget" + seat).visible)
+        }
+        if (data.seats.length === 2) {
+            compare(table.presentation.multiplayer, false)
+            compare(item("forgeOpponentCreatures").ownerSeat, data.seats.find(s => s !== data.local))
+            verify(item("forgeOwnZoneStrip").visible)
+            return
+        }
+        compare(table.presentation.multiplayer, true)
+        verify(!item("forgeHandCaption").visible)
+        const board = item("forgeMultiplayerBattlefield")
+        const near = item("forgeField-" + data.local)
+        verify(near.y > 0)
+        compare(near.x, 0)
+        if (data.seats.length === 3) compare(near.width, board.width)
+        else verify(Math.abs(near.width * 2 + board.gap - board.width) < 1)
+        for (const seat of data.seats) {
+            const field = item("forgeField-" + seat)
+            verify(field.x >= 0 && field.y >= 0)
+            verify(field.x + field.width <= board.width + 1)
+            verify(field.y + field.height <= board.height + 1)
+            const right = field.mapToItem(table.presentation, field.width, 0).x
+            verify(right <= table.presentation.boardRight + 1)
+            const lane = item("forgeCreatures-" + seat)
+            tryCompare(lane, "stackCount", 3)
+            const zones = item("forgeSeatZones-" + seat)
+            const command = item("forgeSeatZone-" + seat + "-command")
+            const exile = item("forgeSeatZone-" + seat + "-exile")
+            verify(command.x > exile.x + exile.width)
+            const zoneY = zones.mapToItem(field, 0, 0).y
+            if (field.nearSide) verify(lane.y + lane.height <= zoneY)
+            else verify(zoneY + zones.height <= lane.y)
+            const surface = item("forgeCard-creature-" + seat + "-0")
+            const cardPosition = surface.mapToItem(field, 0, 0)
+            if (field.nearSide) verify(cardPosition.y < field.height * 0.1)
+            else verify(cardPosition.y + surface.height > field.height * 0.9)
+            verify(field.headerHeight <= 64 * table.presentation.unit)
+            const lanes = [lane, item("forgeLands-" + seat), item("forgeOther-" + seat)]
+            for (const group of lanes.filter(value => value.stackCount > 0)) {
+                verify(group.x >= field.inset && group.y >= field.boardTop)
+                verify(group.x + group.width <= field.width - field.inset + 1)
+                verify(group.y + group.height <= field.boardTop + field.boardHeight + 1)
+                verify(group.scrollArea.contentHeight <= group.height + 1)
+            }
+            verify(table.presentation.pointFor("creature-" + seat + "-0").x > 0)
+            if (seat !== data.local) compare(item("forgeSeatZone-" + seat + "-library").showsPublicFace, false)
+        }
+    }
+    function test_edhFieldsAllocateSpaceToPublicPiles_data() {
+        return [{tag:"creatures-only", creatures:8, lands:0, others:0},
+            {tag:"lands-only", creatures:0, lands:10, others:0},
+            {tag:"support-only", creatures:0, lands:8, others:6},
+            {tag:"balanced", creatures:8, lands:4, others:3},
+            {tag:"support-heavy", creatures:2, lands:12, others:8, allowOverflow:true}]
+    }
+    function test_edhFieldsAllocateSpaceToPublicPiles(data) {
+        room.format = "edh"; room.maxSeats = 4
+        const state = edhSnapshot([0,1,2,3], 0, 0)
+        for (const zone of state.zones.filter(value => value.zone === "battlefield")) {
+            zone.cards = []
+            for (let i = 0; i < data.creatures; ++i)
+                zone.cards.push(card("front-" + zone.ownerSeat + "-" + i, zone.ownerSeat, "Bear " + i, true))
+            for (let i = 0; i < data.lands; ++i) {
+                const land = card("land-" + zone.ownerSeat + "-" + i, zone.ownerSeat, "Plains", false)
+                land.counters = [{name:"charge", value:i + 1}]
+                zone.cards.push(land)
+            }
+            for (let i = 0; i < data.others; ++i)
+                zone.cards.push(card("support-" + zone.ownerSeat + "-" + i, zone.ownerSeat, "Artifact " + i, false))
+            zone.count = zone.cards.length
+        }
+        verify(testRulesPrompt.applySnapshot(state))
+        table.priority.setFullControl(true)
+        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+        for (const seat of [0,1,2,3]) {
+            const field = item("forgeField-" + seat)
+            const lanes = [item("forgeCreatures-" + seat), item("forgeLands-" + seat), item("forgeOther-" + seat)]
+            for (let i = 0; i < lanes.length; ++i)
+                tryCompare(lanes[i], "stackCount", [data.creatures, data.lands, data.others][i])
+            const occupied = lanes.filter(lane => lane.stackCount > 0)
+            if (occupied.length === 1) {
+                compare(occupied[0].height, field.boardHeight)
+                verify(occupied[0].width > field.availableWidth(field.boardTop, field.boardHeight) * 0.95)
+            }
+            for (const lane of occupied) {
+                verify(lane.cardWidth >= 80 * table.presentation.unit - 1)
+                if (!data.allowOverflow)
+                    verify(lane.scrollArea.contentHeight <= lane.height + 1, lane.objectName + " fits its piles")
+                for (const peer of occupied.filter(value => value !== lane))
+                    verify(lane.x + lane.width <= peer.x || peer.x + peer.width <= lane.x
+                        || lane.y + lane.height <= peer.y || peer.y + peer.height <= lane.y)
+                for (const slot of lane.visibleCards) {
+                    verify(slot.x + slot.width <= lane.width + 1)
+                    if (!data.allowOverflow) verify(slot.y + slot.height <= lane.height + 1)
+                    verify(table.presentation.reveal(slot.cardId))
+                    verify(table.presentation.pointFor(slot.cardId).x > 0)
+                }
+            }
+        }
+    }
+    function test_edhControlChangesPreserveOtherCardsAndSeparatePriority() {
+        room.format = "edh"; room.maxSeats = 4
+        const state = edhSnapshot([0,1,2,3], 0)
+        state.activeSeat = 2; state.prioritySeat = 3
+        verify(testRulesPrompt.applySnapshot(state))
+        const own = item("forgeCreatures-0"), other = item("forgeCreatures-1")
+        tryCompare(own, "stackCount", 3); tryCompare(other, "stackCount", 3)
+        const unchanged = item("forgeCard-creature-0-0")
+        const turn = item("forgeField-2"), priority = item("forgeField-3")
+        verify(turn.activeTurn && !turn.hasPriority)
+        verify(priority.hasPriority && !priority.activeTurn)
+        verify(turn.border.color !== priority.border.color)
+        verify(item("forgeSeatStatus-2").text.includes("Current turn"))
+        verify(item("forgeSeatStatus-3").text.includes("Priority"))
+        state.zones.find(zone => zone.zone === "battlefield" && zone.ownerSeat === 1).cards[0].controllerSeat = 0
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(own, "cardCount", 4); tryCompare(other, "cardCount", 2)
+        compare(item("forgeCard-creature-0-0"), unchanged)
+        verify(own.itemFor("creature-1-0"))
+        compare(other.itemFor("creature-1-0"), null)
+        const command = item("forgeSeatZone-0-command")
+        verify(command.summary)
+        compare(String(command.faceSource), "")
+        command.forceActiveFocus()
+        keyClick(Qt.Key_Return)
+        tryCompare(item("forgeZonePopup"), "visible", true)
+        compare(item("forgeZonePopup").ownerSeat, 0)
+    }
+    function test_edhOpeningReclaimsPhaseSpace_data() {
+        return [{tag:"three", seats:[0,2,3], local:2, width:1600, height:1000, scale:1},
+            {tag:"three-small-controls", seats:[0,2,3], local:2, width:1915, height:1045, scale:0.8},
+            {tag:"four", seats:[0,1,2,3], local:0, width:1600, height:1000, scale:1},
+            {tag:"four-small-controls", seats:[0,1,2,3], local:2, width:1915, height:1045, scale:0.8}]
+    }
+    function test_edhOpeningReclaimsPhaseSpace(data) {
+        room.format = "edh"; room.maxSeats = 4; room.seatIndex = data.local
+        window.width = data.width; window.height = data.height; Theme.uiScale = data.scale
+        const state = edhSnapshot(data.seats, data.local)
+        for (const zone of state.zones) {
+            if (zone.zone === "command") continue
+            zone.cards = []; zone.count = zone.zone === "library" ? 99 : 0
+        }
+        state.turn = 0; state.activeSeat = -1; state.prioritySeat = data.local; state.step = "untap"
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(table.presentation, "playerSeats", data.seats)
+        const board = item("forgeMultiplayerBattlefield"), track = item("forgePhaseTrack")
+        const initialFields = data.seats.map(seat => item("forgeField-" + seat))
+        const openingHeight = board.fieldFor(data.local).height
+        const nearWidth = board.fieldFor(data.local).width
+        for (const stage of ["starting-player", "mulligan", "first-turn", "next-game"]) {
+            state.turn = stage === "first-turn" ? 1 : 0
+            state.activeSeat = stage === "starting-player" || stage === "next-game" ? -1 : data.local
+            if (stage === "next-game") state.gameId = "next-game"
+            verify(testRulesPrompt.applySnapshot(state))
+            waitForRendering(table)
+            const fields = data.seats.map(seat => item("forgeField-" + seat))
+            const near = board.fieldFor(data.local), far = fields.find(field => !field.nearSide)
+            compare(track.visible, stage === "first-turn")
+            compare(near.width, nearWidth)
+            verify(Math.abs(far.y) < 1 && Math.abs(near.y + near.height - board.height) < 1)
+            if (stage !== "next-game") {
+                for (let index = 0; index < fields.length; ++index)
+                    compare(fields[index], initialFields[index])
+            }
+            if (track.visible) {
+                const phaseTop = track.mapToItem(board, 0, 0).y
+                verify(phaseTop >= far.y + far.height,
+                       "The visible phase track must fit between the player fields")
+                verify(phaseTop + track.height <= near.y)
+                verify(near.height < openingHeight)
+            } else {
+                const upper = fields.filter(field => !field.nearSide).sort((a, b) => a.x - b.x)
+                const columnGap = upper[1].x - upper[0].x - upper[0].width
+                verify(Math.abs(near.y - far.y - far.height - columnGap) < 1,
+                       "A hidden phase track must leave only the same narrow gutter as the columns")
+                compare(near.height, openingHeight)
+            }
+        }
+    }
+    function test_edhTargetsCommandersAndElimination() {
+        room.format = "edh"; room.maxSeats = 4
+        const data = edhSnapshot([0,1,2,3], 0)
+        verify(testRulesPrompt.applySnapshot(data))
+        tryCompare(table.presentation, "multiplayer", true)
+        prompt("chooseBoardTargets", {minSelections:2, maxSelections:2, targets:[
+            {responseId:"opaque-player-3", kind:"player", seat:3, label:"Player 3"},
+            {responseId:"opaque-card-2", kind:"card", objectId:"creature-2-0", label:"Bear 0"}]})
+        mouseClick(item("rulesPlayerTarget3"))
+        mouseClick(item("forgeCard-creature-2-0"))
+        compare(table.interaction.selectedCount, 2)
+        mouseClick(item("rulesConfirmTargets"))
+        compare(transport.responses.length, 1)
+        compare(transport.responses[0].targets.slice().sort(), ["opaque-card-2", "opaque-player-3"])
+        action("cast", "cmd-0")
+        mouseClick(item("forgeSeatZone-0-command"))
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        tryCompare(item("forgeZoneCards"), "stackCount", 1)
+        mouseClick(item("forgeCard-cmd-0"))
+        compare(transport.responses.length, 2)
+        item("forgeZonePopup").close()
+        compare(transport.responses[1].response, "opaque-play")
+        const field = item("forgeField-3")
+        const location = Qt.point(field.x, field.y)
+        data.players[3].status = "conceded"
+        data.activeSeat = 2; data.prioritySeat = 2
+        verify(testRulesPrompt.applySnapshot(data))
+        tryCompare(field, "eliminated", true)
+        compare(table.presentation.playerSeats.length, 4)
+        compare(Qt.point(field.x, field.y), location)
+        compare(item("forgeField-2").activeTurn, true)
+    }
+    function test_edhCombatAndStackAcrossAllFields() {
+        room.format = "edh"; room.maxSeats = 4
+        const data = edhSnapshot([0,1,2,3], 0)
+        data.activeSeat = 0; data.prioritySeat = 0; data.step = "declare_attackers"
+        verify(testRulesPrompt.applySnapshot(data))
+        tryCompare(table.presentation, "multiplayer", true)
+        prompt("chooseAttackers", {combatSources:[{responseId:"attacker", objectId:"creature-0-0",
+            label:"Bear 0", name:"Bear 0", validTargetIds:["defender-1", "defender-2", "defender-3"], maxAssignments:1}],
+            combatTargets:[1,2,3].map(seat => ({responseId:"defender-" + seat, kind:"player", seat:seat,
+                label:"Player " + seat, minAssignments:0, maxAssignments:8}))})
+        mouseClick(item("forgeCard-creature-0-0"))
+        mouseClick(item("rulesPlayerTarget3"))
+        compare(table.combatInteraction.assignments.attacker, "defender-3")
+        const combatArrow = item("forgeCombatArrow-creature-0-0-seat-3")
+        compare(combatArrow.endPoint, table.presentation.playerPoint(3))
+        verify(combatArrow.startPoint.x > 0 && combatArrow.endPoint.x > 0)
+        mouseClick(item("rulesConfirmCombat-attackers"))
+        compare(transport.responses[0].assignments, [{sourceId:"attacker", targetId:"defender-3"}])
+        data.stack = [{id:"bolt", controllerSeat:2, identity:{name:"Lightning Bolt"}, text:"Deal 3 damage",
+            targets:[{kind:"card", objectId:"creature-1-0", label:"Bear 0"}, {kind:"player", seat:3, label:"Player 3"}]}]
+        verify(testRulesPrompt.applySnapshot(data))
+        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+        mouseClick(item("forgeStackTarget-bolt-0"))
+        const arrow = item("forgeStackTargetArrow")
+        tryVerify(() => arrow.visible && arrow.endPoint.x > 0)
+        compare(arrow.endPoint, table.presentation.pointFor("creature-1-0"))
+        mouseClick(item("forgeStackTarget-bolt-1"))
+        compare(arrow.endPoint, table.presentation.playerPoint(3))
+        verify(item("forgeField-3").selected)
+        transport.inRoom = false
+        tryCompare(arrow, "visible", false)
+        verify(!item("forgeField-3").selected)
+    }
+
+    function test_edhCrowdedBattlefieldAndSpectatorPrivacy() {
+        room.format = "edh"; room.maxSeats = 4; room.role = "spectator"; room.seatIndex = -1
+        verify(testRulesPrompt.applySnapshot(edhSnapshot([0,1,2,3], -1, 36)))
+        tryCompare(table.presentation, "multiplayer", true)
+        tryCompare(item("forgeHand"), "visibleCards", [])
+        const lane = item("forgeCreatures-2")
+        tryCompare(lane, "stackCount", 36)
+        verify(lane.scrollArea.contentHeight > lane.scrollArea.height)
+        const last = lane.visibleCards[lane.visibleCards.length - 1].cardId
+        verify(table.presentation.reveal(last))
+        verify(table.presentation.pointFor(last).x > 0)
+        compare(item("forgeViewHand-2").visible, false)
+        verify(!table.interaction.canRespond)
+    }
+
+    function test_floatingStackPreservesBattlefield_data() {
+        return [{tag:"modern", format:"modern", seats:2}, {tag:"duel", format:"duel", seats:2},
+            {tag:"edh-two", format:"edh", seats:2}, {tag:"edh-three", format:"edh", seats:3},
+            {tag:"edh-four", format:"edh", seats:4}]
+    }
+    function test_floatingStackPreservesBattlefield(data) {
+        room.format = data.format; room.maxSeats = data.format === "edh" ? 4 : 2
+        const state = data.format === "edh" ? edhSnapshot([0,1,2,3].slice(0, data.seats), 0) : snapshot()
+        verify(testRulesPrompt.applySnapshot(state))
+        table.priority.setFullControl(true)
+        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+        const board = table.presentation, stack = item("forgeStack"), arrow = item("forgeStackTargetArrow")
+        tryCompare(board, "multiplayer", data.seats > 2)
+        verify(board.boardRight > board.width * 0.95)
+        const lane = item(data.seats > 2 ? "forgeCreatures-1" : "forgeOpponentCreatures")
+        tryCompare(lane, "stackCount", data.format === "edh" ? 3 : 1)
+        if (data.seats > 2) tryCompare(item("forgeLands-1"), "stackCount", 1)
+        const before = Qt.rect(lane.x, lane.y, lane.width, lane.height)
+        verify(!stack.visible)
+        state.stack = [{id:"bolt", controllerSeat:0, identity:{name:"Lightning Bolt"},
+            targets:[{kind:"player", seat:data.seats - 1, label:"Opponent"}]}]
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(stack, "count", 1)
+        tryVerify(() => stack.visible && arrow.visible)
+        compare(Qt.rect(lane.x, lane.y, lane.width, lane.height), before)
+        const startX = stack.x, startY = stack.y, arrowStart = Qt.point(arrow.startPoint.x, arrow.startPoint.y)
+        const handle = item("forgeStackDragHandle")
+        mouseDrag(handle, handle.width / 2, handle.height / 2, -160, 80)
+        tryVerify(() => stack.x < startX - 100 && stack.y > startY + 40)
+        tryVerify(() => Math.abs(arrow.startPoint.x - arrowStart.x) > 100)
+        compare(arrow.startPoint, stack.pointFor("bolt", board))
+        compare(transport.responses.length, 0)
+        verify(!table.inspector.pinned)
+        compare(Qt.rect(lane.x, lane.y, lane.width, lane.height), before)
+        const moved = Qt.point(stack.x, stack.y)
+        mouseClick(item("forgeStackToggle"))
+        tryCompare(stack, "collapsed", true)
+        compare(Qt.point(stack.x, stack.y), moved)
+        mouseClick(item("forgeStackToggle"))
+        tryCompare(stack, "collapsed", false)
+        compare(Qt.point(stack.x, stack.y), moved)
+        mouseClick(handle, 10, 10, Qt.RightButton)
+        tryCompare(stack, "storedPosition", Qt.point(-1, -1))
+        verify(!table.inspector.pinned)
+        tryVerify(() => Math.abs(stack.x - startX) < 1 && Math.abs(stack.y - startY) < 1,
+            1000, "Restored position " + stack.x + "," + stack.y + "; initial " + startX + "," + startY)
+        mouseClick(item("forgeStackToggle"))
+        tryCompare(stack, "collapsed", true)
+        compare(stack.height, stack.headerHeight)
+        verify(!arrow.visible)
+        state.turn++
+        verify(testRulesPrompt.applySnapshot(state))
+        waitForRendering(table)
+        verify(stack.collapsed)
+        item("forgeStackToggle").forceActiveFocus(); keyClick(Qt.Key_Space)
+        tryCompare(stack, "collapsed", false)
+        tryVerify(() => arrow.visible)
+        if (data.seats > 2) {
+            const command = item("forgeSeatZone-" + (data.seats - 1) + "-command")
+            const covered = command.mapToItem(board, command.width / 2, command.height / 2)
+            const offset = 12 * board.unit
+            stack.moveTo(covered.x - offset, covered.y - offset)
+            mouseClick(stack, offset, offset)
+            verify(!item("forgeZonePopup").visible, "The floating stack covers player controls")
+        }
+        stack.moveTo(board.width, board.height)
+        window.width = 1280; window.height = 720
+        tryVerify(() => stack.x + stack.width <= board.boardRight + 1
+            && stack.y + stack.height < board.handTop)
+        mouseClick(item("forgeStackToggle"))
+        tryCompare(stack, "collapsed", true)
+        state.stack = []
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(stack, "visible", false)
+        tryCompare(stack, "collapsed", false)
+        state.stack = [{id:"new-spell", controllerSeat:0, identity:{name:"Opt"}}]
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(stack, "visible", true)
+        verify(!stack.collapsed)
+        state.gameId = "next-game"
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(stack, "storedPosition", Qt.point(-1, -1))
+    }
+
+    function test_edhExpandedDecisionKeepsBottomTargetsReachable_data() {
+        return [{tag:"three", seats:3, target:0}, {tag:"four", seats:4, target:1}]
+    }
+    function test_edhExpandedDecisionKeepsBottomTargetsReachable(data) {
+        room.format = "edh"; room.maxSeats = 4
+        window.width = 1280; window.height = 720
+        verify(testRulesPrompt.applySnapshot(edhSnapshot([0,1,2,3].slice(0, data.seats), 0, true)))
+        tryCompare(table.presentation, "multiplayer", true)
+        const id = "creature-" + data.target + "-17"
+        prompt("chooseBoardTargets", {minSelections:1, maxSelections:2,
+            targets:[{responseId:"target", kind:"card", objectId:id, label:"Bear"},
+                {responseId:"player", kind:"player", seat:2, label:"Opponent"}]})
+        verify(table.presentation.reveal(id))
+        const face = item("forgeCard-" + id), dock = table.presentation.decisionDock
+        const right = face.mapToItem(table.presentation, face.width, face.height)
+        verify(right.x <= dock.x || right.y <= dock.y)
+        mouseClick(face)
+        compare(table.interaction.selectedCount, 1)
+        compare(transport.responses.length, 0)
     }
 
     function test_aiDifficultyRemainsVisibleOnTable() {
@@ -423,11 +826,13 @@ TestCase {
         waitForRendering(table)
         tryCompare(item("forgeStackName-bolt"), "text", "闪电击")
         compare(item("forgeStackRules-bolt").text, "闪电击对任意目标造成3点伤害。")
-        compare(item("forgeCommanderName-0-0").text, "指挥官")
+        mouseClick(item("forgeZone-command"))
+        tryCompare(item("forgeZonePopup"), "visible", true)
+        compare(item("forgeCommanderHistory-0-0").commanderName, "指挥官")
         catalog.language = "en"
         tryCompare(item("forgeCardName-land"), "text", "Plains")
         compare(item("forgeStackName-bolt").text, "Lightning Bolt")
-        compare(item("forgeCommanderName-0-0").text, "Commander")
+        compare(item("forgeCommanderHistory-0-0").commanderName, "Commander")
     }
 
     function test_actionLabelsFollowCardLanguage() {
@@ -1498,23 +1903,41 @@ TestCase {
         compare(table.combatInteraction.selectedSource, "")
         compare(transport.responses.length, 1)
     }
-    function test_commanderHistoryAndActionFollowNativeSnapshot() {
-        room.format = "duel"
-        const state = snapshot()
-        state.players[0].commanders = [{name:"Commander", casts:2, tax:4, zone:"battlefield", objectId:"own-0"},
+    function test_commanderHistoryAndActionFollowNativeSnapshot_data() {
+        return [{tag:"duel", seats:2}, {tag:"edh-three", seats:3}, {tag:"edh-four", seats:4}]
+    }
+    function test_commanderHistoryAndActionFollowNativeSnapshot(data) {
+        room.format = data.seats > 2 ? "edh" : "duel"; room.maxSeats = data.seats
+        const state = data.seats > 2 ? edhSnapshot([0,1,2,3].slice(0, data.seats), 0) : snapshot()
+        const commanderId = data.seats > 2 ? "creature-0-0" : "own-0"
+        state.players[0].commanders = [{name:"Commander", casts:2, tax:4, zone:"battlefield", objectId:commanderId},
             {name:"Partner", casts:0, tax:0, zone:"hidden"}]
         verify(testRulesPrompt.applySnapshot(state))
-        const commander = item("forgeCommander-0-0"), partner = item("forgeCommander-0-1")
+        compare(findChild(table, "forgeCommanders-0"), null)
+        const pile = item(data.seats > 2 ? "forgeSeatZone-0-command" : "forgeZone-command")
+        pile.forceActiveFocus()
+        keyClick(Qt.Key_Return)
+        tryCompare(item("forgeZonePopup"), "opened", true)
+        const commander = item("forgeCommanderHistory-0-0"), partner = item("forgeCommanderHistory-0-1")
         verify(commander.summary.includes("Tax +4"))
         verify(partner.summary.includes("Hidden zone"))
-        compare(partner.objectId, "")
-        action("activateAbility", "own-0")
-        verify(commander.actionable)
-        mouseClick(commander)
+        compare(table.presentation.commandersFor(0)[1].objectId || "", "")
+        const lane = item("forgeZoneCards")
+        verify(lane.y >= partner.mapToItem(lane.parent, 0, partner.height).y)
+        state.players[0].commanders[0].casts = 3
+        state.players[0].commanders[0].tax = 6
+        verify(testRulesPrompt.applySnapshot(state))
+        tryVerify(() => item("forgeCommanderHistory-0-0").summary.includes("Tax +6"))
+        item("forgeZonePopup").close()
+        action("activateAbility", commanderId)
+        mouseClick(item("forgeCard-" + commanderId))
         compare(transport.responses[0].response, "opaque-play")
         const next = snapshot(); next.gameId = "next-game"
         verify(testRulesPrompt.applySnapshot(next))
-        compare(findChild(table, "forgeCommander-0-0"), null)
+        tryCompare(table.presentation, "playerSeats", [0,1])
+        mouseClick(item("forgeZone-command"))
+        tryCompare(item("forgeZonePopup"), "visible", true)
+        compare(findChild(item("forgeZonePopup").contentItem, "forgeCommanderHistory-0-0"), null)
     }
     function test_boardMultipleBlocksRespectNativeCapacity() {
         const state = snapshot()
@@ -2020,7 +2443,7 @@ TestCase {
         compare(item("forgeStackCard-effect").card.name, "Grizzly Bears")
         compare(item("forgeStackName-effect").text, "Grizzly Bears (1)'s Effect")
         const track = item("forgePhaseTrack")
-        verify(track.x + track.width <= item("forgeStack").x + 1)
+        verify(track.x + track.width <= table.presentation.boardRight + 1)
         const opponentLane = item("forgeOpponentCreatures")
         const ownLane = item("forgeOwnCreatures")
         const seam = (opponentLane.y + opponentLane.height + ownLane.y) / 2
@@ -2273,8 +2696,6 @@ TestCase {
             const lane = item(name)
             verify(lane.width > 0)
             verify(lane.x + lane.width <= dock.x || lane.y + lane.height <= dock.y)
-            const stack = item("forgeStack")
-            verify(lane.x + lane.width <= stack.x || lane.y >= stack.y + stack.height)
             verify(lane.x + lane.width <= table.width)
         }
         verify(item("forgeHand").x + item("forgeHand").width <= dock.x)
@@ -2287,6 +2708,8 @@ TestCase {
         log.storedNW = 0.32
         tryVerify(() => log.x < startX - 40 && log.width !== startW)
         mouseClick(handle, 8, 8, Qt.RightButton)
+        tryCompare(log, "storedNX", -1)
+        verify(!table.inspector.pinned)
         tryVerify(() => Math.abs(log.x - startX) < 3
                          && Math.abs(log.y - startY) < 3
                          && Math.abs(log.width - startW) < 3)
@@ -2346,7 +2769,8 @@ TestCase {
         last.forceActiveFocus()
         tryVerify(() => stack.scrollArea.contentY > 0)
         const point = last.mapToItem(stack.scrollArea, 0, 0)
-        verify(point.y >= 0 && point.y + last.height <= stack.scrollArea.height + 1)
+        verify(point.y >= 0 && point.y + last.height <= stack.scrollArea.height + 1,
+            "Target y=" + point.y + " height=" + last.height + " viewport=" + stack.scrollArea.height)
         compare(last.text, "Target: Hidden card")
         keyClick(Qt.Key_Space)
         tryCompare(stack, "activeTargetIndex", 15)

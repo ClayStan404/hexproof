@@ -6,7 +6,15 @@ upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
-The current adapter is revision 24, retaining upstream `2be4858216742009afe8a7cffb035fc7671e960d`.
+Adapter revision 25 uses upstream `0485ad49fb10c8ef5b3eda2a002c963d59be71dc`.
+Revision 25 updates the official rules engine, card resources and verified
+printing index together. Upstream changes include token-resolution performance,
+alternative-cost stability and AI copy-target selection. The upgrade requires
+a matching complete base distribution for creator hosting; an overlay cannot
+replace the previous base's rules and card resources. Publish and verify that
+base before activating its download manifest. See the
+[upgrade record](../../docs/forge-upstream-2026-09-27.md) for verification and
+publication status.
 Revision 24 releases controlled-player input when that player concedes, allowing
 an Emrakul-controlled turn to unwind without stranding the native decision loop.
 Revision 23 corrects companion decline, cast-only exile choices and taking cards
@@ -66,7 +74,7 @@ for cost reduction when payment is cancelled, without treating improvise as
 convoke for card rules. Revision 3 added complete sideboard/scry/
 cleanup choices, linked exile and token metadata, and isolated shared workers;
 revision 4 adds private logical-state integrity for verified host replay.
-The official source pin is unchanged. Earlier native fixes remain: Backup Plan shuffles
+Earlier native fixes remain: Backup Plan shuffles
 returned unused hands, and multiplayer concession safely unwinds abandoned
 objects, transfers surviving choices, and advances priority past departed
 players. The patch is part of the reviewed source contract, not an unchanged

@@ -141,8 +141,7 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
             if (type == kTypeForgeReplayGet)
                 m_replays->fail(error);
         });
-    m_clusterTimer.setSingleShot(true);
-    connect(&m_clusterTimer, &QTimer::timeout, this, [this] {
+    connect(&m_clusterTransfer, &ClusterTransfer::timedOut, this, [this] {
         failClusterRoute(
             tr("The node transfer timed out. Reconnect to check your room before trying again."));
     });
@@ -279,7 +278,7 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
 {
     const bool hadRoom = !roomId().isEmpty() || m_state == InRoom;
     m_reconnectController->stopRetry();
-    if (!m_clusterRouting) {
+    if (!m_clusterTransfer.routing()) {
         m_protocolSession->failAll(u"connection replaced before the server replied"_s);
         clearClusterCommand();
     }
@@ -565,7 +564,7 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         }
         return {};
     }
-    if (clusterCommand(type, payload) && !m_clusterRequestId.isEmpty()) {
+    if (clusterCommand(type, payload) && m_clusterTransfer.pending()) {
         m_protocolSession->reportUnqueuedFailure(
             type, payload, tr("Wait for the current room request to finish."));
         return {};
@@ -602,9 +601,7 @@ QString WsClient::send(const QString &type, const QJsonObject &payload)
         emit rulesResponsePendingChanged();
     }
     if (clusterCommand(type, payload)) {
-        m_clusterRequestId = command.id;
-        m_clusterCommandType = type;
-        m_clusterWire = command.wire;
+        m_clusterTransfer.track(command.id, type, command.wire);
     }
     m_protocolSession->markQueued(command);
     if (directQueued) {
@@ -628,8 +625,8 @@ void WsClient::onConnected()
         m_account->helloToken(m_serverDirectory->accountRealmForUrl(m_serverUrl));
     if (!accountToken.isEmpty())
         p.insert(u"accountSession"_s, accountToken);
-    if (!m_clusterTicket.isEmpty())
-        p.insert(u"clusterTicket"_s, m_clusterTicket);
+    if (!m_clusterTransfer.ticket().isEmpty())
+        p.insert(u"clusterTicket"_s, m_clusterTransfer.ticket());
     const QString clusterRealm = m_serverDirectory->accountRealmForUrl(m_serverUrl);
     if (!clusterRealm.isEmpty())
         p.insert(u"clusterRealm"_s, clusterRealm);
@@ -650,8 +647,8 @@ void WsClient::onDisconnected(quint64 transportGeneration)
 {
     if (transportGeneration != m_transportGeneration)
         return;
-    if (!m_clusterDestination.isEmpty()) {
-        const QString requestId = m_clusterRequestId;
+    if (m_clusterTransfer.routed()) {
+        const QString requestId = m_clusterTransfer.requestId();
         clearClusterCommand();
         m_account->acceptError(requestId, kErrClusterUnavailable,
                                tr("The connection to the selected official node was lost."));
@@ -864,7 +861,7 @@ void WsClient::setState(ConnectionState s)
     if (m_state == s)
         return;
     m_state = s;
-    m_account->setTransportReady(connected() && !m_clusterRouting);
+    m_account->setTransportReady(connected() && !m_clusterTransfer.routing());
     emit connectionStateChanged();
 }
 

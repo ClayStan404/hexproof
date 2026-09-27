@@ -140,18 +140,26 @@ func TestDirectoryNamespacesAndPrivateOwnership(t *testing.T) {
 	c, _ := New(testConfig())
 	r := report()
 	r.Rooms = []protocol.RoomListEntry{{RoomID: "ABCDEF", Name: "Public"}}
+	r.Events = []protocol.TournamentListEntry{{TournamentID: "EVENT1", Name: "Public event"}}
 	r.Resources["alice"] = []protocol.AccountResource{{Kind: "room", ID: "PRIVATE", Name: "Private"}}
 	r.Resources["bob"] = []protocol.AccountResource{{Kind: "cube", ID: "SECRET", Name: "Bob's pod"}}
 	g := register(t, c, "N1", r)
 	register(t, c, "N2", r)
 	r.Rooms[0].Name = "mutated caller slice"
+	r.Events[0].Name = "mutated caller event"
+	r.Resources["alice"][0].Name = "mutated caller resource"
 	delete(r.Resources, "alice")
 	out, err := c.Do(context.Background(), Request{Operation: "view", NodeID: "N1", Generation: g, AccountID: "alice"})
-	if err != nil || len(out.Rooms) != 2 || len(out.Resources) != 2 {
+	if err != nil || len(out.Rooms) != 2 || len(out.Events) != 2 || len(out.Resources) != 2 {
 		t.Fatalf("view: %+v %v", out, err)
 	}
 	if out.Rooms[0].RoomID != "N1:ABCDEF" || out.Rooms[1].RoomID != "N2:ABCDEF" || out.Rooms[0].Name != "Public" {
 		t.Fatal(out.Rooms)
+	}
+	for _, event := range out.Events {
+		if event.Name != "Public event" {
+			t.Fatal("published event retained caller storage", event)
+		}
 	}
 	for _, resource := range out.Resources {
 		if resource.Name != "Private" {

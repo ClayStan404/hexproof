@@ -107,19 +107,12 @@ bool WsClient::clusterCommand(const QString &type, const QJsonObject &payload) c
 
 void WsClient::clearClusterCommand()
 {
-    m_clusterTimer.stop();
-    m_clusterRequestId.clear();
-    m_clusterCommandType.clear();
-    m_clusterWire.clear();
-    m_clusterTicket.clear();
-    m_clusterDestination.clear();
-    m_clusterAccountId.clear();
-    m_clusterRouting = false;
+    m_clusterTransfer.clear();
 }
 
 void WsClient::failClusterRoute(const QString &message)
 {
-    const QString requestId = m_clusterRequestId;
+    const QString requestId = m_clusterTransfer.requestId();
     clearClusterCommand();
     setLastError(kErrClusterUnavailable, message);
     m_account->acceptError(requestId, kErrClusterUnavailable, message);
@@ -131,48 +124,34 @@ void WsClient::handleClusterRoute(const Envelope &env)
 {
     const QString realm = m_serverDirectory->accountRealmForUrl(m_serverUrl);
     const QString url = env.payload.value(u"url"_s).toString();
-    const QString node = env.payload.value(u"nodeId"_s).toString();
-    const QString ticket = env.payload.value(u"ticket"_s).toString();
-    static const QRegularExpression nodePattern(u"^[A-Z0-9]{2,8}$"_s);
-    static const QRegularExpression ticketPattern(u"^[a-f0-9]{64}$"_s);
-    if (env.id.isEmpty() || env.id != m_clusterRequestId || !clusterAvailable() ||
-        !m_clusterDestination.isEmpty() || !roomId().isEmpty() || realm.isEmpty() ||
-        env.payload.value(u"realm"_s).toString() != realm ||
-        m_serverDirectory->accountRealmForUrl(url) != realm || url == m_serverUrl ||
-        !nodePattern.match(node).hasMatch() || !ticketPattern.match(ticket).hasMatch()) {
+    if (!m_clusterTransfer.acceptRoute(
+            env, m_serverUrl, realm, m_serverDirectory->accountRealmForUrl(url),
+            m_account->accountId(), clusterAvailable() && roomId().isEmpty())) {
         failClusterRoute(tr("The official node transfer could not be verified. Please reconnect."));
         return;
     }
-    m_clusterRouting = true;
-    m_clusterDestination = node;
-    m_clusterAccountId = m_account->accountId();
-    m_clusterTicket = ticket;
-    m_clusterTimer.start(30000);
     // Keep this command's original correlation; other old-node requests have
     // ended. No command is retried if transmission to the destination fails.
-    m_protocolSession->failAllExcept(m_clusterRequestId,
+    m_protocolSession->failAllExcept(m_clusterTransfer.requestId(),
                                      tr("The connection moved to another official node."));
     connectTo(url, m_displayName);
 }
 
 bool WsClient::finishClusterRoute(const Envelope &welcome)
 {
-    if (!m_clusterRouting)
+    if (!m_clusterTransfer.routing())
         return false;
-    if (m_clusterNode != m_clusterDestination ||
-        welcome.payload.value(u"accountId"_s).toString() != m_clusterAccountId ||
-        welcome.payload.value(u"resumed"_s).toBool()) {
+    const QByteArray wire = m_clusterTransfer.takeCommand(welcome, m_clusterNode);
+    if (wire.isEmpty()) {
         failClusterRoute(tr("The official node transfer could not be verified. Please reconnect."));
         return true;
     }
-    if (m_ws.sendTextMessage(QString::fromUtf8(m_clusterWire)) <= 0) {
+    if (m_ws.sendTextMessage(QString::fromUtf8(wire)) <= 0) {
         failClusterRoute(tr("Could not send the request to the selected official node."));
         return true;
     }
-    if (m_clusterCommandType == kTypeAccountCommand)
-        m_account->commandQueued(m_clusterRequestId);
-    m_clusterRouting = false;
-    m_clusterTicket.clear();
+    if (m_clusterTransfer.commandType() == kTypeAccountCommand)
+        m_account->commandQueued(m_clusterTransfer.requestId());
     setState(Connected);
     return true;
 }

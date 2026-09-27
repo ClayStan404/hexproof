@@ -6,6 +6,41 @@
 #include <QCryptographicHash>
 #include <QJsonDocument>
 
+void TestWsClient::clusterTransferConsumesPrivateCommandOnce() const
+{
+    hexproof::client::ClusterTransfer transfer;
+    const QByteArray wire = R"({"private":"command"})";
+    transfer.track(u"request"_s, u"room.create"_s, wire);
+    hexproof::protocol::Envelope route;
+    route.id = u"request"_s;
+    route.payload = {{u"url"_s, u"ws://target/ws"_s},
+                     {u"realm"_s, u"test"_s},
+                     {u"nodeId"_s, u"N2"_s},
+                     {u"ticket"_s, QString(64, u'a')}};
+    QVERIFY(!transfer.acceptRoute(route, u"ws://origin/ws"_s, u"test"_s, {}, {}, true));
+    QVERIFY(transfer.pending());
+    QVERIFY(!transfer.routed());
+    QVERIFY(
+        transfer.acceptRoute(route, u"ws://origin/ws"_s, u"test"_s, u"test"_s, u"owner"_s, true));
+    QVERIFY(transfer.routing());
+    QVERIFY(!transfer.ticket().isEmpty());
+    hexproof::protocol::Envelope welcome;
+    welcome.payload = {{u"accountId"_s, u"other"_s}};
+    QVERIFY(transfer.takeCommand(welcome, u"N2"_s).isEmpty());
+    welcome.payload.insert(u"accountId"_s, u"owner"_s);
+    QCOMPARE(transfer.takeCommand(welcome, u"N2"_s), wire);
+    QVERIFY(transfer.takeCommand(welcome, u"N2"_s).isEmpty());
+    QVERIFY(transfer.ticket().isEmpty());
+    QVERIFY(transfer.pending());
+    QVERIFY(
+        !transfer.acceptRoute(route, u"ws://target/ws"_s, u"test"_s, u"test"_s, u"owner"_s, true));
+    transfer.resolve(u"unrelated"_s);
+    QVERIFY(transfer.pending());
+    transfer.resolve(u"request"_s);
+    QVERIFY(!transfer.pending());
+    QVERIFY(!transfer.routed());
+}
+
 void TestWsClient::routesOfficialCommandOnce_data()
 {
     QTest::addColumn<QString>("scenario");

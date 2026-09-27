@@ -3,6 +3,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
+import "RulesCardGrouping.js" as CardGrouping
 
 Item {
     id: root
@@ -15,6 +16,7 @@ Item {
     property bool showCaption: true
     property real startInset: 0
     property real maxFaceWidth: 0
+    property bool alignBottom: false
     property string locatedId: ""
     property int combatForward: 0
     readonly property bool combatPresentation: {
@@ -33,7 +35,7 @@ Item {
     readonly property real gap: 8 * unit
     readonly property bool showFullFace: zone !== "battlefield"
     readonly property real faceRatio: showFullFace ? 1.394 : 0.93
-    readonly property real cardWidth: fittedCardWidth()
+    readonly property real cardWidth: fittedCardWidth(viewport.width, viewport.height)
     readonly property real cardHeight: cardWidth * faceRatio
     readonly property real rowAvailable: Math.max(1, viewport.width - startInset - 6 * unit)
     readonly property int columns: Math.max(1, Math.floor((rowAvailable + gap) / (cardWidth + gap) + 1e-7))
@@ -54,7 +56,12 @@ Item {
         return Math.min(depth, 3)
     }
     readonly property real attachmentPeek: attachmentDepth * 16 * unit
-    readonly property real cellHeight: cardHeight + (hasBadges ? 22 : 10) * unit + attachmentPeek
+    readonly property real cellExtra: (hasBadges ? 22 : 10) * unit + attachmentPeek
+    readonly property real edgeSpace: 5 * unit + combatPad + (combatPresentation ? 16 * unit : 0)
+    readonly property real cellHeight: cardHeight + cellExtra
+    readonly property real gridHeight: combatPad + Math.ceil(stackCount / columns) * cellHeight
+        + 5 * unit + (combatPresentation ? 16 * unit : 0)
+    readonly property real rowTop: alignBottom ? Math.max(0, viewport.height - gridHeight) : 0
     readonly property real rowLead: {
         const count = stackCount
         if (count <= 0 || category !== "creature")
@@ -69,29 +76,28 @@ Item {
     // smaller ceiling so two tiles stay in the near corner instead of
     // becoming a centered poster row. Layout uses public piles, not raw
     // object counts, so eight Plains occupy one tile.
-    function fittedCardWidth() {
+    function fittedCardWidth(laneWidth, laneHeight) {
         const count = Math.max(1, stackCount)
-        const available = Math.max(1, viewport.width - startInset - 6 * unit)
+        const available = Math.max(1, laneWidth - startInset - 6 * unit)
         const ceiling = maxFaceWidth > 0 ? maxFaceWidth
             : (zone === "battlefield" ? 180 : 120) * unit
         const maximum = Math.min(available, ceiling)
-        const minimum = Math.min(maximum, 80 * unit)
-        const extra = (hasBadges ? 22 : 10) * unit + attachmentPeek
-        const heightFit = viewport.height > extra + 5 * unit
-            ? (viewport.height - extra - 5 * unit) / faceRatio : minimum
+        const heightFit = Math.max(1, (laneHeight - cellExtra - edgeSpace) / faceRatio)
+        const minimum = Math.min(maximum, 80 * unit, heightFit)
         let best = minimum
         for (let cols = 1; cols <= count; ++cols) {
-            const candidate = Math.min(maximum, heightFit,
-                (available - (cols - 1) * gap) / cols)
-            if (candidate < minimum) break
+            const widthFit = (available - (cols - 1) * gap) / cols
+            if (widthFit < minimum) break
             const rows = Math.ceil(count / cols)
-            if (rows * (candidate * faceRatio + extra) + 5 * unit <= viewport.height)
+            const rowHeightFit = ((laneHeight - edgeSpace) / rows - cellExtra) / faceRatio
+            const candidate = Math.min(maximum, rowHeightFit, widthFit)
+            if (candidate < minimum) continue
+            if (rows * (candidate * faceRatio + cellExtra) + edgeSpace <= laneHeight + 1e-7)
                 best = Math.max(best, candidate)
         }
         return best
     }
 
-    RulesBattlefieldLayout { id: grouping }
     function cardStackKey(card) {
         const combat = root.tableController.combatInteraction
         if (combat.active && combat.isCombatant(card.cardId))
@@ -105,7 +111,7 @@ Item {
         if (relationships.some(link => link.sourceId === card.cardId || link.targetId === card.cardId))
             return "related:" + card.cardId
         const reserved = interaction.nativeObjectSelected("card", card.cardId)
-        return grouping.stackKey(card, root.zone) + (reserved ? "\u001freserved" : "")
+        return CardGrouping.stackKey(card, root.zone) + (reserved ? "\u001freserved" : "")
     }
     function collect() {
         const next = []
@@ -214,7 +220,7 @@ Item {
         required property var annotations
         readonly property string category: {
             void root.tableController.cardCatalogModel.imageRevision
-            return grouping.category(slot, root.tableController.cardCatalogModel)
+            return CardGrouping.category(slot, root.tableController.cardCatalogModel)
         }
         readonly property bool matches: root.zone === "battlefield"
             ? controllerSeat === root.ownerSeat && category === root.category
@@ -295,7 +301,7 @@ Item {
         height: root.cardHeight
         x: 3 * root.unit + root.rowLead + (stackIndex % root.columns) * (width + root.gap)
            + pileDepth * 4 * root.unit
-        y: root.combatPad + 3 * root.unit + Math.floor(stackIndex / root.columns) * root.cellHeight
+        y: root.rowTop + root.combatPad + 3 * root.unit + Math.floor(stackIndex / root.columns) * root.cellHeight
            + pileDepth * 4 * root.unit
            + (root.combatPresentation && slot.attacking ? root.combatForward * 14 * root.unit : 0)
         z: (slot.attacking && root.combatPresentation ? 40 : 0)
@@ -361,15 +367,15 @@ Item {
         width: root.width
         height: Math.max(0, root.height - y)
         contentWidth: width
-        contentHeight: Math.max(height, root.combatPad
-            + Math.ceil(root.stackCount / root.columns) * root.cellHeight + 5 * root.unit
-            + (root.combatPresentation ? 16 * root.unit : 0))
+        contentHeight: Math.max(height, root.gridHeight)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Repeater {
             id: cards
-            model: root.zone === "battlefield" ? root.tableController.rulesSession.battlefieldCards : root.tableController.rulesSession.zoneCards
+            model: root.zone === "battlefield"
+                ? root.tableController.rulesSession.battlefieldCardsForSeat(root.ownerSeat)
+                : root.tableController.rulesSession.zoneCards
             onItemAdded: refresh.restart()
             onItemRemoved: refresh.restart()
             delegate: CardSlot {}

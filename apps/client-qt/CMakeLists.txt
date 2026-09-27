@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.3.0")
+set(HEXPROOF_VERSION "2.4.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -156,10 +156,12 @@ target_link_libraries(hexproof_deck_library PUBLIC
 set(HEXPROOF_SESSION_SOURCES
     src/services/AccountVault.cpp
     src/services/AccountSessionState.cpp
+    src/services/ClusterTransfer.cpp
     src/services/HubTransport.cpp
     src/services/GameSessionState.cpp
     src/services/LimitedSessionState.cpp
     src/services/LimitedDeckDraftStore.cpp
+    src/services/DraftSimulator.cpp
     src/services/ProtocolSession.cpp
     src/services/ReconnectController.cpp
     src/services/RoomSessionState.cpp
@@ -243,6 +245,7 @@ set(HEXPROOF_CARD_SERVICE_SOURCES
     src/services/CatalogBulkImport.cpp
     src/services/CatalogReleaseManifest.cpp
     src/services/CardCatalogSearch.cpp
+    src/services/CatalogSearchController.cpp
     src/services/CardCatalogSearchPreview.cpp
     src/services/CardCatalogPrintings.cpp
     src/services/CardCatalogLookup.cpp
@@ -432,6 +435,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/LimitedCardGrouping.qml
         qml/components/LimitedCardGroupView.qml
         qml/components/LimitedDeckBuilder.qml
+        qml/components/LimitedDeckConstructionController.qml
         qml/components/LimitedCommanderSelection.qml
         qml/components/CommanderDraftPlan.qml
         qml/components/CubeRoomRules.qml
@@ -456,6 +460,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/RoomListQuery.qml
         qml/components/RulesBattlefieldView.qml
         qml/components/RulesBattlefieldLayout.qml
+        qml/components/RulesCardGrouping.js
         qml/components/RulesTableInteraction.qml
         qml/components/RulesPriorityController.qml
         qml/components/RulesPriorityMode.qml
@@ -470,12 +475,15 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/RulesCardSurface.qml
         qml/components/ForgeCard.qml
         qml/components/ForgeCardLane.qml
+        qml/components/ForgeFieldLayout.qml
         qml/components/ForgeHand.qml
         qml/components/ForgeManaPool.qml
         qml/components/ForgeStack.qml
         qml/components/ForgeArrow.qml
         qml/components/ForgeCombatInteraction.qml
         qml/components/ForgeDuelTable.qml
+        qml/components/ForgeMultiplayerBattlefield.qml
+        qml/components/ForgePlayerField.qml
         qml/components/ForgeZonePile.qml
         qml/components/RulesLegacyLayout.qml
         qml/components/RulesCardInspector.qml
@@ -591,6 +599,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/screens/Account.qml
         qml/screens/CreateRoom.qml
         qml/screens/LimitedHub.qml
+        qml/screens/DraftPractice.qml
         qml/screens/LimitedRoomCreate.qml
         qml/screens/DeckEditor.qml
         qml/screens/DeckLibrary.qml
@@ -644,15 +653,31 @@ qt_add_resources(hexproof "background_music"
     PREFIX "/music" BASE "${CMAKE_CURRENT_SOURCE_DIR}/assets/music"
     FILES ${HEXPROOF_MUSIC_FILES})
 
+# Every UI language except source English, keyed by the TS locale suffixes
+# declared in src/UiLanguages.h. qt_add_translations runs lupdate over the
+# application sources and embeds one QM per language under :/i18n.
+set(HEXPROOF_UI_TS_LOCALES zh_CN ja fr de es it pt_BR zh_TW)
+set(HEXPROOF_UI_TS_FILES)
+set(HEXPROOF_UI_QM_FILES)
+foreach(locale IN LISTS HEXPROOF_UI_TS_LOCALES)
+    list(APPEND HEXPROOF_UI_TS_FILES "i18n/hexproof_${locale}.ts")
+    list(APPEND HEXPROOF_UI_QM_FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/hexproof_${locale}.qm")
+endforeach()
 qt_add_translations(hexproof
-    TS_FILES i18n/hexproof_zh_CN.ts
+    TS_FILES ${HEXPROOF_UI_TS_FILES}
     RESOURCE_PREFIX "/i18n"
     LUPDATE_OPTIONS -locations relative)
-set(HEXPROOF_UI_QM_FILE
-    "${CMAKE_CURRENT_BINARY_DIR}/hexproof_zh_CN.qm")
 
+# Dynamic catalogs are hand-maintained (no lupdate); keep their source set in
+# sync across languages and with tools/check-i18n.py.
+set(HEXPROOF_DYNAMIC_TS_LOCALES zh_CN ja fr de es it pt_BR zh_TW)
+set(HEXPROOF_DYNAMIC_TS_FILES)
+foreach(locale IN LISTS HEXPROOF_DYNAMIC_TS_LOCALES)
+    list(APPEND HEXPROOF_DYNAMIC_TS_FILES "i18n/hexproof_dynamic_${locale}.ts")
+endforeach()
 qt_add_lrelease(
-    TS_FILES i18n/hexproof_dynamic_zh_CN.ts
+    TS_FILES ${HEXPROOF_DYNAMIC_TS_FILES}
     QM_FILES_OUTPUT_VARIABLE HEXPROOF_DYNAMIC_QM_FILES)
 qt_add_resources(hexproof "dynamic_translations"
     PREFIX "/i18n"
@@ -726,7 +751,7 @@ if(HEXPROOF_BUILD_NATIVE_AUDIT)
     qt_add_resources(hexproof_native_audit "native_translations"
         PREFIX "/i18n"
         BASE "${CMAKE_CURRENT_BINARY_DIR}"
-        FILES "${HEXPROOF_UI_QM_FILE}" ${HEXPROOF_DYNAMIC_QM_FILES})
+        FILES ${HEXPROOF_UI_QM_FILES} ${HEXPROOF_DYNAMIC_QM_FILES})
     qt_add_shaders(hexproof_native_audit "native_liquidglass_shaders"
         BATCHABLE PRECOMPILE OPTIMIZED PREFIX "/shaders"
         FILES qml/shaders/liquidglass.frag)
@@ -1167,6 +1192,10 @@ qt_add_executable(hexproof_limiteddeckdraftstore_test tests/limiteddeckdraftstor
 target_link_libraries(hexproof_limiteddeckdraftstore_test PRIVATE hexproof_session Qt6::Test)
 add_test(NAME limiteddeckdraftstore COMMAND hexproof_limiteddeckdraftstore_test)
 
+qt_add_executable(hexproof_draftsimulator_test tests/draftsimulator_test.cpp)
+target_link_libraries(hexproof_draftsimulator_test PRIVATE hexproof_session Qt6::Test)
+add_test(NAME draftsimulator COMMAND hexproof_draftsimulator_test)
+
 qt_add_executable(hexproof_deck_test
     tests/deck_test.cpp
     tests/deck_model_test.cpp
@@ -1392,7 +1421,7 @@ qt_add_resources(hexproof_qml_test "qml_test_translations"
     PREFIX "/i18n"
     BASE "${CMAKE_CURRENT_BINARY_DIR}"
     FILES
-        ${HEXPROOF_UI_QM_FILE}
+        ${HEXPROOF_UI_QM_FILES}
         ${HEXPROOF_DYNAMIC_QM_FILES})
 if(WIN32)
     set(HEXPROOF_QML_TEXT_LOG

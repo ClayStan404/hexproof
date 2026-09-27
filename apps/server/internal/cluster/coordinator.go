@@ -166,11 +166,15 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (Result, error) {
 			out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Version, now)
 			return out, nil
 		}
-		s.reportSequence = q.ReportSequence
-		raw, _ := json.Marshal(q.Report)
-		if err := json.Unmarshal(raw, &s.report); err != nil {
+		// A report is a full snapshot. Decode into fresh storage so omitted
+		// fields and removed map keys cannot survive from the previous report.
+		var nextReport Report
+		raw, err := json.Marshal(q.Report)
+		if err != nil || json.Unmarshal(raw, &nextReport) != nil {
 			return out, ErrInvalid
 		}
+		s.report = nextReport
+		s.reportSequence = q.ReportSequence
 		s.seen = now
 		c.states[q.NodeID] = s
 		for _, token := range q.Completed {
