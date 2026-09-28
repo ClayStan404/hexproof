@@ -26,6 +26,7 @@ TestCase {
         id: connection
         property bool inRoom: false
         property bool connected: true
+        property bool transferring: false
         property var roomList: []
         property string joinedRoom: ""
         property string lastError: ""
@@ -82,9 +83,14 @@ TestCase {
             property var tournament: eventModel
         }
     }
+    Component {
+        id: transferComponent
+        ServerTransferOverlay { wsModel: connection }
+    }
     function init() {
         connection.lastError = ""
         connection.connected = true
+        connection.transferring = false
         connection.roomRequests = 0
         connection.eventEntries = 0
         connection.joins = 0
@@ -92,6 +98,7 @@ TestCase {
         window.pushedScreen = ""
         connection.eventRequests = 0
         connection.roomList = []
+        eventModel.activeTournamentList = []
         testTranslations.setLanguage("zh")
     }
     function cleanup() {
@@ -146,6 +153,51 @@ TestCase {
         verify(rooms !== null && events !== null)
         compare(connection.roomRequests, 0)
         compare(connection.eventRequests, 0)
+    }
+    function test_transferKeepsDiscoveryAndBlocksInput() {
+        window.width = 1280; window.height = 800; Theme.uiScale = 1
+        connection.roomList = [{roomId: "N2:ABC123", name: "Cross-node room", format: "modern",
+                               maxSeats: 2, playerCount: 1, phase: "waiting", spectatorCount: 0,
+                               playerJoinable: true, spectatorJoinable: true}]
+        const rooms = createTemporaryObject(roomsComponent, window.contentItem,
+                                            {width: 1280, height: 800})
+        const overlay = createTemporaryObject(transferComponent, window.contentItem)
+        const query = findChild(rooms, "roomListQuery")
+        query.searchText = "Cross-node"
+        waitForRendering(rooms)
+        connection.transferring = true
+        connection.connected = false
+        tryCompare(overlay, "opened", true)
+        compare(findChild(rooms, "hubRoomList").visible, true)
+        compare(findChild(rooms, "emptyHubRoomState").visible, false)
+        compare(findChild(rooms, "roomBrowserConnectButton").visible, false)
+        compare(query.searchText, "Cross-node")
+        keyClick(Qt.Key_Escape)
+        compare(overlay.visible, true)
+        const join = findChild(rooms, "joinListedRoomButton")
+        verify(join !== null)
+        mouseClick(join)
+        compare(connection.joins, 0)
+        // Hello alone must not unlock a second join before the original reply.
+        connection.connected = true
+        mouseClick(join)
+        compare(connection.joins, 0)
+        connection.connected = false
+        connection.transferring = false
+        tryCompare(overlay, "visible", false)
+        compare(findChild(rooms, "roomBrowserConnectButton").visible, true)
+        compare(findChild(rooms, "hubRoomList").visible, false)
+        compare(query.searchText, "Cross-node")
+    }
+    function test_eventTransferDoesNotOfferReconnect() {
+        const events = createTemporaryObject(eventsComponent, window.contentItem,
+                                             {width: 900, height: 620})
+        connection.transferring = true
+        connection.connected = false
+        compare(findChild(events, "tournamentBrowserConnectButton").visible, false)
+        compare(findChild(events, "tournamentRefreshButton").enabled, false)
+        connection.transferring = false
+        compare(findChild(events, "tournamentBrowserConnectButton").visible, true)
     }
     function test_longHeaderWrapsWithinWindow() {
         Theme.uiScale = 1.8

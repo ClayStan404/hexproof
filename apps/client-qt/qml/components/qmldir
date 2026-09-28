@@ -1,6 +1,7 @@
 singleton Theme 1.0 Theme.qml
 singleton SoundEffects 1.0 SoundEffects.qml
 OperationSounds 1.0 OperationSounds.qml
+ServerTransferOverlay 1.0 ServerTransferOverlay.qml
 singleton TableBackgrounds 1.0 TableBackgrounds.qml
 TableBackgroundPicker 1.0 TableBackgroundPicker.qml
 TableBackgroundPopup 1.0 TableBackgroundPopup.qml

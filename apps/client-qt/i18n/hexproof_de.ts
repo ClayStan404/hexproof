@@ -16487,4 +16487,11 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
             <translation>Sie</translation>
         </message>
     </context>
+<context>
+    <name>ServerTransferOverlay</name>
+    <message>
+        <source>Opening your room or event…</source>
+        <translation>Dein Raum oder Event wird geöffnet…</translation>
+    </message>
+</context>
 </TS>

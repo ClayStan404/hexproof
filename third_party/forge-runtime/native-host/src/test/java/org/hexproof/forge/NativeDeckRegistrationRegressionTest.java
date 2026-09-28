@@ -110,6 +110,7 @@ public final class NativeDeckRegistrationRegressionTest {
         JsonArray cards = new JsonArray();
         for (String[] printing : new String[][] {
                 {"Ensnaring Bridge", "7ED", "294★"}, {"Ensnaring Bridge", "7ED", "294"},
+                {"Ensnaring Bridge", "8ED", "300★"}, {"Ensnaring Bridge", "8ED", "300"},
                 {"Liquimetal Coating", "BRR", "91z"}, {"Liquimetal Coating", "BRR", "91"}}) {
             JsonObject card = NativeSession.object("name", printing[0]);
             card.addProperty("setCode", printing[1]);
@@ -297,7 +298,7 @@ public final class NativeDeckRegistrationRegressionTest {
                     {"Psychic Frog", "PMH3", "999999s"}, {"Forest", "PMH3", "199s"},
                     {"Psychic Frog", "PMH3", "199x"}, {"Psychic Frog", "PMH3", "199"},
                     {"Ensnaring Bridge", "7ED", "295★"}, {"Forest", "7ED", "294★"},
-                    {"Ensnaring Bridge", "8ED", "300★"}, {"Ensnaring Bridge", "7ED", "294z"},
+                    {"Ensnaring Bridge", "8ED", "300z"}, {"Ensnaring Bridge", "7ED", "294z"},
                     {"Liquimetal Coating", "BRR", "92z"}, {"Forest", "BRR", "91z"},
                     {"Liquimetal Coating", "SOM", "171z"}, {"Liquimetal Coating", "BRR", "91★"},
                     {TURNTIMBER, "ZNR", "999999"}}) {

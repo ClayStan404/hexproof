@@ -39,21 +39,23 @@ Item {
     readonly property real cardHeight: cardWidth * faceRatio
     readonly property real rowAvailable: Math.max(1, viewport.width - startInset - 6 * unit)
     readonly property int columns: Math.max(1, Math.floor((rowAvailable + gap) / (cardWidth + gap) + 1e-7))
-    readonly property bool hasBadges: tableController.combatInteraction.active || visibleCards.some(card =>
-        card && (card.attacking || (tableController.rulesSession.battlefieldRelationships || []).some(
-            link => link.sourceId === card.cardId || link.targetId === card.cardId)))
+    readonly property var hostCards: visibleCards.filter(card => card && !card.attachedTo)
+    readonly property bool hasBadges: hostCards.some(card => card.attacking
+        || tableController.combatInteraction.isCombatant(card.cardId)
+        || (tableController.rulesSession.battlefieldRelationships || []).some(
+            link => link.sourceId === card.cardId || link.targetId === card.cardId))
     readonly property int attachmentDepth: {
         let depth = 0
         const links = tableController.rulesSession.battlefieldRelationships || []
         const counts = ({})
         for (let index = 0; index < links.length; ++index) {
             const link = links[index]
-            if (link.kind !== "attachment" || !link.targetId)
+            if (link.kind !== "attachment" || !hostCards.some(card => card.cardId === link.targetId))
                 continue
             counts[link.targetId] = (counts[link.targetId] || 0) + 1
             depth = Math.max(depth, counts[link.targetId])
         }
-        return Math.min(depth, 3)
+        return depth
     }
     readonly property real attachmentPeek: attachmentDepth * 16 * unit
     readonly property real cellExtra: (hasBadges ? 22 : 10) * unit + attachmentPeek
@@ -82,8 +84,9 @@ Item {
         const ceiling = maxFaceWidth > 0 ? maxFaceWidth
             : (zone === "battlefield" ? 180 : 120) * unit
         const maximum = Math.min(available, ceiling)
-        const heightFit = Math.max(1, (laneHeight - cellExtra - edgeSpace) / faceRatio)
-        const minimum = Math.min(maximum, 80 * unit, heightFit)
+        // A short lane scrolls at readable size. Decorations must never lower
+        // the size floor and turn creatures or their attachments into dots.
+        const minimum = Math.min(maximum, 80 * unit)
         let best = minimum
         for (let cols = 1; cols <= count; ++cols) {
             const widthFit = (available - (cols - 1) * gap) / cols

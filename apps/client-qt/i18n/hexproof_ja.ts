@@ -16467,4 +16467,11 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>あなた</translation>
         </message>
     </context>
+<context>
+    <name>ServerTransferOverlay</name>
+    <message>
+        <source>Opening your room or event…</source>
+        <translation>ルームまたはイベントに移動しています…</translation>
+    </message>
+</context>
 </TS>

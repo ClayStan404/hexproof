@@ -43,6 +43,12 @@ only `url`, `realm`, `nodeId` and a private `ticket`, echoes the original reques
 ID, and is not command success. The destination checks the ticket during hello
 and validates the original command digest before applying normal domain checks.
 The client does not show a second welcome/menu transition during a transfer.
+An accepted route shows one blocking progress indicator until the original
+request succeeds or fails; it keeps the discovery list and its filters visible
+instead of presenting the deliberate socket replacement as a disconnection.
+Ordinary commands are not sent during the destination handshake. The progress
+indicator clears on rejection, transport loss, cancellation or the existing
+bounded transfer timeout; real connection failures retain their normal errors.
 
 The automatic entry option selects a configured official endpoint using current
 latency probes, preferring reachable nodes over unchecked or failed probes.
@@ -148,6 +154,9 @@ authority for creation, discovery, password/spectator admission, UID recovery,
 whole-Cube ownership, source rate limits and coordinator outage behavior.
 Qt tests cover trusted routing, request correlation, guest event credentials,
 failed transfers without replay, and unique-versus-ambiguous account recovery.
+They also retain transfer progress through destination admission, preserve
+discovery views, block duplicate input and clear progress after success,
+rejection, cancellation, a dropped handshake or the transfer deadline.
 
 `tools/ui-automation/scenarios/OfficialCluster.qml` is the three-profile native
 scenario. Supply two local nodes named `N1`/`N2`, one shared test account realm,
@@ -155,3 +164,8 @@ and a trusted test directory with N1 first. Give N2 higher placement weight so
 creation enters through N1 and runs on N2. The third profile discovers and
 spectates the same N2 room through N1. It uses isolated disposable credentials,
 maximized native windows and no production services.
+
+`tools/ui-automation/scenarios/ClusterEntry.qml` uses three isolated guests to
+check room creation, player entry and spectator entry across N1/N2. Delay N2's
+WebSocket application traffic without delaying directory probes to inspect the
+progress overlay, retained list/filter and final room role in maximized windows.

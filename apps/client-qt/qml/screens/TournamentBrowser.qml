@@ -12,6 +12,7 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
+    readonly property bool browsing: ws.connected || ws.transferring === true
 
     background: AppBackground { }
     Component.onCompleted: {
@@ -97,13 +98,13 @@ Page {
             ColumnLayout {
                 anchors.centerIn: parent
                 width: Math.max(0, parent.width - Theme.size(48))
-                visible: !ws.connected || tournament.activeTournamentList.length === 0
+                visible: !root.browsing || tournament.activeTournamentList.length === 0
                 spacing: Theme.size(10)
 
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: ws.connected ? qsTr("No active events are available on this hub.")
+                    text: root.browsing ? qsTr("No active events are available on this hub.")
                                        : qsTr("You are disconnected from the server.")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(16)
@@ -114,7 +115,7 @@ Page {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: ws.connected ? qsTr("Create an event, refresh, or open Event history.")
+                    text: root.browsing ? qsTr("Create an event, refresh, or open Event history.")
                                        : qsTr("Connect to a server to browse events.")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(12)
@@ -124,7 +125,7 @@ Page {
                 AppButton {
                     objectName: "tournamentBrowserConnectButton"
                     Layout.alignment: Qt.AlignHCenter
-                    visible: !ws.connected
+                    visible: !root.browsing
                     variant: "primary"
                     text: qsTr("Connect to server")
                     onClicked: root.appWindow.pushScreen("screens/Connect.qml")
@@ -137,7 +138,7 @@ Page {
                 anchors.fill: parent
                 anchors.margins: Theme.size(14)
                 model: tournament.activeTournamentList
-                visible: ws.connected && tournament.activeTournamentList.length > 0
+                visible: root.browsing && tournament.activeTournamentList.length > 0
                 spacing: Theme.size(10)
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds

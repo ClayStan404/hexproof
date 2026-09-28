@@ -11,10 +11,12 @@ QtObject {
     required property var creatureLane
     required property var landLane
     required property var otherLane
+    property var widthForBand: null
     readonly property real gap: 8 * unit
     readonly property var placement: arrange()
 
     function box(x, y, w, h) {
+        if (widthForBand) w = Math.min(w, widthForBand(y, h) - x)
         return Qt.rect(x, y, Math.max(0, w), Math.max(0, h))
     }
     function splitSupport(area, vertical) {
@@ -29,8 +31,8 @@ QtObject {
         const first = Math.max(minimum, Math.min(extent - minimum,
             extent * landWeight / (landWeight + otherWeight)))
         return vertical
-            ? {lands:box(area.x, area.y, area.width, first),
-               others:box(area.x, area.y + first + gap, area.width, extent - first)}
+            ? {lands:box(area.x, area.y + (nearSide ? extent - first + gap : 0), area.width, first),
+               others:box(area.x, area.y + (nearSide ? 0 : first + gap), area.width, extent - first)}
             : {lands:box(area.x, area.y, first, area.height),
                others:box(area.x + first + gap, area.y, extent - first, area.height)}
     }
@@ -67,7 +69,7 @@ QtObject {
             return better(vertical, horizontal) ? vertical : horizontal
         }
         // Prefer full-width ranks with creatures toward the table center.
-        // A side column wins only when it makes more public piles readable.
+        // Side columns can reclaim height for larger creature faces.
         // Evaluate the lane's actual fitter, including combat/attachment space.
         let best = null
         for (const share of [0.24, 0.32, 0.40, 0.48, 0.56, 0.64, 0.72]) {
@@ -77,7 +79,7 @@ QtObject {
                 box(0, nearSide ? frontHeight + gap : 0, width, rear), false, "rows")
             if (better(next, best)) best = next
         }
-        for (const share of [0.18, 0.24, 0.30, 0.38, 0.46, 0.54, 0.62, 0.70, 0.78, 0.86]) {
+        for (const share of [0.10, 0.14, 0.18, 0.24, 0.30, 0.38, 0.46, 0.54, 0.62, 0.70, 0.78, 0.86]) {
             const rear = Math.max(0, (width - gap) * share)
             const next = candidate(box(rear + gap, 0, width - rear - gap, height),
                 box(0, 0, rear, height), true, "columns")

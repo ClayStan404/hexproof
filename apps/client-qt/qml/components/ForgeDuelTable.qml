@@ -62,10 +62,6 @@ Rectangle {
     readonly property real laneHeight: (battlefieldBottom - battlefieldTop - 12 * unit) / 2
     readonly property real landFaceWidth: 108 * unit
     readonly property real otherFaceWidth: 110 * unit
-    readonly property real landRowNeed: 188 * unit
-    readonly property real otherRowNeed: 120 * unit
-    readonly property real opponentBackHeight: bandFor(opponentLands, opponentOther)
-    readonly property real ownBackHeight: bandFor(ownLands, ownOther)
     readonly property string turnOwner: !session.active || session.turn < 1 || session.activeSeat < 0 ? qsTr("Preparing game")
         : session.activeSeat === tableController.localSeat ? qsTr("Your turn")
         : qsTr("%1's turn").arg(tableController.matchUi.playerName(session.activeSeat))
@@ -162,25 +158,6 @@ Rectangle {
     onCommandZoneAvailableChanged: {
         if (zonePopup && !commandZoneAvailable && zonePopup.zone === "command")
             zonePopup.zone = "graveyard"
-    }
-
-    function bandFor(lands, others) {
-        return rowNeed(lands.stackCount, true, lands.hasBadges)
-            + rowNeed(others.stackCount, false, others.hasBadges)
-    }
-    function rowNeed(count, isLand, hasBadges) {
-        if (count <= 0)
-            return 0
-        const face = isLand ? landFaceWidth : otherFaceWidth
-        const gap = 8 * unit
-        const extra = (hasBadges ? 22 : 10) * unit
-        const tileHeight = face * 0.93 + extra
-        const available = Math.max(face, boardWidth - 14 * unit)
-        const columns = Math.max(1, Math.floor((available + gap) / (face + gap)))
-        const need = Math.ceil(count / columns) * tileHeight + 5 * unit
-        const floor = tileHeight + 5 * unit
-        const cap = Math.min(laneHeight * (isLand ? 0.48 : 0.24), isLand ? landRowNeed : otherRowNeed)
-        return Math.max(floor, Math.min(cap, need))
     }
 
     function unobscuredRight(top, extent) {
@@ -688,13 +665,25 @@ Rectangle {
             duration: 420
         }
     }
+    ForgeFieldLayout {
+        id: opponentFieldLayout
+        width: root.boardWidth; height: root.laneHeight; unit: root.unit; nearSide: false
+        creatureLane: opponentCreatures; landLane: opponentLands; otherLane: opponentOther
+        widthForBand: (top, extent) => root.laneWidth(root.battlefieldTop + top, extent)
+    }
+    ForgeFieldLayout {
+        id: ownFieldLayout
+        width: root.boardWidth; height: root.laneHeight; unit: root.unit; nearSide: true
+        creatureLane: ownCreatures; landLane: ownLands; otherLane: ownOther
+        widthForBand: (top, extent) => root.laneWidth(root.battlefieldMiddle + 6 * root.unit + top, extent)
+    }
     ForgeCardLane {
         id: opponentLands
         objectName: "forgeOpponentLands"
-        x: root.boardLeft
-        y: root.battlefieldTop
-        width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, true, hasBadges)
+        x: root.boardLeft + opponentFieldLayout.placement.lands.x
+        y: root.battlefieldTop + opponentFieldLayout.placement.lands.y
+        width: opponentFieldLayout.placement.lands.width
+        height: opponentFieldLayout.placement.lands.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.topSeat
@@ -707,10 +696,10 @@ Rectangle {
     ForgeCardLane {
         id: opponentOther
         objectName: "forgeOpponentOther"
-        x: root.boardLeft
-        y: opponentLands.y + opponentLands.height
-        width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, false, hasBadges)
+        x: root.boardLeft + opponentFieldLayout.placement.others.x
+        y: root.battlefieldTop + opponentFieldLayout.placement.others.y
+        width: opponentFieldLayout.placement.others.width
+        height: opponentFieldLayout.placement.others.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.topSeat
@@ -723,14 +712,16 @@ Rectangle {
     ForgeCardLane {
         id: opponentCreatures
         objectName: "forgeOpponentCreatures"
-        x: root.boardLeft
-        y: root.battlefieldTop + root.opponentBackHeight
-        width: root.laneWidth(y, height)
-        height: Math.max(0, root.laneHeight - root.opponentBackHeight)
+        x: root.boardLeft + opponentFieldLayout.placement.creatures.x
+        y: root.battlefieldTop + opponentFieldLayout.placement.creatures.y
+        width: opponentFieldLayout.placement.creatures.width
+        height: opponentFieldLayout.placement.creatures.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.topSeat
         showCaption: false
+        maxFaceWidth: 200 * unit
+        alignBottom: true
         combatForward: 1
         locatedId: root.locatedId
         visible: !root.multiplayer && !root.tableController.sideboarding
@@ -738,14 +729,15 @@ Rectangle {
     ForgeCardLane {
         id: ownCreatures
         objectName: "forgeOwnCreatures"
-        x: root.boardLeft
-        y: root.battlefieldMiddle + 6 * root.unit
-        width: root.laneWidth(y, height)
-        height: Math.max(0, root.laneHeight - root.ownBackHeight)
+        x: root.boardLeft + ownFieldLayout.placement.creatures.x
+        y: root.battlefieldMiddle + 6 * root.unit + ownFieldLayout.placement.creatures.y
+        width: ownFieldLayout.placement.creatures.width
+        height: ownFieldLayout.placement.creatures.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         showCaption: false
+        maxFaceWidth: 200 * unit
         combatForward: -1
         locatedId: root.locatedId
         visible: !root.multiplayer && !root.tableController.sideboarding
@@ -753,15 +745,16 @@ Rectangle {
     ForgeCardLane {
         id: ownOther
         objectName: "forgeOwnOther"
-        x: root.boardLeft
-        y: ownCreatures.y + ownCreatures.height
-        width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, false, hasBadges)
+        x: root.boardLeft + ownFieldLayout.placement.others.x
+        y: root.battlefieldMiddle + 6 * root.unit + ownFieldLayout.placement.others.y
+        width: ownFieldLayout.placement.others.width
+        height: ownFieldLayout.placement.others.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         category: "other"
         showCaption: false
+        alignBottom: true
         maxFaceWidth: root.otherFaceWidth
         locatedId: root.locatedId
         visible: !root.multiplayer && !root.tableController.sideboarding
@@ -769,15 +762,16 @@ Rectangle {
     ForgeCardLane {
         id: ownLands
         objectName: "forgeOwnLands"
-        x: root.boardLeft
-        y: ownOther.y + ownOther.height
-        width: root.laneWidth(y, height)
-        height: root.rowNeed(stackCount, true, hasBadges)
+        x: root.boardLeft + ownFieldLayout.placement.lands.x
+        y: root.battlefieldMiddle + 6 * root.unit + ownFieldLayout.placement.lands.y
+        width: ownFieldLayout.placement.lands.width
+        height: ownFieldLayout.placement.lands.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         category: "land"
         showCaption: false
+        alignBottom: true
         maxFaceWidth: root.landFaceWidth
         locatedId: root.locatedId
         visible: !root.multiplayer && !root.tableController.sideboarding
@@ -785,7 +779,7 @@ Rectangle {
     DropArea {
         objectName: "forgeHandDropArea"
         x: root.boardLeft
-        y: ownCreatures.y
+        y: root.battlefieldMiddle + 6 * root.unit
         width: root.boardWidth
         height: Math.max(0, root.battlefieldBottom - ownCreatures.y)
         enabled: !root.multiplayer && !root.tableController.sideboarding && root.tableController.localSeat >= 0

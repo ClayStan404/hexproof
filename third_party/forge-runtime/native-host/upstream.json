@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/Card-Forge/forge.git",
   "revision": "0485ad49fb10c8ef5b3eda2a002c963d59be71dc",
-  "adapterRevision": 25,
+  "adapterRevision": 27,
   "mainClass": "org.hexproof.forge.NativeHost",
   "patch": {
     "file": "native-hooks.patch",

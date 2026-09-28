@@ -26,7 +26,7 @@ Page {
 
         InfoBanner {
             Layout.fillWidth: true
-            visible: !wsModel.connected || !root.service.supported
+            visible: wsModel.transferring !== true && (!wsModel.connected || !root.service.supported)
             tone: "warning"
             message: !wsModel.connected ? qsTr("Connect to an official server to manage your account.")
                                    : qsTr("Accounts are unavailable on this server.")

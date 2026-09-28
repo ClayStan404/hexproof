@@ -176,6 +176,11 @@ Deck and commander names may use the catalog's combined `Front // Back` form.
 The native adapter first tries the full name, preserving Forge's split-card
 names. If unavailable, it looks up the front with the same set and collector
 number and verifies both face names against that card before accepting it.
+Verification also accepts the selected printing's paired flavor names, including
+Universes Within double-faced cards. It never mixes one native name with an
+unrelated alternate face. NFC normalization and the catalog's modifier-letter
+colon spelling are handled at lookup; submitted spelling remains the display
+identity and does not rename the native game object.
 Mainboard and sideboard use the same lookup; commander designation matches
 either the native name or that verified combined name. The hub keeps the
 submitted names and printing metadata unchanged.
@@ -206,8 +211,22 @@ pairs; mismatched names/numbers and arbitrary suffixes still fail registration.
 
 Adapter 22 also bundles an offline catalog printing index. Its generator joins
 paper printings by catalog Oracle ID and full name, then selects an exact,
-supported native printing from that same group. Native functional variants
-are excluded from this fallback. Only enumerated name/set/number triples are
+supported native printing from that same group. All printing languages use
+their canonical catalog name; language-exclusive printings must not be dropped
+by an English-only filter. Duplicate language records share the same printing
+coordinates. Eligibility is checked on the
+selected printing: ordinary printings remain eligible when another printing
+has a variant. Cosmetic `FlavorName` and `UniversesWithin` variants are eligible only when every
+face retains the same characteristics and executable abilities; other named
+rules variants remain excluded. Forge's rewritten flavor-name Oracle display
+text does not itself change rules. Adapter 26 includes `Ancient Tomb / LTC / 387z`
+using its exact `LTC / 387` parent and preserves the parent's cosmetic variant.
+Adapter 27 includes paired alternate face names, Unicode spelling differences,
+and catalog-verified anchors for Forge's `F`-prefixed funny/playtest numbers.
+The offline generator may use an exact digital-edition anchor for a paper
+printing with the same catalog Oracle ID and full name (such as Aswan Jaguar);
+this does not enable digital-only cards or runtime name-only substitutions.
+Only enumerated name/set/number triples are
 accepted: missing editions, collector-set prefixes, serialized numbers and
 other treatments do not need individual heuristic exceptions. The first index
 contains 10,719 aliases, including RVR 397z/407z, PTC bl244 and WC04 jn328.
@@ -216,7 +235,15 @@ retain the submitted set and number. Different catalog sets remain distinct
 even when they share a native parent and collector number. Foil conversion
 retains that identity. No runtime network lookup or client-supplied rules
 fallback is permitted. A genuinely missing native card script still fails;
-the index does not implement unsupported cards. See
+the index does not implement unsupported cards. Every unresolved paper printing
+is recorded with a reason: missing rules, an unimplemented functional variant,
+a different same-name card, a meld result, a display/front card, or a game piece
+outside the supported modes. Known exclusions return `card_unavailable` with
+the same private-safe coordinates as other start failures; unknown printing
+identities retain `printing_unavailable`. Generator/resolver changes require a
+fresh full-catalog census, and `generate.py --check` rejects unexplained gaps or
+changes to the reviewed compatibility baseline. Native regressions check both
+every supported alias and every recorded exclusion. See
 [index generation and provenance](../tools/forge-printings/README.md).
 
 Public mana uses the native mana-type constants, including `{C}`, independently
@@ -645,8 +672,15 @@ inspection does not reserve any column. The resting
 hand exposes approximately its upper half at the bottom of the window, retaining
 stable visible click/drag slots and horizontal scrolling for unusually large
 hands. Battlefield grids choose readable card sizes from both available width
-and height; lands and other permanents share vertical space according to their
-counts. Extreme boards retain scrolling and exact-object keyboard/target reveal.
+and height. In every player-count layout, creatures, lands and other permanents
+jointly allocate rows or side columns according to their public pile counts.
+Empty groups surrender their space, and sparse creature rows grow up to 200
+layout units instead of losing height to full-width support rows. Only rendered
+hosts reserve their attachment depth, and unrelated cards reserve no combat
+badges. Combat movement and attachment space cannot lower the 80-unit readable
+card-width floor; extreme boards retain scrolling and exact-object
+keyboard/target reveal. Upper creatures align toward the center seam, and
+near-side lands remain along the outside edge of their allocation.
 A Settings button sits at the top-right corner of the table. Decision
 instructions remain in the bottom-right dock rather than occupying a second
 banner above the battlefield. The idle dock overlays the corner of the hand band.

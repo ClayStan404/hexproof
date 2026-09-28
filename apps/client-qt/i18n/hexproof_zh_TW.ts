@@ -16467,4 +16467,11 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>你</translation>
         </message>
     </context>
+<context>
+    <name>ServerTransferOverlay</name>
+    <message>
+        <source>Opening your room or event…</source>
+        <translation>正在進入房間或賽事…</translation>
+    </message>
+</context>
 </TS>

@@ -235,6 +235,8 @@ ApplicationWindow {
         onScreenRequested: screen => stack.replace(null, screen)
     }
 
+    ServerTransferOverlay { wsModel: ws }
+
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top

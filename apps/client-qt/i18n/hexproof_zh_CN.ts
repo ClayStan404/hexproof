@@ -19054,4 +19054,11 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>机器人 %1</translation>
     </message>
 </context>
+<context>
+    <name>ServerTransferOverlay</name>
+    <message>
+        <source>Opening your room or event…</source>
+        <translation>正在进入房间或赛事…</translation>
+    </message>
+</context>
 </TS>

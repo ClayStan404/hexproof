@@ -13,6 +13,7 @@ import java.util.Set;
 /** Bounded deck rejection coordinates; no submitted identity enters the wire response. */
 final class NativeDeckException extends IllegalArgumentException {
     enum Code {
+        CARD_UNAVAILABLE("card_unavailable", "Requested card rules are unavailable"),
         PRINTING_UNAVAILABLE("printing_unavailable", "Requested card printing is unavailable"),
         COMMANDER_MISSING("commander_missing", "Commander missing from deck"),
         INVALID_DECK_SIZE("invalid_deck_size", "Invalid deck size"),

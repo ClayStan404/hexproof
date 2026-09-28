@@ -98,8 +98,8 @@ Page {
 
             StatusPill {
                 objectName: "connectedPlayerStatus"
-                text: ws.connected ? ws.displayName : qsTr("Offline")
-                statusColor: ws.connected ? Theme.success : Theme.textMuted
+                text: ws.connected || ws.transferring === true ? ws.displayName : qsTr("Offline")
+                statusColor: ws.connected || ws.transferring === true ? Theme.success : Theme.textMuted
                 maximumWidth: Math.min(Theme.size(220), topBar.width)
                 ToolTip.visible: playerStatusHover.hovered
                 ToolTip.text: text

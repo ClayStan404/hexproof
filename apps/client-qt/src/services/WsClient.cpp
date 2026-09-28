@@ -141,6 +141,8 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
             if (type == kTypeForgeReplayGet)
                 m_replays->fail(error);
         });
+    connect(&m_clusterTransfer, &ClusterTransfer::routedChanged, this,
+            &WsClient::transferringChanged);
     connect(&m_clusterTransfer, &ClusterTransfer::timedOut, this, [this] {
         failClusterRoute(
             tr("The node transfer timed out. Reconnect to check your room before trying again."));
@@ -278,6 +280,9 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
 {
     const bool hadRoom = !roomId().isEmpty() || m_state == InRoom;
     m_reconnectController->stopRetry();
+    // Publish the transition before clearing old-node models. Event navigation
+    // must not interpret their removal as a return to a connected main menu.
+    setState(Connecting);
     if (!m_clusterTransfer.routing()) {
         m_protocolSession->failAll(u"connection replaced before the server replied"_s);
         clearClusterCommand();
@@ -307,7 +312,6 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
         m_reconnectController->clear();
     m_intentionalDisconnect = false;
     emit displayNameChanged();
-    setState(Connecting);
     if (hadRoom)
         emit inRoomChanged();
     openTransport();
@@ -541,6 +545,11 @@ void WsClient::resumeTournamentView()
 
 QString WsClient::send(const QString &type, const QJsonObject &payload)
 {
+    if (m_clusterTransfer.routing() && type != kTypeSessionHello) {
+        m_protocolSession->reportUnqueuedFailure(
+            type, payload, tr("Wait for the current room request to finish."));
+        return {};
+    }
     // Every typed rules response passes here, including hand-card drag actions.
     // A queued write is not a completed decision: retain the lock until the
     // authoritative prompt changes, a correlated error arrives, or it times out.

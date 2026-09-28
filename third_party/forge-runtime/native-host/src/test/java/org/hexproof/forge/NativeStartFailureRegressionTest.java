@@ -28,6 +28,7 @@ public final class NativeStartFailureRegressionTest {
                 return null;
             });
             coordinatesAndCopies(base);
+            knownUnsupportedCard(base);
             sizesAndLimit(base);
             check(NativeHost.startFailure(new IllegalArgumentException("private/raw/path")) == null,
                     "Untyped errors gained structured diagnostics");
@@ -36,6 +37,17 @@ public final class NativeStartFailureRegressionTest {
         jsonl(args[0], 2);
         System.out.println("Native start failure regression passed");
         System.exit(0);
+    }
+
+    private static void knownUnsupportedCard(NativeGuiBase base) {
+        JsonObject request = setup();
+        JsonObject card = NativeSession.object("name", "Red Herring");
+        card.addProperty("setCode", "CMB1"); card.addProperty("collectorNumber", "62");
+        player(request, 0).getAsJsonArray("deck").set(3, card);
+        var failure = reject(request, base, "Requested card rules are unavailable");
+        issue(failure, 0, 0, "mainboard", 3, "card_unavailable");
+        check(!failure.toString().contains("Red Herring") && !failure.toString().contains("CMB1"),
+                "Known catalog exclusion disclosed a private identity");
     }
 
     private static JsonObject setup() {

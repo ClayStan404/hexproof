@@ -294,7 +294,15 @@ final class NativeSnapshot {
         result.addProperty("name", name);
         boolean matchesPrinting = paper != null && name.equals(paper.getName());
         String edition = matchesPrinting ? paper.getEdition() : "";
-        if (matchesPrinting && paper instanceof NativePromoCard promo) edition = promo.catalogSet;
+        if (matchesPrinting && paper instanceof NativePromoCard promo) {
+            edition = promo.catalogSet;
+            result.addProperty("name", NativeCardNames.front(promo, promo.catalogName));
+        } else if (paper instanceof NativePromoCard promo && promo.getOtherFace() != null
+                && name.equals(promo.getOtherFace().getName()) && promo.catalogName.contains(" // ")) {
+            // The back face still uses name-only art lookup, with its catalog
+            // name rather than the Universes Beyond name of the native script.
+            result.addProperty("name", promo.catalogName.split(" // ", -1)[1]);
+        }
         if (matchesPrinting && paper.isToken()) {
             // PaperToken uses the parent edition's token numbering. Its Scryfall
             // token set can differ (including editions without the usual T prefix).

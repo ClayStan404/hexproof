@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "2.4.0")
+set(HEXPROOF_VERSION "2.5.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -350,6 +350,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/AppBackground.qml
         qml/components/SoundEffects.qml
         qml/components/OperationSounds.qml
+        qml/components/ServerTransferOverlay.qml
         qml/components/TableBackgrounds.qml
         qml/components/TableBackgroundPicker.qml
         qml/components/TableBackgroundPopup.qml
@@ -801,7 +802,8 @@ find_package(Java 21 REQUIRED COMPONENTS Development)
 set(HEXPROOF_FORGE_OVERLAY_DIR "${CMAKE_CURRENT_BINARY_DIR}/forge-overlay" CACHE PATH
     "Build directory for the client-bundled Forge adapter")
 file(GLOB_RECURSE HEXPROOF_FORGE_OVERLAY_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/src/main/java/*.java")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/src/main/java/*.java"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/src/main/resources/*")
 add_custom_command(
     OUTPUT "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.jar"
            "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.json"

@@ -49,6 +49,7 @@ class WsClient : public QObject
     Q_PROPERTY(AccountSessionState *account READ account CONSTANT)
     Q_PROPERTY(ConnectionState connectionState READ connectionState NOTIFY connectionStateChanged)
     Q_PROPERTY(bool connected READ connected NOTIFY connectionStateChanged)
+    Q_PROPERTY(bool transferring READ transferring NOTIFY transferringChanged)
     Q_PROPERTY(bool clusterAvailable READ clusterAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool connecting READ connecting NOTIFY connectionStateChanged)
     Q_PROPERTY(bool reconnecting READ reconnecting NOTIFY connectionStateChanged)
@@ -139,6 +140,10 @@ class WsClient : public QObject
     bool connecting() const
     {
         return m_state == Connecting;
+    }
+    bool transferring() const
+    {
+        return m_clusterTransfer.routed();
     }
     bool reconnecting() const
     {
@@ -570,6 +575,7 @@ class WsClient : public QObject
 
   signals:
     void connectionStateChanged();
+    void transferringChanged();
     void reconnectSecondsRemainingChanged();
     void inRoomChanged();
     void youAreHostChanged();

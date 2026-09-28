@@ -25,6 +25,7 @@ void ClusterTransfer::track(const QString &id, const QString &type, const QByteA
 
 void ClusterTransfer::clear()
 {
+    const bool wasRouted = routed();
     m_timer.stop();
     m_requestId.clear();
     m_commandType.clear();
@@ -33,6 +34,8 @@ void ClusterTransfer::clear()
     m_destination.clear();
     m_accountId.clear();
     m_routing = false;
+    if (wasRouted)
+        emit routedChanged();
 }
 
 void ClusterTransfer::resolve(const QString &id)
@@ -60,6 +63,7 @@ bool ClusterTransfer::acceptRoute(const protocol::Envelope &route, const QString
     m_accountId = accountId;
     m_ticket = ticket;
     m_timer.start(30000);
+    emit routedChanged();
     return true;
 }
 

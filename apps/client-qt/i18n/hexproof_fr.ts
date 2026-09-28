@@ -16487,4 +16487,11 @@ Les images téléchargées et personnalisées seront copiées et vérifiées ava
             <translation>Vous</translation>
         </message>
     </context>
+<context>
+    <name>ServerTransferOverlay</name>
+    <message>
+        <source>Opening your room or event…</source>
+        <translation>Ouverture de votre salle ou événement…</translation>
+    </message>
+</context>
 </TS>

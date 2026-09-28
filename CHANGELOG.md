@@ -9,6 +9,41 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-09-29
+
+### Upgrade notes
+
+- Upgrade clients and the Go server together to **2.5.0**; application versions
+  must match exactly.
+- Update server-managed Forge runtimes to native adapter revision **27**.
+  The upstream Forge revision and Java requirements are unchanged. Player-hosted
+  games receive the new adapter with the client and reuse the verified
+  adapter-25 base; an intact existing base needs no new download.
+- The reviewed catalog census resolves 100,634 of 103,225 paper printing
+  identities, including language-exclusive printings. The remaining 2,591
+  have individual exclusion reasons; this does not add missing Forge card rules.
+
+### Fixed
+
+- Keep creatures readable on spacious duel battlefields during combat,
+  including equipped and enchanted creatures. Use the available field area,
+  reserve attachment space only where needed, and scroll crowded rows instead
+  of shrinking cards below the readable size floor.
+- Resolve supported printing variants such as Ancient Tomb LTC 387z, paired
+  alternate names, Unicode punctuation, funny/playtest collector numbers and
+  language-exclusive paper editions while preserving catalog display names.
+- Preserve the lobby and its filters during cross-node room joins and
+  spectating. Show entry progress instead of a false disconnected screen,
+  prevent intermediate menu navigation and block duplicate transfer requests.
+  Real rejection, connection loss, cancellation and timeout still end progress.
+- Rebuild the packaged Forge adapter when its printing resources change so
+  incremental client builds cannot retain stale compatibility indexes.
+
+### Added
+
+- Full-catalog printing checks that reject unexplained matching gaps and
+  unreviewed compatibility changes, with a per-printing unavailable-reason index.
+
 ## [2.4.0] - 2026-09-28
 
 ### Upgrade notes

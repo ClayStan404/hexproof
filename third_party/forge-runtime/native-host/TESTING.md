@@ -5,6 +5,32 @@ and frozen host source that it has just packaged. Their constructed boards
 isolate native decisions; the Go and Qt suites below exercise the application
 boundary separately.
 
+`NativePrintingAliasRegressionTest` resolves every bundled alias and starts a
+deck containing Ancient Tomb LTC 387z alongside ordinary LTC 387 and TMP 315
+copies in both mainboard and sideboard. Cosmetic flavor names retain the exact
+parent variant. Synthetic variants with changed abilities, costs, types, P/T,
+keywords or variables are rejected even when labeled as cosmetic. Unknown
+numbers and mismatched names remain rejected. The Qt regression and native
+`ForgeCombatLayout.qml` fixture separately cover five equipped creatures with
+land/artifact rows across combat, large card sizes, visible attachment layers
+and individual attack assignments.
+
+Adapter 27's printing regression additionally checks every entry in the
+unavailable-printing census against the real registration lookup. Alternate
+single/double-faced names, Unicode colon spellings, funny/playtest collector
+numbers and the paper Aswan Jaguar promo register with their submitted
+identities in mainboard and sideboard. The test checks transformed alternate
+face names and language-exclusive 4BB, PSAL and PWCS printings, as well as
+foil conversion, start-up, private projections and rejection of
+mixed face names, unknown numbers and different same-name rules. Known excluded
+cards use the existing private-safe `card_unavailable` code.
+
+For catalog/resolver/upstream updates, run `tools/forge-printings/generate.py`
+with the trusted catalog, matching native runtime, a fresh output directory and
+`--check`. Review all changes before refreshing the three shipped census files.
+Static checks bind the census to its generator and lookup sources; the native
+build rechecks all aliases and exclusions without requiring the catalog SQLite.
+
 `NativeAiRegressionTest` checks all official Default profile values against
 the hard preset, rejects missing/unknown difficulties and production two-AI
 setups, and runs Forge's actual two-Lightning-Bolt planner with 100 controlled

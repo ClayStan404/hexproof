@@ -52,6 +52,7 @@ class ClusterTransfer : public QObject
     QByteArray takeCommand(const protocol::Envelope &welcome, const QString &node);
 
   signals:
+    void routedChanged();
     void timedOut();
 
   private:

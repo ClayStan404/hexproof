@@ -161,7 +161,9 @@ final class NativeSession implements AutoCloseable {
                     }
                     if (card == null) {
                         failures.add(playerIndex, sectionName, cardIndex,
-                                NativeDeckException.Code.PRINTING_UNAVAILABLE, name, set, number);
+                                NativePrintingAliases.unavailableReason(name, set, number) == null
+                                    ? NativeDeckException.Code.PRINTING_UNAVAILABLE : NativeDeckException.Code.CARD_UNAVAILABLE,
+                                name, set, number);
                         continue;
                     }
                     deck.getOrCreate(main && card.getRules().getType().isConspiracy()
@@ -190,13 +192,13 @@ final class NativeSession implements AutoCloseable {
     }
     static PaperCard findCard(CardDb database, String name, String set, String number) {
         PaperCard card = lookupCard(database, name, set, number);
-        if (card != null) return card;
+        if (card != null) return NativeCardNames.preserve(card, name, set, number);
         // Catalogs join both faces for modal, transforming and Adventure cards;
         // Forge indexes those by the front. Split cards already match in full.
         int separator = name.indexOf(" // ");
         if (separator < 0) return null;
         card = lookupCard(database, name.substring(0, separator).trim(), set, number);
-        return card != null && matchesCardName(card, name) ? card : null;
+        return card != null && matchesCardName(card, name) ? NativeCardNames.preserve(card, name, set, number) : null;
     }
     private static PaperCard lookupCard(CardDb database, String name, String set, String number) {
         PaperCard exact = findExactCard(database, name, set, number);
@@ -208,8 +210,9 @@ final class NativeSession implements AutoCloseable {
     // Also used by the offline index generator: this path must never consult
     // aliases or accept CardDb's unrelated-printing fallback.
     static PaperCard findExactCard(CardDb database, String name, String set, String number) {
-        PaperCard card = set.isEmpty() ? database.getCard(name)
-                : number.isEmpty() ? database.getCard(name, set) : database.getCard(name, set, number);
+        String nativeName = NativeCardNames.lookup(name);
+        PaperCard card = set.isEmpty() ? database.getCard(nativeName)
+                : number.isEmpty() ? database.getCard(nativeName, set) : database.getCard(nativeName, set, number);
         if (card == null && name.contains(" // ")) {
             card = findExactCard(database, name.substring(0, name.indexOf(" // ")).trim(), set, number);
             if (card != null && !matchesCardName(card, name)) return null;
@@ -222,7 +225,7 @@ final class NativeSession implements AutoCloseable {
         var requested = editions.get(set.toUpperCase(Locale.ROOT));
         var actual = card == null ? null : editions.get(card.getEdition().toUpperCase(Locale.ROOT));
         if (requested != null && actual != null && requested.getCode().equals(actual.getCode())
-                && number.equals(card.getCollectorNumber())) return card;
+                && number.equals(card.getCollectorNumber()) && matchesCardName(card, name)) return card;
         return null;
     }
     private static PaperCard findLegacyPrinting(CardDb database, String name, String set, String number) {
@@ -248,11 +251,7 @@ final class NativeSession implements AutoCloseable {
         return null;
     }
     private static boolean matchesCardName(PaperCard card, String name) {
-        if (card.getName().equalsIgnoreCase(name)) return true;
-        String[] faces = name.split(" // ", -1);
-        return faces.length == 2 && card.getOtherFace() != null
-                && card.getMainFace().getName().equalsIgnoreCase(faces[0].trim())
-                && card.getOtherFace().getName().equalsIgnoreCase(faces[1].trim());
+        return NativeCardNames.matches(card, name);
     }
     JsonObject handle() {
         JsonObject result = object("sessionId", id);

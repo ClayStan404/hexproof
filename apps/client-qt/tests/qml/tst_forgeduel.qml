@@ -920,6 +920,90 @@ TestCase {
         verify(item("forgeCardStackCount-land-2").visible)
         compare(item("forgeCardStackCountLabel-land-2").text, "×2")
     }
+    function test_equippedCreaturesUseAvailableBattlefield_data() {
+        return [{tag:"laptop", w:1280, h:760, depth:1},
+            {tag:"desktop", w:1600, h:1000, depth:2},
+            {tag:"many-attachments", w:1920, h:1010, depth:5}]
+    }
+    function test_equippedCreaturesUseAvailableBattlefield(data) {
+        window.width = data.w; window.height = data.h
+        const state = snapshot(1, 5, true)
+        for (let seat = 0; seat < 2; ++seat) {
+            const zone = state.zones[4 + seat]
+            zone.cards = Array.from({length:5}, (_, i) => card("creature-" + seat + "-" + i, seat, "Bear " + i, true))
+            zone.cards.push(card("land-" + seat, seat, "Plains", false),
+                card("land2-" + seat, seat, "Ugin's Labyrinth", false),
+                card("drum-" + seat, seat, "Springleaf Drum", false))
+            for (let host = 0; host < 2; ++host)
+                for (let i = 0; i < data.depth; ++i) {
+                    const equipment = card("equipment-" + seat + "-" + host + "-" + i, seat, "Bonesplitter", false)
+                    equipment.attachedTo = "creature-" + seat + "-" + host
+                    zone.cards.push(equipment)
+                }
+            zone.count = zone.cards.length
+        }
+        for (const step of ["main1", "declare_attackers", "main2"]) {
+            state.step = step
+            verify(testRulesPrompt.applySnapshot(state))
+            if (step === "declare_attackers")
+                prompt("chooseAttackers", {
+                    combatSources:Array.from({length:5}, (_, i) => ({responseId:"source-" + i,
+                        objectId:"creature-0-" + i, label:"Bear " + i, validTargetIds:["defender"], maxAssignments:1})),
+                    combatTargets:[{responseId:"defender", kind:"player", seat:1, label:"Opponent", maxAssignments:5}]})
+            else prompt("chooseAction", {options:[{responseId:"pass", kind:"pass", label:"Pass"}]})
+            for (const side of ["Own", "Opponent"]) {
+                const lane = item("forge" + side + "Creatures")
+                tryCompare(lane, "stackCount", 5)
+                compare(lane.attachmentDepth, data.depth)
+                verify(lane.cardWidth >= 160 * table.presentation.unit, side + " creatures stay large in " + step)
+                verify(lane.scrollArea.contentHeight <= lane.height + 1, "An ordinary board needs no scrolling")
+                for (const group of ["Lands", "Other"]) {
+                    const support = item("forge" + side + group)
+                    compare(support.attachmentDepth, 0)
+                    verify(!support.hasBadges, "Unrelated support cards reserve no combat badges")
+                    verify(support.scrollArea.contentHeight <= support.height + 1)
+                    verify(lane.x + lane.width <= support.x || support.x + support.width <= lane.x
+                        || lane.y + lane.height <= support.y || support.y + support.height <= lane.y)
+                }
+                const seat = side === "Own" ? 0 : 1
+                for (let i = 0; i < 5; ++i) {
+                    const face = item("forgeCard-creature-" + seat + "-" + i)
+                    verify(table.presentation.pointFor(face.objectId).x > 0)
+                    if (i < 2) {
+                        const attachment = item("forgeCard-equipment-" + seat + "-" + i + "-" + (data.depth - 1))
+                        compare(attachment.width, face.width)
+                        const point = attachment.mapToItem(lane.scrollArea, 0, 0)
+                        verify(point.y + attachment.height <= lane.scrollArea.height + 1)
+                    }
+                }
+            }
+            if (step === "declare_attackers")
+                for (let i = 0; i < 5; ++i) {
+                    mouseClick(item("forgeCard-creature-0-" + i))
+                    mouseClick(item("rulesPlayerTarget1"))
+                    compare(table.combatInteraction.assignments["source-" + i], "defender")
+                }
+        }
+    }
+    Component {
+        id: shortLane
+        ForgeCardLane {
+            tableController: table
+            ownerSeat: 0
+            width: 400; height: 70
+            showCaption: false
+        }
+    }
+    function test_shortCreatureLaneScrollsAtReadableSize() {
+        verify(testRulesPrompt.applySnapshot(snapshot(1, 12, true)))
+        const lane = createTemporaryObject(shortLane, window.contentItem)
+        verify(lane !== null)
+        tryCompare(lane, "stackCount", 12)
+        verify(lane.cardWidth >= 80)
+        verify(lane.scrollArea.contentHeight > lane.scrollArea.height)
+        verify(lane.reveal("own-9"))
+        verify(lane.scrollArea.contentY > 0)
+    }
     function test_identicalPermanentsAndTokensStackTogether() {
         const state = snapshot(1, 0)
         const tappedLand = card("land-tapped", 0, "Plains", false)
@@ -2694,6 +2778,7 @@ TestCase {
         for (const name of ["forgeOwnLands", "forgeOpponentLands", "forgeOwnOther", "forgeOpponentOther",
                            "forgeOwnCreatures", "forgeOpponentCreatures"]) {
             const lane = item(name)
+            if (!lane.stackCount) continue
             verify(lane.width > 0)
             verify(lane.x + lane.width <= dock.x || lane.y + lane.height <= dock.y)
             verify(lane.x + lane.width <= table.width)
@@ -3024,8 +3109,9 @@ TestCase {
         const hand = item("forgeHand")
         tryVerify(() => hand.visibleCards.length === 7)
         verify(hand.height <= hand.faceHeight * 0.7)
-        verify(item("forgeOwnCreatures").height + item("forgeOwnLands").height
-               > 360 * table.presentation.unit)
+        const creatures = item("forgeOwnCreatures"), lands = item("forgeOwnLands")
+        verify(Math.max(creatures.y + creatures.height, lands.y + lands.height)
+               - Math.min(creatures.y, lands.y) > 360 * table.presentation.unit)
         for (const slot of hand.visibleCards) {
             const center = slot.mapToItem(table, slot.width / 2, slot.height / 2)
             verify(center.y >= hand.y && center.y < table.height)

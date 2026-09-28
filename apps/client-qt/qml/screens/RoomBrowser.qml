@@ -12,6 +12,7 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
+    readonly property bool browsing: ws.connected || ws.transferring === true
 
     background: AppBackground { }
     Component.onCompleted: {
@@ -64,8 +65,8 @@ Page {
         anchors.topMargin: Theme.size(22)
         anchors.leftMargin: Theme.pageMargin
         anchors.rightMargin: Theme.pageMargin
-        title: ws.clusterAvailable ? qsTr("Official lobby") : qsTr("Rooms on this hub")
-        subtitle: ws.clusterAvailable ? qsTr("Rooms across all available official nodes")
+        title: ws.clusterAvailable || ws.transferring === true ? qsTr("Official lobby") : qsTr("Rooms on this hub")
+        subtitle: ws.clusterAvailable || ws.transferring === true ? qsTr("Rooms across all available official nodes")
                                       : qsTr("Only tables hosted on your connected server are shown")
         onBackRequested: root.appWindow.popScreen()
     }
@@ -214,13 +215,13 @@ Page {
                     anchors.centerIn: parent
                     width: Math.min(parent.width - Theme.size(60), Theme.size(520))
                     objectName: "emptyHubRoomState"
-                    visible: ws.roomList.length === 0 || !ws.connected
+                    visible: ws.roomList.length === 0 || !root.browsing
                     spacing: Theme.size(10)
 
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        text: ws.connected ? qsTr("No rooms are open on this hub yet.")
+                        text: root.browsing ? qsTr("No rooms are open on this hub yet.")
                                            : qsTr("You are disconnected from the server.")
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(16)
@@ -231,7 +232,7 @@ Page {
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        text: ws.connected
+                        text: root.browsing
                               ? qsTr("Create a table now, or refresh after a friend shares one.")
                               : qsTr("Connect to a server to browse rooms.")
                         color: Theme.textMuted
@@ -258,7 +259,7 @@ Page {
                         }
                         AppButton {
                             objectName: "roomBrowserConnectButton"
-                            visible: !ws.connected
+                            visible: !root.browsing
                             variant: "primary"
                             text: qsTr("Connect to server")
                             onClicked: root.appWindow.pushScreen("screens/Connect.qml")
@@ -271,7 +272,7 @@ Page {
                     objectName: "filteredRoomEmptyState"
                     anchors.centerIn: parent
                     width: Math.min(parent.width - Theme.size(60), Theme.size(520))
-                    visible: ws.connected && ws.roomList.length > 0
+                    visible: root.browsing && ws.roomList.length > 0
                              && roomQuery.visibleRooms.length === 0
                     spacing: Theme.size(10)
 
@@ -307,7 +308,7 @@ Page {
                     objectName: "hubRoomList"
                     anchors.fill: parent
                     anchors.margins: Theme.size(14)
-                    visible: ws.connected && roomQuery.visibleRooms.length > 0
+                    visible: root.browsing && roomQuery.visibleRooms.length > 0
                     model: roomQuery.visibleRooms
                     spacing: Theme.size(10)
                     clip: true

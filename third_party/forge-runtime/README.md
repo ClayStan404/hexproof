@@ -6,7 +6,18 @@ upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
-Adapter revision 25 uses upstream `0485ad49fb10c8ef5b3eda2a002c963d59be71dc`.
+Adapter revision 27 uses upstream `0485ad49fb10c8ef5b3eda2a002c963d59be71dc`.
+Revision 27 completes the reviewed catalog printing census with paired
+alternate names, Unicode spelling, funny/playtest numbers and same-Oracle
+digital-edition anchors for paper cards. It preserves catalog display names
+and records each remaining unsupported printing with a reason. Full-catalog
+checks detect unexplained gaps and compatibility changes; see
+[printing coverage](../../tools/forge-printings/README.md).
+Revision 26 corrected printing compatibility for cosmetic flavor-name variants,
+including Ancient Tomb LTC 387z. The generator and runtime verify the selected
+printing's characteristics and executable abilities; genuine rules variants
+remain excluded. It retains the revision-25 base and works through both
+dedicated packages and creator-hosted overlays.
 Revision 25 updates the official rules engine, card resources and verified
 printing index together. Upstream changes include token-resolution performance,
 alternative-cost stability and AI copy-target selection. The upgrade requires
