@@ -190,7 +190,7 @@ jobs:
           --output build/client-qt/forge-overlay
           --source-output build/forge-source-release/hexproof-forge-overlay-source.tar.gz
       - name: Upload complete adapter source package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexproof-forge-overlay-source
           path: build/forge-source-release/hexproof-forge-overlay-source.tar.gz
@@ -284,7 +284,7 @@ jobs:
             exit 1
           fi
       - name: Upload Linux client
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexproof-client-linux-x86_64
           path: build/packages/Hexproof-*-linux-x86_64.tar.gz
@@ -380,7 +380,7 @@ jobs:
           Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
           Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
       - name: Upload Windows client
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexproof-client-windows-x64
           path: build/packages/Hexproof-*-windows-x64.zip
@@ -508,7 +508,7 @@ jobs:
           kill "$pid"
           wait "$pid" || true
       - name: Upload macOS client
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexproof-client-macos-${{ matrix.arch }}
           path: build/packages/Hexproof-*-macos-${{ matrix.arch }}.zip
@@ -570,7 +570,7 @@ jobs:
             file "$connector" | grep -E "ARM aarch64|ARM64"
           fi
       - name: Upload Linux server
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hexproof-server-linux-${{ matrix.arch }}
           path: build/packages/hexproof-server-*-linux-${{ matrix.arch }}.tar.gz
@@ -592,7 +592,7 @@ jobs:
       id-token: write
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: downloaded
       - name: Assemble assets and checksums
@@ -621,7 +621,7 @@ jobs:
             sha256sum "${assets[@]}" > SHA256SUMS
           )
       - name: Upload combined release bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Hexproof-${{ needs.prepare.outputs.version }}-release
           path: release-assets/
