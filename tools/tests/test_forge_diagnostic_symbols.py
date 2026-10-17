@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,6 +63,29 @@ class DiagnosticSymbolTests(unittest.TestCase):
             self.assertNotIn(b"PrivateScript", data)
             self.assertNotIn("dependency.Secret", value["classes"])
             self.assertEqual(data, SYMBOLS.generate(classes, [jar], cards, aliases, "fixture-adapter31"))
+
+    def test_aliases_are_utf8_even_with_a_legacy_platform_encoding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            classes, cards = root / "classes", root / "cards"
+            classes.mkdir(); cards.mkdir()
+            (classes / "ApiType.class").write_bytes(class_file(
+                "forge/game/ability/ApiType", ["values"], ["Draw"]))
+            (cards / "public.txt").write_bytes(b"Name:Public Card\n")
+            aliases = root / "aliases.tsv"
+            aliases.write_bytes("Catalog Café // Catalog Éclair\tSET\t1\tSET\t2\n".encode("utf-8"))
+            original_read_text = Path.read_text
+
+            def legacy_read_text(path, *args, **kwargs):
+                if not args and not kwargs.get("encoding"):
+                    kwargs["encoding"] = "cp1252"
+                return original_read_text(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "read_text", legacy_read_text):
+                data = SYMBOLS.generate(classes, [], cards, aliases, "fixture-adapter34")
+            self.assertEqual(json.loads(data)["cardNames"],
+                             ["Catalog Café", "Catalog Éclair", "Public Card"])
+            self.assertEqual(data, SYMBOLS.generate(classes, [], cards, aliases, "fixture-adapter34"))
 
     def test_embedded_hub_index_matches_pinned_runtime_identity_and_digest(self):
         pin = json.loads((ROOT / "third_party/forge-runtime/native-host/upstream.json").read_text())
