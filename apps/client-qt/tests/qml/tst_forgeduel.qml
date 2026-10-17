@@ -1841,7 +1841,10 @@ TestCase {
             const targetId = "z-" + targetSeat + "-Karn, the Great Creator"
             prompt("chooseBoardTargets", {minSelections:1, maxSelections:1,
                 targets:[{responseId:"walker-target", kind:"card", objectId:targetId, label:"Karn"}]})
-            verify(presentation.reveal(targetId)); verify(waitForPolish(window)); verify(waitForRendering(table))
+            verify(presentation.reveal(targetId), "Target planeswalker must be revealable")
+            verify(waitForPolish(window), "Planeswalker target layout must finish polishing")
+            window.update()
+            verify(waitForRendering(table), "Planeswalker target must finish rendering")
             mouseClick(item("forgeCard-" + targetId))
             compare(transport.responses.length, 1)
             compare(transport.responses[0].targets, ["walker-target"])
@@ -6254,7 +6257,9 @@ TestCase {
         const dock = item("rulesDecisionDock"), toggle = item("forgeDecisionCollapse")
         verify(toggle.visible)
         function checkControls() {
-            verify(waitForPolish(window)); verify(waitForRendering(table))
+            verify(waitForPolish(window), "Multiplayer layout must finish polishing")
+            window.update()
+            verify(waitForRendering(table), "Multiplayer controls must finish rendering")
             verify(toggle.x >= 0 && toggle.y >= 0
                 && toggle.x + toggle.width <= table.presentation.width
                 && toggle.y + toggle.height <= table.presentation.height)
