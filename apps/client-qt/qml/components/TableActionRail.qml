@@ -149,6 +149,17 @@ Surface {
                 onClicked: root.tableController.shortcutHelp.open()
             }
             NavigationButton {
+                objectName: "tableFeedbackButton"
+                variant: "ghost"
+                accessibleName: qsTranslate("Feedback", "Feedback")
+                text: root.compactNavigation ? "✉" : accessibleName
+                visible: root.tableController.appWindow
+                    && typeof root.tableController.appWindow.openFeedback === "function"
+                onClicked: root.tableController.appWindow.openFeedback({
+                    feature: "manual_table", gameMode: "manual", format: root.tableController.roomSession.format
+                })
+            }
+            NavigationButton {
                 objectName: "restoreGameLogRailButton"
                 visible: !root.tableController.showGameLogRail
                 accessibleName: qsTranslate("Table", "Show game log")

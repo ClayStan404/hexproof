@@ -484,7 +484,17 @@ def run(args):
         # scenario deadline or waiting for another seat to join.
         for seat in range(1, args.players + 1):
             profile = output / f"seat-{seat}"
-            prepare_profile(profile, args.catalog, args.fixture_dir, args.card_language, args.fresh_settings)
+            app_data = prepare_profile(profile, args.catalog, args.fixture_dir, args.card_language, args.fresh_settings)
+            if getattr(args, "feedback_config", None):
+                # Native-audit builds only: trusted loopback test input is copied
+                # into the isolated profile, never the owner's installed client.
+                content = args.feedback_config.read_bytes()
+                if len(content) > 16384:
+                    raise ValueError("Feedback test configuration exceeds its bound")
+                json.loads(content)
+                config_path = app_data / "feedback-test-config.json"
+                config_path.write_bytes(content)
+                config_path.chmod(0o600)
 
         started = time.monotonic()
         for stage, scenario in enumerate(scenarios, 1):
@@ -519,6 +529,10 @@ def run(args):
                            HEXPROOF_AUDIT_CARD_LANGUAGE=args.card_language,
                            HEXPROOF_AUDIT_HEIGHT=str(args.height) if args.windowed else "",
                            QT_SCALE_FACTOR=str(args.scale))
+                env.pop("HEXPROOF_AUDIT_FEEDBACK_CONFIG", None)
+                if getattr(args, "feedback_config", None):
+                    env["HEXPROOF_AUDIT_FEEDBACK_CONFIG"] = str(
+                        profile / "data/Hexproof/Hexproof/feedback-test-config.json")
                 # Do not let legacy inherited dimensions override this run's mode.
                 env.pop("AUDIT_WIDTH", None)
                 env.pop("AUDIT_HEIGHT", None)
@@ -648,6 +662,8 @@ def main():
     parser.add_argument("--output", type=Path, help="New directory; existing directories are refused")
     parser.add_argument("--catalog", type=Path, help="Read-only SQLite source for an independent backup")
     parser.add_argument("--fixture-dir", type=Path, help="Explicit decks/cache/images test fixture")
+    parser.add_argument("--feedback-config", type=Path,
+                        help="Explicit native-audit feedback configuration; copied into each isolated profile")
     parser.add_argument("--card-language", choices=("en", "zh"), default="en")
     parser.add_argument("--variant", default="modern", help="Scenario-specific format or variant")
     parser.add_argument("--players", type=int, choices=range(1, 9), default=1)
@@ -668,7 +684,7 @@ def main():
     def interrupted(_signum, _frame):
         raise KeyboardInterrupt("Runner interrupted; stopping owned test processes")
     signal.signal(signal.SIGTERM, interrupted)
-    for name in ("scenario", "binary", "server_binary", "catalog", "fixture_dir", "catalog_import", "deck_manifest", "file_dialog_helper", "os_input_helper"):
+    for name in ("scenario", "binary", "server_binary", "catalog", "fixture_dir", "catalog_import", "deck_manifest", "file_dialog_helper", "os_input_helper", "feedback_config"):
         if getattr(args, name):
             setattr(args, name, getattr(args, name).resolve())
     args.next_scenario = [path.resolve() for path in args.next_scenario]

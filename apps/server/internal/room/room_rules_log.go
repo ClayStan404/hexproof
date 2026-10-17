@@ -48,16 +48,22 @@ func (r *Room) AppendRulesLog(kind string, seat int, text string) {
 	if r.RulesNextLogID < 1 {
 		r.RulesNextLogID = 1
 	}
-	r.RulesLog = append(r.RulesLog, protocol.GameLogEntry{
+	previousLength := len(r.RulesLog)
+	entry := protocol.GameLogEntry{
 		ID: r.RulesNextLogID, Kind: kind, Seat: seat, Text: text,
-	})
-	r.RulesNextLogID++
-	if len(r.RulesLog) > protocol.MaxRetainedGameLog {
-		r.RulesLog = append([]protocol.GameLogEntry(nil),
-			r.RulesLog[len(r.RulesLog)-protocol.MaxRetainedGameLog:]...)
 	}
+	r.RulesLog = appendRetainedGameLog(r.RulesLog, entry)
+	r.RulesNextLogID++
 	if r.Game != nil {
-		r.Game.Log = append([]protocol.GameLogEntry(nil), r.RulesLog...)
+		if r.Game.NextLogID == entry.ID && len(r.Game.Log) == previousLength {
+			// The result/sideboard shell owns a separate array. Keep it in sync
+			// incrementally instead of copying the entire journal for each chat.
+			r.Game.Log = appendRetainedGameLog(r.Game.Log, entry)
+		} else {
+			// A replacement shell or manual departure result may need a fresh
+			// copy of the authoritative Forge journal before incremental updates.
+			r.Game.Log = append([]protocol.GameLogEntry(nil), r.RulesLog...)
+		}
 		r.Game.NextLogID = r.RulesNextLogID
 	}
 }

@@ -30,7 +30,15 @@ the helper builder enforce this. The helper embeds the actual JAR checksum and
 verifies both its metadata and private copy before starting Java. Missing or
 mismatched files fail preparation instead of falling back to the old adapter.
 
-Normal client builds need JDK 21+, Python 3.12+ and Git in addition to Qt/Go.
+Normal client builds need JDK 21, Python 3.12+ and Git in addition to Qt/Go.
+The reviewed diagnostic index includes compiler-generated method names, which
+newer JDKs can change even with `--release 21`. The builder and CMake select a
+JDK 21 compiler from `JAVA_HOME_21_*`, `JAVA_HOME`, `PATH`, or installed Linux
+JDKs under `/usr/lib/jvm`, without changing the system Java default. Select a
+specific compiler with `--javac` or CMake's `HEXPROOF_FORGE_JAVAC`; an incompatible
+explicit compiler fails before downloading or compiling anything.
+`java-toolchain.py` shares this selection with the complete native runtime
+builder and accompanies both corresponding-source bundles.
 There is no Maven resolution. Initial build inputs total about 446 MiB; the
 content-addressed cache is `build/forge-overlay/downloads`. `--base-archive` and
 `--source-archive` accept predownloaded files, with the same mandatory checksums.

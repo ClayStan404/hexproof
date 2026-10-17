@@ -87,6 +87,7 @@ Page {
                                      : (root.tournamentModel.status === "cancelled"
                                         ? Theme.error : Theme.accent)
                     }
+                    FeedbackEntryButton { feedbackContext: ({feature: "draft"}) }
                 }
 
                 Text {
@@ -302,13 +303,14 @@ Page {
                                         Layout.alignment: Qt.AlignRight
                                         spacing: Theme.size(10)
                                         AppButton {
+                                            objectName: "openTournamentMatchButton"
                                             visible: pairingRow.ownPairing
                                                      && root.tournamentModel.status === "running"
                                                      && !pairingRow.modelData.bye
                                                      && pairingRow.modelData.status
                                                         !== "confirmed"
                                             compact: true
-                                            text: root.wsModel.globalCode(pairingRow.modelData.roomId)
+                                            text: pairingRow.modelData.roomId
                                                   ? qsTr("Return to match")
                                                   : qsTr("Open match")
                                             onClicked: root.wsModel.openTournamentMatch(
@@ -328,6 +330,7 @@ Page {
                                         }
 
                                         AppButton {
+                                            objectName: "reportTournamentResultButton"
                                             visible: !root.isCasual
                                                      && pairingRow.ownPairing
                                                      && root.tournamentModel.status === "running"
@@ -646,9 +649,9 @@ Page {
     }
 
     function tabletopScoreForPairing(pairing) {
-        if (!pairing || !pairing.roomId)
+        if (!pairing || !pairing.pairingId)
             return ({})
-        return root.tournamentModel.tabletopScoreForRoom(pairing.roomId)
+        return root.tournamentModel.tabletopScoreForPairing(pairing.pairingId)
     }
 
     function pairingStatus(pairing) {

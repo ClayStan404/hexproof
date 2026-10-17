@@ -4,8 +4,10 @@
 #include "services/CardImageProvider.h"
 
 #include <QDir>
+#include <QFile>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQmlError>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QRegularExpression>
@@ -23,8 +25,25 @@ class TestCardImageProvider final : public QObject
   private slots:
     void repairedImageReloadsInQml_data() const;
     void repairedImageReloadsInQml() const;
+    void previewGalleryReloadsRepairedImage_data() const;
+    void previewGalleryReloadsRepairedImage() const;
     void evictedSourceNeverReusesAnOldRevision() const;
 };
+
+namespace {
+
+QQuickItem *findVisualItem(QQuickItem *root, const QString &name)
+{
+    if (root->objectName() == name)
+        return root;
+    for (QQuickItem *child : root->childItems()) {
+        if (QQuickItem *found = findVisualItem(child, name))
+            return found;
+    }
+    return nullptr;
+}
+
+} // namespace
 
 void TestCardImageProvider::repairedImageReloadsInQml_data() const
 {
@@ -99,12 +118,143 @@ void TestCardImageProvider::evictedSourceNeverReusesAnOldRevision() const
 {
     CardImageProvider provider;
     const QString first = provider.sourceForPath(u"/unused/first.png"_s);
+    const QString firstPreview = provider.previewSourceForPath(u"/unused/first.png"_s);
     for (int index = 0; index < 5'000; ++index)
         provider.sourceForPath(u"/unused/%1.png"_s.arg(index));
     const QString current = provider.sourceForPath(u"/unused/first.png"_s);
     QVERIFY(current != first);
+    const QString currentPreview = provider.previewSourceForPath(u"/unused/first.png"_s);
+    QVERIFY(currentPreview != firstPreview);
     provider.invalidateAll();
     QVERIFY(provider.sourceForPath(u"/unused/first.png"_s) != current);
+    QVERIFY(provider.previewSourceForPath(u"/unused/first.png"_s) != currentPreview);
+}
+
+void TestCardImageProvider::previewGalleryReloadsRepairedImage_data() const
+{
+    QTest::addColumn<bool>("initiallyCorrupt");
+    QTest::newRow("decoded-image") << false;
+    QTest::newRow("corrupt-image") << true;
+}
+
+void TestCardImageProvider::previewGalleryReloadsRepairedImage() const
+{
+    QFETCH(bool, initiallyCorrupt);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString path = storage.filePath(u"front.png"_s);
+    const QString backPath = storage.filePath(u"back.png"_s);
+    QImage pixels(2000, 2800, QImage::Format_RGB32);
+    pixels.fill(Qt::red);
+    if (initiallyCorrupt) {
+        QFile broken(path);
+        QVERIFY(broken.open(QIODevice::WriteOnly));
+        QVERIFY(broken.write("damaged PNG") > 0);
+    } else {
+        QVERIFY(pixels.save(path));
+    }
+    pixels.fill(Qt::green);
+    QVERIFY(pixels.save(backPath));
+
+    QList<QQmlError> warnings;
+    QQmlEngine engine;
+    auto *provider = new CardImageProvider;
+    engine.addImageProvider(u"card-table"_s, provider);
+    const QString components = QFINDTESTDATA("../qml/components");
+    QVERIFY(!components.isEmpty());
+    engine.setOutputWarningsToStandardError(false);
+    connect(&engine, &QQmlEngine::warnings, &engine,
+            [&warnings](const QList<QQmlError> &errors) { warnings.append(errors); });
+    QQmlComponent component(&engine);
+    component.setData(
+        (u"import QtQuick\nimport \"%1\"\n"_s.arg(QUrl::fromLocalFile(components).toString()) + R"(
+        Item {
+            id: scene
+            width: 640; height: 448
+            required property string rawSource
+            required property string frontSource
+            required property string backSource
+            property int imageRevision: 0
+            QtObject {
+                id: catalog
+                property int imageRevision: scene.imageRevision
+                property string language: "en"
+                function imageSource() { return scene.rawSource }
+                function previewImageSource(name) {
+                    return name === "Back" ? scene.backSource : scene.frontSource
+                }
+                function tableImageSource() { return "" }
+                function cardFaces() { return [{name:"Front"}, {name:"Back", faceName:"Back"}] }
+            }
+            QtObject {
+                id: table
+                property var cardCatalogModel: catalog
+                property var gameTableModel: null
+                property int width: scene.width
+                property int height: scene.height
+            }
+            TableCardPresentationController { id: presentation; tableRoot: table }
+            CardFacePreviewGallery {
+                anchors.fill: parent
+                controller: presentation.facePreview
+            }
+            Component.onCompleted: presentation.inspectCard({id:"card-1", name:"Front"}, null)
+        }
+    )")
+            .toUtf8(),
+        QUrl());
+    QScopedPointer<QObject> object(component.createWithInitialProperties(
+        {{u"rawSource"_s, QUrl::fromLocalFile(path).toString()},
+         {u"frontSource"_s, provider->previewSourceForPath(path)},
+         {u"backSource"_s, provider->previewSourceForPath(backPath)}}));
+    QVERIFY2(object, qPrintable(component.errorString()));
+    auto *root = qobject_cast<QQuickItem *>(object.get());
+    QVERIFY(root);
+    QQuickWindow window;
+    window.resize(640, 448);
+    root->setParentItem(window.contentItem());
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *front = findVisualItem(root, u"cardHoverPreviewArt"_s);
+    auto *back = findVisualItem(root, u"cardHoverPreviewArt-1"_s);
+    QVERIFY(front);
+    QVERIFY(back);
+    QTRY_COMPARE(front->property("status").toInt(), initiallyCorrupt ? 3 : 1);
+    QTRY_COMPARE(back->property("status").toInt(), 1);
+    const QString original = front->property("source").toUrl().toString();
+    const QUrl unrelated = back->property("source").toUrl();
+    const auto centerColor = [&window](QQuickItem *image) {
+        const QPointF center = image->mapToScene(QPointF(image->width() / 2, image->height() / 2));
+        const QImage frame = window.grabWindow();
+        return frame.pixelColor(qRound(center.x() * window.devicePixelRatio()),
+                                qRound(center.y() * window.devicePixelRatio()));
+    };
+    if (!initiallyCorrupt)
+        QTRY_COMPARE(centerColor(front), QColor(Qt::red));
+    QTRY_COMPARE(centerColor(back), QColor(Qt::green));
+
+    pixels.fill(Qt::blue);
+    QVERIFY(pixels.save(path));
+    provider->invalidatePath(path);
+    object->setProperty("frontSource", provider->previewSourceForPath(path));
+    object->setProperty("imageRevision", 1);
+    QTRY_COMPARE(front->property("status").toInt(), 1);
+    QTRY_COMPARE(centerColor(front), QColor(Qt::blue));
+    QVERIFY(front->property("source").toUrl().toString() != original);
+    QCOMPARE(back->property("source").toUrl(), unrelated);
+    QCOMPARE(provider->previewSourceForPath(backPath), unrelated.toString());
+    QCOMPARE(findVisualItem(root, u"cardHoverPreviewArt"_s), front);
+    QCOMPARE(findVisualItem(root, u"cardHoverPreviewArt-1"_s), back);
+    const QSize decodedSize = front->property("sourceSize").toSize();
+    QVERIFY(decodedSize.width() > 0);
+    QVERIFY(decodedSize.width() <= qCeil(front->width() * window.devicePixelRatio()));
+    QVERIFY(decodedSize.height() <= qCeil(front->height() * window.devicePixelRatio()));
+    for (const QQmlError &warning : warnings) {
+        QVERIFY2(initiallyCorrupt && warning.description().contains(u"Error decoding:"_s) &&
+                     warning.description().contains(original),
+                 qPrintable(warning.toString()));
+    }
+    root->setParentItem(nullptr);
 }
 
 QTEST_MAIN(TestCardImageProvider)

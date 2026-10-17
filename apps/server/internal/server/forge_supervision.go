@@ -58,7 +58,7 @@ func (h *Handler) failForgeGame(r *room.Room) {
 
 // terminateForgeGame requires this room's opMu. Revalidate the runtime and
 // game identity after acquiring it: an old watcher must not reset a new match.
-func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame) {
+func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame, recovery ...forge.Runtime) {
 	if r == nil || r.RulesMode != protocol.RulesModeForge {
 		return
 	}
@@ -71,6 +71,8 @@ func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame) {
 	}
 	delete(h.forgeGames, r.ID)
 	h.forgeMu.Unlock()
+	h.pauseActionClockLocked(r)
+	report := h.captureForgeCrash(r, current, recovery...)
 	h.pauseModelWorker(r.ID, "engine_unavailable", false)
 	reset := false
 	result, err := h.hub.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
@@ -93,6 +95,10 @@ func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame) {
 		code = protocol.ErrPlayerHostLost
 	}
 	for _, member := range h.sessionsForRoomPointer(r) {
+		if report != nil && member.rulesCrashReports.Load() {
+			h.sendForgeCrashReport(member, *report)
+			continue
+		}
 		h.sendError(member, "", code,
 			"Forge stopped; this game was aborted and the room is waiting for players to ready again")
 	}

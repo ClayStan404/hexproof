@@ -17,18 +17,50 @@ Item {
     required property string assignmentKind
     property var selectionState: null
     property bool boardSelection: false
+    property bool externalControls: false
     property bool showDetails: false
+    readonly property bool listShown: !boardSelection || showDetails
     property var assignments: selectionState ? selectionState.assignments : ({})
     readonly property var chosenSource: boardSelection && selectionState ? selectionState.chosenSource : null
     readonly property int assignedCount: Object.keys(assignments).length
     readonly property bool validSelection: sourceModel
                                                    && sourceModel.validAssignments(assignments)
     readonly property bool canSubmit: validSelection && (!boardSelection || !chosenSource)
+    property int modelRevision: 0
+    readonly property string minimumBlockerExplanation: {
+        void modelRevision
+        if (assignmentKind !== "blockers" || !sourceModel
+                || typeof sourceModel.sourceItems !== "function")
+            return ""
+        const counts = {}
+        const targets = {}
+        for (const source of sourceModel.sourceItems()) {
+            for (const id of selectedTargets(source.responseId)) {
+                const target = source.validTargets.find(value => value.responseId === id)
+                if (!target) continue
+                counts[id] = (counts[id] || 0) + 1
+                targets[id] = target
+            }
+        }
+        const reasons = []
+        for (const id of Object.keys(counts)) {
+            if (counts[id] < targets[id].minAssignments)
+                reasons.push(qsTr("%1: %2 assigned; minimum %3.")
+                             .arg(targets[id].label).arg(counts[id]).arg(targets[id].minAssignments))
+        }
+        return reasons.length ? reasons.join("\n") + "\n"
+            + qsTr("Remove these blocks in Assignment list, or clear assignments.") : ""
+    }
+
+    Connections {
+        target: root.sourceModel
+        function onModelReset() { root.modelRevision++ }
+    }
 
     readonly property bool narrowLayout: width < Theme.size(490)
 
     implicitHeight: !combatList.visible ? selectionControls.implicitHeight
-                    : narrowLayout || boardSelection ? Theme.size(162) + selectionControls.implicitHeight
+                    : externalControls || narrowLayout || boardSelection ? Theme.size(162) + selectionControls.implicitHeight
                     : Math.max(Theme.size(150), selectionControls.implicitHeight)
 
     function resetAssignments() {
@@ -119,14 +151,14 @@ Item {
 
     GridLayout {
         anchors.fill: parent
-        columns: root.narrowLayout || root.boardSelection ? 1 : 2
+        columns: root.externalControls || root.narrowLayout || root.boardSelection ? 1 : 2
         columnSpacing: Theme.size(12)
         rowSpacing: Theme.size(12)
 
         RulesHorizontalListView {
             id: combatList
             objectName: "rulesCombatCandidates-" + root.assignmentKind
-            visible: !root.boardSelection || root.showDetails
+            visible: root.listShown
 
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.size(150)
@@ -231,11 +263,14 @@ Item {
                             font.pixelSize: Theme.fontSize(9)
                         }
 
-                        ComboBox {
+                        AppComboBox {
                             id: assignmentBox
                             objectName: "rulesCombatAssignment-" + combatTile.responseId
 
                             Layout.fillWidth: true
+                            leftPadding: Theme.size(8)
+                            rightPadding: Theme.size(24)
+                            spacing: 0
                             visible: combatTile.maxAssignments <= 1
                             Keys.onTabPressed: event => { event.accepted = root.focusAssignment(combatTile.index + 1) }
                             Keys.onBacktabPressed: event => { event.accepted = root.focusAssignment(combatTile.index - 1) }
@@ -249,6 +284,37 @@ Item {
                             enabled: combatTile.maxAssignments > 0 && combatTile.choiceModel.length > 1
                             onActivated: root.setAssignment(combatTile.responseId,
                                                             currentValue)
+
+                            contentItem: Text {
+                                id: assignmentLabel
+                                textFormat: Text.PlainText
+                                text: assignmentBox.displayText
+                                color: assignmentBox.enabled ? Theme.text : Theme.textDisabled
+                                font: assignmentBox.font
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+
+                            ToolTip {
+                                id: targetTooltip
+                                objectName: "rulesCombatTargetTooltip-" + combatTile.responseId
+                                readonly property var hintWindow: assignmentBox.ApplicationWindow.window
+                                visible: !assignmentBox.popup.visible
+                                         && (assignmentBox.hovered || assignmentBox.activeFocus)
+                                         && assignmentLabel.truncated
+                                text: assignmentBox.displayText
+                                x: (assignmentBox.width - width) / 2
+                                width: Math.min(implicitWidth, Theme.size(420),
+                                                (hintWindow ? hintWindow.width : root.width) - Theme.size(24))
+                                contentItem: Text {
+                                    objectName: "rulesCombatTargetTooltipText-" + combatTile.responseId
+                                    textFormat: Text.PlainText
+                                    text: targetTooltip.text
+                                    font: targetTooltip.font
+                                    wrapMode: Text.Wrap
+                                    color: targetTooltip.palette.toolTipText
+                                }
+                            }
                         }
 
                         AppButton {
@@ -359,30 +425,43 @@ Item {
         ColumnLayout {
             id: selectionControls
 
-            Layout.fillWidth: root.narrowLayout || root.boardSelection
-            Layout.preferredWidth: root.narrowLayout || root.boardSelection ? -1 : Theme.size(184)
-            spacing: Theme.size(8)
+            Layout.fillWidth: root.externalControls || root.narrowLayout || root.boardSelection
+            Layout.preferredWidth: root.externalControls || root.narrowLayout || root.boardSelection ? -1 : Theme.size(184)
+            spacing: Theme.size(root.externalControls ? 4 : 8)
 
             Text {
                 objectName: "rulesCombatInstruction-" + root.assignmentKind
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                visible: root.boardSelection
+                visible: root.boardSelection && (!root.minimumBlockerExplanation.length || root.chosenSource)
                 text: root.chosenSource
                       ? root.assignmentKind === "attackers"
                         ? qsTr("%1: choose a highlighted player or permanent to attack.").arg(root.chosenSource.label)
                         : qsTr("%1: choose a highlighted creature to block.").arg(root.chosenSource.label)
                       : root.assignmentKind === "attackers"
                         ? qsTr("Select a creature, then the player or permanent to attack.")
-                        : qsTr("Select a blocking creature, then the attacking creature.")
+                        : selectionState && selectionState.pendingAttacker
+                          ? qsTr("Choose a creature to block the selected attacker.")
+                          : qsTr("Select a blocking creature, then the attacking creature. Or select an attacker first.")
                 color: root.chosenSource ? Theme.accent : Theme.textSecondary
                 font.pixelSize: Theme.fontSize(11)
                 wrapMode: Text.Wrap
             }
 
+            Text {
+                objectName: "rulesCombatMinimumReason"
+                textFormat: Text.PlainText
+                Layout.fillWidth: true
+                visible: root.minimumBlockerExplanation.length > 0 && !root.chosenSource
+                text: root.minimumBlockerExplanation
+                color: Theme.warning
+                font.pixelSize: Theme.fontSize(10)
+                wrapMode: Text.Wrap
+            }
+
             Flow {
                 Layout.fillWidth: true
-                visible: root.boardSelection
+                visible: root.boardSelection || root.minimumBlockerExplanation.length > 0
                 spacing: Theme.size(6)
 
                 AppButton {
@@ -409,6 +488,7 @@ Item {
                 }
                 AppButton {
                     objectName: "rulesCombatDetails-" + root.assignmentKind
+                    visible: root.boardSelection
                     compact: true
                     text: root.showDetails ? qsTr("Hide assignments") : qsTr("Assignment list")
                     onClicked: {
@@ -418,18 +498,97 @@ Item {
                 }
             }
 
-            Text {
-                textFormat: Text.PlainText
+            Loader {
+                active: !root.externalControls
+                visible: active
                 Layout.fillWidth: true
-                text: root.assignmentKind === "attackers"
-                      ? qsTr("%1 attacker(s) assigned").arg(root.assignedCount)
-                      : qsTr("%1 blocker(s) assigned").arg(root.assignedCount)
-                color: root.validSelection ? Theme.success : Theme.textSecondary
-                font.pixelSize: Theme.fontSize(11)
-                horizontalAlignment: Text.AlignHCenter
+                sourceComponent: root.controlsComponent
             }
+        }
+    }
 
-            AppButton {
+    component CombatActionButton: AppButton {
+        id: action
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        compact: true
+        implicitHeight: Math.max(Theme.size(38), label.implicitHeight + Theme.size(4))
+        contentItem: Text {
+            id: label
+            textFormat: Text.PlainText
+            text: action.text
+            color: action.foregroundColor
+            font: action.font
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+    }
+
+    readonly property Component controlsComponent: ColumnLayout {
+        enabled: root.enabled
+        spacing: Theme.size(root.externalControls ? 4 : 8)
+
+        Text {
+            objectName: "rulesCombatSelectionCount"
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            text: root.assignmentKind === "attackers"
+                  ? qsTr("%1 attacker(s) assigned").arg(root.assignedCount)
+                  : qsTr("%1 blocker(s) assigned").arg(root.assignedCount)
+            color: root.validSelection ? Theme.success : Theme.textSecondary
+            font.pixelSize: Theme.fontSize(11)
+            horizontalAlignment: Text.AlignHCenter
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: Theme.fontSize(10)
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.size(6)
+            CombatActionButton {
+                id: blockAll
+                objectName: "rulesBlockWithAll"
+                Layout.fillWidth: true
+                visible: root.assignmentKind === "blockers" && !!root.selectionState
+                enabled: !!root.selectionState && root.selectionState.blockAllAvailable
+                compact: true
+                text: qsTr("Block with all")
+                onClicked: if (root.selectionState) root.selectionState.blockWithAll()
+            }
+            CombatActionButton {
+                id: attackAll
+                objectName: "rulesAttackWithAll"
+                Layout.fillWidth: true
+                visible: root.assignmentKind === "attackers" && !!root.selectionState
+                enabled: !!root.selectionState && root.selectionState.attackAllAvailable
+                compact: true
+                text: qsTr("Attack with all")
+                onClicked: {
+                    if (root.selectionState && !root.selectionState.attackWithAll("")
+                            && root.selectionState.attackAllPlayers.length)
+                        attackAllMenu.open()
+                }
+                AppMenu {
+                    id: attackAllMenu
+                    objectName: "rulesAttackAllMenu"
+                    y: -height
+                    Repeater {
+                        model: root.selectionState ? root.selectionState.attackAllPlayers : []
+                        AppMenuItem {
+                            required property var modelData
+                            text: modelData.label || modelData.responseId
+                            onTriggered: {
+                                const targetId = modelData.responseId
+                                attackAllMenu.close()
+                                root.selectionState.attackWithAll(targetId)
+                            }
+                        }
+                    }
+                }
+            }
+            CombatActionButton {
+                id: declareCombat
                 objectName: "rulesConfirmCombat-" + root.assignmentKind
                 Layout.fillWidth: true
                 compact: true
@@ -438,6 +597,7 @@ Item {
                       ? qsTr("Declare attackers") : qsTr("Declare blockers")
                 enabled: root.canSubmit
                 disabledReason: root.chosenSource ? qsTr("Choose a target or cancel the selection")
+                                                 : root.minimumBlockerExplanation.length ? root.minimumBlockerExplanation
                                                  : qsTr("Resolve invalid combat assignments")
                 onClicked: root.submitAssignments()
             }

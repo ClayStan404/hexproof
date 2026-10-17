@@ -19,6 +19,8 @@ TestCase {
             {tag:"mulligan", source:"Mulligans taken: 2", expected:"已调度 2 次"},
             {tag:"mana-ability", source:"Choose a mana ability:", expected:"选择法术力异能"},
             {tag:"ability", source:"Choose an ability", expected:"选择异能"},
+            {tag:"blockers", source:"Assign each blocker to the attackers it can legally block.",
+                expected:"为每个阻挡生物选择其可以合法阻挡的攻击生物。"},
             {tag:"damage-order", source:"Assign Generous Ent combat damage now?", expected:"先为 Generous Ent 分配战斗伤害？"},
             {tag:"damage-order-placeholders", source:"Assign Card %1 %2's combat damage now?", expected:"先为 Card %1 %2's 分配战斗伤害？"},
             {tag:"put-back", source:"Choose exactly 2 card(s) to put on the bottom of your library.",
@@ -50,6 +52,20 @@ TestCase {
         compare(RulesText.choice("chooseBoolean", "Draw", "Confirm decision", "Draw a card?"), "Draw")
         compare(RulesText.choice("chooseFromSelection", "Cancel", "Choose options", ""), "取消")
         compare(RulesText.choice("chooseBoolean", "Unknown mode {R}", "Confirm decision", ""), "Unknown mode {R}")
+    }
+    function test_knownTargetSelectorDoesNotInterpretUnknownRestrictions() {
+        testTranslations.setLanguage("en")
+        const known = "Select target Permanent.cmcGE1 or Card.inZoneStack+cmcGE1"
+        compare(RulesText.title("chooseCards", known, ""),
+                "Choose a permanent or spell with mana value at least 1")
+        // Similar engine selectors are not equivalent restrictions. Keep their
+        // original text until they have an explicitly reviewed UI template.
+        for (const unknown of [
+            "Select target Permanent.cmcGE2 or Card.inZoneStack+cmcGE1",
+            "Select target Permanent.cmcGE1+OppCtrl or Card.inZoneStack+cmcGE1",
+            "Select target Permanent.cmcGE1 or Card.inZoneStack+cmcGE1+OppCtrl"
+        ])
+            compare(RulesText.title("chooseCards", unknown, ""), unknown)
     }
     function test_damageOrderChoiceRequiresNativeContext() {
         const title = "Assign Generous Ent combat damage now?"

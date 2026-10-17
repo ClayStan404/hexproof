@@ -71,16 +71,25 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 			"player is no longer active")
 		return nil
 	}
+	if !h.pauseActionClockLocked(r) {
+		h.sendError(sess, env.ID, protocol.ErrGameFinished, "the action clock finished the match")
+		return nil
+	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	err = game.client.Concede(ctx, game.sessionID, playerIndex)
 	cancel()
 	if err != nil {
+		h.refreshForgeActionClock(r)
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 			"Forge rejected the concession")
 		return nil
 	}
 	if err := waitForForgeConcede(game, playerIndex); err != nil {
+		h.failClosedGameProjections(r, err)
+		return nil
+	}
+	if err := h.advanceRulesPriority(r, game); err != nil {
 		h.failClosedGameProjections(r, err)
 		return nil
 	}
@@ -120,8 +129,7 @@ func (h *Handler) handleForgeConcede(sess *Session, env protocol.Envelope,
 
 	result.Reply.ID = env.ID
 	h.send(sess, *result.Reply)
-	h.sendRulesProjections(projections)
-	h.sendRulesPrompts(prompts)
+	h.sendRulesTable(projections, prompts)
 	if gameOver {
 		h.fanout(r, result.Broadcast)
 		if !result.SideboardDeadline.IsZero() {

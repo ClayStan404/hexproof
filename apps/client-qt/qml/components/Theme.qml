@@ -102,6 +102,18 @@ QtObject {
     readonly property int motionFast: 120
     readonly property int motionNormal: 220
     readonly property int motionSlow: 360
+    // Session-only and never persisted. On unless HEXPROOF_MOTION=0. The QML
+    // test runner sets hexproofMotion false, and motion tests assign this
+    // directly. The hand hover lift follows hoverMotion instead.
+    property bool motionEnabled: typeof hexproofMotion === "boolean" ? hexproofMotion : true
+    // The short hand hover lift shipped before that gate. Only the QML test
+    // runner turns it off, so geometry checks need no waits.
+    readonly property bool hoverMotion: typeof hexproofTestMotion === "boolean" ? hexproofTestMotion : true
+    // Set while the snapshot that starts a game, follows a reconnect or seeks a
+    // replay is applied, so it jumps instead of gliding.
+    property bool motionSnap: false
+    property int motionEpoch: 0
+    function finishMotion() { motionEpoch++ }
 
     function applyPalette(swatch) {
         background = swatch.background

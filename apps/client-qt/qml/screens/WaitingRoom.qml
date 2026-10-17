@@ -110,6 +110,7 @@ Page {
                             Flow {
                                 Layout.fillWidth: true
                                 spacing: Theme.size(8)
+                                FeedbackEntryButton { }
                                 StatusPill {
                                     objectName: "waitingRoomServerTransport"
                                     text: I18n.serverTransportLabel(root.wsModel.serverTransportState)
@@ -136,6 +137,12 @@ Page {
                                     text: root.roomSession.hostingMode === "player"
                                           ? qsTr("Forge · Player hosted") : qsTr("Forge · Server hosted")
                                     statusColor: Theme.success
+                                }
+                                StatusPill {
+                                    objectName: "waitingRoomActionClockSummary"
+                                    visible: root.roomSession.rulesMode === "forge" && root.roomSession.format !== "edh"
+                                    text: I18n.actionClockLabel(root.roomSession.actionClockEnabled === true)
+                                    statusColor: root.roomSession.actionClockEnabled === true ? Theme.accent : Theme.textSecondary
                                 }
                             }
                             Text {
@@ -675,6 +682,20 @@ Page {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: Theme.size(10)
+
+            Text {
+                objectName: "waitingRoomRegisteredDeckName"
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                visible: root.roomSession.role === "player" && root.myDeckSelected()
+                         && (root.tournamentDeckLocked || root.limitedPairing)
+                         && text.length > 0
+                text: root.roomSession.selectedDeckName
+                color: Theme.text
+                font.pixelSize: Theme.fontSize(14)
+                font.weight: Font.DemiBold
+                wrapMode: Text.Wrap
+            }
 
             RowLayout {
                 Layout.fillWidth: true

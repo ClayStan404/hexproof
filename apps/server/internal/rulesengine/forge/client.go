@@ -20,6 +20,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"hexproof/server/internal/forgediag"
 )
 
 const (
@@ -31,10 +33,12 @@ const (
 
 // ProcessConfig describes one long-lived Forge harness process.
 type ProcessConfig struct {
-	Command          string
-	Args             []string
-	Dir              string
-	Env              []string
+	Command string
+	Args    []string
+	Dir     string
+	Env     []string
+	// Deprecated: raw engine output is discarded. Safe evidence is available
+	// through FailureSource; a caller-owned writer cannot stall the drain.
 	Stderr           io.Writer
 	MaxResponseBytes int
 	StartTimeout     time.Duration
@@ -68,15 +72,20 @@ func JavaOverlayProcessConfig(javaCommand, harnessJAR, forgeHome, overlayJAR str
 }
 
 type rpcRequest struct {
-	After       int64  `json:"after,omitempty"`
-	Command     string `json:"command"`
-	Payload     string `json:"payload,omitempty"`
-	SessionID   string `json:"sessionId,omitempty"`
-	PlayerIndex *int   `json:"playerIndex,omitempty"`
-	Viewer      *int   `json:"viewer,omitempty"`
+	After            int64  `json:"after,omitempty"`
+	Command          string `json:"command"`
+	Payload          string `json:"payload,omitempty"`
+	SessionID        string `json:"sessionId,omitempty"`
+	PlayerIndex      *int   `json:"playerIndex,omitempty"`
+	Viewer           *int   `json:"viewer,omitempty"`
+	Viewers          []int  `json:"viewers,omitempty"`
+	PreviousPromptID int64  `json:"previousPromptId,omitempty"`
+	TimeoutMs        int    `json:"timeoutMs,omitempty"`
 }
 
 type rpcResponse struct {
+	WorkerFatal  bool            `json:"workerFatal,omitempty"`
+	FailureInfo  json.RawMessage `json:"failureInfo,omitempty"`
 	StartFailure json.RawMessage `json:"startFailure,omitempty"`
 	Fatal        bool            `json:"fatal,omitempty"`
 	OK           bool            `json:"ok"`
@@ -100,15 +109,17 @@ type rpcJob struct {
 // Client owns one game. The default transport is a dedicated ordered process;
 // a pool lease uses request IDs while retaining per-game call ordering.
 type Client struct {
-	supportsReplay bool
-	supportsAI     bool
-	aiGame         atomic.Bool
-	shared         *sharedLease
-	command        *exec.Cmd
-	stdin          io.WriteCloser
-	requests       chan rpcJob
-	done           chan struct{}
-	reaped         chan struct{}
+	diagnostics     *diagnosticCollector
+	supportsReplay  bool
+	supportsAI      bool
+	adapterRevision int
+	aiGame          atomic.Bool
+	shared          *sharedLease
+	command         *exec.Cmd
+	stdin           io.WriteCloser
+	requests        chan rpcJob
+	done            chan struct{}
+	reaped          chan struct{}
 
 	maxResponseBytes int
 	closing          atomic.Bool
@@ -171,6 +182,7 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 	}
 
 	client := &Client{
+		diagnostics:      newDiagnosticCollector(),
 		command:          command,
 		stdin:            stdin,
 		requests:         make(chan rpcJob, 32),
@@ -197,11 +209,14 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 	}
 	client.supportsAI = runtimeSupportsAI(capabilities)
 	client.supportsReplay = runtimeSupportsReplay(capabilities)
+	client.adapterRevision = runtimeAdapterRevision(capabilities)
+	client.diagnostics.bind("", "", client.adapterRevision)
 	return client, nil
 }
 
 func (client *Client) wait() {
 	err := client.command.Wait()
+	client.diagnostics.exit(err)
 	client.waitMu.Lock()
 	client.waitErr = err
 	client.waitMu.Unlock()
@@ -263,21 +278,9 @@ func (client *Client) Healthy() bool {
 // Existing sessions must never be reconstructed on a replacement process.
 func (client *Client) Invalidate() { client.kill() }
 
-func (client *Client) captureStderr(reader io.Reader, destination io.Writer) {
-	captureRuntimeStderr(reader, destination)
-}
-
-func captureRuntimeStderr(reader io.Reader, destination io.Writer) {
-	if destination == nil {
-		destination = io.Discard
-	}
-	scanner := bufio.NewScanner(reader)
-	scanner.Buffer(make([]byte, 4096), 256<<10)
-	for scanner.Scan() {
-		_, _ = fmt.Fprintln(destination, scanner.Text())
-	}
-	// Always drain the pipe if an oversized diagnostic line stops Scanner.
-	_, _ = io.Copy(io.Discard, reader)
+func (client *Client) captureStderr(reader io.Reader, _ io.Writer) {
+	defer client.diagnostics.drained()
+	drainDiagnostics(reader, client.diagnostics.streamAccept)
 }
 
 func (client *Client) run(stdout io.Reader) {
@@ -294,6 +297,7 @@ func (client *Client) run(stdout io.Reader) {
 				job.result <- rpcResult{err: err}
 				continue
 			}
+			client.diagnostics.begin(job.request.Command)
 			close(job.started)
 			// Close the cancellation race between the first context check and
 			// announcing that the request has started. Either the caller now
@@ -340,6 +344,10 @@ func (client *Client) run(stdout io.Reader) {
 				return
 			}
 			if !response.OK {
+				if response.Fatal {
+					client.diagnostics.accept(forgediag.ParseCapsule(response.FailureInfo))
+					client.diagnostics.boundary("native_failure")
+				}
 				var failure error = &rejectedRequest{failure: bytes.Clone(response.StartFailure)}
 				if response.Fatal {
 					failure = fmt.Errorf("%w: request failed", ErrRuntime)
@@ -354,7 +362,7 @@ func (client *Client) run(stdout io.Reader) {
 				// Rejected player actions or decks are recoverable, but failed
 				// authoritative queries leave the shared runtime untrustworthy.
 				switch job.request.Command {
-				case "getSnapshot", "getPrompt", "getGameOver":
+				case "getSnapshot", "getSnapshots", "getPrompt", "awaitPrompt", "getGameOver":
 					client.failProcess(failure)
 				}
 				job.result <- rpcResult{err: failure}
@@ -397,6 +405,9 @@ func (client *Client) call(ctx context.Context, request rpcRequest, noResponse,
 	case <-ctx.Done():
 		select {
 		case <-job.started:
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				client.diagnostics.boundary("execution_timeout")
+			}
 			client.kill()
 		default:
 		}
@@ -415,6 +426,7 @@ func (client *Client) kill() {
 		return
 	}
 	client.killOnce.Do(func() {
+		client.diagnostics.kill()
 		if client.command.Process != nil {
 			_ = client.command.Process.Kill()
 		}
@@ -462,6 +474,7 @@ func (client *Client) StartGame(ctx context.Context,
 		}
 		seen[player] = true
 	}
+	client.diagnostics.bind(handle.SessionID, handle.DiagnosticProducerID, client.adapterRevision)
 	return handle, nil
 }
 
@@ -555,6 +568,87 @@ func (client *Client) Snapshot(ctx context.Context, sessionID string,
 		return nil, fmt.Errorf("%w: invalid snapshot JSON", ErrRuntime)
 	}
 	return json.RawMessage(result), nil
+}
+
+// Snapshots returns one projection per viewer. Adapter 29 answers in one
+// engine call. Older adapters, and a shared worker that has not reported
+// that revision, keep a call per viewer.
+func (client *Client) Snapshots(ctx context.Context, sessionID string, viewers []int) ([]json.RawMessage, error) {
+	if err := validateSessionID(sessionID); err != nil {
+		return nil, err
+	}
+	if len(viewers) == 0 || len(viewers) > 8 {
+		return nil, errors.New("snapshot viewers are required")
+	}
+	for _, viewer := range viewers {
+		if viewer < -1 || viewer >= maxPlayers {
+			return nil, fmt.Errorf("viewer must be between -1 and %d", maxPlayers-1)
+		}
+	}
+	if client.adapterRevision < 29 {
+		views := make([]json.RawMessage, 0, len(viewers))
+		for _, viewer := range viewers {
+			view, err := client.Snapshot(ctx, sessionID, viewer)
+			if err != nil {
+				return nil, err
+			}
+			views = append(views, view)
+		}
+		return views, nil
+	}
+	result, err := client.call(ctx, rpcRequest{
+		Command:   "getSnapshots",
+		SessionID: sessionID,
+		Viewers:   viewers,
+	}, false, false)
+	if err != nil {
+		return nil, err
+	}
+	var views []json.RawMessage
+	if json.Unmarshal([]byte(result), &views) != nil || len(views) != len(viewers) {
+		client.kill()
+		return nil, fmt.Errorf("%w: invalid snapshot batch", ErrRuntime)
+	}
+	for _, view := range views {
+		if len(view) == 0 || !json.Valid(view) {
+			client.kill()
+			return nil, fmt.Errorf("%w: invalid snapshot batch", ErrRuntime)
+		}
+	}
+	return views, nil
+}
+
+// AwaitPrompt blocks until the session publishes a different prompt, the game
+// ends, or the deadline passes. A shared worker stays on the polling loop so
+// one game cannot hold the process for every other game.
+func (client *Client) AwaitPrompt(ctx context.Context, sessionID string, previous int64) (json.RawMessage, bool, error) {
+	if client.shared != nil || client.adapterRevision < 29 {
+		return nil, false, nil
+	}
+	if err := validateSessionID(sessionID); err != nil {
+		return nil, false, err
+	}
+	timeout := 5 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
+	}
+	if timeout < time.Millisecond {
+		return nil, true, ctx.Err()
+	}
+	if timeout > 30*time.Second {
+		timeout = 30 * time.Second
+	}
+	result, err := client.call(ctx, rpcRequest{
+		Command:          "awaitPrompt",
+		SessionID:        sessionID,
+		PreviousPromptID: previous,
+		TimeoutMs:        int(timeout.Milliseconds()),
+	}, false, false)
+	if err != nil {
+		return nil, true, err
+	}
+	decoded, err := decodeOptionalJSON(result, nil)
+	return decoded, true, err
 }
 
 // GameOver reports Forge's authoritative terminal state.

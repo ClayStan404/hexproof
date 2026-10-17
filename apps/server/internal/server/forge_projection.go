@@ -31,44 +31,64 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 	if !ok {
 		return nil, errors.New("Forge game session is unavailable")
 	}
-	// Build the public journal only from an explicit spectator view. Reuse that
-	// same envelope for every spectator rather than repeating engine RPCs.
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
-	publicView, err := h.forgeProjectionView(ctx, r.ID, game, -1)
-	cancel()
+	targets, seq, err := h.hub.RulesProjectionTargets(r)
 	if err != nil {
 		return nil, err
+	}
+	viewers := []int{-1}
+	seenViewer := map[int]bool{-1: true}
+	addViewer := func(viewer int) {
+		if !seenViewer[viewer] {
+			seenViewer[viewer] = true
+			viewers = append(viewers, viewer)
+		}
+	}
+	for _, seat := range targets {
+		if seat < 0 {
+			continue
+		}
+		viewer, exists := game.seatToPlayer[seat]
+		if !exists {
+			return nil, fmt.Errorf("seat %d has no Forge player", seat)
+		}
+		addViewer(viewer)
+	}
+	if r.SpectatorsSeeHands {
+		for _, player := range game.seatToPlayer {
+			addViewer(player)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
+	batched, batchErr := forgeSnapshotBatch(ctx, r.ID, h, game, viewers)
+	cancel()
+	if batchErr != nil {
+		return nil, batchErr
+	}
+	publicView, ok := batched[-1]
+	if !ok {
+		return nil, errors.New("Forge spectator projection is unavailable")
 	}
 	publicSnapshot, err := normalizeForgeSnapshot(r.ID, game, publicView)
 	if err != nil {
 		return nil, err
 	}
 	h.hub.UpdateRulesPublicLog(r, publicSnapshot)
+	game.diagnostics.observe(publicSnapshot, seq)
 	h.collectForgeReplay(r, game)
 	h.hub.RecordRulesStartingSeat(r, game, publicView)
-	targets, seq, err := h.hub.RulesProjectionTargets(r)
-	if err != nil {
-		return nil, err
-	}
 	projections := make(map[string]protocol.Envelope, len(targets))
 	ownerSnapshots := make(map[int]protocol.RulesGameSnapshot, len(game.seatToPlayer))
 	for connectionID, seat := range targets {
 		if seat < 0 {
 			continue
 		}
-		viewer := -1
-		if seat >= 0 {
-			mapped, exists := game.seatToPlayer[seat]
-			if !exists {
-				return nil, fmt.Errorf("seat %d has no Forge player", seat)
-			}
-			viewer = mapped
+		viewer, exists := game.seatToPlayer[seat]
+		if !exists {
+			return nil, fmt.Errorf("seat %d has no Forge player", seat)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
-		view, snapshotErr := h.forgeProjectionView(ctx, r.ID, game, viewer)
-		cancel()
-		if snapshotErr != nil {
-			return nil, snapshotErr
+		view, exists := batched[viewer]
+		if !exists {
+			return nil, fmt.Errorf("Forge projection for seat %d is unavailable", seat)
 		}
 		snapshot, err := normalizeForgeSnapshot(r.ID, game, view)
 		if err != nil {
@@ -81,18 +101,14 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 		}
 		projections[connectionID] = envelope.WithSeq(seq)
 	}
-	// AI has no owner transport, but explicit spectator hand visibility still
-	// applies to every seat. These private views never become public journals.
 	if r.SpectatorsSeeHands {
 		for seat, player := range game.seatToPlayer {
 			if _, present := ownerSnapshots[seat]; present {
 				continue
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
-			view, err := h.forgeProjectionView(ctx, r.ID, game, player)
-			cancel()
-			if err != nil {
-				return nil, err
+			view, exists := batched[player]
+			if !exists {
+				return nil, fmt.Errorf("Forge projection for seat %d is unavailable", seat)
 			}
 			snapshot, err := normalizeForgeSnapshot(r.ID, game, view)
 			if err != nil {
@@ -112,6 +128,44 @@ func (h *Handler) rulesProjections(r *room.Room) (map[string]protocol.Envelope, 
 		}
 	}
 	return projections, nil
+}
+
+func forgeSnapshotBatch(ctx context.Context, roomID string, h *Handler, game forgeRoomGame, viewers []int) (map[int]forge.GameView, error) {
+	if remote, ok := game.client.(*forgehost.Runtime); ok && h.playerHostMigrating(roomID) {
+		views := make(map[int]forge.GameView, len(viewers))
+		for _, viewer := range viewers {
+			view, err := remote.LastSnapshotView(viewer)
+			if err != nil {
+				return nil, err
+			}
+			views[viewer] = view
+		}
+		return views, nil
+	}
+	if batch, ok := game.client.(forge.SnapshotBatch); ok {
+		raws, err := batch.Snapshots(ctx, game.sessionID, viewers)
+		if err != nil {
+			return nil, err
+		}
+		views := make(map[int]forge.GameView, len(viewers))
+		for index, viewer := range viewers {
+			view, err := forge.DecodeSnapshotView(raws[index])
+			if err != nil {
+				return nil, err
+			}
+			views[viewer] = view
+		}
+		return views, nil
+	}
+	views := make(map[int]forge.GameView, len(viewers))
+	for _, viewer := range viewers {
+		view, err := game.client.SnapshotView(ctx, game.sessionID, viewer)
+		if err != nil {
+			return nil, err
+		}
+		views[viewer] = view
+	}
+	return views, nil
 }
 
 func (h *Handler) forgeProjectionView(ctx context.Context, roomID string, game forgeRoomGame, viewer int) (forge.GameView, error) {
@@ -520,28 +574,12 @@ func (h *Handler) sendRulesProjections(projections map[string]protocol.Envelope)
 		h.fanoutRulesMetadata(r)
 		h.publishForgeReplay(r)
 	}
-	if roomID != "" {
-		priority := priorityFromProjections(projections)
-		// Run after the caller releases the room operation lock.
-		time.AfterFunc(0, func() {
-			if r := h.hub.FindRoom(roomID); r != nil {
-				h.observeActionClock(r, priority)
-			}
-		})
-	}
-}
-
-func priorityFromProjections(projections map[string]protocol.Envelope) int {
-	for _, envelope := range projections {
-		var snapshot protocol.RulesGameSnapshot
-		if envelope.DecodePayload(&snapshot) == nil && snapshot.RoomID != "" {
-			return snapshot.PrioritySeat
-		}
-	}
-	return -1
 }
 
 func (h *Handler) fanoutRulesProjections(r *room.Room) {
+	if !h.refreshForgeActionClock(r) {
+		return
+	}
 	projections, err := h.rulesProjections(r)
 	if err != nil {
 		h.failClosedGameProjections(r, err)

@@ -41,8 +41,12 @@ function complete() {
 function cost(card) { return card.name === "Firebolt" && card.zone === "graveyard" ? 5 : costs[card.name]; }
 function trackCast(driver, option) {
     var card = driver.session.cardForInspection(option.cardId);
-    if (card.name === "Firebolt" && card.zone === "graveyard")
-        flashback = {cardId:option.cardId, turn:driver.session.turn, sawStack:false};
+    if (card.name === "Firebolt" && card.zone === "graveyard") {
+        driver.require(card.ownerSeat === ws.roomSession.seatIndex,
+            "Flashback must start from the viewer's graveyard");
+        flashback = {cardId:option.cardId, turn:driver.session.turn,
+            ownerSeat:card.ownerSeat, sourceZone:card.zone, sawStack:false, stackId:""};
+    }
 }
 function drawBefore(driver, kind, amount, stackId) {
     var own = ws.roomSession.seatIndex;
@@ -77,10 +81,26 @@ function observe(driver) {
     }
     if (flashback && !observed.flashback) {
         var card = session.cardForInspection(flashback.cardId);
-        if (ids.some(id => session.cardForInspection(id).name === "Firebolt")) flashback.sawStack = true;
+        var stackId = ids.find(id => {
+            var spell = session.cardForInspection(id);
+            return spell.sourceId === flashback.cardId && spell.name === "Firebolt";
+        });
+        if (stackId && !flashback.sawStack) {
+            var spell = session.cardForInspection(stackId);
+            driver.require(spell.cardId === stackId && spell.ownerSeat === flashback.ownerSeat
+                && spell.controllerSeat === own,
+                "Flashback stack object changed the tracked spell's owner or controller");
+            flashback.sawStack = true;
+            flashback.stackId = stackId;
+            auditProbe.record("pauper-flashback-stack", Object.assign({}, flashback, {spell:spell}));
+            driver.capture("pauper-flashback-stack");
+        }
         if (flashback.sawStack && card.zone === "exile") {
-            driver.require(card.ownerSeat === own, "Flashback changed the spell's owner");
-            note(driver, "flashback", Object.assign({}, flashback, {destination:card.zone}));
+            driver.require(!ids.includes(flashback.stackId) && card.cardId === flashback.cardId
+                && card.name === "Firebolt" && card.ownerSeat === flashback.ownerSeat,
+                "Flashback did not move the tracked spell from stack to its owner's exile");
+            note(driver, "flashback", Object.assign({}, flashback,
+                {destination:card.zone, ownerSeatAfter:card.ownerSeat}));
         }
     }
 }

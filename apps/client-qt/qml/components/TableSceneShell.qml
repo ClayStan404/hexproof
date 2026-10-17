@@ -55,8 +55,8 @@ Item {
     property alias handAreaMenu: tableMenus.handAreaMenu
     property alias handCardMenu: tableMenus.handCardMenu
     property alias cardToolsMenu: tableMenus.cardToolsMenu
-    property alias tableSettingsPopup: tableSettingsPopup
-    property alias shortcutHelp: shortcutHelp
+    property alias tableSettingsPopup: settingsPopupItem
+    property alias shortcutHelp: shortcutHelpItem
 
     function requestPaint() {
         relationLayer.requestPaint()
@@ -101,11 +101,11 @@ Item {
         combatDeclarationPopup,
         libraryAccessConfirmation,
         publicZoneMoveConfirmation,
-        tableSettingsPopup,
+        settingsPopupItem,
         tableBackgroundPopup,
         gameResultPopup,
         landPlayPopup,
-        shortcutHelp
+        shortcutHelpItem
     ]
     readonly property bool modalOpen: modalPopups.some(popup => popup.opened)
 
@@ -219,7 +219,7 @@ Item {
     }
 
     TableSettingsPopup {
-        id: tableSettingsPopup
+        id: settingsPopupItem
         objectName: "tableSettingsPopup"
         onBackgroundRequested: tableBackgroundPopup.open()
         onAudioRequested: {
@@ -243,7 +243,7 @@ Item {
     }
 
     TableShortcutHelp {
-        id: shortcutHelp
+        id: shortcutHelpItem
     }
 
     TableShortcuts {

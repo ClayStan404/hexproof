@@ -17,6 +17,7 @@ ColumnLayout {
     property bool readOnly: false
     property string candidatesName: "rulesCardCandidates"
     property int modelRevision: 0
+    property var previewAvoidItems: []
     property alias filterText: search.text
     property alias grid: cards
     readonly property var allCards: {
@@ -46,14 +47,23 @@ ColumnLayout {
         if (selectableOnly) selectableOnly.checked = false
         if (cards) cards.positionViewAtBeginning()
     }
-    onPromptIdChanged: resetFilter()
+    onPromptIdChanged: { resetFilter(); preview.hide() }
+    onVisibleChanged: if (!visible) preview.hide()
+    CardHoverPreview {
+        id: preview
+        objectName: "rulesBrowserCardPreview"
+        parent: root.Overlay.overlay
+        catalogModel: root.cardCatalogModel
+        artObjectName: "rulesBrowserCardPreviewArt"
+        avoidItems: root.previewAvoidItems
+    }
     Connections {
         target: root.cardModel
         ignoreUnknownSignals: true
-        function onModelReset() { root.modelRevision++; root.resetFilter() }
+        function onModelReset() { preview.hide(); root.modelRevision++; root.resetFilter() }
         function onRowsInserted() { root.modelRevision++ }
-        function onRowsRemoved() { root.modelRevision++ }
-        function onDataChanged() { root.modelRevision++ }
+        function onRowsRemoved() { preview.hide(); root.modelRevision++ }
+        function onDataChanged() { preview.hide(); root.modelRevision++ }
     }
 
     RowLayout {
@@ -86,7 +96,8 @@ ColumnLayout {
         Text {
             textFormat: Text.PlainText
             Layout.fillWidth: true
-            text: qsTr("Showing %1 of %2 cards").arg(root.matchingCards.length).arg(root.allCards.length)
+            text: (root.allCards.length === 1 ? qsTr("Showing %1 of %2 card")
+                : qsTr("Showing %1 of %2 cards")).arg(root.matchingCards.length).arg(root.allCards.length)
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(11)
             wrapMode: Text.Wrap
@@ -167,6 +178,18 @@ ColumnLayout {
             Accessible.role: selectable ? Accessible.Button : Accessible.StaticText
             Accessible.name: name + (selectionLabel ? " · " + selectionLabel : "")
             Accessible.onPressAction: if (selectable) root.cardToggled(cardId)
+            activeFocusOnTab: true
+            function inspect() {
+                if (!root.visible || !name || modelData.faceDown === true || modelData.visibleIdentity === false) return
+                preview.tokenArt = modelData.token === true
+                preview.inspect(Object.assign({}, modelData, {id:cardId}), cardTile)
+            }
+            onActiveFocusChanged: {
+                if (activeFocus) { cards.currentIndex = index; inspect() }
+                else preview.hide(cardTile)
+            }
+            onModelDataChanged: if (preview.sourceItem === cardTile) preview.hide()
+            Component.onDestruction: preview.hide(cardTile)
             Image {
                 id: art
                 anchors.top: parent.top
@@ -238,7 +261,10 @@ ColumnLayout {
                     if (cardTile.selectable) root.cardToggled(cardTile.cardId)
                 }
             }
-            HoverHandler { id: hover }
+            HoverHandler {
+                id: hover
+                onHoveredChanged: hovered ? cardTile.inspect() : preview.hide(cardTile)
+            }
             ToolTip.visible: hover.hovered
             ToolTip.delay: 350
             ToolTip.text: [cardTile.name, cardTile.setCode,

@@ -6,6 +6,10 @@ pragma Singleton
 import QtQuick
 
 QtObject {
+    function actionClockLabel(enabled) {
+        return enabled ? qsTr("Action clock · 25 minutes per player") : qsTr("Action clock · Off")
+    }
+
     function rulesStartFailureReason(reason) {
         switch (reason) {
         case "deck_rejected": return qsTr("Forge could not start with one or more selected decks.")
@@ -575,7 +579,7 @@ QtObject {
             case "tournament_registration_closed":
                 return qsTr("Tournament registration is closed.")
             case "tournament_not_ready":
-                var countMatch = source.match(/at least (\d+) checked-in players/)
+                const countMatch = source.match(/at least (\d+) checked-in players/)
                 if (countMatch)
                     return qsTr("At least %1 checked-in players are required.")
                             .arg(countMatch[1])
@@ -1108,7 +1112,7 @@ QtObject {
             "player_host_lost": qsTr("The host engine was lost. This game was aborted without a winner. Prepare hosting and ready up to start a new game."),
             "player_host_trust_required": qsTr("This is a player-hosted Forge room. Confirm that you trust the host before joining."),
             "rules_unavailable": qsTr("Forge rules are unavailable on this server"),
-            "rules_action_rejected": qsTr("The Forge decision is stale or no longer available"),
+            "rules_action_rejected": qsTr("Forge could not accept this decision. Review the current choices and try again."),
             "not_player": qsTr("Only players can do that"),
             "invalid_deck": qsTr("This deck cannot be used in the room"),
             "deck_required": qsTr("Select a playable deck first"),
@@ -1143,6 +1147,7 @@ QtObject {
             "approval_required": qsTr("This action requires approval"),
             "approval_pending": qsTr("An approval request is already pending"),
             "approval_expired": qsTr("The approval has expired"),
+            "connection": qsTr("The action could not be sent. Check the connection and try again."),
             "timeout": qsTr("Connection timed out"),
             "socket": qsTr("Network connection error"),
             "parse": qsTr("Invalid server message"),

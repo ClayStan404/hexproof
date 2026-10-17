@@ -51,6 +51,12 @@ room, including as spectator, requires `acceptPlayerHost: true`. See
 [player-hosted Forge](player-hosted-forge.md) for its protocol, lifecycle,
 preparation, trust limits, and verification.
 
+Supported two-seat Forge rooms and events also offer an immutable optional
+25-minute action clock per player. Creation and lobby controls expose the
+choice; timeout loses the whole match. Commander/EDH and Commander Cube remain
+untimed. See [action-clock rules](action-clock.md) for the supported modes,
+defaults, decision ownership, and pause/restart behavior.
+
 ## Runtime choice
 
 ### Native AI practice
@@ -387,6 +393,12 @@ actions and prompts remain exclusively in `rules.snapshot` / `rules.prompt`.
 This metadata shell does not create a second rules reducer. Spectators see
 readiness/counts, not pending sideboard identities.
 
+Live two-player BO3 tables keep the game number and current match score visible
+beside Settings without opening the drawer. A seated player's wins appear
+first; spectators retain stable seat order. The summary stays clear of player
+identity/life/clock plates and the default floating stack. BO1 and multiplayer
+EDH do not add this summary; the between-game screen owns its own score display.
+
 The host may explicitly restart a live game after confirmation. It preserves
 game number, score and original starting player while using a fresh session,
 shuffle and opening hand. Restart is unavailable during sideboarding or after
@@ -453,6 +465,49 @@ retains membership and selected decks, clears readiness, and reports a fixed
 non-sensitive failure. Authoritative-query/projection failures invalidate the
 runtime; ordinary rejected actions and unsupported-deck startup do not abort
 unrelated games.
+
+For an unexpected failure of a started game, supporting clients also receive
+an independent **Forge crash report**. The native adapter advertises
+`forge-crash-diagnostics-v1`; clients opt in with `rulesCrashReportSchema: 1` in
+`session.hello`. The existing error payload may then carry `rulesCrashReport`.
+Older otherwise-admitted clients retain the fixed generic failure behavior;
+this capability does not relax application, helper or runtime admission.
+
+A report records the observed failure category, available verified exception
+classes/code frames, the executing API and a source identity only when the
+original hand-hidden spectator could see it at capture time. A recorded card
+or effect identifies execution context, not proof that its script alone caused
+the defect. Native failures, resource exceptions, execution deadlines, invalid
+communication/publications, process exits and hosting loss remain distinct.
+A signal or exit code alone does not imply out-of-memory. Empty prompt polls,
+ordinary rejected input, player waits, concession and acknowledged cleanup do
+not create reports. Initial-start/deck-registration rejection continues through
+the existing startup path below, without exposing submitted decks to this
+room-wide report.
+
+The hub freezes the first failure and public context before room reset. It
+sends the available report immediately, then permits one final revision of the
+same incident within five seconds for late native/exit evidence. Collection is
+bounded and does not wait on disk or process reaping under the room lock.
+Successful host migration produces no terminal-game notice; a failed
+reconstruction can retain its separate failure stage. Reports neither retry
+mutations nor restart a game.
+
+The desktop offers details, complete formatted-JSON copy, JSON save and
+notice dismissal, plus an offline **Forge crash reports** menu entry. History
+survives room/page changes, reconnection and application restart. A newer
+revision updates the existing record without reopening a dismissed notice.
+Only original membership continuity authorizes hub redelivery; each successful
+resume receives at most the newest eight eligible reports, and later room
+occupants receive none. The hub does not restore this eligibility after restart.
+
+Retention is **up to seven days, subject to storage limits**: 64 reports / 4 MiB
+per client profile, and 256 reports / 16 MiB in hub memory and its optional
+private archive. The archive has at most 256 pending coalesced writes, and at
+most 256 incidents can collect late evidence concurrently. Revisions do not
+renew expiry. No diagnostic report is uploaded automatically or added to game
+logs or visual replays. See the [capture and delivery contract](forge-crash-diagnostics-design.md)
+and [privacy rules](privacy.md#forge-crash-reports).
 
 Every failed initial start, next game, or restart reports an explicit startup
 reason to all current room members after returning the room to waiting.
@@ -589,12 +644,41 @@ use `ForgeMultiplayerBattlefield` and `ForgePlayerField`; none of these views
 uses the manual table or the historical `RulesLegacyLayout`. Multiplayer fields
 combine player information and public zone piles along the outside edge: above
 the upper fields and below the lower fields. Upright battlefield cards face the
-narrow center phase strip. Land/other columns follow their public pile counts,
+central phase overlay. Land/other columns follow their public pile counts,
 and the creature lanes use the remaining width and height. Turn and priority
 are indicated on each player's field without a second center status banner.
 When the phase strip is hidden, including starting-player selection and
 mulligans, the fields reclaim its space and retain only the narrow column-sized
 gutter between rows. The phase strip returns when the first turn begins.
+Its labels follow the interface text scale rather than shrinking with the
+battlefield. When all twelve labels fit, the strip shows their full short names,
+including distinct first and second main phases. Otherwise it shows the current
+phase and a disclosure control for a read-only, scrollable overview of all twelve
+phases. The overview follows the authoritative current phase, closes with Escape
+or its close control, and never changes phases or priority. Its modal state
+suppresses card previews and board input. Wide tables keep the original
+single-line phase-strip density; the compact disclosure allows a two-line label.
+In two-player games the phase and status information overlay the original
+12-unit battlefield seam; their visibility, text and scale never add a reserved
+row or reduce either field's height. Multiplayer retains its narrow 22-unit
+phase seam, enlarged only when needed for the actual phase text plus four
+units of spacing, and its six-unit seam before the first turn. It does not
+reserve a second status row. Advancing phases or opening the overview does
+not resize the battlefield.
+The phase strip follows the public overlay anchor: centered across the
+battlefield midline, or immediately below the centered opponent-deciding banner.
+It never searches for an empty card pocket. Its twelve cells have equal width,
+with the original translucent past/future fills and transparent gaps; there is
+no full-width background plate. Complete scaled labels and the read-only compact
+overview remain available. Compact disclosure uses a bounded visible button on
+the same overlay line. Recent-action summaries use nearby unoccupied space;
+if a long redundant summary has no safe pocket, the complete log remains
+accessible from Settings.
+Phase rectangles exclude relationship and aiming strokes locally, preserving
+transparent styling without rerouting the curve or changing its target. Other
+public text surfaces retain their themed backings above those lines.
+The hand caption also has a local opaque backing, so the active battlefield
+border and priority glow cannot run through its count or spectator message.
 
 R0 and R1 are complete. The first R2 slice decodes `rules.snapshot` into a
 typed Qt session with dedicated player, zone, visible-card, and stack list
@@ -660,54 +744,231 @@ turn scheduling, including both Emrakul cast triggers and the Promised End's
 uncontrolled compensatory turn, remains entirely within Forge.
 
 Hover and keyboard-focus inspection show a full card beside its source, flipping
-left near the window edge and staying within the viewport. This read-only overlay
+left near the window edge and staying within the viewport. A placement that would
+cover the decision dock moves into a free area beside or above the source.
+Ordinary inspection preserves the visible hand, inspected source, public
+battlefield cards and their status badges, player identities/life/counters,
+zone piles, the phase/status strip and active controls. Empty lane space remains
+available; a whole lane is not excluded merely because it contains a card.
+Readable faces first stay near their source: among areas that fit each face at
+the scaled 180-unit readable size, placement prefers the nearest source-edge
+distance, then larger faces within a scaled 48-unit nearby band. It does not
+move across the table merely to gain extra size. The bounded free-area search
+retains nearby candidates as well as large ones. If no nearby area can fit
+readable art, a farther readable region remains available. Source tracking
+includes ancestor transforms, with coordinate mapping deferred until their
+notifications have settled so pile animations cannot leave a stale anchor.
+Full-size faces are
+preferred within that nearby band. Constrained free areas fit all
+printed faces proportionally, side by side or stacked. Floating hover previews
+show only complete card faces, without a state-summary footer or reserved space
+for one. Current state and linked-card details remain on battlefield tiles and
+in the right-click inspection column. Combat curve bounds are
+also avoided when possible; if they alone prevent readable inspection, their
+bounds may be relaxed with faces capped at the scaled 180-unit size and actual
+arrows painted above the preview. Public content is never relaxed this way.
+When no free area can fit readable 180-unit faces, a fully readable **Inspect
+card** button replaces the floating gallery in available blank space. It avoids
+combat curves when a suitable free area exists and paints above any unavoidable
+curve so its label remains readable. It opens
+the existing right-side inspection column, as does right-clicking the card.
+A focused battlefield, attachment, stack or hand card supports the standard
+Menu key and Shift+F10 for the same read-only inspection, without a game action.
+If the remaining blank space cannot contain the complete label, the same action
+uses a magnifier button at the normal compact-control size, with the full
+translated accessible name and tooltip. The text button remains preferred.
+Both forms preserve the source, public content, hand and action areas and open
+the exact inspected object without submitting a game response. If even the icon
+cannot fit, no floating overlay is shown: right-click or the focused card's
+context keys still open the fixed inspector. Hover does not reflow the table or
+expose hidden identity to make room for an inspection affordance.
+Hovering alone does not move the battlefield. A concealed object
+always previews one card back, independently of the previous card's printed
+faces. The preview follows
+ancestor scrolling and hides when its source is fully clipped; a card that keeps
+keyboard focus restores its preview when it scrolls back into view. This read-only overlay
 does not intercept targeting or combat input, open the fixed inspector, or move
 the battlefield. Modal decisions and authority loss hide it. Explicitly pinned
-card state opens on demand in a separate right-side column. Log/chat opens as a
+card state opens on demand in a separate right-side column. At compact window
+sizes or enlarged UI settings, this column can reserve up to 40% of the table
+width to preserve readable content while leaving the board and decisions
+accessible. Its title and Close control use separate rows when necessary;
+state headings wrap instead of clipping. In two-seat tables, a near player plate
+that would intersect the shifted decision dock moves above it or beside it,
+keeping the name, counts, life and exact player target accessible. Combat arrows
+follow the life disc's actual position. Known multi-face
+cards display all independently printed faces together in hover previews,
+including visible hand cards, pinned inspection and card decision previews.
+The authoritative current face appears first, with exact printing preserved for
+each face. Wider previews use adjacent images; narrow panels stack them. This
+read-only display never submits a rules response or transforms the game object.
+Leaving a multi-face source, or a source with the compact inspection button,
+allows 350 ms to enter its preview;
+hovering keeps it open and leaving both source and preview closes it. Explicit
+dismissal and loss of visible identity close it immediately. Hidden and face-down
+identities cannot request face metadata or alternate art. Forge still owns actual
+transform and face
+choices. Log/chat opens as a
 floating panel from Settings: drag its title to move it, drag the
 lower-right corner to resize it, or right-click the title to restore the
 default size and top-right position. Opening the log does not
 reserve a column or move the stack, lanes, or decision dock. Transient hover
-inspection does not reserve any column. The resting
-hand exposes approximately its upper half at the bottom of the window, retaining
+inspection does not reserve any column. Decision and deck-construction
+selection summaries and primary actions remain clear of hover previews.
+Previews fit all printed faces into the available
+space beside those controls, following control movement and window scaling.
+The resting hand exposes approximately its upper half at the bottom of the
+window, retaining
 stable visible click/drag slots and horizontal scrolling for unusually large
-hands. Battlefield grids choose readable card sizes from both available width
-and height. In every player-count layout, creatures, lands and other permanents
-jointly allocate rows or side columns according to their public pile counts.
-Empty groups surrender their space, and sparse creature rows grow up to 200
-layout units instead of losing height to full-width support rows. Only rendered
-hosts reserve their attachment depth, and unrelated cards reserve no combat
-badges. Combat movement and attachment space cannot lower the 80-unit readable
-card-width floor; extreme boards retain scrolling and exact-object
-keyboard/target reveal. Upper creatures align toward the center seam, and
-near-side lands remain along the outside edge of their allocation.
+hands. Battlefield grids use four stable regions within each player's field:
+creatures toward the combat midline, lands at the left rear, planeswalkers at
+the right front, and other permanents at the right rear. The opposing field
+mirrors front and rear vertically, preserving the same left/right categories.
+Widths and heights adapt to public pile counts and attachment depth, and empty
+regions release their allocation. Both players use horizontal support rows;
+there is no alternative side-column arrangement. Lands use the fewest rows
+that fit at the readable floor before their faces grow, so a taller available
+field cannot turn a horizontal land row into a vertical column. Changing a
+prompt, loyalty count, or tapped state must not swap regions or move unrelated
+cards.
+
+The layout avoids the reserved rectangles of the player plates, settings and
+resting decision controls. Creature allocations are symmetric about the whole
+player field's horizontal center, including when planeswalkers occupy the right
+front. A single creature stays on that axis; side controls can symmetrically
+narrow its row but cannot move its center to the remaining left-hand pocket.
+Lands remain at the left rear. Both right-hand groups keep the available right
+edge, with other permanents above the resting decision corner and planeswalkers
+in front of them. Obstacles can shorten these regions vertically; their removal
+does not change the category directions. Stable support allocations reserve
+potential pile fans before the creature allocation is fitted.
+
+Sparse creatures can grow up to 200 layout units; lands, planeswalkers and other
+support permanents share a 108-unit ceiling. All cards within a lane share its
+fitted size. Once creatures reach the 180-unit preferred size, keep larger
+support faces rather than shrinking all support rows for the last few units of
+creature growth; remaining space can still grow creatures to their ceiling.
+Crowded regions retain the 80-unit readable width floor and scroll
+with exact-object keyboard/target reveal. Each occupied category must remain
+reachable and able to reveal a complete card. Capacity is optimized within
+these positional constraints, rather than moving groups between rows and side
+columns to maximize card area.
+
+Only rendered hosts reserve their attachment depth. Creature lanes reserve
+both directional combat movement and the complete destination-label extent
+before combat begins; support lanes do not inherit combat margins. Above-face
+labels retain space at the viewport top and between rows. Revealing an exact
+card includes its destination label when the viewport can fit both. Movement
+and attachment space cannot lower the readable card-width floor. Creatures
+align toward the combat midline; lands and other support cards align toward the
+player's outside edge, while planeswalkers align toward the front. Right-hand
+regions also align their contents to their right edge. Potential expanded-pile
+spans are reserved before expansion, and dense or scrolling grids retain
+conservative exclusion from controls.
+Only the expanded pile may leave its scroll viewport. Other rows remain
+clipped, including while that pile is expanded; the same physical delegates,
+keyboard focus and readout/inspection exclusions follow the expanded cards.
 A Settings button sits at the top-right corner of the table. Decision
 instructions remain in the bottom-right dock rather than occupying a second
-banner above the battlefield. The idle dock overlays the corner of the hand band.
-When an expanded decision overlaps a battlefield lane,
-that lane fits its cards beside the panel so every physical card remains
-reachable; lanes outside the panel's vertical span retain their full width.
+banner above the battlefield. The dock owns a compact constant reservation at
+its position and width, 120 layout units tall or less on short windows, for the
+resting controls. This reservation also applies to multiplayer fields. It does
+not reserve the maximum height of an expanded decision while idle. Priority,
+payment, direct board targets and attack/block declarations retain their larger
+268-unit height cap, or the available window height on short windows, and
+scroll inside it. Any decision extending above the compact reservation exposes
+**Hide choice** / **Show choice** without moving the battlefield or clearing the
+selection draft. Revealing or keyboard-focusing a battlefield card underneath
+that expanded portion immediately hides the choice to expose the complete card;
+the player can restore it to confirm the retained selection.
+Board-target and combat instructions and candidates scroll above fixed
+selection-count and confirmation footers. Combat's all-available action shares
+that footer; assignment editing and specific minimum-blocker explanations stay
+in the scrollable body. Repeated source rules text is folded from the target dock
+while the source card and its full inspection remain available. Other
+decisions, a target list containing offboard candidates, and an explicitly
+opened combat list may cover the battlefield up to the window's top margin.
+An offboard target row shows its full card and title initially when they fit;
+short windows keep the candidates scrollable and the confirmation footer fixed.
+While a choice is taller than the reservation, **Hide
+choice** shrinks the dock to its resting rows. It stays hidden through board
+updates and resizing until **Show choice**, the next decision or the game
+result. On three- and four-player fields the dock overlays the corner of the
+hand band and battlefield without changing lane widths or card positions.
+The player metadata and public zone controls beside that corner stay to the
+left of the dock's fixed reservation, including during ordinary priority;
+the battlefield itself keeps its full width.
+Board decisions use the same expanded height cap as the two-player dock and
+scroll inside it. **Hide choice** and exact-card reveal keep cards underneath
+reachable, and **Show choice** restores the decision and its draft.
 Three/four-player fields extend to the right edge instead of reserving a
 permanent sidebar. The movable stack overlays that space without changing
 card positions; collapse or move it to inspect cards underneath. Its background
 consumes pointer input so dragging or right-clicking it cannot activate covered
 cards. Stack target arrows follow the panel and hide while it is collapsed.
-The dock shows turn owner, turn number,
-phase, and priority passing. A phase track overlays the center seam of the
-battlefield and does not reserve a row or move the lanes. It marks the
-current step. While the local player must act, the hand rises and the pass
-controls enlarge; while the opponent has priority, the center of the board
-says they are deciding. Mana sources on the battlefield are clicked to pay. A source whose mana is
-still unused can be clicked again to undo that activation. The payment dock shows
+At rest the dock shows turn owner, turn number,
+phase, and priority passing; an open decision uses the space of these rows,
+while the phase track and the active-player border keep showing the turn.
+The phase track marks the current step as a central overlay. In two-player
+games it does not occupy battlefield layout space. A card label that would
+cross that strip is drawn on the outer side of the face instead. Life changes
+keep the current total inside the disc; the signed change fades above the disc
+in a permanently reserved band clear of the player identity, action clock,
+zone counts, and viewport edge. Its full upward travel is reserved before a
+life change, so animation and repeated changes do not move cards or metadata.
+Recent public actions
+appear in a bounded overlay near the phase track, in the space below the phase
+labels when that gap is clear, and use the same localized wording as the full log, so a phase entry says
+Begin combat rather than the engine step id. Clicking the row opens the
+full log. New entries, priority changes, and opening or closing the log do
+not reserve extra height or move cards. Multiplayer reclaims its phase seam
+before the first turn while the phase track is hidden.
+While the local player must act, a glow lines the top of the
+hand, which stays in place, and the pass controls enlarge; while the opponent has priority, the center of the board
+says they are deciding. In a two-player game this status temporarily replaces
+the recent actions at the original center. The phase overlay prefers the space
+below it at the original overlay anchor. Mana sources on the battlefield are clicked to pay. A
+reversible source can be clicked again to undo that activation while its mana
+is floating or has been used only for the current, unfinished payment. The
+native payment restores that source's contribution to the unpaid cost before
+undoing it, preserving the other sources and payments. A source whose native
+activation history cannot identify an exact refund is not offered for undo.
+Before starting a spell or ability payment, the ordinary priority prompt also
+offers **Undo mana** on the latest native undo entry when it is a reversible
+mana source whose complete output is still refundable from the pool. Clicking
+that source retracts that activation and its native activation-fee refunds
+through Forge's native undo stack; an earlier source becomes available after
+the later activation is retracted. Unrelated same-color floating
+mana is preserved by identity and amount. Completed payments, irreversible
+activations, invalidated history and non-mana actions do not acquire an undo
+option. The client uses the current private legal option rather than inferring
+undo from a tapped card, and waits for the authoritative snapshot to untap the
+source and refresh the pool. Escape retains its selection/dismissal behavior;
+it is not a general game-action rollback.
+Tapped copies of
+the same name occupy the pile immediately after the ready copies; clicking a
+spent source or its exposed corner undoes that activation. The closed pile's
+front shows the action of the member its click would activate,
+including an undoable source behind same-name tapped copies, without reordering
+or moving the pile. The payment dock shows
 the unpaid cost once, with auto-pay and cancel; it does not repeat the
 effect's rules text. Confirmed attackers
 shift toward the defending side for the rest of combat. The turn label and active-player border use `activeSeat`,
 independently of the current priority holder. The legacy layout keeps its
-separate allocation.
+separate allocation, with space for the actual fixed controls and a positive
+scrollable prompt body at supported window sizes.
 
 Known Forge decision headings, common choice labels and engine-authored prompt
-templates use the client's selected language through `RulesText`. Play/draw
-labels mean first/second player only in the native starting-player question.
+templates use the client's selected language through `RulesText`.
+The known permanent-or-stack selector with a minimum mana value of one has a
+human-readable heading. Generic card targets are labeled as cards, including
+graveyard cards. An unbounded signed-integer maximum uses minimum-only number
+guidance without changing the authoritative response bounds. Opening-hand
+abilities use neutral ability wording, and a rejection with no specific cause
+uses a neutral correction message. Partially assigned blocker groups show the
+affected attacker, assigned count, minimum and how to remove the assignments;
+the engine still owns legality. Play/draw labels mean first/second player only
+in the native starting-player question.
 A modal choice uses rules text already stored with the cached Chinese printing.
 Each Forge mode line is shown in Chinese only when it matches one printed mode
 and the printed modes line up one for one. A line that does not match stays in
@@ -765,9 +1026,33 @@ all three. Colored requirements, special payment preferences, converge/sunburst,
 additional activation costs and native AI decisions retain the native policy;
 manual source selection remains available.
 
-Each London-mulligan redraw remains a complete hand while its owner chooses
-whether to keep it or mulligan again. Only keeping the hand opens the put-back
+Manually activating a mana source with an irreversible activation retains
+Forge's full color choice, even while paying a colored spell. Standalone manual
+activation clears any color preselection left by an affordability preview.
+Lotus Bloom therefore asks for its sacrifice confirmation and
+one of the five colors before producing three mana of that color. A choice
+that does not pay the remaining symbol returns to the same payment; surplus
+mana remains in the pool. Undoable mana sources keep their native
+express-color behavior. Auto-pay retains its native color planning. Nested
+confirmation and color decisions replace the payment controls temporarily;
+queued source clicks do not cross these decisions. Native color-enum labels
+use the client's language without changing response IDs.
+
+Each ordinary London-mulligan redraw remains a complete hand while its owner
+chooses whether to keep it or mulligan again. Keeping the hand opens the put-back
 decision, with the accumulated number of cards owed after free mulligans.
+Serum Powder is also available through its hand card during the native mulligan
+decision. Accepting Forge's actual Powder confirmation after a paid London
+mulligan first requests that redraw's owed put-back selection, then uses the
+remaining hand for the native exile/redraw operation. If that selection puts the
+chosen Powder on the bottom, the operation returns to the mulligan decision
+without exiling anything. Declining the confirmation leaves the hand untouched.
+Powder does not increase the ordinary mulligan count, draws the number of cards
+actually exiled,
+and does not repeat an already completed put-back selection when the replacement
+hand is kept. A later ordinary mulligan starts a new full redraw and its own
+accumulated put-back obligation. This follows CR 103.5 and 103.5b in the
+[Comprehensive Rules](https://magic.wizards.com/en/rules).
 Keeping the initial hand or owing zero cards skips put-back. Reaching a zero-card
 opening hand ends further mulligans. The put-back decision requires an explicit
 selection and confirmation; it cannot auto-select cards through cancellation.
@@ -809,7 +1094,35 @@ Qt correlates an outstanding response with its request, game, and prompt.
 All response paths, including hand-card drops, share the pending guard. A
 transport acknowledgement or duplicate snapshot of the same decision does not
 permit a second answer; a new decision, a matching error, a bounded timeout,
-game termination/change, or disconnect releases the guard. Priority controls
+game termination/change, or disconnect releases the guard. While the guard is
+held, offered cards and players keep a dimmed highlight, and the card whose
+action was sent shows a pulsing ring. Activating an offered card or player
+then sends nothing; the card shakes and **Waiting for the game** appears above
+the dock. A pointer press retains its decision and offered actions. If that
+decision changes before release, the gesture sends no new action; it cannot
+reinterpret an earlier mana click as the new decision's undo action.
+Paired `rules.snapshot` and `rules.prompt` publications share the snapshot's
+existing envelope `seq`, including explicit `pending: false` prompts. This
+also applies to direct-peer receipts and restored state. A client discards a
+sequenced prompt older than its latest rules snapshot, so a delayed hub
+publication cannot replace a newer direct-peer decision or release its pending
+response guard. Equal sequences remain valid. Unsequenced standalone prompts
+from older servers remain accepted; they cannot provide the same ordering
+protection when direct and hub deliveries cross.
+A `payManaCost` prompt may carry `paymentId`, the Forge id of the
+spell ability being paid. While that id is present, battlefield mana sources
+from the pending prompt can be queued, up to eight, each once. The queue is not
+a tap. The next prompt submits the first queued source only when it is the same
+payment and that source has exactly one fresh mana action. Any other prompt, or
+an error or timeout that releases the guard without one, clears the queue and
+says **Queued mana was cleared**. A republication of the same pending prompt id
+keeps the queue, the sent card's ring and a hidden decision. The source already
+sent and hand sources are never queued. Escape or a second click on a single
+card removes a queued source. Hosts that omit `paymentId`, including adapter 27 and
+the adapter 25 creator-host base, keep the waiting cue instead. A malformed id
+is dropped, which turns click-ahead off without blocking the payment. Adapter
+28 is the first host revision that emits the field. Replays still accept adapter 17
+and newer. Priority controls
 remain in the bottom action bar; specialized decisions pin their basic payment
 and cancellation responses above their scrolling body. Long spell and ability choices have
 bounded widths and wrapped labels, with a scrollbar and keyboard-focus reveal
@@ -818,13 +1131,15 @@ the basic responses out of view.
 
 Smart priority is enabled by default for the deciding player's `chooseAction`
 windows. With an empty stack it skips upkeep, draw, end of combat, cleanup,
-other players' main phases, and the user's own end step unless a stop is set.
-The user's main phases, combat response windows, and other players' end steps
+and other players' main phases unless a stop is set.
+The user's main phases, combat response windows, and all players' end steps
 remain action points. It normally passes the user's response to a stack made
 entirely of their own spells/triggers. Unknown or mixed stack ownership does not
 qualify. Full control, explicit phase stops, and held response windows override
-these defaults; users need one of those controls for special upkeep, own-end-step,
-or own-spell response timing.
+these defaults; users need one of those controls for special upkeep or own-spell
+response timing. An empty stack during the user's end step does not itself
+approve a pass: after an end-step trigger such as Necrodominance draws cards,
+the fresh native hint must preserve any available action before cleanup.
 
 At the remaining action points the client can also pass when the private prompt
 explicitly carries `autoPassEligible: true`. Missing hints retain control at
@@ -846,7 +1161,11 @@ casting, target selection, and payment. Priority mode and separate phase stops
 for the user's turns and other players' turns are saved in the local profile.
 **Settings → Gameplay** and the in-game Settings drawer edit the same preferences;
 changes apply immediately and survive new games, room changes, and application
-restarts. Starting a temporary Pass mode does not change the saved priority mode;
+restarts. Only a connected player in a live, unpaused game publishes
+`rules.priority`; spectators and replay viewers never send player preferences.
+The current saved preferences are republished when a player enters the table,
+resumes a connection or hosted game, changes seats, or starts another game.
+Starting a temporary Pass mode does not change the saved priority mode;
 Full control resumes when that temporary mode ends. Reselecting either priority
 mode at the table also ends a temporary yield. Full control has no persistent
 explanatory status line in the action dock; its setting and pause behavior remain
@@ -871,30 +1190,135 @@ cancels continuous passing, then closes inspection.
 Priority and phase publications update snapshot rows by stable object identity.
 Unchanged battlefield, hand, player and stack delegates retain their artwork,
 focus and scroll state; insertions, removals and changed public or private fields
-are applied immediately. A room or game change still clears the previous state.
+are applied immediately. Consecutive snapshots name a public move when the same
+object id changes zone, or when exactly one named card of that owner left one
+zone and one entered another. A paint-only marker, card-shaped with the card's
+public name or a plain back, flies from the object's old position to its new
+one, at most six per update. The destination is read from the new layout when
+the marker leaves: the card itself on the battlefield, in the hand or on the
+stack, otherwise the owner's library, graveyard, exile or command pile, or the
+hand count for another player's hand. A hidden opponent draw is a back from
+their library to their hand count. A card entering play from their hidden hand,
+or a spell they put on the stack while that hand shrinks, flies from that hand
+count. Markers never take input.
+An update is attributed to the controller of a stack object that left the stack,
+otherwise to the active player for combat damage, otherwise to the viewer when
+it is the first snapshot after the viewer's own answer, otherwise to the active
+player. A viewer's own update moves at once. Another player's update starts its
+markers in order—stack, moves, combat, damage, then deaths, 150 ms apart—and
+outlines the changed cards for 1.5 seconds. Life, tap and counter changes are
+not delayed. An automatic pass waits only while that update's markers are still
+flying, and for at most 1.5 seconds. A card that arrived in the update fades in
+when its marker lands; one that was already there, such as a card shown when a
+zone browser opens, appears at once. Life totals count to the new value, and
+the gain or loss floats beside the total; a newer value restarts the count from
+the shown number. The card hover preview follows the source card's position instead of
+redrawing every frame. With motion on it waits a moment, then fades in.
+A card's picture fades in again when the art arrives.
+The decision dock grows immediately so a newly enabled answer is not partially
+clipped during expansion. Contraction eases inside the reserved area; window
+resizes jump directly to the new height. A card's art and printed type refresh when that card's
+own catalog entry arrives, rather than when any other card's image does.
+Battlefield piles are built in the client model, so a new permanent is in its
+lane as soon as the snapshot is applied. A snapshot re-piles each lane once,
+and a tap inside a pile moves that card without recreating its neighbors. A
+permanent that hosts an aura or equipment keeps its own pile, so the attachment
+drawn on it stays visible and clickable. Within one name the plain pile comes
+first, and its tapped copies take the next slot. Copies with counters or damage follow those. Each permanent carries its own
+decision summary and relationship list, so one prompt does not make every card
+scan the whole table. Clicking a card still reads that card's actions when the
+choice list opens. Forge decision dialogs and the zone browser fade and
+grow from 97% to full size when they open and close at once, so a closing modal
+never swallows the next click; dialogs elsewhere in the application do not
+animate. Stack spells fade in when added and fade out when removed; entries
+displaced by a change keep their final position as the click target and only
+paint the slide. Damage and counter badges pulse when their amount
+changes. Workstation frame pacing with the default renderer is recorded in
+[design section 4.5](forge-smoothness-design.md#45-render-loop-qualification):
+Wayland and XWayland kept the 160 Hz refresh, and the Windows sample was
+waived. Motion is on by default. The owner turned it on on 2026-10-07 even
+though a crowded update is still about 9 ms against an 8 ms budget.
+`HEXPROOF_MOTION=0` turns it off. Automated tests start with it off and turn
+it on only to test motion. A `rules.snapshot` with `promptFollows` is held for
+at most 100 ms and applied with the prompt that follows it in the same room
+and game. Leaving, clearing or replacing the connection discards a held
+snapshot. With smart priority on, the room passes an engine-eligible priority
+step before collecting the snapshot and prompt to publish, unless the seat is
+holding the next prompt or stopped on that step. If these passes finish the
+game, the publication includes its final snapshot and rules result. An engine
+prompt wait that expires without a changed prompt or a completed game is
+reported as a timeout. A directly hosted input first publishes its committed
+position and confirms it to the worker while the room operation is locked;
+subsequent normal input can resume delegated passing. Its receipt replay keeps
+that original position without advancing the engine.
+With motion off, no marker flies, no update is
+staged, an automatic pass never waits for markers, and changes apply at once;
+the hand's hover lift still eases. A card's click target is that final slot at once. When
+motion is on, the picture glides there over the normal duration. Any press or
+key on the Forge table first finishes every running glide, turn, fade, count,
+marker and dock resize. A lane resize, a reconnect or a new game jumps instead.
+
+A battlefield pile acts on the card that was clicked. The front of a closed pile
+stands for its ready members; for an activation it uses itself when it is
+eligible, and for combat and targets it takes members in order. Members are
+interchangeable only when they are equally tapped, share attack, block and
+attack-target relationships, and are offered the same actions (labels compare
+without a trailing count); combat and targets also compare entering this turn
+and summoning sickness. When the eligible ready members are not interchangeable,
+the click fans the pile instead of choosing one. A tapped member's exposed
+corner acts on the most recently used tapped member, otherwise on the
+interchangeable tapped members, otherwise fans the pile. Only the front, the
+fanned members and the tapped members take pointer input, and each takes an
+exclusive grab, so one click never activates two cards. While an answer is in
+flight, a front click queues the next offered member that is neither queued nor
+the one already sent, so several lands of one pile can be queued; a further
+click never removes a queued land. The badge reads the pile size, then how many
+members are tapped and how many entered this turn when only some are. A fan
+opens on its slot's row, overlaps like a hand so it stays inside the lane, and
+closes on Escape, its badge, a new decision or a fan opening elsewhere. The turn
+callout fades in, then holds and fades out. A room or game change still clears
+the previous state.
 During a continuous pass, the action bar keeps its status, full-control and
 cancel controls in a stable layout. Per-window pass buttons and optional action
 lists return when continuous passing ends; required decisions remain immediate.
 
 Battlefield cards visibly show the projected power/toughness, marked damage,
 and counters. An attached aura or equipment is drawn on its host, offset
-downward so the attachment remains visible beneath the host. Confirmed attacks
+downward so each attachment retains its own named strip beneath the host.
+Clicking or hovering a strip selects or inspects that exact attachment. The
+host and each attachment take exclusive clicks, including when several
+attachments share the same host. Host relationship and combat labels sit below
+all of that host's attachment name strips. Confirmed attacks
 draw an arrow to the defending player plate or permanent; the attacker is
 labeled with that destination, and a permanent or player being attacked is
-highlighted. Native `enteredThisTurn` and `summoningSick`
-flags add localized entry and summoning-sickness labels. Same-name permanents
-with different entry or sickness states remain separate piles, including new
-lands; labels follow native turn and haste updates rather than a client timer.
+highlighted. Inspection details label confirmed blocks and attachments by their
+actual relationship kind; attacks are never described as attachments.
+Native `enteredThisTurn` and `summoningSick`
+flags add localized entry and summoning-sickness labels. Same-name permanents share one slot across tap, attack, entry and summoning
+sickness, including new lands. Tapped members sit behind the ready ones.
+Labels follow native turn and haste updates rather than a client timer.
 Unspent mana has a dedicated, unelided display
 with colored mana symbols and counts, updated after each authoritative snapshot.
 Crowded hands support horizontal wheel/trackpad scrolling over card faces, a
 visible scrollbar above the cards, and keyboard focus that reveals each card
 fully, including the last card. Player plates include public counter and mana
-summaries. Hovering a visible card, or keyboard-focusing a battlefield or stack
+summaries. The near player's name and zone counts sit above the life disc and
+clear of the hand faces; the life disc still meets the hand edge. Two-player
+battlefield allocation reserves the actual near-player identity/life rectangle
+so support permanents remain clear of it, independently of the open decision.
+Hovering a visible card, or keyboard-focusing a battlefield or stack
 object, shows a larger image and read-only details in the inspector, subject to
 the specialized-decision hover suppression described above. Left click on an
 inactive card does not pin the inspector; other hover previews temporarily
-replace a pinned card and leaving restores it. Closing clears the inspection.
+replace a pinned card and leaving restores it. Reserving the column after a
+pin can move other cards beneath the pointer; those stationary layout enters
+do not replace the just-pinned card. Actual pointer movement resumes the current
+hover, even within the newly entered card, and explicit keyboard focus remains
+an inspection intent. Clearing the pin or losing authority clears this guard.
+Closing clears the inspection and returns keyboard focus to its original card
+when that source is still available, otherwise to the table. Escape uses the
+same return path; authority loss or automatic invalidation clears inspection
+without moving focus away from another active dialog.
 For an actionable card, left click performs the current action; right click pins
 inspection without submitting a response. A layout drag must not activate or
 select the card. The inspector uses the full cached image rather than the tabletop thumbnail.
@@ -904,18 +1328,65 @@ printed card art is labeled separately and is not presented as the engine's
 current abilities or rules text.
 Counter summaries render native stat names as symbols such as `+1/+1` and
 localize common named counters such as Lore and Energy. Unknown names remain
-visible, and this display mapping does not change wire values or mana pools.
+visible. A multiplication separator distinguishes each counter name from its
+quantity; loyalty badges retain the numeric quantity. This display mapping
+does not change wire values or mana pools.
 
 Battlefield presentation groups projected creatures toward the combat center,
-lands toward the player's outer edge, and other permanents beside the lands;
-opponents mirror the arrangement. Current projected power/toughness takes
-precedence over cached printed types, so animated lands occupy the creature row.
-Unknown or hidden printed types receive a neutral placement without an identity
-lookup. The new two-seat view keeps the active player's half of the battlefield
-highlighted for the whole turn. When that player changes, the center of the
-screen briefly shows "My turn" or "Opponent's turn". The corner indicator
-still names the turn and phase. The view uses art-focused cards with public state overlays
-and a visible tap mark. The legacy view reserves room for rotated tapped cards.
+lands at the left rear, planeswalkers at the right front, and other permanents
+at the right rear; opponents mirror front and rear vertically. Current projected
+power/toughness takes precedence over cached printed types, so animated lands
+occupy the creature row.
+After projected creature state, printed land types take precedence over
+planeswalker types; all remaining public types use the other-permanent region.
+Unknown or hidden printed types receive that neutral placement without an
+identity lookup. Attached permanents remain with their host rather than
+appearing a second time in a separate region. The new two-seat view keeps the
+active player's half of the battlefield highlighted for the whole turn. When
+that player changes, the original
+table-centered announcement briefly shows "My turn" or "Opponent's turn".
+It retains its 44-unit headline and horizontal center, passes input through,
+and never reflows cards. Original vertical padding and center remain preferred;
+when the restored field seam leaves public card names/statistics underneath,
+only vertical background padding shrinks from 36 to four units, with at most a
+12-unit vertical correction. The transient announcement may cover card art and
+the central phase/status strip. With three participants, its preferred center
+is the central battlefield seam of the full-width near field.
+The corner indicator still names the turn and phase. The view uses
+art-focused cards with public state overlays.
+Every battlefield card paints the same fixed-proportion rectangle as its lane
+slot, independent of image language, frame, or loading state. Battlefield tiles
+prefer an independently cached illustration for the actual selected image.
+For recognized Scryfall full-image URLs, the existing cache/preload flow can
+fetch the matching `art_crop` variant in the background. This optional asset
+shares the bounded download budget, follows required full-card work, and never
+delays match readiness or makes a successful full-card download fail. Display
+getters and local cache hydration do not initiate network requests. Existing
+full-card caches and art packs remain valid; custom images retain priority.
+Only a crop belonging to the same full-image URL and face may be attached.
+Hand and inspection images keep the complete card. Missing, failed, or offline
+crop loads leave the existing complete-image fallback visible, without changing
+the tile geometry. Cache migration, cleanup and art-pack transfer include the
+optional artwork asset when present.
+Fallback artwork cropping follows the currently visible face and actual image printing, using local
+canonical metadata independently of the selected display language. A substitute
+image cached for another language cannot override the indexed frame of the
+current exact printing. Planeswalker faces use a shorter artwork panel so
+their higher type line stays outside the battlefield crop. Saga and Class
+faces use their tall artwork panels; Battle and flip faces use their
+artwork in the appropriate orientation. A substitute image may use a known
+artwork crop only when its actual source printing is verified by the image URL
+and same-card catalog metadata. Unknown frames, unverifiable substitute images,
+and custom images fill the same viewport with an aspect-preserving center crop;
+they never stretch or shrink the visible card to a narrow portrait. Full
+inspection images retain their complete content. Hidden and face-down
+identities never trigger frame metadata lookups.
+Loaded artwork has no permanent padded or colored tile behind it. State
+outlines follow the fixed battlefield face. Ordinary offered actions use a
+subtle thin outline; selection, focus, combat and mana actions retain their
+distinct restrained outlines and labels. Changing an image source cannot alter
+lane positions, visible card dimensions, pile ordering or pointer hit areas.
+A tapped card stays upright. Its art darkens and a large tap mark sits in the middle of the art. Power, toughness and counters stay undimmed on top of the mark. The legacy view reserves room for rotated tapped cards.
 Crowded lanes scroll. Legacy short lanes use smaller card footprints and compact zone-count
 footers so ordinary creature and land rows remain visible. When even the minimum
 card size cannot fit, the initial scroll position prioritizes the creature row.
@@ -932,10 +1403,7 @@ The new two-seat layout uses automatic grouping and stable card slots. It
 supports dragging a legally playable hand card onto the own battlefield, using
 the current Forge action; permanent dragging does not issue gameplay commands.
 
-Combat declarations on the two-seat table use two explicit board clicks: select
-an attacking creature, then a highlighted legal player plate, planeswalker, or
-battle, including when only one destination exists. Select a blocking creature,
-then the attacking creature to block. Pending source badges say **Choose attack
+Combat declarations on the two-seat table use the board. An attacker with exactly one legal destination is assigned by one click, and clicking it again removes that assignment. An attacker with several destinations still uses two clicks: select the creature, then a highlighted legal player plate, planeswalker, or battle. **Attack with all** assigns every unassigned attacker to the single defending player, or opens a player menu when several players can be attacked. The menu closes when its defender is chosen. It never chooses a planeswalker or battle, and it stops when a defender is full. A blocker with exactly one legal attacker is assigned by one click, and clicking it again removes that assignment. When several attackers can be blocked, every one of them stays selectable on the board: click a blocking creature and then the attacker, or click the attacker first and then the creature. An attacker that still needs more blockers can be chosen; the declaration confirms only once that attacker's minimum is met. **Block with all** assigns every unassigned blocker that has exactly one legal attacker, and stops when that attacker is full. It does not choose among several attackers. Pending source badges say **Choose attack
 target** or **Choose creature to block**, respectively. Selecting a source also
 starts a live curved arrow that follows the pointer without a delayed trailing
 animation. Hovering a legal visible destination snaps the arrow to that object
@@ -946,14 +1414,35 @@ Large hover-card previews are suppressed while aiming. The live arrow hides
 outside the active window, under a modal dialog, while a reply is pending, and
 when the source is clipped. Arrow rendering uses scene-graph vectors rather
 than repainting a table-sized image for each pointer movement.
+Combat, replay and stack-target curves leave gaps around visible battlefield
+card names, state and counter labels, stats, assignment hints and exposed
+attachment names. Multiplayer player names, hand counts, turn/priority status,
+life values and public zone/mana readouts receive the same protection. Only
+their painted content interrupts a line; the surrounding player target remains
+available. Their endpoints and remaining curvature stay unchanged;
+an arrowhead overlapping a readout is hidden without changing its target.
+The shared readout geometry follows scrolling, card motion and expanded piles,
+and is collected only while a relationship is visible. Related layout updates
+publish together during the frame's polish stage, before scene synchronization,
+including the first frame of a new assignment hint. Resizing does not make every
+curve recompute for each intermediate label position. Card endpoints follow
+their painted translation throughout movement. Hidden cards contribute
+only their existing anonymous labels; this presentation never requests identity.
 Ability activation uses the native action/payment windows; a declaration prompt
 accepts only combat assignments. Repeat for additional blockers or for a blocker that can block
-several attackers within its native capacity. Source and
+several attackers within its native capacity. Both click orders preserve the
+blocker's other assignments when adding or removing one pair. With an attacker selected first,
+clicking a blocker that cannot block it or has no remaining capacity leaves
+that attacker selected and preserves every draft assignment. The single-target
+shortcut must not select another attacker in this case. Source and
 destination capacities constrain highlighting; partially met minimum-blocker
-requirements can be edited but prevent final submission. Combat candidates are
-temporarily unstacked so each physical creature remains independently reachable.
-Selecting the same source again or pressing Escape cancels the pending selection
-without discarding completed assignments. Selecting an existing pair again
+requirements can be edited but prevent final submission. Combat candidates stay in their slots. Clicking the front of a pile uses the
+next ready member that is not already chosen. Clicking the count badge spreads
+that pile's members in a row inside the lane, without moving the lane, so one copy
+can be chosen directly. With the front card focused, Return opens that row and Left or Right moves to the neighboring copy.
+Selecting the same source again or pressing Escape cancels the pending selection,
+including an attacker selected before its blocker, without discarding completed
+assignments. Selecting an existing pair again
 removes it; selecting a different destination reassigns an ordinary combatant.
 The compact dock shows instructions, assignment counts, clear/remove controls,
 and an explicit declaration button, disabled while a source awaits a destination.
@@ -1132,6 +1621,7 @@ The native human controller exposes scry as this complete two-pile decision,
 including scry 1 and retaining multiple cards on top. The 1v1 table presents
 scry and order decisions in a centered card dialog with visible reorder buttons
 and position numbers; the compact decision dock does not duplicate those inputs.
+The dock creates only the controls for the decision currently being answered.
 Cleanup discards use a complete exact-count card choice, including discarding
 several cards at once; selected cards do not disappear into an incremental
 native input between confirmations.
@@ -1154,7 +1644,7 @@ replacement and language changes; database errors remain retryable.
 Battlefield cards may expose `exiledCardCount` and `exiledCardIds` for
 cards still exiled with that exact native object. The count includes face-down
 cards, while links only join identities authorized in the viewer's current
-exile projection. Battlefield summaries, hover previews and inspection show
+exile projection. Battlefield summaries and pinned inspection show
 linked names or anonymous counts. Leaving exile removes the relationship.
 A planeswalker's loyalty count is a separate lower-right badge. The exile
 summary sits above that badge and does not include the loyalty count.
@@ -1169,8 +1659,8 @@ battlefield objects, and `dungeonRoom` only in the command zone; the client
 applies the same zone/visibility boundary. Class levels and dungeon rooms update
 from the current snapshot rather than from locally remembered decisions.
 Named-card and linked-card display names follow the catalog language.
-The compact tile shows a bounded summary; hover and the scrollable inspector
-provide additional detail. Permanents with choices or linked exile stay in
+The compact tile shows a bounded summary; the scrollable right-click inspector
+provides additional detail. Permanents with choices or linked exile stay in
 separate piles, even when their printed names or choices match. Each summary
 is rebuilt from the current viewer snapshot, including after reconnect or
 zone changes; no stale annotation or linked identity is retained locally.
@@ -1180,8 +1670,8 @@ native chosen-card relationships, such as Dauntless Bodyguard's chosen creature.
 Each id must still identify the same native game object, including its game
 timestamp, and must have an identity visible in the viewer's current snapshot.
 Hidden choices are omitted. A zone change or blink clears the old link rather
-than reconnecting it to a new object with the same numeric id. The tile, hover
-and inspector show localized chosen-card names; sources with these links stay
+than reconnecting it to a new object with the same numeric id. The tile and
+inspector show localized chosen-card names; sources with these links stay
 in separate piles. Choice links are rebuilt from snapshots after reconnect.
 
 Specialized cost selectors keep Forge's completion condition: crew requires

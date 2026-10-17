@@ -21,21 +21,35 @@ AppPopup {
     property string queryError: ""
     property bool waitingForPreview: false
     property string previewImageSource: ""
+    property var previewImageSources: []
     readonly property bool previewIsCurrent: printingIsCurrent(previewPrinting)
     signal chosen(var printing, bool sideboard)
+
+    CardFacePreviewController {
+        id: facePreview
+        objectName: "printingFacePreviewController"
+        catalogModel: root.catalogModel
+        card: root.previewPrinting || ({})
+        sourceItem: root.previewPrinting
+        active: root.visible
+        prioritizeImages: false
+        onDisplayFacesChanged: root.ensurePreviewCached()
+    }
+
+    onClosed: facePreview.resetFace()
 
     Connections {
         target: root.catalogModel
         ignoreUnknownSignals: true
         function onImageRevisionChanged() {
             root.refreshPreviewSource()
+            root.waitingForPreview = root.previewImageSources.some(source => !source)
         }
         function onCardCacheFinished(name, setCode, collectorNumber, success) {
             if (!root.matchesPreviewRequest(name, setCode, collectorNumber))
                 return
             root.refreshPreviewSource()
-            if (!success || root.previewImageSource.length > 0)
-                root.waitingForPreview = false
+            root.waitingForPreview = success && root.previewImageSources.some(source => !source)
         }
     }
 
@@ -71,7 +85,7 @@ AppPopup {
             spacing: Theme.size(18)
 
             Surface {
-                Layout.preferredWidth: Math.min(Theme.size(350), root.width * 0.42)
+                Layout.preferredWidth: Math.min(Theme.size(620), root.width * 0.58)
                 Layout.fillHeight: true
                 radius: Theme.radiusMedium
                 color: Theme.surfaceMuted
@@ -84,7 +98,7 @@ AppPopup {
                     Text {
                         textFormat: Text.PlainText
                         Layout.fillWidth: true
-                        text: root.previewPrinting ? root.previewPrinting.displayName : root.cardName
+                        text: facePreview.displayName || root.cardName
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(15)
                         font.weight: Font.DemiBold
@@ -92,72 +106,39 @@ AppPopup {
                         elide: Text.ElideRight
                     }
 
-                    Item {
+                    ScrollView {
                         id: previewArea
                         objectName: "printingPreviewArea"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-
-                        Rectangle {
-                            id: imageFrame
-                            anchors.centerIn: parent
-                            width: Math.min(parent.width, Math.round(parent.height * 0.7176))
-                            height: Math.min(parent.height, Math.round(parent.width / 0.7176))
-                            radius: Theme.radiusMedium
-                            color: Theme.surfaceElevated
-                            border.width: 1
-                            border.color: Theme.borderStrong
-                            clip: true
-
-                            Image {
-                                id: previewImage
-                                objectName: "printingPreviewImage"
-                                anchors.fill: parent
-                                source: root.previewImageSource
-                                fillMode: Image.PreserveAspectFit
-                                asynchronous: true
-                                cache: false
-                                visible: status === Image.Ready
+                        contentWidth: availableWidth
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        CardFacePreviewGallery {
+                            objectName: "printingFaceGallery"
+                            controller: facePreview
+                            artObjectName: "printingPreviewImage"
+                            fallbackObjectName: "printingPreviewFallback"
+                            columns: facePreview.displayFaces.length > 1
+                                && previewArea.availableWidth >= Theme.size(368) ? 2 : 1
+                            width: Math.min(previewArea.availableWidth,
+                                Math.max(1, previewArea.availableHeight - Theme.size(12)) * 63 / 88 * columns
+                                + (columns - 1) * Theme.size(8))
+                            imageSourceResolver: face => {
+                                const index = facePreview.displayFaces.findIndex(value => value.faceIndex === face.faceIndex)
+                                return root.previewImageSources[index] || ""
                             }
-
-                            ActivityRing {
-                                anchors.centerIn: parent
-                                width: Theme.size(28)
-                                height: Theme.size(28)
-                                visible: previewImage.status === Image.Loading
-                                         || root.waitingForPreview
-                                         || (root.previewImageSource.length > 0
-                                             && previewImage.status === Image.Null)
-                            }
-                        }
-
-                        Text {
-                            textFormat: Text.PlainText
-                            objectName: "printingPreviewFallback"
-                            anchors.centerIn: parent
-                            width: parent.width
-                            visible: !root.waitingForPreview
-                                     && previewImage.status !== Image.Loading
-                                     && previewImage.status !== Image.Ready
-                                     && (previewImage.status === Image.Error
-                                         || root.previewImageSource.length === 0)
-                            text: root.previewImageSource.length > 0
-                                  ? qsTr("Could not load this card image.")
-                                  : qsTr("No card image is available for this version.")
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontSize(11)
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
                         }
                     }
 
                     Text {
                         textFormat: Text.PlainText
+                        objectName: "printingPreviewMetadata"
                         Layout.fillWidth: true
                         text: root.previewPrinting
-                              ? root.previewPrinting.setCode + " · #"
-                                + root.previewPrinting.collectorNumber + " · "
-                                + root.previewPrinting.typeLine
+                              ? [facePreview.viewedCard.setCode,
+                                 "#" + facePreview.viewedCard.collectorNumber,
+                                 facePreview.viewedCard.typeLine].filter(part => part).join(" · ")
                               : ""
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSize(11)
@@ -342,32 +323,29 @@ AppPopup {
     }
 
     function matchesPreviewRequest(name, setCode, collectorNumber) {
-        if (!previewPrinting)
-            return false
-        return String(name) === String(previewPrinting.name || cardName)
-               && String(setCode).toUpperCase()
-                  === String(previewPrinting.setCode || "").toUpperCase()
-               && String(collectorNumber)
-                  === String(previewPrinting.collectorNumber || "")
+        return facePreview.displayFaces.some(value => {
+            const face = value.card
+            return String(name) === String(face.name || cardName)
+                   && String(setCode).toUpperCase() === String(face.setCode || "").toUpperCase()
+                   && String(collectorNumber) === String(face.collectorNumber || "")
+        })
+    }
+
+    function sourceForFace(value, index) {
+        const face = value.card
+        if (index === 0 && printingIsCurrent(previewPrinting) && currentImageSource.length > 0
+                && !isRemoteHttpUrl(currentImageSource)) return currentImageSource
+        const catalogSource = catalogPreviewSource(face)
+        if (catalogSource.length > 0) return catalogSource
+        const catalogFace = facePreview.faces[value.faceIndex] || ({})
+        const fallback = index === 0 ? previewPrinting.imageUrl || "" : catalogFace.imageUrl || ""
+        return isRemoteHttpUrl(fallback) ? "" : fallback
     }
 
     function refreshPreviewSource() {
-        if (!previewPrinting) {
-            previewImageSource = ""
-            return
-        }
-        if (printingIsCurrent(previewPrinting) && currentImageSource.length > 0
-                && !isRemoteHttpUrl(currentImageSource)) {
-            previewImageSource = currentImageSource
-            return
-        }
-        const catalogSource = catalogPreviewSource(previewPrinting)
-        if (catalogSource.length > 0) {
-            previewImageSource = catalogSource
-            return
-        }
-        const fallback = previewPrinting.imageUrl || ""
-        previewImageSource = isRemoteHttpUrl(fallback) ? "" : fallback
+        previewImageSources = previewPrinting && facePreview.hasIdentity
+            ? facePreview.displayFaces.map((face, index) => sourceForFace(face, index)) : []
+        previewImageSource = previewImageSources[0] || ""
     }
 
     function catalogPreviewSource(printing) {
@@ -389,34 +367,20 @@ AppPopup {
 
     function ensurePreviewCached() {
         refreshPreviewSource()
-        if (!previewPrinting) {
-            waitingForPreview = false
-            return
-        }
-        if (previewImageSource.length > 0) {
-            waitingForPreview = false
-            return
-        }
-        if (!catalogModel) {
-            waitingForPreview = false
-            return
-        }
-        waitingForPreview = true
-        catalogModel.cacheCardsIncrementally([{
-            "name": previewPrinting.name || cardName,
-            "setCode": previewPrinting.setCode || "",
-            "collectorNumber": previewPrinting.collectorNumber || "",
-            "exactArt": true
-        }])
+        const missing = facePreview.displayFaces.filter((face, index) => !previewImageSources[index])
+        waitingForPreview = !!previewPrinting && !!catalogModel && missing.length > 0
+        if (!waitingForPreview || typeof catalogModel.cacheCardsIncrementally !== "function") return
+        catalogModel.cacheCardsIncrementally(missing.map(face => ({
+            name: face.card.name || cardName,
+            setCode: face.card.setCode || "",
+            collectorNumber: face.card.collectorNumber || "",
+            exactArt: true
+        })))
     }
 
     onPreviewPrintingChanged: ensurePreviewCached()
     onCurrentImageSourceChanged: ensurePreviewCached()
     onCatalogModelChanged: ensurePreviewCached()
-    onPreviewImageSourceChanged: {
-        if (previewImageSource.length > 0)
-            waitingForPreview = false
-    }
 
     function printingsMatch(left, right) {
         return left && right

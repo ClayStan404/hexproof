@@ -30,6 +30,7 @@ class TournamentSessionState : public QObject
     Q_PROPERTY(QString stage READ stage NOTIFY snapshotChanged)
     Q_PROPERTY(QString matchMode READ matchMode NOTIFY snapshotChanged)
     Q_PROPERTY(QString rulesMode READ rulesMode NOTIFY snapshotChanged)
+    Q_PROPERTY(bool actionClockEnabled READ actionClockEnabled NOTIFY snapshotChanged)
     Q_PROPERTY(QString status READ status NOTIFY snapshotChanged)
     Q_PROPERTY(QString role READ role NOTIFY snapshotChanged)
     Q_PROPERTY(QString participantId READ participantId NOTIFY snapshotChanged)
@@ -107,6 +108,10 @@ class TournamentSessionState : public QObject
     QString rulesMode() const
     {
         return m_rulesMode;
+    }
+    bool actionClockEnabled() const
+    {
+        return m_actionClockEnabled;
     }
     QString status() const
     {
@@ -187,7 +192,7 @@ class TournamentSessionState : public QObject
 
     Q_INVOKABLE void rememberTabletopScore(const QString &roomId, const QVariantList &seats,
                                            int drawnGames = 0);
-    Q_INVOKABLE QVariantMap tabletopScoreForRoom(const QString &roomId) const;
+    Q_INVOKABLE QVariantMap tabletopScoreForPairing(const QString &pairingId) const;
 
     void applyList(const QJsonObject &payload);
     QVariantList chatMessages() const
@@ -208,6 +213,7 @@ class TournamentSessionState : public QObject
     void chatChanged();
 
   private:
+    bool tabletopScoreMatchesPairing(const QVariantMap &score, const QVariantMap &pairing) const;
     QVariantList m_tournamentList;
     QVariantList m_activeTournamentList;
     QVariantList m_historicalTournamentList;
@@ -219,6 +225,7 @@ class TournamentSessionState : public QObject
     QString m_stage;
     QString m_matchMode;
     QString m_rulesMode = QStringLiteral("manual");
+    bool m_actionClockEnabled = false;
     QString m_status;
     QString m_role;
     QString m_participantId;

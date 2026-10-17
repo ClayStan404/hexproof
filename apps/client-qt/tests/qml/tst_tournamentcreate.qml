@@ -112,10 +112,11 @@ TestCase {
         cap.text = "16"
         verify(button.enabled)
         button.clicked()
-        compare(mockWs.submitted.length, 6)
+        compare(mockWs.submitted.length, 7)
         compare(mockWs.submitted[5], "manual")
         compare(mockWs.submitted[3], 75)
         compare(mockWs.submitted[4], 16)
+        compare(mockWs.submitted[6], false)
     }
 
     function test_firstClickAfterWheelBoundarySubmits_data() {
@@ -159,6 +160,40 @@ TestCase {
         compare(mockWs.submittedLimited[6], "forge")
     }
 
+    function test_actionClockDefaultsAndOptionalSubmission_data() {
+        return [{tag:"constructed", index:0, defaultEnabled:true},
+                {tag:"sealed", index:1, defaultEnabled:false},
+                {tag:"draft", index:2, defaultEnabled:false},
+                {tag:"cube", index:3, defaultEnabled:false}]
+    }
+
+    function test_actionClockDefaultsAndOptionalSubmission(data) {
+        const selector = findChild(page, "tournamentEventTypeSelector")
+        selector.currentIndex = data.index
+        selector.activated(data.index)
+        findChild(page, "tournamentNameField").text = "Clock event"
+        findChild(page, "tournamentPlayerCapField").text = "4"
+        const toggle = findChild(page, "tournamentActionClockToggle")
+        verify(!toggle.visible)
+        compare(page.actionClockEnabled, data.defaultEnabled)
+        const button = findChild(page, "tournamentCreateSubmitButton")
+        button.clicked()
+        compare(data.index === 0 ? mockWs.submitted[6] : mockWs.submittedLimited[7], false)
+        findChild(page, "tournamentRulesMode").activated(1)
+        verify(toggle.visible)
+        compare(toggle.checked, data.defaultEnabled)
+        button.clicked()
+        compare(data.index === 0 ? mockWs.submitted[6] : mockWs.submittedLimited[7], data.defaultEnabled)
+        toggle.toggle()
+        toggle.toggled()
+        button.clicked()
+        compare(data.index === 0 ? mockWs.submitted[6] : mockWs.submittedLimited[7], !data.defaultEnabled)
+        findChild(page, "tournamentRulesMode").activated(0)
+        verify(!toggle.visible)
+        button.clicked()
+        compare(data.index === 0 ? mockWs.submitted[6] : mockWs.submittedLimited[7], false)
+    }
+
     function test_eventsCreatesLimitedModes_data() {
         return [{tag: "sealed", index: 1, mode: "set_sealed", cap: 12},
                 {tag: "draft", index: 2, mode: "set_draft", cap: 8}]
@@ -178,7 +213,7 @@ TestCase {
         button.clicked()
         compare(mockWs.submitted.length, 0)
         compare(mockWs.submittedLimited,
-                ["Limited via Events", data.mode, "bo1", 75, data.cap, {id: "pid-1"}, "manual"])
+                ["Limited via Events", data.mode, "bo1", 75, data.cap, {id: "pid-1"}, "manual", false])
     }
 
     function test_cubeTournamentRemainsInEventsAndValidatesCapacity() {
@@ -196,7 +231,7 @@ TestCase {
         button.clicked()
         compare(mockWs.submittedLimited,
                 ["Cube Swiss", "cube_draft", "bo3", 50, 4,
-                 {id: "cube-1", productType: "cube"}, "manual"])
+                 {id: "cube-1", productType: "cube"}, "manual", false])
         cap.text = "9"
         verify(!button.enabled)
     }

@@ -20,6 +20,11 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
     CardRecord record;
     record.requestedName = requestedName;
     record.name = object.value(QStringLiteral("name")).toString().simplified();
+    record.layout = object.value(QStringLiteral("layout")).toString();
+    record.printingId = object.value(QStringLiteral("id")).toString();
+    record.faceMetadataSetCode = object.value(QStringLiteral("set")).toString().toUpper();
+    record.faceMetadataCollectorNumber =
+        object.value(QStringLiteral("collector_number")).toString();
     record.oracleId = object.value(QStringLiteral("oracle_id")).toString();
     if (record.name.isEmpty())
         record.name = requestedName.simplified();
@@ -29,6 +34,10 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
     bool selectedNestedFace = false;
     const QStringList canonicalFaces =
         record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+    const bool sameNamedReverse =
+        record.layout == QStringLiteral("double_faced_token") && canonicalFaces.size() == 2 &&
+        canonicalFaces.first().compare(canonicalFaces.last(), Qt::CaseInsensitive) == 0 &&
+        canonicalFaces.first().compare(normalizedRequest, Qt::CaseInsensitive) == 0;
     const auto selectMatchingFace = [&](const QJsonObject &face) {
         const QString explicitFaceName =
             face.value(QStringLiteral("face_name")).toString().simplified();
@@ -62,8 +71,10 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
         QStringLiteral("other_faces"),
     };
     for (const QString &key : faceArrayKeys) {
-        for (const QJsonValue &value : object.value(key).toArray()) {
-            if (selectMatchingFace(value.toObject()))
+        const QJsonArray values = object.value(key).toArray();
+        for (qsizetype offset = 0; offset < values.size(); ++offset) {
+            const qsizetype index = sameNamedReverse ? values.size() - offset - 1 : offset;
+            if (selectMatchingFace(values.at(index).toObject()))
                 break;
         }
         if (!selectedFace.isEmpty())
@@ -84,6 +95,63 @@ CardRecord parseCardObject(const QJsonObject &object, const QString &language,
         QStringLiteral("double_faced_token"),
         QStringLiteral("reversible_card"),
     };
+    // Face evidence comes from provider metadata, never from the name delimiter
+    // alone: adventure, split and Prepare cards also have paired names.
+    record.faceMetadataChecked = !record.layout.isEmpty() &&
+                                 !record.faceMetadataSetCode.isEmpty() &&
+                                 !record.faceMetadataCollectorNumber.isEmpty();
+    if (record.faceMetadataChecked && independentFaceLayouts.contains(record.layout)) {
+        QList<QJsonObject> physicalFaces;
+        for (const QString &key : faceArrayKeys) {
+            const QJsonArray values = object.value(key).toArray();
+            if (values.size() == 2) {
+                for (const QJsonValue &value : values)
+                    physicalFaces.append(value.toObject());
+                break;
+            }
+            if (values.size() == 1 &&
+                !object.value(QStringLiteral("face_name")).toString().isEmpty()) {
+                physicalFaces = {object, values.first().toObject()};
+                break;
+            }
+        }
+        if (physicalFaces.size() == 2 && canonicalFaces.size() == 2) {
+            const bool sameNamed =
+                canonicalFaces.first().compare(canonicalFaces.last(), Qt::CaseInsensitive) == 0;
+            for (int index = 0; index < 2; ++index) {
+                const QJsonObject face = physicalFaces.at(index);
+                QString faceName = face.value(QStringLiteral("face_name")).toString().simplified();
+                if (faceName.isEmpty())
+                    faceName = face.value(QStringLiteral("name")).toString().simplified();
+                if (faceName.compare(canonicalFaces.at(index), Qt::CaseInsensitive) != 0) {
+                    record.independentFaces.clear();
+                    break;
+                }
+                record.independentFaces.append(QVariantMap{
+                    {QStringLiteral("name"), index == 0 && sameNamed ? record.name : faceName},
+                    {QStringLiteral("faceName"), index == 0 ? QString{} : faceName},
+                    {QStringLiteral("displayName"), faceName},
+                    {QStringLiteral("typeLine"),
+                     face.value(QStringLiteral("type_line")).toString()},
+                    {QStringLiteral("setCode"), record.faceMetadataSetCode},
+                    {QStringLiteral("collectorNumber"), record.faceMetadataCollectorNumber},
+                });
+            }
+        }
+        record.faceMetadataChecked = record.independentFaces.size() == 2;
+    } else if (record.faceMetadataChecked && record.layout == QStringLiteral("meld")) {
+        for (const QJsonValue &value : object.value(QStringLiteral("all_parts")).toArray()) {
+            const QJsonObject part = value.toObject();
+            if (part.value(QStringLiteral("component")).toString() ==
+                QStringLiteral("meld_result")) {
+                record.meldResultId = part.value(QStringLiteral("id")).toString();
+                record.meldResultName = part.value(QStringLiteral("name")).toString();
+                break;
+            }
+        }
+        record.faceMetadataChecked =
+            !record.meldResultId.isEmpty() && !record.meldResultName.isEmpty();
+    }
     const bool requestsIndependentBack =
         canonicalFaces.size() == 2 &&
         canonicalFaces.last().simplified().compare(normalizedRequest, Qt::CaseInsensitive) == 0;

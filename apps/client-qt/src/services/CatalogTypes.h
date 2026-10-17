@@ -21,6 +21,14 @@ struct CardRecord
     QString name;
     QString oracleId;
     QString faceName;
+    QString layout;
+    QString printingId;
+    QString faceMetadataSetCode;
+    QString faceMetadataCollectorNumber;
+    QVariantList independentFaces;
+    QString meldResultId;
+    QString meldResultName;
+    bool faceMetadataChecked = false;
     QString localizedName;
     QString typeLine;
     QString oracleText;
@@ -33,6 +41,9 @@ struct CardRecord
     QString illustrationId;
     QString imageUrl;
     QString imagePath;
+    // Optional artwork-only derivative of the selected full-card image.
+    QString artCropUrl;
+    QString artCropPath;
     QString imageLanguage;
     int resolutionVersion = 0;
     bool usesSubstituteArt = false;

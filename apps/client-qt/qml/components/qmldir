@@ -1,4 +1,9 @@
 singleton Theme 1.0 Theme.qml
+FeedbackWorkflow 1.0 FeedbackWorkflow.qml
+FeedbackComposer 1.0 FeedbackComposer.qml
+FeedbackHistory 1.0 FeedbackHistory.qml
+FeedbackAttachmentPreview 1.0 FeedbackAttachmentPreview.qml
+FeedbackEntryButton 1.0 FeedbackEntryButton.qml
 singleton SoundEffects 1.0 SoundEffects.qml
 OperationSounds 1.0 OperationSounds.qml
 ServerTransferOverlay 1.0 ServerTransferOverlay.qml
@@ -18,6 +23,8 @@ GameResultPopup 1.0 GameResultPopup.qml
 CardCounterEditor 1.0 CardCounterEditor.qml
 CardCacheProgress 1.0 CardCacheProgress.qml
 CardFacePicker 1.0 CardFacePicker.qml
+CardFacePreviewController 1.0 CardFacePreviewController.qml
+CardFacePreviewGallery 1.0 CardFacePreviewGallery.qml
 ConfigurableShortcut 1.0 ConfigurableShortcut.qml
 LibrarySearchPopup 1.0 LibrarySearchPopup.qml
 LimitedCardGrouping 1.0 LimitedCardGrouping.qml
@@ -30,7 +37,6 @@ CommanderCubeMatches 1.0 CommanderCubeMatches.qml
 LimitedCommanderSelection 1.0 LimitedCommanderSelection.qml
 LimitedCommanderPicker 1.0 LimitedCommanderPicker.qml
 EventScreenRouter 1.0 EventScreenRouter.qml
-LimitedCardGroupView 1.0 LimitedCardGroupView.qml
 LimitedSetPicker 1.0 LimitedSetPicker.qml
 LimitedProductArtPanel 1.0 LimitedProductArtPanel.qml
 PackOpeningOverlay 1.0 PackOpeningOverlay.qml

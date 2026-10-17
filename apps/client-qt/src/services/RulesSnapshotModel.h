@@ -10,16 +10,25 @@
 
 namespace hexproof::client {
 
-// Preserve table delegates across priority snapshots. Prompt models deliberately
-// replace their rows separately because response ids belong to a decision.
+// Preserve delegates across snapshots and decisions: rows with the same key
+// move or change in place, other rows are removed or inserted.
 class RulesSnapshotModel : public QAbstractListModel
 {
   public:
     using QAbstractListModel::QAbstractListModel;
 
   protected:
+    enum class Ambiguous
+    {
+        Reset,
+        // For views that may still be incubating delegates: a reset can cancel
+        // an index after Qt has already replaced the rows.
+        RemoveAndInsert
+    };
+
     template <typename Row, typename KeyFor>
-    void replaceRows(QVector<Row> &current, QVector<Row> incoming, KeyFor keyFor)
+    void replaceRows(QVector<Row> &current, QVector<Row> incoming, KeyFor keyFor,
+                     Ambiguous ambiguous = Ambiguous::Reset)
     {
         if (current == incoming)
             return;
@@ -32,9 +41,22 @@ class RulesSnapshotModel : public QAbstractListModel
             currentKeys.insert(keyFor(row));
         // Ambiguous identities cannot preserve delegates safely.
         if (incomingKeys.size() != incoming.size() || currentKeys.size() != current.size()) {
-            beginResetModel();
-            current = std::move(incoming);
-            endResetModel();
+            if (ambiguous == Ambiguous::Reset) {
+                beginResetModel();
+                current = std::move(incoming);
+                endResetModel();
+                return;
+            }
+            if (!current.isEmpty()) {
+                beginRemoveRows({}, 0, int(current.size() - 1));
+                current.clear();
+                endRemoveRows();
+            }
+            if (!incoming.isEmpty()) {
+                beginInsertRows({}, 0, int(incoming.size() - 1));
+                current = std::move(incoming);
+                endInsertRows();
+            }
             return;
         }
 

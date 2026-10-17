@@ -128,15 +128,20 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
+        enabled: root.doubleClickEnabled
         acceptedButtons: Qt.LeftButton
         onClicked: root.activated()
-        onDoubleClicked: {
-            if (root.doubleClickEnabled) root.doubleActivated()
-            // Adding a card can replace this grid position with another physical
-            // card before the next click. Accept that click exactly once even
-            // when the native window classifies it as a double-click.
-            else root.activated()
-        }
+        onDoubleClicked: root.doubleActivated()
+    }
+    TapHandler {
+        enabled: !root.doubleClickEnabled
+        acceptedButtons: Qt.LeftButton
+        // A tap completes on release, including rapid clicks on successive
+        // physical cards at the same grid position. Replacing a delegate during
+        // MouseArea.doubleClicked could leave its Flickable holding the press.
+        gesturePolicy: TapHandler.DragThreshold
+        longPressThreshold: 0
+        onTapped: root.activated()
     }
 
     HoverHandler {

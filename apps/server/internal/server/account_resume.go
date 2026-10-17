@@ -103,6 +103,7 @@ func (h *Handler) resumeAccountRoom(sess *Session, roomID string) bool {
 
 // Callers hold the room operation lock throughout rebinding and projection.
 func (h *Handler) rebindResumedRoom(sess *Session, hold resumeHold) {
+	h.forgeCrashes.rebind(hold.room.ID, hold.oldConnectionID, sess.ConnectionID)
 	h.forgeReplays.rebind(hold.room, hold.oldConnectionID, sess.ConnectionID)
 	if aid := sess.Account().ID; aid != "" {
 		entry := h.hub.roomEntryFor(hold.room.ID)
@@ -122,11 +123,13 @@ func (h *Handler) rebindResumedRoom(sess *Session, hold resumeHold) {
 
 func (h *Handler) sendResumedRoomState(sess *Session, r *room.Room, envelopes []protocol.Envelope) {
 	h.fanoutTo([]*Session{sess}, envelopes)
+	h.sendResumedForgeCrashReports(sess, r)
 	h.grantModelWorker(sess, r)
 	if r.RulesMode == protocol.RulesModeForge && r.Phase == protocol.RoomPhaseStarted {
-		h.fanoutGameProjections(r)
 		if _, alive := h.forgeGame(r.ID); alive {
-			h.fanoutRulesPrompts(r)
+			h.fanoutRulesTable(r)
+		} else {
+			h.fanoutGameProjections(r)
 		}
 	}
 }

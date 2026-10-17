@@ -11,6 +11,10 @@ Item {
 
     required property var panel
     anchors.fill: parent
+    readonly property real previewWidth: sideboardHoverPreview.width
+    readonly property real previewHeight: sideboardHoverPreview.height
+    onPreviewWidthChanged: if (root.panel.hoverPreviewVisible) root.panel.repositionSideboardCardPreview()
+    onPreviewHeightChanged: if (root.panel.hoverPreviewVisible) root.panel.repositionSideboardCardPreview()
 
     function finishDrag() {
         dragPreview.Drag.drop()
@@ -20,44 +24,47 @@ Item {
         id: sideboardHoverPreview
 
         objectName: "sideboardHoverPreview"
-        x: root.panel.hoverPreviewX
-        y: root.panel.hoverPreviewY
-        width: Math.min(Theme.size(320), root.panel.width * 0.25)
-        height: Math.round(width * 88 / 63)
+        x: Math.max(Theme.size(12), Math.min(root.panel.hoverPreviewX,
+                root.panel.width - width - Theme.size(12)))
+        y: Math.max(Theme.size(12), Math.min(root.panel.hoverPreviewY,
+                root.panel.height - height - Theme.size(12)))
+        readonly property var previewSize: faceGallery.fittedSize(faceGallery.faceCount > 1
+            ? Theme.size(320) : Math.min(Theme.size(320), root.panel.width * 0.25),
+            root.panel.width - Theme.size(24), root.panel.height - Theme.size(24))
+        width: previewSize.width
+        height: previewSize.height
         z: 450
         visible: root.panel.hoverPreviewVisible
                  && root.panel.dragSource === null
                  && !!root.panel.inspectedCard.name
-        enabled: false
         opacity: visible ? 1 : 0
+
+        onVisibleChanged: if (!visible) facePreview.resetFace()
+
+        CardFacePreviewController {
+            id: facePreview
+            objectName: "sideboardFacePreviewController"
+            catalogModel: root.panel.cardCatalogModel
+            card: root.panel.inspectedCard
+            sourceItem: root.panel.inspectedSourceItem
+            active: sideboardHoverPreview.visible
+        }
+
+        HoverHandler {
+            onHoveredChanged: root.panel.retainSideboardCardPreview(hovered)
+        }
 
         Behavior on opacity {
             NumberAnimation { duration: Theme.motionFast }
         }
 
-        Image {
-            id: sideboardHoverPreviewArt
-
-            objectName: "sideboardHoverPreviewArt"
+        CardFacePreviewGallery {
+            id: faceGallery
+            objectName: "sideboardHoverPreviewFaces"
             anchors.fill: parent
-            source: root.panel.cardImageSource(root.panel.inspectedCard)
-            fillMode: Image.PreserveAspectFit
-            asynchronous: true
-            smooth: true
-        }
-
-        Text {
-            textFormat: Text.PlainText
-            anchors.centerIn: parent
-            width: parent.width - Theme.size(20)
-            visible: sideboardHoverPreviewArt.status !== Image.Ready
-            text: root.panel.inspectedCard.name
-                  ? root.panel.inspectedCard.name : ""
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(14)
-            font.weight: Font.DemiBold
-            wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignHCenter
+            controller: facePreview
+            columns: sideboardHoverPreview.previewSize.columns
+            artObjectName: "sideboardHoverPreviewArt"
         }
     }
 

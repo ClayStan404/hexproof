@@ -80,18 +80,30 @@ Package a complete database for the stable `card-data` release with:
   build/card-database/release
 ```
 
-## Maintained FRA collation
+## FRA upstream collation
 
-`build-latest.sh` also runs `build_fra_product.py --database DATABASE.sqlite`
-after importing all sources and before packaging. This derives the FRA recipe
-from the database's current English printings, preserves Scryfall booster flags,
-and records coverage/source revision in `metadata.fra_collation`. An incomplete
-preview is labelled explicitly; a missing entire slot category fails the build.
-See `docs/limited-events.md` for estimated rates and paired-draw semantics.
-This recipe requires the paired-sheet client/server update. Building or packaging
-it does not publish card-data or deploy the application/server.
+FRA Play Boosters now use `mtgjson-fra-play` from the freshly downloaded
+MTGJSON archive. The full 232-variant conditional recipe preserves upstream
+weights, complete fixed pairs, and third-card exclusions. The build no longer
+installs the historical `hexproof-fra-play` estimate. A source archive containing
+FRA without usable upstream Play data fails rather than silently substituting it.
 
-The CLI updates an explicitly selected build database in a transaction. Run it
-on build output, not a live client profile. The usual full build stages the
-result before replacing its final output. The reviewed pair-name reference
-comes from Draftmancer under the adjacent MIT license.
+Products remain bounded to 128 sheets, 256 variants, 10,000 weighted entries,
+and 800 KiB of encoded JSON. Large products use shared `cardPool` identities
+with unit weight and one-based weighted `cardRefs` in each sheet. This preserves
+all metadata, finishes, slot contents and probabilities while leaving headroom
+for upstream updates. Inline cards are retained when sharing would increase size.
+Client/server generators and product-art caching resolve
+the references. Inline products and historical inherited type lines still work.
+
+The release path explicitly requires `FRA:play`. Malformed set files, noninteger
+weights/counts, incomplete pairs, mismatched third-card exclusions and non-14-card
+FRA variants fail validation. Output replacement is atomic. The archive's actual
+revision is checked against the requested MTGJSON version; missing release
+revision metadata and mixed revisions fail.
+Source/version/date and the archive SHA-256 are saved in SQLite metadata under
+`limited_product_source`, rather than existing only beside the build artifacts.
+
+FRA requires the updated client/server and a rebuilt card database. The matching
+application-version handshake supplies the existing upgrade error for older
+servers. This build does not publish or deploy anything.

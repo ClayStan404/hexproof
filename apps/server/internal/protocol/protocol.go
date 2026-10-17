@@ -24,15 +24,16 @@ import (
 // required and must exactly match the server build. The client MAY offer a
 // protocol string; the server's session.welcome is authoritative.
 type SessionHello struct {
-	ClusterRealm   string        `json:"clusterRealm,omitempty"`
-	ClusterTicket  string        `json:"clusterTicket,omitempty"`
-	NodeLatencies  []NodeLatency `json:"nodeLatencies,omitempty"`
-	DisplayName    string        `json:"displayName"`
-	ClientVersion  string        `json:"clientVersion"`
-	Protocol       string        `json:"protocol,omitempty"`
-	ResumeToken    string        `json:"resumeToken,omitempty"`
-	LastSeq        int64         `json:"lastSeq,omitempty"`
-	AccountSession string        `json:"accountSession,omitempty"`
+	RulesCrashReportSchema int           `json:"rulesCrashReportSchema,omitempty"`
+	ClusterRealm           string        `json:"clusterRealm,omitempty"`
+	ClusterTicket          string        `json:"clusterTicket,omitempty"`
+	NodeLatencies          []NodeLatency `json:"nodeLatencies,omitempty"`
+	DisplayName            string        `json:"displayName"`
+	ClientVersion          string        `json:"clientVersion"`
+	Protocol               string        `json:"protocol,omitempty"`
+	ResumeToken            string        `json:"resumeToken,omitempty"`
+	LastSeq                int64         `json:"lastSeq,omitempty"`
+	AccountSession         string        `json:"accountSession,omitempty"`
 }
 
 // SessionWelcome is the payload of session.welcome (S->C). It is the ONLY
@@ -74,6 +75,7 @@ type ErrorPayload struct {
 	MinimumPlayers int `json:"minimumPlayers,omitempty"`
 	// RulesStartFailure is safe room-wide context with optional owner-only deck details.
 	RulesStartFailure *RulesStartFailure `json:"rulesStartFailure,omitempty"`
+	RulesCrashReport  *RulesCrashReport  `json:"rulesCrashReport,omitempty"`
 }
 
 // RoomCreate is the payload of room.create (C->S).
@@ -88,6 +90,7 @@ type RoomCreate struct {
 	MatchMode          string `json:"matchMode"`
 	CardLoadMode       string `json:"cardLoadMode,omitempty"`
 	RulesMode          string `json:"rulesMode"`
+	ActionClockEnabled bool   `json:"actionClockEnabled,omitempty"`
 	HostingMode        string `json:"hostingMode,omitempty"`
 	AISource           string `json:"aiSource,omitempty"`
 	AIDifficulty       string `json:"aiDifficulty,omitempty"`
@@ -114,6 +117,7 @@ type RoomSettings struct {
 	CardLoadMode       string `json:"cardLoadMode"`
 	HasPassword        bool   `json:"hasPassword"`
 	RulesMode          string `json:"rulesMode"`
+	ActionClockEnabled bool   `json:"actionClockEnabled,omitempty"`
 	HostingMode        string `json:"hostingMode,omitempty"`
 	AISource           string `json:"aiSource,omitempty"`
 	AIDifficulty       string `json:"aiDifficulty,omitempty"`
@@ -459,10 +463,12 @@ type SpectatorProjection struct {
 
 // RoomSnapshot is the payload of room.snapshot (S->C). It carries public room
 // structure and the immutable policy used by later role-specific game
-// projections; it never embeds deck or zone identities itself.
+// projections. OwnDeckName is optional recipient-private display metadata;
+// card identities and opponents' deck names are never embedded here.
 type RoomSnapshot struct {
 	RoomID             string                `json:"roomId"`
 	Name               string                `json:"name"`
+	OwnDeckName        string                `json:"ownDeckName,omitempty"`
 	Format             string                `json:"format"`
 	DeckFormat         string                `json:"deckFormat"`
 	MaxSeats           int                   `json:"maxSeats"`
@@ -470,6 +476,7 @@ type RoomSnapshot struct {
 	MatchMode          string                `json:"matchMode"`
 	CardLoadMode       string                `json:"cardLoadMode"`
 	RulesMode          string                `json:"rulesMode"`
+	ActionClockEnabled bool                  `json:"actionClockEnabled,omitempty"`
 	HostingMode        string                `json:"hostingMode,omitempty"`
 	AISource           string                `json:"aiSource,omitempty"`
 	AIDifficulty       string                `json:"aiDifficulty,omitempty"`
@@ -484,7 +491,7 @@ type RoomSnapshot struct {
 	Phase              string                `json:"phase"`
 	LoadID             int64                 `json:"loadId,omitempty"`
 	// ActionClockMs is remaining action time per seat. ActionClockRunning is
-	// the seat whose clock is counting, when a constructed Forge match has one.
+	// the decision seat whose clock is counting in a timed two-player Forge match.
 	ActionClockMs      []int64 `json:"actionClockMs,omitempty"`
 	ActionClockRunning *int    `json:"actionClockRunning,omitempty"`
 }

@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Hexproof private feedback receiver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hexproof-feedback
+Group=hexproof-feedback
+ExecStart=/usr/local/bin/hexproof-feedback -config /etc/hexproof-feedback/config.json
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StateDirectory=hexproof-feedback
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/hexproof-feedback
+MemoryMax=512M
+TasksMax=64
+LimitNOFILE=256
+
+[Install]
+WantedBy=multi-user.target

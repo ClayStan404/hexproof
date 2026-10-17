@@ -14,6 +14,9 @@ namespace {
 void retainLocalizedMetadata(const CardRequest &request, const CardRecord &cached,
                              CardRecord *updated)
 {
+    if (ambiguousLegacySameNamedFace(cached))
+        return;
+    retainFaceMetadata(updated, cached);
     if (request.language != QStringLiteral("zh") || !cached.valid())
         return;
     if (!looksLikeChinese(updated->localizedName) && looksLikeChinese(cached.localizedName))
@@ -52,9 +55,11 @@ void CardCatalog::cacheResolvedMetadata(const CardRequest &request, const CardRe
         cacheKey(request.name, request.language, request.setCode, request.collectorNumber);
     const CardRecord cached = m_artCache->exactRecord(key);
     CardRecord updated = record;
-    if (cached.valid()) {
+    if (cached.valid() && !ambiguousLegacySameNamedFace(cached)) {
         updated.imagePath = cached.imagePath;
         updated.imageUrl = cached.imageUrl;
+        updated.artCropUrl = cached.artCropUrl;
+        updated.artCropPath = cached.artCropPath;
         updated.imageLanguage = cached.imageLanguage;
         updated.illustrationId = cached.illustrationId;
         updated.usesSubstituteArt = cached.usesSubstituteArt;
@@ -72,6 +77,8 @@ void CardCatalog::cacheResolvedMetadata(const CardRequest &request, const CardRe
     m_artCache->rememberSuccess(key, updated);
     m_artCache->saveAsync();
     scheduleImageRevisionChanged();
+    if (updated.faceMetadataChecked)
+        refreshMeldResultMetadata(updated);
 }
 
 void CardCatalog::completeCardRequest(const CardRequest &request, CardRecord record, bool success,
@@ -97,11 +104,18 @@ void CardCatalog::completeCardRequest(const CardRequest &request, CardRecord rec
         }
         record.requestedName = request.name;
         record.resolutionVersion = kCardResolutionVersion;
+        if (record.imageUrl == cached.imageUrl && record.artCropPath.isEmpty()) {
+            record.artCropUrl = cached.artCropUrl;
+            record.artCropPath = cached.artCropPath;
+        }
         m_artCache->rememberSuccess(key, record);
+        queueOptionalArtCrop(request, record);
         if (m_cardImageProvider)
             m_cardImageProvider->invalidatePath(record.imagePath);
         emitRecord(record);
         scheduleImageRevisionChanged();
+        if (record.faceMetadataChecked)
+            refreshMeldResultMetadata(record);
         // Fetch missing translated rules independently of the chosen printing.
         // Metadata must not send exact artwork back through provider selection.
         backfillLocalizedRules(request, record);

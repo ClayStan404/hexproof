@@ -56,8 +56,15 @@ func (client *Client) Replay(ctx context.Context, sessionID string, after int64)
 }
 
 func runtimeSupportsReplay(raw string) bool {
+	return runtimeAdapterRevision(raw) >= 17
+}
+
+func runtimeAdapterRevision(raw string) int {
 	var info struct {
 		AdapterRevision int `json:"adapterRevision"`
 	}
-	return json.Unmarshal([]byte(raw), &info) == nil && info.AdapterRevision >= 17
+	if json.Unmarshal([]byte(raw), &info) != nil {
+		return 0
+	}
+	return info.AdapterRevision
 }

@@ -5,6 +5,8 @@ package protocol
 
 // LimitedCardDefinition is one weighted printing in a product sheet. Weight
 // is also the physical quantity when the product is a Cube.
+// A missing TypeLine inherits a nonempty type from the same set/collector
+// elsewhere in the product; it does not depend on the printing's finish.
 type LimitedCardDefinition struct {
 	Name                string `json:"name"`
 	SetCode             string `json:"setCode"`
@@ -20,7 +22,15 @@ type LimitedSheetDefinition struct {
 	Name            string                  `json:"name"`
 	WithReplacement bool                    `json:"withReplacement"`
 	ExcludePrevious bool                    `json:"excludePrevious,omitempty"`
-	Cards           []LimitedCardDefinition `json:"cards"`
+	Cards           []LimitedCardDefinition `json:"cards,omitempty"`
+	CardRefs        []LimitedCardReference  `json:"cardRefs,omitempty"`
+}
+
+// CardIndex is one-based; zero and out-of-range indices are invalid.
+// Exactly one of Cards and CardRefs must be populated in each sheet.
+type LimitedCardReference struct {
+	CardIndex int `json:"cardIndex"`
+	Weight    int `json:"weight"`
 }
 
 type LimitedSlotDefinition struct {
@@ -44,6 +54,7 @@ type LimitedProductDefinition struct {
 	Authentic    bool                           `json:"authentic"`
 	CardsPerPack int                            `json:"cardsPerPack"`
 	Sheets       []LimitedSheetDefinition       `json:"sheets"`
+	CardPool     []LimitedCardDefinition        `json:"cardPool,omitempty"`
 	Variants     []LimitedPackVariantDefinition `json:"variants"`
 }
 

@@ -313,6 +313,77 @@ void TestWsClient::rulesResponsesStayLockedUntilAuthoritativeProgress() const
     QVERIFY(!client.rulesResponsePending());
 }
 
+void TestWsClient::rulesManaResponsesAllowFreshUndoAndRejectInFlightDuplicates() const
+{
+    QWebSocketServer server(u"Hexproof mana response server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, hexproof::protocol::kProtocolVersion},
+                       {u"connectionId"_s, u"conn-mana"_s},
+                       {u"serverVersion"_s, buildVersion()}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    QVERIFY(applyRulesDecision(client, u"rules-prompt-payment.json"_s, 11));
+    bool ok = false;
+    QJsonObject payment = sharedFixture(u"rules-prompt-payment.json"_s, &ok).payload;
+    QVERIFY(ok);
+    QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
+    QSignalSpy succeeded(&client, &WsClient::commandSucceeded);
+
+    // Each new native decision can switch the same source between mana and
+    // undo. Rapid clicks within one decision remain a single wire answer.
+    for (int step = 0; step < 4; ++step) {
+        const qint64 promptId = 11 + step;
+        const QString responseId = u"mana:"_s + QString::number(step);
+        const QString kind = step == 1 ? u"undoMana"_s : u"activateAbility"_s;
+        const QString paymentId = step == 3 ? u"sa:43"_s : u"sa:42"_s;
+        payment.insert(u"promptId"_s, promptId);
+        payment.insert(u"paymentId"_s, paymentId);
+        payment.insert(u"options"_s, QJsonArray{QJsonObject{{u"responseId"_s, responseId},
+                                                            {u"kind"_s, kind},
+                                                            {u"cardId"_s, u"land-b"_s},
+                                                            {u"label"_s, kind}}});
+        QVERIFY(client.rulesSession()->applyPrompt(payment));
+        QVERIFY(!client.rulesResponsePending());
+        QCOMPARE(client.rulesSession()->promptPaymentId(), paymentId);
+        const QVariantList actions = client.rulesSession()->cardActionsForCard(u"land-b"_s);
+        QCOMPARE(actions.size(), 1);
+        QCOMPARE(actions.first().toMap().value(u"kind"_s).toString(), kind);
+        client.respondRulesPrompt(promptId - 1, responseId);
+        QVERIFY(!client.rulesResponsePending());
+        for (int click = 0; click < 32; ++click)
+            client.respondRulesPrompt(promptId, responseId);
+        QVERIFY(client.rulesResponsePending());
+        QTRY_COMPARE_WITH_TIMEOUT(outbound.count(), 1, 1000);
+        const Envelope sent =
+            hexproof::protocol::parse(outbound.takeFirst().first().toString().toUtf8(), &ok);
+        QVERIFY(ok);
+        QCOMPARE(sent.payload.value(u"promptId"_s).toInteger(), promptId);
+        QCOMPARE(sent.payload.value(u"responseId"_s).toString(), responseId);
+        Envelope ack;
+        ack.type = u"rules.responded"_s;
+        ack.id = sent.id;
+        sendEnvelope(peer, ack);
+        QTRY_COMPARE_WITH_TIMEOUT(succeeded.count(), step + 1, 1000);
+        QVERIFY(client.rulesSession()->applyPrompt(payment));
+        client.respondRulesPrompt(promptId, responseId);
+        QVERIFY(client.rulesResponsePending());
+        QTest::qWait(20);
+        QCOMPARE(outbound.count(), 0);
+    }
+    payment.insert(u"pending"_s, false);
+    QVERIFY(client.rulesSession()->applyPrompt(payment));
+    QVERIFY(!client.rulesResponsePending());
+    QVERIFY(client.rulesSession()->promptPaymentId().isEmpty());
+}
+
 void TestWsClient::rulesResponsesRecoverAfterTimeoutAndDisconnect() const
 {
     QWebSocketServer server(u"Hexproof rules timeout server"_s, QWebSocketServer::NonSecureMode);

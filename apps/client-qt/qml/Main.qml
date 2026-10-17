@@ -8,9 +8,18 @@ import "components"
 ApplicationWindow {
     id: root
 
-    property alias stack: stack
+    property alias stack: navigationStack
     property string notifiedUpdateVersion: ""
     property string notifiedDownloadPath: ""
+    readonly property bool feedbackInteractionOpen: feedbackWorkflow.interactionOpen
+
+    function screenHandlesReconnectPresentation(screen) {
+        return screen && screen.handlesReconnectPresentation === true
+    }
+
+    function openFeedback(context, kind, snapshot) {
+        feedbackWorkflow.openFor(context || {}, kind || "", snapshot || {})
+    }
 
     property string windowTitle: Qt.application.name
     title: windowTitle
@@ -82,7 +91,7 @@ ApplicationWindow {
     }
 
     StackView {
-        id: stack
+        id: navigationStack
         anchors.fill: parent
         initialItem: "screens/MainMenu.qml"
 
@@ -120,11 +129,11 @@ ApplicationWindow {
 
     function pushScreen(url, properties) {
         SoundEffects.play("click")
-        stack.push(url, properties || {})
+        navigationStack.push(url, properties || {})
     }
     function popScreen() {
         SoundEffects.play("click")
-        stack.pop()
+        navigationStack.pop()
     }
     function tableScreenProperties() {
         return {
@@ -139,7 +148,7 @@ ApplicationWindow {
         }
     }
     function showWaitingRoom() {
-        stack.replace(null, "screens/WaitingRoom.qml",
+        navigationStack.replace(null, "screens/WaitingRoom.qml",
                       {
                           "wsModel": ws,
                           "deckLibraryModel": deckLibrary
@@ -147,16 +156,17 @@ ApplicationWindow {
     }
     function showTable() {
         if (ws.roomSession.rulesMode === "forge") {
-            stack.replace(null, "screens/RulesTable.qml",
+            navigationStack.replace(null, "screens/RulesTable.qml",
                           {
                               "wsModel": ws,
                               "cardCatalogModel": cardCatalog,
                               "gameTableModel": gameTable,
                               "sideboardTableModel": sideboardTable,
-                              "preferencesModel": preferences
+                              "preferencesModel": preferences,
+                              "tournamentModel": tournament
                           })
         } else {
-            stack.replace(null, "screens/Table.qml",
+            navigationStack.replace(null, "screens/Table.qml",
                           root.tableScreenProperties())
         }
     }
@@ -165,7 +175,7 @@ ApplicationWindow {
         target: ws
 
         function onWelcomeReceived() {
-            stack.replace(null, "screens/MainMenu.qml")
+            navigationStack.replace(null, "screens/MainMenu.qml")
         }
 
         function onInRoomChanged() {
@@ -183,7 +193,7 @@ ApplicationWindow {
 
         function onLoadRequired() {
             if (ws.roomSession.cardLoadMode === "preload") {
-                stack.replace(null, "screens/MatchLoading.qml",
+                navigationStack.replace(null, "screens/MatchLoading.qml",
                               { "wsModel": ws, "loaderModel": matchLoader })
             }
         }
@@ -216,14 +226,14 @@ ApplicationWindow {
             if (ws.connected)
                 root.showTournamentOrMenu()
             else
-                stack.replace(null, "screens/MainMenu.qml")
+                navigationStack.replace(null, "screens/MainMenu.qml")
         }
     }
 
     Connections {
         target: typeof ws.account !== "undefined" ? ws.account : null
         function onAccountPageRequested() {
-            if (!stack.currentItem || stack.currentItem.objectName !== "accountScreen")
+            if (!navigationStack.currentItem || navigationStack.currentItem.objectName !== "accountScreen")
                 root.pushScreen("screens/Account.qml")
         }
     }
@@ -232,12 +242,36 @@ ApplicationWindow {
         id: eventRouter
         wsModel: ws
         tournamentModel: tournament
-        onScreenRequested: screen => stack.replace(null, screen)
+        onScreenRequested: screen => navigationStack.replace(null, screen)
     }
 
     ServerTransferOverlay { wsModel: ws }
 
+    ForgeCrashReportNotice {
+        service: typeof ws.crashReports !== "undefined" ? ws.crashReports : null
+        suspended: root.feedbackInteractionOpen
+    }
+
+    FeedbackWorkflow {
+        id: feedbackWorkflow
+        service: typeof feedbackService !== "undefined" ? feedbackService : null
+        baseContext: {
+            const context = {uiLanguage: preferences.uiLanguage}
+            if (cardCatalog.installedCatalogVersion) context.catalogVersion = cardCatalog.installedCatalogVersion
+            return context
+        }
+        crashService: typeof ws.crashReports !== "undefined" ? ws.crashReports : null
+        hostingService: typeof ws.forgeHost !== "undefined" ? ws.forgeHost : null
+        inGame: ws.inRoom || (typeof tournament !== "undefined" && tournament.inTournament)
+        onFinished: Qt.callLater(function() {
+            // The game may have ended or navigated while the modal was open.
+            if (navigationStack.currentItem && !root.feedbackInteractionOpen)
+                navigationStack.currentItem.forceActiveFocus()
+        })
+    }
+
     Rectangle {
+        objectName: "applicationReconnectBanner"
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: Theme.size(24)
@@ -248,6 +282,7 @@ ApplicationWindow {
         border.width: 1
         border.color: Theme.accent
         visible: ws.reconnecting
+                 && !root.screenHandlesReconnectPresentation(navigationStack.currentItem)
         z: 120
 
         Row {

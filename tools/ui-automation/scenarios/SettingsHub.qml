@@ -21,6 +21,15 @@ Item {
     function find(name, identity, scope) {
         return auditProbe.find(scope || auditWindow, name, identity || ({}))
     }
+    function moduleExists(name, parent) {
+        const item = parent || auditWindow.stack.currentItem
+        if (item.objectName === name && item.visible)
+            return true
+        for (const child of item.children || [])
+            if (moduleExists(name, child))
+                return true
+        return false
+    }
     function click(name, scrollName) {
         const scroll = scrollName ? find(scrollName) : null
         const body = scroll && scroll.contentItem ? scroll.contentItem : scroll
@@ -87,12 +96,12 @@ Item {
         add("Open settings categories", () => click("mainMenuSettingsButton"),
             () => !!find("settingsHubScreen") && !!find("settingsBody"))
         add("Verify controls live in separate modules", () => {
-            require(find("settingsAppearanceModule"), "Missing appearance category")
-            require(find("settingsLanguageModule"), "Missing language category")
-            require(find("settingsCatalogModule"), "Missing card database category")
-            require(find("settingsManageArtButton"), "Missing card art category")
-            require(find("settingsCustomizeShortcutsButton"), "Missing shortcuts category")
-            require(find("settingsUpdatesModule"), "Missing updates category")
+            require(moduleExists("settingsAppearanceModule"), "Missing appearance category")
+            require(moduleExists("settingsLanguageModule"), "Missing language category")
+            require(moduleExists("settingsCatalogModule"), "Missing card database category")
+            require(moduleExists("settingsManageArtButton"), "Missing card art category")
+            require(moduleExists("settingsCustomizeShortcutsButton"), "Missing shortcuts category")
+            require(moduleExists("settingsUpdatesModule"), "Missing updates category")
             require(!find("settingsThemeSelector"), "Theme control leaked onto the hub")
             require(!find("settingsLanguageSelector"), "Language control leaked onto the hub")
             require(!find("settingsDownloadCatalogButton"), "Catalog download leaked onto the hub")
@@ -112,7 +121,7 @@ Item {
             () => !!find("catalogSettingsScreen")
                   && (!!find("settingsDownloadCatalogButton") || !!find("settingsImportCatalogButton")))
         add("Return to categories from database", () => click("screenBackButton"),
-            () => !!find("settingsUpdatesModule"))
+            () => !!find("settingsHubScreen"))
         add("Open application updates", () => click("settingsUpdatesModule", "settingsBody"),
             () => !!find("updatesSettingsScreen") && !!find("checkApplicationUpdatesButton"))
         add("Capture updates module", () => capture("03-updates"))

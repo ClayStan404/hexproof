@@ -20,7 +20,14 @@ Popup {
     modal: true
     focus: true
     closePolicy: Popup.NoAutoClose
+    transformOrigin: Item.Center
     visible: requested && !inspectingBattlefield
+    // No exit transition: a closing modal popup would swallow clicks.
+    readonly property int dialogMotion: Theme.motionEnabled && !Theme.motionSnap ? Theme.motionFast : 0
+    enter: Transition {
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: root.dialogMotion; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: root.dialogMotion; easing.type: Easing.OutCubic }
+    }
 
     function inspectBattlefield() {
         if (requested && !tableController.rulesResponsePending)

@@ -115,6 +115,8 @@ Page {
                 onClicked: root.appWindow.pushScreen("screens/Settings.qml")
             }
 
+            FeedbackEntryButton { objectName: "mainMenuFeedbackButton" }
+
             AppButton {
                 objectName: "mainMenuAccountButton"
                 visible: typeof ws.account !== "undefined" && ws.account.supported && ws.connected
@@ -434,6 +436,15 @@ Page {
                         text: qsTr("Forge replays")
                         onClicked: root.appWindow.pushScreen("screens/ForgeReplayLibrary.qml")
                     }
+                }
+
+                AppButton {
+                    objectName: "mainMenuForgeCrashReportsButton"
+                    Layout.fillWidth: true
+                    compact: true
+                    variant: "ghost"
+                    text: qsTr("Forge crash reports")
+                    onClicked: root.appWindow.pushScreen("screens/ForgeCrashReports.qml")
                 }
 
                 AppButton {

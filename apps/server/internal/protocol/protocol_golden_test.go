@@ -218,6 +218,37 @@ func TestGoldenFixtures(t *testing.T) {
 		}
 	})
 
+	t.Run("room-snapshot-own-deck.json", func(t *testing.T) {
+		data := loadFixture(t, "room-snapshot-own-deck.json")
+		env, err := ParseEnvelope(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var snapshot RoomSnapshot
+		if env.DecodePayload(&snapshot) != nil || snapshot.OwnDeckName != "Alice’s registered EDH deck" ||
+			!snapshot.Seats[0].DeckSelected || !env.HasSeq() {
+			t.Fatalf("private selected name fixture = %+v", snapshot)
+		}
+		roundTrip, err := NewEnvelope(TypeRoomSnapshot, snapshot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var decoded RoomSnapshot
+		if err := roundTrip.DecodePayload(&decoded); err != nil || decoded.OwnDeckName != snapshot.OwnDeckName {
+			t.Fatalf("private name did not round trip: %+v, err=%v", decoded, err)
+		}
+		snapshot.OwnDeckName = ""
+		public, err := NewEnvelope(TypeRoomSnapshot, snapshot)
+		if err != nil || bytes.Contains(public.Payload, []byte("ownDeckName")) {
+			t.Fatalf("optional private name remained in public payload: %s, err=%v", public.Payload, err)
+		}
+		for _, hidden := range []string{"mainboard", "sideboard", "Sol Ring"} {
+			if bytes.Contains(data, []byte(hidden)) {
+				t.Fatalf("private display metadata leaked %q", hidden)
+			}
+		}
+	})
+
 	t.Run("room-snapshot-opponent.json", func(t *testing.T) {
 		// Oppponent-view fixture. In P1 owner and opponent snapshots have the
 		// same public shape (no hidden zones yet); P3 will diverge them with

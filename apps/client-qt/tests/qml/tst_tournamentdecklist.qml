@@ -28,6 +28,11 @@ TestCase {
     QtObject {
         id: catalog
         property int imageRevision: 0
+        function cardFaces(name, setCode, collector) {
+            if (name !== "Front") return []
+            return [{name:"Front", faceName:"", setCode:setCode, collectorNumber:collector},
+                    {name:"Back", faceName:"Back", setCode:setCode, collectorNumber:collector}]
+        }
         function imageSource(name, setCode, collector) { return "" }
         function cardDisplayName(name) { return name }
         function cardTypeLine(name, setCode, collector) {
@@ -112,5 +117,40 @@ TestCase {
         waitForRendering(popup.contentItem)
         compare(popup.canExport, false)
         compare(findChild(popup, "tournamentDecklistExportButton").enabled, false)
+    }
+
+    function findCard(item, name) {
+        if (item.card && item.card.name === name && item.width > 0) return item
+        for (const child of item.children || []) {
+            const match = findCard(child, name)
+            if (match) return match
+        }
+        return null
+    }
+
+    function test_bothFacesPreservePublishedDeck() {
+        const deck = {name:"Face Deck", mainboard:[{name:"Front", count:4, setCode:"TST", collectorNumber:"7"}]}
+        popup.showDeck("Alice", deck)
+        tryCompare(popup, "opened", true)
+        verify(waitForPolish(window))
+        const source = findCard(popup.contentItem, "Front")
+        verify(source !== null)
+        mouseMove(window, 1, 1)
+        mouseMove(source)
+        const preview = findChild(popup, "cardHoverPreview")
+        tryCompare(preview, "visible", true)
+        compare(preview.facePreview.displayFaces.map(face => face.name), ["Front", "Back"])
+        const reverse = findChild(preview, "tournamentDecklistHoverPreviewArt-1")
+        verify(reverse !== null)
+        verify(findChild(preview, "viewOtherFaceButton") === null)
+        mouseMove(reverse)
+        wait(400)
+        verify(preview.visible)
+        compare(JSON.stringify(popup.deck), JSON.stringify(deck))
+        compare(popup.mainboardCount, 4)
+        compare(library.copied, null)
+        compare(library.saved, null)
+        popup.close()
+        tryCompare(preview, "visible", false)
     }
 }

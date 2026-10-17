@@ -85,6 +85,7 @@ func (h *Handler) refreshModelDecision(r *room.Room) {
 		return
 	}
 	h.scheduleModelDecision(r, game, view)
+	h.reconcileForgeActionClock(r, game, view)
 }
 
 func (h *Handler) expireModelDecision(roomID string, expected *modelRequest) {
@@ -229,6 +230,9 @@ func (h *Handler) handleModelAnswer(roomID string, sess *Session, answer protoco
 		h.rejectModelAnswer(roomID, sess, request)
 		return
 	}
+	if !h.pauseActionClockLocked(r) {
+		return
+	}
 	ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	err = game.client.SubmitAction(ctx, game.sessionID, response)
 	cancel()
@@ -237,6 +241,7 @@ func (h *Handler) handleModelAnswer(roomID string, sess *Session, answer protoco
 			h.failForgeGame(r)
 		} else {
 			h.rejectModelAnswer(roomID, sess, request)
+			h.reconcileForgeActionClock(r, game, &view)
 		}
 		return
 	}
@@ -251,5 +256,5 @@ func (h *Handler) handleModelAnswer(roomID string, sess *Session, answer protoco
 		h.failClosedGameProjections(r, err)
 		return
 	}
-	h.publishRulesDecision(r, game, "", "", answer.Response, false)
+	h.publishRulesDecision(r, game, "", "", answer.Response, false, false)
 }

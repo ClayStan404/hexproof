@@ -155,6 +155,7 @@ inline const QString kTypeRulesSnapshot = QStringLiteral("rules.snapshot");
 inline const QString kTypeRulesPrompt = QStringLiteral("rules.prompt");
 inline const QString kTypeRulesRespond = QStringLiteral("rules.respond");
 inline const QString kTypeRulesResponded = QStringLiteral("rules.responded");
+inline const QString kTypeRulesPriority = QStringLiteral("rules.priority");
 inline const QString kTypeGameDraw = QStringLiteral("game.draw");
 inline const QString kTypeGameDrawn = QStringLiteral("game.drawn");
 inline const QString kTypeGameShuffleLibrary = QStringLiteral("game.shuffle_library");

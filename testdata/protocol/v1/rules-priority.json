@@ -1,0 +1,9 @@
+{
+  "type": "rules.priority",
+  "payload": {
+    "roomId": "ABCDEF",
+    "fullControl": false,
+    "hold": true,
+    "stops": ["own:main1", "other:end"]
+  }
+}

@@ -24,7 +24,11 @@ Item {
     function find(name) { return auditProbe.find(auditWindow, name) }
     function interaction() { return find("forgeDuelTable").tableController.interaction }
     function add(name, action, check) { steps.push({name, action, check:check || (() => true)}) }
-    function click(name) { require(auditProbe.click(find(name)), "Cannot click " + name) }
+    function click(name) {
+        const target = find(name)
+        require(target, "Cannot find " + name)
+        require(auditProbe.click(target), "Cannot click " + name)
+    }
     function capture(name) {
         require(auditProbe.capture(auditWindow, name), "Cannot capture " + name)
         screenshots.push(name + ".png")

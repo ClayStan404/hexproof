@@ -74,6 +74,8 @@ class CardArtCache
     bool matchesRequestedFace(const CardRequest &request, const CardRecord &record) const;
     CardRecord resolvedPrinting(const CardRequest &request) const;
     CardRecord resolvedPrintingMetadata(const CardRequest &request) const;
+    CardRecord faceMetadata(const CardRequest &request) const;
+    CardRecord faceMetadataById(const QString &printingId) const;
     CardRecord localizedMetadataForName(const CardRequest &request) const;
     CardRecord reusableArt(const CardRequest &request, const CardRecord &catalogIdentity) const;
     CardRecord substituteRecord(const CardRequest &request, const CardRecord &catalogIdentity,
@@ -132,6 +134,8 @@ class CardArtCache
     QHash<QString, QDateTime> m_negative;
     QHash<QString, QSet<QString>> m_printingIndex;
     QHash<QString, QSet<QString>> m_metadataNameIndex;
+    QHash<QString, QSet<QString>> m_metadataPrintingIndex;
+    QHash<QString, QSet<QString>> m_printingIdIndex;
     QHash<QString, QSet<QString>> m_oracleIndex;
     QHash<QString, QSet<QString>> m_canonicalNameIndex;
     QHash<QString, QSet<QString>> m_requestedNameIndex;

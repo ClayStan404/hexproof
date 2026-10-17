@@ -10,6 +10,7 @@ var reviewDue = {};
 var fixtureDeck = null;
 var paymentAttempts = {};
 var unreachablePayments = {};
+var targetConfirmationScroll = {key:"", attempts:0};
 var policyOrder = [
     "Ragavan, Nimble Pilferer", "Guide of Souls", "Ocelot Pride", "Ajani, Nacatl Pariah",
     "Seasoned Pyromancer", "Ranger-Captain of Eos", "Voice of Victory", "Goblin Bombardment",
@@ -28,20 +29,69 @@ function deck(driver) {
     return fixtureDeck;
 }
 
+function laneItems(driver, includeHand) {
+    var result = [];
+    function visit(item) {
+        if (!item || item.visible === false) return;
+        if (item.visibleCards && item.scrollArea
+            && ((item.zone === "battlefield" && item.category !== undefined)
+                || (includeHand && item.objectName === "forgeHand"))) {
+            result.push(item);
+            return;
+        }
+        for (var child of item.children || []) visit(child);
+    }
+    // Battlefield lanes live under presentation Loaders. Only inspect the
+    // rendered public battlefield; zone dialogs and hidden old layouts do not count.
+    visit(driver.table && driver.table.presentation);
+    return result;
+}
+
 function lanes(driver) {
     var result = [];
-    if (driver.table && driver.table.presentation) {
-        for (var child of driver.table.presentation.children) {
-            if (!child.visibleCards || child.category === undefined) continue;
-            result = result.concat(child.visibleCards.map(card => ({
-                cardId: card.cardId, name: card.name, controllerSeat: card.controllerSeat,
-                tapped: card.tapped, category: card.category, power: card.power,
-                toughness: card.toughness, countersSummary: card.countersSummary,
-                damage: card.damage, attacking: card.attacking
-            })));
-        }
+    for (var child of laneItems(driver)) {
+        result = result.concat(child.visibleCards.map(card => ({
+            cardId: card.cardId, name: card.name, controllerSeat: card.controllerSeat,
+            tapped: card.tapped, category: child.category, power: card.power,
+            toughness: card.toughness, countersSummary: card.countersSummary,
+            damage: card.damage, attacking: card.attacking
+        })));
     }
     return result;
+}
+
+function basicMana(driver, ownSeat) {
+    var names = ["Plains", "Forest", "Mountain", "Island", "Swamp"];
+    return lanes(driver).filter(card => card.controllerSeat === ownSeat
+        && card.category === "land" && !card.tapped && names.includes(card.name)).length;
+}
+
+function combatInputId(driver, id) {
+    for (var lane of laneItems(driver)) {
+        var card = lane.visibleCards.find(value => value.cardId === id);
+        if (!card) continue;
+        if (card.stackSize <= 1 || card.fanned) return id;
+        var front = lane.visibleCards.find(value => value.stackIndex === card.stackIndex && value.stackFront);
+        // Closed piles can select an interchangeable physical member through
+        // their front. An open fan instead exposes the requested exact card.
+        var choice = front ? front.stackChoice() : null;
+        return choice && !choice.fan && choice.id === id ? front.cardId : "";
+    }
+    return id;
+}
+
+function exposeCombatCard(driver, id) {
+    for (var lane of laneItems(driver)) {
+        var card = lane.visibleCards.find(value => value.cardId === id);
+        if (!card) continue;
+        var front = lane.visibleCards.find(value => value.stackIndex === card.stackIndex && value.stackFront);
+        driver.require(card.stackSize > 1 && !card.fanned && !!front,
+            "Covered combat card has no pile control: " + id);
+        if (!driver.click("forgeCardStackCount-" + front.cardId))
+            driver.wheelToCard(front.cardId, false);
+        return;
+    }
+    driver.require(false, "Combat card has no rendered battlefield lane: " + id);
 }
 
 function scalarChoices(list) {
@@ -245,7 +295,18 @@ function chooseTarget(driver) {
     var session = driver.session;
     var interaction = driver.table.interaction;
     if (interaction.selectedCount >= session.promptMinSelections && interaction.validTargets) {
-        driver.click("rulesConfirmTargets");
+        if (driver.click("rulesConfirmTargets")) return;
+        // Long effect context can put confirmation below the visible dock.
+        // Keep the selected targets and reveal the real control with wheel input.
+        var key = session.gameId + ":" + session.promptId;
+        if (targetConfirmationScroll.key !== key)
+            targetConfirmationScroll = {key:key, attempts:0};
+        var scroll = driver.item("rulesPromptScroll");
+        driver.require(scroll && Number.isFinite(scroll.contentY) && !scroll.atYEnd
+            && targetConfirmationScroll.attempts < 12,
+            "Target confirmation is unreachable at scroll position " + (scroll ? scroll.contentY : "missing"));
+        targetConfirmationScroll.attempts++;
+        driver.require(auditProbe.wheel(scroll, -360), "Cannot scroll to target confirmation");
         return;
     }
     var candidates = session.boardTargetCandidates().filter(candidate =>
@@ -267,13 +328,26 @@ function chooseTarget(driver) {
     }
     for (var target of candidates) {
         if (target.kind !== "card") continue;
-        var exposed = driver.table.presentation.children.some(lane => lane.visibleCards
-            && lane.visibleCards.some(card => card.cardId === target.objectId && card.stackFront));
+        var exposed = laneItems(driver).some(lane =>
+            lane.visibleCards.some(card => card.cardId === target.objectId && card.stackFront));
         if (exposed) {
             driver.wheelToCard(target.objectId, false);
             return;
         }
     }
+}
+
+function exposeActionCard(driver, id) {
+    for (var lane of laneItems(driver)) {
+        var card = lane.visibleCards.find(value => value.cardId === id);
+        if (card && card.stackSize > 1 && !card.fanned && !card.stackFront) {
+            // Use the visible badge, then let the caller retry this exact
+            // physical member. A click on the front could activate that copy.
+            exposeCombatCard(driver, id);
+            return true;
+        }
+    }
+    return false;
 }
 
 function act(driver, offeredOptions) {

@@ -6,6 +6,7 @@
 #include "CardCatalogCommon.h"
 #include "CardCatalogFaceExpansionState.h"
 #include "CardResolver.h"
+#include "LimitedProductSheets.h"
 
 #include <QCoreApplication>
 #include <QJsonDocument>
@@ -74,9 +75,14 @@ void CardCatalog::cacheLimitedProductArt(const QString &productId)
         return;
     }
 
+    QVariantList sheets;
+    if (!resolveLimitedProductSheets(product, &sheets)) {
+        setLastError(QStringLiteral("The Limited product does not contain cacheable cards."));
+        return;
+    }
     QVariantList cards;
     QSet<QString> seenPrintings;
-    for (const QVariant &sheetValue : product.value(QStringLiteral("sheets")).toList()) {
+    for (const QVariant &sheetValue : sheets) {
         for (const QVariant &cardValue :
              sheetValue.toMap().value(QStringLiteral("cards")).toList()) {
             QVariantMap card = cardValue.toMap();

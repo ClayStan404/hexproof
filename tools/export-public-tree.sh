@@ -42,6 +42,7 @@ public_paths=(
     docs/rules-engine.md
     docs/player-hosted-forge.md
     docs/home-servers.md
+    docs/feedback-operations.md
     docs/public-content.md
     docs/accounts.md
     docs/official-cluster.md
@@ -56,6 +57,7 @@ public_paths=(
 public_paths+=(':(exclude)tools/tests/test_deploy_script.py')
 public_paths+=(':(exclude)tools/tests/test_home_deployment.py')
 public_paths+=(':(exclude)tools/tests/test_home_rollout.py')
+public_paths+=(':(exclude)tools/tests/test_feedback_deployment.py')
 public_paths+=(':(exclude)tools/package-home-node.py')
 
 # The archive reads HEAD, not the working tree. Only changes to exported paths

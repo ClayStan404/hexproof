@@ -1,6 +1,7 @@
 {
   "type": "tournament.snapshot",
   "payload": {
+    "actionClockEnabled": false,
     "tournamentId": "CMD234",
     "name": "Friday Commander Cube",
     "format": "edh",

@@ -73,6 +73,11 @@
           "type": "integer",
           "required": false,
           "nullable": true
+        },
+        {
+          "name": "promptFollows",
+          "type": "boolean",
+          "required": false
         }
       ]
     },
@@ -114,6 +119,11 @@
         {
           "name": "autoPassEligible",
           "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "paymentId",
+          "type": "string",
           "required": false
         },
         {

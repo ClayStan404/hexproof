@@ -36,8 +36,23 @@ TestCase {
 
     function cleanup() {
         harness.cleanupHarness()
+        testWindow.feedbackInteractionOpen = false
         testWindow.width = 1400
         testWindow.height = 800
+    }
+
+    function test_feedbackGateBlocksManualShortcutsWithoutLeavingRoom() {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        verify(!table.sessionUi.counterShortcutBlocked())
+        testWindow.feedbackInteractionOpen = true
+        verify(table.tableModalOpen)
+        verify(table.sessionUi.counterShortcutBlocked())
+        compare(mockWs.leaveRoomCount, 0)
+        testWindow.feedbackInteractionOpen = false
+        verify(!table.sessionUi.counterShortcutBlocked())
     }
 
     function test_audioSettingsOpenWithoutLeavingManualMatch() {

@@ -172,7 +172,7 @@ jobs:
         run: |
           go vet ./...
           go test ./...
-          go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil
+          go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil ./internal/feedback
           CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
       - name: Configure client
         run: cmake -S apps/client-qt -B build/client-qt -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -213,10 +213,14 @@ jobs:
         shell: bash
         env:
           HEXPROOF_PUBLIC_SERVERS_JSON: ${{ secrets.HEXPROOF_PUBLIC_SERVERS_JSON }}
+          HEXPROOF_FEEDBACK_CONFIG_JSON: ${{ vars.HEXPROOF_FEEDBACK_CONFIG_JSON }}
         run: |
           server_directory="$RUNNER_TEMP/hexproof-servers.json"
           python3 tools/write-server-directory.py "$server_directory"
           echo "HEXPROOF_SERVER_DIRECTORY_FILE=$server_directory" >> "$GITHUB_ENV"
+          feedback_config="$RUNNER_TEMP/hexproof-feedback.json"
+          python3 tools/write-feedback-config.py "$feedback_config"
+          echo "HEXPROOF_FEEDBACK_CONFIG_FILE=$feedback_config" >> "$GITHUB_ENV"
       - name: Install build dependencies
         run: >
           sudo apt-get update &&
@@ -303,6 +307,7 @@ jobs:
         shell: pwsh
         env:
           HEXPROOF_PUBLIC_SERVERS_JSON: ${{ secrets.HEXPROOF_PUBLIC_SERVERS_JSON }}
+          HEXPROOF_FEEDBACK_CONFIG_JSON: ${{ vars.HEXPROOF_FEEDBACK_CONFIG_JSON }}
         run: |
           $serverDirectory = Join-Path $env:RUNNER_TEMP "hexproof-servers.json"
           python tools/write-server-directory.py $serverDirectory
@@ -310,6 +315,13 @@ jobs:
               throw "Server directory preparation failed with exit code $LASTEXITCODE."
           }
           "HEXPROOF_SERVER_DIRECTORY_FILE=$serverDirectory" | Out-File `
+              -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $feedbackConfig = Join-Path $env:RUNNER_TEMP "hexproof-feedback.json"
+          python tools/write-feedback-config.py $feedbackConfig
+          if ($LASTEXITCODE -ne 0) {
+              throw "Feedback configuration preparation failed."
+          }
+          "HEXPROOF_FEEDBACK_CONFIG_FILE=$feedbackConfig" | Out-File `
               -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Select Forge build JDK
         uses: ./.github/actions/setup-forge-build
@@ -397,10 +409,14 @@ jobs:
         shell: bash
         env:
           HEXPROOF_PUBLIC_SERVERS_JSON: ${{ secrets.HEXPROOF_PUBLIC_SERVERS_JSON }}
+          HEXPROOF_FEEDBACK_CONFIG_JSON: ${{ vars.HEXPROOF_FEEDBACK_CONFIG_JSON }}
         run: |
           server_directory="$RUNNER_TEMP/hexproof-servers.json"
           python3 tools/write-server-directory.py "$server_directory"
           echo "HEXPROOF_SERVER_DIRECTORY_FILE=$server_directory" >> "$GITHUB_ENV"
+          feedback_config="$RUNNER_TEMP/hexproof-feedback.json"
+          python3 tools/write-feedback-config.py "$feedback_config"
+          echo "HEXPROOF_FEEDBACK_CONFIG_FILE=$feedback_config" >> "$GITHUB_ENV"
       - name: Verify runner architecture
         shell: bash
         env:

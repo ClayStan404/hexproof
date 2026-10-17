@@ -27,8 +27,10 @@ bool CardCatalog::artOperationsIdle() const
 {
     return !m_shuttingDown && !m_catalogBusy && !m_resolving && !m_search.searching() &&
            !m_search.tokenSearching() && !m_limitedArtCaching && m_cardQueue.isEmpty() &&
-           m_fallbackQueue.isEmpty() && m_directImageJobs.isEmpty() &&
-           m_incrementalCacheQueue.isEmpty() && m_cachedHydrationQueue.isEmpty();
+           m_fallbackQueue.isEmpty() && m_directImageJobs.isEmpty() && m_artCropQueue.isEmpty() &&
+           m_artCropJobs.isEmpty() && m_incrementalCacheQueue.isEmpty() &&
+           m_cachedHydrationQueue.isEmpty() && !m_faceMetadataProbeActive &&
+           m_faceMetadataProbes.isEmpty();
 }
 
 QVariantList CardCatalog::customArtBindings(const QVariantMap &card) const

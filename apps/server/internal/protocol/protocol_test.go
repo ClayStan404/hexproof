@@ -227,6 +227,8 @@ func fixturePayloadForType(messageType string) any {
 		return &RulesRespond{}
 	case TypeRulesResponded:
 		return &RulesResponded{}
+	case TypeRulesPriority:
+		return &RulesPriority{}
 	case TypeGameDraw:
 		return &GameDraw{}
 	case TypeGameDrawn:

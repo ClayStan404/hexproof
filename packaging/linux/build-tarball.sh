@@ -24,6 +24,7 @@ fi
 cmake -S "${repo_root}/apps/client-qt" -B "${build_dir}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DHEXPROOF_VERSION_OVERRIDE="${version}" \
+    -DHEXPROOF_FEEDBACK_CONFIG_FILE="${HEXPROOF_FEEDBACK_CONFIG_FILE:-}" \
     "${server_directory_args[@]}"
 cmake --build "${build_dir}" --config Release --target hexproof
 

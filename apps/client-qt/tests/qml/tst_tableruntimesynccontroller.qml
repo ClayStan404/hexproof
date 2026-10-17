@@ -34,6 +34,7 @@ TestCase {
         id: fakeRoomSession
         property int seatIndex: fakeWs.seatIndex
         property string phase: "started"
+        property string role: "player"
     }
 
     QtObject {
@@ -41,6 +42,7 @@ TestCase {
         property int gameNumber: 1
         property bool finished: false
         property bool sideboarding: false
+        property var turnOrder: []
     }
 
     QtObject {
@@ -84,6 +86,11 @@ TestCase {
         property var selection: selectionController
         property int optimisticValueTimeoutMs: 2500
         property int restartResetCount: 0
+        property bool isEDH: true
+        property var authoritativeSeats: []
+        property var turnOrder: fakeGameSession.turnOrder
+        property var authoritativeOwnHand: []
+        property var pendingCardMoves: ({})
         function resetGameInteractions() { ++restartResetCount }
     }
 
@@ -149,6 +156,22 @@ TestCase {
         property int handCount: 0
         function syncBattlefieldSeats() { ++battlefieldCount }
         function syncDisplayedOwnHand() { ++handCount }
+    }
+
+    property bool useActualProjection: false
+
+    Component {
+        id: seatStateComponent
+        QtObject {
+            property int seat: -1
+            function updateFrom(snapshot) { seat = snapshot.seat }
+        }
+    }
+
+    TableProjectionSyncController {
+        id: actualProjection
+        tableRoot: fakeTable
+        seatStateComponent: seatStateComponent
     }
 
     QtObject {
@@ -241,7 +264,8 @@ TestCase {
         publicZoneMoveConfirmation: publicZoneMovePopup
         optimisticController: optimisticController
         cardMoveController: cardMoveController
-        projectionController: projectionController
+        projectionController: testCase.useActualProjection
+                              ? actualProjection : projectionController
         zoneController: zoneController
         gameValueController: gameValueController
         battlefieldSceneController: sceneController
@@ -252,6 +276,17 @@ TestCase {
     }
 
     function init() {
+        useActualProjection = false
+        actualProjection.reset()
+        fakeTable.authoritativeSeats = []
+        fakeGameSession.turnOrder = []
+        fakeGameSession.gameNumber = 1
+        fakeGameSession.finished = false
+        fakeGameSession.sideboarding = false
+        fakeRoomSession.role = "player"
+        fakeRoomSession.phase = "started"
+        fakeWs.seatIndex = 1
+        fakeTable.restartResetCount = 0
         fakeGameTable.hasSnapshot = true
         fakeOptimisticModel.timeoutMs = 0
         fakeOptimisticModel.clearCount = 0
@@ -282,6 +317,7 @@ TestCase {
         presentationController.invalidateCount = 0
         presentationController.emitRevisionOnPrioritize = false
         controller.deferInitialReconcile = false
+        controller.observedGameNumber = -1
     }
 
     function test_reconcilesSnapshotAcrossControllers() {
@@ -309,9 +345,100 @@ TestCase {
         compare(sessionController.resultCount, 1)
         compare(sessionController.counterCount, 1)
         compare(transientController.reconcileCount, 1)
-        compare(projectionController.battlefieldCount, 0)
+        compare(projectionController.battlefieldCount, 1)
         compare(zoneController.reconcileCount, 0)
         compare(sceneController.refreshCount, 0)
+    }
+
+    function test_finalSessionSignalAppliesRolledVisualOrder_data() {
+        return [
+            {tag: "four-seat-0", viewer: 0, order: [2, 1, 3, 0], expected: [2, 1, 0, 3]},
+            {tag: "four-seat-1", viewer: 1, order: [2, 1, 3, 0], expected: [3, 0, 1, 2]},
+            {tag: "four-seat-2", viewer: 2, order: [2, 1, 3, 0], expected: [1, 3, 2, 0]},
+            {tag: "four-seat-3", viewer: 3, order: [2, 1, 3, 0], expected: [0, 2, 3, 1]},
+            {tag: "four-spectator", viewer: -1, order: [2, 1, 3, 0], expected: [1, 3, 2, 0]},
+            {tag: "three-seat-0", viewer: 0, order: [1, 3, 0], expected: [1, 3, 0]},
+            {tag: "three-seat-3", viewer: 3, order: [1, 3, 0], expected: [0, 1, 3]},
+            {tag: "three-spectator", viewer: -1, order: [1, 3, 0], expected: [3, 0, 1]}
+        ]
+    }
+
+    function test_finalSessionSignalAppliesRolledVisualOrder(data) {
+        useActualProjection = true
+        fakeWs.seatIndex = data.viewer
+        fakeRoomSession.role = data.viewer < 0 ? "spectator" : "player"
+        fakeTable.authoritativeSeats = data.order.slice().sort().map(
+                    seat => ({seat: seat}))
+        // GameSessionState emits typed snapshotDataChanged first. Its scalar
+        // QML bindings notify later through WsClient.gameSnapshotChanged.
+        fakeGameTable.snapshotChanged()
+        compare(zoneController.reconcileCount, 1)
+        compare(actualProjection.battlefieldSeats.length, data.order.length)
+
+        // No typed zone/seat data changes here: only the rolled turn order
+        // becomes visible at the final session signal.
+        const typedSeats = fakeTable.authoritativeSeats
+        fakeGameSession.turnOrder = data.order
+        fakeWs.gameSnapshotChanged()
+        compare(actualProjection.battlefieldSeats.map(state => state.seat),
+                data.expected)
+        compare(fakeTable.authoritativeSeats, typedSeats)
+        compare(zoneController.reconcileCount, 1)
+        compare(sceneController.refreshCount, 1)
+
+        const states = actualProjection.battlefieldSeats.slice()
+        fakeWs.gameSnapshotChanged()
+        for (let index = 0; index < states.length; ++index)
+            compare(actualProjection.battlefieldSeats[index], states[index])
+    }
+
+    function test_finalSessionOrderWaitsUntilBattlefieldDragFinishes() {
+        useActualProjection = true
+        fakeWs.seatIndex = 0
+        fakeTable.authoritativeSeats = [
+            {seat: 0}, {seat: 1}, {seat: 2}, {seat: 3}
+        ]
+        fakeGameTable.snapshotChanged()
+        const originalStates = actualProjection.battlefieldSeats.slice()
+        actualProjection.activeBattlefieldDragCardId = "dragged-card"
+        fakeGameSession.turnOrder = [2, 1, 3, 0]
+        fakeWs.gameSnapshotChanged()
+
+        verify(actualProjection.battlefieldSeatSyncDeferred)
+        compare(actualProjection.activeBattlefieldDragCardId, "dragged-card")
+        for (let index = 0; index < originalStates.length; ++index)
+            compare(actualProjection.battlefieldSeats[index], originalStates[index])
+        compare(actualProjection.battlefieldSeats.map(state => state.seat),
+                [1, 2, 0, 3])
+
+        actualProjection.finishBattlefieldDrag()
+        verify(!actualProjection.battlefieldSeatSyncDeferred)
+        compare(actualProjection.activeBattlefieldDragCardId, "")
+        compare(actualProjection.battlefieldSeats.map(state => state.seat),
+                [2, 1, 0, 3])
+        compare(zoneController.reconcileCount, 1)
+    }
+
+    function test_restartWithIdenticalTypedZonesFinalizesProjectionOnce() {
+        controller.observedGameNumber = 1
+        fakeWs.gameRestarted()
+        compare(fakeTable.restartResetCount, 1)
+        compare(projectionController.battlefieldCount, 0)
+
+        fakeWs.gameSnapshotChanged()
+        compare(projectionController.battlefieldCount, 1)
+        compare(zoneController.reconcileCount, 0)
+        compare(fakeTable.restartResetCount, 1)
+    }
+
+    function test_newGameFinalizesProjectionAfterInteractionReset() {
+        controller.observedGameNumber = 1
+        fakeGameSession.gameNumber = 2
+        fakeWs.gameSnapshotChanged()
+        compare(fakeTable.restartResetCount, 1)
+        compare(projectionController.battlefieldCount, 1)
+        compare(zoneController.reconcileCount, 0)
+        compare(controller.observedGameNumber, 2)
     }
 
     function test_routesLibraryAndCommandEvents() {

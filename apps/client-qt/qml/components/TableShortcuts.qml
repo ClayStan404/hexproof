@@ -22,85 +22,85 @@ Item {
     required property var shortcutHelp
 
     TableShortcutContext {
-        id: shortcutState
+        id: shortcutContext
         tableRoot: root.tableRoot
     }
 
     TableViewShortcuts {
-        shortcutState: shortcutState
+        shortcutState: shortcutContext
         shortcutHelp: root.shortcutHelp
     }
 
     TableLibraryShortcuts {
-        shortcutState: shortcutState
+        shortcutState: shortcutContext
         drawCardsEditor: root.drawCardsEditor
         libraryTopCountEditor: root.libraryTopCountEditor
         shuffleConfirmation: root.shuffleConfirmation
     }
 
     TableGameShortcuts {
-        shortcutState: shortcutState
+        shortcutState: shortcutContext
         tokenPicker: root.tokenPicker
         mulliganConfirmation: root.mulliganConfirmation
         concedeConfirmation: root.concedeConfirmation
     }
 
     TableSelectionShortcuts {
-        shortcutState: shortcutState
+        shortcutState: shortcutContext
     }
 
     // Stable test and integration facade. Shortcut policy lives in
     // TableShortcutContext; callers do not need to know the domain split.
-    function blocked() { return shortcutState.blocked() }
+    function blocked() { return shortcutContext.blocked() }
     function canEditSelectedCounter() {
-        return shortcutState.canEditSelectedCounter()
+        return shortcutContext.canEditSelectedCounter()
     }
-    function canUseLibrary() { return shortcutState.canUseLibrary() }
-    function canUseGameAction() { return shortcutState.canUseGameAction() }
-    function canMulligan() { return shortcutState.canMulligan() }
-    function canToggleHand() { return shortcutState.canToggleHand() }
-    function canConcede() { return shortcutState.canConcede() }
-    function canAdvanceTurn() { return shortcutState.canAdvanceTurn() }
+    function canUseLibrary() { return shortcutContext.canUseLibrary() }
+    function canUseGameAction() { return shortcutContext.canUseGameAction() }
+    function canMulligan() { return shortcutContext.canMulligan() }
+    function canToggleHand() { return shortcutContext.canToggleHand() }
+    function canConcede() { return shortcutContext.canConcede() }
+    function canAdvanceTurn() { return shortcutContext.canAdvanceTurn() }
     function selectedBattlefieldCount() {
-        return shortcutState.selectedBattlefieldCount()
+        return shortcutContext.selectedBattlefieldCount()
     }
     function hasSelectedHandCard() {
-        return shortcutState.hasSelectedHandCard()
+        return shortcutContext.hasSelectedHandCard()
     }
-    function selectionDomain() { return shortcutState.selectionDomain() }
-    function canUseSelection() { return shortcutState.canUseSelection() }
+    function selectionDomain() { return shortcutContext.selectionDomain() }
+    function canUseSelection() { return shortcutContext.canUseSelection() }
     function canUseSingleBattlefieldSelection() {
-        return shortcutState.canUseSingleBattlefieldSelection()
+        return shortcutContext.canUseSingleBattlefieldSelection()
     }
     function canUseSingleBattlefieldCard() {
-        return shortcutState.canUseSingleBattlefieldCard()
+        return shortcutContext.canUseSingleBattlefieldCard()
     }
     function canUseBattlefieldSources() {
-        return shortcutState.canUseBattlefieldSources()
+        return shortcutContext.canUseBattlefieldSources()
     }
     function selectedHasArrow(kinds) {
-        return shortcutState.selectedHasArrow(kinds)
+        return shortcutContext.selectedHasArrow(kinds)
     }
     function hasIncomingAttacker() {
-        return shortcutState.hasIncomingAttacker()
+        return shortcutContext.hasIncomingAttacker()
     }
     function canMoveSelection(destination) {
-        return shortcutState.canMoveSelection(destination)
+        return shortcutContext.canMoveSelection(destination)
     }
     function moveSelection(destination, randomize) {
-        shortcutState.moveSelection(destination, randomize)
+        shortcutContext.moveSelection(destination, randomize)
     }
     function toggleSelectedFaceDown() {
-        shortcutState.toggleSelectedFaceDown()
+        shortcutContext.toggleSelectedFaceDown()
     }
     function clearSelectedArrows(kinds) {
-        shortcutState.clearSelectedArrows(kinds)
+        shortcutContext.clearSelectedArrows(kinds)
     }
-    function adjustOwnLife(delta) { shortcutState.adjustOwnLife(delta) }
+    function adjustOwnLife(delta) { shortcutContext.adjustOwnLife(delta) }
     function adjustSelectedPlayerCounter(delta) {
-        shortcutState.adjustSelectedPlayerCounter(delta)
+        shortcutContext.adjustSelectedPlayerCounter(delta)
     }
     function toggleSelectedPermanents() {
-        shortcutState.toggleSelectedPermanents()
+        shortcutContext.toggleSelectedPermanents()
     }
 }

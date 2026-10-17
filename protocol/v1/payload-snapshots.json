@@ -753,6 +753,11 @@
       "goType": "RoomSnapshot",
       "fields": [
         {
+          "name": "ownDeckName",
+          "type": "string",
+          "required": false
+        },
+        {
           "name": "hostConnected",
           "type": "boolean",
           "required": false
@@ -922,6 +927,7 @@
           "required": false,
           "goType": "int64"
         },
+        {"name": "actionClockEnabled", "type": "boolean", "required": false},
         {
           "name": "actionClockMs",
           "type": "array",

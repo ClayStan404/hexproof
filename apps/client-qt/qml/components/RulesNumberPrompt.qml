@@ -29,11 +29,16 @@ Item {
         Item { Layout.fillWidth: true; visible: !root.narrowLayout }
 
         Text {
+            objectName: "rulesNumberRange"
             Layout.columnSpan: root.narrowLayout ? 2 : 1
             Layout.fillWidth: root.narrowLayout
             wrapMode: Text.Wrap
             textFormat: Text.PlainText
-            text: qsTr("Choose from %1 to %2").arg(root.minimum).arg(root.maximum)
+            // Forge uses INT_MAX for a choice with no gameplay upper limit.
+            // Keep the input bounds authoritative; only simplify the label.
+            text: root.maximum === 2147483647
+                  ? qsTr("Choose a number of at least %1").arg(root.minimum)
+                  : qsTr("Choose from %1 to %2").arg(root.minimum).arg(root.maximum)
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(10)
         }

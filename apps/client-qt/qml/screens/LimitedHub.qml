@@ -16,6 +16,14 @@ Page {
     property var products: []
     property var openedPacks: []
 
+    CardHoverPreview {
+        id: floatingPreview
+        objectName: "simulatedPackCardPreview"
+        catalogModel: cardCatalog
+    }
+    onVisibleChanged: if (!visible) floatingPreview.hide()
+    onOpenedPacksChanged: floatingPreview.hide()
+
     background: AppBackground { }
 
     Component.onCompleted: root.reloadProducts()
@@ -201,11 +209,22 @@ Page {
                                             delegate: Rectangle {
                                                 id: openedCard
                                                 required property var modelData
+                                                required property int index
+                                                objectName: "simulatedPackCard" + packColumn.index + "-" + index
                                                 width: Theme.size(116)
                                                 height: Theme.size(168)
                                                 radius: Theme.radiusSmall
                                                 color: Theme.surfaceElevated
                                                 clip: true
+
+                                                HoverHandler {
+                                                    onHoveredChanged: {
+                                                        if (hovered)
+                                                            floatingPreview.inspect(openedCard.modelData, openedCard)
+                                                        else
+                                                            floatingPreview.hide(openedCard)
+                                                    }
+                                                }
 
                                                 Image {
                                                     anchors.fill: parent

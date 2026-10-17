@@ -6,6 +6,8 @@ import QtQuick
 
 Item {
     id: root
+    readonly property bool pointerPreviewActive: pileMouse.containsMouse
+    readonly property var readoutItems: [compactLabel, emptyLabel, summaryLabel, badgeLabel, zoneLabel]
 
     required property var tableController
     required property real unit
@@ -36,9 +38,17 @@ Item {
         default: return Theme.borderStrong
         }
     }
-    readonly property url faceSource: summary ? "" : showsPublicFace
-        ? tableController.cardImage(face.name, face.setCode || "", face.collectorNumber || "")
-        : tableController.cardBackSource
+    ForgeArtStamp {
+        id: artStamp
+        catalog: root.tableController.cardCatalogModel
+        name: root.face && root.face.name ? root.face.name : ""
+    }
+    readonly property url faceSource: {
+        void artStamp.stamp
+        return summary ? "" : showsPublicFace
+            ? tableController.cardImage(face.name, face.setCode || "", face.collectorNumber || "")
+            : tableController.cardBackSource
+    }
     readonly property int stackDepth: summary || count <= 0 ? 0 : Math.min(2, count - 1)
     readonly property real faceBudgetWidth: Math.max(0, width - stackDepth * 2 * unit)
     readonly property real faceBudgetHeight: Math.max(
@@ -104,6 +114,7 @@ Item {
         }
 
         Text {
+            id: compactLabel
             textFormat: Text.PlainText
             anchors.left: parent.left
             anchors.right: parent.right
@@ -121,6 +132,7 @@ Item {
         }
 
         Text {
+            id: emptyLabel
             textFormat: Text.PlainText
             anchors.centerIn: parent
             visible: !root.summary && root.count <= 0
@@ -131,6 +143,7 @@ Item {
         }
 
         Text {
+            id: summaryLabel
             objectName: "forgeZoneSummary"
             visible: root.summary
             anchors.fill: parent
@@ -170,6 +183,7 @@ Item {
     }
 
     Text {
+        id: zoneLabel
         textFormat: Text.PlainText
         visible: !root.compact && !root.summary
         anchors.horizontalCenter: pileFace.horizontalCenter

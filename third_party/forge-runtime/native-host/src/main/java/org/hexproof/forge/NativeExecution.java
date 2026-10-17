@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 /** Game-owned dispatch, random source, IDs and mutable caches; never process globals. */
 final class NativeExecution implements ThreadUtil.ExecutionContext, AutoCloseable {
     private final Consumer<Throwable> failure;
+    final NativeDiagnostics diagnostics;
     private final ExecutorService game;
     private final ExecutorService edt;
     private final ScheduledThreadPoolExecutor delayed;
@@ -25,15 +26,20 @@ final class NativeExecution implements ThreadUtil.ExecutionContext, AutoCloseabl
     private volatile Thread edtThread;
 
     NativeExecution(long seed, Consumer<Throwable> failure) {
+        this(seed, failure, new NativeDiagnostics("bootstrap"));
+    }
+
+    NativeExecution(long seed, Consumer<Throwable> failure, NativeDiagnostics diagnostics) {
         this.failure = failure;
+        this.diagnostics = diagnostics;
         random = new Random(seed);
         game = new ScopedExecutor(Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("Game-Hexproof-", 0).factory()), 64);
+                Thread.ofVirtual().name("Game-Hexproof-", 0).factory()), 64, "game_callback");
         edt = new ScopedExecutor(new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(128), action -> {
                     Thread thread = new Thread(action, "Hexproof-Native-EDT");
                     thread.setDaemon(true); edtThread = thread; return thread;
-                }), 128);
+                }), 128, "edt_callback");
         delayed = new ScheduledThreadPoolExecutor(1, action -> {
             Thread thread = new Thread(action, "Hexproof-Native-Delayed");
             thread.setDaemon(true); return thread;
@@ -80,12 +86,28 @@ final class NativeExecution implements ThreadUtil.ExecutionContext, AutoCloseabl
     }
     @Override public ScheduledFuture<?> schedule(int milliseconds, Runnable action) {
         if (closed || delayed.getQueue().size() >= 128) throw new RejectedExecutionException("Game timer capacity exceeded");
-        return delayed.schedule(() -> run(action), milliseconds, TimeUnit.MILLISECONDS);
+        var inherited = diagnostics.provenance();
+        return delayed.schedule(() -> run(action, "delayed_callback", inherited), milliseconds, TimeUnit.MILLISECONDS);
     }
-    private void run(Runnable action) {
+    @Override public void diagnostic(String stage, Object source, Runnable action) {
+        diagnostics.run(stage, source instanceof forge.game.spellability.SpellAbility ability ? ability : null,
+                () -> { action.run(); return null; });
+    }
+    private void run(Runnable action, String stage, List<JsonObject> inherited) {
         if (closed) { cancel(action); return; }
         try (var scope = enter()) {
-            action.run();
+            diagnostics.withProvenance(inherited, () -> diagnostics.run(stage, null, () -> {
+                action.run();
+                // A caller-supplied FutureTask swallows its own throwable. Keep its
+                // evidence without changing whether/how the caller handles get().
+                if (action instanceof FutureTask<?> task && task.isDone() && !task.isCancelled()) {
+                    try { task.get(); }
+                    catch (ExecutionException error) { diagnostics.remember(error.getCause()); }
+                    catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+                    catch (CancellationException ignored) { }
+                }
+                return null;
+            }));
         } catch (Throwable error) {
             if (!closed) failure.accept(error);
         }
@@ -107,13 +129,23 @@ final class NativeExecution implements ThreadUtil.ExecutionContext, AutoCloseabl
     private final class ScopedExecutor extends AbstractExecutorService {
         private final ExecutorService delegate;
         private final Semaphore admitted;
+        private final String stage;
         private final class Task implements Runnable {
             final Runnable action;
-            Task(Runnable action) { this.action = action; }
-            @Override public void run() { try { NativeExecution.this.run(action); } finally { admitted.release(); } }
+            final List<JsonObject> inherited;
+            Task(Runnable action) { this.action = action; inherited = diagnostics.provenance(); }
+            @Override public void run() { try { NativeExecution.this.run(action, stage, inherited); } finally { admitted.release(); } }
             void cancel() { NativeExecution.cancel(action); admitted.release(); }
         }
-        ScopedExecutor(ExecutorService delegate, int limit) { this.delegate = delegate; admitted = new Semaphore(limit); }
+        ScopedExecutor(ExecutorService delegate, int limit, String stage) {
+            this.delegate = delegate; admitted = new Semaphore(limit); this.stage = stage;
+        }
+        @Override protected <T> RunnableFuture<T> newTaskFor(Callable<T> action) {
+            return new FutureTask<>(() -> diagnostics.call(action));
+        }
+        @Override protected <T> RunnableFuture<T> newTaskFor(Runnable action, T result) {
+            return newTaskFor(Executors.callable(action, result));
+        }
         @Override public void execute(Runnable action) {
             if (closed || !admitted.tryAcquire()) throw new RejectedExecutionException("Game task capacity exceeded");
             try { delegate.execute(new Task(action)); }

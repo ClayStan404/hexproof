@@ -122,14 +122,12 @@ func normalizeBlockers(input promptInput) ([]PromptCombatSource, []PromptCombatT
 		if attacker.MustBeBlocked && minimum < 1 {
 			minimum = 1
 		}
-		// A minimum that cannot be reached makes this attacker unblockable. Keep
-		// it visible as a combat target, but do not advertise pairings that can
-		// only produce an invalid partial block.
-		if maximum >= minimum {
-			for _, blockerIndex := range validBlockers {
-				sources[blockerIndex].ValidTargetIDs = append(
-					sources[blockerIndex].ValidTargetIDs, targetResponseID)
-			}
+		// Every creature that can block this attacker is a choice, even when
+		// the attacker still needs more blockers. Confirm stays disabled until
+		// a block that was started meets the minimum.
+		for _, blockerIndex := range validBlockers {
+			sources[blockerIndex].ValidTargetIDs = append(
+				sources[blockerIndex].ValidTargetIDs, targetResponseID)
 		}
 		targets = append(targets, PromptCombatTarget{
 			ResponseID: targetResponseID, Kind: "attacker", ID: attacker.AttackerID,

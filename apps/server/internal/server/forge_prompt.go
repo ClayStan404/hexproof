@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -22,6 +23,8 @@ const (
 	forgePromptPollInterval = 20 * time.Millisecond
 )
 
+// rulesPrompts only projects the current decision. Publishing a reconnect or
+// replay must not advance Forge after its accompanying snapshot was collected.
 func (h *Handler) rulesPrompts(r *room.Room) (map[string]protocol.Envelope, error) {
 	game, ok := h.forgeGame(r.ID)
 	if !ok {
@@ -130,6 +133,9 @@ func projectedRulesPrompt(roomID, gameID string,
 	prompt.Kind = view.Kind
 	prompt.Supported = view.Supported
 	prompt.AutoPassEligible = view.Kind == "chooseAction" && view.Supported && view.AutoPassEligible
+	if view.Kind == "payManaCost" {
+		prompt.PaymentID = view.PaymentID
+	}
 	prompt.Title = view.Title
 	prompt.Detail = view.Detail
 	prompt.Options = make([]protocol.RulesPromptOption, 0, len(view.Options))
@@ -532,6 +538,38 @@ func waitForInitialForgePrompt(game forgeRoomGame) error {
 func waitForForgePromptChange(game forgeRoomGame, previousPromptID int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
 	defer cancel()
+	if waiter, ok := game.client.(interface {
+		AwaitPrompt(context.Context, string, int64) (json.RawMessage, bool, error)
+	}); ok {
+		raw, waited, err := waiter.AwaitPrompt(ctx, game.sessionID, previousPromptID)
+		if err != nil {
+			return err
+		}
+		if waited {
+			if len(raw) > 0 {
+				view, err := forge.NormalizePrompt(raw)
+				if err != nil {
+					return err
+				}
+				if previousPromptID == 0 || view.PromptID != previousPromptID {
+					return nil
+				}
+			}
+			// Adapter 29 uses an empty result for both completion and timeout.
+			// The wait may have consumed its deadline, so give this one bounded
+			// authoritative check its own context rather than assuming progress.
+			resultCtx, resultCancel := context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgeSnapshotTimeout))
+			gameOver, err := game.client.GameOver(resultCtx, game.sessionID)
+			resultCancel()
+			if err != nil {
+				return err
+			}
+			if gameOver {
+				return nil
+			}
+			return fmt.Errorf("Forge did not advance to a new prompt: %w", context.DeadlineExceeded)
+		}
+	}
 	ticker := time.NewTicker(forgePromptPollInterval)
 	defer ticker.Stop()
 	for {
@@ -565,11 +603,21 @@ func (h *Handler) sendRulesPrompts(prompts map[string]protocol.Envelope) {
 	}
 }
 
-func (h *Handler) fanoutRulesPrompts(r *room.Room) {
+// fanoutRulesTable is a read-only publication for reconnect. Collect the pair
+// together under the caller's room operation lock, without smart-priority moves.
+func (h *Handler) fanoutRulesTable(r *room.Room) {
+	if !h.refreshForgeActionClock(r) {
+		return
+	}
+	projections, err := h.rulesProjections(r)
+	if err != nil {
+		h.failClosedGameProjections(r, err)
+		return
+	}
 	prompts, err := h.rulesPrompts(r)
 	if err != nil {
 		h.failClosedGameProjections(r, err)
 		return
 	}
-	h.sendRulesPrompts(prompts)
+	h.sendRulesTable(projections, prompts)
 }

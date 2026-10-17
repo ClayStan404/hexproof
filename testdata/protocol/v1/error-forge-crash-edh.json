@@ -1,0 +1,119 @@
+{
+  "type": "error",
+  "payload": {
+    "code": "rules_unavailable",
+    "message": "Forge stopped; a crash report is available",
+    "rulesCrashReport": {
+      "schemaVersion": 1,
+      "reportId": "0123456789abcdef0123456789abcdef",
+      "revision": 2,
+      "collectionState": "complete",
+      "occurredAt": "2026-10-08T10:30:00Z",
+      "fingerprintVersion": 1,
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "versions": {
+        "hexproof": "2.5.0",
+        "runtime": "unknown",
+        "forge": "unknown",
+        "adapter": 31
+      },
+      "environment": {
+        "hostingMode": "server",
+        "format": "edh",
+        "participants": 4,
+        "gameNumber": 1
+      },
+      "failure": {
+        "kind": "engine_exception",
+        "code": "native_failure",
+        "stage": "effect",
+        "requestFamily": "submitAction",
+        "exitCode": 0,
+        "causes": [
+          {
+            "className": "java.lang.IllegalStateException",
+            "frames": [
+              {
+                "className": "org.hexproof.forge.NativeSession",
+                "methodName": "fail",
+                "line": 551
+              }
+            ]
+          }
+        ]
+      },
+      "context": {
+        "attribution": "execution_site",
+        "turn": 7,
+        "step": "main1",
+        "activeSeat": 2,
+        "publicSequence": 42,
+        "observationAgeMs": 135,
+        "spans": [
+          {
+            "id": 12,
+            "parentId": 10,
+            "stage": "effect",
+            "api": "Draw",
+            "sourceId": "source-1"
+          },
+          {
+            "id": 10,
+            "parentId": 0,
+            "stage": "effect",
+            "api": "CopySpellAbility",
+            "sourceId": "source-2"
+          }
+        ],
+        "sources": [
+          {
+            "id": "source-1",
+            "zone": "battlefield",
+            "identity": {
+              "name": "Rhystic Study",
+              "setCode": "",
+              "collectorNumber": ""
+            }
+          },
+          {
+            "id": "source-2",
+            "zone": "battlefield",
+            "identity": {
+              "name": "Strionic Resonator",
+              "setCode": "",
+              "collectorNumber": ""
+            }
+          }
+        ],
+        "events": [
+          {
+            "origin": "native",
+            "sequence": 101,
+            "kind": "effect_enter",
+            "stage": "effect",
+            "api": "Draw",
+            "spanId": 12
+          },
+          {
+            "origin": "hub",
+            "sequence": 5,
+            "kind": "action_submitted",
+            "stage": "priority",
+            "seat": 1,
+            "automatic": true
+          }
+        ]
+      },
+      "completeness": {
+        "nativeEvidence": true,
+        "exitEvidence": true,
+        "omittedFrames": 0,
+        "omittedCauses": 0,
+        "omittedSpans": 0,
+        "omittedSources": 0,
+        "droppedEvents": 0,
+        "missing": []
+      }
+    }
+  }
+}

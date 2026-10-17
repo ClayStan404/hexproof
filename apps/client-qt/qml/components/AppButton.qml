@@ -16,6 +16,7 @@ Button {
                                          || variant === "ghost"
                                          || variant === "highlight"
 
+    onPressed: Theme.finishMotion()
     Accessible.role: Accessible.Button
     Accessible.name: accessibleName.length > 0
                      ? accessibleName

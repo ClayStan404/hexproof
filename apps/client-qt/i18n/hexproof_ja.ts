@@ -2401,7 +2401,7 @@
         <message>
             <location line="+2" />
             <source>Player hosting supports two-player formats, including Duel Commander.</source>
-            <translation>プレイヤーホスティングは、デュエル統率戦を含む 2 人用フォーマットに対応しています。</translation>
+            <translation type="vanished">プレイヤーホスティングは、デュエル統率戦を含む 2 人用フォーマットに対応しています。</translation>
         </message>
         <message>
             <location line="+2" />
@@ -4124,7 +4124,7 @@
         <message>
             <location line="+38" />
             <source>No emblems</source>
-            <translation>紋章はありません</translation>
+            <translation type="vanished">紋章はありません</translation>
         </message>
     </context>
     <context>
@@ -4233,6 +4233,16 @@
             <source>Library contents are hidden.</source>
             <translation>ライブラリーの内容は非公開です。</translation>
         </message>
+        <message>
+            <location line="+411" />
+            <source>%1 tapped</source>
+            <translation>タップ状態 %1</translation>
+        </message>
+        <message>
+            <location line="+1" />
+            <source>%1 new</source>
+            <translation>新規 %1</translation>
+        </message>
     </context>
     <context>
         <name>ForgeCombatInteraction</name>
@@ -4275,6 +4285,11 @@
             <location line="+2" />
             <source>Must be blocked if able</source>
             <translation>可能ならブロックされなければなりません</translation>
+        </message>
+        <message>
+            <location filename="../qml/components/ForgeCombatInteraction.qml" line="163"/>
+            <source>Choose a creature to block this</source>
+            <translation>これをブロックするクリーチャーを選択</translation>
         </message>
     </context>
     <context>
@@ -4357,73 +4372,73 @@
         <message>
             <location line="+57" />
             <source>+%1 · %2</source>
-            <translation>+%1 · %2</translation>
+            <translation type="vanished">+%1 · %2</translation>
         </message>
         <message>
             <location line="+2" />
             <source>Hidden</source>
-            <translation>非公開</translation>
+            <translation type="vanished">非公開</translation>
         </message>
         <message>
             <location line="+10" />
             <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
-            <translation>統率者税は呪文のコストに上乗せされます。支払いは Forge が計算します。</translation>
+            <translation type="vanished">統率者税は呪文のコストに上乗せされます。支払いは Forge が計算します。</translation>
         </message>
         <message>
             <location line="+32" />
             <source>Untap</source>
-            <translation>アンタップ</translation>
+            <translation type="vanished">アンタップ</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Upkeep</source>
-            <translation>アップキープ</translation>
+            <translation type="vanished">アップキープ</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Draw</source>
-            <translation>ドロー</translation>
+            <translation type="vanished">ドロー</translation>
         </message>
         <message>
             <location line="+1" />
             <location line="+6" />
             <source>Main</source>
-            <translation>メイン</translation>
+            <translation type="vanished">メイン</translation>
         </message>
         <message>
             <location line="-5" />
             <source>Combat</source>
-            <translation>戦闘</translation>
+            <translation type="vanished">戦闘</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Attack</source>
-            <translation>攻撃</translation>
+            <translation type="vanished">攻撃</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Block</source>
-            <translation>ブロック</translation>
+            <translation type="vanished">ブロック</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Damage</source>
-            <translation>ダメージ</translation>
+            <translation type="vanished">ダメージ</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Combat end</source>
-            <translation>戦闘終了</translation>
+            <translation type="vanished">戦闘終了</translation>
         </message>
         <message>
             <location line="+2" />
             <source>End</source>
-            <translation>終了</translation>
+            <translation type="vanished">終了</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Cleanup</source>
-            <translation>クリーンアップ</translation>
+            <translation type="vanished">クリーンアップ</translation>
         </message>
         <message>
             <location line="+53" />
@@ -4480,7 +4495,22 @@
             <source>Turn %1 · %2</source>
             <translation>ターン %1 · %2</translation>
         </message>
-    </context>
+            <message>
+            <location line="+0" />
+            <source>Hide choice</source>
+            <translation>選択を隠す</translation>
+        </message>
+        <message>
+            <location line="+0" />
+            <source>Show choice</source>
+            <translation>選択を表示</translation>
+        </message>
+        <message>
+            <location line="+0" />
+            <source>Queued mana was cleared</source>
+            <translation>予約したマナは取り消されました</translation>
+        </message>
+</context>
     <context>
         <name>ForgeHand</name>
         <message>
@@ -6543,7 +6573,7 @@
         <message>
             <location line="+1" />
             <source>The Forge decision is stale or no longer available</source>
-            <translation>その Forge の判断は期限切れか、すでに利用できません</translation>
+            <translation type="vanished">その Forge の判断は期限切れか、すでに利用できません</translation>
         </message>
         <message>
             <location line="+1" />
@@ -6716,6 +6746,11 @@
             <translation>承認の有効期限が切れた</translation>
         </message>
         <message>
+            <location line="+1"/>
+            <source>The action could not be sent. Check the connection and try again.</source>
+            <translation>操作を送信できませんでした。接続を確認して、もう一度お試しください。</translation>
+        </message>
+        <message>
             <location line="+1" />
             <source>Connection timed out</source>
             <translation>接続がタイムアウトした</translation>
@@ -6734,6 +6769,32 @@
             <location line="+1" />
             <source>Incompatible protocol</source>
             <translation>プロトコルに互換性がない</translation>
+        </message>
+        <message>
+            <location filename="../qml/screens/CreateRoom.qml" line="341"/>
+            <location filename="../qml/screens/TournamentCreate.qml" line="408"/>
+            <source>25-minute action clock</source>
+            <translation>1人25分の操作タイマー</translation>
+        </message>
+        <message>
+            <location filename="../qml/screens/CreateRoom.qml" line="349"/>
+            <location filename="../qml/screens/TournamentCreate.qml" line="416"/>
+            <source>Each player has 25 minutes for the whole match. Time runs while a decision is waiting for that player; reaching zero loses the match.</source>
+            <translation>各プレイヤーの持ち時間はマッチ全体で25分です。そのプレイヤーの判断を待っている間に時間が減り、ゼロになるとマッチに敗北します。</translation>
+        </message>
+        <message>
+            <location filename="../qml/components/I18n.qml" line="10"/>
+            <source>Action clock · 25 minutes per player</source>
+            <translation>操作タイマー · 1人25分</translation>
+        </message>
+        <message>
+            <location filename="../qml/components/I18n.qml" line="10"/>
+            <source>Action clock · Off</source>
+            <translation>操作タイマー · オフ</translation>
+        </message>
+        <message>
+            <source>Forge could not accept this decision. Review the current choices and try again.</source>
+            <translation>Forge はこの選択を受け付けられませんでした。現在の選択肢を確認して、もう一度お試しください。</translation>
         </message>
     </context>
     <context>
@@ -7873,6 +7934,10 @@ Magicをプレイ。</translation>
             <source>Leave the current room first</source>
             <translation>先に現在のルームから退出してください</translation>
         </message>
+        <message>
+            <source>Forge crash reports</source>
+            <translation>Forge クラッシュレポート</translation>
+        </message>
     </context>
     <context>
         <name>MatchLoading</name>
@@ -8151,7 +8216,11 @@ Magicをプレイ。</translation>
         </message>
     </context>
     <context>
-        <name>PackOpeningOverlay</name>
+    <name>PackOpeningOverlay</name>
+    <message>
+        <source>Inspect %1</source>
+        <translation>%1 を確認</translation>
+    </message>
         <message>
             <location filename="../qml/components/PackOpeningOverlay.qml" line="+76" />
             <source>Mythic rare</source>
@@ -8301,12 +8370,12 @@ Magicをプレイ。</translation>
         <message>
             <location line="+89" />
             <source>Could not load this card image.</source>
-            <translation>このカード画像を読み込めませんでした。</translation>
+            <translation type="vanished">このカード画像を読み込めませんでした。</translation>
         </message>
         <message>
             <location line="+1" />
             <source>No card image is available for this version.</source>
-            <translation>このバージョンには利用可能なカード画像がありません。</translation>
+            <translation type="vanished">このバージョンには利用可能なカード画像がありません。</translation>
         </message>
         <message>
             <location line="+27" />
@@ -8828,6 +8897,10 @@ Magicをプレイ。</translation>
             <source>No cards match this filter</source>
             <translation>このフィルターに一致するカードがありません</translation>
         </message>
+        <message>
+            <source>Showing %1 of %2 card</source>
+            <translation>%2 枚中 %1 枚を表示</translation>
+        </message>
     </context>
     <context>
         <name>RulesCardChoiceDialog</name>
@@ -8839,7 +8912,7 @@ Magicをプレイ。</translation>
         <message>
             <location line="+22" />
             <source>You may reveal it from your opening hand, or leave it there.</source>
-            <translation>初期手札からこのカードを公開することも、そのまま手札に残しておくこともできます。</translation>
+            <translation type="vanished">初期手札からこのカードを公開することも、そのまま手札に残しておくこともできます。</translation>
         </message>
         <message>
             <location line="+62" />
@@ -8850,6 +8923,10 @@ Magicをプレイ。</translation>
             <location line="+9" />
             <source>Use it</source>
             <translation>使用する</translation>
+        </message>
+        <message>
+            <source>Use this card's opening ability, or leave it in your hand.</source>
+            <translation>このカードのゲーム開始時の能力を使うか、手札に残します。</translation>
         </message>
     </context>
     <context>
@@ -9234,11 +9311,6 @@ Magicをプレイ。</translation>
             <translation>クリーチャーを選択してから、攻撃するプレイヤーまたは永久物を選択してください。</translation>
         </message>
         <message>
-            <location line="+1" />
-            <source>Select a blocking creature, then the attacking creature.</source>
-            <translation>ブロッククリーチャーを選択してから、攻撃クリーチャーを選択してください。</translation>
-        </message>
-        <message>
             <location line="+15" />
             <source>Cancel selection</source>
             <translation>選択をキャンセル</translation>
@@ -9269,6 +9341,11 @@ Magicをプレイ。</translation>
             <translation>ブロッククリーチャー %1 体を割り当て済み</translation>
         </message>
         <message>
+            <location line="+0" />
+            <source>Attack with all</source>
+            <translation>すべてで攻撃</translation>
+        </message>
+        <message>
             <location line="+12" />
             <source>Declare attackers</source>
             <translation>攻撃クリーチャー指定</translation>
@@ -9287,6 +9364,29 @@ Magicをプレイ。</translation>
             <location line="+1" />
             <source>Resolve invalid combat assignments</source>
             <translation>無効な戦闘割り当てを修正してください</translation>
+        </message>
+        <message>
+            <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="443"/>
+            <source>Block with all</source>
+            <translation>すべてでブロック</translation>
+        </message>
+        <message>
+            <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="381"/>
+            <source>Choose a creature to block the selected attacker.</source>
+            <translation>選択した攻撃クリーチャーをブロックするクリーチャーを選択してください。</translation>
+        </message>
+        <message>
+            <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="382"/>
+            <source>Select a blocking creature, then the attacking creature. Or select an attacker first.</source>
+            <translation>ブロックするクリーチャーを選び、次に攻撃クリーチャーを選んでください。攻撃クリーチャーを先に選ぶこともできます。</translation>
+        </message>
+        <message>
+            <source>%1: %2 assigned; minimum %3.</source>
+            <translation>%1：ブロッカーを %2 体割り当て済み。最低 %3 体必要です。</translation>
+        </message>
+        <message>
+            <source>Remove these blocks in Assignment list, or clear assignments.</source>
+            <translation>割り当てリストでこれらのブロックを外すか、割り当てをクリアしてください。</translation>
         </message>
     </context>
     <context>
@@ -9470,6 +9570,10 @@ Magicをプレイ。</translation>
             <location line="+23" />
             <source>Confirm number</source>
             <translation>数字を確認</translation>
+        </message>
+        <message>
+            <source>Choose a number of at least %1</source>
+            <translation>%1 以上の数字を選択してください</translation>
         </message>
     </context>
     <context>
@@ -10141,7 +10245,7 @@ Magicをプレイ。</translation>
         <message>
             <location line="+1" />
             <source>Permanent</source>
-            <translation>永久物</translation>
+            <translation type="vanished">永久物</translation>
         </message>
         <message>
             <location line="+178" />
@@ -10177,6 +10281,10 @@ Magicをプレイ。</translation>
             <location line="+2" />
             <source>Choose a valid number of targets</source>
             <translation>有効な数の対象を選択してください</translation>
+        </message>
+        <message>
+            <source>Card</source>
+            <translation>カード</translation>
         </message>
     </context>
     <context>
@@ -10760,6 +10868,14 @@ Magicをプレイ。</translation>
             <location line="+28" />
             <source>First strike combat damage</source>
             <translation>先制攻撃の戦闘ダメージ</translation>
+        </message>
+        <message>
+            <source>Assign each blocker to the attackers it can legally block.</source>
+            <translation>各ブロック・クリーチャーに、適正にブロックできる攻撃クリーチャーを割り当ててください。</translation>
+        </message>
+        <message>
+            <source>Choose a permanent or spell with mana value at least 1</source>
+            <translation>マナ値が 1 以上のパーマネントか呪文を選択</translation>
         </message>
     </context>
     <context>
@@ -15395,6 +15511,14 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>Saved to deck library</source>
             <translation>デッキライブラリーに保存しました</translation>
         </message>
+        <message>
+            <source>%1 card remaining</source>
+            <translation>残り %1 枚</translation>
+        </message>
+        <message>
+            <source>%1 card</source>
+            <translation>%1 枚</translation>
+        </message>
     </context>
     <context>
         <name>UpdatesSettings</name>
@@ -16472,6 +16596,533 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Opening your room or event…</source>
         <translation>ルームまたはイベントに移動しています…</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeCrashReportPanel</name>
+    <message>
+        <source>Forge encountered an engine error.</source>
+        <translation>Forge のエンジンでエラーが発生しました。</translation>
+    </message>
+    <message>
+        <source>Forge reported a resource error.</source>
+        <translation>Forge がリソースエラーを報告しました。</translation>
+    </message>
+    <message>
+        <source>An engine operation timed out.</source>
+        <translation>エンジンの処理がタイムアウトしました。</translation>
+    </message>
+    <message>
+        <source>Engine communication or game state became invalid.</source>
+        <translation>エンジンの通信またはゲーム状態に異常が発生しました。</translation>
+    </message>
+    <message>
+        <source>The Forge process stopped. The exact cause may be unknown.</source>
+        <translation>Forge のプロセスが停止しました。詳しい原因は不明な場合があります。</translation>
+    </message>
+    <message>
+        <source>The hosting connection was lost.</source>
+        <translation>ホストとの接続が切れました。</translation>
+    </message>
+    <message>
+        <source>This report has expired or is no longer available.</source>
+        <translation>このレポートは期限切れか、利用できなくなりました。</translation>
+    </message>
+    <message>
+        <source>The report identifies the operation where the error was captured.</source>
+        <translation>エラーを検出した時点の処理が記録されています。</translation>
+    </message>
+    <message>
+        <source>An effect was resolving; the exact failing operation is unknown.</source>
+        <translation>効果の解決中でしたが、問題が起きた正確な処理は不明です。</translation>
+    </message>
+    <message>
+        <source>Only preceding public events are available; they do not establish the cause.</source>
+        <translation>直前の公開イベントのみが記録されており、原因は特定できません。</translation>
+    </message>
+    <message>
+        <source>No reliable failing operation or public card source was captured.</source>
+        <translation>問題の処理や公開された発生源のカードを確実に記録できませんでした。</translation>
+    </message>
+    <message>
+        <source>Report copied.</source>
+        <translation>レポートをコピーしました。</translation>
+    </message>
+    <message>
+        <source>Report saved.</source>
+        <translation>レポートを保存しました。</translation>
+    </message>
+    <message>
+        <source>Could not copy the report.</source>
+        <translation>レポートをコピーできませんでした。</translation>
+    </message>
+    <message>
+        <source>Could not save the report. Choose another location.</source>
+        <translation>レポートを保存できませんでした。別の場所を選択してください。</translation>
+    </message>
+    <message>
+        <source>A recorded card or effect is context, not proof that it alone caused the failure.</source>
+        <translation>記録されたカードや効果は状況を示すもので、それだけが原因であることを証明するものではありません。</translation>
+    </message>
+    <message>
+        <source>Public sources: %1</source>
+        <translation>公開された発生源：%1</translation>
+    </message>
+    <message>
+        <source>Collecting final process evidence…</source>
+        <translation>プロセスの最終情報を収集中…</translation>
+    </message>
+    <message>
+        <source>Some evidence is unavailable. Missing details do not establish the cause.</source>
+        <translation>一部の情報を取得できません。情報の欠落から原因を特定することはできません。</translation>
+    </message>
+    <message>
+        <source>Evidence collection finished.</source>
+        <translation>情報の収集が完了しました。</translation>
+    </message>
+    <message>
+        <source>Report ID: %1</source>
+        <translation>レポート ID：%1</translation>
+    </message>
+    <message>
+        <source>Local history could not be saved. Copy or save this report before closing the application.</source>
+        <translation>ローカル履歴を保存できませんでした。アプリを閉じる前に、このレポートをコピーするか別途保存してください。</translation>
+    </message>
+    <message>
+        <source>Copy report</source>
+        <translation>レポートをコピー</translation>
+    </message>
+    <message>
+        <source>Save report</source>
+        <translation>レポートを保存</translation>
+    </message>
+    <message>
+        <source>Save Forge crash report</source>
+        <translation>Forge クラッシュレポートを保存</translation>
+    </message>
+    <message>
+        <source>JSON report (*.json)</source>
+        <translation>JSON レポート (*.json)</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeCrashReportNotice</name>
+    <message>
+        <source>Forge stopped unexpectedly</source>
+        <translation>Forge が予期せず停止しました</translation>
+    </message>
+    <message>
+        <source>Hide details</source>
+        <translation>詳細を隠す</translation>
+    </message>
+    <message>
+        <source>Show details</source>
+        <translation>詳細を表示</translation>
+    </message>
+    <message>
+        <source>Dismiss</source>
+        <translation>閉じる</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeCrashReports</name>
+    <message>
+        <source>Back</source>
+        <translation>戻る</translation>
+    </message>
+    <message>
+        <source>Forge crash reports</source>
+        <translation>Forge クラッシュレポート</translation>
+    </message>
+    <message>
+        <source>Reports work offline and are kept for up to seven days, subject to storage limits. Nothing is uploaded automatically; send a copied or saved report to support when you choose.</source>
+        <translation>レポートはオフラインでも利用でき、保存容量の上限内で最大7日間保持されます。自動アップロードは行いません。必要に応じてコピーまたは保存したレポートをサポートに送信してください。</translation>
+    </message>
+    <message>
+        <source>No Forge crash reports.</source>
+        <translation>Forge クラッシュレポートはありません。</translation>
+    </message>
+</context>
+    <context>
+        <name>Feedback</name>
+        <message>
+            <source>Add hosting diagnostics</source>
+            <translation>ホスティング診断を追加</translation>
+        </message>
+        <message>
+            <source>Add image</source>
+            <translation>画像を追加</translation>
+        </message>
+        <message>
+            <source>Add the selected context to your current draft, or start a new one. Your existing text will be kept.</source>
+            <translation>選択した情報を現在の下書きに追加するか、新しい下書きを作成します。入力済みの文章は保持されます。</translation>
+        </message>
+        <message>
+            <source>Add to draft</source>
+            <translation>下書きに追加</translation>
+        </message>
+        <message>
+            <source>An earlier copy may already have reached support. The new draft will only be sent when you press Send.</source>
+            <translation>以前の内容は既にサポートに届いている可能性があります。新しい下書きは「送信」を押した場合のみ送信されます。</translation>
+        </message>
+        <message>
+            <source>Attach up to two images, one crash report and one hosting report.</source>
+            <translation>画像2枚、クラッシュ報告1件、ホスティング報告1件まで添付できます。</translation>
+        </message>
+        <message>
+            <source>Automatic retries ended. Check the receipt before sending another copy.</source>
+            <translation>自動再試行は終了しました。別のコピーを送る前に受付確認を行ってください。</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>キャンセル</translation>
+        </message>
+        <message>
+            <source>Check receipt</source>
+            <translation>受付確認</translation>
+        </message>
+        <message>
+            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
+            <translation>小さいPNGまたはJPEG画像を選んでください（最大2 MiB、1600万画素）。</translation>
+        </message>
+        <message>
+            <source>Choose an image</source>
+            <translation>画像を選択</translation>
+        </message>
+        <message>
+            <source>Choose crash report</source>
+            <translation>クラッシュ報告を選択</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>閉じる</translation>
+        </message>
+        <message>
+            <source>Contact email (optional)</source>
+            <translation>連絡先メール（任意）</translation>
+        </message>
+        <message>
+            <source>Copy receipt</source>
+            <translation>受付番号をコピー</translation>
+        </message>
+        <message>
+            <source>Could not copy the receipt.</source>
+            <translation>受付番号をコピーできませんでした。</translation>
+        </message>
+        <message>
+            <source>Could not export. Choose another location.</source>
+            <translation>書き出せませんでした。別の保存先を選んでください。</translation>
+        </message>
+        <message>
+            <source>Could not save locally. Check storage before sending.</source>
+            <translation>端末に保存できませんでした。送信前にストレージを確認してください。</translation>
+        </message>
+        <message>
+            <source>Create an editable copy to change this submission.</source>
+            <translation>この送信内容を変更するには、編集可能なコピーを作成してください。</translation>
+        </message>
+        <message>
+            <source>Create another draft?</source>
+            <translation>別の下書きを作成しますか？</translation>
+        </message>
+        <message>
+            <source>Create editable copy</source>
+            <translation>編集可能なコピーを作成</translation>
+        </message>
+        <message>
+            <source>Delete local feedback?</source>
+            <translation>端末のフィードバックを削除しますか？</translation>
+        </message>
+        <message>
+            <source>Delete locally</source>
+            <translation>端末から削除</translation>
+        </message>
+        <message>
+            <source>Describe the problem, what you did and what you expected.</source>
+            <translation>問題の内容、操作手順、期待した結果を記入してください。</translation>
+        </message>
+        <message>
+            <source>Draft</source>
+            <translation>下書き</translation>
+        </message>
+        <message>
+            <source>Draft saved</source>
+            <translation>下書きを保存しました</translation>
+        </message>
+        <message>
+            <source>Drafts and unreceived feedback stay on this device until you delete them. Received content is kept locally for up to 30 days; receipts for up to 90 days, subject to storage limits.</source>
+            <translation>下書きと未受領の内容は削除するまで端末に残ります。受領済みの内容は最大30日、受付情報は最大90日、保存容量の範囲で端末に保持されます。</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device until deleted. Text and images may contain private information.</source>
+            <translation>下書きは削除するまで端末に残ります。文章や画像には個人情報が含まれる場合があります。</translation>
+        </message>
+        <message>
+            <source>Empty draft</source>
+            <translation>空の下書き</translation>
+        </message>
+        <message>
+            <source>Enter a description of up to 8 KiB.</source>
+            <translation>8 KiB以内で内容を記入してください。</translation>
+        </message>
+        <message>
+            <source>Enter one valid contact email, or leave it empty.</source>
+            <translation>有効なメールアドレスを1つ入力するか、空欄にしてください。</translation>
+        </message>
+        <message>
+            <source>Export</source>
+            <translation>エクスポート</translation>
+        </message>
+        <message>
+            <source>Export feedback</source>
+            <translation>フィードバックを書き出す</translation>
+        </message>
+        <message>
+            <source>Feedback</source>
+            <translation>フィードバック</translation>
+        </message>
+        <message>
+            <source>Feedback exported.</source>
+            <translation>フィードバックを書き出しました。</translation>
+        </message>
+        <message>
+            <source>Feedback file (*.json)</source>
+            <translation>フィードバックファイル (*.json)</translation>
+        </message>
+        <message>
+            <source>Forge crash report</source>
+            <translation>Forgeクラッシュ報告</translation>
+        </message>
+        <message>
+            <source>Hide technical information</source>
+            <translation>技術情報を隠す</translation>
+        </message>
+        <message>
+            <source>Hosting diagnostics</source>
+            <translation>ホスティング診断</translation>
+        </message>
+        <message>
+            <source>Images (*.png *.jpg *.jpeg)</source>
+            <translation>画像 (*.png *.jpg *.jpeg)</translation>
+        </message>
+        <message>
+            <source>Keep working on this draft?</source>
+            <translation>この下書きを続けますか？</translation>
+        </message>
+        <message>
+            <source>Local feedback storage is full. Export or delete an older record.</source>
+            <translation>端末の保存容量がいっぱいです。古い記録を書き出すか削除してください。</translation>
+        </message>
+        <message>
+            <source>My feedback</source>
+            <translation>自分のフィードバック</translation>
+        </message>
+        <message>
+            <source>Needs attention</source>
+            <translation>対応が必要</translation>
+        </message>
+        <message>
+            <source>New draft</source>
+            <translation>新しい下書き</translation>
+        </message>
+        <message>
+            <source>New feedback</source>
+            <translation>新しいフィードバック</translation>
+        </message>
+        <message>
+            <source>No crash reports available.</source>
+            <translation>利用できるクラッシュ報告はありません。</translation>
+        </message>
+        <message>
+            <source>No feedback yet.</source>
+            <translation>フィードバックはまだありません。</translation>
+        </message>
+        <message>
+            <source>Older content has been removed from local storage. The receipt remains available.</source>
+            <translation>古い内容は端末から削除されました。受付情報は引き続き確認できます。</translation>
+        </message>
+        <message>
+            <source>Online feedback is unavailable. You can keep or export a draft.</source>
+            <translation>オンライン送信は利用できません。下書きの保存や書き出しは可能です。</translation>
+        </message>
+        <message>
+            <source>Other</source>
+            <translation>その他</translation>
+        </message>
+        <message>
+            <source>Paste image</source>
+            <translation>画像を貼り付け</translation>
+        </message>
+        <message>
+            <source>Please wait for the current operation.</source>
+            <translation>現在の処理が完了するまでお待ちください。</translation>
+        </message>
+        <message>
+            <source>Preview</source>
+            <translation>プレビュー</translation>
+        </message>
+        <message>
+            <source>Privacy</source>
+            <translation>プライバシー</translation>
+        </message>
+        <message>
+            <source>Problem</source>
+            <translation>問題</translation>
+        </message>
+        <message>
+            <source>Queued</source>
+            <translation>送信待ち</translation>
+        </message>
+        <message>
+            <source>Receipt copied.</source>
+            <translation>受付番号をコピーしました。</translation>
+        </message>
+        <message>
+            <source>Receipt unconfirmed</source>
+            <translation>受付未確認</translation>
+        </message>
+        <message>
+            <source>Receipt: %1</source>
+            <translation>受付番号：%1</translation>
+        </message>
+        <message>
+            <source>Received</source>
+            <translation>受領済み</translation>
+        </message>
+        <message>
+            <source>Remove</source>
+            <translation>削除</translation>
+        </message>
+        <message>
+            <source>Report this problem</source>
+            <translation>この問題を報告</translation>
+        </message>
+        <message>
+            <source>Retry saving</source>
+            <translation>保存を再試行</translation>
+        </message>
+        <message>
+            <source>Revision %1</source>
+            <translation>リビジョン %1</translation>
+        </message>
+        <message>
+            <source>Saving…</source>
+            <translation>保存中…</translation>
+        </message>
+        <message>
+            <source>Screenshot</source>
+            <translation>スクリーンショット</translation>
+        </message>
+        <message>
+            <source>Send feedback</source>
+            <translation>フィードバックを送信</translation>
+        </message>
+        <message>
+            <source>Send feedback with these diagnostics</source>
+            <translation>この診断を添えて報告</translation>
+        </message>
+        <message>
+            <source>Send privately to %1. After Send, retry automatically for up to seven days.</source>
+            <translation>%1に非公開で送信します。送信後は最大7日間自動で再試行します。</translation>
+        </message>
+        <message>
+            <source>Sending stopped. An earlier attempt may already have been received.</source>
+            <translation>送信を停止しました。以前の試行で既に受領されている可能性があります。</translation>
+        </message>
+        <message>
+            <source>Sending…</source>
+            <translation>送信中…</translation>
+        </message>
+        <message>
+            <source>Stop sending</source>
+            <translation>送信を停止</translation>
+        </message>
+        <message>
+            <source>Suggestion</source>
+            <translation>提案</translation>
+        </message>
+        <message>
+            <source>Support could not be reached. Your feedback remains saved locally.</source>
+            <translation>サポートに接続できませんでした。内容は端末に保存されています。</translation>
+        </message>
+        <message>
+            <source>Technical information</source>
+            <translation>技術情報</translation>
+        </message>
+        <message>
+            <source>The game and its clock continue while feedback is open.</source>
+            <translation>フィードバック画面を開いている間も対局と時計は進みます。</translation>
+        </message>
+        <message>
+            <source>The operation did not finish. Please try again.</source>
+            <translation>処理が完了しませんでした。もう一度お試しください。</translation>
+        </message>
+        <message>
+            <source>The receiver already has different content for this submission. Keep this record for reference.</source>
+            <translation>受付先にはこの送信IDで異なる内容が登録されています。確認のためこの記録を残してください。</translation>
+        </message>
+        <message>
+            <source>The receiver no longer retains this submission. It will not be sent again.</source>
+            <translation>受付先でこの内容は保存されていません。再送は行われません。</translation>
+        </message>
+        <message>
+            <source>The selected report is copied into this draft. Later changes will not replace it.</source>
+            <translation>選択した報告を下書きにコピーします。後の変更で置き換わることはありません。</translation>
+        </message>
+        <message>
+            <source>The support destination changed. Review an editable copy before sending again.</source>
+            <translation>サポートの送信先が変更されました。再送する前に編集可能なコピーを確認してください。</translation>
+        </message>
+        <message>
+            <source>The support response could not be verified. Keep this record and check its receipt later.</source>
+            <translation>サポートからの応答を確認できませんでした。記録を残し、後で受付確認を行ってください。</translation>
+        </message>
+        <message>
+            <source>This attachment or report format is not supported.</source>
+            <translation>この添付ファイルまたは報告形式には対応していません。</translation>
+        </message>
+        <message>
+            <source>This record is no longer available.</source>
+            <translation>この記録は利用できなくなりました。</translation>
+        </message>
+        <message>
+            <source>This stops future sending and removes the local record. An earlier attempt may already have been received. Server and mailbox copies are not deleted.</source>
+            <translation>今後の送信を停止し、端末の記録を削除します。以前の試行は既に届いている可能性があり、サーバーやメールのコピーは削除されません。</translation>
+        </message>
+        <message>
+            <source>Too many requests. Please try again later.</source>
+            <translation>リクエストが多すぎます。しばらくしてから再試行してください。</translation>
+        </message>
+        <message>
+            <source>What happened?</source>
+            <translation>何が起きましたか？</translation>
+        </message>
+        <message>
+            <source>Working…</source>
+            <translation>処理中…</translation>
+        </message>
+        <message>
+            <source>New Forge crash report available.</source>
+            <translation>新しい Forge クラッシュレポートがあります。</translation>
+        </message>
+        <message>
+            <source>Support keeps received content for up to 90 days. Confirmed spam or abuse may be removed sooner; see Privacy for mailbox and backup retention.</source>
+            <translation>サポートは受信した内容を最長90日間保管します。スパムや悪用と確認された内容は早期に削除される場合があります。メールとバックアップの保管期間はプライバシー情報をご確認ください。</translation>
+        </message>
+        <message>
+            <source>Received confirms storage by support. It does not confirm review or resolution.</source>
+            <translation>「受領済み」はサポートが内容を保存したことを示します。確認や解決の完了を示すものではありません。</translation>
+        </message>
+        <message>
+            <source>On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.</source>
+            <translation>この端末では、受信済みの内容は最長30日間、受領証は最長90日間保管されます。保存容量の制限も適用されます。</translation>
+        </message>
+    </context>
+<context>
+    <name>RulesCardHoverPreview</name>
+    <message>
+        <source>Inspect card</source>
+        <translation>カードを確認</translation>
     </message>
 </context>
 </TS>

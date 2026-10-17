@@ -239,10 +239,8 @@ void ForgeHostService::clearCache()
         launch({u"--clear-cache"_s});
 }
 
-bool ForgeHostService::exportDiagnostics(const QUrl &destination) const
+QJsonObject ForgeHostService::buildDiagnosticsReport() const
 {
-    if (!destination.isLocalFile() || destination.toLocalFile().isEmpty())
-        return false;
     // Deliberate allowlist: never serialize grants, URLs, paths, user names,
     // engine publications, decks, or the helper's raw stdout/stderr.
     QJsonObject report = m_diagnostics.report(runtimeDirectory());
@@ -258,8 +256,20 @@ bool ForgeHostService::exportDiagnostics(const QUrl &destination) const
     report.insert(u"transport"_s, m_transportState);
     report.insert(u"directDecisions"_s, m_directDecisions);
     report.insert(u"relayFallbacks"_s, m_transportFallbacks);
+    return report;
+}
+
+QVariantMap ForgeHostService::diagnosticsReport() const
+{
+    return buildDiagnosticsReport().toVariantMap();
+}
+
+bool ForgeHostService::exportDiagnostics(const QUrl &destination) const
+{
+    if (!destination.isLocalFile() || destination.toLocalFile().isEmpty())
+        return false;
     QSaveFile file(destination.toLocalFile());
-    const QByteArray data = QJsonDocument(report).toJson();
+    const QByteArray data = QJsonDocument(buildDiagnosticsReport()).toJson();
     return file.open(QIODevice::WriteOnly) && file.write(data) == data.size() && file.commit();
 }
 

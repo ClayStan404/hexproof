@@ -3,10 +3,560 @@
 
 #include "cardcatalog_test.h"
 
+#include "services/CardArtArchive.h"
 #include "services/CardArtCache.h"
+#include "services/CardArtManager.h"
 #include "services/CardImageProvider.h"
 
 using hexproof::client::CardImageProvider;
+
+namespace {
+
+QJsonObject independentFaceFixture(const QString &layout = u"transform"_s,
+                                   const QString &front = u"Front"_s,
+                                   const QString &back = u"Back"_s,
+                                   const QString &collector = u"7"_s)
+{
+    return {{u"id"_s, u"62c3e909-ae90-49c4-b60e-f4f58695f32f"_s},
+            {u"name"_s, front + u" // "_s + back},
+            {u"layout"_s, layout},
+            {u"set"_s, u"TST"_s},
+            {u"collector_number"_s, collector},
+            {u"card_faces"_s,
+             QJsonArray{
+                 QJsonObject{{u"name"_s, front},
+                             {u"type_line"_s, u"Creature"_s},
+                             {u"oracle_text"_s, u"Front rules"_s},
+                             {u"image_uris"_s,
+                              QJsonObject{{u"normal"_s, u"https://faces.test/front.png"_s}}}},
+                 QJsonObject{{u"name"_s, back},
+                             {u"type_line"_s, u"Land"_s},
+                             {u"oracle_text"_s, u"Back rules"_s},
+                             {u"image_uris"_s,
+                              QJsonObject{{u"normal"_s, u"https://faces.test/back.png"_s}}}},
+             }}};
+}
+
+class FaceMetadataNetwork final : public QNetworkAccessManager
+{
+  public:
+    QHash<QString, QJsonObject> cards;
+    QList<QUrl> requests;
+    QByteArray image;
+    int inFlight = 0;
+    int maximumInFlight = 0;
+    int metadataDelayMs = 0;
+
+  protected:
+    QNetworkReply *createRequest(Operation, const QNetworkRequest &request, QIODevice *) override
+    {
+        requests.append(request.url());
+        ++inFlight;
+        maximumInFlight = qMax(maximumInFlight, inFlight);
+        QNetworkReply *reply = nullptr;
+        if (request.url().host() == u"api.scryfall.com"_s && cards.contains(request.url().path()))
+            reply = new StaticNetworkReply(
+                request, QJsonDocument(cards.value(request.url().path())).toJson(),
+                "application/json", this, 200, QNetworkReply::NoError, metadataDelayMs);
+        else if (request.url().host() == u"faces.test"_s && !image.isEmpty())
+            reply = new StaticNetworkReply(request, image, "image/png", this);
+        else
+            reply = new StaticNetworkReply(request, "{}", "application/json", this, 404,
+                                           QNetworkReply::ContentNotFoundError);
+        connect(reply, &QNetworkReply::finished, this, [this]() { --inFlight; });
+        return reply;
+    }
+};
+
+bool saveLegacyFaceArt(const QString &root, const QString &name = u"Front // Back"_s,
+                       const QString &collector = u"7"_s)
+{
+    QImage image(4, 4, QImage::Format_RGB32);
+    image.fill(Qt::red);
+    const QString path = QDir(root).filePath(u"front-"_s + collector + u".png"_s);
+    if (!image.save(path))
+        return false;
+    hexproof::client::CardArtCache cache(root);
+    cache.load();
+    hexproof::client::CardRecord record;
+    record.name = name;
+    record.requestedName = name;
+    record.setCode = u"TST"_s;
+    record.collectorNumber = collector;
+    record.imageLanguage = u"en"_s;
+    record.imagePath = path;
+    record.imageUrl = u"https://faces.test/front.png"_s;
+    record.resolutionVersion = kCardResolutionVersion;
+    cache.rememberSuccess(cache.key(name, u"en"_s, u"TST"_s, collector), record);
+    return cache.save();
+}
+
+} // namespace
+
+void TestCardCatalog::cachedFacesPreserveProviderEvidence_data() const
+{
+    QTest::addColumn<QString>("layout");
+    QTest::addColumn<bool>("independent");
+    for (const QString &layout :
+         {u"transform"_s, u"modal_dfc"_s, u"double_faced_token"_s, u"reversible_card"_s})
+        QTest::newRow(qPrintable(layout)) << layout << true;
+    for (const QString &layout :
+         {u"split"_s, u"adventure"_s, u"prepare"_s, u"flip"_s, u"normal"_s, QString{}})
+        QTest::newRow(qPrintable(layout.isEmpty() ? u"legacy-unknown"_s : layout))
+            << layout << false;
+}
+
+void TestCardCatalog::cachedFacesPreserveProviderEvidence() const
+{
+    QFETCH(QString, layout);
+    QFETCH(bool, independent);
+    const auto record =
+        CardCatalog::parseCardObject(independentFaceFixture(layout), u"en"_s, u"Front // Back"_s);
+    QCOMPARE(record.independentFaces.size(), independent ? 2 : 0);
+    QCOMPARE(record.faceMetadataChecked, !layout.isEmpty());
+    const auto roundTrip = hexproof::client::catalog_internal::recordFromJson(
+        hexproof::client::catalog_internal::recordToJson(record));
+    QCOMPARE(roundTrip.layout, layout);
+    QCOMPARE(roundTrip.independentFaces, record.independentFaces);
+    QCOMPARE(roundTrip.printingId, record.printingId);
+    if (independent) {
+        QCOMPARE(roundTrip.independentFaces.at(1).toMap().value(u"name"_s).toString(), u"Back"_s);
+        QCOMPARE(roundTrip.independentFaces.at(1).toMap().value(u"collectorNumber"_s).toString(),
+                 u"7"_s);
+    }
+    auto sameNamed = independentFaceFixture(u"double_faced_token"_s, u"Goblin"_s, u"Goblin"_s);
+    const auto tokenFront = CardCatalog::parseCardObject(sameNamed, u"en"_s, u"Goblin // Goblin"_s);
+    const auto tokenBack = CardCatalog::parseCardObject(sameNamed, u"en"_s, u"Goblin"_s);
+    QCOMPARE(tokenFront.independentFaces.first().toMap().value(u"name"_s).toString(),
+             u"Goblin // Goblin"_s);
+    QCOMPARE(tokenFront.independentFaces.last().toMap().value(u"name"_s).toString(), u"Goblin"_s);
+    QCOMPARE(tokenFront.imageUrl, u"https://faces.test/front.png"_s);
+    QCOMPARE(tokenBack.imageUrl, u"https://faces.test/back.png"_s);
+    QCOMPARE(tokenBack.oracleText, u"Back rules"_s);
+}
+
+void TestCardCatalog::cachedFacesWorkWithoutDatabase() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const auto record =
+        CardCatalog::parseCardObject(independentFaceFixture(), u"en"_s, u"Front // Back"_s);
+    {
+        hexproof::client::CardArtCache cache(storage.path());
+        cache.rememberSuccess(cache.key(record.name, u"en"_s, u"TST"_s, u"7"_s), record);
+        QVERIFY(cache.save());
+    }
+    FaceMetadataNetwork network;
+    CardCatalog catalog(storage.path(), &network);
+    QVERIFY(!catalog.installed());
+    const auto faces = catalog.cardFaces(u"Front"_s, u"tst"_s, u"7"_s);
+    QCOMPARE(faces.size(), 2);
+    QCOMPARE(catalog.cardFaces(u"Back"_s, u"TST"_s, u"7"_s), faces);
+    QVERIFY(catalog.cardFaces(u"Front // Back"_s, u"OTHER"_s, u"7"_s).isEmpty());
+    QVERIFY(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"8"_s).isEmpty());
+    QVERIFY(catalog.cardFaces(u"Different"_s, u"TST"_s, u"7"_s).isEmpty());
+    QVERIFY(catalog.cardFaces(u"Front // Back"_s, {}, {}).isEmpty());
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.cardFaces(u"Front"_s, u"TST"_s, u"7"_s), faces);
+    catalog.prepareCardFacePreview(u"Front"_s, u"TST"_s, u"7"_s);
+    QVERIFY(network.requests.isEmpty());
+    QVERIFY(catalog.imageSource(u"Back"_s, u"TST"_s, u"7"_s).isEmpty());
+}
+
+void TestCardCatalog::legacyFacePreviewRefreshIsBoundedAndPreservesArt() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(saveLegacyFaceArt(storage.path()));
+    FaceMetadataNetwork network;
+    network.cards.insert(u"/cards/tst/7"_s, independentFaceFixture());
+    CardCatalog catalog(storage.path(), &network);
+    const QString original = catalog.imageSource(u"Front // Back"_s, u"TST"_s, u"7"_s);
+    QVERIFY(!original.isEmpty());
+    QVERIFY(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"7"_s).isEmpty());
+    QVERIFY(network.requests.isEmpty());
+    const QVariantMap card{
+        {u"name"_s, u"Front // Back"_s}, {u"setCode"_s, u"TST"_s}, {u"collectorNumber"_s, u"7"_s}};
+    catalog.cacheCards({card});
+    catalog.prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"7"_s);
+    QTRY_COMPARE(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"7"_s).size(), 2);
+    QCOMPARE(network.requests.size(), 1);
+    QCOMPARE(catalog.imageSource(u"Front // Back"_s, u"TST"_s, u"7"_s), original);
+    QVERIFY(catalog.imageSource(u"Back"_s, u"TST"_s, u"7"_s).isEmpty());
+    for (int count = 0; count < 4; ++count)
+        catalog.prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"7"_s);
+    QCOMPARE(network.requests.size(), 1);
+
+    QTemporaryDir ordinary;
+    QVERIFY(saveLegacyFaceArt(ordinary.path(), u"Front // Back"_s, u"8"_s));
+    network.cards.insert(u"/cards/tst/8"_s,
+                         independentFaceFixture(u"prepare"_s, u"Front"_s, u"Back"_s, u"8"_s));
+    CardCatalog single(ordinary.path(), &network);
+    single.prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"8"_s);
+    QTRY_COMPARE(network.requests.size(), 2);
+    QTRY_VERIFY(single.imageRevision() > 0);
+    QVERIFY(single.cardFaces(u"Front // Back"_s, u"TST"_s, u"8"_s).isEmpty());
+    single.prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"8"_s);
+    QCOMPARE(network.requests.size(), 2);
+
+    QTemporaryDir failed;
+    QVERIFY(saveLegacyFaceArt(failed.path(), u"Front // Back"_s, u"9"_s));
+    CardCatalog offline(failed.path(), &network);
+    offline.prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"9"_s);
+    QTRY_COMPARE(network.requests.size(), 3);
+    QTest::qWait(1);
+    offline.prepareCardFacePreview(u"Back"_s, u"TST"_s, u"9"_s);
+    QCOMPARE(network.requests.size(), 3);
+    QVERIFY(offline.cardFaces(u"Front // Back"_s, u"TST"_s, u"9"_s).isEmpty());
+}
+
+void TestCardCatalog::ordinaryLegacyCacheHitsStayLocalUntilExplicitInspection() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(saveLegacyFaceArt(storage.path(), u"Island"_s));
+    FaceMetadataNetwork network;
+    network.cards.insert(u"/cards/tst/7"_s, QJsonObject{{u"name"_s, u"Island"_s},
+                                                        {u"layout"_s, u"normal"_s},
+                                                        {u"set"_s, u"TST"_s},
+                                                        {u"collector_number"_s, u"7"_s}});
+    CardCatalog catalog(storage.path(), &network);
+    const int revision = catalog.imageRevision();
+    const QString original = catalog.imageSource(u"Island"_s, u"TST"_s, u"7"_s);
+    QVERIFY(!original.isEmpty());
+    const QVariantMap card{
+        {u"name"_s, u"Island"_s}, {u"setCode"_s, u"TST"_s}, {u"collectorNumber"_s, u"7"_s}};
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    catalog.cacheCards({card});
+    QTRY_COMPARE(completed.count(), 1);
+    catalog.cacheCards({card});
+    QTRY_COMPARE(completed.count(), 2);
+    QVERIFY(network.requests.isEmpty());
+    QCOMPARE(catalog.imageRevision(), revision);
+    QCOMPARE(catalog.imageSource(u"Island"_s, u"TST"_s, u"7"_s), original);
+    catalog.prepareCardFacePreview(u"Island"_s, u"TST"_s, u"7"_s);
+    QTRY_VERIFY(catalog.imageRevision() > revision);
+    QCOMPARE(network.requests.size(), 1);
+    QVERIFY(catalog.cardFaces(u"Island"_s, u"TST"_s, u"7"_s).isEmpty());
+    catalog.prepareCardFacePreview(u"Island"_s, u"TST"_s, u"7"_s);
+    QCOMPARE(network.requests.size(), 1);
+    QCOMPARE(catalog.imageSource(u"Island"_s, u"TST"_s, u"7"_s), original);
+}
+
+void TestCardCatalog::faceMetadataProbesAreSerialAndStopOnDestruction() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(saveLegacyFaceArt(storage.path()));
+    QVERIFY(saveLegacyFaceArt(storage.path(), u"Front // Back"_s, u"8"_s));
+    FaceMetadataNetwork network;
+    network.cards.insert(u"/cards/tst/7"_s, independentFaceFixture());
+    network.cards.insert(u"/cards/tst/8"_s,
+                         independentFaceFixture(u"transform"_s, u"Front"_s, u"Back"_s, u"8"_s));
+    CardCatalog catalog(storage.path(), &network);
+    catalog.cacheCards({QVariantMap{{u"name"_s, u"Front // Back"_s},
+                                    {u"setCode"_s, u"TST"_s},
+                                    {u"collectorNumber"_s, u"7"_s}},
+                        QVariantMap{{u"name"_s, u"Front // Back"_s},
+                                    {u"setCode"_s, u"TST"_s},
+                                    {u"collectorNumber"_s, u"8"_s}}});
+    QTRY_COMPARE(network.requests.size(), 1);
+    QTRY_COMPARE(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"7"_s).size(), 2);
+    QTest::qWait(40);
+    QCOMPARE(network.requests.size(), 1);
+    QTRY_COMPARE(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"8"_s).size(), 2);
+    QCOMPARE(network.maximumInFlight, 1);
+
+    QTemporaryDir departed;
+    QVERIFY(saveLegacyFaceArt(departed.path()));
+    QVERIFY(saveLegacyFaceArt(departed.path(), u"Front // Back"_s, u"8"_s));
+    FaceMetadataNetwork shutdownNetwork;
+    shutdownNetwork.cards = network.cards;
+    auto shuttingDown = std::make_unique<CardCatalog>(departed.path(), &shutdownNetwork);
+    shuttingDown->prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"7"_s);
+    shuttingDown->prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"8"_s);
+    QCOMPARE(shutdownNetwork.requests.size(), 1);
+    shuttingDown.reset();
+    QTest::qWait(220);
+    QCOMPARE(shutdownNetwork.requests.size(), 1);
+    QCOMPARE(shutdownNetwork.inFlight, 0);
+}
+
+void TestCardCatalog::faceMetadataProbesRespectArtMaintenance() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(saveLegacyFaceArt(storage.path()));
+    FaceMetadataNetwork network;
+    network.metadataDelayMs = 100;
+    network.cards.insert(u"/cards/tst/7"_s, independentFaceFixture());
+    CardCatalog catalog(storage.path(), &network);
+    auto *manager = catalog.artManager();
+    manager->refresh();
+    QVERIFY(manager->busy());
+    catalog.prepareCardFacePreview(u"Front // Back"_s, u"TST"_s, u"7"_s);
+    QVERIFY(network.requests.isEmpty());
+    QTRY_COMPARE(network.requests.size(), 1);
+    QCOMPARE(network.inFlight, 1);
+    QVERIFY(!manager->busy());
+    manager->removeSelection(false);
+    QVERIFY(!manager->busy());
+    QVERIFY(!manager->lastError().isEmpty());
+    QVERIFY(!catalog.imageSource(u"Front // Back"_s, u"TST"_s, u"7"_s).isEmpty());
+    QTRY_COMPARE(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"7"_s).size(), 2);
+    QTest::qWait(170);
+    manager->removeSelection(false);
+    QVERIFY2(manager->busy(), qPrintable(manager->lastError()));
+    QTRY_VERIFY(!manager->busy());
+    QVERIFY(catalog.imageSource(u"Front // Back"_s, u"TST"_s, u"7"_s).isEmpty());
+    QTest::qWait(170);
+    QVERIFY(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"7"_s).isEmpty());
+    QCOMPARE(network.requests.size(), 1);
+}
+
+void TestCardCatalog::cachedFacesFillDatabaseMisses() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const auto record =
+        CardCatalog::parseCardObject(independentFaceFixture(), u"en"_s, u"Front // Back"_s);
+    {
+        hexproof::client::CardArtCache cache(storage.path());
+        cache.rememberSuccess(cache.key(record.name, u"en"_s, u"TST"_s, u"7"_s), record);
+        QVERIFY(cache.save());
+    }
+    const QString source = storage.filePath(u"ordinary.json"_s);
+    QFile file(source);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(QJsonDocument(QJsonArray{QJsonObject{{u"id"_s, u"ordinary-id"_s},
+                                                    {u"name"_s, u"Ordinary"_s},
+                                                    {u"layout"_s, u"normal"_s},
+                                                    {u"set"_s, u"TST"_s},
+                                                    {u"collector_number"_s, u"99"_s}}})
+                   .toJson());
+    file.close();
+    const auto imported = CardCatalog::importBulkFile(source, storage.filePath(u"cards.sqlite"_s),
+                                                      u"default_cards"_s);
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+    FaceMetadataNetwork network;
+    CardCatalog catalog(storage.path(), &network);
+    QVERIFY(catalog.installed());
+    QCOMPARE(catalog.cardFaces(u"Front // Back"_s, u"TST"_s, u"7"_s).size(), 2);
+    catalog.prepareCardFacePreview(u"Ordinary"_s, u"TST"_s, u"99"_s);
+    QVERIFY(network.requests.isEmpty());
+}
+
+void TestCardCatalog::cachedMeldFacesRequireRelatedPrintingEvidence() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString targetId = u"e195668b-4787-4b53-a69e-e75d9ce30000"_s;
+    const QJsonArray parts{QJsonObject{
+        {u"component"_s, u"meld_result"_s}, {u"id"_s, targetId}, {u"name"_s, u"Meld Result"_s}}};
+    const QJsonObject component{{u"id"_s, u"c195668b-4787-4b53-a69e-e75d9ce30000"_s},
+                                {u"name"_s, u"Meld Component"_s},
+                                {u"layout"_s, u"meld"_s},
+                                {u"set"_s, u"TST"_s},
+                                {u"collector_number"_s, u"7"_s},
+                                {u"all_parts"_s, parts}};
+    const QJsonObject result{
+        {u"id"_s, targetId},  {u"name"_s, u"Meld Result"_s},    {u"layout"_s, u"meld"_s},
+        {u"set"_s, u"TST"_s}, {u"collector_number"_s, u"99"_s}, {u"all_parts"_s, parts}};
+    {
+        hexproof::client::CardArtCache cache(storage.path());
+        auto record = CardCatalog::parseCardObject(component, u"en"_s, u"Meld Component"_s);
+        cache.rememberSuccess(cache.key(record.name, u"en"_s, u"TST"_s, u"7"_s), record);
+        auto impostor = result;
+        impostor.insert(u"id"_s, u"different-printing-id"_s);
+        record = CardCatalog::parseCardObject(impostor, u"en"_s, u"Meld Result"_s);
+        cache.rememberSuccess(cache.key(record.name, u"en"_s, u"TST"_s, u"99"_s), record);
+        QVERIFY(cache.save());
+    }
+    FaceMetadataNetwork network;
+    network.cards.insert(u"/cards/"_s + targetId, result);
+    CardCatalog catalog(storage.path(), &network);
+    QVERIFY(catalog.cardFaces(u"Meld Component"_s, u"TST"_s, u"7"_s).isEmpty());
+    catalog.prepareCardFacePreview(u"Meld Component"_s, u"TST"_s, u"7"_s);
+    QTRY_COMPARE(catalog.cardFaces(u"Meld Component"_s, u"TST"_s, u"7"_s).size(), 2);
+    const auto back = catalog.cardFaces(u"Meld Component"_s, u"TST"_s, u"7"_s).last().toMap();
+    QCOMPARE(back.value(u"collectorNumber"_s).toString(), u"99"_s);
+    QVERIFY(back.value(u"relatedCard"_s).toBool());
+    QVERIFY(catalog.imageSource(u"Meld Result"_s, u"TST"_s, u"99"_s).isEmpty());
+    catalog.prepareCardFacePreview(u"Meld Component"_s, u"TST"_s, u"7"_s);
+    QCOMPARE(network.requests.size(), 1);
+}
+
+void TestCardCatalog::uncachedMeldResolutionHydratesRelatedPrinting_data() const
+{
+    QTest::addColumn<bool>("imageSucceeds");
+    QTest::newRow("art-completion") << true;
+    QTest::newRow("metadata-only-after-art-failure") << false;
+}
+
+void TestCardCatalog::uncachedMeldResolutionHydratesRelatedPrinting() const
+{
+    QFETCH(bool, imageSucceeds);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString targetId = u"e195668b-4787-4b53-a69e-e75d9ce30000"_s;
+    const QJsonArray parts{QJsonObject{
+        {u"component"_s, u"meld_result"_s}, {u"id"_s, targetId}, {u"name"_s, u"Meld Result"_s}}};
+    const QJsonObject component{
+        {u"id"_s, u"c195668b-4787-4b53-a69e-e75d9ce30000"_s},
+        {u"name"_s, u"Meld Component"_s},
+        {u"layout"_s, u"meld"_s},
+        {u"set"_s, u"TST"_s},
+        {u"collector_number"_s, u"7"_s},
+        {u"oracle_text"_s, u"Meld component rules"_s},
+        {u"image_uris"_s, QJsonObject{{u"normal"_s, u"https://faces.test/front.png"_s}}},
+        {u"all_parts"_s, parts}};
+    const QJsonObject result{
+        {u"id"_s, targetId},  {u"name"_s, u"Meld Result"_s},    {u"layout"_s, u"meld"_s},
+        {u"set"_s, u"TST"_s}, {u"collector_number"_s, u"99"_s}, {u"all_parts"_s, parts}};
+    FaceMetadataNetwork network;
+    network.cards.insert(u"/cards/tst/7"_s, component);
+    network.cards.insert(u"/cards/"_s + targetId, result);
+    if (imageSucceeds) {
+        QImage image(300, 420, QImage::Format_RGB32);
+        image.fill(Qt::green);
+        QBuffer buffer(&network.image);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "PNG"));
+    }
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setCardArtProvider(u"scryfall"_s);
+    catalog.prepareCardFacePreview(u"Meld Component"_s, u"TST"_s, u"7"_s);
+    QVERIFY(network.requests.isEmpty());
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    catalog.cacheCards({QVariantMap{{u"name"_s, u"Meld Component"_s},
+                                    {u"setCode"_s, u"TST"_s},
+                                    {u"collectorNumber"_s, u"7"_s}}});
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 10000);
+    QCOMPARE(completed.first().last().toBool(), imageSucceeds);
+    QTRY_COMPARE(catalog.cardFaces(u"Meld Component"_s, u"TST"_s, u"7"_s).size(), 2);
+    const auto back = catalog.cardFaces(u"Meld Component"_s, u"TST"_s, u"7"_s).last().toMap();
+    QCOMPARE(back.value(u"name"_s).toString(), u"Meld Result"_s);
+    QCOMPARE(back.value(u"collectorNumber"_s).toString(), u"99"_s);
+    QVERIFY(back.value(u"relatedCard"_s).toBool());
+    QCOMPARE(std::count_if(
+                 network.requests.cbegin(), network.requests.cend(),
+                 [&targetId](const QUrl &url) { return url.path() == u"/cards/"_s + targetId; }),
+             1);
+}
+
+void TestCardCatalog::legacySameNamedTokenReverseIsRefreshed_data() const
+{
+    QTest::addColumn<bool>("metadataProbe");
+    QTest::addColumn<bool>("imageSucceeds");
+    QTest::newRow("metadata-probe-then-cache") << true << true;
+    QTest::newRow("normal-cache-success") << false << true;
+    QTest::newRow("normal-cache-image-failure") << false << false;
+}
+
+void TestCardCatalog::legacySameNamedTokenReverseIsRefreshed() const
+{
+    QFETCH(bool, metadataProbe);
+    QFETCH(bool, imageSucceeds);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QVERIFY(saveLegacyFaceArt(storage.path(), u"Goblin // Goblin"_s));
+    {
+        hexproof::client::CardArtCache cache(storage.path());
+        cache.load();
+        auto legacy =
+            cache.exactRecord(cache.key(u"Goblin // Goblin"_s, u"en"_s, u"TST"_s, u"7"_s));
+        legacy.requestedName = u"Goblin"_s;
+        legacy.faceName = u"Goblin"_s;
+        legacy.typeLine = u"Creature"_s;
+        legacy.oracleText = u"Front rules"_s;
+        legacy.oracleTextLanguage = u"en"_s;
+        cache.rememberSuccess(cache.key(u"Goblin"_s, u"en"_s, u"TST"_s, u"7"_s), legacy);
+        QVERIFY(cache.save());
+    }
+    FaceMetadataNetwork network;
+    network.cards.insert(u"/cards/tst/7"_s,
+                         independentFaceFixture(u"double_faced_token"_s, u"Goblin"_s, u"Goblin"_s));
+    if (imageSucceeds) {
+        QImage image(300, 420, QImage::Format_RGB32);
+        image.fill(Qt::green);
+        QBuffer buffer(&network.image);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "PNG"));
+    }
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setCardArtProvider(u"scryfall"_s);
+    catalog.setReuseLocalCardArt(true);
+    const QString front = catalog.imageSource(u"Goblin // Goblin"_s, u"TST"_s, u"7"_s);
+    QVERIFY(!front.isEmpty());
+    QVERIFY(catalog.imageSource(u"Goblin"_s, u"TST"_s, u"7"_s).isEmpty());
+    QVERIFY(catalog.cardRulesText(u"Goblin"_s, u"TST"_s, u"7"_s).isEmpty());
+    if (metadataProbe) {
+        catalog.prepareCardFacePreview(u"Goblin"_s, u"TST"_s, u"7"_s);
+        QTRY_COMPARE(catalog.cardFaces(u"Goblin"_s, u"TST"_s, u"7"_s).size(), 2);
+        QVERIFY(catalog.imageSource(u"Goblin"_s, u"TST"_s, u"7"_s).isEmpty());
+        QCOMPARE(catalog.cardRulesText(u"Goblin"_s, u"TST"_s, u"7"_s), u"Back rules"_s);
+        QCOMPARE(network.requests.size(), 1);
+    }
+    QSignalSpy completed(&catalog, &CardCatalog::cardCacheFinished);
+    catalog.cacheCards({QVariantMap{
+        {u"name"_s, u"Goblin"_s}, {u"setCode"_s, u"TST"_s}, {u"collectorNumber"_s, u"7"_s}}});
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), metadataProbe ? 2 : 1, 10000);
+    QCOMPARE(completed.last().last().toBool(), imageSucceeds);
+    QTRY_COMPARE(catalog.cardFaces(u"Goblin"_s, u"TST"_s, u"7"_s).size(), 2);
+    QCOMPARE(catalog.cardRulesText(u"Goblin"_s, u"TST"_s, u"7"_s), u"Back rules"_s);
+    QCOMPARE(catalog.tokenDetails(u"Goblin"_s, u"TST"_s, u"7"_s).value(u"typeLine"_s).toString(),
+             u"Land"_s);
+    QCOMPARE(catalog.imageSource(u"Goblin"_s, u"TST"_s, u"7"_s).isEmpty(), !imageSucceeds);
+    QCOMPARE(catalog.imageSource(u"Goblin // Goblin"_s, u"TST"_s, u"7"_s), front);
+    QVERIFY(network.requests.contains(QUrl(u"https://faces.test/back.png"_s)));
+    QVERIFY(!network.requests.contains(QUrl(u"https://faces.test/front.png"_s)));
+}
+
+void TestCardCatalog::verifiedTokenBackImportReplacesAmbiguousLegacyArt() const
+{
+    QTemporaryDir source, destination, archive;
+    QVERIFY(source.isValid() && destination.isValid() && archive.isValid());
+    hexproof::client::CardArtCache incoming(source.path()), previous(destination.path());
+    QVERIFY(QDir().mkpath(incoming.imageRoot()));
+    QVERIFY(QDir().mkpath(previous.imageRoot()));
+    auto verified = CardCatalog::parseCardObject(
+        independentFaceFixture(u"double_faced_token"_s, u"Goblin"_s, u"Goblin"_s), u"en"_s,
+        u"Goblin"_s);
+    QImage correct(4, 4, QImage::Format_RGB32);
+    correct.fill(Qt::green);
+    verified.imagePath = QDir(incoming.imageRoot()).filePath(u"back.png"_s);
+    QVERIFY(correct.save(verified.imagePath));
+    verified.imageLanguage = u"en"_s;
+    verified.imageUrl = u"https://cards.scryfall.io/normal/back/token.png"_s;
+    verified.resolutionVersion = kCardResolutionVersion;
+    const QString key = incoming.key(u"Goblin"_s, u"en"_s, u"TST"_s, u"7"_s);
+    incoming.rememberSuccess(key, verified);
+    auto ambiguous = verified;
+    ambiguous.faceMetadataChecked = false;
+    ambiguous.independentFaces.clear();
+    ambiguous.imageUrl = u"https://faces.test/front.png"_s;
+    ambiguous.oracleText = u"Front rules"_s;
+    ambiguous.typeLine = u"Creature"_s;
+    ambiguous.imagePath = QDir(previous.imageRoot()).filePath(u"wrong-front.png"_s);
+    correct.fill(Qt::red);
+    QVERIFY(correct.save(ambiguous.imagePath));
+    previous.rememberSuccess(key, ambiguous);
+    const QString pack = archive.filePath(u"verified.hexproof-artpack"_s);
+    const auto exported = hexproof::client::cardart::exportPack(pack, incoming.imageRoot(),
+                                                                incoming.entries(), false, {}, {});
+    QVERIFY2(exported.ok, qPrintable(exported.error));
+    const auto imported =
+        hexproof::client::cardart::importPack(pack, previous.imageRoot(), previous.entries());
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+    QCOMPARE(imported.importedEntries.size(), 1);
+    const auto replaced = imported.importedEntries.first().record;
+    QVERIFY(replaced.faceMetadataChecked);
+    QCOMPARE(replaced.imageUrl, verified.imageUrl);
+    QCOMPARE(replaced.oracleText, u"Back rules"_s);
+    QVERIFY(replaced.imagePath != ambiguous.imagePath);
+    QImage restored(replaced.imagePath);
+    QCOMPARE(restored.pixelColor(0, 0), QColor(Qt::green));
+}
 
 void TestCardCatalog::initTestCase()
 {

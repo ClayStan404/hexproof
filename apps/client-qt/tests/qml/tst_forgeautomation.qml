@@ -49,7 +49,7 @@ TestCase {
             name:"Opening spell " + (++serial), typeLine:"Sorcery"}))
         const driver = {existingLimitedMatch:false,
             session:{gameId:"opening-" + (++serial), cardForInspection:id => cards.find(c => c.cardId === id)},
-            table:{presentation:{children:[{objectName:"forgeHand", visibleCards:cards}]}},
+            table:{presentation:{children:[{objectName:"forgeHand", visibleCards:cards, scrollArea:{}}]}},
             click:name => { clicks.push(name); return delivered }
         }
         Player.chooseOpeningHand(driver)

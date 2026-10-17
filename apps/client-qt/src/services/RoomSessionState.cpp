@@ -26,6 +26,13 @@ RoomSessionState::RoomSessionState(QObject *parent)
 
 void RoomSessionState::enter(const QString &roomId, const QString &role, int seatIndex, bool host)
 {
+    if (roomId != m_roomId || role != m_role || seatIndex != m_seatIndex) {
+        m_pendingDeckNames.clear();
+        if (!m_selectedDeckName.isEmpty()) {
+            m_selectedDeckName.clear();
+            emit selectedDeckNameChanged();
+        }
+    }
     m_roomId = roomId;
     m_role = role;
     m_seatIndex = seatIndex;
@@ -64,6 +71,8 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
         m_actionClockRunning = snapshot.value(u"actionClockRunning"_s).toInt(-1);
     for (const QJsonValue &value : snapshot.value(u"actionClockMs"_s).toArray())
         m_actionClockMs.append(value.toInteger());
+    m_actionClockEnabled =
+        snapshot.value(u"actionClockEnabled"_s).toBool(!m_actionClockMs.isEmpty());
 
     QVariantList seats;
     const QJsonArray seatArray = snapshot.value(u"seats"_s).toArray();
@@ -83,6 +92,22 @@ RoomSessionState::SnapshotTransition RoomSessionState::applySnapshot(const QJson
         });
     }
     m_seats = seats;
+
+    // Private room metadata restores an automatically applied tournament deck
+    // without depending on a previous process's local selection acknowledgement.
+    const bool ownDeckSelected =
+        m_role == kRolePlayer && m_seatIndex >= 0 && m_seatIndex < seatArray.size() &&
+        seatArray.at(m_seatIndex).toObject().value(u"occupied"_s).toBool() &&
+        seatArray.at(m_seatIndex).toObject().value(u"controller"_s).toString().isEmpty() &&
+        seatArray.at(m_seatIndex).toObject().value(u"deckSelected"_s).toBool();
+    const QString selectedName = !ownDeckSelected ? QString{}
+                                 : snapshot.contains(u"ownDeckName"_s)
+                                     ? snapshot.value(u"ownDeckName"_s).toString()
+                                     : m_selectedDeckName;
+    if (selectedName != m_selectedDeckName) {
+        m_selectedDeckName = selectedName;
+        emit selectedDeckNameChanged();
+    }
 
     const bool snapshotHost = m_role == kRolePlayer && m_seatIndex >= 0 &&
                               m_seatIndex < seatArray.size() &&
@@ -187,6 +212,7 @@ void RoomSessionState::clear()
     m_actionClockMs.clear();
     m_actionClockRunning = -1;
     m_announcedLoadId = 0;
+    m_actionClockEnabled = false;
     m_host = false;
     m_role.clear();
     m_seatIndex = -1;

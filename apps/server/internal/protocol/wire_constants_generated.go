@@ -147,6 +147,7 @@ const (
 	TypeRulesPrompt                    = "rules.prompt"
 	TypeRulesRespond                   = "rules.respond"
 	TypeRulesResponded                 = "rules.responded"
+	TypeRulesPriority                  = "rules.priority"
 	TypeGameDraw                       = "game.draw"
 	TypeGameDrawn                      = "game.drawn"
 	TypeGameShuffleLibrary             = "game.shuffle_library"

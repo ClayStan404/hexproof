@@ -64,7 +64,8 @@ func (r *Room) Reveal(connID string, request protocol.GameReveal) (Result, error
 	}
 	state.Hand = remaining
 	for _, card := range revealed {
-		r.putOwnedCard(state, seat, protocol.ZoneReveal, card)
+		ownerSeat := normalizedOwnerSeat(card, seat, len(r.Game.Seats))
+		r.putOwnedCard(state, ownerSeat, protocol.ZoneReveal, card)
 	}
 	r.appendGameLog("reveal", seat,
 		fmt.Sprintf("%s revealed %d card(s) from hand.", state.DisplayName, len(revealed)))
@@ -352,6 +353,9 @@ func (r *Room) searchLibrary(connID string, request protocol.GameSearchLibrary,
 		}
 		requested[cardID] = index
 		cardIDs[index] = cardID
+	}
+	if len(cardIDs) > len(sourceState.Library) {
+		return Result{}, newError(protocol.ErrCardNotFound)
 	}
 	selectedByID := make(map[string]protocol.GameCard, len(cardIDs))
 	remaining := make([]protocol.GameCard, 0, len(sourceState.Library)-len(cardIDs))

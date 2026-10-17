@@ -6,6 +6,8 @@
 var costs = {"Arc Trail":2, "Lightning Bolt":1, "Goblin Piker":2, "Borderland Marauder":2,
     "Hill Giant":4, "Falkenrath Reaver":2, "Counterspell":2, "Negate":2, "Cancel":3,
     "Air Elemental":5, "Wind Drake":3, "Watercourser":3}
+var counterGame = ""
+var counterAttempts = {}
 
 function deck(seat) {
     var cards = seat === 1 ? [
@@ -28,13 +30,68 @@ function complete(driver) {
     return seen.card && seen.player && seen.spell && seen.multiple
 }
 
-function castAllowed(driver, name) {
+function counterContext(driver, cardId) {
+    if (counterGame !== driver.session.gameId) {
+        counterGame = driver.session.gameId
+        counterAttempts = {}
+    }
+    return JSON.stringify({gameId:counterGame, turn:driver.session.turn, step:driver.session.step,
+        cardId:cardId, mana:driver.availableMana(), stack:driver.session.stackObjectIds().map(function(id) {
+            var object = driver.session.cardForInspection(id)
+            return [id, object.sourceId, object.controllerSeat, object.name, object.rulesText]
+        })})
+}
+
+function castAllowed(driver, name, cardId) {
     if (!["Counterspell", "Negate", "Cancel"].includes(name)) return true
-    return driver.session.stackObjectIds().some(function(id) {
-        var spell = driver.session.cardForInspection(id)
-        return spell.controllerSeat !== ws.roomSession.seatIndex && (name !== "Negate"
-            || ["Arc Trail", "Lightning Bolt", "Counterspell", "Negate", "Cancel"].includes(spell.name))
+    var candidate = driver.session.stackObjectIds().some(function(id) {
+        var object = driver.session.cardForInspection(id)
+        if (object.controllerSeat < 0 || object.controllerSeat === ws.roomSession.seatIndex) return false
+        // The public projection has no spell/ability flag. A visible source
+        // still outside the stack identifies an ability, such as an attack or
+        // ETB trigger. A missing source is inconclusive: real spell cards are
+        // absent from the ordinary zone models while they are on the stack.
+        var source = driver.session.cardForInspection(object.sourceId)
+        if (source.zone && source.zone !== "stack") return false
+        return name !== "Negate"
+            || ["Arc Trail", "Lightning Bolt", "Counterspell", "Negate", "Cancel"].includes(object.name)
     })
+    if (!candidate) return false
+    var context = counterContext(driver, cardId)
+    var attempt = counterAttempts[cardId]
+    if (!attempt || attempt.context !== context || attempt.count < 3
+        || Date.now() - attempt.started < 1000) return true
+    if (!attempt.reported) {
+        auditProbe.record("counterspell-no-progress-" + driver.session.promptId,
+            {reason:"no observable action progress", cardId:cardId, name:name,
+                attempts:attempt.count, priorPromptId:attempt.promptId, promptId:driver.session.promptId,
+                observation:JSON.parse(context),
+                limit:"Same observed turn, step, available mana and stack; this does not identify why the action did not progress."})
+        attempt.reported = true
+        driver.capture("counterspell-no-progress")
+    }
+    return false
+}
+
+function castCard(driver, option) {
+    var card = driver.session.cardForInspection(option.cardId)
+    if (!["Counterspell", "Negate", "Cancel"].includes(card.name)) return driver.cardAction(option)
+    // Capture before native input pumps events. Allow a picker to open and
+    // select an action, but bound retries even if the prompt ID never changes.
+    var context = counterContext(driver, option.cardId)
+    var promptId = driver.session.promptId
+    var previous = counterAttempts[option.cardId]
+    if (previous && previous.context === context && previous.count >= 3) return false
+    var accepted = driver.cardAction(option)
+    if (accepted) {
+        if (!previous || previous.context !== context)
+            counterAttempts[option.cardId] = {context:context, promptId:promptId, count:1, started:Date.now(), reported:false}
+        else {
+            previous.promptId = promptId
+            previous.count++
+        }
+    }
+    return accepted
 }
 
 function observe(driver) {
@@ -77,6 +134,8 @@ function observe(driver) {
 function chooseTarget(driver) {
     var interaction = driver.table.interaction
     if (interaction.selectedCount >= driver.session.promptMinSelections && interaction.validTargets) {
+        auditProbe.record("target-selection-" + driver.session.promptId,
+            {selectedIds:Object.keys(interaction.selectedTargetIds)})
         driver.click("rulesConfirmTargets"); return
     }
     var candidates = driver.session.boardTargetCandidates().filter(function(candidate) {
@@ -91,7 +150,16 @@ function chooseTarget(driver) {
     if (!target) target = candidates.find(function(candidate) { return candidate.kind === "player" && candidate.seat !== ws.roomSession.seatIndex })
     if (!target) target = candidates[0]
     driver.require(!!target, "No legal native target")
-    var name = target.kind === "player" ? "rulesPlayerTarget" + target.seat
-        : (target.kind === "spell" ? "forgeStackCard-" : "forgeCard-") + target.objectId
-    if (!driver.click(name)) driver.click("rulesTarget-" + target.responseId)
+    // A legal card can be buried in a closed pile without a fallback tile.
+    // Keep the coverage preference, then try the other legal native controls.
+    var ordered = [target].concat(candidates.filter(function(candidate) {
+        return candidate.responseId !== target.responseId
+    }))
+    auditProbe.record("target-candidates-" + driver.session.promptId,
+        {preferred:target, candidates:ordered})
+    for (var candidate of ordered) {
+        var name = candidate.kind === "player" ? "rulesPlayerTarget" + candidate.seat
+            : (candidate.kind === "spell" ? "forgeStackCard-" : "forgeCard-") + candidate.objectId
+        if (driver.click(name) || driver.click("rulesTarget-" + candidate.responseId)) return
+    }
 }

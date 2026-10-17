@@ -95,7 +95,7 @@ Page {
         RowLayout {
             Layout.fillWidth: true
             Layout.margins: Theme.size(10)
-            AppButton { text: qsTr("Back"); onClicked: { root.service.pause(); root.appWindow.popScreen() } }
+            AppButton { objectName: "forgeReplayBack"; text: qsTr("Back"); onClicked: { root.service.pause(); root.appWindow.popScreen() } }
             Text {
                 textFormat: Text.PlainText
                 text: root.service.session.gameOver
@@ -200,9 +200,11 @@ Page {
             AppButton { objectName: "forgeReplayNext"; text: qsTr("Next"); onClicked: root.service.step(1) }
             AppButton { objectName: "forgeReplayNextTurn"; text: qsTr("Next turn"); onClicked: root.service.nextTurn(1) }
             AppComboBox {
+                objectName: "forgeReplaySpeed"
+                readonly property var speeds: [0.5, 1, 2, 4, 8]
                 model: ["0.5×", "1×", "2×", "4×", "8×"]
-                currentIndex: 1
-                onActivated: root.service.speed = [0.5, 1, 2, 4, 8][currentIndex]
+                currentIndex: speeds.indexOf(root.service.speed)
+                onActivated: root.service.speed = speeds[currentIndex]
             }
             Text {
                 textFormat: Text.PlainText

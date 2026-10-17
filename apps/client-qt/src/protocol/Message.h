@@ -24,7 +24,9 @@ namespace hexproof::protocol {
 // Envelope is the top-level wire object. One per WebSocket message.
 // There is NO top-level `v` field by design; the protocol version lives only
 // inside the session.welcome payload. `id` correlates client commands with
-// server success events / errors. `seq` is reserved for reconnect (P6).
+// server success events / errors. `seq` identifies a room publication for
+// reconnect and ordering. Paired rules snapshots/prompts share a sequence,
+// even when intervening metadata carries a higher one.
 struct Envelope
 {
     QString type;

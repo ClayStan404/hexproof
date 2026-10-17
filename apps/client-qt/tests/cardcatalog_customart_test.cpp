@@ -271,6 +271,7 @@ void CardCatalogCustomArtTest::restoresDuringUnrelatedOrdinaryArtworkWork()
     QVERIFY(writePng(image, Qt::red));
     auto *store = catalog.customArtStore();
     QVERIFY2(installImage(store, image, binding), qPrintable(store->lastError()));
+    QCOMPARE(catalog.cardArtFrame(u"Front"_s, u"TST"_s, u"1"_s), u"full"_s);
     QSignalSpy ordinaryChanges(&catalog, &CardCatalog::artCacheContentsChanged);
     QSignalSpy customChanges(&catalog, &CardCatalog::customArtContentsChanged);
     QSignalSpy cached(&catalog, &CardCatalog::cardCacheFinished);
@@ -677,12 +678,15 @@ void CardCatalogCustomArtTest::sameNamedTokenCacheFallbackNeverCrossesFaces()
     QString cachedPath;
     {
         CardArtCache cache(directory.path());
-        CardRecord record;
-        record.name = canonical;
-        record.requestedName = cachedName;
-        record.faceName = u"Angel"_s;
-        record.setCode = u"TST"_s;
-        record.collectorNumber = u"30"_s;
+        CardRecord record = CardCatalog::parseCardObject(
+            QJsonObject{{u"name"_s, canonical},
+                        {u"layout"_s, u"double_faced_token"_s},
+                        {u"set"_s, u"TST"_s},
+                        {u"collector_number"_s, u"30"_s},
+                        {u"card_faces"_s, QJsonArray{QJsonObject{{u"name"_s, u"Angel"_s}},
+                                                     QJsonObject{{u"name"_s, u"Angel"_s}}}}},
+            u"en"_s, cachedName);
+        QVERIFY(record.faceMetadataChecked);
         record.imageLanguage = u"en"_s;
         record.resolutionVersion = catalog_internal::kCardResolutionVersion;
         record.imagePath = QDir(cache.imageRoot()).filePath(u"cached.png"_s);

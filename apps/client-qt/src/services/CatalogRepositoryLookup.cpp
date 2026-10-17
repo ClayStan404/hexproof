@@ -30,6 +30,9 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request, QString *e
         m_schema.cardColumns.contains(QStringLiteral("oracle_text"))
             ? QStringLiteral("c.oracle_text")
             : QStringLiteral("''");
+    const QString layoutExpression = m_schema.cardColumns.contains(QStringLiteral("layout"))
+                                         ? QStringLiteral("c.layout")
+                                         : QStringLiteral("''");
     const QString imageUsabilityOrder =
         hasImageStatus
             ? QStringLiteral("CASE WHEN lower(c.image_status) IN ('missing', 'placeholder') "
@@ -55,8 +58,9 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request, QString *e
     };
     const QString select =
         QStringLiteral("SELECT c.name, c.oracle_id, %1, %2, c.set_code, c.collector_number, "
-                       "c.image_url, c.lang, c.illustration_id, %3, %4 FROM cards c ")
-            .arg(localizedExpression, typeExpression, imageStatusExpression, oracleTextExpression);
+                       "c.image_url, c.lang, c.illustration_id, %3, %4, %5 FROM cards c ")
+            .arg(localizedExpression, typeExpression, imageStatusExpression, oracleTextExpression,
+                 layoutExpression);
     const QString preferredLanguage =
         request.language == QStringLiteral("zh") ? QStringLiteral("zhs") : QStringLiteral("en");
     const QString resultOrder =
@@ -151,6 +155,7 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request, QString *e
         record.typeLine = query.value(3).toString();
         // Scryfall oracle_text is canonical English even on localized printings.
         record.oracleText = query.value(10).toString();
+        record.layout = query.value(11).toString();
         record.oracleTextLanguage = QStringLiteral("en");
         record.setCode = query.value(4).toString();
         record.collectorNumber = query.value(5).toString();
@@ -169,6 +174,40 @@ CardRecord CatalogRepository::lookup(const CatalogCardQuery &request, QString *e
                 : QStringLiteral("en");
     }
     return record;
+}
+
+CardRecord CatalogRepository::imageFrameMetadata(const CardRecord &image) const
+{
+    if (image.name.isEmpty() || image.imageUrl.isEmpty() || !ensureOpen())
+        return {};
+    const QSqlDatabase database = QSqlDatabase::database(m_connectionName);
+    const auto matchingPrinting = [&](const QString &table) -> CardRecord {
+        // Both tables index their canonical name. Restrict the image match to
+        // this card's printings; never scan the entire image cache or catalog.
+        QSqlQuery query(database);
+        query.prepare(QStringLiteral("SELECT set_code, collector_number FROM %1 "
+                                     "WHERE name = ? COLLATE NOCASE AND image_url = ? LIMIT 1")
+                          .arg(table));
+        query.addBindValue(image.name);
+        query.addBindValue(image.imageUrl);
+        if (!query.exec() || !query.next())
+            return {};
+        const QString setCode = query.value(0).toString();
+        const QString number = query.value(1).toString();
+        const CardRecord metadata = lookup({image.name, setCode, number, QStringLiteral("en")});
+        // A lookup may use a compatible fallback when an exact record is
+        // absent. Only the actual image's printing can prove its frame.
+        if (metadata.name.compare(image.name, Qt::CaseInsensitive) != 0 ||
+            metadata.setCode.compare(setCode, Qt::CaseInsensitive) != 0 ||
+            metadata.collectorNumber != number)
+            return {};
+        return metadata;
+    };
+    const CardRecord direct = matchingPrinting(QStringLiteral("cards"));
+    if (direct.valid())
+        return direct;
+    return m_schema.hasLocalizedPrintings ? matchingPrinting(QStringLiteral("localized_printings"))
+                                          : CardRecord{};
 }
 
 CardRecord CatalogRepository::lookupLocalizedPrinting(const CatalogCardQuery &request,

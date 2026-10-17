@@ -42,8 +42,8 @@ QString namedValueSummary(const QVector<RulesNamedValue> &values, bool counterNa
     QStringList parts;
     for (const RulesNamedValue &value : values) {
         if (!value.name.isEmpty() && value.value != 0)
-            parts.append((counterNames ? counterDisplayName(value.name) : value.name) + u" "_s +
-                         QString::number(value.value));
+            parts.append((counterNames ? counterDisplayName(value.name) : value.name) +
+                         (counterNames ? u" × "_s : u" "_s) + QString::number(value.value));
     }
     return parts.join(u" · "_s);
 }
@@ -247,9 +247,44 @@ QVariant RulesCardModel::data(const QModelIndex &index, int role) const
         return row.annotations;
     case CountersSummaryRole:
         return namedValueSummary(row.counters, true);
+    case ActionCountRole:
+        return presentation(row.id).actionCount;
+    case PrimaryResponseIdRole:
+        return presentation(row.id).primaryResponseId;
+    case PrimaryKindRole:
+        return presentation(row.id).primaryKind;
+    case HintKeyRole:
+        return presentation(row.id).hintKey;
+    case TargetCountRole:
+        return presentation(row.id).targetCount;
+    case NativeTargetSelectedRole:
+        return presentation(row.id).nativeTargetSelected;
+    case AttachmentCountRole:
+        return presentation(row.id).attachmentCount;
+    case StructuralLinkRole:
+        return presentation(row.id).structuralLink;
+    case LinkedRole:
+        return presentation(row.id).linked;
+    case BlockingIdsRole:
+        return presentation(row.id).blockingIds;
+    case BlockedByIdsRole:
+        return presentation(row.id).blockedByIds;
+    case AttackedByIdsRole:
+        return presentation(row.id).attackedByIds;
+    case AttachmentCardsRole:
+        return presentation(row.id).attachmentCards;
+    case LinksRole:
+        return presentation(row.id).links;
     default:
         return {};
     }
+}
+
+const RulesCardModel::Presentation &RulesCardModel::presentation(const QString &id) const
+{
+    static const Presentation empty;
+    const auto found = m_presentations.constFind(id);
+    return found == m_presentations.cend() ? empty : found.value();
 }
 
 QHash<int, QByteArray> RulesCardModel::roleNames() const
@@ -279,7 +314,53 @@ QHash<int, QByteArray> RulesCardModel::roleNames() const
             {ExiledCardIdsRole, "exiledCardIds"},
             {ChosenCardIdsRole, "chosenCardIds"},
             {AnnotationsRole, "annotations"},
-            {CountersSummaryRole, "countersSummary"}};
+            {CountersSummaryRole, "countersSummary"},
+            {ActionCountRole, "actionCount"},
+            {PrimaryResponseIdRole, "primaryResponseId"},
+            {PrimaryKindRole, "primaryKind"},
+            {HintKeyRole, "hintKey"},
+            {TargetCountRole, "targetCount"},
+            {NativeTargetSelectedRole, "nativeTargetSelected"},
+            {AttachmentCountRole, "attachmentCount"},
+            {StructuralLinkRole, "structuralLink"},
+            {LinkedRole, "linked"},
+            {BlockingIdsRole, "blockingIds"},
+            {BlockedByIdsRole, "blockedByIds"},
+            {AttackedByIdsRole, "attackedByIds"},
+            {AttachmentCardsRole, "attachmentCards"},
+            {LinksRole, "links"}};
+}
+
+void RulesCardModel::setPresentations(const QHash<QString, Presentation> &byId)
+{
+    const QHash<QString, Presentation> previous = std::exchange(m_presentations, byId);
+    for (int row = 0; row < m_rows.size(); ++row) {
+        const QString id = m_rows.at(row).id;
+        const Presentation before = previous.value(id);
+        const Presentation after = byId.value(id);
+        if (before == after)
+            continue;
+        QList<int> roles;
+        const auto note = [&roles](bool changed, int role) {
+            if (changed)
+                roles.append(role);
+        };
+        note(before.actionCount != after.actionCount, ActionCountRole);
+        note(before.primaryResponseId != after.primaryResponseId, PrimaryResponseIdRole);
+        note(before.primaryKind != after.primaryKind, PrimaryKindRole);
+        note(before.hintKey != after.hintKey, HintKeyRole);
+        note(before.targetCount != after.targetCount, TargetCountRole);
+        note(before.nativeTargetSelected != after.nativeTargetSelected, NativeTargetSelectedRole);
+        note(before.attachmentCount != after.attachmentCount, AttachmentCountRole);
+        note(before.structuralLink != after.structuralLink, StructuralLinkRole);
+        note(before.linked != after.linked, LinkedRole);
+        note(before.blockingIds != after.blockingIds, BlockingIdsRole);
+        note(before.blockedByIds != after.blockedByIds, BlockedByIdsRole);
+        note(before.attackedByIds != after.attackedByIds, AttackedByIdsRole);
+        note(before.attachmentCards != after.attachmentCards, AttachmentCardsRole);
+        note(before.links != after.links, LinksRole);
+        emit dataChanged(index(row), index(row), roles);
+    }
 }
 
 void RulesCardModel::replace(QVector<RulesCardRow> rows)
@@ -289,6 +370,7 @@ void RulesCardModel::replace(QVector<RulesCardRow> rows)
 
 void RulesCardModel::clear()
 {
+    m_presentations.clear();
     replace({});
 }
 
@@ -358,7 +440,7 @@ void RulesStackModel::clear()
 }
 
 RulesPromptOptionModel::RulesPromptOptionModel(QObject *parent)
-    : QAbstractListModel(parent)
+    : RulesSnapshotModel(parent)
 {
 }
 
@@ -437,19 +519,13 @@ QVariantList RulesPromptOptionModel::items() const
 
 void RulesPromptOptionModel::replace(QVector<RulesPromptOptionRow> rows)
 {
-    // Remove the old decision while its delegates still have valid indexes.
-    // A reset during asynchronous ListView incubation can otherwise cancel an
-    // index after Qt has already replaced the model with an empty decision.
-    if (!m_rows.isEmpty()) {
-        beginRemoveRows({}, 0, m_rows.size() - 1);
-        m_rows.clear();
-        endRemoveRows();
-    }
-    if (!rows.isEmpty()) {
-        beginInsertRows({}, 0, rows.size() - 1);
-        m_rows = std::move(rows);
-        endInsertRows();
-    }
+    // Delegates update one role at a time, so a row is reused only for the
+    // same response and card: a label binding must never see a new label
+    // with the previous option's card.
+    replaceRows(
+        m_rows, std::move(rows),
+        [](const RulesPromptOptionRow &row) { return row.responseId + QChar(0x1f) + row.cardId; },
+        Ambiguous::RemoveAndInsert);
 }
 
 void RulesPromptOptionModel::clear()

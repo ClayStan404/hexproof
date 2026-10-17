@@ -139,6 +139,40 @@ credentials, URLs, network addresses, local paths and raw engine stdout/stderr
 remain excluded. This is a setup/hosting support report, not an engine trace or
 a full game replay.
 
+## Game crash reports
+
+Adapter 31 adds the separate [Forge crash-report contract](forge-crash-diagnostics-design.md).
+The setup/hosting support export above keeps its existing card-free schema.
+Game crash reports can contain bounded verified code frames and a publicly
+visible source card, using the original hand-hidden spectator projection; they
+never contain decks, private choices or raw engine output. The desktop presents
+these reports in its own **Forge crash reports** history, with explicit
+clipboard copy and local JSON save rather than automatic upload.
+
+The helper freezes its current engine's safe failure evidence before cancellation
+clears runtime ownership. Cached failed responses, authenticated `failed`
+notifications and a reconnect hello can carry that evidence, including
+`Alive: false`. The hub consumes matching retained evidence before invalidating
+a dead engine. The entire pre-authentication hello is bounded to 32 KiB;
+credentials and other existing field bounds remain unchanged. Diagnostic data
+does not authorize execution, restart, a new hosting grant or extended grace.
+
+Helper retention is bounded **in memory for the current engine**. It survives
+socket loss and `Cancel`, can add later process-exit evidence for that producer,
+and is released on replacement/new engine or helper exit. It is not an
+independent seven-day helper archive. The hub and client retain the delivered
+safe report under their [separate seven-day/count/byte limits](privacy.md#forge-crash-reports).
+The first hub notice may receive one final revision within five seconds;
+late data from an old producer cannot annotate its replacement game.
+
+These reports preserve existing two-seat player-host eligibility. Server-hosted
+multiplayer EDH uses the same reporting contract without relying on two-seat
+visual replay. Successful verified migration creates no terminal-game notice;
+failed reconstruction records its own failure stage separately from the lost
+original engine. The admitted helper runtime identity includes the full package
+hash; server-local runtime evidence may identify only the pinned Forge revision
+and adapter, and reports do not present that weaker identity as an exact build.
+
 ## Implementation and verification stages
 
 1. Introduce a runtime interface and preserve local-engine regression behavior.

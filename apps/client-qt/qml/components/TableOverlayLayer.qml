@@ -13,6 +13,26 @@ Item {
     anchors.fill: parent
     z: 4000
 
+    Connections {
+        target: root.tableController
+        function onTableModalOpenChanged() {
+            if (root.tableController.tableModalOpen)
+                root.tableController.presentation.hideCardPreview()
+        }
+    }
+    Connections {
+        target: root.tableController.wsModel
+        ignoreUnknownSignals: true
+        function onReconnectingChanged() {
+            if (root.tableController.wsModel.reconnecting)
+                root.tableController.presentation.hideCardPreview()
+        }
+        function onInRoomChanged() {
+            if (root.tableController.wsModel.inRoom === false)
+                root.tableController.presentation.hideCardPreview()
+        }
+    }
+
     Rectangle {
         objectName: "tableReconnectOverlay"
         anchors.fill: parent
@@ -45,6 +65,7 @@ Item {
                 font.weight: Font.DemiBold
             }
             Text {
+                objectName: "tableReconnectCountdown"
                 textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: {
@@ -90,48 +111,51 @@ Item {
         objectName: "cardHoverPreview"
         x: root.tableController.hoverPreviewX
         y: root.tableController.hoverPreviewY
-        width: Theme.size(250)
-        height: Math.round(width * 88 / 63)
+        readonly property var facePreview: root.tableController.presentation.facePreview
+        readonly property var previewSize: faceGallery.fittedSize(Theme.size(250),
+            parent.width - Theme.size(24), parent.height - Theme.size(24))
+        readonly property bool previewHeld: previewHover.hovered
+        width: previewSize.width
+        height: previewSize.height
         z: 5000
-        visible: !root.tableController.tableModalOpen && root.tableController.hoverPreviewVisible
+        visible: !root.tableController.tableModalOpen && !root.tableController.wsModel.reconnecting
+                 && root.tableController.hoverPreviewVisible
                  && !!root.tableController.inspectedCard.name
-        enabled: false
+        enabled: visible && facePreview.canSwitch
+        onPreviewHeldChanged: root.tableController.presentation.previewHeld = previewHeld
         opacity: visible ? 1 : 0
 
         Behavior on opacity {
             NumberAnimation { duration: Theme.motionFast }
         }
 
-        Image {
-            id: hoverPreviewArt
-            objectName: "cardHoverPreviewArt"
+        CardFacePreviewGallery {
+            id: faceGallery
+            objectName: "cardHoverPreviewFaces"
+            controller: cardHoverPreview.facePreview
             anchors.fill: parent
-            source: root.tableController.presentation.tableCardImageSource
-                    ? root.tableController.presentation.tableCardImageSource(
-                          root.tableController.inspectedCard)
-                    : root.tableController.presentation.cardImageSource(
-                          root.tableController.inspectedCard)
+            columns: cardHoverPreview.previewSize.columns
+            artObjectName: "cardHoverPreviewArt"
+            fallbackObjectName: "cardHoverPreviewName"
+        }
+        Image {
+            objectName: "cardHoverPreviewHiddenArt"
+            anchors.fill: parent
+            visible: root.tableController.inspectedCard.faceDown === true
+            source: visible ? root.tableController.cardBackSource : ""
             fillMode: Image.PreserveAspectFit
             asynchronous: true
-            smooth: true
         }
-
-        Text {
-            textFormat: Text.PlainText
-            objectName: "cardHoverPreviewName"
-            anchors.centerIn: parent
-            width: parent.width - Theme.size(20)
-            visible: hoverPreviewArt.status === Image.Error
-                     && root.tableController.inspectedCard.faceDown !== true
-            text: root.tableController.presentation.tableCardPlaceholderName
-                  ? root.tableController.presentation.tableCardPlaceholderName(
-                        root.tableController.inspectedCard)
-                  : (root.tableController.inspectedCard.name
-                     ? root.tableController.inspectedCard.name : "")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignHCenter
+        Binding {
+            target: root.tableController.presentation
+            property: "hoverPreviewWidth"
+            value: cardHoverPreview.width
         }
+        Binding {
+            target: root.tableController.presentation
+            property: "hoverPreviewHeight"
+            value: cardHoverPreview.height
+        }
+        HoverHandler { id: previewHover }
     }
 }

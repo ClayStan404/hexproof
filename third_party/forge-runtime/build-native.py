@@ -28,10 +28,13 @@ sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 HOST = HERE / "native-host"
+toolchain_spec = importlib.util.spec_from_file_location("native_java_toolchain", HERE / "java-toolchain.py")
+TOOLCHAIN = importlib.util.module_from_spec(toolchain_spec)
+toolchain_spec.loader.exec_module(TOOLCHAIN)
 
 
-def run(*args, cwd=None):
-    subprocess.run([str(arg) for arg in args], cwd=cwd, check=True)
+def run(*args, cwd=None, env=None):
+    subprocess.run([str(arg) for arg in args], cwd=cwd, env=env, check=True)
 
 
 def git(source, *args):
@@ -58,6 +61,30 @@ def dependency_jars(report, source):
     return list(dict.fromkeys(path.resolve() for path in paths))
 
 
+def reviewed_patch_matches(source, patch):
+    """Compare the complete working tree with the reviewed patch without writing to it."""
+    environment = {key: value for key, value in os.environ.items() if key not in
+                   ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+                    "GIT_ALTERNATE_OBJECT_DIRECTORIES")}
+    objects = source / subprocess.check_output(
+        ["git", "-C", str(source), "rev-parse", "--git-path", "objects"],
+        text=True, env=environment).strip()
+    with tempfile.TemporaryDirectory(prefix="forge-reviewed-patch-") as temporary:
+        stage = Path(temporary)
+        (stage / "objects").mkdir()
+        environment.update(GIT_INDEX_FILE=str(stage / "index"),
+                           GIT_OBJECT_DIRECTORY=str(stage / "objects"),
+                           GIT_ALTERNATE_OBJECT_DIRECTORIES=str(objects.resolve()))
+        run("git", "-C", source, "read-tree", "HEAD", env=environment)
+        run("git", "-C", source, "apply", "--cached", "--check", patch, env=environment)
+        run("git", "-C", source, "apply", "--cached", patch, env=environment)
+        result = subprocess.run(["git", "-C", str(source), "diff", "--quiet", "--no-ext-diff", "--no-textconv"],
+                                env=environment)
+        if result.returncode not in (0, 1):
+            result.check_returncode()
+        return result.returncode == 0
+
+
 def prepare_patch(source, upstream):
     """Accept only the reviewed complete delta; never reset an existing tree."""
     if git(source, "diff", "--cached") or git(source, "ls-files", "--others", "--exclude-standard"):
@@ -78,7 +105,7 @@ def prepare_patch(source, upstream):
     content = patch.read_bytes()
     if hashlib.sha256(content).hexdigest() != metadata["sha256"]:
         raise ValueError("Native Forge patch checksum differs from upstream.json")
-    if delta and delta != content:
+    if delta and delta != content and not reviewed_patch_matches(source, patch):
         raise ValueError("Forge source differs from the reviewed native patch; preserve it")
     if not delta:
         if git(source, "status", "--short"):
@@ -107,9 +134,10 @@ def packaging():
     return module
 
 
-def build(source, output, upstream, *, standalone=False, preserved=None):
+def build(source, output, upstream, *, standalone=False, preserved=None, env=None):
+    build_env = TOOLCHAIN.build_environment() if env is None else env
     for command in (("git",) if preserved is None else ()) + ("mvn", "java", "javac", "jar"):
-        if shutil.which(command) is None:
+        if shutil.which(command, path=build_env["PATH"]) is None:
             raise ValueError(f"Missing build dependency: {command}")
     if preserved is None and not source.exists():
         source.parent.mkdir(parents=True, exist_ok=True)
@@ -133,9 +161,9 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
     run("mvn", "-B", "-pl", "forge-gui", "-am", *(("clean",) if standalone else ()), "package",
         "org.apache.maven.plugins:maven-dependency-plugin:3.1.2:list",
         "-DskipTests", "-DincludeScope=runtime", "-DoutputAbsoluteArtifactFilename=true",
-        f"-DoutputFile={report}", "-DappendOutput=false", "-Dsort=true", cwd=source)
+        f"-DoutputFile={report}", "-DappendOutput=false", "-Dsort=true", cwd=source, env=build_env)
     if standalone:
-        report = packaging().replace_xmlpull(source, HERE, output / "source-downloads", report, preserved)
+        report = packaging().replace_xmlpull(source, HERE, output / "source-downloads", report, preserved, env=build_env)
     jars = dependency_jars(report, source)
     stage = Path(tempfile.mkdtemp(prefix="runtime-", dir=output))
     classes = stage / "classes"
@@ -150,8 +178,18 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
     if not java_sources:
         raise ValueError("Native host source is missing")
     run("javac", "--release", "21", "-encoding", "UTF-8", "-cp", os.pathsep.join(map(str, jars)),
-        "-d", classes, *java_sources)
+        "-d", classes, *java_sources, env=build_env)
     shutil.copytree(frozen_host / "src/main/resources", classes, dirs_exist_ok=True)
+    symbol_spec = importlib.util.spec_from_file_location("diagnostic_symbols", HERE / "diagnostic-symbols.py")
+    symbol_module = importlib.util.module_from_spec(symbol_spec)
+    symbol_spec.loader.exec_module(symbol_module)
+    symbol_data = symbol_module.generate(classes, jars, source / "forge-gui/res/cardsfolder",
+        frozen_host / "src/main/resources/org/hexproof/forge/printing-aliases.tsv",
+        f"{upstream['revision']}-adapter{upstream['adapterRevision']}")
+    if hashlib.sha256(symbol_data).hexdigest() != upstream.get("diagnosticSymbolsSha256"):
+        raise ValueError("Compiled diagnostic symbols differ from the reviewed native pin")
+    (stage / "diagnostic-symbols.json").write_bytes(symbol_data)
+    (classes / "org/hexproof/forge/diagnostic-symbols.json").write_bytes(symbol_data)
     libraries = stage / "lib"
     libraries.mkdir()
     artifacts = []
@@ -176,7 +214,7 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         + "\r\n"
     ).encode("ascii"))
     run("jar", "--create", "--file", stage / "forge-harness.jar", "--manifest", manifest,
-        "-C", classes, ".")
+        "-C", classes, ".", env=build_env)
     if standalone:
         shutil.copytree(source / "forge-gui/res", stage / "forge-gui/res", symlinks=True)
         packaging().inventory(stage / "forge-gui")
@@ -188,27 +226,32 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         host_digest = hashlib.file_digest(stream, "sha256").hexdigest()
     provenance = {**upstream, "corePatches": patches, "developmentOnly": not standalone,
                   **({"resourceSource": str(source)} if not standalone else {}), "artifacts": artifacts,
-                  "hostArtifact": {"path": "forge-harness.jar", "sha256": host_digest}}
+                  "hostArtifact": {"path": "forge-harness.jar", "sha256": host_digest},
+                  "diagnosticSymbols": {"path": "diagnostic-symbols.json",
+                      "sha256": hashlib.sha256(symbol_data).hexdigest()}}
     (stage / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
     tests = sorted((frozen_host / "src/test/java").rglob("*.java"))
     if tests:
         test_classes = stage / "test-classes"
         test_classes.mkdir()
         runtime_classpath = os.pathsep.join(map(str, [stage / "forge-harness.jar", *libraries.glob("*.jar")]))
-        run("javac", "-encoding", "UTF-8", "-cp", runtime_classpath, "-d", test_classes, *tests)
+        run("javac", "-encoding", "UTF-8", "-cp", runtime_classpath, "-d", test_classes, *tests, env=build_env)
         profile = stage / "test-profile"
         profile.mkdir()
         scenarios = [(name, []) for name in (
             "NativeProfileRegressionTest", "NativeSnapshotRegressionTest", "NativeAiRegressionTest",
+            "NativeCrashDiagnosticsRegressionTest",
             "NativeEldraziRegressionTest", "NativeDeckRegistrationRegressionTest", "NativeIsolationRegressionTest",
             "NativePrintingAliasRegressionTest",
             "NativeStartFailureRegressionTest", "NativeReplayRegressionTest",
             "NativeOrderingRegressionTest", "NativeDelayedRevealRegressionTest",
             "NativeLethalDamageRegressionTest", "NativeMultiBlockRegressionTest",
-            "NativeStartingHandRegressionTest", "NativeAutoPayRegressionTest", "NativeMulliganRegressionTest", "NativeObjectDepartureRegressionTest",
+            "NativeStartingHandRegressionTest", "NativeAutoPayRegressionTest", "NativeLotusBloomRegressionTest", "NativeManaUndoRegressionTest", "NativePriorityManaUndoRegressionTest", "NativeMulliganRegressionTest", "NativeSerumPowderRegressionTest", "NativeObjectDepartureRegressionTest",
             "NativeSynchronousConcedeRegressionTest", "NativeQueuedInputRegressionTest", "NativeControlledConcedeRegressionTest",
             "NativePriorityRegressionTest", "NativePromptContextRegressionTest", "NativeCardTextRegressionTest",
-            "NativePromptPrintingRegressionTest", "NativeTurnAccessRegressionTest")]
+            "NativePromptPrintingRegressionTest", "NativeTurnAccessRegressionTest",
+            "NativeIdContinuityRegressionTest", "NativePaymentIdRegressionTest",
+            "NativePromptWaitRegressionTest")]
         scenarios += [("NativeCallbackRegressionTest", [scenario])
                       for scenario in ("scry", "generic", "damage", "damage_unordered", "damage_single_defender",
                                        "damage_deathtouch", "damage_skip", "phyrexian")]
@@ -227,13 +270,13 @@ def build(source, output, upstream, *, standalone=False, preserved=None):
         for test, arguments in scenarios:
             run("java", "-Xmx2g", "-Djava.awt.headless=true", f"-Duser.home={profile}",
                 "-cp", str(test_classes) + os.pathsep + runtime_classpath,
-                "org.hexproof.forge." + test, stage / "forge-gui", *arguments)
+                "org.hexproof.forge." + test, stage / "forge-gui", *arguments, env=build_env)
     if standalone:
-        packaging().verify_xmlpull_api(HERE, os.pathsep.join(str(path) for path in libraries.glob("*.jar")))
+        packaging().verify_xmlpull_api(HERE, os.pathsep.join(str(path) for path in libraries.glob("*.jar")), env=build_env)
         run("javac", "--release", "21", "-cp", runtime_classpath, "-d", test_classes,
-            HERE / "XmlDependencyRegressionTest.java")
+            HERE / "XmlDependencyRegressionTest.java", env=build_env)
         run("java", "-cp", str(test_classes) + os.pathsep + runtime_classpath,
-            "XmlDependencyRegressionTest")
+            "XmlDependencyRegressionTest", env=build_env)
     return stage
 
 

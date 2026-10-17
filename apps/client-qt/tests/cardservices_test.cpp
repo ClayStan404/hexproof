@@ -3,6 +3,7 @@
 
 #include "services/BackgroundTaskPools.h"
 #include "services/CardArtCache.h"
+#include "services/CardArtCrop.h"
 #include "services/CardCatalogCommon.h"
 #include "services/CardResolver.h"
 #include "services/CatalogImport.h"
@@ -49,6 +50,9 @@ class TestCardServices final : public QObject
     void imageTimeoutDoesNotOpenHostCooldown() const;
     void sharedCooldownSurvivesInFlightSuccess() const;
     void artCachePersistsPolicyAndReusesOraclePrinting() const;
+    void artCropUrlsStayOnTheSelectedAsset_data() const;
+    void artCropUrlsStayOnTheSelectedAsset() const;
+    void artCacheRebasesOptionalCrop() const;
     void artCacheRejectsCachedWrongDoubleFace() const;
     void artCachePreservesCorruptMetadataBeforeWriting() const;
     void artCacheSavesWithoutBlockingAndCoalesces() const;
@@ -416,6 +420,45 @@ void TestCardServices::sharedCooldownSurvivesInFlightSuccess() const
     QVERIFY(!first.hostInCooldown(cdn));
 }
 
+void TestCardServices::artCropUrlsStayOnTheSelectedAsset_data() const
+{
+    QTest::addColumn<QString>("source");
+    QTest::addColumn<QString>("expected");
+    const QString host = u"https://cards.scryfall.io"_s;
+    const QString identity = u"a/b/ab000000-0000-0000-0000-000000000001.jpg"_s;
+    for (const QString &size : {u"normal"_s, u"large"_s, u"small"_s}) {
+        for (const QString &face : {u"front"_s, u"back"_s}) {
+            QTest::newRow(qPrintable(size + u"-"_s + face))
+                << host + u"/"_s + size + u"/"_s + face + u"/"_s + identity + u"?v=123"_s
+                << host + u"/art_crop/"_s + face + u"/"_s + identity + u"?v=123"_s;
+        }
+    }
+    const QString good = host + u"/normal/front/"_s + identity;
+    const QList<QPair<QByteArray, QString>> rejected{
+        {"other host", u"https://images.mtgch.com/normal/front/"_s + identity},
+        {"host suffix", u"https://cards.scryfall.io.example.test/normal/front/"_s + identity},
+        {"http", QString(good).replace(u"https:"_s, u"http:"_s)},
+        {"invalid uuid", QString(good).replace(u"ab000000"_s, u"not-a-uuid"_s)},
+        {"wrong shards", QString(good).replace(u"/a/b/"_s, u"/b/a/"_s)},
+        {"credentials", QString(good).replace(u"https://"_s, u"https://user:pass@"_s)},
+        {"fragment", good + u"#crop"_s},
+        {"alternate port", QString(good).replace(u".io/"_s, u".io:8443/"_s)},
+        {"arbitrary path", host + u"/image/"_s + identity},
+        {"already a crop", QString(good).replace(u"/normal/"_s, u"/art_crop/"_s)},
+        {"wrong face", QString(good).replace(u"/front/"_s, u"/left/"_s)},
+        {"wrong suffix", QString(good).replace(u".jpg"_s, u".png"_s)},
+    };
+    for (const auto &[label, source] : rejected)
+        QTest::newRow(label.constData()) << source << QString{};
+}
+
+void TestCardServices::artCropUrlsStayOnTheSelectedAsset() const
+{
+    QFETCH(QString, source);
+    QFETCH(QString, expected);
+    QCOMPARE(catalog_internal::artCropUrlForImage(source), expected);
+}
+
 void TestCardServices::artCachePersistsPolicyAndReusesOraclePrinting() const
 {
     QTemporaryDir directory;
@@ -437,6 +480,12 @@ void TestCardServices::artCachePersistsPolicyAndReusesOraclePrinting() const
     cached.collectorNumber = u"396"_s;
     cached.imageLanguage = u"zh"_s;
     cached.imagePath = imagePath;
+    cached.artCropUrl = u"https://images.test/sol-ring-art.jpg"_s;
+    cached.artCropPath = cache.imagePath(cached.name, cached.artCropUrl, u"zh"_s);
+    QFile crop(cached.artCropPath);
+    QVERIFY(crop.open(QIODevice::WriteOnly));
+    QCOMPARE(crop.write("art"), 3);
+    crop.close();
     cached.resolutionVersion = catalog_internal::kCardResolutionVersion;
     const QString exactKey =
         cache.key(cached.name, u"zh"_s, cached.setCode, cached.collectorNumber);
@@ -448,6 +497,9 @@ void TestCardServices::artCachePersistsPolicyAndReusesOraclePrinting() const
     CardArtCache restored(directory.path());
     restored.load();
     QCOMPARE(restored.exactRecord(exactKey).imagePath, imagePath);
+    QCOMPARE(restored.exactRecord(exactKey).artCropPath, cached.artCropPath);
+    QCOMPARE(restored.exactRecord(exactKey).artCropUrl, cached.artCropUrl);
+    QCOMPARE(restored.referencedImagePaths(), QSet<QString>({imagePath, cached.artCropPath}));
     QVERIFY(restored.failedRecently(failedKey));
 
     CardRecord replacement = cached;
@@ -466,11 +518,48 @@ void TestCardServices::artCachePersistsPolicyAndReusesOraclePrinting() const
     const CardRecord reusable = restored.reusableArt(request, identity);
     QVERIFY(reusable.valid());
     QCOMPARE(reusable.imagePath, imagePath);
+    QCOMPARE(reusable.artCropPath, cached.artCropPath);
 
     restored.setReuseLocalArt(false);
     QVERIFY(!restored.reusableArt(request, identity).valid());
     const CardRequest unspecifiedPrinting{u"Sol Ring"_s, {}, {}, u"zh"_s};
     QVERIFY(restored.reusableArt(unspecifiedPrinting, identity).valid());
+}
+
+void TestCardServices::artCacheRebasesOptionalCrop() const
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString oldRoot = directory.filePath(u"old-images"_s);
+    const QString newRoot = directory.filePath(u"new-images"_s);
+    CardArtCache original(directory.path(), oldRoot);
+    CardRecord record;
+    record.name = record.requestedName = u"Island"_s;
+    record.imagePath = QDir(oldRoot).filePath(u"card.jpg"_s);
+    record.artCropUrl = u"https://images.test/crop.jpg"_s;
+    record.artCropPath = QDir(oldRoot).filePath(u"crop.jpg"_s);
+    const QString key = original.key(record.name, u"en"_s);
+    original.rememberSuccess(key, record);
+    QVERIFY(original.save());
+    CardArtCache moved(directory.path(), newRoot, {oldRoot});
+    moved.load();
+    const CardRecord rebased = moved.exactRecord(key);
+    QCOMPARE(rebased.imagePath, QDir(newRoot).filePath(u"card.jpg"_s));
+    QCOMPARE(rebased.artCropPath, QDir(newRoot).filePath(u"crop.jpg"_s));
+    QCOMPARE(rebased.artCropUrl, record.artCropUrl);
+    QVERIFY(moved.save());
+    CardArtCache reloaded(directory.path(), newRoot);
+    reloaded.load();
+    QCOMPARE(reloaded.exactRecord(key).artCropPath, rebased.artCropPath);
+
+    // An index produced before optional crops was added stays a valid record.
+    QJsonObject legacy = catalog_internal::recordToJson(record);
+    legacy.remove(u"artCropPath"_s);
+    legacy.remove(u"artCropUrl"_s);
+    const CardRecord decoded = catalog_internal::recordFromJson(legacy);
+    QCOMPARE(decoded.imagePath, record.imagePath);
+    QVERIFY(decoded.artCropPath.isEmpty());
+    QVERIFY(decoded.artCropUrl.isEmpty());
 }
 
 void TestCardServices::artCacheRejectsCachedWrongDoubleFace() const

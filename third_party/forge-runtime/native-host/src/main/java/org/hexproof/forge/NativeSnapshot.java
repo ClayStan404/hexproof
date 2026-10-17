@@ -178,7 +178,7 @@ final class NativeSnapshot {
         return zone != null && !zone.isHidden() && !card.isFaceDown();
     }
 
-    private static boolean canSeeIdentity(Card card, Player viewer) {
+    static boolean canSeeIdentity(Card card, Player viewer) {
         return canSee(card, viewer) && (!card.isFaceDown()
                 || viewer != null && card.getView().canFaceDownBeShownTo(viewer.getView()));
     }

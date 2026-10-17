@@ -3,6 +3,7 @@
 
 #include "services/CardCatalog.h"
 #include "services/CatalogStorage.h"
+#include "services/LimitedProductSheets.h"
 
 #include <QCommandLineOption>
 #include <QCommandLineParser>
@@ -65,9 +66,12 @@ bool importLimitedProducts(const QString &path, const QString &databasePath, QSt
                 const QString name = product.value(QStringLiteral("name")).toString();
                 const QString setCode = product.value(QStringLiteral("setCode")).toString();
                 const QString type = product.value(QStringLiteral("productType")).toString();
+                QVariantList resolvedSheets;
                 if (!ok || id.isEmpty() || name.isEmpty() || setCode.isEmpty() || type.isEmpty() ||
                     !product.value(QStringLiteral("sheets")).isArray() ||
-                    !product.value(QStringLiteral("variants")).isArray()) {
+                    !product.value(QStringLiteral("variants")).isArray() ||
+                    !hexproof::client::resolveLimitedProductSheets(product.toVariantMap(),
+                                                                   &resolvedSheets)) {
                     ok = false;
                     *error =
                         QStringLiteral("The limited product catalog contains an invalid product.");
@@ -99,6 +103,19 @@ bool importLimitedProducts(const QString &path, const QString &databasePath, QSt
                 ok = metadata.exec();
                 if (!ok)
                     *error = metadata.lastError().text();
+                if (ok) {
+                    const QJsonObject source{
+                        {QStringLiteral("source"), root.value(QStringLiteral("source"))},
+                        {QStringLiteral("version"), root.value(QStringLiteral("sourceVersion"))},
+                        {QStringLiteral("date"), root.value(QStringLiteral("sourceDate"))},
+                        {QStringLiteral("sha256"), root.value(QStringLiteral("sourceSha256"))},
+                    };
+                    metadata.bindValue(0, QStringLiteral("limited_product_source"));
+                    metadata.bindValue(1, QJsonDocument(source).toJson(QJsonDocument::Compact));
+                    ok = metadata.exec();
+                    if (!ok)
+                        *error = metadata.lastError().text();
+                }
             }
             if (ok)
                 ok = database.commit();
