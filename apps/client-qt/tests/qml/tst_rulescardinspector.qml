@@ -400,8 +400,13 @@ TestCase {
         const art = findChild(inspector, "rulesCardInspectorArt")
         const scroll = findChild(inspector, "rulesCardInspectorScroll")
         const unpin = findChild(inspector, "clearRulesCardInspectorButton")
+        verify(waitForPolish(testWindow))
         tryCompare(art, "status", Image.Ready)
-        compare(art.sourceSize.width, 1344)
+        compare(art.source.toString(), catalog.imageUrl.toString())
+        compare(art.fillMode, Image.PreserveAspectFit)
+        const pixelRatio = testWindow.Screen.devicePixelRatio
+        compare(art.sourceSize.width, Math.max(1, Math.ceil(art.width * pixelRatio)))
+        compare(art.sourceSize.height, Math.max(1, Math.ceil(art.height * pixelRatio)))
         waitForRendering(inspector)
         for (const item of [art, scroll, unpin]) {
             const point = item.mapToItem(inspector, 0, 0)
