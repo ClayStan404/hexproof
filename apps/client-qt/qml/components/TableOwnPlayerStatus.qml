@@ -126,6 +126,71 @@ ColumnLayout {
             width: counterScroll.width
             spacing: Theme.size(4)
 
+            Flow {
+                id: counterFlow
+                width: counterColumn.width
+                spacing: Theme.size(5)
+                visible: root.tableController.visibleCounterCount > 0
+                         && !!root.tableController.ownSeatData.counters
+                         && root.tableController.ownSeatData.counters.length > 0
+                height: visible ? implicitHeight : 0
+                Repeater {
+                    id: counterPips
+                    model: root.tableController.ownSeatData.counters
+                           ? root.tableController.ownSeatData.counters.slice(
+                                 0, root.tableController.visibleCounterCount)
+                           : []
+                    delegate: PlayerCounterPip {
+                        required property var modelData
+                        required property int index
+                        objectName: "playerCounterPip"
+                                    + root.tableController.roomSession.seatIndex
+                                    + "-" + index
+                        width: Math.max(0, Math.min(
+                                   Theme.size(31), Math.floor(
+                                       (counterFlow.width
+                                        - Math.max(0, counterPips.count - 1)
+                                          * counterFlow.spacing)
+                                       / Math.max(1, counterPips.count))))
+                        height: Theme.size(28)
+                        counterKey: modelData.key
+                        label: modelData.label
+                        value: root.tableController.gameValues.displayedCounterValue(
+                                   root.tableController.roomSession.seatIndex,
+                                   modelData)
+                        editable: root.tableController.canAct
+                        selected:
+                            root.tableController.selectedCounterSeat
+                            === root.tableController.roomSession.seatIndex
+                            && root.tableController.selectedCounterKey
+                               === modelData.key
+                        pipColor: [
+                            "#FFF196", "#9696FF", "#969696",
+                            "#FA9696", "#96FF96", "#F2F6F2",
+                            "#FF961E"
+                        ][index]
+                        onAdjustRequested: delta =>
+                            root.tableController.gameValues.adjustCounter(
+                                root.tableController.roomSession.seatIndex,
+                                modelData, delta)
+                        onSelectedRequested: {
+                            root.tableController.selectedCounterSeat =
+                                root.tableController.roomSession.seatIndex
+                            root.tableController.selectedCounterKey =
+                                modelData.key
+                        }
+                    }
+                }
+            }
+
+            StatusPill {
+                objectName: "ownMulliganCount"
+                visible: root.tableController.ownSeatData.mulliganCount > 0
+                text: qsTranslate("Table", "Mulligan %1").arg(
+                          root.tableController.ownSeatData.mulliganCount)
+                statusColor: Theme.textMuted
+            }
+
             Repeater {
                 model: root.tableController.ownCommanderCards
                 delegate: RowLayout {
@@ -221,65 +286,6 @@ ColumnLayout {
                         enabled: root.tableController.canAct
                         onClicked: root.tableController.gameValues.adjustCommanderTax(
                                        commanderTaxGroup.modelData.id, 1)
-                    }
-                }
-            }
-
-            Flow {
-                id: counterFlow
-                width: counterColumn.width
-                spacing: Theme.size(5)
-                visible: root.tableController.ownSeatData.mulliganCount > 0
-                         || (root.tableController.visibleCounterCount > 0
-                             && !!root.tableController.ownSeatData.counters
-                             && root.tableController.ownSeatData.counters.length > 0)
-                height: visible ? implicitHeight : 0
-                StatusPill {
-                    objectName: "ownMulliganCount"
-                    visible: root.tableController.ownSeatData.mulliganCount > 0
-                    text: qsTranslate("Table", "Mulligan %1").arg(
-                              root.tableController.ownSeatData.mulliganCount)
-                    statusColor: Theme.textMuted
-                }
-                Repeater {
-                    model: root.tableController.ownSeatData.counters
-                           ? root.tableController.ownSeatData.counters.slice(
-                                 0, root.tableController.visibleCounterCount)
-                           : []
-                    delegate: PlayerCounterPip {
-                        required property var modelData
-                        required property int index
-                        objectName: "playerCounterPip"
-                                    + root.tableController.roomSession.seatIndex
-                                    + "-" + index
-                        width: Theme.size(31)
-                        height: Theme.size(28)
-                        counterKey: modelData.key
-                        label: modelData.label
-                        value: root.tableController.gameValues.displayedCounterValue(
-                                   root.tableController.roomSession.seatIndex,
-                                   modelData)
-                        editable: root.tableController.canAct
-                        selected:
-                            root.tableController.selectedCounterSeat
-                            === root.tableController.roomSession.seatIndex
-                            && root.tableController.selectedCounterKey
-                               === modelData.key
-                        pipColor: [
-                            "#FFF196", "#9696FF", "#969696",
-                            "#FA9696", "#96FF96", "#F2F6F2",
-                            "#FF961E"
-                        ][index]
-                        onAdjustRequested: delta =>
-                            root.tableController.gameValues.adjustCounter(
-                                root.tableController.roomSession.seatIndex,
-                                modelData, delta)
-                        onSelectedRequested: {
-                            root.tableController.selectedCounterSeat =
-                                root.tableController.roomSession.seatIndex
-                            root.tableController.selectedCounterKey =
-                                modelData.key
-                        }
                     }
                 }
             }

@@ -46,17 +46,18 @@ func CredentialHash(token string) [sha256.Size]byte {
 }
 
 type Config struct {
-	Name          string
-	Format        string
-	EventType     string
-	Coordinator   string
-	MatchMode     string
-	RulesMode     string
-	RoundMinutes  int
-	MaxPlayers    int
-	PlannedRounds int
-	Product       *protocol.LimitedProductDefinition
-	DraftSettings *protocol.LimitedDraftSettings
+	Name               string
+	Format             string
+	EventType          string
+	Coordinator        string
+	MatchMode          string
+	RulesMode          string
+	ActionClockEnabled *bool
+	RoundMinutes       int
+	MaxPlayers         int
+	PlannedRounds      int
+	Product            *protocol.LimitedProductDefinition
+	DraftSettings      *protocol.LimitedDraftSettings
 }
 
 type Actor struct {
@@ -136,6 +137,7 @@ type Tournament struct {
 	Stage                   string
 	MatchMode               string
 	RulesMode               string
+	ActionClockEnabled      bool
 	RoundMinutes            int
 	MaxPlayers              int
 	PlannedRounds           int
@@ -186,6 +188,13 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 	}
 	if config.RulesMode != protocol.RulesModeManual && config.RulesMode != protocol.RulesModeForge {
 		return nil, fail(ErrInvalid, "unsupported rules mode")
+	}
+	actionClockEnabled := config.RulesMode == protocol.RulesModeForge && config.EventType == protocol.LimitedEventConstructed
+	if config.ActionClockEnabled != nil {
+		actionClockEnabled = *config.ActionClockEnabled
+	}
+	if actionClockEnabled && (config.RulesMode != protocol.RulesModeForge || config.EventType == protocol.LimitedEventCommanderCube) {
+		return nil, fail(ErrInvalid, "action clocks require two-player Forge matches")
 	}
 	if config.RulesMode == protocol.RulesModeForge {
 		if config.EventType == protocol.LimitedEventCommanderCube {
@@ -313,6 +322,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		Stage:                 protocol.LimitedStageRegistration,
 		MatchMode:             config.MatchMode,
 		RulesMode:             config.RulesMode,
+		ActionClockEnabled:    actionClockEnabled,
 		RoundMinutes:          config.RoundMinutes,
 		MaxPlayers:            config.MaxPlayers,
 		PlannedRounds:         config.PlannedRounds,
@@ -522,10 +532,13 @@ func cloneDeck(deck protocol.DeckSelect) protocol.DeckSelect {
 }
 
 func cloneLimitedProduct(product protocol.LimitedProductDefinition) protocol.LimitedProductDefinition {
+	product.CardPool = append([]protocol.LimitedCardDefinition(nil), product.CardPool...)
 	product.Sheets = append([]protocol.LimitedSheetDefinition(nil), product.Sheets...)
 	for index := range product.Sheets {
 		product.Sheets[index].Cards = append(
 			[]protocol.LimitedCardDefinition(nil), product.Sheets[index].Cards...)
+		product.Sheets[index].CardRefs = append(
+			[]protocol.LimitedCardReference(nil), product.Sheets[index].CardRefs...)
 	}
 	product.Variants = append([]protocol.LimitedPackVariantDefinition(nil), product.Variants...)
 	for index := range product.Variants {

@@ -36,10 +36,13 @@ type Link struct {
 	epoch           uint64
 	cancelledEngine string
 	helperID        string
+	runtimeID       string
 	sequence        uint64
 	pending         *Request
 	reply           chan Response
 	active          *Runtime
+	retired         *Runtime
+	retiredUntil    time.Time
 	closed          bool
 	timer           *time.Timer
 	done            chan struct{}
@@ -85,6 +88,9 @@ func (l *Link) Serve(ctx context.Context, conn *websocket.Conn, hello Hello) err
 		l.mu.Unlock()
 		return ErrUnavailable
 	}
+	if target := l.diagnosticRuntimeLocked(hello.EngineID); target != nil {
+		target.acceptFailure(hello.FailureInfo)
+	}
 	if l.active != nil && (l.pending == nil || l.pending.Command == "action") &&
 		(hello.EngineID != l.active.engineID || !hello.Alive) {
 		active := l.active
@@ -106,6 +112,9 @@ func (l *Link) Serve(ctx context.Context, conn *websocket.Conn, hello Hello) err
 	}
 	l.conn = conn
 	l.helperID = hello.HelperID
+	if hello.RuntimeID == RuntimeID {
+		l.runtimeID = hello.RuntimeID
+	}
 	l.epoch = epoch
 	if l.timer != nil {
 		l.timer.Stop()
@@ -155,6 +164,9 @@ func (l *Link) Serve(ctx context.Context, conn *websocket.Conn, hello Hello) err
 			r := frame.Response
 			p := l.pending
 			if r != nil && r.RoomID == l.RoomID && r.ID <= l.sequence && (p == nil || r.ID < p.ID) {
+				if target := l.diagnosticRuntimeLocked(r.EngineID); target != nil {
+					target.acceptFailure(r.FailureInfo)
+				}
 				l.mu.Unlock()
 				continue
 			}
@@ -165,6 +177,9 @@ func (l *Link) Serve(ctx context.Context, conn *websocket.Conn, hello Hello) err
 			select {
 			case l.reply <- *r:
 			default:
+			}
+			if target := l.diagnosticRuntimeLocked(r.EngineID); target != nil {
+				target.acceptFailure(r.FailureInfo)
 			}
 		case "peer_commit":
 			commit := frame.PeerCommit
@@ -180,7 +195,10 @@ func (l *Link) Serve(ctx context.Context, conn *websocket.Conn, hello Hello) err
 				}()
 			}
 		case "failed":
-			active := l.active
+			active := l.diagnosticRuntimeLocked(frame.EngineID)
+			if active != nil {
+				active.acceptFailure(frame.FailureInfo)
+			}
 			l.mu.Unlock()
 			if active != nil && active.engineID == frame.EngineID {
 				active.Invalidate()
@@ -207,6 +225,7 @@ func (l *Link) detach(conn *websocket.Conn, epoch uint64) {
 			active := l.active
 			expired := !l.closed && l.conn == nil && l.epoch == epoch
 			if expired && active != nil {
+				active.failureBoundary("host_connection_lost", "")
 				active.invalidateLocked()
 			}
 			l.mu.Unlock()
@@ -214,6 +233,18 @@ func (l *Link) detach(conn *websocket.Conn, epoch uint64) {
 	}
 	l.mu.Unlock()
 	l.notifyState()
+}
+
+// Called under l.mu, only after channel capability/epoch validation. Retained
+// evidence cannot gain execution authority or target an active replacement.
+func (l *Link) diagnosticRuntimeLocked(engineID string) *Runtime {
+	if l.active != nil && l.active.engineID == engineID {
+		return l.active
+	}
+	if l.retired != nil && time.Now().Before(l.retiredUntil) && l.retired.engineID == engineID {
+		return l.retired
+	}
+	return nil
 }
 
 func (l *Link) call(ctx context.Context, request Request) (Response, error) {

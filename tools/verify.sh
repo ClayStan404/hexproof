@@ -184,6 +184,7 @@ while IFS= read -r -d '' script; do
 done < <(git ls-files -co --exclude-standard -z -- '*.sh')
 ./tools/check-license-headers.sh
 ./tools/check-qml-text-safety.sh
+python3 tools/check-qml-resources.py
 python3 tools/check-protocol-parity.py
 python3 tools/check-i18n.py --strict
 python3 tools/check-module-size.py
@@ -212,7 +213,7 @@ if ((test_server)); then
         go vet ./...
         go test "${go_test_flags[@]}" ./...
         if ((run_race)); then
-            go test "${go_test_flags[@]}" -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil
+            go test "${go_test_flags[@]}" -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil ./internal/feedback
         else
             echo "Skipping Go race tests (--quick)."
         fi
@@ -255,6 +256,8 @@ if ((build_client)); then
 
     if ((run_ctest)); then
         section "Client CTest"
+        # The catalog builder is intentionally excluded from normal app builds.
+        cmake --build "$client_build_dir" --target hexproof_card_database_builder
         QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
             HEXPROOF_SERVER_BINARY="$server_binary" \
             ctest --test-dir "$client_build_dir" --output-on-failure

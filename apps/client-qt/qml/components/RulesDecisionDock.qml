@@ -17,20 +17,34 @@ Surface {
     property bool hideIdlePriorityStatus: false
     property real contentMargins: Theme.size(6)
     property Component contextControls: null
+    property bool contextControlsShown: true
     readonly property bool externallyPresented:
         (externalCardChoices && ["chooseCards", "mulliganPutBack", "revealCards", "scry",
             "reorder", "chooseDamageAssignmentOrder"]
             .includes(tableController.rulesSession.promptKind))
         || (externalDamageChoices && tableController.rulesSession.promptKind === "chooseCombatDamageAssignment")
-    readonly property bool expanded: showActions && (actionPicker.opened
+    readonly property bool expanded: showActions && (cardActionPicker.opened
         || (tableController.rulesSession.promptPending
             && tableController.silentAiDeckAdvisory !== true
             && !tableController.priority.isPriorityPrompt && !externallyPresented)
         || tableController.rulesSession.gameOver)
-    property alias actionPicker: actionPicker
+    // A temporarily hidden decision returns with the next prompt or the result.
+    property bool collapsed: false
+    readonly property bool showsBody: expanded && !collapsed
+    // Offboard targets need their card list just like an opened combat list.
+    // Keep the compact reservation for decisions answered on the battlefield.
+    readonly property bool listChoiceShown: showsBody && (prompt.combatListShown
+        || (prompt.targetPrompt !== null && prompt.targetPrompt.hasCandidates))
+    readonly property bool gameOver: tableController.rulesSession.gameOver === true
+    property alias actionPicker: cardActionPicker
 
     objectName: "rulesDecisionDock"
     implicitHeight: content.implicitHeight + contentMargins * 2
+    // Keep the actual action/zone/context controls and layout spacing, replacing
+    // only the expanded body's preferred height with its safe minimum budget.
+    readonly property real minimumExpandedHeight: implicitHeight + (showsBody
+        ? Math.max(Theme.size(150), cardActionPicker.opened ? 0 : prompt.minimumHeight)
+          - decisionBody.implicitHeight : 0)
     color: Theme.tableRailFill
     radius: 0
     border.width: 0
@@ -38,18 +52,33 @@ Surface {
 
     onVisibleChanged: {
         if (!visible)
-            actionPicker.close()
+            cardActionPicker.close()
     }
     onShowActionsChanged: {
         if (!showActions)
-            actionPicker.close()
+            cardActionPicker.close()
     }
+    onExpandedChanged: collapsed = false
+    onGameOverChanged: collapsed = false
     Connections {
         target: root.tableController
         function onRoomConnectedChanged() {
             if (!root.tableController.roomConnected)
-                actionPicker.close()
+                cardActionPicker.close()
         }
+    }
+    // A republication of the same decision keeps it hidden.
+    property int shownPromptId: 0
+    Connections {
+        target: root.tableController.rulesSession
+        function onPromptChanged() {
+            const id = root.tableController.rulesSession.promptId
+            if (id !== root.shownPromptId) {
+                root.shownPromptId = id
+                root.collapsed = false
+            }
+        }
+        ignoreUnknownSignals: true
     }
 
     ColumnLayout {
@@ -59,26 +88,27 @@ Surface {
         spacing: Theme.size(8)
 
         Item {
+            id: decisionBody
             objectName: "rulesDecisionBody"
-            implicitHeight: Math.max(Theme.size(150), actionPicker.opened
-                ? actionPicker.implicitHeight : prompt.implicitHeight)
+            implicitHeight: Math.max(Theme.size(150), cardActionPicker.opened
+                ? cardActionPicker.implicitHeight : prompt.implicitHeight)
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumWidth: 0
             Layout.minimumHeight: 0
-            visible: root.expanded
+            visible: root.showsBody
 
             RulesPromptPanel {
                 id: prompt
                 anchors.fill: parent
                 enabled: root.tableController.roomConnected
-                visible: !actionPicker.opened && root.expanded
+                visible: !cardActionPicker.opened && root.showsBody
                 tableController: root.tableController
                 externalCardChoices: root.externalCardChoices
                 externalDamageChoices: root.externalDamageChoices
             }
             RulesCardActionPicker {
-                id: actionPicker
+                id: cardActionPicker
                 anchors.fill: parent
                 tableController: root.tableController
             }
@@ -89,7 +119,7 @@ Surface {
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             Layout.minimumHeight: implicitHeight
-            visible: root.showActions && root.showZoneActions && actions.length > 0 && !actionPicker.opened
+            visible: root.showActions && root.showZoneActions && actions.length > 0 && !cardActionPicker.opened
                 && !root.tableController.priority.yieldMode
             tableController: root.tableController
         }
@@ -101,7 +131,7 @@ Surface {
             Layout.minimumHeight: implicitHeight
             Layout.maximumHeight: implicitHeight
             sourceComponent: root.contextControls
-            visible: sourceComponent !== null
+            visible: item !== null && root.contextControlsShown
         }
 
         RulesActionBar {
@@ -111,7 +141,7 @@ Surface {
             Layout.preferredHeight: implicitHeight
             Layout.minimumHeight: implicitHeight
             Layout.maximumHeight: implicitHeight
-            visible: root.showActions
+            visible: root.showActions && hasContent
             tableController: root.tableController
             hideIdleStatus: root.hideIdlePriorityStatus
             externallyShownActionIds: root.showZoneActions ? zoneActions.actions.map(action => action.responseId) : []

@@ -50,9 +50,17 @@ Item {
             wsModel.respondRulesPromptWithOrder(promptId, orderedIds)
     }
 
-    onPromptIdChanged: resetOrder()
+    onPromptIdChanged: { resetOrder(); preview.hide() }
+    onVisibleChanged: if (!visible) preview.hide()
     onOrderModelChanged: resetOrder()
     Component.onCompleted: resetOrder()
+    CardHoverPreview {
+        id: preview
+        objectName: "rulesOrderCardPreview"
+        parent: root.Overlay.overlay
+        catalogModel: root.cardCatalogModel
+        avoidItems: [selectionControls]
+    }
 
     ListModel { id: visualOrder }
 
@@ -96,6 +104,16 @@ Item {
                 required property string collectorNumber
                 required property bool token
                 required property string oracle
+                activeFocusOnTab: true
+                function inspect() {
+                    if (!root.visible || !name || dragArea.drag.active) return
+                    preview.tokenArt = token
+                    preview.inspect({id:responseId, name:name, setCode:setCode,
+                        collectorNumber:collectorNumber, oracleText:oracle}, tile)
+                }
+                onActiveFocusChanged: activeFocus ? inspect() : preview.hide(tile)
+                onNameChanged: if (preview.sourceItem === tile) preview.hide()
+                Component.onDestruction: preview.hide(tile)
 
                 width: Theme.size(root.expandedView ? 174 : 112)
                 height: orderList.itemHeight
@@ -240,6 +258,7 @@ Item {
                     drag.axis: Drag.XAxis
                     drag.minimumX: 0
                     drag.maximumX: Math.max(0, orderList.contentWidth - tile.width)
+                    onPressed: preview.hide()
                     onReleased: {
                         const step = tile.width + orderList.spacing
                         const destination = Math.max(0, Math.min(
@@ -251,7 +270,10 @@ Item {
                     }
                 }
 
-                HoverHandler { id: hover }
+                HoverHandler {
+                    id: hover
+                    onHoveredChanged: hovered ? tile.inspect() : preview.hide(tile)
+                }
                 ToolTip.visible: hover.hovered
                 ToolTip.delay: 350
                 ToolTip.text: tile.oracle.length > 0

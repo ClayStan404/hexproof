@@ -114,6 +114,10 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 		h.sendError(sess, env.ID, err.code, err.message)
 		return nil
 	}
+	if rc.ActionClockEnabled && (rc.RulesMode != protocol.RulesModeForge || maxSeats != 2 || rc.Playtest) {
+		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "Action clocks require a two-player Forge room")
+		return nil
+	}
 	if rc.HostingMode != "" && rc.HostingMode != "server" && rc.HostingMode != "player" {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "invalid hosting mode")
 		return nil
@@ -176,6 +180,11 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 		return nil
 	}
 	defer operation.opMu.Unlock()
+	operation.mu.Lock()
+	r.ActionClockEnabled = rc.ActionClockEnabled
+	r.ResetActionClock(time.Now())
+	initialSnapshot = r.ProjectRoomSnapshot(sess.ConnectionID, r.Snapshot())
+	operation.mu.Unlock()
 	var hostLink *forgehost.Link
 	if r.HostingMode == "player" {
 		hostLink = h.allocatePlayerHost(r)
@@ -200,6 +209,7 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 			CardLoadMode:       r.CardLoadMode,
 			HasPassword:        r.HasPassword,
 			RulesMode:          r.RulesMode,
+			ActionClockEnabled: r.ActionClockEnabled,
 			HostingMode:        r.HostingMode,
 			AIDifficulty:       r.AIDifficulty,
 			AISource:           r.AISource,
@@ -576,6 +586,9 @@ func (h *Handler) handlePlayerReady(sess *Session, env protocol.Envelope) error 
 	if res.StartRulesGame {
 		rulesState, err = h.startForgeGame(r)
 		if err != nil {
+			if !h.pauseActionClockLocked(r) {
+				return nil
+			}
 			rollback, rollbackErr := h.hub.ResetRulesStartFailure(r)
 			if rollbackErr != nil {
 				h.failClosedGameProjections(r, rollbackErr)
@@ -593,8 +606,7 @@ func (h *Handler) handlePlayerReady(sess *Session, env protocol.Envelope) error 
 		h.fanoutGameProjections(r)
 	}
 	if res.StartRulesGame {
-		h.sendRulesProjections(rulesState.projections)
-		h.sendRulesPrompts(rulesState.prompts)
+		h.sendForgePublication(r, rulesState)
 	}
 	return nil
 }
@@ -631,6 +643,9 @@ func (h *Handler) handleClientLoadComplete(sess *Session, env protocol.Envelope)
 	if res.StartRulesGame {
 		rulesState, err = h.startForgeGame(r)
 		if err != nil {
+			if !h.pauseActionClockLocked(r) {
+				return nil
+			}
 			rollback, rollbackErr := h.hub.ResetRulesStartFailure(r)
 			if rollbackErr != nil {
 				h.failClosedGameProjections(r, rollbackErr)
@@ -650,8 +665,7 @@ func (h *Handler) handleClientLoadComplete(sess *Session, env protocol.Envelope)
 		h.fanoutGameProjections(r)
 	}
 	if res.StartRulesGame {
-		h.sendRulesProjections(rulesState.projections)
-		h.sendRulesPrompts(rulesState.prompts)
+		h.sendForgePublication(r, rulesState)
 	}
 	return nil
 }
@@ -758,18 +772,20 @@ func (h *Handler) removeRoom(r *room.Room) pairingRoomCleanup {
 	return cleanup
 }
 
-// fanout sends public broadcasts to every room member. Tournament deck-art
+// fanout sends broadcasts to every room member, projecting room snapshots for
+// each authenticated recipient. Tournament deck-art
 // manifests are player-only because their union of printing identities reveals
 // unpublished deck contents. Membership is snapshotted under the room lock.
 func (h *Handler) fanout(r *room.Room, envelopes []protocol.Envelope) {
 	members, players := h.roomAudiences(r)
-	if h.hub.TournamentForRoom(r) == "" {
-		h.fanoutTo(members, envelopes)
-		return
-	}
+	tournamentRoom := h.hub.TournamentForRoom(r) != ""
 	for _, envelope := range envelopes {
+		if envelope.Type == protocol.TypeRoomSnapshot {
+			h.fanoutRoomSnapshot(r, envelope, members)
+			continue
+		}
 		targets := members
-		if envelope.Type == protocol.TypeMatchLoadRequired {
+		if tournamentRoom && envelope.Type == protocol.TypeMatchLoadRequired {
 			targets = players
 		}
 		h.fanoutTo(targets, []protocol.Envelope{envelope})
@@ -818,6 +834,9 @@ func lastRoomSnapshotSequence(envelopes []protocol.Envelope) (int, int64) {
 // load a fresh role-specific snapshot.
 func (h *Handler) failClosedGameProjections(r *room.Room, cause error) {
 	if r != nil && r.RulesMode == protocol.RulesModeForge {
+		if game, ok := h.forgeGame(r.ID); ok && forgeFailureInformation(game.client).Boundary == nil {
+			game.diagnostics.fail("publication_invalid")
+		}
 		h.failForgeGame(r)
 		return
 	}

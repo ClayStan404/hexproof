@@ -106,7 +106,8 @@ func (pool *Pool) lease(entry *pooledWorker) *Client {
 		entry.idle.Stop()
 		entry.idle = nil
 	}
-	client := &Client{done: make(chan struct{}), supportsAI: entry.worker.supportsAI, supportsReplay: entry.worker.supportsReplay}
+	client := &Client{diagnostics: newDiagnosticCollector(), done: make(chan struct{}), supportsAI: entry.worker.supportsAI,
+		supportsReplay: entry.worker.supportsReplay, adapterRevision: entry.worker.adapterRevision}
 	client.shared = &sharedLease{client: client, pool: pool, entry: entry, worker: entry.worker, gate: make(chan struct{}, 1)}
 	entry.leases[client] = true
 	entry.games++
@@ -217,7 +218,12 @@ func (lease *sharedLease) call(ctx context.Context, request rpcRequest) (string,
 	} else if lease.sessionID == "" || request.SessionID != lease.sessionID {
 		return "", errors.New("Forge request does not belong to this lease")
 	}
-	result, err := lease.worker.call(ctx, request)
+	result, err := lease.worker.callFor(ctx, request, lease.client.diagnostics)
+	var terminal *terminalRequest
+	if errors.As(err, &terminal) {
+		lease.ended = true
+		lease.client.kill()
+	}
 	if err == nil && request.Command == "startGame" {
 		var handle SessionHandle
 		if json.Unmarshal([]byte(result), &handle) != nil || handle.SessionID == "" {
@@ -232,7 +238,7 @@ func (lease *sharedLease) call(ctx context.Context, request rpcRequest) (string,
 	}
 	if err != nil {
 		switch request.Command {
-		case "getSnapshot", "getPrompt", "getGameOver":
+		case "getSnapshot", "getSnapshots", "getPrompt", "awaitPrompt", "getGameOver":
 			lease.client.kill()
 		}
 	}

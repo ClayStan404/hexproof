@@ -73,6 +73,7 @@ TestCase {
             cardBackSource: ""
         }
     }
+    Component { id: persistentStateComponent; RulesCardPersistentState {} }
 
     function init() {
         testTranslations.setLanguage("en")
@@ -119,14 +120,14 @@ TestCase {
         compare(findChild(card, "rulesCardPowerToughness").text, "4/4")
         compare(findChild(card, "rulesCardDamage").text, "2 dmg")
         verify(findChild(card, "rulesCardDamage").visible)
-        compare(findChild(card, "rulesCardCounters").text, "+1/+1 4")
+        compare(findChild(card, "rulesCardCounters").text, "+1/+1 × 4")
         verify(findChild(card, "rulesCardAttachment").visible)
         mouseClick(card)
         tryCompare(details, "hasCard", true)
         compare(findChild(details, "rulesCardInspectorTitle").text, "Walking Ballista")
         const state = findChild(details, "rulesCardInspectorState")
         verify(state.text.includes("Damage marked: 2"))
-        verify(state.text.includes("Counters: +1/+1 4"))
+        verify(state.text.includes("Counters: +1/+1 × 4"))
         compare(state.text.split("Attached to Hidden card").length, 2)
         verify(!state.text.includes("Secret"))
         compare(state.textFormat, Text.PlainText)
@@ -136,9 +137,68 @@ TestCase {
         snapshot.zones[0].cards[0].power = "5"
         verify(testRulesPrompt.applySnapshot(snapshot))
         tryVerify(() => state.text.includes("Damage marked: 0"))
-        verify(state.text.includes("Counters: +1/+1 5"))
+        verify(state.text.includes("Counters: +1/+1 × 5"))
         verify(!findChild(card, "rulesCardDamage").visible)
         compare(findChild(card, "rulesCardPowerToughness").text, "5/4")
+    }
+
+    function test_relationshipDetailsDoNotTreatAttacksAsAttachments_data() {
+        return [
+            {tag:"attacking player", kind:"attack-player", sourceSummary:"", targetSummary:""},
+            {tag:"attacking permanent", kind:"attack-card", targetVisible:true, sourceSummary:"", targetSummary:""},
+            {tag:"real hidden attachment", kind:"attachment", sourceSummary:"Attached to Hidden card",
+             targetSummary:"Attachment: Walking Ballista"},
+            {tag:"real visible attachment", kind:"attachment", targetVisible:true, sourceSummary:"Attached to Public host",
+             targetSummary:"Attachment: Walking Ballista"},
+            {tag:"blocking hidden permanent", kind:"block", sourceSummary:"Blocking Hidden card",
+             targetSummary:"Blocked by Walking Ballista"},
+            {tag:"empty attachment", kind:"empty", sourceSummary:"", targetSummary:""},
+            {tag:"null attachment", kind:"null", sourceSummary:"", targetSummary:""},
+            {tag:"missing attachment", kind:"missing", sourceSummary:"", targetSummary:""}
+        ]
+    }
+
+    function test_relationshipDetailsDoNotTreatAttacksAsAttachments(data) {
+        snapshot.players = [{seat:0, life:20}, {seat:1, life:20}]
+        if (data.targetVisible) {
+            const target = snapshot.zones[0].cards[1]
+            target.visible = true
+            target.faceDown = false
+            target.identity = {name:"Public host"}
+        }
+        const source = snapshot.zones[0].cards[0]
+        source.attachedTo = data.kind === "attachment" ? "hidden" : data.kind === "null" ? null : ""
+        if (data.kind === "missing") delete source.attachedTo
+        source.attacking = data.kind.startsWith("attack-")
+        if (data.kind === "attack-player") source.attackingPlayer = 1
+        if (data.kind === "attack-card") source.attackingTarget = "hidden"
+        if (data.kind === "block") source.blocking = ["hidden"]
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        const current = testRulesPrompt.session.cardForInspection("ballista")
+        compare(current.attachedTo, data.kind === "attachment" ? "hidden" : "")
+        if (source.attacking) {
+            compare(current.links.length, 1)
+            compare(current.links[0].kind, "attack")
+            compare(current.links[0].targetId, data.kind === "attack-player" ? "" : "hidden")
+            if (data.kind === "attack-player") compare(current.links[0].targetSeat, 1)
+        }
+        verify(details.showCard("ballista"))
+        compare(details.persistentSummary, data.sourceSummary)
+        if (source.attacking) verify(details.stateLines().includes("Attacking"))
+        verify(!details.stateLines().includes("Secret"))
+        verify(details.showCard("hidden"))
+        compare(details.persistentSummary, data.targetSummary)
+        verify(!details.stateLines().includes("Secret"))
+    }
+
+    function test_unknownRelationshipIsNotAnAttachment() {
+        const current = testRulesPrompt.session.cardForInspection("ballista")
+        current.links = [{kind:"future-link", sourceId:"ballista", targetId:"hidden"}]
+        const state = createTemporaryObject(persistentStateComponent, testWindow,
+            {card:current, rulesSession:testRulesPrompt.session, cardCatalogModel:catalog})
+        verify(state)
+        compare(state.relationshipLines.length, 0)
+        compare(state.relationshipBadge, "")
     }
 
     function test_primaryActionAndKeyboardLeaveInspectionForSecondaryClick() {
@@ -193,26 +253,26 @@ TestCase {
         ]
         verify(testRulesPrompt.applySnapshot(snapshot))
         card.selectedId = "zabaz"
-        compare(findChild(card, "rulesCardCounters").text, "+1/+1 2")
+        compare(findChild(card, "rulesCardCounters").text, "+1/+1 × 2")
         verify(details.showCard("zabaz"))
         tryCompare(details, "hasCard", true)
         const state = findChild(details, "rulesCardInspectorState")
-        verify(state.text.includes("+1/+1 2"))
+        verify(state.text.includes("+1/+1 × 2"))
         verify(!state.text.includes("P1P1"))
         details.clear()
         tryCompare(details, "hasCard", false)
 
         card.selectedId = "saga"
-        compare(findChild(card, "rulesCardCounters").text, data.lore + " 2")
+        compare(findChild(card, "rulesCardCounters").text, data.lore + " × 2")
         verify(details.showCard("saga"))
         tryCompare(details, "hasCard", true)
-        verify(state.text.includes(data.lore + " 2"))
+        verify(state.text.includes(data.lore + " × 2"))
         verify(!state.text.includes("LORE"))
         compare(testRulesPrompt.session.cardForInspection("other-counters").countersSummary,
-                "-1/-1 1 · +0/+1 2 · -2/-2 1 · " + data.charge + " 3 · "
-                + data.loyalty + " 4 · Future Counter 5 · P9P9 1")
+                "-1/-1 × 1 · +0/+1 × 2 · -2/-2 × 1 · " + data.charge + " × 3 · "
+                + data.loyalty + " × 4 · Future Counter × 5 · P9P9 × 1")
         tryCompare(playerRows, "count", 1)
-        compare(playerRows.objectAt(0).countersSummary, data.energy + " 3 · " + data.poison + " 1")
+        compare(playerRows.objectAt(0).countersSummary, data.energy + " × 3 · " + data.poison + " × 1")
         compare(playerRows.objectAt(0).manaSummary, "G 2 · C 1")
         // Display localization must leave the authoritative snapshot untouched.
         compare(snapshot.zones[0].cards[0].counters[0].name, "P1P1")

@@ -28,6 +28,7 @@ Item {
         visible: true
         property string lastBanner: ""
         property var openedScreen: ({})
+        property bool feedbackInteractionOpen: false
         function showBanner(message) { lastBanner = message }
         function pushScreen(url, properties) { openedScreen = {url, properties} }
     }

@@ -18,6 +18,8 @@
 
 namespace hexproof::client {
 
+class RulesLaneSlotModel;
+
 class RulesSessionState final : public QObject
 {
     Q_OBJECT
@@ -28,6 +30,8 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(
         QVariantList battlefieldRelationships READ battlefieldRelationships NOTIFY snapshotChanged)
     Q_PROPERTY(quint64 snapshotRevision READ snapshotRevision NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantList transitions READ transitions NOTIFY transitionsChanged)
+    Q_PROPERTY(bool transitionSnap READ transitionSnap NOTIFY transitionsChanged)
     Q_PROPERTY(int turn READ turn NOTIFY snapshotChanged)
     Q_PROPERTY(QString step READ step NOTIFY snapshotChanged)
     Q_PROPERTY(int activeSeat READ activeSeat NOTIFY snapshotChanged)
@@ -45,6 +49,7 @@ class RulesSessionState final : public QObject
     Q_PROPERTY(bool promptPending READ promptPending NOTIFY promptChanged)
     Q_PROPERTY(qint64 promptId READ promptId NOTIFY promptChanged)
     Q_PROPERTY(QString promptKind READ promptKind NOTIFY promptChanged)
+    Q_PROPERTY(QString promptPaymentId READ promptPaymentId NOTIFY promptChanged)
     Q_PROPERTY(bool promptSupported READ promptSupported NOTIFY promptChanged)
     Q_PROPERTY(bool promptAutoPassEligible READ promptAutoPassEligible NOTIFY promptChanged)
     Q_PROPERTY(QString promptTitle READ promptTitle NOTIFY promptChanged)
@@ -162,6 +167,10 @@ class RulesSessionState final : public QObject
     QString promptKind() const
     {
         return m_promptKind;
+    }
+    QString promptPaymentId() const
+    {
+        return m_promptPaymentId;
     }
     bool promptSupported() const
     {
@@ -285,6 +294,11 @@ class RulesSessionState final : public QObject
     }
     Q_INVOKABLE QVariantMap topPublicZoneCard(int ownerSeat, const QString &zone) const;
     Q_INVOKABLE QAbstractItemModel *battlefieldCardsForSeat(int seat);
+    // The visible zoneCards rows of one seat's zone, in projection order.
+    Q_INVOKABLE QAbstractItemModel *zoneCardsFor(int seat, const QString &zone);
+    Q_INVOKABLE QAbstractItemModel *laneSlots(int seat, const QString &zone,
+                                              const QString &category);
+    Q_INVOKABLE void setPresentationCatalog(QObject *catalog);
     Q_INVOKABLE int controllingSeat(int seat) const;
     Q_INVOKABLE QVariantList castActionsForCard(const QString &cardId) const
     {
@@ -302,8 +316,29 @@ class RulesSessionState final : public QObject
     Q_INVOKABLE QStringList targetResponseIdsForSeat(int seat) const;
 
     Q_INVOKABLE QVariantMap cardForInspection(const QString &cardId) const;
+    // The zone, zone owner and identity visibility of cardForInspection(),
+    // without copying every role.
+    Q_INVOKABLE QVariantMap cardPlacement(const QString &cardId) const;
 
     bool applySnapshot(const QJsonObject &snapshot);
+    void setRecordTransitions(bool record)
+    {
+        m_recordTransitions = record;
+    }
+    // The next snapshot replaces the state instead of animating from it,
+    // e.g. after a reconnect missed an unknown number of updates.
+    void jumpNextSnapshot()
+    {
+        m_jumpNextSnapshot = true;
+    }
+    QVariantList transitions() const
+    {
+        return m_transitions;
+    }
+    bool transitionSnap() const
+    {
+        return m_transitionSnap;
+    }
     QVariantList publicReviewCards() const
     {
         return m_publicReviewCards;
@@ -316,15 +351,30 @@ class RulesSessionState final : public QObject
     void clear();
 
   signals:
+    void aboutToApplySnapshot(bool snap);
     void snapshotChanged();
+    void transitionsChanged();
     void promptChanged();
 
   private:
+    void refreshCardPresentations();
+    void beginLaneBatch();
+    void endLaneBatch();
     QString m_roomId;
     QString m_gameId;
     quint64 m_snapshotRevision = 0;
     QVariantList m_publicReviewCards;
     QVariantList m_battlefieldRelationships;
+    QHash<QString, int> m_battlefieldIndex;
+    QHash<QString, int> m_zoneIndex;
+    QHash<QString, int> m_stackIndex;
+    QVariantList m_trackedObjects;
+    QVariantList m_trackedZones;
+    QVariantMap m_trackedLife;
+    QVariantList m_transitions;
+    bool m_transitionSnap = true;
+    bool m_recordTransitions = true;
+    bool m_jumpNextSnapshot = false;
     int m_turn = 0;
     QString m_step;
     int m_activeSeat = -1;
@@ -338,11 +388,15 @@ class RulesSessionState final : public QObject
     RulesZoneModel m_zones;
     RulesCardModel m_battlefieldCards;
     QHash<int, QSortFilterProxyModel *> m_seatBattlefields;
+    QHash<QString, QAbstractListModel *> m_seatZones;
     RulesCardModel m_zoneCards;
+    QHash<QString, RulesLaneSlotModel *> m_laneSlots;
+    QObject *m_presentationCatalog = nullptr;
     RulesStackModel m_stack;
     bool m_promptPending = false;
     qint64 m_promptId = 0;
     QString m_promptKind;
+    QString m_promptPaymentId;
     bool m_promptSupported = false;
     bool m_promptAutoPassEligible = false;
     QString m_promptTitle;

@@ -413,7 +413,7 @@ Surface {
                                                     cardTile.cardData,
                                                     cardTile)
                                             } else {
-                                                zone.panel.hideSideboardCardPreview()
+                                                zone.panel.releaseSideboardCardPreview(cardTile)
                                             }
                                         }
                                     }

@@ -9,6 +9,92 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-17
+
+### Highlights
+
+- **Cached battlefield illustrations.** Battlefield cards can use a separately
+  cached illustration from the same Scryfall image, without printed rules or
+  borders. Existing full-card caches, offline fallback, custom art and complete
+  hover previews continue to work. Optional artwork downloads do not delay play.
+- **Consistent battlefield artwork.** A stale substitute-image cache in another
+  language no longer makes a correctly identified printing show its type line
+  and rules text inside the cropped battlefield tile. Planeswalker tiles use
+  their own artwork crop so the higher printed type line stays out of view.
+- **More reliable table controls and previews.** An incompatible blocker click
+  preserves the selected attacker and existing assignments. The choice toggle
+  stays clear of multiplayer public-zone controls, and turn announcements no
+  longer repeatedly scan a dense battlefield during layout. Card previews
+  refresh after same-path artwork repair and decode at the displayed resolution.
+  Forge hover previews show only complete card faces, with no state footer.
+  Current state remains on battlefield tiles and in the right-click inspector.
+- **Clearer table information and card review.** Recent actions have a fixed
+  row below the phase strip instead of covering creature names. Multiplayer
+  zone controls stay clear of the decision dock. Keyboard card previews follow
+  scrolling and hide when their card leaves view; previous-game review updates
+  its preview when player/zone filters or public card records change.
+- **Reliable limited-pool selection after scrolling.** The first click selects
+  a card after wheel scrolling stops, including when reversing direction in
+  the middle of the pool; paused drags continue scrolling normally.
+- **More reliable Forge combat selection.** Choosing an attacker before a
+  blocker preserves that blocker's other assignments, including creatures
+  that can block several attackers. Escape cancels either pending click order
+  without clearing completed blocks, and blocking guidance respects those
+  creatures' abilities. Card previews no longer describe attacks as attachments.
+- **Cleaner spectating and replay controls.** Entering a Forge table as a
+  spectator no longer produces a player-only action error. Reopening a replay
+  shows the retained playback speed correctly.
+- **Steadier two-player Forge table.** Paying mana, choosing targets and
+  answering other choices no longer push battlefield cards aside: the
+  lower-right corner stays reserved for the decision panel. Taller choices
+  cover the battlefield and offer **Hide choice** so you can look underneath.
+  The hand no longer jumps when you receive priority; a glow along its top edge
+  shows it instead.
+- **Clear feedback while Forge processes an answer.** Offered cards and players
+  stay highlighted but dimmed, the card you used is marked, and clicking during
+  the wait shows **Waiting for the game** instead of silently doing nothing.
+- **Faster Forge combat and mana.** A tapped card stays upright. Its art darkens and a large tap mark appears on the art; power, toughness and counters stay clear. Tapped copies of the same card form the next pile instead of hiding behind a ready one.
+  Matching copies stay piled, and the pile's badge counts how many are tapped
+  or new. The ready card in a mixed pile steps up and left, and the lane keeps
+  that step inside the window. Clicking a pile uses the card you clicked; when the copies differ,
+  such as one blocking and one not, the pile fans out so you can pick. The
+  spent card's corner can undo that mana, Return or the badge fans the pile,
+  and Escape folds it. An attacker with one legal destination is declared in
+  one click, and **Attack with all** sends every ready creature at a player.
+  A blocker with one legal attacker is declared the same way, and **Block with
+  all** assigns every such blocker. Three- and four-player decisions cover the
+  corner instead of pushing cards aside, and the two latest public log lines
+  stay under the phase track while the log is closed.
+- **Queue mana while a payment is processing.** Up to eight lands can be lined
+  up during one mana payment, including several from one pile. They are used in
+  order when Forge asks for the next mana of that same spell. A different
+  decision, an error or a timeout clears the queue.
+- **Lighter Forge table updates.** One card's artwork arriving no longer
+  refreshes every other card on the table. The decision dock builds only the
+  controls for the choice being answered and reuses them between decisions.
+  Declaring an attack does not restack the battlefield, and a decision updates
+  only the cards whose actions or relationships changed.
+- **Faster Forge priority.** With smart priority on, the room passes an
+  eligible priority step itself instead of waiting for the client. A decision
+  that follows its table update is applied together. Older game hosts still
+  use the previous polling path.
+- **Table motion is on.** Cards glide into their new slot, markers fly between
+  zones, another player's update plays out a beat apart, life totals count,
+  and Forge dialogs, stack spells and badges ease in. A click still lands on
+  the card's new slot immediately. Workstation frame pacing with the default
+  renderer kept up with a 160 Hz display; the Windows sample was not run.
+  A crowded board update is still a little over its time budget.
+  `HEXPROOF_MOTION=0` turns motion off. The hand's hover lift is unchanged.
+- **Untap steps stay smooth on crowded boards.** Each snapshot re-piles the
+  battlefield once instead of once per changed card. A permanent carrying an
+  aura or equipment keeps its own pile, so the attachment stays visible and
+  clickable.
+
+### Upgrade notes
+
+- Upgrade the client and Go server together to **3.0.0**; application versions
+  must match exactly.
+
 ## [2.5.0] - 2026-09-29
 
 ### Highlights
@@ -997,7 +1083,8 @@ Follow-up fixes are combined; reverted theme experiments are not included.
   becomes selectable at 90 physical cards, the two-player pack requirement.
 - Draft columns stay usable on shorter windows.
 
-[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/ClayStan404/hexproof/compare/v2.5.0...v3.0.0
 [2.0.0]: https://github.com/ClayStan404/hexproof/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/ClayStan404/hexproof/compare/v1.0.6...v1.2.0
 [1.0.6]: https://github.com/ClayStan404/hexproof/releases/tag/v1.0.6

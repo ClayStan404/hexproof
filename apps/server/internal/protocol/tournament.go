@@ -29,17 +29,19 @@ type TournamentListed struct {
 }
 
 type TournamentCreate struct {
-	Name          string                    `json:"name"`
-	Format        string                    `json:"format"`
-	EventType     string                    `json:"eventType,omitempty"`
-	Coordinator   string                    `json:"coordinator,omitempty"`
-	MatchMode     string                    `json:"matchMode"`
-	RulesMode     string                    `json:"rulesMode,omitempty"`
-	RoundMinutes  int                       `json:"roundMinutes"`
-	MaxPlayers    int                       `json:"maxPlayers"`
-	PlannedRounds int                       `json:"plannedRounds,omitempty"`
-	Product       *LimitedProductDefinition `json:"product,omitempty"`
-	DraftSettings *LimitedDraftSettings     `json:"draftSettings,omitempty"`
+	Name        string `json:"name"`
+	Format      string `json:"format"`
+	EventType   string `json:"eventType,omitempty"`
+	Coordinator string `json:"coordinator,omitempty"`
+	MatchMode   string `json:"matchMode"`
+	RulesMode   string `json:"rulesMode,omitempty"`
+	// An omitted setting preserves the legacy Forge constructed-event default.
+	ActionClockEnabled *bool                     `json:"actionClockEnabled,omitempty"`
+	RoundMinutes       int                       `json:"roundMinutes"`
+	MaxPlayers         int                       `json:"maxPlayers"`
+	PlannedRounds      int                       `json:"plannedRounds,omitempty"`
+	Product            *LimitedProductDefinition `json:"product,omitempty"`
+	DraftSettings      *LimitedDraftSettings     `json:"draftSettings,omitempty"`
 }
 
 type TournamentCreated struct {
@@ -161,31 +163,32 @@ type TournamentStandingView struct {
 }
 
 type TournamentSnapshot struct {
-	TournamentID   string                      `json:"tournamentId"`
-	Name           string                      `json:"name"`
-	Format         string                      `json:"format"`
-	EventType      string                      `json:"eventType"`
-	Coordinator    string                      `json:"coordinator"`
-	Stage          string                      `json:"stage"`
-	MatchMode      string                      `json:"matchMode"`
-	RulesMode      string                      `json:"rulesMode,omitempty"`
-	Status         string                      `json:"status"`
-	RoundMinutes   int                         `json:"roundMinutes"`
-	RoundStartedAt string                      `json:"roundStartedAt,omitempty"`
-	MaxPlayers     int                         `json:"maxPlayers"`
-	MinimumPlayers int                         `json:"minimumPlayers"`
-	PlannedRounds  int                         `json:"plannedRounds"`
-	CurrentRound   int                         `json:"currentRound"`
-	Registered     int                         `json:"registered"`
-	CheckedIn      int                         `json:"checkedIn"`
-	RoundComplete  bool                        `json:"roundComplete"`
-	OrganizerName  string                      `json:"organizerName"`
-	Role           string                      `json:"role"`
-	ParticipantID  string                      `json:"participantId,omitempty"`
-	CanRegister    bool                        `json:"canRegister"`
-	Product        *LimitedProductView         `json:"product,omitempty"`
-	DraftSettings  *LimitedDraftSettings       `json:"draftSettings,omitempty"`
-	Participants   []TournamentParticipantView `json:"participants"`
-	Pairings       []TournamentPairingView     `json:"pairings"`
-	Standings      []TournamentStandingView    `json:"standings"`
+	TournamentID       string                      `json:"tournamentId"`
+	Name               string                      `json:"name"`
+	Format             string                      `json:"format"`
+	EventType          string                      `json:"eventType"`
+	Coordinator        string                      `json:"coordinator"`
+	Stage              string                      `json:"stage"`
+	MatchMode          string                      `json:"matchMode"`
+	RulesMode          string                      `json:"rulesMode,omitempty"`
+	ActionClockEnabled bool                        `json:"actionClockEnabled"`
+	Status             string                      `json:"status"`
+	RoundMinutes       int                         `json:"roundMinutes"`
+	RoundStartedAt     string                      `json:"roundStartedAt,omitempty"`
+	MaxPlayers         int                         `json:"maxPlayers"`
+	MinimumPlayers     int                         `json:"minimumPlayers"`
+	PlannedRounds      int                         `json:"plannedRounds"`
+	CurrentRound       int                         `json:"currentRound"`
+	Registered         int                         `json:"registered"`
+	CheckedIn          int                         `json:"checkedIn"`
+	RoundComplete      bool                        `json:"roundComplete"`
+	OrganizerName      string                      `json:"organizerName"`
+	Role               string                      `json:"role"`
+	ParticipantID      string                      `json:"participantId,omitempty"`
+	CanRegister        bool                        `json:"canRegister"`
+	Product            *LimitedProductView         `json:"product,omitempty"`
+	DraftSettings      *LimitedDraftSettings       `json:"draftSettings,omitempty"`
+	Participants       []TournamentParticipantView `json:"participants"`
+	Pairings           []TournamentPairingView     `json:"pairings"`
+	Standings          []TournamentStandingView    `json:"standings"`
 }

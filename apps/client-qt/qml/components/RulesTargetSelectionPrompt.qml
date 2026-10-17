@@ -18,6 +18,7 @@ Item {
     required property int maximumSelections
     required property bool cancellable
     property var interaction: null
+    property bool externalControls: false
     property var localSelectedIds: ({})
     readonly property var selectedIds: interaction ? interaction.selectedTargetIds : localSelectedIds
     readonly property int selectedCount: Object.keys(selectedIds).length
@@ -27,9 +28,10 @@ Item {
     readonly property bool narrowLayout: width < Theme.size(490)
     readonly property bool hasCandidates: !interaction || fallbackModel.count > 0
 
-    implicitHeight: !hasCandidates ? selectionControls.implicitHeight : narrowLayout
-                    ? Theme.size(154) + selectionControls.implicitHeight
-                    : Math.max(Theme.size(142), selectionControls.implicitHeight)
+    implicitHeight: externalControls ? (hasCandidates ? Theme.size(142) : 0)
+                    : !hasCandidates ? inlineControls.implicitHeight : narrowLayout
+                    ? Theme.size(154) + inlineControls.implicitHeight
+                    : Math.max(Theme.size(142), inlineControls.implicitHeight)
 
     function resetSelection() {
         localSelectedIds = ({})
@@ -65,7 +67,7 @@ Item {
         switch (kind) {
         case "player": return qsTr("Player")
         case "spell": return qsTr("Spell on stack")
-        default: return qsTr("Permanent")
+        default: return qsTr("Card")
         }
     }
 
@@ -88,7 +90,7 @@ Item {
 
     GridLayout {
         anchors.fill: parent
-        columns: root.narrowLayout || !root.hasCandidates ? 1 : 2
+        columns: root.externalControls || root.narrowLayout || !root.hasCandidates ? 1 : 2
         columnSpacing: Theme.size(12)
         rowSpacing: Theme.size(12)
 
@@ -188,6 +190,7 @@ Item {
                     color: Theme.inactiveSelection
 
                     Text {
+                        objectName: "rulesTargetLabel-" + targetTile.responseId
                         textFormat: Text.PlainText
                         anchors.fill: parent
                         anchors.margins: Theme.size(4)
@@ -231,63 +234,71 @@ Item {
             }
         }
 
-        ColumnLayout {
-            id: selectionControls
-
+        Loader {
+            id: inlineControls
+            active: !root.externalControls
+            visible: active
             Layout.fillWidth: root.narrowLayout || !root.hasCandidates
-            Layout.preferredWidth: root.narrowLayout || !root.hasCandidates ? -1 : Math.max(Theme.size(190), targetActions.implicitWidth)
-            spacing: Theme.size(8)
+            Layout.preferredWidth: root.narrowLayout || !root.hasCandidates ? -1 : Math.max(Theme.size(190), implicitWidth)
+            sourceComponent: root.controlsComponent
+        }
+    }
 
-            Text {
-                objectName: "rulesDirectTargetHint"
-                textFormat: Text.PlainText
+    readonly property Component controlsComponent: ColumnLayout {
+        id: selectionControls
+        enabled: root.enabled
+        spacing: Theme.size(8)
+
+        Text {
+            objectName: "rulesDirectTargetHint"
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            visible: root.interaction !== null
+            text: qsTr("Click highlighted cards or players on the table.")
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSize(11)
+            wrapMode: Text.WordWrap
+        }
+
+        Text {
+            objectName: "rulesTargetSelectionCount"
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            text: root.interaction && root.interaction.nativeSelectedCount > 0
+                  ? qsTr("Selected: %1").arg(root.interaction.nativeSelectedCount)
+                  : root.minimumSelections === root.maximumSelections
+                  ? qsTr("Selected %1 of %2")
+                    .arg(root.selectedCount).arg(root.maximumSelections)
+                  : qsTr("Selected %1 · choose %2–%3")
+                    .arg(root.selectedCount).arg(root.minimumSelections)
+                    .arg(root.maximumSelections)
+            color: root.validSelection ? Theme.success : Theme.textSecondary
+            font.pixelSize: Theme.fontSize(11)
+            horizontalAlignment: Text.AlignHCenter
+        }
+
+        RowLayout {
+            id: targetActions
+            Layout.fillWidth: true
+            spacing: Theme.size(6)
+
+            AppButton {
                 Layout.fillWidth: true
-                visible: root.interaction !== null
-                text: qsTr("Click highlighted cards or players on the table.")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSize(11)
-                wrapMode: Text.WordWrap
+                compact: true
+                visible: root.cancellable
+                text: qsTr("Cancel")
+                onClicked: root.submit("$cancel")
             }
 
-            Text {
-                textFormat: Text.PlainText
+            AppButton {
+                objectName: "rulesConfirmTargets"
                 Layout.fillWidth: true
-                text: root.interaction && root.interaction.nativeSelectedCount > 0
-                      ? qsTr("Selected: %1").arg(root.interaction.nativeSelectedCount)
-                      : root.minimumSelections === root.maximumSelections
-                      ? qsTr("Selected %1 of %2")
-                        .arg(root.selectedCount).arg(root.maximumSelections)
-                      : qsTr("Selected %1 · choose %2–%3")
-                        .arg(root.selectedCount).arg(root.minimumSelections)
-                        .arg(root.maximumSelections)
-                color: root.validSelection ? Theme.success : Theme.textSecondary
-                font.pixelSize: Theme.fontSize(11)
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            RowLayout {
-                id: targetActions
-                Layout.fillWidth: true
-                spacing: Theme.size(6)
-
-                AppButton {
-                    Layout.fillWidth: true
-                    compact: true
-                    visible: root.cancellable
-                    text: qsTr("Cancel")
-                    onClicked: root.submit("$cancel")
-                }
-
-                AppButton {
-                    objectName: "rulesConfirmTargets"
-                    Layout.fillWidth: true
-                    compact: true
-                    variant: "primary"
-                    text: qsTr("Confirm targets")
-                    enabled: root.validSelection
-                    disabledReason: qsTr("Choose a valid number of targets")
-                    onClicked: root.submit("$submit")
-                }
+                compact: true
+                variant: "primary"
+                text: qsTr("Confirm targets")
+                enabled: root.validSelection
+                disabledReason: qsTr("Choose a valid number of targets")
+                onClicked: root.submit("$submit")
             }
         }
     }

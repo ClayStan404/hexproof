@@ -19,6 +19,42 @@ func multiBlockPrompt() json.RawMessage {
 			{"attackerId":"native-attacker-c","validBlockerIds":["native-palace-guard","native-bears"],"minBlockers":1}]}}`)
 }
 
+func TestBlockerPromptDetailSupportsNativeCapacity(t *testing.T) {
+	const fallback = "Assign each blocker to the attackers it can legally block."
+	for _, test := range []struct {
+		name    string
+		maximum int
+		error   string
+		want    string
+	}{
+		{name: "ordinary blocker", maximum: 1, want: fallback},
+		{name: "multiple attackers", maximum: 2, want: fallback},
+		{name: "native error takes precedence", maximum: 2,
+			error: "This creature must be blocked by two or more creatures.",
+			want:  "This creature must be blocked by two or more creatures."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var envelope map[string]any
+			if err := json.Unmarshal(multiBlockPrompt(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			input := envelope["input"].(map[string]any)
+			input["error"] = test.error
+			limits := input["blockerAssignmentLimits"].([]any)
+			limits[0].(map[string]any)["maxAssignments"] = test.maximum
+			raw, err := json.Marshal(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			view, err := NormalizePrompt(raw)
+			if err != nil || !view.Supported || view.Detail != test.want ||
+				len(view.CombatSources) != 2 || view.CombatSources[0].Maximum != test.maximum {
+				t.Fatalf("blocker guidance = %+v, %v; want detail %q and capacity %d", view, err, test.want, test.maximum)
+			}
+		})
+	}
+}
+
 func TestMultiBlockUsesNativeCapacityAndDistinctPairs(t *testing.T) {
 	raw := multiBlockPrompt()
 	view, err := NormalizePrompt(raw)

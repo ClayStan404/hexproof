@@ -6,6 +6,24 @@ upstream revision, native adapter revision and reviewed native patch.
 The adapter reuses native inputs, costs, legal choices and cancellation.
 The old Manabrew harness, fork patches and build path have been retired.
 
+Revision 34 also exposes source undo at ordinary priority after producing
+floating mana. Only the next native undo entry is offered, and only for an
+entirely unspent, reversible mana activation owned by the current priority
+player. Qualification checks exact mana identities and multiplicities,
+including native recursive activation-fee refunds; ambiguous repeated-ability
+history is left unavailable. The action rechecks its input and native history
+on the game thread, without invoking generic cancellation or passing priority.
+It never rolls back land plays, spells or non-mana actions. Existing payment
+undo remains separate, and the revision-25 base is unchanged.
+
+Revision 33 fixes source undo during an unfinished mana payment. The native
+payment retains its cost history, refunds that source's exact mana contribution
+and performs the reversible activation rollback on the game thread. Undo
+availability checks include mana already used by the current payment, while
+mana consumed by a completed action remains unavailable. Exact mana identity
+and multiplicity preserve other sources, including equal-color floating mana.
+It retains revision 32's manual mana-color decisions and the revision-25 base.
+
 Adapter revision 27 uses upstream `0485ad49fb10c8ef5b3eda2a002c963d59be71dc`.
 Revision 27 completes the reviewed catalog printing census with paired
 alternate names, Unicode spelling, funny/playtest numbers and same-Oracle
@@ -23,9 +41,7 @@ printing index together. Upstream changes include token-resolution performance,
 alternative-cost stability and AI copy-target selection. The upgrade requires
 a matching complete base distribution for creator hosting; an overlay cannot
 replace the previous base's rules and card resources. Publish and verify that
-base before activating its download manifest. See the
-[upgrade record](../../docs/forge-upstream-2026-09-27.md) for verification and
-publication status.
+base before activating its download manifest.
 Revision 24 releases controlled-player input when that player concedes, allowing
 an Emrakul-controlled turn to unwind without stranding the native decision loop.
 Revision 23 corrects companion decline, cast-only exile choices and taking cards
@@ -37,8 +53,8 @@ them changes the runtime identity. See [printing compatibility](../../tools/forg
 Revision 17 adds a bounded private observation journal and acknowledged
 `getReplay` reads on both native transports. It captures intermediate automatic
 resolutions, both hands and combat relationships without changing normal viewer
-redaction. The hub releases visual recordings only after whole-match completion;
-see [private visual replays](../../docs/forge-replays.md).
+redaction. The hub releases visual recordings to original participants only
+after whole-match completion; exported replays retain both players' hands.
 Revision 16 reports bounded deck-start rejection coordinates in both JSONL
 transports without exposing submitted card names, exception details or paths.
 Revision 13 keeps each complete London-mulligan redraw available for the keep
@@ -76,8 +92,8 @@ timestamp checks. Revision 8 adds native Limited deck rules and incremental
 private card selections.
 Revision 7 preserves conditional-discard completion and empty-stack cleanup,
 shows finite card-face menus, validates crew/exile/helper cost choices, and
-projects class levels and dungeon rooms. The frozen 40-deck corpus and its
-native/projection/UI replay tooling live in `tools/forge-card-corpus/`.
+projects class levels and dungeon rooms. Maintainer-only corpus and UI replay
+tooling is not included in the public source distribution.
 It publishes revealed battlefield choices (named cards, types, colors, numbers
 and modes) from native `CardView`, excluding secret choices and face-down cards.
 Revision 5 exposes native improvise/convoke reservations and restores permanents tapped
@@ -100,15 +116,25 @@ Prepare the official development runtime and server, then start a local hub:
 ```
 
 Subsequent launches can omit `--prepare`. `--native` remains an optional explicit
-selector; `--legacy` is rejected. The builder needs Git, Python 3.12+, JDK 21+
+selector; `--legacy` is rejected. The builder needs Git, Python 3.12+, JDK 21
 and Maven. It builds the official `forge-gui` dependency reactor and native host,
 then runs the native regression programs. No Node.js or Rust toolchain is used.
+Install these dependencies with the workstation's native package manager before
+preparing; on Arch Linux, use `sudo pacman -S --needed maven jdk21-openjdk`.
+The builder selects JDK 21 and supplies its `JAVA_HOME` and `PATH` only to Maven
+and Java subprocesses. The launcher selects an installed Java 21 runtime unless
+`HEXPROOF_FORGE_JAVA` explicitly selects another executable. Neither changes the
+system Java default.
 
 Development packages live in fresh directories under `build/forge-native/`.
 The launcher validates the pin, reviewed patch, current host source, main JAR,
 dependencies and resource checkout before use. Its index is
 `build/forge-native/local-runtime.json`. `--prepare` advances that index only
 after validation and preserves old packages and unreviewed source changes.
+Reviewed source is compared against the complete patched Git tree using a
+temporary index and object directory. Patch hunk order or context formatting
+does not invalidate identical source; extra edits, staged work and untracked
+files remain rejected. Validation preserves the checkout, index and objects.
 
 Use `HEXPROOF_FORGE_SOURCE_DIR` for an existing checkout at the exact pin,
 `HEXPROOF_FORGE_OUTPUT_DIR` for build output, or `HEXPROOF_FORGE_LOCAL_ROOT` for
@@ -140,10 +166,12 @@ access. Rebuilding may still use Maven's declared plugins/dependencies; this is
 not an offline toolchain image. Extract the runtime at any chosen location and
 launch it with `HEXPROOF_FORGE_LOCAL_ROOT` pointing to `hexproof-forge-runtime`.
 
-The optional Forge workflow builds and validates the same paired packages on
-native Linux amd64 and arm64 runners. It verifies a rebuild from preserved
-source and runs real Go-to-Java games. Artifacts are development evidence; the
-workflow does not publish a release or deploy a service. The deployment script
+Forge-sensitive push/PR changes run a bounded real-engine gate using the pinned
+base and current overlay; see [native regression scenarios](native-host/TESTING.md).
+The separate optional Forge workflow builds and validates the same paired
+packages on native Linux amd64 and arm64 runners. It verifies a rebuild from
+preserved source and runs real Go-to-Java games. Artifacts are development
+evidence; the workflow does not publish a release or deploy a service. The deployment script
 validates the runtime/source pair before contacting any target and preserves
 transactional staging/rollback. Running it still requires owner authorization.
 
@@ -155,7 +183,7 @@ conformance suites. Keep source and runtime provenance aligned. Preserve all
 upstream notices and make matching source available with distributed runtimes.
 Generated checkouts, JARs and archives belong under ignored `build/`.
 
-See [native-host/TESTING.md](native-host/TESTING.md) for reproducible scenarios
-and [the migration record](../../docs/forge-native-migration.md) for actual
-verification and remaining game-input/platform limits. A server without a
+See [native-host/TESTING.md](native-host/TESTING.md) for reproducible native
+regressions. Optional maintainer UI scenarios are not included in the public
+export. A server without a
 configured runtime still hosts manual rooms and advertises Forge unavailable.

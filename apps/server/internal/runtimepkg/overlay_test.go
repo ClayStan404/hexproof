@@ -17,6 +17,7 @@ import (
 func TestOverlayPinsSourceIdentityAndRepairsPrivateCopy(t *testing.T) {
 	root := t.TempDir()
 	installed := Installation{Root: root, RuntimeID: Pinned().RuntimeID}
+	symbols := []byte(`{"schemaVersion":1,"classes":{"forge.Fixture":["resolve"]}}`)
 	makeJar := func(identity string) (string, string) {
 		var buffer bytes.Buffer
 		archive := zip.NewWriter(&buffer)
@@ -27,6 +28,13 @@ func TestOverlayPinsSourceIdentityAndRepairsPrivateCopy(t *testing.T) {
 		if err := json.NewEncoder(member).Encode(map[string]any{"schemaVersion": 1,
 			"runtimeId": identity, "baseRuntimeId": installed.RuntimeID,
 			"baseManifestSha256": Pinned().ForgeManifestSHA256}); err != nil {
+			t.Fatal(err)
+		}
+		index, err := archive.Create("org/hexproof/forge/diagnostic-symbols.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := index.Write(symbols); err != nil {
 			t.Fatal(err)
 		}
 		if err := archive.Close(); err != nil {
@@ -62,6 +70,11 @@ func TestOverlayPinsSourceIdentityAndRepairsPrivateCopy(t *testing.T) {
 	other, otherChecksum := makeJar("adapter-other")
 	if _, err := InstallOverlay(t.Context(), installed, other, otherChecksum, "adapter-current"); err == nil {
 		t.Fatal("accepted a different adapter with an otherwise valid checksum")
+	}
+	symbols = []byte(`{"schemaVersion":1,"classes":{"forge.Other":["resolve"]}}`)
+	changedIndex, _ := makeJar("adapter-current")
+	if _, err := InstallOverlay(t.Context(), installed, changedIndex, checksum, "adapter-current"); err == nil {
+		t.Fatal("accepted a modified diagnostic resource under the original adapter checksum")
 	}
 	if err := os.WriteFile(jar, []byte("modified package"), 0600); err != nil {
 		t.Fatal(err)

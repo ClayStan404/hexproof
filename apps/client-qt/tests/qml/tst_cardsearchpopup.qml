@@ -23,6 +23,11 @@ TestCase {
             property var previewCards: []
             property var previewBatches: []
             property int imageRevision: 0
+            function cardFaces(name, setCode, collectorNumber) {
+                if (name !== "Front") return []
+                return [{name:"Front", faceName:"", setCode:setCode, collectorNumber:collectorNumber},
+                        {name:"Back", faceName:"Back", setCode:setCode, collectorNumber:collectorNumber}]
+            }
             function imageSource(name, setCode, collectorNumber) { return "" }
             function tableImageSource(name, setCode, collectorNumber) { return "" }
             function setSearchPreviewCards(cards) {
@@ -216,6 +221,33 @@ TestCase {
         return [{tag:"normal",scale:1},{tag:"large",scale:1.5}]
     }
 
+    function test_bothFacesAppearWithoutSelectingOrAddingResult() {
+        searchPopup.query = "Front"
+        searchPopup.results = [{name:"Front", setCode:"TST", collectorNumber:"7"}]
+        searchPopup.openSearch()
+        tryCompare(searchPopup, "opened", true)
+        const grid = findChild(searchPopup, "cardSearchResults")
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        verify(waitForPolish(testWindow))
+        const thumbnail = findChild(grid.itemAtIndex(0), "workbenchCard-Front")
+        mouseMove(testWindow, 1, 1)
+        mouseMove(thumbnail)
+        const preview = findChild(searchPopup, "cardHoverPreview")
+        tryCompare(preview, "visible", true)
+        compare(preview.facePreview.displayFaces.map(face => face.name), ["Front", "Back"])
+        const reverse = findChild(preview, "cardHoverPreviewArt-1")
+        verify(reverse !== null)
+        verify(findChild(preview, "viewOtherFaceButton") === null)
+        mouseMove(reverse)
+        wait(400)
+        verify(preview.visible)
+        compare(searchPopup.selectedCard, null)
+        compare(searchPopup.results[0].name, "Front")
+        compare(addSpy.count, 0)
+        searchPopup.close()
+        tryCompare(preview, "visible", false)
+    }
+
     function test_hoverPreviewKeepsResultsGeometryAndWindowBounds(data) {
         Theme.uiScale = data.scale
         searchPopup.openSearch()
@@ -228,7 +260,7 @@ TestCase {
         const thumbnail = findChild(results.itemAtIndex(0),"workbenchCard-Lightning Bolt")
         const originalResults = {x:results.x,y:results.y,width:results.width,height:results.height}
         mouseMove(thumbnail,thumbnail.width/2,thumbnail.height/2)
-        const preview = findChild(searchPopup,"cardHoverPreviewArt").parent
+        const preview = findChild(searchPopup,"cardHoverPreview")
         tryCompare(preview,"visible",true)
         verify(waitForRendering(searchPopup.contentItem))
         compare({x:results.x,y:results.y,width:results.width,height:results.height},originalResults)

@@ -62,6 +62,8 @@ Page {
     property var limitedSets: []
     property string matchMode: "bo3"
     property string rulesMode: "manual"
+    property bool actionClockEnabled: true
+    onIsLimitedChanged: actionClockEnabled = !isLimited
     readonly property bool rulesAvailable: rulesMode !== "forge" || root.hub.forgeRulesAvailable === true
 
     background: AppBackground { }
@@ -399,6 +401,23 @@ Page {
                             font.pixelSize: Theme.fontSize(11)
                             wrapMode: Text.WordWrap
                         }
+                        AppToggle {
+                            objectName: "tournamentActionClockToggle"
+                            Layout.fillWidth: true
+                            visible: root.rulesMode === "forge"
+                            text: qsTranslate("I18n", "25-minute action clock")
+                            checked: root.actionClockEnabled
+                            onToggled: root.actionClockEnabled = checked
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: root.rulesMode === "forge" && root.actionClockEnabled
+                            textFormat: Text.PlainText
+                            text: qsTranslate("I18n", "Each player has 25 minutes for the whole match. Time runs while a decision is waiting for that player; reaching zero loses the match.")
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            wrapMode: Text.WordWrap
+                        }
                     }
 
                     InfoBanner {
@@ -435,7 +454,8 @@ Page {
                                                                formatSelector.currentValue,
                                                                root.matchMode,
                                                                minutesField.numberValue(),
-                                                               capField.numberValue(), root.rulesMode)
+                                                               capField.numberValue(), root.rulesMode,
+                                                               root.rulesMode === "forge" && root.actionClockEnabled)
                                     return
                                 }
                                 const product = root.isCube
@@ -447,7 +467,8 @@ Page {
                                             root.matchMode,
                                             minutesField.numberValue(),
                                             capField.numberValue(),
-                                            product, root.rulesMode)
+                                            product, root.rulesMode,
+                                            root.rulesMode === "forge" && root.actionClockEnabled)
                             }
                         }
                     }

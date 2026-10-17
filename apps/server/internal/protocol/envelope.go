@@ -38,9 +38,9 @@ const (
 	MaxCombatArrowSources    = 100
 	MaxRetainedGameLog       = 10000
 	MaxProjectedGameLog      = 500
-	MaxLimitedProductCards   = 5000
-	MaxLimitedProductSheets  = 64
-	MaxLimitedVariants       = 64
+	MaxLimitedProductCards   = 10000
+	MaxLimitedProductSheets  = 128
+	MaxLimitedVariants       = 256
 	MaxLimitedSlots          = 64
 )
 
@@ -212,9 +212,10 @@ const MaxSpectators = 8
 type Envelope struct {
 	Type string `json:"type"`
 	ID   string `json:"id,omitempty"`
-	// Seq is a per-room, 1-based monotonic sequence carried on server->client
-	// room.snapshot / room.event. Encoded via MarshalJSON so a legitimate
-	// value is always emitted when set; absent when SeqPtr is nil.
+	// Seq identifies a server->client room publication. Allocation is per-room
+	// and starts at 1; paired rules snapshots/prompts reuse the same sequence,
+	// even when intervening metadata has a higher one. MarshalJSON emits the
+	// value when set and omits it when SeqPtr is nil.
 	SeqPtr  *int64          `json:"-"`
 	Payload json.RawMessage `json:"payload,omitempty"`
 }

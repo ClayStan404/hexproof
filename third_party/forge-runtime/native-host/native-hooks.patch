@@ -152,10 +152,10 @@ index 51ade4c7e2a2eb0947cb2343646950c5972d4335..6d582011ff6576766aad1e77ff1a0e79
  
          return groups;
 diff --git a/forge-core/src/main/java/forge/util/ThreadUtil.java b/forge-core/src/main/java/forge/util/ThreadUtil.java
-index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167397013be 100644
+index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..2f51779cbbce3dbc9ae9ae8c8376b71f6a65cd5f 100644
 --- a/forge-core/src/main/java/forge/util/ThreadUtil.java
 +++ b/forge-core/src/main/java/forge/util/ThreadUtil.java
-@@ -1,8 +1,45 @@
+@@ -1,8 +1,46 @@
  package forge.util;
  
  import java.util.concurrent.*;
@@ -174,6 +174,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
 +        int nextId(String kind);
 +        void resetId(String kind, int value);
 +        <T> T cache(String kind, Supplier<T> create);
++        default void diagnostic(String stage, Object source, Runnable action) { action.run(); }
 +        default Map<String, String> abilityPresentation(String cardName, Map<String, String> parameters) {
 +            return Map.of();
 +        }
@@ -201,7 +202,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
      static {
          System.out.printf("(ThreadUtil first call): Running with priority %d%n", Thread.currentThread().getPriority());
      }
-@@ -41,10 +78,13 @@ public class ThreadUtil {
+@@ -41,10 +79,13 @@ public class ThreadUtil {
      }
  
      public static void invokeInGameThread(Runnable toRun) {
@@ -216,7 +217,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
          return getScheduledPool().schedule(inputUpdater, milliseconds, TimeUnit.MILLISECONDS);
      }
  
-@@ -54,7 +94,8 @@ public class ThreadUtil {
+@@ -54,7 +95,8 @@ public class ThreadUtil {
  
      private static ExecutorService service = Executors.newWorkStealingPool();
      public static ExecutorService getServicePool() {
@@ -226,7 +227,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
      }
      public static void refreshServicePool() {
          service = Executors.newWorkStealingPool();
-@@ -63,7 +104,7 @@ public class ThreadUtil {
+@@ -63,7 +105,7 @@ public class ThreadUtil {
          Future<T> future = null;
          T result;
          try {
@@ -235,7 +236,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
              result = future.get(millis, TimeUnit.MILLISECONDS);
          } catch (Exception e) {
              result = null;
-@@ -74,6 +115,7 @@ public class ThreadUtil {
+@@ -74,6 +116,7 @@ public class ThreadUtil {
          return result;
      }
      public static <T> T executeWithTimeout(Callable<T> task, int milliseconds) {
@@ -243,7 +244,7 @@ index e06359ea4ffb20c6b92b3fc5cec06bc641f5c075..c4b2334eb3bb1b49600cc7b46dee9167
          ExecutorService executor = Executors.newCachedThreadPool(r -> {
              Thread thread = new Thread(r);
              thread.setDaemon(true);
-@@ -90,7 +132,8 @@ public class ThreadUtil {
+@@ -90,7 +133,8 @@ public class ThreadUtil {
          }
          finally {
             future.cancel(true);
@@ -332,7 +333,7 @@ index 187fe82e43a9cb9d2431a179316bf7621189f4ec..90ba2f2ae79fe9e5dc90d5f2efbbdeba
  
          if (abCost == null) {
 diff --git a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
-index 9d90c5c341dd79efff1d80f9afd8a53c518f4be3..ebcabb77756a0d8f8ad12763b29630bca63a37c3 100644
+index 9d90c5c341dd79efff1d80f9afd8a53c518f4be3..4d325d3d361483a41fb7d533204474501a9bd678 100644
 --- a/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
 +++ b/forge-game/src/main/java/forge/game/ability/AbilityUtils.java
 @@ -1300,7 +1300,17 @@ public class AbilityUtils {
@@ -353,6 +354,33 @@ index 9d90c5c341dd79efff1d80f9afd8a53c518f4be3..ebcabb77756a0d8f8ad12763b29630bc
          Player pl = sa.getActivatingPlayer();
          final Game game = pl.getGame();
  
+@@ -1321,7 +1331,7 @@ public class AbilityUtils {
+ 
+         final ApiType api = sa.getApi();
+         if (api == null) {
+-            sa.resolve();
++            runDiagnosticEffect(sa, sa::resolve);
+             if (sa.getSubAbility() != null) {
+                 resolve(sa.getSubAbility());
+             }
+@@ -1374,7 +1384,17 @@ public class AbilityUtils {
+         resolveApiAbility(abSub, game);
+     }
+ 
++    private static void runDiagnosticEffect(final SpellAbility sa, final Runnable action) {
++        forge.util.ThreadUtil.ExecutionContext context = forge.util.ThreadUtil.executionContext();
++        if (context == null) action.run();
++        else context.diagnostic("effect", sa, action);
++    }
++
+     private static void resolveApiAbility(final SpellAbility sa, final Game game) {
++        runDiagnosticEffect(sa, () -> resolveApiAbilityObserved(sa, game));
++    }
++
++    private static void resolveApiAbilityObserved(final SpellAbility sa, final Game game) {
+         final Card card = sa.getHostCard();
+ 
+         String msg = "AbilityUtils:resolveApiAbility: try to resolve API ability";
 diff --git a/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java b/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java
 index 2123ce26be797a4be4b4e4f657189290c0df5db7..c068f0e879bb24fd1172977f243c7aa60c3a1ea0 100644
 --- a/forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java
@@ -549,11 +577,31 @@ index 0ef0812a7e5a2bdf081ea7f300687b707fa0aa6c..f53e7788567e402f80b3d8f1548a3b0c
          // update battlefield of all activating players - to redraw cards used to pay mana as untapped
          for (Player p : payers) {
              p.getGame().fireEvent(new GameEventZone(ZoneType.Battlefield, p, EventValueChangeType.ComplexUpdate, null));
+diff --git a/forge-game/src/main/java/forge/game/mulligan/AbstractMulligan.java b/forge-game/src/main/java/forge/game/mulligan/AbstractMulligan.java
+index 4f50baeeb30b0111a76ff1c8399fbb5db8b79fd6..392ca5f8d117d3733b6b93228db09f86142dd6a1 100644
+--- a/forge-game/src/main/java/forge/game/mulligan/AbstractMulligan.java
++++ b/forge-game/src/main/java/forge/game/mulligan/AbstractMulligan.java
+@@ -22,6 +22,8 @@ public abstract class AbstractMulligan {
+     public Player getPlayer() { return player; }
+ 
+     public void beforeFirstMulligan() {}
++    /** Finish any deferred redraw work before an optional mulligan ability. */
++    public void prepareMulliganAbility() {}
+     public abstract boolean canMulligan();
+     public abstract int handSizeAfterNextMulligan();
+ 
 diff --git a/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java b/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java
-index 929d7cb5c9b839c1421f40c839c7ddbde4976a3a..d0811a6241d48fdbfecf10eb3ffacfb31ff52eb8 100644
+index 929d7cb5c9b839c1421f40c839c7ddbde4976a3a..341e6e9796b196e197855e1bcfd3b5d73447047d 100644
 --- a/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java
 +++ b/forge-game/src/main/java/forge/game/mulligan/LondonMulligan.java
-@@ -12,7 +12,7 @@ public class LondonMulligan extends AbstractMulligan {
+@@ -6,13 +6,14 @@ import forge.game.player.Player;
+ import forge.game.zone.ZoneType;
+ 
+ public class LondonMulligan extends AbstractMulligan {
++    private int cardsReturnedThisDraw = 0;
+     public LondonMulligan(Player p, boolean firstMullFree) {
+         super(p, firstMullFree);
+     }
  
      @Override
      public boolean canMulligan() {
@@ -562,22 +610,55 @@ index 929d7cb5c9b839c1421f40c839c7ddbde4976a3a..d0811a6241d48fdbfecf10eb3ffacfb3
      }
  
      @Override
-@@ -21,9 +21,13 @@ public class LondonMulligan extends AbstractMulligan {
+@@ -20,14 +21,32 @@ public class LondonMulligan extends AbstractMulligan {
+         return player.getMaxHandSize();
      }
  
-     @Override
--    public void mulliganDraw() {
--        player.drawCards(handSizeAfterNextMulligan());
++    @Override
 +    public void keep() {
 +        super.keep();
-+        // Keep the complete redraw available until the player keeps this hand.
-         int tuckingCards = tuckCardsDuringMulligan();
++        prepareMulliganAbility();
++    }
++
+     @Override
+     public void mulliganDraw() {
+-        player.drawCards(handSizeAfterNextMulligan());
+-        int tuckingCards = tuckCardsDuringMulligan();
++        cardsReturnedThisDraw = 0;
++        super.mulliganDraw();
++    }
++
++    @Override
++    public void prepareMulliganAbility() {
++        // Ordinary keep decisions defer bottoming, but Serum Powder needs the
++        // completed London hand. Record this draw's returned cards so keeping
++        // it or using another Powder cannot require the same cards again.
++        int tuckingCards = tuckCardsDuringMulligan() - cardsReturnedThisDraw;
 +        if (tuckingCards == 0) {
 +            return;
 +        }
          CardCollection hand = new CardCollection(player.getCardsIn(ZoneType.Hand));
  
          for (final Card c : player.getController().tuckCardsViaMulligan(hand, tuckingCards)) {
+             player.getGame().getAction().moveToLibrary(c, -1, null);
++            cardsReturnedThisDraw++;
+         }
+     }
+ 
+diff --git a/forge-game/src/main/java/forge/game/mulligan/MulliganService.java b/forge-game/src/main/java/forge/game/mulligan/MulliganService.java
+index 3e795bacad227ee4933f8f8f72e2d2197fe248b4..04328bbeabac7ef6c4cbc9d55a9570d72e38b5b2 100644
+--- a/forge-game/src/main/java/forge/game/mulligan/MulliganService.java
++++ b/forge-game/src/main/java/forge/game/mulligan/MulliganService.java
+@@ -79,7 +79,8 @@ public class MulliganService {
+                 boolean keep = !mulligan.canMulligan() ||
+                         p.getController().mulliganKeepHand(
+                                 firstPlayer,
+-                                mulligan.tuckCardsDuringMulligan()
++                                mulligan.tuckCardsDuringMulligan(),
++                                mulligan::prepareMulliganAbility
+                         );
+ 
+                 if (game.isGameOver()) {
 diff --git a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java b/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
 index 838c73f239a290cea8525d36ee281480f28d44fb..8b8f44751f32106d715e2f5a1907a4c73fa14cce 100644
 --- a/forge-game/src/main/java/forge/game/phase/PhaseHandler.java
@@ -695,7 +776,7 @@ index 9ea2491a2af69543d58763847aa4fb2977792b60..c3fe3bc6f8749838152c7958f99fd4b3
          PlayerZone commandZone = getZone(ZoneType.Command);
          companion = game.getAction().moveTo(ZoneType.Command, companion, null, AbilityKey.newMap());
 diff --git a/forge-game/src/main/java/forge/game/player/PlayerController.java b/forge-game/src/main/java/forge/game/player/PlayerController.java
-index 192ef8737ecd645b75d50782693d5eab948d43a7..fb10bbf715bbfa0e84cca27929f8aa669346c1f0 100644
+index 192ef8737ecd645b75d50782693d5eab948d43a7..a0160326da55b39ddc3857f6936a9910353a8a72 100644
 --- a/forge-game/src/main/java/forge/game/player/PlayerController.java
 +++ b/forge-game/src/main/java/forge/game/player/PlayerController.java
 @@ -49,6 +49,61 @@ import java.util.stream.Collectors;
@@ -760,6 +841,17 @@ index 192ef8737ecd645b75d50782693d5eab948d43a7..fb10bbf715bbfa0e84cca27929f8aa66
      public enum BinaryChoiceType {
          HeadsOrTails, // coin
          TapOrUntap,
+@@ -273,6 +328,10 @@ public abstract class PlayerController {
+     public abstract Object vote(SpellAbility sa, String prompt, List<Object> options, ListMultimap<Object, Player> votes, Player forPlayer, boolean optional);
+ 
+     public abstract boolean mulliganKeepHand(Player player, int cardsToReturn);
++    /** Native optional mulligan actions may require the completed redraw first. */
++    public boolean mulliganKeepHand(Player player, int cardsToReturn, Runnable prepareAbility) {
++        return mulliganKeepHand(player, cardsToReturn);
++    }
+     public abstract CardCollectionView tuckCardsViaMulligan(CardCollectionView hand, int cardsToReturn);
+ 
+     public abstract List<SpellAbility> chooseSpellAbilityToPlay();
 diff --git a/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java b/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java
 index b5b396dc82f9928041f0486277fcf4944b538315..4855d00267ca194d7d513ef3f653d03ea69b68a3 100644
 --- a/forge-game/src/main/java/forge/game/replacement/ReplacementEffect.java
@@ -922,7 +1014,19 @@ diff --git a/forge-game/src/main/java/forge/game/zone/MagicStack.java b/forge-ga
 index 35ea040cc89fd8105635f3426031a44bfaa117c5..ef68d3bb09c7b836f526d165a77c1f5d0544f732 100644
 --- a/forge-game/src/main/java/forge/game/zone/MagicStack.java
 +++ b/forge-game/src/main/java/forge/game/zone/MagicStack.java
-@@ -615,6 +615,20 @@ public class MagicStack /* extends MyObservable */ implements Iterable<SpellAbil
+@@ -193,6 +193,11 @@ public class MagicStack /* extends MyObservable */ implements Iterable<SpellAbil
+     public final boolean canUndo(Player player) {
+         return undoStackOwner == player;
+     }
++    /** Read-only qualification of the next native undo, without changing order. */
++    public final SpellAbility peekUndoStack() {
++        return undoStack.isEmpty() ? null : undoStack.peek();
++    }
++
+     public final boolean undo() {
+         if (undoStack.isEmpty()) { return false; }
+ 
+@@ -615,6 +620,20 @@ public class MagicStack /* extends MyObservable */ implements Iterable<SpellAbil
          } else if (sa.getApi() != null) {
              AbilityUtils.handleRemembering(sa);
              AbilityUtils.resolve(sa);
@@ -964,6 +1068,68 @@ index a6cf5f1521e668b160713ead14aa16096aaa8c3c..9d05fe8a973eb0f15a490f3a26f00fac
  
      @SuppressWarnings("unchecked")
      public static <E extends Enum<E>> TrackableType<E> EnumType(final Class<E> enumType) {
+diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputConfirmMulligan.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputConfirmMulligan.java
+index cd814690afc2a78418ce8800499ba1d777825c49..0b7ca3df07e6452aad6e0e00e853029c4c2ee7d7 100644
+--- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputConfirmMulligan.java
++++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputConfirmMulligan.java
+@@ -49,11 +49,17 @@ public class InputConfirmMulligan extends InputSyncronizedBase {
+     private final CardCollection selected = new CardCollection();
+     private final Player player;
+     private final Player startingPlayer;
++    private final Runnable prepareAbility;
+ 
+     public InputConfirmMulligan(final PlayerControllerHuman controller, final Player humanPlayer, final Player startsGame) {
++        this(controller, humanPlayer, startsGame, () -> {});
++    }
++
++    public InputConfirmMulligan(final PlayerControllerHuman controller, final Player humanPlayer, final Player startsGame, final Runnable prepareAbility) {
+         super(controller);
+         player = humanPlayer;
+         startingPlayer = startsGame;
++        this.prepareAbility = prepareAbility;
+     }
+ 
+     /** {@inheritDoc} */
+@@ -102,6 +108,11 @@ public class InputConfirmMulligan extends InputSyncronizedBase {
+ 
+     volatile boolean cardSelectLocked = false;
+ 
++    /** Do not expose intermediate hand mutations while the native ability runs. */
++    public final boolean isCardSelectionPending() {
++        return cardSelectLocked;
++    }
++
+     /**
+      * When a card selected at the time of mulligan (currently affects just Serum Powder).
+      */
+@@ -119,13 +130,21 @@ public class InputConfirmMulligan extends InputSyncronizedBase {
+         if (getController().getGui().confirm(cView, "Use " + cView + "'s ability?")) {
+             cardSelectLocked = true;
+             ThreadUtil.invokeInGameThread(() -> {
+-                final CardCollectionView hand = c0.getController().getCardsIn(ZoneType.Hand);
+-                final int handSize = hand.size();
+-                for (final Card c : hand.threadSafeIterable()) {
+-                    player.getGame().getAction().exile(c, null, null);
++                try {
++                    prepareAbility.run();
++                    // London bottoming can remove the Powder selected for use.
++                    if (player.getGame().isGameOver() || !player.isInGame()
++                            || !player.getZone(ZoneType.Hand).contains(c0)) return;
++                    final CardCollectionView hand = c0.getController().getCardsIn(ZoneType.Hand);
++                    final int handSize = hand.size();
++                    for (final Card c : hand.threadSafeIterable()) {
++                        player.getGame().getAction().exile(c, null, null);
++                    }
++                    c0.getController().drawCards(handSize);
++                } finally {
++                    cardSelectLocked = false;
++                    if (!player.getGame().isGameOver() && player.isInGame()) showMessage();
+                 }
+-                c0.getController().drawCards(handSize);
+-                cardSelectLocked = false;
+             });
+         }
+         return true;
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java
 index 65e0ae93ef577d1ca25793c12e5238ea3e812523..bdc586619c680b8c1c12571d4dd9eb5e94615f34 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputLockUI.java
@@ -1011,10 +1177,18 @@ index 5932059d5d752a06a1e817a921067a7fac779f34..a5bb20155d86c0190fbf90c709f44102
          return selected;
      }
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
-index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae1fbd9089 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
 +++ b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayMana.java
-@@ -48,7 +48,10 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -12,6 +12,8 @@
+ import forge.game.card.CardView;
+ import forge.game.card.CardCollection;
+ import forge.game.mana.ManaCostBeingPaid;
++import forge.game.mana.Mana;
++import forge.game.mana.ManaRefundService;
+ import forge.game.player.PlaySpellAbility;
+ import forge.game.player.Player;
+ import forge.game.player.PlayerController.FullControlFlag;
+@@ -48,7 +50,10 @@
      private CardCollection autoPayManaSources = null;
      private boolean autoPayManaSourcesKnown = false;
  
@@ -1026,7 +1200,7 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
  
      protected InputPayMana(final PlayerControllerHuman controller, final SpellAbility saPaidFor0, final Player player0, final boolean effect) {
          super(controller);
-@@ -119,7 +122,7 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -119,7 +124,7 @@
          final Collection<SpellAbility> toRemove = Lists.newArrayListWithCapacity(result.size());
          for (final SpellAbility sa : result) {
              sa.setActivatingPlayer(player);
@@ -1035,7 +1209,7 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
                  continue;
              }
              toRemove.add(sa);
-@@ -207,7 +210,7 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -207,7 +212,7 @@
          return activateManaAbility(card, null);
      }
      protected boolean activateManaAbility(final Card card, SpellAbility chosenAbility) {
@@ -1044,7 +1218,19 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
              System.err.print("Should wait till previous call to playAbility finishes.");
              return false;
          }
-@@ -329,7 +332,9 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -324,12 +329,21 @@
+             }
+         }
+ 
++        // Hosted manual activation of an irreversible source must retain the
++        // player's full color choice, including mana left after this payment.
++        // Auto-pay sets its own expression independently in ComputerUtilMana.
++        if (forge.util.ThreadUtil.executionContext() != null
++                && !chosen.isUndoable()) {
++            producedColorMask = 0;
++        }
+         chosen.setManaExpressChoice(ColorSet.fromMask(producedColorMask));
+ 
          // System.out.println("Chosen sa=" + chosen + " of " + chosen.getHostCard() + " to pay mana");
  
          locked = true;
@@ -1054,7 +1240,7 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
              if (PlaySpellAbility.playSpellAbility(getController(), chosen.getActivatingPlayer(), chosen)) {
                  final List<AbilityManaPart> manaAbilities = chosen.getAllManaParts();
                  boolean restrictionsMet = true;
-@@ -350,6 +355,9 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -350,6 +364,9 @@
                      invalidateAutoPayManaSources();
                  }
              }
@@ -1064,10 +1250,78 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
              // Need to call this to unlock
              onStateChanged();
          });
-@@ -357,6 +365,11 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -357,6 +374,79 @@
          return true;
      }
  
++
++    /** A source is retractable only when every exact globe is still available
++     * in this payment or the pool, and Forge permits undoing its native cost. */
++    public final boolean canUndoManaAbility(SpellAbility ability) {
++        return !locked && !resolvingManaAction && !isFinished() && canUndoManaAbilityState(ability);
++    }
++
++    private boolean canUndoManaAbilityState(SpellAbility ability) {
++        if (ability == null || ability.getManaPart() == null || !ability.isUndoable() || ability.getActivatingPlayer() != player
++                || ability.getAllManaParts().size() != 1 || !game.getStack().canUndo(player)) return false;
++        int recorded = 0;
++        for (SpellAbility undo : game.getStack().filterUndoStackByHost(ability.getHostCard()))
++            if (undo == ability) recorded++;
++        // Repeated activations can overwrite a reusable ability's own native
++        // payment ledger. Do not offer an ambiguous source refund.
++        if (recorded != 1 || saPaidFor.getPayingManaAbilities().stream().filter(source -> source == ability).count() > 1)
++            return false;
++        Collection<Mana> produced = ability.getManaPart().getLastManaProduced();
++        if (produced.isEmpty()) return false;
++        Map<Mana, Integer> generated = new IdentityHashMap<>();
++        Map<Mana, Integer> accounted = new IdentityHashMap<>();
++        for (Mana mana : produced) generated.merge(mana, 1, Integer::sum);
++        for (Mana mana : player.getManaPool()) accounted.merge(mana, 1, Integer::sum);
++        List<Mana> paid = new ArrayList<>();
++        for (Mana mana : saPaidFor.getPayingMana()) {
++            accounted.merge(mana, 1, Integer::sum);
++            if (generated.containsKey(mana)) paid.add(mana);
++        }
++        for (Map.Entry<Mana, Integer> entry : generated.entrySet())
++            if (!entry.getValue().equals(accounted.get(entry.getKey()))) return false;
++        return manaCost.canRefundManaPayments(paid);
++    }
++
++    public final boolean undoManaAbility(SpellAbility ability) {
++        if (!canUndoManaAbility(ability)) return false;
++        locked = true;
++        resolvingManaAction = true;
++        game.getAction().invoke(() -> {
++            try {
++                // Recheck before the transaction. A stale response must refresh
++                // its input, not execute a partially valid refund.
++                if (!canUndoManaAbilityState(ability)) return;
++                Set<Mana> produced = Collections.newSetFromMap(new IdentityHashMap<>());
++                produced.addAll(ability.getManaPart().getLastManaProduced());
++                List<Mana> paid = new ArrayList<>();
++                for (Mana mana : saPaidFor.getPayingMana()) if (produced.contains(mana)) paid.add(mana);
++                if (!manaCost.refundManaPayments(paid)) return;
++                player.getManaPool().addMana(paid);
++                saPaidFor.getPayingMana().removeIf(produced::contains);
++                List<SpellAbility> sources = saPaidFor.getPayingManaAbilities();
++                for (int index = sources.size() - 1; index >= 0; index--) {
++                    if (sources.get(index) == ability) {
++                        sources.remove(index);
++                        break;
++                    }
++                }
++                if (!ability.undo()) throw new IllegalStateException("Validated mana source could not be undone");
++                game.getStack().clearUndoStack(ability);
++                new ManaRefundService(ability).refundManaPaid();
++                invalidateAutoPayManaSources();
++            } finally {
++                resolvingManaAction = false;
++                onStateChanged();
++            }
++        });
++        return true;
++    }
++
 +    /** Read-only metadata for remote renderers of this native payment input. */
 +    public final String getUnpaidManaCost() { return manaCost.toString(); }
 +    public final boolean isPaymentActionPending() { return locked || resolvingManaAction; }
@@ -1076,7 +1330,7 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
      protected boolean isAlreadyPaid() {
          if (manaCost.isPaid()) {
              bPaid = true;
-@@ -369,18 +382,24 @@ public abstract class InputPayMana extends InputSyncronizedBase {
+@@ -369,18 +459,24 @@
      }
  
      protected void runAsAi(Runnable proc) {
@@ -1104,6 +1358,14 @@ index 7350155fab629d2bb38a71c032599258a2c53c5b..a6e1eeecb778d1401ccb2d8a676255ae
                  onStateChanged();
              });
          }
+@@ -413,6 +509,7 @@
+     @Override
+     public void showMessage() {
+         if (isFinished()) { return; }
++        manaCost.beginPaymentUndoTracking();
+         getController().pushActionableCards(true);
+         updateButtons();
+         onStateChanged();
 diff --git a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java b/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
 index 73926b484fe4aaf3905348a945d9c67cacc37fe1..3de28a856190d8146b78561db8201ed98f2fe838 100644
 --- a/forge-gui/src/main/java/forge/gamemodes/match/input/InputPayManaOfCostPayment.java
@@ -1372,3 +1634,213 @@ index e52eb2a829f72a1c5cc35f4d646be8645d921e16..1d008334144c93093134a1bf8de7cfcd
              inp.setMessage(Localizer.getInstance().getMessage("lblSelectACreatureToTap"));
              inp.setCancelAllowed(true);
              inp.showAndWait();
+diff --git a/forge-gui/src/main/java/forge/player/PlayerControllerHuman.java b/forge-gui/src/main/java/forge/player/PlayerControllerHuman.java
+index 7c6d22f86d78a53ea5eae9ee861e5376a3aa1caa..76e29ecd4fd08d380c425a72f58c9a0852370cd7 100644
+--- a/forge-gui/src/main/java/forge/player/PlayerControllerHuman.java
++++ b/forge-gui/src/main/java/forge/player/PlayerControllerHuman.java
+@@ -1497,8 +1497,13 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
+ 
+     @Override
+     public boolean mulliganKeepHand(final Player mulliganingPlayer, int cardsToReturn) {
++        return mulliganKeepHand(mulliganingPlayer, cardsToReturn, () -> {});
++    }
++
++    @Override
++    public boolean mulliganKeepHand(final Player mulliganingPlayer, int cardsToReturn, Runnable prepareAbility) {
+         // TODO we should be passing tuckCards into Confirmation Dialog
+-        final InputConfirmMulligan inp = new InputConfirmMulligan(this, player, mulliganingPlayer);
++        final InputConfirmMulligan inp = new InputConfirmMulligan(this, player, mulliganingPlayer, prepareAbility);
+         inp.showAndWait();
+         return inp.isKeepHand();
+     }
+diff --git a/forge-game/src/main/java/forge/game/mana/ManaCostBeingPaid.java b/forge-game/src/main/java/forge/game/mana/ManaCostBeingPaid.java
+--- a/forge-game/src/main/java/forge/game/mana/ManaCostBeingPaid.java
++++ b/forge-game/src/main/java/forge/game/mana/ManaCostBeingPaid.java
+@@ -32,6 +32,7 @@
+ import java.util.*;
+ import java.util.Map.Entry;
+ import java.util.function.Predicate;
++import java.util.function.Consumer;
+ 
+ /**
+  * <p>
+@@ -121,6 +122,63 @@
+     private byte sunburstMap = 0;
+     private int cntX = 0;
+ 
++    // A live human payment can retract one source without guessing which
++    // hybrid/X/snow shards it paid. Copies used by affordability previews do
++    // not inherit this ledger or change the live payment.
++    private record PaymentUndoStep(Mana mana, Consumer<ManaCostBeingPaid> apply) { }
++    private ManaCostBeingPaid paymentUndoStart;
++    private final List<PaymentUndoStep> paymentUndoSteps = new ArrayList<>();
++    private int paymentUndoMutationDepth;
++
++    public final void beginPaymentUndoTracking() {
++        if (paymentUndoStart == null) paymentUndoStart = new ManaCostBeingPaid(this);
++    }
++
++    private void recordPaymentUndo(Mana mana, Consumer<ManaCostBeingPaid> apply) {
++        if (paymentUndoStart != null && paymentUndoMutationDepth == 0)
++            paymentUndoSteps.add(new PaymentUndoStep(mana, apply));
++    }
++
++    private ManaCostBeingPaid replayWithoutMana(Collection<Mana> removed) {
++        if (paymentUndoStart == null) return removed.isEmpty() ? new ManaCostBeingPaid(this) : null;
++        Map<Mana, Integer> exact = new IdentityHashMap<>();
++        for (Mana mana : removed) exact.merge(mana, 1, Integer::sum);
++        for (Entry<Mana, Integer> entry : exact.entrySet()) {
++            long recorded = paymentUndoSteps.stream().filter(step -> step.mana() == entry.getKey()).count();
++            // A source refund removes every occurrence of its mana. Forge may
++            // reuse one Mana object for multiple globes of the same color.
++            if (recorded != entry.getValue()) return null;
++        }
++        ManaCostBeingPaid restored = new ManaCostBeingPaid(paymentUndoStart);
++        try {
++            for (PaymentUndoStep step : paymentUndoSteps)
++                if (step.mana() == null || !exact.containsKey(step.mana())) step.apply().accept(restored);
++        } catch (IllegalStateException error) {
++            // A retained restricted payment must remain legal. Reject before
++            // moving any mana or changing the actual source/payment state.
++            return null;
++        }
++        return restored;
++    }
++
++    public final boolean canRefundManaPayments(Collection<Mana> removed) {
++        return replayWithoutMana(removed) != null;
++    }
++
++    public final boolean refundManaPayments(Collection<Mana> removed) {
++        ManaCostBeingPaid restored = replayWithoutMana(removed);
++        if (restored == null) return false;
++        unpaidShards.clear();
++        for (Entry<ManaCostShard, ShardCount> entry : restored.unpaidShards.entrySet())
++            unpaidShards.put(entry.getKey(), new ShardCount(entry.getValue()));
++        xManaCostPaidByColor = restored.xManaCostPaidByColor == null ? null : Maps.newHashMap(restored.xManaCostPaidByColor);
++        sunburstMap = restored.sunburstMap;
++        cntX = restored.cntX;
++        paymentUndoSteps.removeIf(step -> removed.stream().anyMatch(mana -> step.mana() == mana));
++        return true;
++    }
++
++
+     /**
+      * Copy constructor
+      * @param manaCostBeingPaid
+@@ -258,6 +316,7 @@
+     }
+     private void increaseShard(final ManaCostShard shard, final int toAdd, final boolean forX) {
+         if (toAdd <= 0) { return; }
++        recordPaymentUndo(null, cost -> cost.increaseShard(shard, toAdd, forX));
+ 
+         ShardCount sc = unpaidShards.computeIfAbsent(shard, k -> new ShardCount());
+         if (forX) {
+@@ -271,6 +330,16 @@
+     }
+ 
+     public final void decreaseShard(final ManaCostShard shard, final int manaToSubtract) {
++        recordPaymentUndo(null, cost -> cost.decreaseShard(shard, manaToSubtract));
++        paymentUndoMutationDepth++;
++        try {
++            decreaseShardInternal(shard, manaToSubtract);
++        } finally {
++            paymentUndoMutationDepth--;
++        }
++    }
++
++    private void decreaseShardInternal(final ManaCostShard shard, final int manaToSubtract) {
+         if (manaToSubtract <= 0) {
+             return;
+         }
+@@ -481,7 +550,28 @@
+ 
+         byte inColor = mana.getColor();
+         byte outColor = pool.getPossibleColorUses(inColor);
+-        return tryPayMana(inColor, IterableUtil.filter(unpaidShards.keySet(), predCanBePaid), outColor) != null;
++        EnumSet<ManaCostShard> allowed = EnumSet.noneOf(ManaCostShard.class);
++        if (paymentUndoStart != null) {
++            // Save the conversion and source restrictions at the real payment;
++            // a later matrix refresh must not reinterpret that mana's uses.
++            for (ManaCostShard shard : ManaCostShard.values())
++                if (canBePaidWith(shard, mana, pool, null)) allowed.add(shard);
++        }
++        boolean paid;
++        paymentUndoMutationDepth++;
++        try {
++            paid = tryPayMana(inColor, IterableUtil.filter(unpaidShards.keySet(), predCanBePaid), outColor) != null;
++        } finally {
++            paymentUndoMutationDepth--;
++        }
++        if (paid) recordPaymentUndo(mana, cost -> {
++            Predicate<ManaCostShard> retained = shard -> allowed.contains(shard)
++                    && (shard != ManaCostShard.COLORED_X || canColoredXShardBePaidByColor(
++                            MagicColor.toShortString(inColor), cost.xManaCostPaidByColor));
++            if (cost.tryPayMana(inColor, IterableUtil.filter(cost.unpaidShards.keySet(), retained), outColor) == null)
++                throw new IllegalStateException("Retained mana cannot pay the restored cost");
++        });
++        return paid;
+     }
+     
+     public final ManaCostShard payManaViaConvoke(final byte color) {
+diff --git a/forge-game/src/main/java/forge/game/mana/ManaPool.java b/forge-game/src/main/java/forge/game/mana/ManaPool.java
+--- a/forge-game/src/main/java/forge/game/mana/ManaPool.java
++++ b/forge-game/src/main/java/forge/game/mana/ManaPool.java
+@@ -186,6 +186,14 @@
+     }
+ 
+     public boolean removeManaNoEvent(final Mana mana) {
++        // Equal mana can have a different physical source. Prefer the exact
++        // globe produced/paid by an ability so source undo cannot steal it.
++        for (Iterator<Mana> it = floatingMana.get(mana.getColor()).iterator(); it.hasNext();) {
++            if (it.next() == mana) {
++                it.remove();
++                return true;
++            }
++        }
+         return floatingMana.remove(mana.getColor(), mana);
+     }
+ 
+@@ -195,7 +203,7 @@
+     public boolean removeMana(final Iterable<Mana> manaList) {
+         Set<MagicColor.Color> colors = EnumSet.noneOf(MagicColor.Color.class);
+         for (Mana m : manaList) {
+-            if (floatingMana.remove(m.getColor(), m)) {
++            if (removeManaNoEvent(m)) {
+                 colors.add(MagicColor.Color.fromByte(m.getColor()));
+             }
+         }
+@@ -281,24 +289,16 @@
+         }
+ 
+         final List<Mana> removeFloating = Lists.newArrayList();
+-
+-        boolean manaNotAccountedFor = false;
+-        // loop over mana produced by mana ability
++        Map<Mana, Integer> available = new IdentityHashMap<>();
++        for (Mana mana : floatingMana.values()) available.merge(mana, 1, Integer::sum);
++        // Identity and multiplicity both matter: a mana ability can produce
++        // several globes that share one Mana instance, and equal-color mana
++        // from another source must not substitute for a spent globe.
+         for (Mana mana : ma.getLastManaProduced()) {
+-            Collection<Mana> poolLane = floatingMana.get(mana.getColor());
+-
+-            if (poolLane != null && poolLane.contains(mana)) {
+-                removeFloating.add(mana);
+-            } else {
+-                manaNotAccountedFor = true;
+-                break;
+-            }
+-        }
+-
+-        // When is it legitimate for all the mana not to be accountable?
+-        // TODO: Does this condition really indicate an bug in Forge?
+-        if (manaNotAccountedFor) {
+-            return false;
++            int remaining = available.getOrDefault(mana, 0);
++            if (remaining == 0) return false;
++            available.put(mana, remaining - 1);
++            removeFloating.add(mana);
+         }
+ 
+         removeMana(removeFloating);

@@ -19,6 +19,7 @@
 #include "services/CustomCardArtStore.h"
 #include "services/DeckLegalityService.h"
 #include "services/DraftSimulator.h"
+#include "services/FeedbackService.h"
 #include "services/LimitedDeckDraftStore.h"
 #include "services/LimitedSessionState.h"
 #include "services/MatchCardCacheBinding.h"
@@ -37,6 +38,7 @@
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QJsonDocument>
@@ -191,6 +193,28 @@ int main(int argc, char *argv[])
         return 2;
     }
     auto *preferences = new hexproof::client::ClientPreferencesModel(storageRoot, &runtimeOwner);
+    QString feedbackConfigPath = QStringLiteral(":/config/feedback.json");
+    bool feedbackTestLoopback = false;
+#ifdef HEXPROOF_NATIVE_AUDIT
+    const QString feedbackTestConfig = qEnvironmentVariable("HEXPROOF_AUDIT_FEEDBACK_CONFIG");
+    if (!feedbackTestConfig.isEmpty()) {
+        const QFileInfo input(feedbackTestConfig);
+        const QString profileDirectory = QFileInfo(storageRoot).canonicalFilePath();
+        if (profileDirectory.isEmpty() || input.isSymLink() ||
+            !input.canonicalFilePath().startsWith(profileDirectory + QLatin1Char('/'))) {
+            qCritical() << "Feedback test configuration must be inside the isolated profile.";
+            return 2;
+        }
+        feedbackConfigPath = input.canonicalFilePath();
+        feedbackTestLoopback = true;
+    }
+#endif
+    QFile feedbackConfigFile(feedbackConfigPath);
+    QJsonObject feedbackConfig;
+    if (feedbackConfigFile.open(QIODevice::ReadOnly) && feedbackConfigFile.size() <= 16384)
+        feedbackConfig = QJsonDocument::fromJson(feedbackConfigFile.readAll()).object();
+    auto *feedbackService = new hexproof::client::FeedbackService(
+        storageRoot, feedbackConfig, feedbackTestLoopback, &runtimeOwner);
     auto *publicContent = new hexproof::client::PublicContentService(storageRoot, &runtimeOwner);
     publicContent->setLanguage(preferences->uiLanguage());
     QObject::connect(
@@ -349,6 +373,10 @@ int main(int argc, char *argv[])
         cardCatalog, &hexproof::client::CardCatalog::expandCardFaceRequestsIncrementally);
     QObject::connect(cardCatalog, &hexproof::client::CardCatalog::cardFaceRequestsExpanded,
                      matchLoader, &hexproof::client::MatchLoadCoordinator::adoptExpandedCards);
+    QObject::connect(cardCatalog, &hexproof::client::CardCatalog::cardFaceRequestsExpanded,
+                     cardCatalog, [cardCatalog](qint64, quint64, const QVariantList &cards) {
+                         cardCatalog->prepareTableArtCrops(cards);
+                     });
     QObject::connect(matchLoader, &hexproof::client::MatchLoadCoordinator::cardsRequested,
                      cardCatalog, &hexproof::client::CardCatalog::cacheMatchCardsIncrementally);
     QObject::connect(matchLoader, &hexproof::client::MatchLoadCoordinator::cardsRetryRequested,
@@ -391,6 +419,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("limitedDeckDrafts"),
                                              limitedDeckDrafts);
     engine.rootContext()->setContextProperty(QStringLiteral("preferences"), preferences);
+    engine.rootContext()->setContextProperty(QStringLiteral("feedbackService"), feedbackService);
     engine.rootContext()->setContextProperty(QStringLiteral("publicContent"), publicContent);
     engine.rootContext()->setContextProperty(QStringLiteral("soundEffects"), soundEffects);
     engine.rootContext()->setContextProperty(QStringLiteral("backgroundMusic"), backgroundMusic);
@@ -408,6 +437,10 @@ int main(int argc, char *argv[])
                                              cardCatalog->artStorage());
     engine.rootContext()->setContextProperty(QStringLiteral("appUpdater"), appUpdater);
     engine.rootContext()->setContextProperty(QStringLiteral("matchLoader"), matchLoader);
+    // Forge table motion is on unless HEXPROOF_MOTION=0.
+    if (qEnvironmentVariableIsSet("HEXPROOF_MOTION"))
+        engine.rootContext()->setContextProperty(QStringLiteral("hexproofMotion"),
+                                                 qEnvironmentVariable("HEXPROOF_MOTION") == "1");
     QObject::connect(&engine, &QQmlApplicationEngine::warnings,
                      [](const QList<QQmlError> &warnings) {
                          for (const QQmlError &e : warnings)

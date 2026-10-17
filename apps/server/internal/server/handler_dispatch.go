@@ -82,6 +82,7 @@ var commandRegistry = map[string]commandSpec{
 	protocol.TypePlayerReady:                   requiredCommand((*Handler).handlePlayerReady),
 	protocol.TypeClientLoadComplete:            requiredCommand((*Handler).handleClientLoadComplete),
 	protocol.TypeRulesRespond:                  requiredCommand((*Handler).handleRulesRespond),
+	protocol.TypeRulesPriority:                 requiredCommand((*Handler).handleRulesPriority),
 	protocol.TypeGameDraw:                      requiredCommand((*Handler).handleGameDraw),
 	protocol.TypeGameShuffleLibrary:            requiredCommand((*Handler).handleGameShuffleLibrary),
 	protocol.TypeGameMulligan:                  requiredCommand((*Handler).handleGameMulligan),

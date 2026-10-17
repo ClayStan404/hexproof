@@ -375,6 +375,10 @@
       "value": "rules.responded"
     },
     {
+      "name": "TypeRulesPriority",
+      "value": "rules.priority"
+    },
+    {
       "name": "TypeGameDraw",
       "value": "game.draw"
     },

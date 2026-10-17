@@ -42,6 +42,8 @@ TestCase {
         property string eventType: "cube_draft"
         property string format: "Cube"
         property string matchMode: "bo3"
+        property string rulesMode: "manual"
+        property bool actionClockEnabled: false
         property var draftSettings: ({packsPerPlayer: 3, packsPerBatch: 1})
         property string organizerName: "Alice"
         property int maxPlayers: 4
@@ -109,12 +111,24 @@ TestCase {
                 playerAName: a === "a" ? "Alice" : "Bob",
                 playerBName: b === "a" ? "Alice" : "Bob", roomId: roomId}
     }
+    function test_actionClockSummaryUsesServerConfiguration() {
+        const summary = findChild(page, "cubeRoomSummary")
+        roomState.rulesMode = "forge"
+        verify(summary.text.includes("Action clock · Off"))
+        roomState.actionClockEnabled = true
+        verify(summary.text.includes("Action clock · 25 minutes per player"))
+        roomState.rulesMode = "manual"
+        verify(!summary.text.includes("Action clock"))
+    }
+
     function init() {
         testTranslations.setLanguage("en")
         window.width = 1280
         window.height = 800
         roomState.stage = "registration"
         roomState.eventType = "cube_draft"
+        roomState.rulesMode = "manual"
+        roomState.actionClockEnabled = false;
         roomState.draftSettings = {packsPerPlayer: 3, packsPerBatch: 1}
         roomState.status = "registration"
         roomState.role = "organizer"

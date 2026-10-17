@@ -45,6 +45,7 @@ func TestCommandRegistry(t *testing.T) {
 		protocol.TypePlayerReady,
 		protocol.TypeClientLoadComplete,
 		protocol.TypeRulesRespond,
+		protocol.TypeRulesPriority,
 		protocol.TypeForgeHostRequest,
 		protocol.TypeForgePeerRequest,
 		protocol.TypeGameDraw,

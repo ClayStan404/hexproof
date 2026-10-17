@@ -57,11 +57,17 @@ valid for that source. The in-table shortcut help lists keyboard equivalents.
 - Qt Image Formats for packaged WebP card-art support
 - zlib and Ninja
 - Go 1.26 or the version declared by `apps/server/go.mod`
-- Python 3.12+, Git and JDK 21+ to build the bundled Forge adapter. Client users
+- Python 3.12+, Git and JDK 21 to build the bundled Forge adapter. Client users
   do not need a system Java installation. The first source build downloads
   pinned Forge binary/source inputs; later builds reuse them.
+  Newer JDK compilers generate different diagnostic symbols even with
+  `--release 21`. An installed JDK 21 is selected automatically on Linux;
+  otherwise select it with `JAVA_HOME` or CMake's `HEXPROOF_FORGE_JAVAC`.
 - Maven is also required when building the full optional Forge runtime with
   `./tools/run-local-forge-server.sh --prepare`.
+  On Arch Linux, install `maven` and `jdk21-openjdk` with `pacman`. The full
+  builder selects JDK 21 for Maven and Java tools, and the local launcher uses
+  Java 21 by default without changing the system Java installation.
 
 Clone the public source and run the commands below from its root:
 
@@ -114,7 +120,7 @@ selector, prepare the pinned official Forge runtime and local server together:
 
 Additional arguments are passed directly to the server, for example
 `./tools/run-local-forge-server.sh -port 57321`. Later launches can omit
-`--prepare`. See the [rules-engine contract](../rules-engine.md) for the
+`--prepare`. See [Privacy model](#privacy-model) for the
 authority and privacy boundary and the
 [runtime build guide](../../third_party/forge-runtime/README.md) for source and
 runtime preparation.
@@ -164,8 +170,7 @@ The same account works on every configured official node and can recover its
 room seat, event participation and eligible completed replays. A single room
 can resume automatically; if several exist, choose one from the account page.
 Guest play remains available, and local deck libraries and settings remain local.
-See [accounts](../accounts.md) and [official cluster setup](../official-cluster.md)
-for operator settings and availability limits.
+Account recovery does not migrate a live game away from its owning node.
 
 ## Card database
 
@@ -209,8 +214,9 @@ for pinned-input and offline-import workflows.
   Set Draft, and regular Cube matches, including legal actions, priority,
   triggers, stack resolution, and state-based actions.
 - Server-hosted Forge or optional trusted creator hosting for supported rooms.
-  Tournament and Limited pairing rooms use server hosting. See
-  [player-hosted Forge](../player-hosted-forge.md) for setup and trust limits.
+  Tournament and Limited pairing rooms use server hosting. Creator hosting
+  requires a matching Forge runtime and trust in the creator's machine; use
+  the client hosting settings to install and check the runtime before play.
 - Native Forge AI at Beginner, Normal, and Hard difficulty for ordinary
   constructed 1v1 BO1, with independently selected human and AI decks.
 - Experimental local and online model opponents in the same practice scope.
@@ -353,7 +359,7 @@ interaction changes, using isolated test profiles and local services.
 
 ## Release automation
 
-The repository contains four GitHub Actions workflows:
+The main GitHub Actions workflows are:
 
 - [`ci.yml`](../../.github/workflows/ci.yml) keeps push and pull-request checks lean:
   shared static quality gates always run; application builds are skipped for
@@ -401,7 +407,7 @@ notarized releases do not require this bypass.
 | `CHANGELOG.md` | Application release notes; unpublished work under Unreleased |
 | `packaging/` | Client, server, and card-database release tooling |
 | `third_party/forge-runtime/` | Pinned official Forge source, native host and optional runtime/source packaging |
-| `tools/` | Verification, code generation, database builder, and UI test helpers |
+| `tools/` | Build, verification, code generation, and database tooling |
 
 ## Contributing
 
@@ -412,7 +418,7 @@ the hub you were connected to, and the shortest steps that reproduce the
 problem. Do not paste room passwords or resume tokens into public issues.
 
 Keep changes focused and preserve the manual-tabletop and privacy boundaries.
-Rules-engine work must also follow [`docs/rules-engine.md`](../rules-engine.md).
+Rules-engine changes must preserve authoritative legality and per-viewer redaction.
 Format Go with `gofmt`; follow the existing Qt style; retain SPDX headers; and
 add owner/opponent/spectator tests for hidden-information changes.
 

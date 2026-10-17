@@ -37,6 +37,17 @@ with open(os.environ["VERIFY_TEST_LOG"], "a") as log:
     log.write(json.dumps([name, *args]) + "\\n")
 if name == os.environ.get("VERIFY_TEST_FAIL_TOOL"):
     sys.exit(13)
+if name == "cmake" and "--target" in args:
+    target = args[args.index("--target") + 1]
+    if target == os.environ.get("VERIFY_TEST_FAIL_BUILD_TARGET"):
+        sys.exit(13)
+    if target == "hexproof_card_database_builder":
+        (Path(os.environ["HEXPROOF_CLIENT_BUILD_DIR"]) / target).touch()
+if name == "ctest" and not (
+    Path(os.environ["HEXPROOF_CLIENT_BUILD_DIR"]) / "hexproof_card_database_builder"
+).exists():
+    print("CTest catalog builder dependency is missing", file=sys.stderr)
+    sys.exit(14)
 if name == "git" and args[:1] == ["clang-format"]:
     print("no modified files to format")
 elif name == "git" and args[:2] == ["ls-files", "-co"]:
@@ -98,6 +109,7 @@ elif name == "hexproof":
         _, calls = self.run_script("--scope", "client", "--quick")
         self.assertFalse({call[0] for call in calls} & {"go", "gofmt", "ctest"})
         self.assertTrue(any(call[:2] == ["cmake", "--build"] for call in calls))
+        self.assertFalse((self.root / "build/client-qt/hexproof_card_database_builder").exists())
 
     def test_default_is_complete_but_incremental(self):
         _, calls = self.run_script()
@@ -136,6 +148,12 @@ elif name == "hexproof":
         result, calls = self.run_script("--scope", "client", "--quick", succeeds=False)
         self.assertEqual(result.returncode, 13)
         self.assertFalse(any(call[0] == "hexproof" for call in calls))
+
+    def test_ctest_dependency_build_failure_stops_before_tests(self):
+        self.env["VERIFY_TEST_FAIL_BUILD_TARGET"] = "hexproof_card_database_builder"
+        result, calls = self.run_script("--scope", "client", succeeds=False)
+        self.assertEqual(result.returncode, 13)
+        self.assertFalse(any(call[0] == "ctest" for call in calls))
 
     def test_version_parity_is_still_enforced(self):
         self.env["VERIFY_TEST_SERVER_VERSION"] = "1.2.2"

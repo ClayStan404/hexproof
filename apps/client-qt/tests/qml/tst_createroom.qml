@@ -40,12 +40,14 @@ TestCase {
         property string submittedRulesMode: ""
         property var submittedRoom: ({})
         function createRoom(name, format, deckFormat, spectators, hands, matchMode,
-                            loadMode, password, playtest, rulesMode, hostingMode, aiDifficulty, aiSource) {
+                            loadMode, password, playtest, rulesMode, hostingMode, aiDifficulty, aiSource,
+                            actionClockEnabled) {
             ++createCount
             submittedMatchMode = matchMode
             submittedRulesMode = rulesMode
             submittedRoom = {name, format, deckFormat, spectators, hands, matchMode,
-                             loadMode, password, playtest, rulesMode, hostingMode, aiDifficulty, aiSource}
+                             loadMode, password, playtest, rulesMode, hostingMode, aiDifficulty, aiSource,
+                             actionClockEnabled}
         }
         property var submittedLimited: []
         property string submittedCoordinator: ""
@@ -141,6 +143,76 @@ TestCase {
         compare(mockWs.submittedRoom.rulesMode, "forge")
         compare(mockWs.submittedRoom.playtest, false)
         compare(findChild(page, "roomMatchModeControl").options.length, 1)
+    }
+
+    function test_actionClockIsOptionalForTwoPlayerForgeRooms_data() {
+        return [{tag:"human", source:"", format:"modern"},
+                {tag:"duel", source:"", format:"duel"},
+                {tag:"forge AI", source:"forge", format:"modern"},
+                {tag:"local model", source:"local", format:"modern"},
+                {tag:"online model", source:"online", format:"modern"}]
+    }
+
+    function test_actionClockIsOptionalForTwoPlayerForgeRooms(data) {
+        page.roomName = "Timed room"
+        page.roomFormat = data.format
+        page.deckFormat = data.format
+        page.rulesMode = "forge"
+        page.aiOpponent = data.source.length > 0
+        page.aiSource = data.source || "forge"
+        mockWs.modelOpponent.ready = true
+        mockWs.modelOpponent.profilesChanged()
+        const toggle = findChild(page, "roomActionClockToggle")
+        verify(toggle.visible)
+        compare(toggle.checked, false)
+        page.submit()
+        compare(mockWs.submittedRoom.actionClockEnabled, false)
+        toggle.toggle()
+        toggle.toggled()
+        page.submit()
+        compare(mockWs.submittedRoom.actionClockEnabled, true)
+        toggle.toggle()
+        toggle.toggled()
+        page.submit()
+        compare(mockWs.submittedRoom.actionClockEnabled, false)
+    }
+
+    function test_actionClockNormalizesUnsupportedRoomModes_data() {
+        return [{tag:"manual", rules:"manual", format:"modern", playtest:false},
+                {tag:"EDH", rules:"forge", format:"edh", playtest:false},
+                {tag:"playtest", rules:"forge", format:"modern", playtest:true}]
+    }
+
+    function test_actionClockNormalizesUnsupportedRoomModes(data) {
+        page.roomName = "Untimed room"
+        page.actionClockEnabled = true
+        page.rulesMode = data.rules
+        page.roomFormat = data.format
+        page.deckFormat = data.format
+        page.playtestMode = data.playtest
+        verify(!findChild(page, "roomActionClockToggle").visible)
+        page.submit()
+        compare(mockWs.submittedRoom.actionClockEnabled, false)
+    }
+
+    function test_cubeActionClockIsOptionalAndCommanderCubeDisablesIt() {
+        mockDecks.cubes = [{deckId:"cube-1", deckName:"Test Cube", mainCount:360,
+                           sideboardCount:0, exactPrintings:true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Timed Cube"
+        page.deckFormat = "cube"
+        page.rulesMode = "forge"
+        verify(findChild(page, "roomActionClockToggle").visible)
+        compare(page.actionClockEnabled, false)
+        page.actionClockEnabled = true
+        page.submit()
+        compare(mockWs.submittedLimited[6], "forge")
+        compare(mockWs.submittedLimited[7], true)
+        page.commanderCube = true
+        verify(!findChild(page, "roomActionClockToggle").visible)
+        page.submit()
+        compare(mockWs.submittedLimited[6], "manual")
+        compare(mockWs.submittedLimited[7], false)
     }
 
     function test_aiAvailabilityUsesSeparateCapability() {
@@ -257,7 +329,7 @@ TestCase {
         verify(button.enabled)
         button.clicked()
         compare(mockWs.submittedCoordinator, "casual")
-        compare(mockWs.submittedLimited.length, 7)
+        compare(mockWs.submittedLimited.length, 8)
         compare(mockWs.submittedLimited[6], "manual")
         compare(mockWs.submittedLimited[0], "Cube night")
         compare(mockWs.submittedLimited[1], "cube_draft")

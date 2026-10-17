@@ -17,6 +17,7 @@ Item {
     }
     property var assignments: ({})
     property string selectedSource: ""
+    property string pendingAttacker: ""
     property string hoveredCard: ""
     property int hoveredSeat: -1
     readonly property var chosenSource: sources.find(source => source.responseId === selectedSource) || null
@@ -36,7 +37,13 @@ Item {
         return result
     }
     visible: false
-    function resetAssignments() { assignments = ({}); selectedSource = ""; hoveredCard = ""; hoveredSeat = -1 }
+    function resetAssignments() {
+        assignments = ({})
+        selectedSource = ""
+        pendingAttacker = ""
+        hoveredCard = ""
+        hoveredSeat = -1
+    }
     function hoverCard(id, inside) {
         if (inside) { hoveredCard = id; hoveredSeat = -1 }
         else if (hoveredCard === id) hoveredCard = ""
@@ -46,8 +53,9 @@ Item {
         else if (hoveredSeat === seat) hoveredSeat = -1
     }
     function cancelSelection() {
-        if (selectedSource) SoundEffects.play("cancel")
+        if (selectedSource || pendingAttacker) SoundEffects.play("cancel")
         selectedSource = ""
+        pendingAttacker = ""
     }
     function clearSelectedAssignment() {
         if (!canAct || !chosenSource) return
@@ -104,20 +112,33 @@ Item {
         const count = sources.filter(value => selectedTargets(value.responseId).includes(target.responseId)).length
         return count < target.maxAssignments
     }
+    function targetOnSource(source, id) {
+        return source && id ? source.validTargets.find(target => target.objectId === id) : null
+    }
     function targetFor(id) {
-        return chosenSource && id ? chosenSource.validTargets.find(target => target.objectId === id) : null
+        return targetOnSource(chosenSource, id)
     }
-    function targetActionable(id) {
+    function anyBlockerCanTarget(id) {
+        return sources.some(source => {
+            const target = targetOnSource(source, id)
+            return !!target && canAssign(source, target)
+        })
+    }
+    function targetOffered(id) {
+        if (!attacking && !chosenSource)
+            return anyBlockerCanTarget(id)
         const target = targetFor(id)
-        return canAct && !!target && canAssign(chosenSource, target)
+        return !!target && canAssign(chosenSource, target)
     }
+    function targetActionable(id) { return canAct && targetOffered(id) }
     function seatTarget(seat) {
         return chosenSource ? chosenSource.validTargets.find(target => target.kind === "player" && target.seat === seat) : null
     }
-    function seatActionable(seat) {
+    function seatOffered(seat) {
         const target = seatTarget(seat)
-        return canAct && !!target && canAssign(chosenSource, target)
+        return !!target && canAssign(chosenSource, target)
     }
+    function seatActionable(seat) { return canAct && seatOffered(seat) }
     function seatSelected(seat) {
         return links.some(link => link.player && link.seat === seat)
     }
@@ -125,12 +146,12 @@ Item {
         const target = seatTarget(seat)
         return activateTarget(target)
     }
-    function actionable(id) {
-        if (!canAct) return false
+    function offered(id) {
         const source = sourceFor(id)
         if (source && source.maxAssignments > 0 && source.validTargets.length > 0) return true
-        return targetActionable(id)
+        return targetOffered(id)
     }
+    function actionable(id) { return canAct && offered(id) }
     function selected(id) {
         const source = sourceFor(id)
         return !!source && (source.responseId === selectedSource || selectedTargets(source.responseId).length > 0)
@@ -140,6 +161,7 @@ Item {
         if (source && source.responseId === selectedSource)
             return attacking ? qsTr("Choose attack target") : qsTr("Choose creature to block")
         if (source && selectedTargets(source.responseId).length) return attacking ? qsTr("Attacking") : qsTr("Blocking")
+        if (!attacking && pendingAttacker === id) return qsTr("Choose a creature to block this")
         if (targetActionable(id)) return attacking ? qsTr("Attack here") : qsTr("Block this creature")
         if (attacking && source && source.mustAssignIfAble) return qsTr("Must attack if able")
         if (!attacking && sources.some(value => value.validTargets.some(target => target.objectId === id && target.mustReceiveIfAble)))
@@ -155,12 +177,113 @@ Item {
         SoundEffects.play(removing ? "cancel" : attacking ? "attack" : "block")
         return true
     }
+    property var attackAllPlayers: []
+    function unassignedSources() {
+        return sources.filter(source => source.maxAssignments > 0 && source.validTargets.length > 0
+                && selectedTargets(source.responseId).length === 0)
+    }
+    // Planeswalkers and battles are never chosen implicitly.
+    readonly property bool attackAllAvailable: canAct && attacking
+        && unassignedSources().some(source => source.validTargets.some(target => target.kind === "player"))
+    function soleBlockTarget(source) {
+        if (!source || source.validTargets.length !== 1)
+            return null
+        const target = source.validTargets[0]
+        return target.kind === "player" ? null : target
+    }
+    readonly property bool blockAllAvailable: canAct && !attacking
+        && unassignedSources().some(source => {
+            const target = soleBlockTarget(source)
+            return !!target && canAssign(source, target)
+        })
+    function blockWithAll() {
+        if (!blockAllAvailable)
+            return false
+        const eligible = unassignedSources()
+        for (let i = 0; i < eligible.length; ++i) {
+            const source = eligible[i]
+            const target = soleBlockTarget(source)
+            if (target && canAssign(source, target))
+                setAssignment(source.responseId, target.responseId)
+        }
+        return true
+    }
+    function attackWithAll(playerResponseId) {
+        if (!attackAllAvailable)
+            return false
+        const eligible = unassignedSources()
+        const players = []
+        const seen = ({})
+        for (let i = 0; i < eligible.length; ++i) {
+            const targets = eligible[i].validTargets
+            for (let t = 0; t < targets.length; ++t) {
+                if (targets[t].kind !== "player" || seen[targets[t].responseId])
+                    continue
+                seen[targets[t].responseId] = true
+                players.push(targets[t])
+            }
+        }
+        let chosen = playerResponseId || ""
+        if (!chosen) {
+            if (players.length !== 1) {
+                attackAllPlayers = players
+                return false
+            }
+            chosen = players[0].responseId
+        }
+        for (let i = 0; i < eligible.length; ++i) {
+            const source = eligible[i]
+            const target = source.validTargets.find(value => value.kind === "player" && value.responseId === chosen)
+            if (target && canAssign(source, target))
+                setAssignment(source.responseId, chosen)
+        }
+        attackAllPlayers = []
+        return true
+    }
     function activate(id) {
         if (!canAct) return false
         const source = sourceFor(id)
         if (source && source.maxAssignments > 0 && source.validTargets.length > 0) {
+            if (!attacking && pendingAttacker) {
+                const armed = targetOnSource(source, pendingAttacker)
+                if (armed && canAssign(source, armed)) {
+                    const removing = selectedTargets(source.responseId).includes(armed.responseId)
+                    if (source.maxAssignments > 1)
+                        toggleAssignment(source.responseId, armed.responseId, source.maxAssignments)
+                    else
+                        setAssignment(source.responseId, removing ? "" : armed.responseId)
+                    pendingAttacker = ""
+                    selectedSource = ""
+                    SoundEffects.play(removing ? "cancel" : "block")
+                    return true
+                }
+                // This click belongs to the armed attacker. Preserve its
+                // selection and the draft when this blocker cannot join it.
+                return true
+            }
+            if (source.validTargets.length === 1) {
+                const only = source.validTargets[0]
+                const assigned = selectedTargets(source.responseId).includes(only.responseId)
+                if (!assigned && !canAssign(source, only)) {
+                    selectedSource = source.responseId
+                    pendingAttacker = ""
+                    SoundEffects.play("select")
+                    return true
+                }
+                setAssignment(source.responseId, assigned ? "" : only.responseId)
+                selectedSource = ""
+                pendingAttacker = ""
+                SoundEffects.play(assigned ? "cancel" : attacking ? "attack" : "block")
+                return true
+            }
             selectedSource = selectedSource === source.responseId ? "" : source.responseId
+            pendingAttacker = ""
             SoundEffects.play(selectedSource ? "select" : "cancel")
+            return true
+        }
+        if (!attacking && !chosenSource && anyBlockerCanTarget(id)) {
+            pendingAttacker = pendingAttacker === id ? "" : id
+            SoundEffects.play(pendingAttacker ? "select" : "cancel")
             return true
         }
         return activateTarget(targetFor(id))

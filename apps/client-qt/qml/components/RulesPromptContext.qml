@@ -18,6 +18,8 @@ Item {
     property bool contextEnabled: true
     property bool expandedCard: false
     property var previewBoundary: null
+    property var previewAvoidItems: []
+    property bool showContextText: true
     property real cardHeight: Theme.size(280)
     readonly property bool hasContext: sourceList.count > 0
                                                || targetList.count > 0
@@ -41,9 +43,10 @@ Item {
     CardHoverPreview {
         id: preview
         objectName: "rulesPromptCardPreview"
-        parent: Overlay.overlay
+        parent: root.Overlay.overlay
         catalogModel: root.cardCatalogModel
         placementBoundary: root.previewBoundary
+        avoidItems: root.previewAvoidItems
         artObjectName: "rulesPromptCardPreviewArt"
     }
 
@@ -86,8 +89,8 @@ Item {
                                      typeLine:root.contextText}, sourceCard)
                 }
                 onActiveFocusChanged: activeFocus ? inspect() : preview.hide(sourceCard)
-                onNameChanged: preview.hide(sourceCard)
-                Component.onDestruction: preview.hide(sourceCard)
+                onNameChanged: if (preview.sourceItem === sourceCard) preview.hide()
+                Component.onDestruction: if (preview.sourceItem === sourceCard) preview.hide()
 
                 width: sourceList.width
                 height: sourceList.height
@@ -153,7 +156,8 @@ Item {
             Layout.preferredHeight: Theme.size(112)
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.contextText.length > 0 && (!root.expandedCard || root.sourceCount === 0)
+            visible: root.showContextText && root.contextText.length > 0
+                     && (!root.expandedCard || root.sourceCount === 0)
             text: root.contextText
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(9)

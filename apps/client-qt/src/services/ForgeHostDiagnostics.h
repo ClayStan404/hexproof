@@ -26,6 +26,7 @@ class ForgeHostDiagnostics
     {
         return m_operationId;
     }
+    static QJsonObject sanitizedReport(const QJsonObject &report);
     static QString safeState(const QString &state);
     static QString safeVersion(const QString &version);
     static QString safeRuntimeId(const QString &runtimeId);

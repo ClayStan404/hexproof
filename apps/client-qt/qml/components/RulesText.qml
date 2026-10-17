@@ -74,8 +74,12 @@ QtObject {
         case "Sort cards into zones": return qsTr("Sort cards into zones")
         case "Select target Permanent.nonLand+OppCtrl or Card.inZoneStack+OppCtrl":
         case "Choose targets": return qsTr("Choose targets")
+        case "Select target Permanent.cmcGE1 or Card.inZoneStack+cmcGE1":
+            return qsTr("Choose a permanent or spell with mana value at least 1")
         case "Declare attackers": return qsTr("Declare attackers")
         case "Declare blockers": return qsTr("Declare blockers")
+        case "Assign each blocker to the attackers it can legally block.":
+            return qsTr("Assign each blocker to the attackers it can legally block.")
         case "Choose combat damage order": return qsTr("Choose combat damage order")
         case "Assign combat damage": return qsTr("Assign combat damage")
         case "Choose yes or no": return qsTr("Choose yes or no")

@@ -9,10 +9,15 @@ QtObject {
     required property var rulesSession
     required property var cardCatalogModel
 
+    // QtObject has no default property, so the stamp is owned as a value.
+    property ForgeArtStamp nameStamp: ForgeArtStamp {
+        catalog: root.cardCatalogModel
+        name: root.card && root.card.name ? root.card.name : ""
+    }
     function cardName(name) {
         if (!cardCatalogModel || typeof cardCatalogModel.cardDisplayName !== "function") return name
+        void nameStamp.stamp
         void cardCatalogModel.language
-        void cardCatalogModel.imageRevision
         return cardCatalogModel.cardDisplayName(name)
     }
     function colorName(color) {
@@ -84,11 +89,7 @@ QtObject {
     }
     readonly property var persistentLines: arrivalLines.concat(choiceLines,
         chosenSummary.length ? [chosenSummary] : [])
-    readonly property var relationships: {
-        const id = card ? card.cardId || card.objectId || "" : ""
-        return (rulesSession.battlefieldRelationships || []).filter(
-            link => link.sourceId === id || link.targetId === id)
-    }
+    readonly property var relationships: card && card.links ? card.links : []
     readonly property string relationshipBadge: {
         const id = card ? card.cardId || card.objectId || "" : ""
         const labels = []
@@ -98,9 +99,10 @@ QtObject {
         return labels.join(" · ")
     }
     readonly property var relationshipLines: {
-        void rulesSession.snapshotRevision
         const id = card ? card.cardId || card.objectId || "" : ""
-        return relationships.map(link => {
+        // Attacks have destination badges and arrows; an empty player target
+        // is not a hidden attachment, and unknown link kinds are not either.
+        return relationships.filter(link => link.kind === "block" || link.kind === "attachment").map(link => {
             const source = link.sourceId === id
             const other = rulesSession.cardForInspection(source ? link.targetId : link.sourceId)
             const name = other.visibleIdentity && !other.faceDown && other.name

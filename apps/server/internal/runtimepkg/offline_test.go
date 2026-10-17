@@ -179,14 +179,25 @@ func TestOfflinePackInstallsAndRepairsWithoutNetwork(t *testing.T) {
 	})
 	harness := []byte("fixture harness")
 	harnessAsset := offlineTestAsset(harness, "zip")
+	symbols := []byte(`{"schemaVersion":1,"classes":{"forge.Fixture":["resolve"]}}`)
+	provenance, err := json.Marshal(map[string]any{"diagnosticSymbols": map[string]any{
+		"path": "diagnostic-symbols.json", "sha256": offlineTestAsset(symbols, "json").SHA256,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	files, err := json.Marshal(map[string]any{"files": map[string]any{
-		"forge-harness.jar": map[string]any{"sha256": harnessAsset.SHA256},
+		"forge-harness.jar":       map[string]any{"sha256": harnessAsset.SHA256},
+		"diagnostic-symbols.json": map[string]any{"sha256": offlineTestAsset(symbols, "json").SHA256},
+		"provenance.json":         map[string]any{"sha256": offlineTestAsset(provenance, "json").SHA256},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	forge := offlineTestTar(t, []offlineTestEntry{
 		{name: "hexproof-forge-runtime/forge-harness.jar", data: harness},
+		{name: "hexproof-forge-runtime/diagnostic-symbols.json", data: symbols},
+		{name: "hexproof-forge-runtime/provenance.json", data: provenance},
 		{name: "hexproof-forge-runtime/RUNTIME-MANIFEST.json", data: files},
 	})
 	javaName := javaDirectory + "/bin/java"
@@ -231,12 +242,25 @@ func TestOfflinePackInstallsAndRepairsWithoutNetwork(t *testing.T) {
 		t.Fatalf("imported installation is not usable: %v", err)
 	}
 	defer lease.Close()
+	symbolPath := filepath.Join(installed.Root, "hexproof-forge-runtime", "diagnostic-symbols.json")
+	if copied, err := os.ReadFile(symbolPath); err != nil || !bytes.Equal(copied, symbols) {
+		t.Fatalf("offline import lost diagnostic symbols: %v", err)
+	}
+	if err := os.WriteFile(symbolPath, []byte("modified diagnostic index"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Check(t.Context(), base); err == nil {
+		t.Fatal("runtime manifest did not authenticate the diagnostic index")
+	}
 	if err := os.WriteFile(installed.Java, []byte("damaged"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	repaired, err := ImportPack(t.Context(), base, pack, nil)
 	if err != nil || repaired.Root == installed.Root {
 		t.Fatalf("repair did not create an immutable generation: %v", err)
+	}
+	if copied, err := os.ReadFile(filepath.Join(repaired.Root, "hexproof-forge-runtime", "diagnostic-symbols.json")); err != nil || !bytes.Equal(copied, symbols) {
+		t.Fatalf("offline repair did not restore diagnostic symbols: %v", err)
 	}
 	if old, err := os.ReadFile(installed.Java); err != nil || string(old) != "damaged" {
 		t.Fatal("repair overwrote a leased generation")

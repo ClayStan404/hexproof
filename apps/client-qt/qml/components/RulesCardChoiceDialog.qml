@@ -25,10 +25,16 @@ RulesDecisionDialog {
     }
     readonly property bool singleOpeningAbility: openingAbilityCards.length === 1
     readonly property var openingAbilityCard: singleOpeningAbility ? openingAbilityCards[0] : null
+    CardFacePreviewController {
+        id: openingFace
+        catalogModel: root.tableController.cardCatalogModel
+        card: root.openingAbilityCard || ({})
+        active: root.visible && root.singleOpeningAbility
+    }
 
     objectName: "rulesCardChoiceDialog"
-    width: Math.min(Theme.size(singleOpeningAbility ? 480 : 1080), parent ? parent.width - Theme.size(40) : 0)
-    height: Math.min(Theme.size(singleOpeningAbility ? 560
+    width: Math.min(Theme.size(singleOpeningAbility ? openingFace.displayFaces.length > 1 ? 760 : 480 : 1080), parent ? parent.width - Theme.size(40) : 0)
+    height: Math.min(Theme.size(singleOpeningAbility ? openingFace.displayFaces.length > 1 ? 720 : 560
         : ["scry", "reorder", "chooseDamageAssignmentOrder"].includes(session.promptKind) ? 520 : 780),
         parent ? parent.height - Theme.size(40) : 0)
     x: parent ? (parent.width - width) / 2 : 0
@@ -65,10 +71,11 @@ RulesDecisionDialog {
         }
         Text {
             id: detail
+            objectName: "rulesChoiceDetail"
             textFormat: Text.PlainText
             Layout.fillWidth: true
             text: root.singleOpeningAbility
-                  ? qsTr("You may reveal it from your opening hand, or leave it there.")
+                  ? qsTr("Use this card's opening ability, or leave it in your hand.")
                   : root.tableController.promptDetail(root.session.promptKind, root.session.promptDetail)
             visible: text.length > 0
             color: Theme.textSecondary
@@ -107,21 +114,22 @@ RulesDecisionDialog {
         id: opening
         ColumnLayout {
             spacing: Theme.size(16)
-            Image {
-                objectName: "rulesOpeningAbilityArt"
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: Theme.size(180)
-                Layout.preferredHeight: Theme.size(250)
-                asynchronous: true
-                fillMode: Image.PreserveAspectFit
-                source: {
-                    const card = root.openingAbilityCard
-                    if (!card || !root.tableController.cardCatalogModel
-                            || typeof root.tableController.cardCatalogModel.imageSource !== "function")
-                        return ""
-                    void root.tableController.cardCatalogModel.imageRevision
-                    return root.tableController.cardCatalogModel.imageSource(
-                                card.name || "", card.setCode || "", card.collectorNumber || "")
+            Item {
+                id: openingArea
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 0
+                readonly property var gallerySize: openingGallery.fittedSize(Theme.size(320), width, height)
+                CardFacePreviewGallery {
+                    id: openingGallery
+                    objectName: "rulesOpeningAbilityGallery"
+                    controller: openingFace
+                    artObjectName: "rulesOpeningAbilityArt"
+                    fallbackObjectName: "rulesOpeningAbilityFallback"
+                    anchors.centerIn: parent
+                    width: openingArea.gallerySize.width
+                    height: openingArea.gallerySize.height
+                    columns: openingArea.gallerySize.columns
                 }
             }
             RowLayout {

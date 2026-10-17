@@ -5,6 +5,130 @@
 
 #include <QSet>
 
+namespace {
+
+QJsonObject tabletopPairingSnapshot()
+{
+    return {{u"tournamentId"_s, u"EVENT1"_s},
+            {u"stage"_s, u"competition"_s},
+            {u"status"_s, u"running"_s},
+            {u"role"_s, u"participant"_s},
+            {u"participantId"_s, u"a"_s},
+            {u"currentRound"_s, 1},
+            {u"pairings"_s, QJsonArray{QJsonObject{{u"pairingId"_s, u"r1-m1"_s},
+                                                   {u"playerAId"_s, u"a"_s},
+                                                   {u"playerBId"_s, u"b"_s},
+                                                   {u"roomId"_s, u"ROOM1"_s},
+                                                   {u"status"_s, u"open"_s}},
+                                       QJsonObject{{u"pairingId"_s, u"r1-m2"_s},
+                                                   {u"playerAId"_s, u"c"_s},
+                                                   {u"playerBId"_s, u"d"_s},
+                                                   {u"roomId"_s, u"ROOM2"_s},
+                                                   {u"status"_s, u"open"_s}}}}};
+}
+
+QVariantList completedTabletopSeats()
+{
+    return {QVariantMap{{u"displayName"_s, u"Bob"_s}, {u"wins"_s, 1}},
+            QVariantMap{{u"displayName"_s, u"Alice"_s}, {u"wins"_s, 2}}};
+}
+
+} // namespace
+
+void TestWsClient::remembersPairingScoreAfterClosedRoomSnapshot() const
+{
+    hexproof::client::TournamentSessionState state;
+    QJsonObject snapshot = tabletopPairingSnapshot();
+    state.applySnapshot(snapshot);
+    state.rememberTabletopScore(u"ROOM1"_s, completedTabletopSeats(), 1);
+    const QVariantMap completed = state.tabletopScoreForPairing(u"r1-m1"_s);
+    QCOMPARE(completed.value(u"roomId"_s).toString(), u"ROOM1"_s);
+    QCOMPARE(completed.value(u"seats"_s).toList(), completedTabletopSeats());
+    QCOMPARE(completed.value(u"drawnGames"_s).toInt(), 1);
+
+    // Spectating another table or finishing an unrelated room cannot create
+    // a suggestion for somebody else's pairing or replace this result.
+    state.rememberTabletopScore(u"ROOM2"_s, completedTabletopSeats(), 9);
+    state.rememberTabletopScore(u"UNRELATED"_s, completedTabletopSeats(), 9);
+    QVERIFY(state.tabletopScoreForPairing(u"r1-m2"_s).isEmpty());
+    QCOMPARE(state.tabletopScoreForPairing(u"r1-m1"_s), completed);
+
+    QJsonArray pairings = snapshot.value(u"pairings"_s).toArray();
+    QJsonObject own = pairings[0].toObject();
+    own.remove(u"roomId"_s);
+    pairings[0] = own;
+    QJsonObject other = pairings[1].toObject();
+    other.remove(u"roomId"_s);
+    other.insert(u"status"_s, u"reported"_s);
+    other.insert(u"playerAWins"_s, 1);
+    pairings[1] = other;
+    snapshot.insert(u"pairings"_s, pairings);
+    state.applySnapshot(snapshot);
+    QCOMPARE(state.tabletopScoreForPairing(u"r1-m1"_s), completed);
+    QVERIFY(state.tabletopScoreForPairing(u"r1-m2"_s).isEmpty());
+
+    own.insert(u"roomId"_s, QString{});
+    pairings[0] = own;
+    snapshot.insert(u"pairings"_s, pairings);
+    state.applySnapshot(snapshot);
+    QCOMPARE(state.tabletopScoreForPairing(u"r1-m1"_s), completed);
+}
+
+void TestWsClient::rejectsStalePairingTabletopScores_data() const
+{
+    QTest::addColumn<QString>("change");
+    for (const char *name : {"event-snapshot", "event-entry", "participant-snapshot",
+                             "participant-entry", "participant-registration", "opponent",
+                             "players-swapped", "round", "new-room", "pairing-removed"}) {
+        QTest::newRow(name) << QString::fromLatin1(name);
+    }
+}
+
+void TestWsClient::rejectsStalePairingTabletopScores() const
+{
+    QFETCH(QString, change);
+    hexproof::client::TournamentSessionState state;
+    const QJsonObject original = tabletopPairingSnapshot();
+    state.applySnapshot(original);
+    state.rememberTabletopScore(u"ROOM1"_s, completedTabletopSeats(), 1);
+    QVERIFY(!state.tabletopScoreForPairing(u"r1-m1"_s).isEmpty());
+    QJsonObject snapshot = original;
+    if (change == u"event-entry"_s) {
+        state.enter(u"EVENT2"_s, u"participant"_s, u"a"_s);
+    } else if (change == u"participant-entry"_s) {
+        state.enter(u"EVENT1"_s, u"participant"_s, u"b"_s);
+    } else if (change == u"participant-registration"_s) {
+        state.applyRegistration(u"b"_s);
+    } else {
+        if (change == u"event-snapshot"_s)
+            snapshot.insert(u"tournamentId"_s, u"EVENT2"_s);
+        else if (change == u"participant-snapshot"_s)
+            snapshot.insert(u"participantId"_s, u"b"_s);
+        else if (change == u"round"_s)
+            snapshot.insert(u"currentRound"_s, 2);
+        else {
+            QJsonArray pairings = snapshot.value(u"pairings"_s).toArray();
+            QJsonObject own = pairings[0].toObject();
+            if (change == u"opponent"_s)
+                own.insert(u"playerBId"_s, u"c"_s);
+            else if (change == u"players-swapped"_s) {
+                own.insert(u"playerAId"_s, u"b"_s);
+                own.insert(u"playerBId"_s, u"a"_s);
+            } else if (change == u"new-room"_s)
+                own.insert(u"roomId"_s, u"REPLACEMENT"_s);
+            pairings[0] = own;
+            if (change == u"pairing-removed"_s)
+                pairings.removeAt(0);
+            snapshot.insert(u"pairings"_s, pairings);
+        }
+        state.applySnapshot(snapshot);
+    }
+    QVERIFY(state.tabletopScoreForPairing(u"r1-m1"_s).isEmpty());
+    // Returning to the old projection cannot resurrect an invalidated cache.
+    state.applySnapshot(original);
+    QVERIFY(state.tabletopScoreForPairing(u"r1-m1"_s).isEmpty());
+}
+
 void TestWsClient::pairedDraftAndOptionalCardsClearOnPublicReplacement() const
 {
     LimitedSessionState state;
@@ -300,6 +424,7 @@ void TestWsClient::sendsCommanderCubeCommandsWithinSizeBounds() const
             {u"coordinator"_s, u"casual"_s},
             {u"matchMode"_s, u"bo1"_s},
             {u"rulesMode"_s, u"manual"_s},
+            {u"actionClockEnabled"_s, false},
             {u"roundMinutes"_s, 50},
             {u"maxPlayers"_s, 4},
             {u"product"_s, QJsonObject::fromVariantMap(product)},
@@ -313,6 +438,7 @@ void TestWsClient::sendsCommanderCubeCommandsWithinSizeBounds() const
             {u"eventType"_s, u"set_sealed"_s},
             {u"matchMode"_s, u"bo3"_s},
             {u"rulesMode"_s, u"forge"_s},
+            {u"actionClockEnabled"_s, false},
             {u"roundMinutes"_s, 50},
             {u"maxPlayers"_s, 2},
             {u"product"_s, QJsonObject::fromVariantMap(product)}});
@@ -325,6 +451,7 @@ void TestWsClient::sendsCommanderCubeCommandsWithinSizeBounds() const
             {u"coordinator"_s, u"casual"_s},
             {u"matchMode"_s, u"bo1"_s},
             {u"rulesMode"_s, u"forge"_s},
+            {u"actionClockEnabled"_s, false},
             {u"roundMinutes"_s, 50},
             {u"maxPlayers"_s, 2},
             {u"product"_s, QJsonObject::fromVariantMap(product)}});

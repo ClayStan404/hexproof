@@ -17,6 +17,8 @@ Page {
     required property var cardCatalogModel
     property var deckLibraryModel: null
     property var tournamentModel: null
+    // The table supplies its own blocking recovery overlay and countdown.
+    readonly property bool handlesReconnectPresentation: true
     readonly property var appWindow: ApplicationWindow.window
     property var preferencesModel: null
     readonly property var roomSession: wsModel.roomSession
@@ -50,7 +52,7 @@ Page {
     readonly property bool isCommanderFormat:
         roomSession.format === "duel" || isEDH
     readonly property var ownCommanderCards:
-        isCommanderFormat ? gameValueController.commanderCards(ownSeatData) : []
+        isCommanderFormat ? valueController.commanderCards(ownSeatData) : []
     readonly property bool hasPartnerCommanders:
         ownCommanderCards.length > 1
     readonly property bool isPlaytest: roomSession.playtest === true
@@ -103,7 +105,7 @@ Page {
     property alias libraryMoveDestination:
         transientStateController.libraryMoveDestination
     readonly property var pendingCardMoves:
-        optimisticController.pendingCardMoves
+        optimisticCommandController.pendingCardMoves
     readonly property var optimisticLifeTotals:
         optimisticCommandModel.lifeValues
     readonly property var optimisticTappedCards:
@@ -117,19 +119,19 @@ Page {
     readonly property string displayedPhase:
         optimisticPhase.length > 0 ? optimisticPhase : gameSession.currentPhase
     readonly property var battlefieldCardPoints:
-        battlefieldSceneController.cardPoints
+        sceneController.cardPoints
     readonly property var battlefieldSeatPoints:
-        battlefieldSceneController.seatPoints
-    readonly property var cardMoveCommands: cardMoveController
+        sceneController.seatPoints
+    readonly property var cardMoveCommands: moveController
     readonly property var battlefieldLayout: battlefieldGeometry
     readonly property var cardActions: cardActionController
-    readonly property var optimisticCommands: optimisticController
-    readonly property var gameValues: gameValueController
+    readonly property var optimisticCommands: optimisticCommandController
+    readonly property var gameValues: valueController
     readonly property var rulesAssist: rulesAssistController
     readonly property var landPlay: landPlayController
     readonly property var attachmentUi: attachmentController
     readonly property var zoneState: zoneStateController
-    readonly property var battlefieldScene: battlefieldSceneController
+    readonly property var battlefieldScene: sceneController
     readonly property var projectionSync: projectionSyncController
     readonly property var sharedZones: sharedZoneController
     readonly property var presentation: cardPresentationController
@@ -187,9 +189,9 @@ Page {
     property int visibleCounterCount:
         preferencesModel ? preferencesModel.tableCounterCount : 0
     property alias counterCountRequestGame:
-        optimisticController.counterCountRequestGame
+        optimisticCommandController.counterCountRequestGame
     property alias counterCountRequestValue:
-        optimisticController.counterCountRequestValue
+        optimisticCommandController.counterCountRequestValue
     readonly property var diceRollPopup: sceneShell.diceRollPopup
     readonly property var leaveRoomConfirmation:
         sceneShell.leaveRoomConfirmation
@@ -222,7 +224,8 @@ Page {
     readonly property var handAreaMenu: sceneShell.handAreaMenu
     readonly property var handCardMenu: sceneShell.handCardMenu
     readonly property var cardToolsMenu: sceneShell.cardToolsMenu
-    readonly property bool tableModalOpen: sceneShell.modalOpen
+    readonly property bool feedbackInteractionOpen: appWindow && appWindow.feedbackInteractionOpen === true
+    readonly property bool tableModalOpen: sceneShell.modalOpen || feedbackInteractionOpen
     readonly property bool selectedSharedOwned:
         sharedZoneController.selectedOwned
     readonly property bool isActivePlayer: root.canAct
@@ -241,9 +244,9 @@ Page {
         // A restart reuses physical card IDs. Destroy drag delegates and clear
         // old selections before the replacement snapshot can reuse those IDs.
         optimisticCommandModel.clear()
-        optimisticController.resetCounterCountRequest()
-        cardMoveController.pendingCardFaceAction = ({})
-        gameValueController.untapBatchCardIds = []
+        optimisticCommandController.resetCounterCountRequest()
+        moveController.pendingCardFaceAction = ({})
+        valueController.untapBatchCardIds = []
         selectionController.clear()
         sharedZoneController.clearSelection()
         transientStateController.reset()
@@ -270,13 +273,13 @@ Page {
     }
 
     TableOptimisticCommandController {
-        id: optimisticController
+        id: optimisticCommandController
         model: root.optimisticCommandModel
         wsModel: root.wsModel
     }
 
     TableCardMoveController {
-        id: cardMoveController
+        id: moveController
         tableRoot: root
     }
 
@@ -287,7 +290,7 @@ Page {
     }
 
     TableGameValueController {
-        id: gameValueController
+        id: valueController
         tableRoot: root
     }
 
@@ -315,7 +318,7 @@ Page {
     }
 
     TableBattlefieldSceneController {
-        id: battlefieldSceneController
+        id: sceneController
         tableRoot: root
         sceneView: sceneShell
     }
@@ -370,12 +373,12 @@ Page {
         librarySearchPopup: root.librarySearchPopup
         libraryAccessConfirmation: root.libraryAccessConfirmation
         publicZoneMoveConfirmation: root.publicZoneMoveConfirmation
-        optimisticController: optimisticController
-        cardMoveController: cardMoveController
+        optimisticController: optimisticCommandController
+        cardMoveController: moveController
         projectionController: projectionSyncController
         zoneController: zoneStateController
-        gameValueController: gameValueController
-        battlefieldSceneController: battlefieldSceneController
+        gameValueController: valueController
+        battlefieldSceneController: sceneController
         sessionController: sessionUiController
         sharedController: sharedZoneController
         transientController: transientStateController

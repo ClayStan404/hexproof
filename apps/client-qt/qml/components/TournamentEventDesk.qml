@@ -67,6 +67,17 @@ Surface {
             elide: Text.ElideRight
         }
 
+        Text {
+            objectName: "tournamentActionClockSummary"
+            textFormat: Text.PlainText
+            Layout.fillWidth: true
+            visible: root.tournamentModel.rulesMode === "forge"
+            text: I18n.actionClockLabel(root.tournamentModel.actionClockEnabled === true)
+            color: root.tournamentModel.actionClockEnabled === true ? Theme.accent : Theme.textMuted
+            font.pixelSize: Theme.fontSize(12)
+            wrapMode: Text.WordWrap
+        }
+
         Surface {
             Layout.fillWidth: true
             implicitHeight: Theme.size(112)

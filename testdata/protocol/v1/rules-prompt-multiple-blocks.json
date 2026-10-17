@@ -8,7 +8,7 @@
     "kind": "chooseBlockers",
     "supported": true,
     "title": "Declare blockers",
-    "detail": "",
+    "detail": "Assign each blocker to the attackers it can legally block.",
     "options": [],
     "choices": [],
     "cards": [],

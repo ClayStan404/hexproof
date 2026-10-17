@@ -126,6 +126,7 @@ type Room struct {
 	MatchMode           string
 	CardLoadMode        string
 	RulesMode           string
+	ActionClockEnabled  bool
 	HostingMode         string
 	AISource            string
 	AIDifficulty        string

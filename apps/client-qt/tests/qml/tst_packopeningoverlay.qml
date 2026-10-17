@@ -19,6 +19,16 @@ TestCase {
         QtObject {
             id: mockCatalog
             property int imageRevision: 0
+            readonly property string frontArt: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            readonly property string reverseArt: Qt.resolvedUrl("../../assets/icons/hexproof.png").toString()
+            function cardFaces(name, setCode, collectorNumber) {
+                if (name !== "Front Card") return []
+                return [{name: "Front Card", faceName: "Front Card", setCode: "FCE", collectorNumber: "1"},
+                        {name: "Reverse Card", faceName: "Reverse Card", setCode: "FCE", collectorNumber: "1"}]
+            }
+            function imageSource(name, setCode, collectorNumber) {
+                return name === "Reverse Card" ? reverseArt : frontArt
+            }
 
             function tableImageSource(cardName, setCode, collectorNumber) {
                 return ""
@@ -157,5 +167,49 @@ TestCase {
         overlay.close()
         tryVerify(() => !overlay.opened)
         compare(overlay.packs.length, 2)
+    }
+
+    function test_revealedFacePreviewDoesNotChangePackResults() {
+        const packs = [{cards: [{name: "Front Card", setCode: "FCE", collectorNumber: "1", rarity: "common"}]},
+                       {cards: [{name: "Front Card", setCode: "FCE", collectorNumber: "1", rarity: "common"}]}]
+        overlay.showPacks(packs, "Face Booster")
+        tryVerify(() => overlay.opened)
+        overlay.beginCurrentPack()
+        const grid = findChild(overlay, "packOpeningCardGrid")
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        verify(waitForPolish(testWindow))
+        const gridHeight = grid.height
+        const preview = findChild(overlay, "packOpeningCardPreview")
+        const reveal = findChild(grid.itemAtIndex(0), "packOpeningCard-0")
+        verify(!preview.visible)
+        mouseClick(reveal)
+        compare(overlay.revealedCount, 1)
+        mouseClick(reveal)
+        tryVerify(() => preview.visible)
+        verify(waitForPolish(testWindow))
+        compare(grid.height, gridHeight, "The large preview must overlay rather than resize the pack grid")
+        verify(preview.x >= 0 && preview.y >= 0)
+        verify(preview.x + preview.width <= preview.parent.width)
+        verify(preview.y + preview.height <= preview.parent.height)
+        compare(preview.facePreview.displayFaces.map(face => face.name), ["Front Card", "Reverse Card"])
+        verify(findChild(preview, "cardHoverPreviewArt-1") !== null)
+        verify(findChild(preview, "viewOtherFaceButton") === null)
+        compare(overlay.revealedCardIndices, [0])
+        compare(JSON.stringify(overlay.packs), JSON.stringify(packs))
+        compare(overlay.currentCards[0].name, "Front Card")
+        overlay.advanceOrFinish()
+        verify(!preview.visible)
+        compare(preview.facePreview.faceIndex, preview.facePreview.initialFaceIndex)
+        compare(overlay.revealedCount, 0)
+        overlay.revealAll()
+        tryVerify(() => grid.itemAtIndex(0) !== null)
+        verify(waitForPolish(testWindow))
+        mouseClick(findChild(grid.itemAtIndex(0), "packOpeningCard-0"))
+        tryVerify(() => preview.visible)
+        compare(preview.facePreview.displayFaces.length, 2)
+        overlay.close()
+        tryVerify(() => !overlay.opened)
+        verify(!preview.visible)
+        compare(preview.facePreview.faceIndex, preview.facePreview.initialFaceIndex)
     }
 }

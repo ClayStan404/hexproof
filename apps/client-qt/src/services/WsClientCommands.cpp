@@ -60,7 +60,8 @@ void WsClient::createRoom(const QString &name, const QString &format, const QStr
                           bool allowSpectators, bool spectatorsSeeHands, const QString &matchMode,
                           const QString &cardLoadMode, const QString &password, bool playtest,
                           const QString &rulesMode, const QString &hostingMode,
-                          const QString &aiDifficulty, const QString &aiSource)
+                          const QString &aiDifficulty, const QString &aiSource,
+                          bool actionClockEnabled)
 {
     const bool modelAI = !playtest && rulesMode == kRulesModeForge &&
                          (aiSource == u"local"_s || aiSource == u"online"_s);
@@ -83,6 +84,8 @@ void WsClient::createRoom(const QString &name, const QString &format, const QStr
     p.insert(u"matchMode"_s, playtest ? kMatchBO1 : matchMode);
     p.insert(u"cardLoadMode"_s, cardLoadMode);
     p.insert(u"rulesMode"_s, playtest ? kRulesModeManual : rulesMode);
+    p.insert(u"actionClockEnabled"_s, actionClockEnabled && !playtest &&
+                                          rulesMode == kRulesModeForge && format != kFormatEDH);
     if (!hostingMode.isEmpty())
         p.insert(u"hostingMode"_s, hostingMode);
     if (!password.isEmpty())
@@ -193,6 +196,21 @@ void WsClient::setReady(bool ready)
 void WsClient::completeLoad(qint64 loadId)
 {
     send(kTypeClientLoadComplete, QJsonObject{{u"loadId"_s, loadId}});
+}
+
+void WsClient::publishRulesPriority(bool fullControl, bool hold, const QStringList &stops)
+{
+    if (roomId().isEmpty())
+        return;
+    QJsonArray encoded;
+    for (const QString &stop : stops) {
+        if (!stop.isEmpty())
+            encoded.append(stop);
+    }
+    send(kTypeRulesPriority, QJsonObject{{u"roomId"_s, roomId()},
+                                         {u"fullControl"_s, fullControl},
+                                         {u"hold"_s, hold},
+                                         {u"stops"_s, encoded}});
 }
 
 void WsClient::respondRulesPrompt(qint64 promptId, const QString &responseId)

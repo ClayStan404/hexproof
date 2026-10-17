@@ -135,16 +135,25 @@ Item {
         wsModel.respondRulesPromptWithScry(promptId, answer)
     }
 
-    onPromptIdChanged: resetPiles()
+    onPromptIdChanged: { resetPiles(); preview.hide() }
+    onVisibleChanged: if (!visible) preview.hide()
     onDestinationsChanged: resetPiles()
     onCardModelChanged: resetPiles()
     Component.onCompleted: resetPiles()
+    CardHoverPreview {
+        id: preview
+        objectName: "rulesScryCardPreview"
+        parent: root.Overlay.overlay
+        catalogModel: root.cardCatalogModel
+        avoidItems: [placementControls]
+    }
 
     Connections {
         target: root.cardModel
         ignoreUnknownSignals: true
 
         function onModelReset() {
+            preview.hide()
             root.resetPiles()
         }
     }
@@ -222,6 +231,16 @@ Item {
                             required property int index
                             required property var modelData
                             readonly property string cardId: modelData.cardId
+                            activeFocusOnTab: true
+                            function inspect() {
+                                if (!root.visible || !modelData.name || modelData.faceDown === true
+                                        || modelData.visibleIdentity === false) return
+                                preview.tokenArt = modelData.token === true
+                                preview.inspect(Object.assign({}, modelData, {id:cardId}), cardTile)
+                            }
+                            onActiveFocusChanged: activeFocus ? inspect() : preview.hide(cardTile)
+                            onModelDataChanged: if (preview.sourceItem === cardTile) preview.hide()
+                            Component.onDestruction: preview.hide(cardTile)
 
                             objectName: "rulesScryCard-" + cardId
                             width: Theme.size(root.expandedView ? 174 : 96)
@@ -335,7 +354,10 @@ Item {
                                 }
                             }
 
-                            HoverHandler { id: hover }
+                            HoverHandler {
+                                id: hover
+                                onHoveredChanged: hovered ? cardTile.inspect() : preview.hide(cardTile)
+                            }
                             ToolTip.visible: hover.hovered
                             ToolTip.delay: 350
                             ToolTip.text: cardTile.modelData.name

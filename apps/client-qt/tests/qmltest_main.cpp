@@ -7,6 +7,7 @@
 #include "models/OptimisticCommandModel.h"
 #include "models/SideboardTableModel.h"
 #include "services/DraftSimulator.h"
+#include "services/ForgeReplayService.h"
 #include "services/LimitedDeckDraftStore.h"
 #include "services/PublicContentService.h"
 #include "services/RulesCombatModel.h"
@@ -27,6 +28,55 @@
 #include <QtQuickTest>
 
 #include <cstdio>
+
+// Match WsClient's shared notification signal: there is no connectedChanged.
+class LimitedDraftTransportStub : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool connected READ connected NOTIFY connectionStateChanged)
+    Q_PROPERTY(int pickCount READ pickCount NOTIFY pickCountChanged)
+
+  public:
+    explicit LimitedDraftTransportStub(QObject *parent = nullptr)
+        : QObject(parent)
+    {
+    }
+
+    bool connected() const
+    {
+        return m_connected;
+    }
+    int pickCount() const
+    {
+        return m_pickCount;
+    }
+    Q_INVOKABLE void setConnected(bool connected)
+    {
+        if (m_connected == connected)
+            return;
+        m_connected = connected;
+        emit connectionStateChanged();
+    }
+    Q_INVOKABLE void pickLimitedCard(const QString &)
+    {
+        ++m_pickCount;
+        emit pickCountChanged();
+    }
+    Q_INVOKABLE void reset()
+    {
+        setConnected(true);
+        m_pickCount = 0;
+        emit pickCountChanged();
+    }
+
+  signals:
+    void connectionStateChanged();
+    void pickCountChanged();
+
+  private:
+    bool m_connected = true;
+    int m_pickCount = 0;
+};
 
 // Mirrors WsClient::roomList: a Q_PROPERTY(QVariantList) sequence. QML's
 // Array.isArray() is false for these, even though .length and indexing work.
@@ -472,6 +522,8 @@ class QmlTestSetup : public QObject
             for (const QQmlError &warning : warnings)
                 m_qmlWarnings.append(warning.toString());
         });
+        engine->rootContext()->setContextProperty(QStringLiteral("hexproofTestMotion"), false);
+        engine->rootContext()->setContextProperty(QStringLiteral("hexproofMotion"), false);
         auto *translations = new hexproof::client::TranslationController(engine, engine);
         engine->rootContext()->setContextProperty(QStringLiteral("testTranslations"), translations);
         engine->rootContext()->setContextProperty(QStringLiteral("uiLanguages"),
@@ -481,6 +533,8 @@ class QmlTestSetup : public QObject
             new hexproof::client::ClientPreferencesModel(m_preferencesStorage.path(), engine));
         engine->rootContext()->setContextProperty(QStringLiteral("testRoomList"),
                                                   new RoomListSequenceStub(engine));
+        engine->rootContext()->setContextProperty(QStringLiteral("testLimitedDraftTransport"),
+                                                  new LimitedDraftTransportStub(engine));
         auto *optimisticCommands = new hexproof::client::OptimisticCommandModel(engine);
         engine->rootContext()->setContextProperty(QStringLiteral("testOptimisticCommands"),
                                                   optimisticCommands);
@@ -489,6 +543,45 @@ class QmlTestSetup : public QObject
                                                   sideboardTable);
         auto *gameTable = new hexproof::client::GameTableModel(engine);
         engine->rootContext()->setContextProperty(QStringLiteral("testGameTable"), gameTable);
+        auto *replays = new hexproof::client::ForgeReplayService(engine, m_replayStorage.path());
+        using namespace Qt::StringLiterals;
+        // Exercise the production player against one shared service and two
+        // locally saved archives, without an engine or network dependency.
+        for (const QChar digit : {u'a', u'c'}) {
+            const QString id(64, digit);
+            const QString server = u"ws://localhost:57320"_s;
+            replays->acceptGrant(server, {{u"replayId"_s, id},
+                                          {u"token"_s, QString(64, u'b')},
+                                          {u"roomName"_s, u"Replay controls test"_s},
+                                          {u"players"_s, QJsonArray{u"Alice"_s, u"Bob"_s}},
+                                          {u"finished"_s, true},
+                                          {u"complete"_s, true}});
+            replays->download(id);
+            QJsonArray frames;
+            for (int sequence = 1; sequence <= 3; ++sequence) {
+                const QJsonObject snapshot{
+                    {u"roomId"_s, u"REPLAY01"_s},
+                    {u"gameId"_s, id},
+                    {u"turn"_s, sequence},
+                    {u"activeSeat"_s, 0},
+                    {u"prioritySeat"_s, 0},
+                    {u"players"_s, QJsonArray{QJsonObject{{u"seat"_s, 0}, {u"life"_s, 20}},
+                                              QJsonObject{{u"seat"_s, 1}, {u"life"_s, 20}}}},
+                    {u"zones"_s, QJsonArray{}},
+                    {u"stack"_s, QJsonArray{}}};
+                frames.append(QJsonObject{{u"sequence"_s, sequence},
+                                          {u"gameNumber"_s, 1},
+                                          {u"kind"_s, u"CardTapped"_s},
+                                          {u"snapshot"_s, snapshot}});
+            }
+            replays->acceptPage(server, {{u"replayId"_s, id},
+                                         {u"schemaVersion"_s, 1},
+                                         {u"offset"_s, 0},
+                                         {u"total"_s, frames.size()},
+                                         {u"complete"_s, true},
+                                         {u"frames"_s, frames}});
+        }
+        engine->rootContext()->setContextProperty(QStringLiteral("testReplays"), replays);
         auto *rulesSnapshot = new hexproof::client::RulesSessionState(engine);
         rulesSnapshot->applySnapshot(QJsonDocument::fromJson(R"json({
             "roomId": "RULE01", "gameId": "rules-stack-fixture", "players": [], "zones": [],
@@ -556,6 +649,7 @@ class QmlTestSetup : public QObject
     QStringList m_qmlWarnings;
     QTemporaryDir m_preferencesStorage;
     QTemporaryDir m_draftStorage;
+    QTemporaryDir m_replayStorage;
 };
 
 int main(int argc, char **argv)

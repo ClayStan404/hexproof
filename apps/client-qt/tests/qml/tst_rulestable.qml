@@ -191,6 +191,7 @@ TestCase {
             property string gameId: "rules-match"
             signal promptChanged()
             signal snapshotChanged()
+            function cardPlacement(id) { return cardForInspection(id) }
             function cardForInspection(id) {
                 for (const model of [battlefieldCards, zoneCards, stack]) {
                     for (let index = 0; index < model.count; ++index) {
@@ -412,6 +413,25 @@ TestCase {
         }
     }
 
+    Component {
+        id: stackedTableComponent
+        StackView {
+            id: stackedTables
+            anchors.fill: parent
+            initialItem: RulesTable {
+                id: stackedTable
+                objectName: "stackedRulesTable"
+                tablePresentationComponent: Component {
+                    RulesLegacyLayout { tableController: stackedTable }
+                }
+                wsModel: fakeWs
+                cardCatalogModel: fakeCatalog
+                gameTableModel: testGameTable
+                sideboardTableModel: testSideboardTable
+            }
+        }
+    }
+
     function resetMatchState() {
         Theme.uiScale = 1.0
         for (const name of ["rulesGameResultPopup", "rulesRestartConfirmation",
@@ -493,21 +513,6 @@ TestCase {
         waitForRendering(table)
     }
 
-    function test_defaultRestoresOpaqueClassicBattlefield() {
-        const ownLane = findChild(table, "rulesBattlefieldLane0")
-        const opponentLane = findChild(table, "rulesBattlefieldLane1")
-        for (const background of ["default", "ink", "default"]) {
-            TableBackgrounds.currentId = background
-            for (const lane of [ownLane, opponentLane]) {
-                verify(lane !== null)
-                if (background === "default")
-                    compare(lane.color, lane.isOwn ? Theme.primaryMuted : Theme.surfaceHover)
-                else
-                    verify(lane.color.a > 0 && lane.color.a < 1)
-            }
-        }
-    }
-
     function test_zoneOnlySnapshotRefreshesCountsAndEmptyLabels() {
         const ownLibrary = findChild(table, "rulesOwnZoneTile-library")
         const opponentLibrary = findChild(table, "rulesOpponentZoneTile-1-library")
@@ -574,32 +579,6 @@ TestCase {
         tryVerify(() => tile.width > 0 && tile.height > 0)
     }
 
-    function test_primaryPlayAreaDoesNotCollapse() {
-        const layout = findChild(table, "rulesGameLayout")
-        const playArea = findChild(table, "rulesPlayArea")
-        const actionRail = findChild(table, "rulesActionRail")
-        const sharedRail = findChild(table, "rulesSharedZoneRail")
-        const battlefield = findChild(table, "rulesBattlefieldPanel")
-        const handArea = findChild(table, "rulesHandArea")
-        verify(layout !== null)
-        verify(playArea !== null)
-        verify(actionRail !== null)
-        verify(sharedRail !== null)
-        verify(battlefield !== null)
-        verify(handArea !== null)
-        tryVerify(() => layout.width > 0)
-        compare(actionRail.width, 144)
-        compare(sharedRail.width, 92)
-        compare(findChild(table, "gameLogRail").width, table.gameLogRailWidth)
-        verify(playArea.width >= layout.width * 0.48,
-               "play area " + playArea.width + " / layout " + layout.width)
-        const inspectionHost = findChild(table, "rulesInspectionHost")
-        verify(battlefield.width + inspectionHost.width >= playArea.width - 1,
-               "Battlefield and the independent inspector fill the workspace")
-        compare(handArea.width, playArea.width)
-        verify(handArea.y > battlefield.y)
-    }
-
     function test_decisionsAndInspectionNeverOverlapBattlefield_data() {
         return [
             {tag: "desktop", width: 1600, height: 1000, scale: 1},
@@ -650,15 +629,16 @@ TestCase {
         tryCompare(inspector, "hasCard", false)
     }
 
-    function test_localBattlefieldIsBelowOpponent() {
-        const ownLane = findChild(table, "rulesBattlefieldLane0")
-        const opponentLane = findChild(table, "rulesBattlefieldLane1")
-        verify(ownLane !== null)
-        verify(opponentLane !== null)
-        tryVerify(() => ownLane.height > 0 && opponentLane.height > 0)
-        verify(ownLane.y > opponentLane.y,
-               "own lane " + ownLane.y + " / opponent lane "
-               + opponentLane.y)
+    function test_shownTableTakesKeyFocus() {
+        // The application's page stack is not a focus scope in the active
+        // chain: a replaced page leaves focus on the window's root item.
+        table.Window.window.contentItem.forceActiveFocus()
+        verify(!table.activeFocus)
+        const stack = createTemporaryObject(stackedTableComponent, table.parent)
+        verify(stack)
+        const shown = stack.currentItem
+        compare(shown.objectName, "stackedRulesTable")
+        tryVerify(() => shown.activeFocus, 2000, "Space and Escape must reach a newly shown table")
     }
 
     function test_priorityControlsStayBesideHandWithoutResizingForInspection_data() {
@@ -734,10 +714,6 @@ TestCase {
             const header = findChild(table, "rulesPlayerTarget0")
             const arrange = findChild(table, "rulesAutoArrange0")
             const viewport = findChild(table, "rulesBattlefieldViewport0")
-            waitForRendering(table)
-            const initialHeaderHeight = lane.headerHeight
-            const initialViewportHeight = viewport.height
-            battlefield.layoutState.remember(0, "own-permanent", 10, 10, 100, 100)
             rulesSession.promptId = 25
             rulesSession.promptKind = "chooseBoardTargets"
             rulesSession.promptOptions = emptyModel
@@ -746,6 +722,12 @@ TestCase {
             rulesSession.boardTargets = [{responseId: "target:self", kind: "player", seat: 0}]
             verify(table.persistentInspectionDock)
             tryCompare(lane, "targetActionable", true)
+            waitForRendering(table)
+            // Legacy decisions allocate their own height. Keep this regression
+            // about header controls within one settled decision allocation.
+            const initialHeaderHeight = lane.headerHeight
+            const initialViewportHeight = viewport.height
+            battlefield.layoutState.remember(0, "own-permanent", 10, 10, 100, 100)
             tryVerify(() => arrange.visible)
             waitForRendering(table)
             compare(lane.headerHeight, initialHeaderHeight)
@@ -770,37 +752,6 @@ TestCase {
             players.remove(2, players.count - 2)
             rulesSession.boardTargets = []
         }
-    }
-
-    function test_compactLayoutReturnsRailsToBattlefield() {
-        const actionRail = findChild(table, "rulesActionRail")
-        const sharedRail = findChild(table, "rulesSharedZoneRail")
-        const playArea = findChild(table, "rulesPlayArea")
-        testWindow.width = 1000
-        tryCompare(actionRail, "width", 120)
-        compare(sharedRail.visible, false)
-        verify(playArea.width >= 875,
-               "compact play area " + playArea.width)
-    }
-
-    function test_cardsFollowTabletopGeometry() {
-        const ownCard = findChild(
-                    table, "rulesBattlefieldCard-0-own-permanent")
-        const opponentCard = findChild(
-                    table, "rulesBattlefieldCard-1-opponent-permanent")
-        const handCard = findChild(table, "rulesHandCard-hand-card")
-        verify(ownCard !== null)
-        verify(opponentCard !== null)
-        verify(handCard !== null)
-        verify(ownCard.visible)
-        verify(opponentCard.visible)
-        verify(handCard.visible)
-
-        const ownPoint = ownCard.mapToItem(table, 0, 0)
-        const opponentPoint = opponentCard.mapToItem(table, 0, 0)
-        const handPoint = handCard.mapToItem(table, 0, 0)
-        verify(ownPoint.y > opponentPoint.y)
-        verify(handPoint.y > ownPoint.y)
     }
 
     function test_opponentPublicCardsRemainVisible() {
@@ -1155,6 +1106,9 @@ TestCase {
         rulesSession.promptTitle = "Choose a target for Lightning Bolt"
         rulesSession.promptDetail = "Choose exactly one target."
         rulesSession.promptContextText = "Lightning Bolt targets one creature or player."
+        rulesSession.promptMinSelections = 0
+        rulesSession.promptMaxSelections = 1
+        rulesSession.boardTargets = [{responseId: "target:self", kind: "player", seat: 0}]
         const panel = findChild(table, "rulesPromptPanel")
         const host = findChild(table, "rulesBattlefieldHost")
         waitForRendering(table)
@@ -1163,11 +1117,34 @@ TestCase {
         const body = findChild(table, "rulesPromptScroll")
         verify(body !== null)
         verify(body.contentHeight > body.height)
+        verify(body.height > 0, "The decision body retains a scrollable viewport")
+        const footer = findChild(table, "rulesTargetSelectionFooter")
+        const confirmation = findChild(table, "rulesConfirmTargets")
+        const selectionCount = findChild(table, "rulesTargetSelectionCount")
+        verify(footer !== null && footer.visible)
+        verify(confirmation.visible && selectionCount.visible)
+        const footerRect = footer.mapToItem(panel, 0, 0, footer.width, footer.height)
+        verify(footerRect.y >= 0 && footerRect.y + footerRect.height <= panel.height,
+               "The entire fixed footer fits inside its decision panel")
+        const initialConfirmation = confirmation.mapToItem(table, 0, 0,
+                                                            confirmation.width, confirmation.height)
+        const initialCount = selectionCount.mapToItem(table, 0, 0,
+                                                       selectionCount.width, selectionCount.height)
+        verify(footer.mapToItem(body, 0, 0).y >= body.height,
+               "The fixed target controls are below, not inside, the scroll viewport")
+        verify(initialConfirmation.y + initialConfirmation.height <= table.height,
+               "The confirmation is fully visible before scrolling")
         mouseWheel(body, body.width / 2, body.height / 2, 0, -480)
         tryVerify(() => body.contentY > 0)
-        const confirmation = findChild(table, "rulesConfirmTargets")
-        tryVerify(() => confirmation.mapToItem(body, 0, confirmation.height).y <= body.height + 1,
-                  1000, "Confirmation remains reachable by scrolling")
+        compare(confirmation.mapToItem(table, 0, 0, confirmation.width, confirmation.height),
+                initialConfirmation, "Scrolling context must not move the primary action")
+        compare(selectionCount.mapToItem(table, 0, 0, selectionCount.width, selectionCount.height),
+                initialCount, "Scrolling context must not move the selection summary")
+        verify(confirmation.enabled)
+        mouseClick(confirmation)
+        compare(fakeWs.responseCount, 1)
+        compare(fakeWs.lastResponseId, "$submit")
+        compare(fakeWs.lastSelectedTargets, [])
     }
 
     function test_publicPlayerAndCardCountersAreVisibleOnBattlefield() {

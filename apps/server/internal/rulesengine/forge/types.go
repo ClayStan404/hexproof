@@ -94,8 +94,9 @@ func (request StartGameRequest) validate() error {
 
 // SessionHandle is returned after Forge accepts a new game.
 type SessionHandle struct {
-	SessionID     string `json:"sessionId"`
-	PlayerIndexes []int  `json:"playerIndexes"`
+	DiagnosticProducerID string `json:"diagnosticProducerId,omitempty"`
+	SessionID            string `json:"sessionId"`
+	PlayerIndexes        []int  `json:"playerIndexes"`
 }
 
 // HasAI identifies a native controller without confusing it with a connection.

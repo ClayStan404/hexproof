@@ -70,7 +70,7 @@ final class NativeSession implements AutoCloseable {
     NativeSession(JsonObject request, NativeGuiBase base) {
         this.base = base;
         id = request.get("gameId").getAsString();
-        context = new NativeExecution(request.get("seed").getAsLong(), this::fail);
+        context = new NativeExecution(request.get("seed").getAsLong(), this::fail, new NativeDiagnostics(id));
         try (var scope = context.enter()) {
             JsonArray configured = request.getAsJsonArray("players");
             if (id.isBlank() || configured.size() < 2 || configured.size() > 8) throw new IllegalArgumentException("Invalid game setup");
@@ -255,6 +255,7 @@ final class NativeSession implements AutoCloseable {
     }
     JsonObject handle() {
         JsonObject result = object("sessionId", id);
+        result.addProperty("diagnosticProducerId", context.diagnostics.producerId());
         JsonArray players = new JsonArray();
         for (int i = 0; i < game.getRegisteredPlayers().size(); i++) players.add(i);
         result.add("playerIndexes", players);
@@ -373,7 +374,7 @@ final class NativeSession implements AutoCloseable {
     <T> T withDecisionAbility(SpellAbility ability, Supplier<T> action) {
         SpellAbility previous = decisionAbility.get();
         decisionAbility.set(ability);
-        try { return action.get(); }
+        try { return context.diagnostics.run("decision", ability, action); }
         finally {
             if (previous == null) decisionAbility.remove(); else decisionAbility.set(previous);
         }
@@ -402,6 +403,38 @@ final class NativeSession implements AutoCloseable {
         String value = snapshots.get(viewer);
         if (value == null) throw new IllegalArgumentException("Invalid snapshot viewer");
         return value;
+    }
+    synchronized String snapshots(JsonArray viewers) {
+        if (viewers == null || viewers.isEmpty() || viewers.size() > 8)
+            throw new IllegalArgumentException("Invalid snapshot viewers");
+        JsonArray result = new JsonArray();
+        for (JsonElement viewer : viewers)
+            result.add(JsonParser.parseString(snapshot(viewer.getAsInt())));
+        return result.toString();
+    }
+    // Blocks on this session until the prompt id changes, the game ends, or the
+    // timeout elapses. The caller keeps one ordered engine request in flight.
+    synchronized String awaitPrompt(long previousId, int timeoutMs) {
+        check();
+        if (timeoutMs < 1 || timeoutMs > 30_000)
+            throw new IllegalArgumentException("Invalid await timeout");
+        long deadline = System.nanoTime() + timeoutMs * 1_000_000L;
+        while (true) {
+            check();
+            if (finished && game.isGameOver())
+                return "";
+            if (pending != null && (previousId <= 0 || pending.id() != previousId))
+                return pending.envelope().toString();
+            long remainingMs = (deadline - System.nanoTime()) / 1_000_000L;
+            if (remainingMs <= 0)
+                return "";
+            try {
+                wait(remainingMs);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return "";
+            }
+        }
     }
     synchronized String prompt(int playerIndex) {
         check();
@@ -506,7 +539,7 @@ final class NativeSession implements AutoCloseable {
         while (pending == null && !finished && failure == null && !closed) {
             long left = deadline - System.nanoTime();
             if (left <= 0) {
-                fail(new IllegalStateException("Native input boundary timed out"));
+                fail(new NativeBoundaryTimeout());
                 break;
             }
             try { TimeUnit.NANOSECONDS.timedWait(this, left); }
@@ -519,10 +552,15 @@ final class NativeSession implements AutoCloseable {
         if (terminalConcession && isTerminalCancellation(error)) return;
         for (Throwable cause = error; cause != null; cause = cause.getCause())
             if (closed && cause instanceof CancellationException) return;
-        if (failure == null) { failure = error; error.printStackTrace(System.err); }
+        if (failure == null) {
+            failure = error;
+            context.diagnostics.terminal(error, error instanceof NativeBoundaryTimeout ? "input_boundary_timeout" : "game_callback");
+        }
         for (SynchronousAnswer<?> answer : answers) answer.cancel(error);
         notifyAll();
     }
+    private static final class NativeBoundaryTimeout extends IllegalStateException { }
+    synchronized JsonObject failureInfo() { return context.diagnostics.failureInfo(); }
     synchronized boolean hasFailed() { return failure != null; }
     private void check() {
         if (failure != null) throw new IllegalStateException("Native game failed", failure);

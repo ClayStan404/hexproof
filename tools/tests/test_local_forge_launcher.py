@@ -26,6 +26,7 @@ class LocalForgeLauncherTests(unittest.TestCase):
         (self.root / "tools").mkdir()
         versions = self.root / "third_party/forge-runtime"
         versions.mkdir(parents=True)
+        shutil.copy(REPO_ROOT / "third_party/forge-runtime/java-toolchain.py", versions)
         self.launcher = self.root / "tools/run-local-forge-server.sh"
         shutil.copy(REPO_ROOT / "tools/run-local-forge-server.sh", self.launcher)
         shutil.copy(REPO_ROOT / "tools/local-forge-runtime.py", self.root / "tools")
@@ -41,6 +42,9 @@ class LocalForgeLauncherTests(unittest.TestCase):
                         HEXPROOF_SERVER_BINARY_PATH=str(self.server),
                         HEXPROOF_FORGE_LOCAL_ROOT=str(self.runtime),
                         HEXPROOF_FORGE_JAVA="java")
+        for key in list(self.env):
+            if key.upper() == "JAVA_HOME" or key.upper().startswith("JAVA_HOME_21_"):
+                del self.env[key]
         self.native_host = versions / "native-host"
         java_source = self.native_host / "src/main/java/org/hexproof/forge"
         java_source.mkdir(parents=True)
@@ -160,6 +164,19 @@ print({str(package)!r})
         help_result = self.run_launcher("--help")
         self.assertEqual(help_result.returncode, 0, help_result.stderr)
         self.assertIn("Only official Forge", help_result.stdout)
+
+    def test_default_java_selects_jre21_without_changing_parent_environment(self):
+        self.prepare_native_runtime()
+        home = self.root / "JRE 21 with spaces"
+        (home / "bin").mkdir(parents=True)
+        self.write_executable(home / "bin/java", 'printf \'openjdk version "21.0.12.1"\\n\' >&2\n')
+        self.env["JAVA_HOME"] = str(home)
+        del self.env["HEXPROOF_FORGE_JAVA"]
+        self.write_executable(self.server, 'printf "java:%s\\n" "$HEXPROOF_FORGE_JAVA"\n')
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"java:{home}/bin/java", result.stdout)
+        self.assertEqual(self.env["JAVA_HOME"], str(home))
 
     def test_changed_printing_index_requires_a_new_runtime(self):
         self.prepare_native_runtime()

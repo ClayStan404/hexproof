@@ -11,7 +11,7 @@ Item {
     readonly property var seatOrder: presentation.playerSeats
     readonly property int nearSeat: presentation.bottomSeat
     readonly property real gap: 6 * unit
-    readonly property real seam: presentation.phaseTrackVisible ? 22 * unit : gap
+    readonly property real seam: presentation.phaseTrackVisible ? presentation.centerBandHeight : gap
     readonly property real fieldHeight: Math.max(0, (height - seam) / 2)
     objectName: "forgeMultiplayerBattlefield"
 
@@ -35,6 +35,26 @@ Item {
             if (point.x !== 0) return point
         }
         return Qt.point(0, 0)
+    }
+    function inspectionRects(target) {
+        if (!visible) return []
+        void x; void y; void width; void height
+        let rects = []
+        for (let index = 0; index < fields.count; ++index) {
+            const field = fields.itemAt(index) as ForgePlayerField
+            if (field) rects = rects.concat(field.inspectionRects(target))
+        }
+        return rects
+    }
+    function readoutRects(target) {
+        if (!visible) return []
+        void x; void y; void width; void height
+        let rects = []
+        for (let index = 0; index < fields.count; ++index) {
+            const field = fields.itemAt(index) as ForgePlayerField
+            if (field) rects = rects.concat(field.readoutRects(target))
+        }
+        return rects
     }
     function playerPoint(seat, target) {
         const field = fieldFor(seat)

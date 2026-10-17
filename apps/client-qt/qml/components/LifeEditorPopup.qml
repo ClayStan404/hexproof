@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 AppPopup {

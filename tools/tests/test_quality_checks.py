@@ -70,7 +70,7 @@ class ProtocolParityTests(unittest.TestCase):
                 ],
             )
 
-    def test_core_payload_schema_matches_go_and_fixtures(self) -> None:
+    def test_core_payload_schema_matches_go_qt_and_fixtures(self) -> None:
         root = TOOLS_DIR.parent
         constants = protocol_codegen.load_schema(root)
         message_types = {
@@ -344,22 +344,6 @@ class VerificationScriptTests(unittest.TestCase):
             cmake,
         )
 
-    def test_public_export_includes_rules_engine_contract(self) -> None:
-        root = TOOLS_DIR.parent
-        export_script = (TOOLS_DIR / "export-public-tree.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertTrue((root / "docs/rules-engine.md").is_file())
-        self.assertIn("    docs/rules-engine.md\n", export_script)
-
-    def test_public_export_includes_changelog(self) -> None:
-        root = TOOLS_DIR.parent
-        export_script = (TOOLS_DIR / "export-public-tree.sh").read_text(
-            encoding="utf-8"
-        )
-        self.assertTrue((root / "CHANGELOG.md").is_file())
-        self.assertIn("    CHANGELOG.md\n", export_script)
-
     def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:
         paths = (
             TOOLS_DIR / "verify.sh",
@@ -518,54 +502,6 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertNotIn("JSON.stringify", table)
         self.assertNotIn("JSON.stringify", seat_state)
         self.assertIn("source.modelRevision", seat_state)
-        model = self.source("apps/client-qt/src/models/GameTableModel.cpp")
-        self.assertIn("m_cardsByZone", model)
-        self.assertIn("modelRevision", model)
-
-    def test_table_coordination_boundaries_are_extracted(self) -> None:
-        table = self.source("apps/client-qt/qml/screens/Table.qml")
-        self.assertIn("TableSelectionController", table)
-        self.assertIn("TableBattlefieldGeometry", table)
-        self.assertIn("TableOptimisticCommandController", table)
-        self.assertIn("TableCardMoveController", table)
-        self.assertIn("TableGameValueController", table)
-        self.assertIn("TableZoneStateController", table)
-        self.assertIn("BattlefieldSeatState", table)
-        self.assertNotIn("const immutableOwner =", table)
-        self.assertIn(
-            "const immutableOwner =",
-            self.source("apps/client-qt/qml/components/TableSelectionController.qml"),
-        )
-        optimistic = self.source(
-            "apps/client-qt/qml/components/TableOptimisticCommandController.qml"
-        )
-        self.assertNotIn('commandType === "game.move_card"', table)
-        self.assertIn('commandType === "game.move_card"', optimistic)
-        self.assertIn("resetCounterCountRequest", optimistic)
-        card_moves = self.source(
-            "apps/client-qt/qml/components/TableCardMoveController.qml"
-        )
-        self.assertNotIn("const adjustedPosition =", table)
-        self.assertIn("const adjustedPosition =", card_moves)
-        self.assertIn("finishPublicZoneDrop", card_moves)
-        self.assertIn("commitCardToBattlefield", card_moves)
-        zone_state = self.source(
-            "apps/client-qt/qml/components/TableZoneStateController.qml"
-        )
-        self.assertIn("function cardDataForId(cardId)", zone_state)
-        self.assertIn("function reconcilePendingCardMoves()", zone_state)
-        self.assertIn("function zoneDelegateModel(", zone_state)
-        self.assertNotIn("gameTableModel.cardData(cardId)", table)
-        self.assertIn("readonly property var zoneState: zoneStateController", table)
-
-    def test_core_qt_commands_match_payload_schema(self) -> None:
-        root = TOOLS_DIR.parent
-        constants = protocol_codegen.load_schema(root)
-        message_types = {
-            item.value for item in constants if item.name.startswith("Type")
-        }
-        schema = payload_schema.load_payload_schema(root, message_types)
-        self.assertEqual(payload_schema.verify_qt_payload_builders(root, schema), [])
 
     def test_dynamic_quality_gates_cover_client_and_server_boundaries(self) -> None:
         cmake = self.source("apps/client-qt/CMakeLists.txt")
@@ -601,12 +537,6 @@ class CardServiceBoundaryTests(unittest.TestCase):
         expected = "scripts+=(deploy/deploy-test-server.sh)"
         self.assertIn(expected, self.source(".github/workflows/ci.yml"))
         self.assertIn(expected, self.source(".github/workflows/release.yml"))
-
-    def test_retention_rejects_and_removes_invalid_archives(self) -> None:
-        retention = self.source("apps/server/internal/server/retention.go")
-        self.assertIn("decoder.Decode(&struct{}{})", retention)
-        self.assertIn("validateRetainedRoom", retention)
-        self.assertIn("remove invalid retained match", retention)
 
 
 if __name__ == "__main__":

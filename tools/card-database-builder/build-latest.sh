@@ -138,7 +138,8 @@ mtgjson_sha256="$(sha256sum "${staging_root}/source/mtgjson-all-set-files.zip" |
 python3 "${script_dir}/build_limited_products.py" \
     --source "${staging_root}/source/mtgjson-all-set-files.zip" \
     --output "${staging_root}/source/limited-products.json" \
-    --mtgjson-version "${mtgjson_version}"
+    --mtgjson-version "${mtgjson_version}" \
+    --require-product FRA:play
 
 jq -n \
     --arg downloadedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -171,9 +172,6 @@ printf '%s\n' 'Building the card database...'
     --localized-source "${staging_root}/source/all-cards.jsonl.gz" \
     --limited-products "${staging_root}/source/limited-products.json" \
     --output "${staging_root}/import/hexproof-default-cards.sqlite"
-
-python3 "${script_dir}/build_fra_product.py" \
-    --database "${staging_root}/import/hexproof-default-cards.sqlite"
 
 "${repo_root}/packaging/card-database/build-release-assets.sh" \
     "${staging_root}/import/hexproof-default-cards.sqlite" \

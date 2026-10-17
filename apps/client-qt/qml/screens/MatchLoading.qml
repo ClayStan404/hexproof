@@ -45,6 +45,7 @@ Page {
                 Layout.alignment: Qt.AlignHCenter
                 markSize: Theme.size(54)
             }
+            FeedbackEntryButton { Layout.alignment: Qt.AlignHCenter }
 
             Text {
                 textFormat: Text.PlainText

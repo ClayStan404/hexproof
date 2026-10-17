@@ -18,6 +18,7 @@ class CardImageProvider final : public QQuickImageProvider
     CardImageProvider();
 
     QString sourceForPath(const QString &path);
+    QString previewSourceForPath(const QString &path);
     void invalidatePath(const QString &path);
     void invalidateAll();
 

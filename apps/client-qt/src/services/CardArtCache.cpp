@@ -114,6 +114,8 @@ void CardArtCache::load()
     m_negative.clear();
     m_printingIndex.clear();
     m_metadataNameIndex.clear();
+    m_metadataPrintingIndex.clear();
+    m_printingIdIndex.clear();
     m_oracleIndex.clear();
     m_canonicalNameIndex.clear();
     m_requestedNameIndex.clear();
@@ -146,17 +148,21 @@ void CardArtCache::load()
     bool rebased = false;
     for (auto it = positive.begin(); it != positive.end(); ++it) {
         CardRecord record = recordFromJson(it.value().toObject());
-        for (const QString &previous : m_previousImageRoots) {
-            if (previous == m_imageRoot || record.imagePath.isEmpty())
-                continue;
-            const QString relative = QDir(previous).relativeFilePath(record.imagePath);
-            if (relative == QStringLiteral(".") || relative == QStringLiteral("..") ||
-                relative.startsWith(QStringLiteral("../")) || QDir::isAbsolutePath(relative))
-                continue;
-            record.imagePath = QDir(m_imageRoot).filePath(relative);
-            rebased = true;
-            break;
-        }
+        const auto rebase = [&](QString &path) {
+            for (const QString &previous : m_previousImageRoots) {
+                if (previous == m_imageRoot || path.isEmpty())
+                    continue;
+                const QString relative = QDir(previous).relativeFilePath(path);
+                if (relative == QStringLiteral(".") || relative == QStringLiteral("..") ||
+                    relative.startsWith(QStringLiteral("../")) || QDir::isAbsolutePath(relative))
+                    continue;
+                path = QDir(m_imageRoot).filePath(relative);
+                rebased = true;
+                break;
+            }
+        };
+        rebase(record.imagePath);
+        rebase(record.artCropPath);
         m_positive.insert(it.key(), record);
     }
     rebuildIndexes();
@@ -290,8 +296,57 @@ CardRecord CardArtCache::exactRecord(const QString &cacheKey) const
     return m_positive.value(cacheKey);
 }
 
+CardRecord CardArtCache::faceMetadata(const CardRequest &request) const
+{
+    if (!request.specifiesPrinting())
+        return {};
+    const QString wanted = normalizedCardName(request.name);
+    CardRecord legacy;
+    const auto candidates = m_metadataPrintingIndex.value(
+        joinedIndexKey({request.setCode.toUpper(), request.collectorNumber}));
+    for (const QString &key : candidates) {
+        const CardRecord record = m_positive.value(key);
+        QStringList aliases = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
+        aliases.append(record.name);
+        aliases.append(record.requestedName);
+        aliases.append(record.faceName);
+        for (const QVariant &value : record.independentFaces) {
+            const QVariantMap face = value.toMap();
+            aliases.append(face.value(QStringLiteral("name")).toString());
+            aliases.append(face.value(QStringLiteral("faceName")).toString());
+        }
+        if (std::none_of(aliases.cbegin(), aliases.cend(), [&wanted](const QString &name) {
+                return normalizedCardName(name) == wanted;
+            }))
+            continue;
+        // Art reuse may relabel a record's requested printing. Only the actual
+        // provider metadata printing can establish its independently printed faces.
+        if (record.faceMetadataChecked &&
+            record.faceMetadataSetCode.compare(request.setCode, Qt::CaseInsensitive) == 0 &&
+            record.faceMetadataCollectorNumber == request.collectorNumber)
+            return record;
+        if (!legacy.valid())
+            legacy = record;
+    }
+    return legacy;
+}
+
+CardRecord CardArtCache::faceMetadataById(const QString &printingId) const
+{
+    for (const QString &key : m_printingIdIndex.value(printingId)) {
+        const CardRecord record = m_positive.value(key);
+        if (record.printingId == printingId && record.faceMetadataChecked &&
+            record.setCode.compare(record.faceMetadataSetCode, Qt::CaseInsensitive) == 0 &&
+            record.collectorNumber == record.faceMetadataCollectorNumber)
+            return record;
+    }
+    return {};
+}
+
 bool CardArtCache::matchesRequestedFace(const CardRequest &request, const CardRecord &record) const
 {
+    if (ambiguousLegacySameNamedFace(record))
+        return false;
     const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
     if (faces.size() != 2)
         return true;
@@ -404,7 +459,8 @@ CardRecord CardArtCache::reusableArt(const CardRequest &request,
 
     for (const QString &candidateKey : candidates) {
         const auto it = m_positive.constFind(candidateKey);
-        if (it == m_positive.cend() || it->resolutionVersion < kCardResolutionVersion ||
+        if (it == m_positive.cend() || ambiguousLegacySameNamedFace(*it) ||
+            it->resolutionVersion < kCardResolutionVersion ||
             (request.supportCard && request.language == QStringLiteral("zh") &&
              !it->localizedRulesChecked) ||
             it->imageLanguage != request.language) {
@@ -510,6 +566,8 @@ void CardArtCache::rebuildIndexes()
 {
     m_printingIndex.clear();
     m_metadataNameIndex.clear();
+    m_metadataPrintingIndex.clear();
+    m_printingIdIndex.clear();
     m_oracleIndex.clear();
     m_canonicalNameIndex.clear();
     m_requestedNameIndex.clear();
@@ -522,6 +580,11 @@ void CardArtCache::addToIndexes(const QString &cacheKey, const CardRecord &recor
     const QString language = cacheLanguage(cacheKey);
     const QString requestedName = normalizedCardName(record.requestedName);
     const QString canonicalName = normalizedCardName(record.name);
+    if (!record.setCode.isEmpty() && !record.collectorNumber.isEmpty())
+        m_metadataPrintingIndex[joinedIndexKey({record.setCode.toUpper(), record.collectorNumber})]
+            .insert(cacheKey);
+    if (!record.printingId.isEmpty())
+        m_printingIdIndex[record.printingId].insert(cacheKey);
     QString inferredFaceName = normalizedCardName(record.faceName);
     if (inferredFaceName.isEmpty()) {
         const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
@@ -561,6 +624,12 @@ void CardArtCache::addToIndexes(const QString &cacheKey, const CardRecord &recor
 
 void CardArtCache::removeFromIndexes(const QString &cacheKey, const CardRecord &record)
 {
+    if (!record.setCode.isEmpty() && !record.collectorNumber.isEmpty())
+        removeIndexEntry(&m_metadataPrintingIndex,
+                         joinedIndexKey({record.setCode.toUpper(), record.collectorNumber}),
+                         cacheKey);
+    if (!record.printingId.isEmpty())
+        removeIndexEntry(&m_printingIdIndex, record.printingId, cacheKey);
     const QString language = cacheLanguage(cacheKey);
     const QString requestedName = normalizedCardName(record.requestedName);
     const QString canonicalName = normalizedCardName(record.name);
@@ -650,6 +719,8 @@ QSet<QString> CardArtCache::referencedImagePaths() const
     for (const CardRecord &record : m_positive) {
         if (!record.imagePath.isEmpty())
             paths.insert(QFileInfo(record.imagePath).absoluteFilePath());
+        if (!record.artCropPath.isEmpty())
+            paths.insert(QFileInfo(record.artCropPath).absoluteFilePath());
     }
     return paths;
 }

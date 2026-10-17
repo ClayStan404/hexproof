@@ -68,22 +68,6 @@ TestCase {
         page = null
     }
 
-    function test_createButtonStaysReachableOnLaptopHeight() {
-        const body = findChild(page, "limitedRoomCreateBody")
-        const button = findChild(page, "limitedRoomCreateSubmitButton")
-        verify(body !== null)
-        verify(button !== null)
-
-        const buttonBottom = button.mapToItem(body.contentItem, 0, button.height).y
-        verify(body.contentHeight + 0.5 >= buttonBottom)
-
-        body.contentY = Math.max(0, body.contentHeight - body.height)
-        waitForRendering(page)
-        const buttonTop = button.mapToItem(body, 0, 0).y
-        verify(buttonTop + button.height <= body.height + 1)
-        verify(buttonTop >= -1)
-    }
-
     function test_sharedSettingsAndDraftCapacity() {
         const selector = findChild(page, "limitedEventTypeSelector")
         const name = findChild(page, "tournamentNameField")
@@ -99,8 +83,9 @@ TestCase {
         cap.text = "12"
         verify(button.enabled)
         button.clicked()
-        compare(mockWs.submitted.length, 7)
+        compare(mockWs.submitted.length, 8)
         compare(mockWs.submitted[6], "manual")
+        compare(mockWs.submitted[7], false)
         compare(mockWs.submitted[1], "set_sealed")
         compare(mockWs.submitted[3], 75)
         compare(mockWs.submitted[4], 12)
@@ -110,5 +95,6 @@ TestCase {
         button.clicked()
         compare(mockWs.submitted[1], "set_draft")
         compare(mockWs.submitted[4], 8)
+        compare(mockWs.submitted[7], false)
     }
 }

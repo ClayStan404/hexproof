@@ -31,13 +31,14 @@ QString WsClient::sendTournamentChat(const QString &text)
 
 void WsClient::createTournament(const QString &name, const QString &format,
                                 const QString &matchMode, int roundMinutes, int maxPlayers,
-                                const QString &rulesMode)
+                                const QString &rulesMode, bool actionClockEnabled)
 {
     QJsonObject payload{
         {u"name"_s, name},
         {u"format"_s, format},
         {u"matchMode"_s, matchMode},
         {u"rulesMode"_s, rulesMode},
+        {u"actionClockEnabled"_s, actionClockEnabled && rulesMode == kRulesModeForge},
         {u"roundMinutes"_s, roundMinutes},
         {u"maxPlayers"_s, maxPlayers},
     };
@@ -46,7 +47,8 @@ void WsClient::createTournament(const QString &name, const QString &format,
 
 void WsClient::createLimitedTournament(const QString &name, const QString &eventType,
                                        const QString &matchMode, int roundMinutes, int maxPlayers,
-                                       const QVariantMap &product, const QString &rulesMode)
+                                       const QVariantMap &product, const QString &rulesMode,
+                                       bool actionClockEnabled)
 {
     QJsonObject payload{
         {u"name"_s, name},
@@ -54,6 +56,8 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
         {u"eventType"_s, eventType},
         {u"matchMode"_s, matchMode},
         {u"rulesMode"_s, rulesMode},
+        {u"actionClockEnabled"_s, actionClockEnabled && rulesMode == kRulesModeForge &&
+                                      eventType != kLimitedEventCommanderCube},
         {u"roundMinutes"_s, roundMinutes},
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},
@@ -64,7 +68,8 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
 void WsClient::createCasualLimitedEvent(const QString &name, const QString &eventType,
                                         const QString &matchMode, int maxPlayers,
                                         const QVariantMap &product,
-                                        const QVariantMap &draftSettings, const QString &rulesMode)
+                                        const QVariantMap &draftSettings, const QString &rulesMode,
+                                        bool actionClockEnabled)
 {
     QJsonObject payload{
         {u"name"_s, name},
@@ -73,6 +78,8 @@ void WsClient::createCasualLimitedEvent(const QString &name, const QString &even
         {u"coordinator"_s, kLimitedCoordinatorCasual},
         {u"matchMode"_s, matchMode},
         {u"rulesMode"_s, rulesMode},
+        {u"actionClockEnabled"_s, actionClockEnabled && rulesMode == kRulesModeForge &&
+                                      eventType != kLimitedEventCommanderCube},
         {u"roundMinutes"_s, 50},
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},

@@ -52,16 +52,14 @@ licenses; they are not covered by the source code license or the sound-effect
 licenses. Their checksums and provenance are recorded in `apps/client-qt/assets/music/`;
 portable packages preserve this record in `licenses/music/`.
 
-## Draftmancer FRA pair reference
+## MTGJSON FRA collation regression data
 
-`tools/card-database-builder/fra-pairs.json` adapts the FRA name-pair reference
-from Draftmancer revision `4b4c64f60290ac55d2ffce022d2c0992c98c4897`,
-`src/BoosterFactory.ts`. Copyright (c) 2020 Yoann Maret-Verdant, MIT License.
-The complete notice is preserved in
-`tools/card-database-builder/Draftmancer-LICENSE.txt`.
-Source: <https://github.com/Senryoku/Draftmancer>.
-Card names and identities remain Magic: The Gathering data from Wizards of the
-Coast/Scryfall. The offline FRA test snapshot contains printing metadata only.
+`testdata/limited/fra-mtgjson.json` and `fra-upstream-product.json` contain and
+adapt MTGJSON FRA Play booster data and FRA/SPG printing identities from
+version `5.3.0+20261007`. Copyright © 2018 – Present, Zach Halpern, MIT License.
+The complete notice is preserved in `testdata/limited/MTGJSON-LICENSE.txt`.
+Sources: <https://mtgjson.com/api/v5/FRA.json>,
+<https://mtgjson.com/api/v5/SPG.json>. License: <https://mtgjson.com/license/>.
 
 ## Mana symbol font
 

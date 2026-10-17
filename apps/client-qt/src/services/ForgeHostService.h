@@ -10,6 +10,7 @@
 #include <QProcess>
 #include <QString>
 #include <QUrl>
+#include <QVariantMap>
 
 namespace hexproof::client {
 
@@ -53,6 +54,7 @@ class ForgeHostService : public QObject
     Q_INVOKABLE void clearCache();
     QString downloadMirror() const;
     Q_INVOKABLE bool saveDownloadMirror(const QString &value);
+    Q_INVOKABLE QVariantMap diagnosticsReport() const;
     Q_INVOKABLE bool exportDiagnostics(const QUrl &destination) const;
     Q_INVOKABLE QUrl suggestedDiagnosticsUrl() const;
     void startHosting(const QString &serverUrl, const QJsonObject &grant);
@@ -75,6 +77,7 @@ class ForgeHostService : public QObject
     QString helperPath() const;
     QString runtimeDirectory() const;
     QString diagnosticsDirectory() const;
+    QJsonObject buildDiagnosticsReport() const;
     ForgeHostDiagnostics m_diagnostics;
     QProcess m_process;
     QByteArray m_output;

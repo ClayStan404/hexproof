@@ -1,0 +1,152 @@
+{
+  "type": "tournament.create",
+  "id": "pooled-paired-product",
+  "payload": {
+    "name": "Paired sealed",
+    "format": "Limited",
+    "eventType": "set_sealed",
+    "matchMode": "bo3",
+    "roundMinutes": 50,
+    "maxPlayers": 8,
+    "product": {
+      "id": "pooled-paired-example",
+      "name": "Paired example",
+      "setCode": "TST",
+      "productType": "approximate",
+      "authentic": false,
+      "cardsPerPack": 3,
+      "sheets": [
+        {
+          "name": "pair",
+          "withReplacement": false,
+          "cardRefs": [
+            {
+              "cardIndex": 1,
+              "weight": 1
+            },
+            {
+              "cardIndex": 2,
+              "weight": 1
+            },
+            {
+              "cardIndex": 3,
+              "weight": 1
+            },
+            {
+              "cardIndex": 4,
+              "weight": 1
+            }
+          ]
+        },
+        {
+          "name": "single",
+          "withReplacement": false,
+          "excludePrevious": true,
+          "cardRefs": [
+            {
+              "cardIndex": 5,
+              "weight": 1
+            },
+            {
+              "cardIndex": 6,
+              "weight": 1
+            },
+            {
+              "cardIndex": 7,
+              "weight": 1
+            },
+            {
+              "cardIndex": 8,
+              "weight": 1
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "weight": 1,
+          "slots": [
+            {
+              "sheet": "pair",
+              "count": 1
+            },
+            {
+              "sheet": "single",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "cardPool": [
+        {
+          "name": "Card 1",
+          "setCode": "TST",
+          "collectorNumber": "1",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1,
+          "pairCollectorNumber": "2"
+        },
+        {
+          "name": "Card 2",
+          "setCode": "TST",
+          "collectorNumber": "2",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1,
+          "pairCollectorNumber": "1"
+        },
+        {
+          "name": "Card 3",
+          "setCode": "TST",
+          "collectorNumber": "3",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1,
+          "pairCollectorNumber": "4"
+        },
+        {
+          "name": "Card 4",
+          "setCode": "TST",
+          "collectorNumber": "4",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1,
+          "pairCollectorNumber": "3"
+        },
+        {
+          "name": "Card 1",
+          "setCode": "TST",
+          "collectorNumber": "1",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1
+        },
+        {
+          "name": "Card 2",
+          "setCode": "TST",
+          "collectorNumber": "2",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1
+        },
+        {
+          "name": "Card 3",
+          "setCode": "TST",
+          "collectorNumber": "3",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1
+        },
+        {
+          "name": "Card 4",
+          "setCode": "TST",
+          "collectorNumber": "4",
+          "rarity": "uncommon",
+          "finish": "nonfoil",
+          "weight": 1
+        }
+      ]
+    }
+  }
+}

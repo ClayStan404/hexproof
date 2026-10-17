@@ -22,9 +22,18 @@ TestCase {
             property int imageRevision: 0
             property url imageUrl: ""
             property var requestedNames: []
+            property var requestedFaces: []
+            property var faceImages: ({})
+            property string backRules: ""
             function imageSource(name, setCode, collectorNumber) {
                 requestedNames.push(name)
-                return imageUrl
+                return faceImages[name] || imageUrl
+            }
+            function cardFaces(name, set, number) {
+                requestedFaces.push(name)
+                if (!["Delver of Secrets", "Insectile Aberration"].includes(name)) return []
+                return [{name:"Delver of Secrets", faceName:"", displayName:"Delver of Secrets", setCode:"ISD", collectorNumber:"51"},
+                    {name:"Insectile Aberration", faceName:"Insectile Aberration", displayName:"Insectile Aberration", setCode:"ISD", collectorNumber:"51", oracleText:backRules}]
             }
             function tableImageSource(name, setCode, collectorNumber) {
                 return ""
@@ -74,6 +83,9 @@ TestCase {
         card.focus = false
         mouseMove(otherSource)
         catalog.requestedNames = []
+        catalog.requestedFaces = []
+        catalog.faceImages = ({})
+        catalog.backRules = ""
         catalog.imageUrl = ""
         snapshot = {
             roomId: "INSPECT", gameId: "inspection-game", turn: 4, step: "main1",
@@ -234,6 +246,123 @@ TestCase {
         verify(!inspector.showCard("library-card"))
         verify(!inspector.showCard("missing"))
         compare(catalog.requestedNames.length, 0)
+        compare(catalog.requestedFaces.length, 0)
+    }
+    function doubleFacedCard() {
+        snapshot.zones[0].cards[0].identity = {name:"Delver of Secrets", setCode:"ISD", collectorNumber:"51"}
+        verify(testRulesPrompt.applySnapshot(snapshot))
+    }
+    function test_bothFacesDoNotChangeAuthoritativeCard() {
+        doubleFacedCard()
+        const front = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="63" height="88"><rect width="63" height="88" fill="red"/></svg>')
+        const back = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="63" height="88"><rect width="63" height="88" fill="blue"/></svg>')
+        catalog.faceImages = ({"Delver of Secrets":front, "Insectile Aberration":back})
+        verify(inspector.showCard("ballista"))
+        compare(findChild(inspector, "viewOtherFaceButton"), null)
+        const gallery = findChild(inspector, "rulesCardInspectorGallery")
+        compare(gallery.faceCount, 2)
+        const frontArt = findChild(inspector, "rulesCardInspectorArt")
+        const backArt = findChild(inspector, "rulesCardInspectorArt-1")
+        verify(frontArt.visible && backArt.visible)
+        tryCompare(frontArt, "status", Image.Ready)
+        tryCompare(backArt, "status", Image.Ready)
+        compare(decodeURIComponent(String(frontArt.source)), decodeURIComponent(front))
+        compare(decodeURIComponent(String(backArt.source)), decodeURIComponent(back))
+        compare(inspector.card.name, "Delver of Secrets")
+        compare(snapshot.zones[0].cards[0].identity.name, "Delver of Secrets")
+        snapshot.zones[0].cards[0].damage = 5
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        compare(gallery.faceCount, 2)
+        compare(inspector.facePreview.displayFaces.map(face => face.name), ["Delver of Secrets", "Insectile Aberration"])
+        verify(findChild(inspector, "rulesCardInspectorState").text.includes("Damage marked: 5"))
+    }
+    function test_differentPhysicalCopyResetsLocalFace() {
+        doubleFacedCard()
+        snapshot.zones[0].cards[1] = {id:"other-copy", visible:true, ownerSeat:0, controllerSeat:0,
+            identity:{name:"Delver of Secrets", setCode:"ISD", collectorNumber:"51"}}
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        verify(inspector.showCard("ballista"))
+        inspector.facePreview.nextFace()
+        compare(inspector.facePreview.faceIndex, 1)
+        verify(inspector.showCard("other-copy"))
+        compare(inspector.facePreview.faceIndex, 0)
+    }
+    function test_narrowPinnedGalleryReservesHeightForBothFaces() {
+        inspector.width = 300
+        inspector.height = 820
+        doubleFacedCard()
+        catalog.imageUrl = "data:image/svg+xml," + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="63" height="88"><rect width="63" height="88" fill="red"/></svg>')
+        verify(inspector.showCard("ballista"))
+        const gallery = findChild(inspector, "rulesCardInspectorGallery")
+        const front = gallery.faceArt(0)
+        const back = gallery.faceArt(1)
+        tryCompare(gallery, "columnCount", 1)
+        compare(gallery.rowCount, 2)
+        for (const art of [front, back]) {
+            tryCompare(art, "status", Image.Ready)
+            verify(art.height >= 250, "Each face retains readable height in the tall reserved dock")
+            const point = art.mapToItem(inspector, 0, 0)
+            verify(point.x >= 0 && point.y >= 0)
+            verify(point.x + art.width <= inspector.width)
+            verify(point.y + art.height <= inspector.height)
+        }
+        const frontPoint = front.mapToItem(inspector, 0, 0)
+        const backPoint = back.mapToItem(inspector, 0, 0)
+        verify(backPoint.y >= frontPoint.y + front.height)
+        const scroll = findChild(inspector, "rulesCardInspectorScroll")
+        verify(scroll.height >= 100, "Current state retains its own visible area")
+        compare(inspector.card.name, "Delver of Secrets")
+    }
+    function test_missingFaceArtKeepsLongFallbackInsideArtArea() {
+        doubleFacedCard()
+        catalog.backRules = "Back rules. ".repeat(100)
+        inspector.width = 270
+        inspector.height = 600
+        verify(inspector.showCard("ballista"))
+        const gallery = findChild(inspector, "rulesCardInspectorGallery")
+        compare(gallery.faceCount, 2)
+        const art = findChild(inspector, "rulesCardInspectorArt-1")
+        const fallback = findChild(inspector, "rulesCardInspectorArtFallback-1")
+        compare(art.status, Image.Null)
+        verify(fallback.visible)
+        verify(fallback.text.includes("Back rules."))
+        verify(fallback.clip)
+        verify(fallback.height <= art.height)
+        verify(fallback.mapToItem(gallery, 0, fallback.height).y <= gallery.height)
+        compare(inspector.card.name, "Delver of Secrets")
+        compare(findChild(inspector, "viewOtherFaceButton"), null)
+    }
+    function test_multifaceHoverDepartureAndForceHide() {
+        doubleFacedCard()
+        verify(inspector.previewCard("ballista", card))
+        inspector.hidePreview(card)
+        wait(140)
+        verify(inspector.hasCard)
+        inspector.previewHeld = true
+        wait(380)
+        verify(inspector.hasCard)
+        inspector.previewHeld = false
+        tryCompare(inspector, "hasCard", false)
+        verify(inspector.previewCard("ballista", card))
+        inspector.hidePreview(card)
+        inspector.hidePreview()
+        compare(inspector.previewCardId, "")
+    }
+    function test_multifaceHiddenIdentityClearsPreviewImmediately() {
+        doubleFacedCard()
+        verify(inspector.previewCard("ballista", card))
+        inspector.facePreview.nextFace()
+        catalog.requestedNames.splice(0)
+        catalog.requestedFaces.splice(0)
+        snapshot.zones[0].cards[0].visible = false
+        snapshot.zones[0].cards[0].faceDown = true
+        verify(testRulesPrompt.applySnapshot(snapshot))
+        tryCompare(inspector, "previewCardId", "")
+        verify(!inspector.facePreview.canSwitch)
+        compare(inspector.facePreview.displayFaces.length, 0)
+        compare(catalog.requestedNames.length, 0)
+        compare(catalog.requestedFaces.length, 0)
     }
 
     function test_gameReplacementCannotReusePinnedIdentity() {

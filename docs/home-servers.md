@@ -1,6 +1,6 @@
 # Operator-owned home servers
 
-Official home nodes may participate in the [unified official lobby](official-cluster.md).
+Official home nodes may participate in the unified official lobby.
 Outbound coordinator reports and the existing published home URL allow automatic
 placement without exposing a new inbound home port. Game ownership and direct/relay
 transport selection stay on that home hub.
@@ -84,32 +84,14 @@ reachable. It cannot recover a home power failure, complete WAN outage, or lost
 hub/JVM process. Automatic cloud takeover, durable live-game recovery, and
 cross-hub migration are outside this feature.
 
-## Deployment and qualification
+## Installation
 
-Keep legacy stopped home services and their data intact. Run the new home hub,
-connector, and cloud gateway as independently managed services with fixed
-artifacts, protected configuration, resource limits, and a rollback path.
-Production game hubs use fixed, verified matching server/runtime artifacts.
-The initial deployment uses published artifacts; an explicitly authorized
-private version deployment can use locally packaged artifacts with recorded
-source identity, checksums, matching complete runtime sources, and qualification
-on each target architecture. Source development does not silently replace the
-existing cloud game services.
-
-Qualification includes actual message delivery through direct RTC, forced TURN,
-and ordinary WSS; two players and an observer through one authoritative hub;
-node isolation; invalid node credentials and expired grants; node restart;
-client cancellation and reconnect; and shutdown of every test-owned process.
-Test server-authoritative hidden-information projection with mixed routes.
-Native client checks use isolated profiles and maximized test windows.
-
-Report the distinction between workstation/local transport tests and public
-WAN probes. A successful STUN response, a healthy process, or a displayed
-connection label alone does not prove that a game crossed the claimed route.
-Measure confirmed game operations separately from ICMP or connection setup.
-
-Operator deployment commands and verification evidence are recorded alongside
-the home-node deployment tooling and in the maintained fleet documentation.
+Run the home hub, connector, and gateway as independently managed services
+using verified matching release artifacts, protected configuration, resource
+limits, and a rollback path. Preserve existing service data during upgrades.
+Before inviting players, verify actual game delivery through each enabled
+route, reconnect after interruption, and hidden-information isolation between
+players and spectators. A healthy process alone does not prove route delivery.
 
 ## Connector configuration
 

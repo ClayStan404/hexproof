@@ -24,8 +24,13 @@ The source archive contains:
 - `SOURCE-MANIFEST.json`: inventory, source hashes, dependency coordinates and
   exact runtime dependency binary hashes.
 
-After extracting the source archive, with Python 3.12+, JDK 21+, Maven 3.8.1+
+After extracting the source archive, with Python 3.12+, JDK 21, Maven 3.8.1+
 (as required by the pinned upstream POM), and Bash installed:
+
+The bundled `java-toolchain.py` selects an installed JDK 21 and supplies its
+`JAVA_HOME` and `PATH` to Maven and Java subprocesses. On Linux it also discovers
+installed JDKs under `/usr/lib/jvm`; use `JAVA_HOME` to select another installation.
+The system Java default is preserved.
 
 ```sh
 cd hexproof-forge-source

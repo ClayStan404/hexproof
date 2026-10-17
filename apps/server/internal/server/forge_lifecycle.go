@@ -29,6 +29,7 @@ var errForgeCapacity = errors.New("Forge game capacity is full")
 // forgeRoomGame is private lifecycle metadata. Decks and private projections
 // are never cached here; reconnect always asks Forge for a fresh viewer view.
 type forgeRoomGame struct {
+	diagnostics  *forgeGameDiagnostics
 	nativeAI     bool
 	client       forge.Runtime
 	sessionID    string
@@ -39,8 +40,11 @@ type forgeRoomGame struct {
 }
 
 type forgeStartState struct {
-	projections map[string]protocol.Envelope
-	prompts     map[string]protocol.Envelope
+	projections       map[string]protocol.Envelope
+	prompts           map[string]protocol.Envelope
+	gameOver          bool
+	resultBroadcast   []protocol.Envelope
+	sideboardDeadline time.Time
 }
 
 // startForgeRuntime reserves an isolated game lease: a fresh process by
@@ -192,17 +196,12 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 		h.abortForgeGame(r.ID)
 		return forgeStartState{}, fmt.Errorf("wait for initial Forge prompt: %w", err)
 	}
-	projections, err := h.rulesProjections(r)
+	state, err := h.prepareForgePublication(r, game, false)
 	if err != nil {
 		h.abortForgeGame(r.ID)
-		return forgeStartState{}, fmt.Errorf("prepare Forge projections: %w", err)
+		return forgeStartState{}, fmt.Errorf("prepare Forge table: %w", err)
 	}
-	prompts, err := h.rulesPrompts(r)
-	if err != nil {
-		h.abortForgeGame(r.ID)
-		return forgeStartState{}, fmt.Errorf("prepare Forge prompts: %w", err)
-	}
-	return forgeStartState{projections: projections, prompts: prompts}, nil
+	return state, nil
 }
 
 func forgeStartRequest(r *room.Room, players []room.RulesStartPlayer) (
@@ -304,6 +303,7 @@ func forgeRoomGameFromHandle(client forge.Runtime, gameID string, seatOrder []in
 		return forgeRoomGame{}, errors.New("Forge returned an invalid session handle")
 	}
 	game := forgeRoomGame{
+		diagnostics:  &forgeGameDiagnostics{},
 		client:       client,
 		sessionID:    handle.SessionID,
 		gameID:       gameID,
@@ -345,6 +345,9 @@ func (h *Handler) abortForgeGame(roomID string) {
 }
 
 func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
+	if r := h.hub.FindRoom(roomID); r != nil {
+		h.pauseActionClockLocked(r)
+	}
 	if !keepSlot {
 		h.forgeReplays.discard(roomID)
 	}
@@ -368,7 +371,6 @@ func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
 }
 
 func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bool) {
-	h.pauseModelWorker(roomID, "", false)
 	h.forgeMu.Lock()
 	current, ok := h.forgeGames[roomID]
 	if ok && current.sessionID == game.sessionID {
@@ -383,6 +385,10 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bo
 	if !ok {
 		return
 	}
+	if r := h.hub.FindRoom(roomID); r != nil {
+		h.pauseActionClockLocked(r)
+	}
+	h.pauseModelWorker(roomID, "", false)
 	defer game.client.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), forgeCleanupTimeout)
 	defer cancel()
@@ -396,6 +402,10 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bo
 // WebSocket sessions separately.
 func (h *Handler) Close() error {
 	h.forgeCloseOnce.Do(func() {
+		h.cancelAllActionClocks()
+		if h.forgeCrashes != nil {
+			h.forgeCrashes.close()
+		}
 		if h.clusterAgent != nil {
 			h.clusterAgent.Close()
 		}

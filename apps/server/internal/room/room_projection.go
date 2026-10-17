@@ -315,8 +315,25 @@ func (r *Room) snapshotEnvelope() protocol.Envelope {
 	return env
 }
 
-// Snapshot returns public room structure and ready/load status. Selected deck
-// identities remain server-internal and are never embedded in snapshots.
+// ProjectRoomSnapshot adds only the authenticated human recipient's selected
+// deck name. The supplied public transition and sequence stay unchanged.
+func (r *Room) ProjectRoomSnapshot(connID string, snapshot protocol.RoomSnapshot) protocol.RoomSnapshot {
+	snapshot.OwnDeckName = ""
+	if snapshot.RoomID != r.ID {
+		return snapshot
+	}
+	seat := r.FindSeatByConnection(connID)
+	if seat < 0 || !r.Seats[seat].Occupied || r.Seats[seat].Controller != "" ||
+		r.Seats[seat].Deck == nil || r.Seats[seat].RegisteredDeck == nil || seat >= len(snapshot.Seats) ||
+		!snapshot.Seats[seat].Occupied || !snapshot.Seats[seat].DeckSelected {
+		return snapshot
+	}
+	snapshot.OwnDeckName = r.Seats[seat].RegisteredDeck.Name
+	return snapshot
+}
+
+// Snapshot returns public room structure and ready/load status without deck
+// names or card identities. ProjectRoomSnapshot adds the recipient's own name.
 func (r *Room) Snapshot() protocol.RoomSnapshot {
 	loadID := r.LoadID
 	if r.Phase == protocol.RoomPhaseWaiting {
@@ -349,6 +366,7 @@ func (r *Room) Snapshot() protocol.RoomSnapshot {
 		MatchMode:          r.MatchMode,
 		CardLoadMode:       r.CardLoadMode,
 		RulesMode:          r.RulesMode,
+		ActionClockEnabled: r.ActionClockEnabled,
 		HostingMode:        r.HostingMode,
 		AIDifficulty:       r.AIDifficulty,
 		AISource:           r.AISource,

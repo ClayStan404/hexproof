@@ -234,6 +234,7 @@ void CardCatalog::processIncrementalCacheBatch()
                     name, item.language, map.value(QStringLiteral("setCode")).toString().toUpper(),
                     map.value(QStringLiteral("collectorNumber")).toString());
                 m_artCache->forgetFailure(key);
+                m_artCropRefreshKeys.insert(key);
             }
         }
         for (const QVariant &value : expanded) {
@@ -254,6 +255,7 @@ void CardCatalog::processIncrementalCacheBatch()
 
 void CardCatalog::retryCards(const QVariantList &cards)
 {
+    m_artCropFailures.clear();
     if (m_cardResolver)
         m_cardResolver->clearCooldowns();
     clearOperationError();
@@ -307,6 +309,7 @@ void CardCatalog::prioritizeCards(const QVariantList &cards)
     for (auto it = prioritized.crbegin(); it != prioritized.crend(); ++it)
         m_cardQueue.prepend(*it);
     queueCardsIncrementally(cards, true, false, true);
+    prepareTableArtCrops(cards);
 }
 
 void CardCatalog::cacheToken(const QVariantMap &token)
@@ -366,11 +369,18 @@ void CardCatalog::enqueueRequests(const QList<CardRequest> &requests, bool searc
         bool createdMapping = false;
         const CardRecord local = localCachedRecord(request, key, &createdMapping);
         if (local.valid()) {
+            queueOptionalArtCrop(request, local);
             emitRecord(local);
             if (createdMapping) {
                 scheduleImageRevisionChanged();
             }
             backfillLocalizedRules(request, local);
+            // Background cache hits must stay local for ordinary legacy cards.
+            // A paired canonical name only schedules evidence discovery; it
+            // never establishes independently printed faces by itself.
+            if (!searchPreview && !local.usesSubstituteArt && !local.reusesLocalArt &&
+                local.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts).size() == 2)
+                prepareCardFacePreview(request.name, request.setCode, request.collectorNumber);
             emitCardCacheCompletion(request, true);
             continue;
         }
@@ -425,17 +435,27 @@ void CardCatalog::backfillLocalizedRules(const CardRequest &request, const CardR
                                   bool chinese) {
             if (updated.name.isEmpty())
                 return;
-            updated.oracleText = text;
-            updated.oracleTextLanguage =
-                chinese ? QStringLiteral("zh") : updated.oracleTextLanguage;
+            if (chinese) {
+                updated.oracleText = text;
+                updated.oracleTextLanguage = QStringLiteral("zh");
+            }
             updated.localizedRulesChecked = true;
             m_artCache->rememberSuccess(key, updated);
         };
         const bool chinese = parsed.oracleTextLanguage == QStringLiteral("zh");
-        const QString text = chinese ? parsed.oracleText : record.oracleText;
-        CardRecord printing = record;
-        if (printing.name.isEmpty())
-            printing.name = request.name;
+        const QString text = parsed.oracleText;
+        // Art and its optional crop can arrive while the rules probe is in
+        // flight. Merge only the rules into current records, never restore a
+        // captured image choice or an entry removed by cache maintenance.
+        CardRecord printing = m_artCache->exactRecord(requestKey);
+        if (printing.name.isEmpty()) {
+            printing.name = record.name.isEmpty() ? request.name : record.name;
+            printing.requestedName = request.name;
+            printing.localizedName = record.localizedName;
+            printing.typeLine = record.typeLine;
+            printing.setCode = request.setCode;
+            printing.collectorNumber = request.collectorNumber;
+        }
         store(requestKey, printing, text, chinese);
         const QString nameKey = cacheKey(request.name, QStringLiteral("zh"), {}, {});
         CardRecord named = m_artCache->exactRecord(nameKey);

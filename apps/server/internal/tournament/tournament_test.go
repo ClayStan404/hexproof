@@ -919,3 +919,25 @@ func TestCorrectAfterCancelRejected(t *testing.T) {
 		t.Fatalf("result = %+v, want untouched nil", pairing.Result)
 	}
 }
+
+func TestLockedPooledProductDoesNotAliasOrganizerInput(t *testing.T) {
+	product := protocol.LimitedProductDefinition{
+		ID: "pooled", Name: "Pooled test", SetCode: "TST", ProductType: limited.ProductTypeOfficial, Authentic: true, CardsPerPack: 1,
+		CardPool: []protocol.LimitedCardDefinition{{Name: "Original", SetCode: "TST", CollectorNumber: "1", Weight: 1}},
+		Sheets:   []protocol.LimitedSheetDefinition{{Name: "main", CardRefs: []protocol.LimitedCardReference{{CardIndex: 1, Weight: 1}}}},
+		Variants: []protocol.LimitedPackVariantDefinition{{Weight: 1, Slots: []protocol.LimitedSlotDefinition{{Sheet: "main", Count: 1}}}},
+	}
+	event, err := New("POOL123", Config{Name: "Pooled sealed", Format: "Limited", EventType: protocol.LimitedEventSetSealed, MatchMode: protocol.MatchBO3, RoundMinutes: 50, MaxPlayers: 2, Product: &product}, "Judge", "judge", CredentialHash("judge-token"), testNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	product.CardPool[0].Name = "Changed"
+	product.Sheets[0].CardRefs[0].CardIndex = 99
+	if event.limitedProduct.CardPool[0].Name != "Original" || event.limitedProduct.Sheets[0].CardRefs[0].CardIndex != 1 {
+		t.Fatal("locked printing pool or references alias organizer input")
+	}
+	rebuilt, err := limited.NewProduct(*event.limitedProduct)
+	if err != nil || rebuilt.View().ProductHash != event.limitedProductView.ProductHash {
+		t.Fatal("locked product hash changed", err)
+	}
+}

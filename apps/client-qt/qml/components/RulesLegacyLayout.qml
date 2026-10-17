@@ -115,7 +115,8 @@ RowLayout {
             Layout.minimumWidth: 0
             Layout.minimumHeight: 0
             Layout.preferredHeight: expanded
-                                    ? Math.min(implicitHeight, root.tableController.maximumDecisionHeight)
+                                    ? Math.max(minimumExpandedHeight,
+                                        Math.min(implicitHeight, root.tableController.maximumDecisionHeight))
                                     : implicitHeight
             Layout.maximumHeight: Layout.preferredHeight
         }

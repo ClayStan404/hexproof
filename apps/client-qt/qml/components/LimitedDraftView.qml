@@ -111,7 +111,10 @@ Item {
                             objectName: "limitedDraftPackHeader"
                             Layout.fillWidth: true
                             text: root.packLabel
-                                  + " · " + qsTranslate("TournamentLobby", "%1 cards remaining").arg(root.limitedModel.currentPack.length)
+                                  + " · " + (root.limitedModel.currentPack.length === 1
+                                      ? qsTranslate("TournamentLobby", "%1 card remaining")
+                                      : qsTranslate("TournamentLobby", "%1 cards remaining"))
+                                      .arg(root.limitedModel.currentPack.length)
                             color: Theme.text
                             font.pixelSize: Theme.fontSize(19)
                             font.bold: true
@@ -129,6 +132,7 @@ Item {
                         }
                     }
                     AppButton {
+                        objectName: "limitedDraftSeatsButton"
                         compact: true
                         text: qsTranslate("TournamentLobby", "Draft seats")
                         onClicked: seatsPopup.open()
@@ -258,7 +262,10 @@ Item {
                                 Text {
                                     textFormat: Text.PlainText
                                     objectName: "limitedPickedCount"
-                                    text: qsTranslate("TournamentLobby", "%1 cards").arg(root.limitedModel.pool.length)
+                                    text: (root.limitedModel.pool.length === 1
+                                           ? qsTranslate("TournamentLobby", "%1 card")
+                                           : qsTranslate("TournamentLobby", "%1 cards"))
+                                          .arg(root.limitedModel.pool.length)
                                     color: Theme.accent
                                 }
                             }
@@ -313,6 +320,7 @@ Item {
 
     Popup {
         id: seatsPopup
+        objectName: "limitedDraftSeatsPopup"
         parent: Overlay.overlay
         width: Math.min(Theme.size(520), parent ? parent.width - Theme.size(24) : 520)
         height: Theme.size(270)
@@ -372,8 +380,10 @@ Item {
     }
     Component.onCompleted: cacheVisibleCards()
     onVisibleChanged: {
-        if (!visible) hideCardPreview()
-        else cacheVisibleCards()
+        if (!visible) {
+            hideCardPreview()
+            seatsPopup.close()
+        } else cacheVisibleCards()
     }
     onEnrichedPackChanged: cacheVisibleCards()
     onEnrichedPicksChanged: cacheVisibleCards()

@@ -7,6 +7,7 @@ package forgehost
 
 import (
 	"encoding/json"
+	"hexproof/server/internal/forgediag"
 	"hexproof/server/internal/rulesengine/forge"
 )
 
@@ -14,16 +15,18 @@ const (
 	Version         = 1
 	MaxFrameBytes   = 16 << 20
 	MaxRequestBytes = 4 << 20
+	MaxHelloBytes   = 32 << 10
 )
 
 type Hello struct {
-	Version   int    `json:"version"`
-	RoomID    string `json:"roomId"`
-	Token     string `json:"token"`
-	HelperID  string `json:"helperId"`
-	RuntimeID string `json:"runtimeId"`
-	EngineID  string `json:"engineId,omitempty"`
-	Alive     bool   `json:"alive"`
+	FailureInfo *forgediag.FailureInfo `json:"failureInfo,omitempty"`
+	Version     int                    `json:"version"`
+	RoomID      string                 `json:"roomId"`
+	Token       string                 `json:"token"`
+	HelperID    string                 `json:"helperId"`
+	RuntimeID   string                 `json:"runtimeId"`
+	EngineID    string                 `json:"engineId,omitempty"`
+	Alive       bool                   `json:"alive"`
 }
 
 type Request struct {
@@ -50,21 +53,23 @@ type Publication struct {
 }
 
 type Response struct {
-	StartFailure json.RawMessage `json:"startFailure,omitempty"`
-	RoomID       string          `json:"roomId"`
-	EngineID     string          `json:"engineId"`
-	ID           uint64          `json:"id"`
-	Publication  *Publication    `json:"publication,omitempty"`
-	Error        string          `json:"error,omitempty"`
+	FailureInfo  *forgediag.FailureInfo `json:"failureInfo,omitempty"`
+	StartFailure json.RawMessage        `json:"startFailure,omitempty"`
+	RoomID       string                 `json:"roomId"`
+	EngineID     string                 `json:"engineId"`
+	ID           uint64                 `json:"id"`
+	Publication  *Publication           `json:"publication,omitempty"`
+	Error        string                 `json:"error,omitempty"`
 }
 
 type Frame struct {
-	PeerContext *PeerContext `json:"peerContext,omitempty"`
-	PeerCommit  *PeerCommit  `json:"peerCommit,omitempty"`
-	PeerReply   *PeerReply   `json:"peerReply,omitempty"`
-	Type        string       `json:"type"`
-	Epoch       uint64       `json:"epoch"`
-	Request     *Request     `json:"request,omitempty"`
-	Response    *Response    `json:"response,omitempty"`
-	EngineID    string       `json:"engineId,omitempty"`
+	FailureInfo *forgediag.FailureInfo `json:"failureInfo,omitempty"`
+	PeerContext *PeerContext           `json:"peerContext,omitempty"`
+	PeerCommit  *PeerCommit            `json:"peerCommit,omitempty"`
+	PeerReply   *PeerReply             `json:"peerReply,omitempty"`
+	Type        string                 `json:"type"`
+	Epoch       uint64                 `json:"epoch"`
+	Request     *Request               `json:"request,omitempty"`
+	Response    *Response              `json:"response,omitempty"`
+	EngineID    string                 `json:"engineId,omitempty"`
 }

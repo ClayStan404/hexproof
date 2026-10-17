@@ -2776,7 +2776,7 @@
     <message>
         <location line="-1"/>
         <source>Player hosting supports two-player formats, including Duel Commander.</source>
-        <translation>玩家托管支持双人赛制，包括法禁。</translation>
+        <translation type="vanished">玩家托管支持双人赛制，包括法禁。</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -4854,7 +4854,7 @@
     <message>
         <location line="+86"/>
         <source>No emblems</source>
-        <translation>暂无徽记</translation>
+        <translation type="vanished">暂无徽记</translation>
     </message>
     <message>
         <location line="-87"/>
@@ -4981,6 +4981,16 @@
         <source>Library contents are hidden.</source>
         <translation>牌库内容不可见。</translation>
     </message>
+    <message>
+        <location line="+411"/>
+        <source>%1 tapped</source>
+        <translation>已横置 %1</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>%1 new</source>
+        <translation>新进场 %1</translation>
+    </message>
 </context>
 <context>
     <name>ForgeCombatInteraction</name>
@@ -4993,6 +5003,11 @@
         <location line="+0"/>
         <source>Block this creature</source>
         <translation>阻挡此生物</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Choose a creature to block this</source>
+        <translation>选择生物来阻挡它</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -5060,58 +5075,58 @@
     <message>
         <location line="-64"/>
         <source>Untap</source>
-        <translation>重置</translation>
+        <translation type="vanished">重置</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Upkeep</source>
-        <translation>维持</translation>
+        <translation type="vanished">维持</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Draw</source>
-        <translation>抽牌</translation>
+        <translation type="vanished">抽牌</translation>
     </message>
     <message>
         <location line="+1"/>
         <location line="+6"/>
         <source>Main</source>
-        <translation>主阶段</translation>
+        <translation type="vanished">主阶段</translation>
     </message>
     <message>
         <location line="-5"/>
         <source>Combat</source>
-        <translation>战斗</translation>
+        <translation type="vanished">战斗</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Attack</source>
-        <translation>攻击</translation>
+        <translation type="vanished">攻击</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Block</source>
-        <translation>阻挡</translation>
+        <translation type="vanished">阻挡</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Damage</source>
-        <translation>伤害</translation>
+        <translation type="vanished">伤害</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Combat end</source>
-        <translation>战斗结束</translation>
+        <translation type="vanished">战斗结束</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>End</source>
-        <translation>结束</translation>
+        <translation type="vanished">结束</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Cleanup</source>
-        <translation>清除</translation>
+        <translation type="vanished">清除</translation>
     </message>
     <message>
         <location line="-550"/>
@@ -5216,7 +5231,7 @@
     <message>
         <location line="+69"/>
         <source>Tax is additional to the spell&apos;s cost; Forge calculates payment.</source>
-        <translation>指挥官税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
+        <translation type="vanished">指挥官税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
     </message>
     <message>
         <location line="+622"/>
@@ -5257,7 +5272,7 @@
     <message>
         <location line="+370"/>
         <source>Hidden</source>
-        <translation>隐藏</translation>
+        <translation type="vanished">隐藏</translation>
     </message>
     <message>
         <location line="+478"/>
@@ -5267,7 +5282,7 @@
     <message>
         <location line="-480"/>
         <source>+%1 · %2</source>
-        <translation>+%1 · %2</translation>
+        <translation type="vanished">+%1 · %2</translation>
     </message>
     <message>
         <location line="-223"/>
@@ -5283,6 +5298,21 @@
         <location line="+11"/>
         <source>Model connection settings</source>
         <translation>模型连接设置</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Hide choice</source>
+        <translation>隐藏选择</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Show choice</source>
+        <translation>显示选择</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Queued mana was cleared</source>
+        <translation>排队的法术力已取消</translation>
     </message>
 </context>
 <context>
@@ -7056,7 +7086,7 @@
     <message>
         <location line="+1"/>
         <source>The Forge decision is stale or no longer available</source>
-        <translation>该 Forge 决策已过期或不再可用</translation>
+        <translation type="vanished">该 Forge 决策已过期或不再可用</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -7217,6 +7247,11 @@
         <location line="+1"/>
         <source>The approval has expired</source>
         <translation>该授权已过期</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The action could not be sent. Check the connection and try again.</source>
+        <translation>操作未能发送，请检查连接后重试。</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -7602,6 +7637,32 @@
         <location line="-1"/>
         <source>The official lobby is temporarily unavailable. Please reconnect and retry.</source>
         <translation>官方大厅暂不可用，请重新连接后重试。</translation>
+    </message>
+    <message>
+        <location filename="../qml/screens/CreateRoom.qml" line="341"/>
+        <location filename="../qml/screens/TournamentCreate.qml" line="408"/>
+        <source>25-minute action clock</source>
+        <translation>每人 25 分钟操作倒计时</translation>
+    </message>
+    <message>
+        <location filename="../qml/screens/CreateRoom.qml" line="349"/>
+        <location filename="../qml/screens/TournamentCreate.qml" line="416"/>
+        <source>Each player has 25 minutes for the whole match. Time runs while a decision is waiting for that player; reaching zero loses the match.</source>
+        <translation>每位玩家在整场对局中有 25 分钟操作时间。等待该玩家做出决定时计时，时间归零则输掉整场对局。</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml" line="10"/>
+        <source>Action clock · 25 minutes per player</source>
+        <translation>操作倒计时 · 每人 25 分钟</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/I18n.qml" line="10"/>
+        <source>Action clock · Off</source>
+        <translation>操作倒计时 · 关闭</translation>
+    </message>
+    <message>
+        <source>Forge could not accept this decision. Review the current choices and try again.</source>
+        <translation>Forge 无法接受此决定。请检查当前选项后重试。</translation>
     </message>
 </context>
 <context>
@@ -9000,6 +9061,10 @@ your way.</source>
         <source>Official lobby</source>
         <translation>官方大厅</translation>
     </message>
+    <message>
+        <source>Forge crash reports</source>
+        <translation>Forge 崩溃报告</translation>
+    </message>
 </context>
 <context>
     <name>MatchLoading</name>
@@ -9284,6 +9349,10 @@ your way.</source>
 <context>
     <name>PackOpeningOverlay</name>
     <message>
+        <source>Inspect %1</source>
+        <translation>查看 %1</translation>
+    </message>
+    <message>
         <location filename="../qml/components/PackOpeningOverlay.qml" line="+76"/>
         <source>Mythic rare</source>
         <translation>秘稀</translation>
@@ -9444,12 +9513,12 @@ your way.</source>
     <message>
         <location line="+90"/>
         <source>Could not load this card image.</source>
-        <translation>无法加载这张卡图。</translation>
+        <translation type="vanished">无法加载这张卡图。</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>No card image is available for this version.</source>
-        <translation>这个版本暂无可用卡图。</translation>
+        <translation type="vanished">这个版本暂无可用卡图。</translation>
     </message>
     <message>
         <location line="+27"/>
@@ -9987,6 +10056,10 @@ your way.</source>
         <source>No cards match this filter</source>
         <translation>没有符合筛选条件的牌</translation>
     </message>
+    <message>
+        <source>Showing %1 of %2 card</source>
+        <translation>显示 %1 / %2 张牌</translation>
+    </message>
 </context>
 <context>
     <name>RulesCardChoiceDialog</name>
@@ -9998,7 +10071,7 @@ your way.</source>
     <message>
         <location line="+22"/>
         <source>You may reveal it from your opening hand, or leave it there.</source>
-        <translation>可以从开局手牌展示它，也可以留在手里。</translation>
+        <translation type="vanished">可以从开局手牌展示它，也可以留在手里。</translation>
     </message>
     <message>
         <location line="+71"/>
@@ -10009,6 +10082,10 @@ your way.</source>
         <location line="-9"/>
         <source>Leave it</source>
         <translation>不使用</translation>
+    </message>
+    <message>
+        <source>Use this card's opening ability, or leave it in your hand.</source>
+        <translation>使用此牌的开局异能，或将它留在手中。</translation>
     </message>
 </context>
 <context>
@@ -10453,8 +10530,13 @@ your way.</source>
     </message>
     <message>
         <location line="+1"/>
-        <source>Select a blocking creature, then the attacking creature.</source>
-        <translation>先选择阻挡生物，再点击要阻挡的攻击生物。</translation>
+        <source>Select a blocking creature, then the attacking creature. Or select an attacker first.</source>
+        <translation>先点自己的生物再点攻击者，或先点攻击者再点自己的生物。</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Choose a creature to block the selected attacker.</source>
+        <translation>选择一个生物来阻挡选中的攻击者。</translation>
     </message>
     <message>
         <location line="+15"/>
@@ -10532,6 +10614,11 @@ your way.</source>
         <translation>已分配 %1 个阻挡者</translation>
     </message>
     <message>
+        <location line="+0"/>
+        <source>Attack with all</source>
+        <translation>全部攻击</translation>
+    </message>
+    <message>
         <location line="+12"/>
         <source>Declare attackers</source>
         <translation>声明攻击者</translation>
@@ -10549,6 +10636,19 @@ your way.</source>
     <message>
         <source>Complete all required combat assignments</source>
         <translation type="vanished">请完成所有必需的战斗分配</translation>
+    </message>
+    <message>
+        <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="443"/>
+        <source>Block with all</source>
+        <translation>全体阻挡</translation>
+    </message>
+    <message>
+        <source>%1: %2 assigned; minimum %3.</source>
+        <translation>%1：已分配 %2 个阻挡者；至少需要 %3 个。</translation>
+    </message>
+    <message>
+        <source>Remove these blocks in Assignment list, or clear assignments.</source>
+        <translation>在“分配列表”中移除这些阻挡，或清空分配。</translation>
     </message>
 </context>
 <context>
@@ -10732,6 +10832,10 @@ your way.</source>
         <location line="+23"/>
         <source>Confirm number</source>
         <translation>确认数字</translation>
+    </message>
+    <message>
+        <source>Choose a number of at least %1</source>
+        <translation>请选择不小于 %1 的数字</translation>
     </message>
 </context>
 <context>
@@ -11564,7 +11668,7 @@ your way.</source>
     <message>
         <location line="+1"/>
         <source>Permanent</source>
-        <translation>永久物</translation>
+        <translation type="vanished">永久物</translation>
     </message>
     <message>
         <location line="+190"/>
@@ -11590,6 +11694,10 @@ your way.</source>
         <location line="+2"/>
         <source>Choose a valid number of targets</source>
         <translation>请选择有效数量的目标</translation>
+    </message>
+    <message>
+        <source>Card</source>
+        <translation>牌</translation>
     </message>
 </context>
 <context>
@@ -12173,6 +12281,14 @@ your way.</source>
         <location line="-2"/>
         <source>Choose target creature with mana value %1 or less</source>
         <translation>选择法术力值等于或小于 %1 的目标生物</translation>
+    </message>
+    <message>
+        <source>Assign each blocker to the attackers it can legally block.</source>
+        <translation>为每个阻挡生物选择其可以合法阻挡的攻击生物。</translation>
+    </message>
+    <message>
+        <source>Choose a permanent or spell with mana value at least 1</source>
+        <translation>选择法术力值至少为 1 的永久物或咒语</translation>
     </message>
 </context>
 <context>
@@ -17954,6 +18070,14 @@ Downloaded and custom images will be copied and verified before the setting chan
         <source>Save to deck library</source>
         <translation>保存到套牌库</translation>
     </message>
+    <message>
+        <source>%1 card remaining</source>
+        <translation>剩余 %1 张</translation>
+    </message>
+    <message>
+        <source>%1 card</source>
+        <translation>%1 张牌</translation>
+    </message>
 </context>
 <context>
     <name>UpdatesSettings</name>
@@ -19059,6 +19183,533 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Opening your room or event…</source>
         <translation>正在进入房间或赛事…</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeCrashReportPanel</name>
+    <message>
+        <source>Forge encountered an engine error.</source>
+        <translation>Forge 引擎发生错误。</translation>
+    </message>
+    <message>
+        <source>Forge reported a resource error.</source>
+        <translation>Forge 报告了资源错误。</translation>
+    </message>
+    <message>
+        <source>An engine operation timed out.</source>
+        <translation>引擎操作超时。</translation>
+    </message>
+    <message>
+        <source>Engine communication or game state became invalid.</source>
+        <translation>引擎通信或游戏状态出现异常。</translation>
+    </message>
+    <message>
+        <source>The Forge process stopped. The exact cause may be unknown.</source>
+        <translation>Forge 进程已停止，具体原因可能未知。</translation>
+    </message>
+    <message>
+        <source>The hosting connection was lost.</source>
+        <translation>与托管端的连接已断开。</translation>
+    </message>
+    <message>
+        <source>This report has expired or is no longer available.</source>
+        <translation>此报告已过期或不可用。</translation>
+    </message>
+    <message>
+        <source>The report identifies the operation where the error was captured.</source>
+        <translation>报告记录了捕获错误时正在执行的操作。</translation>
+    </message>
+    <message>
+        <source>An effect was resolving; the exact failing operation is unknown.</source>
+        <translation>当时正在结算效果，但具体出错操作未知。</translation>
+    </message>
+    <message>
+        <source>Only preceding public events are available; they do not establish the cause.</source>
+        <translation>仅记录到此前的公开事件，无法据此确定原因。</translation>
+    </message>
+    <message>
+        <source>No reliable failing operation or public card source was captured.</source>
+        <translation>未记录到可靠的出错操作或公开来源牌。</translation>
+    </message>
+    <message>
+        <source>Report copied.</source>
+        <translation>报告已复制。</translation>
+    </message>
+    <message>
+        <source>Report saved.</source>
+        <translation>报告已保存。</translation>
+    </message>
+    <message>
+        <source>Could not copy the report.</source>
+        <translation>无法复制报告。</translation>
+    </message>
+    <message>
+        <source>Could not save the report. Choose another location.</source>
+        <translation>无法保存报告，请选择其他位置。</translation>
+    </message>
+    <message>
+        <source>A recorded card or effect is context, not proof that it alone caused the failure.</source>
+        <translation>记录的牌或效果仅提供上下文，不能证明它单独导致了故障。</translation>
+    </message>
+    <message>
+        <source>Public sources: %1</source>
+        <translation>公开来源：%1</translation>
+    </message>
+    <message>
+        <source>Collecting final process evidence…</source>
+        <translation>正在收集最终进程信息…</translation>
+    </message>
+    <message>
+        <source>Some evidence is unavailable. Missing details do not establish the cause.</source>
+        <translation>部分证据不可用，缺失的信息无法用于判断原因。</translation>
+    </message>
+    <message>
+        <source>Evidence collection finished.</source>
+        <translation>证据收集已完成。</translation>
+    </message>
+    <message>
+        <source>Report ID: %1</source>
+        <translation>报告编号：%1</translation>
+    </message>
+    <message>
+        <source>Local history could not be saved. Copy or save this report before closing the application.</source>
+        <translation>无法保存本地历史。关闭应用前，请复制或另存此报告。</translation>
+    </message>
+    <message>
+        <source>Copy report</source>
+        <translation>复制报告</translation>
+    </message>
+    <message>
+        <source>Save report</source>
+        <translation>保存报告</translation>
+    </message>
+    <message>
+        <source>Save Forge crash report</source>
+        <translation>保存 Forge 崩溃报告</translation>
+    </message>
+    <message>
+        <source>JSON report (*.json)</source>
+        <translation>JSON 报告 (*.json)</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeCrashReportNotice</name>
+    <message>
+        <source>Forge stopped unexpectedly</source>
+        <translation>Forge 意外停止</translation>
+    </message>
+    <message>
+        <source>Hide details</source>
+        <translation>隐藏详情</translation>
+    </message>
+    <message>
+        <source>Show details</source>
+        <translation>显示详情</translation>
+    </message>
+    <message>
+        <source>Dismiss</source>
+        <translation>关闭提示</translation>
+    </message>
+</context>
+<context>
+    <name>ForgeCrashReports</name>
+    <message>
+        <source>Back</source>
+        <translation>返回</translation>
+    </message>
+    <message>
+        <source>Forge crash reports</source>
+        <translation>Forge 崩溃报告</translation>
+    </message>
+    <message>
+        <source>Reports work offline and are kept for up to seven days, subject to storage limits. Nothing is uploaded automatically; send a copied or saved report to support when you choose.</source>
+        <translation>报告可离线查看，最长保留七天，并受存储上限限制。报告不会自动上传；你可以自行复制或保存后发送给我们。</translation>
+    </message>
+    <message>
+        <source>No Forge crash reports.</source>
+        <translation>暂无 Forge 崩溃报告。</translation>
+    </message>
+</context>
+    <context>
+        <name>Feedback</name>
+        <message>
+            <source>Add hosting diagnostics</source>
+            <translation>添加托管诊断</translation>
+        </message>
+        <message>
+            <source>Add image</source>
+            <translation>添加图片</translation>
+        </message>
+        <message>
+            <source>Add the selected context to your current draft, or start a new one. Your existing text will be kept.</source>
+            <translation>将所选信息加入当前草稿，或新建草稿。已有文字会保留。</translation>
+        </message>
+        <message>
+            <source>Add to draft</source>
+            <translation>加入草稿</translation>
+        </message>
+        <message>
+            <source>An earlier copy may already have reached support. The new draft will only be sent when you press Send.</source>
+            <translation>先前的副本可能已经送达支持团队。新草稿只有在点击发送后才会发送。</translation>
+        </message>
+        <message>
+            <source>Attach up to two images, one crash report and one hosting report.</source>
+            <translation>最多附加两张图片、一份崩溃报告和一份托管报告。</translation>
+        </message>
+        <message>
+            <source>Automatic retries ended. Check the receipt before sending another copy.</source>
+            <translation>自动重试已结束。再次发送副本前，请先查询回执。</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>取消</translation>
+        </message>
+        <message>
+            <source>Check receipt</source>
+            <translation>查询回执</translation>
+        </message>
+        <message>
+            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
+            <translation>请选择更小的 PNG 或 JPEG 图片（不超过 2 MiB、1600 万像素）。</translation>
+        </message>
+        <message>
+            <source>Choose an image</source>
+            <translation>选择图片</translation>
+        </message>
+        <message>
+            <source>Choose crash report</source>
+            <translation>选择崩溃报告</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>关闭</translation>
+        </message>
+        <message>
+            <source>Contact email (optional)</source>
+            <translation>联系邮箱（选填）</translation>
+        </message>
+        <message>
+            <source>Copy receipt</source>
+            <translation>复制回执</translation>
+        </message>
+        <message>
+            <source>Could not copy the receipt.</source>
+            <translation>无法复制回执。</translation>
+        </message>
+        <message>
+            <source>Could not export. Choose another location.</source>
+            <translation>无法导出，请选择其他位置。</translation>
+        </message>
+        <message>
+            <source>Could not save locally. Check storage before sending.</source>
+            <translation>无法保存到本机。发送前请检查存储空间。</translation>
+        </message>
+        <message>
+            <source>Create an editable copy to change this submission.</source>
+            <translation>请创建可编辑副本来修改这份反馈。</translation>
+        </message>
+        <message>
+            <source>Create another draft?</source>
+            <translation>新建一份草稿？</translation>
+        </message>
+        <message>
+            <source>Create editable copy</source>
+            <translation>创建可编辑副本</translation>
+        </message>
+        <message>
+            <source>Delete local feedback?</source>
+            <translation>删除本地反馈？</translation>
+        </message>
+        <message>
+            <source>Delete locally</source>
+            <translation>从本机删除</translation>
+        </message>
+        <message>
+            <source>Describe the problem, what you did and what you expected.</source>
+            <translation>描述问题、操作步骤以及你期望的结果。</translation>
+        </message>
+        <message>
+            <source>Draft</source>
+            <translation>草稿</translation>
+        </message>
+        <message>
+            <source>Draft saved</source>
+            <translation>草稿已保存</translation>
+        </message>
+        <message>
+            <source>Drafts and unreceived feedback stay on this device until you delete them. Received content is kept locally for up to 30 days; receipts for up to 90 days, subject to storage limits.</source>
+            <translation>草稿和未确认收到的反馈会在本机保留，直到你将其删除。已收到的内容在本机最多保留 30 天，回执最多保留 90 天，受存储上限限制。</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device until deleted. Text and images may contain private information.</source>
+            <translation>草稿会在本机保留，直到删除。文字和图片可能包含私人信息。</translation>
+        </message>
+        <message>
+            <source>Empty draft</source>
+            <translation>空草稿</translation>
+        </message>
+        <message>
+            <source>Enter a description of up to 8 KiB.</source>
+            <translation>请输入不超过 8 KiB 的问题描述。</translation>
+        </message>
+        <message>
+            <source>Enter one valid contact email, or leave it empty.</source>
+            <translation>请输入一个有效的联系邮箱，或留空。</translation>
+        </message>
+        <message>
+            <source>Export</source>
+            <translation>导出</translation>
+        </message>
+        <message>
+            <source>Export feedback</source>
+            <translation>导出反馈</translation>
+        </message>
+        <message>
+            <source>Feedback</source>
+            <translation>反馈</translation>
+        </message>
+        <message>
+            <source>Feedback exported.</source>
+            <translation>反馈已导出。</translation>
+        </message>
+        <message>
+            <source>Feedback file (*.json)</source>
+            <translation>反馈文件 (*.json)</translation>
+        </message>
+        <message>
+            <source>Forge crash report</source>
+            <translation>Forge 崩溃报告</translation>
+        </message>
+        <message>
+            <source>Hide technical information</source>
+            <translation>收起技术信息</translation>
+        </message>
+        <message>
+            <source>Hosting diagnostics</source>
+            <translation>托管诊断</translation>
+        </message>
+        <message>
+            <source>Images (*.png *.jpg *.jpeg)</source>
+            <translation>图片 (*.png *.jpg *.jpeg)</translation>
+        </message>
+        <message>
+            <source>Keep working on this draft?</source>
+            <translation>继续编辑这份草稿？</translation>
+        </message>
+        <message>
+            <source>Local feedback storage is full. Export or delete an older record.</source>
+            <translation>本地反馈存储已满，请导出或删除旧记录。</translation>
+        </message>
+        <message>
+            <source>My feedback</source>
+            <translation>我的反馈</translation>
+        </message>
+        <message>
+            <source>Needs attention</source>
+            <translation>需要处理</translation>
+        </message>
+        <message>
+            <source>New draft</source>
+            <translation>新建草稿</translation>
+        </message>
+        <message>
+            <source>New feedback</source>
+            <translation>新反馈</translation>
+        </message>
+        <message>
+            <source>No crash reports available.</source>
+            <translation>暂无可用的崩溃报告。</translation>
+        </message>
+        <message>
+            <source>No feedback yet.</source>
+            <translation>还没有反馈。</translation>
+        </message>
+        <message>
+            <source>Older content has been removed from local storage. The receipt remains available.</source>
+            <translation>旧内容已从本地存储中移除，回执仍可查看。</translation>
+        </message>
+        <message>
+            <source>Online feedback is unavailable. You can keep or export a draft.</source>
+            <translation>在线反馈暂不可用，你仍可保存或导出草稿。</translation>
+        </message>
+        <message>
+            <source>Other</source>
+            <translation>其他</translation>
+        </message>
+        <message>
+            <source>Paste image</source>
+            <translation>粘贴图片</translation>
+        </message>
+        <message>
+            <source>Please wait for the current operation.</source>
+            <translation>请等待当前操作完成。</translation>
+        </message>
+        <message>
+            <source>Preview</source>
+            <translation>预览</translation>
+        </message>
+        <message>
+            <source>Privacy</source>
+            <translation>隐私说明</translation>
+        </message>
+        <message>
+            <source>Problem</source>
+            <translation>问题</translation>
+        </message>
+        <message>
+            <source>Queued</source>
+            <translation>待发送</translation>
+        </message>
+        <message>
+            <source>Receipt copied.</source>
+            <translation>回执已复制。</translation>
+        </message>
+        <message>
+            <source>Receipt unconfirmed</source>
+            <translation>结果待确认</translation>
+        </message>
+        <message>
+            <source>Receipt: %1</source>
+            <translation>回执：%1</translation>
+        </message>
+        <message>
+            <source>Received</source>
+            <translation>已收到</translation>
+        </message>
+        <message>
+            <source>Remove</source>
+            <translation>移除</translation>
+        </message>
+        <message>
+            <source>Report this problem</source>
+            <translation>反馈此问题</translation>
+        </message>
+        <message>
+            <source>Retry saving</source>
+            <translation>重试保存</translation>
+        </message>
+        <message>
+            <source>Revision %1</source>
+            <translation>修订 %1</translation>
+        </message>
+        <message>
+            <source>Saving…</source>
+            <translation>正在保存…</translation>
+        </message>
+        <message>
+            <source>Screenshot</source>
+            <translation>截图</translation>
+        </message>
+        <message>
+            <source>Send feedback</source>
+            <translation>发送反馈</translation>
+        </message>
+        <message>
+            <source>Send feedback with these diagnostics</source>
+            <translation>附带这些诊断发送反馈</translation>
+        </message>
+        <message>
+            <source>Send privately to %1. After Send, retry automatically for up to seven days.</source>
+            <translation>私密发送至 %1。点击发送后，最多自动重试七天。</translation>
+        </message>
+        <message>
+            <source>Sending stopped. An earlier attempt may already have been received.</source>
+            <translation>已停止发送。先前的尝试可能已经送达。</translation>
+        </message>
+        <message>
+            <source>Sending…</source>
+            <translation>正在发送…</translation>
+        </message>
+        <message>
+            <source>Stop sending</source>
+            <translation>停止发送</translation>
+        </message>
+        <message>
+            <source>Suggestion</source>
+            <translation>建议</translation>
+        </message>
+        <message>
+            <source>Support could not be reached. Your feedback remains saved locally.</source>
+            <translation>无法连接支持服务，反馈仍保存在本机。</translation>
+        </message>
+        <message>
+            <source>Technical information</source>
+            <translation>技术信息</translation>
+        </message>
+        <message>
+            <source>The game and its clock continue while feedback is open.</source>
+            <translation>反馈窗口打开时，对局及其计时仍会继续。</translation>
+        </message>
+        <message>
+            <source>The operation did not finish. Please try again.</source>
+            <translation>操作未完成，请重试。</translation>
+        </message>
+        <message>
+            <source>The receiver already has different content for this submission. Keep this record for reference.</source>
+            <translation>收件端已有这次提交的其他内容。请保留此记录以便核查。</translation>
+        </message>
+        <message>
+            <source>The receiver no longer retains this submission. It will not be sent again.</source>
+            <translation>收件端已不再保留这份反馈，不会再次发送。</translation>
+        </message>
+        <message>
+            <source>The selected report is copied into this draft. Later changes will not replace it.</source>
+            <translation>所选报告会复制到草稿中，后续更新不会替换它。</translation>
+        </message>
+        <message>
+            <source>The support destination changed. Review an editable copy before sending again.</source>
+            <translation>支持收件地址已更改。再次发送前，请查看可编辑副本。</translation>
+        </message>
+        <message>
+            <source>The support response could not be verified. Keep this record and check its receipt later.</source>
+            <translation>无法验证支持服务的响应。请保留记录，稍后查询回执。</translation>
+        </message>
+        <message>
+            <source>This attachment or report format is not supported.</source>
+            <translation>不支持此附件或报告格式。</translation>
+        </message>
+        <message>
+            <source>This record is no longer available.</source>
+            <translation>此记录已不可用。</translation>
+        </message>
+        <message>
+            <source>This stops future sending and removes the local record. An earlier attempt may already have been received. Server and mailbox copies are not deleted.</source>
+            <translation>这会停止后续发送并删除本地记录。先前的尝试可能已经送达，服务器和邮箱中的副本不会被删除。</translation>
+        </message>
+        <message>
+            <source>Too many requests. Please try again later.</source>
+            <translation>请求过多，请稍后重试。</translation>
+        </message>
+        <message>
+            <source>What happened?</source>
+            <translation>发生了什么？</translation>
+        </message>
+        <message>
+            <source>Working…</source>
+            <translation>正在处理…</translation>
+        </message>
+        <message>
+            <source>New Forge crash report available.</source>
+            <translation>有新的 Forge 崩溃报告可用。</translation>
+        </message>
+        <message>
+            <source>Support keeps received content for up to 90 days. Confirmed spam or abuse may be removed sooner; see Privacy for mailbox and backup retention.</source>
+            <translation>支持团队将已收到的内容保留最多 90 天。经确认的垃圾或滥用内容可能提前删除；邮箱和备份的保留期限请参阅隐私说明。</translation>
+        </message>
+        <message>
+            <source>Received confirms storage by support. It does not confirm review or resolution.</source>
+            <translation>“已收到”表示支持团队已保存反馈，不代表已查看或已解决。</translation>
+        </message>
+        <message>
+            <source>On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.</source>
+            <translation>本机最多保留已收到的反馈内容 30 天、回执 90 天，并受存储容量限制。</translation>
+        </message>
+    </context>
+<context>
+    <name>RulesCardHoverPreview</name>
+    <message>
+        <source>Inspect card</source>
+        <translation>查看卡牌</translation>
     </message>
 </context>
 </TS>

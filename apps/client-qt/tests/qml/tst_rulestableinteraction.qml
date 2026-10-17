@@ -111,7 +111,8 @@ TestCase {
         return [{tag: "land", kind: "playLand", promptKind: "chooseAction", cardId: "card:hand"},
             {tag: "spell", kind: "cast", promptKind: "chooseAction", cardId: "card:hand"},
             {tag: "ability", kind: "activateAbility", promptKind: "chooseAction", cardId: "card:mana"},
-            {tag: "mana", kind: "activateAbility", promptKind: "payManaCost", cardId: "card:mana"}]
+            {tag: "mana", kind: "activateAbility", promptKind: "payManaCost", cardId: "card:mana"},
+            {tag: "mulligan ability", kind: "activateAbility", promptKind: "mulligan", cardId: "card:hand"}]
     }
     function test_singleCardActionsUseCurrentOpaqueResponse(data) {
         verify(testRulesPrompt.applyPrompt(prompt(data.promptKind,
@@ -201,5 +202,45 @@ TestCase {
         verify(tableInteraction.submitTargets("$cancel"))
         compare(responder.responses[0].targets, [])
         compare(responder.responses[0].responseId, "$cancel")
+    }
+
+    function test_pendingResponseKeepsOfferedStateAndMarksSubmission() {
+        verify(testRulesPrompt.applyPrompt(prompt("payManaCost",
+            [{responseId: "action:mana", cardId: "card:mana", kind: "activateAbility", label: "Forest"}])))
+        verify(!tableInteraction.waitingForResponse)
+        verify(tableInteraction.activateObject("card", "card:mana", "Forest"))
+        verify(tableInteraction.waitingForResponse)
+        verify(tableInteraction.objectOffered("card", "card:mana"))
+        verify(!tableInteraction.objectActionable("card", "card:mana"))
+        compare(tableInteraction.offeredActionsForCard("card:mana").length, 1)
+        compare(tableInteraction.actionsForCard("card:mana").length, 0)
+        compare(tableInteraction.submittedKind, "card")
+        compare(tableInteraction.submittedId, "card:mana")
+        controller.rulesResponsePending = false
+        compare(tableInteraction.submittedId, "", "A released guard clears the submitted mark")
+        verify(tableInteraction.objectActionable("card", "card:mana"))
+    }
+    function test_pendingTargetsStayOffered() {
+        applyTargets(1)
+        verify(tableInteraction.activateSeat(2))
+        verify(tableInteraction.waitingForResponse)
+        verify(tableInteraction.seatOffered(2) && !tableInteraction.seatActionable(2))
+        verify(tableInteraction.objectOffered("card", "card:mana"))
+        verify(!tableInteraction.objectActionable("card", "card:mana"))
+        controller.localSeat = -1
+        verify(!tableInteraction.waitingForResponse)
+        verify(!tableInteraction.seatOffered(2))
+    }
+    function test_disconnectWhilePendingClearsSubmission() {
+        verify(testRulesPrompt.applyPrompt(prompt("payManaCost",
+            [{responseId: "action:mana", cardId: "card:mana", kind: "activateAbility", label: "Forest"}])))
+        verify(tableInteraction.activateObject("card", "card:mana", "Forest"))
+        compare(tableInteraction.submittedId, "card:mana")
+        controller.roomConnected = false
+        verify(!tableInteraction.waitingForResponse)
+        verify(!tableInteraction.objectOffered("card", "card:mana"))
+        compare(tableInteraction.submittedId, "")
+        controller.roomConnected = true
+        compare(tableInteraction.submittedId, "", "A reconnect does not restore a stale submission mark")
     }
 }

@@ -148,6 +148,278 @@ bool writeAuditTokenCatalog(const QString &root, const QString &name = u"Goblin"
 
 } // namespace
 
+void TestCardCatalog::artFramesFollowCurrentFaceAndPrinting_data() const
+{
+    QTest::addColumn<QString>("name");
+    QTest::addColumn<QString>("number");
+    QTest::addColumn<QString>("frame");
+    QTest::newRow("ordinary") << u"Bear"_s << u"1"_s << u"standard"_s;
+    QTest::newRow("class") << u"Stormchaser's Talent"_s << u"2"_s << u"class"_s;
+    QTest::newRow("saga") << u"Urza's Saga"_s << u"3"_s << u"saga"_s;
+    QTest::newRow("saga-transform-front") << u"Esper Origins"_s << u"4"_s << u"standard"_s;
+    QTest::newRow("saga-transform-back") << u"Summon: Esper Maduin"_s << u"4"_s << u"saga"_s;
+    QTest::newRow("battle-front") << u"Invasion of Zendikar"_s << u"5"_s << u"battle"_s;
+    QTest::newRow("battle-back") << u"Awakened Skyclave"_s << u"5"_s << u"standard"_s;
+    QTest::newRow("flip-front") << u"Akki Lavarunner"_s << u"6"_s << u"flip"_s;
+    QTest::newRow("flip-back") << u"Tok-Tok, Volcano Born"_s << u"6"_s << u"flip-back"_s;
+    QTest::newRow("unsupported-frame") << u"Fire // Ice"_s << u"7"_s << u"full"_s;
+    QTest::newRow("unknown") << u"Unknown card"_s << u"8"_s << u"full"_s;
+    QTest::newRow("different-printing") << u"Bear"_s << u"99"_s << u"full"_s;
+    QTest::newRow("planeswalker") << u"Ugin, Eye of the Storms"_s << u"9"_s << u"planeswalker"_s;
+    QTest::newRow("planeswalker-transform-front")
+        << u"Jace, Vryn's Prodigy"_s << u"10"_s << u"standard"_s;
+    QTest::newRow("planeswalker-transform-back")
+        << u"Jace, Telepath Unbound"_s << u"10"_s << u"planeswalker"_s;
+    QTest::newRow("unsupported-planeswalker") << u"Unrecognized walker"_s << u"11"_s << u"full"_s;
+}
+
+void TestCardCatalog::artFramesFollowCurrentFaceAndPrinting() const
+{
+    QFETCH(QString, name);
+    QFETCH(QString, number);
+    QFETCH(QString, frame);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QJsonArray cards;
+    const auto add = [&](const QString &title, const QString &type, const QString &layout,
+                         const QString &collector) {
+        QJsonObject object = supportFixture(title, layout, collector);
+        object.insert(u"type_line"_s, type);
+        cards.append(object);
+    };
+    add(u"Bear"_s, u"Creature — Bear"_s, u"normal"_s, u"1"_s);
+    add(u"Stormchaser's Talent"_s, u"Enchantment — Class"_s, u"class"_s, u"2"_s);
+    add(u"Urza's Saga"_s, u"Enchantment Land — Urza's Saga"_s, u"saga"_s, u"3"_s);
+    add(u"Esper Origins // Summon: Esper Maduin"_s,
+        u"Sorcery // Enchantment Creature — Saga Elemental"_s, u"transform"_s, u"4"_s);
+    add(u"Invasion of Zendikar // Awakened Skyclave"_s, u"Battle — Siege // Creature — Elemental"_s,
+        u"transform"_s, u"5"_s);
+    add(u"Akki Lavarunner // Tok-Tok, Volcano Born"_s,
+        u"Creature — Goblin Warrior // Legendary Creature — Goblin Shaman"_s, u"flip"_s, u"6"_s);
+    add(u"Fire // Ice"_s, u"Instant // Instant"_s, u"split"_s, u"7"_s);
+    add(u"Ugin, Eye of the Storms"_s, u"Legendary Planeswalker — Ugin"_s, u"normal"_s, u"9"_s);
+    add(u"Jace, Vryn's Prodigy // Jace, Telepath Unbound"_s,
+        u"Legendary Creature — Human Wizard // Legendary Planeswalker — Jace"_s, u"transform"_s,
+        u"10"_s);
+    add(u"Unrecognized walker"_s, u"Legendary Planeswalker — Test"_s, u"unknown"_s, u"11"_s);
+    const auto imported = importSupportFixture(storage.path(), cards);
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+    SupportNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    QVERIFY(catalog.installed());
+    QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, number), frame);
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, number), frame);
+    // Repeated presentation reads use the cached canonical lookup, including
+    // misses, and cannot start a metadata/image request.
+    for (int repeat = 0; repeat < 4; ++repeat)
+        QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, number), frame);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::artFramesUseOfflineMetadataAndPreserveSubstituteImages() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    hexproof::client::CardArtCache cache(storage.path());
+    CardCatalog::CardRecord record;
+    record.requestedName = u"Cached Saga"_s;
+    record.name = record.requestedName;
+    record.typeLine = u"Enchantment Creature — Saga"_s;
+    record.layout = u"transform"_s;
+    record.setCode = u"TST"_s;
+    record.collectorNumber = u"1"_s;
+    record.imageLanguage = u"en"_s;
+    record.imagePath = storage.filePath(u"saga.png"_s);
+    record.resolutionVersion = kCardResolutionVersion;
+    QImage image(32, 44, QImage::Format_RGB32);
+    image.fill(Qt::green);
+    QVERIFY(image.save(record.imagePath));
+    cache.rememberSuccess(cache.key(record.name, u"en"_s, u"TST"_s, u"1"_s), record);
+    record.usesSubstituteArt = true;
+    record.reusesLocalArt = true;
+    record.collectorNumber = u"2"_s;
+    cache.rememberSuccess(cache.key(record.name, u"en"_s, u"TST"_s, u"2"_s), record);
+    cache.rememberSuccess(cache.key(record.name, u"en"_s, {}, {}), record);
+    QVERIFY(cache.save());
+
+    SupportNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    QVERIFY(!catalog.installed());
+    QCOMPARE(catalog.cardArtFrame(u"Cached Saga"_s, u"TST"_s, u"1"_s), u"saga"_s);
+    QCOMPARE(catalog.cardArtFrame(u"Cached Saga"_s, u"TST"_s, u"2"_s), u"full"_s);
+    QCOMPARE(catalog.cardArtFrame(u"Cached Saga"_s, {}, {}), u"full"_s);
+    QVERIFY(!catalog.tableImageSource(u"Cached Saga"_s, {}, {}).isEmpty());
+    QVERIFY(network.requestedUrls.isEmpty());
+
+    QJsonObject saga = supportFixture(u"Cached Saga"_s, u"saga"_s, u"1"_s);
+    saga.insert(u"type_line"_s, u"Enchantment — Saga"_s);
+    const auto imported = importSupportFixture(storage.path(), {saga});
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+    CardCatalog indexed(storage.path(), &network);
+    QVERIFY(indexed.installed());
+    QCOMPARE(indexed.cardArtFrame(u"Cached Saga"_s, u"TTST"_s, u"1"_s), u"saga"_s);
+    // The displayed name-only substitute must win over that valid indexed
+    // frame. Ignoring the exact cache would incorrectly crop it as a Saga.
+    QCOMPARE(indexed.cardArtFrame(u"Cached Saga"_s, {}, {}), u"full"_s);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::artFramesFollowVerifiedSubstituteImagePrinting() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString name = u"Frame Borrower"_s;
+    QJsonObject requested = supportFixture(name, u"class"_s, u"1"_s);
+    requested.insert(u"type_line"_s, u"Enchantment — Class"_s);
+    QJsonObject ordinary = supportFixture(name, u"normal"_s, u"2"_s);
+    ordinary.insert(u"type_line"_s, u"Artifact"_s);
+    QJsonObject saga = supportFixture(name, u"saga"_s, u"3"_s);
+    saga.insert(u"type_line"_s, u"Enchantment — Saga"_s);
+    const QJsonObject unrelated = supportFixture(u"Unrelated card"_s, u"normal"_s, u"4"_s);
+    const auto imported =
+        importSupportFixture(storage.path(), {requested, ordinary, saga, unrelated});
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    // A localized substitute can have its own URL while retaining the source
+    // printing's set/number. Its English counterpart proves the art frame.
+    QJsonObject localized = ordinary;
+    localized.insert(u"id"_s, u"localized-source"_s);
+    localized.insert(u"lang"_s, u"zhs"_s);
+    localized.insert(u"printed_name"_s, u"借用牌框"_s);
+    localized.insert(u"image_status"_s, u"highres_scan"_s);
+    localized.insert(u"image_uris"_s,
+                     QJsonObject{{u"normal"_s, u"https://images.test/localized-source.png"_s}});
+    {
+        hexproof::client::CatalogRepository repository(storage.filePath(u"cards.sqlite"_s));
+        const auto persisted = repository.persistLocalizedPrintings(
+            {localized}, hexproof::client::catalog_internal::kCatalogIndexVersion);
+        QVERIFY2(persisted.error.isEmpty(), qPrintable(persisted.error));
+        QVERIFY(persisted.localizedPrintingCount > 0);
+    }
+
+    hexproof::client::CardArtCache cache(storage.path());
+    CardCatalog::CardRecord record;
+    record.requestedName = name;
+    record.name = name;
+    record.setCode = u"TTST"_s;
+    // These fields describe the requested printing, as substituteRecord does;
+    // using them to crop the different source image would choose the wrong art.
+    record.typeLine = u"Enchantment — Class"_s;
+    record.layout = u"class"_s;
+    record.resolutionVersion = kCardResolutionVersion;
+    record.usesSubstituteArt = true;
+    record.reusesLocalArt = true;
+    record.imagePath = storage.filePath(u"substitute.png"_s);
+    QImage image(32, 44, QImage::Format_RGB32);
+    image.fill(Qt::green);
+    QVERIFY(image.save(record.imagePath));
+    const auto remember = [&](const QString &requestedNumber, const QString &url) {
+        for (const QString &language : {u"en"_s, u"zh"_s}) {
+            record.collectorNumber = requestedNumber;
+            record.imageLanguage = language;
+            record.imageUrl = url;
+            cache.rememberSuccess(cache.key(name, language, u"TTST"_s, requestedNumber), record);
+        }
+    };
+    remember(u"1"_s, u"https://images.test/support-2.png"_s);
+    remember(u"2"_s, u"https://images.test/support-3.png"_s);
+    remember(u"3"_s, u"https://images.test/not-indexed.png"_s);
+    remember(u"4"_s, u"https://images.test/support-4.png"_s);
+    remember(u"5"_s, u"https://images.test/localized-source.png"_s);
+    QVERIFY(cache.save());
+
+    SupportNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    for (const QString &language : {u"en"_s, u"zh"_s}) {
+        catalog.setLanguage(language);
+        for (int repeat = 0; repeat < 3; ++repeat) {
+            QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"1"_s), u"standard"_s);
+            QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"2"_s), u"saga"_s);
+            QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"3"_s), u"full"_s);
+            QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"4"_s), u"full"_s);
+            QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"5"_s), u"standard"_s);
+        }
+    }
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
+void TestCardCatalog::artFramesIgnoreOtherLanguageSubstituteMetadata_data() const
+{
+    QTest::addColumn<QString>("englishLayout");
+    QTest::addColumn<bool>("knownSubstitute");
+    QTest::newRow("missing-layout-known-source") << QString{} << true;
+    QTest::newRow("normal-layout-known-source") << u"normal"_s << true;
+    QTest::newRow("missing-layout-unknown-source") << QString{} << false;
+    QTest::newRow("normal-layout-unknown-source") << u"normal"_s << false;
+}
+
+void TestCardCatalog::artFramesIgnoreOtherLanguageSubstituteMetadata() const
+{
+    QFETCH(QString, englishLayout);
+    QFETCH(bool, knownSubstitute);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const QString name = u"Language Frame"_s;
+    QJsonObject requested = supportFixture(name, u"normal"_s, u"1"_s);
+    requested.insert(u"type_line"_s, u"Artifact"_s);
+    // Distinct synthetic frames make using the other language's image metadata
+    // observable: the visible original is ordinary, while the substitute is not.
+    QJsonObject source = supportFixture(name, u"saga"_s, u"2"_s);
+    source.insert(u"type_line"_s, u"Enchantment — Saga"_s);
+    const auto imported = importSupportFixture(storage.path(), {requested, source});
+    QVERIFY2(imported.ok, qPrintable(imported.error));
+
+    hexproof::client::CardArtCache cache(storage.path());
+    CardCatalog::CardRecord english;
+    english.requestedName = name;
+    english.name = name;
+    english.setCode = u"TTST"_s;
+    english.collectorNumber = u"1"_s;
+    english.typeLine = u"Artifact"_s;
+    english.layout = englishLayout;
+    english.imageLanguage = u"en"_s;
+    english.usesSubstituteArt = true;
+    english.reusesLocalArt = true;
+    english.resolutionVersion = kCardResolutionVersion;
+    english.imageUrl = knownSubstitute ? u"https://images.test/support-2.png"_s
+                                       : u"https://images.test/not-indexed.png"_s;
+    english.imagePath = storage.filePath(u"english-substitute.png"_s);
+    QImage image(32, 44, QImage::Format_RGB32);
+    image.fill(Qt::green);
+    QVERIFY(image.save(english.imagePath));
+    cache.rememberSuccess(cache.key(name, u"en"_s, u"TTST"_s, u"1"_s), english);
+
+    CardCatalog::CardRecord chinese = english;
+    chinese.imageLanguage = u"zh"_s;
+    chinese.usesSubstituteArt = false;
+    chinese.reusesLocalArt = false;
+    chinese.typeLine = u"神器"_s;
+    chinese.layout = u"normal"_s;
+    chinese.imageUrl = u"https://images.test/chinese-original.png"_s;
+    chinese.imagePath = storage.filePath(u"chinese-original.png"_s);
+    image.fill(Qt::blue);
+    QVERIFY(image.save(chinese.imagePath));
+    cache.rememberSuccess(cache.key(name, u"zh"_s, u"TTST"_s, u"1"_s), chinese);
+    QVERIFY(cache.save());
+
+    SupportNetworkAccessManager network;
+    CardCatalog catalog(storage.path(), &network);
+    catalog.setLanguage(u"zh"_s);
+    QVERIFY(!catalog.tableImageSource(name, u"TTST"_s, u"1"_s).isEmpty());
+    for (int repeat = 0; repeat < 3; ++repeat)
+        QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"1"_s), u"standard"_s);
+
+    // Once the substitute is actually visible, its verified source frame must
+    // win over the requested ordinary printing. Unknown sources remain full.
+    catalog.setLanguage(u"en"_s);
+    QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"1"_s),
+             knownSubstitute ? u"saga"_s : u"full"_s);
+    catalog.setLanguage(u"zh"_s);
+    QCOMPARE(catalog.cardArtFrame(name, u"TTST"_s, u"1"_s), u"standard"_s);
+    QVERIFY(network.requestedUrls.isEmpty());
+}
+
 void TestCardCatalog::resolvesCompactSplitNamesInDeckLibrary_data() const
 {
     QTest::addColumn<bool>("savedDeck");

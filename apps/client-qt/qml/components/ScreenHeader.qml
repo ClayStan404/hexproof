@@ -13,6 +13,7 @@ Item {
     property bool titleEditable: false
     property bool titleEditing: false
     property bool compact: false
+    property var feedbackContext: ({})
     signal backRequested()
     signal titleEdited(string title)
 
@@ -116,6 +117,8 @@ Item {
                 wrapMode: Text.Wrap
             }
         }
+
+        FeedbackEntryButton { feedbackContext: root.feedbackContext }
 
     }
 }

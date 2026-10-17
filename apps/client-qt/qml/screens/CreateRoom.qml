@@ -73,6 +73,9 @@ Page {
     property string matchMode: "bo1"
     property string cardLoadMode: "preload"
     property string rulesMode: "manual"
+    property bool actionClockEnabled: false
+    readonly property bool actionClockAvailable: !playtestMode && rulesMode === "forge"
+        && roomFormat !== "edh" && !(isCubeFormat && commanderCube)
     readonly property bool forgeFormatAvailable: !isCubeFormat || !commanderCube
     readonly property bool playerHostingAvailable: !isCubeFormat && roomFormat !== "edh"
     property string hostingMode: "server"
@@ -329,6 +332,24 @@ Page {
                                         root.rulesMode = root.forgeFormatAvailable && index === 1
                                                          ? "forge" : "manual"
                                     }
+                                }
+
+                                AppToggle {
+                                    objectName: "roomActionClockToggle"
+                                    Layout.fillWidth: true
+                                    visible: root.actionClockAvailable
+                                    text: qsTranslate("I18n", "25-minute action clock")
+                                    checked: root.actionClockEnabled
+                                    onToggled: root.actionClockEnabled = checked
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: root.actionClockAvailable && root.actionClockEnabled
+                                    textFormat: Text.PlainText
+                                    text: qsTranslate("I18n", "Each player has 25 minutes for the whole match. Time runs while a decision is waiting for that player; reaching zero loses the match.")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Theme.fontSize(11)
+                                    wrapMode: Text.WordWrap
                                 }
 
                                 RevealBlock {
@@ -879,10 +900,11 @@ Page {
                 return
             if (root.commanderCube)
                 root.hub.createCasualLimitedEvent(submittedName, "commander_cube", "bo1",
-                    root.cubePlayerCap(), product, root.cubeDraftSettings())
+                    root.cubePlayerCap(), product, root.cubeDraftSettings(), "manual", false)
             else
                 root.hub.createCasualLimitedEvent(submittedName, "cube_draft", matchMode,
-                    root.cubePlayerCap(), product, {}, submittedRulesMode)
+                    root.cubePlayerCap(), product, {}, submittedRulesMode,
+                    root.actionClockAvailable && root.actionClockEnabled)
             return
         }
         const submittedMatchMode = root.aiPractice || root.roomFormat === "edh" ? "bo1" : matchMode
@@ -896,7 +918,8 @@ Page {
                       submittedRulesMode,
                       submittedRulesMode === "forge" ? (playerHostingAvailable ? hostingMode : "server") : "",
                       root.aiPractice && root.aiSource === "forge" ? aiDifficulty : "",
-                      root.aiPractice ? root.aiSource : "")
+                      root.aiPractice ? root.aiSource : "",
+                      root.actionClockAvailable && root.actionClockEnabled)
     }
 
     function createBlockerReason() {

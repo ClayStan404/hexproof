@@ -16,6 +16,7 @@ void CardResolver::retainMetadata(CardRecord *record, bool publish)
     if (!m_metadataRecord.valid()) {
         m_metadataRecord = *record;
     } else {
+        catalog_internal::retainFaceMetadata(&m_metadataRecord, *record);
         if (!record->oracleTextLanguage.isEmpty() &&
             (m_metadataRecord.oracleTextLanguage.isEmpty() ||
              (record->oracleTextLanguage == m_currentRequest.language &&
@@ -39,6 +40,7 @@ void CardResolver::retainMetadata(CardRecord *record, bool publish)
     m_metadataRecord.localizedRulesChecked =
         m_metadataRecord.localizedRulesChecked || record->localizedRulesChecked;
     record->localizedRulesChecked = m_metadataRecord.localizedRulesChecked;
+    catalog_internal::retainFaceMetadata(record, m_metadataRecord);
     record->oracleText = m_metadataRecord.oracleText;
     record->oracleTextLanguage = m_metadataRecord.oracleTextLanguage;
     if (!m_metadataRecord.localizedName.isEmpty())
@@ -52,6 +54,8 @@ void CardResolver::retainMetadata(CardRecord *record, bool publish)
         // with an unverified URL from a failed download candidate.
         metadata.imagePath.clear();
         metadata.imageUrl.clear();
+        metadata.artCropPath.clear();
+        metadata.artCropUrl.clear();
         metadata.imageLanguage.clear();
         m_callbacks.metadataAvailable(m_currentRequest, metadata);
     }

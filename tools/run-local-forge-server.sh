@@ -7,7 +7,7 @@ set -Eeuo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 server_binary="${HEXPROOF_SERVER_BINARY_PATH:-${repo_root}/build/server/hexproof-server}"
-java_command="${HEXPROOF_FORGE_JAVA:-java}"
+java_command="${HEXPROOF_FORGE_JAVA:-}"
 [[ "${server_binary}" == /* ]] || server_binary="${PWD}/${server_binary}"
 
 usage() {
@@ -32,7 +32,7 @@ Examples:
 Environment overrides:
   HEXPROOF_SERVER_BINARY_PATH  Hexproof server binary.
   HEXPROOF_FORGE_LOCAL_ROOT    Verified official Forge runtime directory.
-  HEXPROOF_FORGE_JAVA          Java executable (default: java).
+  HEXPROOF_FORGE_JAVA          Java executable (default: installed Java 21).
   HEXPROOF_FORGE_SOURCE_DIR    Upstream source checkout used by --prepare.
   HEXPROOF_FORGE_OUTPUT_DIR    Runtime/archive output used by --prepare.
 EOF
@@ -62,6 +62,9 @@ fi
 if ! command -v python3 >/dev/null 2>&1; then
     printf 'Missing native runtime validation dependency: python3\n' >&2
     exit 1
+fi
+if [[ -z "${java_command}" ]]; then
+    java_command="$(python3 "${repo_root}/third_party/forge-runtime/java-toolchain.py" --java)"
 fi
 native_args=()
 [[ "${prepare}" != true ]] || native_args+=(--prepare)

@@ -28,6 +28,26 @@ QJsonObject state(const QString &operation, const QString &token = {})
         result.insert(u"sessionToken"_s, token);
     return result;
 }
+
+void authenticate(AccountSessionState &service)
+{
+    service.prepareRealm(u"test"_s);
+    service.welcome(u"test"_s, {}, {});
+    service.setTransportReady(true);
+    service.login(u"test-login"_s);
+    service.commandQueued(u"login"_s);
+    service.acceptState(u"login"_s, state(u"login"_s, u"session"_s));
+}
+
+QList<QJsonObject> savedClaims()
+{
+    return {{{u"kind"_s, u"replay"_s},
+             {u"resourceId"_s, u"first"_s},
+             {u"credential"_s, u"saved-first"_s}},
+            {{u"kind"_s, u"replay"_s},
+             {u"resourceId"_s, u"second"_s},
+             {u"credential"_s, u"saved-second"_s}}};
+}
 } // namespace
 
 class TestAccountSession : public QObject
@@ -217,6 +237,112 @@ class TestAccountSession : public QObject
         service.acceptError(u"claim"_s, u"account_conflict"_s, u"Unavailable"_s);
         QVERIFY(service.authenticated());
         QCOMPARE(service.helloToken(u"test"_s), u"session"_s);
+    }
+
+    void claimTimeoutEndsBatchAndAllowsRetry()
+    {
+        AccountSessionState service(
+            u"claim-timeout"_s, [](const QString &) { return AccountVaultResult{true, {}}; },
+            [](const QString &, const QString &) { return true; });
+        authenticate(service);
+        QSignalSpy commands(&service, &AccountSessionState::commandRequested);
+        service.claimAll(savedClaims());
+        service.commandQueued(u"timed-out-claim"_s);
+        QCOMPARE(service.pendingClaims(), 2);
+        QTRY_VERIFY_WITH_TIMEOUT(!service.busy(), 17000);
+        QCOMPARE(service.pendingClaims(), 0);
+        QVERIFY(!service.lastError().isEmpty());
+        QVERIFY(service.authenticated());
+        // A late success cannot restart the interrupted batch or retry the
+        // ambiguous request. Account controls must be available immediately.
+        service.acceptState(u"timed-out-claim"_s, state(u"claim"_s));
+        QTest::qWait(80);
+        QCOMPARE(commands.size(), 1);
+        service.refresh();
+        service.commandQueued(u"status"_s);
+        service.acceptState(u"status"_s, state(u"status"_s));
+        service.claimAll(savedClaims());
+        QCOMPARE(commands.size(), 3);
+        QCOMPARE(service.pendingClaims(), 2);
+        QCOMPARE(commands.last()[0].toJsonObject().value(u"resourceId"_s), u"first"_s);
+    }
+
+    void disconnectEndsClaimBatch_data()
+    {
+        QTest::addColumn<bool>("backoff");
+        QTest::newRow("in-flight") << false;
+        QTest::newRow("rate-limited") << true;
+    }
+
+    void disconnectEndsClaimBatch()
+    {
+        QFETCH(bool, backoff);
+        AccountSessionState service(
+            u"claim-disconnect"_s, [](const QString &) { return AccountVaultResult{true, {}}; },
+            [](const QString &, const QString &) { return true; });
+        authenticate(service);
+        QSignalSpy commands(&service, &AccountSessionState::commandRequested);
+        service.claimAll(savedClaims());
+        service.commandQueued(u"claim"_s);
+        if (backoff)
+            service.acceptError(u"claim"_s, u"rate_limited"_s, u"Retry later"_s);
+        QCOMPARE(service.pendingClaims(), 2);
+        service.setTransportReady(false);
+        QCOMPARE(service.pendingClaims(), 0);
+        QVERIFY(!service.busy());
+        service.claimAll(savedClaims());
+        QCOMPARE(service.pendingClaims(), 0);
+        QCOMPARE(commands.size(), 1);
+        service.prepareRealm(u"test"_s);
+        service.welcome(u"test"_s, u"account-a"_s, u"Alice"_s);
+        service.setTransportReady(true);
+        service.commandQueued(u"status"_s);
+        service.acceptState(u"status"_s, state(u"status"_s));
+        QTest::qWait(80);
+        QCOMPARE(commands.size(), 2);
+        QCOMPARE(service.pendingClaims(), 0);
+        service.claimAll(savedClaims());
+        QCOMPARE(commands.size(), 3);
+        QCOMPARE(service.pendingClaims(), 2);
+    }
+
+    void claimQueueResumesAfterInterveningRequest()
+    {
+        AccountSessionState service(
+            u"claim-busy"_s, [](const QString &) { return AccountVaultResult{true, {}}; },
+            [](const QString &, const QString &) { return true; });
+        authenticate(service);
+        QSignalSpy commands(&service, &AccountSessionState::commandRequested);
+        service.claimAll(savedClaims());
+        service.commandQueued(u"first-claim"_s);
+        service.acceptState(u"first-claim"_s, state(u"claim"_s));
+        service.refresh();
+        service.commandQueued(u"status"_s);
+        QTest::qWait(80);
+        QCOMPARE(commands.size(), 2);
+        QCOMPARE(service.pendingClaims(), 1);
+        service.acceptState(u"status"_s, state(u"status"_s));
+        QTRY_COMPARE(commands.size(), 3);
+        QCOMPARE(commands.last()[0].toJsonObject().value(u"resourceId"_s), u"second"_s);
+        service.commandQueued(u"second-claim"_s);
+        service.acceptState(u"second-claim"_s, state(u"claim"_s));
+        QCOMPARE(service.pendingClaims(), 0);
+        QVERIFY(!service.busy());
+    }
+
+    void rejectedClaimSendEndsBatch()
+    {
+        AccountSessionState service(
+            u"claim-send-failure"_s, [](const QString &) { return AccountVaultResult{true, {}}; },
+            [](const QString &, const QString &) { return true; });
+        authenticate(service);
+        service.claimAll(savedClaims());
+        service.commandQueued({});
+        QCOMPARE(service.pendingClaims(), 0);
+        QVERIFY(!service.busy());
+        QVERIFY(!service.lastError().isEmpty());
+        service.claimAll(savedClaims());
+        QCOMPARE(service.pendingClaims(), 2);
     }
 };
 

@@ -113,6 +113,9 @@ class TestWsClient : public QObject
     void sendsCommanderCubeCommandsWithinSizeBounds() const;
     void rejectsCommanderCubeCommandsWhileDisconnected() const;
     void distinguishesCubeRoomsAndClearsOldLobbyState() const;
+    void remembersPairingScoreAfterClosedRoomSnapshot() const;
+    void rejectsStalePairingTabletopScores_data() const;
+    void rejectsStalePairingTabletopScores() const;
     void cubeAutoEntryIsReplacedWithItsOwnerSnapshot() const;
     void sendsCubeJoinCredentialsAndInvitationCancellation() const;
     void cleanup();
@@ -121,11 +124,13 @@ class TestWsClient : public QObject
     void routesOfficialCommandOnce() const;
     void clusterTransferConsumesPrivateCommandOnce() const;
     void correlatesCommandOutcomes() const;
+    void crashReportsBypassUnrelatedCommandErrors() const;
     void announcesOnlyCurrentRoomRestartBroadcast() const;
     void sendsTypedScryResponse() const;
     void sendsTypedCardNamesAndKeepsRejectedPrompts() const;
     void sendsTypedDamageResponses() const;
     void rulesResponsesStayLockedUntilAuthoritativeProgress() const;
+    void rulesManaResponsesAllowFreshUndoAndRejectInFlightDuplicates() const;
     void rulesResponsesRecoverAfterTimeoutAndDisconnect() const;
     void rulesStartFailureSurvivesWaiting_data() const;
     void rulesStartFailureSurvivesWaiting() const;
@@ -146,6 +151,9 @@ class TestWsClient : public QObject
     void exposesJoinedRoomRole() const;
     void roomSessionStateExposesQmlBindableIdentity() const;
     void roomSessionStateExposesQmlBindableSnapshot() const;
+    void roomSessionStateRestoresOnlyCurrentOwnersDeckName() const;
+    void sendsActionClockConfiguration() const;
+    void sessionStatesRestoreAndClearActionClockConfiguration() const;
     void gameSessionStateExposesQmlBindableSnapshot() const;
     void rulesSessionStateExposesTypedSnapshot() const;
     void rulesSessionStateExposesCurrentPersistentChoices() const;
@@ -179,6 +187,12 @@ class TestWsClient : public QObject
     void exposesInitialServerLatencyState() const;
     void processesFinalMessageBeforeDisconnect() const;
     void switchingServersIgnoresOldTransportCompletion() const;
+    void deferredRulesSnapshotsCoalesceOnlyWithMatchingPrompt() const;
+    void deferredRulesSnapshotsDoNotSurviveLifecycleChanges_data() const;
+    void deferredRulesSnapshotsDoNotSurviveLifecycleChanges() const;
+    void staleHubPromptsDoNotReplacePeerDecisions_data() const;
+    void staleHubPromptsDoNotReplacePeerDecisions() const;
+    void replayRetryIgnoresRepliesFromTimedOutDownload() const;
     void cancelledConnectionIgnoresQueuedWelcome() const;
     void resumesRoomAfterUnexpectedDisconnect_data() const;
     void resumesRoomAfterUnexpectedDisconnect() const;

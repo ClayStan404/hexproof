@@ -48,6 +48,8 @@ void CardResolver::resolve(CardRequest request)
             .contains(m_currentRequest.name, Qt::CaseInsensitive);
     if (requestedFace) {
         m_currentRecord.imageUrl.clear();
+        m_currentRecord.artCropUrl.clear();
+        m_currentRecord.artCropPath.clear();
         // Catalog rows describe the whole card. Do not carry a front/combined
         // rule block into a separately requested back face's resolved metadata.
         m_catalogRecord.oracleText.clear();

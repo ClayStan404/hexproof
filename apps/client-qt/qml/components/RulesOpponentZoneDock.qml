@@ -88,11 +88,18 @@ Surface {
                         visible: root && zoneTile && zone === zoneTile.zoneKey
                                  && zoneOwnerSeat === root.ownerSeat
                         z: index
-                        source: !root || root.compact ? ""
-                                : visibleIdentity && !faceDown
-                                ? root.tableController.cardImage(
-                                      name, setCode, collectorNumber)
-                                : root.tableController.cardBackSource
+                        ForgeArtStamp {
+                            id: artStamp
+                            catalog: root && root.tableController ? root.tableController.cardCatalogModel : null
+                            name: zoneCard.name || ""
+                        }
+                        source: {
+                            void artStamp.stamp
+                            return !root || root.compact ? ""
+                                    : visibleIdentity && !faceDown
+                                    ? root.tableController.cardImage(name, setCode, collectorNumber)
+                                    : root.tableController.cardBackSource
+                        }
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         Component.onDestruction: {
