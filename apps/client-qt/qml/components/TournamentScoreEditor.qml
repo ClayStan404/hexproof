@@ -74,14 +74,12 @@ Popup {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Text { Layout.fillWidth: true; Layout.minimumWidth: 0; textFormat: Text.PlainText; text: scoreEditor.pairing.playerAName || qsTranslate("TournamentLobby", "Player A"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
+                Text { textFormat: Text.PlainText; text: scoreEditor.pairing.playerAName || qsTranslate("TournamentLobby", "Player A"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
                 AppTextField { id: playerAWinsField; objectName: "playerAWinsField"; Layout.fillWidth: true; inputMethodHints: Qt.ImhDigitsOnly; validator: IntValidator { bottom: 0; top: 20 } }
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Text { Layout.fillWidth: true; Layout.minimumWidth: 0; textFormat: Text.PlainText; text: scoreEditor.pairing.playerBName || qsTranslate("TournamentLobby", "Player B"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
+                Text { textFormat: Text.PlainText; text: scoreEditor.pairing.playerBName || qsTranslate("TournamentLobby", "Player B"); color: Theme.textMuted; font.pixelSize: Theme.fontSize(11); elide: Text.ElideRight }
                 AppTextField { id: playerBWinsField; objectName: "playerBWinsField"; Layout.fillWidth: true; inputMethodHints: Qt.ImhDigitsOnly; validator: IntValidator { bottom: 0; top: 20 } }
             }
             ColumnLayout {
@@ -101,7 +99,6 @@ Popup {
                 onClicked: scoreEditor.close()
             }
             AppButton {
-                objectName: "submitTournamentScoreButton"
                 compact: true
                 variant: "primary"
                 text: scoreEditor.correction ? qsTranslate("TournamentLobby", "Save correction")

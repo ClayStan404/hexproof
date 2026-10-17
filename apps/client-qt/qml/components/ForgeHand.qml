@@ -59,14 +59,6 @@ Item {
             : qsTr("Hand · %1").arg(root.visibleCards.length)
         color: Theme.textMuted
         font.pixelSize: 10 * root.unit
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -3 * root.unit
-            z: -1
-            radius: 3 * root.unit
-            color: Theme.surface
-            enabled: false
-        }
     }
     component HandSlot: Item {
         id: slot
@@ -83,8 +75,6 @@ Item {
         required property string power
         required property string toughness
         required property string countersSummary
-        readonly property bool pointerPreviewActive: pointer.containsMouse
-        readonly property Item inspectionFocusItem: face
         readonly property bool matches: zone === "hand" && zoneOwnerSeat === root.ownerSeat
         readonly property int position: root.visibleCards.indexOf(slot)
         readonly property real distance: position - (root.visibleCards.length - 1) / 2
@@ -113,44 +103,34 @@ Item {
             onActiveFocusChanged: {
                 if (activeFocus) {
                     root.reveal(slot)
-                    root.tableController.previewCard(slot.cardId, slot, true)
+                    root.tableController.previewCard(slot.cardId, slot)
                 } else root.tableController.endCardPreview(slot)
             }
             y: pointer.containsMouse && !pointer.drag.active ? -18 * root.unit : 0
             rotation: pointer.containsMouse || root.crowded ? 0 : slot.distance * 2.5
             opacity: pointer.drag.active ? 0.4 : 1
-            Behavior on y { enabled: Theme.motionEnabled || Theme.hoverMotion; NumberAnimation { duration: Theme.motionFast } }
-            Behavior on rotation { enabled: Theme.motionEnabled || Theme.hoverMotion; NumberAnimation { duration: Theme.motionFast } }
+            Behavior on y { NumberAnimation { duration: 120 } }
+            Behavior on rotation { NumberAnimation { duration: 120 } }
         }
-        // The drag image exists only from a press until its release, above the
-        // clipped hand viewport.
-        property Item ghost: null
-        function dropGhost() {
-            if (ghost)
-                ghost.destroy()
-            ghost = null
-        }
-        Component {
-            id: ghostComponent
-            ForgeCard {
-                id: ghostCard
-                readonly property string cardId: slot.cardId
-                readonly property string name: slot.name
-                width: slot.width
-                height: root.faceHeight
-                visible: pointer.drag.active
-                z: 1000
-                unit: root.unit
-                card: slot
-                tableController: root.tableController
-                fullFace: true
-                pointerEnabled: false
-                Drag.active: pointer.drag.active
-                Drag.source: ghostCard
-                Drag.keys: ["hexproof/rules-card"]
-                Drag.hotSpot.x: width / 2
-                Drag.hotSpot.y: height / 2
-            }
+        ForgeCard {
+            id: ghost
+            readonly property string cardId: slot.cardId
+            readonly property string name: slot.name
+            parent: root.tableController
+            width: slot.width
+            height: root.faceHeight
+            visible: pointer.drag.active
+            z: 1000
+            unit: root.unit
+            card: slot
+            tableController: root.tableController
+            fullFace: true
+            pointerEnabled: false
+            Drag.active: pointer.drag.active
+            Drag.source: ghost
+            Drag.keys: ["hexproof/rules-card"]
+            Drag.hotSpot.x: width / 2
+            Drag.hotSpot.y: height / 2
         }
         MouseArea {
             id: pointer
@@ -158,39 +138,26 @@ Item {
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: face.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
-            drag.target: slot.canPlay ? slot.ghost : null
+            drag.target: slot.canPlay ? ghost : null
             drag.threshold: 6 * root.unit
             preventStealing: slot.canPlay
             onWheel: event => root.scrollWheel(event)
             onEntered: root.tableController.previewCard(slot.cardId, slot)
             onExited: root.tableController.endCardPreview(slot)
             onPressed: event => {
-                root.tableController.endCardPreview()
-                slot.dropGhost()
-                if (!slot.canPlay || event.button !== Qt.LeftButton)
-                    return
+                root.tableController.endCardPreview(slot)
                 const point = slot.mapToItem(root.tableController, 0, 0)
-                slot.ghost = ghostComponent.createObject(root.tableController, {x: point.x, y: point.y})
+                ghost.x = point.x
+                ghost.y = point.y
             }
-            onReleased: {
-                if (drag.active && slot.ghost)
-                    slot.ghost.Drag.drop()
-                slot.dropGhost()
-            }
-            onCanceled: {
-                if (slot.ghost)
-                    slot.ghost.Drag.cancel()
-                slot.dropGhost()
-            }
+            onReleased: { if (drag.active) ghost.Drag.drop() }
+            onCanceled: ghost.Drag.cancel()
             onClicked: event => {
                 if (event.button === Qt.LeftButton) face.activate()
-                else root.tableController.openCardDetails(slot.cardId, face)
+                else root.tableController.openCardDetails(slot.cardId)
             }
         }
-        Component.onDestruction: {
-            dropGhost()
-            root.tableController.endCardPreview(slot)
-        }
+        Component.onDestruction: root.tableController.endCardPreview(slot)
     }
     Flickable {
         id: viewport
@@ -222,7 +189,7 @@ Item {
         onWidthChanged: contentX = Math.max(0, Math.min(contentX, contentWidth - width))
         Repeater {
             id: cards
-            model: root.tableController.rulesSession.zoneCardsFor(root.ownerSeat, "hand")
+            model: root.tableController.rulesSession.zoneCards
             onItemAdded: refresh.restart()
             onItemRemoved: refresh.restart()
             delegate: HandSlot {}

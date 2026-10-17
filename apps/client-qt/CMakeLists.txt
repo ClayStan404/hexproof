@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "3.0.0")
+set(HEXPROOF_VERSION "2.5.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -169,16 +169,8 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/RulesCombatModel.cpp
     src/services/RulesDamageModel.cpp
     src/services/RulesOrderModel.cpp
-    src/services/RulesLaneSlotModel.cpp
     src/services/RulesSessionState.cpp
     src/services/ForgeReplayService.cpp
-    src/services/FeedbackService.cpp
-    src/services/FeedbackData.cpp
-    src/services/FeedbackStorage.cpp
-    src/services/FeedbackAttachments.cpp
-    src/services/FeedbackTransport.cpp
-    src/services/ForgeCrashReportService.cpp
-    src/services/ForgeCrashReportValidation.cpp
     src/services/RulesStateModels.cpp
     src/services/ServerDirectory.cpp
     src/services/TournamentSessionState.cpp
@@ -196,19 +188,6 @@ set(HEXPROOF_SESSION_SOURCES
 )
 
 qt_add_library(hexproof_session STATIC ${HEXPROOF_SESSION_SOURCES})
-set(HEXPROOF_FEEDBACK_CONFIG_FILE "" CACHE FILEPATH "Build-supplied official feedback configuration")
-if(HEXPROOF_FEEDBACK_CONFIG_FILE)
-    get_filename_component(HEXPROOF_FEEDBACK_CONFIG_RESOURCE "${HEXPROOF_FEEDBACK_CONFIG_FILE}" ABSOLUTE
-        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-else()
-    set(HEXPROOF_FEEDBACK_CONFIG_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/config/feedback.example.json")
-endif()
-if(NOT EXISTS "${HEXPROOF_FEEDBACK_CONFIG_RESOURCE}")
-    message(FATAL_ERROR "Feedback configuration file is missing")
-endif()
-set_source_files_properties("${HEXPROOF_FEEDBACK_CONFIG_RESOURCE}" PROPERTIES QT_RESOURCE_ALIAS "config/feedback.json")
-qt_add_resources(hexproof_session "feedback_defaults" PREFIX "/" FILES "${HEXPROOF_FEEDBACK_CONFIG_RESOURCE}")
-
 target_include_directories(hexproof_session PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_session PRIVATE
@@ -276,7 +255,6 @@ set(HEXPROOF_CARD_SERVICE_SOURCES
     src/services/CardCatalogMatch.cpp
     src/services/CardCatalogResolveQueue.cpp
     src/services/CardCatalogResolveCompletion.cpp
-    src/services/CardCatalogArtCrop.cpp
     src/services/CardCatalogInstallerOfficial.cpp
     src/services/CardCatalogInstallerBulk.cpp
     src/services/CardCatalogRelease.cpp
@@ -347,23 +325,6 @@ qt_add_resources(hexproof_content_service "content_defaults"
         assets/sponsors/beidi.jpeg
         assets/sponsors/qingbao.jpg)
 
-# Link the static plugin below so its generated registration and qmldir are
-# embedded in production, native-audit and test executables alike.
-qt_add_qml_module(hexproof_quick
-    STATIC
-    URI Hexproof.Native
-    VERSION 1.0
-    CLASS_NAME HexproofNativePlugin
-    OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/qml/Hexproof/Native
-    RESOURCE_PREFIX /qt/qml
-    SOURCES
-        src/ui/FramePolish.cpp
-        src/ui/FramePolish.h)
-target_include_directories(hexproof_quick
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/ui)
-target_link_libraries(hexproof_quick PUBLIC Qt6::Quick)
-
 set(HEXPROOF_APPLICATION_SOURCES
     src/main.cpp
     src/models/ClientPreferencesModel.cpp
@@ -430,8 +391,6 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/ManaSymbols.qml
         qml/components/CardMetadataNotice.qml
         qml/components/CardHoverPreview.qml
-        qml/components/CardFacePreviewController.qml
-        qml/components/CardFacePreviewGallery.qml
         qml/components/TokenPresentation.js
         qml/components/CardTypes.js
         qml/components/TokenDetailsPopup.qml
@@ -439,14 +398,6 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/CommanderDamagePopup.qml
         qml/components/ConfirmDialog.qml
         qml/components/ForgeHostingDialog.qml
-        qml/components/ForgeCrashReportPanel.qml
-        qml/components/ForgeCrashReportNotice.qml
-        qml/components/FeedbackWorkflow.qml
-        qml/components/FeedbackComposer.qml
-        qml/components/FeedbackHistory.qml
-        qml/components/FeedbackAttachmentPreview.qml
-        qml/components/FeedbackEntryButton.qml
-        qml/components/FeedbackLabels.js
         qml/components/ForgeMigrationControls.qml
         qml/components/ForgePeerControls.qml
         qml/components/ConfigurableShortcut.qml
@@ -483,6 +434,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/LibraryTopCardsView.qml
         qml/components/LibrarySearchPopup.qml
         qml/components/LimitedCardGrouping.qml
+        qml/components/LimitedCardGroupView.qml
         qml/components/LimitedDeckBuilder.qml
         qml/components/LimitedDeckConstructionController.qml
         qml/components/LimitedCommanderSelection.qml
@@ -526,13 +478,9 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/ForgeCardLane.qml
         qml/components/ForgeFieldLayout.qml
         qml/components/ForgeHand.qml
-        qml/components/ForgeLifeReadout.qml
         qml/components/ForgeManaPool.qml
-        qml/components/ForgeMotionOverlay.qml
         qml/components/ForgeStack.qml
         qml/components/ForgeArrow.qml
-        qml/components/ForgeArrowGeometry.js
-        qml/components/ForgeArtStamp.qml
         qml/components/ForgeCombatInteraction.qml
         qml/components/ForgeDuelTable.qml
         qml/components/ForgeMultiplayerBattlefield.qml
@@ -677,7 +625,6 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/screens/RulesTable.qml
         qml/screens/ForgeReplay.qml
         qml/screens/ForgeReplayLibrary.qml
-        qml/screens/ForgeCrashReports.qml
         qml/screens/Table.qml
         qml/screens/TournamentBrowser.qml
         qml/screens/TournamentCreate.qml
@@ -739,7 +686,6 @@ qt_add_resources(hexproof "dynamic_translations"
     FILES ${HEXPROOF_DYNAMIC_QM_FILES})
 
 set(HEXPROOF_APPLICATION_LIBRARIES
-    hexproof_quickplugin
     hexproof_local_test
     hexproof_card_services
     hexproof_deck_library
@@ -849,27 +795,10 @@ set_target_properties(hexproof PROPERTIES
 
 # Build the small native helper with the same source/version as the client.
 # Java/Forge stay optional downloads for users. Building its adapter requires
-# JDK 21; newer compilers generate different diagnostic method symbols even
-# with --release 21. It does not resolve Maven or rebuild the upstream reactor.
+# JDK 21+; it does not resolve Maven or rebuild the complete upstream reactor.
 find_program(HEXPROOF_GO_EXECUTABLE go REQUIRED)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
-set(HEXPROOF_FORGE_JAVAC "" CACHE FILEPATH "Explicit JDK 21 compiler for the Forge adapter")
-set(HEXPROOF_FORGE_JAVAC_ARGS)
-if(HEXPROOF_FORGE_JAVAC)
-    list(APPEND HEXPROOF_FORGE_JAVAC_ARGS --javac "${HEXPROOF_FORGE_JAVAC}")
-endif()
-execute_process(
-    COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/build-overlay.py"
-        --find-javac ${HEXPROOF_FORGE_JAVAC_ARGS}
-    RESULT_VARIABLE HEXPROOF_FORGE_JAVAC_RESULT
-    OUTPUT_VARIABLE HEXPROOF_FORGE_JAVAC_EXECUTABLE
-    ERROR_VARIABLE HEXPROOF_FORGE_JAVAC_ERROR
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-if(NOT HEXPROOF_FORGE_JAVAC_RESULT EQUAL 0)
-    message(FATAL_ERROR "${HEXPROOF_FORGE_JAVAC_ERROR}")
-endif()
-message(STATUS "Forge adapter JDK 21 compiler: ${HEXPROOF_FORGE_JAVAC_EXECUTABLE}")
+find_package(Java 21 REQUIRED COMPONENTS Development)
 set(HEXPROOF_FORGE_OVERLAY_DIR "${CMAKE_CURRENT_BINARY_DIR}/forge-overlay" CACHE PATH
     "Build directory for the client-bundled Forge adapter")
 file(GLOB_RECURSE HEXPROOF_FORGE_OVERLAY_SOURCES CONFIGURE_DEPENDS
@@ -880,11 +809,9 @@ add_custom_command(
            "${HEXPROOF_FORGE_OVERLAY_DIR}/forge-overlay.json"
     COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/build-overlay.py"
-        --output "${HEXPROOF_FORGE_OVERLAY_DIR}" --javac "${HEXPROOF_FORGE_JAVAC_EXECUTABLE}"
+        --output "${HEXPROOF_FORGE_OVERLAY_DIR}" --javac "${Java_JAVAC_EXECUTABLE}"
     DEPENDS ${HEXPROOF_FORGE_OVERLAY_SOURCES}
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/build-overlay.py"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/java-toolchain.py"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/diagnostic-symbols.py"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/overlay-base.json"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/upstream.json"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/forge-runtime/native-host/native-hooks.patch"
@@ -1053,8 +980,7 @@ endif()
 
 # --- Offline card database builder ---
 
-# The default CTest suite exercises this CLI in limited-catalog-builder.
-add_executable(hexproof_card_database_builder
+add_executable(hexproof_card_database_builder EXCLUDE_FROM_ALL
     ../../tools/card-database-builder/main.cpp
     src/deck/Deck.cpp
 )
@@ -1080,7 +1006,7 @@ if(HEXPROOF_BUILD_NATIVE_AUDIT)
         src/testing/NativeAudit.cpp
         src/testing/NativeAudit.h)
     target_include_directories(hexproof_native_audit_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_link_libraries(hexproof_native_audit_test PRIVATE hexproof_session hexproof_table_models Qt6::Quick Qt6::Test)
+    target_link_libraries(hexproof_native_audit_test PRIVATE hexproof_session Qt6::Quick Qt6::Test)
     add_test(NAME native_audit_adapter COMMAND hexproof_native_audit_test)
     # Adapter regression tests are component tests; real scenario runs use the
     # dedicated executable on a native display through the external runner.
@@ -1125,7 +1051,6 @@ qt_add_executable(hexproof_wsclient_test
     tests/wsclient_test.cpp
     tests/wsclient_commands_test.cpp
     tests/wsclient_rules_start_failure_test.cpp
-    tests/wsclient_crash_report_test.cpp
     tests/wsclient_endpoints_test.cpp
     tests/wsclient_cluster_test.cpp
     tests/wsclient_tournament_test.cpp
@@ -1147,11 +1072,6 @@ qt_add_resources(hexproof_wsclient_test "wsclient_server_directory"
     PREFIX "/"
     FILES "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}")
 add_test(NAME wsclient COMMAND hexproof_wsclient_test)
-
-qt_add_executable(hexproof_rules_transitions_test tests/rules_transitions_test.cpp)
-target_include_directories(hexproof_rules_transitions_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(hexproof_rules_transitions_test PRIVATE hexproof_session Qt6::Test)
-add_test(NAME rules_transitions COMMAND hexproof_rules_transitions_test)
 
 qt_add_executable(hexproof_hubtransport_test tests/hubtransport_test.cpp)
 target_link_libraries(hexproof_hubtransport_test PRIVATE hexproof_session Qt6::Test)
@@ -1266,15 +1186,6 @@ target_link_libraries(hexproof_protocolsession_test PRIVATE
     Qt6::Test)
 add_test(NAME protocolsession COMMAND hexproof_protocolsession_test)
 
-qt_add_executable(hexproof_feedbackservice_test tests/feedbackservice_test.cpp)
-target_link_libraries(hexproof_feedbackservice_test PRIVATE hexproof_session Qt6::Test)
-add_test(NAME feedbackservice COMMAND hexproof_feedbackservice_test)
-set_tests_properties(feedbackservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-qt_add_executable(hexproof_forgecrashreport_test tests/forgecrashreport_test.cpp)
-target_link_libraries(hexproof_forgecrashreport_test PRIVATE hexproof_session Qt6::Test)
-add_test(NAME forgecrashreport COMMAND hexproof_forgecrashreport_test)
-
 qt_add_executable(hexproof_forgereplay_test tests/forgereplay_test.cpp)
 target_link_libraries(hexproof_forgereplay_test PRIVATE hexproof_session Qt6::Test)
 add_test(NAME forgereplay COMMAND hexproof_forgereplay_test)
@@ -1358,7 +1269,6 @@ qt_add_executable(hexproof_cardcatalog_test
     tests/cardcatalog_test.cpp
     tests/cardcatalog_cache_priority_test.cpp
     tests/cardcatalog_parallel_test.cpp
-    tests/cardcatalog_artcrop_test.cpp
     tests/cardcatalog_database_test.cpp
     tests/cardcatalog_localized_text_test.cpp
     tests/cardcatalog_limited_art_test.cpp
@@ -1378,16 +1288,12 @@ target_link_libraries(hexproof_cardcatalog_test PRIVATE
     Qt6::Test
     ZLIB::ZLIB)
 add_test(NAME cardcatalog COMMAND hexproof_cardcatalog_test)
-add_test(NAME limited-catalog-builder
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/limited_catalog_builder_test.py"
-        $<TARGET_FILE:hexproof_card_database_builder>)
 
 qt_add_executable(hexproof_cardimageprovider_test tests/cardimageprovider_test.cpp)
 target_link_libraries(hexproof_cardimageprovider_test PRIVATE
     hexproof_card_services Qt6::Quick Qt6::Test)
 add_test(NAME cardimageprovider COMMAND hexproof_cardimageprovider_test)
-set_tests_properties(cardimageprovider PROPERTIES ENVIRONMENT
-    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+set_tests_properties(cardimageprovider PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME bounded-catalog-source
     COMMAND ${CMAKE_COMMAND}
         -DHEXPROOF_CLIENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
@@ -1493,7 +1399,6 @@ qt_add_executable(hexproof_qml_test
 target_include_directories(hexproof_qml_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(hexproof_qml_test PRIVATE
-    hexproof_quickplugin
     hexproof_content_service
     hexproof_session
     hexproof_deck_library
@@ -1503,13 +1408,6 @@ target_link_libraries(hexproof_qml_test PRIVATE
     Qt6::Quick
     Qt6::QuickEffects
     Qt6::QuickTest)
-
-qt_add_executable(hexproof_framepolish_test tests/framepolish_test.cpp)
-target_link_libraries(hexproof_framepolish_test PRIVATE
-    hexproof_quick hexproof_quickplugin Qt6::Quick Qt6::Test)
-add_test(NAME framepolish COMMAND hexproof_framepolish_test)
-set_tests_properties(framepolish PROPERTIES ENVIRONMENT
-    "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 
 qt_add_executable(hexproof_publiccontent_test tests/publiccontent_test.cpp)
 target_link_libraries(hexproof_publiccontent_test PRIVATE hexproof_content_service Qt6::Test)
@@ -1545,8 +1443,6 @@ set_tests_properties(qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 # but syntax, type, import, and layout diagnostics must remain clean.
 file(GLOB_RECURSE HEXPROOF_QML_LINT_FILES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml)
-list(APPEND HEXPROOF_QML_LINT_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/qml/components/ForgeArrowGeometry.js)
 if(TARGET Qt6::qmllint)
     set(HEXPROOF_QMLLINT_COMMAND $<TARGET_FILE:Qt6::qmllint>)
 else()
@@ -1564,6 +1460,5 @@ if(HEXPROOF_QMLLINT_COMMAND)
         ${HEXPROOF_QMLLINT_OPTIONS}
         -W 0
         -I ${CMAKE_CURRENT_SOURCE_DIR}/qml
-        -I ${CMAKE_CURRENT_BINARY_DIR}/qml
         ${HEXPROOF_QML_LINT_FILES})
 endif()

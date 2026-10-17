@@ -469,9 +469,6 @@ void TestCardCatalog::restoredTableImageGetsFreshSource() const
     const QString path =
         QUrl(catalog.imageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s)).toLocalFile();
     const QString original = source();
-    const QString originalPreview =
-        catalog.previewImageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s);
-    QCOMPARE(QUrl(originalPreview).toLocalFile(), path);
     const QString unrelated = provider.sourceForPath(storage.filePath(u"other.png"_s));
     if (missingAtFirstRead) {
         QVERIFY(QFile::remove(path));
@@ -488,15 +485,10 @@ void TestCardCatalog::restoredTableImageGetsFreshSource() const
     QVERIFY(completed.last().last().toBool());
     QCOMPARE(QUrl(catalog.imageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s)).toLocalFile(), path);
     QVERIFY2(source() != original, "An unchanged image URL leaves QML's old success/error cached");
-    const QString restoredPreview =
-        catalog.previewImageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s);
-    QCOMPARE(QUrl(restoredPreview).toLocalFile(), path);
-    QVERIFY(restoredPreview != originalPreview);
     QCOMPARE(readImage(source()).pixelColor(0, 0), QColor(Qt::blue));
     QCOMPARE(provider.sourceForPath(storage.filePath(u"other.png"_s)), unrelated);
     const QString restored = source();
     catalog.cacheCards(cards);
     QTRY_COMPARE(completed.count(), 3);
     QCOMPARE(source(), restored);
-    QCOMPARE(catalog.previewImageSource(u"Wear // Tear"_s, u"MOC"_s, u"343"_s), restoredPreview);
 }

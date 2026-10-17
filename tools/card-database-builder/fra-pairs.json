@@ -1,0 +1,178 @@
+{
+  "source": "https://github.com/Senryoku/Draftmancer/blob/4b4c64f60290ac55d2ffce022d2c0992c98c4897/src/BoosterFactory.ts",
+  "license": "MIT; see Draftmancer-LICENSE.txt",
+  "pairs": [
+    [
+      "Ajani Resolute",
+      "Ajani Unrelenting"
+    ],
+    [
+      "Chandra, Torch of Defiance",
+      "Chandra, Chill of Compliance"
+    ],
+    [
+      "Garruk, Curse Breaker",
+      "Garruk, Veiled Butcher"
+    ],
+    [
+      "Lyra, Archangel of Dawn",
+      "Lyra, Tolarian Archangel"
+    ],
+    [
+      "Gideon's Memorial",
+      "Gideon the Oathless"
+    ],
+    [
+      "Jace, Reality Sculptor",
+      "Tam, the Possibility"
+    ],
+    [
+      "Liliana the Repentant",
+      "Liliana the Faultless"
+    ],
+    [
+      "Samut, Hazoret's Champion",
+      "Samut, Tyrant of Naktamun"
+    ],
+    [
+      "Vraska, the Cutting Glare",
+      "Vraska, Soul of Stone"
+    ],
+    [
+      "Karn, Argent Defender",
+      "Karn, Gilded Guardian"
+    ],
+    [
+      "Thalia, the Survivor",
+      "Geist of Saint Thalia"
+    ],
+    [
+      "Danitha, Sword of Hope",
+      "Danitha, Spear of Agony"
+    ],
+    [
+      "Teyo, Lightshield Expert",
+      "Teyo, Diamondblade Mage"
+    ],
+    [
+      "Tomik, Orzhov Lawmage",
+      "Tomik, Izzet Sparkmage"
+    ],
+    [
+      "Yoshimaru, Beloved Companion",
+      "Yoshimaru, Scrappy Stray"
+    ],
+    [
+      "Proft, Consulting Detective",
+      "Proft, Sinister Mastermind"
+    ],
+    [
+      "Tetsuko Umezawa, Fugitive",
+      "Tetsuko Umezawa, Pursuer"
+    ],
+    [
+      "Fblthp, Impossibly Lost",
+      "Fblthp, Knows the Way"
+    ],
+    [
+      "Yuriko, Hope from the Shadows",
+      "Yuriko, Blade of the Mighty"
+    ],
+    [
+      "Winter, Tormented Loner",
+      "Winter, Team Player"
+    ],
+    [
+      "Tinybones, Pocket Nuisance",
+      "Titanbones, Towering Heart"
+    ],
+    [
+      "Massacre Girl, Most Wanted",
+      "Rescue Girl, First Responder"
+    ],
+    [
+      "Yargle, Glutton of Urborg",
+      "Yargle, Goliath of Otaria"
+    ],
+    [
+      "Pia, Determined Rebuilder",
+      "Pia, Aether Ascetic"
+    ],
+    [
+      "Koth, the Geomancer",
+      "Koth of the Homestead"
+    ],
+    [
+      "Arni, Renowned Champion",
+      "Arni, Humble Scribe"
+    ],
+    [
+      "Gallia, the Merrymaker",
+      "Gallia, Tragic Host"
+    ],
+    [
+      "Ghalta the Unstoppable",
+      "Ghalta the Immovable"
+    ],
+    [
+      "Ruric Thar, Magecrusher",
+      "Ruric Thar, Biomagus"
+    ],
+    [
+      "Loot, the Nexus",
+      "Loot, the Anomaly"
+    ],
+    [
+      "Jiang Yanggu, Never Alone",
+      "Jiang Yanggu, Alone"
+    ],
+    [
+      "Marwyn, the Preserver",
+      "Marwyn, the Clearcutter"
+    ],
+    [
+      "Edgar, Ancient Bloodlord",
+      "Edgar, Moonlit Sovereign"
+    ],
+    [
+      "Saheeli, Jewel of Avishkar",
+      "Saheeli, Consul of Oversight"
+    ],
+    [
+      "Hapatra, the Desert Fang",
+      "Hapatra, the Desert Frost"
+    ],
+    [
+      "Mabel, Valley Hero",
+      "Mabel, Bitter Recluse"
+    ],
+    [
+      "Kiora of Salt and Sand",
+      "Kiora of Fire and Ashes"
+    ],
+    [
+      "Traxos, Scourge Eternal",
+      "Traxos, Academy Guardian"
+    ],
+    [
+      "Way of the Mentor",
+      "Way of the Warlord"
+    ],
+    [
+      "Way of the Mind Sculptor",
+      "Way of the Paradox"
+    ],
+    [
+      "Way of the Necromancer",
+      "Way of the Healer"
+    ],
+    [
+      "Way of the Pyromancer",
+      "Way of the Cryomancer"
+    ],
+    [
+      "Way of the Wildspeaker",
+      "Way of the Deathbringer"
+    ]
+  ]
+}

@@ -73,11 +73,6 @@
           "type": "integer",
           "required": false,
           "nullable": true
-        },
-        {
-          "name": "promptFollows",
-          "type": "boolean",
-          "required": false
         }
       ]
     },

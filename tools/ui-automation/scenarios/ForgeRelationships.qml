@@ -41,25 +41,6 @@ Item {
         const board = duelTable()
         return board ? board.children.find(child => child.objectName === name) : null
     }
-    function descendant(parent, name) {
-        if (!parent) return null
-        if (parent.objectName === name) return parent
-        for (const child of parent.children || []) {
-            const match = descendant(child, name)
-            if (match) return match
-        }
-        return null
-    }
-    function verifyAttachment(id, hostId) {
-        const board = duelTable()
-        const attachment = descendant(board, "forgeCard-" + id)
-        const host = descendant(board, "forgeCard-" + hostId)
-        require(attachment && host && attachment.visible && attachment.parent === host.parent
-                && attachment.y > host.y && attachment.z < host.z,
-                "Missing named attachment strip: " + id + " on " + hostId)
-        require(!read("forgeRelationship-attachment-" + id + "-" + hostId).visible,
-                "Attachment should use its host strip rather than an arrow")
-    }
 
     function finish(error) {
         if (finished)
@@ -115,8 +96,8 @@ Item {
             }
             const blocker = bear("blocker", 0); blocker.blocking = ["attacker"]
             const second = bear("blocker2", 0); second.blocking = ["attacker"]
-            const attacker = bear("attacker", 1); attacker.attacking = true; attacker.attackingPlayer = 0
-            const other = bear("unblocked", 1); other.attacking = true; other.attackingPlayer = 0
+            const attacker = bear("attacker", 1); attacker.attacking = true
+            const other = bear("unblocked", 1); other.attacking = true
             const aura = card("aura", 0, "Rancor", "M13", "185"); aura.attachedTo = "attacker"
             const equipment = card("equipment", 0, "Bonesplitter", "MRD", "146"); equipment.attachedTo = "blocker"
             fixtureSnapshot = {roomId:"FIX001", gameId:"display-fixes", turn:4, step:"declare_blockers",
@@ -133,26 +114,20 @@ Item {
                         card("forest",0,"Forest","M21","272"),card("wastes",0,"Wastes","OGW","183")]},
                     {zone:"battlefield",ownerSeat:1,count:2,cards:[attacker,other]}],stack:[]}
             apply(); auditWindow.showTable()
-        }, () => find("forgeCard-blocker") && find("forgeOwnCreatures").stackCount === 2
-            && read("forgeRelationship-block-blocker-attacker")
-            && descendant(duelTable(), "forgeMana-0-C")?.visible)
+        }, () => find("forgeCard-blocker") && find("forgeOwnCreatures").stackCount === 3
+            && read("forgeRelationship-block-blocker-attacker") && find("forgeMana-0-C"))
         add("Clear initial pointer hover", () => {
             require(auditProbe.hover(find("rulesPlayerTarget1")), "Cannot move to the test player badge")
         }, () => !read("rulesCardHoverPreview").visible)
-        add("Verify public links, same-name piles and attachment strips", () => {
+        add("Verify public links and distinct identical creatures", () => {
             const geometry = auditProbe.observe(auditWindow)
             require(geometry.windowMode === "maximized", "Primary check must be maximized")
             for (const name of ["forgeRelationship-block-blocker-attacker", "forgeRelationship-block-blocker2-attacker",
-                               "forgeRelationship-attack-attacker-", "forgeRelationship-attack-unblocked-"])
-                require(read(name).visible && read(name).validAnchors, "Missing visible relationship: " + name)
-            require(find("forgeOpponentCreatures").stackCount === 2, "Attached host must keep its own pile")
-            require(find("forgeOwnCreatures").visibleStackIds.some(ids => ids.length === 2
-                    && ids.includes("blocker2") && ids.includes("idle")), "Same-name plain copies must share a pile")
-            verifyAttachment("equipment", "blocker")
-            verifyAttachment("aura", "attacker")
+                               "forgeRelationship-attachment-equipment-blocker", "forgeRelationship-attachment-aura-attacker"])
+                require(read(name).validAnchors, "Missing visible relationship: " + name)
+            require(find("forgeOpponentCreatures").stackCount === 2, "Blocked and unblocked copies were merged")
             const pool = read("forgeManaPool-0")
-            require(pool.visible && pool.manaPool.length === 6
-                    && descendant(pool, "forgeMana-0-C").modelData.amount === 6, "Incomplete mana pool")
+            require(pool.manaPool.length === 6 && find("forgeMana-0-C").modelData.amount === 6, "Incomplete mana pool")
             require(pool.z > read("rulesCardHoverPreview").z, "Mana can be obscured by card preview")
             capture("confirmed-relations-and-six-mana")
             require(auditProbe.hover(find("forgeHandCard-hand-4")), "Cannot hover own hand")
@@ -173,8 +148,7 @@ Item {
             && !read("forgeManaPool-0").visible)
         add("Capture cleared combat and new attachment targets", () => {
             require(!read("forgeRelationship-attachment-aura-attacker"), "Old attachment persisted")
-            verifyAttachment("aura", "idle")
-            verifyAttachment("equipment", "idle")
+            require(read("forgeRelationship-attachment-aura-idle").validAnchors, "New attachment missing")
             capture("relationship-update-and-mana-clear")
         })
     }

@@ -248,7 +248,6 @@ type RulesPrompt struct {
 	Kind                 string                    `json:"kind"`
 	Supported            bool                      `json:"supported"`
 	AutoPassEligible     bool                      `json:"autoPassEligible,omitempty"`
-	PaymentID            string                    `json:"paymentId,omitempty"`
 	Title                string                    `json:"title"`
 	Detail               string                    `json:"detail"`
 	Options              []RulesPromptOption       `json:"options"`
@@ -300,28 +299,18 @@ type RulesResponded struct {
 	PromptID int64  `json:"promptId"`
 }
 
-// RulesPriority is one seat's smart-pass choice. Stops use the rules table's
-// "own:" and "other:" step keys.
-type RulesPriority struct {
-	RoomID      string   `json:"roomId"`
-	FullControl bool     `json:"fullControl"`
-	Hold        bool     `json:"hold,omitempty"`
-	Stops       []string `json:"stops,omitempty"`
-}
-
 // RulesGameSnapshot is a viewer-specific normalized projection. Raw Forge
 // payloads never cross the public protocol boundary.
 type RulesGameSnapshot struct {
-	RoomID        string             `json:"roomId"`
-	GameID        string             `json:"gameId"`
-	Turn          int                `json:"turn"`
-	Step          string             `json:"step"`
-	ActiveSeat    int                `json:"activeSeat"`
-	PrioritySeat  int                `json:"prioritySeat"`
-	Players       []RulesPlayerState `json:"players"`
-	Zones         []RulesZoneState   `json:"zones"`
-	Stack         []RulesStackObject `json:"stack"`
-	GameOver      bool               `json:"gameOver"`
-	WinnerSeat    *int               `json:"winnerSeat,omitempty"`
-	PromptFollows bool               `json:"promptFollows,omitempty"`
+	RoomID       string             `json:"roomId"`
+	GameID       string             `json:"gameId"`
+	Turn         int                `json:"turn"`
+	Step         string             `json:"step"`
+	ActiveSeat   int                `json:"activeSeat"`
+	PrioritySeat int                `json:"prioritySeat"`
+	Players      []RulesPlayerState `json:"players"`
+	Zones        []RulesZoneState   `json:"zones"`
+	Stack        []RulesStackObject `json:"stack"`
+	GameOver     bool               `json:"gameOver"`
+	WinnerSeat   *int               `json:"winnerSeat,omitempty"`
 }

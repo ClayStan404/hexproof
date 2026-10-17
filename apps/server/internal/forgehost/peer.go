@@ -97,9 +97,6 @@ func (e *Executor) ExecutePeer(ctx context.Context, action PeerAction) (*PeerCom
 	raw, err := runtime.Prompt(ctx, e.handle.SessionID, binding.PlayerIndex)
 	view, parseErr := forge.NormalizePrompt(raw)
 	if err != nil || parseErr != nil || view.PromptID != binding.NativePromptID {
-		if err != nil && !runtime.Healthy() {
-			e.captureFailure(runtime, engineID, "native_failure", "peer_action")
-		}
 		return nil, denied
 	}
 	native, err := rulesinput.Build(action.Request, raw, binding.PlayerIndex)

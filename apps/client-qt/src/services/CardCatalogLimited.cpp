@@ -3,7 +3,6 @@
 
 #include "CardCatalog.h"
 #include "CatalogRepository.h"
-#include "LimitedProductSheets.h"
 
 #include <QMap>
 #include <QRandomGenerator>
@@ -108,14 +107,8 @@ bool validPairedSheet(const QVariantMap &sheet)
     return true;
 }
 
-QVariantMap localCard(QVariantMap card, int serial,
-                      const QMap<QPair<QString, QString>, QString> &typeLines)
+QVariantMap localCard(QVariantMap card, int serial)
 {
-    if (card.value(QStringLiteral("typeLine")).toString().isEmpty()) {
-        const auto key = qMakePair(card.value(QStringLiteral("setCode")).toString().toUpper(),
-                                   card.value(QStringLiteral("collectorNumber")).toString());
-        card.insert(QStringLiteral("typeLine"), typeLines.value(key));
-    }
     card.remove(QStringLiteral("weight"));
     card.remove(QStringLiteral("pairCollectorNumber"));
     card.insert(QStringLiteral("instanceId"), QStringLiteral("local-%1").arg(serial));
@@ -193,25 +186,9 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
     if (packCount < 1 || packCount > 36)
         return result;
     const int cardsPerPack = product.value(QStringLiteral("cardsPerPack")).toInt();
-    QVariantList sheets;
-    if (cardsPerPack < 1 || cardsPerPack > 30 || !resolveLimitedProductSheets(product, &sheets))
+    const QVariantList sheets = product.value(QStringLiteral("sheets")).toList();
+    if (cardsPerPack < 1 || cardsPerPack > 30 || sheets.isEmpty())
         return result;
-
-    QMap<QPair<QString, QString>, QString> typeLines;
-    for (const QVariant &sheetValue : sheets) {
-        for (const QVariant &cardValue :
-             sheetValue.toMap().value(QStringLiteral("cards")).toList()) {
-            const QVariantMap card = cardValue.toMap();
-            const QString typeLine = card.value(QStringLiteral("typeLine")).toString().trimmed();
-            if (typeLine.isEmpty())
-                continue;
-            const auto key = qMakePair(card.value(QStringLiteral("setCode")).toString().toUpper(),
-                                       card.value(QStringLiteral("collectorNumber")).toString());
-            if (typeLines.contains(key) && typeLines.value(key) != typeLine)
-                return {};
-            typeLines.insert(key, typeLine);
-        }
-    }
 
     int serial = 0;
     if (product.value(QStringLiteral("productType")).toString() == QStringLiteral("cube")) {
@@ -237,8 +214,8 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
         for (int packIndex = 0; packIndex < packCount; ++packIndex) {
             QVariantList cards;
             for (int cardIndex = 0; cardIndex < cardsPerPack; ++cardIndex)
-                cards.append(localCard(stock.at(packIndex * cardsPerPack + cardIndex).toMap(),
-                                       ++serial, typeLines));
+                cards.append(
+                    localCard(stock.at(packIndex * cardsPerPack + cardIndex).toMap(), ++serial));
             result.append(QVariantMap{{QStringLiteral("cards"), cards}});
         }
         return result;
@@ -292,7 +269,7 @@ QVariantList CardCatalog::simulateLimitedPacks(const QVariantMap &product, int p
                 }
                 for (const QVariant &value : selected) {
                     const QVariantMap drawn = value.toMap();
-                    packCards.append(localCard(drawn, ++serial, typeLines));
+                    packCards.append(localCard(drawn, ++serial));
                     if (!replacement) {
                         for (qsizetype index = available.size(); index > 0; --index) {
                             if (available.at(index - 1).toMap() == drawn) {

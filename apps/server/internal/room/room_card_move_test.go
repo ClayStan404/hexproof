@@ -10,69 +10,6 @@ import (
 	"hexproof/server/internal/protocol"
 )
 
-func TestRevealHandPreservesOwnerAfterApprovedRemoteSearch(t *testing.T) {
-	for _, selectSubset := range []bool{false, true} {
-		r := newTestRoom(t, 2, true)
-		if _, err := r.Join("guest-conn", "Guest", false, ""); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := r.Join("spectator-conn", "Observer", true, ""); err != nil {
-			t.Fatal(err)
-		}
-		r.Phase = protocol.RoomPhaseStarted
-		r.Game = &GameState{Number: 1, NextLogID: 1, Seats: []PlayerGameState{
-			{Seat: 0, DisplayName: "Host"},
-			{Seat: 1, DisplayName: "Guest", Library: []protocol.GameCard{{
-				ID: "borrowed", Name: "Borrowed", OwnerSeat: 1,
-			}}},
-		}}
-		sourceSeat := 1
-		if _, err := r.SearchApprovedLibrary("host-conn", protocol.GameSearchLibrary{
-			CardID: "borrowed", SourceSeat: &sourceSeat, ApprovalID: "approved",
-			ToZone: protocol.LibraryDestinationHand,
-		}); err != nil {
-			t.Fatal(err)
-		}
-		for _, viewer := range []string{"guest-conn", "spectator-conn"} {
-			view, err := r.GameSnapshot(viewer)
-			if err != nil || len(view.Seats[0].Hand) != 0 {
-				t.Fatalf("foreign hand card leaked to %s: %+v err=%v", viewer, view, err)
-			}
-		}
-		request := protocol.GameReveal{Zone: protocol.ZoneHand}
-		if selectSubset {
-			request.CardIDs = []string{"borrowed"}
-		}
-		if _, err := r.Reveal("host-conn", request); err != nil {
-			t.Fatal(err)
-		}
-		if len(r.Game.Seats[0].Hand) != 0 || len(r.Game.Revealed) != 1 ||
-			r.Game.Revealed[0].OwnerSeat != sourceSeat {
-			t.Fatalf("reveal changed card ownership: %+v", r.Game.Revealed)
-		}
-		for _, viewer := range []string{"host-conn", "guest-conn", "spectator-conn"} {
-			view, err := r.GameSnapshot(viewer)
-			if err != nil || len(view.Revealed) != 1 || view.Revealed[0].OwnerSeat != sourceSeat ||
-				view.Revealed[0].Name != "Borrowed" {
-				t.Fatalf("revealed ownership for %s: %+v err=%v", viewer, view, err)
-			}
-		}
-		move := protocol.GameMoveCard{
-			CardID: "borrowed", FromZone: protocol.ZoneReveal, ToZone: protocol.ZoneGraveyard,
-		}
-		if _, err := r.MoveCard("host-conn", move); err == nil {
-			t.Fatal("revealing another player's card granted its ownership")
-		}
-		if _, err := r.MoveCard("guest-conn", move); err != nil {
-			t.Fatal(err)
-		}
-		if len(r.Game.Seats[0].Graveyard) != 0 || len(r.Game.Seats[1].Graveyard) != 1 ||
-			r.Game.Seats[1].Graveyard[0].OwnerSeat != sourceSeat {
-			t.Fatalf("card did not return to its owner's graveyard: %+v", r.Game.Seats)
-		}
-	}
-}
-
 func TestCardCountersAndLibraryPlacementAreAuthoritative(t *testing.T) {
 	r := newTestRoom(t, 2, true)
 	if _, err := r.Join("g1", "Guest1", false, ""); err != nil {

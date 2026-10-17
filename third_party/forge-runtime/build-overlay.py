@@ -4,40 +4,28 @@
 
 """Build the current native adapter over an immutable, source-backed Forge base.
 
-Only JDK 21, Python 3.12+ and Git are needed. No Maven resolution or system Java
+Only JDK 21+, Python 3.12+ and Git are needed. No Maven resolution or system Java
 installation is performed. Output includes all modified upstream Java sources;
 release source packaging also preserves the complete pinned base source archive.
 """
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 import urllib.request
 import zipfile
 
-# Dynamic imports must not alter a corresponding-source tree.
-sys.dont_write_bytecode = True
-
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 HOST = HERE / "native-host"
 BASE_MANIFEST = ROOT / "apps/server/internal/runtimepkg/manifest.json"
-SYMBOL_GENERATOR = HERE / "diagnostic-symbols.py"
-SYMBOL_RESOURCE = "org/hexproof/forge/diagnostic-symbols.json"
-JAVA_TOOLCHAIN = HERE / "java-toolchain.py"
-toolchain_spec = importlib.util.spec_from_file_location("overlay_java_toolchain", JAVA_TOOLCHAIN)
-TOOLCHAIN = importlib.util.module_from_spec(toolchain_spec)
-toolchain_spec.loader.exec_module(TOOLCHAIN)
-find_javac = TOOLCHAIN.find_javac
 
 
 def digest(path):
@@ -56,8 +44,7 @@ def identity():
     if digest(HOST / upstream["patch"]["file"]) != upstream["patch"]["sha256"]:
         raise ValueError("Native patch differs from its reviewed checksum")
     records = {path.relative_to(HOST).as_posix(): digest(path) for path in inputs()}
-    identity_inputs = {"nativeSources": records, "diagnosticGeneratorSha256": digest(SYMBOL_GENERATOR)}
-    source_hash = hashlib.sha256(json.dumps(identity_inputs, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    source_hash = hashlib.sha256(json.dumps(records, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     runtime_id = f'{upstream["revision"]}-adapter{upstream["adapterRevision"]}-{source_hash}'
     return runtime_id, records
 
@@ -153,37 +140,6 @@ def extract_libraries(base_archive, stage):
     return sorted(directory.glob("*.jar"))
 
 
-def diagnostic_symbols(classes, libraries, base_archive, stage, frozen, upstream):
-    # Symbols are generated from the exact patched bytecode and authenticated
-    # base card data. Never include the retired base host's classes.
-    cards = stage / "diagnostic-cards"
-    cards.mkdir()
-    prefix = "hexproof-forge-runtime/forge-gui/res/cardsfolder/"
-    total, count = 0, 0
-    with tarfile.open(base_archive) as archive:
-        for member in archive:
-            if not member.name.startswith(prefix) or member.isdir():
-                continue
-            relative = PurePosixPath(member.name.removeprefix(prefix))
-            total += member.size
-            count += 1
-            if (relative.is_absolute() or ".." in relative.parts or "\\" in str(relative)
-                    or not relative.parts or not member.isfile() or member.size > 4 << 20
-                    or total > 128 << 20 or count > 100000):
-                raise ValueError("Unexpected base card resource")
-            target = cards / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if target.exists():
-                raise ValueError("Duplicate base card resource")
-            target.write_bytes(archive.extractfile(member).read())
-    spec = importlib.util.spec_from_file_location("overlay_diagnostic_symbols", SYMBOL_GENERATOR)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.generate(classes, libraries, cards,
-        frozen / "src/main/resources/org/hexproof/forge/printing-aliases.tsv",
-        f"{upstream['revision']}-adapter{upstream['adapterRevision']}")
-
-
 def write_zip(destination, files):
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, data in sorted(files.items()):
@@ -204,9 +160,7 @@ def build(args):
     if metadata.is_file() and jar.is_file():
         record = json.loads(metadata.read_text())
         if (record.get("runtimeId") == runtime_id and record.get("sha256") == digest(jar)
-                and record.get("buildRecipeSha256") == digest(Path(__file__))
-                and record.get("javaToolchainSha256") == digest(JAVA_TOOLCHAIN)
-                and record.get("diagnosticGeneratorSha256") == digest(SYMBOL_GENERATOR)):
+                and record.get("buildRecipeSha256") == digest(Path(__file__))):
             source = pinned_file(source_pin, args.cache, args.source_archive) if args.source_output else None
             return record, source
     base = pinned_file(manifest["forge"], args.cache, args.base_archive)
@@ -230,17 +184,9 @@ def build(args):
         argfile = stage / "javac.args"
         argfile.write_text("\n".join(json.dumps(value) for value in arguments) + "\n")
         subprocess.run([args.javac, "@" + str(argfile)], check=True)
-        upstream = json.loads((frozen / "upstream.json").read_text())
-        symbol_data = diagnostic_symbols(classes, libraries, base, stage, frozen, upstream)
-        if hashlib.sha256(symbol_data).hexdigest() != upstream.get("diagnosticSymbolsSha256"):
-            raise ValueError("Overlay diagnostic symbols differ from the reviewed index")
         record = {"schemaVersion": 1, "runtimeId": runtime_id, "baseRuntimeId": manifest["runtimeId"],
                   "baseManifestSha256": manifest["forgeManifestSha256"], "sources": records,
-                  "buildRecipeSha256": digest(Path(__file__)),
-                  "javaToolchainSha256": digest(JAVA_TOOLCHAIN),
-                  "diagnosticGeneratorSha256": digest(SYMBOL_GENERATOR),
-                  "diagnosticSymbols": {"path": SYMBOL_RESOURCE,
-                      "sha256": hashlib.sha256(symbol_data).hexdigest()}}
+                  "buildRecipeSha256": digest(Path(__file__))}
         content = {path.relative_to(classes).as_posix(): path.read_bytes()
                    for path in classes.rglob("*.class")}
         resources = frozen / "src/main/resources"
@@ -248,7 +194,6 @@ def build(args):
             if path.is_file():
                 content[path.relative_to(resources).as_posix()] = path.read_bytes()
                 content["META-INF/sources/native-host/" + path.relative_to(frozen).as_posix()] = path.read_bytes()
-        content[SYMBOL_RESOURCE] = symbol_data
         if "org/hexproof/forge/NativeHost.class" not in content:
             raise ValueError("Overlay does not contain its native host")
         content["META-INF/hexproof-overlay.json"] = (json.dumps(record, sort_keys=True, indent=2) + "\n").encode()
@@ -270,7 +215,7 @@ def package_source(destination, source):
     # and exact overlay build recipe. No patch-only corresponding-source claim.
     with tarfile.open(destination, "w:gz") as archive:
         archive.add(source, arcname="hexproof-forge-overlay-source/base-source.tar.gz")
-        for path in [HERE / "build-overlay.py", JAVA_TOOLCHAIN, SYMBOL_GENERATOR, HERE / "overlay-base.json", HERE / "OVERLAY-README.md", *inputs(),
+        for path in [HERE / "build-overlay.py", HERE / "overlay-base.json", HERE / "OVERLAY-README.md", *inputs(),
                      *sorted((HOST / "src/test").rglob("*.java"))]:
             archive.add(path, arcname="hexproof-forge-overlay-source/third_party/forge-runtime/" + path.relative_to(HERE).as_posix())
         archive.add(BASE_MANIFEST, arcname="hexproof-forge-overlay-source/apps/server/internal/runtimepkg/manifest.json")
@@ -282,20 +227,12 @@ def main():
     parser.add_argument("--cache", type=Path, default=ROOT / "build/forge-overlay/downloads")
     parser.add_argument("--base-archive", type=Path)
     parser.add_argument("--source-archive", type=Path)
-    parser.add_argument("--javac", help="Explicit JDK 21 compiler; otherwise discover an installed JDK 21")
-    parser.add_argument("--find-javac", action="store_true", help="Print the selected JDK 21 compiler and exit")
+    parser.add_argument("--javac", default="javac")
     parser.add_argument("--identity", action="store_true")
     parser.add_argument("--source-output", type=Path)
     args = parser.parse_args()
     if args.identity:
         print(identity()[0])
-        return
-    try:
-        args.javac = find_javac(args.javac)
-    except ValueError as error:
-        parser.exit(1, f"{error}\n")
-    if args.find_javac:
-        print(args.javac)
         return
     for key in ("cache", "base_archive", "source_archive"):
         if value := getattr(args, key):

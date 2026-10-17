@@ -189,7 +189,6 @@ func (h *Handler) handleHello(ctx context.Context, sess *Session, env protocol.E
 		h.sendVersionMismatch(sess, env.ID, clientVersion)
 		return nil
 	}
-	sess.rulesCrashReports.Store(hello.RulesCrashReportSchema == 1)
 	if len(hello.ResumeToken) > protocol.MaxResumeTokenBytes || hello.LastSeq < 0 {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "invalid resume metadata")
 		return nil

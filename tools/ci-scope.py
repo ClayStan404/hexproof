@@ -14,45 +14,18 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def forge_path(path: str) -> bool:
-    if path.startswith("apps/server/"):
-        return path.startswith(("apps/server/internal/rulesengine/", "apps/server/internal/server/",
-                                "apps/server/internal/room/", "apps/server/internal/protocol/",
-                                "apps/server/internal/forgehost/", "apps/server/internal/runtimepkg/",
-                                "apps/server/internal/forgediag/", "apps/server/internal/rulesinput/",
-                                "apps/server/internal/peerlink/", "apps/server/internal/limited/",
-                                "apps/server/internal/tournament/", "apps/server/cmd/hexproof-forge-host/",
-                                "apps/server/cmd/hexproof-server/")) or path in (
-                                    "apps/server/go.mod", "apps/server/go.sum")
-    if path.startswith("apps/client-qt/"):
-        name = Path(path).name.lower()
-        return ("forge" in name or "rules" in name
-                or name.startswith(("roomclient", "roomsession", "gamesession", "tournamentsession",
-                                    "limitedsession", "protocolsession", "wsclient", "table"))
-                or path.startswith("apps/client-qt/src/protocol/")
-                or path == "apps/client-qt/CMakeLists.txt")
-    if path.startswith("tools/"):
-        return (path.startswith(("tools/forge-", "tools/ui-automation/fixtures/forge"))
-                or "forge" in Path(path).name.lower()
-                or path in ("tools/ci-scope.py", "tools/verify.sh", "tools/tests/test_ci_scope.py"))
-    # Native sources, shared protocol/fixtures and build/workflow changes can
-    # affect the real boundary. Unknown domains fail toward the engine check.
-    return True
-
-
-def build_scope(paths: list[str]) -> tuple[bool, bool, bool]:
-    client = server = forge = False
+def build_scope(paths: list[str]) -> tuple[bool, bool]:
+    client = server = False
     for path in paths:
         if path.endswith(".md") or path in (".gitignore", ".clang-format", "LICENSE"):
             continue
-        forge = forge or forge_path(path)
         if path.startswith("apps/client-qt/"):
             client = True
         else:
             # Server changes need the Qt integration tests too. Tooling, schema,
             # packaging, workflow, and unknown paths conservatively build both.
             client = server = True
-    return client, server, forge
+    return client, server
 
 
 def changed_paths(root: Path, base: str, head: str) -> list[str]:
@@ -81,15 +54,14 @@ def main() -> int:
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--force-all", action="store_true")
     args = parser.parse_args()
-    client = server = forge = True
+    client = server = True
     if not args.force_all:
         try:
-            client, server, forge = build_scope(changed_paths(args.root, args.base, args.head))
+            client, server = build_scope(changed_paths(args.root, args.base, args.head))
         except (OSError, UnicodeError, ValueError, subprocess.CalledProcessError):
-            print("Cannot establish CI change scope; running all verification domains.", file=sys.stderr)
+            print("Cannot establish CI change scope; running both build domains.", file=sys.stderr)
     print(f"client={str(client).lower()}")
     print(f"server={str(server).lower()}")
-    print(f"forge={str(forge).lower()}")
     return 0
 
 

@@ -48,15 +48,10 @@ Item {
 
     function choiceLabel(label, index) {
         switch (label) {
-        case "WHITE":
         case "White": return qsTr("White")
-        case "BLUE":
         case "Blue": return qsTr("Blue")
-        case "BLACK":
         case "Black": return qsTr("Black")
-        case "RED":
         case "Red": return qsTr("Red")
-        case "GREEN":
         case "Green": return qsTr("Green")
         case "Yes": return qsTr("Yes")
         case "No": return qsTr("No")

@@ -95,8 +95,7 @@ class StaticNetworkReply final : public QNetworkReply
   public:
     StaticNetworkReply(const QNetworkRequest &request, const QByteArray &payload,
                        const QByteArray &contentType, QObject *parent, int statusCode = 200,
-                       QNetworkReply::NetworkError networkError = QNetworkReply::NoError,
-                       int delayMs = 0)
+                       QNetworkReply::NetworkError networkError = QNetworkReply::NoError)
         : QNetworkReply(parent),
           m_payload(payload)
     {
@@ -107,7 +106,7 @@ class StaticNetworkReply final : public QNetworkReply
         if (networkError != QNetworkReply::NoError)
             setError(networkError, QStringLiteral("Simulated network failure"));
         open(QIODevice::ReadOnly | QIODevice::Unbuffered);
-        QTimer::singleShot(delayMs, this,
+        QTimer::singleShot(0, this,
                            [this, closeBeforeFinished = networkError != QNetworkReply::NoError]() {
                                if (closeBeforeFinished)
                                    close();
@@ -362,20 +361,6 @@ class TestCardCatalog : public QObject
     Q_OBJECT
 
   private slots:
-    void cachedFacesPreserveProviderEvidence_data() const;
-    void cachedFacesPreserveProviderEvidence() const;
-    void cachedFacesWorkWithoutDatabase() const;
-    void legacyFacePreviewRefreshIsBoundedAndPreservesArt() const;
-    void ordinaryLegacyCacheHitsStayLocalUntilExplicitInspection() const;
-    void faceMetadataProbesAreSerialAndStopOnDestruction() const;
-    void faceMetadataProbesRespectArtMaintenance() const;
-    void cachedFacesFillDatabaseMisses() const;
-    void cachedMeldFacesRequireRelatedPrintingEvidence() const;
-    void uncachedMeldResolutionHydratesRelatedPrinting_data() const;
-    void uncachedMeldResolutionHydratesRelatedPrinting() const;
-    void legacySameNamedTokenReverseIsRefreshed_data() const;
-    void legacySameNamedTokenReverseIsRefreshed() const;
-    void verifiedTokenBackImportReplacesAmbiguousLegacyArt() const;
     void initTestCase();
     void simulatesLimitedWeightTotalBoundary() const;
     void simulatesPairedLimitedProduct() const;
@@ -401,18 +386,6 @@ class TestCardCatalog : public QObject
     void retriesTruncatedImagePayload_data() const;
     void retriesTruncatedImagePayload() const;
     void imageValidationRetainsSlotsAndCancelsOnDestruction() const;
-    void optionalArtCropFollowsSuccessfulFullImage() const;
-    void optionalArtCropCacheHitsRetryAndStayLocalOnReads() const;
-    void optionalArtCropSharesSlotsAndKeepsMaintenanceExclusive() const;
-    void optionalArtCropDiscardsSupersededSource() const;
-    void optionalArtCropPreservesLaterLocalizedRules() const;
-    void optionalArtCropStopsOnDestruction() const;
-    void optionalArtCropValidationStopsOnDestruction() const;
-    void optionalArtCropRetryReplacesDamagedFile() const;
-    void optionalArtCropLocalReadsValidateWithoutNetwork() const;
-    void optionalArtCropLocalDamageIsMemoizedUntilContentsChange() const;
-    void optionalArtCropLocalValidationAllowsMaintenanceAndDestruction() const;
-    void optionalArtCropRestoresMissingFileAndNotifies() const;
     void parallelProvidersShareCooldowns() const;
     void parallelDownloadsReserveRetrySlots() const;
     void parallelProviderChangeFinishesQueuedWork() const;
@@ -451,12 +424,6 @@ class TestCardCatalog : public QObject
     void cacheAndRetryDeferFaceExpansion() const;
     void retryClearsFailureForEveryExpandedFace() const;
     void cachedTypeLineNeverQueriesBrokenCatalog() const;
-    void artFramesFollowCurrentFaceAndPrinting_data() const;
-    void artFramesFollowCurrentFaceAndPrinting() const;
-    void artFramesUseOfflineMetadataAndPreserveSubstituteImages() const;
-    void artFramesFollowVerifiedSubstituteImagePrinting() const;
-    void artFramesIgnoreOtherLanguageSubstituteMetadata_data() const;
-    void artFramesIgnoreOtherLanguageSubstituteMetadata() const;
     void tableImageSourceUsesStaleCacheMetadata() const;
     void restoredTableImageGetsFreshSource_data() const;
     void restoredTableImageGetsFreshSource() const;

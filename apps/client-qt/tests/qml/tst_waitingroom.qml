@@ -31,7 +31,6 @@ TestCase {
         property string matchMode: "bo3"
         property string cardLoadMode: "preload"
         property string rulesMode: "manual"
-        property bool actionClockEnabled: false
         property string aiDifficulty: ""
         property string aiSource: ""
         property string hostingMode: "server"
@@ -115,18 +114,6 @@ TestCase {
         }
     }
 
-    function test_actionClockSummaryUsesServerConfiguration() {
-        const summary = findChild(page, "waitingRoomActionClockSummary")
-        verify(!summary.visible)
-        mockRoomSession.rulesMode = "forge"
-        verify(summary.visible)
-        compare(summary.text, "Action clock · Off")
-        mockRoomSession.actionClockEnabled = true
-        compare(summary.text, "Action clock · 25 minutes per player")
-        mockRoomSession.format = "edh"
-        verify(!summary.visible)
-    }
-
     function init() {
         testWindow.lastBanner = ""
         mockWs.copyCount = 0
@@ -148,7 +135,6 @@ TestCase {
         mockRoomSession.spectatorsSeeHands = false
         mockWs.lastRemovedSpectator = -1
         mockRoomSession.rulesMode = "manual"
-        mockRoomSession.actionClockEnabled = false
         mockRoomSession.hostingMode = "server"
         mockRoomSession.roomName = "Friday Night"
         mockRoomSession.roomId = "ABCDEF"
@@ -676,48 +662,6 @@ TestCase {
         tryVerify(() => lockedDeck.visible)
         compare(lockedDeck.text, "Limited deck locked")
         tryVerify(() => ready.enabled)
-    }
-
-    function test_lockedDeckShowsOnlyFullOwnName_data() {
-        return [
-            {tag:"constructed-wide", width:1920, height:1011, scale:1, format:"modern"},
-            {tag:"constructed-scaled", width:1920, height:1011, scale:1.5, format:"modern"},
-            {tag:"constructed-compact", width:900, height:620, scale:1.5, format:"modern"},
-            {tag:"limited-compact", width:900, height:620, scale:1.5, format:"limited"}
-        ]
-    }
-    function test_lockedDeckShowsOnlyFullOwnName(data) {
-        testWindow.width = data.width; testWindow.height = data.height
-        Theme.uiScale = data.scale
-        mockRoomSession.deckFormat = data.format
-        const name = "<b>My registered deck</b> — a long exact name with printings & literal <tags>"
-        mockRoomSession.selectedDeckName = name
-        mockRoomSession.seats = [
-            {occupied:true, displayName:"Alice", host:true, deckSelected:true, deckLocked:data.format === "modern", ready:false},
-            {occupied:true, displayName:"Bob", host:false, deckSelected:true, deckLocked:data.format === "modern", ready:false,
-                deckName:"Opponent private name must never be read"}
-        ]
-        const label = findChild(page, "waitingRoomRegisteredDeckName")
-        const ready = findChild(page, "playerReadyButton")
-        verify(label !== null)
-        tryCompare(label, "visible", true)
-        compare(label.text, name)
-        compare(label.textFormat, Text.PlainText)
-        compare(label.wrapMode, Text.Wrap)
-        verify(!findChild(page, "waitingRoomSelectDeckButton").visible)
-        verify(waitForPolish(testWindow))
-        const bounds = label.mapToItem(page, 0, 0), action = ready.mapToItem(page, 0, 0)
-        verify(bounds.x >= 0 && bounds.x + label.width <= page.width + 1)
-        verify(bounds.y >= 0 && bounds.y + label.height <= action.y + 1)
-        verify(action.y >= 0 && action.y + ready.height <= page.height + 1)
-        verify(ready.visible && ready.enabled)
-        mockRoomSession.selectedDeckName = ""
-        tryCompare(label, "visible", false)
-        verify(ready.enabled)
-        mockRoomSession.selectedDeckName = name
-        mockRoomSession.role = "spectator"
-        mockRoomSession.seatIndex = -1
-        tryCompare(label, "visible", false)
     }
 
     function test_forgeFailureKeepsReadyRecoveryVisible() {

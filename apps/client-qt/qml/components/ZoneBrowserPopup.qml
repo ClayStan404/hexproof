@@ -39,17 +39,9 @@ AppPopup {
                           string toZone, int toSeat, string libraryPlacement, bool randomize)
     signal castCommanderRequested(string commanderId)
 
-    width: Math.min(Theme.size(facePreview.displayFaces.length > 1 ? 1120 : 960),
-                    parent.width - Theme.size(48))
+    width: Math.min(Theme.size(960), parent.width - Theme.size(48))
     height: Math.min(Theme.size(680), parent.height - Theme.size(56))
     padding: Theme.size(wideLayout ? 22 : 14)
-
-    CardFacePreviewController {
-        id: facePreview
-        catalogModel: root.cardCatalogModel
-        card: root.selectedCard
-        active: root.opened && root.showInspector
-    }
 
     function applyFilterQuery() {
         const nextQuery = searchField.text.trim().toLocaleLowerCase()
@@ -159,7 +151,7 @@ AppPopup {
         if (card.faceDown === true)
             return Qt.resolvedUrl("../assets/card-back.jpg")
         return card.name && cardCatalogModel
-               ? cardCatalogModel.imageSource(card.faceName || card.name, card.setCode || "",
+               ? cardCatalogModel.imageSource(card.name, card.setCode || "",
                                               card.collectorNumber || "") : ""
     }
 
@@ -326,7 +318,6 @@ AppPopup {
     }
 
     onClosed: {
-        facePreview.resetFace()
         filterTimer.stop()
         previewRequested = false
         seatIndex = -1
@@ -616,59 +607,39 @@ AppPopup {
             ColumnLayout {
                 visible: root.showInspector
                 Layout.fillWidth: !root.wideLayout
-                Layout.preferredWidth: Math.min(Theme.size(facePreview.displayFaces.length > 1 ? 580 : 320),
-                    root.availableWidth * (facePreview.displayFaces.length > 1 ? 0.52 : 0.38))
+                Layout.preferredWidth: Math.min(Theme.size(320), root.availableWidth * 0.38)
                 Layout.fillHeight: true
                 spacing: Theme.size(12)
 
-                ScrollView {
-                    id: artScroll
-                    objectName: "zoneBrowserArtScroll"
+                Surface {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    contentWidth: availableWidth
+                    color: Theme.surfaceMuted
                     clip: true
-                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                    Item {
-                        width: artScroll.availableWidth
-                        height: facePreview.hasIdentity ? gallery.implicitHeight : Theme.size(300)
-                        CardFacePreviewGallery {
-                            id: gallery
-                            objectName: "zoneBrowserFaceGallery"
-                            controller: facePreview
-                            artObjectName: "zoneBrowserPreviewImage"
-                            fallbackObjectName: "zoneBrowserPreviewFallback"
-                            columns: facePreview.displayFaces.length > 1
-                                     && parent.width >= Theme.size(368) ? 2 : 1
-                            width: Math.min(parent.width,
-                                Math.max(1, artScroll.availableHeight - Theme.size(12)) * 63 / 88 * columns
-                                + (columns - 1) * Theme.size(8))
-                            anchors.horizontalCenter: parent.horizontalCenter
-                        }
-                        Image {
-                            objectName: root.selectedCard.faceDown === true
-                                ? "zoneBrowserPreviewImage" : "zoneBrowserHiddenPreviewImage"
-                            anchors.fill: parent
-                            visible: root.selectedCard.faceDown === true
-                            source: visible ? root.cardImage(root.selectedCard) : ""
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true
-                        }
-                        Text {
-                            textFormat: Text.PlainText
-                            anchors.centerIn: parent
-                            visible: !root.selectedCard.id
-                            text: qsTr("Select a card")
-                            color: Theme.textMuted
-                        }
+
+                    Image {
+                        objectName: "zoneBrowserPreviewImage"
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(12)
+                        source: root.cardImage(root.selectedCard)
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                    }
+
+                    Text {
+                        textFormat: Text.PlainText
+                        anchors.centerIn: parent
+                        visible: !root.selectedCard.id
+                        text: qsTr("Select a card")
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSize(11)
                     }
                 }
 
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: root.selectedCard.id ? (facePreview.displayName
-                                                 || root.cardLabel(root.selectedCard))
+                    text: root.selectedCard.id ? root.cardLabel(root.selectedCard)
                                               : root.zoneLabel()
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(15)
@@ -681,8 +652,8 @@ AppPopup {
                     visible: !!root.selectedCard.id
                     text: root.selectedCard.faceDown === true
                           ? qsTr("No player may look at this card")
-                          : (facePreview.viewedCard.setCode || "") + " · #"
-                            + (facePreview.viewedCard.collectorNumber || "")
+                          : (root.selectedCard.setCode || "") + " · #"
+                            + (root.selectedCard.collectorNumber || "")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(10)
                     elide: Text.ElideRight

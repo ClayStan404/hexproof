@@ -11,12 +11,6 @@ import (
 	"hexproof/server/internal/room"
 )
 
-// actionClockTimer is published before its callback can inspect it. The token
-// also prevents a stopped timer from acting on a replacement deadline.
-type actionClockTimer struct {
-	timer *time.Timer
-}
-
 func (h *Handler) observeActionClock(r *room.Room, prioritySeat int) {
 	if r == nil {
 		return
@@ -25,95 +19,69 @@ func (h *Handler) observeActionClock(r *room.Room, prioritySeat int) {
 	if err != nil {
 		return
 	}
-	defer operation.opMu.Unlock()
-	h.observeActionClockLocked(operation.room, prioritySeat)
-}
-
-// observeActionClockLocked requires the caller to own the room operation lock.
-// It returns false when the match has ended, including an expired clock.
-func (h *Handler) observeActionClockLocked(r *room.Room, prioritySeat int) bool {
-	entry := h.hub.roomEntryFor(r.ID)
-	if entry == nil || entry.room != r {
-		return false
-	}
-	entry.mu.Lock()
-	if r.ActionClockSeq() == 0 {
-		entry.mu.Unlock()
-		return true
-	}
-	if h.actionClockInputPaused(r) {
-		prioritySeat = -1
+	operation.mu.Lock()
+	if operation.room.ActionClockSeq() == 0 {
+		operation.mu.Unlock()
+		operation.opMu.Unlock()
+		return
 	}
 	previous := -1
-	if running := r.Snapshot().ActionClockRunning; running != nil {
+	if running := operation.room.Snapshot().ActionClockRunning; running != nil {
 		previous = *running
 	}
-	now := time.Now()
-	expired := r.AdvanceActionClock(now, prioritySeat)
-	deadline := r.ActionClockDeadline(now)
-	seq := r.ActionClockSeq()
+	now := time.Now().UTC()
+	if operation.room.Game != nil && operation.room.Game.Sideboard != nil {
+		prioritySeat = -1
+	}
+	expired := operation.room.AdvanceActionClock(now, prioritySeat)
+	deadline := operation.room.ActionClockDeadline(now)
+	seq := operation.room.ActionClockSeq()
 	current := -1
-	if running := r.Snapshot().ActionClockRunning; running != nil {
+	if running := operation.room.Snapshot().ActionClockRunning; running != nil {
 		current = *running
 	}
 	var broadcast []protocol.Envelope
 	var forfeit room.Result
-	var err error
 	if expired >= 0 {
-		forfeit, err = r.ForfeitActionClock(expired, now)
+		forfeit, err = operation.room.ForfeitActionClock(expired, now)
 	} else if previous != current {
-		broadcast = []protocol.Envelope{r.SnapshotEnvelope()}
+		broadcast = []protocol.Envelope{operation.room.SnapshotEnvelope()}
 	}
-	finished := r.Game != nil && r.Game.Result != nil && r.Game.Result.MatchFinished
-	loserID, winnerWins, loserWins := actionClockScore(r, expired)
-	tournamentID, pairingID := r.TournamentID, r.TournamentPairingID
-	entry.mu.Unlock()
+	loserID, winnerWins, loserWins := actionClockScore(operation.room, expired)
+	operation.mu.Unlock()
+	if err != nil && expired >= 0 {
+		operation.opMu.Unlock()
+		log.Printf("action clock forfeit for room %s: %v", r.ID, err)
+		return
+	}
 	if expired >= 0 {
 		h.cancelActionClock(r.ID)
-		if err != nil {
-			log.Printf("action clock forfeit for room %s: %v", r.ID, err)
-			return !finished
-		}
 		if game, ok := h.forgeGame(r.ID); ok {
 			h.finishForgeGame(r.ID, game, false)
 		}
-		h.fanout(r, forfeit.Broadcast)
+		if forfeit.Reply != nil {
+			h.fanout(r, forfeit.Broadcast)
+		}
 		h.fanoutRulesMetadata(r)
-		// Event operations also acquire room operations when opening a table.
-		// Record the result after releasing this operation rather than reverse
-		// that lock order inside a Forge publication.
-		go h.applyActionClockTimeout(tournamentID, pairingID, loserID, winnerWins, loserWins)
-		return false
+		tournamentID, pairingID := r.TournamentID, r.TournamentPairingID
+		operation.opMu.Unlock()
+		h.applyActionClockTimeout(tournamentID, pairingID, loserID, winnerWins, loserWins)
+		return
 	}
 	if len(broadcast) > 0 {
 		h.fanout(r, broadcast)
 	}
+	operation.opMu.Unlock()
 	h.scheduleActionClock(r.ID, deadline, seq)
-	return !finished
-}
-
-func (h *Handler) pauseActionClock(roomID string) {
-	operation, err := h.hub.lockRoomOperation(roomID)
-	if err != nil {
-		return
-	}
-	defer operation.opMu.Unlock()
-	h.pauseActionClockLocked(operation.room)
-}
-
-func (h *Handler) pauseActionClockLocked(r *room.Room) bool {
-	return h.observeActionClockLocked(r, -1)
 }
 
 func (h *Handler) scheduleActionClock(roomID string, deadline time.Time, seq uint64) {
 	h.actionClockMu.Lock()
-	defer h.actionClockMu.Unlock()
-	if h.actionClockClosed {
-		return
-	}
-	if previous := h.actionClockTimers[roomID]; previous != nil {
-		previous.timer.Stop()
-		delete(h.actionClockTimers, roomID)
+	previous := h.actionClockTimers[roomID]
+	delete(h.actionClockTimers, roomID)
+	h.actionClockMu.Unlock()
+	if previous != nil {
+		previous.Stop()
 	}
 	if deadline.IsZero() {
 		return
@@ -122,66 +90,74 @@ func (h *Handler) scheduleActionClock(roomID string, deadline time.Time, seq uin
 	if delay < 0 {
 		delay = 0
 	}
-	token := &actionClockTimer{}
-	token.timer = time.AfterFunc(delay, func() {
-		h.expireActionClock(roomID, seq, token)
+	var timer *time.Timer
+	timer = time.AfterFunc(delay, func() {
+		h.expireActionClock(roomID, seq, timer)
 	})
-	h.actionClockTimers[roomID] = token
+	h.actionClockMu.Lock()
+	if current := h.actionClockTimers[roomID]; current != nil {
+		current.Stop()
+	}
+	h.actionClockTimers[roomID] = timer
+	h.actionClockMu.Unlock()
 }
 
 func (h *Handler) cancelActionClock(roomID string) {
 	h.actionClockMu.Lock()
-	token := h.actionClockTimers[roomID]
+	timer := h.actionClockTimers[roomID]
 	delete(h.actionClockTimers, roomID)
 	h.actionClockMu.Unlock()
-	if token != nil {
-		token.timer.Stop()
+	if timer != nil {
+		timer.Stop()
 	}
 }
 
-func (h *Handler) cancelAllActionClocks() {
+func (h *Handler) expireActionClock(roomID string, seq uint64, timer *time.Timer) {
 	h.actionClockMu.Lock()
-	defer h.actionClockMu.Unlock()
-	h.actionClockClosed = true
-	for roomID, token := range h.actionClockTimers {
-		token.timer.Stop()
-		delete(h.actionClockTimers, roomID)
-	}
-}
-
-func (h *Handler) expireActionClock(roomID string, seq uint64, token *actionClockTimer) {
-	operation, err := h.hub.lockRoomOperation(roomID)
-	if err != nil {
-		return
-	}
-	defer operation.opMu.Unlock()
-	h.actionClockMu.Lock()
-	if h.actionClockTimers[roomID] != token {
+	if h.actionClockTimers[roomID] != timer {
 		h.actionClockMu.Unlock()
 		return
 	}
 	delete(h.actionClockTimers, roomID)
 	h.actionClockMu.Unlock()
+
+	operation, err := h.hub.lockRoomOperation(roomID)
+	if err != nil {
+		return
+	}
 	operation.mu.Lock()
 	if operation.room.ActionClockSeq() != seq {
 		operation.mu.Unlock()
+		operation.opMu.Unlock()
 		return
 	}
-	now := time.Now()
-	deadline := operation.room.ActionClockDeadline(now)
+	running := operation.room.ActionClockDeadline(time.Now().UTC())
 	seat := -1
-	if running := operation.room.Snapshot().ActionClockRunning; running != nil {
-		seat = *running
+	if clockSeat := operation.room.Snapshot().ActionClockRunning; clockSeat != nil {
+		seat = *clockSeat
 	}
+	if running.After(time.Now()) || seat < 0 {
+		operation.mu.Unlock()
+		operation.opMu.Unlock()
+		return
+	}
+	forfeit, err := operation.room.ForfeitActionClock(seat, time.Now().UTC())
+	loserID, winnerWins, loserWins := actionClockScore(operation.room, seat)
+	tournamentID := operation.room.TournamentID
+	pairingID := operation.room.TournamentPairingID
+	broadcastRoom := operation.room
 	operation.mu.Unlock()
-	if seat < 0 || deadline.IsZero() {
+	if err != nil {
+		operation.opMu.Unlock()
 		return
 	}
-	if deadline.After(now) {
-		h.scheduleActionClock(roomID, deadline, seq)
-		return
+	if game, ok := h.forgeGame(roomID); ok {
+		h.finishForgeGame(roomID, game, false)
 	}
-	h.observeActionClockLocked(operation.room, seat)
+	h.fanout(broadcastRoom, forfeit.Broadcast)
+	h.fanoutRulesMetadata(broadcastRoom)
+	operation.opMu.Unlock()
+	h.applyActionClockTimeout(tournamentID, pairingID, loserID, winnerWins, loserWins)
 }
 
 func actionClockScore(r *room.Room, loserSeat int) (string, int, int) {
@@ -205,10 +181,6 @@ func (h *Handler) applyActionClockTimeout(tournamentID, pairingID, loserID strin
 	}
 	defer entry.opMu.Unlock()
 	entry.mu.Lock()
-	if entry.event.Coordinator != protocol.LimitedCoordinatorSwiss {
-		entry.mu.Unlock()
-		return
-	}
 	err = entry.event.ApplyTimeout(pairingID, loserID, winnerWins, loserWins, time.Now().UTC())
 	entry.mu.Unlock()
 	if err != nil {

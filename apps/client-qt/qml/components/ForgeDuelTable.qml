@@ -4,14 +4,13 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import Hexproof.Native 1.0
 
 Rectangle {
     id: root
     required property var tableController
     readonly property var appWindow: ApplicationWindow.window
-    property alias inspectionDock: inspectionPanel
-    property alias decisionDock: decisionPanel
+    property alias inspectionDock: inspectionDock
+    property alias decisionDock: decisionDock
     property alias gameLogRail: floatingLog
     readonly property bool suppressHoverDuringDecision: false
     readonly property bool cardChoiceActive: cardChoiceDialog.requested
@@ -20,9 +19,8 @@ Rectangle {
     readonly property bool inspectingDecision:
         (cardChoiceActive && cardChoiceDialog.inspectingBattlefield)
         || (damageChoiceActive && damageDialog.inspectingBattlefield)
-    readonly property bool modalOpen: gameMenu.opened || zonePopup.opened || hostingOptions.opened || phaseOverview.opened
+    readonly property bool modalOpen: gameMenu.opened || zonePopup.opened || hostingOptions.opened
         || cardChoiceDialog.visible || damageDialog.visible
-        || tableController.feedbackInteractionOpen === true
     readonly property real unit: Math.min(width / 1600, height / 1000)
     property var playerSeats: []
     readonly property bool multiplayer: playerSeats.length > 2
@@ -35,61 +33,14 @@ Rectangle {
     readonly property var combat: tableController.combatInteraction
     readonly property bool combatAiming: combat.canAct && !!combat.chosenSource
         && combatPointer.hovered && !modalOpen && (!appWindow || appWindow.active)
-    readonly property bool hasVisibleArrows: {
-        if ((combatAimArrow.visible && combatAimArrow.validAnchors)
-            || (stackTargetArrow.visible && stackTargetArrow.validAnchors)) return true
-        for (const repeater of [relationshipArrows, combatArrows, replayArrows]) {
-            for (let index = 0; index < repeater.count; ++index) {
-                const arrow = repeater.itemAt(index) as ForgeArrow
-                if (arrow && arrow.visible && arrow.validAnchors) return true
-            }
-        }
-        return false
-    }
-    // One geometry cache for every relationship, including pointer aiming.
-    // Idle tables do not walk cards, and moving an arrow does not rescan text.
-    property var arrowTextRects: []
-    readonly property var pendingArrowTextRects: collectArrowReadouts()
-    property bool arrowReadoutsDirty: false
-    function collectArrowReadouts() {
-        if (!root.hasVisibleArrows) return []
-        let rects = multiplayerBoard.readoutRects(root)
-        // Preserve the transparent public phase strip without drawing a
-        // relationship through its labels or changing the curve's targets.
-        if (phaseTrack.visible) {
-            const painted = phaseTrack.compactMode ? currentPhase : phaseTrack
-            void phaseTrack.x; void phaseTrack.y; void painted.x; void painted.y
-            void painted.width; void painted.height
-            rects.push(painted.mapToItem(root, 0, 0, painted.width, painted.height))
-        }
-        for (const lane of root.permanentLanes)
-            rects = rects.concat(lane.readoutRects(root))
-        return rects
-    }
-    // Transform notifications can precede their updated scene coordinates.
-    // Keep intermediate changes out of every curve, then read the complete
-    // painted geometry during polish, including immediately requested frames.
-    onPendingArrowTextRectsChanged: {
-        arrowReadoutsDirty = true
-        readoutPolish.request()
-    }
-    FramePolish {
-        id: readoutPolish
-        onReady: {
-            if (root.arrowReadoutsDirty) {
-                root.arrowReadoutsDirty = false
-                root.arrowTextRects = root.collectArrowReadouts()
-            }
-        }
-    }
     readonly property bool commanderFormat: ["duel", "edh"].includes(tableController.roomSession.format)
     readonly property bool commandZoneAvailable: commanderFormat
         || playerSeats.some(seat => tableController.zoneCount(seat, "command") > 0)
     readonly property var browsableZones: commandZoneAvailable
         ? ["library", "graveyard", "exile", "command"] : ["library", "graveyard", "exile"]
     readonly property bool sidePanelOpen: !tableController.sideboarding
-        && inspectionPanel.inspector.pinned
-    readonly property real sidePanelWidth: Math.min(width * 0.4, Math.max(284 * unit, Theme.size(240)))
+        && inspectionDock.inspector.pinned
+    readonly property real sidePanelWidth: Math.min(width * 0.22, Math.max(284 * unit, Theme.size(240)))
     readonly property real boardLeft: 20 * unit
     readonly property real boardRight: width - 24 * unit
         - (sidePanelOpen ? sidePanelWidth + 16 * unit : 0)
@@ -108,15 +59,9 @@ Rectangle {
     readonly property real battlefieldTop: multiplayer ? 12 * unit : opponentZoneTop + zonePileHeight + 6 * unit
     readonly property real battlefieldBottom: handTop - 6 * unit
     readonly property real battlefieldMiddle: (battlefieldTop + battlefieldBottom) / 2
-    // The duel phase/status overlays never subtract space from either field.
-    // Multiplayer retains its original narrow phase seam, sized only for the
-    // readable phase strip rather than an additional status row.
-    readonly property real centerBandHeight: !multiplayer ? 12 * unit
-        : phaseTrackVisible ? Math.max(22 * unit, phaseTrack.height + 4 * unit) : 6 * unit
-    readonly property real ownBattlefieldTop: battlefieldMiddle + centerBandHeight / 2
-    readonly property real laneHeight: (battlefieldBottom - battlefieldTop - centerBandHeight) / 2
+    readonly property real laneHeight: (battlefieldBottom - battlefieldTop - 12 * unit) / 2
     readonly property real landFaceWidth: 108 * unit
-    readonly property real otherFaceWidth: 108 * unit
+    readonly property real otherFaceWidth: 110 * unit
     readonly property string turnOwner: !session.active || session.turn < 1 || session.activeSeat < 0 ? qsTr("Preparing game")
         : session.activeSeat === tableController.localSeat ? qsTr("Your turn")
         : qsTr("%1's turn").arg(tableController.matchUi.playerName(session.activeSeat))
@@ -134,23 +79,7 @@ Rectangle {
     property double actionClockMarked: 0
     property int actionClockTick: 0
     onActionClockBasisChanged: actionClockMarked = Date.now()
-    readonly property int actionClockRunningSeat: tableController.roomSession.actionClockRunning === undefined
-        ? -1 : tableController.roomSession.actionClockRunning
-    onActionClockRunningSeatChanged: actionClockMarked = Date.now()
-    readonly property var actionClockBasis: tableController.roomSession.actionClockEnabled === false
-        ? [] : tableController.roomSession.actionClockMs || []
-    // The center strip is the same public log as the rail. Localize it here so
-    // a phase reads "Begin combat" instead of the engine step id.
-    function recentLogLine(entry) {
-        if (!entry || !entry.text)
-            return ""
-        const seat = entry.seat !== undefined ? Number(entry.seat) : -1
-        const actor = seat >= 0 && tableController.matchUi
-                ? tableController.matchUi.playerName(seat) : ""
-        const resolve = name => tableController.cardDisplayName
-                ? tableController.cardDisplayName(name) : name
-        return I18n.gameLog(String(entry.kind || ""), String(entry.text), resolve, actor)
-    }
+    readonly property var actionClockBasis: tableController.roomSession.actionClockMs || []
     function actionClockText(seat) {
         void actionClockTick
         const basis = actionClockBasis
@@ -159,7 +88,7 @@ Rectangle {
         let remaining = Number(basis[seat])
         if (!Number.isFinite(remaining))
             return ""
-        if (actionClockRunningSeat === seat && actionClockMarked > 0)
+        if (tableController.roomSession.actionClockRunning === seat && actionClockMarked > 0)
             remaining -= Date.now() - actionClockMarked
         remaining = Math.max(0, remaining)
         const total = Math.ceil(remaining / 1000)
@@ -178,8 +107,6 @@ Rectangle {
         : tableController.localSeat < 0 || multiplayer ? turnOwner : qsTr("Opponent's turn")
     readonly property var stackTarget: stackPanel.currentTarget
     readonly property string locatedId: stackTarget && stackTarget.kind === "card" ? stackTarget.objectId : ""
-    readonly property bool stagingMotion: motionOverlay.staging
-    readonly property var opponentChangeIds: motionOverlay.changedIds
     readonly property int locatedSeat: stackTarget && stackTarget.kind === "player" ? stackTarget.seat : -1
     property string displayedGame: ""
     objectName: "forgeDuelTable"
@@ -221,63 +148,6 @@ Rectangle {
         visible: root.multiplayer && !root.tableController.sideboarding
     }
 
-    property bool pinnedHoverGuard: false
-    property point pinnedPointerPosition: Qt.point(0, 0)
-    property var deferredHover: null
-    function preparePinnedInspection() {
-        pinnedPointerPosition = inspectionPointer.point.scenePosition
-        pinnedHoverGuard = true
-        deferredHover = null
-    }
-    function clearPinnedHoverGuard() {
-        pinnedHoverGuard = false
-        deferredHover = null
-    }
-    function pointerMovedSincePin() {
-        const point = inspectionPointer.point.scenePosition
-        return Math.abs(point.x - pinnedPointerPosition.x) > 0.5
-            || Math.abs(point.y - pinnedPointerPosition.y) > 0.5
-    }
-    function acceptCardPreview(cardId, source, keyboardFocus) {
-        if (!pinnedHoverGuard || keyboardFocus === true) return true
-        if (pointerMovedSincePin()) {
-            pinnedHoverGuard = false
-            deferredHover = null
-            return true
-        }
-        // Reserving the inspection column can move another card underneath
-        // a stationary pointer. That enter is layout, not an inspection intent.
-        deferredHover = {cardId:cardId, source:source}
-        return false
-    }
-    function resumePointerInspection() {
-        if (!pinnedHoverGuard || !pointerMovedSincePin()) return
-        pinnedHoverGuard = false
-        const pending = deferredHover
-        deferredHover = null
-        if (!pending || !pending.source || !pending.source.visible
-                || pending.source.pointerPreviewActive === false) return
-        // A child may have received enter before this passive root tracker.
-        // Resume its current hover without requiring a second leave/enter.
-        const scene = inspectionPointer.point.scenePosition
-        const point = pending.source.mapFromItem(null, scene.x, scene.y)
-        if (pending.source.contains(point))
-            tableController.previewCard(pending.cardId, pending.source)
-    }
-    HoverHandler {
-        id: inspectionPointer
-        objectName: "forgeInspectionPointer"
-        blocking: false
-        onPointChanged: root.resumePointerInspection()
-    }
-    Connections {
-        target: inspectionPanel.inspector
-        function onPinnedCardIdChanged() {
-            if (!inspectionPanel.inspector.pinnedCardId.length)
-                root.clearPinnedHoverGuard()
-        }
-    }
-
     HoverHandler {
         id: combatPointer
         objectName: "forgeCombatPointer"
@@ -290,185 +160,21 @@ Rectangle {
             zonePopup.zone = "graveyard"
     }
 
-    // Only the resting controls reserve battlefield space. Longer choices
-    // expand as a hideable overlay without moving permanent rows. Reserving
-    // their maximum height while idle leaves a large empty right-hand corner.
-    readonly property bool reservesDock: !multiplayer
-    readonly property real dockReservedHeight: Math.max(0, Math.min(height - 24 * unit, Theme.size(120)))
-    readonly property real boardDecisionHeight: Math.max(0, Math.min(height - 24 * unit, Theme.size(268)))
-    readonly property rect dockReservation: Qt.rect(decisionPanel.x, height - 12 * unit - dockReservedHeight,
-        decisionPanel.width, dockReservedHeight)
-    // Battlefield decisions retain their readable scrolling budget. The user
-    // can hide the choice while selecting cards under its expanded portion.
-    readonly property bool boardDecision: !decisionPanel.expanded || (!decisionPanel.actionPicker.opened
-        && !decisionPanel.listChoiceShown
-        && ["chooseAction", "payManaCost", "chooseBoardTargets", "chooseAttackers", "chooseBlockers"]
-            .includes(session.promptKind))
-    readonly property bool modelOpponent: ["local", "online"].includes(tableController.roomSession.aiSource || "")
-    readonly property bool modelPaused: modelOpponent && (tableController.roomSession.aiStatus || ({})).state === "paused"
-    readonly property bool modelStatusShown: modelOpponent && !session.gameOver
-        && (!decisionPanel.showsBody || modelPaused)
-    readonly property bool modelRecoveryShown: modelPaused && tableController.roomSession.host && !session.gameOver
-    readonly property bool dockTurnShown: !tableController.sideboarding && !decisionPanel.showsBody
-    readonly property bool decisionCollapsible: decisionPanel.visible
-        && (decisionPanel.collapsed
-            || decisionPanel.expanded && decisionPanel.targetHeight > dockReservedHeight)
-    property Item bottomPlayerPlate: null
-    property Item topPlayerPlate: null
-    readonly property var permanentLanes: [ownCreatures, opponentCreatures, ownLands, opponentLands,
-        ownPlaneswalkers, opponentPlaneswalkers, ownOther, opponentOther]
-    // Preserve the actual holes between controls instead of truncating each
-    // horizontal band at its first obstacle. All rectangles include a margin.
-    readonly property var battlefieldObstacles: {
-        const panels = [settingsButton, matchSummary]
-        if (decisionPanel.visible) panels.push(root.dockReservation)
-        if (!root.multiplayer) panels.push(root.bottomPlayerPlate, root.topPlayerPlate)
-        const rects = [], margin = 12 * root.unit
-        for (const panel of panels) {
-            if (!panel || panel.visible === false || panel.width <= 0 || panel.height <= 0) continue
-            rects.push(Qt.rect(panel.x - margin, panel.y - margin,
-                panel.width + 2 * margin, panel.height + 2 * margin))
-        }
-        return rects
-    }
-    function fieldObstacles(originX, originY) {
-        return root.battlefieldObstacles.map(rect => Qt.rect(rect.x - originX, rect.y - originY,
-            rect.width, rect.height))
-    }
-
-    function unobscuredRight(top, extent, occupiedLeft, occupiedRight) {
+    function unobscuredRight(top, extent) {
         let right = root.boardRight
         // Keep native decision controls clear of cards. The movable stack
         // floats over the battlefield and never reserves a column.
-        const panels = settingsButton.visible ? [settingsButton] : []
-        if (matchSummary.visible) panels.push(matchSummary)
-        // Multiplayer fields keep their width. The dock covers the corner
-        // instead of pushing cards aside.
-        if (decisionPanel.visible && root.reservesDock) panels.push(root.dockReservation)
-        // Reserve both complete player plates, including the permanent life
-        // change gap. Taller translated identities can reach the far support row.
-        if (!root.multiplayer)
-            for (const plate of [root.bottomPlayerPlate, root.topPlayerPlate])
-                if (plate && plate.visible) panels.push(plate)
-        for (const panel of panels) {
-            if (occupiedLeft !== undefined && occupiedRight !== undefined
-                    && (occupiedRight <= panel.x - 12 * root.unit
-                        || occupiedLeft >= panel.x + panel.width + 12 * root.unit))
-                continue
-            if (top < panel.y + panel.height && top + extent > panel.y)
+        for (const panel of [decisionDock, settingsButton]) {
+            if (panel.visible && top < panel.y + panel.height && top + extent > panel.y)
                 right = Math.min(right, panel.x - 12 * root.unit)
         }
         return right
     }
-    function laneWidth(top, laneHeight, occupiedLeft, occupiedRight) {
-        return Math.max(0, unobscuredRight(top, laneHeight,
-            occupiedLeft === undefined ? undefined : root.boardLeft + occupiedLeft,
-            occupiedRight === undefined ? undefined : root.boardLeft + occupiedRight) - root.boardLeft)
-    }
+    function laneWidth(top, laneHeight) { return Math.max(0, unobscuredRight(top, laneHeight) - root.boardLeft) }
 
-    // Overlay avoidance reads painted cards directly, including when no hover
-    // or arrow is active. None of these bounds feed back into field allocation.
-    readonly property var overlayControlRects: {
-        if (!phaseTrackVisible) return []
-        const items = [opponentZoneStrip, ownZoneStrip, settingsButton, matchSummary,
-            errorBanner, decisionPanel, stackPanel, floatingLog, inspectionPanel,
-            opponentDecidingBanner]
-        for (const item of root.children)
-            if ((item as PlayerPlate) || (item as ForgeManaPool)) items.push(item)
-        const rects = []
-        for (const item of items) {
-            if (!item.visible || item.width <= 0 || item.height <= 0) continue
-            void item.x; void item.y
-            rects.push(item.mapToItem(root, 0, 0, item.width, item.height))
-        }
-        return rects
-    }
-    readonly property var overlayCardRects: {
-        if (!recentActions.requested) return []
-        let rects = multiplayerBoard.inspectionRects(root).concat(overlayControlRects)
-        for (const lane of root.permanentLanes)
-            rects = rects.concat(lane.inspectionRects(root))
-        return rects
-    }
-    // Observe every readout dependency without traversing all cards for each
-    // individual geometry notification. Evaluate only when the frame polishes.
-    readonly property var overlayCardReadoutRects: overlayReadoutPolish.value || []
-    FramePolish {
-        id: overlayReadoutPolish
-        expression: root.collectOverlayReadouts()
-    }
-    function collectOverlayReadouts() {
-        if (!turnCallout.visible) return []
-        let rects = multiplayerBoard.readoutRects(root)
-        for (const lane of root.permanentLanes)
-            rects = rects.concat(lane.readoutRects(root))
-        return rects
-    }
-    function clearOverlayTop(left, width, height, preferred, rects, minimumTop = battlefieldTop) {
-        const gap = 2 * unit
-        const relevant = rects.filter(rect => left < rect.x + rect.width + gap
-            && left + width > rect.x - gap)
-        const candidates = [preferred]
-        for (const rect of relevant)
-            candidates.push(rect.y - height - gap, rect.y + rect.height + gap)
-        let best = NaN, distance = Infinity
-        for (const y of new Set(candidates)) {
-            if (y < minimumTop || y + height > battlefieldBottom) continue
-            if (relevant.some(rect => y < rect.y + rect.height + gap
-                && y + height > rect.y - gap)) continue
-            if (y === preferred) return y
-            if (Math.abs(y - preferred) < distance) {
-                best = y
-                distance = Math.abs(y - preferred)
-            }
-        }
-        return best
-    }
-    function clearOverlayLeft(width, top, height, rects) {
-        const gap = 2 * unit
-        const preferred = boardLeft + (boardWidth - width) / 2
-        const relevant = rects.filter(rect => top < rect.y + rect.height + gap
-            && top + height > rect.y - gap)
-        const candidates = [preferred, boardLeft, boardRight - width]
-        for (const rect of relevant)
-            candidates.push(rect.x - width - gap, rect.x + rect.width + gap)
-        let best = NaN, distance = Infinity
-        for (const x of new Set(candidates)) {
-            if (x < boardLeft || x + width > boardRight) continue
-            if (relevant.some(rect => x < rect.x + rect.width + gap
-                && x + width > rect.x - gap)) continue
-            if (x === preferred) return x
-            if (Math.abs(x - preferred) < distance) {
-                best = x
-                distance = Math.abs(x - preferred)
-            }
-        }
-        return best
-    }
-
-    function centralCalloutGeometry(width, textHeight, center) {
-        const left = (root.width - width) / 2
-        const fullHeight = Math.min(textHeight + 36 * unit, root.height - 24 * unit)
-        const fullTop = center - fullHeight / 2
-        const rects = overlayCardReadoutRects
-        const gap = 2 * unit
-        const clear = !rects.some(rect => left < rect.x + rect.width + gap
-            && left + width > rect.x - gap && fullTop < rect.y + rect.height + gap
-            && fullTop + fullHeight > rect.y - gap)
-        if (clear) return Qt.point(fullTop, fullHeight)
-        // Keep the original headline and central composition. Only reduce its
-        // background padding when the restored field seam leaves less space.
-        const height = Math.min(textHeight + 4 * unit, fullHeight)
-        const preferred = center - height / 2
-        const top = clearOverlayTop(left, width, height, preferred, rects, preferred - 12 * unit)
-        return Qt.point(Number.isFinite(top) && Math.abs(top - preferred) <= 12 * unit
-            ? top : preferred, height)
-    }
-
-    function arrivalDelay(id) { return motionOverlay.arrivalDelay(id) }
     function pointFor(id) {
         if (multiplayer) return multiplayerBoard.pointFor(id, root)
-        const lanes = root.permanentLanes
+        const lanes = [ownCreatures, opponentCreatures, ownLands, opponentLands, ownOther, opponentOther]
         for (const lane of lanes) {
             const point = lane.pointFor(id, root)
             if (point.x !== 0) return point
@@ -488,22 +194,10 @@ Rectangle {
     }
     function reveal(id) {
         if (multiplayer) return multiplayerBoard.reveal(id)
-        for (const lane of root.permanentLanes) {
+        for (const lane of [ownCreatures, opponentCreatures, ownLands, opponentLands, ownOther, opponentOther]) {
             if (lane.reveal(id)) return true
         }
         return false
-    }
-    function uncoverRevealedCard(item) {
-        if (!item || !decisionPanel.visible || !decisionPanel.showsBody
-                || decisionPanel.targetHeight <= dockReservedHeight) return
-        const face = item.mapToItem(root, 0, 0, item.width, item.height)
-        if (face.x < decisionPanel.x + decisionPanel.width && face.x + face.width > decisionPanel.x
-                && face.y < decisionPanel.y + decisionPanel.height && face.y + face.height > decisionPanel.y) {
-            // Exact-object navigation and keyboard focus must expose the card
-            // immediately. Hiding preserves the current decision and draft.
-            decisionPanel.collapsed = true
-            decisionPanel.settleHeight()
-        }
     }
     function openZone(seat, zone) {
         zonePopup.ownerSeat = seat
@@ -532,7 +226,6 @@ Rectangle {
                 root.displayedGame = root.session.gameId
                 gameMenu.close()
                 zonePopup.close()
-                phaseOverview.close()
                 stackPanel.clearSelection()
                 stackPanel.resetPosition()
                 stackPanel.collapsed = false
@@ -559,13 +252,13 @@ Rectangle {
     }
     Connections {
         target: root.tableController
-        function onLocalSeatChanged() { zonePopup.close(); phaseOverview.close(); stackPanel.clearSelection(); inspectionPanel.inspector.clear() }
-        function onHandOwnerSeatChanged() { inspectionPanel.inspector.clear() }
+        function onLocalSeatChanged() { zonePopup.close(); stackPanel.clearSelection(); inspectionDock.inspector.clear() }
+        function onHandOwnerSeatChanged() { inspectionDock.inspector.clear() }
         function onRoomConnectedChanged() {
-            if (!root.tableController.roomConnected) { gameMenu.close(); zonePopup.close(); phaseOverview.close() }
+            if (!root.tableController.roomConnected) { gameMenu.close(); zonePopup.close() }
         }
         function onSideboardingChanged() {
-            if (root.tableController.sideboarding) { gameMenu.close(); zonePopup.close(); phaseOverview.close() }
+            if (root.tableController.sideboarding) { gameMenu.close(); zonePopup.close() }
         }
         function onRulesResponsePendingChanged() {
             if (root.tableController.rulesResponsePending) zonePopup.close()
@@ -649,53 +342,13 @@ Rectangle {
         text: qsTr("Settings")
         onClicked: gameMenu.opened ? gameMenu.close() : gameMenu.open()
     }
-    Rectangle {
-        id: matchSummary
-        objectName: "forgeMatchSummary"
-        visible: !root.replayMode && !root.tableController.sideboarding
-            && !root.multiplayer && root.tableController.roomSession.matchMode === "bo3"
-            && root.session.active
-        x: root.width - width - 16 * root.unit
-        y: settingsButton.y + settingsButton.height + 6 * root.unit
-        width: Math.min(root.width * 0.3, matchSummaryLabel.implicitWidth + 20 * root.unit)
-        height: matchSummaryLabel.implicitHeight + 12 * root.unit
-        radius: height / 2
-        z: 85
-        color: Theme.surface
-        border.width: 1
-        border.color: Theme.withAlpha(Theme.primary, 0.25)
-        Text {
-            id: matchSummaryLabel
-            objectName: "forgeMatchSummaryText"
-            anchors.fill: parent
-            anchors.leftMargin: 10 * root.unit
-            anchors.rightMargin: 10 * root.unit
-            textFormat: Text.PlainText
-            text: qsTranslate("RulesTableActionRail", "Game %1 · %2")
-                .arg(root.tableController.gameSession.gameNumber)
-                .arg(root.tableController.matchUi.scoreSummary())
-            color: Theme.textSecondary
-            font.pixelSize: 11 * root.unit
-            font.weight: Font.DemiBold
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-        }
-    }
     InfoBanner {
-        id: errorBanner
         objectName: "rulesErrorBanner"
         x: 20 * root.unit
         y: 3 * root.unit
         width: 300 * root.unit
-        z: 85
+        z: 40
         message: root.replayMode ? "" : I18n.status(root.tableController.wsModel.lastError || "")
-        Rectangle {
-            anchors.fill: parent
-            z: -1
-            radius: Theme.useGlass ? Theme.radiusLarge : Theme.radiusMedium
-            color: Theme.surface
-        }
     }
     component PlayerPlate: Item {
         id: plate
@@ -711,26 +364,9 @@ Rectangle {
             ? qsTr("Forge AI · %1").arg(I18n.aiDifficultyLabel(roomSeat.aiDifficulty))
             : roomSeat.controller === "modelAi" ? I18n.aiSourceLabel(root.tableController.roomSession.aiSource) : name
         readonly property bool isBottom: seat === root.bottomSeat
-        onIsBottomChanged: {
-            if (isBottom) root.bottomPlayerPlate = plate
-            else if (root.bottomPlayerPlate === plate) root.bottomPlayerPlate = null
-            if (!isBottom) root.topPlayerPlate = plate
-            else if (root.topPlayerPlate === plate) root.topPlayerPlate = null
-        }
-        Component.onCompleted: {
-            if (isBottom) root.bottomPlayerPlate = plate
-            else root.topPlayerPlate = plate
-        }
-        Component.onDestruction: {
-            if (root.bottomPlayerPlate === plate) root.bottomPlayerPlate = null
-            if (root.topPlayerPlate === plate) root.topPlayerPlate = null
-        }
         readonly property bool activeTurn: root.session.activeSeat === seat && root.session.active && root.session.turn > 0
-        readonly property bool offered: root.tableController.combatInteraction.active
-            ? root.tableController.combatInteraction.seatOffered(seat) : root.tableController.interaction.seatOffered(seat)
-        readonly property bool actionable: offered && (root.tableController.combatInteraction.active
-            ? root.tableController.combatInteraction.canAct : root.tableController.interaction.canRespond)
-        readonly property bool waiting: offered && root.tableController.interaction.waitingForResponse
+        readonly property bool actionable: root.tableController.combatInteraction.active
+            ? root.tableController.combatInteraction.seatActionable(seat) : root.tableController.interaction.seatActionable(seat)
         readonly property bool selected: root.locatedSeat === seat || (root.tableController.combatInteraction.active
             ? root.tableController.combatInteraction.seatSelected(seat) : root.tableController.interaction.seatSelected(seat))
         readonly property bool combatHovered: root.combat.hoveredTarget
@@ -741,33 +377,17 @@ Rectangle {
         readonly property real discSize: 52 * root.unit
         readonly property real lifeCenterY: lifeDisc.y + lifeDisc.height / 2
         objectName: "rulesPlayerTarget" + seat
-        readonly property real restingX: root.replayMode ? root.boardRight - root.replayInfoWidth + 20 * root.unit
+        x: root.replayMode ? root.boardRight - root.replayInfoWidth + 20 * root.unit
             : root.centerLeft + (root.centerWidth - width) / 2
-        readonly property real restingY: isBottom
-            ? root.handTop - identity.height - lifeReadout.deltaClearance - discSize + 4 * root.unit
-            : 4 * root.unit
-        readonly property bool avoidsDecision: isBottom && !root.replayMode && decisionPanel.visible
-            && restingX < decisionPanel.x + decisionPanel.width && restingX + width > decisionPanel.x
-            && restingY < decisionPanel.y + decisionPanel.height && restingY + height > decisionPanel.y
-        readonly property bool fitsAboveDecision: decisionPanel.y - height - 12 * root.unit >= root.ownBattlefieldTop
-        x: avoidsDecision && !fitsAboveDecision
-            ? Math.max(root.boardLeft, decisionPanel.x - width - 12 * root.unit) : restingX
-        // The near name sits above the life disc. The disc crosses the hand
-        // edge normally; an open inspector can move the decision dock across
-        // that position. Keep the complete plate above or beside that dock.
-        y: avoidsDecision && fitsAboveDecision ? decisionPanel.y - height - 12 * root.unit : restingY
+        y: root.replayMode ? (isBottom ? root.handTop : 4 * root.unit)
+            : isBottom ? root.handTop - discSize * 0.58 : 4 * root.unit
         width: 168 * root.unit
-        // The identity can gain an action-clock row. Keep a permanent gap for
-        // the life change's full rise below every public identity row.
-        height: identity.height + lifeReadout.deltaClearance + discSize + (isBottom ? 2 : 0) * root.unit
-        z: 85
+        height: discSize + 30 * root.unit
+        z: 35
         visible: !root.tableController.sideboarding
         activeFocusOnTab: actionable || activeFocus
         function activate() {
-            if (!actionable) {
-                if (waiting) root.tableController.interaction.responseBlocked("player", "" + seat)
-                return
-            }
+            if (!actionable) return
             if (root.tableController.combatInteraction.active) root.tableController.combatInteraction.activateSeat(seat)
             else root.tableController.interaction.activateSeat(seat)
         }
@@ -776,19 +396,9 @@ Rectangle {
         Accessible.role: Accessible.Button
         Accessible.name: displayName + ", " + qsTr("Life %1").arg(life)
         Accessible.onPressAction: activate()
-        Rectangle {
-            objectName: "forgePlayerIdentityBackdrop-" + plate.seat
-            x: identity.x - 4 * root.unit
-            y: identity.y - 2 * root.unit
-            width: identity.width + 8 * root.unit
-            height: identity.height + 4 * root.unit
-            radius: 4 * root.unit
-            color: Theme.surface
-        }
         Column {
-            id: identity
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 0
+            y: plate.isBottom ? plate.discSize + 2 * root.unit : 0
             width: parent.width
             spacing: 1 * root.unit
             Text {
@@ -848,28 +458,28 @@ Rectangle {
         }
         Rectangle {
             id: lifeDisc
-            objectName: "forgeLifeDisc-" + plate.seat
             width: plate.discSize
             height: width
             radius: width / 2
             anchors.horizontalCenter: parent.horizontalCenter
-            y: identity.height + lifeReadout.deltaClearance
+            y: plate.isBottom ? 0 : parent.height - height
             antialiasing: true
-            color: Theme.withAlpha(Theme.surface, plate.selected || plate.offered ? 0.88 : 0.62)
+            color: Theme.withAlpha(Theme.surface, plate.selected || plate.actionable ? 0.88 : 0.62)
             border.width: plate.combatHovered || plate.underAttack ? 4
-                          : plate.selected || plate.activeFocus || plate.offered || plate.activeTurn ? 2 : 0
+                          : plate.selected || plate.activeFocus || plate.actionable || plate.activeTurn ? 2 : 0
             border.color: plate.underAttack ? "#d4654f"
                           : plate.combatHovered ? Theme.primary : plate.selected || plate.activeFocus ? Theme.accent
-                          : plate.offered ? Theme.withAlpha(Theme.primary, plate.waiting ? 0.5 : 1) : Theme.warning
-            ForgeLifeReadout {
-                id: lifeReadout
-                anchors.fill: parent
-                life: plate.life
-                seat: plate.seat
-                unit: root.unit
+                          : plate.actionable ? Theme.primary : Theme.warning
+            Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                text: plate.life
+                color: Theme.accent
+                font.pixelSize: 22 * root.unit
+                font.weight: Font.DemiBold
             }
         }
-        TapHandler { enabled: plate.offered; onTapped: plate.activate() }
+        TapHandler { enabled: plate.actionable; onTapped: plate.activate() }
         HoverHandler {
             enabled: root.combat.canAct && plate.actionable
             cursorShape: plate.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
@@ -890,241 +500,71 @@ Rectangle {
         model: root.multiplayer ? null : root.session.players
         delegate: PlayerPlate {}
     }
-    Item {
+    Row {
         id: phaseTrack
         objectName: "forgePhaseTrack"
-        // Probe the maximum two-line strip independently of its actual height,
-        // so choosing the compact mode cannot feed back into its own width.
-        // Wide tables retain the original single-line phase-strip density.
-        readonly property real twoLineHeight: Math.max(18 * root.unit,
-            Math.ceil(phaseMetrics.height) * 2 + Theme.size(4))
-        readonly property real probeTop: opponentDecidingBanner.visible
-            ? Math.min(opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
-                       root.battlefieldBottom - twoLineHeight)
-            : root.battlefieldMiddle - twoLineHeight / 2
+        // Multiplayer fields reserve this strip only while it is visible.
+        // In 1v1 it overlays the lanes and drops below the deciding banner.
         x: root.boardLeft
-        readonly property real preferredTop: opponentDecidingBanner.visible
-            ? Math.min(opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
-                       root.battlefieldBottom - height)
-            : root.battlefieldMiddle - height / 2
-        readonly property bool narrowDisclosure: compactMode
-        readonly property real disclosureWidth: Math.min(width,
-            Math.max(...steps.map(step => labelWidth(step))) + Theme.size(20))
-        readonly property point disclosurePlacement: Qt.point(
-            x + (width - disclosureWidth) / 2, preferredTop)
-        // Match the public overlay anchor. Cards and status changes never
-        // push this strip into a separately allocated row or a free pocket.
-        y: preferredTop
-        width: root.laneWidth(probeTop, twoLineHeight)
-        height: compactMode ? twoLineHeight
-            : Math.max(18 * root.unit, Math.ceil(phaseMetrics.height) + Theme.size(4))
+        y: {
+            const centered = root.battlefieldMiddle - height / 2
+            if (!opponentDecidingBanner.visible)
+                return centered
+            return Math.min(opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
+                             root.battlefieldBottom - height)
+        }
+        width: root.laneWidth(y, height)
+        height: 18 * root.unit
         z: 45
+        spacing: 2 * root.unit
+        enabled: false
         visible: root.phaseTrackVisible
-        onVisibleChanged: if (!visible) phaseOverview.close()
-        readonly property real gap: 2 * root.unit
         readonly property var steps: [
             "untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers",
             "declare_blockers", "combat_damage", "end_combat", "main2", "end", "cleanup"
         ]
-        readonly property bool compactMode: width < Math.max(...steps.map(step => labelWidth(step))) * steps.length
-            + gap * (steps.length - 1)
-        function labelWidth(step) {
-            void phaseMetrics.font.pixelSize
-            return Math.ceil(phaseMetrics.advanceWidth(I18n.gamePhaseLabel(step))) + Theme.size(12)
-        }
-        FontMetrics {
-            id: phaseMetrics
-            font.pixelSize: Theme.fontSize(11)
-            font.weight: Font.DemiBold
-        }
-        Row {
-            anchors.fill: parent
-            spacing: phaseTrack.gap
-            visible: !phaseTrack.compactMode
-            enabled: false
-            Repeater {
-                model: phaseTrack.steps
-                delegate: Rectangle {
-                    required property string modelData
-                    required property int index
-                    objectName: "forgePhase-" + modelData
-                    readonly property bool current: root.session.step === modelData
-                    readonly property bool past: phaseTrack.steps.indexOf(root.session.step) > index
-                    width: Math.max(0, (phaseTrack.width - phaseTrack.gap * 11) / 12)
-                    height: phaseTrack.height
-                    radius: 3 * root.unit
-                    color: current ? Theme.accent : past ? Theme.withAlpha(Theme.accent, 0.28) : Theme.withAlpha("#101820", 0.55)
-                    Text {
-                        objectName: "forgePhaseLabel-" + modelData
-                        anchors.fill: parent
-                        anchors.margins: 1
-                        textFormat: Text.PlainText
-                        text: I18n.gamePhaseLabel(modelData)
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        color: current ? Theme.primaryInk : Theme.text
-                        font: phaseMetrics.font
-                    }
-                }
+        function shortLabel(step) {
+            switch (step) {
+            case "untap": return qsTr("Untap")
+            case "upkeep": return qsTr("Upkeep")
+            case "draw": return qsTr("Draw")
+            case "main1": return qsTr("Main")
+            case "begin_combat": return qsTr("Combat")
+            case "declare_attackers": return qsTr("Attack")
+            case "declare_blockers": return qsTr("Block")
+            case "combat_damage": return qsTr("Damage")
+            case "end_combat": return qsTr("Combat end")
+            case "main2": return qsTr("Main")
+            case "end": return qsTr("End")
+            case "cleanup": return qsTr("Cleanup")
+            default: return step
             }
         }
-        Button {
-            id: currentPhase
-            objectName: "forgeCurrentPhase"
-            x: phaseTrack.narrowDisclosure ? phaseTrack.disclosurePlacement.x - phaseTrack.x : 0
-            width: phaseTrack.narrowDisclosure ? phaseTrack.disclosureWidth : phaseTrack.width
-            height: phaseTrack.height
-            visible: phaseTrack.compactMode
-            padding: Theme.size(2)
-            focusPolicy: Qt.StrongFocus
-            hoverEnabled: true
-            Accessible.name: qsTranslate("RulesTableActionRail", "Phases") + ": "
-                + root.tableController.stepLabel(root.session.step)
-            ToolTip.text: root.tableController.stepLabel(root.session.step)
-            ToolTip.visible: hovered && !phaseOverview.visible
-            ToolTip.delay: 400
-            onClicked: phaseOverview.open()
-            Keys.onReturnPressed: phaseOverview.open()
-            Keys.onEnterPressed: phaseOverview.open()
-            background: Rectangle {
+        Repeater {
+            model: phaseTrack.steps
+            delegate: Rectangle {
+                required property string modelData
+                required property int index
+                objectName: "forgePhase-" + modelData
+                readonly property bool current: root.session.step === modelData
+                readonly property bool past: phaseTrack.steps.indexOf(root.session.step) > index
+                width: Math.max(0, (phaseTrack.width - phaseTrack.spacing * 11) / 12)
+                height: phaseTrack.height
                 radius: 3 * root.unit
-                color: Theme.accent
-                border.width: currentPhase.activeFocus ? 2 : 0
-                border.color: Theme.text
-            }
-            contentItem: Item {
+                color: current ? Theme.accent : past ? Theme.withAlpha(Theme.accent, 0.28) : Theme.withAlpha("#101820", 0.55)
                 Text {
-                    id: currentPhaseLabel
-                    objectName: "forgeCurrentPhaseLabel"
                     anchors.fill: parent
-                    anchors.rightMargin: Theme.size(16)
-                    text: I18n.gamePhaseLabel(root.session.step)
+                    anchors.margins: 1
                     textFormat: Text.PlainText
-                    color: Theme.primaryInk
-                    font: phaseMetrics.font
+                    text: phaseTrack.shortLabel(modelData)
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    wrapMode: Text.Wrap
-                }
-                Text {
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "▾"
-                    textFormat: Text.PlainText
-                    color: Theme.primaryInk
-                    font.pixelSize: Theme.fontSize(12)
+                    elide: Text.ElideRight
+                    color: current ? Theme.primaryInk : Theme.text
+                    font.pixelSize: 8 * root.unit
+                    font.weight: current ? Font.Bold : Font.Normal
                 }
             }
-        }
-    }
-    AppPopup {
-        id: phaseOverview
-        objectName: "forgePhaseOverview"
-        width: Math.min(Theme.size(360), root.width - Theme.size(24))
-        height: Math.min(phaseOverviewContent.implicitHeight + padding * 2, root.height - Theme.size(24))
-        padding: Theme.size(12)
-        onOpened: phaseList.positionViewAtIndex(phaseList.currentIndex, ListView.Contain)
-        contentItem: ColumnLayout {
-            id: phaseOverviewContent
-            spacing: Theme.size(8)
-            AppPopupHeader {
-                titleText: qsTranslate("RulesTableActionRail", "Phases")
-                showClose: true
-                closeObjectName: "forgePhaseOverviewClose"
-                onCloseRequested: phaseOverview.close()
-            }
-            ListView {
-                id: phaseList
-                objectName: "forgePhaseOverviewList"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                implicitHeight: contentHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                model: phaseTrack.steps
-                currentIndex: phaseTrack.steps.indexOf(root.session.step)
-                onCurrentIndexChanged: if (phaseOverview.opened) positionViewAtIndex(currentIndex, ListView.Contain)
-                ScrollBar.vertical: AppScrollBar {}
-                delegate: Rectangle {
-                    required property string modelData
-                    required property int index
-                    width: phaseList.width
-                    height: Math.max(Theme.size(30), phaseFullLabel.implicitHeight + Theme.size(8))
-                    radius: Theme.radiusSmall
-                    color: index === phaseList.currentIndex ? Theme.accent
-                        : index < phaseList.currentIndex ? Theme.withAlpha(Theme.accent, 0.18) : "transparent"
-                    Text {
-                        id: phaseFullLabel
-                        objectName: "forgePhaseOverviewLabel-" + modelData
-                        anchors.fill: parent
-                        anchors.margins: Theme.size(4)
-                        text: root.tableController.stepLabel(modelData)
-                        textFormat: Text.PlainText
-                        color: index === phaseList.currentIndex ? Theme.primaryInk : Theme.text
-                        font: phaseMetrics.font
-                        wrapMode: Text.WordWrap
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-        }
-    }
-    FontMetrics { id: recentActionMetrics; font: actionLabel.font }
-    Rectangle {
-        id: recentActions
-        objectName: "forgeRecentActions"
-        readonly property var logEntries: root.tableController.tableGameLog || []
-        readonly property string actionText: {
-            const log = logEntries
-            if (!log.length)
-                return ""
-            const textOf = entry => root.recentLogLine(entry)
-            const latest = textOf(log[log.length - 1])
-            const previous = log.length > 1 ? textOf(log[log.length - 2]) : ""
-            if (previous && latest && previous !== latest)
-                return previous + "   ·   " + latest
-            return latest || previous
-        }
-        readonly property bool requested: actionText.length > 0 && root.phaseTrackVisible
-            && !root.modalOpen && !root.tableController.showGameLogRail && !opponentDecidingBanner.visible
-        readonly property var placement: {
-            if (!requested) return null
-            const painted = phaseTrack.compactMode ? currentPhase : phaseTrack
-            const phase = painted.mapToItem(root, 0, 0, painted.width, painted.height)
-            const rects = root.overlayCardRects.concat([phase])
-            const gap = 8 * root.unit
-            for (const top of [phase.y + phase.height + gap, phase.y - height - gap]) {
-                if (top < root.battlefieldTop || top + height > root.battlefieldBottom) continue
-                const left = root.clearOverlayLeft(width, top, height, rects)
-                if (Number.isFinite(left)) return Qt.point(left, top)
-            }
-            return null
-        }
-        x: placement ? placement.x : root.boardLeft
-        y: placement ? placement.y : phaseTrack.y + phaseTrack.height + 8 * root.unit
-        z: 85
-        width: Math.min(root.boardWidth * 0.72, actionLabel.implicitWidth + 20 * root.unit)
-        height: recentActionMetrics.height + 8 * root.unit
-        radius: height / 2
-        color: Theme.surface
-        border.width: 1
-        border.color: Theme.borderStrong
-        visible: requested && placement !== null
-        Text {
-            id: actionLabel
-            objectName: "forgeRecentActionText"
-            anchors.centerIn: parent
-            width: Math.min(implicitWidth, root.boardWidth * 0.72 - 20 * root.unit)
-            textFormat: Text.PlainText
-            text: recentActions.actionText
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(12)
-            elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
-        }
-        MouseArea {
-            anchors.fill: parent
-            onClicked: root.tableController.setGameLogVisible(true)
         }
     }
     Item {
@@ -1140,7 +580,7 @@ Rectangle {
         Rectangle {
             anchors.fill: parent
             radius: 8 * root.unit
-            color: Theme.surface
+            color: Theme.withAlpha("#101820", 0.82)
             border.width: 1
             border.color: "#d4654f"
         }
@@ -1176,33 +616,20 @@ Rectangle {
     Item {
         id: turnCallout
         objectName: "forgeTurnCallout"
+        anchors.centerIn: parent
         z: 100
         enabled: false
         opacity: 0
         visible: opacity > 0 && !root.modalOpen
-        clip: true
-        anchors.horizontalCenter: parent.horizontalCenter
-        // The full-width near field in a three-seat game has its own seam.
-        readonly property real preferredCenter: root.multiplayer && root.playerSeats.length === 3
-            ? root.battlefieldMiddle : root.height / 2
-        readonly property point placement: root.centralCalloutGeometry(width,
-            calloutLabel.implicitHeight, preferredCenter)
-        y: placement.x
         width: Math.min(root.width * 0.72, calloutLabel.implicitWidth + 72 * root.unit)
-        height: placement.y
+        height: calloutLabel.implicitHeight + 36 * root.unit
         property string message: ""
         property string shownGame: ""
         property int shownSeat: -1
         function present(message) {
             fade.stop()
-            fadeIn.stop()
             turnCallout.message = message
-            if (Theme.motionEnabled && !Theme.motionSnap) {
-                turnCallout.opacity = 0
-                fadeIn.start()
-            } else {
-                turnCallout.opacity = 1
-            }
+            turnCallout.opacity = 1
             hold.restart()
         }
         Rectangle {
@@ -1231,13 +658,6 @@ Rectangle {
             onTriggered: fade.start()
         }
         NumberAnimation {
-            id: fadeIn
-            target: turnCallout
-            property: "opacity"
-            to: 1
-            duration: Theme.motionFast
-        }
-        NumberAnimation {
             id: fade
             target: turnCallout
             property: "opacity"
@@ -1248,18 +668,14 @@ Rectangle {
     ForgeFieldLayout {
         id: opponentFieldLayout
         width: root.boardWidth; height: root.laneHeight; unit: root.unit; nearSide: false
-        preferCenteredRows: true
         creatureLane: opponentCreatures; landLane: opponentLands; otherLane: opponentOther
-        planeswalkerLane: opponentPlaneswalkers
-        obstacles: root.fieldObstacles(root.boardLeft, root.battlefieldTop)
+        widthForBand: (top, extent) => root.laneWidth(root.battlefieldTop + top, extent)
     }
     ForgeFieldLayout {
         id: ownFieldLayout
         width: root.boardWidth; height: root.laneHeight; unit: root.unit; nearSide: true
-        preferCenteredRows: true
         creatureLane: ownCreatures; landLane: ownLands; otherLane: ownOther
-        planeswalkerLane: ownPlaneswalkers
-        obstacles: root.fieldObstacles(root.boardLeft, root.ownBattlefieldTop)
+        widthForBand: (top, extent) => root.laneWidth(root.battlefieldMiddle + 6 * root.unit + top, extent)
     }
     ForgeCardLane {
         id: opponentLands
@@ -1278,24 +694,6 @@ Rectangle {
         visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
-        id: opponentPlaneswalkers
-        objectName: "forgeOpponentPlaneswalkers"
-        x: root.boardLeft + opponentFieldLayout.placement.planeswalkers.x
-        y: root.battlefieldTop + opponentFieldLayout.placement.planeswalkers.y
-        width: opponentFieldLayout.placement.planeswalkers.width
-        height: opponentFieldLayout.placement.planeswalkers.height
-        tableController: root.tableController
-        unit: root.unit
-        ownerSeat: root.multiplayer ? -1 : root.topSeat
-        category: "planeswalker"
-        showCaption: false
-        maxFaceWidth: root.otherFaceWidth
-        alignRight: true
-        alignBottom: true
-        locatedId: root.locatedId
-        visible: !root.multiplayer && !root.tableController.sideboarding
-    }
-    ForgeCardLane {
         id: opponentOther
         objectName: "forgeOpponentOther"
         x: root.boardLeft + opponentFieldLayout.placement.others.x
@@ -1306,7 +704,6 @@ Rectangle {
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.topSeat
         category: "other"
-        alignRight: true
         showCaption: false
         maxFaceWidth: root.otherFaceWidth
         locatedId: root.locatedId
@@ -1333,7 +730,7 @@ Rectangle {
         id: ownCreatures
         objectName: "forgeOwnCreatures"
         x: root.boardLeft + ownFieldLayout.placement.creatures.x
-        y: root.ownBattlefieldTop + ownFieldLayout.placement.creatures.y
+        y: root.battlefieldMiddle + 6 * root.unit + ownFieldLayout.placement.creatures.y
         width: ownFieldLayout.placement.creatures.width
         height: ownFieldLayout.placement.creatures.height
         tableController: root.tableController
@@ -1346,35 +743,16 @@ Rectangle {
         visible: !root.multiplayer && !root.tableController.sideboarding
     }
     ForgeCardLane {
-        id: ownPlaneswalkers
-        objectName: "forgeOwnPlaneswalkers"
-        x: root.boardLeft + ownFieldLayout.placement.planeswalkers.x
-        y: root.ownBattlefieldTop + ownFieldLayout.placement.planeswalkers.y
-        width: ownFieldLayout.placement.planeswalkers.width
-        height: ownFieldLayout.placement.planeswalkers.height
-        tableController: root.tableController
-        unit: root.unit
-        ownerSeat: root.multiplayer ? -1 : root.bottomSeat
-        category: "planeswalker"
-        showCaption: false
-        maxFaceWidth: root.otherFaceWidth
-        alignRight: true
-        alignBottom: false
-        locatedId: root.locatedId
-        visible: !root.multiplayer && !root.tableController.sideboarding
-    }
-    ForgeCardLane {
         id: ownOther
         objectName: "forgeOwnOther"
         x: root.boardLeft + ownFieldLayout.placement.others.x
-        y: root.ownBattlefieldTop + ownFieldLayout.placement.others.y
+        y: root.battlefieldMiddle + 6 * root.unit + ownFieldLayout.placement.others.y
         width: ownFieldLayout.placement.others.width
         height: ownFieldLayout.placement.others.height
         tableController: root.tableController
         unit: root.unit
         ownerSeat: root.multiplayer ? -1 : root.bottomSeat
         category: "other"
-        alignRight: true
         showCaption: false
         alignBottom: true
         maxFaceWidth: root.otherFaceWidth
@@ -1385,7 +763,7 @@ Rectangle {
         id: ownLands
         objectName: "forgeOwnLands"
         x: root.boardLeft + ownFieldLayout.placement.lands.x
-        y: root.ownBattlefieldTop + ownFieldLayout.placement.lands.y
+        y: root.battlefieldMiddle + 6 * root.unit + ownFieldLayout.placement.lands.y
         width: ownFieldLayout.placement.lands.width
         height: ownFieldLayout.placement.lands.height
         tableController: root.tableController
@@ -1401,7 +779,7 @@ Rectangle {
     DropArea {
         objectName: "forgeHandDropArea"
         x: root.boardLeft
-        y: root.ownBattlefieldTop
+        y: root.battlefieldMiddle + 6 * root.unit
         width: root.boardWidth
         height: Math.max(0, root.battlefieldBottom - ownCreatures.y)
         enabled: !root.multiplayer && !root.tableController.sideboarding && root.tableController.localSeat >= 0
@@ -1412,7 +790,6 @@ Rectangle {
         }
     }
     Repeater {
-        id: relationshipArrows
         model: root.session.battlefieldRelationships || []
         delegate: ForgeArrow {
             required property var modelData
@@ -1420,7 +797,6 @@ Rectangle {
             anchors.fill: parent
             z: 60
             unit: root.unit
-            excludedRects: root.arrowTextRects
             dashed: false
             lineColor: modelData.kind === "attack" ? "#d4654f" : "#7ebcca"
             visible: !root.tableController.sideboarding && !root.modalOpen
@@ -1432,7 +808,6 @@ Rectangle {
         }
     }
     Repeater {
-        id: combatArrows
         model: root.tableController.combatInteraction.links
         delegate: ForgeArrow {
             required property var modelData
@@ -1440,7 +815,6 @@ Rectangle {
             anchors.fill: parent
             z: 70
             unit: root.unit
-            excludedRects: root.arrowTextRects
             opacity: root.combat.chosenSource && root.combat.chosenSource.objectId === modelData.from ? 0.25 : 1
             lineColor: root.tableController.combatInteraction.attacking ? "#e1bd7f" : "#7ebcca"
             startPoint: {
@@ -1459,7 +833,6 @@ Rectangle {
         anchors.fill: parent
         z: 80
         unit: root.unit
-        excludedRects: root.arrowTextRects
         preview: true
         visible: root.combatAiming && startPoint.x !== 0
         readonly property var target: root.combat.hoveredTarget
@@ -1478,58 +851,36 @@ Rectangle {
         }
     }
     ForgeHand {
-        id: hand
         objectName: "forgeHand"
         showCount: !root.multiplayer
         x: root.handLeft
-        y: root.handTop
+        y: root.handTop - (root.localPriority ? 18 * root.unit : 0)
         z: 30
-        width: Math.max(0, (root.replayMode ? root.boardRight - root.replayInfoWidth : decisionPanel.x) - x - 20 * root.unit)
+        width: Math.max(0, (root.replayMode ? root.boardRight - root.replayInfoWidth : decisionDock.x) - x - 20 * root.unit)
         height: root.handBandHeight - 4 * root.unit
         tableController: root.tableController
         unit: root.unit
         visible: !root.tableController.sideboarding
     }
-    Rectangle {
-        objectName: "forgeHandPriorityGlow"
-        x: root.handLeft
-        y: root.handTop - 14 * root.unit
-        z: 29
-        width: Math.max(0, decisionPanel.x - x - 20 * root.unit)
-        height: 18 * root.unit
-        visible: opacity > 0 && !root.replayMode && !root.tableController.sideboarding
-        opacity: root.localPriority ? 1 : 0
-        gradient: Gradient {
-            GradientStop { position: 0; color: "transparent" }
-            GradientStop { position: 1; color: Theme.withAlpha(Theme.primary, 0.5) }
-        }
-        Behavior on opacity { enabled: Theme.motionEnabled; NumberAnimation { duration: Theme.motionFast } }
-    }
-    // Live tables never show it, so they do not build its cards.
-    Loader {
-        id: replayHand
-        active: root.replayMode
+    ForgeHand {
+        objectName: "forgeReplayOpponentHand"
+        visible: root.replayMode
         x: root.handLeft
         y: 24 * root.unit
         width: Math.max(0, root.boardRight - root.replayInfoWidth - x - 20 * root.unit)
         height: root.handBandHeight - 20 * root.unit
+        tableController: root.tableController
+        ownerSeat: root.topSeat
+        unit: root.unit
         z: 30
-        sourceComponent: ForgeHand {
-            objectName: "forgeReplayOpponentHand"
-            tableController: root.tableController
-            ownerSeat: root.topSeat
-            unit: root.unit
-        }
     }
     Repeater {
-        id: replayArrows
         model: root.replayMode ? root.tableController.replayFrame.combat || [] : []
         delegate: ForgeArrow {
             required property var modelData
             anchors.fill: parent
             z: 55
             unit: root.unit
-            excludedRects: root.arrowTextRects
             startPoint: root.pointFor(modelData.sourceId)
             endPoint: modelData.targetSeat !== undefined
                 ? root.playerPoint(modelData.targetSeat) : root.pointFor(modelData.targetId)
@@ -1618,13 +969,6 @@ Rectangle {
         y: (parent.height - height) / 2
         modal: true; focus: true
         padding: 0
-        transformOrigin: Item.Center
-        readonly property int dialogMotion: Theme.motionEnabled && !Theme.motionSnap ? Theme.motionFast : 0
-        // No exit transition: a closing modal popup would swallow clicks.
-        enter: Transition {
-            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: zonePopup.dialogMotion; easing.type: Easing.OutCubic }
-            NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: zonePopup.dialogMotion; easing.type: Easing.OutCubic }
-        }
         background: Rectangle {
             radius: 14 * root.unit
             antialiasing: true
@@ -1729,49 +1073,13 @@ Rectangle {
         }
     }
     RulesDecisionDock {
-        id: decisionPanel
+        id: decisionDock
         x: root.width - width - 16 * root.unit
            - (root.sidePanelOpen ? root.sidePanelWidth + 16 * root.unit : 0)
         y: root.height - height - 12 * root.unit
         width: root.multiplayer ? Math.min(root.width * 0.3, Math.max(330 * root.unit, Theme.size(280)))
             : Math.min(root.width * 0.42, Math.max(420 * root.unit, Theme.size(340)))
-        readonly property real targetHeight: Math.min(implicitHeight, root.boardDecision
-            ? root.boardDecisionHeight : root.height - 24 * root.unit)
-        Component.onCompleted: settleHeight()
-        function settleHeight() {
-            dockHeightAnim.stop()
-            height = targetHeight
-        }
-        // New decisions must expose their enabled controls immediately. Only
-        // contraction glides; animating growth clips live choices mid-flight.
-        onTargetHeightChanged: {
-            if (targetHeight >= height || dockResizeHold.running || !visible
-                    || !Theme.motionEnabled || Theme.motionSnap) {
-                settleHeight()
-                return
-            }
-            dockHeightAnim.stop()
-            dockHeightAnim.from = height
-            dockHeightAnim.to = targetHeight
-            dockHeightAnim.start()
-        }
-        NumberAnimation {
-            id: dockHeightAnim
-            target: decisionPanel
-            property: "height"
-            duration: Theme.motionNormal
-            easing.type: Easing.OutCubic
-        }
-        Timer { id: dockResizeHold; interval: 250 }
-        Connections {
-            target: root
-            function onWidthChanged() { dockResizeHold.restart(); decisionPanel.settleHeight() }
-            function onHeightChanged() { dockResizeHold.restart(); decisionPanel.settleHeight() }
-        }
-        Connections {
-            target: Theme
-            function onMotionEpochChanged() { decisionPanel.settleHeight() }
-        }
+        height: Math.min(implicitHeight, root.height - 24 * root.unit)
         z: 180
         contentMargins: Theme.size(10)
         hideIdlePriorityStatus: true
@@ -1788,9 +1096,6 @@ Rectangle {
         color: Theme.useGlass ? "transparent" : Theme.withAlpha(Theme.surface, 0.90)
         border.width: Theme.useGlass ? 1 : 0
         border.color: "transparent"
-        contextControlsShown: root.inspectingDecision || root.tableController.controlledTurnSeat >= 0
-            || root.modelStatusShown || root.modelRecoveryShown || root.tableController.hostingPaused === true
-            || root.dockTurnShown
         contextControls: Component {
             ColumnLayout {
                 id: tableControls
@@ -1819,7 +1124,8 @@ Rectangle {
                 Text {
                     objectName: "modelOpponentStatus"
                     Layout.fillWidth: true
-                    visible: root.modelStatusShown
+                    visible: ["local", "online"].includes(root.tableController.roomSession.aiSource || "")
+                             && !root.session.gameOver
                     textFormat: Text.PlainText
                     text: {
                         const status = root.tableController.roomSession.aiStatus || ({})
@@ -1833,7 +1139,9 @@ Rectangle {
                 AppButton {
                     objectName: "modelOpponentRetry"
                     Layout.fillWidth: true
-                    visible: root.modelRecoveryShown
+                    visible: ["local", "online"].includes(root.tableController.roomSession.aiSource || "")
+                             && (root.tableController.roomSession.aiStatus || ({})).state === "paused"
+                             && root.tableController.roomSession.host && !root.session.gameOver
                     text: qsTr("Retry model decision")
                     compact: true
                     enabled: root.tableController.roomConnected
@@ -1842,7 +1150,9 @@ Rectangle {
                 AppButton {
                     objectName: "modelOpponentSettings"
                     Layout.fillWidth: true
-                    visible: root.modelRecoveryShown
+                    visible: ["local", "online"].includes(root.tableController.roomSession.aiSource || "")
+                             && (root.tableController.roomSession.aiStatus || ({})).state === "paused"
+                             && root.tableController.roomSession.host && !root.session.gameOver
                     text: qsTr("Model connection settings")
                     variant: "ghost"
                     compact: true
@@ -1865,9 +1175,7 @@ Rectangle {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Theme.size(2)
-                    // The phase strip and active-player border still show the
-                    // turn while a decision uses the dock.
-                    visible: root.dockTurnShown
+                    visible: !root.tableController.sideboarding
                     Text {
                         objectName: "forgeTurnIndicator"
                         textFormat: Text.PlainText
@@ -1891,114 +1199,6 @@ Rectangle {
             }
         }
     }
-    AppButton {
-        id: decisionCollapse
-        objectName: "forgeDecisionCollapse"
-        // Move this overlay around public controls, never the field or its
-        // cards. The collapsed dock's adjacent space can contain a seat header.
-        readonly property point placement: {
-            const gap = 8 * root.unit
-            const preferred = Qt.point(decisionPanel.x - width - gap, decisionPanel.y)
-            if (!root.multiplayer || !visible) return preferred
-            const obstacles = [Qt.rect(decisionPanel.x, decisionPanel.y,
-                decisionPanel.width, decisionPanel.height)]
-            for (const seat of root.playerSeats) {
-                const field = multiplayerBoard.fieldFor(seat)
-                if (field && field.visible) obstacles.push(field.headerRect(root))
-            }
-            const xs = [preferred.x, decisionPanel.x + decisionPanel.width - width]
-            const ys = [preferred.y]
-            for (const rect of obstacles)
-                ys.push(rect.y - height - gap, rect.y + rect.height + gap)
-            let best = preferred, distance = Infinity
-            for (const x of xs) {
-                if (x < gap || x + width > root.width - gap) continue
-                for (const y of ys) {
-                    if (y < gap || y + height > root.height - gap) continue
-                    if (obstacles.some(rect => x < rect.x + rect.width + gap
-                            && x + width > rect.x - gap && y < rect.y + rect.height + gap
-                            && y + height > rect.y - gap)) continue
-                    const cost = Math.abs(x - preferred.x) + Math.abs(y - preferred.y)
-                    if (cost < distance) { best = Qt.point(x, y); distance = cost }
-                }
-            }
-            return best
-        }
-        x: placement.x
-        y: placement.y
-        z: 181
-        visible: root.decisionCollapsible
-        compact: true
-        text: decisionPanel.collapsed ? qsTr("Show choice") : qsTr("Hide choice")
-        onClicked: decisionPanel.collapsed = !decisionPanel.collapsed
-    }
-    ForgeMotionOverlay {
-        id: motionOverlay
-        objectName: "forgeMotionOverlay"
-        tableController: root.tableController
-        surface: root
-    }
-    // Any press finishes running motion first. The handler only observes, so
-    // the press still reaches whatever is underneath.
-    Item {
-        anchors.fill: parent
-        z: 2000
-        enabled: Theme.motionEnabled
-        PointHandler {
-            acceptedButtons: Qt.AllButtons
-            onActiveChanged: if (active) Theme.finishMotion()
-        }
-    }
-    Rectangle {
-        id: waitingCue
-        objectName: "forgeWaitingCue"
-        property bool shown: false
-        x: decisionPanel.x + (decisionPanel.width - width) / 2
-        y: Math.max(8 * root.unit, decisionPanel.y - height - 8 * root.unit)
-        z: 182
-        width: waitingCueText.implicitWidth + 24 * root.unit
-        height: waitingCueText.implicitHeight + 12 * root.unit
-        radius: height / 2
-        color: Theme.withAlpha(Theme.surface, 0.94)
-        border.width: 1
-        border.color: Theme.primary
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        Behavior on opacity { enabled: Theme.motionEnabled; NumberAnimation { duration: Theme.motionFast } }
-        property string message: qsTranslate("RulesActionBar", "Waiting for the game")
-        Text {
-            id: waitingCueText
-            objectName: "forgeWaitingCueText"
-            anchors.centerIn: parent
-            textFormat: Text.PlainText
-            text: waitingCue.message
-            color: Theme.text
-            font.pixelSize: Theme.fontSize(12)
-            font.weight: Font.DemiBold
-        }
-        Timer {
-            id: waitingCueTimer
-            interval: 1500
-            onTriggered: waitingCue.shown = false
-        }
-        Connections {
-            target: root.tableController.interaction
-            function onResponseBlocked() {
-                waitingCue.message = qsTranslate("RulesActionBar", "Waiting for the game")
-                waitingCue.shown = true
-                waitingCueTimer.restart()
-            }
-            function onPaymentQueueCleared() {
-                waitingCue.message = qsTr("Queued mana was cleared")
-                waitingCue.shown = true
-                waitingCueTimer.restart()
-            }
-            function onWaitingForResponseChanged() {
-                if (!root.tableController.interaction.waitingForResponse)
-                    waitingCue.shown = false
-            }
-        }
-    }
     RulesCardChoiceDialog {
         id: cardChoiceDialog
         tableController: root.tableController
@@ -2010,33 +1210,29 @@ Rectangle {
     ForgeStack {
         id: stackPanel
         objectName: "forgeStack"
-        defaultX: decisionPanel.visible && defaultY + height > decisionPanel.y
-            ? Math.max(root.boardLeft, decisionPanel.x - width - 12 * root.unit) : root.boardRight - width
-        defaultY: Math.min(Math.max(80 * root.unit, matchSummary.visible
-            ? matchSummary.y + matchSummary.height + 8 * root.unit : 0),
-            Math.max(12 * root.unit, decisionPanel.y - height - 12 * root.unit))
+        defaultX: decisionDock.visible && defaultY + height > decisionDock.y
+            ? Math.max(root.boardLeft, decisionDock.x - width - 12 * root.unit) : root.boardRight - width
+        defaultY: Math.min(80 * root.unit, Math.max(12 * root.unit, decisionDock.y - height - 12 * root.unit))
         movementBounds: Qt.rect(root.boardLeft, 12 * root.unit, root.boardWidth,
             Math.max(0, root.handTop - 24 * root.unit))
-        width: collapsed ? Math.min(180 * root.unit, decisionPanel.width) : decisionPanel.width
+        width: collapsed ? Math.min(180 * root.unit, decisionDock.width) : decisionDock.width
         height: collapsed ? headerHeight : Math.min(implicitHeight, 365 * root.unit, movementBounds.height)
         z: 140
         tableController: root.tableController
         unit: root.unit
         locatedId: root.stackTarget && root.stackTarget.kind === "spell" ? root.stackTarget.objectId : ""
         onTargetRequested: target => {
-            inspectionPanel.inspector.hidePreview(null)
+            inspectionDock.inspector.hidePreview(null)
             if (target.kind === "card" && !root.reveal(target.objectId)) root.tableController.openCardDetails(target.objectId)
             else if (target.kind === "spell") stackPanel.reveal(target.objectId)
         }
         visible: count > 0 && !root.tableController.sideboarding
     }
     ForgeArrow {
-        id: stackTargetArrow
         objectName: "forgeStackTargetArrow"
         anchors.fill: parent
         z: 80
         unit: root.unit
-        excludedRects: root.arrowTextRects
         visible: startPoint.x !== 0 && endPoint.x !== 0 && !root.tableController.sideboarding && !root.modalOpen
         startPoint: stackPanel.activeEntry ? stackPanel.pointFor(stackPanel.activeEntry.objectId, root) : Qt.point(0, 0)
         endPoint: {
@@ -2048,7 +1244,7 @@ Rectangle {
         }
     }
     RulesInspectionDock {
-        id: inspectionPanel
+        id: inspectionDock
         verticalInspection: true
         externalHoverPreview: true
         embedGameLog: false
@@ -2072,64 +1268,12 @@ Rectangle {
         floatingDefaultHeight: Math.max(Theme.size(280),
                                         root.height - floatingDefaultY
                                         - 16 * root.unit)
-        floatingAvoidItem: inspectionPanel
+        floatingAvoidItem: inspectionDock
         z: 150
-    }
-    function hoverContentRects() {
-        // Read only live presentation geometry. No catalog lookups or private
-        // identities are needed, and idle tables do not collect these bounds.
-        if (!inspectionPanel.inspector.previewCardId.length) return []
-        let rects = multiplayerBoard.inspectionRects(root)
-        for (const lane of root.permanentLanes)
-            rects = rects.concat(lane.inspectionRects(root))
-        const items = [opponentZoneStrip, ownZoneStrip,
-            phaseTrack.compactMode ? currentPhase : phaseTrack, recentActions,
-            opponentDecidingBanner, matchSummary, settingsButton, errorBanner,
-            stackPanel, floatingLog, inspectionPanel, decisionCollapse, waitingCue, turnCallout]
-        if (replayHand.active && replayHand.item) items.push(replayHand)
-        // Two-player identity/life plates and mana readouts are direct children.
-        // Multiplayer headers come from their field's explicit geometry above.
-        for (const item of root.children) {
-            if ((item as PlayerPlate) || (item as ForgeManaPool))
-                items.push(item)
-        }
-        for (const item of items) {
-            if (!item.visible || item.width <= 0 || item.height <= 0) continue
-            void item.x; void item.y
-            rects.push(item.mapToItem(root, 0, 0, item.width, item.height))
-        }
-        return rects
-    }
-    function hoverProtectedRects() {
-        const rects = []
-        // Arrow items span the table; protect their actual curve hull rather
-        // than that full item rectangle. The quadratic control point lies in
-        // the endpoint hull, so this also protects its bend and arrowhead.
-        for (const item of root.children) {
-            if (!item.visible || !item.objectName
-                    || !(item.objectName.startsWith("forgeRelationship-")
-                         || item.objectName.startsWith("forgeCombatArrow-")
-                         || item.objectName === "forgeCombatAimArrow")) continue
-            const arrow = item as ForgeArrow
-            if (!arrow || !arrow.validAnchors) continue
-            const start = arrow.startPoint, end = arrow.endPoint
-            const pad = 14 * root.unit
-            rects.push(Qt.rect(Math.min(start.x, end.x) - pad, Math.min(start.y, end.y) - pad,
-                Math.abs(start.x - end.x) + 2 * pad, Math.abs(start.y - end.y) + 2 * pad))
-        }
-        return rects
     }
     RulesCardHoverPreview {
         tableController: root.tableController
-        inspector: inspectionPanel.inspector
-        obstacle: decisionPanel.visible
-            ? Qt.rect(decisionPanel.x, decisionPanel.y, decisionPanel.width, decisionPanel.height)
-            : Qt.rect(0, 0, 0, 0)
-        contentRects: root.hoverContentRects()
-        protectedRects: root.hoverProtectedRects()
-        avoidRects: hand.visible && hand.visibleCards.length
-            ? [Qt.rect(hand.x, hand.y - 20 * root.unit, hand.width,
-                       root.height - hand.y + 20 * root.unit)] : []
+        inspector: inspectionDock.inspector
     }
     Loader {
         objectName: "rulesSideboardLoader"

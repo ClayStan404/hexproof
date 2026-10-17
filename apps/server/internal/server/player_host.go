@@ -132,48 +132,21 @@ func (h *Handler) publishPlayerHostState(r *room.Room, link *forgehost.Link, con
 	// Serialize binding replacement with state publication. A callback from the
 	// previous helper must not overwrite the new binding's connected state.
 	h.playerHostStateMu.Lock()
+	defer h.playerHostStateMu.Unlock()
 	h.forgeMu.Lock()
 	backup := h.playerBackups[r.ID]
 	current := (h.playerHosts[r.ID] == link || backup != nil && backup.link == link) && !h.forgeClosed
-	primary := h.playerHosts[r.ID] == link
 	h.forgeMu.Unlock()
 	if current {
 		h.sendPlayerHostState(r)
-	}
-	h.playerHostStateMu.Unlock()
-	if current && primary {
-		// Link callbacks also run inline from Close while opMu is held, and
-		// reconnect must let the relay read the replies an operation awaits.
-		// Revalidate after acquiring opMu; an old callback cannot pause a
-		// replacement host or restore its earlier decision owner.
-		go func() {
-			operation, err := h.hub.lockRoomOperation(r.ID)
-			if err != nil {
-				return
-			}
-			defer operation.opMu.Unlock()
-			h.forgeMu.Lock()
-			current := h.playerHosts[r.ID] == link && !h.forgeClosed
-			h.forgeMu.Unlock()
-			if current {
-				h.refreshForgeActionClock(r)
-			}
-		}()
 	}
 }
 
 func (h *Handler) sendPlayerHostState(r *room.Room) {
 	status := h.playerHostingStatus(r.ID)
-	result, err := h.hub.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
+	_, err := h.hub.reduceRoom(r, func(locked *room.Room) (room.Result, error) {
 		locked.HostConnected = status.Connected
 		locked.HostStatus = &status
-		if (!status.Connected || status.Migrating) && locked.Snapshot().ActionClockRunning != nil {
-			// A relay callback can precede the end of a blocked room operation.
-			// Freeze under the room state lock immediately, so waiting for
-			// opMu cannot charge the host outage to the deciding player.
-			locked.AdvanceActionClock(time.Now(), -1)
-			return room.Result{Broadcast: []protocol.Envelope{locked.SnapshotEnvelope()}}, nil
-		}
 		return room.Result{}, nil
 	})
 	if err != nil {
@@ -181,7 +154,6 @@ func (h *Handler) sendPlayerHostState(r *room.Room) {
 	}
 	env, _ := protocol.NewEnvelope(protocol.TypeForgeHostStatus, status)
 	h.fanout(r, []protocol.Envelope{env})
-	h.fanout(r, result.Broadcast)
 }
 
 func (h *Handler) playerHostPaused(r *room.Room) bool {
@@ -206,7 +178,7 @@ func (h *Handler) servePlayerHost(w http.ResponseWriter, request *http.Request) 
 		return
 	}
 	defer conn.CloseNow()
-	conn.SetReadLimit(forgehost.MaxHelloBytes)
+	conn.SetReadLimit(4096)
 	helloCtx, cancel := context.WithTimeout(request.Context(), h.config.HelloTimeout)
 	_, data, err := conn.Read(helloCtx)
 	cancel()

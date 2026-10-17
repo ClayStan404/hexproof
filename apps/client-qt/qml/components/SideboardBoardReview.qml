@@ -15,17 +15,6 @@ Popup {
     readonly property var filteredCards: reviewCards.filter(card =>
         (seatPicker.currentIndex === 0 || card.seat === seatPicker.currentIndex - 1)
         && (zonePicker.currentIndex === 0 || card.zone === ["", "battlefield", "graveyard", "exile", "command"][zonePicker.currentIndex]))
-    onFilteredCardsChanged: {
-        // Refresh the selected public record, or retire it when the current
-        // filter or authoritative projection no longer contains that card.
-        const selected = filteredCards.find(card => inspectedCard.id
-            ? card.id === inspectedCard.id
-            : card.name === inspectedCard.name && card.setCode === inspectedCard.setCode
-                && card.collectorNumber === inspectedCard.collectorNumber
-                && card.token === inspectedCard.token && card.seat === inspectedCard.seat
-                && card.zone === inspectedCard.zone)
-        inspectedCard = selected || filteredCards[0] || ({})
-    }
     objectName: "sideboardBoardReview"
     parent: Overlay.overlay
     width: Math.min(Theme.size(1250), parent.width - Theme.size(32))

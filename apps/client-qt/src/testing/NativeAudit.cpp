@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 #include "NativeAudit.h"
-#include "models/GameTableModel.h"
 #include "services/ForgeHostService.h"
 #include "services/WsClient.h"
 #ifdef HEXPROOF_NATIVE_AUDIT_GTK
@@ -150,38 +149,23 @@ bool pointerReceiver(QQuickItem *item)
         if (!child->inherits("QQuickPointerHandler"))
             continue;
         hasPointerHandler = true;
-        // Passive point tracking and hover do not consume button presses.
-        if (child->inherits("QQuickPointHandler") || child->inherits("QQuickHoverHandler"))
-            continue;
         if (child->property("enabled").toBool() && child->property("acceptedButtons").toInt() != 0)
             return true;
     }
     // Qt retains acceptedMouseButtons after disabling an Item's handlers.
-    // A plain Item or Rectangle has no independent mouse consumer; actual
-    // controls and custom item subclasses retain their own input coverage.
+    // A plain QQuickItem has no independent mouse consumer; actual controls
+    // and custom item subclasses still retain their own input coverage.
     if (hasPointerHandler) {
         const QMetaObject *nativeType = item->metaObject();
         while (nativeType && !nativeType->metaType().isValid())
             nativeType = nativeType->superClass();
-        if (nativeType == &QQuickItem::staticMetaObject ||
-            (nativeType && qstrcmp(nativeType->className(), "QQuickRectangle") == 0))
+        if (nativeType == &QQuickItem::staticMetaObject)
             return false;
     }
     return item->acceptedMouseButtons() != Qt::NoButton;
 }
 
-bool blocksHover(QQuickItem *item)
-{
-    for (QObject *child : item->children()) {
-        if (child->inherits("QQuickHoverHandler") && child->property("enabled").toBool() &&
-            child->property("blocking").toBool())
-            return true;
-    }
-    return false;
-}
-
-QQuickItem *receiverAt(QQuickItem *root, const QPointF &point, bool dropTarget = false,
-                       QQuickItem *hoverTarget = nullptr)
+QQuickItem *receiverAt(QQuickItem *root, const QPointF &point)
 {
     if (!root->isVisible() || !root->isEnabled() || root->opacity() <= 0)
         return nullptr;
@@ -192,18 +176,9 @@ QQuickItem *receiverAt(QQuickItem *root, const QPointF &point, bool dropTarget =
     std::stable_sort(children.begin(), children.end(),
                      [](QQuickItem *a, QQuickItem *b) { return a->z() < b->z(); });
     for (auto it = children.crbegin(); it != children.crend(); ++it)
-        if (QQuickItem *hit = receiverAt(*it, point, dropTarget, hoverTarget))
+        if (QQuickItem *hit = receiverAt(*it, point))
             return hit;
-    // A drop destination may sit above a background MouseArea without
-    // consuming clicks. Foreground pointer receivers still block it.
-    // A visible passive target can receive hover above a background click
-    // receiver. Reaching the target in paint order still requires that no
-    // foreground receiver or blocking HoverHandler obscured it first.
-    return root->contains(local) &&
-                   (pointerReceiver(root) || (dropTarget && root->inherits("QQuickDropArea")) ||
-                    (hoverTarget && (root == hoverTarget || blocksHover(root))))
-               ? root
-               : nullptr;
+    return root->contains(local) && pointerReceiver(root) ? root : nullptr;
 }
 
 void visitItems(QQuickItem *root, const std::function<void(QQuickItem *)> &visitor)
@@ -349,21 +324,6 @@ NativeAudit::NativeAudit(QQmlApplicationEngine *engine)
                 m_window->resize(m_requestedWidth, m_requestedHeight);
             } else {
                 m_window->setVisibility(QWindow::Maximized);
-            }
-            // The shipping client does not include this probe. It records the
-            // intervals Qt actually presents while a scenario runs.
-            if (qEnvironmentVariableIsSet("HEXPROOF_FRAME_LOG")) {
-                m_frameLog = true;
-                m_frameClock.start();
-                connect(
-                    m_window, &QQuickWindow::frameSwapped, this,
-                    [this] {
-                        const qint64 now = m_frameClock.elapsed();
-                        if (m_lastFrameMs >= 0)
-                            m_frameDeltas.append(now - m_lastFrameMs);
-                        m_lastFrameMs = now;
-                    },
-                    Qt::QueuedConnection);
             }
         }
     });
@@ -664,17 +624,6 @@ bool NativeAudit::artifactFailure(const QString &message)
 
 QQuickItem *NativeAudit::find(QObject *scope, const QString &name, const QVariantMap &identity)
 {
-    return findTarget(scope, name, identity, false);
-}
-
-QQuickItem *NativeAudit::findDropTarget(QObject *scope, const QString &name)
-{
-    return findTarget(scope, name, {}, true);
-}
-
-QQuickItem *NativeAudit::findTarget(QObject *scope, const QString &name,
-                                    const QVariantMap &identity, bool dropTarget)
-{
     auto *root = qobject_cast<QQuickItem *>(scope);
     if (auto *window = qobject_cast<QQuickWindow *>(scope))
         root = window->contentItem();
@@ -691,19 +640,10 @@ QQuickItem *NativeAudit::findTarget(QObject *scope, const QString &name,
             if (field(item, it.key()) != plainVariant(it.value()))
                 return;
         QPointF point;
-        if (!targetPoint(item, &point, -1, -1,
-                         dropTarget ? TargetIntent::Drop : TargetIntent::Pointer)) {
+        if (targetPoint(item, &point))
+            matches.append(item);
+        else
             rejected.append(m_lastError);
-            return;
-        }
-        if (dropTarget) {
-            QQuickItem *receiver = receiverAt(m_window->contentItem(), point, true);
-            if (!receiver || !receiver->inherits("QQuickDropArea")) {
-                rejected.append(QStringLiteral("Target has no exposed DropArea at its center."));
-                return;
-            }
-        }
-        matches.append(item);
     });
     if (matches.size() != 1) {
         fail(QStringLiteral("Selector '%1' matched %2 usable items; require one. %3")
@@ -717,8 +657,7 @@ QQuickItem *NativeAudit::findTarget(QObject *scope, const QString &name,
     return matches.first();
 }
 
-bool NativeAudit::targetPoint(QQuickItem *item, QPointF *point, qreal x, qreal y,
-                              TargetIntent intent)
+bool NativeAudit::targetPoint(QQuickItem *item, QPointF *point, qreal x, qreal y)
 {
     if (!m_window || !m_window->isExposed() || !m_window->isVisible() || !item ||
         item->window() != m_window)
@@ -733,8 +672,7 @@ bool NativeAudit::targetPoint(QQuickItem *item, QPointF *point, qreal x, qreal y
     *point = x < 0 || y < 0 ? rect.center() : item->mapToScene(QPointF(x, y));
     if (!rect.contains(*point) || !item->contains(item->mapFromScene(*point)))
         return fail(QStringLiteral("Input point is outside the target's visible area."));
-    QQuickItem *receiver = receiverAt(m_window->contentItem(), *point, intent == TargetIntent::Drop,
-                                      intent == TargetIntent::Hover ? item : nullptr);
+    QQuickItem *receiver = receiverAt(m_window->contentItem(), *point);
     if (receiver && !containsItem(item, receiver) && !containsItem(receiver, item))
         return fail(QStringLiteral("Input target is covered by another pointer receiver: %1 (%2)")
                         .arg(receiver->objectName(),
@@ -968,7 +906,7 @@ bool NativeAudit::hover(QQuickItem *item)
 {
     const auto started = m_elapsed.elapsed();
     QPointF point;
-    bool ok = targetPoint(item, &point, -1, -1, TargetIntent::Hover);
+    bool ok = targetPoint(item, &point);
     const QVariantMap target = item ? itemDescription(item) : QVariantMap{};
     if (ok) {
         if (osMode())
@@ -1139,8 +1077,7 @@ bool NativeAudit::drag(QQuickItem *source, QQuickItem *target, qreal sourceX, qr
 {
     const auto started = m_elapsed.elapsed();
     QPointF start, end;
-    bool ok = targetPoint(source, &start, sourceX, sourceY) &&
-              targetPoint(target, &end, -1, -1, TargetIntent::Drop);
+    bool ok = targetPoint(source, &start, sourceX, sourceY) && targetPoint(target, &end);
     if (ok && osMode())
         ok = osInput(QStringLiteral("drag"),
                      {{QStringLiteral("point"), QVariantList{start.x(), start.y()}},
@@ -1268,28 +1205,6 @@ void NativeAudit::fixture(const QString &name, const QVariantMap &detail)
                        {QStringLiteral("monotonicMs"), m_elapsed.elapsed()}});
 }
 
-bool NativeAudit::applyRulesCrashReportFixture(const QVariantMap &report)
-{
-    auto *transport = qobject_cast<WsClient *>(
-        m_engine->rootContext()->contextProperty(QStringLiteral("ws")).value<QObject *>());
-    if (!transport)
-        return artifactFailure(
-            QStringLiteral("Crash report fixture requires the production client"));
-    const auto value = QJsonObject::fromVariantMap(report);
-    if (normalizedForgeCrashReport(value).isEmpty())
-        return artifactFailure(QStringLiteral("Crash report fixture was rejected"));
-    hexproof::protocol::Envelope error;
-    error.type = hexproof::protocol::kTypeError;
-    error.payload = {{QStringLiteral("code"), QStringLiteral("rules_unavailable")},
-                     {QStringLiteral("message"), QStringLiteral("synthetic crash fixture")},
-                     {QStringLiteral("rulesCrashReport"), value}};
-    transport->handleError(error);
-    fixture(QStringLiteral("forge-crash-report"),
-            {{QStringLiteral("reportId"), report.value(QStringLiteral("reportId"))},
-             {QStringLiteral("revision"), report.value(QStringLiteral("revision"))}});
-    return true;
-}
-
 bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules,
                                          const QVariantMap &match)
 {
@@ -1320,35 +1235,6 @@ bool NativeAudit::applyRulesTableFixture(const QVariantMap &room, const QVariant
               QStringLiteral("Deterministic Forge table snapshot; not a live engine game.")},
              {QStringLiteral("roomId"), roomId},
              {QStringLiteral("gameId"), rules.value(QStringLiteral("gameId"))}});
-    return true;
-}
-
-bool NativeAudit::applyManualTableFixture(const QVariantMap &room, const QVariantMap &snapshot)
-{
-    auto *transport = qobject_cast<WsClient *>(
-        m_engine->rootContext()->contextProperty(QStringLiteral("ws")).value<QObject *>());
-    auto *table = qobject_cast<GameTableModel *>(
-        m_engine->rootContext()->contextProperty(QStringLiteral("gameTable")).value<QObject *>());
-    if (!transport || !table ||
-        room.value(QStringLiteral("rulesMode")).toString() != QStringLiteral("manual") ||
-        snapshot.value(QStringLiteral("seats")).toList().isEmpty())
-        return artifactFailure(
-            QStringLiteral("Manual table fixture requires an explicit manual room and seats"));
-    transport->m_rulesSession->clear();
-    transport->m_roomSession->enter(
-        room.value(QStringLiteral("roomId")).toString(),
-        room.value(QStringLiteral("role"), QStringLiteral("player")).toString(),
-        room.value(QStringLiteral("seatIndex"), 0).toInt(),
-        room.value(QStringLiteral("host"), true).toBool());
-    transport->m_roomSession->applySnapshot(QJsonObject::fromVariantMap(room));
-    transport->m_gameSession->applySnapshot(snapshot);
-    table->applySnapshot(snapshot);
-    transport->setState(WsClient::InRoom);
-    emit transport->inRoomChanged();
-    fixture(QStringLiteral("manual-table-snapshot"),
-            {{QStringLiteral("description"),
-              QStringLiteral("Deterministic manual table projection; not a live room.")},
-             {QStringLiteral("roomId"), room.value(QStringLiteral("roomId"))}});
     return true;
 }
 
@@ -1438,58 +1324,12 @@ void NativeAudit::heartbeat()
         emit stepRequested();
 }
 
-QVariantMap NativeAudit::framePacing() const
-{
-    QList<qint64> ordered = m_frameDeltas;
-    std::sort(ordered.begin(), ordered.end());
-    const auto percentile = [&ordered](double fraction) {
-        if (ordered.isEmpty())
-            return qint64(0);
-        const int index = std::clamp(static_cast<int>(fraction * (ordered.size() - 1)), 0,
-                                     static_cast<int>(ordered.size() - 1));
-        return ordered.at(index);
-    };
-    int over100 = 0;
-    int over500 = 0;
-    qint64 sum = 0;
-    QVariantList gaps;
-    for (const qint64 delta : m_frameDeltas) {
-        sum += delta;
-        if (delta > 100) {
-            ++over100;
-            gaps.append(delta);
-        }
-        if (delta > 500)
-            ++over500;
-    }
-    qreal refresh = 0;
-    if (m_window && m_window->screen())
-        refresh = m_window->screen()->refreshRate();
-    return {{QStringLiteral("frames"), m_frameDeltas.size()},
-            {QStringLiteral("refreshHz"), refresh},
-            {QStringLiteral("minMs"), ordered.isEmpty() ? 0 : ordered.first()},
-            {QStringLiteral("p50Ms"), percentile(0.50)},
-            {QStringLiteral("p95Ms"), percentile(0.95)},
-            {QStringLiteral("maxMs"), ordered.isEmpty() ? 0 : ordered.last()},
-            {QStringLiteral("meanMs"),
-             m_frameDeltas.isEmpty() ? 0.0 : double(sum) / double(m_frameDeltas.size())},
-            {QStringLiteral("gapsOver100Ms"), over100},
-            {QStringLiteral("gapsOver500Ms"), over500},
-            {QStringLiteral("gapsMs"), gaps},
-            {QStringLiteral("platform"), QGuiApplication::platformName()},
-            {QStringLiteral("renderLoop"), qEnvironmentVariable("QSG_RENDER_LOOP")},
-            {QStringLiteral("noVsync"), qEnvironmentVariable("QSG_NO_VSYNC")},
-            {QStringLiteral("rhiBackend"), qEnvironmentVariable("QSG_RHI_BACKEND")}};
-}
-
 void NativeAudit::finish(int code)
 {
     if (m_finished)
         return;
     m_finished = true;
     m_heartbeat.stop();
-    if (m_frameLog)
-        record(QStringLiteral("frame-pacing"), framePacing());
     if (code == 0 && (!m_warnings.isEmpty() || m_failedActions > 0 || m_artifactFailures > 0))
         code = 4;
     const bool saved =

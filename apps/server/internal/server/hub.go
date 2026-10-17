@@ -10,7 +10,6 @@ import (
 	"context"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"hexproof/server/internal/cluster"
@@ -20,7 +19,6 @@ import (
 
 // Session is one WebSocket connection's state.
 type Session struct {
-	rulesCrashReports atomic.Bool
 	// Cluster fields belong to the connection read loop.
 	clusterGrant      *cluster.Ticket
 	clusterRedirected bool

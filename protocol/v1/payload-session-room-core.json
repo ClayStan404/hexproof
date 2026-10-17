@@ -149,8 +149,7 @@
         {"name": "clientVersion", "type": "string", "required": false},
         {"name": "requiredVersion", "type": "string", "required": false},
         {"name": "minimumPlayers", "type": "integer", "required": false},
-        {"name": "rulesStartFailure", "type": "object", "required": false, "goType": "*RulesStartFailure", "ref": "RulesStartFailure"},
-        {"name": "rulesCrashReport", "type": "object", "required": false, "goType": "*RulesCrashReport", "ref": "RulesCrashReport"}
+        {"name": "rulesStartFailure", "type": "object", "required": false, "goType": "*RulesStartFailure", "ref": "RulesStartFailure"}
       ]
     },
     {"type": "forge.host_request", "direction": "clientToServer", "goType": "ForgeHostRequest", "fields": [{"name": "action", "type": "string", "required": false}]},

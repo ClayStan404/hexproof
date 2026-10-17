@@ -11,14 +11,7 @@ Surface {
     id: root
 
     required property var tableController
-    readonly property real phaseRowsHeight:
-        phaseSteps.length * Theme.size(30) + (phaseSteps.length - 1) * Theme.size(3)
-    // Reserve the helper/signal rows even when they are temporarily hidden,
-    // so advancing phases does not switch navigation mode under the pointer.
-    readonly property real expandedPhasesMinimumHeight:
-        activePlayerLabel.implicitHeight + activeTurnLabel.implicitHeight
-        + 2 + phaseRowsHeight + 4 * Theme.size(32) + Theme.size(30) + 9 * Theme.size(4)
-    readonly property bool compactPhases: height < expandedPhasesMinimumHeight
+    readonly property bool compactPhases: height < Theme.size(470)
 
     readonly property var activePlayer:
         tableController.seatState.seatData(
@@ -96,7 +89,6 @@ Surface {
         spacing: Theme.size(root.compactPhases ? 2 : 4)
 
         Text {
-            id: activePlayerLabel
             textFormat: Text.PlainText
             Layout.fillWidth: true
             text: root.activePlayer.displayName
@@ -110,7 +102,6 @@ Surface {
             horizontalAlignment: Text.AlignHCenter
         }
         Text {
-            id: activeTurnLabel
             textFormat: Text.PlainText
             Layout.fillWidth: true
             text: root.tableController.isActivePlayer
@@ -130,7 +121,6 @@ Surface {
         }
 
         AppComboBox {
-            id: phaseSelector
             objectName: "compactPhaseSelector"
             Layout.fillWidth: true
             implicitHeight: Theme.size(36)
@@ -138,18 +128,8 @@ Surface {
             enabled: root.tableController.isActivePlayer
             model: root.phaseSteps.map(phase => ({label: I18n.tr(phase.label), id: phase.id}))
             textRole: "label"
-            // Retranslation replaces the model, which resets ComboBox's index.
-            // Reapply the real phase after that reset without activating a choice.
-            Binding {
-                target: phaseSelector
-                property: "currentIndex"
-                delayed: true
-                value: {
-                    void phaseSelector.model
-                    return root.phaseSteps.findIndex(
-                        phase => phase.id === root.tableController.displayedPhase)
-                }
-            }
+            currentIndex: root.phaseSteps.findIndex(
+                              phase => phase.id === root.tableController.displayedPhase)
             onActivated: index => root.tableController.rulesAssist.requestSetPhase(
                                       root.phaseSteps[index].id)
         }
@@ -164,7 +144,6 @@ Surface {
             visible: !root.compactPhases
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: root.phaseRowsHeight
             clip: true
             contentWidth: availableWidth
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff

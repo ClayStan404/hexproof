@@ -10,7 +10,6 @@ TestCase {
     id: testCase
     name: "LimitedExperience"
     when: windowShown
-    TestEvent { id: doubleClickEvents }
 
     ApplicationWindow { id: window; width: 1200; height: 800; visible: true }
     QtObject {
@@ -98,61 +97,6 @@ TestCase {
         wait(0)
         compare(main.contentY, 200)
         compare(builder.selectedPoolCount, 89)
-    }
-    function test_firstClickAfterReversingPoolWheelSelectsThePhysicalCard() {
-        const builder = createTemporaryObject(builderComponent, window.contentItem)
-        const pool = findChild(builder, "limitedSideboardGrid")
-        verify(waitForRendering(pool))
-        for (let index = 0; index < 3; ++index) {
-            mouseWheel(pool, pool.width / 2, pool.height / 2, 0, -1440)
-            tryVerify(() => !pool.moving)
-        }
-        const row = Math.floor((pool.contentY - pool.originY) / pool.cellHeight) + 1
-        const firstId = pool.cards[row * pool.columns].instanceId
-        const secondId = pool.cards[row * pool.columns + 1].instanceId
-        const tile = findChild(pool, "limitedCardTile-" + firstId)
-        verify(tile)
-        verify(waitForRendering(tile))
-        compare(tile.card.instanceId, firstId)
-        const point = tile.mapToItem(pool, tile.width / 2, tile.height / 2)
-        const scrollPosition = pool.contentY
-        // QtTest's batched double-click holds one C++ call through both taps.
-        // Deliver the same Press/Release/Press/DoubleClick/Release sequence in
-        // phases so the first removal's queued scroll/model polish completes
-        // before the next physical card receives the second press.
-        verify(doubleClickEvents.mousePress(pool, point.x, point.y, Qt.LeftButton, Qt.NoModifier, 30))
-        verify(doubleClickEvents.mouseRelease(pool, point.x, point.y, Qt.LeftButton, Qt.NoModifier, 30))
-        tryCompare(builder, "selectedPoolCount", 1)
-        verify(waitForRendering(pool))
-        tryVerify(() => !builder.pendingScrollPositions && Math.abs(pool.contentY - scrollPosition) < 1)
-        const secondTile = findChild(pool, "limitedCardTile-" + secondId)
-        verify(secondTile)
-        verify(waitForRendering(secondTile))
-        const secondPoint = secondTile.mapToItem(pool, secondTile.width / 2, secondTile.height / 2)
-        verify(Math.abs(secondPoint.x - point.x) < 1 && Math.abs(secondPoint.y - point.y) < 1)
-        verify(doubleClickEvents.mousePress(pool, point.x, point.y, Qt.LeftButton, Qt.NoModifier, 30))
-        verify(doubleClickEvents.mouseDoubleClick(pool, point.x, point.y, Qt.LeftButton, Qt.NoModifier, 30))
-        verify(doubleClickEvents.mouseRelease(pool, point.x, point.y, Qt.LeftButton, Qt.NoModifier, 30))
-        tryCompare(builder, "selectedPoolCount", 2)
-        verify(builder.cardSelected(firstId))
-        verify(builder.cardSelected(secondId))
-        wait(220)
-        mouseWheel(pool, pool.width / 2, pool.height / 2, 0, 1080)
-        // Observe the end of the physical motion independently of moving:
-        // Qt can leave that flag set after this direction change.
-        wait(1000)
-        const stoppedY = pool.contentY
-        wait(160)
-        compare(pool.contentY, stoppedY)
-        verify(!pool.atYBeginning && !pool.atYEnd)
-        verify(!pool.dragging && !pool.flicking)
-        const nextRow = Math.floor((pool.contentY - pool.originY) / pool.cellHeight) + 1
-        const nextId = pool.cards[nextRow * pool.columns].instanceId
-        const next = findChild(pool, "limitedCardTile-" + nextId)
-        verify(next)
-        mouseClick(next, next.width / 2, next.height / 2)
-        tryCompare(builder, "selectedPoolCount", 3)
-        verify(builder.cardSelected(nextId))
     }
     function test_scrolledPoolClampsAtEndWithoutJumpingToBeginning() {
         const builder = createTemporaryObject(builderComponent, window.contentItem)

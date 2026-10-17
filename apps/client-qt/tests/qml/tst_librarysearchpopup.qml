@@ -17,44 +17,16 @@ TestCase {
         height: 620
         visible: true
         LibrarySearchPopup { id: popup }
-        QtObject {
-            id: faceCatalog
-            readonly property string frontArt: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-            readonly property string reverseArt: Qt.resolvedUrl("../../assets/icons/hexproof.png").toString()
-            function cardFaces(name, setCode, collectorNumber) {
-                if (name !== "Front Card") return []
-                return [{name: "Front Card", faceName: "Front Card", setCode: "FCE", collectorNumber: "1"},
-                        {name: "Reverse Card", faceName: "Reverse Card", setCode: "FCE", collectorNumber: "1"}]
-            }
-            function imageSource(name, setCode, collectorNumber) {
-                return name === "Reverse Card" ? reverseArt : frontArt
-            }
-        }
     }
 
     SignalSpy { id: searchSpy; target: popup; signalName: "searchRequested" }
     SignalSpy { id: resolveSpy; target: popup; signalName: "resolveAssignmentsRequested" }
-
-    function previewArt(scope, name) {
-        const lookup = item => {
-            if (item.objectName === name) return item
-            for (const child of item.children || []) {
-                const found = lookup(child)
-                if (found) return found
-            }
-            return null
-        }
-        const boundary = scope.contentItem || scope
-        tryVerify(() => lookup(boundary) !== null)
-        return lookup(boundary)
-    }
 
     function init() {
         testWindow.requestActivate()
         tryCompare(testWindow, "active", true)
         searchSpy.clear()
         resolveSpy.clear()
-        popup.cardCatalogModel = null
     }
 
     function cleanup() {
@@ -73,44 +45,6 @@ TestCase {
                         0, "Alice", remote ? "Bob" : "Alice", count)
         tryCompare(popup, "opened", true)
         verify(waitForRendering(popup.contentItem))
-    }
-
-    function test_allFacesLeaveLibrarySelectionAndAssignmentsUnchanged() {
-        popup.cardCatalogModel = faceCatalog
-        const cards = [{id: "front-1", name: "Front Card", setCode: "FCE", collectorNumber: "1"},
-                       {id: "front-2", name: "Front Card", setCode: "FCE", collectorNumber: "1"}]
-        popup.showCards(cards, 0, "", 0, "Alice", "Alice", 2)
-        tryCompare(popup, "opened", true)
-        popup.selectedOrder = ["front-2", "front-1"]
-        const assignments = JSON.stringify(popup.topCardAssignmentList())
-        const controller = findChild(popup, "libraryFacePreviewController")
-        const front = previewArt(popup, "libraryInspectorArt")
-        const back = previewArt(popup, "libraryInspectorArt-1")
-        verify(front && back)
-        tryCompare(front, "status", Image.Ready)
-        tryCompare(back, "status", Image.Ready)
-        compare(String(back.source), faceCatalog.reverseArt)
-        compare(controller.displayFaces.map(face => face.card.name), ["Front Card", "Reverse Card"])
-        compare(findChild(popup, "viewOtherFaceButton"), null)
-        const inspector = findChild(popup, "libraryInspectorScroll")
-        const flickable = inspector.contentItem
-        const position = back.mapToItem(flickable.contentItem, 0, 0)
-        flickable.contentY = Math.max(0, Math.min(position.y,
-            flickable.contentHeight - flickable.height))
-        verify(waitForPolish(testWindow))
-        const visiblePosition = back.mapToItem(inspector, 0, 0)
-        verify(visiblePosition.y >= 0 && visiblePosition.y + back.height <= inspector.height + 1)
-        compare(popup.selectedIndex, 0)
-        compare(popup.selectedOrder, ["front-2", "front-1"])
-        compare(JSON.stringify(popup.topCardAssignmentList()), assignments)
-        compare(searchSpy.count, 0)
-        compare(resolveSpy.count, 0)
-        compare(popup.selectedCard.name, "Front Card")
-        popup.selectedIndex = 1
-        compare(controller.displayFaces[0].card.id, "front-2")
-        compare(controller.displayFaces.length, 2)
-        popup.close()
-        tryVerify(() => !popup.opened)
     }
 
     function assignedIds(destination) {

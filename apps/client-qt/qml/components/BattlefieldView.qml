@@ -242,24 +242,6 @@ Surface {
                         HoverHandler { id: playerNameHover }
                         ToolTip.visible: truncated && playerNameHover.hovered
                         ToolTip.text: text
-
-                        // Cards may occupy the full lane beneath this floating
-                        // label, including with the default table background.
-                        Rectangle {
-                            objectName: "battlefieldPlayerNameBacking"
-                                        + battlefieldZone.modelData.seat
-                            x: -Theme.size(4)
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Math.min(battlefieldPlayerName.width,
-                                            battlefieldPlayerName.contentWidth)
-                                   + Theme.size(8)
-                            height: Math.min(battlefieldPlayerName.height,
-                                             battlefieldPlayerName.contentHeight
-                                             + Theme.size(4))
-                            z: -1
-                            radius: Theme.size(4)
-                            color: Theme.surfaceElevated
-                        }
                     }
 
                     RowLayout {
@@ -279,17 +261,8 @@ Surface {
                         z: 220
 
                         StatusPill {
-                            objectName: "battlefieldSeatStatus" + battlefieldZone.modelData.seat
-                            visible: battlefieldZone.modelData.eliminated === true
-                            Layout.preferredHeight: battlefieldHeader.shortLane ? Theme.size(18) : -1
-                            text: I18n.tr("Eliminated")
-                            statusColor: Theme.text
-                        }
-
-                        StatusPill {
                             objectName: "playerTurnCount" + battlefieldZone.modelData.seat
                             visible: battlefieldZone.modelData.turnCount >= 0
-                                     && battlefieldZone.modelData.eliminated !== true
                             text: qsTr("Turn %1").arg(battlefieldZone.modelData.turnCount)
                             statusColor: battlefieldZone.isActiveTurn
                                          ? Theme.primary : Theme.textMuted
@@ -299,7 +272,6 @@ Surface {
                             objectName: "activeTurnBadge"
                                         + battlefieldZone.modelData.seat
                             visible: battlefieldZone.isActiveTurn
-                                     && battlefieldZone.modelData.eliminated !== true
                                      && battlefieldZone.width
                                         >= Theme.size(360)
                             text: battlefieldZone.isOwn
@@ -312,9 +284,10 @@ Surface {
                             objectName: "responseStatusBadge"
                                         + battlefieldZone.modelData.seat
                             Layout.preferredHeight: battlefieldHeader.shortLane ? Theme.size(18) : -1
-                            visible: battlefieldZone.modelData.eliminated !== true
-                                     && (battlefieldZone.modelData.responseStatus === "pass"
-                                         || battlefieldZone.modelData.responseStatus === "hold")
+                            visible: battlefieldZone.modelData.responseStatus
+                                     === "pass"
+                                     || battlefieldZone.modelData.responseStatus
+                                        === "hold"
                             text: battlefieldZone.modelData.responseStatus
                                   === "hold" ? qsTr("Wait") : qsTr("Passed")
                             statusColor:
@@ -327,7 +300,6 @@ Surface {
                             objectName: "battlefieldPlayerSummary"
                                         + battlefieldZone.modelData.seat
                             visible: !battlefieldZone.isOwn
-                                     && battlefieldZone.modelData.eliminated !== true
                             Layout.fillWidth: battlefieldHeader.compactHeader
                             Layout.minimumWidth: 0
                             elide: Text.ElideRight

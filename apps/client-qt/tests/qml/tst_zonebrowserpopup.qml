@@ -37,15 +37,6 @@ TestCase {
     QtObject {
         id: catalog
         property var imageRequests: []
-        property var faceRequests: []
-        function cardFaces(name, setCode, number) {
-            faceRequests.push(name)
-            if (name !== "Front // Back") return []
-            return [{name:"Front", faceName:"", displayName:"Front", setCode:setCode, collectorNumber:number},
-                    {name:"Back", faceName:"Back", displayName:"Back", setCode:setCode, collectorNumber:number}]
-        }
-        function cardRulesText(name) { return name + " rules" }
-        function prioritizeCards(cards) {}
         function imageSource(name, setCode, number) {
             imageRequests.push(name)
             return ""
@@ -55,27 +46,12 @@ TestCase {
         }
     }
 
-    function previewArt(scope, name) {
-        const lookup = item => {
-            if (item.objectName === name) return item
-            for (const child of item.children || []) {
-                const found = lookup(child)
-                if (found) return found
-            }
-            return null
-        }
-        const boundary = scope.contentItem || scope
-        tryVerify(() => lookup(boundary) !== null)
-        return lookup(boundary)
-    }
-
     function init() {
         batchSpy.clear()
         singleSpy.clear()
         popup.canMoveCards = true
         popup.cardCatalogModel = null
         catalog.imageRequests = []
-        catalog.faceRequests = []
         popup.individualCards = false
         testWindow.width = 1100
         testWindow.height = 800
@@ -122,7 +98,7 @@ TestCase {
             verify(String(image.source).endsWith("card-back.jpg"))
         }
         popup.selectedIndex = 2
-        verify(String(previewArt(popup, "zoneBrowserPreviewImage").source).endsWith("card-back.jpg"))
+        verify(String(findChild(popup, "zoneBrowserPreviewImage").source).endsWith("card-back.jpg"))
         compare(catalog.imageRequests.indexOf("Secret"), -1)
         popup.filterQuery = "secret"
         compare(popup.visibleCards.length, 0)
@@ -271,32 +247,6 @@ TestCase {
         popup.showZone("Alice", 0, "hand")
         verify(!popup.previewRequested)
         compare(popup.selectedCount, 0)
-    }
-
-    function test_previewShowsAllFacesCurrentFirstAndPreservesMoveIdentity() {
-        popup.cardCatalogModel = catalog
-        popup.cards = [{id:"dfc", name:"Front // Back", faceName:"Back", setCode:"TST", collectorNumber:"7"}]
-        popup.showZone("Alice", 0, "exile")
-        tryCompare(popup, "opened", true)
-        const first = previewArt(popup, "zoneBrowserPreviewImage")
-        const second = previewArt(popup, "zoneBrowserPreviewImage-1")
-        verify(first && second)
-        compare(findChild(popup, "viewOtherFaceButton"), null)
-        compare(popup.selectedCard.faceName, "Back")
-        const gallery = findChild(popup, "zoneBrowserFaceGallery")
-        compare(gallery.controller.displayFaces.map(face => face.card.name), ["Back", "Front"])
-        popup.requestSelectedMove("graveyard")
-        compare(singleSpy.signalArguments[0][0], "dfc")
-        compare(singleSpy.signalArguments[0][1], "exile")
-        popup.close()
-        tryCompare(popup, "opened", false)
-        popup.showZone("Alice", 0, "exile")
-        tryCompare(popup, "opened", true)
-        compare(gallery.controller.displayFaces[0].card.name, "Back")
-        popup.cards = [{id:"hidden", name:"Front // Back", faceDown:true, setCode:"TST", collectorNumber:"7"}]
-        catalog.faceRequests = []
-        compare(gallery.controller.displayFaces.length, 0)
-        compare(catalog.faceRequests.length, 0)
     }
 
 }

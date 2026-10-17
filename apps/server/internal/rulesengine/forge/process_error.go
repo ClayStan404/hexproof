@@ -57,10 +57,6 @@ func probeError(err error) error {
 // Remember the first failed boundary before killing the process. Otherwise a
 // fast Wait can replace a malformed-response diagnosis with our own SIGKILL.
 func (client *Client) failProcess(err error) error {
-	var boundary *ProcessError
-	if errors.As(err, &boundary) {
-		client.diagnostics.boundary(boundary.Code)
-	}
 	client.waitMu.Lock()
 	if client.boundaryErr == nil {
 		client.boundaryErr = err

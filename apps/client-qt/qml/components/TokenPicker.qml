@@ -381,6 +381,7 @@ AppPopup {
         anchors.fill: parent
         anchors.margins: Theme.size(12)
         visible: root.opened
+        enabled: false
         z: 1000
         // A sibling of the content layout: preview visibility must never
         // make ColumnLayout resize the search results or position the art.

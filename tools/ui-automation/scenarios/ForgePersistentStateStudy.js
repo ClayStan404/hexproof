@@ -7,7 +7,7 @@
 
 var fixture = null;
 var observed = {};
-var inspectionCheck = null;
+var hoverDue = 0;
 var stage = 0;
 var returned = false;
 var finished = false;
@@ -28,62 +28,18 @@ function save(driver, name) {
     auditProbe.record(name, {board:board(driver), observed:observed, returned:returned});
 }
 function hover(driver, id, expected, name) {
-    var now = Date.now();
-    if (!inspectionCheck) {
-        var tile = driver.item("forgeCard-" + id);
-        driver.require(!!tile && tile.persistentSummary.includes(expected), "Battlefield summary missing " + expected);
+    var tile = driver.item("forgeCard-" + id);
+    driver.require(!!tile && tile.persistentSummary.includes(expected), "Battlefield summary missing " + expected);
+    if (!hoverDue) {
         driver.require(auditProbe.hover(tile), "Cannot hover over the annotated permanent");
-        inspectionCheck = {id:id, phase:"hover", ready:now + 900, deadline:now + 6000};
-        return false;
+        hoverDue = Date.now() + 900;
     }
-    driver.require(inspectionCheck.id === id, "Persistent inspection changed before completion");
-    driver.require(now < inspectionCheck.deadline, "Persistent inspection timed out at " + inspectionCheck.phase);
-    var inspector = driver.table.inspector;
-    if (inspectionCheck.phase === "hover") {
-        if (now < inspectionCheck.ready) return false;
-        var preview = driver.item("rulesCardHoverPreview");
-        if (!preview || !preview.visible || inspector.previewCardId !== id) return false;
-        var gallery = preview.children.find(c => c.objectName === "rulesCardHoverPreviewGallery");
-        driver.require(!preview.children.some(c => c.objectName === "rulesCardHoverLinkedCards"),
-            "Hover retained the removed state footer");
-        driver.require(!preview.inspectionRequired && gallery && gallery.visible && gallery.faceCount > 0
-            && Math.abs(preview.width - gallery.width) < 0.1
-            && Math.abs(preview.height - gallery.height) < 0.1,
-            "Hover must contain only complete card faces");
-        driver.capture(name + "-hover");
-        driver.require(auditProbe.rightClick(driver.item("forgeCard-" + id)),
-            "Cannot open the annotated permanent's inspector");
-        inspectionCheck.phase = "pinned"; inspectionCheck.deadline = Date.now() + 6000;
-        return false;
-    }
-    if (inspectionCheck.phase === "pinned") {
-        if (inspector.pinnedCardId !== id || !inspector.visible || inspector.cardId !== id) return false;
-        var label = driver.item("rulesCardInspectorState");
-        driver.require(!!label && label.visible && label.text.includes(expected),
-            "Pinned inspection summary missing " + expected);
-        save(driver, name);
-        if (!driver.click("clearRulesCardInspectorButton")) return false;
-        inspectionCheck.phase = "closed"; inspectionCheck.deadline = Date.now() + 6000;
-        return false;
-    }
-    if (inspectionCheck.phase === "closed") {
-        if (inspector.pinnedCardId.length) return false;
-        // Closing returns keyboard focus to the source card. A hover alone
-        // cannot dismiss its keyboard preview; focus a neutral real control.
-        if (!driver.click("forgeGameMenu")) return false;
-        inspectionCheck.phase = "settings"; inspectionCheck.deadline = Date.now() + 6000;
-        return false;
-    }
-    if (inspectionCheck.phase === "settings") {
-        if (!driver.table.presentation.modalOpen) return false;
-        driver.require(auditProbe.key(Qt.Key_Escape), "Cannot close the temporary settings drawer");
-        inspectionCheck.phase = "cleared"; inspectionCheck.deadline = Date.now() + 6000;
-        return false;
-    }
-    var settings = driver.item("forgeGameMenu");
-    if (driver.table.presentation.modalOpen || inspector.previewCardId.length || !settings || !settings.activeFocus)
-        return false;
-    inspectionCheck = null;
+    if (Date.now() < hoverDue) return false;
+    var preview = driver.table.presentation.children.find(c => c.objectName === "rulesCardHoverPreview");
+    var label = preview && preview.children.find(c => c.objectName === "rulesCardHoverLinkedCards");
+    driver.require(!!preview && preview.visible && !!label && label.visible && label.text.includes(expected),
+        "Hover summary missing " + expected);
+    save(driver, name); hoverDue = 0;
     return true;
 }
 function finish(driver) {

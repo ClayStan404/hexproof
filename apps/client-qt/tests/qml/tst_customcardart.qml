@@ -70,11 +70,6 @@ TestCase {
         property bool artAvailable: true
         property string language: "en"
         function customArtBindings(card) { return faces }
-        function cardFaces(name, setCode, number) {
-            return name === "Front // Back"
-                ? [{name:"Front", faceName:"", displayName:"Front", setCode:setCode, collectorNumber:number},
-                   {name:"Back", faceName:"Back", displayName:"Back", setCode:setCode, collectorNumber:number}] : []
-        }
         function customImageSource() { return overrideSource }
         function imageSource() { return artAvailable ? overrideSource || testCase.imageUrl : "" }
         function tokenImageSource() { return imageSource() }
@@ -324,36 +319,6 @@ TestCase {
         compare(actionSpy.count, 1)
         compare(actionSpy.signalArguments[0][0].collectorNumber, "7†")
         popup.close()
-    }
-    function test_considerHoverShowsBothFacesAndClosesWithManager() {
-        const popup = createTemporaryObject(considerComponent, window.contentItem)
-        verify(popup !== null)
-        popup.open()
-        tryCompare(popup, "opened", true)
-        waitForPolish(window)
-        const card = findCardDelegate(findChild(popup, "considerCardGrid"))
-        verify(card !== null)
-        mouseMove(window, 1, 1)
-        waitForRendering(card)
-        mouseMove(card, card.width / 2, card.height / 2)
-        const preview = findChild(window, "considerCardPreview")
-        verify(preview !== null)
-        tryCompare(preview, "visible", true)
-        compare(preview.facePreview.displayFaces.map(face => face.name), ["Front", "Back"])
-        const reverse = findChild(preview, "cardHoverPreviewArt-1")
-        verify(reverse !== null)
-        mouseMove(reverse, reverse.width / 2, reverse.height / 2)
-        wait(400)
-        verify(preview.visible)
-        compare(card.card.name, "Front // Back")
-        compare(card.card.collectorNumber, "7†")
-        actionSpy.target = popup
-        actionSpy.clear()
-        card.customArtRequested()
-        compare(actionSpy.signalArguments[0][0].name, "Front // Back")
-        popup.close()
-        tryCompare(popup, "opened", false)
-        verify(!preview.visible)
     }
     function test_tokenAndEmblemDetailsOpenTheSameCustomizationDialog() {
         catalog.faces = [{name: "Teferi Emblem", label: "Teferi Emblem", faceName: "",

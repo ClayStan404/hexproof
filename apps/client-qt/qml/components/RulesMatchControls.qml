@@ -73,27 +73,6 @@ Item {
         return winner === tableController.localSeat ? "win" : "loss"
     }
 
-    function rememberTournamentTabletopScore() {
-        const tournament = tableController.tournamentModel
-        const room = tableController.roomSession
-        if (tableController.replayMode === true || !tableController.roomConnected
-                || !matchFinished || room.role !== "player" || tableController.localSeat < 0
-                || !tournament || !tournament.inTournament
-                || typeof tournament.rememberTabletopScore !== "function") {
-            return
-        }
-        const score = gameSession.score || []
-        if (score.length !== 2)
-            return
-        const seats = []
-        for (let seat = 0; seat < score.length; ++seat) {
-            seats.push({"displayName": playerName(seat), "wins": Number(score[seat] || 0)})
-        }
-        // Keep physical seat order here; the event editor maps names to its
-        // pairing order, and the session validates the event/room identity.
-        tournament.rememberTabletopScore(room.roomId, seats, Number(gameSession.drawnGames || 0))
-    }
-
     function synchronizeResult() {
         if (tableController.replayMode === true) { resultPopup.close(); return }
         if (!matchFinished) {
@@ -109,7 +88,6 @@ Item {
         if (key === shownResultKey)
             return
         shownResultKey = key
-        rememberTournamentTabletopScore()
         resultPopup.open()
     }
 

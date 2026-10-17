@@ -12,7 +12,6 @@ Popup {
     property var service: null
     property var wsModel: null
     property string feedback: ""
-    readonly property var appWindow: ApplicationWindow.window
     parent: Overlay.overlay
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
@@ -166,14 +165,6 @@ Popup {
                     saveReport.selectedFile = root.service.suggestedDiagnosticsUrl()
                     saveReport.open()
                 }
-            }
-            AppButton {
-                objectName: "forgeSendFeedback"
-                text: qsTranslate("Feedback", "Send feedback with these diagnostics")
-                visible: root.appWindow && typeof root.appWindow.openFeedback === "function"
-                enabled: root.service && typeof root.service.diagnosticsReport === "function"
-                onClicked: root.appWindow.openFeedback({feature: "installation"}, "hosting",
-                    root.service.diagnosticsReport())
             }
             Text {
                 Layout.fillWidth: true

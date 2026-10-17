@@ -75,17 +75,13 @@ func (h *Handler) replayPeerReceipt(r *room.Room, sess *Session, operationID str
 	// Current projections go over the reliable hub path before releasing input.
 	if _, active := h.forgeGame(r.ID); active {
 		if projections, err := h.rulesProjections(r); err == nil {
-			prompts, promptErr := h.rulesPrompts(r)
-			if promptErr == nil {
-				pairRulesPrompts(projections, prompts)
-			}
 			if snapshot, exists := projections[sess.ConnectionID]; exists {
 				h.send(sess, snapshot)
 			}
-			if promptErr == nil {
-				if prompt, exists := prompts[sess.ConnectionID]; exists {
-					h.send(sess, prompt)
-				}
+		}
+		if prompts, err := h.rulesPrompts(r); err == nil {
+			if prompt, exists := prompts[sess.ConnectionID]; exists {
+				h.send(sess, prompt)
 			}
 		}
 	}
@@ -95,15 +91,12 @@ func (h *Handler) replayPeerReceipt(r *room.Room, sess *Session, operationID str
 
 func (h *Handler) commitPlayerPeer(r *room.Room, link *forgehost.Link, commit forgehost.PeerCommit) {
 	reply := &forgehost.PeerReply{BindingID: commit.BindingID, OperationID: commit.OperationID, Error: "relay"}
+	defer func() { _ = link.SendPeer(forgehost.Frame{Type: "peer_reply", PeerReply: reply}) }()
 	entry, err := h.hub.lockRoomOperation(r.ID)
 	if err != nil {
-		_ = link.SendPeer(forgehost.Frame{Type: "peer_reply", PeerReply: reply})
 		return
 	}
 	defer entry.opMu.Unlock()
-	// Confirm this accepted position before releasing opMu. A normal smart
-	// pass can then follow over the same relay without racing confirmation.
-	defer func() { _ = link.SendPeer(forgehost.Frame{Type: "peer_reply", PeerReply: reply}) }()
 	defer h.refreshPlayerHostStatus(r)
 	members := h.peerMembers(r)
 	h.forgeMu.Lock()
@@ -154,18 +147,13 @@ func (h *Handler) commitPlayerPeer(r *room.Room, link *forgehost.Link, commit fo
 	if err != nil || !bytes.Equal(native, commit.Action) {
 		return
 	}
-	if !h.pauseActionClockLocked(r) {
-		return
-	}
 	if binding.runtime.AdoptPeer(commit) != nil {
-		h.reconcileForgeActionClock(r, game, &view)
 		return
 	}
-	game.diagnostics.action(view.Kind, seat, false)
 	h.forgeMu.Lock()
 	direct := state.binding == binding && binding.connections == members && sess != nil
 	h.forgeMu.Unlock()
-	if result := h.publishRulesDecision(r, game, connection, commit.OperationID, commit.Request, direct, true); result != nil {
+	if result := h.publishRulesDecision(r, game, connection, commit.OperationID, commit.Request, direct); result != nil {
 		reply = result
 	}
 }

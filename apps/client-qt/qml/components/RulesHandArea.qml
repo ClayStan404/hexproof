@@ -348,18 +348,11 @@ Surface {
                                              && zoneOwnerSeat
                                                 === root.tableController.localSeat
                                     z: index
-                                    ForgeArtStamp {
-                                        id: artStamp
-                                        catalog: root.tableController.cardCatalogModel
-                                        name: zoneCard.name || ""
-                                    }
-                                    source: {
-                                        void artStamp.stamp
-                                        return visibleIdentity && !faceDown
-                                                ? root.tableController.cardImage(
-                                                      name, setCode, collectorNumber)
-                                                : root.tableController.cardBackSource
-                                    }
+                                    source: visibleIdentity && !faceDown
+                                            ? root.tableController.cardImage(
+                                                  name, setCode,
+                                                  collectorNumber)
+                                            : root.tableController.cardBackSource
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                     Component.onDestruction: {

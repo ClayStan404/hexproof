@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"time"
 
 	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/protocol"
@@ -101,12 +102,7 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 			"The selection does not satisfy this Forge decision")
 		return nil
 	}
-	if !h.pauseActionClockLocked(r) {
-		h.sendError(sess, env.ID, protocol.ErrGameFinished, "the action clock finished the match")
-		return nil
-	}
 	ctx, cancel = context.WithTimeout(context.Background(), runtimeTimeout(game.client, forgePromptTimeout))
-	game.diagnostics.action(promptView.Kind, game.playerToSeat[playerIndex], false)
 	if remote, ok := game.client.(*forgehost.Runtime); ok {
 		err = remote.SubmitPlayerAction(ctx, game.sessionID, response, request.PeerBinding, env.ID)
 	} else {
@@ -116,8 +112,6 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 	if err != nil {
 		if game.nativeAI && !game.client.Healthy() {
 			h.failForgeGame(r)
-		} else {
-			h.reconcileForgeActionClock(r, game, &promptView)
 		}
 		h.sendError(sess, env.ID, protocol.ErrRulesActionRejected,
 			"Forge rejected the decision")
@@ -128,35 +122,69 @@ func (h *Handler) handleRulesRespond(sess *Session, env protocol.Envelope) error
 		return nil
 	}
 
-	h.publishRulesDecision(r, game, sess.ConnectionID, env.ID, request, false, false)
+	h.publishRulesDecision(r, game, sess.ConnectionID, env.ID, request, false)
 	return nil
 }
 
 // Caller holds opMu. Both transports use the identical redaction and match
 // lifecycle path; only delivery of the responding peer's envelopes differs.
-// An adopted direct commit defers priority until the worker confirms its reply.
 func (h *Handler) publishRulesDecision(r *room.Room, game forgeRoomGame, connectionID string, operationID string,
-	request protocol.RulesRespond, direct, deferPriority bool) *forgehost.PeerReply {
+	request protocol.RulesRespond, direct bool) *forgehost.PeerReply {
 
-	state, err := h.prepareForgePublication(r, game, deferPriority)
+	projections, err := h.rulesProjections(r)
 	if err != nil {
 		h.failClosedGameProjections(r, err)
 		return nil
+	}
+	gameOver, winnerSeat, err := rulesProjectionResult(projections)
+	if err != nil {
+		h.failClosedGameProjections(r, err)
+		return nil
+	}
+	var prompts map[string]protocol.Envelope
+	var resultBroadcast []protocol.Envelope
+	var resultDeadline time.Time
+	if gameOver {
+		prompts, err = h.clearedRulesPrompts(r, game)
+		if err == nil {
+			var result room.Result
+			result, err = h.hub.CompleteRulesGame(r, winnerSeat)
+			resultBroadcast = result.Broadcast
+			resultDeadline = result.SideboardDeadline
+		}
+		if err != nil {
+			h.failClosedGameProjections(r, err)
+			return nil
+		}
+		h.finishForgeGame(r.ID, game, !resultDeadline.IsZero())
+	} else {
+		prompts, err = h.rulesPrompts(r)
+		if err != nil {
+			h.failClosedGameProjections(r, err)
+			return nil
+		}
 	}
 	reply, _ := protocol.NewEnvelope(protocol.TypeRulesResponded,
 		protocol.RulesResponded{RoomID: r.ID, PromptID: request.PromptID})
 	reply.ID = operationID
 	peerReply := &forgehost.PeerReply{BindingID: request.PeerBinding, OperationID: operationID,
-		Envelopes: []protocol.Envelope{reply, state.projections[connectionID], state.prompts[connectionID]}}
+		Envelopes: []protocol.Envelope{reply, projections[connectionID], prompts[connectionID]}}
 	h.savePeerReceipt(r.ID, game, connectionID, request, peerReply)
-	if direct && !state.gameOver {
-		delete(state.projections, connectionID)
-		delete(state.prompts, connectionID)
+	if direct && !gameOver {
+		delete(projections, connectionID)
+		delete(prompts, connectionID)
 	} else {
 		if sess := h.sessionByConn(connectionID); sess != nil {
 			h.send(sess, reply)
 		}
 	}
-	h.sendForgePublication(r, state)
+	h.sendRulesProjections(projections)
+	h.sendRulesPrompts(prompts)
+	if gameOver {
+		h.fanout(r, resultBroadcast)
+		if !resultDeadline.IsZero() {
+			h.scheduleSideboardExpiration(r, resultDeadline)
+		}
+	}
 	return peerReply
 }

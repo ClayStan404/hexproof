@@ -13,10 +13,10 @@ Surface {
     property bool verticalInspection: false
     property bool externalHoverPreview: false
     property bool embedGameLog: true
-    readonly property bool externalPreviewActive: externalHoverPreview && cardInspector.previewCardId.length > 0
+    readonly property bool externalPreviewActive: externalHoverPreview && inspector.previewCardId.length > 0
     readonly property bool opened: inspectionOpened
         || (embedGameLog && tableController.showGameLogRail)
-    property alias inspector: cardInspector
+    property alias inspector: inspector
     readonly property var logRail: embedGameLog ? logLoader.item : null
 
     objectName: "rulesInspectionHost"
@@ -29,16 +29,16 @@ Surface {
         target: root.tableController
         function onRoomConnectedChanged() {
             if (!root.tableController.roomConnected)
-                cardInspector.clear()
+                inspector.clear()
         }
         function onSideboardingChanged() {
             if (root.tableController.sideboarding)
-                cardInspector.clear()
+                inspector.clear()
         }
     }
 
     RulesCardInspector {
-        id: cardInspector
+        id: inspector
         anchors.fill: parent
         anchors.margins: Theme.size(6)
         rulesSession: root.tableController.rulesSession
@@ -53,7 +53,6 @@ Surface {
                 root.inspectionOpened = true
         }
         onCleared: root.inspectionOpened = false
-        onDismissed: source => root.tableController.restoreInspectionFocus(source)
     }
 
     Loader {
@@ -64,7 +63,7 @@ Surface {
         sourceComponent: TableGameLogRail {
             tableController: root.tableController
             visible: root.tableController.showGameLogRail
-                     && (!cardInspector.hasCard || root.externalPreviewActive)
+                     && (!inspector.hasCard || root.externalPreviewActive)
         }
     }
 }

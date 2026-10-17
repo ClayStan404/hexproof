@@ -34,15 +34,10 @@ TestCase {
         property var prioritized: []
         property bool artAvailable: true
         property var metadata: ({})
-        property var faces: []
-        function cardFaces(name, setCode, number) { return name === "Token Front // Token Back" ? faces : [] }
         function searchTokens(query, kind, setCodes) { lastSearch = {query,kind,setCodes} }
         function tokenImageSource() { return artAvailable ? testCase.testImage : "" }
         function tokenDisplayName(name) { return language === "zh" ? "多明纳里亚英雄泰菲力徽记" : name }
         function tokenDetails(name) {
-            if (name === "Token Back") return language === "zh"
-                ? {displayName:"衍生背面", typeLine:"衍生生物～鸟", oracleText:"飞行"}
-                : {displayName:"Token Back", typeLine:"Token Creature — Bird", oracleText:"Flying"}
             if (name === "Goblin") return language === "zh"
                 ? {displayName:"地精", typeLine:"衍生生物～地精", oracleText:"敏捷"}
                 : {displayName:name, typeLine:"Token Creature — Goblin", oracleText:"Haste"}
@@ -86,20 +81,6 @@ TestCase {
         }
     }
 
-    function previewArt(scope, name) {
-        const lookup = item => {
-            if (item.objectName === name) return item
-            for (const child of item.children || []) {
-                const found = lookup(child)
-                if (found) return found
-            }
-            return null
-        }
-        const boundary = scope.contentItem || scope
-        tryVerify(() => lookup(boundary) !== null)
-        return lookup(boundary)
-    }
-
     function init() {
         Theme.uiScale = 1
         testWindow.width = 1100
@@ -112,7 +93,6 @@ TestCase {
         catalog.lastSearch = ({})
         catalog.language = "en"
         catalog.artAvailable = true
-        catalog.faces = []
         catalog.metadata = {en:{displayName:emblem.name, typeLine:emblem.typeLine, oracleText:emblem.oracleText},
                             zh:{displayName:"多明纳里亚英雄泰菲力徽记", typeLine:"徽记～泰菲力",
                                 oracleText:"每当你抓一张牌时，放逐目标由对手操控的永久物。"}}
@@ -229,36 +209,6 @@ TestCase {
                 {tag:"large-compact",scale:1.5,width:1000,height:720}]
     }
 
-    function test_allFacesDoNotCreateToken() {
-        const value = {name:"Token Front // Token Back", kind:"token", setCode:"TOK", collectorNumber:"1"}
-        catalog.tokenSearchResults = [value]
-        catalog.faces = [{name:value.name, faceName:"", setCode:"TOK", collectorNumber:"1"},
-                         {name:"Token Back", faceName:"Token Back", setCode:"TOK", collectorNumber:"1"}]
-        picker.open()
-        tryCompare(picker, "opened", true)
-        const thumbnail = findChild(rowAt(0), "tokenResultThumbnail")
-        verify(waitForPolish(testWindow))
-        mouseMove(testWindow, 1, 1)
-        mouseMove(thumbnail)
-        const preview = findChild(picker, "tokenArtPreview")
-        tryCompare(preview, "visible", true)
-        const first = previewArt(preview, "cardHoverPreviewArt")
-        const second = previewArt(preview, "cardHoverPreviewArt-1")
-        verify(first && second)
-        compare(findChild(preview, "viewOtherFaceButton"), null)
-        tryCompare(first, "status", Image.Ready)
-        tryCompare(second, "status", Image.Ready)
-        mouseMove(second)
-        wait(400)
-        verify(preview.visible)
-        compare(preview.facePreview.displayFaces[1].name, "Token Back")
-        compare(Object.keys(selection).length, 0)
-        compare(catalog.tokenSearchResults[0].name, value.name)
-        tryVerify(() => catalog.prioritized.some(card => card.name === "Token Back" && card.kind === "token"))
-        picker.close()
-        tryCompare(preview, "visible", false)
-    }
-
     function test_pickerHoverOpensFullArt(data) {
         Theme.uiScale = data.scale
         testWindow.width = data.width
@@ -268,9 +218,6 @@ TestCase {
         const thumbnail = findChild(rowAt(1), "tokenResultThumbnail")
         const list = findChild(picker,"tokenSearchResults")
         const originalList = {x:list.x,y:list.y,width:list.width,height:list.height}
-        // Each data row enters the thumbnail from outside the popup, rather
-        // than inheriting the pointer position from the preceding window size.
-        mouseMove(testWindow,1,1)
         mouseMove(thumbnail,thumbnail.width/2,thumbnail.height/2)
         const preview = findChild(picker, "tokenArtPreview")
         tryCompare(preview, "visible", true)
@@ -340,7 +287,7 @@ TestCase {
         browser.showSeat(data.seat)
         tryCompare(browser, "opened", true)
         compare(browser.canRemove, data.canRemove)
-        const art = previewArt(browser, "emblemBrowserArt")
+        const art = findChild(browser, "emblemBrowserArt")
         tryCompare(art, "status", Image.Ready)
         tryVerify(() => art.height > 300)
         const list = findChild(browser, "emblemBrowserList")
@@ -383,7 +330,7 @@ TestCase {
         browser.showSeat(0)
         tryCompare(browser,"opened",true)
         const rules = findChild(browser,"emblemRulesText")
-        const art = previewArt(browser, "emblemBrowserArt")
+        const art = findChild(browser,"emblemBrowserArt")
         tryCompare(art,"status",Image.Ready)
         verify(rules.text.includes(emblem.oracleText))
         const originalArt = art.source
@@ -421,7 +368,7 @@ TestCase {
         verify(scroll.atYEnd)
         const list = findChild(browser,"emblemBrowserList")
         tryVerify(() => list.itemAtIndex(0) !== null)
-        for (const control of [scroll, previewArt(browser, "emblemBrowserArt"),
+        for (const control of [scroll, findChild(browser,"emblemBrowserArt"),
                                findChild(browser,"closeEmblemBrowserButton"),
                                findChild(list.itemAtIndex(0),"removeEmblememblem-a")]) {
             verify(control.width>0 && control.height>0)
@@ -471,7 +418,7 @@ TestCase {
         mouseMove(thumbnail,thumbnail.width/2,thumbnail.height/2)
         const preview = findChild(picker,"tokenArtPreview")
         tryCompare(preview,"visible",true)
-        const fallback = previewArt(preview, "cardHoverPreviewFallbackText")
+        const fallback = findChild(preview,"cardHoverPreviewFallbackText")
         verify(fallback.visible)
         verify(fallback.text.includes("每当你抓一张牌时"))
         verify(fallback.text.includes("徽记～泰菲力"))
@@ -553,7 +500,7 @@ TestCase {
         verify(waitForRendering(detail.contentItem))
         const rules = findChild(detail,"tokenDetailsRulesText")
         const scroll = findChild(detail,"tokenDetailsRulesScroll")
-        const art = previewArt(detail, "tokenDetailsArt")
+        const art = findChild(detail,"tokenDetailsArt")
         tryCompare(art,"status",Image.Ready)
         verify(rules.text.endsWith("完整规则末尾。"))
         verify(scroll.contentHeight>scroll.height)
@@ -590,62 +537,11 @@ TestCase {
         verify(waitForRendering(browser.contentItem))
         verify(browser.y >= 0)
         verify(browser.y+browser.height <= testWindow.height)
-        const art = previewArt(browser, "emblemBrowserArt")
+        const art = findChild(browser,"emblemBrowserArt")
         verify(art.width>0 && art.height>0)
         const close = findChild(browser,"closeEmblemBrowserButton")
         const point = close.mapToItem(testWindow.contentItem,0,0)
         verify(point.x>=0 && point.y>=0)
         verify(point.y+close.height <= testWindow.height)
-    }
-
-    function test_tokenAndEmblemDetailsShowAllFacesWithoutChangingSource() {
-        const card = {id:"double-token", kind:"token", name:"Token Front // Token Back",
-                      setCode:"TST", collectorNumber:"7", oracleText:"Front rules"}
-        catalog.faces = [{name:"Token Front", displayName:"Token Front", faceName:"", setCode:"TST", collectorNumber:"7"},
-                         {name:"Token Back", displayName:"Token Back", faceName:"Token Back", setCode:"TST", collectorNumber:"7"}]
-        catalog.metadata.en = {displayName:"Token Front", oracleText:"Front rules"}
-        picker.open()
-        tryCompare(picker, "opened", true)
-        const detail = picker.detailsPopup
-        detail.showCard(card)
-        tryCompare(detail, "opened", true)
-        verify(previewArt(detail, "tokenDetailsArt"))
-        const backArt = previewArt(detail, "tokenDetailsArt-1")
-        verify(backArt)
-        tryCompare(backArt, "status", Image.Ready)
-        compare(findChild(detail, "viewOtherFaceButton"), null)
-        const rules = findChild(detail, "tokenDetailsRulesText")
-        verify(rules.text.includes("Token Back"))
-        verify(rules.text.includes("Flying"))
-        verify(rules.text.includes("Front rules"))
-        compare(detail.card.name, card.name)
-        compare(detail.card.collectorNumber, "7")
-        catalog.prioritized = []
-        catalog.language = "zh"
-        tryVerify(() => catalog.prioritized.some(card => card.name === "Token Back"))
-        verify(rules.text.includes("飞行"))
-        catalog.language = "en"
-        detail.close()
-        tryCompare(detail, "opened", false)
-        detail.showCard(card)
-        tryCompare(detail, "opened", true)
-        verify(rules.text.includes("Front rules"))
-        detail.close()
-        picker.close()
-        tryCompare(picker, "opened", false)
-
-        controller.battlefieldSeats = [{seat:0, displayName:"Alice", emblems:[card]}]
-        browser.showSeat(0)
-        tryCompare(browser, "opened", true)
-        const emblemBack = previewArt(browser, "emblemBrowserArt-1")
-        verify(emblemBack)
-        tryCompare(emblemBack, "status", Image.Ready)
-        compare(findChild(browser, "viewOtherFaceButton"), null)
-        verify(findChild(browser, "emblemRulesText").text.includes("Flying"))
-        compare(browser.selectedEmblem.name, card.name)
-        const list = findChild(browser, "emblemBrowserList")
-        tryVerify(() => list.itemAtIndex(0) !== null)
-        mouseClick(findChild(list.itemAtIndex(0), "removeEmblem" + card.id))
-        compare(removedId, card.id)
     }
 }

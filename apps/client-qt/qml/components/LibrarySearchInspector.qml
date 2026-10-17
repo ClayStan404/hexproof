@@ -18,23 +18,7 @@ ColumnLayout {
     property alias reveal: revealToggle.checked
     property alias topSelectedReveal: topControls.reveal
 
-    CardFacePreviewController {
-        id: facePreview
-        objectName: "libraryFacePreviewController"
-        catalogModel: root.popupController.cardCatalogModel
-        card: root.popupController.selectedCard
-        active: root.popupController.visible
-    }
-
-    Connections {
-        target: root.popupController
-        function onClosed() { facePreview.resetFace() }
-    }
-
-    readonly property bool expandedFaceGallery: facePreview.displayFaces.length > 1
-        && popupController.availableWidth >= Theme.size(960)
-    Layout.preferredWidth: Math.min(Theme.size(expandedFaceGallery ? 560 : 340),
-                                   popupController.availableWidth * (expandedFaceGallery ? 0.52 : 0.44))
+    Layout.preferredWidth: Math.min(Theme.size(340), popupController.availableWidth * 0.44)
     Layout.fillWidth: false
     Layout.minimumWidth: 0
     Layout.fillHeight: true
@@ -42,9 +26,7 @@ ColumnLayout {
 
     function resetControls() {
         destinationBox.currentIndex = 0
-        const flickable = inspectorScroll.contentItem as Flickable
-        if (flickable)
-            flickable.contentY = 0
+        inspectorScroll.contentItem.contentY = 0
         randomizeTopToggle.checked = false
         randomizeBottomToggle.checked = false
         revealToggle.checked = root.popupController.topCount === 0
@@ -97,33 +79,33 @@ ColumnLayout {
                 }
             }
 
-            Item {
-                id: artRegion
+            Surface {
                 Layout.fillWidth: true
-                Layout.preferredHeight: facePreview.displayFaces.length > 1 ? gallery.implicitHeight
-                    : Math.min(Theme.size(220), Math.max(1, inspectorScroll.availableHeight - Theme.size(12)))
-                CardFacePreviewGallery {
-                    id: gallery
-                    objectName: "libraryFaceGallery"
-                    controller: facePreview
-                    artObjectName: "libraryInspectorArt"
-                    columns: facePreview.displayFaces.length > 1
-                             && parent.width >= Theme.size(368) ? 2 : 1
-                    width: facePreview.displayFaces.length > 1
-                        ? Math.min(parent.width,
-                            Math.max(1, inspectorScroll.availableHeight - Theme.size(24)) * 63 / 88 * columns
-                            + (columns - 1) * Theme.size(8))
-                        : Math.max(0, Math.min(parent.width - Theme.size(24),
-                            (artRegion.height - Theme.size(24)) * 63 / 88))
-                    anchors.centerIn: parent
+                Layout.preferredHeight: Math.min(Theme.size(220),
+                        Math.max(1, inspectorScroll.availableHeight - Theme.size(12)))
+                color: Theme.surfaceMuted
+                clip: true
+
+                Image {
+                    anchors.fill: parent
+                    anchors.margins: Theme.size(12)
+                    source: root.popupController.selectedCard.name
+                            && root.popupController.cardCatalogModel
+                            ? root.popupController.cardCatalogModel.imageSource(
+                                  root.popupController.selectedCard.name,
+                                  root.popupController.selectedCard.setCode,
+                                  root.popupController.selectedCard.collectorNumber)
+                            : ""
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
                 }
             }
 
             Text {
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
-                text: facePreview.displayName
-                      ? facePreview.displayName
+                text: root.popupController.selectedCard.name
+                      ? root.popupController.selectedCard.name
                       : qsTranslate("LibrarySearchPopup", "Select a card")
                 color: Theme.text
                 font.pixelSize: Theme.fontSize(14)

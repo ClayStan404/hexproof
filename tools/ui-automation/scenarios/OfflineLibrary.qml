@@ -26,7 +26,6 @@ Item {
     property int scrollAttempts: 0
     property bool galleryNeedsScroll: false
     property real galleryScrollBefore: 0
-    property var selectedSearchPrinting: null
     property bool finished: false
 
     function require(value, message) {
@@ -86,14 +85,6 @@ Item {
         add("Open " + name + " for option " + index, () => click(name),
             () => { const item = find(name); return item && item.popup.visible })
         add("Choose " + name + " option " + index, () => selectOpenCombo(index), check)
-    }
-
-    function languageIndex(code) {
-        for (let index = 0; index < uiLanguages.length; ++index) {
-            if (uiLanguages[index].code === code)
-                return index
-        }
-        throw new Error("Unsupported interface language: " + code)
     }
 
     function screenshot(name) {
@@ -207,35 +198,8 @@ Item {
         add("Type exact catalog search", () => fill("workbenchSearch", "Dovin's Veto",
             {placeholderText: "Search English or Chinese names…"}),
             () => !cardCatalog.searching && !!find("workbenchCard-Dovin's Veto"), 30000)
-        add("Select the exact catalog result", () => {
-            const tile = find("workbenchCard-Dovin's Veto")
-            if (!tile) return false
-            const card = tile.card
-            require(card && card.name === "Dovin's Veto" && card.setCode
-                    && card.collectorNumber, "Search result lacks its exact printing")
-            selectedSearchPrinting = {name: card.name, setCode: card.setCode,
-                                      collectorNumber: card.collectorNumber}
-            return click("workbenchCard-Dovin's Veto", null, {
-                "card.setCode": selectedSearchPrinting.setCode,
-                "card.collectorNumber": selectedSearchPrinting.collectorNumber
-            })
-        }, () => {
-            const tile = find("workbenchCard-Dovin's Veto", {
-                "card.setCode": selectedSearchPrinting.setCode,
-                "card.collectorNumber": selectedSearchPrinting.collectorNumber
-            })
-            const addButton = find("cardSearchAddMain")
-            return tile && tile.emphasized && tile.card.name === selectedSearchPrinting.name
-                && addButton && addButton.enabled && deckLibrary.currentMainCount === 60
-        })
-        add("Add the selected card to the main deck", () => click("cardSearchAddMain"), () => {
-            if (deckLibrary.currentMainCount !== 61) return false
-            const added = deckLibrary.mainCards.find(card => card.name === selectedSearchPrinting.name)
-            require(added && added.count === 1 && added.setCode === selectedSearchPrinting.setCode
-                    && added.collectorNumber === selectedSearchPrinting.collectorNumber,
-                    "Adding the search result changed its exact printing or quantity")
-            return true
-        })
+        add("Add card from search result", () => click("workbenchCard-Dovin's Veto"),
+            () => deckLibrary.currentMainCount === 61)
         add("Close catalog search", () => click("cardSearchDoneButton"),
             () => !find("cardSearchDoneButton"))
         add("Local deck search remains reachable after popup closes", () => {
@@ -262,9 +226,7 @@ Item {
         add("Clear deck search", () => fill("workbenchSearch", "",
             {placeholderText: "Search this deck…"}), () => page().filteredMainCards.length === 5)
         combo("deckEditorViewMode", 1, () => !!find("groupedDeckGallery"))
-        add("Open deck actions menu", () => click("deckEditorMoreButton"),
-            () => !!find("exportCurrentDeckButton"))
-        add("Open deck export options", () => click("exportCurrentDeckButton"),
+        add("Open deck export options", () => click("exportCurrentDeckButton", "deckEditorBody"),
             () => !!find("exportDeckArtButton"))
         add("Open deck-specific art export", () => click("exportDeckArtButton"), () => {
             const name = find("deckArtExportName")
@@ -323,25 +285,30 @@ Item {
         combo("deckLibraryFormatFilter", 10, () => !!find("editLibraryDeckButton"))
         combo("deckLibraryFormatFilter", 0, () => !!find("editLibraryDeckButton"))
         add("Open settings", () => click("deckLibrarySettingsButton"),
-            () => !!find("settingsHubScreen"))
+            () => !!find("settingsBody"))
         add("Open appearance settings", () => click("settingsAppearanceModule", "settingsBody"),
-            () => !!find("appearanceSettingsScreen"))
+            () => !!find("settingsThemeSelector"))
         add("Change appearance by pointer", () => {
             const control = find("settingsThemeSelector")
             if (!control) return false
             require(auditProbe.click(control, control.width * 0.75, control.height / 2), "Cannot select Glass")
         }, () => preferences.uiTheme === "glass")
         add("Return to settings categories", () => click("screenBackButton"),
-            () => !!find("settingsHubScreen"))
+            () => !!find("settingsLanguageModule"))
         add("Open language settings", () => click("settingsLanguageModule", "settingsBody"),
-            () => !!find("languageSettingsScreen"))
-        combo("settingsLanguageSelector", languageIndex("zh"),
-            () => preferences.uiLanguage === "zh")
+            () => !!find("settingsLanguageSelector"))
+        add("Change interface language by pointer", () => {
+            const control = find("settingsLanguageSelector")
+            if (!control) return false
+            require(auditProbe.click(control, control.width * 0.75, control.height / 2), "Cannot select Chinese")
+        }, () => preferences.uiLanguage === "zh")
         add("Capture translated settings", () => screenshot("settings-chinese-glass"))
-        combo("settingsLanguageSelector", languageIndex("en"),
-            () => preferences.uiLanguage === "en")
+        add("Restore English by pointer", () => {
+            const control = find("settingsLanguageSelector")
+            require(auditProbe.click(control, control.width * 0.25, control.height / 2), "Cannot select English")
+        }, () => preferences.uiLanguage === "en")
         add("Return to settings categories", () => click("screenBackButton"),
-            () => !!find("settingsHubScreen"))
+            () => !!find("settingsManageArtButton"))
         add("Open downloaded-art manager", () => click("settingsManageArtButton", "settingsBody"),
             () => !!find("manageCustomCardArtButton"))
         add("Refresh downloaded-art inventory", () => click("refreshArtInventoryButton"),
@@ -361,7 +328,7 @@ Item {
         add("Return from custom-art manager", () => click("screenBackButton"),
             () => !!find("manageCustomCardArtButton"))
         add("Return from downloaded-art manager", () => click("screenBackButton"),
-            () => !!find("settingsHubScreen"))
+            () => !!find("settingsBody"))
         add("Return from settings", () => click("screenBackButton"),
             () => !!find("deckLibraryImportButton"))
         add("Open deck deletion confirmation", () => click("deleteLibraryDeckButton"),

@@ -25,13 +25,6 @@ TestCase {
         }
         function cacheCardsIncrementally(cards) { }
         function tableImageSource(name, set, number) { return "" }
-        function imageSource(name, set, number) { return "" }
-        function prioritizeCards(cards) {}
-        function cardFaces(name, set, number) {
-            return name === "Front // Back"
-                ? [{name:"Front", faceName:"", displayName:"Front", setCode:set, collectorNumber:number},
-                   {name:"Back", faceName:"Back", displayName:"Back", setCode:set, collectorNumber:number}] : []
-        }
     }
     Component {
         id: pageComponent
@@ -67,29 +60,5 @@ TestCase {
         verify(!button.enabled)
         findChild(page, "limitedSetSearchClearButton").clicked()
         verify(button.enabled)
-    }
-    function test_openedResultsPreviewBothFacesWithoutChangingPack() {
-        const page = createTemporaryObject(pageComponent, window.contentItem,
-                                            {width:window.width,height:window.height})
-        verify(page !== null)
-        page.openedPacks = [{cards:[{name:"Front // Back", setCode:"TST", collectorNumber:"7"}]}]
-        waitForPolish(window)
-        const card = findChild(page, "simulatedPackCard0-0")
-        verify(card !== null)
-        const body = findChild(page, "packSimulatorBody")
-        body.contentY = Math.max(0, card.mapToItem(body.contentItem, 0, 0).y
-                                + card.height - body.height)
-        waitForPolish(window)
-        mouseMove(window, 1, 1)
-        mouseMove(card, card.width / 2, card.height / 2)
-        const preview = findChild(page, "simulatedPackCardPreview")
-        tryCompare(preview, "visible", true)
-        compare(preview.facePreview.displayFaces.map(face => face.name), ["Front", "Back"])
-        verify(findChild(preview, "cardHoverPreviewArt-1") !== null)
-        verify(findChild(preview, "viewOtherFaceButton") === null)
-        compare(page.openedPacks[0].cards[0].name, "Front // Back")
-        compare(page.openedPacks[0].cards[0].collectorNumber, "7")
-        page.openedPacks = []
-        verify(!preview.visible)
     }
 }

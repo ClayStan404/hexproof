@@ -43,8 +43,6 @@ TestCase {
         property string status: "registration"
         property string stage: "registration"
         property string eventType: "cube_draft"
-        property string rulesMode: "manual"
-        property bool actionClockEnabled: false
         property string roundStartedAt: ""
         property int roundMinutes: 50
         property int currentRound: 0
@@ -82,18 +80,6 @@ TestCase {
         function open() { }
     }
 
-    function test_actionClockSummaryUsesServerConfiguration() {
-        const summary = findChild(eventDesk, "tournamentActionClockSummary")
-        verify(!summary.visible)
-        mockTournament.rulesMode = "forge"
-        verify(summary.visible)
-        compare(summary.text, "Action clock · Off")
-        mockTournament.actionClockEnabled = true
-        compare(summary.text, "Action clock · 25 minutes per player")
-        mockTournament.actionClockEnabled = false
-        compare(summary.text, "Action clock · Off")
-    }
-
     function init() {
         mockTournament.coordinator = "swiss"
         mockTournament.status = "registration"
@@ -103,8 +89,6 @@ TestCase {
         mockLimited.allDecksSubmitted = false
         mockLimited.participants = []
         mockTournament.eventType = "cube_draft"
-        mockTournament.rulesMode = "manual"
-        mockTournament.actionClockEnabled = false
         mockTournament.registered = 4
         mockTournament.checkedIn = 4
         mockTournament.minimumPlayers = 2

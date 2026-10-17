@@ -62,7 +62,7 @@ func (r *Room) DeclareDrawAt(connID string, now time.Time) (Result, error) {
 }
 
 // RestartGame rebuilds the current game from committed decks while preserving
-// its number, match score, and the remaining players' relative turn order.
+// its number, match score, starting player, and turn order.
 func (r *Room) RestartGame(connID string) (Result, error) {
 	if err := r.requireActiveGame(); err != nil {
 		return Result{}, err
@@ -74,14 +74,6 @@ func (r *Room) RestartGame(connID string) (Result, error) {
 	gameNumber := r.Game.Number
 	startingSeat := r.Game.StartingSeat
 	turnOrder := append([]int{}, r.Game.TurnOrder...)
-	if r.Format == protocol.FormatEDH {
-		var err error
-		turnOrder, err = r.commanderRestartTurnOrder()
-		if err != nil {
-			return Result{}, newError(protocol.ErrGameSetupFailed)
-		}
-		startingSeat = turnOrder[0]
-	}
 	displayName := r.Game.Seats[hostSeat].DisplayName
 	if err := r.setupGameNumberWithTurnOrder(
 		gameNumber, startingSeat, turnOrder); err != nil {

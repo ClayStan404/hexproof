@@ -43,17 +43,7 @@ Popup {
         border.color: Theme.borderStrong
     }
 
-    CardHoverPreview {
-        id: cardPreview
-        objectName: "packOpeningCardPreview"
-        parent: root.contentItem.parent
-        catalogModel: root.cardCatalogModel
-    }
-
-    onCurrentPackIndexChanged: cardPreview.hide()
-
     onClosed: {
-        cardPreview.hide()
         packIntro.stop()
         packBurst.stop()
     }
@@ -122,7 +112,6 @@ Popup {
     function showPacks(openedPacks, displayName) {
         if (!openedPacks || openedPacks.length === 0)
             return
-        cardPreview.hide()
         packs = openedPacks
         productName = displayName || ""
         currentPackIndex = 0
@@ -640,27 +629,13 @@ Popup {
                         MouseArea {
                             objectName: "packOpeningCard-" + openedCard.cardIndex
                             anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
+                            enabled: !openedCard.revealed
+                            cursorShape: enabled ? Qt.PointingHandCursor
+                                                 : Qt.ArrowCursor
                             Accessible.role: Accessible.Button
-                            Accessible.name: openedCard.revealed
-                                ? qsTr("Inspect %1").arg(openedCard.modelData.name)
-                                : qsTr("Reveal card %1").arg(openedCard.cardIndex + 1)
-                            onClicked: {
-                                if (openedCard.revealed)
-                                    cardPreview.inspect(openedCard.modelData, openedCard)
-                                else
-                                    root.revealCard(openedCard.cardIndex)
-                            }
-                        }
-
-                        HoverHandler {
-                            enabled: openedCard.revealed && root.stage === 1
-                            onHoveredChanged: {
-                                if (hovered)
-                                    cardPreview.inspect(openedCard.modelData, openedCard)
-                                else
-                                    cardPreview.hide(openedCard)
-                            }
+                            Accessible.name: qsTr("Reveal card %1")
+                                             .arg(openedCard.cardIndex + 1)
+                            onClicked: root.revealCard(openedCard.cardIndex)
                         }
                     }
                 }

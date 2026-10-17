@@ -317,34 +317,6 @@ inline bool looksLikeChinese(const QString &value)
     return false;
 }
 
-inline bool ambiguousLegacySameNamedFace(const CardRecord &record)
-{
-    if (record.faceMetadataChecked)
-        return false;
-    const QStringList faces = record.name.split(QStringLiteral(" // "), Qt::SkipEmptyParts);
-    return faces.size() == 2 &&
-           normalizedCardName(faces.first()) == normalizedCardName(faces.last()) &&
-           normalizedCardName(record.requestedName) == normalizedCardName(faces.first()) &&
-           normalizedCardName(record.faceName) == normalizedCardName(faces.first());
-}
-
-inline void retainFaceMetadata(CardRecord *record, const CardRecord &other)
-{
-    if (ambiguousLegacySameNamedFace(*record) || record->faceMetadataChecked ||
-        !other.faceMetadataChecked || record->name.compare(other.name, Qt::CaseInsensitive) != 0 ||
-        record->setCode.compare(other.faceMetadataSetCode, Qt::CaseInsensitive) != 0 ||
-        record->collectorNumber != other.faceMetadataCollectorNumber)
-        return;
-    record->layout = other.layout;
-    record->printingId = other.printingId;
-    record->faceMetadataSetCode = other.faceMetadataSetCode;
-    record->faceMetadataCollectorNumber = other.faceMetadataCollectorNumber;
-    record->independentFaces = other.independentFaces;
-    record->meldResultId = other.meldResultId;
-    record->meldResultName = other.meldResultName;
-    record->faceMetadataChecked = true;
-}
-
 inline QJsonObject recordToJson(const CardRecord &record)
 {
     return {
@@ -352,14 +324,6 @@ inline QJsonObject recordToJson(const CardRecord &record)
         {QStringLiteral("name"), record.name},
         {QStringLiteral("oracleId"), record.oracleId},
         {QStringLiteral("faceName"), record.faceName},
-        {QStringLiteral("layout"), record.layout},
-        {QStringLiteral("printingId"), record.printingId},
-        {QStringLiteral("faceMetadataSetCode"), record.faceMetadataSetCode},
-        {QStringLiteral("faceMetadataCollectorNumber"), record.faceMetadataCollectorNumber},
-        {QStringLiteral("independentFaces"), QJsonArray::fromVariantList(record.independentFaces)},
-        {QStringLiteral("meldResultId"), record.meldResultId},
-        {QStringLiteral("meldResultName"), record.meldResultName},
-        {QStringLiteral("faceMetadataChecked"), record.faceMetadataChecked},
         {QStringLiteral("localizedName"), record.localizedName},
         {QStringLiteral("typeLine"), record.typeLine},
         {QStringLiteral("oracleText"), record.oracleText},
@@ -370,8 +334,6 @@ inline QJsonObject recordToJson(const CardRecord &record)
         {QStringLiteral("illustrationId"), record.illustrationId},
         {QStringLiteral("imageUrl"), record.imageUrl},
         {QStringLiteral("imagePath"), record.imagePath},
-        {QStringLiteral("artCropUrl"), record.artCropUrl},
-        {QStringLiteral("artCropPath"), record.artCropPath},
         {QStringLiteral("imageLanguage"), record.imageLanguage},
         {QStringLiteral("resolutionVersion"), record.resolutionVersion},
         {QStringLiteral("usesSubstituteArt"), record.usesSubstituteArt},
@@ -386,16 +348,6 @@ inline CardRecord recordFromJson(const QJsonObject &object)
     record.name = object.value(QStringLiteral("name")).toString();
     record.oracleId = object.value(QStringLiteral("oracleId")).toString();
     record.faceName = object.value(QStringLiteral("faceName")).toString();
-    record.layout = object.value(QStringLiteral("layout")).toString();
-    record.printingId = object.value(QStringLiteral("printingId")).toString();
-    record.faceMetadataSetCode = object.value(QStringLiteral("faceMetadataSetCode")).toString();
-    record.faceMetadataCollectorNumber =
-        object.value(QStringLiteral("faceMetadataCollectorNumber")).toString();
-    record.independentFaces =
-        object.value(QStringLiteral("independentFaces")).toArray().toVariantList();
-    record.meldResultId = object.value(QStringLiteral("meldResultId")).toString();
-    record.meldResultName = object.value(QStringLiteral("meldResultName")).toString();
-    record.faceMetadataChecked = object.value(QStringLiteral("faceMetadataChecked")).toBool();
     record.localizedName = object.value(QStringLiteral("localizedName")).toString();
     record.typeLine = object.value(QStringLiteral("typeLine")).toString();
     record.oracleText = object.value(QStringLiteral("oracleText")).toString();
@@ -406,8 +358,6 @@ inline CardRecord recordFromJson(const QJsonObject &object)
     record.illustrationId = object.value(QStringLiteral("illustrationId")).toString();
     record.imageUrl = object.value(QStringLiteral("imageUrl")).toString();
     record.imagePath = object.value(QStringLiteral("imagePath")).toString();
-    record.artCropUrl = object.value(QStringLiteral("artCropUrl")).toString();
-    record.artCropPath = object.value(QStringLiteral("artCropPath")).toString();
     record.imageLanguage = object.value(QStringLiteral("imageLanguage")).toString();
     record.resolutionVersion = object.value(QStringLiteral("resolutionVersion")).toInt();
     record.usesSubstituteArt = object.value(QStringLiteral("usesSubstituteArt")).toBool();

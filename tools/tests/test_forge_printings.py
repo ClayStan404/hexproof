@@ -6,8 +6,6 @@
 import importlib.util
 from collections import Counter
 from contextlib import closing
-from copy import deepcopy
-import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -18,24 +16,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("printing_generator", ROOT / "tools/forge-printings/generate.py")
 GENERATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GENERATOR)
-
-# Registration and printing lookup remain byte-identical to the reviewed census.
-# Session lifecycle, diagnostics and prompt wait additions are independent of lookup.
-SESSION_SOURCE = "third_party/forge-runtime/native-host/src/main/java/org/hexproof/forge/NativeSession.java"
-SESSION_CENSUS_COMMIT = "76cc3374a9e020e814ee6308e396c9b32646167e"
-SESSION_REGISTRATION_SHA256 = "10890281b0d41700c969d3177b014017ece5f461e2b20bd6a9746f1e3d289dbc"
-
-
-def check_source_preservation(source, proof):
-    if proof != {"censusCommit": SESSION_CENSUS_COMMIT,
-                 "registrationRegionSha256": SESSION_REGISTRATION_SHA256}:
-        raise ValueError("Unreviewed registration-preservation proof")
-    start, end = b"    private static List<Deck> resolveDecks(", b"    JsonObject handle() {"
-    if source.count(start) != 1 or source.count(end) != 1:
-        raise ValueError("Native registration boundary changed")
-    registration = source[source.index(start):source.index(end)]
-    if hashlib.sha256(registration).hexdigest() != SESSION_REGISTRATION_SHA256:
-        raise ValueError("Registration or printing lookup changed: rerun full-catalog census")
 
 
 class ForgePrintingTests(unittest.TestCase):
@@ -60,9 +40,6 @@ class ForgePrintingTests(unittest.TestCase):
         self.assertNotIn("unmatched_native_printing", metadata["unresolvedReasons"])
         for path, expected in (metadata["generatorSources"] | metadata["resolverSources"]).items():
             self.assertEqual(GENERATOR.digest(ROOT / path), expected, "Resolver/generator changed: rerun full-catalog census")
-        for path, proof in metadata.get("resolverSourcePreservation", {}).items():
-            self.assertEqual(path, SESSION_SOURCE, "Source preservation is scoped to reviewed registration and lookup")
-            check_source_preservation((ROOT / path).read_bytes(), proof)
         self.assertEqual(metadata["forgeRevision"], json.loads((GENERATOR.HOST / "upstream.json").read_text())["revision"])
         for printing in [("Blood Crypt", "RVR", "397z"), ("Overgrown Tomb", "RVR", "407z"),
                          ("Fyndhorn Elves", "PTC", "bl244"), ("Windswept Heath", "WC04", "jn328"),
@@ -74,35 +51,6 @@ class ForgePrintingTests(unittest.TestCase):
         for printing in [("Forest", "RVR", "397z"), ("Blood Crypt", "RVR", "999999z"),
                          ("Windswept Heath", "WC04", "jn99999")]:
             self.assertNotIn(printing, keys)
-
-    def test_source_preservation_rejects_unreviewed_changes(self):
-        resources = GENERATOR.HOST / "src/main/resources/org/hexproof/forge"
-        metadata = json.loads((resources / "printing-aliases.json").read_text())
-        proofs = metadata.get("resolverSourcePreservation", {})
-        if SESSION_SOURCE not in proofs:
-            return  # A fresh full census supersedes the reviewed-addition proof.
-        proof = proofs[SESSION_SOURCE]
-        source = (ROOT / SESSION_SOURCE).read_bytes()
-        check_source_preservation(source, proof)
-        changes = [
-            (b"String nativeName = NativeCardNames.lookup(name);", b"String nativeName = name;"),
-            (b"PaperCard card = findCard(FModel.getMagicDb().getCommonCards(), name, set, number);",
-             b"PaperCard card = FModel.getMagicDb().getCommonCards().getCard(name);"),
-            (b"return NativePrintingAliases.find(database, name, set, number);",
-             b"return database.getCard(name);"),
-        ]
-        for before, after in changes:
-            with self.subTest(change=before.decode()):
-                self.assertIn(before, source)
-                with self.assertRaises(ValueError):
-                    check_source_preservation(source.replace(before, after, 1), proof)
-        # A diagnostics-only lifecycle edit does not require a new card census.
-        check_source_preservation(source.replace(b"synchronized void fail(Throwable error)",
-                                                b"synchronized void fail(Throwable failureError)", 1), proof)
-        changed_proof = deepcopy(proof)
-        changed_proof["registrationRegionSha256"] = "0" * 64
-        with self.assertRaises(ValueError):
-            check_source_preservation(source, changed_proof)
 
     def test_catalog_filters_and_identity_conflicts(self):
         with tempfile.TemporaryDirectory() as temporary:

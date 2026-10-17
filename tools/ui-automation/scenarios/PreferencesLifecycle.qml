@@ -8,7 +8,6 @@ Item {
 
     readonly property bool catalogInstall: auditProbe.environment("AUDIT_VARIANT") === "catalog"
     readonly property bool restarting: Number(auditProbe.environment("AUDIT_STAGE")) > 1
-    readonly property string customShortcut: "Ctrl+Alt+J"
     property var steps: []
     property var assertions: []
     property var screenshots: []
@@ -47,15 +46,6 @@ Item {
         const row = find("shortcutAction-app.fullscreen")
         return row ? click("changeShortcutButton", "shortcutSettingsBody", row) : false
     }
-    function captureReady() {
-        const focus = find("shortcutCaptureFocus")
-        return preferences.shortcutCaptureActive && focus && focus.activeFocus
-    }
-    function captureKey(key, modifiers) {
-        if (!captureReady()) return false
-        require(auditProbe.key(key, modifiers || Qt.NoModifier), "Cannot capture shortcut")
-        return true
-    }
     function savedSequenceMatches(expected) {
         return JSON.stringify(Array.from(preferences.shortcutSequences("app.fullscreen")))
             === JSON.stringify([expected])
@@ -71,31 +61,14 @@ Item {
             }
             return !!find("mainMenuSettingsButton")
         })
-        add("Open settings", () => click("mainMenuSettingsButton"), () => !!find("settingsHubScreen"))
+        add("Open settings", () => click("mainMenuSettingsButton"), () => !!find("settingsBody"))
         add("Open language settings", () => click("settingsLanguageModule", "settingsBody"),
-            () => !!find("languageSettingsScreen"))
-        add("Open the interface language choices when needed", () => {
-            if (preferences.uiLanguage === "en") return true
-            return click("settingsLanguageSelector", "settingsBody")
-        }, () => {
-            if (preferences.uiLanguage === "en") return true
-            const item = find("settingsLanguageSelector")
-            return item && item.popup.visible
-        })
+            () => !!find("settingsLanguageSelector"))
         add("Select English using the visible language control", () => {
             if (preferences.uiLanguage === "en") return true
-            let englishIndex = -1
-            for (let index = 0; index < uiLanguages.length; ++index) {
-                if (uiLanguages[index].code === "en") {
-                    englishIndex = index
-                    break
-                }
-            }
-            require(englishIndex >= 0, "English is missing from the interface language choices")
-            require(auditProbe.key(Qt.Key_Home), "Cannot move to the first interface language")
-            for (let index = 0; index < englishIndex; ++index)
-                require(auditProbe.key(Qt.Key_Down), "Cannot reach English")
-            require(auditProbe.key(Qt.Key_Return), "Cannot choose English")
+            const item = find("settingsLanguageSelector")
+            if (!item) return false
+            require(auditProbe.click(item, item.width * 0.25, item.height / 2), "Cannot choose English")
         }, () => preferences.uiLanguage === "en")
         if (catalogInstall) {
             if (!restarting) {
@@ -129,13 +102,13 @@ Item {
                     "Unexpected initial interface scale")
             require(preferences.shortcutCustomized("app.fullscreen") === restarting,
                     "Shortcut persistence mismatch")
-            require(savedSequenceMatches(restarting ? customShortcut : "F11"), "Persisted sequence mismatch")
+            require(savedSequenceMatches(restarting ? "Ctrl+F10" : "F11"), "Persisted sequence mismatch")
         })
         if (!restarting) {
             add("Return to settings categories", () => click("screenBackButton"),
                 () => !!find("settingsAppearanceModule"))
             add("Open appearance settings", () => click("settingsAppearanceModule", "settingsBody"),
-                () => !!find("appearanceSettingsScreen"))
+                () => !!find("settingsIncreaseScaleButton"))
             for (let n = 1; n <= 10; ++n) {
                 const expected = 1 + n * 0.05
                 add("Increase interface scale to " + Math.round(expected * 100) + "%",
@@ -144,10 +117,10 @@ Item {
             }
         }
         add("Return to settings categories", () => click("screenBackButton"),
-            () => !!find("settingsHubScreen"))
+            () => !!find("settingsCustomizeShortcutsButton"))
         add("Open keyboard customization", () => click("settingsCustomizeShortcutsButton", "settingsBody"),
             () => !!find("shortcutSettingsScreen"))
-        add("Open fullscreen shortcut capture", () => openCapture(), () => captureReady())
+        add("Open fullscreen shortcut capture", () => openCapture(), () => preferences.shortcutCaptureActive)
         add("Inspect capture controls at 150% scale", () => {
             require(!!find("shortcutCaptureCancelButton"), "Cancel is outside the visible dialog")
             require(!!find("shortcutCaptureDefaultButton"), "Default is outside the visible dialog")
@@ -159,26 +132,24 @@ Item {
                     && savedSequenceMatches("F11"))
             return
         }
-        // Use keys supported by the native input helper; the default F11 is
-        // still verified through persistence and the dialog's restore action.
-        add("Capture a sequence without saving", () => captureKey(Qt.Key_J, Qt.ControlModifier | Qt.AltModifier),
+        add("Capture a sequence without saving", () => require(auditProbe.key(Qt.Key_F10, Qt.ControlModifier), "Cannot capture shortcut"),
             () => !!find("shortcutCaptureSaveButton"))
         add("Cancel preserves the old binding", () => click("shortcutCaptureCancelButton"),
             () => !preferences.shortcutCaptureActive && savedSequenceMatches("F11"))
-        add("Reopen capture for assignment", () => openCapture(), () => captureReady())
-        add("Reject another action's Ctrl+, shortcut", () => captureKey(Qt.Key_Comma, Qt.ControlModifier), () => {
+        add("Reopen capture for assignment", () => openCapture(), () => preferences.shortcutCaptureActive)
+        add("Reject another action's F1 shortcut", () => require(auditProbe.key(Qt.Key_F1), "Cannot capture F1"), () => {
             const focus = find("shortcutCaptureFocus")
             const save = focus && focus.children.length ? findSaveButton(focus) : null
             const conflict = find("shortcutCaptureConflictText")
             return save && !save.enabled
-                && conflict && conflict.text === "Already assigned to: Open table settings"
+                && conflict && conflict.text === "Already assigned to: Show or hide shortcut help"
         })
-        add("Capture " + customShortcut, () => captureKey(Qt.Key_J, Qt.ControlModifier | Qt.AltModifier),
+        add("Capture Ctrl+F10", () => require(auditProbe.key(Qt.Key_F10, Qt.ControlModifier), "Cannot capture Ctrl+F10"),
             () => !!find("shortcutCaptureSaveButton"))
         add("Save shortcut through the dialog", () => click("shortcutCaptureSaveButton"),
             () => !preferences.shortcutCaptureActive && preferences.shortcutCustomized("app.fullscreen"))
         add("Record saved shortcut", () => {
-            require(savedSequenceMatches(customShortcut), "Wrong shortcut persisted")
+            require(savedSequenceMatches("Ctrl+F10"), "Wrong shortcut persisted")
             capture("shortcut-saved")
         })
     }

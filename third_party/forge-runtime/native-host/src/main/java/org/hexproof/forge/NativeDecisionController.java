@@ -3,7 +3,6 @@
 package org.hexproof.forge;
 
 import forge.LobbyPlayer;
-import forge.card.ColorSet;
 import forge.card.ICardFace;
 import forge.game.Game;
 import forge.game.card.Card;
@@ -109,10 +108,6 @@ final class NativeDecisionController extends PlayerControllerHuman {
         });
     }
     @Override public boolean playChosenSpellAbility(SpellAbility ability) {
-        // Affordability previews can leave a planned color on the reusable ability.
-        // Manual activation of an irreversible source must ask the player again.
-        if (ability.isManaAbility() && !ability.isUndoable())
-            ability.setManaExpressChoice(ColorSet.fromMask(0));
         return deciding(ability, () -> super.playChosenSpellAbility(ability));
     }
     @Override public void playSpellAbilityNoStack(SpellAbility ability, boolean canSetupTargets) {

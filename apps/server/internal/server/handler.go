@@ -67,7 +67,6 @@ type Handler struct {
 	config                  Config
 	retention               *retentionStore
 	forgeReplays            *forgeReplayStore
-	forgeCrashes            *forgeCrashStore
 	trustedProxies          []*net.IPNet
 	connSeq                 uint64 // for connection ids
 	activeConnections       int64
@@ -84,10 +83,7 @@ type Handler struct {
 	sideboardTimerMu        sync.Mutex
 	sideboardTimers         map[string]*time.Timer
 	actionClockMu           sync.Mutex
-	actionClockTimers       map[string]*actionClockTimer
-	actionClockClosed       bool
-	priorityMu              sync.Mutex
-	priorityPrefs           map[string]map[int]priorityPreference
+	actionClockTimers       map[string]*time.Timer
 	roomCreateLimiter       *fixedWindowLimiter
 	tournamentCreateLimiter *fixedWindowLimiter
 	tournamentChatLimiter   *fixedWindowLimiter
@@ -200,14 +196,13 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		config:                  config,
 		retention:               retention,
 		forgeReplays:            newForgeReplayStore(config),
-		forgeCrashes:            newForgeCrashStore(config.RetentionDir),
 		trustedProxies:          trustedProxies,
 		sessions:                make(map[string]*Session),
 		zoneDumpRequests:        make(map[string]zoneDumpRequest),
 		publicZoneMoveRequests:  make(map[string]publicZoneMoveRequest),
 		resumeHolds:             make(map[string]resumeHold),
 		sideboardTimers:         make(map[string]*time.Timer),
-		actionClockTimers:       make(map[string]*actionClockTimer),
+		actionClockTimers:       make(map[string]*time.Timer),
 		roomCreateLimiter:       newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournamentCreateLimiter: newFixedWindowLimiter(time.Minute, maxRateLimitKeys),
 		tournamentChatLimiter:   newFixedWindowLimiter(time.Minute, maxRateLimitKeys),

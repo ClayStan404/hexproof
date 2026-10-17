@@ -15,19 +15,6 @@ Surface {
     property bool externalDamageChoices: false
     readonly property var rulesSession: tableController.rulesSession
     readonly property var interaction: tableController.interaction || null
-    readonly property RulesTargetSelectionPrompt targetPrompt:
-        promptFamily.familyItem as RulesTargetSelectionPrompt
-    readonly property RulesCombatAssignmentPrompt combatPrompt:
-        promptFamily.familyItem as RulesCombatAssignmentPrompt
-    readonly property string targetInstruction: rulesSession.promptKind === "chooseBoardTargets"
-        ? RulesText.targetInstruction(rulesSession.promptDetail) : ""
-    // The board instructions and primary action already explain declaration.
-    // Keep any specific engine error, rather than hiding arbitrary detail text.
-    readonly property bool redundantCombatDetail: combatPrompt !== null && combatPrompt.boardSelection
-        && ((rulesSession.promptKind === "chooseAttackers"
-             && rulesSession.promptDetail === "Assign each attacking creature to a legal defender.")
-            || (rulesSession.promptKind === "chooseBlockers"
-                && rulesSession.promptDetail === "Assign each blocker to the attackers it can legally block."))
     readonly property bool waitingForDecision:
         rulesSession.active
         && !rulesSession.promptPending
@@ -52,62 +39,13 @@ Surface {
         && rulesSession.promptKind !== "chooseColor"
         && rulesSession.promptKind !== "chooseFromSelection"
 
-    // Read from the loaded family, so a replaced combat declaration cannot
-    // leave the flag behind.
-    readonly property bool combatListShown: {
-        const combat = promptFamily.familyItem as RulesCombatAssignmentPrompt
-        return combat !== null && combat.listShown
-    }
-    readonly property Component activeFamily: {
-        if (!rulesSession.promptPending || !rulesSession.promptSupported)
-            return null
-        const kind = rulesSession.promptKind
-        const cardsOutside = externalCardChoices
-        const damageOutside = externalDamageChoices
-        switch (kind) {
-        case "mulliganPutBack":
-        case "chooseCards":
-            return cardsOutside ? null : cardSelectionFamily
-        case "revealCards":
-            return cardsOutside ? null : revealFamily
-        case "reorder":
-            return cardsOutside ? null : reorderFamily
-        case "scry":
-            return cardsOutside ? null : scryFamily
-        case "chooseDamageAssignmentOrder":
-            return cardsOutside ? null : damageOrderFamily
-        case "chooseCombatDamageAssignment":
-            return damageOutside ? null : damageAssignmentFamily
-        case "chooseBoardTargets":
-            return targetFamily
-        case "chooseAttackers":
-            return attackerFamily
-        case "chooseBlockers":
-            return blockerFamily
-        case "chooseBoolean":
-        case "chooseColor":
-        case "chooseFromSelection":
-            return scalarFamily
-        case "chooseCardName":
-            return cardNameFamily
-        case "chooseNumber":
-            return numberFamily
-        default:
-            return null
-        }
-    }
-
     function isFixedAction(responseId) {
         return responseId.startsWith("$")
     }
 
     objectName: "rulesPromptPanel"
-    readonly property real controlsHeight: Theme.size(22)
-        + (fixedActions.visible ? fixedActions.height + Theme.size(7) : 0)
-        + (targetFooter.visible ? targetFooter.height + Theme.size(7) : 0)
-        + (combatFooter.visible ? combatFooter.height + Theme.size(4) : 0)
-    readonly property real minimumHeight: controlsHeight + Theme.size(48)
-    implicitHeight: promptContent.implicitHeight + controlsHeight
+    implicitHeight: promptContent.implicitHeight + Theme.size(22)
+                    + (fixedActions.visible ? fixedActions.height + Theme.size(7) : 0)
     visible: rulesSession.promptPending
              || rulesSession.gameOver
              || waitingForDecision
@@ -130,53 +68,20 @@ Surface {
 
         Repeater {
             model: root.rulesSession.promptOptions
-            // Only fixed actions build a button; the other rows stay empty.
-            delegate: Loader {
-                id: fixedSlot
+            delegate: AppButton {
                 required property string responseId
                 required property string label
                 required property string cardId
-                active: root.isFixedAction(responseId)
-                visible: active
-                sourceComponent: AppButton {
-                    objectName: "rulesPromptOption-" + fixedSlot.responseId
-                    compact: true
-                    text: root.tableController.promptOptionLabel(
-                              root.rulesSession.promptKind, fixedSlot.responseId,
-                              fixedSlot.label, fixedSlot.cardId)
-                    onClicked: root.tableController.wsModel.respondRulesPrompt(
-                                   root.rulesSession.promptId, fixedSlot.responseId)
-                }
+                objectName: root.isFixedAction(responseId)
+                            ? "rulesPromptOption-" + responseId : ""
+                visible: root.isFixedAction(responseId)
+                compact: true
+                text: visible ? root.tableController.promptOptionLabel(
+                          root.rulesSession.promptKind, responseId, label, cardId) : ""
+                onClicked: root.tableController.wsModel.respondRulesPrompt(
+                               root.rulesSession.promptId, responseId)
             }
         }
-    }
-
-    Loader {
-        id: targetFooter
-        objectName: "rulesTargetSelectionFooter"
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: Theme.size(11)
-        readonly property Item footerItem: item as Item
-        height: footerItem ? footerItem.implicitHeight : 0
-        visible: item !== null
-        sourceComponent: root.targetPrompt ? root.targetPrompt.controlsComponent : null
-        z: 1
-    }
-
-    Loader {
-        id: combatFooter
-        objectName: "rulesCombatSelectionFooter"
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: Theme.size(11)
-        readonly property Item footerItem: item as Item
-        height: footerItem ? footerItem.implicitHeight : 0
-        visible: item !== null
-        sourceComponent: root.combatPrompt ? root.combatPrompt.controlsComponent : null
-        z: 1
     }
 
     Flickable {
@@ -186,9 +91,6 @@ Surface {
         anchors.margins: Theme.size(11)
         anchors.topMargin: Theme.size(11) + (fixedActions.visible
                            ? fixedActions.height + Theme.size(7) : 0)
-        anchors.bottomMargin: Theme.size(11) + (targetFooter.visible
-                              ? targetFooter.height + Theme.size(7) : 0)
-                              + (combatFooter.visible ? combatFooter.height + Theme.size(4) : 0)
         contentWidth: width
         contentHeight: promptContent.implicitHeight
         clip: true
@@ -201,14 +103,6 @@ Surface {
         function onPromptChanged() {
             promptScroll.contentY = 0
             actionOptions.contentX = 0
-            // Option rows are reused across decisions. A focused button would
-            // otherwise keep focus while it changes to another action.
-            for (let item = root.Window.activeFocusItem; item; item = item.parent) {
-                if (item === fixedActions || item === actionOptions) {
-                    root.Window.activeFocusItem.focus = false
-                    break
-                }
-            }
         }
     }
 
@@ -235,7 +129,6 @@ Surface {
 
         ColumnLayout {
             Layout.fillWidth: true
-            visible: root.combatPrompt === null || (!root.redundantCombatDetail && promptDetail.text.length > 0)
             spacing: Theme.size(10)
 
             ColumnLayout {
@@ -246,7 +139,6 @@ Surface {
                     id: promptTitle
                     textFormat: Text.PlainText
                     objectName: "rulesPromptTitle"
-                    visible: root.combatPrompt === null
                     Layout.fillWidth: true
                     text: rulesSession.gameOver
                           ? (rulesSession.hasWinner
@@ -293,7 +185,6 @@ Surface {
                     objectName: "rulesPromptDetail"
                     Layout.fillWidth: true
                     visible: rulesSession.promptKind !== "payManaCost"
-                             && !root.redundantCombatDetail
                              && !rulesSession.gameOver
                              && (rulesSession.promptPending
                                  || root.waitingForDecision)
@@ -302,7 +193,7 @@ Surface {
                           : rulesSession.promptSupported
                           ? root.tableController.promptDetail(
                                 rulesSession.promptKind,
-                                root.targetInstruction || rulesSession.promptDetail)
+                                rulesSession.promptDetail)
                           : qsTr("This Forge decision is not supported by this Hexproof build: %1")
                             .arg(rulesSession.promptKind)
                     color: root.waitingForDecision
@@ -351,70 +242,63 @@ Surface {
                 enabled: !root.tableController.rulesResponsePending
                 visible: root.showsActionOptions && contentWidth > spacing * count
 
-                // Fixed actions and actions shown on the table build no button.
-                // Roles are required properties: an inserted row's `model` object
-                // can still be empty while these bindings first run.
-                delegate: Loader {
-                    id: actionSlot
+                delegate: AppButton {
+                    id: actionButton
+                    required property var model
                     required property int index
                     required property string responseId
                     required property string label
-                    required property string kind
-                    required property string cardId
                     readonly property bool onTable: root.interaction !== null
-                        && root.interaction.actionOnTable(cardId, kind)
-                    readonly property bool shown: !root.isFixedAction(responseId) && !onTable
+                        && root.interaction.actionOnTable(model.cardId || "", model.kind || "")
 
-                    active: shown
-                    visible: shown
-                    width: shown ? Math.min(Theme.size(260), actionOptions.width) : 0
+                    objectName: root.isFixedAction(responseId)
+                                ? "" : "rulesPromptOption-" + responseId
+                    visible: !root.isFixedAction(responseId) && !onTable
+                    width: !root.isFixedAction(responseId) && !onTable
+                           ? Math.min(Theme.size(260), actionOptions.width) : 0
                     height: Theme.size(72)
-                    sourceComponent: AppButton {
-                        id: actionButton
-                        objectName: "rulesPromptOption-" + actionSlot.responseId
-                        compact: true
+                    compact: true
+                    contentItem: Text {
+                        id: actionLabel
+                        textFormat: Text.PlainText
+                        text: actionButton.text
+                        color: actionButton.foregroundColor
+                        font.pixelSize: Theme.fontSize(11)
+                        font.weight: Font.DemiBold
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                    ToolTip {
+                        x: parent ? root.mapToItem(parent, 0, 0).x : 0
+                        y: parent ? parent.height + Theme.size(6) : 0
+                        enabled: false
+                        background: Rectangle {
+                            color: Theme.surfaceElevated
+                            border.color: Theme.borderStrong
+                            radius: Theme.radiusSmall
+                        }
+                        objectName: "rulesPromptActionTooltip-" + actionButton.responseId
+                        visible: actionButton.hovered && actionLabel.truncated
+                        delay: 500
+                        width: Math.min(Theme.size(480), root.width)
                         contentItem: Text {
-                            id: actionLabel
                             textFormat: Text.PlainText
                             text: actionButton.text
-                            color: actionButton.foregroundColor
-                            font.pixelSize: Theme.fontSize(11)
-                            font.weight: Font.DemiBold
+                            color: Theme.text
                             wrapMode: Text.Wrap
-                            maximumLineCount: 3
-                            elide: Text.ElideRight
-                            verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
                         }
-                        ToolTip {
-                            x: parent ? root.mapToItem(parent, 0, 0).x : 0
-                            y: parent ? parent.height + Theme.size(6) : 0
-                            enabled: false
-                            background: Rectangle {
-                                color: Theme.surfaceElevated
-                                border.color: Theme.borderStrong
-                                radius: Theme.radiusSmall
-                            }
-                            objectName: "rulesPromptActionTooltip-" + actionSlot.responseId
-                            visible: actionButton.hovered && actionLabel.truncated
-                            delay: 500
-                            width: Math.min(Theme.size(480), root.width)
-                            contentItem: Text {
-                                textFormat: Text.PlainText
-                                text: actionButton.text
-                                color: Theme.text
-                                wrapMode: Text.Wrap
-                            }
-                        }
-                        onActiveFocusChanged: {
-                            if (activeFocus)
-                                actionOptions.positionViewAtIndex(actionSlot.index, ListView.Contain)
-                        }
-                        text: root.tableController.promptOptionLabel(rulesSession.promptKind,
-                            actionSlot.responseId, actionSlot.label, actionSlot.cardId)
-                        onClicked: root.tableController.wsModel.respondRulesPrompt(
-                                       rulesSession.promptId, actionSlot.responseId)
                     }
+                    onActiveFocusChanged: {
+                        if (activeFocus)
+                            actionOptions.positionViewAtIndex(index, ListView.Contain)
+                    }
+                    text: visible ? root.tableController.promptOptionLabel(
+                              rulesSession.promptKind, responseId, label, model.cardId) : ""
+                    onClicked: root.tableController.wsModel.respondRulesPrompt(
+                                   rulesSession.promptId, responseId)
                 }
 
                 ScrollBar.horizontal: ScrollBar {
@@ -456,9 +340,6 @@ Surface {
             Layout.fillWidth: true
             promptId: rulesSession.promptId
             previewBoundary: root
-            previewAvoidItems: targetFooter.visible ? [targetFooter]
-                               : combatFooter.visible ? [combatFooter] : []
-            showContextText: rulesSession.promptKind !== "chooseBoardTargets"
             contextEnabled: (root.interaction === null || root.interaction.contextActive)
                             && rulesSession.promptKind !== "payManaCost"
             expandedCard: ["chooseBoolean", "chooseFromSelection", "chooseColor", "chooseNumber"].includes(rulesSession.promptKind)
@@ -468,174 +349,188 @@ Surface {
             cardCatalogModel: root.tableController.cardCatalogModel
             sourceCardModel: rulesSession.promptContextCards
             targetModel: rulesSession.promptContextTargets
-            contextText: rulesSession.promptContextText
+            contextText: rulesSession.promptKind === "chooseBoardTargets"
+                         && RulesText.currentEffectTitle(
+                             rulesSession.promptDetail, rulesSession.promptContextText,
+                             root.tableController.promptRulesText("")).length
+                         ? "" : rulesSession.promptContextText
         }
 
-        Loader {
-            id: promptFamily
-            Layout.fillWidth: true
-            readonly property Item familyItem: item as Item
-            Layout.preferredHeight: familyItem ? familyItem.implicitHeight : 0
-            visible: familyItem !== null
-            sourceComponent: root.activeFamily
-            onFamilyItemChanged: if (familyItem) familyItem.width = width
-            onWidthChanged: if (familyItem) familyItem.width = width
-        }
-    }
-
-    Component {
-        id: cardSelectionFamily
         RulesCardSelectionPrompt {
+            Layout.fillWidth: true
+            visible: !root.externalCardChoices && rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && (rulesSession.promptKind === "mulliganPutBack"
+                         || rulesSession.promptKind === "chooseCards")
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            cardModel: root.rulesSession.promptCards
-            promptId: root.rulesSession.promptId
-            minimumSelections: root.rulesSession.promptMinCardSelections
-            maximumSelections: root.rulesSession.promptMaxCardSelections
-            cancellable: root.rulesSession.promptKind === "chooseCards"
-                         && root.rulesSession.promptCancellable
-            confirmationText: root.rulesSession.promptKind === "mulliganPutBack"
+            cardModel: rulesSession.promptCards
+            promptId: rulesSession.promptId
+            minimumSelections: rulesSession.promptMinCardSelections
+            maximumSelections: rulesSession.promptMaxCardSelections
+            cancellable: rulesSession.promptKind === "chooseCards"
+                         && rulesSession.promptCancellable
+            confirmationText: rulesSession.promptKind === "mulliganPutBack"
                               ? qsTr("Put on library bottom")
                               : qsTr("Confirm cards")
         }
-    }
-    Component {
-        id: revealFamily
+
         RulesRevealPrompt {
+            Layout.fillWidth: true
+            visible: !root.externalCardChoices && rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "revealCards"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            cardModel: root.rulesSession.promptCards
-            promptId: root.rulesSession.promptId
+            cardModel: rulesSession.promptCards
+            promptId: rulesSession.promptId
         }
-    }
-    Component {
-        id: reorderFamily
+
         RulesOrderPrompt {
+            Layout.fillWidth: true
+            visible: !root.externalCardChoices && rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "reorder"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            orderModel: root.rulesSession.promptOrderItems
-            promptId: root.rulesSession.promptId
+            orderModel: rulesSession.promptOrderItems
+            promptId: rulesSession.promptId
         }
-    }
-    Component {
-        id: scryFamily
+
         RulesScryPrompt {
+            Layout.fillWidth: true
+            visible: !root.externalCardChoices && rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "scry"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            cardModel: root.rulesSession.promptCards
-            destinations: root.rulesSession.promptScryDestinations
-            promptId: root.rulesSession.promptId
+            cardModel: rulesSession.promptCards
+            destinations: rulesSession.promptScryDestinations
+            promptId: rulesSession.promptId
         }
-    }
-    Component {
-        id: damageOrderFamily
+
         RulesOrderPrompt {
+            Layout.fillWidth: true
+            visible: !root.externalCardChoices && rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseDamageAssignmentOrder"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            orderModel: root.rulesSession.promptDamageTargets
-            promptId: root.rulesSession.promptId
+            orderModel: visible ? rulesSession.promptDamageTargets : null
+            promptId: rulesSession.promptId
             damageOrder: true
         }
-    }
-    Component {
-        id: damageAssignmentFamily
+
         RulesDamageAssignmentPrompt {
+            Layout.fillWidth: true
+            visible: !root.externalDamageChoices && rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseCombatDamageAssignment"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            targetModel: root.rulesSession.promptDamageTargets
-            damageSource: root.rulesSession.promptDamageSource
-            promptId: root.rulesSession.promptId
-            totalDamage: root.rulesSession.promptTotalDamage
-            deathtouch: root.rulesSession.promptDamageDeathtouch
-            assignmentMode: root.rulesSession.promptDamageAssignmentMode === undefined
-                            ? "ordered" : root.rulesSession.promptDamageAssignmentMode
+            targetModel: rulesSession.promptDamageTargets
+            damageSource: rulesSession.promptDamageSource
+            promptId: rulesSession.promptId
+            totalDamage: rulesSession.promptTotalDamage
+            deathtouch: rulesSession.promptDamageDeathtouch
+            assignmentMode: rulesSession.promptDamageAssignmentMode === undefined
+                            ? "ordered" : rulesSession.promptDamageAssignmentMode
         }
-    }
-    Component {
-        id: targetFamily
+
         RulesTargetSelectionPrompt {
-            externalControls: true
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseBoardTargets"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            targetModel: root.rulesSession.promptTargets
+            targetModel: rulesSession.promptTargets
             interaction: root.interaction
-            promptId: root.rulesSession.promptId
-            minimumSelections: root.rulesSession.promptMinSelections
-            maximumSelections: root.rulesSession.promptMaxSelections
-            cancellable: root.rulesSession.promptCancellable
+            promptId: rulesSession.promptId
+            minimumSelections: rulesSession.promptMinSelections
+            maximumSelections: rulesSession.promptMaxSelections
+            cancellable: rulesSession.promptCancellable
         }
-    }
-    Component {
-        id: attackerFamily
+
         RulesCombatAssignmentPrompt {
-            id: attackerAssignments
-            externalControls: true
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseAttackers"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            sourceModel: root.rulesSession.promptCombat
-            promptId: root.rulesSession.promptId
+            sourceModel: rulesSession.promptCombat
+            promptId: rulesSession.promptId
             assignmentKind: "attackers"
             selectionState: root.tableController.combatInteraction || null
             boardSelection: !!selectionState && root.tableController.roomSession.maxSeats <= 2
         }
-    }
-    Component {
-        id: blockerFamily
+
         RulesCombatAssignmentPrompt {
-            id: blockerAssignments
-            externalControls: true
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseBlockers"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            sourceModel: root.rulesSession.promptCombat
-            promptId: root.rulesSession.promptId
+            sourceModel: rulesSession.promptCombat
+            promptId: rulesSession.promptId
             assignmentKind: "blockers"
             selectionState: root.tableController.combatInteraction || null
             boardSelection: !!selectionState && root.tableController.roomSession.maxSeats <= 2
         }
-    }
-    Component {
-        id: scalarFamily
+
         RulesScalarChoicePrompt {
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && (rulesSession.promptKind === "chooseBoolean"
+                         || rulesSession.promptKind === "chooseColor"
+                         || rulesSession.promptKind === "chooseFromSelection")
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
-            choiceModel: root.rulesSession.promptChoices
-            promptId: root.rulesSession.promptId
-            promptKind: root.rulesSession.promptKind
-            promptTitle: root.rulesSession.promptTitle
-            promptDetail: root.rulesSession.promptDetail
+            choiceModel: rulesSession.promptChoices
+            promptId: rulesSession.promptId
+            promptKind: rulesSession.promptKind
+            promptTitle: rulesSession.promptTitle
+            promptDetail: rulesSession.promptDetail
             englishRulesText: root.tableController.promptRulesText("en")
             localizedRulesText: root.tableController.promptRulesText("")
-            minimumTotal: root.rulesSession.promptMinChoiceTotal
-            maximumTotal: root.rulesSession.promptMaxChoiceTotal
+            minimumTotal: rulesSession.promptMinChoiceTotal
+            maximumTotal: rulesSession.promptMaxChoiceTotal
         }
-    }
-    Component {
-        id: cardNameFamily
+
         RulesCardNamePrompt {
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseCardName"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
             cardCatalogModel: root.tableController.cardCatalogModel
-            promptId: root.rulesSession.promptId
-            cancellable: root.rulesSession.promptCancellable
+            promptId: rulesSession.promptId
+            cancellable: rulesSession.promptCancellable
         }
-    }
-    Component {
-        id: numberFamily
+
         RulesNumberPrompt {
+            Layout.fillWidth: true
+            visible: rulesSession.promptPending
+                     && rulesSession.promptSupported
+                     && rulesSession.promptKind === "chooseNumber"
             enabled: !root.tableController.rulesResponsePending
             wsModel: root.tableController.wsModel
-            promptId: root.rulesSession.promptId
-            minimum: root.rulesSession.promptMinNumber
-            maximum: root.rulesSession.promptMaxNumber
+            promptId: rulesSession.promptId
+            minimum: rulesSession.promptMinNumber
+            maximum: rulesSession.promptMaxNumber
         }
     }
 }

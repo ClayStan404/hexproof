@@ -24,7 +24,7 @@ var mulligans = {};
 
 function state(driver) {
     return {source: fixture ? fixture.source || "catalog fixture" : "submitted Limited pool",
-        lastSpell: lastSpell, lastAction: lastAction, basicManaAvailable:driver ? Common.basicMana(driver, ws.roomSession.seatIndex) : 0, seen: Object.keys(seen), games: Object.keys(games), sideboardStage: sideboardStage,
+        lastSpell: lastSpell, lastAction: lastAction, seen: Object.keys(seen), games: Object.keys(games), sideboardStage: sideboardStage,
         copyReplacementDeclines:copyReplacementDeclines,
         mulligans:mulligans,
         choices: driver ? Common.scalarChoices(driver.item("rulesScalarCandidates")).map(c => ({id:c.responseId, label:c.label})) : []};
@@ -165,10 +165,7 @@ function chooseBlockers(driver) {
         if (combat.selectedTargets(pair.source.responseId).includes(pair.target.responseId)) continue;
         if (combat.selectedSource === pair.source.responseId) {
             const id = driver.combatInputId(pair.target.objectId);
-            if (!id) {
-                Common.exposeCombatCard(driver, pair.target.objectId);
-                return;
-            }
+            if (!id) continue;
             if (driver.click("forgeCard-" + id)) {
                 driver.require(combat.selectedTargets(pair.source.responseId).includes(pair.target.responseId),
                     "Blocking selected a different attacker from its pile");
@@ -176,13 +173,8 @@ function chooseBlockers(driver) {
             } else driver.wheelToCard(id, false);
         } else {
             const id = driver.combatInputId(pair.source.objectId);
-            if (!id) {
-                Common.exposeCombatCard(driver, pair.source.objectId);
-                return;
-            }
+            if (!id) continue;
             if (!driver.clickCombatSource(pair.source, id)) driver.wheelToCard(id, false);
-            else if (combat.selectedTargets(pair.source.responseId).includes(pair.target.responseId))
-                driver.blocks++;
         }
         return;
     }
@@ -195,7 +187,7 @@ function chooseBlockers(driver) {
 
 function chooseOpeningHand(driver) {
     const s = driver.session;
-    const hand = Common.laneItems(driver, true).find(c => c.objectName === "forgeHand");
+    const hand = driver.table.presentation.children.find(c => c.objectName === "forgeHand");
     if (!hand || !hand.visibleCards.length) return;
     const cards = hand.visibleCards.map(c => s.cardForInspection(c.cardId));
     const lands = cards.filter(c => /\bLand\b/.test(spec(c).typeLine || "")).length;
@@ -264,7 +256,7 @@ function betweenGames(driver) {
         case 0: {
             sideboardBefore = {main:partition(data.mainboard), side:partition(data.sideboard),
                 mainCount:count(data.mainboard), sideCount:count(data.sideboard)};
-            const source = driver.item("sideboardCard-sideboard-0"), target = auditProbe.findDropTarget(auditWindow, "sideboardZone-mainboard");
+            const source = driver.item("sideboardCard-sideboard-0"), target = driver.item("sideboardZone-mainboard");
             if (!source || !target) return true;
             movedCard = {name:source.name, setCode:source.setCode, collectorNumber:source.collectorNumber};
             driver.require(auditProbe.drag(source, target), "Cannot move a pool card into the Limited main deck");
@@ -282,7 +274,7 @@ function betweenGames(driver) {
                 for (const child of node.children || []) { const found = findCard(child); if (found) return found; }
                 return null;
             };
-            const source = findCard(auditWindow.contentItem), target = auditProbe.findDropTarget(auditWindow, "sideboardZone-sideboard");
+            const source = findCard(auditWindow.contentItem), target = driver.item("sideboardZone-sideboard");
             if (!source || !target) return true;
             driver.require(auditProbe.drag(source, target), "Cannot return the exact pool printing to the sideboard");
             sideboardStage = 3; return true;

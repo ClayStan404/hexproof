@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"hexproof/server/internal/forgediag"
 	"hexproof/server/internal/rulesengine/forge"
 )
 
@@ -38,8 +37,6 @@ type Executor struct {
 	peerContext    *PeerContext
 	peerExpires    time.Time
 	peerPending    *peerPending
-	failure        *forgediag.FailureInfo
-	failedRuntime  forge.Runtime
 }
 
 func NewExecutor(roomID string, start StartRuntime, onFailure func(string)) *Executor {
@@ -82,16 +79,9 @@ func (e *Executor) Execute(ctx context.Context, req Request) Response {
 		response = e.execute(ctx, req, response)
 	}
 	if encoded, err := json.Marshal(response); err != nil || len(encoded) > MaxFrameBytes-512 {
-		e.stateMu.Lock()
-		runtime := e.runtime
-		e.stateMu.Unlock()
-		e.captureFailure(runtime, req.EngineID, "publication_invalid", req.Command)
 		e.Cancel(req.EngineID)
 		response.Publication = nil
 		response.Error = "failed"
-	}
-	if response.Error == "failed" {
-		response.FailureInfo = e.RetainedFailure(req.EngineID)
 	}
 	e.lastResponse = response
 	return response
@@ -117,7 +107,6 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		}
 		e.stateMu.Lock()
 		e.engineID = req.EngineID
-		e.failure, e.failedRuntime = nil, nil
 		e.stateMu.Unlock()
 		var err error
 		runtime, err = e.start(ctx)
@@ -139,9 +128,6 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		e.handle, err = runtime.StartGame(ctx, *req.Start)
 		if err != nil {
 			response.StartFailure = forge.StartFailureJSON(err)
-			if len(response.StartFailure) == 0 {
-				e.captureFailure(runtime, req.EngineID, "native_failure", req.Command)
-			}
 			e.Cancel(req.EngineID)
 			response.Error = "failed"
 			return response
@@ -153,13 +139,12 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 			e.stateMu.Lock()
 			current := e.runtime == runtime
 			e.stateMu.Unlock()
-			if current {
-				e.captureFailure(runtime, req.EngineID, "process_exited", req.Command)
+			if current && e.onFailure != nil {
+				e.onFailure(req.EngineID)
 			}
 		}()
 		publication, err := e.collect(ctx, runtime, nil)
 		if err != nil {
-			e.captureFailure(runtime, req.EngineID, publicationFailureCode(err), "publication")
 			e.Cancel(req.EngineID)
 			response.Error = "failed"
 			return response
@@ -184,14 +169,12 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		if err != nil {
 			response.Error = "rejected"
 			if !runtime.Healthy() {
-				e.captureFailure(runtime, req.EngineID, "native_failure", req.Command)
 				response.Error = "failed"
 			}
 			return response
 		}
 		publication, err := e.collect(ctx, runtime, previous)
 		if err != nil {
-			e.captureFailure(runtime, req.EngineID, publicationFailureCode(err), "publication")
 			e.Cancel(req.EngineID)
 			response.Error = "failed"
 			return response
@@ -223,21 +206,12 @@ func (e *Executor) collect(ctx context.Context, runtime forge.Runtime, previous 
 		}
 		if over || (len(prompt) > 0 && !bytes.Equal(prompt, previous)) {
 			p := &Publication{Handle: e.handle, Prompt: prompt, GameOver: over}
-			viewers := []int{-1, 0, 1}
-			if batch, ok := runtime.(forge.SnapshotBatch); ok {
-				views, err := batch.Snapshots(ctx, e.handle.SessionID, viewers)
+			for viewer := -1; viewer < 2; viewer++ {
+				view, err := runtime.Snapshot(ctx, e.handle.SessionID, viewer)
 				if err != nil {
 					return nil, err
 				}
-				p.Views = views
-			} else {
-				for _, viewer := range viewers {
-					view, err := runtime.Snapshot(ctx, e.handle.SessionID, viewer)
-					if err != nil {
-						return nil, err
-					}
-					p.Views = append(p.Views, view)
-				}
+				p.Views = append(p.Views, view)
 			}
 			// Detect publication changes during collection; never combine a
 			// new private prompt with the preceding decision's views.

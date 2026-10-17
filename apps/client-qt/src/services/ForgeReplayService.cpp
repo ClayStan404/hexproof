@@ -339,12 +339,7 @@ void ForgeReplayService::seek(int position)
 {
     if (position < 0 || position >= count())
         return;
-    const bool singleStep = m_position >= 0 && qAbs(position - m_position) == 1;
-    m_session.setRecordTransitions(singleStep);
-    const bool applied =
-        m_session.applySnapshot(m_frames.at(position).toObject().value(u"snapshot"_s).toObject());
-    m_session.setRecordTransitions(true);
-    if (!applied)
+    if (!m_session.applySnapshot(m_frames.at(position).toObject().value(u"snapshot"_s).toObject()))
         return;
     m_position = position;
     emit positionChanged();

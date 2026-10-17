@@ -6,7 +6,6 @@
 #include "RulesSnapshotModel.h"
 
 #include <QAbstractListModel>
-#include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -94,7 +93,6 @@ struct RulesPromptOptionRow
     QString kind;
     QString label;
     QString cardId;
-    bool operator==(const RulesPromptOptionRow &) const = default;
 };
 
 struct RulesPromptCardRow
@@ -201,40 +199,7 @@ class RulesCardModel final : public RulesSnapshotModel
         ExiledCardIdsRole,
         ChosenCardIdsRole,
         AnnotationsRole,
-        CountersSummaryRole,
-        ActionCountRole,
-        PrimaryResponseIdRole,
-        PrimaryKindRole,
-        HintKeyRole,
-        TargetCountRole,
-        NativeTargetSelectedRole,
-        AttachmentCountRole,
-        StructuralLinkRole,
-        LinkedRole,
-        BlockingIdsRole,
-        BlockedByIdsRole,
-        AttackedByIdsRole,
-        AttachmentCardsRole,
-        LinksRole
-    };
-
-    struct Presentation
-    {
-        int actionCount = 0;
-        QString primaryResponseId;
-        QString primaryKind;
-        QString hintKey;
-        int targetCount = 0;
-        bool nativeTargetSelected = false;
-        int attachmentCount = 0;
-        bool structuralLink = false;
-        bool linked = false;
-        QStringList blockingIds;
-        QStringList blockedByIds;
-        QStringList attackedByIds;
-        QVariantList attachmentCards;
-        QVariantList links;
-        bool operator==(const Presentation &) const = default;
+        CountersSummaryRole
     };
 
     explicit RulesCardModel(QObject *parent = nullptr);
@@ -243,12 +208,9 @@ class RulesCardModel final : public RulesSnapshotModel
     QHash<int, QByteArray> roleNames() const override;
     void replace(QVector<RulesCardRow> rows);
     void clear();
-    void setPresentations(const QHash<QString, Presentation> &byId);
 
   private:
-    const Presentation &presentation(const QString &id) const;
     QVector<RulesCardRow> m_rows;
-    QHash<QString, Presentation> m_presentations;
 };
 
 class RulesStackModel final : public RulesSnapshotModel
@@ -279,7 +241,7 @@ class RulesStackModel final : public RulesSnapshotModel
     QVector<RulesStackRow> m_rows;
 };
 
-class RulesPromptOptionModel final : public RulesSnapshotModel
+class RulesPromptOptionModel final : public QAbstractListModel
 {
   public:
     enum Role

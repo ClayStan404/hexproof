@@ -43,7 +43,8 @@ void CardCatalog::startFallbackResolutions()
 {
     const auto start = [this](CardResolver *resolver) {
         if (resolver && !resolver->active() && !m_fallbackQueue.isEmpty() &&
-            activeImageDownloads() < kMaximumConcurrentImageDownloads) {
+            activeCardResolutions() + m_directImageJobs.size() + m_pendingDirectImageRetries <
+                kMaximumConcurrentImageDownloads) {
             resolver->resolve(m_fallbackQueue.dequeue());
         }
     };
@@ -60,11 +61,10 @@ void CardCatalog::scheduleResolutionWork()
         !artWritesAllowed())
         return;
 
-    processFaceMetadataProbes();
     const bool resolverActive = activeCardResolutions() > 0;
     const bool hasWork = !m_cardQueue.isEmpty() || !m_fallbackQueue.isEmpty() ||
                          !m_directImageJobs.isEmpty() || m_pendingDirectImageRetries > 0 ||
-                         !m_artCropQueue.isEmpty() || !m_artCropJobs.isEmpty() || resolverActive;
+                         resolverActive;
     if (!hasWork) {
         finishResolutionIfIdle();
         return;
@@ -81,7 +81,9 @@ void CardCatalog::scheduleResolutionWork()
         (!m_fallbackQueue.isEmpty() && m_fallbackQueue.head().highPriority)) {
         startFallbackResolutions();
     }
-    while (activeImageDownloads() < kMaximumConcurrentImageDownloads && !m_cardQueue.isEmpty()) {
+    while (activeCardResolutions() + m_directImageJobs.size() + m_pendingDirectImageRetries <
+               kMaximumConcurrentImageDownloads &&
+           !m_cardQueue.isEmpty()) {
         auto position = m_cardQueue.cbegin();
         if (parallel && providerCount(CardArtProvider::Scryfall) >= providerSlots &&
             providerCount(CardArtProvider::Mtgch) >= providerSlots) {
@@ -180,7 +182,6 @@ void CardCatalog::scheduleResolutionWork()
     }
 
     startFallbackResolutions();
-    startOptionalArtCrop();
     finishResolutionIfIdle();
 }
 
@@ -190,10 +191,9 @@ void CardCatalog::finishResolutionIfIdle()
     // though no network reply is active during the backoff interval.
     if (m_catalogBusy || m_artCacheBusy || activeCardResolutions() > 0 ||
         m_pendingDirectImageRetries > 0 || !m_cardQueue.isEmpty() || !m_fallbackQueue.isEmpty() ||
-        !m_directImageJobs.isEmpty() || !m_artCropQueue.isEmpty() || !m_artCropJobs.isEmpty() ||
-        !m_queuedKeys.isEmpty() || !m_cachedHydrationQueue.isEmpty() ||
-        m_cachedHydrationScheduled || !m_incrementalCacheQueue.isEmpty() ||
-        m_incrementalCacheScheduled) {
+        !m_directImageJobs.isEmpty() || !m_queuedKeys.isEmpty() ||
+        !m_cachedHydrationQueue.isEmpty() || m_cachedHydrationScheduled ||
+        !m_incrementalCacheQueue.isEmpty() || m_incrementalCacheScheduled) {
         return;
     }
     m_artCache->saveAsync();

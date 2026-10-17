@@ -16,17 +16,6 @@ TestCase {
         testTranslations.setLanguage("en")
     }
 
-    function test_genericRulesRejectionDoesNotInventAnExpiredPrompt() {
-        testTranslations.setLanguage("en")
-        const message = I18n.protocolError("rules_action_rejected: Unknown card name")
-        compare(message,
-                "Forge could not accept this decision. Review the current choices and try again.")
-        compare(I18n.status("rules_action_rejected: The engine rejected this answer"), message)
-        verify(!/expired|stale|changed decision/i.test(message))
-        // A separate typed error keeps its own diagnosis.
-        compare(I18n.protocolError("invalid_target: no such target"), "Invalid target")
-    }
-
     function test_translatesManualLogActions_data() {
         return [
             {tag: "token", kind: "create_token", source: "Alice created a Goblin token.",

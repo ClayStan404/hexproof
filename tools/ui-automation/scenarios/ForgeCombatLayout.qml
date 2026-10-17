@@ -95,8 +95,7 @@ Item {
         const rows=names.map(name=>{
             const lane=read(name)
             return {name:name,stackCount:lane.stackCount,x:lane.x,y:lane.y,width:lane.width,height:lane.height,
-                cardWidth:lane.cardWidth,cardHeight:lane.cardHeight,structuralBadge:lane.structuralBadge,
-                combatPresentation:lane.combatPresentation,
+                cardWidth:lane.cardWidth,cardHeight:lane.cardHeight,hasBadges:lane.hasBadges,
                 attachmentDepth:lane.attachmentDepth,cellExtra:lane.cellExtra,edgeSpace:lane.edgeSpace}
         })
         auditProbe.record(name,{unit:board.unit,laneHeight:board.laneHeight,
@@ -107,7 +106,7 @@ Item {
             if (!lane.stackCount) continue
             require(lane.scrollArea.contentHeight <= lane.height + 1, "Ordinary board must fit: " + name)
             if (name !== "forgeOwnCreatures") {
-                require(lane.attachmentDepth === 0 && lane.structuralBadge === false, "Unrelated support row reserves decorations")
+                require(lane.attachmentDepth === 0 && !lane.hasBadges, "Unrelated support row reserves decorations")
             }
         }
         capture(name)
@@ -148,17 +147,18 @@ Item {
             ()=>Date.now()-stepStarted>500)
         add("Record attached main phase",()=>recordSize("main1-two-attachments"))
         add("Enter combat with two attachments",()=>setPhase("declare_attackers",true),
-            ()=>find("forgeOwnCreatures").combatPresentation
-                && find("forgeOwnCreatures").attachmentDepth === 1
-                && duelTable().tableController.combatInteraction.active
+            ()=>find("forgeOwnCreatures").combatPresentation && find("forgeOwnCreatures").hasBadges
                 && Date.now()-stepStarted>500)
         add("Verify large combat cards",()=>{
             recordSize("combat-two-attachments")
         })
         for (let i = 0; i < 5; ++i) {
             const index = i
-            add("Assign attacker " + index + " to its only legal defender", () => {
+            add("Select attacker " + index, () => {
                 require(auditProbe.click(find("forgeCard-creature-" + index)), "Cannot select creature")
+            }, () => duelTable().tableController.combatInteraction.selectedSource === "source-" + index)
+            add("Assign attacker " + index, () => {
+                require(auditProbe.click(find("rulesPlayerTarget1")), "Cannot choose defending player")
             }, () => duelTable().tableController.combatInteraction.assignments["source-" + index] === "defender")
         }
         add("Capture five individually assigned attackers", () => recordSize("five-attackers-assigned"))

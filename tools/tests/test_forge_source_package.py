@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 import unittest
@@ -83,21 +82,17 @@ def make_fixture_trees(directory):
     shutil.copytree(source / "forge/forge-gui", runtime / "forge-gui")
     shutil.copytree(bundled / "native-host", runtime / "host-source")
     shutil.copy2(source / "forge/LICENSE", runtime / "FORGE-LICENSE")
-    symbol_data = (REPO / "apps/server/internal/forgediag/diagnostic-symbols.json").read_bytes()
-    (runtime / "diagnostic-symbols.json").write_bytes(symbol_data)
     with zipfile.ZipFile(runtime / "forge-harness.jar", "w") as jar:
         jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\nMain-Class: " + upstream["mainClass"]
             + "\nClass-Path: " + " ".join(entry["path"] for entry in artifacts) + "\n\n")
         jar.writestr("org/hexproof/forge/NativeHost.class", b"synthetic native host")
-        jar.writestr("org/hexproof/forge/diagnostic-symbols.json", symbol_data)
         resources = bundled / "native-host/src/main/resources"
         for resource in resources.rglob("*"):
             if resource.is_file():
                 jar.write(resource, resource.relative_to(resources).as_posix())
     PACKAGE.write_json(runtime / "provenance.json", {**upstream, "developmentOnly": False,
         "corePatches": [upstream["patch"]], "artifacts": artifacts,
-        "hostArtifact": {"path": "forge-harness.jar", "sha256": PACKAGE.sha256(runtime / "forge-harness.jar")},
-        "diagnosticSymbols": {"path": "diagnostic-symbols.json", "sha256": PACKAGE.sha256(runtime / "diagnostic-symbols.json")}})
+        "hostArtifact": {"path": "forge-harness.jar", "sha256": PACKAGE.sha256(runtime / "forge-harness.jar")}})
     return source, runtime
 
 
@@ -260,52 +255,6 @@ class ForgeSourcePackageTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("outside", result.stderr)
 
-    @unittest.skipUnless(os.name == "posix", "POSIX Java executable fixture")
-    def test_release_cold_start_uses_selected_jdk_and_preserves_parent_environment(self):
-        source, runtime = make_fixture_trees(self.root)
-        report = runtime / "resolved-dependencies.txt"
-        report.write_text(f"org.example:fixture:jar:1:compile:{runtime / 'lib/fixture.jar'}\n")
-        home = (self.root / "JDK 21 with spaces").resolve()
-        (home / "bin").mkdir(parents=True)
-        ambient = self.root / "default-java-bin"
-        ambient.mkdir()
-        observation = self.root / "cold-start-environment.json"
-        unexpected = self.root / "ambient-java-was-used"
-        commands = {
-            home / "bin/javac": "print('javac 21.0.12')\n",
-            home / "bin/java": "import json, os, pathlib\n"
-                f"pathlib.Path({str(observation)!r}).write_text(json.dumps("
-                "{key: os.environ[key] for key in ('JAVA_HOME', 'PATH')}))\n"
-                "print('{\"ok\":true}')\n",
-            ambient / "java": "import pathlib\n"
-                f"pathlib.Path({str(unexpected)!r}).touch()\nraise SystemExit(17)\n",
-        }
-        for command, body in commands.items():
-            command.write_text(f"#!{sys.executable}\n" + body)
-            command.chmod(0o755)
-        environment = {key: value for key, value in os.environ.items()
-                       if not key.upper().startswith("JAVA_HOME_21_")}
-        environment.update(JAVA_HOME=str(home), PATH=str(ambient) + os.pathsep + environment.get("PATH", ""))
-        builder = PACKAGE.load_builder(TOOLS)
-        with mock.patch.dict(os.environ, environment, clear=True), \
-                mock.patch.object(PACKAGE, "load_builder", return_value=builder), \
-                mock.patch.object(builder, "build", return_value=runtime) as build, \
-                mock.patch.object(builder.TOOLCHAIN, "build_environment",
-                                  wraps=builder.TOOLCHAIN.build_environment) as select:
-            before = dict(os.environ)
-            archive = PACKAGE.build_release(self.root / "unused-source", self.root / "release", TOOLS,
-                                            preserved=source)
-            self.assertEqual(dict(os.environ), before)
-        self.assertTrue(archive.is_file())
-        self.assertFalse(unexpected.exists())
-        select.assert_called_once_with()
-        selected = build.call_args.kwargs["env"]
-        self.assertEqual(selected["JAVA_HOME"], str(home))
-        self.assertEqual(selected["PATH"], str(home / "bin") + os.pathsep + environment["PATH"])
-        observed = json.loads(observation.read_text())
-        self.assertEqual(observed["JAVA_HOME"], selected["JAVA_HOME"])
-        self.assertEqual(observed["PATH"], selected["PATH"])
-
     def test_xmlpull_module_uses_only_four_original_api_classes_and_notice(self):
         source = self.root / "official-source"
         (source / "forge").mkdir(parents=True)
@@ -346,38 +295,6 @@ class ForgeSourcePackageTests(unittest.TestCase):
         relocated.parent.mkdir()
         shutil.move(str(self.root / "hexproof-forge-runtime"), relocated)
         PACKAGE.validate_runtime(relocated, PACKAGE.read_upstream(TOOLS))
-
-    def test_diagnostic_index_provenance_and_native_resource_must_agree(self):
-        create_release_fixture(self.root)
-        runtime = self.root / "hexproof-forge-runtime"
-        upstream = PACKAGE.read_upstream(TOOLS)
-        symbols = runtime / "diagnostic-symbols.json"
-        original = symbols.read_bytes()
-        symbols.write_bytes(original + b" ")
-        PACKAGE.seal_runtime(runtime, upstream)
-        with self.assertRaisesRegex(ValueError, "symbol provenance"):
-            PACKAGE.validate_runtime(runtime, upstream)
-        path = runtime / "provenance.json"
-        provenance = json.loads(path.read_text())
-        provenance["diagnosticSymbols"]["sha256"] = PACKAGE.sha256(symbols)
-        PACKAGE.write_json(path, provenance)
-        PACKAGE.seal_runtime(runtime, upstream)
-        with self.assertRaisesRegex(ValueError, "reviewed index"):
-            PACKAGE.validate_runtime(runtime, upstream)
-        symbols.write_bytes(original)
-        provenance["diagnosticSymbols"]["sha256"] = PACKAGE.sha256(symbols)
-        host = runtime / "forge-harness.jar"
-        with zipfile.ZipFile(host) as jar:
-            contents = {name: jar.read(name) for name in jar.namelist()}
-        contents["org/hexproof/forge/diagnostic-symbols.json"] = original + b" "
-        with zipfile.ZipFile(host, "w") as jar:
-            for name, data in contents.items():
-                jar.writestr(name, data)
-        provenance["hostArtifact"]["sha256"] = PACKAGE.sha256(host)
-        PACKAGE.write_json(path, provenance)
-        PACKAGE.seal_runtime(runtime, upstream)
-        with self.assertRaisesRegex(ValueError, "symbols differ from its native host"):
-            PACKAGE.validate_runtime(runtime, upstream)
 
     def test_runtime_tampering_extra_jar_and_symlink_are_rejected(self):
         create_release_fixture(self.root)

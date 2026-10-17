@@ -25,10 +25,14 @@ func (r *Room) appendGameLog(kind string, seat int, text string) {
 			}
 		}
 	}
-	r.Game.Log = appendRetainedGameLog(r.Game.Log, protocol.GameLogEntry{
+	r.Game.Log = append(r.Game.Log, protocol.GameLogEntry{
 		ID: r.Game.NextLogID, Kind: kind, Seat: seat, Text: text,
 	})
 	r.Game.NextLogID++
+	if len(r.Game.Log) > protocol.MaxRetainedGameLog {
+		start := len(r.Game.Log) - protocol.MaxRetainedGameLog
+		r.Game.Log = append([]protocol.GameLogEntry(nil), r.Game.Log[start:]...)
+	}
 }
 
 func (r *Room) requireActiveGame() error {
@@ -501,7 +505,6 @@ func (r *Room) ReturnToRoom(connID string) (Result, error) {
 	r.Game = nil
 	r.Score = make([]int, len(r.Seats))
 	r.DrawnGames = 0
-	r.ResetActionClock(time.Now())
 	if r.RulesMode == protocol.RulesModeForge {
 		// The handler captured this completed journal before returning. Do not
 		// archive it again as an interrupted game when the waiting room closes.

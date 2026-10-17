@@ -12,43 +12,27 @@ AppPopup {
     required property var catalogModel
     property var card: ({})
     readonly property string cardLanguage: catalogModel && catalogModel.language || "en"
-    readonly property var details: TokenPresentation.details(catalogModel, facePreview.viewedCard)
+    readonly property var details: TokenPresentation.details(catalogModel, card)
     readonly property var customArtStore: typeof customCardArtStore !== "undefined"
                                          ? customCardArtStore : null
 
-    width: Math.min(Theme.size(1040), parent.width - Theme.size(48))
+    width: Math.min(Theme.size(780), parent.width - Theme.size(48))
     height: Math.min(Theme.size(620), parent.height - Theme.size(56))
 
     function showCard(value) {
         card = value || ({})
-        facePreview.resetFace()
         rulesScroll.contentY = 0
         open()
     }
     function cacheCard() {
-        if (facePreview.hasIdentity)
-            TokenPresentation.prioritize(catalogModel, facePreview.viewedCard)
+        TokenPresentation.prioritize(catalogModel, card)
     }
     onOpened: cacheCard()
-    onClosed: facePreview.resetFace()
     onCardLanguageChanged: {
         if (opened) {
             cacheCard()
             rulesScroll.contentY = 0
         }
-    }
-
-    CardFacePreviewController {
-        id: facePreview
-        catalogModel: root.catalogModel
-        card: root.card
-        tokenArt: true
-        active: root.opened
-    }
-
-    Connections {
-        target: facePreview
-        function onViewedCardChanged() { rulesScroll.contentY = 0 }
     }
 
     contentItem: ColumnLayout {
@@ -63,23 +47,18 @@ AppPopup {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: Theme.size(20)
-            ScrollView {
-                id: artScroll
-                objectName: "tokenDetailsArtScroll"
-                Layout.preferredWidth: Math.min(Theme.size(580), root.availableWidth * 0.60)
-                Layout.minimumWidth: 0
+            Image {
+                objectName: "tokenDetailsArt"
+                Layout.preferredWidth: Math.min(Theme.size(280), root.availableWidth * 0.42)
                 Layout.fillHeight: true
-                contentWidth: availableWidth
-                clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                CardFacePreviewGallery {
-                    controller: facePreview
-                    artObjectName: "tokenDetailsArt"
-                    columns: facePreview.displayFaces.length > 1
-                             && artScroll.availableWidth >= Theme.size(368) ? 2 : 1
-                    width: Math.min(artScroll.availableWidth,
-                        Math.max(1, artScroll.availableHeight - Theme.size(12)) * 63 / 88 * columns
-                        + (columns - 1) * Theme.size(8))
+                asynchronous: true
+                fillMode: Image.PreserveAspectFit
+                source: {
+                    if (!root.opened || !root.card.name || !root.catalogModel) return ""
+                    void root.catalogModel.imageRevision
+                    void root.cardLanguage
+                    return root.catalogModel.tokenImageSource(root.card.name,
+                                      root.card.setCode || "", root.card.collectorNumber || "")
                 }
             }
             Flickable {
@@ -99,7 +78,7 @@ AppPopup {
                     objectName: "tokenDetailsRulesText"
                     textFormat: Text.PlainText
                     width: rulesScroll.width - Theme.size(16)
-                    text: facePreview.displayFaces.map(face => face.fallbackText).join("\n\n")
+                    text: TokenPresentation.fullText(root.details)
                     font.pixelSize: Theme.fontSize(14)
                     color: Theme.text
                     wrapMode: Text.Wrap

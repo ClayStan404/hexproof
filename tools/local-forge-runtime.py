@@ -58,15 +58,6 @@ def validate(candidate, expected):
         raise ValueError("Native runtime host artifact provenance is missing or invalid")
     if digest(candidate / "forge-harness.jar") != host_artifact.get("sha256"):
         raise ValueError("Native host JAR checksum mismatch")
-    if expected.get("adapterRevision", 0) >= 31:
-        symbols = provenance.get("diagnosticSymbols", {})
-        if symbols.get("sha256") != expected.get("diagnosticSymbolsSha256"):
-            raise ValueError("Native diagnostic symbols differ from the reviewed index")
-        if symbols.get("path") != "diagnostic-symbols.json" or digest(candidate / "diagnostic-symbols.json") != symbols.get("sha256"):
-            raise ValueError("Native diagnostic symbol checksum mismatch")
-        with zipfile.ZipFile(candidate / "forge-harness.jar") as archive:
-            if archive.read("org/hexproof/forge/diagnostic-symbols.json") != (candidate / "diagnostic-symbols.json").read_bytes():
-                raise ValueError("Native diagnostic symbols differ from their packaged source")
     java_root = HOST / "src/main/java"
     current = {path.relative_to(java_root): path.read_bytes() for path in java_root.rglob("*.java")}
     bundled_root = candidate / "host-source/src/main/java"
@@ -107,15 +98,8 @@ def validate(candidate, expected):
             raise ValueError("Native patch checksum differs from upstream.json")
     delta = git(source, "diff", "--no-ext-diff", "--no-textconv", "--binary", "--full-index",
                 "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "HEAD")
-    if git(source, "diff", "--cached") or git(source, "ls-files", "--others", "--exclude-standard"):
+    if delta != patch or git(source, "diff", "--cached") or git(source, "ls-files", "--others", "--exclude-standard"):
         raise ValueError(f"Native resource checkout has unreviewed changes: {source}")
-    if delta != patch:
-        specification = importlib.util.spec_from_file_location(
-            "native_patch_validator", ROOT / "third_party/forge-runtime/build-native.py")
-        builder = importlib.util.module_from_spec(specification)
-        specification.loader.exec_module(builder)
-        if not patches or not builder.reviewed_patch_matches(source, HOST / expected["patch"]["file"]):
-            raise ValueError(f"Native resource checkout has unreviewed changes: {source}")
     artifacts = provenance.get("artifacts", [])
     if not isinstance(artifacts, list) or not artifacts:
         raise ValueError("Native runtime dependency provenance is empty")

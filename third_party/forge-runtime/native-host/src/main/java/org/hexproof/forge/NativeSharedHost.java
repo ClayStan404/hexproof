@@ -12,10 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Bounded multiplexed transport; every admitted game retains its own execution scope. */
 final class NativeSharedHost {
     private record Entry(NativeSession session, AtomicBoolean busy) { }
-    private static final class TerminalFailure extends RuntimeException {
-        final JsonObject capsule;
-        TerminalFailure(Throwable cause, JsonObject capsule) { super(cause); this.capsule = capsule; }
-    }
     private final Map<String, Entry> sessions = new ConcurrentHashMap<>();
     private final NativeGuiBase base;
     private final int capacity;
@@ -30,7 +26,7 @@ final class NativeSharedHost {
         String command = request.get("command").getAsString();
         if (closing) throw new IllegalStateException("Worker is closing");
         if (command.equals("reset")) return "{\"sharedVersion\":1,\"capacity\":" + capacity
-                + ",\"capabilities\":[\"forge-ai-v1\",\"forge-crash-diagnostics-v1\"],\"adapterRevision\":" + NativeHost.ADAPTER_REVISION + "}";
+                + ",\"capabilities\":[\"forge-ai-v1\"],\"adapterRevision\":" + NativeHost.ADAPTER_REVISION + "}";
         if (command.equals("startGame")) {
             NativeSession session;
             synchronized (sessions) {
@@ -44,7 +40,7 @@ final class NativeSharedHost {
                 sessions.put(id, new Entry(session, new AtomicBoolean(true)));
             }
             try { session.start(); return session.handle().toString(); }
-            catch (Throwable error) { throw retire(session, error); }
+            catch (Exception error) { stop(session.id); throw error; }
             finally { Entry entry = sessions.get(session.id); if (entry != null) entry.busy().set(false); }
         }
         String id = request.get("sessionId").getAsString();
@@ -61,18 +57,10 @@ final class NativeSharedHost {
                 case "submitAction" -> session.submit(JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject());
                 default -> throw new IllegalArgumentException("Unknown shared command");
             };
-        } catch (Throwable error) {
-            if (session.hasFailed() || error instanceof Error) throw retire(session, error);
+        } catch (Exception error) {
+            if (session.hasFailed()) stop(id);
             throw error;
         } finally { entry.busy().set(false); }
-    }
-
-    private TerminalFailure retire(NativeSession session, Throwable error) {
-        session.fail(error);
-        JsonObject capsule = session.failureInfo(); // Freeze before stop removes ownership or cleanup throws.
-        if (error instanceof Error || capsule != null && capsule.get("kind").getAsString().equals("resource_exhausted")) closing = true;
-        try { stop(session.id); } catch (Throwable cleanup) { closing = true; }
-        return new TerminalFailure(error, capsule);
     }
 
     private void stop(String id) throws InterruptedException {
@@ -88,29 +76,6 @@ final class NativeSharedHost {
         sessions.remove(id, entry);
     }
 
-    JsonObject response(JsonObject request, long id) {
-        JsonObject response = new JsonObject(); response.addProperty("requestId", id);
-        try {
-            response.addProperty("result", call(request)); response.addProperty("ok", true);
-        } catch (Throwable error) {
-            response.addProperty("ok", false); response.addProperty("error", "Native Forge request rejected");
-            JsonObject failure = NativeHost.startFailure(error);
-            if (failure != null) response.add("startFailure", failure);
-            if (error instanceof TerminalFailure terminal) {
-                response.addProperty("fatal", true);
-                if (terminal.capsule != null) response.add("failureInfo", terminal.capsule);
-            } else if (error instanceof Error) {
-                closing = true;
-                NativeDiagnostics diagnostic = new NativeDiagnostics("bootstrap");
-                diagnostic.terminal(error, "rpc");
-                response.addProperty("fatal", true);
-                response.add("failureInfo", diagnostic.failureInfo());
-            }
-            if (closing) response.addProperty("workerFatal", true);
-        }
-        return response;
-    }
-
     void run(PrintStream protocol) throws Exception {
         ThreadPoolExecutor requests = new ThreadPoolExecutor(capacity * 2, capacity * 2, 0, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(32));
@@ -124,7 +89,15 @@ final class NativeSharedHost {
                 long id = request.get("requestId").getAsLong();
                 if (id <= 0) throw new IllegalArgumentException("Invalid request ID");
                 requests.execute(() -> {
-                    JsonObject response = response(request, id);
+                    JsonObject response = new JsonObject(); response.addProperty("requestId", id);
+                    try {
+                        response.addProperty("result", call(request)); response.addProperty("ok", true);
+                    } catch (Exception error) {
+                        error.printStackTrace(System.err);
+                        response.addProperty("ok", false); response.addProperty("error", "Native Forge request rejected");
+                        JsonObject failure = NativeHost.startFailure(error);
+                        if (failure != null) response.add("startFailure", failure);
+                    }
                     synchronized (protocol) { protocol.println(NativeHost.JSON.toJson(response)); protocol.flush(); }
                     if (closing) System.exit(3);
                 });

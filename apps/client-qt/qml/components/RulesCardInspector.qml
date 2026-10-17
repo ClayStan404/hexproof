@@ -14,17 +14,12 @@ Surface {
     required property var cardCatalogModel
     required property url cardBackSource
     property string pinnedCardId: ""
-    property var pinnedSource: null
     property string previewCardId: ""
     property var previewSource: null
-    property bool previewSourceActive: false
-    property bool previewHeld: false
-    property bool previewNeedsInspection: false
     property string inspectedGameId: ""
     property bool showEmptyCloseButton: false
     property bool preferVertical: false
     signal cleared()
-    signal dismissed(var returnSource)
     readonly property var currentSnapshotRevision: rulesSession.snapshotRevision
     readonly property string currentGameId: rulesSession.gameId
     readonly property string cardId: previewCardId || pinnedCardId
@@ -45,11 +40,7 @@ Surface {
         void cardCatalogModel.imageRevision
         return cardCatalogModel.cardDisplayName(card.name)
     }
-    readonly property bool horizontalLayout: !preferVertical && localFacePreview.displayFaces.length <= 1
-        && (width >= Theme.size(500) || height < Theme.size(440))
-    readonly property real availableBodyHeight: Math.max(0,
-        height - Theme.size(24) - titleRow.implicitHeight - Theme.size(8))
-    property alias facePreview: localFacePreview
+    readonly property bool horizontalLayout: !preferVertical && (width >= Theme.size(500) || height < Theme.size(440))
     readonly property string exiledSummary: persistentState.exiledSummary
     readonly property string persistentSummary: persistentState.detailSummary
     RulesCardPersistentState {
@@ -57,32 +48,6 @@ Surface {
         card: root.card
         rulesSession: root.rulesSession
         cardCatalogModel: root.cardCatalogModel
-    }
-    CardFacePreviewController {
-        id: localFacePreview
-        catalogModel: root.cardCatalogModel
-        card: Object.assign({}, root.card, {id:root.cardId})
-        sourceItem: root.previewSource
-        identityVisible: root.hasIdentity
-        active: root.hasCard
-    }
-    Timer {
-        id: previewDeparture
-        interval: 350
-        onTriggered: if (!root.previewSourceActive && !root.previewHeld) root.hidePreview()
-    }
-    onPreviewHeldChanged: {
-        if (previewHeld) previewDeparture.stop()
-        else if (!previewSourceActive && previewCardId.length) previewDeparture.restart()
-    }
-    onHasIdentityChanged: {
-        if (!hasIdentity) {
-            // card is a snapshot binding; clear its selection after this
-            // update finishes rather than writing a dependency mid-evaluation.
-            if (previewCardId.length) Qt.callLater(() => {
-                if (!root.hasIdentity && root.previewCardId.length) root.hidePreview()
-            })
-        }
     }
 
     objectName: "rulesCardInspector"
@@ -98,14 +63,10 @@ Surface {
                 ? rulesSession.cardForInspection(id) : ({})
     }
 
-    function showCard(id, source) {
+    function showCard(id) {
         if (Object.keys(currentCard(id)).length === 0)
             return false
-        pinnedSource = source || (previewCardId === id ? previewSource : null)
         inspectedGameId = rulesSession.gameId
-        previewDeparture.stop()
-        previewSourceActive = false
-        previewHeld = false
         pinnedCardId = id
         previewCardId = ""
         previewSource = null
@@ -117,8 +78,6 @@ Surface {
         if (Object.keys(currentCard(id)).length === 0)
             return false
         inspectedGameId = rulesSession.gameId
-        previewDeparture.stop()
-        previewSourceActive = true
         previewSource = source || null
         previewCardId = id
         stateScroll.contentY = 0
@@ -128,36 +87,16 @@ Surface {
     function hidePreview(source) {
         if (source && previewSource && source !== previewSource)
             return
-        if (source && previewCardId.length && (localFacePreview.displayFaces.length > 1 || previewNeedsInspection)
-                && source.previewEnabled !== false && source.visible !== false) {
-            previewSourceActive = false
-            if (!previewHeld) previewDeparture.restart()
-            return
-        }
-        previewDeparture.stop()
-        previewSourceActive = false
-        previewHeld = false
         previewCardId = ""
         previewSource = null
     }
 
     function clear() {
-        previewDeparture.stop()
-        previewSourceActive = false
-        previewHeld = false
-        localFacePreview.resetFace()
         pinnedCardId = ""
-        pinnedSource = null
         previewCardId = ""
         previewSource = null
         inspectedGameId = ""
         cleared()
-    }
-
-    function dismiss() {
-        const source = pinnedSource || previewSource
-        clear()
-        dismissed(source)
     }
 
     function validateSelection() {
@@ -204,18 +143,14 @@ Surface {
         anchors.margins: Theme.size(12)
         spacing: Theme.size(8)
 
-        GridLayout {
-            id: titleRow
+        RowLayout {
             Layout.fillWidth: true
-            columns: width >= closeButton.implicitWidth + Theme.size(148) ? 2 : 1
-            columnSpacing: Theme.size(8)
-            rowSpacing: Theme.size(8)
             Text {
                 objectName: "rulesCardInspectorTitle"
                 textFormat: Text.PlainText
                 Layout.fillWidth: true
                 text: !root.hasCard ? qsTr("Card preview")
-                      : root.hasIdentity ? localFacePreview.displayName
+                      : root.hasIdentity ? root.displayName
                       : root.card.zone === "stack" && root.card.faceDown !== true
                         ? qsTr("Stack ability") : qsTr("Face-down card")
                 color: Theme.text
@@ -226,13 +161,11 @@ Surface {
                 elide: Text.ElideRight
             }
             AppButton {
-                id: closeButton
                 objectName: "clearRulesCardInspectorButton"
-                Layout.alignment: Qt.AlignRight
                 visible: root.hasCard || root.showEmptyCloseButton
                 text: qsTr("Close")
                 compact: true
-                onClicked: root.dismiss()
+                onClicked: root.clear()
             }
         }
 
@@ -254,9 +187,6 @@ Surface {
             id: body
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumWidth: 0
-            Layout.minimumHeight: 0
-            Layout.preferredHeight: 0
             visible: root.hasCard
             columns: root.horizontalLayout ? 2 : 1
             columnSpacing: Theme.size(12)
@@ -266,71 +196,53 @@ Surface {
                 id: artwork
                 Layout.minimumWidth: 0
                 Layout.preferredWidth: root.horizontalLayout
-                                       ? Math.min((root.width - Theme.size(24)) * 0.5,
-                                                  root.availableBodyHeight * 63 / 88)
-                                       : root.width - Theme.size(24)
+                                       ? Math.min(body.width * 0.5, body.height * 63 / 88)
+                                       : body.width
                 Layout.maximumWidth: root.horizontalLayout ? Layout.preferredWidth : Infinity
                 Layout.fillWidth: !root.horizontalLayout
-                Layout.preferredHeight: root.horizontalLayout ? root.availableBodyHeight
-                                        : Math.min(naturalGalleryHeight, root.availableBodyHeight * 0.72)
+                Layout.preferredHeight: root.horizontalLayout ? body.height
+                                        : Math.min(body.width * 88 / 63, body.height * 0.72)
                 Layout.maximumHeight: Layout.preferredHeight
                 Layout.fillHeight: root.horizontalLayout
                 visible: root.hasIdentity || root.card.faceDown === true
-                readonly property real naturalGalleryHeight: {
-                    const count = Math.max(1, localFacePreview.displayFaces.length)
-                    const availableWidth = Math.max(0, root.width - Theme.size(24))
-                    const columns = count > 1 && availableWidth >= 2 * gallery.minimumFaceWidth + gallery.gap ? 2 : 1
-                    const rows = Math.ceil(count / columns)
-                    const faceWidth = Math.max(0, (availableWidth - (columns - 1) * gallery.gap) / columns)
-                    return rows * faceWidth * 88 / 63 + (rows - 1) * gallery.gap
-                }
-                readonly property var gallerySize: gallery.fittedSize(Theme.size(320), width, height)
 
-                CardFacePreviewGallery {
-                    id: gallery
-                    objectName: "rulesCardInspectorGallery"
-                    controller: localFacePreview
-                    artObjectName: "rulesCardInspectorArt"
-                    fallbackObjectName: "rulesCardInspectorArtFallback"
-                    anchors.centerIn: parent
-                    width: artwork.gallerySize.width
-                    height: artwork.gallerySize.height
-                    columns: artwork.gallerySize.columns
-                    visible: root.hasIdentity
-                }
                 Image {
-                    id: hiddenArt
-                    objectName: !root.hasIdentity ? "rulesCardInspectorArt" : ""
-                    width: parent.width
-                    height: parent.height
+                    id: art
+                    objectName: "rulesCardInspectorArt"
+                    anchors.fill: parent
                     asynchronous: true
                     smooth: true
                     fillMode: Image.PreserveAspectFit
-                    visible: !root.hasIdentity
-                    source: root.hasCard && !root.hasIdentity ? root.cardBackSource : ""
+                    source: {
+                        if (!root.hasCard)
+                            return ""
+                        if (!root.hasIdentity)
+                            return root.cardBackSource
+                        if (!root.cardCatalogModel
+                                || typeof root.cardCatalogModel.imageSource !== "function")
+                            return ""
+                        void root.cardCatalogModel.imageRevision
+                        return root.cardCatalogModel.imageSource(
+                                    root.card.name, root.card.setCode || "",
+                                    root.card.collectorNumber || "")
+                    }
                 }
                 Rectangle {
-                    width: parent.width
-                    height: parent.height
-                    visible: !root.hasIdentity && hiddenArt.status !== Image.Ready
+                    anchors.fill: parent
+                    visible: art.status !== Image.Ready
                     color: Theme.surfaceMuted
                     radius: Theme.radiusMedium
                     border.color: Theme.borderStrong
                     Text {
-                        objectName: !root.hasIdentity ? "rulesCardInspectorArtFallback" : ""
+                        objectName: "rulesCardInspectorArtFallback"
                         textFormat: Text.PlainText
                         anchors.centerIn: parent
                         width: parent.width - Theme.size(16)
-                        height: parent.height - Theme.size(16)
-                        text: qsTr("Face-down card")
+                        text: root.hasIdentity ? root.displayName : qsTr("Face-down card")
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(15)
-                        fontSizeMode: Text.Fit
-                        minimumPixelSize: Theme.fontSize(9)
                         wrapMode: Text.Wrap
                         horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        clip: true
                     }
                 }
             }
@@ -353,14 +265,12 @@ Surface {
                     width: stateScroll.width - Theme.size(12)
                     spacing: Theme.size(7)
                     Text {
-                        objectName: "rulesCardInspectorStateHeading"
                         textFormat: Text.PlainText
                         width: parent.width
                         text: qsTr("Current game state")
                         color: Theme.primary
                         font.pixelSize: Theme.fontSize(11)
                         font.weight: Font.DemiBold
-                        wrapMode: Text.Wrap
                     }
                     Text {
                         objectName: "rulesCardInspectorState"

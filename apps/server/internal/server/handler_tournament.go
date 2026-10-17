@@ -106,7 +106,6 @@ func (h *Handler) handleTournamentCreate(sess *Session, env protocol.Envelope) e
 			PlannedRounds: request.PlannedRounds, EventType: request.EventType,
 			Coordinator: request.Coordinator, Product: request.Product,
 			DraftSettings: request.DraftSettings, RulesMode: request.RulesMode,
-			ActionClockEnabled: request.ActionClockEnabled,
 		}, sess.DisplayName, sess.ConnectionID, tournament.CredentialHash(token), now)
 		if err != nil {
 			sendTournamentError(h, sess, env.ID, err)
@@ -591,7 +590,6 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 		return nil
 	}
 	rulesMode := event.RulesMode
-	actionClockEnabled := event.ActionClockEnabled
 	matchMode := event.MatchMode
 	roundNumber := 0
 	if round := event.CurrentRound(); round != nil {
@@ -607,6 +605,8 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 	}
 	var lockedDeck *protocol.DeckSelect
 	participant := event.Participant(binding.ParticipantID)
+	sealConstructedDeck := event.EventType == protocol.LimitedEventConstructed &&
+		rulesMode == protocol.RulesModeForge
 	constructedDeckLocked := event.EventType == protocol.LimitedEventConstructed &&
 		roundNumber > 1 && participant != nil && participant.Deck != nil
 	if event.EventType != protocol.LimitedEventConstructed &&
@@ -665,19 +665,15 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 			return nil
 		}
 		var selected room.Result
-		if actionClockEnabled || lockedDeck != nil {
+		if sealConstructedDeck || lockedDeck != nil {
 			roomOperation.mu.Lock()
-			if actionClockEnabled {
-				roomOperation.room.EnableActionClock(time.Now())
+			if sealConstructedDeck {
+				roomOperation.room.EnableActionClock(time.Now().UTC())
 			}
 			if lockedDeck != nil {
 				selected, createErr = roomOperation.room.SelectDeck(sess.ConnectionID, *lockedDeck)
 				if createErr == nil && constructedDeckLocked {
 					createErr = roomOperation.room.SealTournamentDeck(sess.ConnectionID)
-					if createErr == nil {
-						// SelectDeck's snapshot predates the constructed lock.
-						selected.Broadcast = []protocol.Envelope{roomOperation.room.SnapshotEnvelope()}
-					}
 				}
 			}
 			roomOperation.mu.Unlock()
@@ -719,15 +715,11 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 				MaxSeats:        r.MaxSeats,
 				AllowSpectators: true, MatchMode: r.MatchMode,
 				CardLoadMode: r.CardLoadMode, RulesMode: r.RulesMode, HostingMode: r.HostingMode, HasPassword: false,
-				ActionClockEnabled: r.ActionClockEnabled,
 			},
 			HostSeat: r.HostSeat,
 		})
 		h.send(sess, created)
-		if lockedDeck == nil && !actionClockEnabled {
-			roomOperation.mu.Lock()
-			snapshot = roomOperation.room.ProjectRoomSnapshot(sess.ConnectionID, snapshot)
-			roomOperation.mu.Unlock()
+		if lockedDeck == nil && !sealConstructedDeck {
 			snapshotEnvelope, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, snapshot)
 			h.send(sess, snapshotEnvelope.WithSeq(seq))
 		} else if lockedDeck == nil {
@@ -781,9 +773,6 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 		selected, selectErr := roomOperation.room.SelectDeck(sess.ConnectionID, *lockedDeck)
 		if selectErr == nil && constructedDeckLocked {
 			selectErr = roomOperation.room.SealTournamentDeck(sess.ConnectionID)
-			if selectErr == nil {
-				selected.Broadcast = []protocol.Envelope{roomOperation.room.SnapshotEnvelope()}
-			}
 		}
 		roomOperation.mu.Unlock()
 		if selectErr != nil {

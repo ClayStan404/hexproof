@@ -51,7 +51,6 @@ Page {
         spacing: Theme.size(10)
 
         ScreenHeader {
-            feedbackContext: ({feature: "draft"})
             Layout.fillWidth: true
             title: qsTr("Draft practice")
             subtitle: root.session.active ? root.session.product.name

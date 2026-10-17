@@ -32,55 +32,18 @@ TournamentSessionState::TournamentSessionState(QObject *parent)
 void TournamentSessionState::rememberTabletopScore(const QString &roomId, const QVariantList &seats,
                                                    int drawnGames)
 {
-    if (roomId.isEmpty() || !inTournament() || m_participantId.isEmpty())
+    if (roomId.isEmpty())
         return;
-    for (const QVariant &value : std::as_const(m_pairings)) {
-        const QVariantMap pairing = value.toMap();
-        const QString pairingId = pairing.value(u"pairingId"_s).toString();
-        const QString playerA = pairing.value(u"playerAId"_s).toString();
-        const QString playerB = pairing.value(u"playerBId"_s).toString();
-        if (pairingId.isEmpty() || playerA.isEmpty() || playerB.isEmpty() ||
-            (m_participantId != playerA && m_participantId != playerB) ||
-            pairing.value(u"roomId"_s).toString() != roomId) {
-            continue;
-        }
-        m_tabletopScores.insert(pairingId, {{u"tournamentId"_s, m_tournamentId},
-                                            {u"pairingId"_s, pairingId},
-                                            {u"participantId"_s, m_participantId},
-                                            {u"currentRound"_s, m_currentRound},
-                                            {u"playerAId"_s, playerA},
-                                            {u"playerBId"_s, playerB},
-                                            {u"roomId"_s, roomId},
-                                            {u"seats"_s, seats},
-                                            {u"drawnGames"_s, drawnGames}});
-        return;
-    }
+    QVariantMap entry;
+    entry.insert(u"roomId"_s, roomId);
+    entry.insert(u"seats"_s, seats);
+    entry.insert(u"drawnGames"_s, drawnGames);
+    m_tabletopScores.insert(roomId, entry);
 }
 
-bool TournamentSessionState::tabletopScoreMatchesPairing(const QVariantMap &score,
-                                                         const QVariantMap &pairing) const
+QVariantMap TournamentSessionState::tabletopScoreForRoom(const QString &roomId) const
 {
-    if (score.isEmpty() || m_participantId.isEmpty() ||
-        score.value(u"tournamentId"_s).toString() != m_tournamentId ||
-        score.value(u"participantId"_s).toString() != m_participantId ||
-        score.value(u"currentRound"_s).toInt() != m_currentRound ||
-        score.value(u"playerAId"_s) != pairing.value(u"playerAId"_s) ||
-        score.value(u"playerBId"_s) != pairing.value(u"playerBId"_s)) {
-        return false;
-    }
-    const QString roomId = pairing.value(u"roomId"_s).toString();
-    return roomId.isEmpty() || roomId == score.value(u"roomId"_s).toString();
-}
-
-QVariantMap TournamentSessionState::tabletopScoreForPairing(const QString &pairingId) const
-{
-    const QVariantMap score = m_tabletopScores.value(pairingId);
-    for (const QVariant &value : m_pairings) {
-        const QVariantMap pairing = value.toMap();
-        if (pairing.value(u"pairingId"_s).toString() == pairingId)
-            return tabletopScoreMatchesPairing(score, pairing) ? score : QVariantMap{};
-    }
-    return {};
+    return m_tabletopScores.value(roomId);
 }
 
 void TournamentSessionState::applyList(const QJsonObject &payload)
@@ -112,8 +75,6 @@ void TournamentSessionState::enter(const QString &tournamentId, const QString &r
     }
     m_tournamentId = tournamentId;
     m_role = role;
-    if (m_participantId != participantId)
-        m_tabletopScores.clear();
     m_participantId = participantId;
     if (!wasInTournament)
         emit inTournamentChanged();
@@ -122,8 +83,6 @@ void TournamentSessionState::enter(const QString &tournamentId, const QString &r
 
 void TournamentSessionState::applyRegistration(const QString &participantId)
 {
-    if (m_participantId != participantId)
-        m_tabletopScores.clear();
     m_participantId = participantId;
     if (m_role != u"organizer"_s)
         m_role = u"participant"_s;
@@ -133,11 +92,6 @@ void TournamentSessionState::applyRegistration(const QString &participantId)
 void TournamentSessionState::applySnapshot(const QJsonObject &payload)
 {
     const bool wasInTournament = inTournament();
-    if (payload.value(u"tournamentId"_s).toString(m_tournamentId) != m_tournamentId ||
-        payload.value(u"participantId"_s).toString() != m_participantId ||
-        payload.value(u"currentRound"_s).toInt() != m_currentRound) {
-        m_tabletopScores.clear();
-    }
     m_tournamentId = payload.value(u"tournamentId"_s).toString(m_tournamentId);
     m_name = payload.value(u"name"_s).toString();
     m_format = payload.value(u"format"_s).toString();
@@ -146,9 +100,6 @@ void TournamentSessionState::applySnapshot(const QJsonObject &payload)
     m_stage = payload.value(u"stage"_s).toString();
     m_matchMode = payload.value(u"matchMode"_s).toString();
     m_rulesMode = payload.value(u"rulesMode"_s).toString(u"manual"_s);
-    m_actionClockEnabled = payload.value(u"actionClockEnabled"_s)
-                               .toBool(m_rulesMode == u"forge"_s &&
-                                       (m_eventType.isEmpty() || m_eventType == u"constructed"_s));
     m_status = payload.value(u"status"_s).toString();
     m_role = payload.value(u"role"_s).toString();
     m_participantId = payload.value(u"participantId"_s).toString();
@@ -167,14 +118,6 @@ void TournamentSessionState::applySnapshot(const QJsonObject &payload)
     m_draftSettings = payload.value(u"draftSettings"_s).toObject().toVariantMap();
     m_participants = arrayToVariantList(payload.value(u"participants"_s));
     m_pairings = arrayToVariantList(payload.value(u"pairings"_s));
-    // Closed room IDs disappear from event snapshots. Keep their completed
-    // suggestion only while the same pairing and participant scope survives.
-    for (auto entry = m_tabletopScores.begin(); entry != m_tabletopScores.end();) {
-        if (tabletopScoreForPairing(entry.key()).isEmpty())
-            entry = m_tabletopScores.erase(entry);
-        else
-            ++entry;
-    }
     m_standings = arrayToVariantList(payload.value(u"standings"_s));
     if (!wasInTournament && inTournament())
         emit inTournamentChanged();
@@ -192,7 +135,6 @@ void TournamentSessionState::clear()
     m_stage.clear();
     m_matchMode.clear();
     m_rulesMode = u"manual"_s;
-    m_actionClockEnabled = false;
     m_status.clear();
     m_role.clear();
     m_participantId.clear();

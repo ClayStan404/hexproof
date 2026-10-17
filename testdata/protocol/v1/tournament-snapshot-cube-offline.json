@@ -1,7 +1,6 @@
 {
   "type": "tournament.snapshot",
   "payload": {
-    "actionClockEnabled": false,
     "tournamentId": "CUBE42",
     "name": "Commander Cube",
     "format": "edh",

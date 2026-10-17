@@ -37,7 +37,6 @@ class NativeAudit final : public QObject
     Q_INVOKABLE bool chooseFile(const QString &name, const QString &path);
     Q_INVOKABLE QQuickItem *find(QObject *scope, const QString &name,
                                  const QVariantMap &identity = {});
-    Q_INVOKABLE QQuickItem *findDropTarget(QObject *scope, const QString &name);
     Q_INVOKABLE QVariantMap observe(QQuickWindow *window) const;
     Q_INVOKABLE bool canInteract(QQuickItem *item);
     Q_INVOKABLE bool click(QQuickItem *item, qreal x = -1, qreal y = -1);
@@ -59,10 +58,8 @@ class NativeAudit final : public QObject
     Q_INVOKABLE QVariant readShared(const QString &name);
     Q_INVOKABLE bool share(const QString &name, const QVariant &value);
     Q_INVOKABLE void fixture(const QString &name, const QVariantMap &detail = {});
-    Q_INVOKABLE bool applyRulesCrashReportFixture(const QVariantMap &report);
     Q_INVOKABLE bool applyRulesTableFixture(const QVariantMap &room, const QVariantMap &rules,
                                             const QVariantMap &match = {});
-    Q_INVOKABLE bool applyManualTableFixture(const QVariantMap &room, const QVariantMap &snapshot);
     Q_INVOKABLE bool updateRulesTableFixture(const QVariantMap &rules,
                                              const QVariantMap &prompt = {});
     Q_INVOKABLE bool interruptTransport(QObject *client);
@@ -74,12 +71,6 @@ class NativeAudit final : public QObject
     void stepRequested();
 
   private:
-    enum class TargetIntent
-    {
-        Pointer,
-        Drop,
-        Hover
-    };
     bool eventFilter(QObject *object, QEvent *event) override;
     bool osMode() const;
     QVariantMap osCommand(QVariantMap request);
@@ -87,14 +78,10 @@ class NativeAudit final : public QObject
     QObject *fileDialogObject(const QString &name) const;
     bool fail(const QString &message);
     bool artifactFailure(const QString &message);
-    QQuickItem *findTarget(QObject *scope, const QString &name, const QVariantMap &identity,
-                           bool dropTarget);
-    bool targetPoint(QQuickItem *item, QPointF *point, qreal x = -1, qreal y = -1,
-                     TargetIntent intent = TargetIntent::Pointer);
+    bool targetPoint(QQuickItem *item, QPointF *point, qreal x = -1, qreal y = -1);
     bool inputFocus();
     void trace(const QString &action, const QVariantMap &detail, qint64 started);
     bool writeJson(const QString &directory, const QString &name, const QVariant &value);
-    QVariantMap framePacing() const;
     void startDriver();
     void heartbeat();
 
@@ -108,10 +95,6 @@ class NativeAudit final : public QObject
     QVariantList m_osPointerEvents;
     bool m_osCollecting = false;
     QElapsedTimer m_elapsed;
-    QElapsedTimer m_frameClock;
-    QList<qint64> m_frameDeltas;
-    qint64 m_lastFrameMs = -1;
-    bool m_frameLog = false;
     QTimer m_heartbeat;
     QString m_output;
     QString m_shared;

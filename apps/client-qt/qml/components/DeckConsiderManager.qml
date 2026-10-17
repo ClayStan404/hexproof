@@ -23,15 +23,6 @@ AppPopup {
     width: Math.min(Theme.size(1120), parent.width - Theme.size(48))
     height: Math.min(Theme.size(760), parent.height - Theme.size(56))
 
-    CardHoverPreview {
-        id: floatingPreview
-        objectName: "considerCardPreview"
-        parent: root.contentItem ? root.contentItem.parent : null
-        catalogModel: root.catalogModel
-    }
-    onClosed: floatingPreview.hide()
-    onVisibleCardsChanged: floatingPreview.hide()
-
     contentItem: ColumnLayout {
         spacing: Theme.size(13)
 
@@ -115,14 +106,11 @@ AppPopup {
                 height: considerGrid.cellHeight
 
                 DeckVisualCard {
-                    id: visualCard
                     anchors.fill: parent
                     anchors.margins: Theme.size(5)
                     card: considerCell.modelData
                     catalogModel: root.catalogModel
                     customArtEnabled: root.customArtEnabled
-                    onPreviewRequested: (card, source) => floatingPreview.inspect(card, visualCard)
-                    onPreviewEnded: floatingPreview.hide(visualCard)
                     onCustomArtRequested: root.customArtRequested(considerCell.modelData)
                     incrementEnabled: root.deckLibraryModel.canAddCard(
                                           considerCell.modelData.name,

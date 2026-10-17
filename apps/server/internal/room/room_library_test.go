@@ -11,50 +11,6 @@ import (
 	"hexproof/server/internal/protocol"
 )
 
-func TestLibrarySearchRejectsSelectionLargerThanCurrentLibrary(t *testing.T) {
-	for _, remote := range []bool{false, true} {
-		for _, remainingCount := range []int{0, 1} {
-			r := newTestRoom(t, 2, true)
-			if _, err := r.Join("guest-conn", "Guest", false, ""); err != nil {
-				t.Fatal(err)
-			}
-			r.Phase = protocol.RoomPhaseStarted
-			r.Game = &GameState{Number: 1, NextLogID: 1,
-				Seats: []PlayerGameState{{Seat: 0}, {Seat: 1}}}
-			sourceSeat := 0
-			if remote {
-				sourceSeat = 1
-			}
-			if remainingCount > 0 {
-				r.Game.Seats[sourceSeat].Library = []protocol.GameCard{{
-					ID: "remaining", Name: "Remaining", OwnerSeat: sourceSeat,
-				}}
-			}
-			before, err := json.Marshal(r.Game)
-			if err != nil {
-				t.Fatal(err)
-			}
-			request := protocol.GameSearchLibrary{
-				CardIDs: []string{"remaining", "already-drawn"},
-				ToZone:  protocol.LibraryDestinationHand,
-			}
-			if remote {
-				request.SourceSeat, request.ApprovalID = &sourceSeat, "approved"
-				_, err = r.SearchApprovedLibrary("host-conn", request)
-			} else {
-				_, err = r.SearchLibrary("host-conn", request)
-			}
-			if err == nil || err.Error() != protocol.ErrCardNotFound {
-				t.Fatalf("remote=%v remaining=%d: error = %v", remote, remainingCount, err)
-			}
-			after, err := json.Marshal(r.Game)
-			if err != nil || string(before) != string(after) {
-				t.Fatalf("rejected search changed game state: before=%s after=%s err=%v", before, after, err)
-			}
-		}
-	}
-}
-
 func TestLibraryTopViewReorderAndMultiSearch(t *testing.T) {
 	r := newTestRoom(t, 2, true)
 	r.Phase = protocol.RoomPhaseStarted

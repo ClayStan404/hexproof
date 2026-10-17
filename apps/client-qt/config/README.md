@@ -1,13 +1,5 @@
 # Client server directory
 
-Feedback is a separate build configuration, not a directory field. Set
-`HEXPROOF_FEEDBACK_CONFIG_FILE` for packaging or the matching CMake option for
-direct builds. Release jobs optionally read the repository variable
-`HEXPROOF_FEEDBACK_CONFIG_JSON` through `tools/write-feedback-config.py`; absence
-produces a disabled configuration. This document never contains relay credentials.
-See [feedback operations](../../../docs/feedback-operations.md) for endpoint,
-privacy and rollout requirements. Existing server directory schemas stay intact.
-
 The client loads an operator-managed JSON catalog over HTTPS. It stores the
 last valid catalog locally and ships a bootstrap list for first launch or
 network outages. Users can always enter a custom WebSocket address.

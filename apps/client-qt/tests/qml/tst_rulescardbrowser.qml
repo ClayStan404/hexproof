@@ -18,26 +18,12 @@ TestCase {
             responses.push({id:id, response:response, cards:cards})
         }
     }
-    QtObject {
-        id: catalog
-        property int imageRevision: 0
-        function tableImageSource(name, set, number) { return "" }
-        function imageSource(name, set, number) {
-            if (!["Delver of Secrets", "Insectile Aberration"].includes(name)) return ""
-            return "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="63" height="88"><rect width="63" height="88" fill="' + (name === "Delver of Secrets" ? "red" : "blue") + '"/></svg>')
-        }
-        function cardFaces(name, set, number) {
-            return name === "Delver of Secrets" ? [
-                {name:"Delver of Secrets", faceName:"", displayName:"Delver of Secrets"},
-                {name:"Insectile Aberration", faceName:"Insectile Aberration", displayName:"Insectile Aberration"}] : []
-        }
-    }
     Component {
         id: selection
         RulesCardSelectionPrompt {
             expandedView: true
             wsModel: transport
-            cardCatalogModel: catalog
+            cardCatalogModel: null
             cardModel: testRulesPrompt.session.promptCards
             promptId: testRulesPrompt.session.promptId
             minimumSelections: testRulesPrompt.session.promptMinCardSelections
@@ -51,7 +37,7 @@ TestCase {
         RulesRevealPrompt {
             expandedView: true
             wsModel: transport
-            cardCatalogModel: catalog
+            cardCatalogModel: null
             cardModel: testRulesPrompt.session.promptCards
             promptId: testRulesPrompt.session.promptId
         }
@@ -97,73 +83,6 @@ TestCase {
     }
     function test_nativeSelectionPersistsWithoutResubmitting_data() {
         return [{tag:"compact", expanded:false}, {tag:"expanded", expanded:true}]
-    }
-    function test_bothFacesPreserveSelectionAndAcknowledgement_data() {
-        return [{tag:"selection-compact", expanded:false, reveal:false},
-            {tag:"selection-expanded", expanded:true, reveal:false},
-            {tag:"reveal-compact", expanded:false, reveal:true},
-            {tag:"reveal-expanded", expanded:true, reveal:true}]
-    }
-    function test_bothFacesPreserveSelectionAndAcknowledgement(data) {
-        publish(2, data.reveal ? "revealCards" : "chooseCards", 1, 1, ["Delver of Secrets"])
-        const prompt = create(data.reveal ? reveal : selection)
-        prompt.expandedView = data.expanded
-        const list = grid(prompt, data.reveal ? "revealCardList" : "rulesCardCandidates")
-        tryCompare(list, "count", 1)
-        waitForRendering(list)
-        const tile = list.itemAtIndex(0)
-        mouseMove(tile, tile.width / 2, 30)
-        const preview = findChild(prompt, data.expanded ? "rulesBrowserCardPreview"
-            : data.reveal ? "rulesRevealCardPreview" : "rulesSelectionCardPreview")
-        tryCompare(preview, "visible", true)
-        const artName = data.expanded ? "rulesBrowserCardPreviewArt"
-            : data.reveal ? "rulesRevealCardPreviewArt" : "rulesSelectionCardPreviewArt"
-        const front = findChild(preview, artName)
-        const back = findChild(preview, artName + "-1")
-        verify(front !== null && back !== null)
-        verify(front.visible && back.visible)
-        tryCompare(front, "status", Image.Ready)
-        tryCompare(back, "status", Image.Ready)
-        compare(preview.facePreview.displayFaces.map(face => face.name), ["Delver of Secrets", "Insectile Aberration"])
-        compare(findChild(preview, "viewOtherFaceButton"), null)
-        mouseMove(back)
-        wait(380)
-        verify(preview.visible)
-        compare(transport.responses.length, 0)
-        compare(testRulesPrompt.session.promptCards.items()[0].name, "Delver of Secrets")
-        if (!data.reveal) compare(prompt.selectedCount, 0)
-        preview.hide()
-        if (data.reveal) {
-            mouseClick(findChild(prompt, "acknowledgeRevealButton"))
-            compare(transport.responses[0], {id:2, response:"$ack"})
-        } else {
-            mouseClick(tile)
-            mouseClick(findChild(prompt, "rulesConfirmCards"))
-            compare(transport.responses[0], {id:2, response:"$submit", cards:["candidate-0"]})
-        }
-    }
-    function test_expandedPreviewKeepsConfirmationClear() {
-        publish(2, "chooseCards", 1, 1, ["Delver of Secrets"])
-        const prompt = create(selection, 820, 670)
-        const list = grid(prompt)
-        tryCompare(list, "count", 1)
-        waitForRendering(list)
-        const tile = list.itemAtIndex(0)
-        mouseMove(tile, tile.width / 2, 30)
-        const preview = findChild(prompt, "rulesBrowserCardPreview")
-        const confirm = findChild(prompt, "rulesConfirmCards")
-        tryCompare(preview, "visible", true)
-        for (const control of [confirm, findChild(prompt, "rulesCardSelectionCount")]) {
-            const rect = control.mapToItem(preview.parent, 0, 0, control.width, control.height)
-            verify(preview.x + preview.width <= rect.x || preview.x >= rect.x + rect.width
-                || preview.y + preview.height <= rect.y || preview.y >= rect.y + rect.height,
-                "Both-face inspection must leave confirmation and its summary clear")
-        }
-        compare(prompt.selectedCount, 0)
-        preview.hide()
-        mouseClick(tile)
-        mouseClick(confirm)
-        compare(transport.responses, [{id:2, response:"$submit", cards:["candidate-0"]}])
     }
     function test_nativeSelectionPersistsWithoutResubmitting(data) {
         publish(2, "chooseCards", 1, 1, ["Forest", "Island", "Ornithopter"], [0])

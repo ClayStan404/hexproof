@@ -5,7 +5,6 @@
 
 #include "AccountSessionState.h"
 #include "ClusterTransfer.h"
-#include "ForgeCrashReportService.h"
 #include "ForgeHostService.h"
 #include "ForgeReplayService.h"
 #include "HubTransport.h"
@@ -95,7 +94,6 @@ class WsClient : public QObject
     Q_PROPERTY(GameSessionState *gameSession READ gameSession CONSTANT)
     Q_PROPERTY(RulesSessionState *rulesSession READ rulesSession CONSTANT)
     Q_PROPERTY(ForgeReplayService *replays READ replays CONSTANT)
-    Q_PROPERTY(ForgeCrashReportService *crashReports READ crashReports CONSTANT)
     Q_PROPERTY(
         bool rulesResponsePending READ rulesResponsePending NOTIFY rulesResponsePendingChanged)
     Q_PROPERTY(LimitedSessionState *limitedSession READ limitedSession CONSTANT)
@@ -107,10 +105,6 @@ class WsClient : public QObject
     AccountSessionState *account() const
     {
         return m_account;
-    }
-    ForgeCrashReportService *crashReports() const
-    {
-        return m_crashReports;
     }
     ForgeReplayService *replays() const
     {
@@ -411,25 +405,22 @@ class WsClient : public QObject
                const QString &cardLoadMode, const QString &password, bool playtest = false,
                const QString &rulesMode = QStringLiteral("manual"),
                const QString &hostingMode = QString(), const QString &aiDifficulty = QString(),
-               const QString &aiSource = QString(), bool actionClockEnabled = false);
+               const QString &aiSource = QString());
     Q_INVOKABLE void requestRoomList();
     Q_INVOKABLE void requestTournamentList();
     Q_INVOKABLE QString sendTournamentChat(const QString &text);
     Q_INVOKABLE void createTournament(const QString &name, const QString &format,
                                       const QString &matchMode, int roundMinutes, int maxPlayers,
-                                      const QString &rulesMode = QStringLiteral("manual"),
-                                      bool actionClockEnabled = true);
+                                      const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void createLimitedTournament(const QString &name, const QString &eventType,
                                              const QString &matchMode, int roundMinutes,
                                              int maxPlayers, const QVariantMap &product,
-                                             const QString &rulesMode = QStringLiteral("manual"),
-                                             bool actionClockEnabled = false);
+                                             const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void createCasualLimitedEvent(const QString &name, const QString &eventType,
                                               const QString &matchMode, int maxPlayers,
                                               const QVariantMap &product,
                                               const QVariantMap &draftSettings = {},
-                                              const QString &rulesMode = QStringLiteral("manual"),
-                                              bool actionClockEnabled = false);
+                                              const QString &rulesMode = QStringLiteral("manual"));
     Q_INVOKABLE void createLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void cancelLimitedCasualMatch(const QString &playerAId, const QString &playerBId);
     Q_INVOKABLE void pickLimitedCard(const QString &instanceId);
@@ -476,7 +467,6 @@ class WsClient : public QObject
     Q_INVOKABLE void setReady(bool ready);
     Q_INVOKABLE void completeLoad(qint64 loadId);
     Q_INVOKABLE void respondRulesPrompt(qint64 promptId, const QString &responseId);
-    Q_INVOKABLE void publishRulesPriority(bool fullControl, bool hold, const QStringList &stops);
     Q_INVOKABLE void respondRulesPromptWithCards(qint64 promptId, const QString &responseId,
                                                  const QVariantList &cardIds);
     Q_INVOKABLE void respondRulesPromptWithTargets(qint64 promptId, const QString &responseId,
@@ -666,8 +656,6 @@ class WsClient : public QObject
     void handleLoadRequired(const protocol::Envelope &env);
     void handleMatchStarted(const protocol::Envelope &env);
     void handleGameSnapshot(const QVariantMap &snapshot);
-    void clearDeferredRulesSnapshot();
-    void applyDeferredRulesSnapshot();
     void handleRulesSnapshot(const QJsonObject &snapshot);
     void handleRulesPrompt(const QJsonObject &prompt);
     void handleZoneDumpRequested(const protocol::Envelope &env);
@@ -725,8 +713,6 @@ class WsClient : public QObject
     GameSessionState *m_gameSession = nullptr;
     RulesSessionState *m_rulesSession = nullptr;
     ForgeReplayService *m_replays = nullptr;
-    QString m_replayRequestId;
-    ForgeCrashReportService *m_crashReports = nullptr;
     AccountSessionState *m_account = nullptr;
     ServerDirectory *m_serverDirectory = nullptr;
     TournamentSessionState *m_tournamentSession = nullptr;
@@ -753,9 +739,6 @@ class WsClient : public QObject
     QTimer m_helloTimer; // handshake timeout while connecting or reconnecting
     QTimer m_keepAliveTimer;
     QTimer m_rulesResponseTimer;
-    QTimer m_deferredRulesTimer;
-    QJsonObject m_deferredRulesSnapshot;
-    quint64 m_deferredRulesTransportGeneration = 0;
     QString m_rulesResponseRequestId;
     QString m_rulesResponseGameId;
     qint64 m_rulesResponsePromptId = 0;

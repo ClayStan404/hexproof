@@ -1,7 +1,7 @@
 # Hexproof server package
 
-The archive contains static Linux game-server, home-connector and optional
-feedback-receiver binaries and systemd service templates. It does not contain deployment credentials, TLS certificates, or a
+The archive contains static Linux game-server and home-connector binaries and
+a systemd service template. It does not contain deployment credentials, TLS certificates, or a
 reverse-proxy configuration.
 
 Run the server directly for a local installation:
@@ -47,10 +47,3 @@ protected operator configuration. Keep its game backend on loopback and retain
 the ordinary hub's per-role privacy and version checks. See `HOME-SERVERS.md`
 for the connection, fallback, and recovery contract. The connector does not
 make a game survive a home power loss or a stopped hub.
-
-`bin/hexproof-feedback` supplies the independent private feedback inbox and
-mail outbox. It remains disabled until the owner supplies protected configuration,
-an HTTPS route, relay and support mailbox, and independent monitoring. Use the
-existing release deployment entry point with `HEXPROOF_COMPONENT=feedback`, an
-explicit single target/version and private feedback inputs. See `FEEDBACK.md`;
-never place its SMTP credentials in the client or game server directory.

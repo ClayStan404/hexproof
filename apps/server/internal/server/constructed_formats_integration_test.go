@@ -16,7 +16,6 @@ import (
 
 type constructedPeer struct {
 	client      *wsClient
-	viewerSeat  int
 	room        protocol.RoomSnapshot
 	game        protocol.GameSnapshot
 	gameJSON    string
@@ -34,26 +33,8 @@ func (p *constructedPeer) receive(t *testing.T, id string) protocol.Envelope {
 		var target any
 		switch env.Type {
 		case protocol.TypeRoomSnapshot:
-			var raw map[string]json.RawMessage
-			if err := json.Unmarshal(env.Payload, &raw); err != nil {
-				t.Fatal(err)
-			}
-			var ownName string
-			if name, exists := raw["ownDeckName"]; exists {
-				if err := json.Unmarshal(name, &ownName); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if ownName != "" && (p.viewerSeat < 0 || ownName != fmt.Sprintf("Private registration %d", p.viewerSeat)) {
-				t.Fatal("room snapshot exposed another participant's deck name")
-			}
-			delete(raw, "ownDeckName")
-			public, err := json.Marshal(raw)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if strings.Contains(string(public), "Private P") ||
-				strings.Contains(string(public), "Private registration") {
+			if strings.Contains(string(env.Payload), "Private P") ||
+				strings.Contains(string(env.Payload), "Private registration") {
 				t.Fatal("room snapshot exposed registered deck or card identities")
 			}
 			p.room = protocol.RoomSnapshot{}
@@ -144,13 +125,6 @@ func assertConstructedProjections(t *testing.T, peers []*constructedPeer, seats 
 	t.Helper()
 	var public protocol.GameSnapshot
 	for viewer, peer := range peers {
-		wantName := ""
-		if viewer < seats {
-			wantName = fmt.Sprintf("Private registration %d", viewer)
-		}
-		if peer.room.OwnDeckName != wantName {
-			t.Fatalf("viewer %d lost exact own deck metadata: %q, want %q", viewer, peer.room.OwnDeckName, wantName)
-		}
 		if len(peer.game.Seats) != seats {
 			t.Fatalf("viewer %d has %d game seats, want %d", viewer, len(peer.game.Seats), seats)
 		}
@@ -230,11 +204,7 @@ func TestManualConstructedFormatsOverWebSocket(t *testing.T) {
 				if err := client.hello(fmt.Sprintf("Player %d", i)).DecodePayload(&welcome); err != nil {
 					t.Fatal(err)
 				}
-				viewerSeat := i
-				if i >= tc.seats {
-					viewerSeat = -1
-				}
-				peers[i] = &constructedPeer{client: client, viewerSeat: viewerSeat, resumeToken: welcome.ResumeToken}
+				peers[i] = &constructedPeer{client: client, resumeToken: welcome.ResumeToken}
 			}
 			host, players, spectator := peers[0], peers[:tc.seats], peers[tc.seats]
 			command := func(actor *constructedPeer, kind string, payload any, want string) protocol.Envelope {
@@ -285,9 +255,6 @@ func TestManualConstructedFormatsOverWebSocket(t *testing.T) {
 					t.Fatal("rejected registration marked the seat selected")
 				}
 				command(player, protocol.TypeDeckSelect, deck, protocol.TypeDeckSelected)
-				if player.room.OwnDeckName != deck.Name {
-					t.Fatal("selected deck's exact name did not reach its authenticated owner")
-				}
 			}
 			for _, player := range players {
 				command(player, protocol.TypePlayerReady, protocol.PlayerReady{Ready: true}, protocol.TypePlayerReadyChanged)

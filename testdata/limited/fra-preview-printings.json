@@ -1,0 +1,3253 @@
+{
+  "source": "Scryfall FRA/SPG API, retrieved 2026-09-19; partial preview",
+  "cards": [
+    {
+      "name": "Emrakul, the Exigent Doom",
+      "setCode": "FRA",
+      "collectorNumber": "1",
+      "typeLine": "Legendary Creature — Eldrazi",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Academic Ascent",
+      "setCode": "FRA",
+      "collectorNumber": "2",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Blossom-Blessed Angel // Seed Suture",
+      "setCode": "FRA",
+      "collectorNumber": "3",
+      "typeLine": "Creature — Angel Cleric // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Campus Crier",
+      "setCode": "FRA",
+      "collectorNumber": "4",
+      "typeLine": "Creature — Human Advisor",
+      "rarity": "common"
+    },
+    {
+      "name": "Enlightened Confidant",
+      "setCode": "FRA",
+      "collectorNumber": "5",
+      "typeLine": "Creature — Kor Cleric",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Fateshaper Aspirant",
+      "setCode": "FRA",
+      "collectorNumber": "6",
+      "typeLine": "Creature — Rhino Cleric",
+      "rarity": "common"
+    },
+    {
+      "name": "Flickering Hound",
+      "setCode": "FRA",
+      "collectorNumber": "7",
+      "typeLine": "Creature — Dog",
+      "rarity": "rare"
+    },
+    {
+      "name": "Generous Revival",
+      "setCode": "FRA",
+      "collectorNumber": "8",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Germinate Recruits",
+      "setCode": "FRA",
+      "collectorNumber": "9",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Graft Surgeon",
+      "setCode": "FRA",
+      "collectorNumber": "10",
+      "typeLine": "Creature — Human Cleric",
+      "rarity": "common"
+    },
+    {
+      "name": "Guiding Hydra",
+      "setCode": "FRA",
+      "collectorNumber": "11",
+      "typeLine": "Creature — Hydra Horror",
+      "rarity": "rare"
+    },
+    {
+      "name": "Hexhaven Battalion",
+      "setCode": "FRA",
+      "collectorNumber": "12",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Kindred Judgment",
+      "setCode": "FRA",
+      "collectorNumber": "13",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Loyal Tutor",
+      "setCode": "FRA",
+      "collectorNumber": "14",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Memory Trap",
+      "setCode": "FRA",
+      "collectorNumber": "15",
+      "typeLine": "Enchantment",
+      "rarity": "common"
+    },
+    {
+      "name": "Predictive Preparations",
+      "setCode": "FRA",
+      "collectorNumber": "16",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Prophesied End",
+      "setCode": "FRA",
+      "collectorNumber": "17",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Refute Destiny",
+      "setCode": "FRA",
+      "collectorNumber": "18",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Repurposed Enforcer",
+      "setCode": "FRA",
+      "collectorNumber": "19",
+      "typeLine": "Creature — Human Soldier",
+      "rarity": "rare"
+    },
+    {
+      "name": "Return to the Light Realms",
+      "setCode": "FRA",
+      "collectorNumber": "20",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Shatterwing Pegasus",
+      "setCode": "FRA",
+      "collectorNumber": "21",
+      "typeLine": "Creature — Pegasus",
+      "rarity": "common"
+    },
+    {
+      "name": "Surgical Precision",
+      "setCode": "FRA",
+      "collectorNumber": "22",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Unflinching Hortimancer",
+      "setCode": "FRA",
+      "collectorNumber": "23",
+      "typeLine": "Creature — Human Cleric",
+      "rarity": "common"
+    },
+    {
+      "name": "Countersculpt",
+      "setCode": "FRA",
+      "collectorNumber": "25",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Cruel Calculations",
+      "setCode": "FRA",
+      "collectorNumber": "26",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Cryotheory Adept",
+      "setCode": "FRA",
+      "collectorNumber": "27",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "common"
+    },
+    {
+      "name": "Diviner of Victory // Unwind History",
+      "setCode": "FRA",
+      "collectorNumber": "28",
+      "typeLine": "Creature — Dwarf Wizard // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Divining Duelist",
+      "setCode": "FRA",
+      "collectorNumber": "29",
+      "typeLine": "Creature — Merfolk Wizard",
+      "rarity": "common"
+    },
+    {
+      "name": "Icy Reception",
+      "setCode": "FRA",
+      "collectorNumber": "30",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Infinite Coursework",
+      "setCode": "FRA",
+      "collectorNumber": "31",
+      "typeLine": "Enchantment — Aura",
+      "rarity": "common"
+    },
+    {
+      "name": "Jace's Machinations",
+      "setCode": "FRA",
+      "collectorNumber": "32",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Mindseeker Oculus",
+      "setCode": "FRA",
+      "collectorNumber": "33",
+      "typeLine": "Creature — Homunculus",
+      "rarity": "common"
+    },
+    {
+      "name": "Perfected Theory",
+      "setCode": "FRA",
+      "collectorNumber": "34",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Plan for All Outcomes",
+      "setCode": "FRA",
+      "collectorNumber": "35",
+      "typeLine": "Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Precise Redaction",
+      "setCode": "FRA",
+      "collectorNumber": "36",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Protege's Awakening",
+      "setCode": "FRA",
+      "collectorNumber": "37",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Seasoned Cryomancer",
+      "setCode": "FRA",
+      "collectorNumber": "38",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Semester Foreseer // Peer Review",
+      "setCode": "FRA",
+      "collectorNumber": "39",
+      "typeLine": "Creature — Human Wizard // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Sphinx of False Conclusions",
+      "setCode": "FRA",
+      "collectorNumber": "40",
+      "typeLine": "Creature — Sphinx Illusion",
+      "rarity": "rare"
+    },
+    {
+      "name": "Sphinx's Approach",
+      "setCode": "FRA",
+      "collectorNumber": "41",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Surveillance Phantasm",
+      "setCode": "FRA",
+      "collectorNumber": "42",
+      "typeLine": "Creature — Bird Illusion",
+      "rarity": "common"
+    },
+    {
+      "name": "The Theorist, Jace Beleren",
+      "setCode": "FRA",
+      "collectorNumber": "43",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Theorist's Proxy",
+      "setCode": "FRA",
+      "collectorNumber": "44",
+      "typeLine": "Creature — Illusion",
+      "rarity": "rare"
+    },
+    {
+      "name": "Undulating Witness",
+      "setCode": "FRA",
+      "collectorNumber": "45",
+      "typeLine": "Creature — Serpent",
+      "rarity": "common"
+    },
+    {
+      "name": "Unsummon",
+      "setCode": "FRA",
+      "collectorNumber": "46",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Variable Chaser // Arc of Fortune",
+      "setCode": "FRA",
+      "collectorNumber": "47",
+      "typeLine": "Creature — Human Wizard // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Apex Witchstalker",
+      "setCode": "FRA",
+      "collectorNumber": "48",
+      "typeLine": "Creature — Wolf",
+      "rarity": "common"
+    },
+    {
+      "name": "Bloodline Recollector // Ancestral Craving",
+      "setCode": "FRA",
+      "collectorNumber": "49",
+      "typeLine": "Creature — Vampire Warlock // Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Break Under Pressure",
+      "setCode": "FRA",
+      "collectorNumber": "50",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Cast Away Doubt",
+      "setCode": "FRA",
+      "collectorNumber": "51",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Dark Matter Manipulator",
+      "setCode": "FRA",
+      "collectorNumber": "52",
+      "typeLine": "Creature — Human Warlock",
+      "rarity": "rare"
+    },
+    {
+      "name": "Darklight Phoenix",
+      "setCode": "FRA",
+      "collectorNumber": "53",
+      "typeLine": "Creature — Phoenix",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Extended Absence",
+      "setCode": "FRA",
+      "collectorNumber": "54",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Extrapolate the Impossible",
+      "setCode": "FRA",
+      "collectorNumber": "55",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Last Gasp",
+      "setCode": "FRA",
+      "collectorNumber": "56",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Lich's Relic",
+      "setCode": "FRA",
+      "collectorNumber": "57",
+      "typeLine": "Artifact — Equipment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Multiply by Zero",
+      "setCode": "FRA",
+      "collectorNumber": "58",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Overwrite the Multiverse",
+      "setCode": "FRA",
+      "collectorNumber": "59",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Rampart Hunter",
+      "setCode": "FRA",
+      "collectorNumber": "60",
+      "typeLine": "Creature — Horror",
+      "rarity": "common"
+    },
+    {
+      "name": "Rank Rat",
+      "setCode": "FRA",
+      "collectorNumber": "61",
+      "typeLine": "Creature — Zombie Rat",
+      "rarity": "common"
+    },
+    {
+      "name": "Rewrite Regrets",
+      "setCode": "FRA",
+      "collectorNumber": "62",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Rise of the Deathbringer",
+      "setCode": "FRA",
+      "collectorNumber": "63",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Sanctum Lurker",
+      "setCode": "FRA",
+      "collectorNumber": "64",
+      "typeLine": "Creature — Horror",
+      "rarity": "rare"
+    },
+    {
+      "name": "Screeching Soulbreaker",
+      "setCode": "FRA",
+      "collectorNumber": "65",
+      "typeLine": "Creature — Siren Bard",
+      "rarity": "common"
+    },
+    {
+      "name": "Silence the Echo",
+      "setCode": "FRA",
+      "collectorNumber": "66",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Solve for Disappointment",
+      "setCode": "FRA",
+      "collectorNumber": "67",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Terminal Criticism",
+      "setCode": "FRA",
+      "collectorNumber": "68",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Theoretical Necromancer",
+      "setCode": "FRA",
+      "collectorNumber": "69",
+      "typeLine": "Creature — Vampire Warlock",
+      "rarity": "common"
+    },
+    {
+      "name": "Void Extrapolator // Omit Variables",
+      "setCode": "FRA",
+      "collectorNumber": "70",
+      "typeLine": "Creature — Aetherborn Warlock // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Vraska's Final Mercy",
+      "setCode": "FRA",
+      "collectorNumber": "71",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Ajani's Anguish",
+      "setCode": "FRA",
+      "collectorNumber": "72",
+      "typeLine": "Enchantment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Awaken the Inferno",
+      "setCode": "FRA",
+      "collectorNumber": "74",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Blazing Crescendo",
+      "setCode": "FRA",
+      "collectorNumber": "75",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Chandra's Emberling",
+      "setCode": "FRA",
+      "collectorNumber": "76",
+      "typeLine": "Creature — Gremlin Elemental",
+      "rarity": "common"
+    },
+    {
+      "name": "Command the Stage",
+      "setCode": "FRA",
+      "collectorNumber": "77",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Craterclaw Colossus",
+      "setCode": "FRA",
+      "collectorNumber": "78",
+      "typeLine": "Artifact Creature — Beast Construct",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Curse-Marred Demon",
+      "setCode": "FRA",
+      "collectorNumber": "79",
+      "typeLine": "Creature — Demon",
+      "rarity": "rare"
+    },
+    {
+      "name": "Draconic Visitor",
+      "setCode": "FRA",
+      "collectorNumber": "80",
+      "typeLine": "Creature — Dragon",
+      "rarity": "rare"
+    },
+    {
+      "name": "Eardrum Rattler",
+      "setCode": "FRA",
+      "collectorNumber": "81",
+      "typeLine": "Creature — Human Bard",
+      "rarity": "common"
+    },
+    {
+      "name": "Essence Burn",
+      "setCode": "FRA",
+      "collectorNumber": "82",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Face Yourself",
+      "setCode": "FRA",
+      "collectorNumber": "83",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Fulminous Forte",
+      "setCode": "FRA",
+      "collectorNumber": "84",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Hallway Heckler // Vicious Verse",
+      "setCode": "FRA",
+      "collectorNumber": "85",
+      "typeLine": "Creature — Elemental Sorcerer // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Heartstring Puller",
+      "setCode": "FRA",
+      "collectorNumber": "86",
+      "typeLine": "Creature — Elf Sorcerer",
+      "rarity": "common"
+    },
+    {
+      "name": "Identity Echo",
+      "setCode": "FRA",
+      "collectorNumber": "87",
+      "typeLine": "Enchantment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Master of Barbs",
+      "setCode": "FRA",
+      "collectorNumber": "88",
+      "typeLine": "Creature — Lizard Bard",
+      "rarity": "rare"
+    },
+    {
+      "name": "No Admittance",
+      "setCode": "FRA",
+      "collectorNumber": "89",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Pompous Battlemage // Improvised Act",
+      "setCode": "FRA",
+      "collectorNumber": "90",
+      "typeLine": "Creature — Goblin Sorcerer // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Pyre Rhymer // Molten Tide",
+      "setCode": "FRA",
+      "collectorNumber": "91",
+      "typeLine": "Creature — Elemental Sorcerer // Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Skilled Battlecarver",
+      "setCode": "FRA",
+      "collectorNumber": "92",
+      "typeLine": "Creature — Human Warrior",
+      "rarity": "common"
+    },
+    {
+      "name": "Stingcaster Mage",
+      "setCode": "FRA",
+      "collectorNumber": "93",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Tether Technician",
+      "setCode": "FRA",
+      "collectorNumber": "94",
+      "typeLine": "Creature — Minotaur Artificer",
+      "rarity": "common"
+    },
+    {
+      "name": "Violent Echoes",
+      "setCode": "FRA",
+      "collectorNumber": "95",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Wrath of the Bloodmane",
+      "setCode": "FRA",
+      "collectorNumber": "96",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Arcane Amphisbaena",
+      "setCode": "FRA",
+      "collectorNumber": "97",
+      "typeLine": "Creature — Snake",
+      "rarity": "common"
+    },
+    {
+      "name": "Bestial Incursion",
+      "setCode": "FRA",
+      "collectorNumber": "98",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Budding Insurgent",
+      "setCode": "FRA",
+      "collectorNumber": "99",
+      "typeLine": "Creature — Dryad Scout",
+      "rarity": "common"
+    },
+    {
+      "name": "Carnivorous Cultivator // Enroot",
+      "setCode": "FRA",
+      "collectorNumber": "100",
+      "typeLine": "Creature — Elf Warlock // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Compel Brutality",
+      "setCode": "FRA",
+      "collectorNumber": "101",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Flourishing Grapple",
+      "setCode": "FRA",
+      "collectorNumber": "102",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Gardenize",
+      "setCode": "FRA",
+      "collectorNumber": "103",
+      "typeLine": "Enchantment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Greenhouse Propagator",
+      "setCode": "FRA",
+      "collectorNumber": "104",
+      "typeLine": "Creature — Cat Druid",
+      "rarity": "common"
+    },
+    {
+      "name": "Heartwood Crafter // Soul Tether",
+      "setCode": "FRA",
+      "collectorNumber": "105",
+      "typeLine": "Creature — Elf Artificer // Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Hexhaven Invigorator",
+      "setCode": "FRA",
+      "collectorNumber": "106",
+      "typeLine": "Creature — Chimera Horror",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Hungering Puppetbeast",
+      "setCode": "FRA",
+      "collectorNumber": "107",
+      "typeLine": "Artifact Creature — Beast Construct",
+      "rarity": "rare"
+    },
+    {
+      "name": "Hunter's Axe",
+      "setCode": "FRA",
+      "collectorNumber": "108",
+      "typeLine": "Artifact — Equipment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Inspired Tethermage",
+      "setCode": "FRA",
+      "collectorNumber": "109",
+      "typeLine": "Creature — Elf Warrior",
+      "rarity": "common"
+    },
+    {
+      "name": "Omnipresence",
+      "setCode": "FRA",
+      "collectorNumber": "110",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Puppet Crafting",
+      "setCode": "FRA",
+      "collectorNumber": "111",
+      "typeLine": "Enchantment — Aura",
+      "rarity": "rare"
+    },
+    {
+      "name": "Restore with Empathy",
+      "setCode": "FRA",
+      "collectorNumber": "112",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Simulacrum Shaper",
+      "setCode": "FRA",
+      "collectorNumber": "113",
+      "typeLine": "Creature — Elf Druid",
+      "rarity": "rare"
+    },
+    {
+      "name": "Something Worth Saving",
+      "setCode": "FRA",
+      "collectorNumber": "114",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Sureshot Sower",
+      "setCode": "FRA",
+      "collectorNumber": "115",
+      "typeLine": "Creature — Human Archer",
+      "rarity": "common"
+    },
+    {
+      "name": "Tarmogoyf",
+      "setCode": "FRA",
+      "collectorNumber": "116",
+      "typeLine": "Creature — Lhurgoyf",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Tethermage's Advantage",
+      "setCode": "FRA",
+      "collectorNumber": "117",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Verdant Kraken",
+      "setCode": "FRA",
+      "collectorNumber": "118",
+      "typeLine": "Creature — Plant Kraken",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vinelasher Adept",
+      "setCode": "FRA",
+      "collectorNumber": "119",
+      "typeLine": "Creature — Rhino Soldier",
+      "rarity": "common"
+    },
+    {
+      "name": "Wrecking Gecko",
+      "setCode": "FRA",
+      "collectorNumber": "120",
+      "typeLine": "Artifact Creature — Lizard Construct",
+      "rarity": "common"
+    },
+    {
+      "name": "Aerid Konstrari",
+      "setCode": "FRA",
+      "collectorNumber": "121",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Avatar of Burgeoning Echoes",
+      "setCode": "FRA",
+      "collectorNumber": "122",
+      "typeLine": "Creature — Avatar",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Blessed Ghoul",
+      "setCode": "FRA",
+      "collectorNumber": "123",
+      "typeLine": "Creature — Zombie Cleric",
+      "rarity": "common"
+    },
+    {
+      "name": "Bloombrute",
+      "setCode": "FRA",
+      "collectorNumber": "124",
+      "typeLine": "Creature — Plant Elemental",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Charge the Sanctum",
+      "setCode": "FRA",
+      "collectorNumber": "125",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Clash of Elements",
+      "setCode": "FRA",
+      "collectorNumber": "126",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Craftwork Crusher",
+      "setCode": "FRA",
+      "collectorNumber": "127",
+      "typeLine": "Artifact Creature — Boar Construct",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Denzilore Fatehold",
+      "setCode": "FRA",
+      "collectorNumber": "128",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Desperate Futurescribe",
+      "setCode": "FRA",
+      "collectorNumber": "129",
+      "typeLine": "Creature — Kor Scout",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Emergency Phytomedic // Seed Suture",
+      "setCode": "FRA",
+      "collectorNumber": "130",
+      "typeLine": "Creature — Dryad Cleric // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Entrust the Spark",
+      "setCode": "FRA",
+      "collectorNumber": "131",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Fatehold Charm",
+      "setCode": "FRA",
+      "collectorNumber": "132",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Fatehold Chronologist // Peer Review",
+      "setCode": "FRA",
+      "collectorNumber": "133",
+      "typeLine": "Creature — Bird Wizard // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Ferocity of the Hunt",
+      "setCode": "FRA",
+      "collectorNumber": "134",
+      "typeLine": "Enchantment — Aura",
+      "rarity": "common"
+    },
+    {
+      "name": "Frostbite Pyromental",
+      "setCode": "FRA",
+      "collectorNumber": "135",
+      "typeLine": "Creature — Elemental",
+      "rarity": "rare"
+    },
+    {
+      "name": "Grim Repriser",
+      "setCode": "FRA",
+      "collectorNumber": "136",
+      "typeLine": "Creature — Zombie Bard",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ingris Stingerquill",
+      "setCode": "FRA",
+      "collectorNumber": "137",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Konstrari Charm",
+      "setCode": "FRA",
+      "collectorNumber": "138",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Konstrari Improviser // Soul Tether",
+      "setCode": "FRA",
+      "collectorNumber": "139",
+      "typeLine": "Creature — Human Artificer // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Kwia Vigorbloom",
+      "setCode": "FRA",
+      "collectorNumber": "140",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Mind Meanderer",
+      "setCode": "FRA",
+      "collectorNumber": "141",
+      "typeLine": "Creature — Bird Fish Illusion",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Null Summoner",
+      "setCode": "FRA",
+      "collectorNumber": "142",
+      "typeLine": "Creature — Human Warlock",
+      "rarity": "rare"
+    },
+    {
+      "name": "Paradox Shaper // Omit Variables",
+      "setCode": "FRA",
+      "collectorNumber": "143",
+      "typeLine": "Creature — Octopus Wizard // Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Primal Witchstalker",
+      "setCode": "FRA",
+      "collectorNumber": "144",
+      "typeLine": "Creature — Wolf",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Proctor of Potential",
+      "setCode": "FRA",
+      "collectorNumber": "145",
+      "typeLine": "Creature — Human Cleric",
+      "rarity": "rare"
+    },
+    {
+      "name": "Prudent Fateseer // Peer Review",
+      "setCode": "FRA",
+      "collectorNumber": "146",
+      "typeLine": "Creature — Dwarf Wizard // Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Recursive Recruitment",
+      "setCode": "FRA",
+      "collectorNumber": "147",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Solarium Sentry",
+      "setCode": "FRA",
+      "collectorNumber": "148",
+      "typeLine": "Creature — Cat Soldier",
+      "rarity": "rare"
+    },
+    {
+      "name": "Solitary Cell",
+      "setCode": "FRA",
+      "collectorNumber": "149",
+      "typeLine": "Artifact",
+      "rarity": "rare"
+    },
+    {
+      "name": "Stingerquill Charm",
+      "setCode": "FRA",
+      "collectorNumber": "150",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Stingerquill Voxmancer // Vicious Verse",
+      "setCode": "FRA",
+      "collectorNumber": "151",
+      "typeLine": "Creature — Goblin Sorcerer // Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Stinging Vitriol",
+      "setCode": "FRA",
+      "collectorNumber": "152",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Tam's Resistance",
+      "setCode": "FRA",
+      "collectorNumber": "153",
+      "typeLine": "Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Tenured Tethermage",
+      "setCode": "FRA",
+      "collectorNumber": "154",
+      "typeLine": "Creature — Human Artificer",
+      "rarity": "rare"
+    },
+    {
+      "name": "Theorix Charm",
+      "setCode": "FRA",
+      "collectorNumber": "155",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Theorix Metamage // Omit Variables",
+      "setCode": "FRA",
+      "collectorNumber": "156",
+      "typeLine": "Creature — Shade Wizard // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Twinned Vision",
+      "setCode": "FRA",
+      "collectorNumber": "157",
+      "typeLine": "Instant",
+      "rarity": "common"
+    },
+    {
+      "name": "Twisted Fates",
+      "setCode": "FRA",
+      "collectorNumber": "158",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Uldaros Theorix",
+      "setCode": "FRA",
+      "collectorNumber": "159",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Vigorbloom Charm",
+      "setCode": "FRA",
+      "collectorNumber": "160",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Vigorbloom Vanguard // Seed Suture",
+      "setCode": "FRA",
+      "collectorNumber": "161",
+      "typeLine": "Creature — Troll Druid // Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Vindictive Triumph",
+      "setCode": "FRA",
+      "collectorNumber": "162",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Warrior's Blades",
+      "setCode": "FRA",
+      "collectorNumber": "163",
+      "typeLine": "Artifact — Equipment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Whiplash Wordsmith // Vicious Verse",
+      "setCode": "FRA",
+      "collectorNumber": "164",
+      "typeLine": "Creature — Vampire Sorcerer // Sorcery",
+      "rarity": "common"
+    },
+    {
+      "name": "Woodwork Prodigy // Soul Tether",
+      "setCode": "FRA",
+      "collectorNumber": "165",
+      "typeLine": "Creature — Cat Druid // Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Afterthought Sentry",
+      "setCode": "FRA",
+      "collectorNumber": "166",
+      "typeLine": "Artifact Creature — Gargoyle",
+      "rarity": "common"
+    },
+    {
+      "name": "Archive Arbiter",
+      "setCode": "FRA",
+      "collectorNumber": "167",
+      "typeLine": "Artifact Creature — Sphinx",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Codie, Ravenous Codex",
+      "setCode": "FRA",
+      "collectorNumber": "168",
+      "typeLine": "Legendary Artifact Creature — Book Construct",
+      "rarity": "rare"
+    },
+    {
+      "name": "The Echoverse Fulcrum",
+      "setCode": "FRA",
+      "collectorNumber": "169",
+      "typeLine": "Legendary Artifact",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Eye of Jace",
+      "setCode": "FRA",
+      "collectorNumber": "170",
+      "typeLine": "Artifact",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Keeper of the Quiet Hour",
+      "setCode": "FRA",
+      "collectorNumber": "171",
+      "typeLine": "Artifact Creature — Chimera",
+      "rarity": "common"
+    },
+    {
+      "name": "Living Library",
+      "setCode": "FRA",
+      "collectorNumber": "172",
+      "typeLine": "Artifact Creature — Book Illusion",
+      "rarity": "common"
+    },
+    {
+      "name": "Medic's Kitesail",
+      "setCode": "FRA",
+      "collectorNumber": "173",
+      "typeLine": "Artifact — Equipment",
+      "rarity": "common"
+    },
+    {
+      "name": "Murmuring Volume",
+      "setCode": "FRA",
+      "collectorNumber": "174",
+      "typeLine": "Artifact — Book",
+      "rarity": "common"
+    },
+    {
+      "name": "Dedicated Commons",
+      "setCode": "FRA",
+      "collectorNumber": "175",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Deserted Beach",
+      "setCode": "FRA",
+      "collectorNumber": "176",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Fatehold Annex",
+      "setCode": "FRA",
+      "collectorNumber": "177",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Formidable Commons",
+      "setCode": "FRA",
+      "collectorNumber": "178",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Hall of Echoes",
+      "setCode": "FRA",
+      "collectorNumber": "179",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Haunted Ridge",
+      "setCode": "FRA",
+      "collectorNumber": "180",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Hexhaven Dueling Arena",
+      "setCode": "FRA",
+      "collectorNumber": "181",
+      "typeLine": "Land",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Innovative Commons",
+      "setCode": "FRA",
+      "collectorNumber": "182",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Konstrari Annex",
+      "setCode": "FRA",
+      "collectorNumber": "183",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Meticulous Commons",
+      "setCode": "FRA",
+      "collectorNumber": "184",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Overgrown Farmland",
+      "setCode": "FRA",
+      "collectorNumber": "185",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Rockfall Vale",
+      "setCode": "FRA",
+      "collectorNumber": "186",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Roiling Canopy",
+      "setCode": "FRA",
+      "collectorNumber": "187",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Room of Refuge",
+      "setCode": "FRA",
+      "collectorNumber": "188",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Shipwreck Marsh",
+      "setCode": "FRA",
+      "collectorNumber": "189",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Stingerquill Annex",
+      "setCode": "FRA",
+      "collectorNumber": "190",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Theorist's Sanctum",
+      "setCode": "FRA",
+      "collectorNumber": "191",
+      "typeLine": "Land — Island",
+      "rarity": "rare"
+    },
+    {
+      "name": "Theorix Annex",
+      "setCode": "FRA",
+      "collectorNumber": "192",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Transformative Commons",
+      "setCode": "FRA",
+      "collectorNumber": "193",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Vigorbloom Annex",
+      "setCode": "FRA",
+      "collectorNumber": "194",
+      "typeLine": "Land",
+      "rarity": "common"
+    },
+    {
+      "name": "Ajani Resolute",
+      "setCode": "FRA",
+      "collectorNumber": "195",
+      "typeLine": "Legendary Planeswalker — Ajani",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Danitha, Sword of Hope",
+      "setCode": "FRA",
+      "collectorNumber": "196",
+      "typeLine": "Legendary Creature — Human Knight",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ghalta the Immovable",
+      "setCode": "FRA",
+      "collectorNumber": "197",
+      "typeLine": "Legendary Creature — Elder Dinosaur",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Gideon's Memorial",
+      "setCode": "FRA",
+      "collectorNumber": "198",
+      "typeLine": "Legendary Artifact",
+      "rarity": "rare"
+    },
+    {
+      "name": "Koth of the Homestead",
+      "setCode": "FRA",
+      "collectorNumber": "199",
+      "typeLine": "Legendary Creature — Human Citizen",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Liliana the Faultless",
+      "setCode": "FRA",
+      "collectorNumber": "200",
+      "typeLine": "Legendary Creature — Human Cleric",
+      "rarity": "rare"
+    },
+    {
+      "name": "Lyra, Archangel of Dawn",
+      "setCode": "FRA",
+      "collectorNumber": "201",
+      "typeLine": "Legendary Creature — Angel Knight",
+      "rarity": "rare"
+    },
+    {
+      "name": "Rescue Girl, First Responder",
+      "setCode": "FRA",
+      "collectorNumber": "202",
+      "typeLine": "Legendary Creature — Human Cleric",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Saheeli, Consul of Oversight",
+      "setCode": "FRA",
+      "collectorNumber": "203",
+      "typeLine": "Legendary Creature — Human Advisor",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Teyo, Lightshield Expert",
+      "setCode": "FRA",
+      "collectorNumber": "204",
+      "typeLine": "Legendary Creature — Human Cleric",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Thalia, the Survivor",
+      "setCode": "FRA",
+      "collectorNumber": "205",
+      "typeLine": "Legendary Creature — Human Soldier",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Healer",
+      "setCode": "FRA",
+      "collectorNumber": "207",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Mentor",
+      "setCode": "FRA",
+      "collectorNumber": "208",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Yoshimaru, Beloved Companion",
+      "setCode": "FRA",
+      "collectorNumber": "209",
+      "typeLine": "Legendary Creature — Dog",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Yuriko, Blade of the Mighty",
+      "setCode": "FRA",
+      "collectorNumber": "210",
+      "typeLine": "Legendary Creature — Human Samurai",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Arni, Humble Scribe",
+      "setCode": "FRA",
+      "collectorNumber": "211",
+      "typeLine": "Legendary Creature — Human Wizard",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Chandra, Chill of Compliance",
+      "setCode": "FRA",
+      "collectorNumber": "212",
+      "typeLine": "Legendary Planeswalker — Chandra",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Fblthp, Impossibly Lost",
+      "setCode": "FRA",
+      "collectorNumber": "213",
+      "typeLine": "Legendary Creature — Homunculus",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Geist of Saint Thalia",
+      "setCode": "FRA",
+      "collectorNumber": "214",
+      "typeLine": "Legendary Creature — Spirit Cleric",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Hapatra, the Desert Frost",
+      "setCode": "FRA",
+      "collectorNumber": "215",
+      "typeLine": "Legendary Creature — Human Wizard",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Jace, Reality Sculptor",
+      "setCode": "FRA",
+      "collectorNumber": "216",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "rare"
+    },
+    {
+      "name": "Lyra, Tolarian Archangel",
+      "setCode": "FRA",
+      "collectorNumber": "217",
+      "typeLine": "Legendary Creature — Angel Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Proft, Consulting Detective",
+      "setCode": "FRA",
+      "collectorNumber": "218",
+      "typeLine": "Legendary Creature — Human Detective",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ruric Thar, Biomagus",
+      "setCode": "FRA",
+      "collectorNumber": "219",
+      "typeLine": "Legendary Creature — Ogre Crab Wizard",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Samut, Tyrant of Naktamun",
+      "setCode": "FRA",
+      "collectorNumber": "220",
+      "typeLine": "Legendary Creature — Human Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Tetsuko Umezawa, Fugitive",
+      "setCode": "FRA",
+      "collectorNumber": "221",
+      "typeLine": "Legendary Creature — Human Rogue",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Traxos, Academy Guardian",
+      "setCode": "FRA",
+      "collectorNumber": "222",
+      "typeLine": "Legendary Artifact Creature — Dragon Construct",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Cryomancer",
+      "setCode": "FRA",
+      "collectorNumber": "223",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Mind Sculptor",
+      "setCode": "FRA",
+      "collectorNumber": "224",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Yargle, Goliath of Otaria",
+      "setCode": "FRA",
+      "collectorNumber": "225",
+      "typeLine": "Legendary Creature — Frog Spirit",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Yuriko, Hope from the Shadows",
+      "setCode": "FRA",
+      "collectorNumber": "226",
+      "typeLine": "Legendary Creature — Human Ninja",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Danitha, Spear of Agony",
+      "setCode": "FRA",
+      "collectorNumber": "227",
+      "typeLine": "Legendary Creature — Human Knight",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Gallia, Tragic Host",
+      "setCode": "FRA",
+      "collectorNumber": "228",
+      "typeLine": "Legendary Creature — Zombie Satyr",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Garruk, Veiled Butcher",
+      "setCode": "FRA",
+      "collectorNumber": "229",
+      "typeLine": "Legendary Planeswalker — Garruk",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Gideon the Oathless",
+      "setCode": "FRA",
+      "collectorNumber": "230",
+      "typeLine": "Legendary Creature — Human Mercenary",
+      "rarity": "rare"
+    },
+    {
+      "name": "Liliana the Repentant",
+      "setCode": "FRA",
+      "collectorNumber": "231",
+      "typeLine": "Legendary Creature — Human Warlock",
+      "rarity": "rare"
+    },
+    {
+      "name": "Loot, the Anomaly",
+      "setCode": "FRA",
+      "collectorNumber": "232",
+      "typeLine": "Legendary Creature — Beast Horror",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Mabel, Bitter Recluse",
+      "setCode": "FRA",
+      "collectorNumber": "233",
+      "typeLine": "Legendary Creature — Mouse Warlock",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Massacre Girl, Most Wanted",
+      "setCode": "FRA",
+      "collectorNumber": "234",
+      "typeLine": "Legendary Creature — Human Assassin",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Proft, Sinister Mastermind",
+      "setCode": "FRA",
+      "collectorNumber": "235",
+      "typeLine": "Legendary Creature — Human Rogue",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Teyo, Diamondblade Mage",
+      "setCode": "FRA",
+      "collectorNumber": "236",
+      "typeLine": "Legendary Creature — Human Warlock",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Tinybones, Pocket Nuisance",
+      "setCode": "FRA",
+      "collectorNumber": "237",
+      "typeLine": "Legendary Creature — Skeleton Rogue",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Deathbringer",
+      "setCode": "FRA",
+      "collectorNumber": "238",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Necromancer",
+      "setCode": "FRA",
+      "collectorNumber": "239",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "setCode": "FRA",
+      "collectorNumber": "240",
+      "typeLine": "Legendary Creature — Human Warlock",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Yargle, Glutton of Urborg",
+      "setCode": "FRA",
+      "collectorNumber": "241",
+      "typeLine": "Legendary Creature — Frog Spirit",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ajani Unrelenting",
+      "setCode": "FRA",
+      "collectorNumber": "242",
+      "typeLine": "Legendary Planeswalker — Ajani",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Arni, Renowned Champion",
+      "setCode": "FRA",
+      "collectorNumber": "243",
+      "typeLine": "Legendary Creature — Human Berserker",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Chandra, Torch of Defiance",
+      "setCode": "FRA",
+      "collectorNumber": "244",
+      "typeLine": "Legendary Planeswalker — Chandra",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Gallia, the Merrymaker",
+      "setCode": "FRA",
+      "collectorNumber": "245",
+      "typeLine": "Legendary Creature — Satyr",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Jiang Yanggu, Alone",
+      "setCode": "FRA",
+      "collectorNumber": "246",
+      "typeLine": "Legendary Creature — Human Berserker",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Kiora of Fire and Ashes",
+      "setCode": "FRA",
+      "collectorNumber": "247",
+      "typeLine": "Legendary Creature — Merfolk Noble",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Koth, the Geomancer",
+      "setCode": "FRA",
+      "collectorNumber": "248",
+      "typeLine": "Legendary Creature — Human Warrior",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Marwyn, the Clearcutter",
+      "setCode": "FRA",
+      "collectorNumber": "249",
+      "typeLine": "Legendary Creature — Elf Warrior",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Pia, Determined Rebuilder",
+      "setCode": "FRA",
+      "collectorNumber": "250",
+      "typeLine": "Legendary Creature — Human Artificer",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Samut, Hazoret's Champion",
+      "setCode": "FRA",
+      "collectorNumber": "251",
+      "typeLine": "Legendary Creature — Human Warrior Cleric",
+      "rarity": "rare"
+    },
+    {
+      "name": "Tetsuko Umezawa, Pursuer",
+      "setCode": "FRA",
+      "collectorNumber": "252",
+      "typeLine": "Legendary Creature — Human Mercenary",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Pyromancer",
+      "setCode": "FRA",
+      "collectorNumber": "254",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Warlord",
+      "setCode": "FRA",
+      "collectorNumber": "255",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Winter, Team Player",
+      "setCode": "FRA",
+      "collectorNumber": "256",
+      "typeLine": "Legendary Creature — Human Warrior",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Edgar, Moonlit Sovereign",
+      "setCode": "FRA",
+      "collectorNumber": "257",
+      "typeLine": "Legendary Creature — Werewolf Noble",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Fblthp, Knows the Way",
+      "setCode": "FRA",
+      "collectorNumber": "258",
+      "typeLine": "Legendary Creature — Homunculus Scout",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Garruk, Curse Breaker",
+      "setCode": "FRA",
+      "collectorNumber": "259",
+      "typeLine": "Legendary Planeswalker — Garruk",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Ghalta the Unstoppable",
+      "setCode": "FRA",
+      "collectorNumber": "260",
+      "typeLine": "Legendary Creature — Elder Dinosaur",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Jiang Yanggu, Never Alone",
+      "setCode": "FRA",
+      "collectorNumber": "261",
+      "typeLine": "Legendary Creature — Human Druid",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Loot, the Nexus",
+      "setCode": "FRA",
+      "collectorNumber": "262",
+      "typeLine": "Legendary Creature — Beast Noble",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Marwyn, the Preserver",
+      "setCode": "FRA",
+      "collectorNumber": "263",
+      "typeLine": "Legendary Creature — Elf Druid",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Pia, Aether Ascetic",
+      "setCode": "FRA",
+      "collectorNumber": "264",
+      "typeLine": "Legendary Creature — Human Druid",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ruric Thar, Magecrusher",
+      "setCode": "FRA",
+      "collectorNumber": "265",
+      "typeLine": "Legendary Creature — Ogre Warrior",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Titanbones, Towering Heart",
+      "setCode": "FRA",
+      "collectorNumber": "266",
+      "typeLine": "Legendary Creature — Skeleton Druid",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Paradox",
+      "setCode": "FRA",
+      "collectorNumber": "267",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Way of the Wildspeaker",
+      "setCode": "FRA",
+      "collectorNumber": "268",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Yoshimaru, Scrappy Stray",
+      "setCode": "FRA",
+      "collectorNumber": "269",
+      "typeLine": "Legendary Creature — Dog",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Edgar, Ancient Bloodlord",
+      "setCode": "FRA",
+      "collectorNumber": "270",
+      "typeLine": "Legendary Creature — Vampire Noble",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Hapatra, the Desert Fang",
+      "setCode": "FRA",
+      "collectorNumber": "271",
+      "typeLine": "Legendary Creature — Human Cleric",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Karn, Gilded Guardian",
+      "setCode": "FRA",
+      "collectorNumber": "272",
+      "typeLine": "Legendary Artifact Creature — Golem",
+      "rarity": "rare"
+    },
+    {
+      "name": "Kiora of Salt and Sand",
+      "setCode": "FRA",
+      "collectorNumber": "273",
+      "typeLine": "Legendary Creature — Merfolk Noble",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Mabel, Valley Hero",
+      "setCode": "FRA",
+      "collectorNumber": "274",
+      "typeLine": "Legendary Creature — Mouse Soldier",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Saheeli, Jewel of Avishkar",
+      "setCode": "FRA",
+      "collectorNumber": "275",
+      "typeLine": "Legendary Creature — Human Artificer",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Tam, the Possibility",
+      "setCode": "FRA",
+      "collectorNumber": "276",
+      "typeLine": "Legendary Creature — Gorgon Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vraska, Soul of Stone",
+      "setCode": "FRA",
+      "collectorNumber": "277",
+      "typeLine": "Legendary Creature — Gorgon Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vraska, the Cutting Glare",
+      "setCode": "FRA",
+      "collectorNumber": "278",
+      "typeLine": "Legendary Creature — Gorgon Assassin",
+      "rarity": "rare"
+    },
+    {
+      "name": "Karn, Argent Defender",
+      "setCode": "FRA",
+      "collectorNumber": "279",
+      "typeLine": "Legendary Artifact Creature — Golem",
+      "rarity": "rare"
+    },
+    {
+      "name": "Traxos, Scourge Eternal",
+      "setCode": "FRA",
+      "collectorNumber": "280",
+      "typeLine": "Legendary Artifact Creature — Dragon Construct",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Plains",
+      "setCode": "FRA",
+      "collectorNumber": "281",
+      "typeLine": "Basic Land — Plains",
+      "rarity": "common"
+    },
+    {
+      "name": "Plains",
+      "setCode": "FRA",
+      "collectorNumber": "282",
+      "typeLine": "Basic Land — Plains",
+      "rarity": "common"
+    },
+    {
+      "name": "Island",
+      "setCode": "FRA",
+      "collectorNumber": "283",
+      "typeLine": "Basic Land — Island",
+      "rarity": "common"
+    },
+    {
+      "name": "Island",
+      "setCode": "FRA",
+      "collectorNumber": "284",
+      "typeLine": "Basic Land — Island",
+      "rarity": "common"
+    },
+    {
+      "name": "Swamp",
+      "setCode": "FRA",
+      "collectorNumber": "285",
+      "typeLine": "Basic Land — Swamp",
+      "rarity": "common"
+    },
+    {
+      "name": "Swamp",
+      "setCode": "FRA",
+      "collectorNumber": "286",
+      "typeLine": "Basic Land — Swamp",
+      "rarity": "common"
+    },
+    {
+      "name": "Mountain",
+      "setCode": "FRA",
+      "collectorNumber": "287",
+      "typeLine": "Basic Land — Mountain",
+      "rarity": "common"
+    },
+    {
+      "name": "Mountain",
+      "setCode": "FRA",
+      "collectorNumber": "288",
+      "typeLine": "Basic Land — Mountain",
+      "rarity": "common"
+    },
+    {
+      "name": "Ajani Resolute",
+      "setCode": "FRA",
+      "collectorNumber": "291",
+      "typeLine": "Legendary Planeswalker — Ajani",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Gideon's Memorial",
+      "setCode": "FRA",
+      "collectorNumber": "292",
+      "typeLine": "Legendary Artifact",
+      "rarity": "rare"
+    },
+    {
+      "name": "Liliana the Faultless",
+      "setCode": "FRA",
+      "collectorNumber": "293",
+      "typeLine": "Legendary Creature — Human Cleric",
+      "rarity": "rare"
+    },
+    {
+      "name": "Lyra, Archangel of Dawn",
+      "setCode": "FRA",
+      "collectorNumber": "294",
+      "typeLine": "Legendary Creature — Angel Knight",
+      "rarity": "rare"
+    },
+    {
+      "name": "Teyo, Lightshield Expert",
+      "setCode": "FRA",
+      "collectorNumber": "295",
+      "typeLine": "Legendary Creature — Human Cleric",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Thalia, the Survivor",
+      "setCode": "FRA",
+      "collectorNumber": "296",
+      "typeLine": "Legendary Creature — Human Soldier",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Chandra, Chill of Compliance",
+      "setCode": "FRA",
+      "collectorNumber": "297",
+      "typeLine": "Legendary Planeswalker — Chandra",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Fblthp, Impossibly Lost",
+      "setCode": "FRA",
+      "collectorNumber": "298",
+      "typeLine": "Legendary Creature — Homunculus",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Geist of Saint Thalia",
+      "setCode": "FRA",
+      "collectorNumber": "299",
+      "typeLine": "Legendary Creature — Spirit Cleric",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Jace, Reality Sculptor",
+      "setCode": "FRA",
+      "collectorNumber": "300",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "rare"
+    },
+    {
+      "name": "Lyra, Tolarian Archangel",
+      "setCode": "FRA",
+      "collectorNumber": "301",
+      "typeLine": "Legendary Creature — Angel Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Samut, Tyrant of Naktamun",
+      "setCode": "FRA",
+      "collectorNumber": "302",
+      "typeLine": "Legendary Creature — Human Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Garruk, Veiled Butcher",
+      "setCode": "FRA",
+      "collectorNumber": "303",
+      "typeLine": "Legendary Planeswalker — Garruk",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Gideon the Oathless",
+      "setCode": "FRA",
+      "collectorNumber": "304",
+      "typeLine": "Legendary Creature — Human Mercenary",
+      "rarity": "rare"
+    },
+    {
+      "name": "Liliana the Repentant",
+      "setCode": "FRA",
+      "collectorNumber": "305",
+      "typeLine": "Legendary Creature — Human Warlock",
+      "rarity": "rare"
+    },
+    {
+      "name": "Teyo, Diamondblade Mage",
+      "setCode": "FRA",
+      "collectorNumber": "306",
+      "typeLine": "Legendary Creature — Human Warlock",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "setCode": "FRA",
+      "collectorNumber": "307",
+      "typeLine": "Legendary Creature — Human Warlock",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ajani Unrelenting",
+      "setCode": "FRA",
+      "collectorNumber": "308",
+      "typeLine": "Legendary Planeswalker — Ajani",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Chandra, Torch of Defiance",
+      "setCode": "FRA",
+      "collectorNumber": "309",
+      "typeLine": "Legendary Planeswalker — Chandra",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Marwyn, the Clearcutter",
+      "setCode": "FRA",
+      "collectorNumber": "310",
+      "typeLine": "Legendary Creature — Elf Warrior",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Samut, Hazoret's Champion",
+      "setCode": "FRA",
+      "collectorNumber": "311",
+      "typeLine": "Legendary Creature — Human Warrior Cleric",
+      "rarity": "rare"
+    },
+    {
+      "name": "Winter, Team Player",
+      "setCode": "FRA",
+      "collectorNumber": "312",
+      "typeLine": "Legendary Creature — Human Warrior",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Fblthp, Knows the Way",
+      "setCode": "FRA",
+      "collectorNumber": "313",
+      "typeLine": "Legendary Creature — Homunculus Scout",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Garruk, Curse Breaker",
+      "setCode": "FRA",
+      "collectorNumber": "314",
+      "typeLine": "Legendary Planeswalker — Garruk",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Marwyn, the Preserver",
+      "setCode": "FRA",
+      "collectorNumber": "315",
+      "typeLine": "Legendary Creature — Elf Druid",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Karn, Gilded Guardian",
+      "setCode": "FRA",
+      "collectorNumber": "316",
+      "typeLine": "Legendary Artifact Creature — Golem",
+      "rarity": "rare"
+    },
+    {
+      "name": "Tam, the Possibility",
+      "setCode": "FRA",
+      "collectorNumber": "317",
+      "typeLine": "Legendary Creature — Gorgon Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vraska, Soul of Stone",
+      "setCode": "FRA",
+      "collectorNumber": "318",
+      "typeLine": "Legendary Creature — Gorgon Wizard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vraska, the Cutting Glare",
+      "setCode": "FRA",
+      "collectorNumber": "319",
+      "typeLine": "Legendary Creature — Gorgon Assassin",
+      "rarity": "rare"
+    },
+    {
+      "name": "Karn, Argent Defender",
+      "setCode": "FRA",
+      "collectorNumber": "320",
+      "typeLine": "Legendary Artifact Creature — Golem",
+      "rarity": "rare"
+    },
+    {
+      "name": "Enlightened Confidant",
+      "setCode": "FRA",
+      "collectorNumber": "321",
+      "typeLine": "Creature — Kor Cleric",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Kindred Judgment",
+      "setCode": "FRA",
+      "collectorNumber": "322",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Return to the Light Realms",
+      "setCode": "FRA",
+      "collectorNumber": "323",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Seasoned Cryomancer",
+      "setCode": "FRA",
+      "collectorNumber": "324",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Darklight Phoenix",
+      "setCode": "FRA",
+      "collectorNumber": "325",
+      "typeLine": "Creature — Phoenix",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Rise of the Deathbringer",
+      "setCode": "FRA",
+      "collectorNumber": "326",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Craterclaw Colossus",
+      "setCode": "FRA",
+      "collectorNumber": "327",
+      "typeLine": "Artifact Creature — Beast Construct",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Curse-Marred Demon",
+      "setCode": "FRA",
+      "collectorNumber": "328",
+      "typeLine": "Creature — Demon",
+      "rarity": "rare"
+    },
+    {
+      "name": "Stingcaster Mage",
+      "setCode": "FRA",
+      "collectorNumber": "329",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Hexhaven Invigorator",
+      "setCode": "FRA",
+      "collectorNumber": "330",
+      "typeLine": "Creature — Chimera Horror",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Omnipresence",
+      "setCode": "FRA",
+      "collectorNumber": "331",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Simulacrum Shaper",
+      "setCode": "FRA",
+      "collectorNumber": "332",
+      "typeLine": "Creature — Elf Druid",
+      "rarity": "rare"
+    },
+    {
+      "name": "Frostbite Pyromental",
+      "setCode": "FRA",
+      "collectorNumber": "333",
+      "typeLine": "Creature — Elemental",
+      "rarity": "rare"
+    },
+    {
+      "name": "Germinate Recruits",
+      "setCode": "FRA",
+      "collectorNumber": "334",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Repurposed Enforcer",
+      "setCode": "FRA",
+      "collectorNumber": "335",
+      "typeLine": "Creature — Human Soldier",
+      "rarity": "rare"
+    },
+    {
+      "name": "Cruel Calculations",
+      "setCode": "FRA",
+      "collectorNumber": "336",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Jace's Machinations",
+      "setCode": "FRA",
+      "collectorNumber": "337",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Sphinx of False Conclusions",
+      "setCode": "FRA",
+      "collectorNumber": "338",
+      "typeLine": "Creature — Sphinx Illusion",
+      "rarity": "rare"
+    },
+    {
+      "name": "Theorist's Proxy",
+      "setCode": "FRA",
+      "collectorNumber": "339",
+      "typeLine": "Creature — Illusion",
+      "rarity": "rare"
+    },
+    {
+      "name": "Dark Matter Manipulator",
+      "setCode": "FRA",
+      "collectorNumber": "340",
+      "typeLine": "Creature — Human Warlock",
+      "rarity": "rare"
+    },
+    {
+      "name": "Overwrite the Multiverse",
+      "setCode": "FRA",
+      "collectorNumber": "341",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Sanctum Lurker",
+      "setCode": "FRA",
+      "collectorNumber": "342",
+      "typeLine": "Creature — Horror",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vraska's Final Mercy",
+      "setCode": "FRA",
+      "collectorNumber": "343",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Master of Barbs",
+      "setCode": "FRA",
+      "collectorNumber": "344",
+      "typeLine": "Creature — Lizard Bard",
+      "rarity": "rare"
+    },
+    {
+      "name": "Gardenize",
+      "setCode": "FRA",
+      "collectorNumber": "345",
+      "typeLine": "Enchantment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Hungering Puppetbeast",
+      "setCode": "FRA",
+      "collectorNumber": "346",
+      "typeLine": "Artifact Creature — Beast Construct",
+      "rarity": "rare"
+    },
+    {
+      "name": "Aerid Konstrari",
+      "setCode": "FRA",
+      "collectorNumber": "347",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Avatar of Burgeoning Echoes",
+      "setCode": "FRA",
+      "collectorNumber": "348",
+      "typeLine": "Creature — Avatar",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Denzilore Fatehold",
+      "setCode": "FRA",
+      "collectorNumber": "349",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Entrust the Spark",
+      "setCode": "FRA",
+      "collectorNumber": "350",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Ingris Stingerquill",
+      "setCode": "FRA",
+      "collectorNumber": "351",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Kwia Vigorbloom",
+      "setCode": "FRA",
+      "collectorNumber": "352",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Null Summoner",
+      "setCode": "FRA",
+      "collectorNumber": "353",
+      "typeLine": "Creature — Human Warlock",
+      "rarity": "rare"
+    },
+    {
+      "name": "Proctor of Potential",
+      "setCode": "FRA",
+      "collectorNumber": "354",
+      "typeLine": "Creature — Human Cleric",
+      "rarity": "rare"
+    },
+    {
+      "name": "Solitary Cell",
+      "setCode": "FRA",
+      "collectorNumber": "355",
+      "typeLine": "Artifact",
+      "rarity": "rare"
+    },
+    {
+      "name": "Stinging Vitriol",
+      "setCode": "FRA",
+      "collectorNumber": "356",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Tenured Tethermage",
+      "setCode": "FRA",
+      "collectorNumber": "357",
+      "typeLine": "Creature — Human Artificer",
+      "rarity": "rare"
+    },
+    {
+      "name": "Uldaros Theorix",
+      "setCode": "FRA",
+      "collectorNumber": "358",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Flickering Hound",
+      "setCode": "FRA",
+      "collectorNumber": "359",
+      "typeLine": "Creature — Dog",
+      "rarity": "rare"
+    },
+    {
+      "name": "Guiding Hydra",
+      "setCode": "FRA",
+      "collectorNumber": "360",
+      "typeLine": "Creature — Hydra Horror",
+      "rarity": "rare"
+    },
+    {
+      "name": "Refute Destiny",
+      "setCode": "FRA",
+      "collectorNumber": "361",
+      "typeLine": "Sorcery",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Precise Redaction",
+      "setCode": "FRA",
+      "collectorNumber": "362",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "The Theorist, Jace Beleren",
+      "setCode": "FRA",
+      "collectorNumber": "363",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Extrapolate the Impossible",
+      "setCode": "FRA",
+      "collectorNumber": "364",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Lich's Relic",
+      "setCode": "FRA",
+      "collectorNumber": "365",
+      "typeLine": "Artifact — Equipment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Terminal Criticism",
+      "setCode": "FRA",
+      "collectorNumber": "366",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Ajani's Anguish",
+      "setCode": "FRA",
+      "collectorNumber": "367",
+      "typeLine": "Enchantment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Draconic Visitor",
+      "setCode": "FRA",
+      "collectorNumber": "368",
+      "typeLine": "Creature — Dragon",
+      "rarity": "rare"
+    },
+    {
+      "name": "Essence Burn",
+      "setCode": "FRA",
+      "collectorNumber": "369",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Face Yourself",
+      "setCode": "FRA",
+      "collectorNumber": "370",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Identity Echo",
+      "setCode": "FRA",
+      "collectorNumber": "371",
+      "typeLine": "Enchantment",
+      "rarity": "rare"
+    },
+    {
+      "name": "Flourishing Grapple",
+      "setCode": "FRA",
+      "collectorNumber": "372",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Puppet Crafting",
+      "setCode": "FRA",
+      "collectorNumber": "373",
+      "typeLine": "Enchantment — Aura",
+      "rarity": "rare"
+    },
+    {
+      "name": "Tarmogoyf",
+      "setCode": "FRA",
+      "collectorNumber": "374",
+      "typeLine": "Creature — Lhurgoyf",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Verdant Kraken",
+      "setCode": "FRA",
+      "collectorNumber": "375",
+      "typeLine": "Creature — Plant Kraken",
+      "rarity": "rare"
+    },
+    {
+      "name": "Solarium Sentry",
+      "setCode": "FRA",
+      "collectorNumber": "376",
+      "typeLine": "Creature — Cat Soldier",
+      "rarity": "rare"
+    },
+    {
+      "name": "Vindictive Triumph",
+      "setCode": "FRA",
+      "collectorNumber": "377",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "The Echoverse Fulcrum",
+      "setCode": "FRA",
+      "collectorNumber": "378",
+      "typeLine": "Legendary Artifact",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Hall of Echoes",
+      "setCode": "FRA",
+      "collectorNumber": "379",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Roiling Canopy",
+      "setCode": "FRA",
+      "collectorNumber": "380",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Theorist's Sanctum",
+      "setCode": "FRA",
+      "collectorNumber": "381",
+      "typeLine": "Land — Island",
+      "rarity": "rare"
+    },
+    {
+      "name": "Plains",
+      "setCode": "FRA",
+      "collectorNumber": "382",
+      "typeLine": "Basic Land — Plains",
+      "rarity": "common"
+    },
+    {
+      "name": "Plains",
+      "setCode": "FRA",
+      "collectorNumber": "383",
+      "typeLine": "Basic Land — Plains",
+      "rarity": "common"
+    },
+    {
+      "name": "Plains",
+      "setCode": "FRA",
+      "collectorNumber": "384",
+      "typeLine": "Basic Land — Plains",
+      "rarity": "common"
+    },
+    {
+      "name": "Island",
+      "setCode": "FRA",
+      "collectorNumber": "385",
+      "typeLine": "Basic Land — Island",
+      "rarity": "common"
+    },
+    {
+      "name": "Island",
+      "setCode": "FRA",
+      "collectorNumber": "386",
+      "typeLine": "Basic Land — Island",
+      "rarity": "common"
+    },
+    {
+      "name": "Island",
+      "setCode": "FRA",
+      "collectorNumber": "387",
+      "typeLine": "Basic Land — Island",
+      "rarity": "common"
+    },
+    {
+      "name": "Swamp",
+      "setCode": "FRA",
+      "collectorNumber": "388",
+      "typeLine": "Basic Land — Swamp",
+      "rarity": "common"
+    },
+    {
+      "name": "Swamp",
+      "setCode": "FRA",
+      "collectorNumber": "389",
+      "typeLine": "Basic Land — Swamp",
+      "rarity": "common"
+    },
+    {
+      "name": "Swamp",
+      "setCode": "FRA",
+      "collectorNumber": "390",
+      "typeLine": "Basic Land — Swamp",
+      "rarity": "common"
+    },
+    {
+      "name": "Mountain",
+      "setCode": "FRA",
+      "collectorNumber": "391",
+      "typeLine": "Basic Land — Mountain",
+      "rarity": "common"
+    },
+    {
+      "name": "Mountain",
+      "setCode": "FRA",
+      "collectorNumber": "392",
+      "typeLine": "Basic Land — Mountain",
+      "rarity": "common"
+    },
+    {
+      "name": "Mountain",
+      "setCode": "FRA",
+      "collectorNumber": "393",
+      "typeLine": "Basic Land — Mountain",
+      "rarity": "common"
+    },
+    {
+      "name": "Forest",
+      "setCode": "FRA",
+      "collectorNumber": "394",
+      "typeLine": "Basic Land — Forest",
+      "rarity": "common"
+    },
+    {
+      "name": "Forest",
+      "setCode": "FRA",
+      "collectorNumber": "395",
+      "typeLine": "Basic Land — Forest",
+      "rarity": "common"
+    },
+    {
+      "name": "Forest",
+      "setCode": "FRA",
+      "collectorNumber": "396",
+      "typeLine": "Basic Land — Forest",
+      "rarity": "common"
+    },
+    {
+      "name": "Deserted Beach",
+      "setCode": "FRA",
+      "collectorNumber": "397",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Haunted Ridge",
+      "setCode": "FRA",
+      "collectorNumber": "398",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Overgrown Farmland",
+      "setCode": "FRA",
+      "collectorNumber": "399",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Rockfall Vale",
+      "setCode": "FRA",
+      "collectorNumber": "400",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Shipwreck Marsh",
+      "setCode": "FRA",
+      "collectorNumber": "401",
+      "typeLine": "Land",
+      "rarity": "rare"
+    },
+    {
+      "name": "Bloodline Recollector // Ancestral Craving",
+      "setCode": "FRA",
+      "collectorNumber": "402",
+      "typeLine": "Creature — Vampire Warlock // Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Emrakul, the Exigent Doom",
+      "setCode": "FRA",
+      "collectorNumber": "403",
+      "typeLine": "Legendary Creature — Eldrazi",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Loyal Tutor",
+      "setCode": "FRA",
+      "collectorNumber": "404",
+      "typeLine": "Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "The Theorist, Jace Beleren",
+      "setCode": "FRA",
+      "collectorNumber": "405",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Gardenize",
+      "setCode": "FRA",
+      "collectorNumber": "406",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Aerid Konstrari",
+      "setCode": "FRA",
+      "collectorNumber": "407",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Denzilore Fatehold",
+      "setCode": "FRA",
+      "collectorNumber": "408",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Ingris Stingerquill",
+      "setCode": "FRA",
+      "collectorNumber": "409",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Kwia Vigorbloom",
+      "setCode": "FRA",
+      "collectorNumber": "410",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Uldaros Theorix",
+      "setCode": "FRA",
+      "collectorNumber": "411",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Codie, Ravenous Codex",
+      "setCode": "FRA",
+      "collectorNumber": "412",
+      "typeLine": "Legendary Artifact Creature — Book Construct",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Emrakul, the Exigent Doom",
+      "setCode": "FRA",
+      "collectorNumber": "413",
+      "typeLine": "Legendary Creature — Eldrazi",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Loyal Tutor",
+      "setCode": "FRA",
+      "collectorNumber": "414",
+      "typeLine": "Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "The Theorist, Jace Beleren",
+      "setCode": "FRA",
+      "collectorNumber": "415",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Gardenize",
+      "setCode": "FRA",
+      "collectorNumber": "416",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Aerid Konstrari",
+      "setCode": "FRA",
+      "collectorNumber": "417",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Denzilore Fatehold",
+      "setCode": "FRA",
+      "collectorNumber": "418",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Ingris Stingerquill",
+      "setCode": "FRA",
+      "collectorNumber": "419",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Kwia Vigorbloom",
+      "setCode": "FRA",
+      "collectorNumber": "420",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Uldaros Theorix",
+      "setCode": "FRA",
+      "collectorNumber": "421",
+      "typeLine": "Legendary Creature — Elder Sphinx",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Codie, Ravenous Codex",
+      "setCode": "FRA",
+      "collectorNumber": "422",
+      "typeLine": "Legendary Artifact Creature — Book Construct",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Emrakul, the Exigent Doom",
+      "setCode": "FRA",
+      "collectorNumber": "423",
+      "typeLine": "Legendary Creature — Eldrazi",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Loyal Tutor",
+      "setCode": "FRA",
+      "collectorNumber": "424",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Diviner of Victory // Unwind History",
+      "setCode": "FRA",
+      "collectorNumber": "425",
+      "typeLine": "Creature — Dwarf Wizard // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Variable Chaser // Arc of Fortune",
+      "setCode": "FRA",
+      "collectorNumber": "426",
+      "typeLine": "Creature — Human Wizard // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Bloodline Recollector // Ancestral Craving",
+      "setCode": "FRA",
+      "collectorNumber": "427",
+      "typeLine": "Creature — Vampire Warlock // Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Pompous Battlemage // Improvised Act",
+      "setCode": "FRA",
+      "collectorNumber": "428",
+      "typeLine": "Creature — Goblin Sorcerer // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Pyre Rhymer // Molten Tide",
+      "setCode": "FRA",
+      "collectorNumber": "429",
+      "typeLine": "Creature — Elemental Sorcerer // Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Carnivorous Cultivator // Enroot",
+      "setCode": "FRA",
+      "collectorNumber": "430",
+      "typeLine": "Creature — Elf Warlock // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Codie, Ravenous Codex",
+      "setCode": "FRA",
+      "collectorNumber": "431",
+      "typeLine": "Legendary Artifact Creature — Book Construct",
+      "rarity": "rare"
+    },
+    {
+      "name": "Fatehold Charm",
+      "setCode": "FRA",
+      "collectorNumber": "432",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Konstrari Charm",
+      "setCode": "FRA",
+      "collectorNumber": "433",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Stingerquill Charm",
+      "setCode": "FRA",
+      "collectorNumber": "434",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Theorix Charm",
+      "setCode": "FRA",
+      "collectorNumber": "435",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Vigorbloom Charm",
+      "setCode": "FRA",
+      "collectorNumber": "436",
+      "typeLine": "Instant",
+      "rarity": "uncommon"
+    },
+    {
+      "name": "Carnivorous Cultivator // Enroot",
+      "setCode": "FRA",
+      "collectorNumber": "437",
+      "typeLine": "Creature — Elf Warlock // Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Emrakul, the Exigent Doom",
+      "setCode": "FRA",
+      "collectorNumber": "438",
+      "typeLine": "Legendary Creature — Eldrazi",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Enlightened Confidant",
+      "setCode": "FRA",
+      "collectorNumber": "439",
+      "typeLine": "Creature — Kor Cleric",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Return to the Light Realms",
+      "setCode": "FRA",
+      "collectorNumber": "440",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Seasoned Cryomancer",
+      "setCode": "FRA",
+      "collectorNumber": "441",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "The Theorist, Jace Beleren",
+      "setCode": "FRA",
+      "collectorNumber": "443",
+      "typeLine": "Legendary Planeswalker — Jace",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Darklight Phoenix",
+      "setCode": "FRA",
+      "collectorNumber": "444",
+      "typeLine": "Creature — Phoenix",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Overwrite the Multiverse",
+      "setCode": "FRA",
+      "collectorNumber": "445",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Craterclaw Colossus",
+      "setCode": "FRA",
+      "collectorNumber": "446",
+      "typeLine": "Artifact Creature — Beast Construct",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Stingcaster Mage",
+      "setCode": "FRA",
+      "collectorNumber": "447",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Omnipresence",
+      "setCode": "FRA",
+      "collectorNumber": "448",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Enlightened Confidant",
+      "setCode": "FRA",
+      "collectorNumber": "449",
+      "typeLine": "Creature — Kor Cleric",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Kindred Judgment",
+      "setCode": "FRA",
+      "collectorNumber": "450",
+      "typeLine": "Sorcery",
+      "rarity": "rare"
+    },
+    {
+      "name": "Return to the Light Realms",
+      "setCode": "FRA",
+      "collectorNumber": "451",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Seasoned Cryomancer",
+      "setCode": "FRA",
+      "collectorNumber": "452",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Darklight Phoenix",
+      "setCode": "FRA",
+      "collectorNumber": "453",
+      "typeLine": "Creature — Phoenix",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Rise of the Deathbringer",
+      "setCode": "FRA",
+      "collectorNumber": "454",
+      "typeLine": "Instant",
+      "rarity": "rare"
+    },
+    {
+      "name": "Craterclaw Colossus",
+      "setCode": "FRA",
+      "collectorNumber": "455",
+      "typeLine": "Artifact Creature — Beast Construct",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Curse-Marred Demon",
+      "setCode": "FRA",
+      "collectorNumber": "456",
+      "typeLine": "Creature — Demon",
+      "rarity": "rare"
+    },
+    {
+      "name": "Stingcaster Mage",
+      "setCode": "FRA",
+      "collectorNumber": "457",
+      "typeLine": "Creature — Human Wizard",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Hexhaven Invigorator",
+      "setCode": "FRA",
+      "collectorNumber": "458",
+      "typeLine": "Creature — Chimera Horror",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Omnipresence",
+      "setCode": "FRA",
+      "collectorNumber": "459",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Simulacrum Shaper",
+      "setCode": "FRA",
+      "collectorNumber": "460",
+      "typeLine": "Creature — Elf Druid",
+      "rarity": "rare"
+    },
+    {
+      "name": "Frostbite Pyromental",
+      "setCode": "FRA",
+      "collectorNumber": "461",
+      "typeLine": "Creature — Elemental",
+      "rarity": "rare"
+    },
+    {
+      "name": "Eye of Ugin",
+      "setCode": "SPG",
+      "collectorNumber": "159",
+      "typeLine": "Legendary Land",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Austere Command",
+      "setCode": "SPG",
+      "collectorNumber": "160",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Flesh Duplicate",
+      "setCode": "SPG",
+      "collectorNumber": "161",
+      "typeLine": "Creature — Shapeshifter Rebel",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Consign to Memory",
+      "setCode": "SPG",
+      "collectorNumber": "162",
+      "typeLine": "Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Sublime Epiphany",
+      "setCode": "SPG",
+      "collectorNumber": "163",
+      "typeLine": "Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Consider",
+      "setCode": "SPG",
+      "collectorNumber": "164",
+      "typeLine": "Instant",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Necrodominance",
+      "setCode": "SPG",
+      "collectorNumber": "165",
+      "typeLine": "Legendary Enchantment",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Mind Twist",
+      "setCode": "SPG",
+      "collectorNumber": "166",
+      "typeLine": "Sorcery",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Splinter Twin",
+      "setCode": "SPG",
+      "collectorNumber": "167",
+      "typeLine": "Enchantment — Aura",
+      "rarity": "mythic"
+    },
+    {
+      "name": "Root Maze",
+      "setCode": "SPG",
+      "collectorNumber": "168",
+      "typeLine": "Enchantment",
+      "rarity": "mythic"
+    }
+  ]
+}

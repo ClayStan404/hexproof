@@ -109,6 +109,7 @@ AppPopup {
         anchors.fill: parent
         anchors.margins: Theme.size(12)
         visible: root.opened
+        enabled: false
         z: 1000
 
         CardHoverPreview {

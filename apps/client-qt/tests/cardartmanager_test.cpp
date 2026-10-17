@@ -4,14 +4,12 @@
 #include "services/BackgroundTaskPools.h"
 #include "services/CardArtArchive.h"
 #include "services/CardArtCache.h"
-#include "services/CardArtCrop.h"
 #include "services/CardArtManager.h"
 #include "services/CardCatalogCommon.h"
 
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
-#include <QImage>
 #include <QSemaphore>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -44,11 +42,10 @@ class CardArtManagerAuditTest final : public QObject
     void closingBeforeImportCompletionRemovesNewImages();
     void committedImportImagesSurviveShutdown();
     void failedImportPreservesExistingSharedImages();
-    void cleanupPreservesSharedOptionalCrops();
 
   private:
     void setupManager(int auditVersion, bool repairNeeded);
-    QUrl createPack(int entryCount, bool withCrop = false);
+    QUrl createPack(int entryCount);
 
     std::unique_ptr<QTemporaryDir> m_dir;
     std::unique_ptr<CardArtCache> m_cache;
@@ -91,7 +88,7 @@ class BlockedPersistence
 
 } // namespace
 
-QUrl CardArtManagerAuditTest::createPack(int entryCount, bool withCrop)
+QUrl CardArtManagerAuditTest::createPack(int entryCount)
 {
     CardArtCache source(m_dir->filePath(QStringLiteral("pack-source")));
     hexproof::client::CardRecord record;
@@ -99,8 +96,7 @@ QUrl CardArtManagerAuditTest::createPack(int entryCount, bool withCrop)
     record.setCode = QStringLiteral("TST");
     record.collectorNumber = QStringLiteral("1");
     record.imageLanguage = QStringLiteral("en");
-    record.imageUrl = QStringLiteral(
-        "https://cards.scryfall.io/normal/front/a/b/ab000000-0000-0000-0000-000000000001.jpg");
+    record.imageUrl = QStringLiteral("https://cards.scryfall.io/normal/front/island.png");
     record.imagePath = source.imagePath(record.name, record.imageUrl, record.imageLanguage);
     record.resolutionVersion = hexproof::client::catalog_internal::kCardResolutionVersion;
     const QByteArray png = QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAA"
@@ -109,14 +105,6 @@ QUrl CardArtManagerAuditTest::createPack(int entryCount, bool withCrop)
     if (!image.open(QIODevice::WriteOnly) || image.write(png) != png.size())
         return {};
     image.close();
-    if (withCrop) {
-        record.artCropUrl = hexproof::client::catalog_internal::artCropUrlForImage(record.imageUrl);
-        record.artCropPath = source.imagePath(record.name, record.artCropUrl, record.imageLanguage);
-        QImage crop(4, 3, QImage::Format_RGB32);
-        crop.fill(Qt::blue);
-        if (!crop.save(record.artCropPath, "PNG"))
-            return {};
-    }
     for (int i = 0; i < entryCount; ++i) {
         record.collectorNumber = QString::number(i + 1);
         source.rememberSuccess(
@@ -226,7 +214,7 @@ void CardArtManagerAuditTest::largeImportYieldsUntilIndexIsCommitted()
 void CardArtManagerAuditTest::failedImportCommitPreservesPreviousIndex()
 {
     setupManager(hexproof::client::catalog_internal::kCardFaceAuditVersion, false);
-    const QUrl pack = createPack(3, true);
+    const QUrl pack = createPack(3);
     QVERIFY(!pack.isEmpty());
     const QString index = m_dir->filePath(QStringLiteral("card-cache.json"));
     QVERIFY(QFile::remove(index));
@@ -263,7 +251,7 @@ void CardArtManagerAuditTest::closingDuringImportRollsBackIncompleteMappings()
 void CardArtManagerAuditTest::closingBeforeImportCompletionRemovesNewImages()
 {
     setupManager(hexproof::client::catalog_internal::kCardFaceAuditVersion, false);
-    const QUrl pack = createPack(3, true);
+    const QUrl pack = createPack(3);
     QVERIFY(!pack.isEmpty());
     m_manager->importPack(pack);
     // Shutdown waits for the worker, but never delivers its GUI completion.
@@ -275,21 +263,19 @@ void CardArtManagerAuditTest::closingBeforeImportCompletionRemovesNewImages()
 void CardArtManagerAuditTest::committedImportImagesSurviveShutdown()
 {
     setupManager(hexproof::client::catalog_internal::kCardFaceAuditVersion, false);
-    const QUrl pack = createPack(3, true);
+    const QUrl pack = createPack(3);
     QVERIFY(!pack.isEmpty());
     m_manager->importPack(pack);
     QTRY_VERIFY(!m_manager->busy());
     QVERIFY2(m_manager->lastError().isEmpty(), qPrintable(m_manager->lastError()));
     QCOMPARE(m_cache->entries().size(), 3);
     const auto before = QDir(m_cache->imageRoot()).entryList(QDir::Files);
-    QCOMPARE(before.size(), 2);
+    QCOMPARE(before.size(), 1);
     m_manager.reset();
     QCOMPARE(QDir(m_cache->imageRoot()).entryList(QDir::Files), before);
     CardArtCache persisted(m_dir->path());
     persisted.load();
     QCOMPARE(persisted.entries().size(), 3);
-    QVERIFY(!persisted.entries().first().record.artCropPath.isEmpty());
-    QVERIFY(QFileInfo::exists(persisted.entries().first().record.artCropPath));
     QCOMPARE(hexproof::client::cardart::inventory(persisted.imageRoot(), persisted.entries())
                  .value(QStringLiteral("orphanCount"))
                  .toInt(),
@@ -299,7 +285,7 @@ void CardArtManagerAuditTest::committedImportImagesSurviveShutdown()
 void CardArtManagerAuditTest::failedImportPreservesExistingSharedImages()
 {
     setupManager(hexproof::client::catalog_internal::kCardFaceAuditVersion, false);
-    const QUrl pack = createPack(3, true);
+    const QUrl pack = createPack(3);
     QVERIFY(!pack.isEmpty());
     const auto installed =
         hexproof::client::cardart::importPack(pack.toLocalFile(), m_cache->imageRoot());
@@ -320,49 +306,9 @@ void CardArtManagerAuditTest::failedImportPreservesExistingSharedImages()
     QCOMPARE(m_cache->entries().size(), 1);
     QVERIFY(image.open(QIODevice::ReadOnly));
     QCOMPARE(image.readAll(), before);
-    QCOMPARE(QDir(m_cache->imageRoot()).entryList(QDir::Files).size(), 2);
-    QVERIFY(QFileInfo::exists(existing.record.artCropPath));
+    QCOMPARE(QDir(m_cache->imageRoot()).entryList(QDir::Files).size(), 1);
     QVERIFY(QDir().rmdir(index));
     QVERIFY(m_cache->save());
-}
-
-void CardArtManagerAuditTest::cleanupPreservesSharedOptionalCrops()
-{
-    setupManager(hexproof::client::catalog_internal::kCardFaceAuditVersion, false);
-    const QUrl pack = createPack(1, true);
-    QVERIFY(!pack.isEmpty());
-    m_manager->importPack(pack);
-    QTRY_VERIFY(!m_manager->busy());
-    QVERIFY2(m_manager->lastError().isEmpty(), qPrintable(m_manager->lastError()));
-    const auto entry = m_cache->entries().first();
-    auto shared = entry.record;
-    shared.setCode = QStringLiteral("OTHER");
-    m_cache->rememberSuccess(
-        m_cache->key(shared.name, shared.imageLanguage, shared.setCode, shared.collectorNumber),
-        shared);
-    QVERIFY(m_cache->save());
-    QFile orphan(QDir(m_cache->imageRoot()).filePath(QStringLiteral("unused.png")));
-    QVERIFY(orphan.open(QIODevice::WriteOnly));
-    QCOMPARE(orphan.write("unused"), 6);
-    orphan.close();
-    m_manager->removeOrphans();
-    QTRY_VERIFY(!m_manager->busy());
-    QVERIFY(m_manager->lastError().isEmpty());
-    QVERIFY(!orphan.exists());
-    QVERIFY(QFileInfo::exists(shared.imagePath));
-    QVERIFY(QFileInfo::exists(shared.artCropPath));
-    m_manager->removeSelection(true, QStringLiteral("TST"), QStringLiteral("en"));
-    QTRY_VERIFY(!m_manager->busy());
-    QVERIFY(m_manager->lastError().isEmpty());
-    QCOMPARE(m_cache->entries().size(), 1);
-    QVERIFY(QFileInfo::exists(shared.imagePath));
-    QVERIFY(QFileInfo::exists(shared.artCropPath));
-    m_manager->removeSelection(true, QStringLiteral("OTHER"), QStringLiteral("en"));
-    QTRY_VERIFY(!m_manager->busy());
-    QVERIFY(m_manager->lastError().isEmpty());
-    QVERIFY(m_cache->entries().isEmpty());
-    QVERIFY(!QFileInfo::exists(shared.imagePath));
-    QVERIFY(!QFileInfo::exists(shared.artCropPath));
 }
 
 void CardArtManagerAuditTest::deckExportUsesSnapshotAndReportsCompletion()

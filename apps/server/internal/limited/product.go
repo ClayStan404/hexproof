@@ -25,7 +25,6 @@ const (
 	// FIN can exceed 1e9 while remaining inside that bound.
 	maxProductWeight       = 9007199254740991
 	maxCubePhysicalCards   = 10_000
-	maxCubeCardEntries     = 5000
 	maxEncodedProductBytes = 800 * 1024
 )
 
@@ -34,11 +33,6 @@ type Product struct {
 	sheets     map[string]protocol.LimitedSheetDefinition
 	hash       string
 	cardCount  int
-	typeLines  map[printingIdentity]string
-}
-
-type printingIdentity struct {
-	setCode, collectorNumber string
 }
 
 func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) {
@@ -63,18 +57,12 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 		return nil, fail(ErrInvalid, "invalid limited product")
 	}
 
-	resolvedSheets, err := resolveProductSheets(&definition)
-	if err != nil {
-		return nil, err
-	}
 	sheets := make(map[string]protocol.LimitedSheetDefinition, len(definition.Sheets))
 	cardCount := 0
 	cubeCardCount := int64(0)
-	typeLines := make(map[printingIdentity]string)
-	for sheetIndex := range resolvedSheets {
-		sheet := &resolvedSheets[sheetIndex]
+	for sheetIndex := range definition.Sheets {
+		sheet := &definition.Sheets[sheetIndex]
 		sheet.Name = strings.TrimSpace(sheet.Name)
-		definition.Sheets[sheetIndex].Name = sheet.Name
 		if !validText(sheet.Name, maxProductText) || len(sheet.Cards) == 0 {
 			return nil, fail(ErrInvalid, "invalid product sheet")
 		}
@@ -84,18 +72,23 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 		totalWeight := int64(0)
 		for cardIndex := range sheet.Cards {
 			card := &sheet.Cards[cardIndex]
-			if err := normalizeProductCard(card); err != nil {
-				return nil, err
+			card.Name = strings.TrimSpace(card.Name)
+			card.SetCode = strings.ToUpper(strings.TrimSpace(card.SetCode))
+			card.CollectorNumber = strings.TrimSpace(card.CollectorNumber)
+			card.TypeLine = strings.TrimSpace(card.TypeLine)
+			card.Rarity = strings.ToLower(strings.TrimSpace(card.Rarity))
+			card.Finish = strings.ToLower(strings.TrimSpace(card.Finish))
+			if !validText(card.Name, protocol.MaxCardNameRunes) ||
+				!validText(card.SetCode, protocol.MaxSetCodeRunes) ||
+				!validText(card.CollectorNumber, protocol.MaxCollectorNumberRunes) ||
+				!validOptionalText(card.TypeLine, protocol.MaxTypeLineRunes) ||
+				!validOptionalText(card.Rarity, 32) ||
+				!validOptionalText(card.Finish, 32) ||
+				card.Weight < 1 || card.Weight > maxProductWeight {
+				return nil, fail(ErrInvalid, "invalid product card")
 			}
 			if int64(card.Weight) > math.MaxInt64-totalWeight {
 				return nil, fail(ErrInvalid, "product sheet total weight is too large")
-			}
-			if card.TypeLine != "" {
-				key := printingIdentity{card.SetCode, card.CollectorNumber}
-				if existing := typeLines[key]; existing != "" && existing != card.TypeLine {
-					return nil, fail(ErrInvalid, "conflicting printing type lines")
-				}
-				typeLines[key] = card.TypeLine
 			}
 			totalWeight += int64(card.Weight)
 			cardCount++
@@ -105,8 +98,7 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 					return nil, fail(ErrInvalid, "Cube contains too many physical cards")
 				}
 			}
-			if cardCount > protocol.MaxLimitedProductCards ||
-				(definition.ProductType == ProductTypeCube && cardCount > maxCubeCardEntries) {
+			if cardCount > protocol.MaxLimitedProductCards {
 				return nil, fail(ErrInvalid, "limited product has too many cards")
 			}
 		}
@@ -162,7 +154,6 @@ func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) 
 		sheets:     sheets,
 		hash:       hex.EncodeToString(digest[:]),
 		cardCount:  cardCount,
-		typeLines:  typeLines,
 	}, nil
 }
 
@@ -251,7 +242,7 @@ func (p *Product) generatePack(random *rand.Rand, nextID func() string) ([]*Card
 				}
 			}
 			for _, card := range selected {
-				result = append(result, p.newCardInstance(nextID(), card))
+				result = append(result, newCardInstance(nextID(), card))
 				if !sheet.WithReplacement {
 					for index := 0; index < len(available); index++ {
 						if available[index] == card {
@@ -269,23 +260,15 @@ func (p *Product) generatePack(random *rand.Rand, nextID func() string) ([]*Card
 func (p *Product) cubeStock() []*CardInstance {
 	stock := make([]*CardInstance, 0)
 	sequence := 0
-	for _, definition := range p.Definition.Sheets {
-		sheet := p.sheets[definition.Name]
+	for _, sheet := range p.Definition.Sheets {
 		for _, card := range sheet.Cards {
 			for copyIndex := 0; copyIndex < card.Weight; copyIndex++ {
 				sequence++
-				stock = append(stock, p.newCardInstance("cube-"+itoa(sequence), card))
+				stock = append(stock, newCardInstance("cube-"+itoa(sequence), card))
 			}
 		}
 	}
 	return stock
-}
-
-func (p *Product) newCardInstance(id string, card protocol.LimitedCardDefinition) *CardInstance {
-	if card.TypeLine == "" {
-		card.TypeLine = p.typeLines[printingIdentity{card.SetCode, card.CollectorNumber}]
-	}
-	return newCardInstance(id, card)
 }
 
 func itoa(value int) string {

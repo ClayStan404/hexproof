@@ -67,12 +67,6 @@ CardCatalog::CardCatalog(const QString &storageRoot, QNetworkAccessManager *netw
     loadCatalogMetadata();
     loadCachedCatalogRelease();
     loadResolutionCache();
-    connect(this, &CardCatalog::artCacheContentsChanged, this, [this]() {
-        m_artCropValidationResults.clear();
-        // Replacements may retain size and timestamp. Old read-only jobs must
-        // not publish over validation started after an import or cleanup.
-        m_artCropValidationWaiters.clear();
-    });
 
     m_catalogInstaller =
         std::make_unique<CatalogInstaller>(m_storageRoot, m_databasePath, m_network);
@@ -233,11 +227,6 @@ CardCatalog::~CardCatalog()
     for (QNetworkReply *reply : directReplies)
         disconnect(reply, nullptr, this, nullptr);
     m_directImageJobs.clear();
-    const auto cropReplies = m_artCropJobs.keys();
-    for (QNetworkReply *reply : cropReplies)
-        disconnect(reply, nullptr, this, nullptr);
-    m_artCropJobs.clear();
-    m_artCropQueue.clear();
     for (auto &resolver : m_parallelResolvers)
         resolver.reset();
     m_cardResolver.reset();

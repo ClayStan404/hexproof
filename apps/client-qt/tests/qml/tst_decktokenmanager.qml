@@ -17,7 +17,7 @@ TestCase {
 
     QtObject {
         id: fakeDeckLibrary
-        readonly property var originalTokens: [{
+        property var currentTokens: [{
             "name": "Goblin",
             "displayName": "地精",
             "typeLine": "Token Creature — Goblin",
@@ -27,7 +27,6 @@ TestCase {
             "toughness": "1",
             "oracleText": "Haste"
         }]
-        property var currentTokens: originalTokens.slice()
         function removeToken() {}
     }
 
@@ -39,8 +38,6 @@ TestCase {
         property var cachedLanguages: []
         property var prioritized: []
         property var metadata: ({})
-        property var faces: []
-        function cardFaces(name, setCode, collector) { return faces }
         function tokenImageSource() { return testCase.testImage }
         function cacheToken() { cachedLanguages = cachedLanguages.concat([language]) }
         function prioritizeCards(cards) { prioritized = prioritized.concat(cards) }
@@ -60,28 +57,12 @@ TestCase {
         }
     }
 
-    function previewArt(scope, name) {
-        const lookup = item => {
-            if (item.objectName === name) return item
-            for (const child of item.children || []) {
-                const found = lookup(child)
-                if (found) return found
-            }
-            return null
-        }
-        const boundary = scope.contentItem || scope
-        tryVerify(() => lookup(boundary) !== null)
-        return lookup(boundary)
-    }
-
     function init() {
         Theme.uiScale = 1
         fakeCatalog.imageRevision = -1
         fakeCatalog.language = "en"
         fakeCatalog.cachedLanguages = []
         fakeCatalog.prioritized = []
-        fakeCatalog.faces = []
-        fakeDeckLibrary.currentTokens = fakeDeckLibrary.originalTokens.slice()
         fakeCatalog.metadata = {en:{displayName:"Goblin",typeLine:"Token Creature — Goblin",oracleText:"Haste"},
                                 zh:{displayName:"地精",typeLine:"衍生生物～地精",oracleText:"敏捷"}}
         manager.close()
@@ -148,36 +129,6 @@ TestCase {
         verify(String(image.source).startsWith("data:image/png"))
     }
 
-    function test_allFacesPreserveSavedTokens() {
-        const token = {name:"Token Front // Token Back", kind:"token", setCode:"TOK", collectorNumber:"1",
-                       typeLine:"Token Creature — Bird", oracleText:"Front rules"}
-        fakeDeckLibrary.currentTokens = [token]
-        fakeCatalog.faces = [{name:token.name, faceName:"", setCode:"TOK", collectorNumber:"1"},
-                             {name:"Token Back", faceName:"Token Back", setCode:"TOK", collectorNumber:"1"}]
-        fakeCatalog.imageRevision = 0
-        manager.open()
-        tryCompare(manager, "opened", true)
-        const grid = findChild(manager, "managedDeckTokenGrid")
-        tryVerify(() => grid.itemAtIndex(0) !== null)
-        verify(waitForPolish(testWindow))
-        const thumbnail = findChild(grid.itemAtIndex(0), "managedDeckTokenImage")
-        mouseMove(testWindow, 1, 1)
-        mouseMove(thumbnail)
-        const preview = findChild(manager, "managedTokenArtPreview")
-        tryCompare(preview, "visible", true)
-        const first = previewArt(preview, "cardHoverPreviewArt")
-        const second = previewArt(preview, "cardHoverPreviewArt-1")
-        verify(first && second)
-        compare(findChild(preview, "viewOtherFaceButton"), null)
-        tryCompare(first, "status", Image.Ready)
-        tryCompare(second, "status", Image.Ready)
-        compare(preview.facePreview.displayFaces[1].name, "Token Back")
-        compare(fakeDeckLibrary.currentTokens, [token])
-        tryVerify(() => fakeCatalog.prioritized.some(card => card.name === "Token Back" && card.kind === "token"))
-        manager.close()
-        tryCompare(preview, "visible", false)
-    }
-
     function test_openManagerFollowsLanguageAndMetadataOnlyUpdates() {
         manager.open()
         tryCompare(manager,"opened",true)
@@ -226,7 +177,7 @@ TestCase {
         tryCompare(detail,"opened",true)
         verify(fakeCatalog.prioritized.some(card => card.name === "Goblin" && card.kind === "token"))
         const rules = findChild(detail,"tokenDetailsRulesText")
-        const art = previewArt(detail, "tokenDetailsArt")
+        const art = findChild(detail,"tokenDetailsArt")
         tryCompare(art,"status",Image.Ready)
         verify(rules.text.endsWith("完整规则末尾。"))
         const scroll = findChild(detail,"tokenDetailsRulesScroll")

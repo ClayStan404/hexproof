@@ -3,7 +3,6 @@
 
 #include "CardArtArchive.h"
 
-#include "CardArtCrop.h"
 #include "CardCatalogCommon.h"
 #include "deck/Deck.h"
 
@@ -220,19 +219,6 @@ bool verifiedExistingImage(const QString &path, QHash<QString, bool> *verifiedPa
     return valid;
 }
 
-bool cropMatchesImage(const CardRecord &record)
-{
-    return !record.artCropUrl.isEmpty() && record.artCropUrl == artCropUrlForImage(record.imageUrl);
-}
-
-bool verifiedExistingCrop(const QString &imageRoot, const CardRecord &record,
-                          QHash<QString, bool> *verifiedPaths)
-{
-    const QString path =
-        imageRoot.isEmpty() ? record.artCropPath : managedFilePath(imageRoot, record.artCropPath);
-    return cropMatchesImage(record) && verifiedExistingImage(path, verifiedPaths);
-}
-
 bool validText(const QString &value, qsizetype maximum, bool required = false)
 {
     return value.size() <= maximum && (!required || !value.simplified().isEmpty());
@@ -265,13 +251,7 @@ bool validEntryObject(const QJsonObject &object)
                             (rules.toString().isEmpty() || !rulesLang.isEmpty()) &&
                             validText(rules.toString(), 16'384) &&
                             !rules.toString().contains(QChar::Null);
-    const QJsonValue cropUrl = object.value(QStringLiteral("artCropUrl"));
-    const QJsonValue cropBlob = object.value(QStringLiteral("artCropBlobSha256"));
-    const bool cropValid = (cropUrl.isUndefined() || cropUrl.isString()) &&
-                           (cropBlob.isUndefined() || cropBlob.isString()) &&
-                           validText(cropUrl.toString(), 4096) &&
-                           validText(cropBlob.toString(), 64);
-    return languagesValid && rulesValid && cropValid &&
+    return languagesValid && rulesValid &&
            validKeyText(object.value(QStringLiteral("requestedName")).toString(), 512, true) &&
            validText(object.value(QStringLiteral("name")).toString(), 512, true) &&
            validText(object.value(QStringLiteral("oracleId")).toString(), 128) &&
@@ -288,8 +268,6 @@ bool validEntryObject(const QJsonObject &object)
 bool existingImageWins(const CardRecord &existing, const CardRecord &incoming,
                        const QString &requestLanguage)
 {
-    if (ambiguousLegacySameNamedFace(existing))
-        return false;
     const int incomingVersion = qBound(0, incoming.resolutionVersion, kCardResolutionVersion);
     if (existing.resolutionVersion != incomingVersion)
         return existing.resolutionVersion > incomingVersion;
@@ -300,9 +278,6 @@ bool existingImageWins(const CardRecord &existing, const CardRecord &incoming,
 
 void mergeRulesMetadata(CardRecord *record, const CardRecord &other, const QString &language)
 {
-    if (ambiguousLegacySameNamedFace(other))
-        return;
-    retainFaceMetadata(record, other);
     record->localizedRulesChecked = record->localizedRulesChecked || other.localizedRulesChecked;
     if (!other.oracleTextLanguage.isEmpty() &&
         (record->oracleTextLanguage.isEmpty() ||
@@ -386,9 +361,7 @@ ParsedPack parsePack(QFile *file)
     for (const QJsonValue &value : entries) {
         const QJsonObject object = value.toObject();
         const QString blob = object.value(QStringLiteral("blobSha256")).toString();
-        const QString cropBlob = object.value(QStringLiteral("artCropBlobSha256")).toString();
-        if (!validEntryObject(object) || !hashes.contains(blob) ||
-            (!cropBlob.isEmpty() && !hashes.contains(cropBlob))) {
+        if (!validEntryObject(object) || !hashes.contains(blob)) {
             result.error = damagedPackError();
             return result;
         }
@@ -433,11 +406,7 @@ QVariantMap summaryMap(const ParsedPack &pack, const QList<CardArtCacheEntry> &e
             verifiedExistingImage(existing.imagePath, &verifiedPaths)) {
             CardRecord merged = existing;
             mergeRulesMetadata(&merged, incoming, language);
-            const bool addsCrop =
-                existing.imageUrl == incoming.imageUrl && cropMatchesImage(incoming) &&
-                !object.value(QStringLiteral("artCropBlobSha256")).toString().isEmpty() &&
-                !verifiedExistingCrop(imageRoot, existing, &verifiedPaths);
-            if (!addsCrop && recordToJson(merged) == recordToJson(existing))
+            if (recordToJson(merged) == recordToJson(existing))
                 ++existingCount;
         }
     }
@@ -490,11 +459,6 @@ QVariantMap inventory(const QString &imageRoot, const QList<CardArtCacheEntry> &
         ++group.entryCount;
         group.sources.insert(imageSource(entry.record.imageUrl));
 
-        const QString cropPath = managedFilePath(imageRoot, entry.record.artCropPath);
-        if (!cropPath.isEmpty()) {
-            referencedPaths.insert(cropPath);
-            group.paths.insert(cropPath);
-        }
         const QString path = managedFilePath(imageRoot, entry.record.imagePath);
         if (path.isEmpty()) {
             ++missingEntryCount;
@@ -607,17 +571,24 @@ OperationResult exportPack(const QString &path, const QString &imageRoot,
     QSet<QString> invalidPaths;
     QSet<QString> exportedLookupKeys;
     QJsonArray exportedEntries;
-    const auto verifiedBlob = [&](const QString &candidate) -> BlobInput {
-        const QString imagePath = managedFilePath(imageRoot, candidate);
-        if (imagePath.isEmpty() || invalidPaths.contains(imagePath))
-            return {};
+    for (const CardArtCacheEntry &entry : selected) {
+        const QString imagePath = managedFilePath(imageRoot, entry.record.imagePath);
+        if (imagePath.isEmpty()) {
+            ++result.skippedCount;
+            continue;
+        }
+        if (invalidPaths.contains(imagePath)) {
+            ++result.skippedCount;
+            continue;
+        }
         if (!verifiedPaths.contains(imagePath)) {
             QString readError;
             const QByteArray bytes = readImage(imagePath, &readError);
             const QString suffix = bytes.isEmpty() ? QString{} : validateImage(bytes);
             if (suffix.isEmpty()) {
                 invalidPaths.insert(imagePath);
-                return {};
+                ++result.skippedCount;
+                continue;
             }
             BlobInput blob;
             blob.sha256 = QString::fromLatin1(
@@ -627,19 +598,10 @@ OperationResult exportPack(const QString &path, const QString &imageRoot,
             blob.path = imagePath;
             verifiedPaths.insert(imagePath, blob);
         }
-        return verifiedPaths.value(imagePath);
-    };
-    for (const CardArtCacheEntry &entry : selected) {
-        const BlobInput blob = verifiedBlob(entry.record.imagePath);
-        if (blob.path.isEmpty()) {
-            ++result.skippedCount;
-            continue;
-        }
+        const BlobInput blob = verifiedPaths.value(imagePath);
         const QString sha256 = blob.sha256;
         QJsonObject object = recordToJson(entry.record);
         object.remove(QStringLiteral("imagePath"));
-        object.remove(QStringLiteral("artCropPath"));
-        object.remove(QStringLiteral("artCropUrl"));
         object.insert(QStringLiteral("requestLanguage"), requestLanguage(entry.cacheKey));
         object.insert(QStringLiteral("blobSha256"), sha256);
         object.insert(QStringLiteral("source"), imageSource(entry.record.imageUrl));
@@ -654,21 +616,6 @@ OperationResult exportPack(const QString &path, const QString &imageRoot,
                 return result;
             }
             blobsByHash.insert(sha256, blob);
-        }
-        // The crop is optional. A missing or corrupt derivative never makes a
-        // usable full-card entry disappear from an export.
-        const BlobInput crop =
-            cropMatchesImage(entry.record) ? verifiedBlob(entry.record.artCropPath) : BlobInput{};
-        if (!crop.path.isEmpty()) {
-            if (!blobsByHash.contains(crop.sha256)) {
-                if (blobsByHash.size() >= kMaximumImages) {
-                    result.error = QStringLiteral("The card art selection is too large to export.");
-                    return result;
-                }
-                blobsByHash.insert(crop.sha256, crop);
-            }
-            object.insert(QStringLiteral("artCropUrl"), entry.record.artCropUrl);
-            object.insert(QStringLiteral("artCropBlobSha256"), crop.sha256);
         }
         if (exportedEntries.size() >= kMaximumEntries) {
             result.error = QStringLiteral("The card art selection is too large to export.");
@@ -779,7 +726,6 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
         // A missing content-addressed image may be repaired before a later
         // payload fails. Preserve it if the unchanged index still uses it.
         rollback.referencedPaths.insert(entry.record.imagePath);
-        rollback.referencedPaths.insert(entry.record.artCropPath);
         if (entry.record.valid() && !managedFilePath(imageRoot, entry.record.imagePath).isEmpty())
             existingByKey.insert(entry.cacheKey, entry.record);
     }
@@ -787,45 +733,21 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
     QHash<QString, bool> verifiedPaths;
     QSet<QString> neededBlobs;
     QHash<QString, QString> reuseCandidates;
-    QHash<QString, QString> retainedCropPaths;
-    QHash<QString, QString> cropBlobs;
     for (const QJsonValue &value : entries) {
         const QJsonObject object = value.toObject();
         const QString key = cacheKeyForObject(object);
         const QString blob = object.value(QStringLiteral("blobSha256")).toString();
-        const CardRecord incoming = recordFromJson(object);
         const auto existing = existingByKey.constFind(key);
         if (existing != existingByKey.constEnd()) {
             reuseCandidates.insert(blob, existing->imagePath);
-            if (existingImageWins(*existing, incoming,
+            if (existingImageWins(*existing, recordFromJson(object),
                                   object.value(QStringLiteral("requestLanguage")).toString()) &&
                 verifiedExistingImage(existing->imagePath, &verifiedPaths)) {
                 retainedKeys.insert(key);
+                continue;
             }
         }
-        if (!retainedKeys.contains(key))
-            neededBlobs.insert(blob);
-
-        // Crop ownership follows the winning full image, including its face.
-        // A shared cache key or Oracle identity does not prove shared artwork.
-        const CardRecord &chosen = retainedKeys.contains(key) ? *existing : incoming;
-        if (existing != existingByKey.constEnd() && existing->imageUrl == chosen.imageUrl &&
-            verifiedExistingCrop(imageRoot, *existing, &verifiedPaths)) {
-            retainedCropPaths.insert(key, existing->artCropPath);
-            continue;
-        }
-        const QString cropBlob = object.value(QStringLiteral("artCropBlobSha256")).toString();
-        if (chosen.imageUrl == incoming.imageUrl && cropMatchesImage(incoming) &&
-            !cropBlob.isEmpty()) {
-            cropBlobs.insert(key, cropBlob);
-            neededBlobs.insert(cropBlob);
-            if (existing != existingByKey.constEnd() && existing->imageUrl == incoming.imageUrl &&
-                cropMatchesImage(*existing)) {
-                const QString path = managedFilePath(imageRoot, existing->artCropPath);
-                if (!path.isEmpty())
-                    reuseCandidates.insert(cropBlob, path);
-            }
-        }
+        neededBlobs.insert(blob);
     }
 
     QHash<QString, QString> importedPaths;
@@ -892,36 +814,29 @@ OperationResult importPack(const QString &path, const QString &imageRoot,
             return result;
         }
         importedKeys.insert(cacheKey);
-        const CardRecord incoming = recordFromJson(object);
-        const CardRecord previous = existingByKey.value(cacheKey);
-        const bool retained = retainedKeys.contains(cacheKey);
-        CardRecord record = retained ? previous : incoming;
-        if (retained || previous.valid())
-            mergeRulesMetadata(&record, retained ? incoming : previous,
+        if (retainedKeys.contains(cacheKey)) {
+            const CardRecord previous = existingByKey.value(cacheKey);
+            CardRecord merged = previous;
+            mergeRulesMetadata(&merged, recordFromJson(object),
                                object.value(QStringLiteral("requestLanguage")).toString());
-        if (!retained) {
-            record.imageUrl = safeImportedImageUrl(record.imageUrl);
-            record.imagePath =
-                importedPaths.value(object.value(QStringLiteral("blobSha256")).toString());
-            record.resolutionVersion = qBound(0, record.resolutionVersion, kCardResolutionVersion);
+            if (recordToJson(merged) == recordToJson(previous))
+                unchangedKeys.insert(cacheKey);
+            result.importedEntries.append({cacheKey, merged});
+            continue;
         }
-        // Neither full-image nor crop paths supplied by the archive are trusted.
-        record.artCropUrl.clear();
-        record.artCropPath.clear();
-        if (retainedCropPaths.contains(cacheKey)) {
-            record.artCropUrl = previous.artCropUrl;
-            record.artCropPath = retainedCropPaths.value(cacheKey);
-        } else if (cropBlobs.contains(cacheKey)) {
-            record.artCropUrl = incoming.artCropUrl;
-            record.artCropPath = importedPaths.value(cropBlobs.value(cacheKey));
-        }
+        CardRecord record = recordFromJson(object);
+        if (existingByKey.contains(cacheKey))
+            mergeRulesMetadata(&record, existingByKey.value(cacheKey),
+                               object.value(QStringLiteral("requestLanguage")).toString());
+        record.imageUrl = safeImportedImageUrl(record.imageUrl);
+        record.imagePath =
+            importedPaths.value(object.value(QStringLiteral("blobSha256")).toString());
+        record.resolutionVersion = qBound(0, record.resolutionVersion, kCardResolutionVersion);
         if (!record.valid() || record.imagePath.isEmpty()) {
             result.error = damagedPackError();
             result.importedEntries.clear();
             return result;
         }
-        if (retained && recordToJson(record) == recordToJson(previous))
-            unchangedKeys.insert(cacheKey);
         result.importedEntries.append({cacheKey, record});
     }
 

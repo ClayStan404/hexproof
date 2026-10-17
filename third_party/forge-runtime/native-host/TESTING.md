@@ -5,135 +5,6 @@ and frozen host source that it has just packaged. Their constructed boards
 isolate native decisions; the Go and Qt suites below exercise the application
 boundary separately.
 
-## Scoped real-engine gate
-
-Forge-sensitive push/PR changes run the bounded base-plus-current-overlay gate:
-
-```sh
-python3 tools/run-forge-regression.py
-```
-
-It verifies the pinned base archive, builds the current reviewed overlay, and
-places that overlay before the base harness and libraries. Native programs
-cover mana undo, Lotus Bloom choices, viewer snapshots, payment identity,
-prompt waiting and crash diagnostics. The selected Go tests cover mana undo,
-Lotus Bloom and crash-process cleanup with `-race` and `engineintegration`;
-all selected tests must actually pass, so an empty test selection is a failure.
-These checks use real Java processes and isolated temporary profiles.
-
-Logs, elapsed times and the exact runtime/JAR identity are written to
-`build/forge-regression/qualification.json` and adjacent logs. Use `--output`
-for a task-specific evidence directory. The content-addressed base/source cache
-is shared with `build-overlay.py`; cached and explicitly supplied base archives
-still receive the mandatory size/checksum checks. The first uncached run needs
-the approximately 446 MiB pinned inputs, JDK 21 and Go, without Maven or an
-upstream source rebuild. The runner requires a POSIX workstation for bounded
-process-group cleanup; CI executes it on Linux.
-The runner discovers the same JDK 21 compiler as the overlay builder and uses
-its matching runtime by default. Explicit `--javac` and `--java` overrides remain
-available; the compiler must match the reviewed diagnostic-symbol toolchain.
-
-This gate covers the selected real-engine boundaries, not complete matches,
-native Qt input or every mechanic. The separate manual Forge workflow retains
-the complete runtime build, bundled-source rebuild and amd64/arm64 validation.
-
-## Native scenarios
-
-`NativeCrashDiagnosticsRegressionTest` injects an exception inside real
-`AbilityUtils` dispatch in a four-player Commander fixture and compares public,
-hand, library and face-down source capture. It separately verifies nested
-recorder bounds, recovered exceptions, submitted and caller-supplied Futures,
-immutable scheduled provenance, blocked stderr, timeout/cleanup classification,
-shared terminal responses that survive lease removal, and a synthetic resource
-error that retires the shared worker. These are controlled fault fixtures,
-not reproductions of an unspecified reported EDH interaction or real OS OOM.
-
-Run it against the exact packaged classes, not an older adapter earlier in the
-classpath. `build-native.py` includes it automatically. For an already built
-runtime and separately compiled test classes:
-
-```sh
-java -Xmx2g -Djava.awt.headless=true -Duser.home="$test_profile" \
-  -cp "$test_classes:$runtime/forge-harness.jar:$runtime/lib/*" \
-  org.hexproof.forge.NativeCrashDiagnosticsRegressionTest "$runtime/forge-gui"
-```
-
-For the base-plus-overlay path, place the exact current `forge-overlay.jar`
-ahead of the base harness and libraries. An optional second test argument writes
-one sanitized public-source capsule for cross-language sanitizer qualification.
-Production has no fault-injection switch. The generated symbol index must match
-`upstream.json`'s `diagnosticSymbolsSha256`, the JAR resource, and the Go embedded
-index; `tools.tests.test_forge_diagnostic_symbols` checks the hub/pin boundary.
-Native changes that add or rename symbols require regenerating and reviewing
-that index with `third_party/forge-runtime/diagnostic-symbols.py`, then refreshing
-the native pin and hub copy together. Frames may not be accepted solely because
-their text resembles a Java symbol.
-
-`NativePromptWaitRegressionTest` waits for the opening mulligan, requires an
-unchanged prompt to time out, returns the next prompt after that hand is kept,
-and requires one `snapshots` call to match the spectator and both seat
-projections.
-
-`NativeSerumPowderRegressionTest` drives Forge's actual hand-card selection and
-card-context confirmation during mulligans. It checks declining without mutation,
-complete exile/redraw publication, repeated Powders, paid and multiplayer-free
-London mulligans, ordinary-redraw debt reset, and keeping without bottoming twice.
-Bottoming the requested Powder prevents the exile; another remaining copy can be
-used without repeating that redraw's bottom selection. Hidden replacement hands
-and libraries stay private, and concession during the nested bottom input ends
-the native session safely. Its all-Powder decks are synthetic engine fixtures;
-the native desktop studies use legal four-copy decks separately.
-
-`NativeIdContinuityRegressionTest` moves one physical card through each
-animated zone change and requires Forge to keep its numeric id in the
-published snapshot. `NativePaymentIdRegressionTest` taps lands for Grizzly
-Bears one mana at a time, requires every step of that payment to publish the
-same `sa:` id, and requires the following Llanowar Elves spell to publish a
-different one.
-
-`NativeLotusBloomRegressionTest` drives the actual Lotus Bloom sacrifice and
-mana effect. It checks all five standalone color choices, a standalone choice
-after a real priority/affordability preview has left a planned color, manual
-payment of a blue spell with either blue or an intentionally different color,
-preservation of surplus mana and payment identity, declining the sacrifice, and automatic
-payment of colored and generic three-mana spells. These are constructed-board
-tests; the `ForgeLotusBloomStudy.js` desktop variants separately use natural
-hands, suspend counters, casts and visible production controls.
-
-`NativeManaUndoRegressionTest` reproduces the original failure with an actual
-Forest activation during Grizzly Bears payment: the green mana has already
-paid part of the cost and is no longer floating when the undo is selected.
-It repeatedly retracts and reactivates the source, then completes the cast.
-Additional constructed-board cases cover another retained source, two-generic
-hybrid symbols, one source split between paid and floating mana, preexisting
-floating mana, Phyrexian life payment, and completed or irreversible sources.
-Direct native cost checks preserve distinct-color X, sunburst, snow payment and
-preview-copy isolation. A Prismite activation paid by Sol Ring verifies
-recursive source-fee undo followed by cancellation.
-These checks use exact native mana identity and multiplicity; two same-color
-mana from one source may share one native object. The opt-in Go
-`TestLiveForgeManaUndo` uses natural hands and land drops, performs forty
-tap/undo cycles, cancels a partly paid spell, re-casts it, and requires normal
-resolution with owner/opponent/spectator redaction intact. The native Qt
-attachment check is a separate deterministic UI fixture, not a live JVM game.
-
-`NativePriorityManaUndoRegressionTest` drives actual ordinary-priority source
-activation and undo. It checks native last-action order, distinct equal-color
-sources, multi-mana multiplicity, consumed-globe substitution, sacrificed and
-repeated-ability sources, recursive Prismite/Sol Ring refunds, completed casts,
-land-play preservation, and native priority/phase guards. A held native UI queue
-lets a second real activation change the history, or a native priority pass
-replace the input, after response preparation. The old request must preserve
-the sources and republish the correct input,
-which remains usable for subsequent undos. These are isolated constructed
-boards, and assertions inspect tap state and exact mana, not only the native
-undo return value. The opt-in Go `TestLiveForgePriorityManaUndo` uses natural
-hands and legal land drops in a synthetic deck for twenty priority tap/undo
-cycles. It preserves the same priority window, validates exact projected pool
-counts and viewer redaction, keeps a subsequent land play and its used quota,
-and completes and resolves a spell paid from floating mana. It is a bounded
-engine-boundary regression, not a completed match or native Qt interaction.
-
 `NativePrintingAliasRegressionTest` resolves every bundled alias and starts a
 deck containing Ancient Tomb LTC 387z alongside ordinary LTC 387 and TMP 315
 copies in both mainboard and sideboard. Cosmetic flavor names retain the exact
@@ -375,12 +246,6 @@ exile-casting, and optional-payment boards. Automatic-pass metadata uses the
 complete set of exposed native candidates, including all abilities on each
 card. Optional/alternative payment uncertainty, floating mana, predictive
 failures, and a soft scan budget preserve the explicit priority window.
-Its Necrodominance cases resolve the real scripted life payment and draw in
-the owner's end step, then check the newly drawn hand's native priority hint:
-a payable instant and Soul Spike's alternative cost retain control, while a
-hand with no available action can pass. Native cleanup follows that window,
-discards to five, and applies Necrodominance's exile replacement. These cases
-use constructed boards rather than a complete match.
 
 `NativeSnapshotRegressionTest` builds synthetic boards and checks the actual
 Forge projection for owner, opponent, and spectator. It covers private zones,
@@ -533,9 +398,6 @@ The opt-in Go integration suite accepts the same runtime directory through
 cd apps/server
 HEXPROOF_REAL_FORGE_ROOT="$runtime" go test -tags engineintegration \
   ./internal/rulesengine/forge -run '^TestLiveForgeRuntime$' -count=1 -v
-HEXPROOF_REAL_FORGE_ROOT="$runtime" HEXPROOF_REAL_FORGE_OVERLAY="$overlay" \
-  go test -race -tags engineintegration ./internal/rulesengine/forge \
-  -run '^TestLiveForgeCrashDiagnostics' -count=1 -v
 HEXPROOF_REAL_FORGE_ROOT="$runtime" go test -tags engineintegration \
   ./internal/server -run '^TestLiveForgeWebSocket(BO3)?Match$' -count=1 -v
 HEXPROOF_REAL_FORGE_ROOT="$runtime" go test -tags engineintegration \
@@ -550,10 +412,3 @@ spectator redaction, natural outcomes, and BO3/sideboard transitions. The room
 stress scenario starts multiple fresh JVMs through one shared Go handler. These
 programmatic players do not validate Qt controls; real native UI evidence and
 its exact deck/driver limits are recorded in `docs/forge-native-migration.md`.
-
-For the crash diagnostics test, `overlay` is the absolute path to the current
-packaged overlay JAR, or empty when `runtime` is a matching full build. It kills
-only JVMs owned by the test, in dedicated/shared three- and four-player
-Commander fixtures at a waiting prompt. It checks exit collection, producer
-isolation and normal waiting/abort behavior; effect exceptions are covered by
-the separate native regression above.

@@ -134,14 +134,6 @@ Surface {
             }
         }
 
-        FeedbackEntryButton {
-            objectName: "rulesFeedbackButton"
-            Layout.fillWidth: true
-            feedbackContext: ({feature: "forge_table", gameMode: "forge",
-                priorityMode: root.priority && root.priority.fullControl ? "full_control" : "smart",
-                format: root.tableController.roomSession.format})
-        }
-
         SectionLabel {
             text: qsTr("Match")
             visible: root.compactChrome

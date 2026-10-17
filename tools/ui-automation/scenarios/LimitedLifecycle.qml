@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
+import "NativeMotion.js" as Motion
 
 Item {
     id: driver
@@ -60,9 +61,12 @@ Item {
     }
     function click(name, scrollName, scope) {
         const scroll = scrollName ? view(scrollName) : null
-        // A viewport press can activate a card instead of only stopping motion.
-        // Wait for Qt to finish moving before sending the intended input.
-        if (scroll && scroll.moving) return false
+        if (!Motion.settled(scroll)) return false
+        if (Motion.stopNeeded(scroll)) {
+            require(auditProbe.click(scroll, 1, 1), "Cannot stop native wheel scrolling")
+            auditProbe.record("stopped-scroll-" + index, {view:scrollName, cardSelection:false})
+            return false
+        }
         const target = find(name, scope)
         const position = target && scroll ? target.mapToItem(scroll, 0, 0) : null
         const fullyShown = !position || !scroll.cards || (position.y >= 0
@@ -84,17 +88,23 @@ Item {
             const distance = top - scroll.contentY
             const delta = Number.isFinite(distance) ? Math.min(1440, Math.max(120,
                 Math.round(Math.abs(distance) / 72) * 120)) : 720
+            Motion.scrolled(scroll)
             require(auditProbe.wheel(scroll, distance < 0 ? delta : -delta), "Cannot scroll " + scrollName)
         }
         return false
     }
     function clickText(text, scrollName) {
         const scroll = scrollName ? view(scrollName) : null
-        if (scroll && scroll.moving) return false
+        if (!Motion.settled(scroll)) return false
+        if (Motion.stopNeeded(scroll)) {
+            require(auditProbe.click(scroll, 1, 1), "Cannot stop form scrolling")
+            return false
+        }
         const target = walk(auditWindow.contentItem, item => item.text === text
             && typeof item.clicked === "function" && auditProbe.canInteract(item))
         if (target) { require(auditProbe.click(target), "Cannot click " + text); return true }
         if (scrollName) {
+            Motion.scrolled(scroll)
             if (scroll) require(auditProbe.wheel(scroll, -260), "Cannot scroll to " + text)
         }
         return false
@@ -107,6 +117,7 @@ Item {
     }
     function selectPhysicalCard(name, scrollName, selected) {
         const scroll = view(scrollName)
+        const wasMoving = scroll && scroll.moving
         const tile = find(name)
         if (scroll && !observedCards.includes(scroll)) {
             observedCards.push(scroll)
@@ -133,8 +144,11 @@ Item {
             }
         }
         if (!click(name, scrollName)) return false
-        require(selected(), "Card click did not select its physical card")
-        return true
+        if (selected()) return true
+        require(wasMoving && scroll && !scroll.moving, "Card click did not select its physical card (moving before=" + wasMoving + ", after=" + (scroll && scroll.moving) + ")")
+        auditProbe.record("card-click-stopped-scroll-" + index, {cardId:chosenId, selected:false,
+            beforeMoving:wasMoving, afterMoving:scroll.moving})
+        return false
     }
     function choose(name, choiceIndex, scrollName) {
         if (!click(name, scrollName)) return false
@@ -393,11 +407,12 @@ Item {
             add("Drag one exact selected card back to the pool " + actor, actor, () => {
                 const list = view("limitedMainDeckGrid")
                 if (!list || !list.rows.length) return false
-                if (list.moving) return false
+                if (!Motion.settled(list)) return false
                 movedId = list.rows.find(row => row.card.instanceId).card.instanceId
                 const source = find("compactCard-" + movedId)
                 const target = find("limitedSideboardGrid")
                 if (!source) {
+                    Motion.scrolled(list)
                     require(auditProbe.wheel(list, 260), "Cannot scroll to the main-deck drag source")
                     return false
                 }
@@ -502,8 +517,7 @@ Item {
         add("Record the assigned match or bye", 0, () => { const p = pairing(); assignedMatch = !!p && !p.bye })
         for (let actor = 1; actor <= players; ++actor) {
             add("Enter assigned table " + actor, actor, () => !playing() || ws.inRoom
-                || (cube ? click("cubeOpenMatchButton")
-                         : clickText(ws.globalCode(pairing().roomId) ? "Return to match" : "Open match")),
+                || (cube ? click("cubeOpenMatchButton") : clickText(pairing().roomId ? "Return to match" : "Open match")),
                 () => !playing() || lockedDeckReady())
         }
         for (let actor = 1; actor <= players; ++actor) {

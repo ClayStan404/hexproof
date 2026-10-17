@@ -24,7 +24,6 @@ jobs:
     outputs:
       client: ${{ steps.scope.outputs.client }}
       server: ${{ steps.scope.outputs.server }}
-      forge: ${{ steps.scope.outputs.forge }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -139,7 +138,7 @@ jobs:
       - name: Test
         run: go test ./...
       - name: Test gameplay and control-plane race safety
-        run: go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil ./internal/feedback
+        run: go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil
       - name: Fuzz protocol, reducer, and retention boundaries
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -147,39 +146,10 @@ jobs:
           go test ./internal/protocol -run '^$' -fuzz '^FuzzParseEnvelope$' -fuzztime 5s
           go test ./internal/room -run '^$' -fuzz '^FuzzGameMoveSequencePreservesCards$' -fuzztime 5s
           go test ./internal/server -run '^$' -fuzz '^FuzzDecodeRetainedRoom$' -fuzztime 5s
+      - name: Pin privacy fixtures
+        run: go test ./internal/protocol -run 'GoldenFixtures|P7Golden'
       - name: Build static server
         run: CGO_ENABLED=0 go build -trimpath -o ../../build/server/hexproof-server ./cmd/hexproof-server
-
-  forge-regression:
-    name: Real Forge boundary regressions
-    needs: changes
-    if: needs.changes.outputs.forge == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - name: Select Forge build JDK
-        uses: ./.github/actions/setup-forge-build
-      - name: Cache immutable Forge build inputs
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: build/forge-overlay/downloads
-          key: forge-base-${{ hashFiles('apps/server/internal/runtimepkg/manifest.json', 'third_party/forge-runtime/overlay-base.json') }}
-      - name: Run current overlay against real Java and Go regressions
-        run: python3 tools/run-forge-regression.py
-      - name: Preserve real-engine qualification and failure logs
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: forge-boundary-regression
-          path: |
-            build/forge-regression/*.log
-            build/forge-regression/qualification.json
-          if-no-files-found: error
 
   client:
     name: Qt client

@@ -25,23 +25,6 @@ TestCase {
         {"participantId": "p2", "displayName": "Bob"}
     ]
 
-    Component {
-        id: lifecycleDraftComponent
-        Item {
-            width: 760
-            height: 620
-            property alias view: lifecycleDraft
-            LimitedDraftView {
-                id: lifecycleDraft
-                anchors.fill: parent
-                limitedModel: mockLimited
-                tournamentModel: mockTournament
-                wsModel: mockWs
-                cardCatalogModel: mockCatalog
-            }
-        }
-    }
-
     ApplicationWindow {
         width: 1200
         height: 800
@@ -309,38 +292,6 @@ TestCase {
         Theme.uiScale = 1
     }
 
-    function test_seatPopupClosesWithDraftWorkspace_data() {
-        return [{tag: "stage finishes", ancestor: false},
-                {tag: "ancestor hidden", ancestor: true}]
-    }
-
-    function test_seatPopupClosesWithDraftWorkspace(data) {
-        const host = createTemporaryObject(lifecycleDraftComponent, squeezeHost.parent)
-        verify(host)
-        const view = host.view
-        mockLimited.stage = "draft"
-        const button = findChild(view, "limitedDraftSeatsButton")
-        const popup = findChild(view, "limitedDraftSeatsPopup")
-        verify(waitForRendering(view))
-        mouseClick(button)
-        tryCompare(popup, "opened", true)
-        if (data.ancestor)
-            host.visible = false
-        else {
-            mockLimited.stage = "deck_building"
-            view.visible = false
-        }
-        tryCompare(popup, "visible", false)
-        host.visible = true
-        view.visible = true
-        verify(waitForRendering(view))
-        verify(!popup.visible, "Returning to the workspace must not reopen its old modal")
-        mouseClick(button)
-        tryCompare(popup, "opened", true)
-        view.visible = false
-        tryCompare(popup, "visible", false)
-    }
-
     function test_doubleClickConfirmsOneCurrentPick() {
         draftView.visible = true
         const tile = findChild(draftView, "limitedDraftPackCard-card-1")
@@ -358,38 +309,6 @@ TestCase {
         mockWs.connected = false
         draftView.confirmCard("card-2")
         compare(mockWs.pickCount, 1)
-    }
-
-    function test_pendingPickRecoversAfterTransportLoss() {
-        const host = createTemporaryObject(lifecycleDraftComponent, squeezeHost.parent)
-        verify(host)
-        const view = host.view
-        testLimitedDraftTransport.reset()
-        view.wsModel = testLimitedDraftTransport
-        mockLimited.stage = "draft"
-        mockLimited.eventType = "set_draft"
-        const card = findChild(view, "limitedDraftPackCard-card-1")
-        const confirm = findChild(view, "limitedConfirmPickButton")
-        verify(waitForRendering(view))
-        mouseClick(card)
-        mouseClick(confirm)
-        compare(testLimitedDraftTransport.pickCount, 1)
-        compare(view.pendingPickId, "card-1")
-        verify(!confirm.enabled)
-
-        // A dropped command has no rejection, and resume returns the same pack.
-        // WsClient.connected is notified by connectionStateChanged, not by the
-        // automatically named signal provided by a QML property mock.
-        testLimitedDraftTransport.setConnected(false)
-        compare(view.pendingPickId, "")
-        verify(!confirm.enabled)
-        testLimitedDraftTransport.setConnected(true)
-        mockLimited.snapshotChanged()
-        mouseClick(card)
-        verify(confirm.enabled)
-        mouseClick(confirm)
-        compare(testLimitedDraftTransport.pickCount, 2)
-        compare(view.pendingPickId, "card-1")
     }
 
     function test_commanderPickRequiresTwoCardsAndDoubleClickConfirmsAtomically() {
@@ -572,44 +491,6 @@ TestCase {
         compare(header.text, "Draft pack 1 · 2 cards remaining")
     }
 
-    function test_oneCardCountsPreserveTheLastPick() {
-        testTranslations.setLanguage("en")
-        const originalPool = mockLimited.pool
-        try {
-            mockLimited.currentPack = originalPool.slice(0, 1)
-            mockLimited.pool = originalPool.slice(1, 2)
-            draftView.visible = true
-            waitForRendering(draftView)
-            const header = findChild(draftView, "limitedDraftPackHeader")
-            const count = findChild(draftView, "limitedPickedCount")
-            compare(header.text, "Draft pack 1 · 1 card remaining")
-            compare(count.text, "1 card")
-            mouseClick(findChild(draftView, "limitedDraftPackCard-card-1"))
-            verify(draftView.canConfirm)
-            mouseClick(findChild(draftView, "limitedConfirmPickButton"))
-            compare(mockWs.pickedId, "card-1")
-            compare(mockWs.pickCount, 1)
-
-            // Model replacement after the accepted pick changes the copy and
-            // releases the old pending identity for the next real pack.
-            mockLimited.pool = originalPool
-            mockLimited.currentPack = []
-            mockLimited.snapshotChanged()
-            compare(count.text, "2 cards")
-            compare(header.text, "Draft pack 1 · 0 cards remaining")
-            compare(draftView.pendingPickId, "")
-            mockLimited.currentPack = originalPool
-            mockLimited.snapshotChanged()
-            compare(header.text, "Draft pack 1 · 2 cards remaining")
-            verify(!draftView.canConfirm)
-        } finally {
-            draftView.visible = false
-            mockLimited.pool = originalPool
-            mockLimited.currentPack = originalPool
-            mockLimited.snapshotChanged()
-        }
-    }
-
     function test_deckBuilderMovesVisibleCardsBetweenAreas() {
         deckBuilder.visible = true
         compare(deckBuilder.mainDeckCards.length, 0)
@@ -739,14 +620,6 @@ TestCase {
         verify(preview.visible)
         compare(previewArt.source.toString(), testCase.previewImageSource)
         tryCompare(previewArt, "status", Image.Ready)
-        for (const name of ["limitedBasicLandsButton", "limitedSubmitDeckButton"]) {
-            const button = findChild(deckBuilder, name)
-            verify(button !== null)
-            const rect = button.mapToItem(preview.parent, 0, 0, button.width, button.height)
-            verify(preview.x + preview.width <= rect.x || preview.x >= rect.x + rect.width
-                || preview.y + preview.height <= rect.y || preview.y >= rect.y + rect.height,
-                "The preview must leave the builder action column clear")
-        }
         deckBuilder.hideCardPreview()
         verify(!deckBuilder.hoverPreviewVisible)
         deckBuilder.visible = false
@@ -768,14 +641,16 @@ TestCase {
         const preview = findChild(
                             draftView,
                             "limitedDraftCardHoverPreview")
+        const previewArt = findChild(
+                               draftView,
+                               "limitedDraftCardHoverPreviewArt")
         verify(packCard)
         verify(pickedCard)
         verify(preview)
+        verify(previewArt)
 
         draftView.inspectCard(mockLimited.currentPack[0], packCard)
         verify(preview.visible)
-        tryVerify(() => findChild(draftView, "limitedDraftCardHoverPreviewArt") !== null)
-        const previewArt = findChild(draftView, "limitedDraftCardHoverPreviewArt")
         compare(draftView.inspectedCard.instanceId, "card-1")
         compare(previewArt.source.toString(), testCase.previewImageSource)
         tryCompare(previewArt, "status", Image.Ready)

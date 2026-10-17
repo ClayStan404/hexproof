@@ -17,36 +17,6 @@ QtObject {
     property bool hoverPreviewVisible: false
     property real hoverPreviewX: 0
     property real hoverPreviewY: 0
-    property bool previewSourceActive: false
-    property bool previewHeld: false
-    property real hoverPreviewWidth: Theme.size(250)
-    property real hoverPreviewHeight: Math.round(hoverPreviewWidth * 88 / 63)
-    readonly property CardFacePreviewController facePreview: CardFacePreviewController {
-        catalogModel: root.tableRoot.cardCatalogModel
-        card: root.inspectedCard
-        sourceItem: root.inspectedSourceItem
-        identityVisible: !!root.inspectedCard.name && root.inspectedCard.faceDown !== true
-            && root.inspectedCard.visible !== false
-        active: root.hoverPreviewVisible
-        fallbackImageSource: active && hasIdentity ? root.tableCardImageSource(root.inspectedCard) : ""
-    }
-    readonly property Timer previewDeparture: Timer {
-        interval: 350
-        onTriggered: if (!root.previewSourceActive && !root.previewHeld) root.hideCardPreview()
-    }
-    readonly property Connections inspectionProjectionSync: Connections {
-        target: root.tableRoot && root.tableRoot.gameTableModel ? root.tableRoot.gameTableModel : null
-        ignoreUnknownSignals: true
-        function onCardIndexRevisionChanged() { root.reconcileInspection() }
-        function onSnapshotChanged() { root.reconcileInspection() }
-    }
-    onPreviewHeldChanged: {
-        if (previewHeld) previewDeparture.stop()
-        else if (!previewSourceActive && hoverPreviewVisible) previewDeparture.restart()
-    }
-    onHoverPreviewHeightChanged: if (hoverPreviewVisible) repositionPreview()
-    onHoverPreviewWidthChanged: if (hoverPreviewVisible) repositionPreview()
-    onInspectedSourceItemChanged: if (!inspectedSourceItem && hoverPreviewVisible) hideCardPreview()
 
     function cardImageSource(card) {
         if (!card || !card.name)
@@ -199,17 +169,9 @@ QtObject {
             return
         inspectedCard = card
         inspectedSourceItem = sourceItem ? sourceItem : null
-        previewSourceActive = true
-        previewDeparture.stop()
-        repositionPreview()
-        hoverPreviewVisible = true
-    }
-
-    function repositionPreview() {
-        const previewWidth = hoverPreviewWidth
-        const previewHeight = hoverPreviewHeight
+        const previewWidth = Theme.size(250)
+        const previewHeight = Math.round(previewWidth * 88 / 63)
         const margin = Theme.size(12)
-        const sourceItem = inspectedSourceItem
         if (sourceItem) {
             const right = sourceItem.mapToItem(
                               tableRoot, sourceItem.width, 0)
@@ -231,6 +193,7 @@ QtObject {
                                 tableRoot.width - previewWidth - margin)
             hoverPreviewY = margin
         }
+        hoverPreviewVisible = true
     }
 
     function hideCardPreview(sourceItem) {
@@ -238,45 +201,11 @@ QtObject {
                 && sourceItem !== inspectedSourceItem) {
             return
         }
-        if (sourceItem && hoverPreviewVisible && facePreview.canSwitch) {
-            previewSourceActive = false
-            if (!previewHeld) previewDeparture.restart()
-            return
-        }
-        previewDeparture.stop()
-        previewSourceActive = false
-        previewHeld = false
         hoverPreviewVisible = false
         inspectedSourceItem = null
-        facePreview.resetFace()
-    }
-
-    function reconcileInspection() {
-        const model = tableRoot.gameTableModel
-        const id = inspectedCard.id
-        if (!hoverPreviewVisible || !id || !model || typeof model.cardData !== "function") return
-        let current = model.cardData(id)
-        if ((!current || !current.id) && model.seats) {
-            // Public library tops are seat metadata, outside the ordinary
-            // zone-card index. Read only the current, explicitly revealed top.
-            const seat = model.seats.find(entry => entry.libraryTopRevealed === true
-                && entry.libraryTopCard && entry.libraryTopCard.id === id)
-            if (seat) current = seat.libraryTopCard
-        }
-        if (!current || !current.id || !current.name || current.faceDown === true
-                || current.visibleIdentity === false || current.visible === false) {
-            hideCardPreview()
-            inspectedCard = ({})
-            return
-        }
-        if (JSON.stringify(current) !== JSON.stringify(inspectedCard)) inspectedCard = current
     }
 
     function reset() {
-        previewDeparture.stop()
-        previewSourceActive = false
-        previewHeld = false
-        facePreview.resetFace()
         prioritizedSignature = ""
         prioritizingVisibleCards = false
         inspectedCard = ({})

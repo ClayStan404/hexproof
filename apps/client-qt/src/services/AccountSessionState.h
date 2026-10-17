@@ -129,8 +129,6 @@ class AccountSessionState final : public QObject
     void tryAutomaticLogin();
     void saveSession(const QString &token);
     void clearIdentity();
-    void clearClaims();
-    void continueClaims();
     void nextClaim();
     QString vaultKey(const QString &realm) const;
 
@@ -139,7 +137,6 @@ class AccountSessionState final : public QObject
     VaultWrite m_write;
     QThreadPool m_vaultPool;
     QTimer m_timeout;
-    QTimer m_claimTimer;
     QHash<QString, QString> m_tokens;
     QHash<QString, bool> m_loaded;
     QString m_realm;

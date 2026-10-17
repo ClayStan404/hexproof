@@ -17,15 +17,6 @@ TestCase {
         property int imageRevision: 0
         function tableImageSource() { return "" }
     }
-    QtObject {
-        id: combatTransport
-        property int submissions: 0
-        property var submittedAssignments: []
-        function respondRulesPromptWithAssignments(id, values) {
-            submissions++
-            submittedAssignments = values
-        }
-    }
     ListModel {
         id: cards
         function validAssignments() { return true }
@@ -93,77 +84,6 @@ TestCase {
         Theme.uiScale = 1
         testTranslations.setLanguage("en")
     }
-
-    function test_combatTargetThemeLiteralTooltipAndSelection_data() {
-        return [{tag: "attackers", kind: "attackers", scale: 1},
-                {tag: "attackers-scaled", kind: "attackers", scale: 1.5},
-                {tag: "blockers", kind: "blockers", scale: 1}]
-    }
-
-    function test_combatTargetThemeLiteralTooltipAndSelection(data) {
-        Theme.uiScale = data.scale
-        combatTransport.submissions = 0
-        combatTransport.submittedAssignments = []
-        const publicTarget = "<b>Defender Alpha</b> & <i>literal public target name</i> ".repeat(4)
-        verify(testRulesPrompt.applyPrompt({roomId: "TARGET", gameId: "combat-target-theme", promptId: 81,
-            pending: true, supported: true,
-            kind: data.kind === "attackers" ? "chooseAttackers" : "chooseBlockers",
-            options: [], choices: [], cards: [], targets: [], contextCards: [], contextTargets: [],
-            combatSources: [{responseId: "opaque-source", objectId: "source-card",
-                name: "Isamaru, Hound of Konda", label: "Isamaru, Hound of Konda",
-                validTargetIds: ["opaque-alpha", "opaque-beta"], maxAssignments: 1}],
-            combatTargets: [{responseId: "opaque-alpha", kind: data.kind === "attackers" ? "player" : "attacker",
-                seat: 1, label: publicTarget, objectId: "target-alpha", maxAssignments: 1},
-                {responseId: "opaque-beta", kind: data.kind === "attackers" ? "player" : "attacker",
-                seat: 2, label: "Defender Beta", objectId: "target-beta", maxAssignments: 1}],
-            damageTargets: [], scryDestinations: [], totalDamage: 0}))
-        const prompt = createTemporaryObject(blockers, testWindow.contentItem, {
-            x: 620, y: 650, width: 360, height: 220,
-            wsModel: combatTransport, assignmentKind: data.kind
-        })
-        verify(prompt !== null)
-        verify(waitForPolish(testWindow))
-        const combo = findChild(prompt, "rulesCombatAssignment-opaque-source")
-        verify(combo !== null)
-        verify(waitForPolish(testWindow))
-        compare(combo.contentItem.textFormat, Text.PlainText)
-        compare(combo.contentItem.color, Theme.text)
-        compare(combo.font.pixelSize, Theme.fontSize(13))
-        compare(combo.currentIndex, 0)
-        tryCompare(combo.contentItem, "truncated", false)
-        combo.forceActiveFocus()
-        keyClick(Qt.Key_Down)
-        tryCompare(combo, "currentIndex", 1)
-        compare(prompt.assignments["opaque-source"], "opaque-alpha")
-        compare(combo.displayText, publicTarget)
-        verify(combo.contentItem.truncated)
-        const tip = findChild(combo, "rulesCombatTargetTooltip-opaque-source")
-        verify(tip !== null)
-        tryCompare(tip, "opened", true)
-        compare(tip.contentItem.textFormat, Text.PlainText)
-        compare(tip.contentItem.text, publicTarget)
-        verify(tip.contentItem.lineCount > 1)
-        verify(waitForPolish(testWindow))
-        const tipOrigin = tip.contentItem.mapToItem(testWindow.contentItem, 0, 0)
-        verify(tipOrigin.x >= 0 && tipOrigin.x + tip.contentItem.width <= testWindow.width,
-               "Full target tooltip must remain inside the window horizontally")
-        verify(tipOrigin.y >= 0 && tipOrigin.y + tip.contentItem.height <= testWindow.height,
-               "Full target tooltip must remain inside the window vertically")
-        mouseClick(combo)
-        tryCompare(combo.popup, "opened", true)
-        tryCompare(tip, "opened", false)
-        keyClick(Qt.Key_Escape)
-        tryCompare(combo.popup, "opened", false)
-        combo.forceActiveFocus()
-        keyClick(Qt.Key_Down)
-        tryCompare(combo, "currentIndex", 2)
-        compare(prompt.assignments["opaque-source"], "opaque-beta")
-        tryCompare(combo.contentItem, "truncated", false)
-        mouseClick(findChild(prompt, "rulesConfirmCombat-" + data.kind))
-        compare(combatTransport.submissions, 1)
-        compare(combatTransport.submittedAssignments,
-                [{sourceId: "opaque-source", targetId: "opaque-beta"}])
-    }
     function test_targetActionsFitTranslatedLabels_data() {
         return [{tag: "en", language: "en"}, {tag: "zh", language: "zh"}]
     }
@@ -194,14 +114,6 @@ TestCase {
             if (found) return found
         }
         return null
-    }
-    function test_targetKindsDoNotAssumePermanents() {
-        const prompt = createTemporaryObject(targets, testWindow.contentItem,
-                                            {width: 380, height: 240})
-        verify(prompt !== null)
-        compare(prompt.kindLabel("card"), "Card", "A public graveyard instant is a card, not a permanent")
-        compare(prompt.kindLabel("player"), "Player")
-        compare(prompt.kindLabel("spell"), "Spell on stack")
     }
     function test_candidatesRemainUsable_data() {
         let result = []

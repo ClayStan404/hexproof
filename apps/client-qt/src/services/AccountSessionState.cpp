@@ -32,12 +32,9 @@ AccountSessionState::AccountSessionState(const QString &profile, VaultRead read,
     connect(&m_timeout, &QTimer::timeout, this, [this] {
         m_pending.clear();
         m_sending = false;
-        clearClaims();
         m_lastError = tr("Account request timed out. Reconnect and retry.");
         emit changed();
     });
-    m_claimTimer.setSingleShot(true);
-    connect(&m_claimTimer, &QTimer::timeout, this, &AccountSessionState::nextClaim);
 }
 
 AccountSessionState::~AccountSessionState()
@@ -131,9 +128,6 @@ void AccountSessionState::setTransportReady(bool ready)
         m_pending.clear();
         m_sending = false;
         m_timeout.stop();
-        // A disconnected request may already have been accepted. End the
-        // batch and let the owner explicitly retry after reconnecting.
-        clearClaims();
     }
     emit changed();
     if (ready)
@@ -189,10 +183,8 @@ void AccountSessionState::commandQueued(const QString &id)
     m_sending = false;
     if (!id.isEmpty())
         m_timeout.start();
-    else {
-        clearClaims();
+    else
         m_lastError = tr("Connect to the official server before managing your account.");
-    }
     emit changed();
 }
 
@@ -223,7 +215,9 @@ void AccountSessionState::clearIdentity()
     m_recoveryCode.clear();
     m_devices.clear();
     m_resources.clear();
-    clearClaims();
+    m_claimQueue.clear();
+    m_activeClaim = {};
+    m_claimFailures = 0;
 }
 
 void AccountSessionState::acceptState(const QString &id, const QJsonObject &state)
@@ -261,8 +255,7 @@ void AccountSessionState::acceptState(const QString &id, const QJsonObject &stat
         emit replayGranted(grant.toObject());
     emit changed();
     if (operation == u"claim"_s) {
-        m_activeClaim = {};
-        m_claimTimer.start(45);
+        QTimer::singleShot(45, this, &AccountSessionState::nextClaim);
     } else if (operation == u"replays"_s && state.value(u"hasMore"_s).toBool()) {
         request(u"replays"_s, {{u"offset"_s, state.value(u"offset"_s).toInt() +
                                                  state.value(u"replays"_s).toArray().size()}});
@@ -281,7 +274,6 @@ void AccountSessionState::acceptState(const QString &id, const QJsonObject &stat
         else if (rooms.size() > 1)
             emit accountPageRequested();
     }
-    continueClaims();
 }
 
 void AccountSessionState::acceptError(const QString &id, const QString &code,
@@ -305,15 +297,13 @@ void AccountSessionState::acceptError(const QString &id, const QString &code,
     if (m_operation == u"claim"_s && authenticated()) {
         if (code == u"rate_limited"_s && !m_activeClaim.isEmpty()) {
             m_claimQueue.prepend(m_activeClaim);
-            m_claimTimer.start(60000);
+            QTimer::singleShot(60000, this, &AccountSessionState::nextClaim);
         } else {
             ++m_claimFailures;
-            m_claimTimer.start(45);
+            QTimer::singleShot(45, this, &AccountSessionState::nextClaim);
         }
-        m_activeClaim = {};
         emit changed();
     }
-    continueClaims();
 }
 
 void AccountSessionState::createAccount(const QString &name)
@@ -379,28 +369,11 @@ void AccountSessionState::claim(const QString &kind, const QString &id, const QS
 
 void AccountSessionState::claimAll(const QList<QJsonObject> &claims)
 {
-    if (busy() || !authenticated() || !m_supported || !m_ready || !m_claimQueue.isEmpty())
+    if (busy() || !authenticated() || !m_claimQueue.isEmpty())
         return;
-    m_claimTimer.stop();
     m_claimFailures = 0;
     m_claimQueue = claims;
     nextClaim();
-}
-
-void AccountSessionState::clearClaims()
-{
-    m_claimTimer.stop();
-    m_claimQueue.clear();
-    m_activeClaim = {};
-    m_claimFailures = 0;
-}
-
-void AccountSessionState::continueClaims()
-{
-    // A different account request can occupy the transport between claims.
-    // Its completion resumes only the unsent queue, preserving rate backoff.
-    if (!m_claimQueue.isEmpty() && !m_claimTimer.isActive() && m_ready && authenticated())
-        m_claimTimer.start(45);
 }
 
 void AccountSessionState::nextClaim()

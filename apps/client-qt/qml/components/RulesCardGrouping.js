@@ -31,10 +31,12 @@ function stackKey(card, zone) {
     if (card.exiledCardCount > 0 || (card.annotations || []).length > 0
         || (card.chosenCardIds || []).length > 0)
         return "id:" + id
-    // Tap, attack, entry and summoning sickness stay inside the slot.
-    // They must not split the pile or move neighboring cards.
     return [String(card.name).trim().toLocaleLowerCase(),
             card.token === true ? "token" : "card",
+            card.tapped === true ? "tapped" : "untapped",
+            card.enteredThisTurn === true ? "entered" : "established",
+            card.summoningSick === true ? "sick" : "ready",
+            card.attacking === true ? "attacking" : "ready",
             String(card.power || ""),
             String(card.toughness || ""),
             String(card.countersSummary || ""),

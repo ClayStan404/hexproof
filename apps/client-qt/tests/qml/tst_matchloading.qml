@@ -979,7 +979,8 @@ TestCase {
         verify(previewName !== null)
         verify(!previewName.visible)
         tryVerify(() => hoverPreview.visible)
-        fuzzyCompare(hoverPreview.height, hoverPreview.width * 88 / 63, 0.01)
+        compare(hoverPreview.height,
+                Math.round(hoverPreview.width * 88 / 63))
         table.selection.selectCard(relationSeats[0].battlefield[0], 0)
         targetSeat.triggered()
         compare(mockWs.setArrowCount, 1)

@@ -55,7 +55,6 @@ class CatalogRepository
     CardRecord lookup(const CatalogCardQuery &request, QString *error = nullptr) const;
     CardRecord lookupLocalizedPrinting(const CatalogCardQuery &request,
                                        const CardRecord &catalogIdentity, int indexVersion) const;
-    CardRecord imageFrameMetadata(const CardRecord &image) const;
     bool cachedScryfallArtIsUsable(const CardRecord &record) const;
     // Inserts rows while the file lock is held for the open connection, which
     // is intentional: the lock arbitrates use of the database file against

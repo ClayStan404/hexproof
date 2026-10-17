@@ -110,24 +110,8 @@ func TestNormalizeMulliganAndManaResponses(t *testing.T) {
       "canConfirmFromPool":true,"actions":[{"id":"tap:1","type":"activateAbility",
       "description":"{T}: Add {R}."}]}}`)
 	view, err = NormalizePrompt(mana)
-	if err != nil || len(view.Options) != 4 || view.Detail != "Shock {R}" || view.Title != "Pay Mana Cost: {R}" ||
-		view.PaymentID != "" {
+	if err != nil || len(view.Options) != 4 || view.Detail != "Shock {R}" || view.Title != "Pay Mana Cost: {R}" {
 		t.Fatalf("mana prompt = %+v, %v", view, err)
-	}
-	identified := json.RawMessage(`{"promptId":3,"decidingPlayerId":"player-0",
-      "input":{"type":"payManaCost","paymentId":"sa:42","manaCost":"{R}",
-      "actions":[{"id":"tap:1","type":"activateAbility","cardId":"land"}]}}`)
-	view, err = NormalizePrompt(identified)
-	if err != nil || view.PaymentID != "sa:42" {
-		t.Fatalf("payment id = %+v, %v", view, err)
-	}
-	for _, malformed := range []string{"mana cost text", ":42", "42"} {
-		raw := json.RawMessage(`{"promptId":3,"decidingPlayerId":"player-0",
-      "input":{"type":"payManaCost","paymentId":"` + malformed + `","manaCost":"{R}"}}`)
-		view, err = NormalizePrompt(raw)
-		if err != nil || view.PaymentID != "" || !view.Supported {
-			t.Fatalf("malformed payment id %q = %+v, %v", malformed, view, err)
-		}
 	}
 	response, err = BuildPromptResponse(mana, 0, 3,
 		PromptResponse{ResponseID: "$auto-pay"})
@@ -452,23 +436,6 @@ func TestNormalizeAndBuildBlockers(t *testing.T) {
 	if err != nil || string(empty) !=
 		`{"output":{"assignments":[],"type":"declareBlockers"},"type":"chooseBlockers"}` {
 		t.Fatalf("empty blocker response = %s, %v", empty, err)
-	}
-	short := json.RawMessage(`{"promptId":9,"decidingPlayerId":"player-1","input":{
-      "type":"chooseBlockers","attackers":[
-        {"attackerId":"card-a","validBlockerIds":["card-x"],"minBlockers":2}],
-      "availableBlockerIds":["card-x"],
-      "blockerAssignmentLimits":[{"blockerId":"card-x","maxAssignments":1}]}}`)
-	shortView, err := NormalizePrompt(short)
-	if err != nil || len(shortView.CombatSources) != 1 ||
-		len(shortView.CombatSources[0].ValidTargetIDs) != 1 {
-		t.Fatalf("an attacker that still needs blockers must stay selectable: %+v, %v", shortView, err)
-	}
-	if _, err := BuildPromptResponse(short, 1, 9, PromptResponse{
-		ResponseID: "$submit", Assignments: []PromptAssignment{
-			{SourceID: "combat-source:0", TargetID: "combat-target:0"},
-		},
-	}); err == nil {
-		t.Fatal("one blocker did not meet the attacker's minimum")
 	}
 	for _, assignments := range [][]PromptAssignment{
 		{{SourceID: "combat-source:0", TargetID: "combat-target:0"}},

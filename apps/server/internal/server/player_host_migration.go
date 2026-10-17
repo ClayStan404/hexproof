@@ -59,10 +59,10 @@ func (h *Handler) refreshPlayerHostStatus(r *room.Room) {
 		return
 	}
 	h.playerHostStateMu.Lock()
+	defer h.playerHostStateMu.Unlock()
 	status := h.playerHostingStatus(r.ID)
 	entry := h.hub.roomEntryFor(r.ID)
 	if entry == nil {
-		h.playerHostStateMu.Unlock()
 		return
 	}
 	entry.mu.Lock()
@@ -70,10 +70,6 @@ func (h *Handler) refreshPlayerHostStatus(r *room.Room) {
 	entry.mu.Unlock()
 	if !same {
 		h.sendPlayerHostState(r)
-	}
-	h.playerHostStateMu.Unlock()
-	if !status.Connected || status.Migrating {
-		h.pauseActionClockLocked(r)
 	}
 }
 
@@ -262,10 +258,9 @@ func (h *Handler) finishPlayerHostMigration(r *room.Room, game forgeRoomGame, pr
 		h.playerHostStateMu.Unlock()
 		next.Invalidate()
 		if !game.client.Healthy() {
-			h.terminateForgeGame(r, game, next)
+			h.terminateForgeGame(r, game)
 		}
 		h.refreshPlayerHostStatus(r)
-		h.refreshForgeActionClock(r)
 		return
 	}
 	game.client = next
@@ -281,12 +276,14 @@ func (h *Handler) finishPlayerHostMigration(r *room.Room, game forgeRoomGame, pr
 	primary.Close()
 	go h.watchForgeRuntime(next)
 	h.refreshPlayerHostStatus(r)
-	state, err := h.prepareForgePublication(r, game, false)
-	if err != nil {
+	projections, projectionErr := h.rulesProjections(r)
+	prompts, promptErr := h.rulesPrompts(r)
+	if projectionErr != nil || promptErr != nil {
 		h.failForgeGame(r)
 		return
 	}
-	h.sendForgePublication(r, state)
+	h.sendRulesProjections(projections)
+	h.sendRulesPrompts(prompts)
 }
 
 // The caller already owns the room operation lock. Clearing the migration ID

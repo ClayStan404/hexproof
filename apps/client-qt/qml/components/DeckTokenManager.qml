@@ -15,7 +15,7 @@ AppPopup {
     required property var catalogModel
     readonly property string cardLanguage: catalogModel && catalogModel.language || "en"
     readonly property var currentTokens: deckLibraryModel.currentTokens
-    property alias detailsPopup: tokenDetailsPopup
+    property alias detailsPopup: detailsPopup
     signal addRequested()
     onOpened: cacheDisplayedTokens()
     onCardLanguageChanged: if (opened) cacheDisplayedTokens()
@@ -137,7 +137,7 @@ AppPopup {
                                     acceptedButtons: Qt.LeftButton
                                     onTapped: {
                                         preview.hide()
-                                        tokenDetailsPopup.showCard(tokenCell.modelData)
+                                        detailsPopup.showCard(tokenCell.modelData)
                                     }
                                 }
                             }
@@ -172,7 +172,7 @@ AppPopup {
                                 acceptedButtons: Qt.LeftButton
                                 onTapped: {
                                     preview.hide()
-                                    tokenDetailsPopup.showCard(tokenCell.modelData)
+                                    detailsPopup.showCard(tokenCell.modelData)
                                 }
                             }
                         }
@@ -191,7 +191,7 @@ AppPopup {
                                 acceptedButtons: Qt.LeftButton
                                 onTapped: {
                                     preview.hide()
-                                    tokenDetailsPopup.showCard(tokenCell.modelData)
+                                    detailsPopup.showCard(tokenCell.modelData)
                                 }
                             }
                         }
@@ -254,10 +254,10 @@ AppPopup {
 
     onClosed: {
         preview.hide()
-        tokenDetailsPopup.close()
+        detailsPopup.close()
     }
     TokenDetailsPopup {
-        id: tokenDetailsPopup
+        id: detailsPopup
         catalogModel: root.catalogModel
     }
     Item {
@@ -265,6 +265,7 @@ AppPopup {
         anchors.fill: parent
         anchors.margins: Theme.size(12)
         visible: root.opened
+        enabled: false
         z: 1000
         // Keep the preview outside the manager's ColumnLayout.
         CardHoverPreview {

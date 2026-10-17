@@ -85,11 +85,6 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
         m_protocolSession->resolveFailure(requestId, m_lastError);
     });
 
-    m_deferredRulesTimer.setParent(this);
-    m_deferredRulesTimer.setSingleShot(true);
-    m_deferredRulesTimer.setInterval(100);
-    connect(&m_deferredRulesTimer, &QTimer::timeout, this, &WsClient::applyDeferredRulesSnapshot);
-
     m_serverDirectory = new ServerDirectory(this);
     connect(m_serverDirectory, &ServerDirectory::latenciesChanged, this,
             &WsClient::serverLatenciesChanged);
@@ -113,7 +108,6 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
     }
     m_protocolSession = new ProtocolSession(this);
     m_replays = new ForgeReplayService(this);
-    m_crashReports = new ForgeCrashReportService(this);
     m_account = new AccountSessionState(this);
     connect(m_account, &AccountSessionState::commandRequested, this,
             [this](const QJsonObject &payload) {
@@ -138,26 +132,15 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
                     m_replays->fail(tr("Connect to the original server to download this replay."));
                     return;
                 }
-                m_replayRequestId = send(kTypeForgeReplayGet, payload);
-                if (m_replayRequestId.isEmpty())
+                if (send(kTypeForgeReplayGet, payload).isEmpty())
                     m_replays->fail(tr("Could not request the replay."));
             });
-    connect(m_replays, &ForgeReplayService::statusChanged, this, [this] {
-        if (m_replays->busy() || m_replayRequestId.isEmpty())
-            return;
-        const QString requestId = m_replayRequestId;
-        m_replayRequestId.clear();
-        m_protocolSession->resolveFailure(requestId, m_replays->error());
-    });
-    connect(m_protocolSession, &ProtocolSession::commandFailed, m_replays,
-            [this](const QString &requestId, const QString &type, const QVariantMap &,
-                   const QString &error) {
-                if (type == kTypeForgeReplayGet && !requestId.isEmpty() &&
-                    requestId == m_replayRequestId) {
-                    m_replayRequestId.clear();
-                    m_replays->fail(error);
-                }
-            });
+    connect(
+        m_protocolSession, &ProtocolSession::commandFailed, m_replays,
+        [this](const QString &, const QString &type, const QVariantMap &, const QString &error) {
+            if (type == kTypeForgeReplayGet)
+                m_replays->fail(error);
+        });
     connect(&m_clusterTransfer, &ClusterTransfer::routedChanged, this,
             &WsClient::transferringChanged);
     connect(&m_clusterTransfer, &ClusterTransfer::timedOut, this, [this] {
@@ -336,7 +319,6 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
 
 void WsClient::openTransport()
 {
-    clearDeferredRulesSnapshot();
     // Abort before advancing the generation, so even the old socket's final
     // disconnect is tagged with its old identity. Parser deliveries retain
     // their original order within one transport, including its final message.
@@ -446,7 +428,6 @@ void WsClient::refreshServerDirectory(bool force)
 
 void WsClient::disconnectFromHub()
 {
-    clearDeferredRulesSnapshot();
     clearClusterCommand();
     m_intentionalDisconnect = true;
     m_reconnectController->stopRetry();
@@ -649,7 +630,6 @@ void WsClient::onConnected()
     p.insert(u"displayName"_s, m_displayName);
     p.insert(u"clientVersion"_s, QStringLiteral(HEXPROOF_VERSION));
     p.insert(u"protocol"_s, kProtocolVersion);
-    p.insert(u"rulesCrashReportSchema"_s, 1);
     const QString accountToken =
         m_account->helloToken(m_serverDirectory->accountRealmForUrl(m_serverUrl));
     if (!accountToken.isEmpty())
@@ -676,7 +656,6 @@ void WsClient::onDisconnected(quint64 transportGeneration)
 {
     if (transportGeneration != m_transportGeneration)
         return;
-    clearDeferredRulesSnapshot();
     if (m_clusterTransfer.routed()) {
         const QString requestId = m_clusterTransfer.requestId();
         clearClusterCommand();
@@ -700,7 +679,6 @@ void WsClient::onDisconnected(quint64 transportGeneration)
         // room-ending failure still rolls back via clearRoomState().
         if (m_state != Reconnecting)
             m_reconnectController->beginReconnectWindow();
-        m_rulesSession->jumpNextSnapshot();
         setState(Reconnecting);
         emit inRoomChanged();
         m_reconnectController->scheduleRetry();
@@ -816,7 +794,6 @@ void WsClient::setForgeRulesAvailable(bool available)
 
 void WsClient::clearGameState()
 {
-    clearDeferredRulesSnapshot();
     clearRulesResponse();
     m_gameSession->clear();
     m_rulesSession->clear();

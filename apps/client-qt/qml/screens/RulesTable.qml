@@ -15,16 +15,9 @@ Page {
     required property var gameTableModel
     required property var sideboardTableModel
     property var preferencesModel: null
-    property var tournamentModel: null
     property bool replayMode: false
     property var replayFrame: ({})
     property var rulesSession: wsModel.rulesSession
-    function syncPresentationCatalog() {
-        if (rulesSession && cardCatalogModel && rulesSession.setPresentationCatalog)
-            rulesSession.setPresentationCatalog(cardCatalogModel)
-    }
-    onCardCatalogModelChanged: syncPresentationCatalog()
-    onRulesSessionChanged: syncPresentationCatalog()
     property var gameSession: wsModel.gameSession
     property Component tablePresentationComponent: forgePresentation
     readonly property bool roomConnected: replayMode || wsModel.inRoom === true
@@ -63,11 +56,8 @@ Page {
     readonly property var cardActionPicker: presentation ? presentation.decisionDock.actionPicker : null
     readonly property var interaction: tableInteraction
     readonly property var priority: priorityController
-    readonly property var combatInteraction: combatSelection
-    readonly property var feedbackWindow: ApplicationWindow.window
-    readonly property bool feedbackInteractionOpen: feedbackWindow && feedbackWindow.feedbackInteractionOpen === true
+    readonly property var combatInteraction: combatInteraction
     readonly property bool priorityInputBlocked: hostingPaused || backgroundPopup.opened
-        || feedbackInteractionOpen
         || rulesConcedeConfirmation.opened || matchUi.modalOpen === true
         || (presentation && presentation.modalOpen === true)
     property bool showGameLogRail: false
@@ -187,7 +177,7 @@ Page {
     }
 
     ForgeCombatInteraction {
-        id: combatSelection
+        id: combatInteraction
         tableController: root
     }
 
@@ -241,41 +231,13 @@ Page {
         }
     }
 
-    function openCardDetails(cardId, source) {
-        if (!inspector) return
-        if (presentation && typeof presentation.preparePinnedInspection === "function")
-            presentation.preparePinnedInspection()
-        if (!inspector.showCard(cardId, source) && presentation
-                && typeof presentation.clearPinnedHoverGuard === "function")
-            presentation.clearPinnedHoverGuard()
+    function openCardDetails(cardId) {
+        if (inspector) inspector.showCard(cardId)
     }
 
-    function restoreInspectionFocus(source) {
-        const target = source && source.inspectionFocusItem ? source.inspectionFocusItem : source
-        const gameId = rulesSession.gameId
-        // Restore after the reserved column closes and hand/lane geometry
-        // settles. Authority-driven clear() never requests this focus change.
-        Qt.callLater(function() {
-            if (!root.roomConnected || root.sideboarding || root.priorityInputBlocked
-                    || root.rulesSession.gameId !== gameId)
-                return
-            if (target && target.visible && target.enabled)
-                target.forceActiveFocus(Qt.OtherFocusReason)
-            else {
-                // Page is a focus scope: release its hidden close button
-                // before focusing the scope itself when the source is gone.
-                const current = root.feedbackWindow ? root.feedbackWindow.activeFocusItem : null
-                if (current && !current.visible) current.focus = false
-                root.forceActiveFocus(Qt.OtherFocusReason)
-            }
-        })
-    }
-
-    function previewCard(cardId, source, keyboardFocus) {
+    function previewCard(cardId, source) {
         if (roomConnected && !sideboarding && inspector
-                && (!presentation.suppressHoverDuringDecision || !rulesSession.promptPending || priority.isPriorityPrompt)
-                && (typeof presentation.acceptCardPreview !== "function"
-                    || presentation.acceptCardPreview(cardId, source, keyboardFocus)))
+                && (!presentation.suppressHoverDuringDecision || !rulesSession.promptPending || priority.isPriorityPrompt))
             inspector.previewCard(cardId, source)
     }
 
@@ -287,6 +249,7 @@ Page {
         if (!name || !cardCatalogModel
                 || typeof cardCatalogModel.tableImageSource !== "function")
             return ""
+        void cardCatalogModel.imageRevision
         return cardCatalogModel.tableImageSource(
                     name, setCode || "", collectorNumber || "")
     }
@@ -399,10 +362,7 @@ Page {
             root.refreshFrozenRules()
         }
     }
-    Component.onCompleted: {
-        syncPresentationCatalog()
-        refreshFrozenRules()
-    }
+    Component.onCompleted: refreshFrozenRules()
 
     function promptTitle(kind, title) {
         if (kind === "diceRolled")
@@ -457,43 +417,24 @@ Page {
         return playDraggedHandCard(source.cardId, source.name)
     }
 
-    // A replaced page leaves focus on the window, so the table keys would
-    // only answer after the player clicked something focusable.
-    StackView.onActivated: { if (!feedbackInteractionOpen) forceActiveFocus() }
-
     Keys.onSpacePressed: event => {
-        Theme.finishMotion()
         event.accepted = priority.passOnce()
     }
 
     Keys.onEscapePressed: event => {
-        if (feedbackInteractionOpen) {
-            event.accepted = true
-            return
-        }
-        Theme.finishMotion()
-        if (interaction.dismissQueuedPayment()) {
-            event.accepted = true
-        } else if (interaction.fanOwner) {
-            interaction.fanOwner.closeFan()
-            event.accepted = true
-        } else if (combatSelection.selectedSource.length > 0
-                   || combatSelection.pendingAttacker.length > 0) {
-            combatSelection.cancelSelection()
+        if (combatInteraction.selectedSource.length > 0) {
+            combatInteraction.cancelSelection()
             event.accepted = true
         } else if (priority.yieldMode.length > 0) {
             priority.cancelYield()
             event.accepted = true
         } else if (inspector && presentation.inspectionDock.inspectionOpened) {
-            inspector.dismiss()
+            inspector.clear()
             event.accepted = true
         } else {
             event.accepted = false
         }
     }
-
-    // Runs only for keys the specific handlers left unaccepted.
-    Keys.onPressed: Theme.finishMotion()
 
     function openConcedeConfirmation() {
         if (!canConcede)

@@ -4,7 +4,6 @@
 #include "services/CardArtArchive.h"
 #include "services/CardArtAudit.h"
 #include "services/CardArtCache.h"
-#include "services/CardArtCrop.h"
 #include "services/CardCatalogCommon.h"
 
 #include <QCryptographicHash>
@@ -33,9 +32,6 @@ namespace {
 
 const QByteArray kPng = QByteArray::fromBase64(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
-
-const QString kFullImageUrl =
-    u"https://cards.scryfall.io/normal/front/a/b/ab000000-0000-0000-0000-000000000001.jpg?1"_s;
 
 bool writeFile(const QString &path, const QByteArray &bytes)
 {
@@ -114,12 +110,6 @@ class TestCardArtArchive final : public QObject
   private slots:
     void inventoryGroupsIndexedAndUnusedFiles() const;
     void packRoundTripDeduplicatesImageBytes() const;
-    void optionalCropRoundTrip() const;
-    void importCropFollowsWinningFullImage_data() const;
-    void importCropFollowsWinningFullImage() const;
-    void exportSkipsUnusableOptionalCrop_data() const;
-    void exportSkipsUnusableOptionalCrop() const;
-    void importRejectsCorruptCropPayload() const;
     void importReusesDownloadedBytesForNewAliasesAndMetadata() const;
     void importReplacesCorruptExistingImage() const;
     void importPrefersRequestedLanguageAndMergesRules() const;
@@ -777,219 +767,6 @@ void TestCardArtArchive::packRoundTripDeduplicatesImageBytes() const
     QVERIFY(restored.exactRecord(beta.cacheKey).valid());
 }
 
-void TestCardArtArchive::optionalCropRoundTrip() const
-{
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    CardArtCache source(directory.filePath(u"source"_s));
-    auto entry = cacheEntry(&source, u"Island"_s, u"TST"_s, u"en"_s,
-                            QDir(source.imageRoot()).filePath(u"full.png"_s));
-    entry.record.imageUrl = kFullImageUrl;
-    entry.record.artCropUrl = catalog_internal::artCropUrlForImage(kFullImageUrl);
-    entry.record.artCropPath = QDir(source.imageRoot()).filePath(u"crop.png"_s);
-    QVERIFY(writeFile(entry.record.imagePath, kPng));
-    QImage crop(4, 3, QImage::Format_RGB32);
-    crop.fill(Qt::blue);
-    QVERIFY(crop.save(entry.record.artCropPath, "PNG"));
-    const QString packPath = directory.filePath(u"crop.hexproof-artpack"_s);
-    const auto exported = cardart::exportPack(packPath, source.imageRoot(), {entry}, false, {}, {});
-    QVERIFY2(exported.ok, qPrintable(exported.error));
-    QCOMPARE(exported.entryCount, 1);
-    QCOMPARE(exported.imageCount, 2);
-    QFile pack(packPath);
-    QVERIFY(pack.open(QIODevice::ReadOnly));
-    QCOMPARE(pack.read(8), QByteArray("HXPART01"));
-    QDataStream stream(&pack);
-    stream.setByteOrder(QDataStream::BigEndian);
-    quint32 size = 0;
-    stream >> size;
-    const QByteArray manifestBytes = pack.read(size);
-    QVERIFY(!manifestBytes.contains(source.imageRoot().toUtf8()));
-    const QJsonObject manifest = QJsonDocument::fromJson(manifestBytes).object();
-    QCOMPARE(manifest.value(u"formatVersion"_s).toInt(), 1);
-    const QJsonObject object = manifest.value(u"entries"_s).toArray().first().toObject();
-    QVERIFY(!object.contains(u"imagePath"_s));
-    QVERIFY(!object.contains(u"artCropPath"_s));
-    QVERIFY(!object.value(u"artCropBlobSha256"_s).toString().isEmpty());
-    pack.close();
-
-    CardArtCache target(directory.filePath(u"target"_s));
-    const auto imported = cardart::importPack(packPath, target.imageRoot());
-    QVERIFY2(imported.ok, qPrintable(imported.error));
-    QCOMPARE(imported.createdImagePaths.size(), 2);
-    const CardRecord restored = imported.importedEntries.first().record;
-    QCOMPARE(restored.imageUrl, entry.record.imageUrl);
-    QCOMPARE(restored.artCropUrl, entry.record.artCropUrl);
-    QCOMPARE(QImage(restored.artCropPath), crop);
-    QVERIFY(restored.imagePath != restored.artCropPath);
-    target.replaceEntries(imported.importedEntries);
-    const QVariantMap inventory = cardart::inventory(target.imageRoot(), target.entries());
-    QCOMPARE(inventory.value(u"cachedEntryCount"_s).toInt(), 1);
-    QCOMPARE(inventory.value(u"imageCount"_s).toInt(), 2);
-    QCOMPARE(inventory.value(u"orphanCount"_s).toInt(), 0);
-    QCOMPARE(inventory.value(u"groups"_s).toList().first().toMap().value(u"imageCount"_s).toInt(),
-             2);
-    const auto repeated = cardart::importPack(packPath, target.imageRoot(), target.entries());
-    QVERIFY(repeated.ok);
-    QVERIFY(repeated.createdImagePaths.isEmpty());
-    QVERIFY(repeated.retainedEntryKeys.contains(entry.cacheKey));
-    QCOMPARE(repeated.importedEntries.first().record.artCropPath, restored.artCropPath);
-}
-
-void TestCardArtArchive::importCropFollowsWinningFullImage_data() const
-{
-    QTest::addColumn<bool>("sameImage");
-    QTest::addColumn<bool>("incomingCrop");
-    QTest::addColumn<int>("existingCrop");
-    QTest::newRow("supplement matching full image") << true << true << 0;
-    QTest::newRow("do not mix another printing") << false << true << 0;
-    QTest::newRow("preserve an existing crop") << true << true << 1;
-    QTest::newRow("repair a corrupt crop") << true << true << 2;
-    QTest::newRow("legacy pack keeps an existing crop") << true << false << 1;
-}
-
-void TestCardArtArchive::importCropFollowsWinningFullImage() const
-{
-    QFETCH(bool, sameImage);
-    QFETCH(bool, incomingCrop);
-    QFETCH(int, existingCrop);
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    CardArtCache source(directory.filePath(u"source"_s));
-    auto incoming = cacheEntry(&source, u"Island"_s, u"TST"_s, u"en"_s,
-                               QDir(source.imageRoot()).filePath(u"full.png"_s));
-    incoming.record.imageUrl = kFullImageUrl;
-    QVERIFY(writeFile(incoming.record.imagePath, kPng));
-    if (incomingCrop) {
-        incoming.record.artCropUrl = catalog_internal::artCropUrlForImage(kFullImageUrl);
-        incoming.record.artCropPath = QDir(source.imageRoot()).filePath(u"crop.png"_s);
-        QImage crop(4, 3, QImage::Format_RGB32);
-        crop.fill(Qt::green);
-        QVERIFY(crop.save(incoming.record.artCropPath, "PNG"));
-    }
-    const QString packPath = directory.filePath(u"crop.hexproof-artpack"_s);
-    QVERIFY(cardart::exportPack(packPath, source.imageRoot(), {incoming}, false, {}, {}).ok);
-    CardArtCache target(directory.filePath(u"target"_s));
-    auto existing = incoming;
-    existing.record.imagePath = QDir(target.imageRoot()).filePath(u"existing.png"_s);
-    QVERIFY(writeFile(existing.record.imagePath, kPng));
-    existing.record.artCropUrl.clear();
-    existing.record.artCropPath.clear();
-    if (!sameImage)
-        existing.record.imageUrl.replace(u"000000000001"_s, u"000000000002"_s);
-    if (existingCrop) {
-        existing.record.artCropUrl = catalog_internal::artCropUrlForImage(existing.record.imageUrl);
-        existing.record.artCropPath = QDir(target.imageRoot()).filePath(u"existing-crop.png"_s);
-        QVERIFY(writeFile(existing.record.artCropPath,
-                          existingCrop == 1 ? kPng : QByteArray("corrupt")));
-    }
-    const bool addsCrop = sameImage && incomingCrop && existingCrop != 1;
-    const QVariantMap preview = cardart::inspectPack(packPath, {existing}, target.imageRoot());
-    QVERIFY(preview.value(u"ok"_s).toBool());
-    QCOMPARE(preview.value(u"newEntryCount"_s).toInt(), addsCrop ? 1 : 0);
-    const auto imported = cardart::importPack(packPath, target.imageRoot(), {existing});
-    QVERIFY2(imported.ok, qPrintable(imported.error));
-    const CardRecord result = imported.importedEntries.first().record;
-    QCOMPARE(result.imageUrl, existing.record.imageUrl);
-    QCOMPARE(result.imagePath, existing.record.imagePath);
-    QCOMPARE(imported.createdImagePaths.size(), addsCrop ? 1 : 0);
-    QCOMPARE(imported.retainedEntryKeys.contains(existing.cacheKey), !addsCrop);
-    if (existingCrop == 1) {
-        QCOMPARE(result.artCropPath, existing.record.artCropPath);
-    } else if (addsCrop) {
-        QVERIFY(!result.artCropPath.isEmpty());
-        QCOMPARE(QImage(result.artCropPath), QImage(incoming.record.artCropPath));
-    } else {
-        QVERIFY(result.artCropPath.isEmpty());
-        QVERIFY(result.artCropUrl.isEmpty());
-    }
-}
-
-void TestCardArtArchive::exportSkipsUnusableOptionalCrop_data() const
-{
-    QTest::addColumn<QString>("kind");
-    QTest::newRow("missing") << u"missing"_s;
-    QTest::newRow("corrupt") << u"corrupt"_s;
-    QTest::newRow("other printing") << u"other"_s;
-}
-
-void TestCardArtArchive::exportSkipsUnusableOptionalCrop() const
-{
-    QFETCH(QString, kind);
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    CardArtCache source(directory.path());
-    auto entry = cacheEntry(&source, u"Island"_s, u"TST"_s, u"en"_s,
-                            QDir(source.imageRoot()).filePath(u"full.png"_s));
-    entry.record.imageUrl = kFullImageUrl;
-    entry.record.artCropUrl = catalog_internal::artCropUrlForImage(kFullImageUrl);
-    entry.record.artCropPath = QDir(source.imageRoot()).filePath(u"crop.png"_s);
-    QVERIFY(writeFile(entry.record.imagePath, kPng));
-    if (kind != u"missing"_s)
-        QVERIFY(
-            writeFile(entry.record.artCropPath, kind == u"corrupt"_s ? QByteArray("bad") : kPng));
-    if (kind == u"other"_s)
-        entry.record.artCropUrl.replace(u"000000000001"_s, u"000000000002"_s);
-    const QString packPath = directory.filePath(u"crop.hexproof-artpack"_s);
-    const auto exported = cardart::exportPack(packPath, source.imageRoot(), {entry}, false, {}, {});
-    QVERIFY(exported.ok);
-    QCOMPARE(exported.imageCount, 1);
-    QCOMPARE(exported.skippedCount, 0);
-    const auto imported = cardart::importPack(packPath, directory.filePath(u"target-images"_s));
-    QVERIFY(imported.ok);
-    QCOMPARE(imported.importedEntries.size(), 1);
-    QVERIFY(imported.importedEntries.first().record.artCropUrl.isEmpty());
-    QVERIFY(imported.importedEntries.first().record.artCropPath.isEmpty());
-}
-
-void TestCardArtArchive::importRejectsCorruptCropPayload() const
-{
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    CardArtCache source(directory.path());
-    auto entry = cacheEntry(&source, u"Island"_s, u"TST"_s, u"en"_s,
-                            QDir(source.imageRoot()).filePath(u"full.png"_s));
-    entry.record.imageUrl = kFullImageUrl;
-    entry.record.artCropUrl = catalog_internal::artCropUrlForImage(kFullImageUrl);
-    entry.record.artCropPath = QDir(source.imageRoot()).filePath(u"crop.png"_s);
-    QVERIFY(writeFile(entry.record.imagePath, kPng));
-    QImage crop(4, 3, QImage::Format_RGB32);
-    crop.fill(Qt::blue);
-    QVERIFY(crop.save(entry.record.artCropPath, "PNG"));
-    const QString packPath = directory.filePath(u"crop.hexproof-artpack"_s);
-    QVERIFY(cardart::exportPack(packPath, source.imageRoot(), {entry}, false, {}, {}).ok);
-    QFile pack(packPath);
-    QVERIFY(pack.open(QIODevice::ReadWrite));
-    QVERIFY(pack.seek(8));
-    QDataStream stream(&pack);
-    stream.setByteOrder(QDataStream::BigEndian);
-    quint32 manifestLength = 0;
-    stream >> manifestLength;
-    const QJsonObject manifest = QJsonDocument::fromJson(pack.read(manifestLength)).object();
-    const QString cropHash = manifest.value(u"entries"_s)
-                                 .toArray()
-                                 .first()
-                                 .toObject()
-                                 .value(u"artCropBlobSha256"_s)
-                                 .toString();
-    qint64 offset = pack.pos();
-    for (const QJsonValue &value : manifest.value(u"images"_s).toArray()) {
-        const QJsonObject image = value.toObject();
-        if (image.value(u"sha256"_s).toString() == cropHash) {
-            QVERIFY(pack.seek(offset));
-            QCOMPARE(pack.write("!"), 1);
-            break;
-        }
-        offset += image.value(u"bytes"_s).toInteger();
-    }
-    pack.close();
-    const QString target = directory.filePath(u"target-images"_s);
-    const auto imported = cardart::importPack(packPath, target);
-    QVERIFY(!imported.ok);
-    QVERIFY(imported.importedEntries.isEmpty());
-    QVERIFY(QDir(target).entryList(QDir::Files).isEmpty());
-}
-
 void TestCardArtArchive::importReusesDownloadedBytesForNewAliasesAndMetadata() const
 {
     QTemporaryDir directory;
@@ -1139,13 +916,11 @@ void TestCardArtArchive::importAcceptsLegacyRulesAndRejectsInvalidMetadata() con
     legacy.remove(u"oracleText"_s);
     legacy.remove(u"oracleTextLanguage"_s);
     legacy.remove(u"localizedRulesChecked"_s);
-    legacy.insert(u"artCropPath"_s, u"/outside/attacker-controlled.png"_s);
     QVERIFY(rewriteEntry(legacy));
     auto imported = cardart::importPack(packPath, cache.imageRoot());
     QVERIFY2(imported.ok, qPrintable(imported.error));
     QCOMPARE(imported.importedEntries.first().record.imageLanguage, u"en"_s);
     QVERIFY(imported.importedEntries.first().record.oracleTextLanguage.isEmpty());
-    QVERIFY(imported.importedEntries.first().record.artCropPath.isEmpty());
 
     const QList<QPair<QString, QJsonValue>> invalid{
         {u"oracleText"_s, 42},
@@ -1155,9 +930,6 @@ void TestCardArtArchive::importAcceptsLegacyRulesAndRejectsInvalidMetadata() con
         {u"oracleTextLanguage"_s, true},
         {u"oracleTextLanguage"_s, QString{}},
         {u"localizedRulesChecked"_s, u"true"_s},
-        {u"artCropUrl"_s, 42},
-        {u"artCropBlobSha256"_s, true},
-        {u"artCropBlobSha256"_s, QString(64, QLatin1Char('f'))},
     };
     for (const auto &[key, value] : invalid) {
         QJsonObject malformed = originalEntry;

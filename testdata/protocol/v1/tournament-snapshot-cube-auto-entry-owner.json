@@ -1,7 +1,6 @@
 {
   "type": "tournament.snapshot",
   "payload": {
-    "actionClockEnabled": false,
     "tournamentId": "CUB234",
     "name": "Two-player Cube",
     "format": "Cube",

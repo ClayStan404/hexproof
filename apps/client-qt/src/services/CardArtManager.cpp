@@ -649,8 +649,6 @@ void CardArtManager::removeSelection(bool selectionOnly, const QString &setCode,
                                   for (const auto &entry : removed) {
                                       if (!entry.record.imagePath.isEmpty())
                                           candidates.insert(entry.record.imagePath);
-                                      if (!entry.record.artCropPath.isEmpty())
-                                          candidates.insert(entry.record.artCropPath);
                                   }
                                   return cardart::removeUnreferencedFiles(imageRoot, referenced,
                                                                           candidates, removeAll);

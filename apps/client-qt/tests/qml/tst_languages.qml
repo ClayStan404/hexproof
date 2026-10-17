@@ -23,14 +23,6 @@ TestCase {
         LanguageSettings { }
     }
 
-    Component {
-        id: connectionBannerComponent
-        InfoBanner {
-            property string source: ""
-            message: I18n.status(source)
-        }
-    }
-
     // Every shipped interface language except source English. The codes and
     // native labels mirror src/UiLanguages.h; the settings list comes from the
     // same table through the uiLanguages context property.
@@ -102,32 +94,6 @@ TestCase {
                 "Card-art migration does not follow symbolic links or special files.")
         testTranslations.setLanguage("")
         compare(uiCatalogProbe(), "Interface language")
-    }
-
-    function test_connectionErrorFollowsLanguageChanges_data() {
-        return [
-            {tag: "unavailable", source: "connection: action not sent while the connection is unavailable"},
-            {tag: "unqueued", source: "connection: action could not be queued for sending"}
-        ]
-    }
-
-    function test_connectionErrorFollowsLanguageChanges(data) {
-        const english = "The action could not be sent. Check the connection and try again."
-        const banner = createTemporaryObject(connectionBannerComponent, window.contentItem, {
-            source: data.source
-        })
-        verify(banner !== null)
-        compare(banner.message, english)
-        for (const code of languageCodes) {
-            testTranslations.setLanguage(code)
-            verify(banner.message !== english && banner.message !== data.source, code)
-            verify(!banner.message.startsWith("connection:"), code)
-            compare(banner.source, data.source)
-            testTranslations.setLanguage("en")
-            compare(banner.message, english)
-        }
-        testTranslations.setLanguage("zh")
-        compare(banner.message, "操作未能发送，请检查连接后重试。")
     }
 
     function test_scryUsesMagicTerminology_data() {

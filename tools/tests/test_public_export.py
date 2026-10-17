@@ -24,14 +24,11 @@ class PublicExportTests(unittest.TestCase):
         self.write("tools/tests/test_deploy_script.py", "private deployment test\n")
         self.write("tools/tests/test_home_deployment.py", "private home deployment test\n")
         self.write("tools/tests/test_home_rollout.py", "private home rollout test\n")
-        self.write("tools/tests/test_feedback_deployment.py", "private feedback deployment test\n")
         self.write("tools/package-home-node.py", "private home deployment packager\n")
         self.write("deploy/deploy-home-release.py", "private release deployment backend\n")
-        self.write("deploy/feedback/install.py", "private feedback deployment installer\n")
         for name in (".github/workflows/ci.yml", ".clang-format", ".gitattributes", ".gitignore", "LICENSE",
                      "CHANGELOG.md", "THIRD-PARTY-NOTICES.md", "docs/development-policy.md",
                      "docs/guide/README.md", "docs/rules-engine.md", "docs/player-hosted-forge.md", "docs/home-servers.md",
-                     "docs/feedback-operations.md",
                      "docs/public-content.md", "docs/accounts.md", "docs/official-cluster.md",
                      "deploy/cluster.example.json", "packaging/README.md", "protocol/example.json",
                      "testdata/example.json", "third_party/README.md"):
@@ -73,10 +70,8 @@ class PublicExportTests(unittest.TestCase):
         self.assertFalse((self.target / "tools/tests/test_deploy_script.py").exists())
         self.assertFalse((self.target / "tools/tests/test_home_deployment.py").exists())
         self.assertFalse((self.target / "tools/tests/test_home_rollout.py").exists())
-        self.assertFalse((self.target / "tools/tests/test_feedback_deployment.py").exists())
         self.assertFalse((self.target / "tools/package-home-node.py").exists())
         self.assertFalse((self.target / "deploy/deploy-home-release.py").exists())
-        self.assertFalse((self.target / "deploy/feedback/install.py").exists())
         self.assertEqual(image.read_text(), "User reference\n")
 
     def test_private_home_rollout_changes_do_not_block_export(self):
@@ -89,32 +84,6 @@ class PublicExportTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertFalse((self.target / "tools" / name).exists())
 
-    def test_feedback_packaging_guide_is_public_but_deployment_implementation_is_private(self):
-        self.write("packaging/server/package-guide.sh",
-                   'set -eu\nmkdir -p "$1"\ncp docs/feedback-operations.md "$1/FEEDBACK.md"\n')
-        self.git("add", "packaging/server/package-guide.sh")
-        self.git("-c", "user.name=Export Test", "-c", "user.email=export@example.invalid",
-                 "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null",
-                 "commit", "--quiet", "-m", "Server packaging guide fixture")
-        self.write("tools/tests/test_feedback_deployment.py", "private deployment changes\n")
-        self.write("deploy/feedback/credentials.json", '{"smtpPassword":"private fixture"}\n')
-        result = self.run_export()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        packaged = Path(self.root.parent) / "package"
-        result = subprocess.run(["bash", "packaging/server/package-guide.sh", str(packaged)],
-                                cwd=self.target, text=True, capture_output=True, timeout=10)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((packaged / "FEEDBACK.md").read_text(), "Fixture\n")
-        self.assertFalse((self.target / "tools/tests/test_feedback_deployment.py").exists())
-        self.assertFalse((self.target / "deploy/feedback").exists())
-
-    def test_uncommitted_feedback_packaging_guide_blocks_stale_export(self):
-        self.write("docs/feedback-operations.md", "Updated public receiver operations\n")
-        result = self.run_export()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Exported paths have uncommitted changes", result.stderr)
-        self.assertFalse(self.target.exists())
-
     def test_committed_internal_policy_is_never_exported(self):
         result = self.run_export()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -124,7 +93,6 @@ class PublicExportTests(unittest.TestCase):
         self.assertTrue((self.target / "docs/rules-engine.md").exists())
         self.assertTrue((self.target / "docs/player-hosted-forge.md").exists())
         self.assertTrue((self.target / "docs/home-servers.md").exists())
-        self.assertTrue((self.target / "docs/feedback-operations.md").exists())
         self.assertTrue((self.target / "docs/public-content.md").exists())
         self.assertTrue((self.target / "docs/accounts.md").exists())
         self.assertTrue((self.target / "docs/official-cluster.md").exists())

@@ -25,17 +25,6 @@ Item {
     function acknowledge() {
         wsModel.respondRulesPrompt(promptId, "$ack")
     }
-    onPromptIdChanged: preview.hide()
-    onVisibleChanged: if (!visible) preview.hide()
-    onExpandedViewChanged: if (expandedView) preview.hide()
-    CardHoverPreview {
-        id: preview
-        objectName: "rulesRevealCardPreview"
-        parent: root.Overlay.overlay
-        catalogModel: root.cardCatalogModel
-        artObjectName: "rulesRevealCardPreviewArt"
-        avoidItems: [acknowledgeButton]
-    }
 
     GridLayout {
         id: revealLayout
@@ -71,15 +60,6 @@ Item {
                 border.width: 1
                 border.color: Theme.border
                 clip: true
-                activeFocusOnTab: true
-                function inspect() {
-                    if (!root.visible || root.expandedView || !name) return
-                    preview.tokenArt = token
-                    preview.inspect({id:cardId, name:name, setCode:setCode, collectorNumber:collectorNumber}, cardTile)
-                }
-                onActiveFocusChanged: activeFocus ? inspect() : preview.hide(cardTile)
-                onNameChanged: if (preview.sourceItem === cardTile) preview.hide()
-                Component.onDestruction: preview.hide(cardTile)
 
                 Image {
                     id: art
@@ -114,10 +94,7 @@ Item {
                     wrapMode: Text.Wrap
                 }
 
-                HoverHandler {
-                    id: hover
-                    onHoveredChanged: hovered ? cardTile.inspect() : preview.hide(cardTile)
-                }
+                HoverHandler { id: hover }
                 ToolTip.visible: hover.hovered
                 ToolTip.delay: 350
                 ToolTip.text: cardTile.name + " · " + cardTile.setCode
@@ -134,7 +111,6 @@ Item {
             promptId: root.promptId
             readOnly: true
             candidatesName: "revealCardList"
-            previewAvoidItems: [acknowledgeButton]
         }
 
         Text {

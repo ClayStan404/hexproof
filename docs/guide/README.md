@@ -57,17 +57,11 @@ valid for that source. The in-table shortcut help lists keyboard equivalents.
 - Qt Image Formats for packaged WebP card-art support
 - zlib and Ninja
 - Go 1.26 or the version declared by `apps/server/go.mod`
-- Python 3.12+, Git and JDK 21 to build the bundled Forge adapter. Client users
+- Python 3.12+, Git and JDK 21+ to build the bundled Forge adapter. Client users
   do not need a system Java installation. The first source build downloads
   pinned Forge binary/source inputs; later builds reuse them.
-  Newer JDK compilers generate different diagnostic symbols even with
-  `--release 21`. An installed JDK 21 is selected automatically on Linux;
-  otherwise select it with `JAVA_HOME` or CMake's `HEXPROOF_FORGE_JAVAC`.
 - Maven is also required when building the full optional Forge runtime with
   `./tools/run-local-forge-server.sh --prepare`.
-  On Arch Linux, install `maven` and `jdk21-openjdk` with `pacman`. The full
-  builder selects JDK 21 for Maven and Java tools, and the local launcher uses
-  Java 21 by default without changing the system Java installation.
 
 Clone the public source and run the commands below from its root:
 

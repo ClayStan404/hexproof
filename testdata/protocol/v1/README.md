@@ -17,10 +17,6 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 - Client commands that need a reply include `id`; the server echoes the same
   `id` on the success event or on `error`.
 - Success types are events (`room.create` -> `room.created`), not `*.ok`.
-- Paired `rules.snapshot` and `rules.prompt` publications share `seq`, including
-  `pending: false` prompts. A prompt can follow intervening metadata with a
-  higher sequence; compare it with the latest rules snapshot, not every event.
-  Existing unsequenced prompt fixtures retain the legacy compatibility form.
 
 ## Current fixtures
 
@@ -43,8 +39,6 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `error.json` / `room-full-error.json` / `wrong-password-error.json` / `tournament-not-ready-error.json` | S -> C | Correlated generic, room-entry, and structured tournament-start errors with echoed `id`; the not-ready error carries a machine-readable `minimumPlayers` detail |
 | `rules-start-failure-*.json` | S -> C | Forge startup reason delivered to every room member, with submitted card identity only for its owner (AI deck: room host); other viewers receive no deck issues, and only the triggering request has a correlated `id` |
 | `room-create-ai.json` / `room-created-ai.json` / `room-snapshot-ai.json` | both | Native AI difficulty and room-owned seat metadata without transport identity or private deck contents |
-| `room-create-timed-forge.json` / `room-created-timed-forge.json` / `room-snapshot-timed-forge.json` | both | Optional two-player action clock choice and public remaining/running time |
-| `tournament-create-forge-clock-disabled.json` / `tournament-snapshot-timed-forge.json` | both | Explicitly disabled constructed timing versus enabled timing in the authoritative event snapshot |
 | `room-ai-configure.json` / `room-ai-configure-deck.json` | C -> S | Host updates difficulty and optionally submits the private AI deck while waiting |
 | `room-create.json` / `room-created.json` | both | Ordinary room creation request and host acknowledgement |
 | `room-join-player.json` / `room-join-spectator.json` / `room-joined.json` | both | Player/spectator entry requests and correlated membership acknowledgement |
@@ -52,7 +46,6 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `room-kick.json` / `room-kicked.json` | both | Host kick request, correlated host reply, and terminal target notification |
 | `room-disband.json` / `room-disbanded.json` | both | Host disband request and terminal room notification |
 | `room-snapshot-owner.json` / `room-snapshot-opponent.json` | S -> C | Role-neutral waiting-room projections for different viewers |
-| `room-snapshot-own-deck.json` | S -> C | Authenticated owner's selected deck name without card identities or another participant's deck name |
 | `room-create-playtest.json` / `room-created-playtest.json` / `room-snapshot-playtest.json` | both | Private one-seat Playtest creation and waiting-room projection |
 | `room-listed-cluster.json` / `account-cluster-state.json` | S -> C | Global invitation prefixes, public node labels and recipient-only account resource locations |
 | `room-list.json` / `room-listed.json` | both | Hub-local room discovery request and public join metadata without member or password data |
@@ -79,7 +72,6 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `game-snapshot-owner.json` | S -> C | Owner sees their seven private hand identities and only opponent counts |
 | `game-snapshot-opponent.json` | S -> C | Opponent gets their own hand while Alice's hand identities remain absent |
 | `rules-snapshot-owner.json` | S -> C | Normalized Forge projection with seat-mapped players and viewer-authorized card identities |
-| `rules-prompt-sequenced.json` / `rules-prompt-cleared-sequenced.json` | S -> C | A decision paired with `rules-snapshot-owner.json` at sequence 8, and a later empty decision at sequence 9; cleared prompts carry no private choices |
 | `rules-snapshot-relationships.json` | S -> C | Public colorless mana, confirmed blocking pairs and an attachment to a permanent |
 | `rules-snapshot-turn-control.json` | S -> C | Controlled opponent, permitted hand and library top, and independent permanent entry/sickness flags |
 | `rules-snapshot-card-annotations.json` | S -> C | Independent named-card choices, linked exile, a class level, and a command-zone dungeon room |
@@ -88,8 +80,6 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `rules-prompt-damage-unordered.json` / `rules-prompt-damage-dividefreely.json` | server | Native damage constraints permit blocker splits or the explicit divide-freely exception; defender lethal requirements remain mode-specific |
 | `rules-prompt-multiple-blocks.json` / `rules-respond-multiple-blocks.json` | both | Native per-blocker capacities and distinct source-target pairs allow one blocker to block multiple attackers without exposing engine response ids |
 | `rules-prompt-attack-defenders.json` | S -> C | Opaque attack destinations join visible planeswalkers and authenticated player seats for direct table selection |
-| `rules-prompt-payment.json` | S -> C | Deciding player's mana prompt carries an optional `paymentId` so later steps of the same payment can be recognized |
-| `rules-priority.json` | C -> S | Seat publishes smart-pass preferences: full control, hold, and phase stops |
 | `rules-prompt-card-name.json` / `rules-respond-card-name.json` | both | Free-text public card naming, validated by Forge against the effect's complete legal candidate set without deriving candidates from private zones |
 | `game-draw.json` / `game-drawn.json` | both | Bounded multi-card draw request and identity-free acknowledgement |
 | `game-return-to-room.json` / `game-returned-to-room.json` | both | End completed-match review and restore the room waiting flow |
@@ -214,11 +204,3 @@ whole-match-gated offset requests, and bounded normalized frame pages. These
 messages do not broaden the public log compatibility API.
 
 - `account-command.json`, `account-state.json`: private official account authentication and resource discovery; example credentials are not usable.
-
-`tournament-create-card-pool.json` covers optional shared printing identities with one-based weighted sheet references, including paired draws.
-
-- `error-forge-crash-*.json`: versioned, public-safe four-player diagnostics and
-  explicitly incomplete process-exit evidence; copied triggers and automatic
-  priority advancement keep separate native/hub sequences. These are synthetic
-  failures, not claims of defects in the named cards.
-- `session-hello-crash-reports.json`: optional crash-report capability.

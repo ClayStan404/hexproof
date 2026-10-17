@@ -7,7 +7,6 @@
 #include "CatalogTypes.h"
 
 #include <QCache>
-#include <QDateTime>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -262,22 +261,15 @@ class CardCatalog : public QObject
     Q_INVOKABLE QVariantList cardFaces(const QString &name, const QString &setCode,
                                        const QString &collectorNumber);
     Q_INVOKABLE QVariantList customArtBindings(const QVariantMap &card) const;
-    Q_INVOKABLE void prepareCardFacePreview(const QString &name, const QString &setCode,
-                                            const QString &collectorNumber);
     Q_INVOKABLE QString customImageSource(const QString &name, const QString &setCode,
                                           const QString &collectorNumber) const;
     QVariantList expandCardFaceRequests(const QVariantList &cards);
     Q_INVOKABLE QString imageSource(const QString &name, const QString &setCode,
                                     const QString &collectorNumber) const;
-    Q_INVOKABLE QString previewImageSource(const QString &name, const QString &setCode,
-                                           const QString &collectorNumber,
-                                           bool token = false) const;
     Q_INVOKABLE QString printingImageSource(const QString &name, const QString &setCode,
                                             const QString &collectorNumber) const;
     Q_INVOKABLE QString tableImageSource(const QString &name, const QString &setCode,
                                          const QString &collectorNumber) const;
-    Q_INVOKABLE QString tableArtCropSource(const QString &name, const QString &setCode,
-                                           const QString &collectorNumber) const;
     Q_INVOKABLE QString cardTypeLine(const QString &name, const QString &setCode,
                                      const QString &collectorNumber) const;
     // Empty language uses the catalog language. Chinese text comes from cached
@@ -287,8 +279,6 @@ class CardCatalog : public QObject
                                       const QString &language = {}) const;
     Q_INVOKABLE QString cachedCardTypeLine(const QString &name, const QString &setCode,
                                            const QString &collectorNumber) const;
-    Q_INVOKABLE QString cardArtFrame(const QString &name, const QString &setCode,
-                                     const QString &collectorNumber) const;
     Q_INVOKABLE bool matchesCardQuery(const QString &name, const QString &setCode,
                                       const QString &collectorNumber, const QString &query) const;
     Q_INVOKABLE void clearLastError();
@@ -327,7 +317,6 @@ class CardCatalog : public QObject
   public slots:
     Q_INVOKABLE void cacheCards(const QVariantList &cards);
     Q_INVOKABLE void cacheCardsIncrementally(const QVariantList &cards);
-    void prepareTableArtCrops(const QVariantList &cards);
     void hydrateCachedCards(const QVariantList &cards);
     Q_INVOKABLE void retryCards(const QVariantList &cards);
     void cacheMatchCardsIncrementally(qint64 loadId, quint64 generation, const QVariantList &cards);
@@ -366,7 +355,6 @@ class CardCatalog : public QObject
                        const QString &collectorNumber);
     void cardCacheFinished(const QString &requestedName, const QString &setCode,
                            const QString &collectorNumber, bool success);
-    void cardArtCropAvailable(const QString &requestedName);
     void matchCardCacheFinished(qint64 loadId, quint64 generation, const QString &requestIdentity,
                                 const QString &requestedName, const QString &setCode,
                                 const QString &collectorNumber, bool exactArt, bool success);
@@ -378,11 +366,6 @@ class CardCatalog : public QObject
 
   private:
     using CardRequest = hexproof::client::CardRequest;
-    struct FaceMetadataProbe
-    {
-        CardRequest request;
-        QString printingId;
-    };
 
     struct SearchResult
     {
@@ -395,21 +378,6 @@ class CardCatalog : public QObject
         CardRequest request;
         CardRecord record;
         int retries = 0;
-    };
-
-    struct ArtCropJob
-    {
-        CardRequest request;
-        QString imageUrl;
-        QString cropUrl;
-        QString cropPath;
-        bool refresh = false;
-    };
-
-    struct ArtCropValidationWaiters
-    {
-        quint64 serial = 0;
-        QSet<QString> names;
     };
 
     struct IncrementalCacheItem
@@ -446,8 +414,6 @@ class CardCatalog : public QObject
                                    const CardRecord &cachedArt) const;
     QString resolvedImagePath(const CardRequest &request) const;
     QString resolvedTableImagePath(const CardRequest &request) const;
-    QString resolvedArtCropPath(const CardRequest &request) const;
-    bool verifiedArtCrop(const QString &path, const QString &name) const;
     QString customImagePath(const CardRequest &request) const;
     CardRequest relatedArtRequest(const CardRequest &request) const;
     bool artWritesAllowed() const;
@@ -457,11 +423,6 @@ class CardCatalog : public QObject
     CardRecord lookupCatalog(const CardRequest &request) const;
     void cacheResolvedMetadata(const CardRequest &request, const CardRecord &record);
     void scheduleImageRevisionChanged();
-    void queueOptionalArtCrop(const CardRequest &request, const CardRecord &record);
-    void startOptionalArtCrop();
-    void handleArtCropReply(QNetworkReply *reply);
-    void finishArtCrop(const ArtCropJob &job, bool success, QSet<QString> arrivedNames = {});
-    int activeImageDownloads() const;
     CardRecord lookupLocalizedPrinting(const CardRequest &request,
                                        const CardRecord &catalogIdentity) const;
     CardRecord migrateLegacyCacheRecord(const CardRequest &request, const CardRecord &record) const;
@@ -478,9 +439,6 @@ class CardCatalog : public QObject
                              bool cacheFailure = false, const QString &failureDetail = {});
     void emitRecord(const CardRecord &record);
     void backfillLocalizedRules(const CardRequest &request, const CardRecord &record);
-    void refreshMeldResultMetadata(const CardRecord &record);
-    void storeFaceMetadata(const CardRequest &request, const CardRecord &record);
-    void processFaceMetadataProbes();
     void setResolving(bool resolving);
     void setProgress(qreal progress);
     void setStatus(const QString &status);
@@ -553,9 +511,6 @@ class CardCatalog : public QObject
     int m_tokenCount = 0;
     int m_localizedPrintingCount = 0;
     QSet<QString> m_localizedRulesRequests;
-    QSet<QString> m_faceMetadataRequests;
-    QQueue<FaceMetadataProbe> m_faceMetadataProbes;
-    bool m_faceMetadataProbeActive = false;
     int m_imageRevision = 0;
     bool m_imageRevisionNotificationPending = false;
     bool m_artIndexFlushing = false;
@@ -592,14 +547,6 @@ class CardCatalog : public QObject
     QQueue<IncrementalCacheItem> m_metadataEnrichmentQueue;
     QSet<QString> m_metadataEnrichmentQueuedKeys;
     QHash<QNetworkReply *, DirectImageJob> m_directImageJobs;
-    QQueue<ArtCropJob> m_artCropQueue;
-    QHash<QNetworkReply *, ArtCropJob> m_artCropJobs;
-    QHash<QString, QList<CardRequest>> m_artCropTargets;
-    QHash<QString, QDateTime> m_artCropFailures;
-    QSet<QString> m_artCropRefreshKeys;
-    mutable QCache<QString, bool> m_artCropValidationResults{512};
-    mutable QHash<QString, ArtCropValidationWaiters> m_artCropValidationWaiters;
-    mutable quint64 m_artCropValidationSerial = 0;
     QHash<QString, bool> m_queuedKeys;
     QHash<QString, QList<MatchCacheSubscription>> m_matchCacheSubscriptions;
     QVariantList m_searchPreviewCards;

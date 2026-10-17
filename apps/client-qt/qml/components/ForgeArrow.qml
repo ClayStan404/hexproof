@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 import QtQuick
 import QtQuick.Shapes
-import "ForgeArrowGeometry.js" as Geometry
 
 Item {
     id: root
@@ -12,7 +11,6 @@ Item {
     property real unit: 1
     property bool preview: false
     property bool dashed: false
-    property var excludedRects: []
     readonly property bool validAnchors: Number.isFinite(startPoint.x) && Number.isFinite(startPoint.y)
         && Number.isFinite(endPoint.x) && Number.isFinite(endPoint.y)
         && (startPoint.x !== 0 || startPoint.y !== 0) && (endPoint.x !== 0 || endPoint.y !== 0)
@@ -22,13 +20,7 @@ Item {
     readonly property point controlPoint: Qt.point(safeStart.x + (safeEnd.x - safeStart.x) * 0.6,
                                                   safeStart.y + (safeEnd.y - safeStart.y) * 0.1)
     readonly property real tipAngle: Math.atan2(safeEnd.y - controlPoint.y, safeEnd.x - controlPoint.x)
-    readonly property real safeUnit: Number.isFinite(unit) && unit > 0 ? unit : 0
-    readonly property real lineWidth: (preview ? 3.2 : 2.4) * safeUnit
-    readonly property real tipSize: (preview ? 13 : 11) * safeUnit
-    readonly property var geometry: validAnchors
-        ? Geometry.clippedArrow(safeStart, controlPoint, safeEnd, excludedRects,
-                                lineWidth, tipSize, Math.max(0.75, safeUnit * 0.5))
-        : ({path:"", intervals:[], tipVisible:false})
+    readonly property real tipSize: (preview ? 13 : 11) * unit
     enabled: false
 
     Shape {
@@ -44,19 +36,24 @@ Item {
 
         ShapePath {
             strokeColor: root.lineColor
-            strokeWidth: root.lineWidth
+            strokeWidth: (root.preview ? 3.2 : 2.4) * root.unit
             strokeStyle: root.dashed ? ShapePath.DashLine : ShapePath.SolidLine
             dashPattern: [3, 2]
             capStyle: ShapePath.RoundCap
             fillColor: "transparent"
             startX: root.safeStart.x
             startY: root.safeStart.y
-            PathSvg { path: root.geometry.path }
+            PathQuad {
+                controlX: root.controlPoint.x
+                controlY: root.controlPoint.y
+                x: root.safeEnd.x
+                y: root.safeEnd.y
+            }
         }
         ShapePath {
             strokeColor: "transparent"
             strokeWidth: 0
-            fillColor: root.geometry.tipVisible ? root.lineColor : "transparent"
+            fillColor: root.lineColor
             startX: root.safeEnd.x
             startY: root.safeEnd.y
             PathLine {

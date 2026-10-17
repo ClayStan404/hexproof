@@ -14,7 +14,6 @@ TestCase {
         id: controller
         property var rulesSession: testRulesPrompt.session
         property bool roomConnected: true
-        property bool hostingPaused: false
         property bool sideboarding: false
         property bool rulesResponsePending: false
         property bool priorityInputBlocked: false
@@ -26,38 +25,13 @@ TestCase {
     QtObject {
         id: responder
         property var responses: []
-        property var publications: []
         property string lastError: ""
-        function publishRulesPriority(fullControl, hold, stops) {
-            publications = publications.concat([{fullControl:fullControl, hold:hold, stops:stops}])
-        }
         function respondRulesPrompt(promptId, responseId) {
             responses = responses.concat([{promptId: promptId, responseId: responseId}])
             controller.rulesResponsePending = true
         }
     }
     RulesPriorityController { id: priority; tableController: controller; settings: preferences }
-    QtObject {
-        id: publicationController
-        property var rulesSession: testRulesPrompt.session
-        property bool roomConnected: true
-        property bool hostingPaused: false
-        property bool sideboarding: false
-        property bool rulesResponsePending: false
-        property bool priorityInputBlocked: false
-        property int localSeat: 0
-        property var cardActionPicker: picker
-        property var wsModel: publicationResponder
-    }
-    QtObject {
-        id: publicationResponder
-        property var priorityPreferences: []
-        function publishRulesPriority(fullControl, hold, stops) {
-            priorityPreferences = priorityPreferences.concat([
-                {fullControl: fullControl, hold: hold, stops: Array.from(stops).sort()}])
-        }
-    }
-    Component { id: priorityFactory; RulesPriorityController {} }
 
     function snapshot(turn, step, activeSeat, stackIds, gameId) {
         return {roomId: "FLOW", gameId: gameId || "flow-1", turn: turn || 1,
@@ -86,7 +60,6 @@ TestCase {
     function init() {
         testRulesPrompt.clear()
         controller.roomConnected = true
-        controller.hostingPaused = false
         controller.sideboarding = false
         controller.rulesResponsePending = false
         controller.priorityInputBlocked = false
@@ -99,137 +72,8 @@ TestCase {
         priority.passMenuOpen = false
         priority.resetTransient()
         verify(testRulesPrompt.applySnapshot(snapshot()))
-        publicationController.roomConnected = true
-        publicationController.hostingPaused = false
-        publicationController.sideboarding = false
-        publicationController.localSeat = 0
-        responder.publications = []
-        publicationResponder.priorityPreferences = []
     }
     function cleanup() { testRulesPrompt.clear() }
-
-    function createPriorityController() {
-        const component = Qt.createComponent("../../qml/components/RulesPriorityController.qml")
-        compare(component.status, Component.Ready)
-        const fresh = createTemporaryObject(component, testCase, {tableController:controller, settings:preferences})
-        verify(fresh !== null)
-        return fresh
-    }
-    function test_spectatorDoesNotPublishPriorityOnCreationOrPreferenceChanges() {
-        controller.localSeat = -1
-        responder.publications = []
-        const fresh = createPriorityController()
-        verify(!fresh.active)
-        compare(responder.publications.length, 0)
-        preferences.forgeFullControl = true
-        preferences.forgePhaseStops = ({"own:end":true})
-        fresh.cancelYield()
-        controller.roomConnected = false
-        controller.roomConnected = true
-        verify(testRulesPrompt.applySnapshot(snapshot(1, "main1", 0, [], "spectator-next")))
-        compare(responder.publications.length, 0)
-    }
-    function test_playerPublishesSavedPreferencesOnCreation() {
-        preferences.forgeFullControl = true
-        preferences.forgePhaseStops = ({"own:end":true, "other:draw":false})
-        responder.publications = []
-        const fresh = createPriorityController()
-        verify(fresh.active)
-        compare(responder.publications, [{fullControl:true, hold:false, stops:["own:end"]}])
-    }
-    function test_priorityPublicationResumesWithLivePlayerContext_data() {
-        return ["disconnected", "spectator", "sideboarding", "hostingPaused"]
-            .map(tag => ({tag:tag}))
-    }
-    function test_priorityPublicationResumesWithLivePlayerContext(data) {
-        priority.cancelYield()
-        switch (data.tag) {
-        case "disconnected": controller.roomConnected = false; break
-        case "spectator": controller.localSeat = -1; break
-        case "sideboarding": controller.sideboarding = true; break
-        case "hostingPaused": controller.hostingPaused = true; break
-        }
-        responder.publications = []
-        preferences.forgeFullControl = true
-        preferences.forgePhaseStops = ({"other:end":true})
-        compare(responder.publications.length, 0)
-        switch (data.tag) {
-        case "disconnected": controller.roomConnected = true; break
-        case "spectator": controller.localSeat = 0; break
-        case "sideboarding": controller.sideboarding = false; break
-        case "hostingPaused": controller.hostingPaused = false; break
-        }
-        compare(responder.publications, [{fullControl:true, hold:false, stops:["other:end"]}])
-    }
-    function test_priorityPublicationFollowsSeatAndGameChanges() {
-        preferences.forgeFullControl = true
-        priority.cancelYield()
-        responder.publications = []
-        controller.localSeat = 1
-        verify(!priority.holdNextPriority)
-        verify(responder.publications.length > 0)
-        compare(responder.publications[responder.publications.length - 1],
-            {fullControl:true, hold:false, stops:[]})
-        responder.publications = []
-        verify(testRulesPrompt.applySnapshot(snapshot(1, "main1", 0, [], "next-game")))
-        compare(responder.publications, [{fullControl:true, hold:false, stops:[]}])
-        responder.publications = []
-        controller.localSeat = -1
-        compare(responder.publications.length, 0)
-    }
-
-    function test_freshInactiveControllerDefersPreferencesUntilLive_data() {
-        return ["inactive", "finished", "sideboarding", "disconnected", "spectator"]
-            .map(tag => ({tag: tag}))
-    }
-    function test_freshInactiveControllerDefersPreferencesUntilLive(data) {
-        switch (data.tag) {
-        case "inactive": testRulesPrompt.clear(); break
-        case "finished": {
-            const finished = snapshot()
-            finished.gameOver = true
-            finished.winnerSeat = 1
-            verify(testRulesPrompt.applySnapshot(finished))
-            break
-        }
-        case "sideboarding": publicationController.sideboarding = true; break
-        case "disconnected": publicationController.roomConnected = false; break
-        case "spectator": publicationController.localSeat = -1; break
-        }
-        const fresh = createTemporaryObject(priorityFactory, testCase,
-            {tableController: publicationController, settings: preferences})
-        verify(fresh)
-        verify(fresh.ready)
-        verify(!fresh.active)
-        compare(publicationResponder.priorityPreferences.length, 0)
-
-        preferences.forgeFullControl = true
-        preferences.forgePhaseStops = ({"own:upkeep": true, "other:draw": true, "own:end": false})
-        wait(0)
-        compare(publicationResponder.priorityPreferences.length, 0)
-
-        switch (data.tag) {
-        case "inactive":
-        case "finished": verify(testRulesPrompt.applySnapshot(snapshot(2, "main1", 0, [], "flow-2"))); break
-        case "sideboarding": publicationController.sideboarding = false; break
-        case "disconnected": publicationController.roomConnected = true; break
-        case "spectator": publicationController.localSeat = 0; break
-        }
-        verify(fresh.active)
-        tryCompare(publicationResponder, "priorityPreferences",
-            [{fullControl: true, hold: false, stops: ["other:draw", "own:upkeep"]}])
-    }
-
-    function test_freshLiveControllerPublishesSavedPreferences() {
-        preferences.forgeFullControl = true
-        preferences.forgePhaseStops = ({"other:end": true})
-        const fresh = createTemporaryObject(priorityFactory, testCase,
-            {tableController: publicationController, settings: preferences})
-        verify(fresh)
-        verify(fresh.active)
-        tryCompare(publicationResponder, "priorityPreferences",
-            [{fullControl: true, hold: false, stops: ["other:end"]}])
-    }
 
     function test_preferencesSurviveTableRecreationAndSeatChanges() {
         priority.setFullControl(true)
@@ -288,7 +132,7 @@ TestCase {
         return [{tag: "own upkeep", step: "upkeep", seat: 0, passes: true},
             {tag: "opponent draw", step: "draw", seat: 1, passes: true},
             {tag: "opponent main", step: "main1", seat: 1, passes: true},
-            {tag: "own end", step: "end", seat: 0, passes: false},
+            {tag: "own end", step: "end", seat: 0, passes: true},
             {tag: "end combat", step: "end_combat", seat: 0, passes: true},
             {tag: "own main", step: "main1", seat: 0, passes: false},
             {tag: "own second main", step: "main2", seat: 0, passes: false},
@@ -306,71 +150,6 @@ TestCase {
             tryCompare(responder, "responses", [{promptId: 1, responseId: "$pass"}])
         else
             expectNoResponse()
-    }
-    function test_floatingManaUndoKeepsMainPhasePriority_data() {
-        return [{tag:"first-main", step:"main1"}, {tag:"second-main", step:"main2"}]
-    }
-    function test_floatingManaUndoKeepsMainPhasePriority(data) {
-        const state = snapshot(1, data.step, 0)
-        state.players[0].manaPool = [{name:"W", value:1}]
-        verify(testRulesPrompt.applySnapshot(state))
-        const offered = prompt(1, false)
-        offered.options.unshift({responseId:"undo-source", kind:"undoMana", cardId:"land", label:"Undo mana"})
-        verify(testRulesPrompt.applyPrompt(offered))
-        expectNoResponse()
-        verify(priority.canAct && priority.canPass)
-        verify(priority.respondAction("undo-source"))
-        compare(responder.responses, [{promptId:1, responseId:"undo-source"}])
-        verify(!priority.respondAction("undo-source"), "A pending priority undo is never repeated")
-    }
-    function test_ownEndStepRequiresCurrentEngineEvidence_data() {
-        return [{tag: "payable instant", eligible: false, action: true, passes: false},
-            {tag: "unknown eligibility", action: true, passes: false},
-            {tag: "no action proven", eligible: true, action: false, passes: true}]
-    }
-    function test_ownEndStepRequiresCurrentEngineEvidence(data) {
-        verify(testRulesPrompt.applySnapshot(snapshot(1, "end", 0)))
-        const offered = prompt(1, data.eligible)
-        if (data.action)
-            offered.options.unshift({responseId:"cast-instant", kind:"cast", cardId:"new-card", label:"Cast instant"})
-        verify(testRulesPrompt.applyPrompt(offered))
-        if (data.passes)
-            tryCompare(responder, "responses", [{promptId:1, responseId:"$pass"}])
-        else
-            expectNoResponse()
-    }
-    function test_ownEndStepTriggerResolutionRetainsNewHandAction() {
-        const triggering = snapshot(1, "end", 0)
-        triggering.stack = [{id:"necro-trigger", identity:{name:"Necrodominance"}, controllerSeat:0, ownerSeat:0}]
-        verify(testRulesPrompt.applySnapshot(triggering))
-        applyPrompt(1, false)
-        tryCompare(responder, "responses", [{promptId:1, responseId:"$pass"}])
-        responder.responses = []
-        applyPrompt(2, false, "chooseNumber")
-        expectNoResponse()
-        const resolved = snapshot(1, "end", 0)
-        resolved.zones = [{zone:"hand", ownerSeat:0, count:1, cards:[{id:"new-card", visible:true,
-            ownerSeat:0, controllerSeat:0, identity:{name:"Cling to Dust"}}]}]
-        verify(testRulesPrompt.applySnapshot(resolved))
-        controller.rulesResponsePending = false
-        const afterDraw = prompt(3, false)
-        afterDraw.options.unshift({responseId:"cast-drawn-instant", kind:"cast", cardId:"new-card", label:"Cast Cling to Dust"})
-        verify(testRulesPrompt.applyPrompt(afterDraw))
-        verify(!priority.automaticallyPassing)
-        expectNoResponse()
-        verify(priority.respondAction("cast-drawn-instant"))
-        compare(responder.responses, [{promptId:3, responseId:"cast-drawn-instant"}])
-    }
-    function test_ownEndStepFullControlAndStopOverrideEligibleHint() {
-        verify(testRulesPrompt.applySnapshot(snapshot(1, "end", 0)))
-        priority.setFullControl(true)
-        applyPrompt(1, true)
-        expectNoResponse()
-        priority.toggleStop("end", true)
-        priority.setFullControl(false)
-        expectNoResponse()
-        verify(priority.passOnce())
-        compare(responder.responses, [{promptId:1, responseId:"$pass"}])
     }
     function test_smartPriorityDoesNotPassOpponentOrMixedStack_data() {
         return [{tag: "opponent spell", owners: [1], passes: false},
@@ -416,7 +195,7 @@ TestCase {
     }
     function test_decisionsAreNeverAutomaticallyAnswered_data() {
         return ["payManaCost", "chooseBoardTargets", "chooseAttackers", "chooseBlockers",
-            "chooseBoolean", "chooseNumber", "mulligan", "chooseCards"].map(kind => ({tag: kind, kind: kind}))
+            "chooseBoolean", "mulligan", "chooseCards"].map(kind => ({tag: kind, kind: kind}))
     }
     function test_decisionsAreNeverAutomaticallyAnswered(data) {
         applyPrompt(1, true, data.kind)

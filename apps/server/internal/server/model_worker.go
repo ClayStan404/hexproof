@@ -122,9 +122,6 @@ func (h *Handler) pauseModelWorker(roomID, code string, disconnect bool) {
 		connection.Close()
 	}
 	if r := h.hub.FindRoom(roomID); r != nil {
-		if code != "" || disconnect {
-			h.pauseActionClockLocked(r)
-		}
 		h.publishModelStatus(r)
 	}
 }

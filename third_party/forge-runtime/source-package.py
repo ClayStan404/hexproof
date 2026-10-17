@@ -26,7 +26,7 @@ import zipfile
 sys.dont_write_bytecode = True
 
 MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/"
-BUILD_FILES = ("java-toolchain.py", "diagnostic-symbols.py", "build.sh", "build-native.py", "source-package.py", "README.md",
+BUILD_FILES = ("build.sh", "build-native.py", "source-package.py", "README.md",
                "SOURCE-README.md", "dependency-sources.json", "XmlDependencyRegressionTest.java")
 SCHEMA_VERSION = 2
 
@@ -203,13 +203,13 @@ def prepare_dependencies(source, build_tools, cache, preserved=None):
     return module
 
 
-def replace_xmlpull(source, build_tools, cache, report, preserved=None, *, env=None):
+def replace_xmlpull(source, build_tools, cache, report, preserved=None):
     """Replace the source-unavailable API JAR with four original source-built API classes."""
     module = prepare_dependencies(source, build_tools, cache, preserved)
     classes = module / "classes"
     classes.mkdir(exist_ok=True)
     subprocess.run(["javac", "--release", "8", "-encoding", "UTF-8", "-d", str(classes),
-                    *map(str, sorted((module / "src/main/java").rglob("*.java")))], check=True, env=env)
+                    *map(str, sorted((module / "src/main/java").rglob("*.java")))], check=True)
     shutil.copytree(module / "src/main/resources", classes, dirs_exist_ok=True)
     binary = module / "hexproof-xmlpull-api-1.1.3.4b.jar"
     # Deterministic ZIP entries also lock the replacement's bytes on source rebuild.
@@ -219,7 +219,7 @@ def replace_xmlpull(source, build_tools, cache, report, preserved=None, *, env=N
                 info = zipfile.ZipInfo(path.relative_to(classes).as_posix(), (2000, 1, 1, 0, 0, 0))
                 info.external_attr = 0o100644 << 16
                 archive.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
-    verify_xmlpull_api(build_tools, binary, env=env)
+    verify_xmlpull_api(build_tools, binary)
     original = next((entry for entry in parse_dependencies(report)
                      if (entry["groupId"], entry["artifactId"], entry["version"]) ==
                      ("xmlpull", "xmlpull", "1.1.3.4a")), None)
@@ -234,10 +234,10 @@ def replace_xmlpull(source, build_tools, cache, report, preserved=None, *, env=N
     return output
 
 
-def verify_xmlpull_api(build_tools, jar, *, env=None):
+def verify_xmlpull_api(build_tools, jar):
     api = json.loads((build_tools / "dependency-sources.json").read_text())["xmlpullApiCompatibility"]
     signatures = b"".join(subprocess.check_output(
-        ["javap", *api["javapOptions"], "-classpath", str(jar), f"org.xmlpull.v1.{name}"], env=env)
+        ["javap", *api["javapOptions"], "-classpath", str(jar), f"org.xmlpull.v1.{name}"])
         for name in api["classes"])
     if hashlib.sha256(signatures).hexdigest() != api["signatureSha256"]:
         raise ValueError("XMLPull public/protected API compatibility regression")
@@ -504,15 +504,6 @@ def validate_runtime(root, expected):
                  "forge-gui/res/deckgendecks/Standard.raw.dat", "FORGE-LICENSE"):
         if not (root / name).exists():
             raise ValueError(f"Runtime resource is missing: {name}")
-    if expected.get("adapterRevision", 0) >= 31:
-        symbols = provenance.get("diagnosticSymbols", {})
-        if symbols.get("sha256") != expected.get("diagnosticSymbolsSha256"):
-            raise ValueError("Runtime diagnostic symbols differ from the reviewed index")
-        if symbols.get("path") != "diagnostic-symbols.json" or sha256(root / "diagnostic-symbols.json") != symbols.get("sha256"):
-            raise ValueError("Runtime diagnostic symbol provenance mismatch")
-        with zipfile.ZipFile(root / "forge-harness.jar") as archive:
-            if archive.read("org/hexproof/forge/diagnostic-symbols.json") != (root / "diagnostic-symbols.json").read_bytes():
-                raise ValueError("Runtime diagnostic symbols differ from its native host")
     source = json.loads((root / "SOURCE.json").read_text())
     if (source.get("schemaVersion") != SCHEMA_VERSION or source.get("upstream") != expected
             or source.get("archive") != f"hexproof-forge-source-{artifact_suffix(expected)}.tar.gz"
@@ -596,13 +587,13 @@ def verify_release(runtime_archive, source_archive, build_tools):
     return upstream
 
 
-def cold_start(runtime, output, *, env=None):
+def cold_start(runtime, output):
     profile = output / "cold-start-profile"
     profile.mkdir()
     probe = subprocess.run(["java", "-Djava.awt.headless=true", f"-Duser.home={profile}",
         "-jar", "forge-harness.jar", "--interactive-server", "--forge-home", "forge-gui"],
         cwd=runtime, input='{"command":"reset"}\n{"command":"quit"}\n', text=True,
-        capture_output=True, timeout=120, env=env)
+        capture_output=True, timeout=120)
     (output / "cold-start.stdout").write_text(probe.stdout)
     (output / "cold-start.stderr").write_text(probe.stderr)
     responses = [json.loads(line) for line in probe.stdout.splitlines() if line.startswith("{")]
@@ -620,8 +611,7 @@ def build_release(source, output, build_tools, preserved=None):
         source = Path(tempfile.mkdtemp(prefix="rebuild-source-", dir=output)) / "forge"
         shutil.copytree(preserved / "forge", source, symlinks=True)
     builder = load_builder(build_tools)
-    build_env = builder.TOOLCHAIN.build_environment()
-    runtime_build = builder.build(source, output, upstream, standalone=True, preserved=preserved, env=build_env)
+    runtime_build = builder.build(source, output, upstream, standalone=True, preserved=preserved)
     if preserved is not None:
         check_dependencies(preserved, runtime_build / "resolved-dependencies.txt")
         source_archive = output / f"hexproof-forge-source-{artifact_suffix(upstream)}.tar.gz"
@@ -633,7 +623,7 @@ def build_release(source, output, build_tools, preserved=None):
     stage = Path(tempfile.mkdtemp(prefix="release-stage-", dir=output))
     runtime = stage / "hexproof-forge-runtime"
     runtime.mkdir()
-    for name in ("forge-harness.jar", "lib", "forge-gui", "host-source", "FORGE-LICENSE", "provenance.json", "diagnostic-symbols.json"):
+    for name in ("forge-harness.jar", "lib", "forge-gui", "host-source", "FORGE-LICENSE", "provenance.json"):
         item = runtime_build / name
         if item.is_dir():
             shutil.copytree(item, runtime / name, symlinks=True)
@@ -641,7 +631,7 @@ def build_release(source, output, build_tools, preserved=None):
             shutil.copy2(item, runtime / name)
     link_runtime(source_archive, runtime, build_tools)
     validate_runtime(runtime, upstream)
-    cold_start(runtime, stage, env=build_env)
+    cold_start(runtime, stage)
     runtime_archive = output / f"hexproof-forge-runtime-{artifact_suffix(upstream)}.tar.gz"
     archive_tree(runtime, runtime_archive, manifest["sourceDateEpoch"])
     verify_release(runtime_archive, source_archive, build_tools)

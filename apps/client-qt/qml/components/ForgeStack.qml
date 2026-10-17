@@ -20,7 +20,7 @@ Rectangle {
         : movementBounds.x + storedPosition.x * movementBounds.width))
     y: Math.max(movementBounds.y, Math.min(maximumY, storedPosition.y < 0 ? defaultY
         : movementBounds.y + storedPosition.y * movementBounds.height))
-    implicitHeight: headerHeight + entries.contentHeight + 7 * unit
+    implicitHeight: headerHeight + column.height + 7 * unit
     readonly property int count: entries.count
     readonly property Item scrollArea: viewport
     property Item focusedItem: null
@@ -32,7 +32,7 @@ Rectangle {
         && tableController.roomConnected && !tableController.sideboarding
     readonly property var activeEntry: {
         void revision
-        return relationsEnabled ? entryFor(activeObjectId) || entries.itemAtIndex(0) : null
+        return relationsEnabled ? entryFor(activeObjectId) || entries.itemAt(0) : null
     }
     readonly property var currentTarget: activeEntry && activeEntry.targets.length > 0
         ? activeEntry.targets[Math.min(activeTargetIndex, activeEntry.targets.length - 1)] : null
@@ -50,7 +50,7 @@ Rectangle {
     }
     function entryFor(id) {
         for (let i = 0; i < entries.count; ++i) {
-            const entry = entries.itemAtIndex(i) as StackEntry
+            const entry = entries.itemAt(i) as StackEntry
             if (entry && entry.objectId === id) return entry
         }
         return null
@@ -59,7 +59,7 @@ Rectangle {
     function revealFocusedItem() {
         const item = focusedItem
         if (!item || !item.activeFocus || collapsed || viewport.height <= 0) return
-        const y = item.mapToItem(entries, 0, 0).y
+        const y = item.mapToItem(column, 0, 0).y
         if (y < viewport.contentY) viewport.contentY = y
         else if (y + item.height > viewport.contentY + viewport.height)
             viewport.contentY = y + item.height - viewport.height
@@ -83,7 +83,6 @@ Rectangle {
         id: refresh
         interval: 0
         onTriggered: {
-            entries.forceLayout()
             root.revision++
             if (!root.count) root.collapsed = false
         }
@@ -182,63 +181,10 @@ Rectangle {
                 cardId: objectId, tapped: false}
         }
         objectName: "forgeStackEntry-" + objectId
-        width: ListView.view ? ListView.view.width : implicitWidth
+        width: column.width
         height: Math.max(138 * root.unit, details.height + 18 * root.unit)
         radius: 7 * root.unit
         antialiasing: true
-        property real arrival: 1
-        property real glideY: 0
-        property real placedY: 0
-        property bool placed: false
-        opacity: arrival
-        scale: 0.97 + 0.03 * arrival
-        transform: Translate { y: entry.glideY }
-        Component.onCompleted: {
-            if (Theme.motionEnabled && !Theme.motionSnap) {
-                arrival = 0
-                arrive.restart()
-            }
-            Qt.callLater(() => { entry.placedY = entry.y; entry.placed = true })
-        }
-        onYChanged: {
-            const dy = placedY - y
-            placedY = y
-            if (!placed)
-                return
-            if (!Theme.motionEnabled || Theme.motionSnap || dy === 0) {
-                glide.stop()
-                glideY = 0
-                return
-            }
-            glideY += dy
-            glide.restart()
-        }
-        NumberAnimation {
-            id: arrive
-            target: entry
-            property: "arrival"
-            to: 1
-            duration: Theme.motionNormal
-            easing.type: Easing.OutCubic
-        }
-        NumberAnimation {
-            id: glide
-            target: entry
-            property: "glideY"
-            to: 0
-            duration: Theme.motionNormal
-            easing.type: Easing.OutCubic
-        }
-        Connections {
-            target: Theme
-            function onMotionEpochChanged() {
-                arrive.stop()
-                entry.arrival = 1
-                glide.stop()
-                entry.glideY = 0
-            }
-        }
-        ListView.onRemove: entry.enabled = false
         readonly property int strokeWidth: objectId === root.locatedId ? 3 : 1
         color: objectId === root.locatedId ? Theme.accent : index === 0 ? Theme.warning : Theme.borderStrong
         border.width: 0
@@ -385,36 +331,25 @@ Rectangle {
         anchors.topMargin: root.headerHeight
         visible: !root.collapsed
         contentWidth: width
-        contentHeight: entries.contentHeight
+        contentHeight: column.height
         onHeightChanged: Qt.callLater(root.revealFocusedItem)
         onContentHeightChanged: Qt.callLater(root.revealFocusedItem)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-        ListView {
-            id: entries
+        Column {
+            id: column
             x: 3 * root.unit
             width: viewport.width - 9 * root.unit
-            height: contentHeight
             spacing: 7 * root.unit
-            interactive: false
-            clip: false
-            model: root.tableController.rulesSession.stack
-            onCountChanged: {
-                viewport.contentY = 0
-                refresh.restart()
+            Repeater {
+                id: entries
+                model: root.tableController.rulesSession.stack
+                onCountChanged: viewport.contentY = 0
+                onItemAdded: refresh.restart()
+                onItemRemoved: refresh.restart()
+                delegate: StackEntry {}
             }
-            // Arrival and displacement are driven by each entry, so input can
-            // finish them and displaced entries keep their final hit targets.
-            remove: Transition {
-                NumberAnimation {
-                    property: "opacity"
-                    to: 0
-                    duration: Theme.motionEnabled && !Theme.motionSnap ? Theme.motionNormal : 0
-                    easing.type: Easing.OutCubic
-                }
-            }
-            delegate: StackEntry {}
         }
     }
 }

@@ -34,8 +34,7 @@ try {
         "-S", (Join-Path $RepoRoot "apps/client-qt"),
         "-B", $BuildDir,
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DHEXPROOF_VERSION_OVERRIDE=$Version",
-        "-DHEXPROOF_FEEDBACK_CONFIG_FILE=$env:HEXPROOF_FEEDBACK_CONFIG_FILE"
+        "-DHEXPROOF_VERSION_OVERRIDE=$Version"
     )
     if ($env:HEXPROOF_CMAKE_GENERATOR) {
         $ConfigureArgs += @("-G", $env:HEXPROOF_CMAKE_GENERATOR)

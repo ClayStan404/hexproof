@@ -31,6 +31,7 @@ Item {
     property bool deferInitialReconcile: true
     property int initializationGeneration: 0
     property int observedGameNumber: -1
+    property bool restartProjectionPending: false
 
     function invalidateConsent() {
         transientController.clearPendingLibraryApproval()
@@ -106,13 +107,15 @@ Item {
         if (observedGameNumber > 0 && tableRoot.gameSession.gameNumber > 0
                 && observedGameNumber !== tableRoot.gameSession.gameNumber) {
             tableRoot.resetGameInteractions()
+            restartProjectionPending = true
         }
         reconcileConsent()
-        // turnOrder bindings notify after the typed snapshot. Finalize the
-        // visual seat order here even when the typed zones are unchanged.
-        // This also restores delegates cleared by a restart; unchanged order
-        // retains seat objects and active battlefield drags defer this sync.
-        projectionController.syncBattlefieldSeats()
+        if (restartProjectionPending) {
+            restartProjectionPending = false
+            // Identical typed zones may not emit snapshotDataChanged after
+            // restart, but their delegates still need to be recreated.
+            projectionController.syncBattlefieldSeats()
+        }
         projectionController.syncDisplayedOwnHand()
         gameValueController.reconcile()
         sessionController.maybeShowGameResult()
@@ -220,6 +223,7 @@ Item {
 
         function onGameRestarted() {
             root.invalidateConsent()
+            root.restartProjectionPending = true
             root.tableRoot.resetGameInteractions()
         }
 

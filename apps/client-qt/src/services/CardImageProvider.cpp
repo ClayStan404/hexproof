@@ -5,7 +5,6 @@
 
 #include <QImageReader>
 #include <QMutexLocker>
-#include <QUrl>
 
 #include <algorithm>
 #include <limits>
@@ -42,17 +41,6 @@ QString CardImageProvider::sourceForPath(const QString &path)
     // Version only the affected file. A global revision would force every
     // visible card to reload whenever any background download finishes.
     return QStringLiteral("image://card-table/%1/%2").arg(id).arg(*revision);
-}
-
-QString CardImageProvider::previewSourceForPath(const QString &path)
-{
-    if (path.isEmpty())
-        return {};
-    QUrl source = QUrl::fromLocalFile(path);
-    // Keep full art available at the preview's requested decode size, while
-    // sharing the thumbnail's per-file invalidation and bounded revision map.
-    source.setFragment(sourceForPath(path).section(QLatin1Char('/'), -1));
-    return source.toString();
 }
 
 void CardImageProvider::invalidatePath(const QString &path)

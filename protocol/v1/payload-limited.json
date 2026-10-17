@@ -3,22 +3,6 @@
   "protocol": "hexproof.v1",
   "definitions": [
     {
-      "name": "LimitedCardReference",
-      "goType": "LimitedCardReference",
-      "fields": [
-        {
-          "name": "cardIndex",
-          "type": "integer",
-          "required": true
-        },
-        {
-          "name": "weight",
-          "type": "integer",
-          "required": true
-        }
-      ]
-    },
-    {
       "name": "LimitedDraftSettings",
       "goType": "LimitedDraftSettings",
       "fields": [
@@ -57,8 +41,7 @@
         {"name": "name", "type": "string", "required": true},
         {"name": "withReplacement", "type": "boolean", "required": true},
         {"name": "excludePrevious", "type": "boolean", "required": false},
-        {"name": "cards", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardDefinition"}},
-        {"name": "cardRefs", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardReference"}}
+        {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardDefinition"}}
       ]
     },
     {
@@ -88,8 +71,7 @@
         {"name": "authentic", "type": "boolean", "required": true},
         {"name": "cardsPerPack", "type": "integer", "required": true},
         {"name": "sheets", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedSheetDefinition"}},
-        {"name": "variants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedPackVariantDefinition"}},
-        {"name": "cardPool", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardDefinition"}}
+        {"name": "variants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedPackVariantDefinition"}}
       ]
     },
     {

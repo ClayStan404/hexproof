@@ -124,9 +124,6 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 	assertRulesProjectionVisibility(t, state.projections[host.ConnectionID], 0, true, false)
 	assertRulesProjectionVisibility(t, state.projections[guest.ConnectionID], 1, false, true)
 	assertRulesPromptOwner(t, state.prompts, host.ConnectionID, guest.ConnectionID)
-	for _, connectionID := range []string{host.ConnectionID, guest.ConnectionID} {
-		assertRulesSnapshotPromptPair(t, state.projections[connectionID], state.prompts[connectionID])
-	}
 	operation.opMu.Unlock()
 
 	spectator := &Session{ConnectionID: "spectator-conn", DisplayName: "Observer", Send: make(chan []byte, 16)}
@@ -175,8 +172,6 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 			envelopeTypes(hostEvents), envelopeTypes(guestEvents), envelopeTypes(spectatorEvents))
 	}
 	var conceded protocol.GameConceded
-	assertRulesSnapshotPromptPair(t, hostEvents[1], hostEvents[3])
-	assertRulesSnapshotPromptPair(t, guestEvents[0], guestEvents[2])
 	if err := hostEvents[0].DecodePayload(&conceded); err != nil ||
 		conceded.ConcededSeat != 0 || conceded.WinnerSeat != 1 ||
 		!conceded.MatchFinished || r.Game == nil || r.Game.Result == nil ||

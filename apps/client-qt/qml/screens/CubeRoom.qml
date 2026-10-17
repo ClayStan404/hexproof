@@ -155,8 +155,6 @@ Page {
                           + " · " + root.stageLabel
                           + " · " + (root.tournamentModel.matchMode === "bo3" ? qsTr("BO 3") : qsTr("BO 1"))
                           + " · " + (root.tournamentModel.rulesMode === "forge" ? qsTr("Forge rules") : qsTr("Manual tabletop"))
-                          + (root.tournamentModel.rulesMode === "forge" ? " · "
-                             + I18n.actionClockLabel(root.tournamentModel.actionClockEnabled === true) : "")
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontSize(12)
                     elide: Text.ElideRight
@@ -176,7 +174,6 @@ Page {
                 text: qsTr("Room / chat")
                 onClicked: roomPopup.open()
             }
-            FeedbackEntryButton { feedbackContext: ({feature: "draft"}) }
         }
 
         InfoBanner {

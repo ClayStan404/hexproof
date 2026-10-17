@@ -81,8 +81,7 @@ CardCatalog::lookupLocalizedPrinting(const CardRequest &request,
 CardCatalog::CardRecord CardCatalog::migrateLegacyCacheRecord(const CardRequest &request,
                                                               const CardRecord &record) const
 {
-    if (ambiguousLegacySameNamedFace(record) ||
-        kCardResolutionVersion != kScryfallPlaceholderPolicyVersion || !record.valid() ||
+    if (kCardResolutionVersion != kScryfallPlaceholderPolicyVersion || !record.valid() ||
         record.resolutionVersion != kCompatibleResolutionVersionBeforePlaceholderPolicy ||
         !QFileInfo::exists(record.imagePath) ||
         (record.reusesLocalArt && !request.allowsSubstituteArt(m_artCache->reuseLocalArt()))) {

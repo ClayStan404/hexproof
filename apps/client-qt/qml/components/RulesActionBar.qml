@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 Item {
@@ -21,14 +22,6 @@ Item {
         || (priority.isPriorityPrompt && priority.automaticallyPassing)
     readonly property bool emphasis: priority.isPriorityPrompt
         && !priority.automaticallyPassing && !priority.yieldMode
-    // Visibility derives from state rather than child `visible` reads, which
-    // turn false whenever this bar is hidden.
-    readonly property bool statusShown: !hideIdleStatus || informativeStatus
-    readonly property bool cancelShown: priority.yieldMode.length > 0
-    readonly property bool yieldShown: !priority.yieldMode && session.promptKind !== "payManaCost"
-    readonly property bool passShown: priority.isPriorityPrompt && !priority.yieldMode
-    readonly property bool hasContent: statusShown || cancelShown || yieldShown || passShown
-        || fallbackActions.length > 0
     readonly property var fallbackActions: priority.yieldMode ? [] : priority.options.filter(option =>
         !option.responseId.startsWith("$") && !externallyShownActionIds.includes(option.responseId)
         && !tableController.interaction.actionOnTable(
@@ -69,7 +62,7 @@ Item {
         Text {
             objectName: "rulesPriorityStatus"
             Layout.fillWidth: true
-            visible: root.statusShown
+            visible: !root.hideIdleStatus || root.informativeStatus
             textFormat: Text.PlainText
             text: root.statusText()
             color: root.priority.fullControl || root.priority.stopped ? Theme.accent : Theme.text
@@ -81,7 +74,6 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            visible: root.cancelShown || root.yieldShown || root.passShown
             spacing: Theme.size(10)
 
             AppButton {
@@ -89,7 +81,7 @@ Item {
                 objectName: "rulesCancelYield"
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
-                visible: root.cancelShown
+                visible: root.priority.yieldMode.length > 0
                 compact: true
                 text: qsTr("Cancel passing")
                 onClicked: root.priority.cancelYield()
@@ -100,7 +92,7 @@ Item {
                 objectName: "rulesYieldMenuButton"
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
-                visible: root.yieldShown
+                visible: !root.priority.yieldMode && root.session.promptKind !== "payManaCost"
                 enabled: root.priority.canStartYield
                 compact: !root.emphasis
                 text: qsTr("Pass")
@@ -140,7 +132,7 @@ Item {
                 objectName: "rulesPromptOption-$pass"
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
-                visible: root.passShown
+                visible: root.priority.isPriorityPrompt && !root.priority.yieldMode
                 enabled: root.priority.canPass
                 compact: !root.emphasis
                 variant: "primary"

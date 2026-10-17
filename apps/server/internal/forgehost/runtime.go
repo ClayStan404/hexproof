@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"hexproof/server/internal/forgediag"
 	"hexproof/server/internal/rulesengine/forge"
 )
 
@@ -27,7 +26,6 @@ type Runtime struct {
 	checkpointBytes int
 	done            chan struct{}
 	closeOnce       sync.Once
-	failure         forgediag.FailureInfo
 }
 
 var _ forge.Runtime = (*Runtime)(nil)
@@ -88,12 +86,8 @@ func (r *Runtime) mutate(ctx context.Context, request Request) (*Publication, er
 	}
 	request.EngineID = r.engineID
 	response, err := r.link.call(ctx, request)
-	r.acceptFailure(response.FailureInfo)
 	if err != nil {
 		if response.Error != "rejected" && !errors.Is(err, ErrPaused) {
-			if errors.Is(err, context.DeadlineExceeded) {
-				r.failureBoundary("execution_timeout", request.Command)
-			}
 			r.Invalidate()
 		}
 		if request.Command == "start" && request.Start != nil {
@@ -105,7 +99,6 @@ func (r *Runtime) mutate(ctx context.Context, request Request) (*Publication, er
 	}
 	p := response.Publication
 	if err := validatePublication(p); err != nil {
-		r.failureBoundary("publication_invalid", request.Command)
 		r.Invalidate()
 		return nil, err
 	}
@@ -331,7 +324,6 @@ func (r *Runtime) invalidateLocked() bool {
 		close(r.done)
 		r.link.cancelledEngine = r.engineID
 		if r.link.active == r {
-			r.link.retired, r.link.retiredUntil = r, time.Now().Add(5*time.Second)
 			r.link.active = nil
 		}
 	})

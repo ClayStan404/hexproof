@@ -26,36 +26,6 @@ TestCase {
         testCase: testCase
     }
 
-    Component {
-        id: handFaceCatalogComponent
-        QtObject {
-            property int imageRevision: 0
-            property string language: "en"
-            property var audit: ({imageRequests: []})
-            function cardFaces(name, setCode, collectorNumber) {
-                return mockCatalog.cardFaces(name, setCode, collectorNumber)
-            }
-            function imageSource(name, setCode, collectorNumber) {
-                audit.imageRequests.push([name, setCode, collectorNumber])
-                if (name !== "Delver of Secrets" && name !== "Insectile Aberration")
-                    return mockCatalog.imageSource(name, setCode, collectorNumber)
-                return "data:image/svg+xml," + encodeURIComponent(
-                    '<svg xmlns="http://www.w3.org/2000/svg" width="63" height="88"><rect width="63" height="88" fill="'
-                    + (name === "Insectile Aberration" ? "blue" : "red") + '"/></svg>')
-            }
-            function tableImageSource(name, setCode, collectorNumber) {
-                return imageSource(name, setCode, collectorNumber)
-            }
-            function cardTypeLine(name, setCode, collectorNumber) {
-                return mockCatalog.cardTypeLine(name, setCode, collectorNumber)
-            }
-            function cachedCardTypeLine(name, setCode, collectorNumber) {
-                return mockCatalog.cachedCardTypeLine(name, setCode, collectorNumber)
-            }
-        }
-    }
-    Component { id: queuedCommandSpyComponent; SignalSpy {} }
-
     function syncTestGameTable() {
         harness.syncTestGameTable()
     }
@@ -205,71 +175,6 @@ TestCase {
         mouseDrag(card, card.width / 2, card.height / 2, 40, -40)
         compare(table.activeHandDragCardId, "")
         compare(mockWs.moveCount, 0)
-    }
-
-    function test_handBothFacesAppearWithoutMovingOrChangingPhysicalCard() {
-        const physicalCard = {id: "s0-delver", name: "Delver of Secrets",
-            faceName: "", setCode: "ISD", collectorNumber: "51"}
-        mockCatalog.faces = {"Delver of Secrets": [
-            {name: "Delver of Secrets", faceName: "", setCode: "ISD", collectorNumber: "51"},
-            {name: "Insectile Aberration", faceName: "Insectile Aberration",
-                setCode: "ISD", collectorNumber: "51"}]}
-        const seats = JSON.parse(JSON.stringify(mockWs.gameSeats))
-        seats[0].hand = [physicalCard]
-        seats[0].handCount = 1
-        mockWs.gameSeats = seats
-        const catalog = createTemporaryObject(handFaceCatalogComponent, testCase)
-        const queued = createTemporaryObject(queuedCommandSpyComponent, testCase,
-            {target: mockWs, signalName: "commandQueued"})
-        verify(queued.valid)
-        const table = createTemporaryObject(tableComponent, tableHost, {
-            width: testWindow.width, height: testWindow.height, cardCatalogModel: catalog
-        })
-        verify(waitForRendering(table))
-        const hand = findChild(table, "ownHand")
-        tryVerify(() => hand.itemAtIndex(0) !== null)
-        const card = hand.itemAtIndex(0)
-        const originalHand = JSON.stringify(table.ownHand)
-        const originalCard = JSON.stringify(table.gameTableModel.cardData(physicalCard.id))
-        const originalSeats = JSON.stringify(mockWs.gameSeats)
-        mouseMove(table, 1, 1)
-        mouseMove(card, card.width / 2, card.height / 2)
-        tryCompare(table.presentation, "hoverPreviewVisible", true)
-        compare(table.presentation.inspectedCard.id, physicalCard.id)
-        compare(table.presentation.facePreview.viewedName, "Delver of Secrets")
-        const preview = findChild(table, "cardHoverPreview")
-        const art = findChild(preview, "cardHoverPreviewArt")
-        const reverse = findChild(preview, "cardHoverPreviewArt-1")
-        compare(table.presentation.facePreview.displayFaces.map(face => face.name),
-            ["Delver of Secrets", "Insectile Aberration"])
-        verify(findChild(preview, "viewOtherFaceButton") === null)
-        tryCompare(art, "status", Image.Ready)
-        tryCompare(reverse, "status", Image.Ready)
-        verify(String(art.source) !== String(reverse.source))
-        mouseMove(reverse, reverse.width / 2, reverse.height / 2)
-        wait(400)
-        verify(preview.visible, "Moving from the hand into either face must retain the preview")
-        compare(table.presentation.facePreview.viewedName, "Delver of Secrets")
-        verify(catalog.audit.imageRequests.some(row => row[0] === "Insectile Aberration"
-            && row[1] === "ISD" && row[2] === "51"))
-        compare(JSON.stringify(table.ownHand), originalHand)
-        compare(JSON.stringify(table.gameTableModel.cardData(physicalCard.id)), originalCard)
-        compare(JSON.stringify(mockWs.gameSeats), originalSeats)
-        compare(table.presentation.inspectedCard.name, "Delver of Secrets")
-        compare(table.presentation.inspectedCard.faceName, "")
-        compare(table.activeHandDragCardId, "")
-        compare(table.selectedHandCard.id || "", "")
-        compare(mockWs.moveCount, 0)
-        compare(mockWs.moveCardsCount, 0)
-        compare(mockWs.setFaceDownCount, 0)
-        compare(mockWs.setTappedCount, 0)
-        compare(mockWs.revealCount, 0)
-        compare(queued.count, 0)
-        mouseMove(table, 1, 1)
-        tryCompare(table.presentation, "hoverPreviewVisible", false, 1000)
-        compare(table.presentation.inspectedSourceItem, null)
-        compare(JSON.stringify(table.gameTableModel.cardData(physicalCard.id)), originalCard)
-        compare(queued.count, 0)
     }
 
     function test_viewLibraryTopCardUsesContextDestinations() {

@@ -230,7 +230,6 @@ Item {
                 }
             }
             Surface {
-                id: deckControls
                 objectName: "limitedMainDeckSurface"
                 visible: !root.compactColumns || root.compactPaneIndex === 1
                 Layout.fillWidth: root.compactColumns
@@ -661,7 +660,6 @@ Item {
         objectName: "limitedCardHoverPreview"
         artObjectName: "limitedCardHoverPreviewArt"
         catalogModel: root.cardCatalogModel
-        avoidItems: [deckControls]
     }
     LimitedCommanderPicker {
         id: commanderPicker

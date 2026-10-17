@@ -53,7 +53,8 @@ func (h *Handler) expireSideboard(r *room.Room, timer *time.Timer) {
 	if res.StartRulesGame {
 		if state, ok := h.prepareForgeTransition(r, nil, ""); ok {
 			h.fanout(r, res.Broadcast)
-			h.sendForgePublication(r, state)
+			h.sendRulesProjections(state.projections)
+			h.sendRulesPrompts(state.prompts)
 		}
 		return
 	}
@@ -190,7 +191,8 @@ func (h *Handler) handleSideboardReady(sess *Session, env protocol.Envelope) err
 	}
 	h.fanout(r, res.Broadcast)
 	if res.StartRulesGame {
-		h.sendForgePublication(r, started)
+		h.sendRulesProjections(started.projections)
+		h.sendRulesPrompts(started.prompts)
 		return nil
 	}
 	h.fanoutGameProjections(r)

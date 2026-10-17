@@ -23,23 +23,9 @@ Item {
     property string dragFromZone: ""
     property point dragPosition: Qt.point(0, 0)
     property var inspectedCard: ({})
-    property var inspectedSourceItem: null
-    property bool hoverPreviewSourceActive: false
-    property bool hoverPreviewPointerActive: false
-    property bool hoverPreviewFocusActive: false
     property bool hoverPreviewVisible: false
     property real hoverPreviewX: 0
     property real hoverPreviewY: 0
-
-    Timer {
-        id: previewDismiss
-        interval: 350
-        onTriggered: {
-            if (!root.hoverPreviewSourceActive && !root.hoverPreviewPointerActive
-                    && !root.hoverPreviewFocusActive)
-                root.hideSideboardCardPreview()
-        }
-    }
     property var resolvedTypeLineCache: ({})
     property bool basicLandsExpanded: false
     readonly property bool compactLayout: width < Theme.size(1100)
@@ -64,14 +50,6 @@ Item {
     readonly property var mainboardGroups: tableModel.mainboardGroups
     readonly property var sideboardGroups: tableModel.sideboardGroups
     readonly property bool isPlayer: roomSession.role === "player"
-    readonly property var matchScoreSeatOrder: {
-        const score = gameSession.score || []
-        if (roomSession.matchMode !== "bo3" || score.length !== 2)
-            return []
-        const ownSeat = roomSession.seatIndex
-        return isPlayer && ownSeat >= 0 && ownSeat < 2
-            ? [ownSeat, 1 - ownSeat] : [0, 1]
-    }
     readonly property bool ownReady: playerReady(roomSession.seatIndex)
     property bool readyPending: false
     onOwnReadyChanged: readyPending = false
@@ -87,7 +65,7 @@ Item {
         if (!visible) {
             boardReview.close()
             toolsPopup.close()
-            hideSideboardCardPreview()
+            hoverPreviewVisible = false
         }
     }
     Component.onCompleted: updateClock()
@@ -140,7 +118,7 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.size(root.compactLayout ? 12 : 20)
-        spacing: Theme.size(root.compactLayout ? 4 : 12)
+        spacing: Theme.size(root.compactLayout ? 6 : 12)
 
         RowLayout {
             Layout.fillWidth: true
@@ -164,86 +142,6 @@ Item {
                         color: Theme.text
                         font.pixelSize: Theme.fontSize(root.compactLayout ? 18 : 22)
                         font.weight: Font.DemiBold
-                    }
-
-                    RowLayout {
-                        objectName: "sideboardMatchScore"
-                        Layout.fillWidth: true
-                        visible: root.matchScoreSeatOrder.length === 2
-                        spacing: Theme.size(6)
-
-                        Text {
-                            textFormat: Text.PlainText
-                            text: qsTranslate("Table", "Score") + ":"
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSize(12)
-                        }
-
-                        Repeater {
-                            model: root.matchScoreSeatOrder
-
-                            RowLayout {
-                                id: scoreSlot
-                                required property int index
-                                required property int modelData
-                                Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                Layout.maximumWidth: implicitWidth
-                                spacing: Theme.size(4)
-
-                                Text {
-                                    id: scorePlayerName
-                                    objectName: "sideboardMatchPlayer" + scoreSlot.index
-                                    Layout.fillWidth: true
-                                    Layout.minimumWidth: 0
-                                    textFormat: Text.PlainText
-                                    text: root.displayName(scoreSlot.modelData)
-                                    elide: Text.ElideRight
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Theme.fontSize(12)
-                                    HoverHandler { id: scoreNameHover }
-
-                                    ToolTip {
-                                        id: scoreNameTooltip
-                                        objectName: "sideboardMatchNameTooltip" + scoreSlot.index
-                                        visible: scoreNameHover.hovered && scorePlayerName.truncated
-                                        text: scorePlayerName.text
-                                        width: Math.min(implicitWidth, Theme.size(560),
-                                                        root.width - Theme.size(24))
-                                        contentItem: Text {
-                                            objectName: "sideboardMatchNameTooltipText" + scoreSlot.index
-                                            textFormat: Text.PlainText
-                                            text: scoreNameTooltip.text
-                                            font: scoreNameTooltip.font
-                                            wrapMode: Text.Wrap
-                                            color: scoreNameTooltip.palette.toolTipText
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    objectName: "sideboardMatchWins" + scoreSlot.index
-                                    textFormat: Text.PlainText
-                                    text: root.gameSession.score[scoreSlot.modelData]
-                                    color: Theme.accent
-                                    font.pixelSize: Theme.fontSize(12)
-                                    font.weight: Font.DemiBold
-                                }
-
-                                Text {
-                                    visible: scoreSlot.index === 0
-                                    textFormat: Text.PlainText
-                                    text: "–"
-                                    color: Theme.textMuted
-                                    font.pixelSize: Theme.fontSize(12)
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                        }
                     }
 
                     Text {
@@ -943,20 +841,9 @@ Item {
     function inspectSideboardCard(card, sourceItem) {
         if (!card || !card.name || !sourceItem)
             return
-        previewDismiss.stop()
         inspectedCard = card
-        inspectedSourceItem = sourceItem
-        hoverPreviewSourceActive = true
-        repositionSideboardCardPreview()
-        hoverPreviewVisible = true
-    }
-
-    function repositionSideboardCardPreview() {
-        const sourceItem = inspectedSourceItem
-        if (!sourceItem)
-            return
-        const previewWidth = previewLayer.previewWidth
-        const previewHeight = previewLayer.previewHeight
+        const previewWidth = Math.min(Theme.size(320), root.width * 0.25)
+        const previewHeight = Math.round(previewWidth * 88 / 63)
         const margin = Theme.size(12)
         const right = sourceItem.mapToItem(root, sourceItem.width, 0)
         const left = sourceItem.mapToItem(root, 0, 0)
@@ -970,31 +857,11 @@ Item {
                             margin,
                             Math.min(root.height - previewHeight - margin,
                                      left.y))
+        hoverPreviewVisible = true
     }
 
-    function hideSideboardCardPreview(immediate = true) {
-        if (!immediate) {
-            previewDismiss.restart()
-            return
-        }
-        previewDismiss.stop()
-        hoverPreviewSourceActive = false
+    function hideSideboardCardPreview() {
         hoverPreviewVisible = false
-    }
-
-    function releaseSideboardCardPreview(sourceItem) {
-        if (sourceItem !== inspectedSourceItem)
-            return
-        hoverPreviewSourceActive = false
-        hideSideboardCardPreview(false)
-    }
-
-    function retainSideboardCardPreview(hovered) {
-        hoverPreviewPointerActive = hovered
-        if (hovered)
-            previewDismiss.stop()
-        else if (hoverPreviewVisible)
-            hideSideboardCardPreview(false)
     }
 
     function beginSideboardDrag(sourceItem, scenePosition) {

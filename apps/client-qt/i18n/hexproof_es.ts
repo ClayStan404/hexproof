@@ -2401,7 +2401,7 @@
         <message>
             <location line="+2" />
             <source>Player hosting supports two-player formats, including Duel Commander.</source>
-            <translation type="vanished">El alojamiento por jugadores admite formatos para dos jugadores, incluido el Duel Commander.</translation>
+            <translation>El alojamiento por jugadores admite formatos para dos jugadores, incluido el Duel Commander.</translation>
         </message>
         <message>
             <location line="+2" />
@@ -4130,7 +4130,7 @@
         <message>
             <location line="+38" />
             <source>No emblems</source>
-            <translation type="vanished">Sin emblemas</translation>
+            <translation>Sin emblemas</translation>
         </message>
     </context>
     <context>
@@ -4239,16 +4239,6 @@
             <source>Library contents are hidden.</source>
             <translation>El contenido de la biblioteca está oculto.</translation>
         </message>
-        <message>
-            <location line="+411" />
-            <source>%1 tapped</source>
-            <translation>%1 giradas</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>%1 new</source>
-            <translation>%1 nuevas</translation>
-        </message>
     </context>
     <context>
         <name>ForgeCombatInteraction</name>
@@ -4291,11 +4281,6 @@
             <location line="+2" />
             <source>Must be blocked if able</source>
             <translation>Debe ser bloqueado si puede</translation>
-        </message>
-        <message>
-            <location filename="../qml/components/ForgeCombatInteraction.qml" line="163"/>
-            <source>Choose a creature to block this</source>
-            <translation>Elige una criatura para bloquearla</translation>
         </message>
     </context>
     <context>
@@ -4378,73 +4363,73 @@
         <message>
             <location line="+57" />
             <source>+%1 · %2</source>
-            <translation type="vanished">+%1 · %2</translation>
+            <translation>+%1 · %2</translation>
         </message>
         <message>
             <location line="+2" />
             <source>Hidden</source>
-            <translation type="vanished">Oculto</translation>
+            <translation>Oculto</translation>
         </message>
         <message>
             <location line="+10" />
             <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
-            <translation type="vanished">El impuesto se añade al costo del hechizo; Forge calcula el pago.</translation>
+            <translation>El impuesto se añade al costo del hechizo; Forge calcula el pago.</translation>
         </message>
         <message>
             <location line="+32" />
             <source>Untap</source>
-            <translation type="vanished">Enderezar</translation>
+            <translation>Enderezar</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Upkeep</source>
-            <translation type="vanished">Mantenimiento</translation>
+            <translation>Mantenimiento</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Draw</source>
-            <translation type="vanished">Robar</translation>
+            <translation>Robar</translation>
         </message>
         <message>
             <location line="+1" />
             <location line="+6" />
             <source>Main</source>
-            <translation type="vanished">Fase principal</translation>
+            <translation>Fase principal</translation>
         </message>
         <message>
             <location line="-5" />
             <source>Combat</source>
-            <translation type="vanished">Combate</translation>
+            <translation>Combate</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Attack</source>
-            <translation type="vanished">Ataque</translation>
+            <translation>Ataque</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Block</source>
-            <translation type="vanished">Bloqueo</translation>
+            <translation>Bloqueo</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Damage</source>
-            <translation type="vanished">Daño</translation>
+            <translation>Daño</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Combat end</source>
-            <translation type="vanished">Fin del combate</translation>
+            <translation>Fin del combate</translation>
         </message>
         <message>
             <location line="+2" />
             <source>End</source>
-            <translation type="vanished">Final</translation>
+            <translation>Final</translation>
         </message>
         <message>
             <location line="+1" />
             <source>Cleanup</source>
-            <translation type="vanished">Limpieza</translation>
+            <translation>Limpieza</translation>
         </message>
         <message>
             <location line="+53" />
@@ -4501,22 +4486,7 @@
             <source>Turn %1 · %2</source>
             <translation>Turno %1 · %2</translation>
         </message>
-            <message>
-            <location line="+0" />
-            <source>Hide choice</source>
-            <translation>Ocultar elección</translation>
-        </message>
-        <message>
-            <location line="+0" />
-            <source>Show choice</source>
-            <translation>Mostrar elección</translation>
-        </message>
-        <message>
-            <location line="+0" />
-            <source>Queued mana was cleared</source>
-            <translation>El maná en cola se canceló</translation>
-        </message>
-</context>
+    </context>
     <context>
         <name>ForgeHand</name>
         <message>
@@ -6590,7 +6560,7 @@
         <message>
             <location line="+1" />
             <source>The Forge decision is stale or no longer available</source>
-            <translation type="vanished">La decisión de Forge está obsoleta o ya no está disponible</translation>
+            <translation>La decisión de Forge está obsoleta o ya no está disponible</translation>
         </message>
         <message>
             <location line="+1" />
@@ -6763,11 +6733,6 @@
             <translation>La autorización ha expirado</translation>
         </message>
         <message>
-            <location line="+1"/>
-            <source>The action could not be sent. Check the connection and try again.</source>
-            <translation>No se pudo enviar la acción. Comprueba la conexión e inténtalo de nuevo.</translation>
-        </message>
-        <message>
             <location line="+1" />
             <source>Connection timed out</source>
             <translation>Se agotó el tiempo de conexión</translation>
@@ -6786,32 +6751,6 @@
             <location line="+1" />
             <source>Incompatible protocol</source>
             <translation>Protocolo incompatible</translation>
-        </message>
-        <message>
-            <location filename="../qml/screens/CreateRoom.qml" line="341"/>
-            <location filename="../qml/screens/TournamentCreate.qml" line="408"/>
-            <source>25-minute action clock</source>
-            <translation>Reloj de 25 minutos por jugador</translation>
-        </message>
-        <message>
-            <location filename="../qml/screens/CreateRoom.qml" line="349"/>
-            <location filename="../qml/screens/TournamentCreate.qml" line="416"/>
-            <source>Each player has 25 minutes for the whole match. Time runs while a decision is waiting for that player; reaching zero loses the match.</source>
-            <translation>Cada jugador dispone de 25 minutos para todo el encuentro. El tiempo corre mientras se espera una decisión de ese jugador; al llegar a cero, pierde el encuentro.</translation>
-        </message>
-        <message>
-            <location filename="../qml/components/I18n.qml" line="10"/>
-            <source>Action clock · 25 minutes per player</source>
-            <translation>Reloj de acción · 25 minutos por jugador</translation>
-        </message>
-        <message>
-            <location filename="../qml/components/I18n.qml" line="10"/>
-            <source>Action clock · Off</source>
-            <translation>Reloj de acción · Desactivado</translation>
-        </message>
-        <message>
-            <source>Forge could not accept this decision. Review the current choices and try again.</source>
-            <translation>Forge no pudo aceptar esta decisión. Revisa las opciones actuales e inténtalo de nuevo.</translation>
         </message>
     </context>
     <context>
@@ -7951,10 +7890,6 @@ a tu manera.</translation>
             <source>Leave the current room first</source>
             <translation>Sal primero de la sala actual</translation>
         </message>
-        <message>
-            <source>Forge crash reports</source>
-            <translation>Informes de fallos de Forge</translation>
-        </message>
     </context>
     <context>
         <name>MatchLoading</name>
@@ -8233,11 +8168,7 @@ a tu manera.</translation>
         </message>
     </context>
     <context>
-    <name>PackOpeningOverlay</name>
-    <message>
-        <source>Inspect %1</source>
-        <translation>Inspeccionar %1</translation>
-    </message>
+        <name>PackOpeningOverlay</name>
         <message>
             <location filename="../qml/components/PackOpeningOverlay.qml" line="+76" />
             <source>Mythic rare</source>
@@ -8387,12 +8318,12 @@ a tu manera.</translation>
         <message>
             <location line="+89" />
             <source>Could not load this card image.</source>
-            <translation type="vanished">No se pudo cargar la imagen de esta carta.</translation>
+            <translation>No se pudo cargar la imagen de esta carta.</translation>
         </message>
         <message>
             <location line="+1" />
             <source>No card image is available for this version.</source>
-            <translation type="vanished">No hay imagen de carta disponible para esta versión.</translation>
+            <translation>No hay imagen de carta disponible para esta versión.</translation>
         </message>
         <message>
             <location line="+27" />
@@ -8916,10 +8847,6 @@ a tu manera.</translation>
             <source>No cards match this filter</source>
             <translation>Ninguna carta coincide con este filtro</translation>
         </message>
-        <message>
-            <source>Showing %1 of %2 card</source>
-            <translation>Cartas mostradas: %1 de %2</translation>
-        </message>
     </context>
     <context>
         <name>RulesCardChoiceDialog</name>
@@ -8931,7 +8858,7 @@ a tu manera.</translation>
         <message>
             <location line="+22" />
             <source>You may reveal it from your opening hand, or leave it there.</source>
-            <translation type="vanished">Puedes revelarla desde tu mano inicial o dejarla ahí.</translation>
+            <translation>Puedes revelarla desde tu mano inicial o dejarla ahí.</translation>
         </message>
         <message>
             <location line="+62" />
@@ -8942,10 +8869,6 @@ a tu manera.</translation>
             <location line="+9" />
             <source>Use it</source>
             <translation>Usarla</translation>
-        </message>
-        <message>
-            <source>Use this card's opening ability, or leave it in your hand.</source>
-            <translation>Usa la habilidad de inicio de partida de esta carta o déjala en tu mano.</translation>
         </message>
     </context>
     <context>
@@ -9330,6 +9253,11 @@ a tu manera.</translation>
             <translation>Selecciona una criatura y luego el jugador o permanente que vas a atacar.</translation>
         </message>
         <message>
+            <location line="+1" />
+            <source>Select a blocking creature, then the attacking creature.</source>
+            <translation>Selecciona una criatura bloqueadora y luego la criatura atacante.</translation>
+        </message>
+        <message>
             <location line="+15" />
             <source>Cancel selection</source>
             <translation>Cancelar la selección</translation>
@@ -9360,11 +9288,6 @@ a tu manera.</translation>
             <translation>%1 bloqueadores asignados</translation>
         </message>
         <message>
-            <location line="+0" />
-            <source>Attack with all</source>
-            <translation>Atacar con todos</translation>
-        </message>
-        <message>
             <location line="+12" />
             <source>Declare attackers</source>
             <translation>Declarar atacantes</translation>
@@ -9383,29 +9306,6 @@ a tu manera.</translation>
             <location line="+1" />
             <source>Resolve invalid combat assignments</source>
             <translation>Corregir las asignaciones de combate no válidas</translation>
-        </message>
-        <message>
-            <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="443"/>
-            <source>Block with all</source>
-            <translation>Bloquear con todas</translation>
-        </message>
-        <message>
-            <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="381"/>
-            <source>Choose a creature to block the selected attacker.</source>
-            <translation>Elige una criatura para bloquear al atacante seleccionado.</translation>
-        </message>
-        <message>
-            <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="382"/>
-            <source>Select a blocking creature, then the attacking creature. Or select an attacker first.</source>
-            <translation>Selecciona una criatura bloqueadora y luego la criatura atacante. También puedes elegir primero al atacante.</translation>
-        </message>
-        <message>
-            <source>%1: %2 assigned; minimum %3.</source>
-            <translation>%1: %2 bloqueadores asignados; mínimo %3.</translation>
-        </message>
-        <message>
-            <source>Remove these blocks in Assignment list, or clear assignments.</source>
-            <translation>Quita estos bloqueos de la lista de asignaciones o borra las asignaciones.</translation>
         </message>
     </context>
     <context>
@@ -9589,10 +9489,6 @@ a tu manera.</translation>
             <location line="+23" />
             <source>Confirm number</source>
             <translation>Confirmar el número</translation>
-        </message>
-        <message>
-            <source>Choose a number of at least %1</source>
-            <translation>Elige un número mayor o igual que %1</translation>
         </message>
     </context>
     <context>
@@ -10264,7 +10160,7 @@ a tu manera.</translation>
         <message>
             <location line="+1" />
             <source>Permanent</source>
-            <translation type="vanished">Permanente</translation>
+            <translation>Permanente</translation>
         </message>
         <message>
             <location line="+178" />
@@ -10300,10 +10196,6 @@ a tu manera.</translation>
             <location line="+2" />
             <source>Choose a valid number of targets</source>
             <translation>Elige un número válido de objetivos</translation>
-        </message>
-        <message>
-            <source>Card</source>
-            <translation>Carta</translation>
         </message>
     </context>
     <context>
@@ -10887,14 +10779,6 @@ a tu manera.</translation>
             <location line="+28" />
             <source>First strike combat damage</source>
             <translation>Daño de combate de iniciativa</translation>
-        </message>
-        <message>
-            <source>Assign each blocker to the attackers it can legally block.</source>
-            <translation>Asigna cada bloqueador a los atacantes que pueda bloquear legalmente.</translation>
-        </message>
-        <message>
-            <source>Choose a permanent or spell with mana value at least 1</source>
-            <translation>Elige un permanente o hechizo con valor de maná de al menos 1</translation>
         </message>
     </context>
     <context>
@@ -15531,14 +15415,6 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
             <source>Saved to deck library</source>
             <translation>Guardado en la biblioteca de mazos</translation>
         </message>
-        <message>
-            <source>%1 card remaining</source>
-            <translation>Queda %1 carta</translation>
-        </message>
-        <message>
-            <source>%1 card</source>
-            <translation>%1 carta</translation>
-        </message>
     </context>
     <context>
         <name>UpdatesSettings</name>
@@ -16616,533 +16492,6 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
     <message>
         <source>Opening your room or event…</source>
         <translation>Abriendo tu sala o evento…</translation>
-    </message>
-</context>
-<context>
-    <name>ForgeCrashReportPanel</name>
-    <message>
-        <source>Forge encountered an engine error.</source>
-        <translation>Se produjo un error en el motor de Forge.</translation>
-    </message>
-    <message>
-        <source>Forge reported a resource error.</source>
-        <translation>Forge informó de un error de recursos.</translation>
-    </message>
-    <message>
-        <source>An engine operation timed out.</source>
-        <translation>Una operación del motor agotó el tiempo de espera.</translation>
-    </message>
-    <message>
-        <source>Engine communication or game state became invalid.</source>
-        <translation>La comunicación del motor o el estado de la partida dejó de ser válido.</translation>
-    </message>
-    <message>
-        <source>The Forge process stopped. The exact cause may be unknown.</source>
-        <translation>El proceso de Forge se detuvo. La causa exacta puede ser desconocida.</translation>
-    </message>
-    <message>
-        <source>The hosting connection was lost.</source>
-        <translation>Se perdió la conexión con el anfitrión.</translation>
-    </message>
-    <message>
-        <source>This report has expired or is no longer available.</source>
-        <translation>Este informe ha caducado o ya no está disponible.</translation>
-    </message>
-    <message>
-        <source>The report identifies the operation where the error was captured.</source>
-        <translation>El informe identifica la operación donde se detectó el error.</translation>
-    </message>
-    <message>
-        <source>An effect was resolving; the exact failing operation is unknown.</source>
-        <translation>Se estaba resolviendo un efecto; se desconoce la operación exacta que falló.</translation>
-    </message>
-    <message>
-        <source>Only preceding public events are available; they do not establish the cause.</source>
-        <translation>Solo están disponibles los eventos públicos anteriores; no demuestran la causa.</translation>
-    </message>
-    <message>
-        <source>No reliable failing operation or public card source was captured.</source>
-        <translation>No se pudo registrar de forma fiable la operación fallida ni una carta de origen pública.</translation>
-    </message>
-    <message>
-        <source>Report copied.</source>
-        <translation>Informe copiado.</translation>
-    </message>
-    <message>
-        <source>Report saved.</source>
-        <translation>Informe guardado.</translation>
-    </message>
-    <message>
-        <source>Could not copy the report.</source>
-        <translation>No se pudo copiar el informe.</translation>
-    </message>
-    <message>
-        <source>Could not save the report. Choose another location.</source>
-        <translation>No se pudo guardar el informe. Elige otra ubicación.</translation>
-    </message>
-    <message>
-        <source>A recorded card or effect is context, not proof that it alone caused the failure.</source>
-        <translation>Una carta o efecto registrado aporta contexto, pero no demuestra que causara el fallo por sí solo.</translation>
-    </message>
-    <message>
-        <source>Public sources: %1</source>
-        <translation>Orígenes públicos: %1</translation>
-    </message>
-    <message>
-        <source>Collecting final process evidence…</source>
-        <translation>Recopilando los últimos datos del proceso…</translation>
-    </message>
-    <message>
-        <source>Some evidence is unavailable. Missing details do not establish the cause.</source>
-        <translation>Faltan algunos datos. La información ausente no demuestra la causa.</translation>
-    </message>
-    <message>
-        <source>Evidence collection finished.</source>
-        <translation>Recopilación de datos finalizada.</translation>
-    </message>
-    <message>
-        <source>Report ID: %1</source>
-        <translation>ID del informe: %1</translation>
-    </message>
-    <message>
-        <source>Local history could not be saved. Copy or save this report before closing the application.</source>
-        <translation>No se pudo guardar el historial local. Copia o guarda este informe antes de cerrar la aplicación.</translation>
-    </message>
-    <message>
-        <source>Copy report</source>
-        <translation>Copiar informe</translation>
-    </message>
-    <message>
-        <source>Save report</source>
-        <translation>Guardar informe</translation>
-    </message>
-    <message>
-        <source>Save Forge crash report</source>
-        <translation>Guardar informe de fallo de Forge</translation>
-    </message>
-    <message>
-        <source>JSON report (*.json)</source>
-        <translation>Informe JSON (*.json)</translation>
-    </message>
-</context>
-<context>
-    <name>ForgeCrashReportNotice</name>
-    <message>
-        <source>Forge stopped unexpectedly</source>
-        <translation>Forge se detuvo inesperadamente</translation>
-    </message>
-    <message>
-        <source>Hide details</source>
-        <translation>Ocultar detalles</translation>
-    </message>
-    <message>
-        <source>Show details</source>
-        <translation>Mostrar detalles</translation>
-    </message>
-    <message>
-        <source>Dismiss</source>
-        <translation>Cerrar</translation>
-    </message>
-</context>
-<context>
-    <name>ForgeCrashReports</name>
-    <message>
-        <source>Back</source>
-        <translation>Volver</translation>
-    </message>
-    <message>
-        <source>Forge crash reports</source>
-        <translation>Informes de fallos de Forge</translation>
-    </message>
-    <message>
-        <source>Reports work offline and are kept for up to seven days, subject to storage limits. Nothing is uploaded automatically; send a copied or saved report to support when you choose.</source>
-        <translation>Los informes funcionan sin conexión y se conservan hasta siete días, según el límite de almacenamiento. No se suben automáticamente; puedes enviar al soporte un informe copiado o guardado cuando quieras.</translation>
-    </message>
-    <message>
-        <source>No Forge crash reports.</source>
-        <translation>No hay informes de fallos de Forge.</translation>
-    </message>
-</context>
-    <context>
-        <name>Feedback</name>
-        <message>
-            <source>Add hosting diagnostics</source>
-            <translation>Añadir diagnóstico de alojamiento</translation>
-        </message>
-        <message>
-            <source>Add image</source>
-            <translation>Añadir imagen</translation>
-        </message>
-        <message>
-            <source>Add the selected context to your current draft, or start a new one. Your existing text will be kept.</source>
-            <translation>Añade el contexto seleccionado al borrador actual o crea otro. El texto existente se conservará.</translation>
-        </message>
-        <message>
-            <source>Add to draft</source>
-            <translation>Añadir al borrador</translation>
-        </message>
-        <message>
-            <source>An earlier copy may already have reached support. The new draft will only be sent when you press Send.</source>
-            <translation>Es posible que una copia anterior ya haya llegado al soporte. El nuevo borrador solo se enviará cuando pulses Enviar.</translation>
-        </message>
-        <message>
-            <source>Attach up to two images, one crash report and one hosting report.</source>
-            <translation>Adjunta hasta dos imágenes, un informe de fallo y uno de alojamiento.</translation>
-        </message>
-        <message>
-            <source>Automatic retries ended. Check the receipt before sending another copy.</source>
-            <translation>Los reintentos automáticos terminaron. Consulta el recibo antes de enviar otra copia.</translation>
-        </message>
-        <message>
-            <source>Cancel</source>
-            <translation>Cancelar</translation>
-        </message>
-        <message>
-            <source>Check receipt</source>
-            <translation>Consultar recibo</translation>
-        </message>
-        <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>Elige una imagen PNG o JPEG más pequeña (hasta 2 MiB y 16 megapíxeles).</translation>
-        </message>
-        <message>
-            <source>Choose an image</source>
-            <translation>Elegir imagen</translation>
-        </message>
-        <message>
-            <source>Choose crash report</source>
-            <translation>Elegir informe de fallo</translation>
-        </message>
-        <message>
-            <source>Close</source>
-            <translation>Cerrar</translation>
-        </message>
-        <message>
-            <source>Contact email (optional)</source>
-            <translation>Correo de contacto (opcional)</translation>
-        </message>
-        <message>
-            <source>Copy receipt</source>
-            <translation>Copiar recibo</translation>
-        </message>
-        <message>
-            <source>Could not copy the receipt.</source>
-            <translation>No se pudo copiar el recibo.</translation>
-        </message>
-        <message>
-            <source>Could not export. Choose another location.</source>
-            <translation>No se pudo exportar. Elige otra ubicación.</translation>
-        </message>
-        <message>
-            <source>Could not save locally. Check storage before sending.</source>
-            <translation>No se pudo guardar localmente. Comprueba el almacenamiento antes de enviar.</translation>
-        </message>
-        <message>
-            <source>Create an editable copy to change this submission.</source>
-            <translation>Crea una copia editable para modificar este envío.</translation>
-        </message>
-        <message>
-            <source>Create another draft?</source>
-            <translation>¿Crear otro borrador?</translation>
-        </message>
-        <message>
-            <source>Create editable copy</source>
-            <translation>Crear copia editable</translation>
-        </message>
-        <message>
-            <source>Delete local feedback?</source>
-            <translation>¿Eliminar el comentario local?</translation>
-        </message>
-        <message>
-            <source>Delete locally</source>
-            <translation>Eliminar localmente</translation>
-        </message>
-        <message>
-            <source>Describe the problem, what you did and what you expected.</source>
-            <translation>Describe el problema, lo que hiciste y el resultado esperado.</translation>
-        </message>
-        <message>
-            <source>Draft</source>
-            <translation>Borrador</translation>
-        </message>
-        <message>
-            <source>Draft saved</source>
-            <translation>Borrador guardado</translation>
-        </message>
-        <message>
-            <source>Drafts and unreceived feedback stay on this device until you delete them. Received content is kept locally for up to 30 days; receipts for up to 90 days, subject to storage limits.</source>
-            <translation>Los borradores y envíos no recibidos permanecen en este dispositivo hasta que los elimines. El contenido recibido se guarda localmente hasta 30 días y los recibos hasta 90 días, según los límites de almacenamiento.</translation>
-        </message>
-        <message>
-            <source>Drafts stay on this device until deleted. Text and images may contain private information.</source>
-            <translation>Los borradores permanecen en este dispositivo hasta que los elimines. El texto y las imágenes pueden contener información privada.</translation>
-        </message>
-        <message>
-            <source>Empty draft</source>
-            <translation>Borrador vacío</translation>
-        </message>
-        <message>
-            <source>Enter a description of up to 8 KiB.</source>
-            <translation>Escribe una descripción de hasta 8 KiB.</translation>
-        </message>
-        <message>
-            <source>Enter one valid contact email, or leave it empty.</source>
-            <translation>Introduce un correo de contacto válido o deja el campo vacío.</translation>
-        </message>
-        <message>
-            <source>Export</source>
-            <translation>Exportar</translation>
-        </message>
-        <message>
-            <source>Export feedback</source>
-            <translation>Exportar comentario</translation>
-        </message>
-        <message>
-            <source>Feedback</source>
-            <translation>Comentarios</translation>
-        </message>
-        <message>
-            <source>Feedback exported.</source>
-            <translation>Comentario exportado.</translation>
-        </message>
-        <message>
-            <source>Feedback file (*.json)</source>
-            <translation>Archivo de comentarios (*.json)</translation>
-        </message>
-        <message>
-            <source>Forge crash report</source>
-            <translation>Informe de fallo de Forge</translation>
-        </message>
-        <message>
-            <source>Hide technical information</source>
-            <translation>Ocultar información técnica</translation>
-        </message>
-        <message>
-            <source>Hosting diagnostics</source>
-            <translation>Diagnóstico de alojamiento</translation>
-        </message>
-        <message>
-            <source>Images (*.png *.jpg *.jpeg)</source>
-            <translation>Imágenes (*.png *.jpg *.jpeg)</translation>
-        </message>
-        <message>
-            <source>Keep working on this draft?</source>
-            <translation>¿Continuar con este borrador?</translation>
-        </message>
-        <message>
-            <source>Local feedback storage is full. Export or delete an older record.</source>
-            <translation>El almacenamiento local de comentarios está lleno. Exporta o elimina un registro anterior.</translation>
-        </message>
-        <message>
-            <source>My feedback</source>
-            <translation>Mis comentarios</translation>
-        </message>
-        <message>
-            <source>Needs attention</source>
-            <translation>Requiere atención</translation>
-        </message>
-        <message>
-            <source>New draft</source>
-            <translation>Nuevo borrador</translation>
-        </message>
-        <message>
-            <source>New feedback</source>
-            <translation>Nuevo comentario</translation>
-        </message>
-        <message>
-            <source>No crash reports available.</source>
-            <translation>No hay informes de fallo disponibles.</translation>
-        </message>
-        <message>
-            <source>No feedback yet.</source>
-            <translation>Aún no hay comentarios.</translation>
-        </message>
-        <message>
-            <source>Older content has been removed from local storage. The receipt remains available.</source>
-            <translation>El contenido antiguo se eliminó del almacenamiento local. El recibo sigue disponible.</translation>
-        </message>
-        <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>El envío en línea no está disponible. Puedes guardar o exportar un borrador.</translation>
-        </message>
-        <message>
-            <source>Other</source>
-            <translation>Otro</translation>
-        </message>
-        <message>
-            <source>Paste image</source>
-            <translation>Pegar imagen</translation>
-        </message>
-        <message>
-            <source>Please wait for the current operation.</source>
-            <translation>Espera a que termine la operación actual.</translation>
-        </message>
-        <message>
-            <source>Preview</source>
-            <translation>Vista previa</translation>
-        </message>
-        <message>
-            <source>Privacy</source>
-            <translation>Privacidad</translation>
-        </message>
-        <message>
-            <source>Problem</source>
-            <translation>Problema</translation>
-        </message>
-        <message>
-            <source>Queued</source>
-            <translation>En cola</translation>
-        </message>
-        <message>
-            <source>Receipt copied.</source>
-            <translation>Recibo copiado.</translation>
-        </message>
-        <message>
-            <source>Receipt unconfirmed</source>
-            <translation>Recepción sin confirmar</translation>
-        </message>
-        <message>
-            <source>Receipt: %1</source>
-            <translation>Recibo: %1</translation>
-        </message>
-        <message>
-            <source>Received</source>
-            <translation>Recibido</translation>
-        </message>
-        <message>
-            <source>Remove</source>
-            <translation>Quitar</translation>
-        </message>
-        <message>
-            <source>Report this problem</source>
-            <translation>Informar de este problema</translation>
-        </message>
-        <message>
-            <source>Retry saving</source>
-            <translation>Reintentar guardado</translation>
-        </message>
-        <message>
-            <source>Revision %1</source>
-            <translation>Revisión %1</translation>
-        </message>
-        <message>
-            <source>Saving…</source>
-            <translation>Guardando…</translation>
-        </message>
-        <message>
-            <source>Screenshot</source>
-            <translation>Captura de pantalla</translation>
-        </message>
-        <message>
-            <source>Send feedback</source>
-            <translation>Enviar comentario</translation>
-        </message>
-        <message>
-            <source>Send feedback with these diagnostics</source>
-            <translation>Enviar comentario con este diagnóstico</translation>
-        </message>
-        <message>
-            <source>Send privately to %1. After Send, retry automatically for up to seven days.</source>
-            <translation>Envío privado a %1. Después de enviar, se reintentará automáticamente durante un máximo de siete días.</translation>
-        </message>
-        <message>
-            <source>Sending stopped. An earlier attempt may already have been received.</source>
-            <translation>Envío detenido. Es posible que un intento anterior ya se haya recibido.</translation>
-        </message>
-        <message>
-            <source>Sending…</source>
-            <translation>Enviando…</translation>
-        </message>
-        <message>
-            <source>Stop sending</source>
-            <translation>Detener envío</translation>
-        </message>
-        <message>
-            <source>Suggestion</source>
-            <translation>Sugerencia</translation>
-        </message>
-        <message>
-            <source>Support could not be reached. Your feedback remains saved locally.</source>
-            <translation>No se pudo contactar con soporte. Tu comentario sigue guardado localmente.</translation>
-        </message>
-        <message>
-            <source>Technical information</source>
-            <translation>Información técnica</translation>
-        </message>
-        <message>
-            <source>The game and its clock continue while feedback is open.</source>
-            <translation>La partida y su reloj continúan mientras el formulario está abierto.</translation>
-        </message>
-        <message>
-            <source>The operation did not finish. Please try again.</source>
-            <translation>La operación no terminó. Inténtalo de nuevo.</translation>
-        </message>
-        <message>
-            <source>The receiver already has different content for this submission. Keep this record for reference.</source>
-            <translation>El receptor ya tiene contenido diferente para este envío. Conserva este registro como referencia.</translation>
-        </message>
-        <message>
-            <source>The receiver no longer retains this submission. It will not be sent again.</source>
-            <translation>El receptor ya no conserva este envío. No se enviará de nuevo.</translation>
-        </message>
-        <message>
-            <source>The selected report is copied into this draft. Later changes will not replace it.</source>
-            <translation>El informe seleccionado se copia a este borrador. Los cambios posteriores no lo sustituirán.</translation>
-        </message>
-        <message>
-            <source>The support destination changed. Review an editable copy before sending again.</source>
-            <translation>El destino del soporte cambió. Revisa una copia editable antes de volver a enviar.</translation>
-        </message>
-        <message>
-            <source>The support response could not be verified. Keep this record and check its receipt later.</source>
-            <translation>No se pudo verificar la respuesta del soporte. Guarda este registro y consulta el recibo más tarde.</translation>
-        </message>
-        <message>
-            <source>This attachment or report format is not supported.</source>
-            <translation>Este formato de archivo adjunto o informe no es compatible.</translation>
-        </message>
-        <message>
-            <source>This record is no longer available.</source>
-            <translation>Este registro ya no está disponible.</translation>
-        </message>
-        <message>
-            <source>This stops future sending and removes the local record. An earlier attempt may already have been received. Server and mailbox copies are not deleted.</source>
-            <translation>Esto detiene los envíos futuros y elimina el registro local. Es posible que un intento anterior ya se haya recibido. No se eliminan las copias del servidor ni del correo.</translation>
-        </message>
-        <message>
-            <source>Too many requests. Please try again later.</source>
-            <translation>Demasiadas solicitudes. Inténtalo más tarde.</translation>
-        </message>
-        <message>
-            <source>What happened?</source>
-            <translation>¿Qué ocurrió?</translation>
-        </message>
-        <message>
-            <source>Working…</source>
-            <translation>Procesando…</translation>
-        </message>
-        <message>
-            <source>New Forge crash report available.</source>
-            <translation>Hay un nuevo informe de fallo de Forge disponible.</translation>
-        </message>
-        <message>
-            <source>Support keeps received content for up to 90 days. Confirmed spam or abuse may be removed sooner; see Privacy for mailbox and backup retention.</source>
-            <translation>El soporte conserva el contenido recibido hasta 90 días. El spam o abuso confirmado puede eliminarse antes; consulta Privacidad para conocer los plazos del correo y las copias de seguridad.</translation>
-        </message>
-        <message>
-            <source>Received confirms storage by support. It does not confirm review or resolution.</source>
-            <translation>Recibido confirma que el soporte ha guardado el contenido. No confirma su revisión ni resolución.</translation>
-        </message>
-        <message>
-            <source>On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.</source>
-            <translation>En este dispositivo, el contenido recibido se conserva hasta 30 días y los comprobantes hasta 90 días, sujeto a los límites de almacenamiento.</translation>
-        </message>
-    </context>
-<context>
-    <name>RulesCardHoverPreview</name>
-    <message>
-        <source>Inspect card</source>
-        <translation>Examinar carta</translation>
     </message>
 </context>
 </TS>

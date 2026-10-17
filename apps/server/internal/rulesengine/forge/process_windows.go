@@ -18,5 +18,3 @@ func invalidExecutableError(err error) bool {
 	// using Win32 errors rather than the portable ENOEXEC value.
 	return errors.Is(err, syscall.ENOEXEC) || errors.Is(err, syscall.Errno(193)) || errors.Is(err, syscall.Errno(216))
 }
-
-func processSignal(_ *exec.ExitError) string { return "other" }

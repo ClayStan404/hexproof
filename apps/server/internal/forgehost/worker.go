@@ -50,13 +50,12 @@ func Run(ctx context.Context, config WorkerConfig, start StartRuntime, status fu
 	var connMu sync.Mutex
 	var current *websocket.Conn
 	var epoch uint64
-	var executor *Executor
-	executor = NewExecutor(config.RoomID, start, func(engineID string) {
+	executor := NewExecutor(config.RoomID, start, func(engineID string) {
 		connMu.Lock()
 		conn, generation := current, epoch
 		connMu.Unlock()
 		if conn != nil {
-			_ = writeFrame(ctx, conn, Frame{Type: "failed", Epoch: generation, EngineID: engineID, FailureInfo: executor.RetainedFailure(engineID)})
+			_ = writeFrame(ctx, conn, Frame{Type: "failed", Epoch: generation, EngineID: engineID})
 		}
 	})
 	defer executor.Cancel("")
@@ -134,11 +133,7 @@ func Run(ctx context.Context, config WorkerConfig, start StartRuntime, status fu
 		conn.SetReadLimit(MaxFrameBytes)
 		engineID, alive := executor.State()
 		hello, _ := json.Marshal(Hello{Version: Version, RoomID: config.RoomID, Token: config.Token,
-			HelperID: helperID, RuntimeID: RuntimeID, EngineID: engineID, Alive: alive, FailureInfo: executor.RetainedFailure(engineID)})
-		if len(hello) > MaxHelloBytes {
-			_ = conn.CloseNow()
-			return ErrUnavailable
-		}
+			HelperID: helperID, RuntimeID: RuntimeID, EngineID: engineID, Alive: alive})
 		helloCtx, helloCancel := context.WithTimeout(ctx, 10*time.Second)
 		err = conn.Write(helloCtx, websocket.MessageText, hello)
 		var bound Frame

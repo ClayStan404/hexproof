@@ -3,7 +3,6 @@
 
 #include "services/BackgroundTaskPools.h"
 #include "services/CardArtArchive.h"
-#include "services/CardCatalog.h"
 #include "services/CardCatalogCommon.h"
 #include "services/CustomCardArtInternal.h"
 #include "services/CustomCardArtStore.h"
@@ -933,20 +932,8 @@ void TestCustomCardArtStore::ordinaryCacheSeparatesSameNamedTokenFaceRequests()
     otherFront.setCode = u"OTHER"_s;
     QCOMPARE(cache.reusableArt(otherFront, frontRecord).imagePath, frontRecord.imagePath);
 
-    // This positive fixture represents a verified physical reverse. Unknown
-    // legacy same-named reverses are covered by the catalog refresh regression.
-    CardRecord backRecord = CardCatalog::parseCardObject(
-        QJsonObject{{u"name"_s, canonical},
-                    {u"layout"_s, u"double_faced_token"_s},
-                    {u"set"_s, u"TST"_s},
-                    {u"collector_number"_s, u"4"_s},
-                    {u"oracle_id"_s, frontRecord.oracleId},
-                    {u"card_faces"_s, QJsonArray{QJsonObject{{u"name"_s, u"Angel"_s}},
-                                                 QJsonObject{{u"name"_s, u"Angel"_s}}}}},
-        u"en"_s, back.name);
-    QVERIFY(backRecord.faceMetadataChecked);
-    backRecord.resolutionVersion = catalog_internal::kCardResolutionVersion;
-    backRecord.imageLanguage = u"en"_s;
+    CardRecord backRecord = frontRecord;
+    backRecord.requestedName = back.name;
     backRecord.imagePath =
         makeImage(QDir(cache.imageRoot()).filePath(u"back.png"_s), Qt::blue).toLocalFile();
     QVERIFY(!backRecord.imagePath.isEmpty());

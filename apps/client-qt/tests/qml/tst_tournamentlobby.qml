@@ -54,12 +54,6 @@ TestCase {
         property var product: ({id: "", name: "Test", authentic: true})
         property var pairings: []
         property var standings: []
-        property var tabletopScores: ({})
-        property string requestedScorePairing: ""
-        function tabletopScoreForPairing(pairingId) {
-            requestedScorePairing = pairingId
-            return tabletopScores[pairingId] || ({})
-        }
         property var chatMessages: [{sequence: 1, displayName: "Alice", text: "<b>Hello</b>"}]
         property var participants: [
             {participantId: "a", displayName: "Alice", checkedIn: true, competing: true, dropped: false, online: true},
@@ -85,18 +79,12 @@ TestCase {
     }
     QtObject {
         id: connection
-        // Mirror the production QString boundary, where a missing optional
-        // property must not be converted into a truthy room-code string.
-        function globalCode(id) { return String(id) }
+        function globalCode(id) { return id }
         property bool connected: true
         property string lastError: ""
         property string sentText: ""
         property int starts: 0
         property string lastWatchedRoom: ""
-        property var openedPairings: []
-        function openTournamentMatch(pairingId) {
-            openedPairings = openedPairings.concat([pairingId])
-        }
         function joinRoom(roomId, spectator, password) { lastWatchedRoom = roomId }
         function sendTournamentChat(text) { sentText = text; return "request-1" }
         function startTournament() { ++starts }
@@ -127,14 +115,10 @@ TestCase {
         event.participantId = ""
         event.tournamentId = "EVENT1"
         event.pairings = []
-        event.tabletopScores = ({})
-        event.requestedScorePairing = ""
         page.selectedTab = 0
         connection.connected = true
         connection.starts = 0
         connection.sentText = ""
-        connection.lastWatchedRoom = ""
-        connection.openedPairings = []
     }
     function cleanup() {
         Theme.uiScale = 1
@@ -203,75 +187,6 @@ TestCase {
             {tag: "completed", status: "completed"},
             {tag: "cancelled", status: "cancelled"}
         ]
-    }
-    function test_ownPairingOpenAndReturnUseOnlyAnExistingRoom_data() {
-        return [
-            {tag: "room-omitted", roomId: undefined, expected: "Open match"},
-            {tag: "room-empty", roomId: "", expected: "Open match"},
-            {tag: "room-existing", roomId: "ABC123", expected: "Return to match"}
-        ]
-    }
-    function test_ownPairingOpenAndReturnUseOnlyAnExistingRoom(data) {
-        window.requestActivate()
-        tryVerify(() => window.active)
-        event.role = "participant"
-        event.participantId = "a"
-        event.status = "running"
-        event.stage = "competition"
-        let pairing = {pairingId: "own-pairing", table: 1,
-            playerAId: "a", playerBId: "b", playerAName: "Alice",
-            playerBName: "Bob", bye: false, status: "open",
-            playerAWins: 0, playerBWins: 0, drawnGames: 0, corrected: false}
-        if (data.roomId !== undefined)
-            pairing.roomId = data.roomId
-        event.pairings = [pairing]
-        const list = findChild(page, "tournamentPairingList")
-        tryVerify(() => list.itemAtIndex(0) !== null)
-        const button = findChild(list.itemAtIndex(0), "openTournamentMatchButton")
-        verify(button.visible)
-        compare(button.text, data.expected)
-        mouseClick(button)
-        compare(connection.openedPairings, ["own-pairing"])
-        compare(connection.lastWatchedRoom, "")
-
-        // The server's later room assignment changes the label without
-        // changing the participant-only command used to enter that match.
-        pairing = Object.assign({}, pairing, {roomId: "ROOM42"})
-        event.pairings = [pairing]
-        tryVerify(() => list.itemAtIndex(0) !== null)
-        const returning = findChild(list.itemAtIndex(0), "openTournamentMatchButton")
-        tryCompare(returning, "text", "Return to match")
-        mouseClick(returning)
-        compare(connection.openedPairings, ["own-pairing", "own-pairing"])
-        compare(connection.lastWatchedRoom, "")
-    }
-    function test_reportUsesRetainedPairingScoreAfterAnotherTableReports() {
-        window.requestActivate()
-        tryVerify(() => window.active)
-        event.role = "participant"
-        event.participantId = "a"
-        event.status = "running"
-        event.stage = "competition"
-        event.tabletopScores = ({"own-pairing": {
-            roomId: "CLOSED1", seats: [{displayName: "Bob", wins: 1},
-                {displayName: "Alice", wins: 2}], drawnGames: 1}})
-        event.pairings = [{pairingId: "own-pairing", table: 1,
-            playerAId: "a", playerBId: "b", playerAName: "Alice", playerBName: "Bob",
-            bye: false, status: "open", playerAWins: 0, playerBWins: 0, drawnGames: 0},
-            {pairingId: "other-pairing", table: 2, playerAId: "c", playerBId: "d",
-            playerAName: "Carol", playerBName: "Dan", bye: false, status: "reported",
-            playerAWins: 1, playerBWins: 0, drawnGames: 0}]
-        const list = findChild(page, "tournamentPairingList")
-        tryVerify(() => list.itemAtIndex(0) !== null)
-        mouseClick(findChild(list.itemAtIndex(0), "reportTournamentResultButton"))
-        const editor = findChild(page, "tournamentScoreEditor")
-        tryVerify(() => editor.opened)
-        verify(editor.prefilledFromTable)
-        verify(findChild(editor, "scorePrefillHint").visible)
-        compare(event.requestedScorePairing, "own-pairing")
-        compare(findChild(editor, "playerAWinsField").text, "2")
-        compare(findChild(editor, "playerBWinsField").text, "1")
-        compare(findChild(editor, "drawnGamesField").text, "1")
     }
     function test_correctionUnavailableWhenEventEnds(data) {
         event.status = "running"

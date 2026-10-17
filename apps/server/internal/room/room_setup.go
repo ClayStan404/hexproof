@@ -10,14 +10,12 @@ import (
 	"hexproof/server/internal/protocol"
 	"math/big"
 	"strings"
-	"time"
 	"unicode"
 	"unicode/utf8"
 )
 
 // SelectDeck validates and stores a player's complete deck identity. The deck
-// card list remains server-internal; the selected name is projected only to
-// its authenticated owner, alongside the public DeckSelected status.
+// remains server-internal; only DeckSelected is projected in room snapshots.
 // Selecting or changing a deck always clears the player's ready state.
 func (r *Room) SelectDeck(connID string, deck protocol.DeckSelect) (Result, error) {
 	if r.Phase == protocol.RoomPhaseStarted {
@@ -171,7 +169,6 @@ func (r *Room) beginLoadingIfReady() (bool, error) {
 		}
 	}
 	if r.RulesMode == protocol.RulesModeForge {
-		r.ResetActionClock(time.Now())
 		r.Score = make([]int, len(r.Seats))
 		r.DrawnGames = 0
 		r.RulesStartingSeat = nil
@@ -244,7 +241,6 @@ func (r *Room) minimumPlayersToStart() int {
 func (r *Room) resetAfterGameSetupFailure() {
 	r.Phase = protocol.RoomPhaseWaiting
 	r.Game = nil
-	r.ResetActionClock(time.Now())
 	for i := range r.Seats {
 		r.Seats[i].Ready = r.Seats[i].Controller != "" && r.Seats[i].Deck != nil
 		r.Seats[i].Loaded = false
@@ -275,10 +271,7 @@ func (r *Room) ResumeEnvelopes(connID string) ([]protocol.Envelope, error) {
 	if !r.Member(connID) {
 		return nil, newError(protocol.ErrNotInRoom)
 	}
-	privateSnapshot := r.ProjectRoomSnapshot(connID, r.Snapshot())
-	privateEnvelope, _ := protocol.NewEnvelope(protocol.TypeRoomSnapshot, privateSnapshot)
-	privateEnvelope.SeqPtr = seqPtr(r.allocSeq())
-	envelopes := []protocol.Envelope{privateEnvelope}
+	envelopes := []protocol.Envelope{r.snapshotEnvelope()}
 	if r.Phase == protocol.RoomPhaseLoading ||
 		(r.Phase == protocol.RoomPhaseStarted &&
 			r.CardLoadMode == protocol.CardLoadBackground) {

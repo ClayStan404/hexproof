@@ -50,7 +50,6 @@ Page {
             spacing: Theme.size(10)
 
             ScreenHeader {
-                feedbackContext: ({feature: "deck_editor"})
                 Layout.fillWidth: true
                 Layout.minimumWidth: Theme.size(140)
                 compact: true

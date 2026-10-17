@@ -10,7 +10,7 @@
     "tools/forge-printings/NativePrintingIndex.java": "34c0d653cb68e3677e9815cf01b966a14fe057d5112b6a210a076ed72319e0bd"
   },
   "resolverSources": {
-    "third_party/forge-runtime/native-host/src/main/java/org/hexproof/forge/NativeSession.java": "a2b45a9580db88949c07fab27bcb287818a95ec6da8f253a1e300e11454ce551",
+    "third_party/forge-runtime/native-host/src/main/java/org/hexproof/forge/NativeSession.java": "45c2a632d85d318e958d871039f747de3e413b9f8b3328bb07a1957d87a5e56b",
     "third_party/forge-runtime/native-host/src/main/java/org/hexproof/forge/NativeCardNames.java": "7301876e4bc02a61332cb59a121f1c888dd9770169167a30a78f1bbcc556940d",
     "third_party/forge-runtime/native-host/src/main/java/org/hexproof/forge/NativePrintingAliases.java": "c7464cc4b09422d1682e494a4621231d071eeeb079ce918f89e810efec093a1a"
   },
@@ -25,11 +25,5 @@
     "not_a_playing_card": 315,
     "unsupported_game_piece": 596
   },
-  "actionableUnresolvedPrintings": 0,
-  "resolverSourcePreservation": {
-    "third_party/forge-runtime/native-host/src/main/java/org/hexproof/forge/NativeSession.java": {
-      "censusCommit": "76cc3374a9e020e814ee6308e396c9b32646167e",
-      "registrationRegionSha256": "10890281b0d41700c969d3177b014017ece5f461e2b20bd6a9746f1e3d289dbc"
-    }
-  }
+  "actionableUnresolvedPrintings": 0
 }

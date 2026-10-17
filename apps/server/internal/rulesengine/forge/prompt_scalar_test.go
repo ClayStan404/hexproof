@@ -85,63 +85,6 @@ func TestNormalizeAndBuildColors(t *testing.T) {
 	}
 }
 
-func TestSacrificialManaChoicesSuspendAndResumePayment(t *testing.T) {
-	// Native Lotus Bloom opens its sacrifice confirmation and generic enum
-	// chooser inside the spell's payment. Each replaces the previous prompt.
-	initial := json.RawMessage(`{"promptId":30,"decidingPlayerId":"player-0","input":{
-      "type":"payManaCost","paymentId":"sa:50","manaCost":"{2}",
-      "actions":[{"id":"activate-lotus","type":"activateAbility","cardId":"card:lotus","label":"Lotus Bloom"}]}}`)
-	confirmation := json.RawMessage(`{"promptId":31,"decidingPlayerId":"player-0","input":{
-      "type":"chooseBoolean","presentation":{"title":"Confirm decision","description":"Sacrifice Lotus Bloom?"},
-      "confirmLabel":"Yes","denyLabel":"No"}}`)
-	colors := json.RawMessage(`{"promptId":32,"decidingPlayerId":"player-0","input":{
-      "type":"chooseFromSelection","presentation":{"title":"Select Mana to Produce","description":""},
-      "options":[{"label":"WHITE","weight":1,"canRepeat":false},{"label":"BLUE","weight":1,"canRepeat":false},
-        {"label":"BLACK","weight":1,"canRepeat":false},{"label":"RED","weight":1,"canRepeat":false},
-        {"label":"GREEN","weight":1,"canRepeat":false}],"minTotal":1,"maxTotal":1}}`)
-	resumed := json.RawMessage(`{"promptId":33,"decidingPlayerId":"player-0","input":{
-      "type":"payManaCost","paymentId":"sa:50","manaCost":"{1}","canConfirmFromPool":true,
-      "actions":[{"id":"activate-plains","type":"activateAbility","cardId":"card:plains","label":"Plains"}]}}`)
-	for _, stage := range []struct {
-		raw      json.RawMessage
-		promptID int64
-		answer   PromptResponse
-		want     string
-	}{
-		{initial, 30, PromptResponse{ResponseID: "action:0"},
-			`{"output":{"actionId":"activate-lotus","type":"act"},"type":"payManaCost"}`},
-		{confirmation, 31, PromptResponse{ResponseID: "$submit", ChoiceIDs: []string{"choice:1"}},
-			`{"output":{"type":"decision","value":true},"type":"chooseBoolean"}`},
-		{colors, 32, PromptResponse{ResponseID: "$submit", ChoiceIDs: []string{"choice:1"}},
-			`{"output":{"chosenIndices":[1],"type":"selectionDecision"},"type":"chooseFromSelection"}`},
-		{resumed, 33, PromptResponse{ResponseID: "$pay"},
-			`{"output":{"auto":false,"type":"pay"},"type":"payManaCost"}`},
-	} {
-		response, err := BuildPromptResponse(stage.raw, 0, stage.promptID, stage.answer)
-		if err != nil || string(response) != stage.want {
-			t.Fatalf("payment stage %d response = %s, %v", stage.promptID, response, err)
-		}
-	}
-	for _, stage := range []struct {
-		raw      json.RawMessage
-		promptID int64
-		answer   PromptResponse
-	}{
-		{confirmation, 30, PromptResponse{ResponseID: "action:0"}},
-		{colors, 32, PromptResponse{ResponseID: "$auto-pay"}},
-		{colors, 32, PromptResponse{ResponseID: "$submit", ChoiceIDs: []string{"choice:1", "choice:1"}}},
-		{resumed, 32, PromptResponse{ResponseID: "$submit", ChoiceIDs: []string{"choice:1"}}},
-	} {
-		if _, err := BuildPromptResponse(stage.raw, 0, stage.promptID, stage.answer); err == nil {
-			t.Fatalf("stale or incompatible nested payment answer succeeded: %+v", stage.answer)
-		}
-	}
-	view, err := NormalizePrompt(resumed)
-	if err != nil || view.PaymentID != "sa:50" || view.Options[0].CardID != "card:plains" {
-		t.Fatalf("resumed payment = %+v, %v", view, err)
-	}
-}
-
 func TestNormalizeAndBuildWeightedSelection(t *testing.T) {
 	raw := json.RawMessage(`{"promptId":23,"decidingPlayerId":"player-0","input":{
       "type":"chooseFromSelection","presentation":{"title":"Choose modes"},

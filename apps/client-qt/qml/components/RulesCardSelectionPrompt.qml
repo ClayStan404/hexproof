@@ -74,24 +74,14 @@ Item {
                                            Object.keys(selectedIds))
     }
 
-    onPromptIdChanged: { resetSelection(); preview.hide() }
-    onVisibleChanged: if (!visible) preview.hide()
-    onExpandedViewChanged: if (expandedView) preview.hide()
-    CardHoverPreview {
-        id: preview
-        objectName: "rulesSelectionCardPreview"
-        parent: root.Overlay.overlay
-        catalogModel: root.cardCatalogModel
-        artObjectName: "rulesSelectionCardPreviewArt"
-        avoidItems: [selectionControls]
-    }
+    onPromptIdChanged: resetSelection()
     Connections {
         target: root.cardModel
         ignoreUnknownSignals: true
-        function onModelReset() { preview.hide(); root.modelRevision++; root.resetSelection() }
+        function onModelReset() { root.modelRevision++; root.resetSelection() }
         function onRowsInserted() { root.modelRevision++ }
-        function onRowsRemoved() { preview.hide(); root.modelRevision++ }
-        function onDataChanged() { preview.hide(); root.modelRevision++ }
+        function onRowsRemoved() { root.modelRevision++ }
+        function onDataChanged() { root.modelRevision++ }
     }
 
     GridLayout {
@@ -142,14 +132,6 @@ Item {
                 Accessible.role: selectable ? Accessible.Button : Accessible.StaticText
                 Accessible.name: name + (selectionLabel ? " · " + selectionLabel : "")
                 Accessible.onPressAction: root.toggleCard(cardId)
-                function inspect() {
-                    if (!root.visible || root.expandedView || !name) return
-                    preview.tokenArt = token
-                    preview.inspect({id:cardId, name:name, setCode:setCode, collectorNumber:collectorNumber}, cardTile)
-                }
-                onActiveFocusChanged: activeFocus ? inspect() : preview.hide(cardTile)
-                onNameChanged: if (preview.sourceItem === cardTile) preview.hide()
-                Component.onDestruction: preview.hide(cardTile)
 
                 Image {
                     id: art
@@ -212,10 +194,7 @@ Item {
                     onTapped: root.toggleCard(cardTile.cardId)
                 }
 
-                HoverHandler {
-                    id: hover
-                    onHoveredChanged: hovered ? cardTile.inspect() : preview.hide(cardTile)
-                }
+                HoverHandler { id: hover }
                 ToolTip.visible: hover.hovered
                 ToolTip.delay: 350
                 ToolTip.text: cardTile.name + " · " + cardTile.setCode
@@ -231,13 +210,11 @@ Item {
             cardCatalogModel: root.cardCatalogModel
             promptId: root.promptId
             selectedIds: root.selectedIds
-            previewAvoidItems: [selectionControls]
             onCardToggled: cardId => root.toggleCard(cardId)
         }
 
         ColumnLayout {
             id: selectionControls
-            objectName: "rulesCardSelectionControls"
 
             Layout.fillWidth: root.expandedView || root.narrowLayout
             Layout.preferredWidth: root.expandedView || root.narrowLayout ? -1 : Theme.size(190)
@@ -256,7 +233,6 @@ Item {
 
             Text {
                 textFormat: Text.PlainText
-                objectName: "rulesCardSelectionCount"
                 Layout.fillWidth: true
                 text: root.minimumSelections === root.maximumSelections
                       ? (root.nativeSelectedCount > 0 ? qsTr("Next choice: %1 of %2") : qsTr("Selected %1 of %2"))

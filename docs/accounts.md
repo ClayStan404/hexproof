@@ -69,11 +69,6 @@ cached to bypass immediate revocation.
   conflicting seats reject the transition.
   Recovery requires leaving a current guest room/event first, so a seat
   conflict cannot consume the only recovery code before new codes are shown.
-  Bulk linking ends on a transport interruption, request timeout, or failed
-  send, leaving account controls available for an explicit retry. An uncertain
-  in-flight claim is never automatically resent after reconnecting. An
-  intervening completed account request resumes only the unsent claims; an
-  explicit rate-limit response retains its retry delay while connected.
 
 Account storage survives authority restarts. Live games and events keep their
 existing in-memory lifetime; cross-process game recovery is a separate feature.

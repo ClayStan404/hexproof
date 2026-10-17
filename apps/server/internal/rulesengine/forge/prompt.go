@@ -145,7 +145,6 @@ type PromptView struct {
 	Kind                 string
 	Supported            bool
 	AutoPassEligible     bool
-	PaymentID            string
 	Title                string
 	Detail               string
 	Options              []PromptOption
@@ -208,7 +207,6 @@ type promptInput struct {
 	ManaCost                string                         `json:"manaCost"`
 	CanConfirmFromPool      bool                           `json:"canConfirmFromPool"`
 	CanAutoPay              *bool                          `json:"canAutoPay"`
-	PaymentID               string                         `json:"paymentId"`
 	MulliganCount           int                            `json:"mulliganCount"`
 	HandCardIDs             []string                       `json:"handCardIds"`
 	Cards                   []promptCard                   `json:"cards"`
@@ -385,11 +383,9 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		view.Supported = true
 		view.Title = "Opening hand"
 		view.Detail = fmt.Sprintf("Mulligans taken: %d", input.MulliganCount)
-		view.Options, err = normalizeActions(input.Actions)
-		if err == nil {
-			view.Options = append(view.Options,
-				PromptOption{ResponseID: "$keep", Kind: "keep", Label: "Keep hand"},
-				PromptOption{ResponseID: "$mulligan", Kind: "mulligan", Label: "Take a mulligan"})
+		view.Options = []PromptOption{
+			{ResponseID: "$keep", Kind: "keep", Label: "Keep hand"},
+			{ResponseID: "$mulligan", Kind: "mulligan", Label: "Take a mulligan"},
 		}
 	case "mulliganPutBack":
 		view.Supported = true
@@ -444,7 +440,7 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 	case "chooseBlockers":
 		view.Supported = true
 		view.Title = "Declare blockers"
-		view.Detail = firstPromptText(input.Error, "Assign each blocker to the attackers it can legally block.")
+		view.Detail = firstPromptText(input.Error, "Assign each blocker to at most one attacker.")
 		view.CombatSources, view.CombatTargets, err = normalizeBlockers(input)
 	case "chooseDamageAssignmentOrder":
 		view.Supported = true
@@ -488,7 +484,6 @@ func NormalizePrompt(raw json.RawMessage) (PromptView, error) {
 		view.Choices, view.ChoiceMinimum, view.ChoiceMaximum, err = normalizeSelection(input)
 	case "payManaCost":
 		view.Supported = true
-		view.PaymentID = normalizePaymentID(input.PaymentID)
 		if cost := boundedPromptText(input.ManaCost); cost != "" {
 			// The live unpaid cost must remain visible even when the effect's
 			// description exceeds the client's collapsed detail area.
@@ -585,11 +580,7 @@ func BuildPromptResponse(raw json.RawMessage, expectedPlayerIndex int,
 		case "$mulligan":
 			output = map[string]any{"type": "mulliganDecision", "keep": false}
 		default:
-			var actionID string
-			actionID, err = upstreamActionID(raw, answer.ResponseID)
-			if err == nil {
-				output = map[string]any{"type": "act", "actionId": actionID}
-			}
+			err = errors.New("unknown mulligan response")
 		}
 	case "mulliganPutBack":
 		if answer.hasNonCardSelections() {
@@ -830,24 +821,6 @@ func upstreamActionID(raw json.RawMessage, responseID string) (string, error) {
 		return "", errors.New("prompt action is no longer available")
 	}
 	return input.Actions[index].ID, nil
-}
-
-// The payment id only enables client click-ahead. A malformed id is dropped,
-// which turns click-ahead off without blocking the payment.
-func normalizePaymentID(raw string) string {
-	id := strings.TrimSpace(raw)
-	if id == "" || len(id) > 64 {
-		return ""
-	}
-	for index, char := range id {
-		letter := char >= 'A' && char <= 'Z' || char >= 'a' && char <= 'z'
-		digit := char >= '0' && char <= '9'
-		if letter || index > 0 && (digit || char == ':' || char == '_' || char == '-') {
-			continue
-		}
-		return ""
-	}
-	return id
 }
 
 func firstPromptText(values ...string) string {

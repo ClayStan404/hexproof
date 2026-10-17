@@ -41,37 +41,10 @@ TestCase {
 
     function cleanup() {
         editor.close()
-        testWindow.width = 900
-        testWindow.height = 700
         mockWs.lastPairingId = ""
         mockWs.lastA = -1
         mockWs.lastB = -1
         mockWs.lastDraw = -1
-    }
-
-    function test_longPlayerNamesKeepScoreFieldsInsidePopup_data() {
-        return [
-            {tag: "english", playerA: "W".repeat(40), playerB: "M".repeat(40)},
-            {tag: "chinese", playerA: "甲".repeat(40), playerB: "乙".repeat(40)}
-        ]
-    }
-
-    function test_longPlayerNamesKeepScoreFieldsInsidePopup(data) {
-        testWindow.width = 1280
-        testWindow.height = 720
-        editor.openFor({pairingId: "r1-m1", playerAName: data.playerA,
-                       playerBName: data.playerB}, false, null)
-        tryVerify(() => editor.opened)
-        const fields = ["playerAWinsField", "playerBWinsField", "drawnGamesField"]
-        for (const name of fields) {
-            const field = findChild(editor, name)
-            verify(field !== null)
-            tryVerify(() => {
-                const point = field.mapToItem(editor.contentItem, 0, 0)
-                return point.x >= 0 && field.width >= 40
-                       && point.x + field.width <= editor.contentItem.width + 1
-            }, 1000, name + " must remain usable inside the popup")
-        }
     }
 
     function test_prefillsOpenPairingFromTabletopScore() {

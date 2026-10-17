@@ -30,8 +30,6 @@ Item {
     readonly property bool active: tableController.roomConnected && tableController.hostingPaused !== true
         && tableController.localSeat >= 0 && !tableController.sideboarding
         && session.active && !session.gameOver
-    readonly property string publicationContext: active
-        ? session.gameId + ":" + tableController.localSeat : ""
     readonly property bool isPriorityPrompt: active && session.promptPending
         && session.promptSupported && session.promptKind === "chooseAction"
     readonly property int decidingSeat: {
@@ -62,7 +60,8 @@ Item {
     }
     readonly property bool quietPhase: stackIds.length === 0
         && (["upkeep", "draw", "end_combat", "cleanup"].includes(session.step)
-            || (session.activeSeat !== actingSeat && ["main1", "main2"].includes(session.step)))
+            || (session.activeSeat !== actingSeat && ["main1", "main2"].includes(session.step))
+            || (session.activeSeat === actingSeat && session.step === "end"))
     readonly property bool canAct: isPriorityPrompt && !inputBlocked
         && !tableController.rulesResponsePending && decidingSeat === tableController.localSeat
     readonly property bool canPass: canAct && options.some(option => option.responseId === "$pass")
@@ -76,30 +75,6 @@ Item {
         && (!session.promptPending || isPriorityPrompt)
 
     visible: false
-
-    onYieldModeChanged: publishPriority()
-    onHoldNextPriorityChanged: publishPriority()
-    onHeldPromptChanged: publishPriority()
-    Connections {
-        target: root.settings
-        function onForgeFullControlChanged() { root.publishPriority() }
-        function onForgePhaseStopsChanged() { root.publishPriority() }
-    }
-
-    function publishPriority() {
-        if (!ready || !active)
-            return
-        const ws = tableController.wsModel
-        if (!ws || typeof ws.publishRulesPriority !== "function")
-            return
-        const encoded = []
-        const stops = settings.forgePhaseStops || ({})
-        for (const key of Object.keys(stops)) {
-            if (stops[key] === true)
-                encoded.push(key)
-        }
-        ws.publishRulesPriority(fullControl, holdNextPriority || heldPrompt.length > 0, encoded)
-    }
 
     function hasStop(step, ownTurn) {
         return phaseStops[(ownTurn ? "own:" : "other:") + step] === true
@@ -199,25 +174,14 @@ Item {
             heldPrompt = promptKey
             holdNextPriority = false
         }
-        if (shouldPassAutomatically()) {
-            const presentation = tableController.presentation
-            if (presentation && presentation.stagingMotion) {
-                if (!stagingCap.running)
-                    stagingCap.start()
-                return
-            }
-            stagingCap.stop()
+        if (shouldPassAutomatically())
             passTimer.start()
-        } else {
-            stagingCap.stop()
-        }
     }
 
     function passOnce() {
         if (!canPass)
             return false
         passTimer.stop()
-        stagingCap.stop()
         acknowledgedStop = phaseKey
         heldPrompt = ""
         holdNextPriority = false
@@ -236,14 +200,6 @@ Item {
         return true
     }
 
-    Timer {
-        id: stagingCap
-        interval: 1500
-        onTriggered: {
-            if (root.shouldPassAutomatically())
-                root.passOnce()
-        }
-    }
     Timer {
         id: passTimer
         interval: 80
@@ -274,12 +230,8 @@ Item {
             resetTransient()
         schedule()
     }
-    onPublicationContextChanged: {
-        resetTransient()
-        publishPriority()
-    }
-    Component.onCompleted: { ready = true; publishPriority(); schedule() }
-    Component.onDestruction: { ready = false; passTimer.stop(); stagingCap.stop() }
+    Component.onCompleted: { ready = true; schedule() }
+    Component.onDestruction: { ready = false; passTimer.stop() }
 
     Connections {
         target: root.session
@@ -292,11 +244,6 @@ Item {
             root.schedule()
         }
         function onSnapshotChanged() { root.schedule() }
-    }
-    Connections {
-        target: root.tableController.presentation || null
-        ignoreUnknownSignals: true
-        function onStagingMotionChanged() { root.schedule() }
     }
     Connections {
         target: root.tableController

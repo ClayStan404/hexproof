@@ -92,7 +92,6 @@
             "RulesModeForge"
           ]
         },
-        {"name": "actionClockEnabled", "type": "boolean", "required": false},
         {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
         {"name": "aiSource", "type": "string", "required": false, "enum": ["AISourceForge", "AISourceLocal", "AISourceOnline"]},
         {"name": "aiDifficulty", "type": "string", "required": false, "enum": ["AIDifficultyEasy", "AIDifficultyNormal", "AIDifficultyHard"]}
@@ -162,7 +161,6 @@
       "direction": "clientToServer",
       "goType": "SessionHello",
       "fields": [
-        {"name": "rulesCrashReportSchema", "type": "integer", "required": false},
         {
           "name": "displayName",
           "type": "string",
@@ -415,7 +413,6 @@
             "RulesModeForge"
           ]
         },
-        {"name": "actionClockEnabled", "type": "boolean", "required": false},
         {"name": "hostingMode", "type": "string", "required": false, "enum": ["HostingModeServer", "HostingModePlayer"]},
         {"name": "aiSource", "type": "string", "required": false, "enum": ["AISourceForge", "AISourceLocal", "AISourceOnline"]},
         {"name": "aiDifficulty", "type": "string", "required": false, "enum": ["AIDifficultyEasy", "AIDifficultyNormal", "AIDifficultyHard"]},

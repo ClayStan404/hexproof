@@ -121,31 +121,6 @@ func validateFixedTurnOrder(order, activeSeats []int, startingSeat int) error {
 	return nil
 }
 
-// commanderRestartTurnOrder preserves the previous cycle from its starting
-// player, skipping only released seats. Conceded players who still occupy a
-// seat return for the restarted game.
-func (r *Room) commanderRestartTurnOrder() ([]int, error) {
-	order, err := turnOrderStartingAt(r.Game.TurnOrder, r.Game.StartingSeat)
-	if err != nil {
-		return nil, err
-	}
-	remaining := make([]int, 0, len(order))
-	seen := make([]bool, len(r.Seats))
-	for _, seat := range order {
-		if seat < 0 || seat >= len(r.Seats) || seen[seat] {
-			return nil, fmt.Errorf("turn order contains invalid seat %d", seat)
-		}
-		seen[seat] = true
-		if r.Seats[seat].Occupied {
-			remaining = append(remaining, seat)
-		}
-	}
-	if len(remaining) == 0 {
-		return nil, fmt.Errorf("turn order has no remaining players")
-	}
-	return remaining, nil
-}
-
 func commanderOpeningRollText(game *GameState, round commanderOpeningRollRound) string {
 	parts := make([]string, 0, len(round.Seats))
 	for index, seat := range round.Seats {

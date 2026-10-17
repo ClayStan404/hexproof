@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "suiteVersion": "2026-09-09.prepare.1",
+  "scope": "Supplemental recent-mechanic behavior, frozen before execution; separate from the seventeen-case qualification",
+  "authority": "https://magic.wizards.com/en/news/feature/secrets-of-strixhaven-release-notes",
+  "defaults": {"players": 2, "life": 20, "activePlayer": 0, "phase": "precombat main", "library": "30 Plains per player", "opponents": "Pass except the explicitly specified response", "costs": "Normal casting, payment, targets and state-based actions remain enabled"},
+  "cases": [
+    {"id": "prepare_cast", "setup": "A holds Goblin Glasswright and controls three untapped Mountains. No creatures or tokens are on the battlefield.", "actions": "Inspect hand casting options; pay 1R to cast the creature and resolve. Pay the remaining R to cast its prepared Craft with Pride copy from exile and resolve.", "assertions": ["The alternative sorcery cannot be cast directly from the hand", "The 2/2 creature enters prepared with exactly one associated sorcery copy in exile", "The paid sorcery reaches the stack; casting it unprepares the same battlefield creature", "Resolution creates exactly one Treasure; the copy is gone and cannot be cast again without another preparation"], "rules": ["Prepare", "601", "704"]},
+    {"id": "prepare_source_leaves", "setup": "Fresh prepare_cast fixture; B additionally holds Lightning Bolt and an untapped Mountain.", "actions": "A casts and resolves the creature. Before A casts the prepared sorcery, pass priority and have B pay R for Bolt targeting the creature. Resolve and perform state-based actions.", "assertions": ["The creature and associated prepared copy existed before removal", "The creature is destroyed by actual Bolt damage and leaves the battlefield", "The associated uncast copy ceases to exist and is no longer available to cast"], "rules": ["Prepare", "704"]}
+  ]
+}

@@ -86,17 +86,10 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
     if (env.type != kTypeError && !env.id.isEmpty())
         m_protocolSession->resolveSuccess(env.id);
     if (env.type == kTypeRulesSnapshot && env.hasSeq) {
-        if (roomId().isEmpty() || env.payload.value(u"roomId"_s).toString() != roomId())
-            return;
         if (env.seq <= m_lastRulesSnapshotSeq)
             return;
         m_lastRulesSnapshotSeq = env.seq;
     }
-    // Hub and direct-peer publications may cross in flight. A prompt belongs
-    // to its snapshot's sequence, including the explicit pending:false form.
-    // Unsequenced standalone prompts remain supported for older publications.
-    if (env.type == kTypeRulesPrompt && env.hasSeq && env.seq < m_lastRulesSnapshotSeq)
-        return;
     if (env.type == kTypeAccountState) {
         m_account->acceptState(env.id, env.payload);
         if (m_account->authenticated() && m_displayName != m_account->displayName()) {
@@ -179,12 +172,9 @@ void WsClient::dispatch(const Envelope &env, const QVariantMap &gameSnapshot)
         handleRulesPrompt(env.payload);
     else if (env.type == kTypeForgeReplayGrant)
         m_replays->acceptGrant(m_serverUrl, env.payload);
-    else if (env.type == kTypeForgeReplayPage) {
-        if (!env.id.isEmpty() && env.id == m_replayRequestId) {
-            m_replayRequestId.clear();
-            m_replays->acceptPage(m_serverUrl, env.payload);
-        }
-    } else if (env.type == kTypeGameZoneDumpRequested)
+    else if (env.type == kTypeForgeReplayPage)
+        m_replays->acceptPage(m_serverUrl, env.payload);
+    else if (env.type == kTypeGameZoneDumpRequested)
         handleZoneDumpRequested(env);
     else if (env.type == kTypeGamePublicZoneMoveRequested)
         handlePublicZoneMoveRequested(env);
@@ -462,53 +452,14 @@ void WsClient::handleGameSnapshot(const QVariantMap &snapshot)
     m_gameSession->applySnapshot(snapshot);
 }
 
-void WsClient::clearDeferredRulesSnapshot()
-{
-    m_deferredRulesTimer.stop();
-    m_deferredRulesSnapshot = {};
-    m_deferredRulesTransportGeneration = 0;
-}
-
-void WsClient::applyDeferredRulesSnapshot()
-{
-    if (m_deferredRulesSnapshot.isEmpty())
-        return;
-    QJsonObject snapshot = m_deferredRulesSnapshot;
-    const bool current = m_deferredRulesTransportGeneration == m_transportGeneration &&
-                         snapshot.value(u"roomId"_s).toString() == roomId();
-    clearDeferredRulesSnapshot();
-    if (!current)
-        return;
-    snapshot.remove(u"promptFollows"_s);
-    handleRulesSnapshot(snapshot);
-}
-
 void WsClient::handleRulesSnapshot(const QJsonObject &snapshot)
 {
-    if (roomId().isEmpty() || snapshot.value(u"roomId"_s).toString() != roomId())
-        return;
-    if (snapshot.value(u"promptFollows"_s).toBool()) {
-        m_deferredRulesSnapshot = snapshot;
-        m_deferredRulesTransportGeneration = m_transportGeneration;
-        m_deferredRulesTimer.start();
-        return;
-    }
-    // An immediate newer projection supersedes an update still awaiting its prompt.
-    clearDeferredRulesSnapshot();
     if (!m_rulesSession->applySnapshot(snapshot))
         setLastError(u"invalid_rules_snapshot"_s, u"invalid rules snapshot"_s);
 }
 
 void WsClient::handleRulesPrompt(const QJsonObject &prompt)
 {
-    if (roomId().isEmpty() || prompt.value(u"roomId"_s).toString() != roomId())
-        return;
-    if (!m_deferredRulesSnapshot.isEmpty()) {
-        // Only the matching game's prompt can release its staged projection.
-        if (m_deferredRulesSnapshot.value(u"gameId"_s) != prompt.value(u"gameId"_s))
-            return;
-        applyDeferredRulesSnapshot();
-    }
     if (!m_rulesSession->applyPrompt(prompt))
         setLastError(u"protocol"_s, u"invalid rules prompt"_s);
 }
@@ -596,22 +547,6 @@ void WsClient::handleSideboardCompleted(const Envelope &env)
 
 void WsClient::handleError(const Envelope &env)
 {
-    const bool crashReport =
-        env.payload.contains(u"rulesCrashReport"_s) &&
-        m_crashReports->accept(env.payload.value(u"rulesCrashReport"_s).toObject());
-    // Unsolicited incident revisions/resume delivery must never fail a command
-    // or replace an unrelated generic error. Correlated failures still resolve.
-    if (crashReport) {
-        if (!env.id.isEmpty()) {
-            if (env.id == m_rulesResponseRequestId)
-                clearRulesResponse();
-            m_roomSession->discardPendingDeck(env.id);
-            m_protocolSession->resolveFailure(env.id,
-                                              env.payload.value(u"code"_s).toString() + u": "_s +
-                                                  env.payload.value(u"message"_s).toString());
-        }
-        return;
-    }
     if (!env.id.isEmpty() && env.id == m_rulesResponseRequestId)
         clearRulesResponse();
     m_roomSession->discardPendingDeck(env.id);

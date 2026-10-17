@@ -574,14 +574,6 @@ func TestReconnectRestoresHostSeatAndPrivateProjection(t *testing.T) {
 		t.Fatalf("lock room: %v", err)
 	}
 	operation.mu.Lock()
-	for index, name := range []string{"Alice private selected deck", "Bob private selected deck"} {
-		if _, err := r.SelectDeck(r.Seats[index].ConnectionID, protocol.DeckSelect{
-			Name: name, Format: protocol.FormatModern, DeckFormat: r.DeckFormat,
-			Mainboard: []protocol.DeckCard{{Name: "Forest", Count: 60, SetCode: "M21", CollectorNumber: "273"}},
-		}); err != nil {
-			t.Fatalf("register resume fixture deck: %v", err)
-		}
-	}
 	r.Phase = protocol.RoomPhaseStarted
 	r.Score = []int{0, 0}
 	r.Game = &room.GameState{
@@ -635,13 +627,7 @@ func TestReconnectRestoresHostSeatAndPrivateProjection(t *testing.T) {
 		t.Fatalf("resumed token was not rotated: initial=%q resumed=%q",
 			hostWelcome.ResumeToken, resumedWelcome.ResumeToken)
 	}
-	resumedRoomEnvelope := resumedHost.recvType(protocol.TypeRoomSnapshot)
-	var resumedRoom protocol.RoomSnapshot
-	if err := resumedRoomEnvelope.DecodePayload(&resumedRoom); err != nil ||
-		resumedRoom.OwnDeckName != "Alice private selected deck" || !resumedRoomEnvelope.HasSeq() ||
-		strings.Contains(string(resumedRoomEnvelope.Payload), "Bob private selected deck") {
-		t.Fatalf("resumed own deck display metadata = %s, err=%v", resumedRoomEnvelope.Payload, err)
-	}
+	resumedHost.recvType(protocol.TypeRoomSnapshot)
 	gameEnvelope := resumedHost.recvType(protocol.TypeGameSnapshot)
 	var game protocol.GameSnapshot
 	if err := gameEnvelope.DecodePayload(&game); err != nil {
@@ -679,12 +665,7 @@ func TestReconnectRestoresHostSeatAndPrivateProjection(t *testing.T) {
 		t.Fatalf("spectator token was not rotated: initial=%q resumed=%q",
 			spectatorWelcome.ResumeToken, resumedObserverWelcome.ResumeToken)
 	}
-	observerRoomEnvelope := resumedSpectator.recvType(protocol.TypeRoomSnapshot)
-	var observerRoom protocol.RoomSnapshot
-	if err := observerRoomEnvelope.DecodePayload(&observerRoom); err != nil || observerRoom.OwnDeckName != "" ||
-		strings.Contains(string(observerRoomEnvelope.Payload), "private selected deck") {
-		t.Fatalf("resumed spectator deck-name privacy = %s, err=%v", observerRoomEnvelope.Payload, err)
-	}
+	resumedSpectator.recvType(protocol.TypeRoomSnapshot)
 	spectatorGameEnvelope := resumedSpectator.recvType(protocol.TypeGameSnapshot)
 	var spectatorGame protocol.GameSnapshot
 	if err := spectatorGameEnvelope.DecodePayload(&spectatorGame); err != nil {
