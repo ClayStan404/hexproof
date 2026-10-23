@@ -45,7 +45,7 @@ func TestLiveModelAIPractice(t *testing.T) {
 			defer cancel()
 			human := &liveForgePeer{client: dialLiveForge(t, srv), seat: 0, name: "Synthetic Human"}
 			defer human.client.conn.CloseNow()
-			human.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{DisplayName: human.name, ClientVersion: buildinfo.Version})
+			human.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: human.name, ClientVersion: buildinfo.Version})
 			welcome := human.until(t, ctx, protocol.TypeSessionWelcome)
 			welcome.DecodePayload(&human.welcome)
 			if !human.welcome.AIModelsAvailable {

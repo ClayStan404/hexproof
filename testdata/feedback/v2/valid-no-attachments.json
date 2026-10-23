@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 2,
+  "submissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+  "createdAt": "2026-10-22T12:00:00Z",
+  "category": "problem",
+  "description": "The Forge game stopped while resolving a spell.",
+  "context": {
+    "appVersion": "3.0.0",
+    "osFamily": "linux",
+    "architecture": "x86_64",
+    "uiLanguage": "zh_CN",
+    "feature": "forge_table",
+    "gameMode": "forge",
+    "format": "commander"
+  },
+  "attachments": [],
+  "disclosure": {
+    "revision": "public-v1",
+    "sha256": "afde3dd2b1c6a274d7c41a0c869c8f91b21a3c801534a971c7f45f8f065367f4",
+    "repository": "example/project",
+    "providerPolicyRevision": "none-v1"
+  }
+}

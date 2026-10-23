@@ -49,14 +49,16 @@ Item {
         target: root.deckLibraryModel
 
         function onCurrentDeckCardsAboutToChange() {
-            floatingPreview.hide()
             if (root.scrollRestorePending)
                 return
+            if (!floatingPreview.sourceActive && !floatingPreview.previewHeld)
+                floatingPreview.hide()
             root.saveVisibleScrollPosition()
             root.scrollRestorePending = true
         }
 
         function onCurrentDeckCardsChanged() {
+            root.refreshCurrentInspection()
             if (root.scrollRestorePending)
                 Qt.callLater(root.restoreScrollPositions)
         }
@@ -71,6 +73,9 @@ Item {
             readonly property int columns: Math.max(1, Math.floor(
                 (width + Theme.size(8)) / Theme.size(192)))
             readonly property var rows: root.galleryRows(columns)
+            readonly property bool scrolling: moving || galleryWheel.scrolling
+                || (root.outerFlickable !== null && root.outerFlickable.moving)
+            onScrollingChanged: if (scrolling) floatingPreview.hide()
             model: rows.length
             spacing: Theme.size(8)
             cacheBuffer: Theme.size(388)
@@ -79,7 +84,9 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: AppScrollBar { objectName: "deckGalleryScrollBar" }
             ScrollChainHandler {
+                id: galleryWheel
                 enabled: root.outerFlickable !== null
+                wheelStep: Theme.size(144)
                 innerFlickable: groupedDeckGallery
                 outerFlickable: root.outerFlickable
             }
@@ -87,6 +94,9 @@ Item {
             delegate: Column {
                 id: visualRow
                 required property int index
+                property bool pooled: false
+                ListView.onPooled: pooled = true
+                ListView.onReused: pooled = false
                 readonly property var row: groupedDeckGallery.rows[index] || ({cards: [], heading: false})
                 width: groupedDeckGallery.width
                 height: Theme.size(380) + (row.heading ? Theme.size(32) : 0)
@@ -130,6 +140,7 @@ Item {
                             commanderEnabled: root.commanderFormat
                             printingEnabled: root.catalogModel.installed
                             customArtEnabled: root.customArtEnabled
+                            previewEnabled: !groupedDeckGallery.scrolling && !visualRow.pooled
                             considerEnabled: true
                             moveText: !root.commanderFormat && !root.cubeFormat ? qsTr("To side") : ""
                             onPreviewRequested: (card, source) => {
@@ -576,5 +587,41 @@ Item {
                 restoreScrollPosition(gallery, savedGalleryPosition)
         }
         scrollRestorePending = false
+        Qt.callLater(root.refreshCurrentInspection)
+    }
+
+    function previewIdentity(card) {
+        return card ? [card.name || "", card.setCode || "", card.collectorNumber || ""].join("\u001f") : ""
+    }
+
+    function galleryIsScrolling(gallery: var): bool {
+        // Loader.item exposes the base Item type; this state belongs to its
+        // locally declared gallery instance rather than every ListView.
+        return gallery ? gallery.scrolling : false
+    }
+
+    function refreshCurrentInspection() {
+        if (!floatingPreview.visible) return
+        const gallery = galleryLoader.item as ListView
+        if (gallery) gallery.forceLayout()
+        const source = floatingPreview.sourceItem
+        if (!visible || !enabled || viewModeIndex !== 1 || !gallery || galleryIsScrolling(gallery)
+                || !source || !source.visible || !source.enabled || !source.previewEnabled
+                || previewIdentity(source.card) !== previewIdentity(floatingPreview.card)
+                || !floatingPreview.visible) {
+            floatingPreview.hide()
+            return
+        }
+        const sourceHovered = typeof source.isHoveredForPreview === "function" && source.isHoveredForPreview()
+        if (!sourceHovered && !floatingPreview.previewHeld) {
+            floatingPreview.hide()
+            return
+        }
+        // Preserve the live inspection across a same-card model notification.
+        // Hiding and reopening even within one frame causes visible flashing.
+        floatingPreview.card = source.card
+        floatingPreview.sourceActive = sourceHovered
+        previewCard = source.card
+        previewImageSource = source.resolvedImageSource
     }
 }

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-"""Generate stable Go and Qt wire constants from the Hexproof v1 schema."""
+"""Generate stable Go and Qt wire constants from the Hexproof v2 schema."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ class WireConstant:
 
 
 def load_schema(root: Path) -> list[WireConstant]:
-    schema_path = root / "protocol/v1/wire-schema.json"
+    schema_path = root / "protocol/v2/wire-schema.json"
     data = json.loads(schema_path.read_text(encoding="utf-8"))
     if data.get("schemaVersion") != 1:
         raise ValueError("wire schema version must be 1")
@@ -159,7 +159,7 @@ def generated_outputs(root: Path, constants: list[WireConstant]) -> dict[Path, s
 def verify_fixtures(root: Path, constants: list[WireConstant]) -> list[str]:
     message_types = {item.value for item in constants if item.name.startswith("Type")}
     problems: list[str] = []
-    for path in sorted((root / "testdata/protocol/v1").glob("*.json")):
+    for path in sorted((root / "testdata/protocol/v2").glob("*.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:

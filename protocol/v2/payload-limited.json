@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "protocol": "hexproof.v2",
+  "definitions": [
+    {
+      "name": "LimitedCardReference",
+      "goType": "LimitedCardReference",
+      "fields": [
+        {
+          "name": "cardIndex",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "weight",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "LimitedDraftSettings",
+      "goType": "LimitedDraftSettings",
+      "fields": [
+        {"name": "packsPerPlayer", "type": "integer", "required": true},
+        {"name": "packsPerBatch", "type": "integer", "required": true},
+        {"name": "cardsPerPack", "type": "integer", "required": false}
+      ]
+    },
+    {
+      "name": "LimitedDraftPackView",
+      "goType": "LimitedDraftPackView",
+      "fields": [
+        {"name": "packId", "type": "string", "required": true},
+        {"name": "cards", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "picksRequired", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "name": "LimitedCardDefinition",
+      "goType": "LimitedCardDefinition",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "typeLine", "type": "string", "required": false},
+        {"name": "rarity", "type": "string", "required": false},
+        {"name": "finish", "type": "string", "required": false},
+        {"name": "pairCollectorNumber", "type": "string", "required": false},
+        {"name": "weight", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "name": "LimitedSheetDefinition",
+      "goType": "LimitedSheetDefinition",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "withReplacement", "type": "boolean", "required": true},
+        {"name": "excludePrevious", "type": "boolean", "required": false},
+        {"name": "cards", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardDefinition"}},
+        {"name": "cardRefs", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardReference"}}
+      ]
+    },
+    {
+      "name": "LimitedSlotDefinition",
+      "goType": "LimitedSlotDefinition",
+      "fields": [
+        {"name": "sheet", "type": "string", "required": true},
+        {"name": "count", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "name": "LimitedPackVariantDefinition",
+      "goType": "LimitedPackVariantDefinition",
+      "fields": [
+        {"name": "weight", "type": "integer", "required": true},
+        {"name": "slots", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedSlotDefinition"}}
+      ]
+    },
+    {
+      "name": "LimitedProductDefinition",
+      "goType": "LimitedProductDefinition",
+      "fields": [
+        {"name": "id", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "productType", "type": "string", "required": true},
+        {"name": "authentic", "type": "boolean", "required": true},
+        {"name": "cardsPerPack", "type": "integer", "required": true},
+        {"name": "sheets", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedSheetDefinition"}},
+        {"name": "variants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedPackVariantDefinition"}},
+        {"name": "cardPool", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardDefinition"}}
+      ]
+    },
+    {
+      "name": "LimitedCardView",
+      "goType": "LimitedCardView",
+      "fields": [
+        {"name": "instanceId", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": true},
+        {"name": "collectorNumber", "type": "string", "required": true},
+        {"name": "typeLine", "type": "string", "required": false},
+        {"name": "rarity", "type": "string", "required": false},
+        {"name": "finish", "type": "string", "required": false}
+      ]
+    },
+    {
+      "name": "LimitedProductView",
+      "goType": "LimitedProductView",
+      "fields": [
+        {"name": "id", "type": "string", "required": true},
+        {"name": "name", "type": "string", "required": true},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "productType", "type": "string", "required": true},
+        {"name": "authentic", "type": "boolean", "required": true},
+        {"name": "cardsPerPack", "type": "integer", "required": true},
+        {"name": "cardCount", "type": "integer", "required": true},
+        {"name": "productHash", "type": "string", "required": true}
+      ]
+    },
+    {
+      "name": "LimitedParticipantView",
+      "goType": "LimitedParticipantView",
+      "fields": [
+        {"name": "participantId", "type": "string", "required": true},
+        {"name": "displayName", "type": "string", "required": true},
+        {"name": "picked", "type": "integer", "required": true},
+        {"name": "packCards", "type": "integer", "required": true},
+        {"name": "queuedPacks", "type": "integer", "required": true},
+        {"name": "deckSubmitted", "type": "boolean", "required": true},
+        {"name": "autoDraft", "type": "boolean", "required": false},
+        {"name": "withdrawn", "type": "boolean", "required": false}
+      ]
+    },
+    {
+      "name": "LimitedCommanderColor",
+      "goType": "LimitedCommanderColor",
+      "fields": [
+        {"name": "instanceId", "type": "string", "required": true},
+        {"name": "color", "type": "string", "required": true}
+      ]
+    },
+    {
+      "name": "LimitedBasicLand",
+      "goType": "LimitedBasicLand",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "count", "type": "integer", "required": true},
+        {"name": "setCode", "type": "string", "required": false},
+        {"name": "collectorNumber", "type": "string", "required": false},
+        {"name": "typeLine", "type": "string", "required": false}
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "type": "limited.set_draft_control",
+      "direction": "clientToServer",
+      "goType": "LimitedSetDraftControl",
+      "fields": [
+        {"name": "participantId", "type": "string", "required": false},
+        {"name": "automatic", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "type": "limited.draft_control_set",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "limited.set_participation",
+      "direction": "clientToServer",
+      "goType": "LimitedSetParticipation",
+      "fields": [
+        {"name": "participating", "type": "boolean", "required": true}
+      ]
+    },
+    {
+      "type": "limited.participation_set",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "limited.create_casual_match",
+      "direction": "clientToServer",
+      "goType": "LimitedCreateCasualMatch",
+      "fields": [
+        {"name": "playerAId", "type": "string", "required": false},
+        {"name": "playerBId", "type": "string", "required": false},
+        {"name": "playerIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "pairingId", "type": "string", "required": false},
+        {"name": "action", "type": "string", "required": false}
+      ]
+    },
+    {
+      "type": "limited.casual_match_created",
+      "direction": "serverToClient",
+      "goType": "TournamentChanged",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true}
+      ]
+    },
+    {
+      "type": "limited.pick",
+      "direction": "clientToServer",
+      "goType": "LimitedPick",
+      "fields": [
+        {"name": "instanceId", "type": "string", "required": false},
+        {"name": "instanceIds", "type": "array", "required": false, "items": {"type": "string"}}
+      ]
+    },
+    {
+      "type": "limited.picked",
+      "direction": "serverToClient",
+      "goType": "LimitedPicked",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "remaining", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "limited.submit_deck",
+      "direction": "clientToServer",
+      "goType": "LimitedSubmitDeck",
+      "fields": [
+        {"name": "name", "type": "string", "required": true},
+        {"name": "mainboardInstanceIds", "type": "array", "required": true, "items": {"type": "string"}},
+        {"name": "commanderInstanceIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "commanderColors", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCommanderColor"}},
+        {"name": "basicLands", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedBasicLand"}}
+      ]
+    },
+    {
+      "type": "limited.deck_submitted",
+      "direction": "serverToClient",
+      "goType": "LimitedDeckSubmitted",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "mainboardCount", "type": "integer", "required": true},
+        {"name": "sideboardCount", "type": "integer", "required": true}
+      ]
+    },
+    {
+      "type": "limited.progress",
+      "direction": "serverToClient",
+      "goType": "LimitedProgress",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedParticipantView"}}
+      ]
+    },
+    {
+      "type": "limited.snapshot",
+      "direction": "serverToClient",
+      "goType": "LimitedSnapshot",
+      "fields": [
+        {"name": "tournamentId", "type": "string", "required": true},
+        {"name": "eventType", "type": "string", "required": true},
+        {"name": "stage", "type": "string", "required": true},
+        {"name": "product", "type": "object", "required": true, "ref": "LimitedProductView"},
+        {"name": "packRound", "type": "integer", "required": true},
+        {"name": "direction", "type": "integer", "required": true},
+        {"name": "currentPack", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "currentPacks", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedDraftPackView"}},
+        {"name": "packsThisBatch", "type": "integer", "required": false},
+        {"name": "pool", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "fallbackCommanders", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "optionalCards", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCardView"}},
+        {"name": "mainboardInstanceIds", "type": "array", "required": true, "items": {"type": "string"}},
+        {"name": "commanderInstanceIds", "type": "array", "required": false, "items": {"type": "string"}},
+        {"name": "commanderColors", "type": "array", "required": false, "items": {"type": "object", "ref": "LimitedCommanderColor"}},
+        {"name": "picksRequired", "type": "integer", "required": false},
+        {"name": "packsPerPlayer", "type": "integer", "required": false},
+        {"name": "minimumDeckCards", "type": "integer", "required": false},
+        {"name": "basicLands", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedBasicLand"}},
+        {"name": "participants", "type": "array", "required": true, "items": {"type": "object", "ref": "LimitedParticipantView"}},
+        {"name": "deckSubmitted", "type": "boolean", "required": true},
+        {"name": "allDecksSubmitted", "type": "boolean", "required": true}
+      ]
+    }
+  ]
+}

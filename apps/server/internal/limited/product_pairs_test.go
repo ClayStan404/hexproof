@@ -13,7 +13,7 @@ import (
 
 func pairedFixture(t *testing.T) protocol.LimitedProductDefinition {
 	t.Helper()
-	data, err := os.ReadFile("../../../../testdata/protocol/v1/tournament-create-paired-product.json")
+	data, err := os.ReadFile("../../../../testdata/protocol/v2/tournament-create-paired-product.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestBuiltFRAProduct(t *testing.T) {
 }
 
 func TestPooledProductRejectsInvalidReferences(t *testing.T) {
-	data, err := os.ReadFile("../../../../testdata/protocol/v1/tournament-create-card-pool.json")
+	data, err := os.ReadFile("../../../../testdata/protocol/v2/tournament-create-card-pool.json")
 	if err != nil {
 		t.Fatal(err)
 	}

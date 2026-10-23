@@ -36,6 +36,23 @@ Item {
         }
         return result
     }
+    readonly property var groupingKeys: {
+        const states = new Map()
+        function stateFor(id) {
+            if (!states.has(id)) states.set(id, {outgoing: [], incoming: []})
+            return states.get(id)
+        }
+        const kind = attacking ? "attack" : "block"
+        for (const link of links) {
+            stateFor(link.from).outgoing.push(JSON.stringify([
+                kind, link.player ? "player" : "card", link.player ? link.seat : link.to]))
+            if (link.to) stateFor(link.to).incoming.push(JSON.stringify([kind, link.from]))
+        }
+        const keys = {}
+        for (const [id, state] of states)
+            keys[id] = JSON.stringify([state.outgoing.sort(), state.incoming.sort()])
+        return keys
+    }
     visible: false
     function resetAssignments() {
         assignments = ({})

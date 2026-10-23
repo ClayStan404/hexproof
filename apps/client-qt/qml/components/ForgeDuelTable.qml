@@ -115,6 +115,12 @@ Rectangle {
         : phaseTrackVisible ? Math.max(22 * unit, phaseTrack.height + 4 * unit) : 6 * unit
     readonly property real ownBattlefieldTop: battlefieldMiddle + centerBandHeight / 2
     readonly property real laneHeight: (battlefieldBottom - battlefieldTop - centerBandHeight) / 2
+    // Budget the banner and phase strip even while hidden. After the attack
+    // nudge, a title starts at the half-seam plus 3-unit slot and 7-unit name
+    // insets; retain a 2-unit gap below the strip without moving either overlay.
+    readonly property real nearCombatReadoutClearance: multiplayer ? 0 : Math.max(0,
+        opponentDecidingBanner.height / 2 + 4 * unit + phaseTrack.statusHeight + 2 * unit
+        - centerBandHeight / 2 - 10 * unit)
     readonly property real landFaceWidth: 108 * unit
     readonly property real otherFaceWidth: 108 * unit
     readonly property string turnOwner: !session.active || session.turn < 1 || session.activeSeat < 0 ? qsTr("Preparing game")
@@ -898,9 +904,15 @@ Rectangle {
         // Wide tables retain the original single-line phase-strip density.
         readonly property real twoLineHeight: Math.max(18 * root.unit,
             Math.ceil(phaseMetrics.height) * 2 + Theme.size(4))
+        readonly property real singleLineHeight: Math.max(18 * root.unit,
+            Math.ceil(phaseMetrics.height) + Theme.size(4))
+        readonly property real statusProbeTop: Math.min(
+            opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
+            root.battlefieldBottom - twoLineHeight)
+        readonly property real statusHeight: root.laneWidth(statusProbeTop, twoLineHeight) < fullWidth
+            ? twoLineHeight : singleLineHeight
         readonly property real probeTop: opponentDecidingBanner.visible
-            ? Math.min(opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
-                       root.battlefieldBottom - twoLineHeight)
+            ? statusProbeTop
             : root.battlefieldMiddle - twoLineHeight / 2
         x: root.boardLeft
         readonly property real preferredTop: opponentDecidingBanner.visible
@@ -916,8 +928,7 @@ Rectangle {
         // push this strip into a separately allocated row or a free pocket.
         y: preferredTop
         width: root.laneWidth(probeTop, twoLineHeight)
-        height: compactMode ? twoLineHeight
-            : Math.max(18 * root.unit, Math.ceil(phaseMetrics.height) + Theme.size(4))
+        height: compactMode ? twoLineHeight : singleLineHeight
         z: 45
         visible: root.phaseTrackVisible
         onVisibleChanged: if (!visible) phaseOverview.close()
@@ -926,8 +937,9 @@ Rectangle {
             "untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers",
             "declare_blockers", "combat_damage", "end_combat", "main2", "end", "cleanup"
         ]
-        readonly property bool compactMode: width < Math.max(...steps.map(step => labelWidth(step))) * steps.length
+        readonly property real fullWidth: Math.max(...steps.map(step => labelWidth(step))) * steps.length
             + gap * (steps.length - 1)
+        readonly property bool compactMode: width < fullWidth
         function labelWidth(step) {
             void phaseMetrics.font.pixelSize
             return Math.ceil(phaseMetrics.advanceWidth(I18n.gamePhaseLabel(step))) + Theme.size(12)
@@ -1342,6 +1354,7 @@ Rectangle {
         showCaption: false
         maxFaceWidth: 200 * unit
         combatForward: -1
+        combatReadoutClearance: root.nearCombatReadoutClearance
         locatedId: root.locatedId
         visible: !root.multiplayer && !root.tableController.sideboarding
     }

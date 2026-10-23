@@ -13,11 +13,29 @@
 
 namespace hexproof::protocol {
 
+// A canonical generation is useful for update guidance; support still requires
+// exact equality with kProtocolVersion, never a numeric range.
+inline int protocolGeneration(const QString &value)
+{
+    const QString prefix = QStringLiteral("hexproof.v");
+    if (!value.startsWith(prefix))
+        return 0;
+    const QString number = value.mid(prefix.size());
+    if (number.isEmpty() || number.size() > 10 || number.front() == QLatin1Char('0'))
+        return 0;
+    for (const auto c : number)
+        if (c < QLatin1Char('0') || c > QLatin1Char('9'))
+            return 0;
+    bool ok = false;
+    const int generation = number.toInt(&ok);
+    return ok && generation > 0 ? generation : 0;
+}
+
 // Wire protocol version. Negotiated once at handshake; the authoritative value
 // lives only in the session.welcome payload (no top-level `v` on other
 // messages).
 
-// Stable wire names are generated from protocol/v1/wire-schema.json. Add or
+// Stable wire names are generated from protocol/v2/wire-schema.json. Add or
 // rename them in that schema, then run tools/protocol_codegen.py; do not add
 // duplicate literals here.
 

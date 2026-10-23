@@ -93,7 +93,7 @@ def generate(classes, jars, cards, aliases, runtime_id):
         for line in path.read_text(encoding="utf-8-sig").splitlines():
             if line.startswith("Name:"):
                 names.add(line[5:].strip())
-    for line in aliases.read_text(encoding="utf-8").splitlines():
+    for line in aliases.read_text().splitlines():
         if line and not line.startswith("#"):
             names.update(line.split("\t", 1)[0].split(" // "))
     if not symbols or not apis or not names:

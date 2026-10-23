@@ -1,0 +1,63 @@
+{
+  "name": "Chosen creature and blink regression",
+  "format": "modern",
+  "deckFormat": "modern",
+  "source": "Synthetic 60-card interaction fixture; not a tournament deck or full-match evaluation",
+  "mainboard": [
+    {
+      "name": "Plains",
+      "count": 40,
+      "setCode": "LEA",
+      "collectorNumber": "286",
+      "typeLine": "Basic Land \u2014 Plains",
+      "manaCost": "",
+      "manaValue": 0.0
+    },
+    {
+      "name": "Dauntless Bodyguard",
+      "count": 4,
+      "setCode": "DOM",
+      "collectorNumber": "14",
+      "typeLine": "Creature \u2014 Human Knight",
+      "manaCost": "{W}",
+      "manaValue": 1.0
+    },
+    {
+      "name": "Ornithopter",
+      "count": 4,
+      "setCode": "ATQ",
+      "collectorNumber": "60",
+      "typeLine": "Artifact Creature \u2014 Thopter",
+      "manaCost": "{0}",
+      "manaValue": 0.0
+    },
+    {
+      "name": "Memnite",
+      "count": 4,
+      "setCode": "SOM",
+      "collectorNumber": "174",
+      "typeLine": "Artifact Creature \u2014 Construct",
+      "manaCost": "{0}",
+      "manaValue": 0.0
+    },
+    {
+      "name": "Silvercoat Lion",
+      "count": 4,
+      "setCode": "M10",
+      "collectorNumber": "32",
+      "typeLine": "Creature \u2014 Cat",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0
+    },
+    {
+      "name": "Cloudshift",
+      "count": 4,
+      "setCode": "AVR",
+      "collectorNumber": "12",
+      "typeLine": "Instant",
+      "manaCost": "{W}",
+      "manaValue": 1.0
+    }
+  ],
+  "sideboard": []
+}

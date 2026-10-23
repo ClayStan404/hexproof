@@ -310,7 +310,7 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
     m_tournamentSession->clear();
     m_limitedSession->clear();
     clearLastError();
-    clearVersionMismatch();
+    clearProtocolMismatch();
     m_peerTransportAvailable = false;
     m_playerHostingAvailable = false;
     m_forgeAIAvailable = false;
@@ -374,7 +374,7 @@ void WsClient::connectToCustomServer(const QString &url, const QString &displayN
 {
     m_account->setLoginIntent({}, {});
     clearLastError();
-    clearVersionMismatch();
+    clearProtocolMismatch();
     if (url.trimmed().isEmpty() || !m_serverDirectory->setCustomServerUrl(url)) {
         setLastError(u"invalid_server_url"_s, u"enter a ws:// or wss:// server address"_s);
         return;
@@ -731,7 +731,7 @@ void WsClient::onErrorOccurred()
     // a socket error is followed by onDisconnected which handles the transition.
     // Writing lastError in Connected/InRoom would clobber more meaningful
     // business errors.
-    if ((m_state == Connecting || m_state == Reconnecting) && !m_versionMismatch)
+    if ((m_state == Connecting || m_state == Reconnecting) && !m_protocolMismatch)
         setLastError(u"socket"_s, m_ws.errorString());
 }
 
@@ -787,23 +787,24 @@ void WsClient::clearRulesStartFailure()
     emit rulesStartFailureChanged();
 }
 
-void WsClient::setVersionMismatch(const QString &requiredVersion)
+void WsClient::setProtocolMismatch(const QString &serverProtocol)
 {
-    const QString normalizedVersion = requiredVersion.trimmed();
-    if (m_versionMismatch && m_requiredVersion == normalizedVersion)
+    const QString normalizedVersion =
+        hexproof::protocol::protocolGeneration(serverProtocol) > 0 ? serverProtocol : QString{};
+    if (m_protocolMismatch && m_serverProtocol == normalizedVersion)
         return;
-    m_versionMismatch = true;
-    m_requiredVersion = normalizedVersion;
-    emit versionMismatchChanged();
+    m_protocolMismatch = true;
+    m_serverProtocol = normalizedVersion;
+    emit protocolMismatchChanged();
 }
 
-void WsClient::clearVersionMismatch()
+void WsClient::clearProtocolMismatch()
 {
-    if (!m_versionMismatch && m_requiredVersion.isEmpty())
+    if (!m_protocolMismatch && m_serverProtocol.isEmpty())
         return;
-    m_versionMismatch = false;
-    m_requiredVersion.clear();
-    emit versionMismatchChanged();
+    m_protocolMismatch = false;
+    m_serverProtocol.clear();
+    emit protocolMismatchChanged();
 }
 
 void WsClient::setForgeRulesAvailable(bool available)

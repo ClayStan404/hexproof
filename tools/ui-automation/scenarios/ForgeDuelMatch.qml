@@ -1,0 +1,934 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+import QtQuick
+import "ForgeFormatStudy.js" as FormatStudy
+import "ForgeStackStudy.js" as StackStudy
+import "ForgeBorosStudy.js" as BorosStudy
+import "ForgeCardChoiceStudy.js" as CardChoiceStudy
+import "ForgePauperStudy.js" as PauperStudy
+import "ForgeEldraziStudy.js" as EldraziStudy
+import "ForgeTournamentStudy.js" as TournamentStudy
+import "ForgeMigrationStudy.js" as MigrationStudy
+import "ForgePeerStudy.js" as PeerStudy
+import "ForgeImproviseStudy.js" as ImproviseStudy
+import "ForgePersistentStateStudy.js" as PersistentStateStudy
+import "ForgeChosenCardStudy.js" as ChosenCardStudy
+import "ForgeCardTextStudy.js" as CardTextStudy
+import "ForgeGraveyardPaymentStudy.js" as GraveyardPaymentStudy
+import "ForgeSerumPowderStudy.js" as SerumPowderStudy
+import "ForgeNecrodominanceStudy.js" as NecrodominanceStudy
+import "ForgeLotusBloomStudy.js" as LotusBloomStudy
+
+// Standalone matches record fixture room/deck setup; Limited matches inherit
+// the production event workflow. Every rules decision uses native UI controls.
+Item {
+    id: driver
+    property int seat: Number(auditProbe.environment("HEXPROOF_AUDIT_SEAT"))
+    property string variant: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") || "modern"
+    readonly property bool onlineModelPractice: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") === "model-online"
+    readonly property bool modelPractice: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") === "model-local" || onlineModelPractice
+    property bool modelRetried: false
+    property bool modelRecovered: false
+    property double modelRetryAt: 0
+    readonly property bool playerHosted: auditProbe.environment("HEXPROOF_AUDIT_PLAYER_HOSTED") === "1"
+    readonly property bool migrationAudit: ["1", "loss"].includes(auditProbe.environment("HEXPROOF_AUDIT_MIGRATION"))
+    readonly property bool peerAudit: auditProbe.environment("HEXPROOF_AUDIT_PEER") === "1"
+    readonly property string peerExpected: auditProbe.environment("HEXPROOF_AUDIT_PEER_EXPECTED") || "direct"
+    property bool peerConnectingObserved: false
+    property int peerStep: 0
+    property bool peerDone: false
+    property double peerStartedAt: 0
+    property int migrationStep: 0
+    property bool migrationDone: false
+    property bool checkedBackup: false
+    property bool existingLimitedMatch: false
+    property bool productionSetup: false
+    readonly property bool formatStudy: existingLimitedMatch || variant.startsWith("format-")
+    property double priorityUiReadyAt: 0
+    property string decisionWaitReason: ""
+    property var navigationRetries: ({})
+    readonly property bool spectator: !existingLimitedMatch && seat > 2
+    property bool checkedRuntime: false
+    readonly property bool recoveryAudit: variant === "recovery"
+    property int recoveryStep: 0
+    property bool capturedPause: false
+    property bool capturedAbort: false
+    readonly property string format: (variant.startsWith("duel") || variant === "format-duel") ? "duel" : "modern"
+    readonly property bool extended: !existingLimitedMatch && variant.endsWith("-bo3")
+    readonly property bool stackStudy: variant === "stack"
+    readonly property bool improviseStudy: variant === "improvise"
+    readonly property bool persistentStateStudy: variant === "persistent-state"
+    readonly property bool chosenCardStudy: variant === "chosen-card"
+    readonly property bool cardTextStudy: variant === "card-text"
+    readonly property bool graveyardPaymentStudy: variant === "graveyard-payment"
+    readonly property bool serumPowderStudy: variant.startsWith("serum-powder-")
+    readonly property bool necrodominanceStudy: variant === "necrodominance-smart"
+    readonly property bool lotusBloomStudy: variant.startsWith("lotus-bloom-")
+    readonly property bool borosStudy: variant === "boros" || variant === "boros-zones"
+    readonly property bool cardChoiceStudy: variant === "boros-zones"
+    readonly property bool pauperStudy: variant === "pauper"
+    readonly property bool eldraziStudy: variant === "eldrazi"
+    readonly property bool tournamentStudy: variant === "affinity" || variant === "duel-phelia"
+    readonly property string deckFormat: existingLimitedMatch ? "limited" : formatStudy ? variant.slice(7) : pauperStudy ? "pauper" : format
+    property var stackObserved: ({})
+    property var stackReview: null
+    property int stage: existingLimitedMatch ? 3 : -2
+    property bool busy: false
+    property double progress: Date.now()
+    property double lastObservation: 0
+    property int promptId: -1
+    property int decisions: 0
+    property int attacks: 0
+    property int casts: 0
+    property int lands: 0
+    property int payments: 0
+    property bool capturedStack: false
+    property bool capturedCombat: false
+    property var seenKinds: ({})
+    property int blocks: 0
+    property var countedBlockPrompts: ({})
+    property var observedAttackAssignments: ({})
+    property int damageDecisions: 0
+    property int commanderReturns: 0
+    property int commanderStays: 0
+    property int maximumTax: 0
+    property int completedGames: 0
+    property string previousGame: ""
+    property double observedSnapshot: -1
+    property int expectedStarter: -1
+    property bool liveResumed: false
+    property bool sideboardResumed: false
+    property bool resultResumed: false
+    property bool sawDisconnect: false
+    property bool disconnectedChoiceCaptured: false
+    property var reconnectTransitions: []
+    property bool privateChoiceResumed: false
+    property var resumeState: ({})
+    property int boardMoveStage: 0
+    property string blockedPrompt: ""
+    readonly property var session: ws.rulesSession
+    readonly property var table: auditWindow ? auditWindow.stack.currentItem : null
+
+    function require(ok, message) { if (!ok) throw new Error(message + "; " + auditProbe.lastError) }
+    function item(name) { return auditProbe.find(auditWindow, name) }
+    function recoverCardPreview() {
+        if (table && table.inspector && table.inspector.previewCardId.length) {
+            const neutral = item("forgeGameMenu")
+            require(neutral && auditProbe.hover(neutral), "Cannot move away from the card preview")
+        }
+    }
+    function click(name) {
+        const target = item(name)
+        if (!target) {
+            // A card leaving the hand can put another card under the last
+            // input point. Move away through native input before retrying a
+            // control covered by that preview; never bypass the hit test.
+            recoverCardPreview()
+            return false
+        }
+        require(auditProbe.click(target), "Input failed: " + name)
+        progress = Date.now()
+        return true
+    }
+    function capture(name) { require(auditProbe.capture(auditWindow, name), "Capture failed") }
+    function deck() {
+        if (lotusBloomStudy) return LotusBloomStudy.deck(driver)
+        if (necrodominanceStudy) return NecrodominanceStudy.deck(driver)
+        if (serumPowderStudy) return SerumPowderStudy.deck(driver)
+        if (formatStudy) return FormatStudy.deck(driver)
+        if (persistentStateStudy) return PersistentStateStudy.deck(driver)
+        if (chosenCardStudy) return ChosenCardStudy.deck(driver)
+        if (cardTextStudy) return CardTextStudy.deck(driver)
+        if (graveyardPaymentStudy) return GraveyardPaymentStudy.deck(driver)
+        if (improviseStudy) return ImproviseStudy.deck(driver)
+        if (tournamentStudy) return TournamentStudy.deck(driver)
+        if (eldraziStudy) return BorosStudy.deck(driver)
+        if (pauperStudy) return PauperStudy.deck(seat)
+        if (borosStudy) return BorosStudy.deck(driver)
+        if (stackStudy) return StackStudy.deck(seat)
+        if (format === "duel") {
+            return {name:"Native Duel Commander", format:"duel", deckFormat:"duel",
+                commanders:["Isamaru, Hound of Konda"], mainboard:[
+                    {name:"Plains", count:99, setCode:"C15", collectorNumber:"323", typeLine:"Basic Land — Plains"},
+                    {name:"Isamaru, Hound of Konda", count:1, setCode:"CHK", collectorNumber:"19", typeLine:"Legendary Creature — Dog"}],
+                sideboard:[]}
+        }
+        if (extended && seat === 1) {
+            const creatures = [["Garruk's Companion", "M11", "176"], ["Centaur Courser", "M10", "172"],
+                ["Rumbling Baloth", "M14", "193"], ["Colossal Dreadmaw", "XLN", "180"], ["Duskdale Wurm", "EVE", "67"]]
+            return {name:"Native trample combat", format:"modern", deckFormat:"modern",
+                mainboard:[{name:"Forest", count:40, setCode:"LEA", collectorNumber:"294", typeLine:"Basic Land — Forest"}]
+                    .concat(creatures.map(card => ({name:card[0], count:4, setCode:card[1], collectorNumber:card[2], typeLine:"Creature"}))),
+                sideboard:[{name:"Grizzly Bears", count:1, setCode:"LEA", collectorNumber:"199", typeLine:"Creature — Bear"}]}
+        }
+        // Exact paper printings verified in the local catalog, also supported
+        // by the pinned Forge resource set. The room protocol requires them.
+        const mainboard = [{name:"Plains", count:40, setCode:"C15", collectorNumber:"323", typeLine:"Basic Land — Plains"}]
+        for (const printing of [["Silvercoat Lion", "M13", "35"], ["Youthful Knight", "10E", "62"],
+            ["Glory Seeker", "ROE", "22"], ["Oreskos Swiftclaw", "M15", "22"], ["Traveling Philosopher", "THS", "34"]])
+            mainboard.push({name:printing[0], count:4, setCode:printing[1], collectorNumber:printing[2], typeLine:"Creature"})
+        return {name:"Native Forge creatures", format:"modern", deckFormat:"modern", mainboard:mainboard, sideboard:[]}
+    }
+    function matchState() {
+        return {stage:stage, seat:seat, format:format, deckFormat:deckFormat,
+            aiDifficulty:ws.roomSession.aiDifficulty || "", hostingMode:ws.roomSession.hostingMode,
+            model:modelPractice ? {source:ws.roomSession.aiSource, status:ws.modelOpponent.status,
+                error:ws.modelOpponent.lastError, calls:ws.modelOpponent.callsUsed,
+                reservedTokens:ws.modelOpponent.reservedTokens, aiStatus:ws.roomSession.aiStatus} : null,
+            gameId:session.gameId, turn:session.turn, step:session.step,
+            promptId:session.promptId, promptKind:session.promptKind, promptPending:session.promptPending,
+            promptSupported:session.promptSupported, decisionWaitReason:decisionWaitReason,
+            priorityUiDelayMs:Math.max(0, priorityUiReadyAt - Date.now()), capturedStack:capturedStack,
+            rulesResponsePending:ws.rulesResponsePending, roomConnected:table ? table.roomConnected : false,
+            priorityState:table && table.priority ? {blocked:table.priorityInputBlocked, canPass:table.priority.canPass,
+                fullControl:table.priority.fullControl, automatic:table.priority.automaticallyPassing,
+                passMenu:table.priority.passMenuOpen, modal:table.presentation.modalOpen} : null,
+            options:session.promptOptionItems(), title:session.promptTitle, detail:session.promptDetail,
+            formatReview:formatStudy ? FormatStudy.state(driver) : null,
+            realDeckReview:borosStudy ? BorosStudy.snapshot(driver) : null,
+            eldraziReview:eldraziStudy ? EldraziStudy.state() : null,
+            tournamentReview:tournamentStudy ? TournamentStudy.state() : null,
+            cardChoiceReview:cardChoiceStudy ? CardChoiceStudy.state() : null,
+            serumPowderReview:serumPowderStudy ? SerumPowderStudy.state() : null,
+            necrodominanceReview:necrodominanceStudy ? NecrodominanceStudy.state() : null,
+            lotusBloomReview:lotusBloomStudy ? LotusBloomStudy.state() : null,
+            commander:commander(), error:ws.lastError, decisions:decisions, lands:lands,
+            casts:casts, attacks:attacks, payments:payments, kinds:Object.keys(seenKinds),
+            winnerSeat:session.winnerSeat, gameOver:session.gameOver,
+            result:ws.gameSession.result, roomPhase:ws.roomSession.phase, stackObserved:stackObserved, migrationDone:migrationDone, peerDone:peerDone, directPeerDecisions:ws.directPeerDecisions, peerFallbacks:ws.peerFallbacks, peerTransport:ws.peerTransportState, peerMetrics:ws.peerTransportMetrics}
+    }
+    function extendedState() {
+        return {blocks:blocks, damageDecisions:damageDecisions, commanderReturns:commanderReturns,
+            commanderStays:commanderStays, maximumTax:maximumTax, completedGames:completedGames,
+            liveResumed:liveResumed, sideboardResumed:sideboardResumed, resultResumed:resultResumed,
+            privateChoiceResumed:privateChoiceResumed,
+            sideboardMoves:boardMoveStage, score:ws.gameSession.score}
+    }
+    function commander() {
+        const entries = table && table.presentation
+            ? table.presentation.commandersFor(ws.roomSession.seatIndex) : []
+        return entries.length ? entries[0] : null
+    }
+    function interrupt(where) {
+        // Detach QVariant property wrappers before any authoritative update:
+        // the saved oracle must not follow the property through reconnect.
+        resumeState = JSON.parse(JSON.stringify({where:where, gameId:session.gameId, promptId:session.promptId,
+            hand:session.zoneCount(ws.roomSession.seatIndex, "hand"), sideboard:ws.gameSession.sideboard,
+            score:ws.gameSession.score, roomId:ws.roomSession.roomId, seatIndex:ws.roomSession.seatIndex,
+            role:ws.roomSession.role, gameNumber:ws.gameSession.gameNumber, result:ws.gameSession.result,
+            rulesRevision:session.snapshotRevision}))
+        auditProbe.record("before-reconnect-" + where, resumeState)
+        stage = 50; sawDisconnect = false; disconnectedChoiceCaptured = false
+        reconnectTransitions = []; progress = Date.now()
+        require(auditProbe.interruptTransport(ws), "Cannot interrupt test transport")
+    }
+    function observeReconnectConnection() {
+        if (stage !== 50) return
+        // Record the actual connection signal even while another client owns
+        // native input. A full disconnect/resume can fall between two ticks.
+        const transition = {signal:"connectionStateChanged", atUnixMs:Date.now(),
+            state:Number(ws.connectionState), connected:ws.connected, reconnecting:ws.reconnecting,
+            inRoom:ws.inRoom, roomId:ws.roomSession.roomId, seatIndex:ws.roomSession.seatIndex}
+        reconnectTransitions = reconnectTransitions.concat([transition]).slice(-16)
+        if (!transition.connected) sawDisconnect = true
+    }
+    function reconnectTick() {
+        if (Date.now() - lastObservation > 2000) {
+            auditProbe.record("reconnect-wait", {where:resumeState.where, sawDisconnect:sawDisconnect,
+                transitions:reconnectTransitions, connected:ws.connected, reconnecting:ws.reconnecting,
+                inRoom:ws.inRoom, rulesActive:session.active, gameId:session.gameId,
+                rulesRevision:session.snapshotRevision, priorRulesRevision:resumeState.rulesRevision,
+                roomId:ws.roomSession.roomId, seatIndex:ws.roomSession.seatIndex,
+                sideboarding:ws.gameSession.sideboarding, result:ws.gameSession.result})
+            lastObservation = Date.now()
+        }
+        if (ws.reconnecting) {
+            if (resumeState.where === "private-choice") {
+                if (table && table.presentation)
+                    require(!table.presentation.cardChoiceActive && !table.presentation.decisionDock.expanded,
+                        "Disconnected private choice reappeared in the fallback dock")
+                if (!disconnectedChoiceCaptured) {
+                    capture("private-choice-disconnected")
+                    disconnectedChoiceCaptured = true
+                }
+            }
+            return
+        }
+        if (!sawDisconnect || !ws.inRoom || !table || !table.presentation
+            || table.presentation.objectName !== "forgeDuelTable" || !session.active
+            || session.snapshotRevision <= resumeState.rulesRevision) return
+        require(reconnectTransitions.some(value => value.connected === false),
+                "Reconnect did not expose an actual disconnected connection signal")
+        require(ws.roomSession.roomId === resumeState.roomId
+            && ws.roomSession.seatIndex === resumeState.seatIndex && ws.roomSession.role === resumeState.role,
+                "Reconnect changed authenticated room membership")
+        require(session.gameId === resumeState.gameId, "Reconnect replaced the engine game")
+        require(ws.gameSession.gameNumber === resumeState.gameNumber, "Reconnect changed match game number")
+        require(JSON.stringify(ws.gameSession.score) === JSON.stringify(resumeState.score), "Reconnect changed match score")
+        if (resumeState.where === "live" || resumeState.where === "private-choice") {
+            if (!session.promptPending) return
+            require(session.promptId === resumeState.promptId, "Pending prompt was not restored")
+            require(session.zoneCount(ws.roomSession.seatIndex, "hand") === resumeState.hand, "Private hand lost on reconnect")
+            if (resumeState.where === "private-choice") {
+                require(disconnectedChoiceCaptured, "Disconnected private choice was not visually observed")
+                require(table.presentation.cardChoiceActive, "Private choice did not reopen after authenticated resume")
+                privateChoiceResumed = true
+                auditProbe.record("private-choice-resumed", {gameId:session.gameId, promptId:session.promptId})
+            } else liveResumed = true
+        } else if (resumeState.where === "sideboard") {
+            if (!ws.gameSession.sideboarding) return
+            for (const zone of ["mainboard", "sideboard", "commanders"])
+                require(JSON.stringify(ws.gameSession.sideboard[zone] || [])
+                    === JSON.stringify(resumeState.sideboard[zone] || []), "Sideboard " + zone + " edits lost on reconnect")
+            const ownBefore = resumeState.sideboard.seats.find(value => value.seat === resumeState.seatIndex)
+            const ownAfter = ws.gameSession.sideboard.seats.find(value => value.seat === resumeState.seatIndex)
+            require(ownBefore && ownAfter && JSON.stringify(ownAfter) === JSON.stringify(ownBefore),
+                    "Own sideboard readiness or public counts changed on reconnect")
+            sideboardResumed = true
+        } else {
+            if (!ws.gameSession.result.matchFinished) return
+            require(JSON.stringify(ws.gameSession.result) === JSON.stringify(resumeState.result),
+                    "Reconnect changed the completed match result")
+            resultResumed = true
+        }
+        auditProbe.record("reconnect-restored-" + resumeState.where,
+            {expected:resumeState, transitions:reconnectTransitions, gameId:session.gameId,
+                rulesRevision:session.snapshotRevision, roomId:ws.roomSession.roomId,
+                seatIndex:ws.roomSession.seatIndex, role:ws.roomSession.role,
+                gameNumber:ws.gameSession.gameNumber, score:ws.gameSession.score,
+                sideboard:ws.gameSession.sideboard, result:ws.gameSession.result})
+        capture("reconnect-" + resumeState.where)
+        stage = 4; progress = Date.now()
+    }
+    function extendedTick() {
+        const ownCommander = commander()
+        if (ownCommander) maximumTax = Math.max(maximumTax, ownCommander.tax)
+        if (session.gameId !== previousGame && previousGame.length > 0) {
+            // The new rules snapshot precedes its match metadata on the wire.
+            if (ws.gameSession.sideboarding || ws.gameSession.gameNumber <= completedGames) return true
+            require(ws.gameSession.startingSeat === expectedStarter, "Next game did not give the loser the first turn")
+            require(Object.keys(table.combatInteraction.assignments).length === 0, "Old combat selection survived the next game")
+            auditProbe.record("next-game-" + ws.gameSession.gameNumber, matchState())
+            previousGame = ""; promptId = -1
+        }
+        if (!liveResumed && session.promptPending && ["chooseAttackers", "chooseBlockers"].includes(session.promptKind)) {
+            interrupt("live"); return true
+        }
+        if (ws.gameSession.sideboarding) {
+            if (previousGame !== session.gameId) {
+                previousGame = session.gameId; expectedStarter = 1 - session.winnerSeat; completedGames++
+                capture("sideboard-" + completedGames)
+            }
+            if (format === "modern" && seat === 1 && boardMoveStage < 4) {
+                const data = ws.gameSession.sideboard
+                if (boardMoveStage === 0 || boardMoveStage === 2) {
+                    const from = boardMoveStage === 0 ? "sideboard" : "mainboard"
+                    const to = boardMoveStage === 0 ? "mainboard" : "sideboard"
+                    const groups = from === "mainboard" ? table.sideboardTableModel.mainboardGroups
+                        : table.sideboardTableModel.sideboardGroups
+                    let card = null
+                    for (let groupIndex = 0; groupIndex < groups.length && !card; ++groupIndex) {
+                        const cards = groups[groupIndex].cards
+                        for (let cardIndex = 0; cardIndex < cards.length; ++cardIndex) {
+                            if (cards[cardIndex].name === "Grizzly Bears") {
+                                card = cards[cardIndex]
+                                break
+                            }
+                        }
+                    }
+                    require(card, "The registered sideboard card disappeared")
+                    const source = item("sideboardCard-" + from + "-" + card.tableIndex)
+                    const target = auditProbe.findDropTarget(auditWindow, "sideboardZone-" + to)
+                    if (source && target) { require(auditProbe.drag(source, target), "Sideboard card drag failed"); boardMoveStage++ }
+                    return true
+                }
+                const count = data.seats[0].sideboardCount
+                if ((boardMoveStage === 1 && count === 0) || (boardMoveStage === 3 && count === 1)) {
+                    if (boardMoveStage === 3)
+                        require(data.sideboard.length === 1 && data.sideboard[0].name === "Grizzly Bears",
+                            "Sideboarding did not return the original card")
+                    boardMoveStage++
+                }
+                return true
+            }
+            if (!sideboardResumed) { interrupt("sideboard"); return true }
+            if (!ws.gameSession.sideboard.seats.find(value => value.seat === ws.roomSession.seatIndex).ready)
+                click("sideboardReadyButton")
+            return true
+        }
+        if (session.gameOver && ws.gameSession.result.matchFinished && !resultResumed) {
+            interrupt("result"); return true
+        }
+        return false
+    }
+    function wheelToCard(id, hand) {
+        // Resolve the card's actual lane, including offscreen lands and other
+        // permanents. Reading geometry guides input; never move the view by
+        // assigning contentX/contentY or invoking its reveal helper.
+        for (const lane of BorosStudy.laneItems(driver, true)) {
+            if (!lane.visibleCards || !lane.scrollArea) continue
+            const card = lane.visibleCards.find(value => value.cardId === id)
+            if (!card) continue
+            const view = lane.scrollArea
+            const horizontal = lane.category === undefined
+            const before = horizontal ? card.x < view.contentX : card.y < view.contentY
+            const key = session.promptId + ":" + id
+            navigationRetries[key] = (navigationRetries[key] || 0) + 1
+            if (navigationRetries[key] > 6 && !horizontal
+                && card.y >= view.contentY && card.y + card.height <= view.contentY + view.height) {
+                auditProbe.record("card-navigation-" + session.promptId + "-" + id,
+                    {cardId:id, x:card.x, y:card.y, width:card.width, height:card.height,
+                     stackSize:card.stackSize, stackFront:card.stackFront, stackActivateId:card.stackActivateId(),
+                     viewportY:view.contentY, viewportHeight:view.height,
+                     sources:session.promptCombat.sourceItems(), assignments:table.combatInteraction.assignments})
+                const surface = card.children.find(child => child.objectName === "forgeCard-" + id)
+                require(surface && auditProbe.click(surface), "Visible card is not reachable: " + id)
+                progress = Date.now()
+                return false
+            }
+            require(auditProbe.wheel(view, before ? 160 : -160), "Cannot reach card " + id)
+            return false
+        }
+        return false
+    }
+    function cardAction(option) {
+        if (table.cardActionPicker.opened)
+            return click("rulesCardAction-" + option.responseId)
+        const hand = item("forgeHandCard-" + option.cardId)
+        const board = hand ? null : item("forgeCard-" + option.cardId)
+        if (hand || board) {
+            require(auditProbe.click(hand || board), "Cannot activate native card action")
+            progress = Date.now()
+            return true
+        }
+        if (BorosStudy.exposeActionCard(driver, option.cardId)) return false
+        if (click("rulesZoneAction-" + option.responseId)) return true
+        if (click("rulesPromptOption-" + option.responseId)) return true
+        const zoneIndex = table.interaction.zoneActions.findIndex(action =>
+            action.responseId === option.responseId && action.cardId === option.cardId)
+        const zoneList = zoneIndex >= 0 ? item("rulesZoneActions") : null
+        let navigated = false
+        if (zoneList) {
+            const row = zoneList.itemAtIndex(zoneIndex)
+            const before = row ? row.y < zoneList.contentY
+                : zoneIndex < zoneList.indexAt(1, zoneList.contentY + 1)
+            auditProbe.record("zone-action-scroll-" + session.promptId,
+                {option:option, index:zoneIndex, contentY:zoneList.contentY, direction:before ? "up" : "down"})
+            require(auditProbe.wheel(zoneList, before ? 160 : -160), "Cannot scroll zone actions")
+        } else navigated = wheelToCard(option.cardId, true)
+        const key = "action:" + session.promptId + ":" + option.cardId
+        navigationRetries[key] = (navigationRetries[key] || 0) + 1
+        if (navigationRetries[key] === Math.max(12, zoneIndex * 2)) {
+            auditProbe.record("unreachable-action", {option:option, card:session.cardForInspection(option.cardId),
+                zoneActions:table.interaction.zoneActions, observation:auditProbe.observe(auditWindow)})
+            require(false, "Offered card action has no reachable control: " + option.label)
+        }
+        return navigated
+    }
+    function availableMana() {
+        return BorosStudy.basicMana(driver, ws.roomSession.seatIndex)
+    }
+    function combatInputId(id) {
+        return BorosStudy.combatInputId(driver, id)
+    }
+    function clickCombatSource(source, inputId) {
+        if (!click("forgeCard-" + inputId)) return false
+        require(table.combatInteraction.selectedSource === source.responseId
+            || table.combatInteraction.selectedTargets(source.responseId).length > 0,
+            "Combat pile selected another physical card")
+        if (inputId !== source.objectId)
+            auditProbe.record("combat-pile-" + session.promptId + "-" + source.objectId,
+                {requestedId:source.objectId, renderedId:inputId, responseId:source.responseId})
+        return true
+    }
+    function confirmBlockers() {
+        // A sole legal attacker is assigned by the source click itself. Count
+        // actual blockers at confirmation, regardless of the input route.
+        const key = session.gameId + ":" + session.promptId
+        const assigned = session.promptCombat.sourceItems().filter(source =>
+            table.combatInteraction.selectedTargets(source.responseId).length > 0).length
+        if (!click("rulesConfirmCombat-blockers")) return false
+        if (!countedBlockPrompts[key]) {
+            countedBlockPrompts[key] = true
+            blocks += assigned
+        }
+        return true
+    }
+    function countAttackAssignments() {
+        // A sole legal target is assigned by the source click itself. Count
+        // observed production assignments, including those restored on reconnect.
+        // Blockers retain their separate successful-confirmation coverage gate.
+        for (const source of session.promptCombat.sourceItems()) {
+            for (const target of table.combatInteraction.selectedTargets(source.responseId)) {
+                const key = JSON.stringify([session.gameId, session.promptId, source.responseId, target])
+                if (observedAttackAssignments[key]) continue
+                observedAttackAssignments[key] = true
+                attacks++
+                auditProbe.record("combat-assignment-" + session.promptId + "-" + (attacks + blocks),
+                    {gameId:session.gameId, promptId:session.promptId, kind:"attack",
+                     sourceId:source.objectId, sourceResponseId:source.responseId, targetResponseId:target})
+            }
+        }
+    }
+    function observePublicTable() {
+        if (table.priorityInputBlocked) return
+        if (session.stackObjectIds().length > 0 && !capturedStack) {
+            capture("stack"); capturedStack = true
+        }
+        // A defending player may have no creatures or priority decision. Its
+        // real combat evidence is the opponent's declared, visible attacker.
+        if (!capturedCombat) for (const lane of BorosStudy.laneItems(driver)) {
+            if (!lane.visibleCards || !lane.scrollArea || lane.category === undefined) continue
+            const view = lane.scrollArea
+            if (lane.visibleCards.some(card => card.attacking && card.y >= view.contentY
+                && card.y + card.height <= view.contentY + view.height)) {
+                capture("combat"); capturedCombat = true; break
+            }
+        }
+    }
+    function act() {
+        decisionWaitReason = "pending supported prompt"
+        if (!session.promptPending || ws.rulesResponsePending || !session.promptSupported) return
+        decisionWaitReason = "window focus"
+        if (!auditWindow.active) require(auditProbe.activate(), "Cannot focus the deciding player")
+        // Focusing pumps real events. Re-read the decision before resolving a
+        // control; automatic priority may have advanced while focus changed.
+        if (!session.promptPending || ws.rulesResponsePending || !session.promptSupported) return
+        decisionWaitReason = "automatic priority"
+        if (session.promptKind === "chooseAction" && table.priority.automaticallyPassing) return
+        decisionWaitReason = "priority settings settle"
+        if (Date.now() < priorityUiReadyAt) return
+        const fullControl = !lotusBloomStudy && !necrodominanceStudy && (serumPowderStudy || improviseStudy || stackStudy || pauperStudy || graveyardPaymentStudy || (!capturedStack && !persistentStateStudy))
+        if (session.promptKind === "chooseAction" && table.priority.fullControl !== fullControl) {
+            decisionWaitReason = "priority settings input"
+            // Wait for the drawer's actual control across its opening transition.
+            // Configure priority before applying the modal gameplay-input guard.
+            // Keep the first stack visible before returning to smart priority.
+            const mode = item("rulesPriorityMode")
+            if (!mode) {
+                if (!table.presentation.modalOpen) click("forgeGameMenu")
+            } else {
+                const x = mode.width * (fullControl ? 0.75 : 0.25)
+                const y = mode.height / 2
+                const point = mode.mapToItem(auditWindow.contentItem, x, y)
+                if (point.x < 0 || point.x >= auditWindow.width || point.y < 0 || point.y >= auditWindow.height) return
+                require(auditProbe.click(mode, x, y), "Cannot select priority mode")
+                require(auditProbe.key(Qt.Key_Escape), "Cannot close priority settings")
+                priorityUiReadyAt = Date.now() + 500
+            }
+            return
+        }
+        decisionWaitReason = "gameplay input unblocked"
+        if (table.priorityInputBlocked && !table.presentation.decisionDialogActive) return
+        decisionWaitReason = "native game action"
+        if (session.promptId !== promptId) {
+            promptId = session.promptId; decisions++; progress = Date.now()
+            seenKinds[session.promptKind] = true
+            auditProbe.record("prompt-" + decisions, matchState())
+        }
+        const options = session.promptOptionItems()
+        if (lotusBloomStudy && LotusBloomStudy.act(driver)) return
+        if (necrodominanceStudy && NecrodominanceStudy.act(driver)) return
+        if (serumPowderStudy && SerumPowderStudy.act(driver)) return
+        if (formatStudy && FormatStudy.act(driver)) return
+        if (persistentStateStudy && PersistentStateStudy.act(driver)) return
+        if (chosenCardStudy && ChosenCardStudy.act(driver)) return
+        if (cardTextStudy && CardTextStudy.act(driver)) return
+        if (graveyardPaymentStudy && GraveyardPaymentStudy.act(driver)) return
+        if (improviseStudy && ImproviseStudy.act(driver)) return
+        if (pauperStudy) PauperStudy.observe(driver)
+        if (cardChoiceStudy && CardChoiceStudy.act(driver)) return
+        if (eldraziStudy && EldraziStudy.act(driver)) return
+        if (tournamentStudy && TournamentStudy.act(driver)) return
+        if (borosStudy && BorosStudy.act(driver, cardChoiceStudy ? CardChoiceStudy.actionOptions(driver) : null)) return
+        switch (session.promptKind) {
+        case "acknowledge":
+            if (session.promptTitle === "AI deck advisory") {
+                require(options.length === 1 && options[0].responseId === "$ack", "AI advisory has ambiguous actions")
+                require(session.promptDetail.includes("You can continue this game."), "AI advisory does not explain continuation")
+                capture("ai-deck-advisory")
+                auditProbe.record("ai-deck-advisory", {title:session.promptTitle, detail:session.promptDetail, options:options})
+            }
+            click("rulesPromptOption-$ack"); return
+        case "diceRolled": click("rulesPromptOption-$ack"); return
+        case "revealCards": click("acknowledgeRevealButton"); return
+        case "scry":
+            require(pauperStudy, "Unexpected scry in the selected fixture")
+            PauperStudy.scry(driver); return
+        case "mulligan": click("rulesPromptOption-$keep"); return
+        case "chooseBoolean": case "chooseFromSelection": {
+            const list = item("rulesScalarCandidates")
+            if (!list) { recoverCardPreview(); return }
+            if (pauperStudy) { BorosStudy.chooseScalar(driver); return }
+            const ownCommander = extended && format === "duel" ? commander() : null
+            const destination = ownCommander && (session.promptTitle + " " + session.promptDetail).toLowerCase().includes("command")
+            const stay = destination && ownCommander.casts >= 3 && seat === 1
+            const choice = list ? list.itemAtIndex(destination && !stay ? 1 : 0) : null
+            if (session.promptKind === "chooseFromSelection" && choice && choice.count > 0
+                && click("rulesConfirmChoices")) return
+            if (destination) capture("commander-destination")
+            if (choice && click("rulesScalarChoice-" + choice.responseId) && destination) {
+                if (stay) commanderStays++; else commanderReturns++
+            }
+            return
+        }
+        case "chooseAction": {
+            if (stackStudy && StackStudy.observe(driver)) return
+            const land = options.find(option => option.kind === "playLand")
+            if (land) { if (cardAction(land)) lands++; return }
+            // Fixture costs guide choices; native Forge still validates payment.
+            const mana = availableMana()
+            const costs = {"Garruk's Companion":2, "Centaur Courser":3, "Rumbling Baloth":4, "Colossal Dreadmaw":6, "Duskdale Wurm":7, "Grizzly Bears":2}
+            const spell = options.find(option => {
+                if (option.kind !== "cast") return false
+                const card = session.cardForInspection(option.cardId)
+                if ((stackStudy || pauperStudy) && !StackStudy.castAllowed(driver, card.name, option.cardId)) return false
+                const command = commander()
+                const cost = pauperStudy ? PauperStudy.cost(card) : stackStudy ? StackStudy.costs[card.name]
+                    : format === "duel" ? command ? 1 + command.tax : Infinity
+                    : extended && seat === 1 ? costs[card.name] : 2
+                return mana >= cost
+            })
+            if (spell) {
+                if (pauperStudy) PauperStudy.trackCast(driver, spell)
+                if (stackStudy || pauperStudy ? StackStudy.castCard(driver, spell) : cardAction(spell)) casts++
+                return
+            }
+            if ((stackStudy || pauperStudy) && table.cardActionPicker.opened) {
+                require(auditProbe.key(Qt.Key_Escape), "Cannot close an unproductive counterspell action picker")
+                return
+            }
+            click("rulesPromptOption-$pass"); return
+        }
+        case "payManaCost": {
+            for (const id of ["$pay", "$auto-pay"]) {
+                if (options.some(option => option.responseId === id)) { if (click("rulesPromptOption-" + id)) payments++; return }
+            }
+            const mana = options.find(option => option.kind === "activateAbility")
+            if (mana) { if (cardAction(mana)) payments++; return }
+            throw new Error("No legal payment control in fixture")
+        }
+        case "chooseAttackers": {
+            countAttackAssignments()
+            if (stackStudy && !StackStudy.complete(driver)) { click("rulesConfirmCombat-attackers"); return }
+            if (pauperStudy && !PauperStudy.complete()) { click("rulesConfirmCombat-attackers"); return }
+            for (const source of session.promptCombat.sourceItems()) {
+                if (cardChoiceStudy && !CardChoiceStudy.allowAttack(source.name)) continue
+                if (extended && format === "modern" && !(auditProbe.readShared("complex-damage") || {}).done
+                    && (seat === 2 || !["Colossal Dreadmaw", "Duskdale Wurm"].includes(source.name))) continue
+                if (source.validTargets.length && !table.combatInteraction.selectedTargets(source.responseId).length) {
+                    if (table.combatInteraction.selectedSource === source.responseId) {
+                        const target = source.validTargets.find(value => value.kind === "player") || source.validTargets[0]
+                        click(target.kind === "player" ? "rulesPlayerTarget" + target.seat : "forgeCard-" + target.objectId)
+                    } else {
+                        const inputId = combatInputId(source.objectId)
+                        if (!inputId) continue
+                        if (!clickCombatSource(source, inputId)) wheelToCard(inputId, false)
+                    }
+                    return
+                }
+            }
+            if (!capturedCombat && table.combatInteraction.links.length) { capture("combat"); capturedCombat = true }
+            click("rulesConfirmCombat-attackers"); return
+        }
+        case "chooseBlockers": {
+            if (extended) {
+                const command = commander()
+                const shouldBlock = format === "duel" ? command && command.casts <= 3
+                    : seat === 2 && !(auditProbe.readShared("complex-damage") || {}).done
+                const sources = session.promptCombat.sourceItems()
+                const desired = format === "duel" ? 1 : 2
+                if (shouldBlock && sources.length >= desired) {
+                    const target = sources[0].validTargets.find(candidate => sources.filter(source =>
+                        source.validTargets.some(value => value.responseId === candidate.responseId)).length >= desired)
+                    const candidates = target ? sources.filter(source => source.validTargets.some(value =>
+                        value.responseId === target.responseId)) : []
+                    const assigned = candidates.filter(source =>
+                        table.combatInteraction.selectedTargets(source.responseId).includes(target.responseId))
+                    if (target && candidates.some(source => source.responseId === table.combatInteraction.selectedSource)) {
+                        click("forgeCard-" + target.objectId)
+                        return
+                    }
+                    if (target && assigned.length < desired) for (const source of candidates) {
+                        if (assigned.includes(source)) continue
+                        const inputId = combatInputId(source.objectId)
+                        if (!inputId) continue
+                        if (!clickCombatSource(source, inputId)) wheelToCard(inputId, false)
+                        return
+                    }
+                    if (table.combatInteraction.links.length) {
+                        capture("blocking")
+                        if (!capturedCombat) { capture("combat"); capturedCombat = true }
+                    }
+                }
+            }
+            // Deliberately take damage so the complete-game oracle is bounded.
+            // Block assignment interaction has separate real-model GUI tests.
+            confirmBlockers(); return
+        }
+        case "chooseCombatDamageAssignment": {
+            const confirm = item("rulesConfirmDamage")
+            if (confirm && confirm.enabled) {
+                capture("damage")
+                if (click("rulesConfirmDamage")) {
+                    damageDecisions++
+                    auditProbe.share("complex-damage", {done:true})
+                }
+            } else click("rulesAutoAssignDamage")
+            return
+        }
+        case "chooseDamageAssignmentOrder": case "reorder": click("rulesConfirmOrder"); return
+        case "chooseBoardTargets": StackStudy.chooseTarget(driver); return
+        case "chooseCards": case "mulliganPutBack": {
+            const list = item("rulesCardCandidates")
+            const confirm = item("rulesConfirmCards")
+            if (confirm && confirm.enabled) { click("rulesConfirmCards"); return }
+            if (list) for (let i = 0; i < list.count; ++i) {
+                const candidate = list.itemAtIndex(i)
+                if (candidate && candidate.selectable && !candidate.selected) {
+                    const visible = item(candidate.objectName)
+                    if (visible) { require(auditProbe.click(visible), "Cannot select required card"); return }
+                }
+            }
+            if (list) require(auditProbe.wheel(list, -160), "Cannot scroll required cards")
+            return
+        }
+        default: throw new Error("Unhandled native fixture decision: " + session.promptKind)
+        }
+    }
+    function recoverHostedGame() {
+        const fault = auditProbe.readShared("host-fault") || {}
+        if (!fault.started || recoveryStep >= 3) return false
+        if (ws.lastError) {
+            require(ws.lastError.startsWith("player_host_lost:") || ws.lastError.startsWith("rules_unavailable:") || ws.lastError.startsWith("rules_action_rejected:"), "Unexpected failure: " + ws.lastError)
+            auditProbe.fixture("acknowledge-host-failure", {code:ws.lastError.split(":")[0]})
+            ws.requestRoomList()
+        }
+        if (ws.roomSession.phase === "started") {
+            if (!ws.roomSession.hostConnected && !capturedPause && table && table.hostingPaused === true) {
+                require(!table.interaction.canRespond, "Paused game still accepts decisions")
+                capture("host-paused"); capturedPause = true
+            }
+            return true
+        }
+        require(!session.active && !ws.gameSession.result.matchFinished, "Engine loss invented a match result")
+        if (!capturedAbort) { capture("host-aborted"); capturedAbort = true }
+        if (seat === 1 && recoveryStep === 0 && !ws.forgeHost.busy) {
+            auditProbe.fixture("request-fresh-host-helper")
+            ws.preparePlayerHosting(); recoveryStep = 1
+        }
+        if (!ws.roomSession.hostConnected) return true
+        recoveryStep = 3; stage = spectator ? 3 : 2; promptId = -1; progress = Date.now()
+        auditProbe.record("host-recovered", {abortedGame:fault.gameId, capturedPause:capturedPause, waitingReset:true})
+        return true
+    }
+    function tick() {
+        if (PeerStudy.tick(driver, ws, auditProbe)) return
+        if (MigrationStudy.tick(driver, ws, auditProbe)) return
+        if (recoveryAudit && recoverHostedGame()) return
+        // A player may wait through a long opponent turn without receiving a
+        // private prompt. Published state changes still demonstrate progress;
+        // the runner's absolute deadline bounds the entire match.
+        if (session.active && session.snapshotRevision !== observedSnapshot) {
+            observedSnapshot = session.snapshotRevision
+            progress = Date.now()
+        }
+        require(!ws.lastError, "Server error: " + ws.lastError)
+        if (stage === 4 && Date.now() - lastObservation > 2000) {
+            auditProbe.record("live-match", matchState())
+            lastObservation = Date.now()
+        }
+        require(Date.now() - progress < (session.promptPending ? 75000 : 80000), "No observable game progress")
+        if (auditWindow.stack.busy) return
+        if (stage === -2) { if (click("mainMenuConnectButton")) stage = -1; return }
+        if (stage === -1) { if (click("connectSubmitButton")) stage = 0; return }
+        if (stage === 50) {
+            reconnectTick(); return
+        }
+        if (stage === 0) {
+            if (!ws.connected) return
+            if (seat === 1) {
+                require(formatStudy || ["modern", "duel", "modern-bo3", "duel-bo3", "stack", "boros", "boros-zones", "pauper", "recovery", "eldrazi", "affinity", "duel-phelia", "improvise", "persistent-state", "chosen-card", "card-text", "graveyard-payment", "serum-powder-mulligan", "serum-powder-mana", "necrodominance-smart", "lotus-bloom-manual", "lotus-bloom-payment", "lotus-bloom-auto"].includes(variant), "Unsupported test variant")
+                if (playerHosted) {
+                    require(ws.playerHostingAvailable && !ws.forgeRulesAvailable, "Expected relay-only hub")
+                    if (!checkedRuntime) { ws.forgeHost.check(); checkedRuntime = true; return }
+                    if (ws.forgeHost.busy) return
+                    require(ws.forgeHost.ready, "Prepare the pinned test runtime before this scenario")
+                }
+                auditProbe.fixture("create-loopback-forge-room", {rulesMode:"forge", format:format})
+                ws.createRoom("Native Forge duel", format, deckFormat, true, false, extended ? "bo3" : "bo1", "background", "", false, "forge", playerHosted ? "player" : "server")
+                stage = 1
+            } else {
+                const shared = auditProbe.readShared("forge-room")
+                if (shared && shared.id) {
+                    auditProbe.fixture("join-loopback-forge-room", {roomId:shared.id})
+                    ws.joinRoom(shared.id, spectator, "", playerHosted); stage = 1
+                }
+            }
+            return
+        }
+        if (stage === 1) {
+            if (!ws.inRoom) return
+            if (seat === 1) auditProbe.share("forge-room", {id:ws.roomSession.roomId})
+            if (spectator) { stage = 3; progress = Date.now(); return }
+            const fixtureDeck = deck()
+            auditProbe.fixture("select-test-deck", fixtureDeck)
+            ws.selectDeck(fixtureDeck); stage = 2; progress = Date.now(); return
+        }
+        if (stage === 2) {
+            if (!ws.roomSession.selectedDeckName || (playerHosted && !ws.roomSession.hostConnected)) return
+            if (ws.roomSession.seats.length !== 2 || ws.roomSession.seats.some(value => !value.deckSelected)) return
+            auditProbe.fixture("ready-for-real-engine-game")
+            ws.setReady(true); stage = 3; progress = Date.now(); return
+        }
+        if (stage === 3) {
+            // Companion choices can cover the table before opening hands.
+            // Presence is a read-only check; input targets remain hit-tested.
+            if (!session.active || !table || !table.presentation
+                    || table.presentation.objectName !== "forgeDuelTable") return
+            require(ws.roomSession.rulesMode === "forge" && ws.roomSession.maxSeats === 2, "Wrong rules mode or seats")
+            // Life plates receive input only when Forge offers player targets.
+            // Read their rendered delegates without using a hit-tested selector.
+            const plates = [0, 1].map(index => table.presentation.children.find(child =>
+                child.objectName === "rulesPlayerTarget" + index))
+            if (plates.some(plate => !plate || !plate.visible)) return
+            require(plates.every(plate => plate.life === 20), "Incorrect starting life")
+            capture("opening"); stage = 4; progress = Date.now()
+            if (spectator) { stage = 60; return }
+            if (format === "duel") {
+                require(table.zoneCount(ws.roomSession.seatIndex, "command") === 1, "Commander missing from command zone")
+                if (click("forgeZone-command")) stage = 31
+            }
+            return
+        }
+        if (stage === 60) {
+            require(!session.promptPending && session.promptOptionItems().length === 0, "Spectator received private decisions")
+            if ((auditProbe.readShared("forge-host-finished") || {}).done) {
+                capture("spectator-finished")
+                auditProbe.record("result", {status:"passed", scenario:"forge-player-host-spectator", seat:seat, privatePrompts:false,
+                    requiredScreenshots:["opening.png", "spectator-finished.png"].concat(recoveryAudit ? ["host-aborted.png"] : [])})
+                driverClock.enabled = false; auditProbe.finish(0)
+            }
+            return
+        }
+        if (stage === 31) {
+            if (!item("forgeZoneCards")) return
+            capture("command-zone")
+            if (click("forgeCloseZonePopup")) stage = 4
+            return
+        }
+        if (stage === 4) {
+            if (modelPractice && (ws.roomSession.aiStatus || ({})).state === "paused") {
+                require(!onlineModelPractice, "Online model paused: " + ws.modelOpponent.lastError
+                    + "; " + String(ws.roomSession.aiStatus.code || ""))
+                require(!modelRecovered, "Model fixture failed again after explicit recovery")
+                if (modelRetried) {
+                    require(Date.now() - modelRetryAt < 15000, "Model retry did not resume")
+                    return
+                }
+                capture("model-paused")
+                if (click("modelOpponentRetry")) {
+                    modelRetried = true
+                    modelRetryAt = Date.now()
+                    progress = Date.now()
+                    auditProbe.record("model-recovery", {retried:true, hiddenHumanPrompt:!session.promptPending})
+                }
+                return
+            }
+            if (modelPractice && modelRetried) modelRecovered = true
+            if (lotusBloomStudy && LotusBloomStudy.tick(driver)) return
+            if (necrodominanceStudy && NecrodominanceStudy.tick(driver)) return
+            if (serumPowderStudy && SerumPowderStudy.tick(driver)) return
+            if (persistentStateStudy && PersistentStateStudy.tick(driver)) return
+            if (chosenCardStudy && ChosenCardStudy.tick(driver)) return
+            if (cardTextStudy && CardTextStudy.tick(driver)) return
+            if (graveyardPaymentStudy && GraveyardPaymentStudy.tick(driver)) return
+            if (improviseStudy && ImproviseStudy.tick(driver)) return
+            if (recoveryAudit && seat === 1 && recoveryStep === 0 && decisions > 5 && session.promptPending) {
+                capture("before-host-crash")
+                auditProbe.share("host-fault", {started:true, gameId:session.gameId})
+                require(auditProbe.crashHostingHelper(ws), "Cannot inject helper exit")
+                return
+            }
+            observePublicTable()
+            if (formatStudy && FormatStudy.betweenGames(driver)) return
+            if (extended && extendedTick()) return
+            if (session.gameOver) {
+                // Terminal metadata follows the final rules snapshot on the wire.
+                if (!ws.gameSession.result.matchFinished) return
+                require(session.hasWinner && session.turn > 1 && decisions > 10 && lands > 0 && casts > 0,
+                    "Missing evidence of natural gameplay")
+                require(capturedStack && capturedCombat, "Missing stack or combat observation")
+                require(ws.gameSession.result.concededSeat === -1, "Fixture must end naturally")
+                if (modelPractice && !onlineModelPractice) require(modelRetried, "Model pause and explicit retry were not exercised")
+                if (formatStudy) FormatStudy.verifyComplete(driver)
+                if (stackStudy) require(StackStudy.complete(driver), "Stack relationship coverage incomplete")
+                if (cardChoiceStudy) {
+                    require(CardChoiceStudy.complete(), "Real-deck card-choice coverage incomplete")
+                    if (seat === 1) require(privateChoiceResumed, "Private choice reconnect was not exercised")
+                }
+                if (pauperStudy) require(PauperStudy.complete(), "Pauper resolution coverage incomplete")
+                if (extended) {
+                    require(liveResumed && sideboardResumed && resultResumed && completedGames >= 1, "BO3/reconnect coverage incomplete")
+                    if (format === "duel") require(maximumTax >= 6 && commanderReturns >= 2 && (seat !== 1 || commanderStays > 0), "Commander repeat casting/destination coverage incomplete")
+                    else require((seat !== 1 || damageDecisions > 0 && boardMoveStage === 4) && (seat !== 2 || blocks >= 2), "Trample/sideboard coverage incomplete")
+                    completedGames++
+                }
+                if (migrationAudit) require(migrationDone, "Host migration GUI was not exercised")
+                if (peerAudit) {
+                    require(peerDone, "Peer consent/connection UI was not exercised")
+                    if (peerExpected === "relay")
+                        require(ws.directPeerDecisions === 0 && ws.peerTransportState === "relay",
+                            "Blocked direct path did not remain on relay")
+                }
+                capture("finished")
+                auditProbe.record("result", Object.assign({status:"passed", scenario:"forge-duel-match",
+                    evidence:auditProbe.environment("AUDIT_OS_INPUT_HELPER") ? "system-input" : "native-qt-input",
+                    roomAndDeckSetup:existingLimitedMatch || productionSetup ? "production-controls" : "fixture",
+                    gameActions:"production-controls",
+                    requiredScreenshots:["opening.png", "stack.png", "combat.png", "finished.png"]
+                        .concat(pauperStudy ? seat === 1
+                            ? ["pauper-flashback-stack.png", "pauper-flashback.png"]
+                            : ["pauper-scry.png", "pauper-scryDraw.png", "pauper-etbDraw.png"] : [])
+                        .concat(modelPractice ? ["model-settings.png"] : [])
+                        .concat(modelPractice && !onlineModelPractice ? ["model-paused.png"] : [])
+                        .concat(productionSetup ? ["imported-deck.png", "ready-room.png"] : [])
+                        .concat(format === "duel" ? ["command-zone.png"] : [])
+                        .concat(migrationAudit ? ["migration-completed.png"] : [])
+                        .concat(peerAudit ? [peerExpected === "relay" ? "peer-fallback.png" : "peer-connected.png"] : [])
+                        .concat(recoveryAudit ? ["host-paused.png", "host-aborted.png"] : [])
+                        .concat(cardChoiceStudy && seat === 1 ? ["private-choice-disconnected.png", "reconnect-private-choice.png"] : [])
+                        .concat(extended ? ["sideboard-1.png", "reconnect-live.png", "reconnect-sideboard.png", "reconnect-result.png"] : [])}, matchState(), extendedState()))
+                if (seat === 1 || existingLimitedMatch) auditProbe.share("forge-host-finished", {done:true})
+                driverClock.enabled = false; auditProbe.finish(0); return
+            }
+            act()
+        }
+    }
+    Connections {
+        target: ws
+        function onConnectionStateChanged() { driver.observeReconnectConnection() }
+    }
+    Connections {
+        id: driverClock
+        target: auditProbe
+        function onStepRequested() {
+            if (driver.busy) return
+            driver.busy = true
+            try {
+                driver.require(auditProbe.beginInput(), "Cannot acquire desktop input")
+                driver.tick()
+            }
+            catch (error) {
+                driverClock.enabled = false
+                // A window grab can polish pending layouts; retain the
+                // inaccessible control geometry before requesting a frame.
+                auditProbe.record("failure-observation", auditProbe.observe(auditWindow))
+                driver.capture("failure")
+                auditProbe.record("result", Object.assign(driver.matchState(), {status:"failed", error:String(error)}))
+                auditProbe.finish(1)
+            } finally { auditProbe.endInput(); driver.busy = false }
+        }
+    }
+}

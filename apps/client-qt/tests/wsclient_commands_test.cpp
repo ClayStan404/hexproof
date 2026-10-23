@@ -1296,18 +1296,19 @@ void TestWsClient::handshakeErrorDisconnects() const
     error.type = hexproof::protocol::kTypeError;
     error.id = u"1"_s;
     error.payload = QJsonObject{
-        {u"code"_s, hexproof::protocol::kErrClientVersionMismatch},
+        {u"code"_s, hexproof::protocol::kErrProtocolMismatch},
         {u"message"_s, u"client update required"_s},
         {u"clientVersion"_s, buildVersion()},
-        {u"requiredVersion"_s, u"9.9.9"_s},
+        {u"serverProtocol"_s, u"hexproof.v3"_s},
+        {u"clientProtocol"_s, hexproof::protocol::kProtocolVersion},
     };
     sendEnvelope(peer, error);
 
     QTRY_COMPARE_WITH_TIMEOUT(client.connectionState(), WsClient::Disconnected, 1000);
-    QCOMPARE(client.lastError(), u"client_version_mismatch: client update required"_s);
-    QVERIFY(client.versionMismatch());
+    QCOMPARE(client.lastError(), u"protocol_mismatch: client update required"_s);
+    QVERIFY(client.protocolMismatch());
     QCOMPARE(client.clientVersion(), buildVersion());
-    QCOMPARE(client.requiredVersion(), u"9.9.9"_s);
+    QCOMPARE(client.serverProtocol(), u"hexproof.v3"_s);
     QVERIFY(client.releaseDownloadUrl().contains(u"github.com/ClayStan404/hexproof/releases"_s));
 }
 
@@ -1383,7 +1384,47 @@ void TestWsClient::rejectsOversizeIncomingMessages() const
     QVERIFY(!client.connected());
 }
 
-void TestWsClient::welcomeVersionMismatchDisconnects() const
+void TestWsClient::welcomeProtocolMismatchDisconnects_data() const
+{
+    QTest::addColumn<QString>("offered");
+    for (const auto &value : {u"hexproof.v1"_s, u"hexproof.v3"_s, QString{}, u"hexproof.v02"_s,
+                              u"hexproof.v2147483648"_s})
+        QTest::newRow(value.isEmpty() ? "missing" : qPrintable(value)) << value;
+}
+
+void TestWsClient::welcomeProtocolMismatchDisconnects() const
+{
+    QFETCH(QString, offered);
+    QWebSocketServer server(u"Hexproof version mismatch server"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+
+    QWebSocket *peer = nullptr;
+    connect(&server, &QWebSocketServer::newConnection, &server,
+            [&]() { peer = takeServerPeer(server); });
+
+    WsClient client;
+    client.connectTo(u"ws://127.0.0.1:"_s + QString::number(server.serverPort()), u"Alice"_s);
+    QTRY_VERIFY_WITH_TIMEOUT(peer != nullptr, 1000);
+
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.id = u"1"_s;
+    welcome.payload = QJsonObject{
+        {u"v"_s, offered},
+        {u"connectionId"_s, u"conn-version-mismatch"_s},
+        {u"serverVersion"_s, u"9.9.9"_s},
+    };
+    sendEnvelope(peer, welcome);
+
+    QTRY_COMPARE_WITH_TIMEOUT(client.connectionState(), WsClient::Disconnected, 1000);
+    QVERIFY(client.protocolMismatch());
+    QCOMPARE(client.serverProtocol(),
+             hexproof::protocol::protocolGeneration(offered) > 0 ? offered : QString{});
+    QVERIFY(client.roomId().isEmpty());
+    QVERIFY(client.lastError().contains(hexproof::protocol::kErrProtocolMismatch));
+}
+
+void TestWsClient::differentApplicationVersionConnects() const
 {
     QWebSocketServer server(u"Hexproof version mismatch server"_s, QWebSocketServer::NonSecureMode);
     QVERIFY(server.listen(QHostAddress::LocalHost, 0));
@@ -1406,10 +1447,59 @@ void TestWsClient::welcomeVersionMismatchDisconnects() const
     };
     sendEnvelope(peer, welcome);
 
-    QTRY_COMPARE_WITH_TIMEOUT(client.connectionState(), WsClient::Disconnected, 1000);
-    QVERIFY(client.versionMismatch());
-    QCOMPARE(client.requiredVersion(), u"9.9.9"_s);
-    QVERIFY(client.lastError().contains(hexproof::protocol::kErrClientVersionMismatch));
+    QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 1000);
+    QVERIFY(!client.protocolMismatch());
+}
+
+void TestWsClient::protocolMismatchPreservesResumeCredentialAndStopsRetry() const
+{
+    QWebSocketServer server(u"Protocol resume boundary"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    QList<Envelope> requests;
+    int connections = 0;
+    connect(&server, &QWebSocketServer::newConnection, &server, [&] {
+        peer = takeServerPeer(server);
+        ++connections;
+        connect(peer, &QWebSocket::textMessageReceived, &server, [&](const QString &text) {
+            bool ok = false;
+            const auto request = hexproof::protocol::parse(text.toUtf8(), &ok);
+            if (ok && request.type == hexproof::protocol::kTypeSessionHello)
+                requests.append(request);
+        });
+    });
+    WsClient client;
+    const QString endpoint = u"ws://127.0.0.1:%1"_s.arg(server.serverPort());
+    client.connectTo(endpoint, u"Alice"_s);
+    QTRY_COMPARE(requests.size(), 1);
+    Envelope welcome;
+    welcome.type = hexproof::protocol::kTypeSessionWelcome;
+    welcome.payload = {{u"v"_s, hexproof::protocol::kProtocolVersion},
+                       {u"serverVersion"_s, buildVersion()},
+                       {u"resumeToken"_s, u"original-private-token"_s}};
+    sendEnvelope(peer, welcome);
+    QTRY_VERIFY(client.connected());
+    Envelope created;
+    created.type = hexproof::protocol::kTypeRoomCreated;
+    created.payload = {{u"roomId"_s, u"ABCDEF"_s}};
+    sendEnvelope(peer, created);
+    sendEnvelope(peer, roomSnapshot(u"Held room"_s));
+    QTRY_VERIFY(client.inRoom());
+    peer->close();
+    QTRY_COMPARE_WITH_TIMEOUT(requests.size(), 2, 5000);
+    QCOMPARE(requests.last().payload.value(u"resumeToken"_s).toString(),
+             u"original-private-token"_s);
+    welcome.payload.insert(u"v"_s, u"hexproof.v1"_s);
+    welcome.payload.insert(u"resumeToken"_s, u"must-not-replace-token"_s);
+    sendEnvelope(peer, welcome);
+    QTRY_COMPARE(client.connectionState(), WsClient::Disconnected);
+    QVERIFY(client.protocolMismatch());
+    QTest::qWait(1200);
+    QCOMPARE(connections, 2);
+    client.connectTo(endpoint, u"Alice"_s);
+    QTRY_COMPARE(requests.size(), 3);
+    QCOMPARE(requests.last().payload.value(u"resumeToken"_s).toString(),
+             u"original-private-token"_s);
 }
 
 void TestWsClient::handlesSideboardCompletedPush() const

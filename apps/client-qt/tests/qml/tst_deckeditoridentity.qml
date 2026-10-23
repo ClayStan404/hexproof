@@ -11,6 +11,19 @@ TestCase {
     name: "DeckEditorIdentity"
     when: windowShown
 
+    QtObject {
+        id: progressCatalog
+        property bool busy: false
+        property bool cacheProgressActive: false
+        property bool searching: false
+        property bool tokenSearching: false
+        property bool searchPreviewBusy: false
+        property real progress: 0.375
+        property string status: "Caching card images…"
+    }
+
+    SignalSpy { id: deckCallSpy; target: deckLibrary; signalName: "capturedCallsChanged" }
+
     ApplicationWindow {
         id: testWindow
         width: 1280
@@ -33,6 +46,9 @@ TestCase {
     }
 
     function cleanup() {
+        findChild(editor, "deckEditorCacheProgress").catalogModel = Qt.binding(() => cardCatalog)
+        progressCatalog.busy = false
+        progressCatalog.cacheProgressActive = false
         testWindow.width = 1280
         testWindow.height = 800
         Theme.uiScale = 1
@@ -40,6 +56,92 @@ TestCase {
         deckLibrary.currentDeckTableMode = "modern"
         findChild(editor, "exportCurrentDeckDialog").close()
         findChild(editor, "currentDeckArtExportDialog").close()
+    }
+
+    function findInTree(item, predicate) {
+        if (predicate(item)) return item
+        for (const child of item.children || []) {
+            const found = findInTree(child, predicate)
+            if (found) return found
+        }
+        return null
+    }
+
+    function editorRect(item) { return item.mapToItem(editor, 0, 0, item.width, item.height) }
+
+    function compareEditorRect(item, expected, label) {
+        const actual = editorRect(item)
+        compare(actual.x, expected.x, label + " x")
+        compare(actual.y, expected.y, label + " y")
+        compare(actual.width, expected.width, label + " width")
+        compare(actual.height, expected.height, label + " height")
+    }
+
+    function test_progressChangesKeepFirstClickOnSamePrinting_data() {
+        return [{tag: "warm", cold: false, width: 1280, height: 800, scale: 1},
+                {tag: "cold", cold: true, width: 1280, height: 800, scale: 1},
+                {tag: "warm scaled", cold: false, width: 1600, height: 1000, scale: 1.35},
+                {tag: "cold scaled", cold: true, width: 1600, height: 1000, scale: 1.35},
+                {tag: "warm compact", cold: false, width: 900, height: 800, scale: 1.35},
+                {tag: "cold compact", cold: true, width: 900, height: 800, scale: 1.35}]
+    }
+
+    function test_progressChangesKeepFirstClickOnSamePrinting(data) {
+        testTranslations.setLanguage("en")
+        testWindow.width = data.width
+        testWindow.height = data.height
+        Theme.uiScale = data.scale
+        Theme.uiTheme = "glass"
+        const progress = findChild(editor, "deckEditorCacheProgress")
+        progressCatalog.busy = data.cold
+        progressCatalog.cacheProgressActive = data.cold
+        progress.catalogModel = progressCatalog
+        const gallery = findChild(editor, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        gallery.forceLayout()
+        tryVerify(() => gallery.itemAtIndex(0) !== null)
+        const card = findInTree(gallery.itemAtIndex(0), item => item.card
+            && typeof item.incrementRequested === "function"
+            && item.card.setCode === "M11" && item.card.collectorNumber === "149")
+        verify(card !== null)
+        const plus = findInTree(card, item => item.text === "+" && typeof item.clicked === "function")
+        verify(plus !== null)
+        const plusInGallery = plus.mapToItem(gallery, plus.width / 2, plus.height / 2)
+        gallery.contentY = Math.round(Math.max(gallery.originY, Math.min(
+            gallery.originY + gallery.contentHeight - gallery.height,
+            gallery.contentY + Math.max(0, plusInGallery.y - gallery.height + Theme.size(20)))))
+        verify(waitForRendering(gallery))
+        const galleryRect = editorRect(gallery)
+        const plusRect = editorRect(plus)
+        const contentY = gallery.contentY
+        const clickPoint = plus.mapToItem(editor, plus.width / 2, plus.height / 2)
+        mouseMove(editor, clickPoint.x, clickPoint.y)
+        progressCatalog.busy = false
+        progressCatalog.cacheProgressActive = !data.cold
+        verify(waitForRendering(editor))
+        compareEditorRect(gallery, galleryRect, "Gallery after progress transition")
+        compareEditorRect(plus, plusRect, "Count action after progress transition")
+        compare(gallery.contentY, contentY)
+        deckCallSpy.clear()
+        mouseClick(editor, clickPoint.x, clickPoint.y)
+        compare(deckCallSpy.count, 1, "The first click at the saved scene position must activate once")
+        compare(deckLibrary.lastCountChange, ["Lightning Bolt", "M11", "149", false, 1])
+
+        progressCatalog.busy = true
+        progressCatalog.cacheProgressActive = true
+        verify(waitForRendering(editor))
+        verify(progress.visible)
+        compare(findChild(progress, "cardCacheProgressStatus").text, "Caching card images…")
+        compare(findChild(progress, "cardCacheProgressPercent").text, "38%")
+        compareEditorRect(gallery, galleryRect, "Gallery with explicit progress")
+        compareEditorRect(plus, plusRect, "Count action with explicit progress")
+        progressCatalog.busy = false
+        progressCatalog.cacheProgressActive = false
+        verify(waitForRendering(editor))
+        verify(!progress.visible)
+        compareEditorRect(gallery, galleryRect, "Gallery after completion")
+        compareEditorRect(plus, plusRect, "Count action after completion")
+        compare(gallery.contentY, contentY)
     }
 
     function test_editorArtExportTargetsCurrentDeck() {

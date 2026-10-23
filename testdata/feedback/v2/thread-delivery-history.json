@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 2,
+  "submissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+  "revision": 5,
+  "workState": "assessing",
+  "summary": "AI 团队正在核查新增的信息；之前版本的交付记录仍然有效。",
+  "workflowRevision": 4,
+  "projectionState": "published",
+  "removalState": "none",
+  "caseState": "open",
+  "closurePublicationState": "none",
+  "accessExpiresAt": "2027-10-23T12:00:00Z",
+  "contentExpiresAt": "2027-10-23T12:00:00Z",
+  "assessmentDeliveryState": "available",
+  "nextCursor": "",
+  "items": [
+    {
+      "submissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+      "sequence": 1,
+      "kind": "submission",
+      "description": "抓牌时游戏停止响应。",
+      "acceptedAt": "2026-10-23T09:00:00Z",
+      "publishedAt": "2026-10-23T09:00:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "category": "problem",
+      "context": {
+        "appVersion": "3.0.0",
+        "uiLanguage": "zh_CN",
+        "osFamily": "linux"
+      }
+    },
+    {
+      "submissionId": "22222222-2222-4222-8222-222222222222",
+      "sequence": 2,
+      "kind": "assessment",
+      "description": "抓牌问题的源码修复已公开。",
+      "acceptedAt": "2026-10-23T10:00:00Z",
+      "publishedAt": "2026-10-23T10:00:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "parentSubmissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+      "outcome": {
+        "kind": "source",
+        "repository": "example/project",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "submissionId": "33333333-3333-4333-8333-333333333333",
+      "sequence": 3,
+      "kind": "assessment",
+      "description": "抓牌修复已随 3.1.0 版本发布。",
+      "acceptedAt": "2026-10-23T11:00:00Z",
+      "publishedAt": "2026-10-23T11:00:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "parentSubmissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+      "outcome": {
+        "kind": "release",
+        "repository": "example/project",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "tag": "v3.1.0",
+        "version": "3.1.0"
+      }
+    },
+    {
+      "submissionId": "44444444-4444-4444-8444-444444444444",
+      "sequence": 4,
+      "kind": "reply",
+      "description": "升级后多人游戏正常，但观战时仍然出现类似问题。",
+      "acceptedAt": "2026-10-23T12:00:00Z",
+      "publishedAt": "2026-10-23T12:00:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "parentSubmissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+      "category": "problem",
+      "context": {
+        "appVersion": "3.1.0",
+        "uiLanguage": "zh_CN"
+      }
+    },
+    {
+      "submissionId": "55555555-5555-4555-8555-555555555555",
+      "sequence": 5,
+      "kind": "assessment",
+      "description": "AI 团队正在核查新增的信息；之前版本的交付记录仍然有效。",
+      "acceptedAt": "2026-10-23T12:10:00Z",
+      "publishedAt": "2026-10-23T12:10:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "parentSubmissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1"
+    }
+  ],
+  "deliveryHistory": [
+    {
+      "projectionId": "22222222-2222-4222-8222-222222222222",
+      "inputRevision": 1,
+      "workflowRevision": 2,
+      "publishedAt": "2026-10-23T10:00:00Z",
+      "outcome": {
+        "kind": "source",
+        "repository": "example/project",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "projectionId": "33333333-3333-4333-8333-333333333333",
+      "inputRevision": 1,
+      "workflowRevision": 3,
+      "publishedAt": "2026-10-23T11:00:00Z",
+      "outcome": {
+        "kind": "release",
+        "repository": "example/project",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "tag": "v3.1.0",
+        "version": "3.1.0"
+      }
+    }
+  ]
+}

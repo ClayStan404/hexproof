@@ -289,17 +289,8 @@ void WsClient::handleWelcome(const Envelope &env)
     m_helloTimer.stop();
     const QString v = env.payload.value(u"v"_s).toString();
     if (v != kProtocolVersion) {
-        setLastError(u"protocol"_s, u"server protocol version mismatch (got \""_s + v + u"\")"_s);
-        m_ws.close();
-        // State stays Disconnected via onDisconnected; do not enter Connected.
-        return;
-    }
-    const QString serverVersion = env.payload.value(u"serverVersion"_s).toString().trimmed();
-    if (serverVersion != clientVersion()) {
-        setVersionMismatch(serverVersion);
-        setLastError(kErrClientVersionMismatch, u"server requires version \""_s + serverVersion +
-                                                    u"\"; client version is \""_s +
-                                                    clientVersion() + u"\""_s);
+        setProtocolMismatch(v);
+        setLastError(kErrProtocolMismatch, u"Client and server communication protocols differ."_s);
         m_intentionalDisconnect = true;
         m_reconnectController->stopRetry();
         m_ws.close();
@@ -627,8 +618,12 @@ void WsClient::handleError(const Envelope &env)
             emit rulesStartFailureChanged();
         }
     }
-    if (code == kErrClientVersionMismatch) {
-        setVersionMismatch(env.payload.value(u"requiredVersion"_s).toString().trimmed());
+    if (code == kErrProtocolMismatch || code == u"client_version_mismatch"_s) {
+        const QString reported = env.payload.value(u"serverProtocol"_s).toString();
+        const bool consistent =
+            env.payload.value(u"clientProtocol"_s).toString() == kProtocolVersion &&
+            reported != kProtocolVersion;
+        setProtocolMismatch(consistent ? reported : QString{});
         m_intentionalDisconnect = true;
         m_reconnectController->stopRetry();
     }
@@ -647,8 +642,8 @@ void WsClient::handleError(const Envelope &env)
     }
     setLastError(code, msg);
     m_protocolSession->resolveFailure(env.id, m_lastError);
-    if (m_state == Connecting || m_state == Reconnecting || code == kErrAccountReplaced ||
-        (code == kErrAccountInvalid && accountWasAuthenticated)) {
+    if (m_state == Connecting || m_state == Reconnecting || m_protocolMismatch ||
+        code == kErrAccountReplaced || (code == kErrAccountInvalid && accountWasAuthenticated)) {
         m_helloTimer.stop();
         m_ws.close();
     }

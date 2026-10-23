@@ -473,9 +473,9 @@ TestCase {
         state.zones[4].cards.push(host, ...attachments)
         state.zones[4].count = state.zones[4].cards.length
         state.step = "declare_blockers"
-        state.zones[4].cards.forEach(row => {
-            if (row.power && !row.attachedTo) { row.attacking = true; row.attackingPlayer = 1 }
-        })
+        // Idle copies retain ready/spent piles beside the separate combatant.
+        host.attacking = true
+        host.attackingPlayer = 1
         state.zones[4].cards[3].tapped = true
         state.zones[4].cards[4].tapped = true
         verify(testRulesPrompt.applySnapshot(state))
@@ -487,15 +487,23 @@ TestCase {
         const front = lane.hostCards.find(slot => slot.stackSize === 3 && slot.stackFront)
         verify(front !== undefined && !front.tapped, "The lane contains both ready and spent piles")
         verify(lane.hostCards.some(slot => slot.stackSize === 2 && slot.stackFront && slot.tapped))
+        compare(lane.itemFor("equipped").stackSize, 1)
         const grid = Qt.rect(lane.cardWidth, lane.cardHeight, lane.cellHeight, lane.gridHeight)
         function checkHints() {
             for (const slot of lane.hostCards) {
                 if (!slot.stackFront && !slot.fanned) continue
+                const face = slot.mapToItem(lane.scrollArea, 0, 0, slot.width, slot.height)
+                verify(face.y >= -0.01 && face.y + face.height <= lane.scrollArea.height + 0.01,
+                    "Ready fronts, spent piles and expanded members retain their complete faces")
                 const badge = findChild(slot.faceItem, "forgeCardInteractionHint-" + slot.cardId).parent
+                if (!slot.attacking) {
+                    compare(badge.visible, false, "Idle copies do not inherit the combatant's label")
+                    continue
+                }
                 verify(badge.visible)
                 const rect = badge.mapToItem(lane.scrollArea, 0, 0, badge.width, badge.height)
                 verify(rect.y >= -0.01 && rect.y + rect.height <= lane.scrollArea.height + 0.01,
-                    "Ready fronts, expanded members and equipped hosts keep complete labels")
+                    "The equipped combatant keeps its complete destination label beside idle piles")
                 const equipped = lane.itemFor("equipped")
                 for (const index of [0, 1]) {
                     const strip = findChild(equipped, "forgeAttachmentStrip-aura-" + index)

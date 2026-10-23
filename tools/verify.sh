@@ -159,7 +159,7 @@ check_clang_format() {
     )
 }
 
-required_commands=(git python3 rg clang-format git-clang-format)
+required_commands=(git python3 rg clang-format git-clang-format shellcheck)
 if ((build_client)); then
     required_commands+=(cmake ninja)
     if ((run_ctest)); then
@@ -182,6 +182,7 @@ while IFS= read -r -d '' script; do
     # bash -n accepts only one script; later arguments would not be checked.
     bash -n "$script"
 done < <(git ls-files -co --exclude-standard -z -- '*.sh')
+./tools/check-shell-scripts.sh
 ./tools/check-license-headers.sh
 ./tools/check-qml-text-safety.sh
 python3 tools/check-qml-resources.py

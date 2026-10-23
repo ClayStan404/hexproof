@@ -22,6 +22,7 @@ import (
 
 	"hexproof/server/internal/buildinfo"
 	"hexproof/server/internal/cluster"
+	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/rulesengine/forge"
 	"hexproof/server/internal/server"
 )
@@ -37,6 +38,7 @@ func main() {
 	accountRealm := flag.String("account-realm", accountRealmDefault, "official account realm shared by trusted hubs")
 	accountAuthority := flag.String("account-authority", os.Getenv("HEXPROOF_ACCOUNT_AUTHORITY"), "HTTPS account authority endpoint for a satellite official hub")
 	accountKeyFile := flag.String("account-service-key-file", os.Getenv("HEXPROOF_ACCOUNT_SERVICE_KEY_FILE"), "private file containing the shared hub-to-authority service key")
+	showProtocol := flag.Bool("protocol", false, "print communication protocol and exit")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	bind := flag.String("bind", "127.0.0.1", "bind address")
 	port := flag.Int("port", 57320, "listen port")
@@ -95,6 +97,10 @@ func main() {
 	peerSTUNServers := flag.String("peer-stun-servers", peerSTUNServersDefault(),
 		"comma-separated UDP STUN URLs, at most two (defaults to HEXPROOF_PEER_STUN_SERVERS or managed Server 1/2; empty disables STUN discovery)")
 	flag.Parse()
+	if *showProtocol {
+		fmt.Println(protocol.ProtocolVersion)
+		return
+	}
 	if *showVersion {
 		fmt.Fprintf(os.Stdout, "hexproof-server %s\n", buildinfo.Version)
 		return
@@ -204,8 +210,8 @@ func main() {
 	// keeps deployment scripts from observing a false-positive ready line when
 	// the configured address is unavailable.
 	fmt.Fprintf(os.Stdout,
-		"hexproof-server %s listening on %s (ws path /ws, protocol hexproof.v1)\n",
-		buildinfo.Version, listener.Addr())
+		"hexproof-server %s listening on %s (ws path /ws, protocol %s)\n",
+		buildinfo.Version, listener.Addr(), protocol.ProtocolVersion)
 	log.Printf("hexproof-server %s ready on %s", buildinfo.Version, listener.Addr())
 
 	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {

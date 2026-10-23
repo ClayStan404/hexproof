@@ -1,0 +1,318 @@
+{
+  "name": "Phase comparison — Boros Energy",
+  "format": "modern",
+  "deckFormat": "modern",
+  "mainboard": [
+    {
+      "name": "Ajani, Nacatl Pariah",
+      "count": 4,
+      "setCode": "MH3",
+      "collectorNumber": "237",
+      "typeLine": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "catalogName": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger"
+    },
+    {
+      "name": "Guide of Souls",
+      "count": 4,
+      "setCode": "MH3",
+      "collectorNumber": "448",
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "catalogName": "Guide of Souls"
+    },
+    {
+      "name": "Ocelot Pride",
+      "count": 4,
+      "setCode": "MH3",
+      "collectorNumber": "394",
+      "typeLine": "Creature — Cat",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "catalogName": "Ocelot Pride"
+    },
+    {
+      "name": "Ragavan, Nimble Pilferer",
+      "count": 4,
+      "setCode": "MH2",
+      "collectorNumber": "138",
+      "typeLine": "Legendary Creature — Monkey Pirate",
+      "manaCost": "{R}",
+      "manaValue": 1.0,
+      "catalogName": "Ragavan, Nimble Pilferer"
+    },
+    {
+      "name": "Ranger-Captain of Eos",
+      "count": 2,
+      "setCode": "MH1",
+      "collectorNumber": "21",
+      "typeLine": "Creature — Human Soldier Ranger",
+      "manaCost": "{1}{W}{W}",
+      "manaValue": 3.0,
+      "catalogName": "Ranger-Captain of Eos"
+    },
+    {
+      "name": "Seasoned Pyromancer",
+      "count": 3,
+      "setCode": "MH1",
+      "collectorNumber": "145",
+      "typeLine": "Creature — Human Shaman",
+      "manaCost": "{1}{R}{R}",
+      "manaValue": 3.0,
+      "catalogName": "Seasoned Pyromancer"
+    },
+    {
+      "name": "Solitude",
+      "count": 1,
+      "setCode": "MH2",
+      "collectorNumber": "32",
+      "typeLine": "Creature — Elemental Incarnation",
+      "manaCost": "{3}{W}{W}",
+      "manaValue": 5.0,
+      "catalogName": "Solitude"
+    },
+    {
+      "name": "Voice of Victory",
+      "count": 4,
+      "setCode": "TDM",
+      "collectorNumber": "331",
+      "typeLine": "Creature — Human Bard",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "catalogName": "Voice of Victory"
+    },
+    {
+      "name": "Galvanic Discharge",
+      "count": 4,
+      "setCode": "MH3",
+      "collectorNumber": "122",
+      "typeLine": "Instant",
+      "manaCost": "{R}",
+      "manaValue": 1.0,
+      "catalogName": "Galvanic Discharge"
+    },
+    {
+      "name": "Thraben Charm",
+      "count": 2,
+      "setCode": "MH3",
+      "collectorNumber": "45",
+      "typeLine": "Instant",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "catalogName": "Thraben Charm"
+    },
+    {
+      "name": "Blood Moon",
+      "count": 2,
+      "setCode": "DRK",
+      "collectorNumber": "58",
+      "typeLine": "Enchantment",
+      "manaCost": "{2}{R}",
+      "manaValue": 3.0,
+      "catalogName": "Blood Moon"
+    },
+    {
+      "name": "Goblin Bombardment",
+      "count": 4,
+      "setCode": "TMP",
+      "collectorNumber": "179",
+      "typeLine": "Enchantment",
+      "manaCost": "{1}{R}",
+      "manaValue": 2.0,
+      "catalogName": "Goblin Bombardment"
+    },
+    {
+      "name": "Arena of Glory",
+      "count": 2,
+      "setCode": "MH3",
+      "collectorNumber": "351",
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Arena of Glory"
+    },
+    {
+      "name": "Arid Mesa",
+      "count": 4,
+      "setCode": "ZEN",
+      "collectorNumber": "211",
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Arid Mesa"
+    },
+    {
+      "name": "Dalkovan Encampment",
+      "count": 1,
+      "setCode": "TDM",
+      "collectorNumber": "394",
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Dalkovan Encampment"
+    },
+    {
+      "name": "Elegant Parlor",
+      "count": 2,
+      "setCode": "MKM",
+      "collectorNumber": "325",
+      "typeLine": "Land — Mountain Plains",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Elegant Parlor"
+    },
+    {
+      "name": "Flooded Strand",
+      "count": 4,
+      "setCode": "ONS",
+      "collectorNumber": "316",
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Flooded Strand"
+    },
+    {
+      "name": "Marsh Flats",
+      "count": 2,
+      "setCode": "ZEN",
+      "collectorNumber": "219",
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Marsh Flats"
+    },
+    {
+      "name": "Mountain",
+      "count": 1,
+      "setCode": "LEA",
+      "collectorNumber": "293",
+      "typeLine": "Basic Land — Mountain",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Mountain"
+    },
+    {
+      "name": "Plains",
+      "count": 3,
+      "setCode": "LEA",
+      "collectorNumber": "287",
+      "typeLine": "Basic Land — Plains",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Plains"
+    },
+    {
+      "name": "Sacred Foundry",
+      "count": 3,
+      "setCode": "RAV",
+      "collectorNumber": "280",
+      "typeLine": "Land — Mountain Plains",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "catalogName": "Sacred Foundry"
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Obsidian Charmaw",
+      "count": 3,
+      "setCode": "MH2",
+      "collectorNumber": "353",
+      "typeLine": "Creature — Dragon",
+      "manaCost": "{3}{R}{R}",
+      "manaValue": 5.0,
+      "catalogName": "Obsidian Charmaw"
+    },
+    {
+      "name": "Surgical Extraction",
+      "count": 2,
+      "setCode": "NPH",
+      "collectorNumber": "74",
+      "typeLine": "Instant",
+      "manaCost": "{B/P}",
+      "manaValue": 1.0,
+      "catalogName": "Surgical Extraction"
+    },
+    {
+      "name": "Wear // Tear",
+      "count": 2,
+      "setCode": "DGM",
+      "collectorNumber": "135",
+      "typeLine": "Instant // Instant",
+      "manaCost": "{1}{R} // {W}",
+      "manaValue": 3.0,
+      "catalogName": "Wear // Tear"
+    },
+    {
+      "name": "Prismatic Ending",
+      "count": 1,
+      "setCode": "MH2",
+      "collectorNumber": "384",
+      "typeLine": "Sorcery",
+      "manaCost": "{X}{W}",
+      "manaValue": 1.0,
+      "catalogName": "Prismatic Ending"
+    },
+    {
+      "name": "Wrath of the Skies",
+      "count": 2,
+      "setCode": "MH3",
+      "collectorNumber": "325",
+      "typeLine": "Sorcery",
+      "manaCost": "{X}{W}{W}",
+      "manaValue": 2.0,
+      "catalogName": "Wrath of the Skies"
+    },
+    {
+      "name": "Boromir, Warden of the Tower",
+      "count": 1,
+      "setCode": "LTR",
+      "collectorNumber": "407",
+      "typeLine": "Legendary Creature — Human Soldier",
+      "manaCost": "{2}{W}",
+      "manaValue": 3.0,
+      "catalogName": "Boromir, Warden of the Tower"
+    },
+    {
+      "name": "High Noon",
+      "count": 2,
+      "setCode": "OTJ",
+      "collectorNumber": "314",
+      "typeLine": "Enchantment",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "catalogName": "High Noon"
+    },
+    {
+      "name": "The Legend of Roku",
+      "count": 1,
+      "setCode": "TLA",
+      "collectorNumber": "357",
+      "typeLine": "Enchantment — Saga // Legendary Creature — Avatar",
+      "manaCost": "{2}{R}{R}",
+      "manaValue": 4.0,
+      "catalogName": "The Legend of Roku // Avatar Roku"
+    },
+    {
+      "name": "Vexing Bauble",
+      "count": 1,
+      "setCode": "MH3",
+      "collectorNumber": "212",
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "catalogName": "Vexing Bauble"
+    }
+  ],
+  "source": {
+    "url": "https://phase-rs.dev/",
+    "version": "0.84.0",
+    "feed": "mtggoldfish-modern",
+    "deck": "Boros Energy",
+    "retrieved": "2026-09-16",
+    "exportSha256": "3685e68351d338972e0a6b2936bed4d556c096665c1908e95c54acaf6864cbb1",
+    "purpose": "Unmodified live-site 60/15 list for comparative native UI checks; paper printings selected from the local catalog."
+  }
+}

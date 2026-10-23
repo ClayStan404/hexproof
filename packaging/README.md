@@ -152,3 +152,15 @@ portable archives rather than installers: the first in-client updater phase
 opens the verified download directory and requires the user to exit Hexproof
 before replacing the application. Version-mismatch recovery queries the exact
 `vMAJOR.MINOR.PATCH` required by the server instead of substituting Latest.
+
+## Communication compatibility metadata
+
+The release assembly job generates `compatibility.json` from the validated
+application version and `protocol/v2/wire-schema.json`. It contains
+`schemaVersion: 1`, `applicationVersion` and `gameProtocol`, and joins the
+normal `SHA256SUMS` and release-asset attestation. The client connection screen
+only offers a protocol-compatible package after verifying that metadata against
+the trusted release checksums. Missing or incompatible metadata falls back to
+the official release page. Application versions remain independent of the
+game connection's exact protocol gate. See the
+[compatibility policy](../docs/protocol-compatibility.md).

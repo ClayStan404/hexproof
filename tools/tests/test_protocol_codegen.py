@@ -17,22 +17,22 @@ class ProtocolCodegenTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
-        self.write_json("protocol/v1/wire-schema.json", {
-            "schemaVersion": 1, "protocol": "hexproof.v1", "constants": [
-                {"name": "ProtocolVersion", "value": "hexproof.v1"},
+        self.write_json("protocol/v2/wire-schema.json", {
+            "schemaVersion": 1, "protocol": "hexproof.v2", "constants": [
+                {"name": "ProtocolVersion", "value": "hexproof.v2"},
                 {"name": "TypePing", "value": "session.ping"},
             ],
         })
-        self.write_json("protocol/v1/payload-schema.json", {
-            "schemaVersion": 1, "protocol": "hexproof.v1", "definitions": [],
+        self.write_json("protocol/v2/payload-schema.json", {
+            "schemaVersion": 1, "protocol": "hexproof.v2", "definitions": [],
             "messages": [{"type": "session.ping", "goType": "Ping",
                           "direction": "clientToServer",
                           "fields": [{"name": "nonce", "type": "string", "required": True}]}],
         })
-        self.write_json("testdata/protocol/v1/ping.json", {
+        self.write_json("testdata/protocol/v2/ping.json", {
             "type": "session.ping", "payload": {"nonce": "test"},
         })
-        self.write("testdata/protocol/v1/README.md", "`ping.json`\n")
+        self.write("testdata/protocol/v2/README.md", "`ping.json`\n")
         self.write("apps/server/internal/protocol/protocol.go", "package protocol\n")
         # Exercise a payload declared outside protocol.go, independent of imports.
         self.payload = self.write("apps/server/internal/protocol/ping.go", """package protocol
@@ -76,7 +76,7 @@ type Ping struct {
         self.assertTrue(all(output.read_text() == "preserve previous output\n" for output in outputs))
 
     def test_invalid_fixture_does_not_create_outputs(self):
-        self.write_json("testdata/protocol/v1/ping.json", {"type": "session.ping", "payload": {}})
+        self.write_json("testdata/protocol/v2/ping.json", {"type": "session.ping", "payload": {}})
         result = self.run_tool("protocol_codegen.py")
         self.assertEqual(result.returncode, 1)
         self.assertIn("required field is missing", result.stderr)

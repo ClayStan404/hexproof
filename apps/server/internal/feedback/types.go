@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-// Package feedback implements the independent, support-private feedback inbox.
+// Package feedback implements independent public feedback and legacy private support intake.
 package feedback
 
 import (

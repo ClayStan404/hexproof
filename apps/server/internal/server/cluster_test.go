@@ -62,7 +62,7 @@ func routedClient(t *testing.T, server *httptest.Server, route protocol.Envelope
 		t.Fatalf("expected N2 route, got %s %s", route.Type, route.Payload)
 	}
 	c := dial(t, server)
-	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{
+	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{Protocol: protocol.ProtocolVersion,
 		DisplayName: "Player", ClientVersion: buildinfo.Version, ClusterRealm: "cluster-integration", ClusterTicket: r.Ticket, AccountSession: token,
 	})
 	hello.ID = "hello-target"
@@ -195,7 +195,7 @@ func TestClusterTicketCannotChangeCommandOrBeReused(t *testing.T) {
 	route.DecodePayload(&r)
 	reuse := dial(t, servers[1])
 	defer reuse.close()
-	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{DisplayName: "Thief", ClientVersion: buildinfo.Version, ClusterRealm: "cluster-integration", ClusterTicket: r.Ticket})
+	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: "Thief", ClientVersion: buildinfo.Version, ClusterRealm: "cluster-integration", ClusterTicket: r.Ticket})
 	hello.ID = "reuse"
 	reuse.send(hello)
 	reuse.recvType(protocol.TypeError)
@@ -232,7 +232,7 @@ func TestClusterWholeCubeOwnershipAndPrivacy(t *testing.T) {
 }
 
 func clusterHello(c *wsClient, name string) {
-	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{DisplayName: name, ClientVersion: buildinfo.Version, ClusterRealm: "cluster-integration"})
+	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: name, ClientVersion: buildinfo.Version, ClusterRealm: "cluster-integration"})
 	hello.ID = "hello"
 	c.send(hello)
 	c.recvType(protocol.TypeSessionWelcome)

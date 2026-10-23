@@ -26,10 +26,10 @@ func (s *agentTestService) Do(ctx context.Context, q Request) (Result, error) {
 		select {
 		case <-s.release:
 		case <-ctx.Done():
-			return Result{}, ctx.Err()
+			return Result{RPCVersion: RPCVersion}, ctx.Err()
 		}
 		if s.lateError != nil {
-			return Result{}, s.lateError
+			return Result{RPCVersion: RPCVersion}, s.lateError
 		}
 	}
 	return s.Service.Do(ctx, q)
@@ -72,7 +72,7 @@ func TestAgentSlowRPCDoesNotBlockCacheOrIndependentRequests(t *testing.T) {
 				if operation == "report" {
 					slow <- a.Publish(context.Background(), "")
 				} else {
-					_, err := a.Do(context.Background(), Request{Operation: "view"})
+					_, err := a.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view"})
 					slow <- err
 				}
 			}()
@@ -95,12 +95,15 @@ func TestAgentSlowRPCDoesNotBlockCacheOrIndependentRequests(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 			cancelled := make(chan error, 1)
-			go func() { _, err := a.Do(ctx, Request{Operation: "view"}); cancelled <- err }()
+			go func() { _, err := a.Do(ctx, Request{RPCVersion: RPCVersion, Operation: "view"}); cancelled <- err }()
 			if err := awaitAgentResult(t, cancelled); !errors.Is(err, context.Canceled) {
 				t.Fatal(err)
 			}
 			independent := make(chan error, 1)
-			go func() { _, err := a.Do(context.Background(), Request{Operation: "view"}); independent <- err }()
+			go func() {
+				_, err := a.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view"})
+				independent <- err
+			}()
 			if err := awaitAgentResult(t, independent); err != nil {
 				t.Fatal(err)
 			}
@@ -142,7 +145,10 @@ func TestAgentOldResponseCannotFenceReplacementRegistration(t *testing.T) {
 	a, coordinator, service, release := blockedAgent(t, "view", ErrFenced)
 	service.block.Store(true)
 	slow := make(chan error, 1)
-	go func() { _, err := a.Do(context.Background(), Request{Operation: "view"}); slow <- err }()
+	go func() {
+		_, err := a.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view"})
+		slow <- err
+	}()
 	<-service.entered
 	coordinator.mu.Lock()
 	coordinator.states = map[string]nodeState{}
@@ -157,7 +163,7 @@ func TestAgentOldResponseCannotFenceReplacementRegistration(t *testing.T) {
 	if err := awaitAgentResult(t, slow); err != ErrUnavailable {
 		t.Fatal("accepted old registration reply", err)
 	}
-	if _, err := a.Do(context.Background(), Request{Operation: "view"}); err != nil {
+	if _, err := a.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view"}); err != nil {
 		t.Fatal("old error fenced new registration", err)
 	}
 }
@@ -166,7 +172,10 @@ func TestAgentCloseCancelsInFlightCallerRPC(t *testing.T) {
 	a, _, service, _ := blockedAgent(t, "view", nil)
 	service.block.Store(true)
 	slow := make(chan error, 1)
-	go func() { _, err := a.Do(context.Background(), Request{Operation: "view"}); slow <- err }()
+	go func() {
+		_, err := a.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view"})
+		slow <- err
+	}()
 	<-service.entered
 	a.Close()
 	if err := awaitAgentResult(t, slow); !errors.Is(err, context.Canceled) {

@@ -18,7 +18,12 @@ Surface {
     readonly property real expandedPhasesMinimumHeight:
         activePlayerLabel.implicitHeight + activeTurnLabel.implicitHeight
         + 2 + phaseRowsHeight + 4 * Theme.size(32) + Theme.size(30) + 9 * Theme.size(4)
-    readonly property bool compactPhases: height < expandedPhasesMinimumHeight
+    // Keep the phase list when denser actions leave enough room for all rows.
+    readonly property bool compactControls: height < expandedPhasesMinimumHeight
+    readonly property real compactPhasesMinimumHeight:
+        activePlayerLabel.implicitHeight + activeTurnLabel.implicitHeight
+        + 2 + phaseRowsHeight + 5 * Theme.size(26) + 9 * Theme.size(2)
+    readonly property bool compactPhases: height < compactPhasesMinimumHeight
 
     readonly property var activePlayer:
         tableController.seatState.seatData(
@@ -93,7 +98,7 @@ Surface {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: Theme.size(root.compactPhases ? 2 : 4)
+        spacing: Theme.size(root.compactControls ? 2 : 4)
 
         Text {
             id: activePlayerLabel
@@ -241,7 +246,7 @@ Surface {
             objectName: "turnAssistButton"
             visible: root.assistKind.length > 0
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? Theme.size(root.compactPhases ? 26 : 32) : 0
+            Layout.preferredHeight: visible ? Theme.size(root.compactControls ? 26 : 32) : 0
             compact: true
             text: root.assistLabel()
             enabled: root.assistEnabled()
@@ -253,7 +258,7 @@ Surface {
         RowLayout {
             objectName: "landPlayCountControls"
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.size(root.compactPhases ? 26 : 30)
+            Layout.preferredHeight: Theme.size(root.compactControls ? 26 : 30)
             spacing: Theme.size(2)
 
             Text {
@@ -306,7 +311,7 @@ Surface {
             objectName: "responseStatusButton"
             visible: root.tableController.roomSession.seatIndex >= 0
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? Theme.size(root.compactPhases ? 26 : 32) : 0
+            Layout.preferredHeight: visible ? Theme.size(root.compactControls ? 26 : 32) : 0
             compact: true
             variant: root.ownPlayer.responseStatus === "hold"
                      ? "highlight"
@@ -330,7 +335,7 @@ Surface {
             id: nextPhaseButton
             objectName: "nextPhaseButton"
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.size(root.compactPhases ? 26 : 32)
+            Layout.preferredHeight: Theme.size(root.compactControls ? 26 : 32)
             compact: true
             text: root.atEndStep
                   ? I18n.tr("Next turn") : I18n.tr("Next phase")
@@ -344,7 +349,7 @@ Surface {
             id: nextTurnButton
             objectName: "nextTurnButton"
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.size(root.compactPhases ? 26 : 32)
+            Layout.preferredHeight: Theme.size(root.compactControls ? 26 : 32)
             compact: true
             variant: root.tableController.isActivePlayer
                      ? "primary" : "secondary"

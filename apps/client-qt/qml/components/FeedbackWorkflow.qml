@@ -22,12 +22,74 @@ Item {
     property var pendingSnapshot: ({})
     property string exportId: ""
     property string confirmRecordId: ""
+    property string pendingThreadCaseId: ""
+    property string pendingThreadAttachment: ""
+    property string pendingThreadAttachmentTitle: ""
+    property string threadPreviewError: ""
     readonly property var record: service ? service.draft : ({})
-    readonly property bool editable: record.editable === true || record.state === "draft"
+    readonly property string caseId: String(record.parentSubmissionId || record.id || "")
+    readonly property bool threadEligible: record.isPublic === true && record.state === "accepted" && record.isReply !== true
+    readonly property bool editable: record.isPublic === true && (record.editable === true || record.state === "draft")
     readonly property bool interactionOpen: panel.visible || imageDialog.visible || exportDialog.visible
         || preview.visible || chooseCrash.visible || contextChoice.visible || deleteConfirmation.visible
-        || cloneConfirmation.visible
+        || cloneConfirmation.visible || publicationPreview.visible || removalConfirmation.visible || closureConfirmation.visible
     signal finished()
+    onCaseIdChanged: {
+        pendingThreadAttachment = ""
+        threadPreviewError = ""
+        refreshConversation()
+    }
+    onThreadEligibleChanged: refreshConversation()
+
+    function refreshConversation() {
+        if (!panel || !panel.visible || !threadEligible || !service || typeof service.refreshThread !== "function") return
+        const cached = service.thread || {}
+        if (cached.caseId === caseId && cached.syncedAt && Date.now() - Date.parse(cached.syncedAt) < 5000) return
+        pendingThreadCaseId = caseId
+        Qt.callLater(flushThreadRequest)
+    }
+    function flushThreadRequest() {
+        if (!pendingThreadCaseId || !service || service.busy || service.saving) return
+        const id = pendingThreadCaseId
+        pendingThreadCaseId = ""
+        if (id === caseId && threadEligible && panel.visible) service.refreshThread(id)
+    }
+    function refreshStatus() {
+        service.queryReceipt(record.id)
+        refreshConversation()
+    }
+    function createReply(questionId, revision) {
+        if (service && typeof service.createReplyDraft === "function")
+            service.createReplyDraft(caseId, questionId, revision)
+    }
+    function showThreadAttachment(contributionId, attachmentId, title) {
+        if (!service || typeof service.fetchThreadAttachment !== "function") return
+        threadPreviewError = ""
+        pendingThreadAttachment = contributionId + ":" + attachmentId
+        pendingThreadAttachmentTitle = title
+        if (!service.fetchThreadAttachment(contributionId, attachmentId)) pendingThreadAttachment = ""
+    }
+    function finishThreadPreview() {
+        const value = service ? service.threadAttachmentPreview || {} : {}
+        if (value.loading || !pendingThreadAttachment
+            || pendingThreadAttachment !== value.contributionId + ":" + value.attachmentId) return
+        pendingThreadAttachment = ""
+        threadPreviewError = value.errorCode || ""
+        if (!value.errorCode && value.content) {
+            preview.titleText = pendingThreadAttachmentTitle
+            preview.previewContent = value.content
+            preview.open()
+        }
+    }
+    Connections {
+        target: root.service
+        ignoreUnknownSignals: true
+        function onChanged() {
+            Qt.callLater(root.flushThreadRequest)
+            root.finishThreadPreview()
+        }
+        function onStatusChanged() { Qt.callLater(root.flushThreadRequest) }
+    }
 
     function openFor(context, kind, snapshot) {
         if (!service) return
@@ -75,6 +137,17 @@ Item {
         exportDialog.selectedFile = service.suggestedExport(exportId)
         exportDialog.open()
     }
+    function reviewPublication() {
+        const snapshot = service.previewSubmission()
+        if (!snapshot || !snapshot.digest) return
+        // Hold the normalized snapshot shown to the user; later editor changes
+        // invalidate confirmation in the service rather than updating this view.
+        const prepared = JSON.parse(JSON.stringify(snapshot))
+        prepared.attachments = (prepared.attachments || []).map(value =>
+            Object.assign({}, value, {previewContent: service.attachmentPreview(value.id)}))
+        publicationPreview.snapshot = prepared
+        publicationPreview.open()
+    }
     function showCrashPicker() {
         if (crashService && typeof crashService.refresh === "function") crashService.refresh()
         chooseCrash.open()
@@ -84,6 +157,7 @@ Item {
             service.attachHostingDiagnostics(hostingService.diagnosticsReport())
     }
     function operationText() {
+        if (threadPreviewError) return Labels.error(threadPreviewError)
         if (!service || service.operationRecordId !== record.id) return ""
         switch (service.operationCode) {
         case "copied": return qsTr("Receipt copied.")
@@ -100,7 +174,12 @@ Item {
         padding: Theme.size(20)
         z: 300
         closePolicy: Popup.CloseOnEscape
-        onClosed: root.finished()
+        onOpened: root.refreshConversation()
+        onClosed: {
+            root.pendingThreadCaseId = ""
+            root.pendingThreadAttachment = ""
+            root.finished()
+        }
         contentItem: ColumnLayout {
             spacing: Theme.size(10)
             RowLayout {
@@ -189,6 +268,18 @@ Item {
                     root.confirmRecordId = root.record.id
                     cloneConfirmation.open()
                 }
+                onRemovalRequested: {
+                    root.confirmRecordId = root.record.id
+                    removalConfirmation.open()
+                }
+                onClosureRequested: {
+                    root.confirmRecordId = root.record.id
+                    closureConfirmation.open()
+                }
+                onReplyRequested: (questionId, revision) => root.createReply(questionId, revision)
+                onRecordRequested: recordId => root.service.selectRecord(recordId)
+                onThreadAttachmentRequested: (contributionId, attachmentId, title) => root.showThreadAttachment(contributionId, attachmentId, title)
+                onParentRequested: root.service.selectRecord(root.record.parentSubmissionId)
             }
             AppButton {
                 Layout.alignment: Qt.AlignHCenter
@@ -202,17 +293,17 @@ Item {
                 Layout.fillWidth: true
                 visible: !root.historyVisible
                 textFormat: Text.PlainText
-                text: qsTr("Drafts stay on this device until deleted. Text and images may contain private information.")
+                text: qsTr("Drafts stay on this device. Publishing makes the approved text and every attachment public.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
                 wrapMode: Text.WordWrap
             }
             Text {
-                objectName: "feedbackReceiverRetention"
+                objectName: "feedbackPublicRetention"
                 Layout.fillWidth: true
                 visible: !root.historyVisible && root.editable && root.service && root.service.enabled
                 textFormat: Text.PlainText
-                text: qsTr("Support keeps received content for up to 90 days. Confirmed spam or abuse may be removed sooner; see Privacy for mailbox and backup retention.")
+                text: qsTr("Public feedback remains part of the development record. Local deletion does not remove published content or copies made by others.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
                 wrapMode: Text.WordWrap
@@ -224,7 +315,7 @@ Item {
                     Layout.fillWidth: true
                     textFormat: Text.PlainText
                     text: root.service && root.service.enabled
-                        ? qsTr("Send privately to %1. After Send, retry automatically for up to seven days.").arg(root.service.supportLabel)
+                        ? qsTr("Publish to %1 after reviewing a public preview.").arg(root.service.publicRepository)
                         : Labels.error("disabled")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(12)
@@ -281,27 +372,35 @@ Item {
                 }
                 AppButton {
                     objectName: "feedbackCheckReceipt"
-                    visible: !!root.record.id && !root.editable && root.record.state !== "received"
-                    text: qsTr("Check receipt")
+                    visible: !!root.record.id && !root.editable && (root.record.state !== "draft")
+                    text: root.record.isPublic === true ? qsTr("Refresh status") : qsTr("Check receipt")
                     enabled: root.service && !root.service.busy
                     compact: true
-                    onClicked: root.service.queryReceipt(root.record.id)
+                    onClicked: root.refreshStatus()
                 }
                 AppButton {
                     objectName: "feedbackSend"
                     variant: "primary"
                     visible: root.editable
-                    text: qsTr("Send feedback")
+                    text: qsTr("Review public feedback")
                     enabled: root.service && root.service.enabled && !root.service.busy
                         && !root.service.saving && !root.service.errorCode && composer.inputMatchesRecord
                         && String(root.record.description || "").trim().length > 0
                     compact: true
-                    onClicked: root.service.submit()
+                    onClicked: root.reviewPublication()
                 }
             }
         }
     }
     FeedbackAttachmentPreview { id: preview }
+    FeedbackPublicationPreview {
+        id: publicationPreview
+        working: root.service && (root.service.busy || root.service.saving)
+        errorCode: root.service ? root.service.errorCode : "disabled"
+        onConfirmed: digest => {
+            if (root.service.confirmSubmission(digest)) close()
+        }
+    }
     FileDialog {
         id: imageDialog
         objectName: "feedbackImageDialog"
@@ -324,7 +423,7 @@ Item {
         objectName: "feedbackDeleteConfirmation"
         z: 320
         titleText: qsTr("Delete local feedback?")
-        message: qsTr("This stops future sending and removes the local record. An earlier attempt may already have been received. Server and mailbox copies are not deleted.")
+        message: qsTr("This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request content removal first if needed.")
         confirmText: qsTr("Delete locally")
         dangerous: true
         onConfirmed: {
@@ -337,9 +436,28 @@ Item {
         objectName: "feedbackCloneConfirmation"
         z: 320
         titleText: qsTr("Create another draft?")
-        message: qsTr("An earlier copy may already have reached support. The new draft will only be sent when you press Send.")
-        confirmText: qsTr("Create editable copy")
+        message: qsTr("The original record remains unchanged. Contact email is not copied. The new draft will be public only after you review the preview and confirm publication.")
+        confirmText: qsTr("Create public draft")
         onConfirmed: root.service.cloneDraft(root.confirmRecordId)
+    }
+    ConfirmDialog {
+        id: removalConfirmation
+        objectName: "feedbackRemovalConfirmation"
+        z: 340
+        titleText: qsTr("Request content removal?")
+        message: qsTr("Request deletion of this feedback, including accidentally published sensitive content. Publication will stop, but some AI task history may still await cleanup. AI provider records, GitHub history, notifications and copies held by others may remain. Closing feedback alone keeps its history. Keep this record to check progress.")
+        confirmText: qsTr("Request content removal")
+        dangerous: true
+        onConfirmed: root.service.requestRemoval(root.confirmRecordId)
+    }
+    ConfirmDialog {
+        id: closureConfirmation
+        objectName: "feedbackClosureConfirmation"
+        z: 340
+        titleText: qsTr("Close feedback?")
+        message: qsTr("Stop further follow-up and new replies while keeping this feedback's readable history and attachments. Existing tasks may still be stopping after closure is accepted. To address sensitive content, request content removal separately.")
+        confirmText: qsTr("Close feedback")
+        onConfirmed: root.service.closeFeedback(root.confirmRecordId)
     }
     AppPopup {
         id: contextChoice

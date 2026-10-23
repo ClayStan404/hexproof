@@ -13,11 +13,11 @@ import (
 	"testing"
 )
 
-// fixturePath resolves a path under testdata/protocol/v1 relative to this
+// fixturePath resolves a path under testdata/protocol/v2 relative to this
 // package's source directory (apps/server/internal/protocol). The four-level
 // ascent reaches the repo root. This makes the golden fixtures a shared truth
 // source exercised by both client and server tests.
-const fixtureDir = "../../../../testdata/protocol/v1"
+const fixtureDir = "../../../../testdata/protocol/v2"
 
 func loadFixture(t *testing.T, name string) []byte {
 	t.Helper()
@@ -744,10 +744,11 @@ func TestPostWelcomeParsesWithoutV(t *testing.T) {
 
 func TestErrorRoundTrip(t *testing.T) {
 	env, err := NewEnvelope(TypeError, ErrorPayload{
-		Code:            ErrClientVersionMismatch,
-		Message:         "Client update required",
-		ClientVersion:   "0.1.0",
-		RequiredVersion: "0.2.0",
+		Code:           ErrProtocolMismatch,
+		Message:        "Client update required",
+		ClientVersion:  "0.1.0",
+		ClientProtocol: "hexproof.v1",
+		ServerProtocol: ProtocolVersion,
 	})
 	if err != nil {
 		t.Fatalf("new envelope: %v", err)
@@ -769,9 +770,9 @@ func TestErrorRoundTrip(t *testing.T) {
 	if err := got.DecodePayload(&payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Code != ErrClientVersionMismatch ||
+	if payload.Code != ErrProtocolMismatch ||
 		payload.ClientVersion != "0.1.0" ||
-		payload.RequiredVersion != "0.2.0" {
+		payload.ServerProtocol != ProtocolVersion || payload.ClientProtocol != "hexproof.v1" {
 		t.Fatalf("error payload = %+v", payload)
 	}
 }
@@ -1019,7 +1020,7 @@ func TestP7GoldenFixturesPinDiscoveryUndoRelationsAndReplayPrivacy(t *testing.T)
 	}
 }
 
-// TestGoldenFixtures pins the JSON files under testdata/protocol/v1 to the
+// TestGoldenFixtures pins the JSON files under testdata/protocol/v2 to the
 // shapes this package produces/consumes. If a fixture drifts from the wire
 // rules (top-level `v` where forbidden, missing `v` in welcome payload, etc.)
 // or from the Envelope round-trip, this test fails - so the fixtures are a

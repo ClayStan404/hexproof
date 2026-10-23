@@ -1999,7 +1999,39 @@
             <source>Find matching version</source>
             <translation>Encontrar versão correspondente</translation>
         </message>
-    </context>
+        <message>
+        <source>Client protocol</source>
+        <translation>Protocolo do cliente</translation>
+    </message>
+    <message>
+        <source>Server protocol</source>
+        <translation>Protocolo do servidor</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Desconhecido</translation>
+    </message>
+    <message>
+        <source>The server needs an upgrade. Select a compatible server or contact its operator.</source>
+        <translation>O servidor precisa ser atualizado. Selecione um servidor compatível ou entre em contato com o administrador.</translation>
+    </message>
+    <message>
+        <source>Install a client supporting the server's communication protocol.</source>
+        <translation>Instale um cliente compatível com o protocolo de comunicação do servidor.</translation>
+    </message>
+    <message>
+        <source>The communication protocols are incompatible. Check the client and server releases.</source>
+        <translation>Os protocolos de comunicação são incompatíveis. Verifique as versões do cliente e do servidor.</translation>
+    </message>
+    <message>
+        <source>Checking compatible client…</source>
+        <translation>Buscando um cliente compatível…</translation>
+    </message>
+    <message>
+        <source>Download compatible client</source>
+        <translation>Baixar cliente compatível</translation>
+    </message>
+</context>
     <context>
         <name>ContentRefreshBar</name>
         <message>
@@ -17137,7 +17169,467 @@ Imagens baixadas e personalizadas serão copiadas e verificadas antes de a confi
             <source>On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.</source>
             <translation>Neste dispositivo, o conteúdo recebido é mantido por até 30 dias e os comprovantes por até 90 dias, sujeito aos limites de armazenamento.</translation>
         </message>
-    </context>
+        <message>
+            <source>Accepted</source>
+            <translation>Aceito</translation>
+        </message>
+        <message>
+            <source>Accepted confirms storage by the feedback service. Publication, assessment and resolution are separate steps.</source>
+            <translation>Aceito confirma que o serviço salvou o conteúdo. Publicação, avaliação e resolução são etapas distintas.</translation>
+        </message>
+        <message>
+            <source>Accepted · publication delayed</source>
+            <translation>Aceito · publicação atrasada</translation>
+        </message>
+        <message>
+            <source>Accepted · publication pending</source>
+            <translation>Aceito · publicação pendente</translation>
+        </message>
+        <message>
+            <source>Anyone can view and copy this text, technical information and every attachment. Check images and reports for personal information or secrets. Preparing this preview sends nothing.</source>
+            <translation>Qualquer pessoa pode ver e copiar este texto, as informações técnicas e todos os anexos. Verifique se as imagens e os relatórios contêm informações pessoais ou segredos. Preparar esta prévia não envia nada.</translation>
+        </message>
+        <message>
+            <source>Back to draft</source>
+            <translation>Voltar ao rascunho</translation>
+        </message>
+        <message>
+            <source>Create public draft</source>
+            <translation>Criar rascunho público</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device. Publishing makes the approved text and every attachment public.</source>
+            <translation>Os rascunhos ficam neste dispositivo. A publicação torna públicos o texto aprovado e todos os anexos.</translation>
+        </message>
+        <message>
+            <source>I have reviewed this content and the notice, and agree to publish it publicly.</source>
+            <translation>Revisei o conteúdo e o aviso e concordo com sua publicação pública.</translation>
+        </message>
+        <message>
+            <source>Partially published</source>
+            <translation>Publicado parcialmente</translation>
+        </message>
+        <message>
+            <source>Public GitHub destination: %1</source>
+            <translation>Destino público no GitHub: %1</translation>
+        </message>
+        <message>
+            <source>Public feedback remains part of the development record. Local deletion does not remove published content or copies made by others.</source>
+            <translation>O feedback público permanece no registro de desenvolvimento. A exclusão local não remove o conteúdo publicado nem cópias feitas por outras pessoas.</translation>
+        </message>
+        <message>
+            <source>Publication is delayed. The service retains this submission for bounded recovery; do not submit another copy.</source>
+            <translation>A publicação está atrasada. O serviço mantém este envio para tentativas limitadas de recuperação; não envie outra cópia.</translation>
+        </message>
+        <message>
+            <source>Publication rejected</source>
+            <translation>Publicação rejeitada</translation>
+        </message>
+        <message>
+            <source>Publication was rejected. Remove sensitive or unsupported content before creating a new submission.</source>
+            <translation>A publicação foi rejeitada. Remova o conteúdo sensível ou incompatível antes de criar um novo envio.</translation>
+        </message>
+        <message>
+            <source>Publish feedback</source>
+            <translation>Publicar feedback</translation>
+        </message>
+        <message>
+            <source>Publish to %1 after reviewing a public preview.</source>
+            <translation>Publicar em %1 após revisar a prévia pública.</translation>
+        </message>
+        <message>
+            <source>Published</source>
+            <translation>Publicado</translation>
+        </message>
+        <message>
+            <source>Refresh status</source>
+            <translation>Atualizar status</translation>
+        </message>
+        <message>
+            <source>Removal delayed</source>
+            <translation>Remoção atrasada</translation>
+        </message>
+        <message>
+            <source>Removal from project-controlled locations is confirmed. Third-party copies, GitHub history and notifications may remain.</source>
+            <translation>A remoção dos locais controlados pelo projeto foi confirmada. Cópias de terceiros, o histórico do GitHub e notificações podem permanecer.</translation>
+        </message>
+        <message>
+            <source>Removal is delayed and not yet confirmed. Keep this record and refresh its status later.</source>
+            <translation>A remoção está atrasada e ainda não foi confirmada. Mantenha este registro e atualize o status mais tarde.</translation>
+        </message>
+        <message>
+            <source>Removal pending</source>
+            <translation>Remoção pendente</translation>
+        </message>
+        <message>
+            <source>Removal request queued</source>
+            <translation>Solicitação de remoção na fila</translation>
+        </message>
+        <message>
+            <source>Removal was requested. This submission will not be sent again.</source>
+            <translation>A remoção foi solicitada. Este envio não será transmitido novamente.</translation>
+        </message>
+        <message>
+            <source>Removed from project-controlled locations</source>
+            <translation>Removido dos locais controlados pelo projeto</translation>
+        </message>
+        <message>
+            <source>Request public removal</source>
+            <translation>Solicitar remoção pública</translation>
+        </message>
+        <message>
+            <source>Request public removal?</source>
+            <translation>Solicitar remoção pública?</translation>
+        </message>
+        <message>
+            <source>Review public feedback</source>
+            <translation>Revisar feedback público</translation>
+        </message>
+        <message>
+            <source>Review the public preview and confirm publication first.</source>
+            <translation>Primeiro revise a prévia pública e confirme a publicação.</translation>
+        </message>
+        <message>
+            <source>Saved by the service. Publication is pending; do not submit another copy.</source>
+            <translation>Salvo pelo serviço. A publicação está pendente; não envie outra cópia.</translation>
+        </message>
+        <message>
+            <source>Some approved content is public, but publication is incomplete. Assessment waits for all attachments and text.</source>
+            <translation>Parte do conteúdo aprovado está pública, mas a publicação está incompleta. A avaliação aguarda a publicação de todo o texto e de todos os anexos.</translation>
+        </message>
+        <message>
+            <source>The complete approved content is published. This does not confirm a bug, accepted request or released fix.</source>
+            <translation>Todo o conteúdo aprovado foi publicado. Isso não confirma um bug, uma solicitação aceita ou uma correção lançada.</translation>
+        </message>
+        <message>
+            <source>The draft or publication notice changed. Return to the draft and review a new preview.</source>
+            <translation>O rascunho ou o aviso de publicação mudou. Volte ao rascunho e revise uma nova prévia.</translation>
+        </message>
+        <message>
+            <source>The original record remains unchanged. Contact email is not copied. The new draft will be public only after you review the preview and confirm publication.</source>
+            <translation>O registro original permanece inalterado. O e-mail de contato não é copiado. O novo rascunho só será público depois que você revisar a prévia e confirmar a publicação.</translation>
+        </message>
+        <message>
+            <source>The service received your removal request. External writes are still being settled; removal is not yet confirmed.</source>
+            <translation>O serviço recebeu sua solicitação de remoção. As gravações externas ainda estão sendo verificadas; a remoção ainda não foi confirmada.</translation>
+        </message>
+        <message>
+            <source>The service rejected publication. Review the reason before preparing a corrected draft.</source>
+            <translation>O serviço rejeitou a publicação. Revise o motivo antes de preparar um rascunho corrigido.</translation>
+        </message>
+        <message>
+            <source>The service will stop publication and remove content from project-controlled locations where possible. GitHub history, notifications and copies held by others may remain. Keep this local record to check the request's progress.</source>
+            <translation>O serviço interromperá a publicação e removerá o conteúdo dos locais controlados pelo projeto quando possível. O histórico do GitHub, notificações e cópias de outras pessoas podem permanecer. Mantenha este registro local para acompanhar a solicitação.</translation>
+        </message>
+        <message>
+            <source>This earlier private record cannot be published. Create a new public draft and review it first.</source>
+            <translation>Este registro privado anterior não pode ser publicado. Primeiro crie um novo rascunho público e revise-o.</translation>
+        </message>
+        <message>
+            <source>This record uses the earlier private-feedback contract. It will not be published. To share it publicly, create a new public draft and review it first.</source>
+            <translation>Este registro está sujeito ao contrato anterior de feedback privado. Ele não será publicado. Para compartilhá-lo publicamente, crie um novo rascunho público e revise-o primeiro.</translation>
+        </message>
+        <message>
+            <source>This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request public removal first if needed.</source>
+            <translation>Isso interrompe futuros uploads e exclui o registro deste dispositivo e o acesso ao status ou à solicitação de remoção. O conteúdo recebido ou publicado não é removido. Solicite primeiro a remoção pública, se necessário.</translation>
+        </message>
+        <message>
+            <source>Your removal request is saved on this device and will be delivered. Keep this record to check progress.</source>
+            <translation>Sua solicitação de remoção está salva neste dispositivo e será enviada. Mantenha este registro para acompanhar o progresso.</translation>
+        </message>
+        <message>
+            <source>On this device, content is kept for up to 30 days. Keep this receipt to check status or request removal; deleting it loses access.</source>
+            <translation>O conteúdo fica neste dispositivo por até 30 dias. Mantenha este recibo para consultar o status ou solicitar remoção; excluí-lo faz você perder o acesso.</translation>
+        </message>
+        <message>
+            <source>Receipt access until at least %1. Access is retained while removal remains unresolved.</source>
+            <translation>Acesso ao recibo até pelo menos %1. O acesso é mantido enquanto a remoção não for resolvida.</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device until deleted. Received content is kept locally for up to 30 days. Keep public receipts for status and removal; legacy private receipts expire after 90 days, subject to storage limits.</source>
+            <translation>Os rascunhos ficam neste dispositivo até serem excluídos. O conteúdo recebido é mantido localmente por até 30 dias. Guarde os recibos públicos para consultar o status e solicitar remoção; os recibos privados antigos expiram após 90 dias, sujeitos aos limites de armazenamento.</translation>
+        </message>
+        <message>
+            <source>AI assessment</source>
+            <translation>Avaliação da IA</translation>
+        </message>
+        <message>
+            <source>Add public information</source>
+            <translation>Adicionar informações públicas</translation>
+        </message>
+        <message>
+            <source>Assessing the report</source>
+            <translation>Avaliando o relato</translation>
+        </message>
+        <message>
+            <source>Assessment and replies</source>
+            <translation>Avaliação e respostas</translation>
+        </message>
+        <message>
+            <source>Assessment blocked</source>
+            <translation>Avaliação bloqueada</translation>
+        </message>
+        <message>
+            <source>Assessment complete · awaiting development</source>
+            <translation>Avaliação concluída · aguardando desenvolvimento</translation>
+        </message>
+        <message>
+            <source>Awaiting assessment</source>
+            <translation>Aguardando avaliação</translation>
+        </message>
+        <message>
+            <source>Back to original feedback</source>
+            <translation>Voltar ao feedback original</translation>
+        </message>
+        <message>
+            <source>Can you provide a small public example without secrets, hidden cards or other players' data?</source>
+            <translation>Você pode fornecer um pequeno exemplo público sem segredos, cartas ocultas ou dados de outros jogadores?</translation>
+        </message>
+        <message>
+            <source>Deferred · see the assessment</source>
+            <translation>Adiado · consulte a avaliação</translation>
+        </message>
+        <message>
+            <source>Last synced: %1</source>
+            <translation>Última sincronização: %1</translation>
+        </message>
+        <message>
+            <source>Not adopted · see the assessment</source>
+            <translation>Não aceito · consulte a avaliação</translation>
+        </message>
+        <message>
+            <source>Original feedback</source>
+            <translation>Feedback original</translation>
+        </message>
+        <message>
+            <source>Refreshing conversation…</source>
+            <translation>Atualizando a conversa…</translation>
+        </message>
+        <message>
+            <source>Related to an existing report</source>
+            <translation>Relacionado a um relato existente</translation>
+        </message>
+        <message>
+            <source>Removal requested</source>
+            <translation>Remoção solicitada</translation>
+        </message>
+        <message>
+            <source>Reply to feedback: %1</source>
+            <translation>Resposta ao feedback: %1</translation>
+        </message>
+        <message>
+            <source>Reply to this question</source>
+            <translation>Responder a esta pergunta</translation>
+        </message>
+        <message>
+            <source>Requested by %1. Later replies can still be submitted.</source>
+            <translation>Resposta solicitada até %1. Você ainda poderá responder depois dessa data.</translation>
+        </message>
+        <message>
+            <source>The conversation changed while refreshing. Refresh again to load its current state.</source>
+            <translation>A conversa mudou durante a atualização. Atualize novamente para carregar o estado atual.</translation>
+        </message>
+        <message>
+            <source>This service does not yet support conversations. Your feedback receipt remains available.</source>
+            <translation>Este serviço ainda não oferece suporte a conversas. O comprovante do seu feedback continua disponível.</translation>
+        </message>
+        <message>
+            <source>Waiting for your information</source>
+            <translation>Aguardando suas informações</translation>
+        </message>
+        <message>
+            <source>What are you trying to achieve, and what currently prevents it?</source>
+            <translation>O que você está tentando fazer e o que está impedindo isso no momento?</translation>
+        </message>
+        <message>
+            <source>What did you expect, and what happened instead?</source>
+            <translation>O que você esperava e o que aconteceu em vez disso?</translation>
+        </message>
+        <message>
+            <source>What steps reproduce the problem? Include only information you are willing to publish.</source>
+            <translation>Quais passos reproduzem o problema? Inclua apenas informações que você aceita publicar.</translation>
+        </message>
+        <message>
+            <source>Which Hexproof version shows the problem?</source>
+            <translation>Em qual versão do Hexproof o problema ocorre?</translation>
+        </message>
+        <message>
+            <source>Which operating system and version are you using?</source>
+            <translation>Qual sistema operacional e versão você está usando?</translation>
+        </message>
+        <message>
+            <source>Your public reply</source>
+            <translation>Sua resposta pública</translation>
+        </message>
+        <message>
+            <source>Assessment updates are temporarily unavailable. Your feedback receipt remains available.</source>
+            <translation>As atualizações da avaliação estão temporariamente indisponíveis. O comprovante do seu feedback continua disponível.</translation>
+        </message>
+        <message>
+            <source>Developing the change</source>
+            <translation>Desenvolvendo a alteração</translation>
+        </message>
+        <message>
+            <source>Verifying the change</source>
+            <translation>Verificando a alteração</translation>
+        </message>
+        <message>
+            <source>Verification complete · awaiting independent review</source>
+            <translation>Verificação concluída · aguardando revisão independente</translation>
+        </message>
+        <message>
+            <source>Independent review in progress</source>
+            <translation>Revisão independente em andamento</translation>
+        </message>
+        <message>
+            <source>Verifying the reviewed change before merging</source>
+            <translation>Verificando a alteração revisada antes da integração</translation>
+        </message>
+        <message>
+            <source>Review and checks passed · awaiting merge</source>
+            <translation>Revisão e verificações aprovadas · aguardando integração</translation>
+        </message>
+        <message>
+            <source>Confirming the merge result</source>
+            <translation>Confirmando o resultado da integração</translation>
+        </message>
+        <message>
+            <source>Change merged · awaiting release</source>
+            <translation>Alteração integrada · aguardando lançamento</translation>
+        </message>
+        <message>
+            <source>Source published · awaiting release</source>
+            <translation>Código-fonte publicado · aguardando lançamento</translation>
+        </message>
+        <message>
+            <source>Released · see the version and download link</source>
+            <translation>Versão lançada · consulte a versão e o link de download</translation>
+        </message>
+        <message>
+            <source>Close request queued</source>
+            <translation>Solicitação de encerramento na fila</translation>
+        </message>
+        <message>
+            <source>Close request delayed</source>
+            <translation>Solicitação de encerramento atrasada</translation>
+        </message>
+        <message>
+            <source>Closed · public sync pending</source>
+            <translation>Encerrado · sincronização pública pendente</translation>
+        </message>
+        <message>
+            <source>Closed · public sync delayed</source>
+            <translation>Encerrado · sincronização pública atrasada</translation>
+        </message>
+        <message>
+            <source>Closed</source>
+            <translation>Encerrado</translation>
+        </message>
+        <message>
+            <source>Your close request is saved on this device. Follow-up will stop after the service receives it; history and attachments will remain.</source>
+            <translation>Sua solicitação de encerramento está salva neste dispositivo. O acompanhamento será interrompido quando o serviço a receber; o histórico e os anexos serão mantidos.</translation>
+        </message>
+        <message>
+            <source>Closing could not be confirmed. Retry closing or refresh the receipt; history and attachments remain.</source>
+            <translation>Não foi possível confirmar o encerramento. Tente encerrar novamente ou atualize o recibo; o histórico e os anexos são mantidos.</translation>
+        </message>
+        <message>
+            <source>Feedback is closed. Public issue closure is pending. History and attachments remain; existing tasks may still be stopping.</source>
+            <translation>O feedback foi encerrado. O encerramento da ocorrência pública está pendente. O histórico e os anexos são mantidos; as tarefas existentes ainda podem estar sendo interrompidas.</translation>
+        </message>
+        <message>
+            <source>Feedback is closed. Public issue closure is delayed. History and attachments remain; existing tasks may still be stopping.</source>
+            <translation>O feedback foi encerrado. O encerramento da ocorrência pública está atrasado. O histórico e os anexos são mantidos; as tarefas existentes ainda podem estar sendo interrompidas.</translation>
+        </message>
+        <message>
+            <source>The service accepted closure and stopped new replies. Existing tasks may still be stopping. History and attachments remain.</source>
+            <translation>O serviço aceitou o encerramento e parou de aceitar novas respostas. As tarefas existentes ainda podem estar sendo interrompidas. O histórico e os anexos são mantidos.</translation>
+        </message>
+        <message>
+            <source>Retry closing feedback</source>
+            <translation>Tentar encerrar o feedback novamente</translation>
+        </message>
+        <message>
+            <source>Close feedback</source>
+            <translation>Encerrar feedback</translation>
+        </message>
+        <message>
+            <source>Close feedback?</source>
+            <translation>Encerrar o feedback?</translation>
+        </message>
+        <message>
+            <source>Stop further follow-up and new replies while keeping this feedback's readable history and attachments. Existing tasks may still be stopping after closure is accepted. To address sensitive content, request content removal separately.</source>
+            <translation>Interrompa o acompanhamento e as novas respostas, mantendo o histórico legível e os anexos deste feedback. As tarefas existentes ainda podem estar sendo interrompidas após a aceitação do encerramento. Para tratar conteúdo sensível, solicite a remoção do conteúdo separadamente.</translation>
+        </message>
+        <message>
+            <source>Request content removal</source>
+            <translation>Solicitar remoção do conteúdo</translation>
+        </message>
+        <message>
+            <source>Request content removal?</source>
+            <translation>Solicitar a remoção do conteúdo?</translation>
+        </message>
+        <message>
+            <source>This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request content removal first if needed.</source>
+            <translation>Isso interrompe futuros envios e exclui o registro deste dispositivo e o acesso ao seu status ou à solicitação de remoção. O conteúdo recebido ou publicado não é removido. Se necessário, solicite primeiro a remoção do conteúdo.</translation>
+        </message>
+        <message>
+            <source>Request deletion of this feedback, including accidentally published sensitive content. Publication will stop, but some AI task history may still await cleanup. AI provider records, GitHub history, notifications and copies held by others may remain. Closing feedback alone keeps its history. Keep this record to check progress.</source>
+            <translation>Solicite a exclusão deste feedback, incluindo conteúdo sensível publicado por acidente. A publicação será interrompida, mas parte do histórico de tarefas de IA ainda pode aguardar limpeza. Registros de provedores de IA, histórico do GitHub, notificações e cópias mantidas por outras pessoas podem permanecer. Apenas encerrar o feedback mantém seu histórico. Mantenha este registro para acompanhar o progresso.</translation>
+        </message>
+            <message>
+            <source>AI team</source>
+            <translation>Equipe de IA</translation>
+        </message>
+        <message>
+            <source>Awaiting release</source>
+            <translation>Aguardando lançamento</translation>
+        </message>
+        <message>
+            <source>Conversation with the AI team</source>
+            <translation>Conversa com a equipe de IA</translation>
+        </message>
+        <message>
+            <source>Delivery history</source>
+            <translation>Histórico de entregas</translation>
+        </message>
+        <message>
+            <source>Earlier deliveries remain listed while the AI team assesses new information.</source>
+            <translation>As entregas anteriores continuam visíveis enquanto a equipe de IA avalia as novas informações.</translation>
+        </message>
+        <message>
+            <source>Related public report #%1</source>
+            <translation>Relato público relacionado nº %1</translation>
+        </message>
+        <message>
+            <source>Released</source>
+            <translation>Lançado</translation>
+        </message>
+        <message>
+            <source>Released in version %1</source>
+            <translation>Lançado na versão %1</translation>
+        </message>
+        <message>
+            <source>Replies on this device</source>
+            <translation>Respostas neste dispositivo</translation>
+        </message>
+        <message>
+            <source>Replies on this device: %1</source>
+            <translation>Respostas neste dispositivo: %1</translation>
+        </message>
+        <message>
+            <source>Reply · original feedback is no longer on this device</source>
+            <translation>Resposta · o relato original não está mais neste dispositivo</translation>
+        </message>
+        <message>
+            <source>Source change published · awaiting release</source>
+            <translation>Alteração do código-fonte publicada · aguardando lançamento</translation>
+        </message>
+        <message>
+            <source>The AI team is working on this</source>
+            <translation>A equipe de IA está trabalhando nisso</translation>
+        </message>
+</context>
 <context>
     <name>RulesCardHoverPreview</name>
     <message>

@@ -14,6 +14,7 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "verify.sh"
+SHELL_LINT_SCRIPT = SCRIPT.with_name("check-shell-scripts.sh")
 
 
 class VerificationScriptTests(unittest.TestCase):
@@ -24,6 +25,9 @@ class VerificationScriptTests(unittest.TestCase):
         self.write("apps/client-qt/CMakeLists.txt", 'set(HEXPROOF_VERSION "1.2.3")\n')
         (self.root / "apps/server").mkdir(parents=True)
         self.script = self.write("tools/verify.sh", SCRIPT.read_text(encoding="utf-8"))
+        self.write("tools/check-shell-scripts.sh", SHELL_LINT_SCRIPT.read_text(encoding="utf-8"),
+                   executable=True)
+        self.write("tools/card-database-builder/build-latest.sh", "#!/usr/bin/env bash\nexit 0\n")
         for name in ("check-license-headers.sh", "check-qml-text-safety.sh", "first.sh", "second.sh"):
             self.write(f"tools/{name}", "#!/usr/bin/env bash\nexit 0\n", executable=True)
         dispatcher = f"#!{sys.executable}\n" + '''
@@ -58,7 +62,7 @@ elif name == "hexproof":
     print("Hexproof 1.2.3")
 '''
         for name in ("cmake", "ctest", "git", "go", "gofmt", "ninja", "python3", "rg",
-                     "clang-format", "git-clang-format"):
+                     "clang-format", "git-clang-format", "shellcheck"):
             self.write(f"bin/{name}", dispatcher, executable=True)
         self.write("build/client-qt/hexproof", dispatcher, executable=True)
         self.write("build/server/hexproof-server", dispatcher, executable=True)
@@ -91,6 +95,32 @@ elif name == "hexproof":
         _, calls = self.run_script("--scope", "static")
         self.assertFalse({call[0] for call in calls} & {"go", "gofmt", "cmake", "ctest", "hexproof"})
         self.assertIn(["python3", "-m", "unittest", "discover", "-s", "tools/tests"], calls)
+        self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh"], calls)
+
+    def test_shell_lint_includes_available_private_deployment_scripts(self):
+        scripts = ("deploy/deploy-release-server.sh", "deploy/deploy-forge-runtime.sh",
+                   "deploy/deploy-test-server.sh")
+        for script in scripts:
+            self.write(script, "#!/usr/bin/env bash\nexit 0\n")
+        _, calls = self.run_script("--scope", "static")
+        self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh", *scripts], calls)
+
+    def test_shell_lint_failure_stops_verification_before_builds(self):
+        self.env["VERIFY_TEST_FAIL_TOOL"] = "shellcheck"
+        result, calls = self.run_script(succeeds=False)
+        self.assertEqual(result.returncode, 13)
+        self.assertFalse({call[0] for call in calls} & {"go", "cmake", "ctest", "python3"})
+
+    def test_missing_shellcheck_is_an_error(self):
+        (self.root / "bin/shellcheck").unlink()
+        # Use a closed PATH so the workstation's ShellCheck cannot mask absence.
+        for name in ("bash", "dirname", "sed"):
+            (self.root / "bin" / name).symlink_to(shutil.which(name))
+        self.env["PATH"] = str(self.root / "bin")
+        result, calls = self.run_script("--scope", "static", succeeds=False)
+        self.assertEqual(result.returncode, 127)
+        self.assertIn("Required command not found: shellcheck", result.stderr)
+        self.assertEqual(calls, [])
 
     def test_server_does_not_need_qt_but_keeps_race_tests(self):
         _, calls = self.run_script("--scope", "server")

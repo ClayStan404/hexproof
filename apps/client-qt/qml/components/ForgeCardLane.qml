@@ -21,6 +21,7 @@ Item {
     property bool alignRight: false
     property string locatedId: ""
     property int combatForward: 0
+    property real combatReadoutClearance: 0
     property int fannedStack: -1
     // The fan follows its members when tapping or combat reorders the slot.
     property var fannedIds: []
@@ -36,6 +37,24 @@ Item {
     readonly property var slotModel: {
         const session = tableController && tableController.rulesSession
         return session && session.laneSlots ? session.laneSlots(ownerSeat, zone, category) : null
+    }
+    Binding {
+        target: root.slotModel
+        property: "combatGroupingKeys"
+        when: root.slotModel !== null
+        value: {
+            const combat = root.tableController.combatInteraction
+            return root.zone === "battlefield" && combat && combat.active
+                ? combat.groupingKeys || {} : {}
+        }
+    }
+    property bool slotsUpdating: false
+    Connections {
+        target: root.slotModel
+        // Repeater moves require sibling delegates. An open fan temporarily
+        // returns to the viewport while its members split into new slots.
+        function onStacksAboutToChange() { root.slotsUpdating = true }
+        function onStacksChanged() { root.slotsUpdating = false }
     }
     property var visibleCards: []
     readonly property var cardItemsById: {
@@ -112,14 +131,21 @@ Item {
     readonly property real pileLead: visibleStackIds.some(ids => ids.length > 1) ? 9 * unit : 0
     readonly property real pileShift: visibleStackIds.reduce((shift, ids) =>
         Math.max(shift, Math.min(Math.max(0, ids.length - 1), 2) * 4 * unit), 0)
+    // Fit against the same potential decoration depth as the minimum layout.
+    // Tapping can repartition 1+3 copies into 2+2, or remove a two-copy pile;
+    // neither change releases space for larger card faces.
+    readonly property real layoutPileLead: Math.max(stackCount, hostCards.length) > 1 ? 9 * unit : 0
+    readonly property real layoutPileShift: Math.min(Math.max(0,
+        Math.max(stackCount, hostCards.length) - 1), 2) * 4 * unit
     // Right-aligned piles must fit their rear faces as well as the front.
     // This remains reserved while a pile is fanned or its front changes.
-    readonly property real pileTrail: alignRight ? pileShift : 0
-    readonly property real rowAvailable: Math.max(1, viewport.width - startInset - pileLead - pileTrail - 6 * unit)
+    readonly property real layoutPileTrail: alignRight ? layoutPileShift : 0
+    readonly property real rowAvailable: Math.max(1,
+        viewport.width - startInset - layoutPileLead - layoutPileTrail - 6 * unit)
     readonly property int columns: grid.columns
     readonly property var hostCards: visibleCards.filter(card => card && !card.attachedTo)
     // Creature lanes reserve both their combat nudge and destination badge
-    // before combat starts. Prompt/attack changes never refit the cards.
+    // before combat starts. These readouts need no extra space when piles split.
     readonly property bool structuralBadge: hostCards.some(card => card && card.structuralLink)
     readonly property int attachmentDepth: {
         let depth = 0
@@ -128,7 +154,10 @@ Item {
         return depth
     }
     readonly property real attachmentPeek: attachmentDepth * 16 * unit
+    // Split combat piles expose each front's title. Reserve the caller's
+    // overlay clearance before combat so the 14-unit nudge keeps it readable.
     readonly property real combatInset: Math.abs(combatForward) * 14 * unit
+        + (combatForward < 0 ? combatReadoutClearance : 0)
     // The upper label is 19 units tall with a two-unit gap. Reserve it in
     // every row before combat or hover begins, including a ready pile front.
     readonly property real upperHintInset: combatForward > 0 ? 21 * unit : 0
@@ -162,7 +191,7 @@ Item {
     // it would enlarge the face into newly allocated readout space. Keep it
     // structural so payment, combat and fan changes never refit the row.
     readonly property real edgeSpace: zone !== "battlefield" ? 5 * unit
-        : Math.max(5 * unit, 3 * unit + pileShift + combatInset + upperHintInset
+        : Math.max(5 * unit, 3 * unit + layoutPileShift + combatInset + upperHintInset
             + (attachmentPeek > 0 ? attachmentPeek + 21 * unit : 14 * unit) - layoutCellExtra)
     readonly property real cellHeight: cardHeight + cellExtra
     readonly property real gridHeight: grid.height
@@ -170,33 +199,27 @@ Item {
     readonly property real rowLead: grid.lead
 
     function layoutColumns(laneWidth, face) {
-        const available = Math.max(1, laneWidth - startInset - pileLead - pileTrail - 6 * unit)
+        const available = Math.max(1, laneWidth - startInset - layoutPileLead - layoutPileTrail - 6 * unit)
         return Math.max(1, Math.floor((available + gap) / (face + gap) + 1e-7))
     }
     function layoutMinimumWidth() {
         const count = Math.max(stackCount, hostCards.length)
         if (!count) return 0
-        const lead = count > 1 ? 9 * unit : 0
-        const trail = alignRight ? Math.min(Math.max(0, count - 1), 2) * 4 * unit : 0
-        return startInset + lead + trail + 6 * unit + 80 * unit
+        return startInset + layoutPileLead + layoutPileTrail + 6 * unit + 80 * unit
     }
     function layoutMinimumHeight(laneWidth) {
         if (!stackCount) return 0
         // Stable ready/spent slot budgets come from the public pile model.
         // Decoration depth still includes all copies, capped at two steps.
         const count = layoutStackCount
-        const hosts = Math.max(stackCount, hostCards.length)
-        const lead = hosts > 1 ? 9 * unit : 0
-        const shift = Math.min(Math.max(0, hosts - 1), 2) * 4 * unit
         const face = 80 * unit
         const available = laneWidth - layoutMinimumWidth() + face
         if (available < face - 1e-7
                 || (maxFaceWidth > 0 && maxFaceWidth < face - 1e-7))
             return Infinity
         const cols = Math.max(1, Math.floor((available + gap) / (face + gap) + 1e-7))
-        const tail = Math.max(5 * unit, 3 * unit + shift + combatInset + upperHintInset
-            + (attachmentPeek > 0 ? attachmentPeek + 21 * unit : 14 * unit) - layoutCellExtra)
-        return headerHeight + Math.ceil(count / cols) * (face * faceRatio + layoutCellExtra) + lead + tail
+        return headerHeight + Math.ceil(count / cols) * (face * faceRatio + layoutCellExtra)
+            + layoutPileLead + edgeSpace
     }
     function layoutGrid(laneWidth, laneHeight) {
         const face = fittedCardWidth(laneWidth, laneHeight)
@@ -230,7 +253,7 @@ Item {
     // object counts, so eight Plains occupy one tile.
     function fittedCardWidth(laneWidth, laneHeight) {
         const count = Math.max(1, stackCount)
-        const available = Math.max(1, laneWidth - startInset - pileLead - pileTrail - 6 * unit)
+        const available = Math.max(1, laneWidth - startInset - layoutPileLead - layoutPileTrail - 6 * unit)
         const ceiling = maxFaceWidth > 0 ? maxFaceWidth
             : (zone === "battlefield" ? 180 : 120) * unit
         const maximum = Math.min(available, ceiling)
@@ -242,10 +265,10 @@ Item {
             const widthFit = (available - (cols - 1) * gap) / cols
             if (widthFit < minimum) break
             const rows = Math.ceil(count / cols)
-            const rowHeightFit = ((laneHeight - edgeSpace - pileLead) / rows - cellExtra) / faceRatio
+            const rowHeightFit = ((laneHeight - edgeSpace - layoutPileLead) / rows - cellExtra) / faceRatio
             const candidate = Math.min(maximum, rowHeightFit, widthFit)
             if (candidate < minimum) continue
-            if (rows * (candidate * faceRatio + cellExtra) + edgeSpace + pileLead <= laneHeight + 1e-7)
+            if (rows * (candidate * faceRatio + cellExtra) + edgeSpace + layoutPileLead <= laneHeight + 1e-7)
                 best = Math.max(best, candidate)
         }
         return best
@@ -476,7 +499,7 @@ Item {
         readonly property bool fanned: root.fannedStack === stackIndex && stackSize > 1
         // Only the chosen pile leaves the scroll clip. Keep the same live
         // delegates, coordinates and focus while unrelated rows stay clipped.
-        parent: fanned ? fanLayer : viewport.contentItem
+        parent: fanned && !root.slotsUpdating ? fanLayer : viewport.contentItem
         readonly property var memberIds: slotIndex >= 0 ? (root.visibleStackIds[slotIndex] || []) : []
         readonly property int tappedCount: {
             void root.visibleCards
@@ -706,7 +729,7 @@ Item {
         // A tapped copy stays in the cell. The ready card steps up-left so the
         // spent corner remains inside the lane and can still be clicked.
         readonly property bool tappedBehind: {
-            if (fanned || !stackFront || stackSize <= 1)
+            if (fanned || tapped || !stackFront || stackSize <= 1)
                 return false
             const ids = root.visibleStackIds[stackIndex] || []
             for (let i = 0; i < ids.length; ++i) {

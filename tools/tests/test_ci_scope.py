@@ -45,7 +45,7 @@ class CiScopeTests(unittest.TestCase):
                 self.assertFalse(scope.build_scope([path])[2])
 
     def test_shared_or_unknown_changes_fail_toward_more_checks(self):
-        for path in ("protocol/v1/wire-schema.json", "tools/verify.sh", "packaging/linux/build-tarball.sh",
+        for path in ("protocol/v2/wire-schema.json", "tools/verify.sh", "packaging/linux/build-tarball.sh",
                      ".github/workflows/ci.yml", "future-build-system.conf"):
             with self.subTest(path=path):
                 self.assertEqual(scope.build_scope([path]), (True, True, True))

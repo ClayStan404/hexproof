@@ -1,0 +1,36 @@
+{
+  "name": "Graveyard target and payment regression",
+  "format": "modern",
+  "deckFormat": "modern",
+  "source": "Synthetic 60-card interaction fixture with increased nonland copy counts; not a format-legal tournament deck or full-match evaluation",
+  "mainboard": [
+    {
+      "name": "Swamp",
+      "count": 30,
+      "setCode": "LEA",
+      "collectorNumber": "290",
+      "typeLine": "Basic Land — Swamp",
+      "manaValue": 0.0,
+      "manaCost": ""
+    },
+    {
+      "name": "Goryo's Vengeance",
+      "count": 15,
+      "setCode": "BOK",
+      "collectorNumber": "67",
+      "typeLine": "Instant — Arcane",
+      "manaValue": 2.0,
+      "manaCost": "{1}{B}"
+    },
+    {
+      "name": "Atraxa, Grand Unifier",
+      "count": 15,
+      "setCode": "ONE",
+      "collectorNumber": "196",
+      "typeLine": "Legendary Creature — Phyrexian Angel",
+      "manaValue": 7.0,
+      "manaCost": "{3}{G}{W}{U}{B}"
+    }
+  ],
+  "sideboard": []
+}

@@ -16,6 +16,7 @@ Surface {
     property bool printingEnabled: false
     property bool customArtEnabled: false
     property bool considerEnabled: false
+    property bool previewEnabled: true
     property string moveText: ""
     signal incrementRequested()
     signal decrementRequested()
@@ -57,6 +58,9 @@ Surface {
 
     implicitWidth: Theme.size(184)
     implicitHeight: Theme.size(284)
+    // Repeated cards sit inside the editor's glass panel; avoid a live
+    // backdrop capture and position timer for every scrolling card.
+    compact: true
     radius: Theme.radiusMedium
     color: cardHover.hovered ? Theme.surfaceHover : Theme.surfaceMuted
     border.width: commanderCard || cardHover.hovered ? 2 : 1
@@ -67,11 +71,31 @@ Surface {
     HoverHandler {
         id: cardHover
         onHoveredChanged: {
-            if (hovered)
+            if (hovered && root.previewEnabled)
                 root.previewRequested(root.card, root.resolvedImageSource)
             else
                 root.previewEnded()
         }
+    }
+
+    function isHoveredForPreview(): bool {
+        if (!visible || !enabled || !previewEnabled || !cardHover.hovered)
+            return false
+        const scenePoint = cardHover.point.scenePosition
+        const point = mapFromItem(null, scenePoint.x, scenePoint.y)
+        return point.x >= 0 && point.y >= 0 && point.x < width && point.y < height
+    }
+
+    function refreshHoveredPreview() {
+        if (isHoveredForPreview())
+            previewRequested(card, resolvedImageSource)
+    }
+
+    onPreviewEnabledChanged: {
+        if (previewEnabled && cardHover.hovered)
+            refreshHoveredPreview()
+        else
+            previewEnded()
     }
 
     TapHandler {

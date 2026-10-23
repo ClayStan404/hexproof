@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "submissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+  "revision": 2,
+  "workState": "needs-information",
+  "summary": "AI 团队需要了解触发问题的具体操作。",
+  "workflowRevision": 1,
+  "projectionState": "published",
+  "removalState": "none",
+  "caseState": "open",
+  "closurePublicationState": "none",
+  "accessExpiresAt": "2027-10-23T12:00:00Z",
+  "contentExpiresAt": "2027-10-23T12:00:00Z",
+  "assessmentDeliveryState": "available",
+  "nextCursor": "",
+  "items": [
+    {
+      "submissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+      "sequence": 1,
+      "kind": "submission",
+      "description": "抓牌时游戏停止响应。",
+      "acceptedAt": "2026-10-23T09:00:00Z",
+      "publishedAt": "2026-10-23T09:00:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "category": "problem",
+      "context": {
+        "appVersion": "3.0.0",
+        "uiLanguage": "zh_CN",
+        "osFamily": "linux"
+      }
+    },
+    {
+      "submissionId": "11111111-1111-4111-8111-111111111111",
+      "sequence": 2,
+      "kind": "question",
+      "description": "发生问题时是哪张牌的抓牌效果？当时使用手动模式还是 Forge 模式？",
+      "acceptedAt": "2026-10-23T09:10:00Z",
+      "publishedAt": "2026-10-23T09:10:00Z",
+      "publicationState": "published",
+      "attachments": [],
+      "parentSubmissionId": "83bd35d6-dd11-4a73-9f35-4ed43b6ab8b1",
+      "questionId": "11111111-1111-4111-8111-111111111111",
+      "questionRevision": 1
+    }
+  ],
+  "deliveryHistory": [],
+  "question": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "revision": 1,
+    "code": "custom",
+    "description": "发生问题时是哪张牌的抓牌效果？当时使用手动模式还是 Forge 模式？",
+    "publishedAt": "2026-10-23T09:10:00Z",
+    "answerDeadline": "2026-10-30T09:10:00Z"
+  }
+}

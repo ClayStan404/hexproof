@@ -155,7 +155,7 @@ def _object_from_json(
 
 
 def load_payload_schema(root: Path, message_types: set[str]) -> PayloadSchema:
-    schema_dir = root / "protocol/v1"
+    schema_dir = root / "protocol/v2"
     paths = [schema_dir / "payload-schema.json"] + sorted(
         path
         for path in schema_dir.glob("payload-*.json")
@@ -286,7 +286,7 @@ def _validate_object(
 def verify_payload_fixtures(root: Path, schema: PayloadSchema) -> list[str]:
     problems: list[str] = []
     covered: set[str] = set()
-    for path in sorted((root / "testdata/protocol/v1").glob("*.json")):
+    for path in sorted((root / "testdata/protocol/v2").glob("*.json")):
         try:
             envelope = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

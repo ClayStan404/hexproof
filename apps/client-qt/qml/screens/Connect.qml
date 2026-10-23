@@ -32,6 +32,7 @@ Page {
         && selectedServerIndex < customServerIndex
         && String((hub.serverEntries[selectedServerIndex] || {}).accountRealm || "").length > 0)
     readonly property bool usingCode: accountServer && (accountMode === 1 || accountMode === 3)
+    property string compatibilityLookupProtocol: ""
     property int latencyRefreshCountdown: 0
     readonly property bool compactHeight: root.height < Theme.size(700)
 
@@ -41,6 +42,8 @@ Page {
                           ? root.automaticServerIndex : saved)
         root.hub.refreshServerDirectory()
         Qt.callLater(root.syncServerSelector)
+        root.refreshConnectionError()
+        root.checkCompatibleUpdate()
     }
     onSelectedServerIndexChanged: Qt.callLater(root.syncServerSelector)
 
@@ -218,6 +221,7 @@ Page {
 
                 InfoBanner {
                     id: errorBanner
+                    objectName: "connectionErrorBanner"
                     Layout.fillWidth: true
                     Layout.topMargin: Theme.size(6)
                     message: ""
@@ -225,7 +229,7 @@ Page {
 
                 AppButton {
                     Layout.fillWidth: true
-                    visible: root.hub.versionMismatch
+                    visible: root.hub.protocolMismatch
                     text: root.matchingUpdateButtonText()
                     variant: "secondary"
                     enabled: !root.updater.checking && !root.updater.downloading
@@ -234,7 +238,7 @@ Page {
 
                 InfoBanner {
                     Layout.fillWidth: true
-                    visible: root.hub.versionMismatch
+                    visible: root.hub.protocolMismatch
                              && root.updater.lastError.length > 0
                     tone: "warning"
                     message: I18n.status(root.updater.lastError)
@@ -242,7 +246,7 @@ Page {
 
                 AppButton {
                     Layout.fillWidth: true
-                    visible: root.hub.versionMismatch
+                    visible: root.hub.protocolMismatch
                              && root.updater.lastError.length > 0
                     variant: "ghost"
                     text: qsTr("View releases")
@@ -420,48 +424,58 @@ Page {
             errorBanner.message = ""
             return
         }
-        if (root.hub.versionMismatch) {
-            const versions = root.hub.requiredVersion.length > 0
-                ? qsTr("Required version") + ": " + root.hub.requiredVersion
-                  + "\n" + qsTr("Installed version") + ": " + root.hub.clientVersion
-                : qsTr("The server and client versions do not match.")
-            errorBanner.message = versions + "\n"
-                + qsTr("Download and install the matching version before reconnecting.")
+        if (root.hub.protocolMismatch) {
+            const protocols = qsTr("Client protocol") + ": " + root.hub.clientProtocol
+                + "\n" + qsTr("Server protocol") + ": " + (root.hub.serverProtocol || qsTr("Unknown"))
+            const guidance = serverNeedsUpgrade()
+                ? qsTr("The server needs an upgrade. Select a compatible server or contact its operator.")
+                : root.hub.serverProtocol.length > 0
+                  ? qsTr("Install a client supporting the server's communication protocol.")
+                  : qsTr("The communication protocols are incompatible. Check the client and server releases.")
+            errorBanner.message = protocols + "\n" + guidance
             return
         }
         errorBanner.message = I18n.status(root.hub.lastError)
     }
 
+    function serverNeedsUpgrade() {
+        return root.hub.serverProtocol.length > 0
+                && Number(root.hub.serverProtocol.substring(10)) < Number(root.hub.clientProtocol.substring(10))
+    }
+
+    function checkCompatibleUpdate() {
+        if (!root.hub.protocolMismatch) {
+            root.compatibilityLookupProtocol = ""
+            return
+        }
+        if (root.hub.serverProtocol.length > 0 && !root.serverNeedsUpgrade()
+                && !root.updater.checking && !root.updater.downloading
+                && root.compatibilityLookupProtocol !== root.hub.serverProtocol) {
+            root.compatibilityLookupProtocol = root.hub.serverProtocol
+            root.updater.checkForProtocol(root.hub.serverProtocol)
+        }
+    }
+
     function matchingUpdateReady() {
-        return root.updater.releaseAvailable && root.updater.exactVersion
-                && root.updater.targetVersion === root.hub.requiredVersion
+        return root.updater.releaseAvailable && !serverNeedsUpgrade() && root.hub.serverProtocol.length > 0
+                && root.updater.targetProtocol === root.hub.serverProtocol
     }
 
     function matchingUpdateButtonText() {
-        if (root.updater.checking)
-            return qsTr("Checking matching version…")
-        if (matchingUpdateReady() && root.updater.downloadReady)
-            return qsTr("Open download folder")
-        if (matchingUpdateReady() && root.updater.downloading)
-            return qsTr("Downloading update…")
-        if (matchingUpdateReady())
-            return qsTr("Download matching version")
-        if (root.updater.lastError.length > 0)
-            return qsTr("Retry matching version")
-        return qsTr("Find matching version")
+        if (root.updater.checking) return qsTr("Checking compatible client…")
+        if (matchingUpdateReady() && root.updater.downloadReady) return qsTr("Open download folder")
+        if (matchingUpdateReady() && root.updater.downloading) return qsTr("Downloading update…")
+        if (matchingUpdateReady()) return qsTr("Download compatible client")
+        return qsTr("View releases")
     }
 
     function handleMatchingUpdate() {
-        if (matchingUpdateReady() && root.updater.downloadReady) {
+        if (matchingUpdateReady() && root.updater.downloadReady)
             root.updater.openDownloadLocation()
-        } else if (matchingUpdateReady()) {
+        else if (matchingUpdateReady())
             root.updater.downloadUpdate()
-        } else if (root.hub.requiredVersion.length > 0) {
-            root.updater.clearLastError()
-            root.updater.checkForVersion(root.hub.requiredVersion)
-        } else {
-            root.updater.openReleasePage()
-        }
+        else
+            Qt.openUrlExternally(root.hub.releaseDownloadUrl)
     }
 
     Connections {
@@ -472,26 +486,13 @@ Page {
         function onLastErrorChanged() {
             root.refreshConnectionError()
         }
-        function onVersionMismatchChanged() {
+        function onProtocolMismatchChanged() {
             root.refreshConnectionError()
-            if (root.hub.versionMismatch && root.hub.requiredVersion.length > 0
-                    && (!root.updater.exactVersion
-                        || root.updater.targetVersion !== root.hub.requiredVersion)) {
-                root.updater.checkForVersion(root.hub.requiredVersion)
-            }
+            root.checkCompatibleUpdate()
         }
     }
-
     Connections {
         target: root.updater
-        function onStateChanged() {
-            if (root.hub.versionMismatch && root.hub.requiredVersion.length > 0
-                    && !root.updater.checking && !root.updater.downloading
-                    && root.updater.lastError.length === 0
-                    && (!root.updater.exactVersion
-                        || root.updater.targetVersion !== root.hub.requiredVersion)) {
-                root.updater.checkForVersion(root.hub.requiredVersion)
-            }
-        }
+        function onStateChanged() { root.checkCompatibleUpdate() }
     }
 }

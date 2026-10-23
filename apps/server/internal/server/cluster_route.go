@@ -122,7 +122,7 @@ func (h *Handler) routeClusterCommand(ctx context.Context, sess *Session, env *p
 	}
 	grant := sess.clusterGrant
 	if grant != nil {
-		if !time.Now().Before(grant.ExpiresAt) || grant.CommandType != env.Type || grant.Digest != clusterDigest(*env) || grant.AccountID != sess.Account().ID {
+		if grant.Protocol != protocol.ProtocolVersion || !time.Now().Before(grant.ExpiresAt) || grant.CommandType != env.Type || grant.Digest != clusterDigest(*env) || grant.AccountID != sess.Account().ID {
 			h.clusterError(sess, env.ID, cluster.ErrInvalid)
 			return true, nil
 		}
@@ -155,6 +155,10 @@ func (h *Handler) routeClusterCommand(ctx context.Context, sess *Session, env *p
 			h.clusterError(sess, env.ID, err)
 			return true, nil
 		}
+		if out.Ticket == nil || out.Ticket.Protocol != protocol.ProtocolVersion {
+			h.clusterError(sess, env.ID, cluster.ErrInvalid)
+			return true, nil
+		}
 		if out.Ticket.NodeID != h.clusterNode() {
 			route, _ := protocol.NewEnvelope(protocol.TypeSessionRoute, protocol.SessionRoute{URL: out.Ticket.URL, Realm: h.accountRealm(), Ticket: out.Ticket.Token, NodeID: out.Ticket.NodeID})
 			route.ID = env.ID
@@ -165,6 +169,10 @@ func (h *Handler) routeClusterCommand(ctx context.Context, sess *Session, env *p
 		out, err = h.clusterAgent.Do(ctx, cluster.Request{Operation: "take", Token: out.Ticket.Token, AccountID: sess.Account().ID})
 		if err != nil {
 			h.clusterError(sess, env.ID, err)
+			return true, nil
+		}
+		if out.Ticket == nil || out.Ticket.Protocol != protocol.ProtocolVersion {
+			h.clusterError(sess, env.ID, cluster.ErrInvalid)
 			return true, nil
 		}
 		grant = out.Ticket
@@ -197,6 +205,10 @@ func (h *Handler) acceptClusterHello(ctx context.Context, sess *Session, hello p
 		out, err := h.clusterAgent.Do(ctx, cluster.Request{Operation: "take", Token: hello.ClusterTicket, AccountID: accountID})
 		if err != nil {
 			h.clusterError(sess, requestID, err)
+			return false
+		}
+		if out.Ticket == nil || out.Ticket.Protocol != hello.Protocol {
+			h.clusterError(sess, requestID, cluster.ErrInvalid)
 			return false
 		}
 		sess.clusterGrant = out.Ticket

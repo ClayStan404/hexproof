@@ -4,6 +4,7 @@
 package feedback
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/mail"
@@ -16,16 +17,20 @@ import (
 )
 
 type Config struct {
-	SchemaVersion        int        `json:"schemaVersion"`
-	Listen               string     `json:"listen"`
-	PublicURL            string     `json:"publicUrl"`
-	DataDir              string     `json:"dataDir"`
-	AdminSocket          string     `json:"adminSocket,omitempty"`
-	OperatorName         string     `json:"operatorName"`
-	MonitoringConfigured bool       `json:"monitoringConfigured"`
-	TrustedProxyCIDRs    []string   `json:"trustedProxyCidrs,omitempty"`
-	SMTP                 SMTPConfig `json:"smtp"`
-	Limits               Limits     `json:"limits,omitempty"`
+	SchemaVersion        int            `json:"schemaVersion"`
+	Listen               string         `json:"listen"`
+	PublicURL            string         `json:"publicUrl"`
+	DataDir              string         `json:"dataDir"`
+	AdminSocket          string         `json:"adminSocket,omitempty"`
+	OperatorName         string         `json:"operatorName"`
+	MonitoringConfigured bool           `json:"monitoringConfigured"`
+	TrustedProxyCIDRs    []string       `json:"trustedProxyCidrs,omitempty"`
+	Public               *PublicConfig  `json:"public,omitempty"`
+	Multica              *MulticaConfig `json:"multica,omitempty"`
+	// Assessment only recognizes retired configuration so startup fails clearly.
+	Assessment json.RawMessage `json:"assessment,omitempty"`
+	SMTP       SMTPConfig      `json:"smtp"`
+	Limits     Limits          `json:"limits,omitempty"`
 }
 
 type SMTPConfig struct {
@@ -93,7 +98,10 @@ func LoadConfig(path string) (Config, error) {
 }
 
 func (c *Config) Validate() error {
-	if c.SchemaVersion != 1 || !filepath.IsAbs(c.DataDir) || strings.TrimSpace(c.OperatorName) == "" || len(c.OperatorName) > 128 || !c.MonitoringConfigured {
+	if len(c.Assessment) != 0 {
+		return fmt.Errorf("assessment configuration is retired; remove assessment and use the external AI platform")
+	}
+	if (c.SchemaVersion != 1 && c.SchemaVersion != 2) || !filepath.IsAbs(c.DataDir) || strings.TrimSpace(c.OperatorName) == "" || len(c.OperatorName) > 128 || !c.MonitoringConfigured {
 		return fmt.Errorf("missing receiver or operator configuration")
 	}
 	if c.Listen == "" {
@@ -106,8 +114,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("receiver must bind a literal loopback address behind its HTTPS proxy")
 	}
 	u, err := url.Parse(c.PublicURL)
-	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Path != "/feedback/v1" || u.RawPath != "" {
-		return fmt.Errorf("publicUrl must be an HTTPS /feedback/v1 URL")
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Path != map[int]string{1: "/feedback/v1", 2: "/feedback/v2"}[c.SchemaVersion] || u.RawPath != "" {
+		return fmt.Errorf("publicUrl must be an HTTPS URL for the configured feedback version")
 	}
 	if c.AdminSocket == "" {
 		c.AdminSocket = filepath.Join(c.DataDir, "admin.sock")
@@ -123,12 +131,33 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid trusted proxy network")
 		}
 	}
-	s := c.SMTP
-	if s.Host == "" || len(s.Host) > 253 || strings.ContainsAny(s.Host, "\r\n\x00 /@") || s.Port < 1 || s.Port > 65535 || (s.TLSMode != "starttls" && s.TLSMode != "tls") || !validEmail(s.From) || !validEmail(s.To) || len(s.Username) > 254 || strings.ContainsAny(s.Username, "\r\n\x00") {
-		return fmt.Errorf("invalid SMTP configuration")
+	if c.SchemaVersion == 2 {
+		if c.Public != nil {
+			c.Public.PublicURL = c.PublicURL
+		}
+		if c.Public == nil || c.Public.Validate(c.DataDir) != nil {
+			return fmt.Errorf("invalid public feedback configuration")
+		}
+	} else if c.Public != nil {
+		return fmt.Errorf("public configuration requires schemaVersion 2")
 	}
-	if (s.Username == "") != (s.PasswordFile == "") || (s.PasswordFile != "" && !filepath.IsAbs(s.PasswordFile)) {
-		return fmt.Errorf("SMTP credentials require an absolute private password file")
+	if c.Multica != nil {
+		if c.SchemaVersion != 2 || c.Public == nil || c.Multica.Validate() != nil || c.Multica.ProviderPolicyRevision != c.Public.ProviderPolicyRevision || filepath.Clean(c.Multica.Socket) == filepath.Clean(c.AdminSocket) {
+			return fmt.Errorf("invalid Multica public feedback configuration")
+		}
+		// Keep sockets outside the public store's closed record namespace.
+		if filepath.Clean(c.Multica.Socket) != filepath.Join(filepath.Clean(c.DataDir), "native.sock") {
+			return fmt.Errorf("Multica socket must be native.sock inside the private legacy data directory")
+		}
+	}
+	s := c.SMTP
+	if c.SchemaVersion == 1 || s != (SMTPConfig{}) {
+		if s.Host == "" || len(s.Host) > 253 || strings.ContainsAny(s.Host, "\r\n\x00 /@") || s.Port < 1 || s.Port > 65535 || (s.TLSMode != "starttls" && s.TLSMode != "tls") || !validEmail(s.From) || !validEmail(s.To) || len(s.Username) > 254 || strings.ContainsAny(s.Username, "\r\n\x00") {
+			return fmt.Errorf("invalid SMTP configuration")
+		}
+		if (s.Username == "") != (s.PasswordFile == "") || (s.PasswordFile != "" && !filepath.IsAbs(s.PasswordFile)) {
+			return fmt.Errorf("SMTP credentials require an absolute private password file")
+		}
 	}
 	c.Limits = c.Limits.defaults()
 	l := c.Limits

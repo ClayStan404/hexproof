@@ -60,14 +60,14 @@ func TestReportsReplaceDirectoryMetadataAcrossRefreshes(t *testing.T) {
 		t.Run(step.name, func(t *testing.T) {
 			r := report()
 			r.Rooms, r.Events = step.rooms, step.events
-			_, err := c.Do(context.Background(), Request{
+			_, err := c.Do(context.Background(), Request{RPCVersion: RPCVersion,
 				Operation: "report", NodeID: "N1", Generation: generation,
 				ReportSequence: uint64(index + 2), Report: &r,
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			view, err := c.Do(context.Background(), Request{Operation: "view", NodeID: "N1", Generation: generation})
+			view, err := c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view", NodeID: "N1", Generation: generation})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -102,20 +102,20 @@ func TestReportsRemoveAbsentAccountResources(t *testing.T) {
 	generation := register(t, c, "N1", r)
 	fresh := report()
 	fresh.Resources["bob"] = []protocol.AccountResource{{Kind: "cube", ID: "CUBE12", Name: "Current Cube", Role: "player"}}
-	_, err = c.Do(context.Background(), Request{
+	_, err = c.Do(context.Background(), Request{RPCVersion: RPCVersion,
 		Operation: "report", NodeID: "N1", Generation: generation, ReportSequence: 2, Report: &fresh,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	view, err := c.Do(context.Background(), Request{Operation: "view", NodeID: "N1", Generation: generation, AccountID: "alice"})
+	view, err := c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view", NodeID: "N1", Generation: generation, AccountID: "alice"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(view.Resources) != 0 {
 		t.Fatalf("removed account resources remained discoverable: %+v", view.Resources)
 	}
-	view, err = c.Do(context.Background(), Request{Operation: "view", NodeID: "N1", Generation: generation, AccountID: "bob"})
+	view, err = c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view", NodeID: "N1", Generation: generation, AccountID: "bob"})
 	if err != nil || len(view.Resources) != 1 || view.Resources[0].ID != "N1:CUBE12" {
 		t.Fatalf("replacement account resources = %+v, error = %v", view.Resources, err)
 	}

@@ -104,6 +104,18 @@ class UpdateNetworkAccessManager final : public QNetworkAccessManager
     QString version;
     QString releaseBody = u"Release notes"_s;
     QByteArray package = QByteArrayLiteral("portable application package");
+    QString compatibilityProtocol;
+    QString compatibilityVersion;
+    bool tamperCompatibility = false;
+    QByteArray compatibility() const
+    {
+        return QJsonDocument(
+                   QJsonObject{{u"schemaVersion"_s, 1},
+                               {u"applicationVersion"_s,
+                                compatibilityVersion.isEmpty() ? version : compatibilityVersion},
+                               {u"gameProtocol"_s, compatibilityProtocol}})
+            .toJson(QJsonDocument::Compact);
+    }
     bool wrongChecksum = false;
     bool failApi = false;
     bool failFallbackChecksums = false;
@@ -174,8 +186,19 @@ class UpdateNetworkAccessManager final : public QNetworkAccessManager
                     ? QByteArray(64, '0')
                     : QCryptographicHash::hash(package, QCryptographicHash::Sha256).toHex();
             return new StaticReply(
-                request, checksum + QByteArrayLiteral("  ") + assetName.toUtf8() + '\n',
+                request,
+                checksum + QByteArrayLiteral("  ") + assetName.toUtf8() + '\n' +
+                    (compatibilityProtocol.isEmpty()
+                         ? QByteArray{}
+                         : QCryptographicHash::hash(compatibility(), QCryptographicHash::Sha256)
+                                   .toHex() +
+                               QByteArrayLiteral("  compatibility.json\n")),
                 QByteArrayLiteral("text/plain"), 200, QNetworkReply::NoError, this);
+        }
+        if (request.url().path().endsWith(u"/compatibility.json"_s)) {
+            return new StaticReply(
+                request, tamperCompatibility ? QByteArrayLiteral("{}") : compatibility(),
+                QByteArrayLiteral("application/json"), 200, QNetworkReply::NoError, this);
         }
         if (request.url().path().endsWith(QLatin1Char('/') + assetName)) {
             return new StaticReply(request, package, QByteArrayLiteral("application/octet-stream"),
@@ -194,6 +217,8 @@ class TestAppUpdateService final : public QObject
     Q_OBJECT
 
   private slots:
+    void compatibleProtocolMetadata_data() const;
+    void compatibleProtocolMetadata() const;
     void initTestCase();
     void cleanup();
     void checksLatestReleaseAndSelectsPlatformPackage() const;
@@ -201,7 +226,7 @@ class TestAppUpdateService final : public QObject
     void doesNotOfferCurrentOrOlderLatestRelease() const;
     void downloadsAndVerifiesPackage() const;
     void rejectsPackageWithWrongChecksum() const;
-    void requestsExactServerVersion() const;
+    void requestsExplicitApplicationVersion() const;
     void automaticCheckRunsAtMostOncePerDay() const;
     void fallsBackToGithubDownloadWhenApiFails() const;
     void fallsBackToTaggedDownloadWhenExactApiFails() const;
@@ -213,6 +238,47 @@ class TestAppUpdateService final : public QObject
   private:
     QTemporaryDir m_settings;
 };
+
+void TestAppUpdateService::compatibleProtocolMetadata_data() const
+{
+    QTest::addColumn<QString>("offered");
+    QTest::addColumn<bool>("tampered");
+    QTest::addColumn<bool>("fallback");
+    QTest::addColumn<bool>("wrongVersion");
+    QTest::addColumn<bool>("accepted");
+    QTest::newRow("verified") << u"hexproof.v3"_s << false << false << false << true;
+    QTest::newRow("API-fallback") << u"hexproof.v3"_s << false << true << false << true;
+    QTest::newRow("wrong-protocol") << u"hexproof.v4"_s << false << false << false << false;
+    QTest::newRow("tampered") << u"hexproof.v3"_s << true << false << false << false;
+    QTest::newRow("missing") << QString{} << false << false << false << false;
+    QTest::newRow("wrong-version") << u"hexproof.v3"_s << false << false << true << false;
+}
+
+void TestAppUpdateService::compatibleProtocolMetadata() const
+{
+    QFETCH(QString, offered);
+    QFETCH(bool, tampered);
+    QFETCH(bool, fallback);
+    QFETCH(bool, wrongVersion);
+    QFETCH(bool, accepted);
+    QTemporaryDir directory;
+    UpdateNetworkAccessManager network;
+    AppUpdateService service(directory.path(), &network);
+    network.version = nextReleaseVersion(service);
+    network.compatibilityProtocol = offered;
+    network.compatibilityVersion = wrongVersion ? u"99.0.0"_s : network.version;
+    network.tamperCompatibility = tampered;
+    network.failApi = fallback;
+    service.checkForProtocol(u"hexproof.v3"_s);
+    QTRY_VERIFY(!service.checking());
+    QCOMPARE(service.targetProtocol() == u"hexproof.v3"_s, accepted);
+    QCOMPARE(service.lastError().isEmpty(), accepted);
+    if (accepted) {
+        QVERIFY(service.releaseAvailable());
+        service.downloadUpdate();
+        QTRY_VERIFY(service.downloadReady());
+    }
+}
 
 void TestAppUpdateService::initTestCase()
 {
@@ -323,7 +389,7 @@ void TestAppUpdateService::rejectsPackageWithWrongChecksum() const
     QVERIFY(!QFileInfo::exists(downloads.filePath(expectedAssetName(network.version))));
 }
 
-void TestAppUpdateService::requestsExactServerVersion() const
+void TestAppUpdateService::requestsExplicitApplicationVersion() const
 {
     QTemporaryDir downloads;
     QVERIFY(downloads.isValid());

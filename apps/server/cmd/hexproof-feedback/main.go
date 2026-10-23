@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -48,40 +49,100 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	sender, err := feedback.NewSMTPSender(c.SMTP)
-	if err != nil {
-		return err
+	var sender feedback.MailSender
+	if c.SMTP.Host != "" {
+		sender, err = feedback.NewSMTPSender(c.SMTP)
+		if err != nil {
+			return err
+		}
+	}
+	var publisher *feedback.GitHubPublisher
+	if c.Public != nil {
+		publisher, err = feedback.NewGitHubPublisher(*c.Public, c.PublicURL)
+		if err != nil {
+			return err
+		}
+	}
+	var multica *feedback.MulticaWebhook
+	if c.Multica != nil {
+		multica, err = feedback.NewMulticaWebhook(*c.Multica)
+		if err != nil {
+			return err
+		}
 	}
 	if *validate {
 		fmt.Println("feedback configuration valid")
 		return nil
 	}
-	store, err := feedback.OpenStore(c.DataDir, c.Limits)
+	legacy, err := openLegacyCompatibility(c, sender)
 	if err != nil {
-		return fmt.Errorf("feedback store could not be opened")
+		return err
 	}
-	defer store.Close()
-	handler := feedback.NewHandler(store, c.Limits, c.TrustedProxyCIDRs)
+	defer legacy.store.Close()
+	var handler interface {
+		http.Handler
+		Close()
+	}
+	var publicStore *feedback.PublicStore
+	if c.Public != nil {
+		publicStore, err = feedback.OpenPublicStore(c.Public.DataDir, c.Limits)
+		if err != nil {
+			return fmt.Errorf("public feedback store could not be opened")
+		}
+		defer publicStore.Close()
+		handler = feedback.NewPublicHandler(publicStore, *c.Public, legacy.store, c.Limits, c.TrustedProxyCIDRs)
+	} else {
+		handler = feedback.NewHandler(legacy.store, c.Limits, c.TrustedProxyCIDRs)
+	}
 	public := &http.Server{Addr: c.Listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 45 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	listener, err := net.Listen("tcp", c.Listen)
 	if err != nil {
 		return fmt.Errorf("feedback listener unavailable")
 	}
 	defer listener.Close()
-	admin, adminListener, err := feedback.StartAdmin(c.AdminSocket, store)
+	admin, adminListener, err := feedback.StartAdmin(c.AdminSocket, legacy.store)
 	if err != nil {
 		return fmt.Errorf("feedback administration listener unavailable")
 	}
 	defer adminListener.Close()
+	var native *http.Server
+	var nativeListener net.Listener
+	if multica != nil {
+		native, nativeListener, err = feedback.StartMulticaNative(c.Multica.Socket, publicStore, multica.Binding(), c.Multica.ProviderPolicyRevision)
+		if err != nil {
+			return fmt.Errorf("native feedback listener unavailable")
+		}
+		defer nativeListener.Close()
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	workerCtx, cancelWorker := context.WithCancel(context.Background())
 	defer cancelWorker()
 	workerDone := make(chan struct{})
-	go func() { defer close(workerDone); feedback.RunOutbox(workerCtx, store, sender) }()
-	errors := make(chan error, 2)
+	go func() {
+		defer close(workerDone)
+		var workers sync.WaitGroup
+		workers.Add(1)
+		go func() { defer workers.Done(); legacy.run(workerCtx) }()
+		if publicStore != nil {
+			workers.Add(1)
+			go func() { defer workers.Done(); feedback.RunPublicOutbox(workerCtx, publicStore, publisher) }()
+		}
+		if multica != nil {
+			workers.Add(1)
+			go func() {
+				defer workers.Done()
+				feedback.RunMulticaOutbox(workerCtx, publicStore, multica, c.Multica.ProviderPolicyRevision)
+			}()
+		}
+		workers.Wait()
+	}()
+	errors := make(chan error, 3)
 	go func() { errors <- public.Serve(listener) }()
 	go func() { errors <- admin.Serve(adminListener) }()
+	if native != nil {
+		go func() { errors <- native.Serve(nativeListener) }()
+	}
 	log.Printf("hexproof-feedback %s ready", buildinfo.Version)
 	var runErr error
 	select {
@@ -99,6 +160,9 @@ func run() error {
 	}
 	if admin.Shutdown(shutdownCtx) != nil {
 		_ = admin.Close()
+	}
+	if native != nil && native.Shutdown(shutdownCtx) != nil {
+		_ = native.Close()
 	}
 	cancelWorker()
 	<-workerDone

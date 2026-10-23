@@ -1,0 +1,349 @@
+{
+  "name": "Owner regression — Eldrazi Tron",
+  "format": "modern",
+  "deckFormat": "modern",
+  "mainboard": [
+    {
+      "name": "Abstergo Entertainment",
+      "count": 1,
+      "typeLine": "Legendary Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ACR",
+      "collectorNumber": "79",
+      "catalogName": "Abstergo Entertainment"
+    },
+    {
+      "name": "Devourer of Destiny",
+      "count": 4,
+      "typeLine": "Creature — Eldrazi",
+      "manaCost": "{5}{C}{C}",
+      "manaValue": 7.0,
+      "setCode": "MH3",
+      "collectorNumber": "2",
+      "catalogName": "Devourer of Destiny"
+    },
+    {
+      "name": "Dismember",
+      "count": 2,
+      "typeLine": "Instant",
+      "manaCost": "{1}{B/P}{B/P}",
+      "manaValue": 3.0,
+      "setCode": "NPH",
+      "collectorNumber": "57",
+      "catalogName": "Dismember"
+    },
+    {
+      "name": "Eldrazi Temple",
+      "count": 4,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ROE",
+      "collectorNumber": "227",
+      "catalogName": "Eldrazi Temple"
+    },
+    {
+      "name": "Expedition Map",
+      "count": 4,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "ZEN",
+      "collectorNumber": "201",
+      "catalogName": "Expedition Map"
+    },
+    {
+      "name": "Forest",
+      "count": 2,
+      "typeLine": "Basic Land — Forest",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "LEA",
+      "collectorNumber": "294",
+      "catalogName": "Forest"
+    },
+    {
+      "name": "Giant's Boulder",
+      "count": 3,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "HOB",
+      "collectorNumber": "173",
+      "catalogName": "Giant's Boulder"
+    },
+    {
+      "name": "Karn, the Great Creator",
+      "count": 4,
+      "typeLine": "Legendary Planeswalker — Karn",
+      "manaCost": "{4}",
+      "manaValue": 4.0,
+      "setCode": "WAR",
+      "collectorNumber": "1",
+      "catalogName": "Karn, the Great Creator"
+    },
+    {
+      "name": "Kozilek's Command",
+      "count": 4,
+      "typeLine": "Kindred Instant — Eldrazi",
+      "manaCost": "{X}{C}{C}",
+      "manaValue": 2.0,
+      "setCode": "MH3",
+      "collectorNumber": "11",
+      "catalogName": "Kozilek's Command"
+    },
+    {
+      "name": "Sire of Seven Deaths",
+      "count": 1,
+      "typeLine": "Creature — Eldrazi",
+      "manaCost": "{7}",
+      "manaValue": 7.0,
+      "setCode": "FDN",
+      "collectorNumber": "1",
+      "catalogName": "Sire of Seven Deaths"
+    },
+    {
+      "name": "Sowing Mycospawn",
+      "count": 4,
+      "typeLine": "Creature — Eldrazi Fungus",
+      "manaCost": "{3}{G}",
+      "manaValue": 4.0,
+      "setCode": "MH3",
+      "collectorNumber": "170",
+      "catalogName": "Sowing Mycospawn"
+    },
+    {
+      "name": "Talisman of Resilience",
+      "count": 4,
+      "typeLine": "Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "MH1",
+      "collectorNumber": "234",
+      "catalogName": "Talisman of Resilience"
+    },
+    {
+      "name": "Trinisphere",
+      "count": 2,
+      "typeLine": "Artifact",
+      "manaCost": "{3}",
+      "manaValue": 3.0,
+      "setCode": "DST",
+      "collectorNumber": "154",
+      "catalogName": "Trinisphere"
+    },
+    {
+      "name": "Ugin's Labyrinth",
+      "count": 4,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "MH3",
+      "collectorNumber": "233",
+      "catalogName": "Ugin's Labyrinth"
+    },
+    {
+      "name": "Ugin, Eye of the Storms",
+      "count": 4,
+      "typeLine": "Legendary Planeswalker — Ugin",
+      "manaCost": "{7}",
+      "manaValue": 7.0,
+      "setCode": "TDM",
+      "collectorNumber": "1",
+      "catalogName": "Ugin, Eye of the Storms"
+    },
+    {
+      "name": "Ulamog, the Ceaseless Hunger",
+      "count": 1,
+      "typeLine": "Legendary Creature — Eldrazi",
+      "manaCost": "{10}",
+      "manaValue": 10.0,
+      "setCode": "BFZ",
+      "collectorNumber": "15",
+      "catalogName": "Ulamog, the Ceaseless Hunger"
+    },
+    {
+      "name": "Urza's Mine",
+      "count": 4,
+      "typeLine": "Land — Urza's Mine",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ATQ",
+      "collectorNumber": "83a",
+      "catalogName": "Urza's Mine"
+    },
+    {
+      "name": "Urza's Power Plant",
+      "count": 4,
+      "typeLine": "Land — Urza's Power-Plant",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ATQ",
+      "collectorNumber": "84a",
+      "catalogName": "Urza's Power Plant"
+    },
+    {
+      "name": "Urza's Tower",
+      "count": 4,
+      "typeLine": "Land — Urza's Tower",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ATQ",
+      "collectorNumber": "85a",
+      "catalogName": "Urza's Tower"
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Chalice of the Void",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{X}{X}",
+      "manaValue": 0.0,
+      "setCode": "MRD",
+      "collectorNumber": "150",
+      "catalogName": "Chalice of the Void"
+    },
+    {
+      "name": "Cursed Totem",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "MIR",
+      "collectorNumber": "299",
+      "catalogName": "Cursed Totem"
+    },
+    {
+      "name": "Disruptor Flute",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "MH3",
+      "collectorNumber": "209",
+      "catalogName": "Disruptor Flute"
+    },
+    {
+      "name": "Ensnaring Bridge",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{3}",
+      "manaValue": 3.0,
+      "setCode": "STH",
+      "collectorNumber": "133",
+      "catalogName": "Ensnaring Bridge"
+    },
+    {
+      "name": "Extinguisher Battleship",
+      "count": 1,
+      "typeLine": "Artifact — Spacecraft",
+      "manaCost": "{8}",
+      "manaValue": 8.0,
+      "setCode": "EOE",
+      "collectorNumber": "242",
+      "catalogName": "Extinguisher Battleship"
+    },
+    {
+      "name": "Grafdigger's Cage",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "DKA",
+      "collectorNumber": "149",
+      "catalogName": "Grafdigger's Cage"
+    },
+    {
+      "name": "Haywire Mite",
+      "count": 1,
+      "typeLine": "Artifact Creature — Insect",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "BRO",
+      "collectorNumber": "199",
+      "catalogName": "Haywire Mite"
+    },
+    {
+      "name": "Liquimetal Coating",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "SOM",
+      "collectorNumber": "171",
+      "catalogName": "Liquimetal Coating"
+    },
+    {
+      "name": "The Filigree Sylex",
+      "count": 1,
+      "typeLine": "Legendary Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "ONE",
+      "collectorNumber": "227",
+      "catalogName": "The Filigree Sylex"
+    },
+    {
+      "name": "The Stone Brain",
+      "count": 1,
+      "typeLine": "Legendary Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "BRO",
+      "collectorNumber": "247",
+      "catalogName": "The Stone Brain"
+    },
+    {
+      "name": "The Ten Rings",
+      "count": 1,
+      "typeLine": "Legendary Artifact",
+      "manaCost": "{8}",
+      "manaValue": 8.0,
+      "setCode": "MSH",
+      "collectorNumber": "251",
+      "catalogName": "The Ten Rings"
+    },
+    {
+      "name": "Tormod's Crypt",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "setCode": "DRK",
+      "collectorNumber": "112",
+      "catalogName": "Tormod's Crypt"
+    },
+    {
+      "name": "Torpor Orb",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "NPH",
+      "collectorNumber": "162",
+      "catalogName": "Torpor Orb"
+    },
+    {
+      "name": "Trinisphere",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{3}",
+      "manaValue": 3.0,
+      "setCode": "DST",
+      "collectorNumber": "154",
+      "catalogName": "Trinisphere"
+    },
+    {
+      "name": "Walking Ballista",
+      "count": 1,
+      "typeLine": "Artifact Creature — Construct",
+      "manaCost": "{X}{X}",
+      "manaValue": 0.0,
+      "setCode": "AER",
+      "collectorNumber": "181",
+      "catalogName": "Walking Ballista"
+    }
+  ]
+}

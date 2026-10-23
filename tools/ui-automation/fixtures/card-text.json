@@ -1,0 +1,45 @@
+{
+  "name": "Readable native payment text",
+  "format": "modern",
+  "deckFormat": "modern",
+  "source": "Synthetic 60-card interaction fixture with increased nonland copy counts; not a format-legal tournament deck or full-match evaluation",
+  "mainboard": [
+    {
+      "name": "Swamp",
+      "count": 30,
+      "setCode": "LEA",
+      "collectorNumber": "290",
+      "typeLine": "Basic Land — Swamp",
+      "manaValue": 0.0,
+      "manaCost": ""
+    },
+    {
+      "name": "Duress",
+      "count": 10,
+      "setCode": "USG",
+      "collectorNumber": "132",
+      "typeLine": "Sorcery",
+      "manaValue": 1.0,
+      "manaCost": "{B}"
+    },
+    {
+      "name": "Deadly Cover-Up",
+      "count": 10,
+      "setCode": "MKM",
+      "collectorNumber": "83",
+      "typeLine": "Sorcery",
+      "manaValue": 5.0,
+      "manaCost": "{3}{B}{B}"
+    },
+    {
+      "name": "Shallow Grave",
+      "count": 10,
+      "setCode": "MIR",
+      "collectorNumber": "141",
+      "typeLine": "Instant",
+      "manaValue": 2.0,
+      "manaCost": "{1}{B}"
+    }
+  ],
+  "sideboard": []
+}

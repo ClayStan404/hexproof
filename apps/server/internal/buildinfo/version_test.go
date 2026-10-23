@@ -9,11 +9,9 @@ import (
 	"testing"
 )
 
-// TestVersionMatchesClientCmakeLiteral guards the dev-flow version handshake.
-// The server rejects any client whose version differs from buildinfo.Version
-// (handler_session.go), and plain `go build` uses this Go literal instead of
-// the release -ldflags injection. Keep the two literals in sync or dev-built
-// servers hard-refuse freshly built clients.
+// TestVersionMatchesClientCmakeLiteral keeps default source release metadata
+// coherent. Deployment may retain older server releases: admission depends on
+// the communication protocol, never this application version.
 func TestVersionMatchesClientCmakeLiteral(t *testing.T) {
 	const cmakePath = "../../../../apps/client-qt/CMakeLists.txt"
 	raw, err := os.ReadFile(cmakePath)
@@ -29,7 +27,7 @@ func TestVersionMatchesClientCmakeLiteral(t *testing.T) {
 	}
 	if string(literal[1]) != Version {
 		t.Fatalf("buildinfo.Version = %q, CMakeLists HEXPROOF_VERSION = %q; "+
-			"bump both together or dev-built servers will reject the client",
+			"keep default release metadata coherent; mixed releases remain protocol-compatible",
 			Version, literal[1])
 	}
 }

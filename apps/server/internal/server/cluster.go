@@ -66,7 +66,7 @@ func (h *Handler) clusterNode() string {
 // Decks, packs, credentials, actions and authoritative game state stay local.
 func (h *Handler) clusterReport() cluster.Report {
 	r := cluster.Report{
-		Version: buildinfo.Version, Rooms: h.listRooms(nil), Events: h.tournaments.list(),
+		Version: buildinfo.Version, Protocol: protocol.ProtocolVersion, Rooms: h.listRooms(nil), Events: h.tournaments.list(),
 		Resources: map[string][]protocol.AccountResource{},
 		MaxRooms:  h.config.MaxRooms, MaxEvents: h.config.MaxTournaments,
 		Connections: atomic.LoadInt64(&h.activeConnections), MaxConnections: h.config.MaxConnections,

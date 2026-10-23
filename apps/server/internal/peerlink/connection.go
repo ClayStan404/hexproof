@@ -19,6 +19,8 @@ import (
 
 	"github.com/pion/logging"
 	"github.com/pion/webrtc/v4"
+
+	"hexproof/server/internal/protocol"
 )
 
 const (
@@ -169,7 +171,7 @@ func newConnection(parent context.Context, config Config, callbacks Callbacks, c
 	})
 	go func() { <-ctx.Done(); _ = c.Close() }()
 	if config.Offerer {
-		channel, err := pc.CreateDataChannel("hexproof-game", &webrtc.DataChannelInit{Protocol: ptr("hexproof.v1")})
+		channel, err := pc.CreateDataChannel("hexproof-game", &webrtc.DataChannelInit{Protocol: ptr(protocol.ProtocolVersion)})
 		if err != nil {
 			c.Close()
 			return nil, ErrUnavailable
@@ -258,7 +260,7 @@ func (c *Connection) ApplySignal(signal Signal) error {
 
 func (c *Connection) attach(channel *webrtc.DataChannel) {
 	c.mu.Lock()
-	if c.closed || c.channel != nil || channel.Label() != "hexproof-game" || channel.Protocol() != "hexproof.v1" || !channel.Ordered() || channel.MaxRetransmits() != nil || channel.MaxPacketLifeTime() != nil {
+	if c.closed || c.channel != nil || channel.Label() != "hexproof-game" || channel.Protocol() != protocol.ProtocolVersion || !channel.Ordered() || channel.MaxRetransmits() != nil || channel.MaxPacketLifeTime() != nil {
 		c.mu.Unlock()
 		c.fail()
 		return

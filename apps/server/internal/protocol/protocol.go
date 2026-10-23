@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-// Package protocol defines the hexproof.v1 wire envelope and message types.
+// Package protocol defines the hexproof.v2 wire envelope and message types.
 //
 // Wire conventions:
 //   - Protocol version `v` is negotiated ONCE at handshake. The authoritative
@@ -21,8 +21,8 @@ import (
 )
 
 // SessionHello is the payload of session.hello (C->S). ClientVersion is
-// required and must exactly match the server build. The client MAY offer a
-// protocol string; the server's session.welcome is authoritative.
+// required diagnostic metadata. Protocol is required and must match the hub;
+// application release versions are independent.
 type SessionHello struct {
 	RulesCrashReportSchema int           `json:"rulesCrashReportSchema,omitempty"`
 	ClusterRealm           string        `json:"clusterRealm,omitempty"`
@@ -30,7 +30,7 @@ type SessionHello struct {
 	NodeLatencies          []NodeLatency `json:"nodeLatencies,omitempty"`
 	DisplayName            string        `json:"displayName"`
 	ClientVersion          string        `json:"clientVersion"`
-	Protocol               string        `json:"protocol,omitempty"`
+	Protocol               string        `json:"protocol"`
 	ResumeToken            string        `json:"resumeToken,omitempty"`
 	LastSeq                int64         `json:"lastSeq,omitempty"`
 	AccountSession         string        `json:"accountSession,omitempty"`
@@ -65,10 +65,11 @@ type SessionWelcome struct {
 
 // ErrorPayload is the payload of an `error` message.
 type ErrorPayload struct {
-	Code            string `json:"code"`
-	Message         string `json:"message"`
-	ClientVersion   string `json:"clientVersion,omitempty"`
-	RequiredVersion string `json:"requiredVersion,omitempty"`
+	Code           string `json:"code"`
+	Message        string `json:"message"`
+	ClientVersion  string `json:"clientVersion,omitempty"`
+	ClientProtocol string `json:"clientProtocol,omitempty"`
+	ServerProtocol string `json:"serverProtocol,omitempty"`
 	// MinimumPlayers is a structured detail on tournament_not_ready errors:
 	// the checked-in count the tournament needs before it can start. Clients
 	// localize from it instead of parsing Message.

@@ -60,10 +60,10 @@ int runHelper()
         } else if (mode == u"session"_s) {
             const QJsonObject request = command.value(u"message"_s).toObject();
             publish({{u"message"_s,
-                      QJsonObject{{u"v"_s, u"hexproof.v1"_s},
+                      QJsonObject{{u"v"_s, u"hexproof.v2"_s},
                                   {u"type"_s, u"session.welcome"_s},
                                   {u"id"_s, request.value(u"id"_s)},
-                                  {u"payload"_s, QJsonObject{{u"v"_s, u"hexproof.v1"_s},
+                                  {u"payload"_s, QJsonObject{{u"v"_s, u"hexproof.v2"_s},
                                                              {u"serverVersion"_s,
                                                               QStringLiteral(HEXPROOF_VERSION)},
                                                              {u"connectionId"_s, u"home-test"_s},

@@ -13,6 +13,10 @@ __pycache__/
 
 # Operator-owned client server directory (copy from servers.example.json)
 /apps/client-qt/config/servers.json
+/apps/client-qt/config/feedback.json
+
+# Operator-provided SMTP credential
+/gmail
 
 # Claude Code session/plan artifacts (not part of the project)
 .claude/

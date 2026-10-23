@@ -53,7 +53,7 @@ func TestSideboardTimeoutMatchesGoldenFixture(t *testing.T) {
 	got := expired.Broadcast[0]
 
 	fixturePath := filepath.Join(
-		"../../../../testdata/protocol/v1", "sideboard-completed-timeout.json")
+		"../../../../testdata/protocol/v2", "sideboard-completed-timeout.json")
 	data, err := os.ReadFile(fixturePath)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)

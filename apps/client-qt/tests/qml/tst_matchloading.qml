@@ -977,7 +977,10 @@ TestCase {
         verify(hoverPreview !== null)
         verify(previewArt !== null)
         verify(previewName !== null)
-        verify(!previewName.visible)
+        // This fixture has no image. Retain an accessible card-name fallback
+        // instead of expecting the image-only presentation of a loaded face.
+        verify(previewName.visible)
+        compare(previewName.text, "Raging Goblin")
         tryVerify(() => hoverPreview.visible)
         fuzzyCompare(hoverPreview.height, hoverPreview.width * 88 / 63, 0.01)
         table.selection.selectCard(relationSeats[0].battlefield[0], 0)

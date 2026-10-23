@@ -5,6 +5,8 @@
 
 #include "RulesStateModels.h"
 
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QMetaObject>
 #include <QRegularExpression>
 #include <QStringList>
@@ -73,6 +75,9 @@ bool affectsSlots(const QList<int> &roles)
         case RulesCardModel::ControllerSeatRole:
         case RulesCardModel::TappedRole:
         case RulesCardModel::FaceDownRole:
+        case RulesCardModel::AttackingRole:
+        case RulesCardModel::AttackingTargetRole:
+        case RulesCardModel::AttackingSeatRole:
         case RulesCardModel::PowerRole:
         case RulesCardModel::ToughnessRole:
         case RulesCardModel::DamageRole:
@@ -81,6 +86,9 @@ bool affectsSlots(const QList<int> &roles)
         case RulesCardModel::ChosenCardIdsRole:
         case RulesCardModel::AnnotationsRole:
         case RulesCardModel::CountersSummaryRole:
+        case RulesCardModel::BlockingIdsRole:
+        case RulesCardModel::BlockedByIdsRole:
+        case RulesCardModel::AttackedByIdsRole:
             return true;
         default:
             return false;
@@ -88,12 +96,6 @@ bool affectsSlots(const QList<int> &roles)
     });
 }
 
-bool presentationOnly(const QList<int> &roles)
-{
-    return !roles.isEmpty() && std::all_of(roles.cbegin(), roles.cend(), [](int role) {
-        return role >= RulesCardModel::ActionCountRole && role <= RulesCardModel::LinksRole;
-    });
-}
 } // namespace
 
 RulesLaneSlotModel::RulesLaneSlotModel(QAbstractItemModel *source, int seat, const QString &zone,
@@ -183,6 +185,22 @@ void RulesLaneSlotModel::setCatalog(QObject *catalog)
 void RulesLaneSlotModel::beginBatch()
 {
     ++m_batchDepth;
+}
+
+void RulesLaneSlotModel::setCombatGroupingKeys(const QVariantMap &keys)
+{
+    QVariantMap groupingKeys;
+    for (auto entry = keys.cbegin(); entry != keys.cend(); ++entry) {
+        const QString key = entry.value().toString();
+        if (!entry.key().isEmpty() && !key.isEmpty())
+            groupingKeys.insert(entry.key(), key);
+    }
+    if (m_combatGroupingKeys == groupingKeys)
+        return;
+    m_combatGroupingKeys = std::move(groupingKeys);
+    if (m_zone == u"battlefield"_s)
+        noteStructure();
+    emit combatGroupingKeysChanged();
 }
 
 void RulesLaneSlotModel::endBatch()
@@ -356,8 +374,31 @@ QString RulesLaneSlotModel::stackKeyFor(int sourceRow, const QSet<QString> &host
         sourceValue(sourceRow, RulesCardModel::AttachedToRole).toString(),
         QString::number(exiled),
         !ignoreTapped && sourceValue(sourceRow, RulesCardModel::TappedRole).toBool() ? u"1"_s
-                                                                                     : u"0"_s};
+                                                                                     : u"0"_s,
+        combatKeyFor(sourceRow)};
     return parts.join(u'\u001f');
+}
+
+QString RulesLaneSlotModel::combatKeyFor(int sourceRow) const
+{
+    const auto relationshipIds = [this, sourceRow](int role) {
+        QStringList ids = sourceValue(sourceRow, role).toStringList();
+        ids.removeAll(QString());
+        ids.removeDuplicates();
+        ids.sort();
+        return QJsonArray::fromStringList(ids);
+    };
+    const QVariant attackingSeat = sourceValue(sourceRow, RulesCardModel::AttackingSeatRole);
+    const QJsonArray signature{
+        sourceValue(sourceRow, RulesCardModel::AttackingRole).toBool(),
+        attackingSeat.isValid() ? attackingSeat.toInt() : -1,
+        sourceValue(sourceRow, RulesCardModel::AttackingTargetRole).toString(),
+        relationshipIds(RulesCardModel::BlockingIdsRole),
+        relationshipIds(RulesCardModel::BlockedByIdsRole),
+        relationshipIds(RulesCardModel::AttackedByIdsRole),
+        m_combatGroupingKeys.value(sourceValue(sourceRow, RulesCardModel::IdRole).toString())
+            .toString()};
+    return QString::fromUtf8(QJsonDocument(signature).toJson(QJsonDocument::Compact));
 }
 
 void RulesLaneSlotModel::noteSourceData(const QModelIndex &topLeft, const QModelIndex &bottomRight,
@@ -370,7 +411,7 @@ void RulesLaneSlotModel::noteSourceData(const QModelIndex &topLeft, const QModel
             m_batchStructure = true;
         return;
     }
-    if (!presentationOnly(roles) && affectsSlots(roles)) {
+    if (affectsSlots(roles)) {
         rebuild(ids);
         return;
     }
@@ -512,6 +553,10 @@ void RulesLaneSlotModel::rebuild(const QSet<QString> &changedIds)
 void RulesLaneSlotModel::publish(QVector<Entry> next, QVariantList stacks, int layoutStackCount,
                                  const QSet<QString> &changedIds)
 {
+    const bool stacksUpdated = m_stacks != stacks;
+    if (stacksUpdated)
+        emit stacksAboutToChange();
+
     QHash<QString, int> nextIndex;
     nextIndex.reserve(next.size());
     for (int row = 0; row < next.size(); ++row)
@@ -576,7 +621,6 @@ void RulesLaneSlotModel::publish(QVector<Entry> next, QVariantList stacks, int l
                  previous->size != entry.size)
             emit dataChanged(index(row, 0), index(row, 0), slotRoles);
     }
-    const bool stacksUpdated = m_stacks != stacks;
     const bool layoutUpdated = m_layoutStackCount != layoutStackCount;
     m_stacks = std::move(stacks);
     m_layoutStackCount = layoutStackCount;

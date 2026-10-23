@@ -21,6 +21,7 @@ class AppUpdateService final : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString currentVersion READ currentVersion CONSTANT)
+    Q_PROPERTY(QString targetProtocol READ targetProtocol NOTIFY stateChanged)
     Q_PROPERTY(QString targetVersion READ targetVersion NOTIFY stateChanged)
     Q_PROPERTY(QString releaseName READ releaseName NOTIFY stateChanged)
     Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY stateChanged)
@@ -45,6 +46,7 @@ class AppUpdateService final : public QObject
 
     QString currentVersion() const;
     QString targetVersion() const;
+    QString targetProtocol() const;
     QString releaseName() const;
     QString releaseNotes() const;
     QString publishedAt() const;
@@ -61,6 +63,7 @@ class AppUpdateService final : public QObject
     QString lastError() const;
 
     Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void checkForProtocol(const QString &protocol);
     Q_INVOKABLE void checkForVersion(const QString &version);
     Q_INVOKABLE void checkAutomatically();
     Q_INVOKABLE void downloadUpdate();
@@ -77,6 +80,7 @@ class AppUpdateService final : public QObject
     struct ReleaseInfo
     {
         QString version;
+        QString gameProtocol;
         QString name;
         QString notes;
         QString publishedAt;
@@ -97,6 +101,8 @@ class AppUpdateService final : public QObject
     void handleFallbackChecksumsReply(QNetworkReply *reply);
     void requestAssetHead(ReleaseInfo release);
     void handleAssetHeadReply(QNetworkReply *reply);
+    void verifyProtocolOrApply(ReleaseInfo release);
+    void handleCompatibilityReply(QNetworkReply *reply);
     void applyRelease(ReleaseInfo release);
     void finishCheckWithError(const QString &error);
     void loadCachedLatestRelease();
@@ -134,6 +140,8 @@ class AppUpdateService final : public QObject
     ReleaseInfo m_release;
     ReleaseInfo m_pendingRelease;
     QString m_requestedExactVersion;
+    QString m_requestedProtocol;
+    QByteArray m_compatibilityChecksum;
     QString m_apiCheckError;
     bool m_cachedRelease = false;
     bool m_checking = false;

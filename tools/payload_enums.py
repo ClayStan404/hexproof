@@ -27,7 +27,7 @@ class EnumSchema:
 
 
 def _wire_constants(root: Path) -> dict[str, str]:
-    path = root / "protocol/v1/wire-schema.json"
+    path = root / "protocol/v2/wire-schema.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     raw_constants = data.get("constants")
     if not isinstance(raw_constants, list):
@@ -93,7 +93,7 @@ def _field_specs(
 
 def load_payload_enum_schema(root: Path) -> EnumSchema:
     constants = _wire_constants(root)
-    schema_dir = root / "protocol/v1"
+    schema_dir = root / "protocol/v2"
     paths = [schema_dir / "payload-schema.json"] + sorted(
         path
         for path in schema_dir.glob("payload-*.json")
@@ -169,7 +169,7 @@ def _validate_object(
 
 def verify_payload_enum_fixtures(root: Path, schema: EnumSchema) -> list[str]:
     problems: list[str] = []
-    for path in sorted((root / "testdata/protocol/v1").glob("*.json")):
+    for path in sorted((root / "testdata/protocol/v2").glob("*.json")):
         try:
             envelope = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

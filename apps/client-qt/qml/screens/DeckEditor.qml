@@ -199,11 +199,19 @@ Page {
                     anchors.margins: Theme.size(10)
                     spacing: Theme.size(6)
 
-                    CardCacheProgress {
-                        id: deckEditorCacheProgress
-                        objectName: "deckEditorCacheProgress"
+                    Item {
                         Layout.fillWidth: true
-                        catalogModel: cardCatalog
+                        // Hovering even cached art can briefly activate progress.
+                        // Keep its measured row reserved so loading never moves
+                        // the gallery or a button between pointer move and press.
+                        implicitHeight: deckEditorCacheProgress.implicitHeight
+
+                        CardCacheProgress {
+                            id: deckEditorCacheProgress
+                            objectName: "deckEditorCacheProgress"
+                            anchors.fill: parent
+                            catalogModel: cardCatalog
+                        }
                     }
 
                     DeckMainCollection {

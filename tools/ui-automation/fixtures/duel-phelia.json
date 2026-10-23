@@ -1,0 +1,752 @@
+{
+  "name": "MTGO Duel Commander Trial 16 2025-08-16 — TVAmaral — Phelia",
+  "format": "duel",
+  "deckFormat": "duel",
+  "source": "https://www.mtgo.com/decklist/duel-commander-trial-16-2025-08-1612810063",
+  "sideboard": [],
+  "mainboard": [
+    {
+      "name": "Umezawa's Jitte",
+      "count": 1,
+      "typeLine": "Legendary Artifact — Equipment",
+      "manaCost": "{2}",
+      "manaValue": 2.0,
+      "setCode": "BOK",
+      "collectorNumber": "163",
+      "catalogName": "Umezawa's Jitte"
+    },
+    {
+      "name": "Benevolent Bodyguard",
+      "count": 1,
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "JUD",
+      "collectorNumber": "5",
+      "catalogName": "Benevolent Bodyguard"
+    },
+    {
+      "name": "Eiganjo Castle",
+      "count": 1,
+      "typeLine": "Legendary Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "CHK",
+      "collectorNumber": "275",
+      "catalogName": "Eiganjo Castle"
+    },
+    {
+      "name": "Flagstones of Trokair",
+      "count": 1,
+      "typeLine": "Legendary Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "TSP",
+      "collectorNumber": "272",
+      "catalogName": "Flagstones of Trokair"
+    },
+    {
+      "name": "Gemstone Caverns",
+      "count": 1,
+      "typeLine": "Legendary Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "TSP",
+      "collectorNumber": "274",
+      "catalogName": "Gemstone Caverns"
+    },
+    {
+      "name": "Mana Tithe",
+      "count": 1,
+      "typeLine": "Instant",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "PLC",
+      "collectorNumber": "25",
+      "catalogName": "Mana Tithe"
+    },
+    {
+      "name": "Tectonic Edge",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "WWK",
+      "collectorNumber": "145",
+      "catalogName": "Tectonic Edge"
+    },
+    {
+      "name": "Crystal Vein",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "MIR",
+      "collectorNumber": "325",
+      "catalogName": "Crystal Vein"
+    },
+    {
+      "name": "Ranger of Eos",
+      "count": 1,
+      "typeLine": "Creature — Human Soldier Ranger",
+      "manaCost": "{3}{W}",
+      "manaValue": 4.0,
+      "setCode": "ALA",
+      "collectorNumber": "21",
+      "catalogName": "Ranger of Eos"
+    },
+    {
+      "name": "Stoneforge Mystic",
+      "count": 1,
+      "typeLine": "Creature — Kor Artificer",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "WWK",
+      "collectorNumber": "20",
+      "catalogName": "Stoneforge Mystic"
+    },
+    {
+      "name": "Oust",
+      "count": 1,
+      "typeLine": "Sorcery",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "ROE",
+      "collectorNumber": "40",
+      "catalogName": "Oust"
+    },
+    {
+      "name": "Blade Splicer",
+      "count": 1,
+      "typeLine": "Creature — Phyrexian Human Artificer",
+      "manaCost": "{2}{W}",
+      "manaValue": 3.0,
+      "setCode": "NPH",
+      "collectorNumber": "4",
+      "catalogName": "Blade Splicer"
+    },
+    {
+      "name": "Reverent Mantra",
+      "count": 1,
+      "typeLine": "Instant",
+      "manaCost": "{3}{W}",
+      "manaValue": 4.0,
+      "setCode": "MMQ",
+      "collectorNumber": "44",
+      "catalogName": "Reverent Mantra"
+    },
+    {
+      "name": "Tangle Wire",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{3}",
+      "manaValue": 3.0,
+      "setCode": "V13",
+      "collectorNumber": "8",
+      "catalogName": "Tangle Wire"
+    },
+    {
+      "name": "Thalia, Guardian of Thraben",
+      "count": 1,
+      "typeLine": "Legendary Creature — Human Soldier",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "DKA",
+      "collectorNumber": "24",
+      "catalogName": "Thalia, Guardian of Thraben"
+    },
+    {
+      "name": "Restoration Angel",
+      "count": 1,
+      "typeLine": "Creature — Angel",
+      "manaCost": "{3}{W}",
+      "manaValue": 4.0,
+      "setCode": "PAVR",
+      "collectorNumber": "32★",
+      "catalogName": "Restoration Angel"
+    },
+    {
+      "name": "Council's Judgment",
+      "count": 1,
+      "typeLine": "Sorcery",
+      "manaCost": "{1}{W}{W}",
+      "manaValue": 3.0,
+      "setCode": "CNS",
+      "collectorNumber": "16",
+      "catalogName": "Council's Judgment"
+    },
+    {
+      "name": "Parallax Wave",
+      "count": 1,
+      "typeLine": "Enchantment",
+      "manaCost": "{2}{W}{W}",
+      "manaValue": 4.0,
+      "setCode": "PLST",
+      "collectorNumber": "NEM-17",
+      "catalogName": "Parallax Wave"
+    },
+    {
+      "name": "Swords to Plowshares",
+      "count": 1,
+      "typeLine": "Instant",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "LEA",
+      "collectorNumber": "40",
+      "catalogName": "Swords to Plowshares"
+    },
+    {
+      "name": "Skullclamp",
+      "count": 1,
+      "typeLine": "Artifact — Equipment",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "DST",
+      "collectorNumber": "140",
+      "catalogName": "Skullclamp"
+    },
+    {
+      "name": "City of Traitors",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "EXO",
+      "collectorNumber": "143",
+      "catalogName": "City of Traitors"
+    },
+    {
+      "name": "Thraben Inspector",
+      "count": 1,
+      "typeLine": "Creature — Human Soldier",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "SOI",
+      "collectorNumber": "44",
+      "catalogName": "Thraben Inspector"
+    },
+    {
+      "name": "Unexpectedly Absent",
+      "count": 1,
+      "typeLine": "Instant",
+      "manaCost": "{X}{W}{W}",
+      "manaValue": 2.0,
+      "setCode": "C13",
+      "collectorNumber": "25",
+      "catalogName": "Unexpectedly Absent"
+    },
+    {
+      "name": "Flickerwisp",
+      "count": 1,
+      "typeLine": "Creature — Elemental",
+      "manaCost": "{1}{W}{W}",
+      "manaValue": 3.0,
+      "setCode": "EVE",
+      "collectorNumber": "6",
+      "catalogName": "Flickerwisp"
+    },
+    {
+      "name": "Rishadan Port",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "MMQ",
+      "collectorNumber": "324",
+      "catalogName": "Rishadan Port"
+    },
+    {
+      "name": "Hope of Ghirapur",
+      "count": 1,
+      "typeLine": "Legendary Artifact Creature — Thopter",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "AER",
+      "collectorNumber": "154",
+      "catalogName": "Hope of Ghirapur"
+    },
+    {
+      "name": "Palace Jailer",
+      "count": 1,
+      "typeLine": "Creature — Human Soldier",
+      "manaCost": "{2}{W}{W}",
+      "manaValue": 4.0,
+      "setCode": "CN2",
+      "collectorNumber": "18",
+      "catalogName": "Palace Jailer"
+    },
+    {
+      "name": "Mishra's Factory",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ATQ",
+      "collectorNumber": "80a",
+      "catalogName": "Mishra's Factory"
+    },
+    {
+      "name": "Ephemerate",
+      "count": 1,
+      "typeLine": "Instant",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH1",
+      "collectorNumber": "7",
+      "catalogName": "Ephemerate"
+    },
+    {
+      "name": "Giver of Runes",
+      "count": 1,
+      "typeLine": "Creature — Kor Cleric",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH1",
+      "collectorNumber": "13",
+      "catalogName": "Giver of Runes"
+    },
+    {
+      "name": "On Thin Ice",
+      "count": 1,
+      "typeLine": "Snow Enchantment — Aura",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH1",
+      "collectorNumber": "20",
+      "catalogName": "On Thin Ice"
+    },
+    {
+      "name": "Ranger-Captain of Eos",
+      "count": 1,
+      "typeLine": "Creature — Human Soldier Ranger",
+      "manaCost": "{1}{W}{W}",
+      "manaValue": 3.0,
+      "setCode": "MH1",
+      "collectorNumber": "21",
+      "catalogName": "Ranger-Captain of Eos"
+    },
+    {
+      "name": "Snow-Covered Plains",
+      "count": 27,
+      "typeLine": "Basic Snow Land — Plains",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ICE",
+      "collectorNumber": "367",
+      "catalogName": "Snow-Covered Plains"
+    },
+    {
+      "name": "Drannith Magistrate",
+      "count": 1,
+      "typeLine": "Creature — Human Wizard",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "IKO",
+      "collectorNumber": "11",
+      "catalogName": "Drannith Magistrate"
+    },
+    {
+      "name": "Containment Priest",
+      "count": 1,
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "C14",
+      "collectorNumber": "5",
+      "catalogName": "Containment Priest"
+    },
+    {
+      "name": "Skyclave Apparition",
+      "count": 1,
+      "typeLine": "Creature — Kor Spirit",
+      "manaCost": "{1}{W}{W}",
+      "manaValue": 3.0,
+      "setCode": "ZNR",
+      "collectorNumber": "39",
+      "catalogName": "Skyclave Apparition"
+    },
+    {
+      "name": "War Room",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "CMR",
+      "collectorNumber": "361",
+      "catalogName": "War Room"
+    },
+    {
+      "name": "Elite Spellbinder",
+      "count": 1,
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{2}{W}",
+      "manaValue": 3.0,
+      "setCode": "STX",
+      "collectorNumber": "17",
+      "catalogName": "Elite Spellbinder"
+    },
+    {
+      "name": "Esper Sentinel",
+      "count": 1,
+      "typeLine": "Artifact Creature — Human Soldier",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH2",
+      "collectorNumber": "12",
+      "catalogName": "Esper Sentinel"
+    },
+    {
+      "name": "Sanctifier en-Vec",
+      "count": 1,
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{W}{W}",
+      "manaValue": 2.0,
+      "setCode": "MH2",
+      "collectorNumber": "27",
+      "catalogName": "Sanctifier en-Vec"
+    },
+    {
+      "name": "Urza's Saga",
+      "count": 1,
+      "typeLine": "Enchantment Land — Urza's Saga",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "PLST",
+      "collectorNumber": "MH2-259",
+      "catalogName": "Urza's Saga"
+    },
+    {
+      "name": "Portable Hole",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "AFR",
+      "collectorNumber": "33",
+      "catalogName": "Portable Hole"
+    },
+    {
+      "name": "Mother of Runes",
+      "count": 1,
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "ULG",
+      "collectorNumber": "14",
+      "catalogName": "Mother of Runes"
+    },
+    {
+      "name": "Lion Sash",
+      "count": 1,
+      "typeLine": "Artifact Creature — Equipment Cat",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "NEO",
+      "collectorNumber": "26",
+      "catalogName": "Lion Sash"
+    },
+    {
+      "name": "Eiganjo, Seat of the Empire",
+      "count": 1,
+      "typeLine": "Legendary Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "NEO",
+      "collectorNumber": "268",
+      "catalogName": "Eiganjo, Seat of the Empire"
+    },
+    {
+      "name": "Seasoned Dungeoneer",
+      "count": 1,
+      "typeLine": "Creature — Human Warrior",
+      "manaCost": "{3}{W}",
+      "manaValue": 4.0,
+      "setCode": "SLD",
+      "collectorNumber": "2505",
+      "catalogName": "Seasoned Dungeoneer"
+    },
+    {
+      "name": "Steel Seraph",
+      "count": 1,
+      "typeLine": "Artifact Creature — Angel",
+      "manaCost": "{6}",
+      "manaValue": 6.0,
+      "setCode": "BRO",
+      "collectorNumber": "38",
+      "catalogName": "Steel Seraph"
+    },
+    {
+      "name": "Ossification",
+      "count": 1,
+      "typeLine": "Enchantment — Aura",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "ONE",
+      "collectorNumber": "26",
+      "catalogName": "Ossification"
+    },
+    {
+      "name": "Skrelv, Defector Mite",
+      "count": 1,
+      "typeLine": "Legendary Artifact Creature — Phyrexian Mite",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "ONE",
+      "collectorNumber": "33",
+      "catalogName": "Skrelv, Defector Mite"
+    },
+    {
+      "name": "Glimmer Lens",
+      "count": 1,
+      "typeLine": "Artifact — Equipment",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "ONC",
+      "collectorNumber": "6",
+      "catalogName": "Glimmer Lens"
+    },
+    {
+      "name": "Staff of the Storyteller",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "ONC",
+      "collectorNumber": "10",
+      "catalogName": "Staff of the Storyteller"
+    },
+    {
+      "name": "The Wandering Emperor",
+      "count": 1,
+      "typeLine": "Legendary Planeswalker",
+      "manaCost": "{2}{W}{W}",
+      "manaValue": 4.0,
+      "setCode": "NEO",
+      "collectorNumber": "42",
+      "catalogName": "The Wandering Emperor"
+    },
+    {
+      "name": "Reprieve",
+      "count": 1,
+      "typeLine": "Instant",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "LTR",
+      "collectorNumber": "26",
+      "catalogName": "Reprieve"
+    },
+    {
+      "name": "Samwise the Stouthearted",
+      "count": 1,
+      "typeLine": "Legendary Creature — Halfling Peasant",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "LTR",
+      "collectorNumber": "28",
+      "catalogName": "Samwise the Stouthearted"
+    },
+    {
+      "name": "Novice Inspector",
+      "count": 1,
+      "typeLine": "Creature — Human Detective",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MKM",
+      "collectorNumber": "29",
+      "catalogName": "Novice Inspector"
+    },
+    {
+      "name": "Aven Interrupter",
+      "count": 1,
+      "typeLine": "Creature — Bird Rogue",
+      "manaCost": "{1}{W}{W}",
+      "manaValue": 3.0,
+      "setCode": "OTJ",
+      "collectorNumber": "4",
+      "catalogName": "Aven Interrupter"
+    },
+    {
+      "name": "Dust Bowl",
+      "count": 1,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "MMQ",
+      "collectorNumber": "316",
+      "catalogName": "Dust Bowl"
+    },
+    {
+      "name": "Guide of Souls",
+      "count": 1,
+      "typeLine": "Creature — Human Cleric",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH3",
+      "collectorNumber": "29",
+      "catalogName": "Guide of Souls"
+    },
+    {
+      "name": "Static Prison",
+      "count": 1,
+      "typeLine": "Enchantment",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH3",
+      "collectorNumber": "44",
+      "catalogName": "Static Prison"
+    },
+    {
+      "name": "Razorgrass Ambush",
+      "count": 1,
+      "typeLine": "Instant // Land",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "MH3",
+      "collectorNumber": "238",
+      "catalogName": "Razorgrass Ambush // Razorgrass Field"
+    },
+    {
+      "name": "Witch Enchanter",
+      "count": 1,
+      "typeLine": "Creature — Human Warlock // Land",
+      "manaCost": "{3}{W}",
+      "manaValue": 4.0,
+      "setCode": "MH3",
+      "collectorNumber": "239",
+      "catalogName": "Witch Enchanter // Witch-Blessed Meadow"
+    },
+    {
+      "name": "Recruiter of the Guard",
+      "count": 1,
+      "typeLine": "Creature — Human Soldier",
+      "manaCost": "{2}{W}",
+      "manaValue": 3.0,
+      "setCode": "CN2",
+      "collectorNumber": "22",
+      "catalogName": "Recruiter of the Guard"
+    },
+    {
+      "name": "Ocelot Pride",
+      "count": 1,
+      "typeLine": "Creature — Cat",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "MH3",
+      "collectorNumber": "38",
+      "catalogName": "Ocelot Pride"
+    },
+    {
+      "name": "Talon Gates of Madara",
+      "count": 1,
+      "typeLine": "Land — Gate",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "M3C",
+      "collectorNumber": "82",
+      "catalogName": "Talon Gates of Madara"
+    },
+    {
+      "name": "Solitude",
+      "count": 1,
+      "typeLine": "Creature — Elemental Incarnation",
+      "manaCost": "{3}{W}{W}",
+      "manaValue": 5.0,
+      "setCode": "MH2",
+      "collectorNumber": "32",
+      "catalogName": "Solitude"
+    },
+    {
+      "name": "Sheltered by Ghosts",
+      "count": 1,
+      "typeLine": "Enchantment — Aura",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "DSK",
+      "collectorNumber": "30",
+      "catalogName": "Sheltered by Ghosts"
+    },
+    {
+      "name": "Overlord of the Mistmoors",
+      "count": 1,
+      "typeLine": "Enchantment Creature — Avatar Horror",
+      "manaCost": "{5}{W}{W}",
+      "manaValue": 7.0,
+      "setCode": "DSK",
+      "collectorNumber": "23",
+      "catalogName": "Overlord of the Mistmoors"
+    },
+    {
+      "name": "Pre-War Formalwear",
+      "count": 1,
+      "typeLine": "Artifact — Equipment",
+      "manaCost": "{2}{W}",
+      "manaValue": 3.0,
+      "setCode": "PIP",
+      "collectorNumber": "21",
+      "catalogName": "Pre-War Formalwear"
+    },
+    {
+      "name": "Voice of Victory",
+      "count": 1,
+      "typeLine": "Creature — Human Bard",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "TDM",
+      "collectorNumber": "33",
+      "catalogName": "Voice of Victory"
+    },
+    {
+      "name": "Cloud, Midgar Mercenary",
+      "count": 1,
+      "typeLine": "Legendary Creature — Human Soldier Mercenary",
+      "manaCost": "{W}{W}",
+      "manaValue": 2.0,
+      "setCode": "FIN",
+      "collectorNumber": "10",
+      "catalogName": "Cloud, Midgar Mercenary"
+    },
+    {
+      "name": "Lightstall Inquisitor",
+      "count": 1,
+      "typeLine": "Creature — Angel Wizard",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "EOE",
+      "collectorNumber": "24",
+      "catalogName": "Lightstall Inquisitor"
+    },
+    {
+      "name": "Seam Rip",
+      "count": 1,
+      "typeLine": "Enchantment",
+      "manaCost": "{W}",
+      "manaValue": 1.0,
+      "setCode": "EOE",
+      "collectorNumber": "34",
+      "catalogName": "Seam Rip"
+    },
+    {
+      "name": "Starfield Shepherd",
+      "count": 1,
+      "typeLine": "Creature — Angel",
+      "manaCost": "{3}{W}{W}",
+      "manaValue": 5.0,
+      "setCode": "EOE",
+      "collectorNumber": "37",
+      "catalogName": "Starfield Shepherd"
+    },
+    {
+      "name": "Phelia, Exuberant Shepherd",
+      "count": 1,
+      "typeLine": "Legendary Creature — Dog",
+      "manaCost": "{1}{W}",
+      "manaValue": 2.0,
+      "setCode": "MH3",
+      "collectorNumber": "40",
+      "catalogName": "Phelia, Exuberant Shepherd"
+    }
+  ],
+  "commanders": [
+    "Phelia, Exuberant Shepherd"
+  ]
+}

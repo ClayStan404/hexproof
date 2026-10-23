@@ -1,0 +1,340 @@
+{
+  "name": "MOCS 2025 S2 — Alison Silva — Izzet Affinity",
+  "format": "modern",
+  "deckFormat": "modern",
+  "source": "https://magic.gg/decklists/2025-magic-online-champions-showcase-season-2-modern-decklists",
+  "mainboard": [
+    {
+      "name": "Aether Spellbomb",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "MRD",
+      "collectorNumber": "141",
+      "catalogName": "Aether Spellbomb"
+    },
+    {
+      "name": "Claws of Gix",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "setCode": "USG",
+      "collectorNumber": "290",
+      "catalogName": "Claws of Gix"
+    },
+    {
+      "name": "Kappa Cannoneer",
+      "count": 4,
+      "typeLine": "Artifact Creature — Turtle Warrior",
+      "manaCost": "{5}{U}",
+      "manaValue": 6.0,
+      "setCode": "NEC",
+      "collectorNumber": "14",
+      "catalogName": "Kappa Cannoneer"
+    },
+    {
+      "name": "Island",
+      "count": 1,
+      "typeLine": "Basic Land — Island",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "LEA",
+      "collectorNumber": "288",
+      "catalogName": "Island"
+    },
+    {
+      "name": "Mishra's Bauble",
+      "count": 4,
+      "typeLine": "Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "setCode": "CSP",
+      "collectorNumber": "138",
+      "catalogName": "Mishra's Bauble"
+    },
+    {
+      "name": "Lavaspur Boots",
+      "count": 1,
+      "typeLine": "Artifact — Equipment",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "OTJ",
+      "collectorNumber": "243",
+      "catalogName": "Lavaspur Boots"
+    },
+    {
+      "name": "Memnite",
+      "count": 3,
+      "typeLine": "Artifact Creature — Construct",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "setCode": "SOM",
+      "collectorNumber": "174",
+      "catalogName": "Memnite"
+    },
+    {
+      "name": "Metallic Rebuke",
+      "count": 3,
+      "typeLine": "Instant",
+      "manaCost": "{2}{U}",
+      "manaValue": 3.0,
+      "setCode": "AER",
+      "collectorNumber": "39",
+      "catalogName": "Metallic Rebuke"
+    },
+    {
+      "name": "Thoughtcast",
+      "count": 4,
+      "typeLine": "Sorcery",
+      "manaCost": "{4}{U}",
+      "manaValue": 5.0,
+      "setCode": "MRD",
+      "collectorNumber": "54",
+      "catalogName": "Thoughtcast"
+    },
+    {
+      "name": "Pinnacle Emissary",
+      "count": 4,
+      "typeLine": "Artifact Creature — Robot",
+      "manaCost": "{1}{U}{R}",
+      "manaValue": 3.0,
+      "setCode": "EOE",
+      "collectorNumber": "223",
+      "catalogName": "Pinnacle Emissary"
+    },
+    {
+      "name": "Scalding Tarn",
+      "count": 2,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "ZEN",
+      "collectorNumber": "223",
+      "catalogName": "Scalding Tarn"
+    },
+    {
+      "name": "Pithing Needle",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "SOK",
+      "collectorNumber": "158",
+      "catalogName": "Pithing Needle"
+    },
+    {
+      "name": "Shadowspear",
+      "count": 1,
+      "typeLine": "Legendary Artifact — Equipment",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "THB",
+      "collectorNumber": "236",
+      "catalogName": "Shadowspear"
+    },
+    {
+      "name": "Sink into Stupor",
+      "count": 3,
+      "typeLine": "Instant // Land",
+      "manaCost": "{1}{U}{U}",
+      "manaValue": 3.0,
+      "setCode": "MH3",
+      "collectorNumber": "241",
+      "catalogName": "Sink into Stupor // Soporific Springs"
+    },
+    {
+      "name": "Thought Monitor",
+      "count": 2,
+      "typeLine": "Artifact Creature — Construct",
+      "manaCost": "{6}{U}",
+      "manaValue": 7.0,
+      "setCode": "MH2",
+      "collectorNumber": "71",
+      "catalogName": "Thought Monitor"
+    },
+    {
+      "name": "Tormod's Crypt",
+      "count": 3,
+      "typeLine": "Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "setCode": "DRK",
+      "collectorNumber": "112",
+      "catalogName": "Tormod's Crypt"
+    },
+    {
+      "name": "Steam Vents",
+      "count": 2,
+      "typeLine": "Land — Island Mountain",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "GPT",
+      "collectorNumber": "164",
+      "catalogName": "Steam Vents"
+    },
+    {
+      "name": "Weapons Manufacturing",
+      "count": 2,
+      "typeLine": "Enchantment",
+      "manaCost": "{1}{R}",
+      "manaValue": 2.0,
+      "setCode": "EOE",
+      "collectorNumber": "168",
+      "catalogName": "Weapons Manufacturing"
+    },
+    {
+      "name": "Thundering Falls",
+      "count": 1,
+      "typeLine": "Land — Island Mountain",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "MKM",
+      "collectorNumber": "269",
+      "catalogName": "Thundering Falls"
+    },
+    {
+      "name": "Springleaf Drum",
+      "count": 3,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "LRW",
+      "collectorNumber": "261",
+      "catalogName": "Springleaf Drum"
+    },
+    {
+      "name": "Urza's Saga",
+      "count": 4,
+      "typeLine": "Enchantment Land — Urza's Saga",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "PLST",
+      "collectorNumber": "MH2-259",
+      "catalogName": "Urza's Saga"
+    },
+    {
+      "name": "Spirebluff Canal",
+      "count": 3,
+      "typeLine": "Land",
+      "manaCost": "",
+      "manaValue": 0.0,
+      "setCode": "KLD",
+      "collectorNumber": "249",
+      "catalogName": "Spirebluff Canal"
+    },
+    {
+      "name": "Engineered Explosives",
+      "count": 3,
+      "typeLine": "Artifact",
+      "manaCost": "{X}",
+      "manaValue": 0.0,
+      "setCode": "5DN",
+      "collectorNumber": "118",
+      "catalogName": "Engineered Explosives"
+    },
+    {
+      "name": "Mox Opal",
+      "count": 4,
+      "typeLine": "Legendary Artifact",
+      "manaCost": "{0}",
+      "manaValue": 0.0,
+      "setCode": "SOM",
+      "collectorNumber": "179",
+      "catalogName": "Mox Opal"
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Vandalblast",
+      "count": 1,
+      "typeLine": "Sorcery",
+      "manaCost": "{R}",
+      "manaValue": 1.0,
+      "setCode": "RTR",
+      "collectorNumber": "111",
+      "catalogName": "Vandalblast"
+    },
+    {
+      "name": "Consign to Memory",
+      "count": 2,
+      "typeLine": "Instant",
+      "manaCost": "{U}",
+      "manaValue": 1.0,
+      "setCode": "MH3",
+      "collectorNumber": "54",
+      "catalogName": "Consign to Memory"
+    },
+    {
+      "name": "Emry, Lurker of the Loch",
+      "count": 2,
+      "typeLine": "Legendary Creature — Merfolk Wizard",
+      "manaCost": "{2}{U}",
+      "manaValue": 3.0,
+      "setCode": "ELD",
+      "collectorNumber": "43",
+      "catalogName": "Emry, Lurker of the Loch"
+    },
+    {
+      "name": "Grafdigger's Cage",
+      "count": 1,
+      "typeLine": "Artifact",
+      "manaCost": "{1}",
+      "manaValue": 1.0,
+      "setCode": "DKA",
+      "collectorNumber": "149",
+      "catalogName": "Grafdigger's Cage"
+    },
+    {
+      "name": "Mystical Dispute",
+      "count": 2,
+      "typeLine": "Instant",
+      "manaCost": "{2}{U}",
+      "manaValue": 3.0,
+      "setCode": "ELD",
+      "collectorNumber": "58",
+      "catalogName": "Mystical Dispute"
+    },
+    {
+      "name": "Blood Moon",
+      "count": 2,
+      "typeLine": "Enchantment",
+      "manaCost": "{2}{R}",
+      "manaValue": 3.0,
+      "setCode": "DRK",
+      "collectorNumber": "58",
+      "catalogName": "Blood Moon"
+    },
+    {
+      "name": "Galvanic Blast",
+      "count": 2,
+      "typeLine": "Instant",
+      "manaCost": "{R}",
+      "manaValue": 1.0,
+      "setCode": "SOM",
+      "collectorNumber": "91",
+      "catalogName": "Galvanic Blast"
+    },
+    {
+      "name": "Force of Negation",
+      "count": 2,
+      "typeLine": "Instant",
+      "manaCost": "{1}{U}{U}",
+      "manaValue": 3.0,
+      "setCode": "MH1",
+      "collectorNumber": "52",
+      "catalogName": "Force of Negation"
+    },
+    {
+      "name": "Ashiok, Dream Render",
+      "count": 1,
+      "typeLine": "Legendary Planeswalker — Ashiok",
+      "manaCost": "{1}{U/B}{U/B}",
+      "manaValue": 3.0,
+      "setCode": "WAR",
+      "collectorNumber": "228",
+      "catalogName": "Ashiok, Dream Render"
+    }
+  ]
+}

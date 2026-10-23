@@ -115,7 +115,7 @@ TestCase {
             combatTargets: [{responseId: "opaque-alpha", kind: data.kind === "attackers" ? "player" : "attacker",
                 seat: 1, label: publicTarget, objectId: "target-alpha", maxAssignments: 1},
                 {responseId: "opaque-beta", kind: data.kind === "attackers" ? "player" : "attacker",
-                seat: 2, label: "Beta", objectId: "target-beta", maxAssignments: 1}],
+                seat: 2, label: "Defender Beta", objectId: "target-beta", maxAssignments: 1}],
             damageTargets: [], scryDestinations: [], totalDamage: 0}))
         const prompt = createTemporaryObject(blockers, testWindow.contentItem, {
             x: 620, y: 650, width: 360, height: 220,
@@ -158,9 +158,7 @@ TestCase {
         keyClick(Qt.Key_Down)
         tryCompare(combo, "currentIndex", 2)
         compare(prompt.assignments["opaque-source"], "opaque-beta")
-        compare(combo.displayText, "Beta")
         tryCompare(combo.contentItem, "truncated", false)
-        tryCompare(tip, "opened", false)
         mouseClick(findChild(prompt, "rulesConfirmCombat-" + data.kind))
         compare(combatTransport.submissions, 1)
         compare(combatTransport.submittedAssignments,

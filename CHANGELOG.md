@@ -3,11 +3,64 @@
 All notable changes to Hexproof are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Hexproof versions the coordinated client and server together; both must match
-exactly. Card-database releases use the separate **card-data** channel;
+Client and server releases report their own application version; communication
+compatibility is determined by their exact game-protocol identifier. Card-database releases use the separate **card-data** channel;
 application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
+
+## [3.1.0] - 2026-10-23
+
+### Changed
+
+- Game connections use **`hexproof.v2`** protocol equality instead of exact
+  client/server application versions. Clients and hubs from different application
+  releases can communicate when their game protocol matches. Mismatch messages
+  identify the required upgrade and stop repeated reconnect attempts.
+- Official cluster discovery and placement select by game protocol, with
+  protocol-bound transfer tickets and independent `hexproof.cluster.v1` RPC.
+- Releases include checksummed and attested `compatibility.json`; connection
+  update actions verify the advertised protocol before offering a client update.
+- Creature piles separate combat states so attacking, blocking and idle cards
+  remain distinguishable. Compact phase actions preserve the full phase list.
+- Deck-editor cache progress, rapid scrolling and card previews retain stable
+  layout and respond more consistently.
+- The public feedback implementation groups replies into one conversation,
+  supports specific AI questions, resumable reply drafts, progress and verified
+  public source/release results. New information starts a fresh assessment while
+  retaining historical delivery records. Closing follow-up preserves history;
+  content removal remains a separate operation with visible pending states.
+- The optional Multica/Mika connection supplies approved public context to the
+  native AI team and returns intentional questions, progress and results. Native
+  delegation replaces the unreleased custom scheduler and model adapters.
+  A small JSON CLI reuses the receiver's restricted native interface.
+- Private V1 feedback receipts, retention and unfinished mail delivery remain
+  supported without converting private content into public submissions.
+
+### Fixed
+
+- Preserve valid ignored or unconfirmed feedback-notification receipts without
+  repeating the same event or claiming AI execution succeeded. Exhausted
+  uncertain deliveries retain their records pending reconciliation.
+- Keep unsubmitted local replies reachable inside their original feedback case,
+  and retain orphan replies after local deletion of the parent record.
+- Require matching public issue/source/release references before reporting new
+  duplicate or delivered outcomes; a private merge or native task completion
+  alone does not establish a public release.
+
+### Upgrade and availability
+
+- **3.1.0 uses `hexproof.v2`; installed 3.0.0 peers use legacy v1.** The first
+  transition requires coordinated client, hub, coordinator and paired home
+  connector upgrades. The two protocols cannot communicate. Later application
+  versions can interoperate while they retain the same game protocol.
+- Existing Forge runtime/helper identity and privacy checks remain in force;
+  this release does not relax engine compatibility checks.
+- Online public feedback remains disabled in the packaged defaults until the
+  receiver, reviewed disclosure and native connection are activated. Local
+  drafts remain available. Server 2 is the selected future receiver host.
+  Automatic source publication and scheduled AI releases are also prepared but
+  inactive; this release does not claim those services are operating.
 
 ## [3.0.0] - 2026-10-17
 
@@ -1083,7 +1136,8 @@ Follow-up fixes are combined; reverted theme experiments are not included.
   becomes selectable at 90 physical cards, the two-player pack requirement.
 - Draft columns stay usable on shorter windows.
 
-[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/ClayStan404/hexproof/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/ClayStan404/hexproof/compare/v2.5.0...v3.0.0
 [2.0.0]: https://github.com/ClayStan404/hexproof/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/ClayStan404/hexproof/compare/v1.0.6...v1.2.0

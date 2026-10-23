@@ -14,7 +14,7 @@ _FIXTURE_REFERENCE = re.compile(r"`([^`]*[.]json)`")
 
 
 def verify_fixture_index(root: Path) -> list[str]:
-    fixture_dir = root / "testdata/protocol/v1"
+    fixture_dir = root / "testdata/protocol/v2"
     readme_path = fixture_dir / "README.md"
     fixture_names = sorted(path.name for path in fixture_dir.glob("*.json"))
     readme = readme_path.read_text(encoding="utf-8")

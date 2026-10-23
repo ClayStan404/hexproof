@@ -51,6 +51,6 @@ make a game survive a home power loss or a stopped hub.
 `bin/hexproof-feedback` supplies the independent private feedback inbox and
 mail outbox. It remains disabled until the owner supplies protected configuration,
 an HTTPS route, relay and support mailbox, and independent monitoring. Use the
-packaged service template with a dedicated unprivileged service account and
-validated private receiver configuration. See `FEEDBACK.md`;
+existing release deployment entry point with `HEXPROOF_COMPONENT=feedback`, an
+explicit single target/version and private feedback inputs. See `FEEDBACK.md`;
 never place its SMTP credentials in the client or game server directory.

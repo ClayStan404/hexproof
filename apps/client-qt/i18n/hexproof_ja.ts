@@ -1999,7 +1999,39 @@
             <source>Find matching version</source>
             <translation>一致するバージョンを検索</translation>
         </message>
-    </context>
+        <message>
+        <source>Client protocol</source>
+        <translation>クライアントのプロトコル</translation>
+    </message>
+    <message>
+        <source>Server protocol</source>
+        <translation>サーバーのプロトコル</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>不明</translation>
+    </message>
+    <message>
+        <source>The server needs an upgrade. Select a compatible server or contact its operator.</source>
+        <translation>サーバーの更新が必要です。互換性のあるサーバーを選ぶか、管理者に連絡してください。</translation>
+    </message>
+    <message>
+        <source>Install a client supporting the server's communication protocol.</source>
+        <translation>サーバーの通信プロトコルに対応したクライアントをインストールしてください。</translation>
+    </message>
+    <message>
+        <source>The communication protocols are incompatible. Check the client and server releases.</source>
+        <translation>通信プロトコルに互換性がありません。クライアントとサーバーのリリースを確認してください。</translation>
+    </message>
+    <message>
+        <source>Checking compatible client…</source>
+        <translation>互換性のあるクライアントを確認中…</translation>
+    </message>
+    <message>
+        <source>Download compatible client</source>
+        <translation>互換性のあるクライアントをダウンロード</translation>
+    </message>
+</context>
     <context>
         <name>ContentRefreshBar</name>
         <message>
@@ -17117,7 +17149,467 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.</source>
             <translation>この端末では、受信済みの内容は最長30日間、受領証は最長90日間保管されます。保存容量の制限も適用されます。</translation>
         </message>
-    </context>
+        <message>
+            <source>Accepted</source>
+            <translation>受領済み</translation>
+        </message>
+        <message>
+            <source>Accepted confirms storage by the feedback service. Publication, assessment and resolution are separate steps.</source>
+            <translation>受領済みは、フィードバックサービスが内容を保存したことを示します。公開、評価、解決は別の段階です。</translation>
+        </message>
+        <message>
+            <source>Accepted · publication delayed</source>
+            <translation>受領済み · 公開遅延</translation>
+        </message>
+        <message>
+            <source>Accepted · publication pending</source>
+            <translation>受領済み · 公開待ち</translation>
+        </message>
+        <message>
+            <source>Anyone can view and copy this text, technical information and every attachment. Check images and reports for personal information or secrets. Preparing this preview sends nothing.</source>
+            <translation>この文章、技術情報、すべての添付ファイルは誰でも閲覧・複製できます。画像やレポートに個人情報や秘密情報が含まれていないか確認してください。このプレビューの準備では何も送信されません。</translation>
+        </message>
+        <message>
+            <source>Back to draft</source>
+            <translation>下書きに戻る</translation>
+        </message>
+        <message>
+            <source>Create public draft</source>
+            <translation>公開用の下書きを作成</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device. Publishing makes the approved text and every attachment public.</source>
+            <translation>下書きはこの端末に保存されます。公開すると、承認した文章とすべての添付ファイルが公開されます。</translation>
+        </message>
+        <message>
+            <source>I have reviewed this content and the notice, and agree to publish it publicly.</source>
+            <translation>内容と説明を確認し、一般公開に同意します。</translation>
+        </message>
+        <message>
+            <source>Partially published</source>
+            <translation>一部公開済み</translation>
+        </message>
+        <message>
+            <source>Public GitHub destination: %1</source>
+            <translation>公開先の GitHub：%1</translation>
+        </message>
+        <message>
+            <source>Public feedback remains part of the development record. Local deletion does not remove published content or copies made by others.</source>
+            <translation>公開フィードバックは開発記録として残ります。端末から削除しても、公開済みの内容や他者が保存したコピーは削除されません。</translation>
+        </message>
+        <message>
+            <source>Publication is delayed. The service retains this submission for bounded recovery; do not submit another copy.</source>
+            <translation>公開が遅れています。サービスは制限付きの復旧処理のためにこの投稿を保持しています。同じ内容を再投稿しないでください。</translation>
+        </message>
+        <message>
+            <source>Publication rejected</source>
+            <translation>公開拒否</translation>
+        </message>
+        <message>
+            <source>Publication was rejected. Remove sensitive or unsupported content before creating a new submission.</source>
+            <translation>公開が拒否されました。機密情報や未対応の内容を取り除いてから、新しい投稿を作成してください。</translation>
+        </message>
+        <message>
+            <source>Publish feedback</source>
+            <translation>フィードバックを公開</translation>
+        </message>
+        <message>
+            <source>Publish to %1 after reviewing a public preview.</source>
+            <translation>公開プレビューを確認してから %1 に公開します。</translation>
+        </message>
+        <message>
+            <source>Published</source>
+            <translation>公開済み</translation>
+        </message>
+        <message>
+            <source>Refresh status</source>
+            <translation>状態を更新</translation>
+        </message>
+        <message>
+            <source>Removal delayed</source>
+            <translation>削除遅延</translation>
+        </message>
+        <message>
+            <source>Removal from project-controlled locations is confirmed. Third-party copies, GitHub history and notifications may remain.</source>
+            <translation>プロジェクトが管理する場所からの削除が確認されました。第三者のコピー、GitHub の履歴、通知は残る場合があります。</translation>
+        </message>
+        <message>
+            <source>Removal is delayed and not yet confirmed. Keep this record and refresh its status later.</source>
+            <translation>削除が遅れており、まだ完了は確認されていません。この記録を保持し、後ほど状態を更新してください。</translation>
+        </message>
+        <message>
+            <source>Removal pending</source>
+            <translation>削除待ち</translation>
+        </message>
+        <message>
+            <source>Removal request queued</source>
+            <translation>削除リクエスト送信待ち</translation>
+        </message>
+        <message>
+            <source>Removal was requested. This submission will not be sent again.</source>
+            <translation>削除がリクエストされました。この投稿は再送信されません。</translation>
+        </message>
+        <message>
+            <source>Removed from project-controlled locations</source>
+            <translation>プロジェクト管理下の場所から削除済み</translation>
+        </message>
+        <message>
+            <source>Request public removal</source>
+            <translation>公開内容の削除を依頼</translation>
+        </message>
+        <message>
+            <source>Request public removal?</source>
+            <translation>公開内容の削除を依頼しますか？</translation>
+        </message>
+        <message>
+            <source>Review public feedback</source>
+            <translation>公開フィードバックを確認</translation>
+        </message>
+        <message>
+            <source>Review the public preview and confirm publication first.</source>
+            <translation>まず公開プレビューを確認し、公開を承認してください。</translation>
+        </message>
+        <message>
+            <source>Saved by the service. Publication is pending; do not submit another copy.</source>
+            <translation>サービスに保存されました。公開待ちです。同じ内容を再投稿しないでください。</translation>
+        </message>
+        <message>
+            <source>Some approved content is public, but publication is incomplete. Assessment waits for all attachments and text.</source>
+            <translation>承認した内容の一部が公開されていますが、公開は完了していません。すべての文章と添付ファイルが公開されてから評価を開始します。</translation>
+        </message>
+        <message>
+            <source>The complete approved content is published. This does not confirm a bug, accepted request or released fix.</source>
+            <translation>承認した内容がすべて公開されました。これは不具合の確認、要望の採用、修正のリリースを意味するものではありません。</translation>
+        </message>
+        <message>
+            <source>The draft or publication notice changed. Return to the draft and review a new preview.</source>
+            <translation>下書きまたは公開に関する説明が変更されました。下書きに戻り、新しいプレビューを確認してください。</translation>
+        </message>
+        <message>
+            <source>The original record remains unchanged. Contact email is not copied. The new draft will be public only after you review the preview and confirm publication.</source>
+            <translation>元の記録は変更されません。連絡先メールアドレスはコピーされません。新しい下書きは、プレビューを確認して公開を承認した後にのみ公開されます。</translation>
+        </message>
+        <message>
+            <source>The service received your removal request. External writes are still being settled; removal is not yet confirmed.</source>
+            <translation>サービスが削除リクエストを受領しました。外部への書き込み結果を引き続き確認しているため、削除はまだ確認されていません。</translation>
+        </message>
+        <message>
+            <source>The service rejected publication. Review the reason before preparing a corrected draft.</source>
+            <translation>サービスが公開を拒否しました。理由を確認してから、修正した下書きを用意してください。</translation>
+        </message>
+        <message>
+            <source>The service will stop publication and remove content from project-controlled locations where possible. GitHub history, notifications and copies held by others may remain. Keep this local record to check the request's progress.</source>
+            <translation>サービスは公開を停止し、可能な範囲でプロジェクト管理下の場所から内容を削除します。GitHub の履歴、通知、他者が保存したコピーは残る場合があります。進捗を確認するため、この端末の記録を保持してください。</translation>
+        </message>
+        <message>
+            <source>This earlier private record cannot be published. Create a new public draft and review it first.</source>
+            <translation>この旧方式の非公開記録はそのまま公開できません。新しい公開用の下書きを作成し、先に確認してください。</translation>
+        </message>
+        <message>
+            <source>This record uses the earlier private-feedback contract. It will not be published. To share it publicly, create a new public draft and review it first.</source>
+            <translation>この記録には以前の非公開フィードバック規約が適用され、公開されません。公開して共有する場合は、新しい公開用の下書きを作成し、先に確認してください。</translation>
+        </message>
+        <message>
+            <source>This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request public removal first if needed.</source>
+            <translation>今後のアップロードが停止され、この端末の記録と、状態の確認や削除依頼へのアクセスが失われます。受領済みまたは公開済みの内容は削除されません。必要であれば、先に公開内容の削除を依頼してください。</translation>
+        </message>
+        <message>
+            <source>Your removal request is saved on this device and will be delivered. Keep this record to check progress.</source>
+            <translation>削除リクエストはこの端末に保存されており、後ほど送信されます。進捗を確認するため、この記録を保持してください。</translation>
+        </message>
+        <message>
+            <source>On this device, content is kept for up to 30 days. Keep this receipt to check status or request removal; deleting it loses access.</source>
+            <translation>内容はこの端末に最大 30 日間保存されます。状態の確認や削除依頼のために、この受領証を保持してください。削除するとアクセスできなくなります。</translation>
+        </message>
+        <message>
+            <source>Receipt access until at least %1. Access is retained while removal remains unresolved.</source>
+            <translation>受領証でのアクセスは少なくとも %1 まで可能です。削除が未解決の間はアクセスが維持されます。</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device until deleted. Received content is kept locally for up to 30 days. Keep public receipts for status and removal; legacy private receipts expire after 90 days, subject to storage limits.</source>
+            <translation>下書きは削除するまでこの端末に残ります。受領済みの内容は端末に最大 30 日間保存されます。状態確認や削除依頼のため、公開投稿の受領証は保持してください。旧方式の非公開受領証は最大 90 日で期限が切れ、保存容量の制限も適用されます。</translation>
+        </message>
+        <message>
+            <source>AI assessment</source>
+            <translation>AI による評価</translation>
+        </message>
+        <message>
+            <source>Add public information</source>
+            <translation>公開情報を追加</translation>
+        </message>
+        <message>
+            <source>Assessing the report</source>
+            <translation>報告を評価中</translation>
+        </message>
+        <message>
+            <source>Assessment and replies</source>
+            <translation>評価と返信</translation>
+        </message>
+        <message>
+            <source>Assessment blocked</source>
+            <translation>評価が停止中</translation>
+        </message>
+        <message>
+            <source>Assessment complete · awaiting development</source>
+            <translation>評価完了 · 開発待ち</translation>
+        </message>
+        <message>
+            <source>Awaiting assessment</source>
+            <translation>評価待ち</translation>
+        </message>
+        <message>
+            <source>Back to original feedback</source>
+            <translation>元のフィードバックに戻る</translation>
+        </message>
+        <message>
+            <source>Can you provide a small public example without secrets, hidden cards or other players' data?</source>
+            <translation>機密情報、非公開のカード、他のプレイヤーのデータを含まない簡単な公開例を提供できますか？</translation>
+        </message>
+        <message>
+            <source>Deferred · see the assessment</source>
+            <translation>対応を保留 · 評価をご確認ください</translation>
+        </message>
+        <message>
+            <source>Last synced: %1</source>
+            <translation>最終同期：%1</translation>
+        </message>
+        <message>
+            <source>Not adopted · see the assessment</source>
+            <translation>不採用 · 評価をご確認ください</translation>
+        </message>
+        <message>
+            <source>Original feedback</source>
+            <translation>元のフィードバック</translation>
+        </message>
+        <message>
+            <source>Refreshing conversation…</source>
+            <translation>やり取りを更新中…</translation>
+        </message>
+        <message>
+            <source>Related to an existing report</source>
+            <translation>既存の報告に関連</translation>
+        </message>
+        <message>
+            <source>Removal requested</source>
+            <translation>削除を申請済み</translation>
+        </message>
+        <message>
+            <source>Reply to feedback: %1</source>
+            <translation>フィードバックへの返信：%1</translation>
+        </message>
+        <message>
+            <source>Reply to this question</source>
+            <translation>この質問に返信</translation>
+        </message>
+        <message>
+            <source>Requested by %1. Later replies can still be submitted.</source>
+            <translation>%1 までの返信をお願いします。それ以降も返信できます。</translation>
+        </message>
+        <message>
+            <source>The conversation changed while refreshing. Refresh again to load its current state.</source>
+            <translation>更新中にやり取りの内容が変わりました。もう一度更新して最新の状態を読み込んでください。</translation>
+        </message>
+        <message>
+            <source>This service does not yet support conversations. Your feedback receipt remains available.</source>
+            <translation>このサービスはまだやり取りに対応していません。フィードバックの受付情報は引き続き確認できます。</translation>
+        </message>
+        <message>
+            <source>Waiting for your information</source>
+            <translation>追加情報をお待ちしています</translation>
+        </message>
+        <message>
+            <source>What are you trying to achieve, and what currently prevents it?</source>
+            <translation>何を実現したいですか？現在、何が妨げになっていますか？</translation>
+        </message>
+        <message>
+            <source>What did you expect, and what happened instead?</source>
+            <translation>期待していた動作と実際の動作を教えてください。</translation>
+        </message>
+        <message>
+            <source>What steps reproduce the problem? Include only information you are willing to publish.</source>
+            <translation>どの手順で問題を再現できますか？公開してもよい情報だけを記載してください。</translation>
+        </message>
+        <message>
+            <source>Which Hexproof version shows the problem?</source>
+            <translation>どのバージョンの Hexproof で問題が発生しますか？</translation>
+        </message>
+        <message>
+            <source>Which operating system and version are you using?</source>
+            <translation>お使いの OS とバージョンを教えてください。</translation>
+        </message>
+        <message>
+            <source>Your public reply</source>
+            <translation>あなたの公開返信</translation>
+        </message>
+        <message>
+            <source>Assessment updates are temporarily unavailable. Your feedback receipt remains available.</source>
+            <translation>評価の更新情報を一時的に取得できません。フィードバックの受付情報は引き続き確認できます。</translation>
+        </message>
+        <message>
+            <source>Developing the change</source>
+            <translation>変更を実装中</translation>
+        </message>
+        <message>
+            <source>Verifying the change</source>
+            <translation>変更を検証中</translation>
+        </message>
+        <message>
+            <source>Verification complete · awaiting independent review</source>
+            <translation>検証完了 · 独立レビュー待ち</translation>
+        </message>
+        <message>
+            <source>Independent review in progress</source>
+            <translation>独立レビューを実施中</translation>
+        </message>
+        <message>
+            <source>Verifying the reviewed change before merging</source>
+            <translation>マージ前にレビュー済みの変更を検証中</translation>
+        </message>
+        <message>
+            <source>Review and checks passed · awaiting merge</source>
+            <translation>レビューと検証に合格 · マージ待ち</translation>
+        </message>
+        <message>
+            <source>Confirming the merge result</source>
+            <translation>マージ結果を確認中</translation>
+        </message>
+        <message>
+            <source>Change merged · awaiting release</source>
+            <translation>変更を統合済み · リリース待ち</translation>
+        </message>
+        <message>
+            <source>Source published · awaiting release</source>
+            <translation>ソースを公開済み · リリース待ち</translation>
+        </message>
+        <message>
+            <source>Released · see the version and download link</source>
+            <translation>リリース済み · バージョンとダウンロードリンクを確認</translation>
+        </message>
+            <message>
+            <source>Close request queued</source>
+            <translation>終了リクエストは送信待ちです</translation>
+        </message>
+        <message>
+            <source>Close request delayed</source>
+            <translation>終了リクエストが遅延しています</translation>
+        </message>
+        <message>
+            <source>Closed · public sync pending</source>
+            <translation>終了済み · 公開状態の同期待ち</translation>
+        </message>
+        <message>
+            <source>Closed · public sync delayed</source>
+            <translation>終了済み · 公開状態の同期が遅延</translation>
+        </message>
+        <message>
+            <source>Closed</source>
+            <translation>終了済み</translation>
+        </message>
+        <message>
+            <source>Your close request is saved on this device. Follow-up will stop after the service receives it; history and attachments will remain.</source>
+            <translation>終了リクエストはこの端末に保存されています。サービスが受信すると以後の対応を停止します。履歴と添付ファイルは保持されます。</translation>
+        </message>
+        <message>
+            <source>Closing could not be confirmed. Retry closing or refresh the receipt; history and attachments remain.</source>
+            <translation>終了を確認できませんでした。再試行するか受付状況を更新してください。履歴と添付ファイルは保持されます。</translation>
+        </message>
+        <message>
+            <source>Feedback is closed. Public issue closure is pending. History and attachments remain; existing tasks may still be stopping.</source>
+            <translation>フィードバックは終了しました。公開 Issue のクローズは処理待ちです。履歴と添付ファイルは保持され、既存のタスクはまだ停止処理中の場合があります。</translation>
+        </message>
+        <message>
+            <source>Feedback is closed. Public issue closure is delayed. History and attachments remain; existing tasks may still be stopping.</source>
+            <translation>フィードバックは終了しました。公開 Issue のクローズが遅延しています。履歴と添付ファイルは保持され、既存のタスクはまだ停止処理中の場合があります。</translation>
+        </message>
+        <message>
+            <source>The service accepted closure and stopped new replies. Existing tasks may still be stopping. History and attachments remain.</source>
+            <translation>サービスは終了リクエストを受け付け、新しい返信の受け付けを停止しました。既存のタスクはまだ停止処理中の場合があります。履歴と添付ファイルは保持されます。</translation>
+        </message>
+        <message>
+            <source>Retry closing feedback</source>
+            <translation>終了を再試行</translation>
+        </message>
+        <message>
+            <source>Close feedback</source>
+            <translation>フィードバックを終了</translation>
+        </message>
+        <message>
+            <source>Close feedback?</source>
+            <translation>フィードバックを終了しますか？</translation>
+        </message>
+        <message>
+            <source>Stop further follow-up and new replies while keeping this feedback's readable history and attachments. Existing tasks may still be stopping after closure is accepted. To address sensitive content, request content removal separately.</source>
+            <translation>このフィードバックの閲覧可能な履歴と添付ファイルを保持したまま、以後の対応と新しい返信を停止します。終了が受け付けられた後も、既存のタスクはまだ停止処理中の場合があります。機密情報を削除するには、別途コンテンツの削除を依頼してください。</translation>
+        </message>
+        <message>
+            <source>Request content removal</source>
+            <translation>コンテンツの削除を依頼</translation>
+        </message>
+        <message>
+            <source>Request content removal?</source>
+            <translation>コンテンツの削除を依頼しますか？</translation>
+        </message>
+        <message>
+            <source>This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request content removal first if needed.</source>
+            <translation>以後のアップロードを停止し、この端末の記録と、状況の確認や削除依頼に使うアクセス情報を削除します。受信済みまたは公開済みの内容は削除されません。必要な場合は先にコンテンツの削除を依頼してください。</translation>
+        </message>
+        <message>
+            <source>Request deletion of this feedback, including accidentally published sensitive content. Publication will stop, but some AI task history may still await cleanup. AI provider records, GitHub history, notifications and copies held by others may remain. Closing feedback alone keeps its history. Keep this record to check progress.</source>
+            <translation>誤って公開した機密情報を含め、このフィードバックの削除を依頼します。公開処理は停止しますが、一部の AI タスク履歴は削除待ちになる場合があります。AI 提供元の記録、GitHub の履歴、通知、他者が持つコピーは残る可能性があります。フィードバックの終了だけでは履歴は残ります。進捗を確認するため、この記録を保持してください。</translation>
+        </message>
+        <message>
+            <source>AI team</source>
+            <translation>AI チーム</translation>
+        </message>
+        <message>
+            <source>Awaiting release</source>
+            <translation>リリース待ち</translation>
+        </message>
+        <message>
+            <source>Conversation with the AI team</source>
+            <translation>AI チームとの会話</translation>
+        </message>
+        <message>
+            <source>Delivery history</source>
+            <translation>提供履歴</translation>
+        </message>
+        <message>
+            <source>Earlier deliveries remain listed while the AI team assesses new information.</source>
+            <translation>AI チームが新しい情報を確認している間も、以前の提供履歴は表示されます。</translation>
+        </message>
+        <message>
+            <source>Related public report #%1</source>
+            <translation>関連する公開レポート #%1</translation>
+        </message>
+        <message>
+            <source>Released</source>
+            <translation>リリース済み</translation>
+        </message>
+        <message>
+            <source>Released in version %1</source>
+            <translation>バージョン %1 でリリース済み</translation>
+        </message>
+        <message>
+            <source>Replies on this device</source>
+            <translation>この端末の返信</translation>
+        </message>
+        <message>
+            <source>Replies on this device: %1</source>
+            <translation>この端末の返信：%1</translation>
+        </message>
+        <message>
+            <source>Reply · original feedback is no longer on this device</source>
+            <translation>返信 · 元のフィードバックはこの端末にありません</translation>
+        </message>
+        <message>
+            <source>Source change published · awaiting release</source>
+            <translation>ソースの変更を公開済み · リリース待ち</translation>
+        </message>
+        <message>
+            <source>The AI team is working on this</source>
+            <translation>AI チームが対応中です</translation>
+        </message>
+</context>
 <context>
     <name>RulesCardHoverPreview</name>
     <message>

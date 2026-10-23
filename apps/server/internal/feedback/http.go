@@ -27,6 +27,7 @@ type Handler struct {
 	decodes chan struct{}
 	proxies []netip.Prefix
 	closed  atomic.Bool
+	retired bool
 }
 
 func NewHandler(store *Store, limits Limits, proxies []string) *Handler {
@@ -108,7 +109,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// An existing ID with another secret is indistinguishable from absence,
 	// but is never overwritten by the acceptance transaction below.
 	if h.store.get(id) != nil {
-		writeError(w, 404, "not_found")
+		// A concurrent acceptance may have inserted this ID after the first
+		// lookup. Reauthenticate it rather than reporting a false absence.
+		select {
+		case h.queries <- struct{}{}:
+		default:
+			writeError(w, 503, "service_unavailable")
+			return
+		}
+		lookupCtx, lookupCancel := context.WithTimeout(r.Context(), 5*time.Second)
+		receipt, lookupErr = h.store.Lookup(lookupCtx, id, secret, digest)
+		lookupCancel()
+		<-h.queries
+		if lookupErr == nil {
+			writeJSON(w, 200, receipt)
+		} else {
+			writeStoreError(w, lookupErr)
+		}
+		return
+	}
+	if h.retired {
+		writeError(w, 422, "unsupported_content")
 		return
 	}
 	if r.ContentLength > MaxUpload {

@@ -1999,7 +1999,39 @@
             <source>Find matching version</source>
             <translation>查詢匹配版本</translation>
         </message>
-    </context>
+        <message>
+        <source>Client protocol</source>
+        <translation>用戶端協定</translation>
+    </message>
+    <message>
+        <source>Server protocol</source>
+        <translation>伺服器協定</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+    <message>
+        <source>The server needs an upgrade. Select a compatible server or contact its operator.</source>
+        <translation>伺服器需要升級。請選擇相容的伺服器或聯絡管理員。</translation>
+    </message>
+    <message>
+        <source>Install a client supporting the server's communication protocol.</source>
+        <translation>請安裝支援伺服器通訊協定的用戶端。</translation>
+    </message>
+    <message>
+        <source>The communication protocols are incompatible. Check the client and server releases.</source>
+        <translation>通訊協定不相容，請檢查用戶端與伺服器的發布版本。</translation>
+    </message>
+    <message>
+        <source>Checking compatible client…</source>
+        <translation>正在尋找相容用戶端…</translation>
+    </message>
+    <message>
+        <source>Download compatible client</source>
+        <translation>下載相容用戶端</translation>
+    </message>
+</context>
     <context>
         <name>ContentRefreshBar</name>
         <message>
@@ -17117,7 +17149,467 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.</source>
             <translation>本機最多保留已收到的回饋內容 30 天、收件憑證 90 天，並受儲存容量限制。</translation>
         </message>
-    </context>
+        <message>
+            <source>Accepted</source>
+            <translation>已接收</translation>
+        </message>
+        <message>
+            <source>Accepted confirms storage by the feedback service. Publication, assessment and resolution are separate steps.</source>
+            <translation>已接收表示回饋服務已儲存內容。公開發佈、評估和解決是不同步驟。</translation>
+        </message>
+        <message>
+            <source>Accepted · publication delayed</source>
+            <translation>已接收 · 發佈延遲</translation>
+        </message>
+        <message>
+            <source>Accepted · publication pending</source>
+            <translation>已接收 · 等待發佈</translation>
+        </message>
+        <message>
+            <source>Anyone can view and copy this text, technical information and every attachment. Check images and reports for personal information or secrets. Preparing this preview sends nothing.</source>
+            <translation>任何人都可以檢視並複製這些文字、技術資訊和所有附件。請檢查圖片和報告中是否包含個人資訊或金鑰。準備此預覽不會傳送任何內容。</translation>
+        </message>
+        <message>
+            <source>Back to draft</source>
+            <translation>返回草稿</translation>
+        </message>
+        <message>
+            <source>Create public draft</source>
+            <translation>建立公開草稿</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device. Publishing makes the approved text and every attachment public.</source>
+            <translation>草稿儲存在本機。發佈後，確認的文字和所有附件都將公開。</translation>
+        </message>
+        <message>
+            <source>I have reviewed this content and the notice, and agree to publish it publicly.</source>
+            <translation>我已檢視這些內容及說明，並同意公開發佈。</translation>
+        </message>
+        <message>
+            <source>Partially published</source>
+            <translation>已部分發佈</translation>
+        </message>
+        <message>
+            <source>Public GitHub destination: %1</source>
+            <translation>公開 GitHub 目標：%1</translation>
+        </message>
+        <message>
+            <source>Public feedback remains part of the development record. Local deletion does not remove published content or copies made by others.</source>
+            <translation>公開回饋將作為開發紀錄保留。從本機刪除不會移除已發佈內容或他人儲存的副本。</translation>
+        </message>
+        <message>
+            <source>Publication is delayed. The service retains this submission for bounded recovery; do not submit another copy.</source>
+            <translation>發佈出現延遲。服務會保留此回饋並在限定範圍內嘗試復原，請勿重複提交。</translation>
+        </message>
+        <message>
+            <source>Publication rejected</source>
+            <translation>發佈遭拒</translation>
+        </message>
+        <message>
+            <source>Publication was rejected. Remove sensitive or unsupported content before creating a new submission.</source>
+            <translation>發佈遭拒。請移除敏感或不支援的內容後再建立新回饋。</translation>
+        </message>
+        <message>
+            <source>Publish feedback</source>
+            <translation>公開發佈回饋</translation>
+        </message>
+        <message>
+            <source>Publish to %1 after reviewing a public preview.</source>
+            <translation>檢視公開預覽後發佈到 %1。</translation>
+        </message>
+        <message>
+            <source>Published</source>
+            <translation>已發佈</translation>
+        </message>
+        <message>
+            <source>Refresh status</source>
+            <translation>重新整理狀態</translation>
+        </message>
+        <message>
+            <source>Removal delayed</source>
+            <translation>移除延遲</translation>
+        </message>
+        <message>
+            <source>Removal from project-controlled locations is confirmed. Third-party copies, GitHub history and notifications may remain.</source>
+            <translation>已確認從專案控制的位置移除。第三方副本、GitHub 歷史紀錄和通知可能仍然存在。</translation>
+        </message>
+        <message>
+            <source>Removal is delayed and not yet confirmed. Keep this record and refresh its status later.</source>
+            <translation>移除出現延遲，尚未確認完成。請保留此紀錄，稍後重新整理狀態。</translation>
+        </message>
+        <message>
+            <source>Removal pending</source>
+            <translation>等待移除</translation>
+        </message>
+        <message>
+            <source>Removal request queued</source>
+            <translation>移除請求待傳送</translation>
+        </message>
+        <message>
+            <source>Removal was requested. This submission will not be sent again.</source>
+            <translation>已請求移除。此回饋不會再次傳送。</translation>
+        </message>
+        <message>
+            <source>Removed from project-controlled locations</source>
+            <translation>已從專案控制的位置移除</translation>
+        </message>
+        <message>
+            <source>Request public removal</source>
+            <translation>請求移除公開內容</translation>
+        </message>
+        <message>
+            <source>Request public removal?</source>
+            <translation>請求移除公開內容？</translation>
+        </message>
+        <message>
+            <source>Review public feedback</source>
+            <translation>預覽公開回饋</translation>
+        </message>
+        <message>
+            <source>Review the public preview and confirm publication first.</source>
+            <translation>請先檢視公開預覽並確認發佈。</translation>
+        </message>
+        <message>
+            <source>Saved by the service. Publication is pending; do not submit another copy.</source>
+            <translation>服務已儲存內容，正在等待發佈，請勿重複提交。</translation>
+        </message>
+        <message>
+            <source>Some approved content is public, but publication is incomplete. Assessment waits for all attachments and text.</source>
+            <translation>部分確認的內容已經公開，但發佈尚未完成。所有附件和文字發佈完成後才會開始評估。</translation>
+        </message>
+        <message>
+            <source>The complete approved content is published. This does not confirm a bug, accepted request or released fix.</source>
+            <translation>全部確認的內容已公開發佈。這不代表問題已確認、需求已接受或修復已發佈。</translation>
+        </message>
+        <message>
+            <source>The draft or publication notice changed. Return to the draft and review a new preview.</source>
+            <translation>草稿或發佈說明已變更。請返回草稿並檢視新的預覽。</translation>
+        </message>
+        <message>
+            <source>The original record remains unchanged. Contact email is not copied. The new draft will be public only after you review the preview and confirm publication.</source>
+            <translation>原始紀錄保持不變，聯絡信箱不會複製。只有在檢視預覽並確認發佈後，新草稿才會公開。</translation>
+        </message>
+        <message>
+            <source>The service received your removal request. External writes are still being settled; removal is not yet confirmed.</source>
+            <translation>服務已收到移除請求，仍在核實外部寫入結果，尚未確認移除。</translation>
+        </message>
+        <message>
+            <source>The service rejected publication. Review the reason before preparing a corrected draft.</source>
+            <translation>服務拒絕了發佈。請先檢視原因，再準備修正後的草稿。</translation>
+        </message>
+        <message>
+            <source>The service will stop publication and remove content from project-controlled locations where possible. GitHub history, notifications and copies held by others may remain. Keep this local record to check the request's progress.</source>
+            <translation>服務將停止發佈，並盡可能從專案控制的位置移除內容。GitHub 歷史紀錄、通知和他人儲存的副本可能仍然存在。請保留此本機紀錄以查看請求進度。</translation>
+        </message>
+        <message>
+            <source>This earlier private record cannot be published. Create a new public draft and review it first.</source>
+            <translation>此舊版私密紀錄無法直接公開發佈。請先建立新的公開草稿並檢視預覽。</translation>
+        </message>
+        <message>
+            <source>This record uses the earlier private-feedback contract. It will not be published. To share it publicly, create a new public draft and review it first.</source>
+            <translation>此紀錄適用舊版私密回饋約定，不會公開發佈。若要公開分享，請先建立新的公開草稿並檢視預覽。</translation>
+        </message>
+        <message>
+            <source>This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request public removal first if needed.</source>
+            <translation>此操作會停止後續上傳，刪除本機紀錄，並使你無法再查詢其狀態或請求移除。已接收或發佈的內容不會被移除。如有需要，請先請求移除公開內容。</translation>
+        </message>
+        <message>
+            <source>Your removal request is saved on this device and will be delivered. Keep this record to check progress.</source>
+            <translation>移除請求已儲存在本機，將會傳送給服務。請保留此紀錄以查看進度。</translation>
+        </message>
+        <message>
+            <source>On this device, content is kept for up to 30 days. Keep this receipt to check status or request removal; deleting it loses access.</source>
+            <translation>內容在本機最多保留 30 天。請保留此回執以查詢狀態或請求移除；刪除回執後將失去存取權限。</translation>
+        </message>
+        <message>
+            <source>Receipt access until at least %1. Access is retained while removal remains unresolved.</source>
+            <translation>回執存取權限至少保留至 %1。移除請求尚未解決時，存取權限會繼續保留。</translation>
+        </message>
+        <message>
+            <source>Drafts stay on this device until deleted. Received content is kept locally for up to 30 days. Keep public receipts for status and removal; legacy private receipts expire after 90 days, subject to storage limits.</source>
+            <translation>草稿儲存在本機，直到刪除。已接收內容在本機最多保留 30 天。請保留公開回饋回執以查詢狀態和請求移除；舊版私密回執最長保留 90 天，並受儲存空間限制。</translation>
+        </message>
+        <message>
+            <source>AI assessment</source>
+            <translation>AI 評估</translation>
+        </message>
+        <message>
+            <source>Add public information</source>
+            <translation>補充公開資訊</translation>
+        </message>
+        <message>
+            <source>Assessing the report</source>
+            <translation>正在評估回饋</translation>
+        </message>
+        <message>
+            <source>Assessment and replies</source>
+            <translation>評估與回覆</translation>
+        </message>
+        <message>
+            <source>Assessment blocked</source>
+            <translation>評估受阻</translation>
+        </message>
+        <message>
+            <source>Assessment complete · awaiting development</source>
+            <translation>評估完成 · 等待開發</translation>
+        </message>
+        <message>
+            <source>Awaiting assessment</source>
+            <translation>等待評估</translation>
+        </message>
+        <message>
+            <source>Back to original feedback</source>
+            <translation>返回原始回饋</translation>
+        </message>
+        <message>
+            <source>Can you provide a small public example without secrets, hidden cards or other players' data?</source>
+            <translation>能否提供一個不含機密資訊、隱藏卡牌或其他玩家資料的簡短公開範例？</translation>
+        </message>
+        <message>
+            <source>Deferred · see the assessment</source>
+            <translation>暫緩處理 · 請查看評估</translation>
+        </message>
+        <message>
+            <source>Last synced: %1</source>
+            <translation>上次同步：%1</translation>
+        </message>
+        <message>
+            <source>Not adopted · see the assessment</source>
+            <translation>未採納 · 請查看評估</translation>
+        </message>
+        <message>
+            <source>Original feedback</source>
+            <translation>原始回饋</translation>
+        </message>
+        <message>
+            <source>Refreshing conversation…</source>
+            <translation>正在重新整理討論…</translation>
+        </message>
+        <message>
+            <source>Related to an existing report</source>
+            <translation>與既有回饋相關</translation>
+        </message>
+        <message>
+            <source>Removal requested</source>
+            <translation>已申請移除</translation>
+        </message>
+        <message>
+            <source>Reply to feedback: %1</source>
+            <translation>回覆回饋：%1</translation>
+        </message>
+        <message>
+            <source>Reply to this question</source>
+            <translation>回覆此問題</translation>
+        </message>
+        <message>
+            <source>Requested by %1. Later replies can still be submitted.</source>
+            <translation>希望在 %1 前回覆。此後仍可提交回覆。</translation>
+        </message>
+        <message>
+            <source>The conversation changed while refreshing. Refresh again to load its current state.</source>
+            <translation>重新整理期間討論內容發生變化。請再次重新整理以查看最新狀態。</translation>
+        </message>
+        <message>
+            <source>This service does not yet support conversations. Your feedback receipt remains available.</source>
+            <translation>此服務尚不支援討論。你的回饋回執仍可查詢。</translation>
+        </message>
+        <message>
+            <source>Waiting for your information</source>
+            <translation>等待你補充資訊</translation>
+        </message>
+        <message>
+            <source>What are you trying to achieve, and what currently prevents it?</source>
+            <translation>你想達成什麼目標，目前遇到了什麼阻礙？</translation>
+        </message>
+        <message>
+            <source>What did you expect, and what happened instead?</source>
+            <translation>你預期會發生什麼，實際又發生了什麼？</translation>
+        </message>
+        <message>
+            <source>What steps reproduce the problem? Include only information you are willing to publish.</source>
+            <translation>如何操作可以重現問題？請只填寫你願意公開的資訊。</translation>
+        </message>
+        <message>
+            <source>Which Hexproof version shows the problem?</source>
+            <translation>哪個 Hexproof 版本出現了這個問題？</translation>
+        </message>
+        <message>
+            <source>Which operating system and version are you using?</source>
+            <translation>你使用的作業系統及版本是什麼？</translation>
+        </message>
+        <message>
+            <source>Your public reply</source>
+            <translation>你的公開回覆</translation>
+        </message>
+        <message>
+            <source>Assessment updates are temporarily unavailable. Your feedback receipt remains available.</source>
+            <translation>評估進度暫時無法更新。你的回饋回執仍可查詢。</translation>
+        </message>
+        <message>
+            <source>Developing the change</source>
+            <translation>正在開發變更</translation>
+        </message>
+        <message>
+            <source>Verifying the change</source>
+            <translation>正在驗證變更</translation>
+        </message>
+        <message>
+            <source>Verification complete · awaiting independent review</source>
+            <translation>驗證完成 · 等待獨立審核</translation>
+        </message>
+        <message>
+            <source>Independent review in progress</source>
+            <translation>正在獨立審核</translation>
+        </message>
+        <message>
+            <source>Verifying the reviewed change before merging</source>
+            <translation>正在驗證已審核的變更以準備合併</translation>
+        </message>
+        <message>
+            <source>Review and checks passed · awaiting merge</source>
+            <translation>審核與檢查通過 · 等待合併</translation>
+        </message>
+        <message>
+            <source>Confirming the merge result</source>
+            <translation>正在確認合併結果</translation>
+        </message>
+        <message>
+            <source>Change merged · awaiting release</source>
+            <translation>改動已合併 · 等待發佈</translation>
+        </message>
+        <message>
+            <source>Source published · awaiting release</source>
+            <translation>原始碼已公開 · 等待發佈</translation>
+        </message>
+        <message>
+            <source>Released · see the version and download link</source>
+            <translation>版本已發佈 · 查看版本及下載連結</translation>
+        </message>
+            <message>
+            <source>Close request queued</source>
+            <translation>關閉請求已排入佇列</translation>
+        </message>
+        <message>
+            <source>Close request delayed</source>
+            <translation>關閉請求延遲</translation>
+        </message>
+        <message>
+            <source>Closed · public sync pending</source>
+            <translation>已關閉 · 等待公開狀態同步</translation>
+        </message>
+        <message>
+            <source>Closed · public sync delayed</source>
+            <translation>已關閉 · 公開狀態同步延遲</translation>
+        </message>
+        <message>
+            <source>Closed</source>
+            <translation>已關閉</translation>
+        </message>
+        <message>
+            <source>Your close request is saved on this device. Follow-up will stop after the service receives it; history and attachments will remain.</source>
+            <translation>關閉請求已儲存在此裝置上。服務收到請求後將停止後續跟進，歷史記錄和附件會保留。</translation>
+        </message>
+        <message>
+            <source>Closing could not be confirmed. Retry closing or refresh the receipt; history and attachments remain.</source>
+            <translation>尚未確認關閉。請重試關閉或重新整理回執；歷史記錄和附件仍會保留。</translation>
+        </message>
+        <message>
+            <source>Feedback is closed. Public issue closure is pending. History and attachments remain; existing tasks may still be stopping.</source>
+            <translation>回饋已關閉，正在等待關閉公開議題。歷史記錄和附件會保留，既有任務可能仍在停止過程中。</translation>
+        </message>
+        <message>
+            <source>Feedback is closed. Public issue closure is delayed. History and attachments remain; existing tasks may still be stopping.</source>
+            <translation>回饋已關閉，但關閉公開議題發生延遲。歷史記錄和附件會保留，既有任務可能仍在停止過程中。</translation>
+        </message>
+        <message>
+            <source>The service accepted closure and stopped new replies. Existing tasks may still be stopping. History and attachments remain.</source>
+            <translation>服務已接受關閉請求並停止接收新回覆。既有任務可能仍在停止過程中，歷史記錄和附件會保留。</translation>
+        </message>
+        <message>
+            <source>Retry closing feedback</source>
+            <translation>重試關閉回饋</translation>
+        </message>
+        <message>
+            <source>Close feedback</source>
+            <translation>關閉回饋</translation>
+        </message>
+        <message>
+            <source>Close feedback?</source>
+            <translation>關閉回饋？</translation>
+        </message>
+        <message>
+            <source>Stop further follow-up and new replies while keeping this feedback's readable history and attachments. Existing tasks may still be stopping after closure is accepted. To address sensitive content, request content removal separately.</source>
+            <translation>停止後續跟進和新回覆，同時保留此回饋可讀取的歷史記錄和附件。服務接受關閉請求後，既有任務可能仍在停止過程中。如需處理敏感內容，請另行申請移除內容。</translation>
+        </message>
+        <message>
+            <source>Request content removal</source>
+            <translation>申請移除內容</translation>
+        </message>
+        <message>
+            <source>Request content removal?</source>
+            <translation>申請移除內容？</translation>
+        </message>
+        <message>
+            <source>This stops future uploads and deletes this device's record and access to its status or removal request. Received or published content is not removed. Request content removal first if needed.</source>
+            <translation>這會停止後續上傳，並刪除此裝置上的記錄及查詢狀態或申請移除的存取憑證。已接收或已公開的內容不會被移除。如有需要，請先申請移除內容。</translation>
+        </message>
+        <message>
+            <source>Request deletion of this feedback, including accidentally published sensitive content. Publication will stop, but some AI task history may still await cleanup. AI provider records, GitHub history, notifications and copies held by others may remain. Closing feedback alone keeps its history. Keep this record to check progress.</source>
+            <translation>申請刪除此回饋，包括意外公開的敏感內容。發布會停止，但部分 AI 任務歷史可能仍待清理。AI 服務商記錄、GitHub 歷史、通知及他人持有的副本可能保留。僅關閉回饋會保留其歷史記錄。請保留此記錄以查詢處理進度。</translation>
+        </message>
+        <message>
+            <source>AI team</source>
+            <translation>AI 團隊</translation>
+        </message>
+        <message>
+            <source>Awaiting release</source>
+            <translation>等待發版</translation>
+        </message>
+        <message>
+            <source>Conversation with the AI team</source>
+            <translation>與 AI 團隊的對話</translation>
+        </message>
+        <message>
+            <source>Delivery history</source>
+            <translation>交付歷史</translation>
+        </message>
+        <message>
+            <source>Earlier deliveries remain listed while the AI team assesses new information.</source>
+            <translation>AI 團隊評估新資訊時，先前的交付記錄仍會保留。</translation>
+        </message>
+        <message>
+            <source>Related public report #%1</source>
+            <translation>相關的公開回饋 #%1</translation>
+        </message>
+        <message>
+            <source>Released</source>
+            <translation>已發布</translation>
+        </message>
+        <message>
+            <source>Released in version %1</source>
+            <translation>已於 %1 版本發布</translation>
+        </message>
+        <message>
+            <source>Replies on this device</source>
+            <translation>本機回覆</translation>
+        </message>
+        <message>
+            <source>Replies on this device: %1</source>
+            <translation>本機回覆：%1</translation>
+        </message>
+        <message>
+            <source>Reply · original feedback is no longer on this device</source>
+            <translation>回覆 · 原始回饋已不在本機</translation>
+        </message>
+        <message>
+            <source>Source change published · awaiting release</source>
+            <translation>原始碼變更已公開 · 等待發版</translation>
+        </message>
+        <message>
+            <source>The AI team is working on this</source>
+            <translation>AI 團隊正在處理</translation>
+        </message>
+</context>
 <context>
     <name>RulesCardHoverPreview</name>
     <message>

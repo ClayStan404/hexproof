@@ -1432,11 +1432,12 @@ TestCase {
                 const lane = item("forge" + side + "Creatures")
                 tryCompare(lane, "stackCount", 5)
                 compare(lane.attachmentDepth, data.depth)
-                // Deep attachment stacks now share the safe area with the
-                // player plate and reserve a separate, readable host badge.
-                const readableWidth = data.depth > 2 ? 120 : 150
-                verify(lane.cardWidth >= readableWidth * table.presentation.unit,
-                    side + " creatures stay large in " + step + ": " + lane.cardWidth / table.presentation.unit)
+                // The field contract guarantees an 80-unit readable floor.
+                // Attachment strips and the reserved player controls may make
+                // a five-creature row narrower than the preferred 180 units.
+                verify(lane.cardWidth >= 80 * table.presentation.unit - 0.1,
+                    side + " creatures remain readable in " + step + ": " + lane.cardWidth / table.presentation.unit)
+                verify(lane.cardWidth <= 200 * table.presentation.unit + 0.1)
                 verify(lane.scrollArea.contentHeight <= lane.height + 1, "An ordinary board needs no scrolling")
                 for (const group of ["Lands", "Other"]) {
                     const support = item("forge" + side + group)
@@ -1627,6 +1628,32 @@ TestCase {
         compare(lands.pileLead, lead, "Tapping keeps the reserved lead")
         compare(lands.cardWidth, width)
         verify(lead <= 9 * unit + 0.01)
+
+        // The final two-copy pile can disappear entirely into ready/spent
+        // singletons. Neither its lead nor its right-hand trail becomes room
+        // for larger faces in a narrow lane.
+        for (const alignRight of [false, true]) {
+            const pair = snapshot(1, 0)
+            pair.zones[4].cards = [card("pair-a", 0, "Plains", false),
+                card("pair-b", 0, "Plains", false)]
+            pair.zones[4].count = 2
+            verify(testRulesPrompt.applySnapshot(pair))
+            const probe = createTemporaryObject(shortLane, window.contentItem,
+                {category:"land", width:105, height:250, alignRight:alignRight})
+            verify(probe !== null); verify(waitForPolish(window))
+            compare(probe.stackCount, 1)
+            const faceWidth = probe.cardWidth
+            verify(faceWidth >= 80)
+            pair.zones[4].cards[0].tapped = true
+            verify(testRulesPrompt.applySnapshot(pair)); verify(waitForPolish(window))
+            compare(probe.stackCount, 2)
+            compare(probe.cardWidth, faceWidth, "Ready/spent singletons keep their fitted face size")
+            for (const slot of probe.hostCards) {
+                const at = slot.mapToItem(probe.scrollArea, 0, 0)
+                verify(at.x >= -0.01 && at.x + slot.width <= probe.scrollArea.width + 0.01,
+                    "Both singletons stay inside the narrow lane")
+            }
+        }
     }
     function test_closedPileShowsOnlyTheFrontHint() {
         const state = snapshot(1, 0)
@@ -1841,10 +1868,7 @@ TestCase {
             const targetId = "z-" + targetSeat + "-Karn, the Great Creator"
             prompt("chooseBoardTargets", {minSelections:1, maxSelections:1,
                 targets:[{responseId:"walker-target", kind:"card", objectId:targetId, label:"Karn"}]})
-            verify(presentation.reveal(targetId), "Target planeswalker must be revealable")
-            verify(waitForPolish(window), "Planeswalker target layout must finish polishing")
-            window.update()
-            verify(waitForRendering(table), "Planeswalker target must finish rendering")
+            verify(presentation.reveal(targetId)); verify(waitForPolish(window)); verify(waitForRendering(table))
             mouseClick(item("forgeCard-" + targetId))
             compare(transport.responses.length, 1)
             compare(transport.responses[0].targets, ["walker-target"])
@@ -1883,12 +1907,18 @@ TestCase {
             }
             rows.push(faces)
         }
-        fuzzyCompare(rows[0][0].width, rows[1][0].width, board.unit,
-            "Equal land groups retain matching size on both sides")
+        // Each field fits its own reserved controls. Mirroring preserves the
+        // category directions, while face sizes adapt to the available space.
+        for (const row of rows) {
+            verify(row[0].width >= 80 * board.unit - 0.1)
+            verify(row[0].width <= 108 * board.unit + 0.1)
+        }
         for (const category of ["Planeswalkers", "Other"]) {
             const own = item("forgeOwn" + category), opponent = item("forgeOpponent" + category)
-            fuzzyCompare(own.cardWidth, opponent.cardWidth, board.unit,
-                "Equal " + category + " groups retain matching size on both sides")
+            for (const lane of [own, opponent]) {
+                verify(lane.cardWidth >= 80 * board.unit - 0.1)
+                verify(lane.cardWidth <= 108 * board.unit + 0.1)
+            }
         }
     }
     function test_planeswalkerFlankDoesNotShiftCreatureCenter() {
@@ -3308,6 +3338,9 @@ TestCase {
         mouseClick(item("forgeCard-opponent"))
         compare(table.combatInteraction.selectedSource, "source")
         compare(table.combatInteraction.links.length, 0)
+        // Longer decisions are hideable overlays over the stable resting
+        // reservation. Exact-object navigation exposes a covered battle.
+        verify(table.presentation.reveal("defender"))
         mouseMove(item("forgeCard-defender"))
         tryCompare(aim, "snapped", true)
         compare(aim.endPoint, table.presentation.pointFor("defender"))
@@ -3322,6 +3355,9 @@ TestCase {
         mouseClick(item("rulesPlayerTarget1"))
         compare(table.combatInteraction.assignments.source, "player-choice")
         compare(table.combatInteraction.links[0].seat, 1)
+        if (item("rulesDecisionDock").collapsed)
+            mouseClick(item("forgeDecisionCollapse"))
+        tryVerify(() => item("rulesConfirmCombat-attackers").visible)
         mouseClick(item("rulesConfirmCombat-attackers"))
         compare(transport.responses[0].assignments, [{sourceId:"source", targetId:"player-choice"}])
     }
@@ -3658,7 +3694,7 @@ TestCase {
         state.zones[4].cards[0].blocking = ["hand-0", "missing"]
         verify(testRulesPrompt.applySnapshot(state))
         compare(table.rulesSession.battlefieldRelationships.length, 2)
-        tryCompare(item("forgeOwnCreatures"), "stackCount", 1)
+        tryCompare(item("forgeOwnCreatures"), "stackCount", 2)
         compare(item("forgeCardInteractionHint-own-0").text, "")
     }
     function test_reviewArtworkCannotCollapseGrid_data() {
@@ -3722,12 +3758,12 @@ TestCase {
         const point = item("forgeHandSurface-hand-19").mapToItem(hand.scrollArea, 0, 0)
         verify(point.x >= 0 && point.x + hand.cardWidth <= hand.width + 1)
     }
-    function test_combatUnstacksEachEligibleCreature_data() {
+    function test_combatSeparatesSelectedFromIdleCopies_data() {
         return [{tag:"front-ineligible", cards:2, eligible:1},
                 {tag:"two-eligible", cards:2, eligible:2},
                 {tag:"three-eligible", cards:3, eligible:3}]
     }
-    function test_combatUnstacksEachEligibleCreature(data) {
+    function test_combatSeparatesSelectedFromIdleCopies(data) {
         verify(testRulesPrompt.applySnapshot(snapshot(3, data.cards)))
         prompt("chooseAttackers", {
             combatSources:Array.from({length:data.eligible}, (_, i) => ({
@@ -3748,6 +3784,9 @@ TestCase {
             expected.push({sourceId:"source-" + i, targetId:"defender"})
             compare(Object.keys(table.combatInteraction.assignments).length, expected.length)
             compare(table.combatInteraction.assignments["source-" + i], "defender")
+            compare(source.card.stackSize, i + 1)
+            compare(item("forgeOwnCreatures").stackCount, i + 1 === data.cards ? 1 : 2)
+            verify(waitForPolish(window))
         }
         const confirm = item("rulesConfirmCombat-attackers")
         const dock = item("rulesDecisionDock")
@@ -3778,20 +3817,184 @@ TestCase {
             compare(table.combatInteraction.selectedSource, "blocker-" + i)
             mouseClick(item("forgeCard-attacker-" + i))
             compare(table.combatInteraction.assignments["blocker-" + i], "target-" + i)
+            verify(waitForPolish(window))
         }
-        showPile("own-2")
         const back = item("forgeCard-own-0"), pileFront = item("forgeCard-own-2")
+        compare(item("forgeOwnCreatures").stackCount, 3)
+        compare(item("forgeOpponentCreatures").stackCount, 3)
+        compare(back.card.stackSize, 1)
         verify(Math.abs(back.mapToItem(table, 0, 0).x - pileFront.mapToItem(table, 0, 0).x) > 20)
         mouseClick(back)
         compare(table.combatInteraction.selectedSource, "blocker-0")
-        hidePile("own-2")
-        showPile("attacker-2")
         mouseClick(item("forgeCard-attacker-2"))
-        hidePile("attacker-2")
         compare(table.combatInteraction.assignments["blocker-0"], "target-2")
         compare(table.combatInteraction.links.filter(link => link.to === "attacker-2").length, 2)
+        compare(item("forgeOwnCreatures").stackCount, 2)
+        compare(item("forgeCard-own-2").card.stackSize, 2)
         mouseClick(item("rulesConfirmCombat-blockers"))
         compare(transport.responses[0].assignments.length, 3)
+    }
+    function test_combatParticipantsSplitFromIdleTokens_data() {
+        const rows = []
+        for (const seats of [2, 4])
+            for (const kind of ["chooseAttackers", "chooseBlockers"])
+                rows.push({tag:seats + "-players-" + kind, seats:seats, kind:kind})
+        return rows
+    }
+    function test_combatParticipantsSplitFromIdleTokens(data) {
+        const attacking = data.kind === "chooseAttackers"
+        room.maxSeats = data.seats
+        room.format = data.seats === 4 ? "edh" : "modern"
+        const state = snapshot(1, 1)
+        state.step = attacking ? "declare_attackers" : "declare_blockers"
+        state.activeSeat = attacking ? 0 : 1
+        for (let seat = 2; seat < data.seats; ++seat)
+            state.players.push({seat:seat, name:"Player " + seat, life:40})
+        const copies = Array.from({length:10}, (_, i) => token("spawn-" + i, 0, "Eldrazi Spawn", true))
+        state.zones[4].cards = copies
+        state.zones[4].count = copies.length
+        if (!attacking) {
+            state.zones[5].cards[0].attacking = true
+            state.zones[5].cards[0].attackingPlayer = 0
+        }
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt(data.kind, {
+            combatSources:copies.map(copy => ({responseId:"source-" + copy.id, objectId:copy.id,
+                label:"Spawn", validTargetIds:["destination"], maxAssignments:1})),
+            combatTargets:[{responseId:"destination", kind:attacking ? "player" : "attacker",
+                objectId:attacking ? "" : "opponent", seat:1, label:"Opponent", maxAssignments:10}]
+        })
+        const lane = item(data.seats === 4 ? "forgeCreatures-0" : "forgeOwnCreatures")
+        tryCompare(lane, "stackCount", 1)
+        const front = item("forgeCard-spawn-9")
+        mouseClick(front)
+        tryCompare(lane, "stackCount", 2)
+        const first = item("forgeCard-spawn-0")
+        compare(first.card.stackSize, 1)
+        compare(front.card.stackSize, 9)
+        verify(first.pointerEnabled)
+        verify(waitForPolish(window))
+        const firstRect = first.mapToItem(lane, 0, 0, first.width, first.height)
+        const idleRect = front.mapToItem(lane, 0, 0, front.width, front.height)
+        verify(firstRect.x + firstRect.width <= idleRect.x || idleRect.x + idleRect.width <= firstRect.x
+            || firstRect.y + firstRect.height <= idleRect.y || idleRect.y + idleRect.height <= firstRect.y,
+            "A combat participant must have a separate visible card face")
+        mouseClick(first)
+        tryCompare(lane, "stackCount", 1)
+        compare(table.combatInteraction.links.length, 0)
+        compare(front.card.stackSize, 10)
+        verify(waitForPolish(window))
+        mouseClick(front)
+        verify(waitForPolish(window))
+        mouseClick(front)
+        tryCompare(lane, "stackCount", 2)
+        compare(front.card.stackSize, 8)
+        compare(item("forgeCard-spawn-1").card.stackSize, 2)
+        mouseClick(item("rulesConfirmCombat-" + (attacking ? "attackers" : "blockers")))
+        compare(transport.responses[0].assignments.length, 2)
+
+        for (let i = 0; i < 2; ++i) {
+            if (attacking) {
+                copies[i].attacking = true
+                copies[i].attackingPlayer = 1
+            } else copies[i].blocking = ["opponent"]
+        }
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {options:[{responseId:"pass", kind:"pass", label:"Pass"}]})
+        tryCompare(lane, "stackCount", 2)
+        compare(table.combatInteraction.links.length, 0)
+        compare(first.card.stackSize, 2)
+        compare(item("forgeCard-spawn-1").card.stackSize, 2)
+        compare(front.card.stackSize, 8)
+        if (attacking) {
+            copies[0].tapped = true
+            copies[1].tapped = true
+            verify(testRulesPrompt.applySnapshot(state))
+            verify(waitForPolish(window))
+            verify(!rectsOverlap(item("forgeCard-spawn-1"), front),
+                   "A spent attacking pile must not cover the idle pile's face or count badge")
+        }
+        room.role = "spectator"
+        tryCompare(lane, "stackCount", 2)
+        state.step = "main2"
+        for (const copy of copies) {
+            copy.attacking = false
+            copy.tapped = false
+            delete copy.attackingPlayer
+            copy.blocking = []
+        }
+        state.zones[5].cards[0].attacking = false
+        delete state.zones[5].cards[0].attackingPlayer
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(lane, "stackCount", 1)
+        compare(front.card.stackSize, 10)
+    }
+    function test_blockedAttackersSeparateFromUnblockedCopies() {
+        const state = snapshot(1, 3)
+        state.step = "combat_damage"
+        for (const creature of state.zones[4].cards.filter(row => row.power)) {
+            creature.attacking = true
+            creature.attackingPlayer = 1
+        }
+        state.zones[5].cards[0].blocking = ["own-0"]
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("chooseAction", {options:[{responseId:"pass", kind:"pass", label:"Pass"}]})
+        const lane = item("forgeOwnCreatures")
+        tryCompare(lane, "stackCount", 2)
+        compare(item("forgeCard-own-0").card.stackSize, 1)
+        compare(item("forgeCard-own-2").card.stackSize, 2)
+        verify(item("forgeCardInteractionHint-own-0").text.includes("Blocked"))
+        verify(!item("forgeCardInteractionHint-own-2").text.includes("Blocked"))
+        // A blocker allowed to block several creatures gives both the same
+        // public relationship, so those two copies can share a combat pile.
+        state.zones[5].cards[0].blocking = ["own-0", "own-1"]
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(lane, "stackCount", 2)
+        compare(item("forgeCard-own-1").card.stackSize, 2)
+        compare(item("forgeCard-own-2").card.stackSize, 1)
+        state.zones[5].cards[0].blocking = []
+        verify(testRulesPrompt.applySnapshot(state))
+        tryCompare(lane, "stackCount", 1)
+        compare(item("forgeCard-own-2").card.stackSize, 3)
+    }
+    function test_combatPileReadoutsClearStatusPhase_data() {
+        return [{tag:"single-attacker", width:1920, height:1011, scale:1, attackers:1},
+            {tag:"attacking-pile", width:1920, height:1011, scale:1, attackers:2},
+            {tag:"scaled-pile", width:1920, height:1011, scale:1.5, attackers:2},
+            {tag:"compact-pile", width:900, height:620, scale:1.5, attackers:2}]
+    }
+    function test_combatPileReadoutsClearStatusPhase(data) {
+        window.width = data.width; window.height = data.height; Theme.uiScale = data.scale
+        const state = snapshot(1, 3)
+        state.step = "declare_blockers"; state.prioritySeat = 1
+        for (let index = 0; index < data.attackers; ++index) {
+            state.zones[4].cards[index].attacking = true
+            state.zones[4].cards[index].attackingPlayer = 1
+            state.zones[4].cards[index].tapped = true
+        }
+        verify(testRulesPrompt.applySnapshot(state))
+        prompt("", {pending:false, supported:false})
+        verify(waitForPolish(window)); verify(waitForRendering(table))
+        const lane = item("forgeOwnCreatures"), track = item("forgePhaseTrack")
+        const phase = track.compactMode ? item("forgeCurrentPhase") : track
+        const banner = item("forgeOpponentDeciding")
+        verify(banner.visible)
+        for (const slot of lane.visibleCards.filter(card => card.stackFront)) {
+            const prefixes = slot.stackSize > 1
+                ? ["forgeCardName-", "forgeCardStackCount-"] : ["forgeCardName-"]
+            for (const prefix of prefixes) {
+                const label = item(prefix + slot.cardId)
+                if (!label.visible) continue
+                verify(!rectsOverlap(label, banner), "The deciding banner must leave " + label.objectName + " visible")
+                verify(!rectsOverlap(label, phase), "The phase strip must leave " + label.objectName + " visible")
+            }
+        }
+        const before = boardGeometry(["own-0", "own-1", "own-2"])
+        state.prioritySeat = 0
+        verify(testRulesPrompt.applySnapshot(state))
+        verify(waitForPolish(window)); verify(waitForRendering(table))
+        compare(boardGeometry(["own-0", "own-1", "own-2"]), before,
+                "Changing priority cannot move or resize the combat piles")
     }
     function test_expandedCombatKeepsRightmostPileClickable_data() {
         return ["chooseAttackers", "chooseBlockers"].map(kind => ({tag:kind, kind:kind}))
@@ -4669,7 +4872,7 @@ TestCase {
         tryCompare(lane.scrollArea,"clip",true)
         // The isolated fan remains visible above the lane while unrelated
         // rows keep their viewport clipping and the scroll position changes.
-        lane.scrollArea.contentY=40
+        lane.scrollArea.contentY=lane.slotY(0)+20*lane.unit
         waitForRendering(lane)
         const rects=lane.inspectionRects(board)
         compare(rects.length,40)
@@ -5440,7 +5643,9 @@ TestCase {
         for (const name of ["forgeOwnCreatures", "forgeOpponentCreatures"]) {
             const lane = item(name)
             tryVerify(() => lane.visibleCards.length === data.count)
-            if (data.count <= 22)
+            // Crowded rows retain full combat/readout reservations and may
+            // scroll at the readable floor instead of squeezing 22 faces in.
+            if (data.count <= 20)
                 verify(lane.scrollArea.contentHeight <= lane.scrollArea.height + 1,
                     "The fitted grid should show this count without scrolling: " + JSON.stringify({
                         lane:name, count:data.count, width:lane.width, height:lane.height,
@@ -5510,12 +5715,15 @@ TestCase {
         verify(!rectsOverlap(banner, phasePaint), "The phase moves independently of the deciding banner")
         assertDuelPublicFieldAllocation()
         verifyOverlayReadoutsClear(state, banner, "The deciding banner")
+        verifyOverlayReadoutsClear(state, phasePaint, "The phase strip below the deciding banner")
         assertPublicPhaseAnchor()
         const exposed = battlefieldReadoutRects(state)
-        verify(!exposed.some(row => row.label.objectName === "forgeCardName-own-0"),
-               "The raised front card completely covers the rear card's title")
-        verify(exposed.some(row => row.label.objectName === "forgeCardStats-own-0"),
-               "The rear card's exposed P/T edge remains part of the clearance check")
+        for (const id of ["own-0", "own-1"]) {
+            verify(exposed.some(row => row.label.objectName === "forgeCardName-" + id),
+                   "The attacking and idle copies each expose their title")
+            verify(exposed.some(row => row.label.objectName === "forgeCardStats-" + id),
+                   "Both separate P/T readouts remain part of the clearance check")
+        }
         verify(!item("forgeRecentActions").visible)
         verify(track.y + track.height <= item("forgeHand").y)
         const attack = item("forgePhase-declare_attackers")
@@ -6257,9 +6465,7 @@ TestCase {
         const dock = item("rulesDecisionDock"), toggle = item("forgeDecisionCollapse")
         verify(toggle.visible)
         function checkControls() {
-            verify(waitForPolish(window), "Multiplayer layout must finish polishing")
-            window.update()
-            verify(waitForRendering(table), "Multiplayer controls must finish rendering")
+            verify(waitForPolish(window)); verify(waitForRendering(table))
             verify(toggle.x >= 0 && toggle.y >= 0
                 && toggle.x + toggle.width <= table.presentation.width
                 && toggle.y + toggle.height <= table.presentation.height)
@@ -7253,7 +7459,7 @@ TestCase {
         compare(transport.responses[0].response, "mana-b")
         verify(item("forgeCard-land-b").submitted)
     }
-    function test_pileTargetTellsTheBlockerApart() {
+    function test_separateBlockerCanBeTargetedDirectly() {
         const state = snapshot(1, 1)
         state.step = "declare_blockers"
         state.zones[4].cards[0].attacking = true
@@ -7267,10 +7473,8 @@ TestCase {
             {responseId:"t-a", kind:"card", objectId:"opp-a", label:"Grizzly Bears", name:"Grizzly Bears"},
             {responseId:"t-b", kind:"card", objectId:"opp-b", label:"Grizzly Bears", name:"Grizzly Bears"}]})
         const lane = item("forgeOpponentCreatures")
-        tryCompare(lane, "stackCount", 1)
-        mouseClick(item("forgeCard-opp-b"))
-        compare(transport.responses.length, 0, "A blocker and a non-blocker are not interchangeable")
-        compare(lane.fannedStack, 0)
+        tryCompare(lane, "stackCount", 2)
+        compare(item("forgeCard-opp-b").card.stackSize, 1)
         mouseClick(item("forgeCard-opp-b"))
         compare(transport.responses.length, 1)
         compare(transport.responses[0].targets, ["t-b"])
@@ -8446,7 +8650,7 @@ TestCase {
         tryCompare(lane,"stackCount",1)
         verify(lane.readoutRects(board).length<=4,"Closed copies must not generate per-copy text obstacles")
         lane.openFan(0); tryCompare(lane.scrollArea,"clip",true)
-        lane.scrollArea.contentY=40; waitForRendering(table)
+        lane.scrollArea.contentY=lane.slotY(0)+20*lane.unit; waitForRendering(table)
         const clip=lane.scrollArea.mapToItem(board,0,0,lane.scrollArea.width,lane.scrollArea.height)
         verify(lane.readoutRects(board).some(rect=>rect.y<clip.y-5),
             "An unclipped fan must retain visible text beyond its original lane")

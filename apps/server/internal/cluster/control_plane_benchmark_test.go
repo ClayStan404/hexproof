@@ -21,7 +21,7 @@ type benchmarkCoordinator struct {
 func (s *benchmarkCoordinator) Do(ctx context.Context, q Request) (Result, error) {
 	if q.Operation == s.operation {
 		if err := s.stall.Wait(ctx); err != nil {
-			return Result{}, err
+			return Result{RPCVersion: RPCVersion}, err
 		}
 	}
 	return s.Service.Do(ctx, q)
@@ -49,7 +49,7 @@ func BenchmarkControlPlaneCluster(b *testing.B) {
 			agent := Start(remote, "N1", report)
 			b.Cleanup(agent.Close)
 			view := func(ctx context.Context) error {
-				out, err := agent.Do(ctx, Request{Operation: "view"})
+				out, err := agent.Do(ctx, Request{RPCVersion: RPCVersion, Operation: "view"})
 				if err == nil && !out.Forge {
 					return errors.New("view lost advertised capability")
 				}

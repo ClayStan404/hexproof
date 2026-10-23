@@ -42,10 +42,11 @@ TestCase {
         property bool connecting: false
         property string serverTransportState: ""
         property bool connected: false
-        property bool versionMismatch: true
+        property bool protocolMismatch: true
         property string customServerUrl: "ws://127.0.0.1:57320/ws"
         property string displayName: "Tester"
-        property string requiredVersion: "1.0.5"
+        property string serverProtocol: "hexproof.v3"
+        property string clientProtocol: "hexproof.v2"
         property string clientVersion: "1.0.6"
         property string releaseDownloadUrl: "https://example.com/releases"
         property string lastError: ""
@@ -87,10 +88,12 @@ TestCase {
         property bool exactVersion: false
         property bool downloadReady: false
         property string targetVersion: ""
+        property string targetProtocol: ""
         property string lastError: "error.update_check_failed"
         signal stateChanged()
         function clearLastError() { }
-        function checkForVersion(version) { }
+        property var protocolLookups: []
+        function checkForProtocol(protocol) { protocolLookups = protocolLookups.concat([protocol]) }
         function downloadUpdate() { }
         function openDownloadLocation() { }
         function openReleasePage() { }
@@ -107,6 +110,10 @@ TestCase {
     }
 
     function init() {
+        mockUpdater.protocolLookups = []
+        mockUpdater.checking = false
+        mockWs.protocolMismatch = true
+        mockWs.serverProtocol = "hexproof.v3"
         testWindow.popCount = 0
         mockWs.connecting = false
         mockWs.serverTransportState = ""
@@ -130,6 +137,25 @@ TestCase {
         if (page !== null)
             page.destroy()
         page = null
+    }
+
+    function test_protocolMismatchFindsCompatibleClientOnce() {
+        compare(mockUpdater.protocolLookups.length, 1)
+        compare(mockUpdater.protocolLookups[0], "hexproof.v3")
+        mockUpdater.stateChanged()
+        compare(mockUpdater.protocolLookups.length, 1)
+        const banner = findChild(page, "connectionErrorBanner")
+        verify(banner.message.includes("hexproof.v2"))
+        verify(banner.message.includes("hexproof.v3"))
+    }
+
+    function test_olderServerDoesNotRequestClientDowngrade() {
+        mockUpdater.protocolLookups = []
+        mockWs.serverProtocol = "hexproof.v1"
+        mockWs.protocolMismatchChanged()
+        verify(page.serverNeedsUpgrade())
+        compare(mockUpdater.protocolLookups.length, 0)
+        verify(findChild(page, "connectionErrorBanner").message.includes("server needs an upgrade"))
     }
 
     function test_prefillsDisplayNameFromHub() {
@@ -169,7 +195,7 @@ TestCase {
     }
 
     function test_leaveCancelsPendingConnection() {
-        mockWs.versionMismatch = false
+        mockWs.protocolMismatch = false
         mockWs.connecting = true
         page.refreshConnectionError()
         waitForRendering(page)
@@ -186,7 +212,7 @@ TestCase {
     function test_minimumWindowShowsNormalConnectionActionsWithoutScrolling() {
         testWindow.width = 900
         testWindow.height = 620
-        mockWs.versionMismatch = false
+        mockWs.protocolMismatch = false
         try {
             page.refreshConnectionError()
             waitForRendering(page)
@@ -202,7 +228,7 @@ TestCase {
                    "Compact form bottom " + cardBottom + " exceeds viewport " + body.height)
             verify(body.contentHeight <= body.height + 1, "A fitting form must not add scrolling")
         } finally {
-            mockWs.versionMismatch = true
+            mockWs.protocolMismatch = true
             testWindow.width = 1280
             testWindow.height = 720
         }
@@ -211,7 +237,7 @@ TestCase {
     function test_formSitsInTheMiddleOfATallPage() {
         testWindow.width = 1600
         testWindow.height = 900
-        mockWs.versionMismatch = false
+        mockWs.protocolMismatch = false
         try {
             page.refreshConnectionError()
             waitForRendering(page)
@@ -222,7 +248,7 @@ TestCase {
             verify(leftover > 80, "A tall page must leave space around the form")
             fuzzyCompare(top, leftover / 2, 2)
         } finally {
-            mockWs.versionMismatch = true
+            mockWs.protocolMismatch = true
             testWindow.width = 1280
             testWindow.height = 720
         }

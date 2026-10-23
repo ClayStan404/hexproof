@@ -41,7 +41,9 @@ printing index together. Upstream changes include token-resolution performance,
 alternative-cost stability and AI copy-target selection. The upgrade requires
 a matching complete base distribution for creator hosting; an overlay cannot
 replace the previous base's rules and card resources. Publish and verify that
-base before activating its download manifest.
+base before activating its download manifest. See the
+[upgrade record](../../docs/forge-upstream-2026-09-27.md) for verification and
+publication status.
 Revision 24 releases controlled-player input when that player concedes, allowing
 an Emrakul-controlled turn to unwind without stranding the native decision loop.
 Revision 23 corrects companion decline, cast-only exile choices and taking cards
@@ -53,8 +55,8 @@ them changes the runtime identity. See [printing compatibility](../../tools/forg
 Revision 17 adds a bounded private observation journal and acknowledged
 `getReplay` reads on both native transports. It captures intermediate automatic
 resolutions, both hands and combat relationships without changing normal viewer
-redaction. The hub releases visual recordings to original participants only
-after whole-match completion; exported replays retain both players' hands.
+redaction. The hub releases visual recordings only after whole-match completion;
+see [private visual replays](../../docs/forge-replays.md).
 Revision 16 reports bounded deck-start rejection coordinates in both JSONL
 transports without exposing submitted card names, exception details or paths.
 Revision 13 keeps each complete London-mulligan redraw available for the keep
@@ -92,8 +94,8 @@ timestamp checks. Revision 8 adds native Limited deck rules and incremental
 private card selections.
 Revision 7 preserves conditional-discard completion and empty-stack cleanup,
 shows finite card-face menus, validates crew/exile/helper cost choices, and
-projects class levels and dungeon rooms. Maintainer-only corpus and UI replay
-tooling is not included in the public source distribution.
+projects class levels and dungeon rooms. The frozen 40-deck corpus and its
+native/projection/UI replay tooling live in `tools/forge-card-corpus/`.
 It publishes revealed battlefield choices (named cards, types, colors, numbers
 and modes) from native `CardView`, excluding secret choices and face-down cards.
 Revision 5 exposes native improvise/convoke reservations and restores permanents tapped
@@ -183,7 +185,7 @@ conformance suites. Keep source and runtime provenance aligned. Preserve all
 upstream notices and make matching source available with distributed runtimes.
 Generated checkouts, JARs and archives belong under ignored `build/`.
 
-See [native-host/TESTING.md](native-host/TESTING.md) for reproducible native
-regressions. Optional maintainer UI scenarios are not included in the public
-export. A server without a
+See [native-host/TESTING.md](native-host/TESTING.md) for reproducible scenarios
+and [the migration record](../../docs/forge-native-migration.md) for actual
+verification and remaining game-input/platform limits. A server without a
 configured runtime still hosts manual rooms and advertises Forge unavailable.

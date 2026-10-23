@@ -64,8 +64,10 @@ TestCase {
             property var card: testCase.sourceCard
             property int activationCount: 0
             property int backgroundClicks: 0
+            property int backgroundWheels: 0
             property alias preview: preview
             property alias sourceTile: sourceTile
+            property alias sourceHovered: sourceHover.hovered
             property alias focusStart: focusStart
             property alias actionRegion: actionRegion
             property alias confirmAction: confirmAction
@@ -74,6 +76,7 @@ TestCase {
                 anchors.fill: parent
                 acceptedButtons: Qt.AllButtons
                 onClicked: scene.backgroundClicks++
+                onWheel: event => { scene.backgroundWheels++; event.accepted = true }
             }
             AppButton {
                 id: focusStart
@@ -85,6 +88,7 @@ TestCase {
                 x: 80; y: 100; width: 150; height: 210; color: "gray"
                 MouseArea { anchors.fill: parent; onClicked: scene.activationCount++ }
                 HoverHandler {
+                    id: sourceHover
                     onHoveredChanged: hovered ? preview.inspect(scene.card, sourceTile) : preview.hide(sourceTile)
                 }
             }
@@ -484,6 +488,24 @@ TestCase {
         compare(screen.preview.facePreview.faceIndex, 0)
         compare(screen.activationCount, 0)
     }
+    function test_previewArtPassesWheel_data() {
+        return [{tag: "single-face", faces: []}, {tag: "two-faces", faces: [front, back]}]
+    }
+    function test_previewArtPassesWheel(data) {
+        const screen = scene(catalog({faceRows: data.faces, exactSources: false}))
+        mouseMove(screen.sourceTile, 70, 90)
+        tryCompare(screen.preview, "visible", true)
+        const gallery = findChild(screen.preview, "cardHoverPreviewFaces")
+        verify(waitForRendering(screen.preview))
+        for (let index = 0; index < gallery.faceCount; ++index) {
+            const art = gallery.faceArt(index)
+            mouseWheel(art, art.width / 2, art.height / 2, 0, -120)
+            compare(screen.backgroundWheels, index + 1,
+                    "Every preview face must let the underlying scroll area receive wheel input")
+        }
+        compare(screen.activationCount, 0)
+        compare(JSON.stringify(screen.card), JSON.stringify(sourceCard))
+    }
     function test_galleryAddsNoKeyboardFocusOrSpaceAction() {
         const screen = scene(catalog({exactSources: false}))
         mouseMove(screen.sourceTile, 70, 90)
@@ -528,6 +550,22 @@ TestCase {
         tryVerify(() => screen.preview.x + screen.preview.width <= screen.width)
         screen.preview.card = Object.assign({}, sourceCard, {faceDown: true})
         tryCompare(screen.preview, "visible", false)
+    }
+    function test_singleFacePreviewDoesNotStealSourceHover() {
+        const screen = scene(catalog({faceRows: [], exactSources: false}))
+        screen.width = 400
+        mouseMove(screen.sourceTile, 70, 90)
+        tryCompare(screen.preview, "visible", true)
+        const point = screen.sourceTile.mapToItem(screen.preview, 70, 90)
+        verify(point.x >= 0 && point.x <= screen.preview.width
+               && point.y >= 0 && point.y <= screen.preview.height,
+               "A narrow container makes the preview overlap the hovered source")
+        for (let offset = 0; offset < 10; ++offset) {
+            mouseMove(screen.sourceTile, 70 + offset, 90)
+            wait(20)
+            verify(screen.sourceHovered)
+            verify(screen.preview.visible)
+        }
     }
     function test_previewKeepsActionsClear_data() {
         return [{tag:"single-face", faces:[], width:1000, height:760},

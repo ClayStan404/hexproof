@@ -52,6 +52,10 @@ jobs:
               exit 1
             fi
             version="${BASH_REMATCH[1]}"
+            if [[ "$version" != "$source_version" ]]; then
+              echo "Release tag $GITHUB_REF_NAME does not match source version $source_version." >&2
+              exit 1
+            fi
             publish=true
             tag="$GITHUB_REF_NAME"
           else
@@ -126,18 +130,8 @@ jobs:
           python3 tools/check-protocol-parity.py
           python3 tools/check-i18n.py --strict
           python3 tools/check-module-size.py
-          scripts=(tools/card-database-builder/build-latest.sh)
-          if [[ -f deploy/deploy-release-server.sh ]]; then
-            scripts+=(deploy/deploy-release-server.sh)
-          fi
-          if [[ -f deploy/deploy-forge-runtime.sh ]]; then
-            scripts+=(deploy/deploy-forge-runtime.sh)
-          fi
-          if [[ -f deploy/deploy-test-server.sh ]]; then
-            scripts+=(deploy/deploy-test-server.sh)
-          fi
+          ./tools/check-shell-scripts.sh
           python3 -m unittest discover -s tools/tests
-          shellcheck "${scripts[@]}"
       - name: Verify stable card database compatibility
         shell: bash
         run: |
@@ -219,7 +213,7 @@ jobs:
           python3 tools/write-server-directory.py "$server_directory"
           echo "HEXPROOF_SERVER_DIRECTORY_FILE=$server_directory" >> "$GITHUB_ENV"
           feedback_config="$RUNNER_TEMP/hexproof-feedback.json"
-          python3 tools/write-feedback-config.py "$feedback_config"
+          python3 tools/write-feedback-config.py "$feedback_config" --defaults apps/client-qt/config/feedback.official.json
           echo "HEXPROOF_FEEDBACK_CONFIG_FILE=$feedback_config" >> "$GITHUB_ENV"
       - name: Install build dependencies
         run: >
@@ -317,7 +311,7 @@ jobs:
           "HEXPROOF_SERVER_DIRECTORY_FILE=$serverDirectory" | Out-File `
               -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $feedbackConfig = Join-Path $env:RUNNER_TEMP "hexproof-feedback.json"
-          python tools/write-feedback-config.py $feedbackConfig
+          python tools/write-feedback-config.py $feedbackConfig --defaults apps/client-qt/config/feedback.official.json
           if ($LASTEXITCODE -ne 0) {
               throw "Feedback configuration preparation failed."
           }
@@ -415,7 +409,7 @@ jobs:
           python3 tools/write-server-directory.py "$server_directory"
           echo "HEXPROOF_SERVER_DIRECTORY_FILE=$server_directory" >> "$GITHUB_ENV"
           feedback_config="$RUNNER_TEMP/hexproof-feedback.json"
-          python3 tools/write-feedback-config.py "$feedback_config"
+          python3 tools/write-feedback-config.py "$feedback_config" --defaults apps/client-qt/config/feedback.official.json
           echo "HEXPROOF_FEEDBACK_CONFIG_FILE=$feedback_config" >> "$GITHUB_ENV"
       - name: Verify runner architecture
         shell: bash
@@ -591,12 +585,15 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Download release artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: downloaded
       - name: Assemble assets and checksums
         shell: bash
+        env:
+          APPLICATION_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p release-assets
@@ -608,6 +605,8 @@ jobs:
             fi
             cp "$file" "$destination"
           done < <(find downloaded -type f -print0)
+          python3 tools/write-release-compatibility.py --version "$APPLICATION_VERSION" \
+            --output release-assets/compatibility.json
           (
             cd release-assets
             mapfile -d '' assets < <(
@@ -642,7 +641,11 @@ jobs:
           MACOS_RELEASE_NOTARIZED: ${{ secrets.MACOS_SIGNING_IDENTITY != '' && secrets.MACOS_NOTARY_APPLE_ID != '' && secrets.MACOS_NOTARY_PASSWORD != '' && secrets.MACOS_NOTARY_TEAM_ID != '' }}
         run: |
           set -euo pipefail
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          if draft_state="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"; then
+            if [[ "$draft_state" != "true" ]]; then
+              echo "Refusing to change assets or notes on published release $RELEASE_TAG." >&2
+              exit 1
+            fi
             gh release upload "$RELEASE_TAG" --clobber release-assets/*
           else
             gh release create "$RELEASE_TAG" \

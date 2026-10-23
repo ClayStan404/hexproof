@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 [Unit]
-Description=Hexproof multi-room hub (hexproof.v1)
+Description=Hexproof multi-room hub (hexproof.v2)
 After=network-online.target
 Wants=network-online.target
 

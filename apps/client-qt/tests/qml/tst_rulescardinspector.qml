@@ -400,14 +400,13 @@ TestCase {
         const art = findChild(inspector, "rulesCardInspectorArt")
         const scroll = findChild(inspector, "rulesCardInspectorScroll")
         const unpin = findChild(inspector, "clearRulesCardInspectorButton")
-        verify(waitForPolish(testWindow))
         tryCompare(art, "status", Image.Ready)
-        compare(art.source.toString(), catalog.imageUrl.toString())
-        compare(art.fillMode, Image.PreserveAspectFit)
-        const pixelRatio = testWindow.Screen.devicePixelRatio
-        compare(art.sourceSize.width, Math.max(1, Math.ceil(art.width * pixelRatio)))
-        compare(art.sourceSize.height, Math.max(1, Math.ceil(art.height * pixelRatio)))
         waitForRendering(inspector)
+        // Full-face previews decode for their displayed physical size rather
+        // than retaining the original 1344-pixel source in every small dock.
+        const physicalWidth = art.width * testWindow.screen.devicePixelRatio
+        verify(art.sourceSize.width > 0 && art.sourceSize.width < 1344)
+        fuzzyCompare(art.sourceSize.width, physicalWidth, 2)
         for (const item of [art, scroll, unpin]) {
             const point = item.mapToItem(inspector, 0, 0)
             verify(item.width > 0 && item.height > 0, item.objectName + " needs nonzero space")

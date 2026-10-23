@@ -1,0 +1,1491 @@
+{
+  "schema": 1,
+  "description": "Frozen match fixtures. Four published corpus lists plus one synthetic Vintage fixture; exact printings verified against the pinned Forge database.",
+  "formats": {
+    "standard": {
+      "name": "Mono-Green Landfall",
+      "format": "modern",
+      "deckFormat": "standard",
+      "source": "https://www.mtggoldfish.com/deck/7954747",
+      "sourceManifest": "tools/forge-card-corpus/decks-2026-09-22.json",
+      "mainboard": [
+        {
+          "name": "Fabled Passage",
+          "count": 4,
+          "setCode": "BLB",
+          "collectorNumber": "252",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Elven Passage",
+          "count": 2,
+          "setCode": "HOB",
+          "collectorNumber": "181",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Escape Tunnel",
+          "count": 2,
+          "setCode": "EOC",
+          "collectorNumber": "157",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Ba Sing Se",
+          "count": 3,
+          "setCode": "TLA",
+          "collectorNumber": "266",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Forest",
+          "count": 14,
+          "setCode": "10E",
+          "collectorNumber": "380",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Forest",
+          "cardColors": ""
+        },
+        {
+          "name": "Bushwhack",
+          "count": 1,
+          "setCode": "BRO",
+          "collectorNumber": "174",
+          "manaValue": 1.0,
+          "manaCost": "{G}",
+          "typeLine": "Sorcery",
+          "cardColors": "G"
+        },
+        {
+          "name": "Llanowar Elves",
+          "count": 4,
+          "setCode": "10E",
+          "collectorNumber": "274",
+          "manaValue": 1.0,
+          "manaCost": "{G}",
+          "typeLine": "Creature \u2014 Elf Druid",
+          "cardColors": "G"
+        },
+        {
+          "name": "Sazh's Chocobo",
+          "count": 4,
+          "setCode": "FIN",
+          "collectorNumber": "200",
+          "manaValue": 1.0,
+          "manaCost": "{G}",
+          "typeLine": "Creature \u2014 Bird",
+          "cardColors": "G"
+        },
+        {
+          "name": "Esper Origins // Summon: Esper Maduin",
+          "count": 4,
+          "setCode": "FIN",
+          "collectorNumber": "185",
+          "manaValue": 2.0,
+          "manaCost": "{1}{G}",
+          "typeLine": "Sorcery // Enchantment Creature \u2014 Saga Elemental",
+          "cardColors": "G"
+        },
+        {
+          "name": "Icetill Explorer",
+          "count": 4,
+          "setCode": "EOE",
+          "collectorNumber": "192",
+          "manaValue": 4.0,
+          "manaCost": "{2}{G}{G}",
+          "typeLine": "Creature \u2014 Insect Scout",
+          "cardColors": "G"
+        },
+        {
+          "name": "Lumbering Worldwagon",
+          "count": 1,
+          "setCode": "DFT",
+          "collectorNumber": "168",
+          "manaValue": 3.0,
+          "manaCost": "{2}{G}",
+          "typeLine": "Artifact \u2014 Vehicle",
+          "cardColors": "G"
+        },
+        {
+          "name": "Surrak, Elusive Hunter",
+          "count": 1,
+          "setCode": "TDM",
+          "collectorNumber": "161",
+          "manaValue": 3.0,
+          "manaCost": "{2}{G}",
+          "typeLine": "Legendary Creature \u2014 Human Warrior",
+          "cardColors": "G"
+        },
+        {
+          "name": "Meltstrider's Resolve",
+          "count": 1,
+          "setCode": "EOE",
+          "collectorNumber": "199",
+          "manaValue": 1.0,
+          "manaCost": "{G}",
+          "typeLine": "Enchantment \u2014 Aura",
+          "cardColors": "G"
+        },
+        {
+          "name": "Earthbender Ascension",
+          "count": 4,
+          "setCode": "TLA",
+          "collectorNumber": "175",
+          "manaValue": 3.0,
+          "manaCost": "{2}{G}",
+          "typeLine": "Enchantment",
+          "cardColors": "G"
+        },
+        {
+          "name": "Glimpse the Core",
+          "count": 2,
+          "setCode": "LCI",
+          "collectorNumber": "186",
+          "manaValue": 2.0,
+          "manaCost": "{1}{G}",
+          "typeLine": "Sorcery",
+          "cardColors": "G"
+        },
+        {
+          "name": "Keen-Eyed Curator",
+          "count": 1,
+          "setCode": "BLB",
+          "collectorNumber": "181",
+          "manaValue": 2.0,
+          "manaCost": "{G}{G}",
+          "typeLine": "Creature \u2014 Raccoon Scout",
+          "cardColors": "G"
+        },
+        {
+          "name": "Mightform Harmonizer",
+          "count": 4,
+          "setCode": "EOE",
+          "collectorNumber": "200",
+          "manaValue": 4.0,
+          "manaCost": "{2}{G}{G}",
+          "typeLine": "Creature \u2014 Insect Druid",
+          "cardColors": "G"
+        },
+        {
+          "name": "Sapling Nursery",
+          "count": 3,
+          "setCode": "ECL",
+          "collectorNumber": "192",
+          "manaValue": 8.0,
+          "manaCost": "{6}{G}{G}",
+          "typeLine": "Enchantment",
+          "cardColors": "G"
+        },
+        {
+          "name": "Promising Vein",
+          "count": 1,
+          "setCode": "LCI",
+          "collectorNumber": "279",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Cave",
+          "cardColors": ""
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Meltstrider's Gear",
+          "count": 3,
+          "setCode": "EOE",
+          "collectorNumber": "198",
+          "manaValue": 1.0,
+          "manaCost": "{G}",
+          "typeLine": "Artifact \u2014 Equipment",
+          "cardColors": "G"
+        },
+        {
+          "name": "Keen-Eyed Curator",
+          "count": 1,
+          "setCode": "BLB",
+          "collectorNumber": "181",
+          "manaValue": 2.0,
+          "manaCost": "{G}{G}",
+          "typeLine": "Creature \u2014 Raccoon Scout",
+          "cardColors": "G"
+        },
+        {
+          "name": "Torpor Orb",
+          "count": 2,
+          "setCode": "BIG",
+          "collectorNumber": "27",
+          "manaValue": 2.0,
+          "manaCost": "{2}",
+          "typeLine": "Artifact",
+          "cardColors": ""
+        },
+        {
+          "name": "Sandman, Shifting Scoundrel",
+          "count": 1,
+          "setCode": "SPM",
+          "collectorNumber": "112",
+          "manaValue": 3.0,
+          "manaCost": "{1}{G}{G}",
+          "typeLine": "Legendary Creature \u2014 Sand Elemental Villain",
+          "cardColors": "G"
+        },
+        {
+          "name": "Surrak, Elusive Hunter",
+          "count": 2,
+          "setCode": "TDM",
+          "collectorNumber": "161",
+          "manaValue": 3.0,
+          "manaCost": "{2}{G}",
+          "typeLine": "Legendary Creature \u2014 Human Warrior",
+          "cardColors": "G"
+        },
+        {
+          "name": "Mossborn Hydra",
+          "count": 4,
+          "setCode": "FDN",
+          "collectorNumber": "107",
+          "manaValue": 3.0,
+          "manaCost": "{2}{G}",
+          "typeLine": "Creature \u2014 Elemental Hydra",
+          "cardColors": "G"
+        },
+        {
+          "name": "Leatherhead, Swamp Stalker",
+          "count": 1,
+          "setCode": "TMT",
+          "collectorNumber": "117",
+          "manaValue": 4.0,
+          "manaCost": "{2}{G}{G}",
+          "typeLine": "Legendary Creature \u2014 Crocodile Mutant Rogue",
+          "cardColors": "G"
+        },
+        {
+          "name": "Sapling Nursery",
+          "count": 1,
+          "setCode": "ECL",
+          "collectorNumber": "192",
+          "manaValue": 8.0,
+          "manaCost": "{6}{G}{G}",
+          "typeLine": "Enchantment",
+          "cardColors": "G"
+        }
+      ]
+    },
+    "pioneer": {
+      "name": "Mono-White Humans",
+      "format": "modern",
+      "deckFormat": "pioneer",
+      "source": "https://www.mtggoldfish.com/deck/7966544",
+      "sourceManifest": "tools/forge-card-corpus/decks-2026-09-22.json",
+      "mainboard": [
+        {
+          "name": "Adeline, Resplendent Cathar",
+          "count": 4,
+          "setCode": "DBL",
+          "collectorNumber": "1",
+          "manaValue": 3.0,
+          "manaCost": "{1}{W}{W}",
+          "typeLine": "Legendary Creature \u2014 Human Knight",
+          "cardColors": "W"
+        },
+        {
+          "name": "Brave the Elements",
+          "count": 4,
+          "setCode": "C14",
+          "collectorNumber": "66",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Instant",
+          "cardColors": "W"
+        },
+        {
+          "name": "Castle Ardenvale",
+          "count": 2,
+          "setCode": "BLC",
+          "collectorNumber": "298",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Cavern of Souls",
+          "count": 2,
+          "setCode": "2X2",
+          "collectorNumber": "320",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Coppercoat Vanguard",
+          "count": 3,
+          "setCode": "MAT",
+          "collectorNumber": "1",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Cosmogrand Zenith",
+          "count": 3,
+          "setCode": "EOE",
+          "collectorNumber": "9",
+          "manaValue": 3.0,
+          "manaCost": "{2}{W}",
+          "typeLine": "Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Dauntless Bodyguard",
+          "count": 3,
+          "setCode": "DOM",
+          "collectorNumber": "14",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Knight",
+          "cardColors": "W"
+        },
+        {
+          "name": "Eiganjo, Seat of the Empire",
+          "count": 2,
+          "setCode": "NEO",
+          "collectorNumber": "268",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Legendary Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Hopeful Initiate",
+          "count": 3,
+          "setCode": "DBL",
+          "collectorNumber": "287",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Warlock",
+          "cardColors": "W"
+        },
+        {
+          "name": "Mutavault",
+          "count": 4,
+          "setCode": "CLB",
+          "collectorNumber": "903",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Plains",
+          "count": 10,
+          "setCode": "10E",
+          "collectorNumber": "364",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Recruitment Officer",
+          "count": 3,
+          "setCode": "BRO",
+          "collectorNumber": "23",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Reluctant Role Model",
+          "count": 3,
+          "setCode": "DSK",
+          "collectorNumber": "26",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Survivor",
+          "cardColors": "W"
+        },
+        {
+          "name": "Sheltered by Ghosts",
+          "count": 2,
+          "setCode": "DSK",
+          "collectorNumber": "30",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Enchantment \u2014 Aura",
+          "cardColors": "W"
+        },
+        {
+          "name": "Thalia, Guardian of Thraben",
+          "count": 3,
+          "setCode": "A25",
+          "collectorNumber": "36",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Legendary Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Thalia's Lieutenant",
+          "count": 4,
+          "setCode": "C20",
+          "collectorNumber": "103",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Veteran Survivor",
+          "count": 3,
+          "setCode": "DSK",
+          "collectorNumber": "40",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Survivor",
+          "cardColors": "W"
+        },
+        {
+          "name": "Kytheon, Hero of Akros // Gideon, Battle-Forged",
+          "count": 2,
+          "setCode": "ORI",
+          "collectorNumber": "23",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Legendary Creature \u2014 Human Soldier // Legendary Planeswalker \u2014 Gideon",
+          "cardColors": "W"
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Containment Priest",
+          "count": 2,
+          "setCode": "C14",
+          "collectorNumber": "5",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        },
+        {
+          "name": "Declaration in Stone",
+          "count": 2,
+          "setCode": "NCC",
+          "collectorNumber": "196",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Get Lost",
+          "count": 2,
+          "setCode": "LCI",
+          "collectorNumber": "14",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Instant",
+          "cardColors": "W"
+        },
+        {
+          "name": "Portable Hole",
+          "count": 2,
+          "setCode": "AFR",
+          "collectorNumber": "33",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Artifact",
+          "cardColors": "W"
+        },
+        {
+          "name": "Requisition Raid",
+          "count": 2,
+          "setCode": "OTJ",
+          "collectorNumber": "26",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 2,
+          "setCode": "A25",
+          "collectorNumber": "32",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Enchantment",
+          "cardColors": "W"
+        },
+        {
+          "name": "Wedding Announcement // Wedding Festivity",
+          "count": 3,
+          "setCode": "DBL",
+          "collectorNumber": "312",
+          "manaValue": 3.0,
+          "manaCost": "{2}{W}",
+          "typeLine": "Enchantment // Enchantment",
+          "cardColors": "W"
+        }
+      ]
+    },
+    "modern": {
+      "name": "Boros",
+      "format": "modern",
+      "deckFormat": "modern",
+      "source": "https://www.mtggoldfish.com/deck/7959161",
+      "sourceManifest": "tools/forge-card-corpus/decks-2026-09-22.json",
+      "mainboard": [
+        {
+          "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "237",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Legendary Creature \u2014 Cat Warrior // Legendary Planeswalker \u2014 Ajani",
+          "cardColors": "W"
+        },
+        {
+          "name": "Elegant Parlor",
+          "count": 2,
+          "setCode": "MKM",
+          "collectorNumber": "260",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Mountain Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 3,
+          "setCode": "EXP",
+          "collectorNumber": "16",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Seasoned Pyromancer",
+          "count": 3,
+          "setCode": "2X2",
+          "collectorNumber": "123",
+          "manaValue": 3.0,
+          "manaCost": "{1}{R}{R}",
+          "typeLine": "Creature \u2014 Human Shaman",
+          "cardColors": "R"
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 4,
+          "setCode": "EXP",
+          "collectorNumber": "24",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Dalkovan Encampment",
+          "count": 2,
+          "setCode": "TDM",
+          "collectorNumber": "253",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Windswept Heath",
+          "count": 3,
+          "setCode": "EXP",
+          "collectorNumber": "20",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Arena of Glory",
+          "count": 1,
+          "setCode": "MH3",
+          "collectorNumber": "215",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Thraben Charm",
+          "count": 2,
+          "setCode": "MH3",
+          "collectorNumber": "45",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Instant",
+          "cardColors": "W"
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1,
+          "setCode": "2XM",
+          "collectorNumber": "118",
+          "manaValue": 3.0,
+          "manaCost": "{2}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Guide of Souls",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "29",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        },
+        {
+          "name": "Mountain",
+          "count": 1,
+          "setCode": "10E",
+          "collectorNumber": "376",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Mountain",
+          "cardColors": ""
+        },
+        {
+          "name": "Galvanic Discharge",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "122",
+          "manaValue": 1.0,
+          "manaCost": "{R}",
+          "typeLine": "Instant",
+          "cardColors": "R"
+        },
+        {
+          "name": "Ragavan, Nimble Pilferer",
+          "count": 4,
+          "setCode": "FCA",
+          "collectorNumber": "43",
+          "manaValue": 1.0,
+          "manaCost": "{R}",
+          "typeLine": "Legendary Creature \u2014 Monkey Pirate",
+          "cardColors": "R"
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 4,
+          "setCode": "TDM",
+          "collectorNumber": "33",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Bard",
+          "cardColors": "W"
+        },
+        {
+          "name": "Ranger-Captain of Eos",
+          "count": 2,
+          "setCode": "FCA",
+          "collectorNumber": "2",
+          "manaValue": 3.0,
+          "manaCost": "{1}{W}{W}",
+          "typeLine": "Creature \u2014 Human Soldier Ranger",
+          "cardColors": "W"
+        },
+        {
+          "name": "Goblin Bombardment",
+          "count": 3,
+          "setCode": "C13",
+          "collectorNumber": "110",
+          "manaValue": 2.0,
+          "manaCost": "{1}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 3,
+          "setCode": "CLU",
+          "collectorNumber": "279",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Mountain Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Ocelot Pride",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "38",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Cat",
+          "cardColors": "W"
+        },
+        {
+          "name": "Prismatic Ending",
+          "count": 1,
+          "setCode": "MB2",
+          "collectorNumber": "16",
+          "manaValue": 1.0,
+          "manaCost": "{X}{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Plains",
+          "count": 3,
+          "setCode": "10E",
+          "collectorNumber": "364",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Solitude",
+          "count": 1,
+          "setCode": "H2R",
+          "collectorNumber": "3",
+          "manaValue": 5.0,
+          "manaCost": "{3}{W}{W}",
+          "typeLine": "Creature \u2014 Elemental Incarnation",
+          "cardColors": "W"
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 1,
+          "setCode": "EXP",
+          "collectorNumber": "21",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "High Noon",
+          "count": 2,
+          "setCode": "OTJ",
+          "collectorNumber": "15",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Enchantment",
+          "cardColors": "W"
+        },
+        {
+          "name": "Sanctifier en-Vec",
+          "count": 2,
+          "setCode": "MH2",
+          "collectorNumber": "27",
+          "manaValue": 2.0,
+          "manaCost": "{W}{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        },
+        {
+          "name": "Vexing Bauble",
+          "count": 2,
+          "setCode": "MH3",
+          "collectorNumber": "212",
+          "manaValue": 1.0,
+          "manaCost": "{1}",
+          "typeLine": "Artifact",
+          "cardColors": ""
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1,
+          "setCode": "2XM",
+          "collectorNumber": "118",
+          "manaValue": 3.0,
+          "manaCost": "{2}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Wear // Tear",
+          "count": 1,
+          "setCode": "CMR",
+          "collectorNumber": "456",
+          "manaValue": 3.0,
+          "manaCost": "{1}{R} // {W}",
+          "typeLine": "Instant // Instant",
+          "cardColors": "WR"
+        },
+        {
+          "name": "The Legend of Roku // Avatar Roku",
+          "count": 1,
+          "setCode": "TLA",
+          "collectorNumber": "145",
+          "manaValue": 4.0,
+          "manaCost": "{2}{R}{R}",
+          "typeLine": "Enchantment \u2014 Saga // Legendary Creature \u2014 Avatar",
+          "cardColors": "R"
+        },
+        {
+          "name": "Obsidian Charmaw",
+          "count": 2,
+          "setCode": "MH2",
+          "collectorNumber": "137",
+          "manaValue": 5.0,
+          "manaCost": "{3}{R}{R}",
+          "typeLine": "Creature \u2014 Dragon",
+          "cardColors": "R"
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 2,
+          "setCode": "MH3",
+          "collectorNumber": "49",
+          "manaValue": 2.0,
+          "manaCost": "{X}{W}{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 2,
+          "setCode": "A25",
+          "collectorNumber": "32",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Enchantment",
+          "cardColors": "W"
+        }
+      ]
+    },
+    "legacy": {
+      "name": "Boros Energy",
+      "format": "modern",
+      "deckFormat": "legacy",
+      "source": "https://www.mtggoldfish.com/deck/7956469",
+      "sourceManifest": "tools/forge-card-corpus/decks-2026-09-22.json",
+      "mainboard": [
+        {
+          "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "237",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Legendary Creature \u2014 Cat Warrior // Legendary Planeswalker \u2014 Ajani",
+          "cardColors": "W"
+        },
+        {
+          "name": "Amped Raptor",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "114",
+          "manaValue": 2.0,
+          "manaCost": "{1}{R}",
+          "typeLine": "Creature \u2014 Dinosaur",
+          "cardColors": "R"
+        },
+        {
+          "name": "Elegant Parlor",
+          "count": 1,
+          "setCode": "MKM",
+          "collectorNumber": "260",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Mountain Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Plateau",
+          "count": 3,
+          "setCode": "2ED",
+          "collectorNumber": "280",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Mountain Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Goblin Bombardment",
+          "count": 3,
+          "setCode": "C13",
+          "collectorNumber": "110",
+          "manaValue": 2.0,
+          "manaCost": "{1}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Guide of Souls",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "29",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        },
+        {
+          "name": "Plains",
+          "count": 2,
+          "setCode": "10E",
+          "collectorNumber": "364",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Ocelot Pride",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "38",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Cat",
+          "cardColors": "W"
+        },
+        {
+          "name": "Thalia, Guardian of Thraben",
+          "count": 3,
+          "setCode": "A25",
+          "collectorNumber": "36",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Legendary Creature \u2014 Human Soldier",
+          "cardColors": "W"
+        },
+        {
+          "name": "Mountain",
+          "count": 1,
+          "setCode": "10E",
+          "collectorNumber": "376",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Mountain",
+          "cardColors": ""
+        },
+        {
+          "name": "Karakas",
+          "count": 2,
+          "setCode": "EMA",
+          "collectorNumber": "240",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Legendary Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Sunbaked Canyon",
+          "count": 3,
+          "setCode": "ACR",
+          "collectorNumber": "111",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 4,
+          "setCode": "EXP",
+          "collectorNumber": "24",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Wasteland",
+          "count": 4,
+          "setCode": "EMA",
+          "collectorNumber": "248",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 3,
+          "setCode": "TDM",
+          "collectorNumber": "33",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Bard",
+          "cardColors": "W"
+        },
+        {
+          "name": "Flagstones of Trokair",
+          "count": 3,
+          "setCode": "TSP",
+          "collectorNumber": "272",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Legendary Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Erode",
+          "count": 3,
+          "setCode": "SOS",
+          "collectorNumber": "15",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Instant",
+          "cardColors": "W"
+        },
+        {
+          "name": "Lazotep Quarry",
+          "count": 1,
+          "setCode": "M3C",
+          "collectorNumber": "79",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Desert",
+          "cardColors": ""
+        },
+        {
+          "name": "Swords to Plowshares",
+          "count": 4,
+          "setCode": "2ED",
+          "collectorNumber": "41",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Instant",
+          "cardColors": "W"
+        },
+        {
+          "name": "White Orchid Phantom",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "47",
+          "manaValue": 2.0,
+          "manaCost": "{W}{W}",
+          "typeLine": "Creature \u2014 Spirit Knight",
+          "cardColors": "W"
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "Deafening Silence",
+          "count": 4,
+          "setCode": "ELD",
+          "collectorNumber": "10",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Enchantment",
+          "cardColors": "W"
+        },
+        {
+          "name": "Pyroblast",
+          "count": 3,
+          "setCode": "5ED",
+          "collectorNumber": "262",
+          "manaValue": 1.0,
+          "manaCost": "{R}",
+          "typeLine": "Instant",
+          "cardColors": "R"
+        },
+        {
+          "name": "Leyline of the Void",
+          "count": 4,
+          "setCode": "DSK",
+          "collectorNumber": "106",
+          "manaValue": 4.0,
+          "manaCost": "{2}{B}{B}",
+          "typeLine": "Enchantment",
+          "cardColors": "B"
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 3,
+          "setCode": "MH3",
+          "collectorNumber": "49",
+          "manaValue": 2.0,
+          "manaCost": "{X}{W}{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Containment Priest",
+          "count": 1,
+          "setCode": "C14",
+          "collectorNumber": "5",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        }
+      ]
+    },
+    "vintage": {
+      "name": "Vintage Boros fixture with restricted mana artifacts",
+      "format": "modern",
+      "deckFormat": "vintage",
+      "source": "Synthetic match fixture adapted from https://www.mtggoldfish.com/deck/7959161; not a Vintage metagame sample",
+      "sourceManifest": "tools/forge-card-corpus/decks-2026-09-22.json",
+      "mainboard": [
+        {
+          "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "237",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Legendary Creature \u2014 Cat Warrior // Legendary Planeswalker \u2014 Ajani",
+          "cardColors": "W"
+        },
+        {
+          "name": "Elegant Parlor",
+          "count": 2,
+          "setCode": "MKM",
+          "collectorNumber": "260",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Mountain Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Flooded Strand",
+          "count": 3,
+          "setCode": "EXP",
+          "collectorNumber": "16",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Seasoned Pyromancer",
+          "count": 3,
+          "setCode": "2X2",
+          "collectorNumber": "123",
+          "manaValue": 3.0,
+          "manaCost": "{1}{R}{R}",
+          "typeLine": "Creature \u2014 Human Shaman",
+          "cardColors": "R"
+        },
+        {
+          "name": "Arid Mesa",
+          "count": 4,
+          "setCode": "EXP",
+          "collectorNumber": "24",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Dalkovan Encampment",
+          "count": 2,
+          "setCode": "TDM",
+          "collectorNumber": "253",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Windswept Heath",
+          "count": 3,
+          "setCode": "EXP",
+          "collectorNumber": "20",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Arena of Glory",
+          "count": 1,
+          "setCode": "MH3",
+          "collectorNumber": "215",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Thraben Charm",
+          "count": 2,
+          "setCode": "MH3",
+          "collectorNumber": "45",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Instant",
+          "cardColors": "W"
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1,
+          "setCode": "2XM",
+          "collectorNumber": "118",
+          "manaValue": 3.0,
+          "manaCost": "{2}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Guide of Souls",
+          "count": 3,
+          "setCode": "MH3",
+          "collectorNumber": "29",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        },
+        {
+          "name": "Mountain",
+          "count": 1,
+          "setCode": "10E",
+          "collectorNumber": "376",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Mountain",
+          "cardColors": ""
+        },
+        {
+          "name": "Galvanic Discharge",
+          "count": 3,
+          "setCode": "MH3",
+          "collectorNumber": "122",
+          "manaValue": 1.0,
+          "manaCost": "{R}",
+          "typeLine": "Instant",
+          "cardColors": "R"
+        },
+        {
+          "name": "Ragavan, Nimble Pilferer",
+          "count": 4,
+          "setCode": "FCA",
+          "collectorNumber": "43",
+          "manaValue": 1.0,
+          "manaCost": "{R}",
+          "typeLine": "Legendary Creature \u2014 Monkey Pirate",
+          "cardColors": "R"
+        },
+        {
+          "name": "Voice of Victory",
+          "count": 4,
+          "setCode": "TDM",
+          "collectorNumber": "33",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Creature \u2014 Human Bard",
+          "cardColors": "W"
+        },
+        {
+          "name": "Ranger-Captain of Eos",
+          "count": 2,
+          "setCode": "FCA",
+          "collectorNumber": "2",
+          "manaValue": 3.0,
+          "manaCost": "{1}{W}{W}",
+          "typeLine": "Creature \u2014 Human Soldier Ranger",
+          "cardColors": "W"
+        },
+        {
+          "name": "Goblin Bombardment",
+          "count": 3,
+          "setCode": "C13",
+          "collectorNumber": "110",
+          "manaValue": 2.0,
+          "manaCost": "{1}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Sacred Foundry",
+          "count": 3,
+          "setCode": "CLU",
+          "collectorNumber": "279",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land \u2014 Mountain Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Ocelot Pride",
+          "count": 4,
+          "setCode": "MH3",
+          "collectorNumber": "38",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "typeLine": "Creature \u2014 Cat",
+          "cardColors": "W"
+        },
+        {
+          "name": "Prismatic Ending",
+          "count": 1,
+          "setCode": "MB2",
+          "collectorNumber": "16",
+          "manaValue": 1.0,
+          "manaCost": "{X}{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Plains",
+          "count": 3,
+          "setCode": "10E",
+          "collectorNumber": "364",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Basic Land \u2014 Plains",
+          "cardColors": ""
+        },
+        {
+          "name": "Solitude",
+          "count": 1,
+          "setCode": "H2R",
+          "collectorNumber": "3",
+          "manaValue": 5.0,
+          "manaCost": "{3}{W}{W}",
+          "typeLine": "Creature \u2014 Elemental Incarnation",
+          "cardColors": "W"
+        },
+        {
+          "name": "Marsh Flats",
+          "count": 1,
+          "setCode": "EXP",
+          "collectorNumber": "21",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "typeLine": "Land",
+          "cardColors": ""
+        },
+        {
+          "name": "Black Lotus",
+          "setCode": "LEA",
+          "collectorNumber": "232",
+          "manaValue": 0.0,
+          "manaCost": "{0}",
+          "typeLine": "Artifact",
+          "cardColors": "",
+          "count": 1
+        },
+        {
+          "name": "Sol Ring",
+          "setCode": "LEA",
+          "collectorNumber": "269",
+          "manaValue": 1.0,
+          "manaCost": "{1}",
+          "typeLine": "Artifact",
+          "cardColors": "",
+          "count": 1
+        }
+      ],
+      "sideboard": [
+        {
+          "name": "High Noon",
+          "count": 2,
+          "setCode": "OTJ",
+          "collectorNumber": "15",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Enchantment",
+          "cardColors": "W"
+        },
+        {
+          "name": "Sanctifier en-Vec",
+          "count": 2,
+          "setCode": "MH2",
+          "collectorNumber": "27",
+          "manaValue": 2.0,
+          "manaCost": "{W}{W}",
+          "typeLine": "Creature \u2014 Human Cleric",
+          "cardColors": "W"
+        },
+        {
+          "name": "Vexing Bauble",
+          "count": 2,
+          "setCode": "MH3",
+          "collectorNumber": "212",
+          "manaValue": 1.0,
+          "manaCost": "{1}",
+          "typeLine": "Artifact",
+          "cardColors": ""
+        },
+        {
+          "name": "Blood Moon",
+          "count": 1,
+          "setCode": "2XM",
+          "collectorNumber": "118",
+          "manaValue": 3.0,
+          "manaCost": "{2}{R}",
+          "typeLine": "Enchantment",
+          "cardColors": "R"
+        },
+        {
+          "name": "Wear // Tear",
+          "count": 1,
+          "setCode": "CMR",
+          "collectorNumber": "456",
+          "manaValue": 3.0,
+          "manaCost": "{1}{R} // {W}",
+          "typeLine": "Instant // Instant",
+          "cardColors": "WR"
+        },
+        {
+          "name": "The Legend of Roku // Avatar Roku",
+          "count": 1,
+          "setCode": "TLA",
+          "collectorNumber": "145",
+          "manaValue": 4.0,
+          "manaCost": "{2}{R}{R}",
+          "typeLine": "Enchantment \u2014 Saga // Legendary Creature \u2014 Avatar",
+          "cardColors": "R"
+        },
+        {
+          "name": "Obsidian Charmaw",
+          "count": 2,
+          "setCode": "MH2",
+          "collectorNumber": "137",
+          "manaValue": 5.0,
+          "manaCost": "{3}{R}{R}",
+          "typeLine": "Creature \u2014 Dragon",
+          "cardColors": "R"
+        },
+        {
+          "name": "Wrath of the Skies",
+          "count": 2,
+          "setCode": "MH3",
+          "collectorNumber": "49",
+          "manaValue": 2.0,
+          "manaCost": "{X}{W}{W}",
+          "typeLine": "Sorcery",
+          "cardColors": "W"
+        },
+        {
+          "name": "Rest in Peace",
+          "count": 2,
+          "setCode": "A25",
+          "collectorNumber": "32",
+          "manaValue": 2.0,
+          "manaCost": "{1}{W}",
+          "typeLine": "Enchantment",
+          "cardColors": "W"
+        }
+      ]
+    }
+  }
+}

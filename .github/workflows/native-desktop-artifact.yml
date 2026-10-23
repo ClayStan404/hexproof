@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Native desktop verification artifact
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Select Forge build JDK
+        uses: ./.github/actions/setup-forge-build
+      - name: Install Qt
+        uses: ./.github/actions/setup-qt
+      - name: Install zlib
+        shell: pwsh
+        run: vcpkg install zlib:x64-windows
+      - name: Check native orchestration
+        run: python -m unittest discover -s tools/tests -p test_wan_native_runner.py
+      - name: Build the native audit executable and adapter tests
+        shell: pwsh
+        run: |
+          $toolchain = Join-Path $env:VCPKG_INSTALLATION_ROOT "scripts/buildsystems/vcpkg.cmake"
+          cmake -S apps/client-qt -B build/native-desktop -G "Visual Studio 17 2022" -A x64 `
+            "-DCMAKE_TOOLCHAIN_FILE=$toolchain" -DVCPKG_TARGET_TRIPLET=x64-windows `
+            -DHEXPROOF_BUILD_NATIVE_AUDIT=ON
+          if ($LASTEXITCODE -ne 0) { throw "Native audit configuration failed." }
+          cmake --build build/native-desktop --config Release --parallel `
+            --target hexproof_native_audit hexproof_native_audit_test
+          if ($LASTEXITCODE -ne 0) { throw "Native audit compilation failed." }
+          ctest --test-dir build/native-desktop -C Release -R '^native_audit_adapter$' --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw "Native adapter component tests failed." }
+      - name: Bundle dependencies for an authorized interactive desktop
+        shell: pwsh
+        run: |
+          $bundle = "build/native-desktop-bundle"
+          New-Item -ItemType Directory -Path $bundle | Out-Null
+          Copy-Item build/native-desktop/Release/hexproof_native_audit.exe $bundle
+          Copy-Item build/native-desktop/Release/hexproof-forge-host.exe $bundle
+          Copy-Item build/native-desktop/Release/forge-overlay.jar $bundle
+          windeployqt --release --qmldir apps/client-qt/qml "$bundle/hexproof_native_audit.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Qt dependency deployment failed." }
+          Copy-Item build/native-desktop/Release/*.dll $bundle
+          New-Item -ItemType Directory -Path "$bundle/tools/ui-automation" | Out-Null
+          Copy-Item tools/ui-automation/scenarios "$bundle/tools/ui-automation/scenarios" -Recurse
+          Copy-Item tools/ui-automation/fixtures "$bundle/tools/ui-automation/fixtures" -Recurse
+          Copy-Item tools/ui-automation/run-native.py,tools/ui-automation/run-wan-native.py "$bundle/tools/ui-automation/"
+          git rev-parse HEAD | Out-File "$bundle/source-commit.txt" -Encoding ascii
+          Get-ChildItem $bundle -File -Recurse | Get-FileHash -Algorithm SHA256 |
+            Select-Object @{Name='File';Expression={$_.Path.Substring((Resolve-Path $bundle).Path.Length + 1)}},Hash |
+            ConvertTo-Json | Set-Content "$bundle/checksums.json" -Encoding utf8
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: native-desktop-windows-x64
+          path: build/native-desktop-bundle/
+          if-no-files-found: error
+          retention-days: 7

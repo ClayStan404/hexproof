@@ -258,3 +258,44 @@ func RunOutbox(ctx context.Context, s *Store, sender MailSender) {
 		}
 	}
 }
+
+// RunRetention preserves private V1 retention after SMTP delivery has drained.
+// Public mode must not retain old raw submissions merely because it has no mail
+// sender, and this worker never claims or republishes a private submission.
+func RunRetention(ctx context.Context, s *Store) {
+	for ctx.Err() == nil {
+		if err := s.Prune(ctx); err != nil {
+			log.Print("feedback retention unavailable")
+		}
+		timer := time.NewTimer(time.Minute)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
+}
+
+// PrepareLegacyStore completes due private retention before deciding whether
+// SMTP is still required. A failed or cancelled cleanup never authorizes startup
+// without the legacy sender; expired delivery state is not unfinished work.
+func PrepareLegacyStore(ctx context.Context, s *Store) (needsSMTP bool, err error) {
+	if err = ctx.Err(); err != nil {
+		return false, err
+	}
+	if err = s.Prune(ctx); err != nil {
+		return false, err
+	}
+	if err = ctx.Err(); err != nil {
+		return false, err
+	}
+	stats, err := s.Stats(ctx)
+	if err != nil {
+		return false, err
+	}
+	if err = ctx.Err(); err != nil {
+		return false, err
+	}
+	return stats.Pending > 0 || stats.Uncertain > 0 || stats.NeedsAttention > 0, nil
+}

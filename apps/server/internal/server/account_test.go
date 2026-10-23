@@ -83,7 +83,7 @@ func TestAccountLoginCodeRecoversSeatWithoutLocalCredential(t *testing.T) {
 	// A cached device session also resumes across launches without a room token.
 	third := dial(t, srv)
 	defer third.close()
-	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{
+	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{Protocol: protocol.ProtocolVersion,
 		DisplayName: "Untrusted name", ClientVersion: buildinfo.Version, AccountSession: logged.SessionToken})
 	hello.ID = "account-hello"
 	third.send(hello)

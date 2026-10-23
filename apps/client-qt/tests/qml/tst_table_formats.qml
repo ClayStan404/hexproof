@@ -28,6 +28,11 @@ TestCase {
         testCase: testCase
     }
 
+    Component {
+        id: turnBarComponent
+        TableTurnBar { }
+    }
+
     function syncTestGameTable() {
         harness.syncTestGameTable()
     }
@@ -243,6 +248,7 @@ TestCase {
     function test_phaseNavigationNeverLeavesClippedFinalRows_data() {
         return [{tag: "maximized", width: 1920, height: 1011, scale: 1},
                 {tag: "maximized-edh-auto-scale", width: 1920, height: 1011, scale: 1.264, format: "edh"},
+                {tag: "reported-1280x686", width: 1280, height: 686, scale: 1, retainList: true},
                 {tag: "medium-height", width: 1280, height: 800, scale: 1},
                 {tag: "short-height", width: 1000, height: 720, scale: 1},
                 {tag: "scaled", width: 900, height: 620, scale: 1.5}]
@@ -260,6 +266,11 @@ TestCase {
         const strip = findChild(table, "phaseStrip")
         const landControls = findChild(table, "landPlayCountControls")
         compare(selector.count, 11)
+        if (data.retainList) {
+            verify(!selector.visible, "The reported 1280×686 viewport must retain the eleven-row phase list")
+            compare(findChild(strip, "nextPhaseButton").height, Theme.size(26),
+                    "Reduce action density before replacing the phase list")
+        }
         if (selector.visible) {
             const before = mockWs.phaseCount
             testWindow.requestActivate()
@@ -288,6 +299,82 @@ TestCase {
         const point = nextTurn.mapToItem(table, 0, 0)
         verify(point.y >= 0 && point.y + nextTurn.height <= table.height + 1)
         compare(findChild(table, "nextPhaseButton").text, "Next turn")
+    }
+
+    function test_phaseListUsesCompactActionsBeforeSelector_data() {
+        return [{tag: "normal", scale: 1, language: "en"},
+                {tag: "automatic-chinese", scale: 1.264, language: "zh"},
+                {tag: "large", scale: 1.5, language: "en"}]
+    }
+
+    function test_phaseListUsesCompactActionsBeforeSelector(data) {
+        Theme.uiScale = data.scale
+        testTranslations.setLanguage(data.language)
+        mockWs.gameStack = []
+        const table = createTemporaryObject(tableComponent, tableHost,
+                                             {width: 1280, height: 1000})
+        verify(waitForRendering(table))
+        const strip = createTemporaryObject(turnBarComponent, tableHost,
+                                             {tableController: table,
+                                              width: Theme.size(144), height: 1000})
+        verify(strip !== null)
+        strip.height = strip.expandedPhasesMinimumHeight - Theme.size(20)
+        verify(waitForRendering(strip))
+        const selector = findChild(strip, "compactPhaseSelector")
+        verify(!selector.visible, "Compact actions must leave room for the eleven phase rows")
+        const nextPhase = findChild(strip, "nextPhaseButton")
+        compare(nextPhase.height, Theme.size(26))
+        const endPhase = findChild(strip, "phaseButton10")
+        const landControls = findChild(strip, "landPlayCountControls")
+        verify(endPhase.mapToItem(strip, 0, endPhase.height).y
+               <= landControls.mapToItem(strip, 0, 0).y)
+        mouseClick(endPhase)
+        tryCompare(mockWs, "phaseCount", 1)
+        compare(mockWs.lastPhase, "end")
+    }
+
+    function test_phaseNavigationThresholdsRemainStableAcrossPhases_data() {
+        return [{tag: "normal", scale: 1},
+                {tag: "automatic", scale: 1.264},
+                {tag: "large", scale: 1.5}]
+    }
+
+    function test_phaseNavigationThresholdsRemainStableAcrossPhases(data) {
+        Theme.uiScale = data.scale
+        const table = createTemporaryObject(tableComponent, tableHost,
+                                             {width: 1280, height: 1000})
+        verify(waitForRendering(table))
+        const strip = createTemporaryObject(turnBarComponent, tableHost,
+                                             {tableController: table,
+                                              width: Theme.size(144), height: 1000})
+        verify(strip !== null)
+        const selector = findChild(strip, "compactPhaseSelector")
+        const compactMinimum = strip.compactPhasesMinimumHeight
+        const expandedMinimum = strip.expandedPhasesMinimumHeight
+        for (const height of [compactMinimum - 1, compactMinimum, compactMinimum + 1,
+                              expandedMinimum - 1, expandedMinimum, expandedMinimum + 1]) {
+            strip.height = height
+            for (const phase of ["untap", "main_1", "draw", "declare_attackers", "end"]) {
+                mockWs.currentPhase = phase
+                verify(waitForRendering(strip))
+                compare(selector.visible, height < compactMinimum)
+                const nextTurn = findChild(strip, "nextTurnButton")
+                verify(nextTurn.mapToItem(strip, 0, nextTurn.height).y <= height + 1,
+                       "End turn must fit at height " + height + " in " + phase)
+                if (!selector.visible) {
+                    const assist = findChild(strip, "turnAssistButton")
+                    const boundary = (assist.visible ? assist
+                                      : findChild(strip, "landPlayCountControls"))
+                                     .mapToItem(strip, 0, 0).y
+                    for (let index = 0; index < 11; ++index) {
+                        const button = findChild(strip, "phaseButton" + index)
+                        verify(button.visible)
+                        verify(button.mapToItem(strip, 0, button.height).y <= boundary,
+                               "Phase " + index + " must fit at height " + height)
+                    }
+                }
+            }
+        }
     }
 
     function test_eliminatedSeatHasStatusWithoutReflowOrActiveCounts_data() {

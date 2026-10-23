@@ -140,7 +140,7 @@ func (a *Agent) publish(parent context.Context, completed string, observed *uint
 		return nil
 	}
 	if generation == "" {
-		out, callErr := a.service.Do(ctx, Request{Operation: "register", NodeID: a.nodeID})
+		out, callErr := a.call(ctx, Request{Operation: "register", NodeID: a.nodeID})
 		if callErr != nil {
 			return callErr
 		}
@@ -164,7 +164,7 @@ func (a *Agent) publish(parent context.Context, completed string, observed *uint
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	out, callErr := a.service.Do(ctx, Request{Operation: "report", NodeID: a.nodeID,
+	out, callErr := a.call(ctx, Request{Operation: "report", NodeID: a.nodeID,
 		Generation: generation, ReportSequence: sequence, Report: &report, Completed: sent})
 	if err = a.acceptResult(generation, callErr); err != nil {
 		return err
@@ -206,11 +206,21 @@ func (a *Agent) Do(parent context.Context, q Request) (Result, error) {
 		return Result{}, ErrUnavailable
 	}
 	q.NodeID, q.Generation = a.nodeID, generation
-	out, err := a.service.Do(ctx, q)
+	out, err := a.call(ctx, q)
 	if err = a.acceptResult(generation, err); err != nil {
 		return Result{}, err
 	}
 	return out, nil
+}
+
+// call owns the internal wire version for both local and remote services.
+func (a *Agent) call(ctx context.Context, q Request) (Result, error) {
+	q.RPCVersion = RPCVersion
+	out, err := a.service.Do(ctx, q)
+	if err == nil && out.RPCVersion != RPCVersion {
+		return Result{}, ErrInvalid
+	}
+	return out, err
 }
 
 func (a *Agent) Capabilities() Result {

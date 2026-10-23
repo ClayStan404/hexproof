@@ -28,7 +28,7 @@ TestCase {
         property var wsModel:({drawCards:n=>submittedActions++,setResponseStatus:status=>submittedActions++})
     }
     function init() { session.currentPhase="main_1";controller.submittedActions=0;controller.lastPhase="";testTranslations.setLanguage("zh"); window.requestActivate();tryCompare(window,"active",true) }
-    function cleanup() { testTranslations.setLanguage("en") }
+    function cleanup() { testTranslations.setLanguage("en"); Theme.uiScale=1; window.height=500 }
     Component { id: barComponent; TableTurnBar { width:220; height:300; tableController:controller } }
     function makeBar() {
         const strip=createTemporaryObject(barComponent,window.contentItem)
@@ -74,5 +74,36 @@ TestCase {
         assertPhase(value,"end")
         testTranslations.setLanguage("de");verify(waitForPolish(window))
         assertPhase(value,"end");compare(controller.submittedActions,1)
+    }
+    function test_resizeScaleAndLanguageTransitionsArePresentationOnly() {
+        const value = makeBar()
+        session.currentPhase = "main_2"
+        const states = [
+            {height: 561, scale: 1, language: "zh", selector: false},
+            {height: 500, scale: 1, language: "en", selector: true},
+            {height: 561, scale: 1.35, language: "de", selector: true},
+            {height: 561, scale: 1, language: "de", selector: false},
+            {height: 1000, scale: 1, language: "en", selector: false},
+            {height: 300, scale: 1, language: "zh", selector: true}]
+        for (const state of states) {
+            Theme.uiScale = state.scale
+            window.height = state.height
+            value.strip.height = window.height
+            testTranslations.setLanguage(state.language)
+            verify(waitForPolish(window))
+            compare(value.selector.visible, state.selector, "Navigation mode after " + JSON.stringify(state))
+            assertPhase(value, "main_2")
+            compare(controller.submittedActions, 0,
+                    "Resizing, scaling and retranslation must not submit a phase command")
+        }
+        value.selector.forceActiveFocus()
+        tryCompare(value.selector, "activeFocus", true)
+        mouseClick(value.selector)
+        tryCompare(value.selector.popup, "opened", true)
+        keyClick(Qt.Key_End)
+        keyClick(Qt.Key_Return)
+        tryCompare(controller, "submittedActions", 1)
+        compare(controller.lastPhase, "end")
+        compare(session.currentPhase, "main_2", "Selection waits for authoritative confirmation")
     }
 }

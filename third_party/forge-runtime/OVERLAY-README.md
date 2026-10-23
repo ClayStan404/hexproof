@@ -14,6 +14,8 @@ including the matching card resources. An overlay alone cannot upgrade the
 official engine. Review new base archives locally with `--base-archive` and
 `--source-archive`; these options retain the manifest's size/checksum checks.
 Do not activate download manifests before the pinned assets are published.
+The adapter 25 upgrade and publication verification are recorded in the
+[upgrade record](../../docs/forge-upstream-2026-09-27.md).
 
 Reviewed card-text corrections are host-owned display hints, applied by the
 patched ability factory only inside a native execution context. Only missing

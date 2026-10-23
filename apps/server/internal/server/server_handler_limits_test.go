@@ -480,9 +480,13 @@ func dial(t *testing.T, srv *httptest.Server) *wsClient {
 
 // hello performs the session.hello handshake and returns the welcome envelope.
 func (c *wsClient) hello(name string) protocol.Envelope {
+	return c.helloVersion(name, buildinfo.Version)
+}
+
+func (c *wsClient) helloVersion(name, version string) protocol.Envelope {
 	c.t.Helper()
 	env, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{
-		DisplayName: name, ClientVersion: buildinfo.Version, Protocol: protocol.ProtocolVersion,
+		DisplayName: name, ClientVersion: version, Protocol: protocol.ProtocolVersion,
 	})
 	env.ID = "hello"
 	c.send(env)
@@ -490,9 +494,13 @@ func (c *wsClient) hello(name string) protocol.Envelope {
 }
 
 func (c *wsClient) resume(name, token string, lastSeq int64) protocol.SessionWelcome {
+	return c.resumeVersion(name, token, lastSeq, buildinfo.Version)
+}
+
+func (c *wsClient) resumeVersion(name, token string, lastSeq int64, version string) protocol.SessionWelcome {
 	c.t.Helper()
 	env, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{
-		DisplayName: name, ClientVersion: buildinfo.Version, Protocol: protocol.ProtocolVersion,
+		DisplayName: name, ClientVersion: version, Protocol: protocol.ProtocolVersion,
 		ResumeToken: token, LastSeq: lastSeq,
 	})
 	env.ID = "resume"

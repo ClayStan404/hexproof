@@ -55,7 +55,7 @@ func TestLiveForgeAIPractice(t *testing.T) {
 			defer cancel()
 			human := &liveForgePeer{client: dialLiveForge(t, srv), seat: 0, name: "Synthetic Human"}
 			defer func() { _ = human.client.conn.CloseNow() }()
-			human.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{DisplayName: human.name, ClientVersion: buildinfo.Version})
+			human.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: human.name, ClientVersion: buildinfo.Version})
 			welcome := human.until(t, ctx, protocol.TypeSessionWelcome)
 			_ = welcome.DecodePayload(&human.welcome)
 			if test.hosting == "server" && !human.welcome.ForgeAIAvailable {
@@ -117,7 +117,7 @@ func TestLiveForgeAIPractice(t *testing.T) {
 			}
 			observer := &liveForgePeer{client: dialLiveForge(t, srv), seat: -1, name: "Observer"}
 			defer observer.client.conn.CloseNow()
-			observer.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{DisplayName: observer.name, ClientVersion: buildinfo.Version})
+			observer.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: observer.name, ClientVersion: buildinfo.Version})
 			observer.until(t, ctx, protocol.TypeSessionWelcome)
 			observer.command(t, ctx, protocol.TypeRoomJoin, "watch", protocol.RoomJoin{RoomID: roomID, AsSpectator: true, AcceptPlayerHost: test.hosting == "player"})
 			observer.until(t, ctx, protocol.TypeRulesSnapshot)
@@ -155,7 +155,7 @@ func TestLiveForgeAIPractice(t *testing.T) {
 						time.Sleep(5 * time.Millisecond)
 					}
 					human.client = dialLiveForge(t, srv)
-					human.command(t, ctx, protocol.TypeSessionHello, "resume", protocol.SessionHello{DisplayName: human.name, ClientVersion: buildinfo.Version, ResumeToken: token})
+					human.command(t, ctx, protocol.TypeSessionHello, "resume", protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: human.name, ClientVersion: buildinfo.Version, ResumeToken: token})
 					welcome := human.until(t, ctx, protocol.TypeSessionWelcome)
 					_ = welcome.DecodePayload(&human.welcome)
 					human.until(t, ctx, protocol.TypeRulesPrompt)

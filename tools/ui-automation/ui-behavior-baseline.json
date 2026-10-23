@@ -1,0 +1,288 @@
+{
+  "schema": "hexproof.ui-behavior-baseline.v1",
+  "reference": {
+    "tag": "v2.5.0",
+    "commit": "8529743029c48334ab3e2381a74edd18087ba2e0",
+    "meaning": "Historical public-source interaction reference; not an old-binary performance certification."
+  },
+  "scenarios": {
+    "phase": {
+      "name": "phase-navigation-regression",
+      "file": "PhaseNavigationRegression.qml"
+    },
+    "deck": {
+      "name": "deck-editor-regression",
+      "file": "DeckEditorRegression.qml",
+      "fixtureRequirements": {
+        "syntheticArt": {
+          "type": "boolean",
+          "eq": true
+        },
+        "mainRows": {
+          "type": "integer",
+          "min": 60
+        },
+        "sideRows": {
+          "type": "integer",
+          "min": 15
+        },
+        "faceCount": {
+          "type": "integer",
+          "min": 2
+        }
+      }
+    }
+  },
+  "qmlSuites": [
+    "tst_table_formats.qml",
+    "tst_tablephasebinding.qml",
+    "tst_scrollchainhandler.qml",
+    "tst_cardfacepreview.qml",
+    "tst_deckmaincollection.qml",
+    "tst_deckeditoridentity.qml",
+    "tst_cardcacheprogress.qml"
+  ],
+  "cases": [
+    {
+      "id": "phase.list_at_approved_budget",
+      "scenario": "phase",
+      "origin": "compatibility",
+      "description": "Keep the phase list when compact controls fit the reported window.",
+      "observations": {
+        "mode": {
+          "type": "string",
+          "eq": "list"
+        },
+        "completeRows": {
+          "type": "integer",
+          "eq": 11
+        },
+        "actionsReachable": {
+          "type": "boolean",
+          "eq": true
+        },
+        "compactActions": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "phase.presentation_transitions",
+      "scenario": "phase",
+      "origin": "compatibility",
+      "description": "Window, scale and language changes retain the authoritative phase.",
+      "observations": {
+        "transitions": {
+          "type": "integer",
+          "min": 3
+        },
+        "authoritativePhaseRetained": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "deck.preview_source",
+      "scenario": "deck",
+      "origin": "extension",
+      "description": "Keep the visible printing through a real metadata publication.",
+      "observations": {
+        "metadataPublications": {
+          "type": "integer",
+          "min": 1
+        },
+        "hiddenFrames": {
+          "type": "integer",
+          "eq": 0
+        },
+        "observedFrames": {
+          "type": "integer",
+          "min": 1
+        },
+        "visibleBeforePublication": {
+          "type": "boolean",
+          "eq": true
+        },
+        "metadataChangedForPrinting": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "deck.preview_held",
+      "scenario": "deck",
+      "origin": "extension",
+      "description": "Keep inspection held over a two-face preview during a real publication.",
+      "observations": {
+        "metadataPublications": {
+          "type": "integer",
+          "min": 1
+        },
+        "hiddenFrames": {
+          "type": "integer",
+          "eq": 0
+        },
+        "observedFrames": {
+          "type": "integer",
+          "min": 1
+        },
+        "heldBeforePublication": {
+          "type": "boolean",
+          "eq": true
+        },
+        "visibleBeforePublication": {
+          "type": "boolean",
+          "eq": true
+        },
+        "metadataChangedForPrinting": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "deck.wheel",
+      "scenario": "deck",
+      "origin": "compatibility",
+      "description": "Mouse-wheel travel accumulates, reverses and restores stationary inspection.",
+      "observations": {
+        "wheelEvents": {
+          "type": "integer",
+          "min": 6
+        },
+        "downDistance": {
+          "type": "number",
+          "gt": 0
+        },
+        "upDistance": {
+          "type": "number",
+          "lt": 0
+        },
+        "sameDirectionReverseFrames": {
+          "type": "integer",
+          "eq": 0
+        },
+        "previewHiddenWhileScrolling": {
+          "type": "boolean",
+          "eq": true
+        },
+        "previewRecoveredAfterScroll": {
+          "type": "boolean",
+          "eq": true
+        },
+        "unitsPerNotch": {
+          "type": "number",
+          "min": 47.5
+        },
+        "accumulatedTravelRatio": {
+          "type": "number",
+          "min": 0.95
+        }
+      }
+    },
+    {
+      "id": "deck.preview_wheel",
+      "scenario": "deck",
+      "origin": "extension",
+      "description": "Both preview faces pass wheel input to a scrollable gallery.",
+      "observations": {
+        "faceCount": {
+          "type": "integer",
+          "eq": 2
+        },
+        "frontDistance": {
+          "type": "number",
+          "gt": 0
+        },
+        "backDistance": {
+          "type": "number",
+          "gt": 0
+        },
+        "pointsInsideGallery": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "deck.first_count",
+      "scenario": "deck",
+      "origin": "compatibility",
+      "description": "The first count click keeps its printing and target during real cache activity.",
+      "observations": {
+        "cacheActiveBeforePress": {
+          "type": "boolean",
+          "eq": true
+        },
+        "maxGalleryDelta": {
+          "type": "number",
+          "min": 0,
+          "max": 0.5
+        },
+        "maxButtonDelta": {
+          "type": "number",
+          "min": 0,
+          "max": 0.5
+        },
+        "countDelta": {
+          "type": "integer",
+          "eq": 1
+        },
+        "presses": {
+          "type": "integer",
+          "eq": 1
+        },
+        "samePrinting": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "deck.explicit_cache",
+      "scenario": "deck",
+      "origin": "extension",
+      "description": "Explicit cache progress remains visible without moving the gallery.",
+      "observations": {
+        "activeSamples": {
+          "type": "integer",
+          "min": 2
+        },
+        "visibleDuringActivity": {
+          "type": "boolean",
+          "eq": true
+        },
+        "maxGalleryDelta": {
+          "type": "number",
+          "min": 0,
+          "max": 0.5
+        },
+        "completed": {
+          "type": "boolean",
+          "eq": true
+        }
+      }
+    },
+    {
+      "id": "deck.scrollbar",
+      "scenario": "deck",
+      "origin": "compatibility",
+      "description": "Scrollbar ownership cancels old wheel travel without a later pullback.",
+      "observations": {
+        "distance": {
+          "type": "number",
+          "gt": 0
+        },
+        "postSettleDrift": {
+          "type": "number",
+          "min": 0,
+          "max": 0.5
+        }
+      }
+    }
+  ],
+  "performance": "not-assessed"
+}

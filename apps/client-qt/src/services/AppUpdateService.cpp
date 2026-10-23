@@ -3,6 +3,7 @@
 
 #include "AppUpdateService.h"
 
+#include "../protocol/Message.h"
 #include "NetworkLimits.h"
 
 #include <QCoreApplication>
@@ -124,6 +125,11 @@ QString AppUpdateService::currentVersion() const
     return m_currentVersion;
 }
 
+QString AppUpdateService::targetProtocol() const
+{
+    return m_release.gameProtocol;
+}
+
 QString AppUpdateService::targetVersion() const
 {
     return m_release.version;
@@ -209,7 +215,16 @@ void AppUpdateService::checkForUpdates()
 {
     if (m_checking || m_downloading)
         return;
+    m_requestedProtocol.clear();
     recordLatestCheckAttempt();
+    requestRelease(QUrl(QString::fromLatin1(kLatestReleaseApi)));
+}
+
+void AppUpdateService::checkForProtocol(const QString &protocol)
+{
+    if (m_checking || m_downloading || hexproof::protocol::protocolGeneration(protocol) == 0)
+        return;
+    m_requestedProtocol = protocol;
     requestRelease(QUrl(QString::fromLatin1(kLatestReleaseApi)));
 }
 
@@ -218,6 +233,7 @@ void AppUpdateService::checkForVersion(const QString &version)
     const QString normalized = version.trimmed();
     if (m_checking || m_downloading)
         return;
+    m_requestedProtocol.clear();
     if (!validVersion(normalized)) {
         setLastError(QStringLiteral("The requested application version is invalid."));
         emit stateChanged();
@@ -298,12 +314,13 @@ void AppUpdateService::handleChecksumsReply(QNetworkReply *reply)
         finishCheckWithError(QStringLiteral("Release checksums are unavailable."));
         return;
     }
+    m_compatibilityChecksum = checksumForAsset(payload, QStringLiteral("compatibility.json"));
     m_pendingRelease.checksum = checksumForAsset(payload, m_pendingRelease.assetName);
     if (m_pendingRelease.checksum.size() != 64) {
         finishCheckWithError(QStringLiteral("Release checksums are unavailable."));
         return;
     }
-    applyRelease(std::move(m_pendingRelease));
+    verifyProtocolOrApply(std::move(m_pendingRelease));
 }
 
 void AppUpdateService::requestFallbackChecksums()
@@ -342,6 +359,7 @@ void AppUpdateService::handleFallbackChecksumsReply(QNetworkReply *reply)
                                  : m_apiCheckError);
         return;
     }
+    m_compatibilityChecksum = checksumForAsset(payload, QStringLiteral("compatibility.json"));
     requestAssetHead(std::move(release));
 }
 
@@ -365,6 +383,50 @@ void AppUpdateService::handleAssetHeadReply(QNetworkReply *reply)
     reply->deleteLater();
     if (networkOk && size > 0 && size <= kMaximumUpdatePackageBytes)
         m_pendingRelease.assetSize = size;
+    verifyProtocolOrApply(std::move(m_pendingRelease));
+}
+
+void AppUpdateService::verifyProtocolOrApply(ReleaseInfo release)
+{
+    if (m_requestedProtocol.isEmpty()) {
+        applyRelease(std::move(release));
+        return;
+    }
+    if (!validSha256(m_compatibilityChecksum) ||
+        compareVersions(release.version, m_currentVersion) < 0) {
+        finishCheckWithError(
+            QStringLiteral("No verified compatible client was found. View official releases."));
+        return;
+    }
+    m_pendingRelease = std::move(release);
+    const QUrl url = officialDownloadUrl(QStringLiteral("v") + m_pendingRelease.version,
+                                         QStringLiteral("compatibility.json"));
+    auto *reply = m_network->get(githubRequest(url, QByteArrayLiteral("application/json")));
+    m_checkReply = reply;
+    network_limits::limitNetworkReply(reply, 4096);
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply] { handleCompatibilityReply(reply); });
+}
+
+void AppUpdateService::handleCompatibilityReply(QNetworkReply *reply)
+{
+    if (reply != m_checkReply)
+        return;
+    m_checkReply = nullptr;
+    const auto bytes = reply->readAll();
+    const bool verified = successfulReply(reply) &&
+                          QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex() ==
+                              m_compatibilityChecksum;
+    const auto object = QJsonDocument::fromJson(bytes).object();
+    reply->deleteLater();
+    if (!verified || object.size() != 3 || object.value(QStringLiteral("schemaVersion")) != 1 ||
+        object.value(QStringLiteral("applicationVersion")).toString() != m_pendingRelease.version ||
+        object.value(QStringLiteral("gameProtocol")).toString() != m_requestedProtocol) {
+        finishCheckWithError(
+            QStringLiteral("No verified compatible client was found. View official releases."));
+        return;
+    }
+    m_pendingRelease.gameProtocol = m_requestedProtocol;
     applyRelease(std::move(m_pendingRelease));
 }
 
@@ -375,6 +437,8 @@ void AppUpdateService::applyRelease(ReleaseInfo release)
     m_release = std::move(release);
     m_pendingRelease = {};
     m_requestedExactVersion.clear();
+    m_requestedProtocol.clear();
+    m_compatibilityChecksum.clear();
     m_apiCheckError.clear();
     m_cachedRelease = false;
     m_checking = false;
@@ -391,6 +455,8 @@ void AppUpdateService::finishCheckWithError(const QString &error)
     m_checking = false;
     m_pendingRelease = {};
     m_requestedExactVersion.clear();
+    m_requestedProtocol.clear();
+    m_compatibilityChecksum.clear();
     m_apiCheckError.clear();
     setLastError(error);
     emit stateChanged();

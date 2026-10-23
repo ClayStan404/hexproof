@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-"""Validate the generated Go/Qt wire constants against the v1 schema."""
+"""Validate the generated Go/Qt wire constants against the v2 schema."""
 
 from __future__ import annotations
 

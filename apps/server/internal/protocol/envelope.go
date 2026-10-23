@@ -5,7 +5,7 @@ package protocol
 
 import "encoding/json"
 
-// Stable wire constants are generated from protocol/v1/wire-schema.json in
+// Stable wire constants are generated from protocol/v2/wire-schema.json in
 // wire_constants_generated.go. Keep operational limits and derived aliases
 // here so protocol behavior remains close to the types that consume it.
 

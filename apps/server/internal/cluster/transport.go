@@ -29,6 +29,9 @@ func NewRemote(c Config) (*Remote, error) {
 }
 
 func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
+	if q.RPCVersion != RPCVersion {
+		return Result{}, ErrInvalid
+	}
 	raw, err := json.Marshal(q)
 	if err != nil || len(raw) > maxMessageBytes {
 		return Result{}, ErrInvalid
@@ -66,7 +69,7 @@ func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
 		return Result{}, ctx.Err()
 	}
 	var out Result
-	if err != nil || len(raw) > maxMessageBytes || json.Unmarshal(raw, &out) != nil {
+	if err != nil || len(raw) > maxMessageBytes || json.Unmarshal(raw, &out) != nil || out.RPCVersion != RPCVersion {
 		return Result{}, ErrUnavailable
 	}
 	return out, nil

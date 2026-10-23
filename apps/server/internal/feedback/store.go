@@ -195,6 +195,9 @@ func (s *Store) recover() error {
 		if name == ".lock" || name == "admin.sock" {
 			continue
 		}
+		if name == "native.sock" && item.Type()&os.ModeSocket != 0 {
+			continue
+		}
 		if !validID(name) || !item.IsDir() || item.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("unexpected feedback store member")
 		}

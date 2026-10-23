@@ -1,6 +1,6 @@
 # Feedback v1 fixtures
 
-These are independent HTTPS feedback fixtures, not `hexproof.v1` game messages.
+These are independent HTTPS feedback fixtures, not `hexproof.v2` game messages.
 The client and receiver must agree on fields and the immutable original bytes.
 The example contact uses a reserved, non-deliverable domain. Tests inject the
 clock near `createdAt`; a frozen timestamp must never be refreshed in retries.

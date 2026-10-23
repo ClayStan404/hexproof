@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+# Installed under each Zsh startup filename. Keep the adapter in child shells'
+# ZDOTDIR while exposing the owner's normal directory during their startup.
+# Source at top level: a function would change the scope of owner `typeset`s.
+typeset hexproof_ao_startup_path="${(%):-%N}"
+typeset hexproof_ao_bundle_dir="${hexproof_ao_startup_path:A:h}"
+typeset hexproof_ao_startup_name="${hexproof_ao_startup_path:t}"
+export ZDOTDIR="$HEXPROOF_AO_PREVIOUS_ZDOTDIR"
+if [ -r "$ZDOTDIR/$hexproof_ao_startup_name" ] &&
+    [ "${ZDOTDIR:A}" != "$hexproof_ao_bundle_dir" ]; then
+    . "$ZDOTDIR/$hexproof_ao_startup_name"
+fi
+export HEXPROOF_AO_PREVIOUS_ZDOTDIR="${ZDOTDIR-${HOME-}}"
+export ZDOTDIR="$hexproof_ao_bundle_dir"
+unset hexproof_ao_startup_path hexproof_ao_bundle_dir hexproof_ao_startup_name
+
+# An owner startup phase may have installed an alias or function named ao.
+unalias ao 2>/dev/null || :
+function ao {
+    if [ "${1-}" = review ] && [ "${2-}" = submit ] &&
+        [ -n "${AO_REVIEW_WORKER_SESSION_ID:-}" ]; then
+        command "$HEXPROOF_AO_PYTHON" -I -B "$HEXPROOF_AO_REPORT_ADAPTER" "$@"
+    else
+        command ao "$@"
+    fi
+}

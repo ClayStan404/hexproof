@@ -94,6 +94,7 @@ Surface {
     readonly property bool commanderCard: !sideboard && card && card.commander === true
 
     implicitHeight: Math.max(Theme.size(sideboard ? 68 : 66), rowContent.implicitHeight + Theme.size(14))
+    compact: true
     radius: Theme.radiusMedium
     color: dragArea.drag.active ? Theme.surfaceHover : Theme.surfaceMuted
     border.width: commanderCard || dragArea.drag.active ? 2 : 1

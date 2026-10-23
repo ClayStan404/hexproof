@@ -75,8 +75,9 @@ class WsClient : public QObject
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QVariantMap rulesStartFailure READ rulesStartFailure NOTIFY rulesStartFailureChanged)
     Q_PROPERTY(QString clientVersion READ clientVersion CONSTANT)
-    Q_PROPERTY(bool versionMismatch READ versionMismatch NOTIFY versionMismatchChanged)
-    Q_PROPERTY(QString requiredVersion READ requiredVersion NOTIFY versionMismatchChanged)
+    Q_PROPERTY(bool protocolMismatch READ protocolMismatch NOTIFY protocolMismatchChanged)
+    Q_PROPERTY(QString serverProtocol READ serverProtocol NOTIFY protocolMismatchChanged)
+    Q_PROPERTY(QString clientProtocol READ clientProtocol CONSTANT)
     Q_PROPERTY(QString releaseDownloadUrl READ releaseDownloadUrl CONSTANT)
     Q_PROPERTY(bool forgeRulesAvailable READ forgeRulesAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool forgeAIAvailable READ forgeAIAvailable NOTIFY capabilitiesChanged)
@@ -334,13 +335,17 @@ class WsClient : public QObject
         return m_rulesStartFailure;
     }
     QString clientVersion() const;
-    bool versionMismatch() const
+    bool protocolMismatch() const
     {
-        return m_versionMismatch;
+        return m_protocolMismatch;
     }
-    QString requiredVersion() const
+    QString clientProtocol() const
     {
-        return m_requiredVersion;
+        return hexproof::protocol::kProtocolVersion;
+    }
+    QString serverProtocol() const
+    {
+        return m_serverProtocol;
     }
     QString releaseDownloadUrl() const;
     bool forgeAIAvailable() const
@@ -606,7 +611,7 @@ class WsClient : public QObject
     void gameSnapshotDataChanged(const QVariantMap &snapshot);
     void lastErrorChanged();
     void rulesStartFailureChanged();
-    void versionMismatchChanged();
+    void protocolMismatchChanged();
     void capabilitiesChanged();
     void peerTransportChanged();
     void rulesResponsePendingChanged();
@@ -681,8 +686,8 @@ class WsClient : public QObject
     void setLastError(const QString &code, const QString &message);
     void clearLastError();
     void clearRulesStartFailure();
-    void setVersionMismatch(const QString &requiredVersion);
-    void clearVersionMismatch();
+    void setProtocolMismatch(const QString &serverProtocol);
+    void clearProtocolMismatch();
     void setForgeRulesAvailable(bool available);
     void clearGameState();
     void reconcileModelOpponentStatus();
@@ -740,8 +745,8 @@ class WsClient : public QObject
     QVariantList m_roomList;
     QString m_lastError;
     QVariantMap m_rulesStartFailure;
-    QString m_requiredVersion;
-    bool m_versionMismatch = false;
+    QString m_serverProtocol;
+    bool m_protocolMismatch = false;
     bool m_forgeRulesAvailable = false;
     bool m_forgeAIAvailable = false;
     bool m_aiModelsAvailable = false;

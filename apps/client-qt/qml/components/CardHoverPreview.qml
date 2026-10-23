@@ -43,7 +43,12 @@ Item {
         columns: root.previewSize.columns
         artObjectName: root.artObjectName
     }
-    HoverHandler { id: previewHover }
+    HoverHandler {
+        id: previewHover
+        // Pointer handlers do not inherit Item.enabled. A single-face preview
+        // must stay transparent when constrained placement covers its source.
+        enabled: root.enabled
+    }
     onPreviewHeldChanged: {
         if (previewHeld) departure.stop()
         else if (!sourceActive) departure.restart()

@@ -1,8 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "enabled": false,
   "apiBase": "",
   "supportLabel": "",
   "privacyUrl": "",
-  "receiptOnlyApiBases": []
+  "receiptOnlyApiBases": [],
+  "publicRepository": "",
+  "noticeRevision": "",
+  "noticeText": "",
+  "providerPolicyRevision": ""
 }

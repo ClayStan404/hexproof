@@ -35,7 +35,7 @@ server_directory = load_tool("write-server-directory.py", "write_server_director
 class ProtocolParityTests(unittest.TestCase):
     def test_generated_go_and_cpp_constants_match(self) -> None:
         constants = [
-            protocol_codegen.WireConstant("ProtocolVersion", "hexproof.v1"),
+            protocol_codegen.WireConstant("ProtocolVersion", "hexproof.v2"),
             protocol_codegen.WireConstant("TypePing", "session.ping"),
         ]
         with tempfile.TemporaryDirectory() as directory:
@@ -77,7 +77,7 @@ class ProtocolParityTests(unittest.TestCase):
             item.value for item in constants if item.name.startswith("Type")
         }
         schema = payload_schema.load_payload_schema(root, message_types)
-        self.assertEqual(schema.protocol, "hexproof.v1")
+        self.assertEqual(schema.protocol, "hexproof.v2")
         self.assertEqual(set(schema.messages), message_types - {"room.event"})
         self.assertIn("game.snapshot", schema.messages)
         self.assertIn("room.snapshot", schema.messages)
@@ -140,7 +140,7 @@ class ProtocolParityTests(unittest.TestCase):
                 payload_schema.FieldSpec("ready", "boolean", True),
             ),
         )
-        schema = payload_schema.PayloadSchema("hexproof.v1", {}, {})
+        schema = payload_schema.PayloadSchema("hexproof.v2", {}, {})
         problems = payload_schema._validate_object(
             {"extra": True}, spec, schema, "player.ready.payload"
         )
@@ -344,6 +344,14 @@ class VerificationScriptTests(unittest.TestCase):
             cmake,
         )
 
+    def test_public_export_includes_rules_engine_contract_and_changelog(self) -> None:
+        root = TOOLS_DIR.parent
+        policy = json.loads((TOOLS_DIR / "public_export_policy.json").read_text(encoding="utf-8"))
+        for path in ("docs/rules-engine.md", "CHANGELOG.md"):
+            with self.subTest(path=path):
+                self.assertTrue((root / path).is_file())
+                self.assertIn(path, policy["include"])
+
     def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:
         paths = (
             TOOLS_DIR / "verify.sh",
@@ -533,10 +541,10 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn('git cat-file -e "$base^{commit}"', ci)
         self.assertIn("git rev-parse --verify --quiet HEAD^", ci)
 
-    def test_ci_shellchecks_test_server_deployment(self) -> None:
-        expected = "scripts+=(deploy/deploy-test-server.sh)"
-        self.assertIn(expected, self.source(".github/workflows/ci.yml"))
-        self.assertIn(expected, self.source(".github/workflows/release.yml"))
+    def test_shell_lint_is_shared_by_local_ci_and_release_gates(self) -> None:
+        for path in ("tools/verify.sh", ".github/workflows/ci.yml", ".github/workflows/release.yml"):
+            with self.subTest(path=path):
+                self.assertIn("./tools/check-shell-scripts.sh", self.source(path))
 
 
 if __name__ == "__main__":

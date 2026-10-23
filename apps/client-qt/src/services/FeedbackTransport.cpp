@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QNetworkReply>
 #include <QRandomGenerator>
+#include <QRegularExpression>
 
 namespace hexproof::client {
 using namespace Qt::StringLiterals;
@@ -15,15 +16,65 @@ bool FeedbackService::trustedQuery(const QString &endpoint) const
 }
 void FeedbackService::pump()
 {
-    if (m_loading || m_storageFailed || m_reply || !m_dispatchId.isEmpty())
+    if (m_loading || m_storageFailed || m_reply || m_threadReply || !m_dispatchId.isEmpty())
         return;
     const auto now = QDateTime::currentDateTimeUtc();
     for (auto it = m_records.begin(); it != m_records.end(); ++it) {
         auto &r = it.value();
-        if (!r.authorized || m_dirty.contains(r.id) || m_deleting.contains(r.id) ||
-            r.state == u"received")
+        if (m_dirty.contains(r.id) || m_deleting.contains(r.id))
             continue;
-        if (!m_enabled || r.endpoint != m_apiBase) {
+        if (r.authorized && !replyAllowed(r)) {
+            r.authorized = false;
+            r.reason = u"parent_unavailable"_s;
+            r.state = r.dispatched ? u"unconfirmed"_s : u"needs_attention"_s;
+            changedRecord(r.id);
+            return;
+        }
+        if (r.removalAuthorized) {
+            if (!trustedQuery(r.endpoint) || r.removalAttempts >= 20 ||
+                r.removalRequestedAt.addDays(7) <= now) {
+                r.removalAuthorized = false;
+                r.removalState = u"stalled"_s;
+                r.reason =
+                    trustedQuery(r.endpoint) ? u"retry_exhausted"_s : u"endpoint_untrusted"_s;
+                changedRecord(r.id);
+                return;
+            }
+            if (!r.nextAttempt.isValid() || r.nextAttempt <= now) {
+                prepareRequest(r.id, false, false, true);
+                return;
+            }
+            continue;
+        }
+        if (r.closureAuthorized) {
+            if (!trustedQuery(r.endpoint) || r.closureAttempts >= 20 ||
+                r.closureRequestedAt.addDays(7) <= now) {
+                r.closureAuthorized = false;
+                r.closureRequestState = u"stalled"_s;
+                r.reason =
+                    trustedQuery(r.endpoint) ? u"retry_exhausted"_s : u"endpoint_untrusted"_s;
+                changedRecord(r.id);
+                return;
+            }
+            if (!r.nextAttempt.isValid() || r.nextAttempt <= now) {
+                prepareRequest(r.id, false, false, false, true);
+                return;
+            }
+            continue;
+        }
+        if (r.state == u"accepted" && r.removalState != u"removed" && r.queries < 40 &&
+            capability(r).size() == 32 && trustedQuery(r.endpoint) &&
+            (r.publicationState == u"pending" || r.publicationState == u"stalled" ||
+             r.publicationState == u"partial" || r.removalState == u"pending" ||
+             r.removalState == u"requested" || r.removalState == u"stalled" ||
+             r.closurePublicationState == u"pending" || r.closurePublicationState == u"stalled") &&
+            (!r.nextAttempt.isValid() || r.nextAttempt <= now)) {
+            prepareRequest(r.id, true, true);
+            return;
+        }
+        if (!r.authorized || r.state == u"received" || r.state == u"accepted")
+            continue;
+        if (r.apiVersion != 2 || !m_enabled || r.endpoint != m_apiBase) {
             r.authorized = false;
             r.reason = u"endpoint_changed"_s;
             r.state = r.dispatched ? u"unconfirmed"_s : u"needs_attention"_s;
@@ -48,9 +99,9 @@ void FeedbackService::pump()
 }
 bool FeedbackService::queryReceipt(const QString &id)
 {
-    if (m_loading || !m_records.contains(id) || m_records[id].secret.size() != 32)
+    if (m_loading || !m_records.contains(id) || capability(m_records[id]).size() != 32)
         return fail(u"record_unavailable"_s);
-    if (m_reply || !m_dispatchId.isEmpty())
+    if (m_reply || m_threadReply || !m_dispatchId.isEmpty())
         return fail(u"busy"_s);
     if (!trustedQuery(m_records[id].endpoint))
         return fail(u"endpoint_untrusted"_s);
@@ -62,7 +113,8 @@ bool FeedbackService::queryReceipt(const QString &id)
     prepareRequest(id, true, true);
     return true;
 }
-void FeedbackService::prepareRequest(const QString &id, bool query, bool manual)
+void FeedbackService::prepareRequest(const QString &id, bool query, bool manual, bool removal,
+                                     bool closure)
 {
     if (!m_records.contains(id))
         return;
@@ -77,7 +129,13 @@ void FeedbackService::prepareRequest(const QString &id, bool query, bool manual)
     m_dispatchId = id;
     m_dispatchQuery = query;
     m_dispatchManual = manual;
-    if (query) {
+    m_dispatchRemoval = removal;
+    m_dispatchClosure = closure;
+    if (closure) {
+        ++r.closureAttempts;
+    } else if (removal) {
+        ++r.removalAttempts;
+    } else if (query) {
         r.queries = qMin(40, r.queries + 1);
         r.lastQuery = QDateTime::currentDateTimeUtc();
     } else {
@@ -100,13 +158,20 @@ void FeedbackService::dispatch()
     const auto &r = m_records[id];
     if (m_storageFailed || m_dirty.contains(id) || m_generation.value(id) != m_persisted.value(id))
         return;
-    if ((!m_dispatchQuery && (!r.authorized || !m_enabled || r.endpoint != m_apiBase)) ||
+    const bool upload = !m_dispatchQuery && !m_dispatchRemoval && !m_dispatchClosure;
+    if ((upload && !replyAllowed(r)) || capability(r).size() != 32 ||
+        (m_dispatchClosure &&
+         (!r.closureAuthorized || r.removalAuthorized || !trustedQuery(r.endpoint))) ||
+        (m_dispatchRemoval && (!r.removalAuthorized || !trustedQuery(r.endpoint))) ||
+        (upload && (!r.authorized || r.apiVersion != 2 || !m_enabled || r.endpoint != m_apiBase)) ||
         (m_dispatchQuery && (!trustedQuery(r.endpoint) || (!r.authorized && !m_dispatchManual)))) {
         m_dispatchId.clear();
         emit statusChanged();
         return;
     }
-    const QUrl url(r.endpoint + u"/submissions/"_s + r.id);
+    const auto path = r.parentId.isEmpty() ? r.id : r.parentId + u"/replies/"_s + r.id;
+    const QUrl url(r.endpoint + u"/submissions/"_s + path +
+                   (m_dispatchClosure ? u"/close"_s : QString{}));
     QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::ManualRedirectPolicy);
@@ -116,16 +181,22 @@ void FeedbackService::dispatch()
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                          QNetworkRequest::AlwaysNetwork);
     request.setRawHeader("Authorization",
-                         "Feedback " + r.secret.toBase64(QByteArray::Base64UrlEncoding |
-                                                         QByteArray::OmitTrailingEquals));
+                         "Feedback " + capability(r).toBase64(QByteArray::Base64UrlEncoding |
+                                                              QByteArray::OmitTrailingEquals));
     request.setRawHeader("Accept", "application/json");
     request.setTransferTimeout(60000);
     const bool query = m_dispatchQuery;
-    if (query)
+    const bool removal = m_dispatchRemoval;
+    const bool closure = m_dispatchClosure;
+    if (closure) {
+        request.setHeader(QNetworkRequest::ContentTypeHeader, u"application/json"_s);
+        m_reply = m_network.post(request, QByteArray{});
+    } else if (removal)
+        m_reply = m_network.deleteResource(request);
+    else if (query)
         m_reply = m_network.get(request);
     else {
-        request.setRawHeader("X-Feedback-Digest",
-                             feedback::digest(QByteArray("hexproof-feedback-v1\n") + r.manifest));
+        request.setRawHeader("X-Feedback-Digest", feedback::manifestDigest(r));
         auto *parts = new QHttpMultiPart(QHttpMultiPart::FormDataType);
         QHttpPart first;
         first.setHeader(QNetworkRequest::ContentTypeHeader, u"application/json"_s);
@@ -158,7 +229,7 @@ void FeedbackService::dispatch()
         }
     });
     connect(m_reply, &QNetworkReply::finished, this,
-            [this, id, query] { finishRequest(id, query); });
+            [this, id, query, removal, closure] { finishRequest(id, query, removal, closure); });
     QTimer::singleShot(60000, m_reply, [reply = m_reply] {
         if (reply && !reply->isFinished())
             reply->abort();
@@ -166,7 +237,7 @@ void FeedbackService::dispatch()
     emit changed();
     emit statusChanged();
 }
-void FeedbackService::finishRequest(const QString &id, bool query)
+void FeedbackService::finishRequest(const QString &id, bool query, bool removal, bool closure)
 {
     if (!m_reply)
         return;
@@ -193,34 +264,106 @@ void FeedbackService::finishRequest(const QString &id, bool query)
     const auto expires =
         QDateTime::fromString(response.value(u"contentExpiresAt"_s).toString(), Qt::ISODateWithMs)
             .toUTC();
-    if ((status == 200 || status == 201) && !m_responseOversized && m_response.size() <= 8192 &&
-        networkError == QNetworkReply::NoError && response.value(u"schemaVersion"_s).toInt() == 1 &&
+    const auto accessExpires =
+        QDateTime::fromString(response.value(u"accessExpiresAt"_s).toString(), Qt::ISODateWithMs)
+            .toUTC();
+    const auto publication = response.value(u"publicationState"_s).toString();
+    const auto removalState = response.value(u"removalState"_s).toString();
+    const auto issueUrl = response.value(u"issueUrl"_s).toString();
+    const QString repository = r.disclosure.value(u"repository"_s).toString();
+    const bool validIssue =
+        issueUrl.isEmpty() ||
+        QRegularExpression(u"^https://github\\.com/"_s + QRegularExpression::escape(repository) +
+                           u"/issues/[1-9][0-9]*$"_s)
+            .match(issueUrl)
+            .hasMatch();
+    const bool legacy = r.apiVersion == 1 && response.value(u"state"_s).toString() == u"received";
+    const bool publicReceipt =
+        r.apiVersion == 2 && response.value(u"state"_s).toString() == u"accepted" &&
+        accessExpires > accepted &&
+        QStringList{u"pending"_s, u"stalled"_s, u"published"_s, u"rejected"_s, u"partial"_s}
+            .contains(publication) &&
+        QStringList{u"none"_s, u"requested"_s, u"pending"_s, u"stalled"_s, u"removed"_s}.contains(
+            removalState) &&
+        validIssue && (publication != u"published" || !issueUrl.isEmpty()) &&
+        feedback::validClosure(response);
+    if ((status == 200 || status == 201 || (status == 202 && r.apiVersion == 2)) &&
+        !m_responseOversized && m_response.size() <= 8192 &&
+        networkError == QNetworkReply::NoError &&
+        response.value(u"schemaVersion"_s).toInt() == r.apiVersion &&
         response.value(u"submissionId"_s) == id && response.value(u"receipt"_s) == id &&
-        response.value(u"state"_s).toString() == u"received" && accepted.isValid() &&
-        expires > accepted) {
+        response.value(u"parentSubmissionId"_s).toString() == r.parentId &&
+        (!closure || (status == 200 && response.value(u"caseState"_s).toString() == u"closed")) &&
+        (legacy || publicReceipt) && accepted.isValid() && expires > accepted) {
         r.authorized = false;
-        r.state = u"received"_s;
-        r.reason.clear();
+        r.state = r.apiVersion == 2 ? u"accepted"_s : u"received"_s;
+        r.reason = response.value(u"reason"_s).toString().left(80);
         r.receipt = id;
         r.acceptedAt = accepted;
         r.expiresAt = expires;
+        if (publicReceipt) {
+            if (response.value(u"caseState"_s).toString() == u"closed") {
+                r.caseState = u"closed"_s;
+                r.closureAuthorized = false;
+                r.closureRequestState = u"none"_s;
+                if (r.closurePublicationState != u"closed") {
+                    r.closurePublicationState =
+                        response.value(u"closurePublicationState"_s).toString(u"none"_s);
+                    r.closureReason = response.value(u"closureReason"_s).toString();
+                }
+                const auto closed = QDateTime::fromString(response.value(u"closedAt"_s).toString(),
+                                                          Qt::ISODateWithMs)
+                                        .toUTC();
+                if (closed.isValid())
+                    r.closedAt = closed;
+                if (r.parentId.isEmpty())
+                    stopReplies(id);
+            }
+            r.accessExpiresAt = accessExpires;
+            r.publicationState = publication;
+            r.issueUrl = issueUrl;
+            // A lookup started before the user's removal request cannot
+            // acknowledge that request or postpone its DELETE. Only a terminal
+            // removed result can complete it without a DELETE acknowledgement.
+            const bool pendingRemoval =
+                !removal && r.removalAuthorized && removalState != u"removed";
+            if (!pendingRemoval && (!r.removalAuthorized || removalState != u"none"))
+                r.removalState = removalState;
+            if (!pendingRemoval && removalState != u"none")
+                r.removalAuthorized = false;
+            // A child's lookup may have started before the whole-case request.
+            // It cannot undo removal already known from the parent receipt.
+            const auto parentRemoval = m_records.value(r.parentId).removalState;
+            if (!r.parentId.isEmpty() && parentRemoval != u"none" && r.removalState != u"removed")
+                r.removalState = parentRemoval;
+            const auto interval = qMin<qint64>(21600, 30LL << qMin(10, r.queries));
+            r.nextAttempt = pendingRemoval ? now : now.addSecs(interval);
+            if (r.parentId.isEmpty() && r.removalState != u"none")
+                stopReplies(id);
+        }
         m_error.clear();
     } else if (query && status == 404) {
         if (r.authorized) {
             r.state = u"queued"_s;
             r.nextAttempt = now;
         } else {
-            if (r.state != u"received")
+            if (r.state != u"received" && r.state != u"accepted")
                 r.state = u"unconfirmed"_s;
             if (r.reason.isEmpty())
                 r.reason = u"content_unavailable"_s;
+            r.nextAttempt = now.addSecs(300);
         }
     } else if (status == 429 || status >= 500 || (!m_responseOversized && status == 0)) {
-        if (r.state != u"received")
+        if (r.state != u"received" && r.state != u"accepted")
             r.state = u"unconfirmed"_s;
-        if (r.reason != u"stopped")
+        if (r.reason != u"stopped" && r.reason != u"parent_unavailable")
             r.reason = status == 429 ? u"rate_limited"_s : u"network_error"_s;
-        qint64 seconds = qMin<qint64>(21600, 5LL << qMin(12, qMax(r.attempts, r.queries) - 1));
+        qint64 seconds =
+            qMin<qint64>(21600, 5LL << qBound(0,
+                                              qMax(qMax(r.attempts, r.queries),
+                                                   qMax(r.removalAttempts, r.closureAttempts)) -
+                                                  1,
+                                              12));
         seconds += QRandomGenerator::global()->bounded(qMax(1, int(seconds / 4)));
         bool number = false;
         const auto retry = retryHeader.toLongLong(&number);
@@ -235,14 +378,26 @@ void FeedbackService::finishRequest(const QString &id, bool query)
         r.nextAttempt = now.addSecs(qMin<qint64>(21600, seconds));
     } else {
         r.authorized = false;
-        if (r.state != u"received")
+        if (removal) {
+            r.removalAuthorized = false;
+            r.removalState = u"stalled"_s;
+        }
+        if (closure) {
+            r.closureAuthorized = false;
+            r.closureRequestState = u"stalled"_s;
+        }
+        if (r.state != u"received" && r.state != u"accepted")
             r.state = u"needs_attention"_s;
         r.reason = status == 409   ? u"content_conflict"_s
                    : status == 410 ? u"content_unavailable"_s
                    : (status == 400 || status == 413 || status == 415 || status == 422)
                        ? u"unsupported_content"_s
                        : u"response_invalid"_s;
+        r.nextAttempt = now.addSecs(300);
     }
+    // A stale receipt/thread read cannot postpone an explicitly journaled close request.
+    if (r.closureAuthorized && !closure)
+        r.nextAttempt = now;
     changedRecord(id);
     prune();
     emit statusChanged();

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "enabled": false,
+  "apiBase": "",
+  "supportLabel": "Hexproof 官方支持",
+  "privacyUrl": "",
+  "receiptOnlyApiBases": [
+    "https://47.122.120.151/feedback/v1"
+  ],
+  "publicRepository": "",
+  "noticeRevision": "",
+  "noticeText": "",
+  "providerPolicyRevision": ""
+}

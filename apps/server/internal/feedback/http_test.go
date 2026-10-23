@@ -189,7 +189,7 @@ func TestImagesAndDiagnosticsUseClosedExports(t *testing.T) {
 	if _, err := normalizeImage(animated, "image/png"); err == nil {
 		t.Fatal("animation accepted")
 	}
-	raw, err := os.ReadFile("../../../../testdata/protocol/v1/error-forge-crash-edh.json")
+	raw, err := os.ReadFile("../../../../testdata/protocol/v2/error-forge-crash-edh.json")
 	if err != nil {
 		t.Fatal(err)
 	}

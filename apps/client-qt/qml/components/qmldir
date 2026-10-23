@@ -1,6 +1,8 @@
 singleton Theme 1.0 Theme.qml
 FeedbackWorkflow 1.0 FeedbackWorkflow.qml
 FeedbackComposer 1.0 FeedbackComposer.qml
+FeedbackPublicationPreview 1.0 FeedbackPublicationPreview.qml
+FeedbackThread 1.0 FeedbackThread.qml
 FeedbackHistory 1.0 FeedbackHistory.qml
 FeedbackAttachmentPreview 1.0 FeedbackAttachmentPreview.qml
 FeedbackEntryButton 1.0 FeedbackEntryButton.qml

@@ -180,15 +180,20 @@ func (h *Handler) handleHello(ctx context.Context, sess *Session, env protocol.E
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "invalid displayName")
 		return nil
 	}
-	if hello.Protocol != "" && hello.Protocol != protocol.ProtocolVersion {
-		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "unsupported protocol: "+hello.Protocol)
+	if !protocol.ValidProtocol(hello.Protocol) {
+		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "a valid communication protocol is required")
+		return nil
+	}
+	if hello.Protocol != protocol.ProtocolVersion {
+		h.sendProtocolMismatch(sess, env.ID, hello.Protocol)
 		return nil
 	}
 	clientVersion := strings.TrimSpace(hello.ClientVersion)
-	if clientVersion != buildinfo.Version {
-		h.sendVersionMismatch(sess, env.ID, clientVersion)
+	if clientVersion == "" || len(clientVersion) > 64 || hasControlCharacters(clientVersion) {
+		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "bounded clientVersion metadata is required")
 		return nil
 	}
+
 	sess.rulesCrashReports.Store(hello.RulesCrashReportSchema == 1)
 	if len(hello.ResumeToken) > protocol.MaxResumeTokenBytes || hello.LastSeq < 0 {
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "invalid resume metadata")
@@ -544,20 +549,12 @@ func (h *Handler) sendErrorDetail(sess *Session, id, code, message string, minim
 	h.send(sess, env)
 }
 
-func (h *Handler) sendVersionMismatch(sess *Session, id, clientVersion string) {
-	message := fmt.Sprintf(
-		"client version %q does not match server version %q; download and install Hexproof version %s before reconnecting",
-		clientVersion, buildinfo.Version, buildinfo.Version)
-	if clientVersion == "" {
-		message = fmt.Sprintf(
-			"clientVersion required; download and install Hexproof version %s before reconnecting",
-			buildinfo.Version)
-	}
+func (h *Handler) sendProtocolMismatch(sess *Session, id, clientProtocol string) {
 	env, _ := protocol.NewEnvelope(protocol.TypeError, protocol.ErrorPayload{
-		Code:            protocol.ErrClientVersionMismatch,
-		Message:         message,
-		ClientVersion:   clientVersion,
-		RequiredVersion: buildinfo.Version,
+		Code:           protocol.ErrProtocolMismatch,
+		Message:        fmt.Sprintf("Client protocol %s and server protocol %s differ; use a client and server with the same communication protocol", clientProtocol, protocol.ProtocolVersion),
+		ClientProtocol: clientProtocol,
+		ServerProtocol: protocol.ProtocolVersion,
 	})
 	env.ID = id
 	h.send(sess, env)

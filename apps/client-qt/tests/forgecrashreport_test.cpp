@@ -20,7 +20,7 @@ class TestForgeCrashReport : public QObject
     {
         for (const auto &name :
              {u"error-forge-crash-edh.json"_s, u"error-forge-crash-partial.json"_s}) {
-            const auto path = QFINDTESTDATA(qPrintable(u"../../../testdata/protocol/v1/"_s + name));
+            const auto path = QFINDTESTDATA(qPrintable(u"../../../testdata/protocol/v2/"_s + name));
             QVERIFY(!path.isEmpty());
             QFile file(path);
             QVERIFY(file.open(QIODevice::ReadOnly));

@@ -12,15 +12,14 @@ ScrollView {
     objectName: "feedbackComposer"
     property var service: null
     readonly property var record: service ? service.draft : ({})
-    readonly property bool editable: record.editable === true || record.state === "draft"
+    readonly property var localReplies: service && service.thread && service.thread.caseId === record.id
+        ? service.thread.localReplies || [] : []
+    readonly property bool editable: record.isPublic === true && (record.editable === true || record.state === "draft")
     readonly property bool inputMatchesRecord: descriptionField.text === String(record.description || "")
-        && emailField.text === String(record.replyEmail || "")
     readonly property string recordId: String(record.id || "")
     property string descriptionInputError: ""
-    property string emailInputError: ""
     readonly property string inputErrorCode: descriptionField.text !== String(record.description || "")
-        ? descriptionInputError || "invalid_description"
-        : emailField.text !== String(record.replyEmail || "") ? emailInputError || "invalid_email" : ""
+        ? descriptionInputError || "invalid_description" : ""
     property bool hostingAvailable: false
     property bool syncing: false
     property bool showTechnical: false
@@ -31,19 +30,22 @@ ScrollView {
     signal exportRequested()
     signal deleteRequested()
     signal cloneRequested()
+    signal removalRequested()
+    signal closureRequested()
+    signal replyRequested(string questionId, int revision)
+    signal recordRequested(string recordId)
+    signal threadAttachmentRequested(string contributionId, string attachmentId, string title)
+    signal parentRequested()
     contentWidth: availableWidth
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
     function syncFields() {
-        if (!descriptionField || !emailField || !categoryField) return
+        if (!descriptionField || !categoryField) return
         syncing = true
         descriptionInputError = ""
-        emailInputError = ""
         if (descriptionField.text !== String(record.description || ""))
             descriptionField.text = String(record.description || "")
-        if (emailField.text !== String(record.replyEmail || ""))
-            emailField.text = String(record.replyEmail || "")
         categoryField.currentIndex = Math.max(0, ["problem", "suggestion", "other"].indexOf(record.category || "problem"))
         syncing = false
     }
@@ -52,8 +54,6 @@ ScrollView {
         const accepted = service.updateDraft(fields) !== false
         if (fields.description !== undefined)
             descriptionInputError = accepted ? "" : service.errorCode || "invalid_description"
-        if (fields.replyEmail !== undefined)
-            emailInputError = accepted ? "" : service.errorCode || "invalid_email"
     }
     // Rejected text belongs to the editor until corrected. Attachment/category
     // updates republish the saved record and must not replace that pending input.
@@ -76,7 +76,7 @@ ScrollView {
                 id: categoryField
                 objectName: "feedbackCategory"
                 Layout.preferredWidth: Theme.size(190)
-                enabled: root.editable
+                enabled: root.editable && root.record.isReply !== true
                 model: [qsTr("Problem"), qsTr("Suggestion"), qsTr("Other")]
                 onActivated: root.update({category: ["problem", "suggestion", "other"][currentIndex]})
             }
@@ -84,15 +84,15 @@ ScrollView {
                 objectName: "feedbackRecordState"
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
-                text: Labels.state(root.record.state)
-                color: root.record.state === "received" ? Theme.success : Theme.textSecondary
+                text: Labels.recordState(root.record)
+                color: (root.record.state === "received" || root.record.state === "accepted") ? Theme.success : Theme.textSecondary
                 wrapMode: Text.WordWrap
             }
         }
         Text {
             Layout.fillWidth: true
             textFormat: Text.PlainText
-            text: qsTr("What happened?")
+            text: root.record.isReply === true ? qsTr("Your public reply") : qsTr("What happened?")
             color: Theme.text
             font.weight: Font.DemiBold
         }
@@ -117,16 +117,31 @@ ScrollView {
             }
             onTextChanged: root.update({description: text})
         }
-        AppTextField {
-            id: emailField
-            objectName: "feedbackEmail"
+        Text {
             Layout.fillWidth: true
-            readOnly: !root.editable
-            maximumLength: 254
-            maximumUtf8Bytes: 254
-            placeholderText: qsTr("Contact email (optional)")
-            inputMethodHints: Qt.ImhEmailCharactersOnly
-            onTextEdited: root.update({replyEmail: text})
+            visible: root.record.isReply === true && !!root.record.questionText
+            text: Labels.question(root.record.questionCode, root.record.questionText)
+            textFormat: Text.PlainText
+            color: Theme.textSecondary
+            wrapMode: Text.WrapAnywhere
+        }
+        AppButton {
+            objectName: "feedbackBackToCase"
+            visible: root.record.isReply === true
+            enabled: root.record.parentAvailable !== false
+            text: qsTr("Back to original feedback")
+            compact: true
+            variant: "ghost"
+            onClicked: root.parentRequested()
+        }
+        Text {
+            objectName: "feedbackLegacyNotice"
+            Layout.fillWidth: true
+            visible: root.record.isPublic !== true
+            textFormat: Text.PlainText
+            text: qsTr("This record uses the earlier private-feedback contract. It will not be published. To share it publicly, create a new public draft and review it first.")
+            color: Theme.warning
+            wrapMode: Text.WordWrap
         }
         Text {
             Layout.fillWidth: true
@@ -140,9 +155,11 @@ ScrollView {
         Text {
             objectName: "feedbackReceivedMeaning"
             Layout.fillWidth: true
-            visible: root.record.state === "received"
+            visible: (root.record.state === "received" || root.record.state === "accepted")
             textFormat: Text.PlainText
-            text: qsTr("Received confirms storage by support. It does not confirm review or resolution.")
+            text: root.record.isPublic === true
+                ? qsTr("Accepted confirms storage by the feedback service. Publication, assessment and resolution are separate steps.")
+                : qsTr("Received confirms storage by support. It does not confirm review or resolution.")
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSize(12)
             wrapMode: Text.WordWrap
@@ -150,12 +167,110 @@ ScrollView {
         Text {
             objectName: "feedbackReceivedLocalRetention"
             Layout.fillWidth: true
-            visible: root.record.state === "received"
+            visible: (root.record.state === "received" || root.record.state === "accepted")
             textFormat: Text.PlainText
-            text: qsTr("On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.")
+            text: root.record.isPublic === true
+                ? qsTr("On this device, content is kept for up to 30 days. Keep this receipt to check status or request removal; deleting it loses access.")
+                : qsTr("On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.")
             color: Theme.textMuted
             font.pixelSize: Theme.fontSize(12)
             wrapMode: Text.WordWrap
+        }
+        Text {
+            objectName: "feedbackReceiptAccess"
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && !!root.record.accessExpiresAt
+            textFormat: Text.PlainText
+            text: qsTr("Receipt access until at least %1. Access is retained while removal remains unresolved.")
+                .arg(Labels.date(root.record.accessExpiresAt))
+            color: Theme.textMuted
+            font.pixelSize: Theme.fontSize(12)
+            wrapMode: Text.WordWrap
+        }
+        Text {
+            objectName: "feedbackPublicationMeaning"
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && !!root.record.publicationState
+                && (!root.record.removalState || root.record.removalState === "none")
+            textFormat: Text.PlainText
+            text: Labels.publicationDescription(root.record.publicationState)
+            color: root.record.publicationState === "published" ? Theme.success : Theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        Text {
+            objectName: "feedbackRemovalMeaning"
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && !!root.record.removalState && root.record.removalState !== "none"
+            textFormat: Text.PlainText
+            text: Labels.removalDescription(root.record.removalState)
+            color: Theme.warning
+            wrapMode: Text.WordWrap
+        }
+        Text {
+            objectName: "feedbackClosureMeaning"
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && text.length > 0
+            textFormat: Text.PlainText
+            text: Labels.closureDescription(root.record)
+            color: root.record.closureRequestState === "stalled" || root.record.closurePublicationState === "stalled" ? Theme.warning : Theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        Text {
+            objectName: "feedbackIssueReference"
+            Layout.fillWidth: true
+            visible: !!root.record.issueUrl
+            textFormat: Text.PlainText
+            text: String(root.record.issueUrl || "")
+            color: Theme.textSecondary
+            wrapMode: Text.WrapAnywhere
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && root.record.isReply !== true
+                && root.localReplies.length > 0
+            spacing: Theme.size(8)
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Replies on this device")
+                textFormat: Text.PlainText
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+            Repeater {
+                model: root.localReplies
+                delegate: AppButton {
+                    id: localReply
+                    required property var modelData
+                    objectName: "feedbackLocalReply-" + modelData.id
+                    Layout.fillWidth: true
+                    implicitHeight: localReplyText.implicitHeight + Theme.size(24)
+                    text: Labels.state(modelData.state) + " · " + String(modelData.description || qsTr("Empty draft"))
+                    contentItem: Text {
+                        id: localReplyText
+                        text: localReply.text
+                        textFormat: Text.PlainText
+                        color: Theme.text
+                        wrapMode: Text.WrapAnywhere
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
+                    }
+                    variant: "secondary"
+                    onClicked: root.recordRequested(String(modelData.id))
+                }
+            }
+        }
+        FeedbackThread {
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && root.record.state === "accepted" && root.record.isReply !== true
+                && (!root.record.removalState || root.record.removalState === "none")
+            service: root.service
+            caseId: String(root.record.parentSubmissionId || root.record.id || "")
+            canReply: visible && root.service && root.service.enabled && !root.service.busy && !root.service.saving
+                && root.record.caseState !== "closed" && (!root.record.closureRequestState || root.record.closureRequestState === "none")
+                && (!root.record.removalState || root.record.removalState === "none")
+                && root.record.publicationState === "published"
+            onReplyRequested: (questionId, revision) => root.replyRequested(questionId, revision)
+            onAttachmentRequested: (contributionId, attachmentId, title) => root.threadAttachmentRequested(contributionId, attachmentId, title)
         }
         Text {
             Layout.fillWidth: true
@@ -282,10 +397,31 @@ ScrollView {
             AppButton {
                 objectName: "feedbackEditCopy"
                 visible: !!root.record.id && !root.editable && root.record.payloadAvailable !== false
-                text: qsTr("Create editable copy")
+                text: root.record.isPublic === true ? qsTr("Create editable copy") : qsTr("Create public draft")
                 variant: "secondary"
                 compact: true
                 onClicked: root.cloneRequested()
+            }
+            AppButton {
+                objectName: "feedbackCloseCase"
+                visible: root.record.isPublic === true && root.record.isReply !== true && root.record.state === "accepted"
+                    && root.record.caseState !== "closed" && root.record.closureRequestState !== "requested"
+                    && (!root.record.removalState || root.record.removalState === "none")
+                text: root.record.closureRequestState === "stalled" ? qsTr("Retry closing feedback") : qsTr("Close feedback")
+                enabled: root.service && !root.service.busy && !root.service.saving
+                variant: "secondary"
+                compact: true
+                onClicked: root.closureRequested()
+            }
+            AppButton {
+                objectName: "feedbackRequestRemoval"
+                visible: root.record.isPublic === true && root.record.isReply !== true && (root.record.state === "received" || root.record.state === "accepted")
+                    && (!root.record.removalState || root.record.removalState === "none")
+                text: qsTr("Request content removal")
+                enabled: root.service && !root.service.busy && !root.service.saving
+                variant: "secondary"
+                compact: true
+                onClicked: root.removalRequested()
             }
             AppButton {
                 objectName: "feedbackDelete"

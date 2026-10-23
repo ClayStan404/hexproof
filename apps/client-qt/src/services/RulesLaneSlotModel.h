@@ -11,6 +11,7 @@
 #include <QSet>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QVector>
 
 namespace hexproof::client {
@@ -24,6 +25,8 @@ class RulesLaneSlotModel final : public QAbstractListModel
     Q_OBJECT
     Q_PROPERTY(QVariantList stacks READ stacks NOTIFY stacksChanged)
     Q_PROPERTY(int layoutStackCount READ layoutStackCount NOTIFY layoutStackCountChanged)
+    Q_PROPERTY(QVariantMap combatGroupingKeys READ combatGroupingKeys WRITE setCombatGroupingKeys
+                   NOTIFY combatGroupingKeysChanged)
 
   public:
     enum ExtraRole
@@ -49,6 +52,11 @@ class RulesLaneSlotModel final : public QAbstractListModel
         return m_layoutStackCount;
     }
     void setCatalog(QObject *catalog);
+    QVariantMap combatGroupingKeys() const
+    {
+        return m_combatGroupingKeys;
+    }
+    void setCombatGroupingKeys(const QVariantMap &keys);
 
     // A snapshot replaces its source rows one signal at a time. Between
     // beginBatch() and endBatch() the lane only records what changed and
@@ -57,8 +65,10 @@ class RulesLaneSlotModel final : public QAbstractListModel
     void endBatch();
 
   signals:
+    void stacksAboutToChange();
     void stacksChanged();
     void layoutStackCountChanged();
+    void combatGroupingKeysChanged();
 
   private slots:
     void noteStructure();
@@ -90,6 +100,7 @@ class RulesLaneSlotModel final : public QAbstractListModel
     QString typeLineFor(const QString &name, const QString &setCode,
                         const QString &collectorNumber) const;
     QString stackKeyFor(int sourceRow, const QSet<QString> &hosts, bool ignoreTapped = false) const;
+    QString combatKeyFor(int sourceRow) const;
     QVariant sourceValue(int sourceRow, int role) const;
     QSet<QString> idsInRange(int first, int last) const;
     void noteSourceData(const QModelIndex &topLeft, const QModelIndex &bottomRight,
@@ -105,6 +116,7 @@ class RulesLaneSlotModel final : public QAbstractListModel
     QVector<Entry> m_rows;
     QHash<QString, int> m_rowOfId;
     QVariantList m_stacks;
+    QVariantMap m_combatGroupingKeys;
     int m_layoutStackCount = 0;
     int m_batchDepth = 0;
     bool m_batchStructure = false;

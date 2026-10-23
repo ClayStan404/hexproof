@@ -1,12 +1,40 @@
 # Client server directory
 
-Feedback is a separate build configuration, not a directory field. Set
-`HEXPROOF_FEEDBACK_CONFIG_FILE` for packaging or the matching CMake option for
-direct builds. Release jobs optionally read the repository variable
-`HEXPROOF_FEEDBACK_CONFIG_JSON` through `tools/write-feedback-config.py`; absence
-produces a disabled configuration. This document never contains relay credentials.
+Feedback is a separate build configuration, not a directory field. Native and
+official release builds use the reviewed `feedback.official.json` defaults,
+with new online submissions disabled until matching public V2 deployment inputs
+are prepared. This configures client packages only; it does not deploy or activate the receiver. The owner
+has deferred production activation to that release.
+
+Set `HEXPROOF_FEEDBACK_CONFIG_FILE` for packaging or the matching CMake option
+for direct builds to override these defaults. Release jobs use
+`tools/write-feedback-config.py --defaults` and optionally override the full
+document from the repository variable `HEXPROOF_FEEDBACK_CONFIG_JSON`.
+`feedback.example.json` remains a disabled configuration for isolated or
+unconfigured integrations. This document never contains relay credentials.
+For an operator build, keep the enabled configuration in the ignored
+`config/feedback.json` and select it explicitly with
+`-DHEXPROOF_FEEDBACK_CONFIG_FILE=/absolute/path/to/feedback.json`. The official
+release variable contains only public destinations, support label and versioned
+publication/AI-processing disclosure; GitHub, Multica and legacy SMTP credentials
+stay on the receiver. Changing that variable affects
+future packages, not an installed client's embedded configuration.
 See [feedback operations](../../../docs/feedback-operations.md) for endpoint,
 privacy and rollout requirements. Existing server directory schemas stay intact.
+
+Before preparing an enabled release configuration, compare it with the exact
+receiver input using the existing writer:
+
+```sh
+python3 tools/write-feedback-config.py build/feedback-release.json \
+  --defaults /private/client-feedback.json \
+  --receiver-config /private/receiver.json
+```
+
+This checks the public API URL, repository and exact disclosure/policy fields,
+including Multica's processing policy when configured. It reads no credential
+files and does not validate TLS, permissions or service readiness. Receiver
+validation and installation use the existing deployment procedure separately.
 
 The client loads an operator-managed JSON catalog over HTTPS. It stores the
 last valid catalog locally and ships a bootstrap list for first launch or
@@ -75,7 +103,7 @@ use online discovery; later catalog changes do not require a rebuild.
   cleared and requires an explicit new choice.
 - Server Forge labels initially use the catalog. The separate player-hosting,
   direct-connection and migration capabilities start unknown. Successful health
-  probes or version-matched welcomes update that exact URL's observed values
+  probes or protocol-matched welcomes update that exact URL's observed values
   for the current process, including custom endpoints. Unknown player-hosting
   support must not be labelled manual-only merely because `forge` is false.
 - Valid updates are saved atomically under the application's local data

@@ -173,7 +173,10 @@ class TestWsClient : public QObject
     void handshakeErrorDisconnects() const;
     void rebuildsNotReadyErrorFromStructuredDetail() const;
     void rejectsOversizeIncomingMessages() const;
-    void welcomeVersionMismatchDisconnects() const;
+    void welcomeProtocolMismatchDisconnects_data() const;
+    void welcomeProtocolMismatchDisconnects() const;
+    void differentApplicationVersionConnects() const;
+    void protocolMismatchPreservesResumeCredentialAndStopsRetry() const;
     void handlesP7DiscoveryAndTableCommands() const;
     void handlesTournamentCommandsAndSnapshots() const;
     void loadsSavedResumeEndpoint() const;

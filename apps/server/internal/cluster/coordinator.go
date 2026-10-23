@@ -25,10 +25,13 @@ var (
 	ErrRegistration = errors.New("cluster registration required")
 )
 
+const RPCVersion = "hexproof.cluster.v1"
+
 const NodeLifetime = 10 * time.Second
 const TicketLifetime = 30 * time.Second
 
 type Report struct {
+	Protocol       string                                `json:"protocol"`
 	Version        string                                `json:"version"`
 	Rooms          []protocol.RoomListEntry              `json:"rooms"`
 	Events         []protocol.TournamentListEntry        `json:"events"`
@@ -57,6 +60,7 @@ type Demand struct {
 }
 
 type Ticket struct {
+	Protocol    string    `json:"protocol"`
 	Token       string    `json:"token"`
 	NodeID      string    `json:"nodeId"`
 	Origin      string    `json:"origin"`
@@ -71,6 +75,7 @@ type Ticket struct {
 }
 
 type Request struct {
+	RPCVersion     string         `json:"rpcVersion"`
 	Operation      string         `json:"operation"`
 	ReportSequence uint64         `json:"reportSequence,omitempty"`
 	NodeID         string         `json:"nodeId"`
@@ -87,6 +92,7 @@ type Request struct {
 }
 
 type Result struct {
+	RPCVersion    string                         `json:"rpcVersion"`
 	Generation    string                         `json:"generation,omitempty"`
 	Ticket        *Ticket                        `json:"ticket,omitempty"`
 	Rooms         []protocol.RoomListEntry       `json:"rooms"`
@@ -127,13 +133,16 @@ func New(c Config) (*Coordinator, error) {
 
 func randomToken() string { var b [32]byte; rand.Read(b[:]); return hex.EncodeToString(b[:]) }
 
-func (c *Coordinator) Do(ctx context.Context, q Request) (Result, error) {
+func (c *Coordinator) Do(ctx context.Context, q Request) (out Result, err error) {
+	defer func() { out.RPCVersion = RPCVersion }()
+	if q.RPCVersion != RPCVersion {
+		return out, ErrInvalid
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if ctx.Err() != nil {
 		return Result{}, ErrUnavailable
 	}
-	var out Result
 	now := c.now().UTC()
 	for token, t := range c.tickets {
 		if !now.Before(t.ExpiresAt) {
@@ -157,13 +166,13 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (Result, error) {
 	}
 	switch q.Operation {
 	case "report":
-		if q.ReportSequence == 0 || q.Report == nil || !validReport(*q.Report) || len(q.Completed) > 2048 {
+		if q.ReportSequence == 0 || q.Report == nil || !validReport(*q.Report) || (s.reportSequence > 0 && s.report.Protocol != q.Report.Protocol) || len(q.Completed) > 2048 {
 			return out, ErrInvalid
 		}
 		// Delayed HTTP retries cannot replace a newer capacity snapshot or
 		// refresh the health lease. Sequence ownership resets on registration.
 		if q.ReportSequence <= s.reportSequence {
-			out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Version, now)
+			out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Protocol, now)
 			return out, nil
 		}
 		// A report is a full snapshot. Decode into fresh storage so omitted
@@ -182,28 +191,34 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (Result, error) {
 				delete(c.tickets, token)
 			}
 		}
-		out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Version, now)
+		out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Protocol, now)
 	case "allocate":
+		if s.reportSequence == 0 || now.Sub(s.seen) >= NodeLifetime {
+			return out, ErrUnavailable
+		}
 		if len(c.tickets) >= 2048 || q.Digest == "" || len(q.Digest) != 64 || len(q.CommandType) > 64 || len(q.AccountID) > 64 || !validDemand(q.Demand) {
 			return out, ErrInvalid
 		}
-		id := c.selectNode(q, s.report.Version, now)
+		id := c.selectNode(q, s.report.Protocol, now)
 		if id == "" {
 			return out, ErrFull
 		}
-		t := Ticket{Token: randomToken(), NodeID: id, Origin: q.NodeID, URL: c.nodes[id].URL, AccountID: q.AccountID, CommandType: q.CommandType, Digest: q.Digest, ExpiresAt: now.Add(TicketLifetime), Generation: c.states[id].generation, Demand: q.Demand}
+		t := Ticket{Protocol: s.report.Protocol, Token: randomToken(), NodeID: id, Origin: q.NodeID, URL: c.nodes[id].URL, AccountID: q.AccountID, CommandType: q.CommandType, Digest: q.Digest, ExpiresAt: now.Add(TicketLifetime), Generation: c.states[id].generation, Demand: q.Demand}
 		c.tickets[t.Token] = t
 		out.Ticket = &t
 	case "take":
 		t, ok := c.tickets[q.Token]
-		if !ok || t.Taken || t.NodeID != q.NodeID || t.Generation != q.Generation || t.AccountID != q.AccountID {
+		if !ok || t.Taken || t.NodeID != q.NodeID || t.Generation != q.Generation || t.AccountID != q.AccountID || t.Protocol != s.report.Protocol || s.reportSequence == 0 || now.Sub(s.seen) >= NodeLifetime {
 			return out, ErrInvalid
 		}
 		t.Taken = true
 		c.tickets[q.Token] = t
 		out.Ticket = &t
 	case "view":
-		out = c.view(s.report.Version, q.AccountID, now)
+		if s.reportSequence == 0 || now.Sub(s.seen) >= NodeLifetime {
+			return out, ErrUnavailable
+		}
+		out = c.view(s.report.Protocol, q.AccountID, now)
 	default:
 		return out, ErrInvalid
 	}
@@ -215,7 +230,7 @@ func validDemand(d Demand) bool {
 }
 
 func validReport(r Report) bool {
-	if r.Version == "" || len(r.Version) > 64 || len(r.Rooms) > 2048 || len(r.Events) > 256 || len(r.Resources) > 16384 || r.RoomCount < 0 || r.EventCount < 0 || r.ForgeDemand < 0 || r.MaxRooms < 1 || r.MaxEvents < 1 || r.MaxConnections < 1 || r.MaxForge < 0 || r.Connections < 0 || r.Load < 0 || math.IsNaN(r.Load) || math.IsInf(r.Load, 0) {
+	if !protocol.ValidProtocol(r.Protocol) || r.Version == "" || len(r.Version) > 64 || len(r.Rooms) > 2048 || len(r.Events) > 256 || len(r.Resources) > 16384 || r.RoomCount < 0 || r.EventCount < 0 || r.ForgeDemand < 0 || r.MaxRooms < 1 || r.MaxEvents < 1 || r.MaxConnections < 1 || r.MaxForge < 0 || r.Connections < 0 || r.Load < 0 || math.IsNaN(r.Load) || math.IsInf(r.Load, 0) {
 		return false
 	}
 	for aid, resources := range r.Resources {
@@ -226,11 +241,11 @@ func validReport(r Report) bool {
 	return true
 }
 
-func (c *Coordinator) selectNode(q Request, version string, now time.Time) string {
+func (c *Coordinator) selectNode(q Request, gameProtocol string, now time.Time) string {
 	best, score := "", math.Inf(1)
 	for id, n := range c.nodes {
 		s, ok := c.states[id]
-		if !ok || now.Sub(s.seen) >= NodeLifetime || s.report.Version != version || (q.Target != "" && q.Target != id) {
+		if !ok || now.Sub(s.seen) >= NodeLifetime || s.report.Protocol != gameProtocol || (q.Target != "" && q.Target != id) {
 			continue
 		}
 		r := s.report
@@ -268,10 +283,10 @@ func (c *Coordinator) selectNode(q Request, version string, now time.Time) strin
 	return best
 }
 
-func (c *Coordinator) view(version, accountID string, now time.Time) Result {
-	out := Result{Rooms: []protocol.RoomListEntry{}, Events: []protocol.TournamentListEntry{}, Resources: []protocol.AccountResource{}}
+func (c *Coordinator) view(gameProtocol, accountID string, now time.Time) Result {
+	out := Result{RPCVersion: RPCVersion, Rooms: []protocol.RoomListEntry{}, Events: []protocol.TournamentListEntry{}, Resources: []protocol.AccountResource{}}
 	for id, s := range c.states {
-		if now.Sub(s.seen) >= NodeLifetime || s.report.Version != version {
+		if now.Sub(s.seen) >= NodeLifetime || s.report.Protocol != gameProtocol {
 			continue
 		}
 		out.Forge = out.Forge || s.report.Forge
@@ -303,9 +318,9 @@ func (c *Coordinator) view(version, accountID string, now time.Time) Result {
 	return out
 }
 
-func (c *Coordinator) capabilities(version string, now time.Time) (forge, ai, hosting bool) {
+func (c *Coordinator) capabilities(gameProtocol string, now time.Time) (forge, ai, hosting bool) {
 	for _, s := range c.states {
-		if now.Sub(s.seen) < NodeLifetime && s.report.Version == version {
+		if now.Sub(s.seen) < NodeLifetime && s.report.Protocol == gameProtocol {
 			forge, ai, hosting = forge || s.report.Forge, ai || s.report.ForgeAI, hosting || s.report.PlayerHosting
 		}
 	}

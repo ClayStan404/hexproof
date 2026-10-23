@@ -163,6 +163,26 @@ QStringList laneIds(const QAbstractItemModel *model)
     return ids;
 }
 
+QVector<RulesCardRow> identicalCreatures()
+{
+    QVector<RulesCardRow> rows;
+    for (int index = 0; index < 4; ++index) {
+        RulesCardRow row;
+        row.id = u"creature-%1"_s.arg(index);
+        row.name = u"Soldier"_s;
+        row.zone = u"battlefield"_s;
+        row.zoneOwnerSeat = 0;
+        row.ownerSeat = 0;
+        row.controllerSeat = 0;
+        row.visible = true;
+        row.token = true;
+        row.power = u"1"_s;
+        row.toughness = u"1"_s;
+        rows.append(row);
+    }
+    return rows;
+}
+
 class RulesTransitionsTest final : public QObject
 {
     Q_OBJECT
@@ -171,6 +191,12 @@ class RulesTransitionsTest final : public QObject
     void sameIdMoveIsOneFlight() const;
     void laneSlotsPileLandsAndKeepCreaturesSeparate() const;
     void laneLayoutBudgetsPublicPilesAcrossTapChanges() const;
+    void combatParticipantsLeavePiles_data() const;
+    void combatParticipantsLeavePiles() const;
+    void combatRelationshipOrderDoesNotSplitPiles_data() const;
+    void combatRelationshipOrderDoesNotSplitPiles() const;
+    void draftCombatSplitsBatchAndPreserveAttachments() const;
+    void publicBlockersRepileOncePerSnapshot() const;
     void attachmentHostKeepsItsOwnSlot() const;
     void reorderedSnapshotKeepsRowsOnTheirCards() const;
     void untapStepRepilesOncePerLane() const;
@@ -267,6 +293,280 @@ void RulesTransitionsTest::laneLayoutBudgetsPublicPilesAcrossTapChanges() const
     QCOMPARE(lands->property("layoutStackCount").toInt(), 0);
     QCOMPARE(others->property("layoutStackCount").toInt(), 0);
     QCOMPARE(layoutChanges.count(), 2);
+}
+
+void RulesTransitionsTest::combatParticipantsLeavePiles_data() const
+{
+    QTest::addColumn<int>("role");
+    QTest::newRow("attacker-without-tapping") << int(RulesCardModel::AttackingRole);
+    QTest::newRow("attacking-permanent") << int(RulesCardModel::AttackingTargetRole);
+    QTest::newRow("attacking-player") << int(RulesCardModel::AttackingSeatRole);
+    QTest::newRow("blocking") << int(RulesCardModel::BlockingIdsRole);
+    QTest::newRow("blocked-by") << int(RulesCardModel::BlockedByIdsRole);
+    QTest::newRow("attacked-by") << int(RulesCardModel::AttackedByIdsRole);
+}
+
+void RulesTransitionsTest::combatParticipantsLeavePiles() const
+{
+    QFETCH(int, role);
+    RulesCardModel source;
+    source.replace(identicalCreatures());
+    RulesLaneSlotModel lane(&source, 0, u"battlefield"_s, u"creature"_s);
+    QCOMPARE(lane.stacks().size(), 1);
+    QCOMPARE(lane.layoutStackCount(), 2);
+    LaneSignals laneSignals(&lane);
+    QSignalSpy stackChanges(&lane, &RulesLaneSlotModel::stacksChanged);
+    const auto updateCombat = [&](int count, const QString &relatedId, bool distinct = false) {
+        QVector<RulesCardRow> rows = identicalCreatures();
+        QHash<QString, RulesCardModel::Presentation> presentations;
+        for (int index = 0; index < count; ++index) {
+            RulesCardRow &row = rows[index];
+            const QString target = distinct && index == 1 ? u"other-opponent"_s : relatedId;
+            auto &presentation = presentations[row.id];
+            switch (role) {
+            case RulesCardModel::AttackingRole:
+                row.attacking = true;
+                break;
+            case RulesCardModel::AttackingTargetRole:
+                row.attackingTarget = target;
+                break;
+            case RulesCardModel::AttackingSeatRole:
+                row.attackingSeat = distinct && index == 1 ? 2 : 1;
+                break;
+            case RulesCardModel::BlockingIdsRole:
+                presentation.blockingIds = {target};
+                break;
+            case RulesCardModel::BlockedByIdsRole:
+                presentation.blockedByIds = {target};
+                break;
+            case RulesCardModel::AttackedByIdsRole:
+                presentation.attackedByIds = {target};
+                break;
+            }
+        }
+        lane.beginBatch();
+        source.replace(rows);
+        source.setPresentations(presentations);
+        lane.endBatch();
+    };
+
+    updateCombat(1, u"opponent-a"_s);
+    QCOMPARE(lane.stacks().size(), 2);
+    QCOMPARE(lane.layoutStackCount(), 3);
+    QCOMPARE(stackChanges.count(), 1);
+    const int firstRow = laneIds(&lane).indexOf(u"creature-0"_s);
+    QCOMPARE(lane.data(lane.index(firstRow, 0), RulesLaneSlotModel::SlotSizeRole).toInt(), 1);
+    QVERIFY(!lane.data(lane.index(firstRow, 0), RulesCardModel::TappedRole).toBool());
+
+    // Changing a combat partner preserves the split and forwards the new relationship.
+    updateCombat(1, u"opponent-b"_s);
+    QCOMPARE(lane.stacks().size(), 2);
+    QCOMPARE(stackChanges.count(), 1);
+    if (role == RulesCardModel::AttackingTargetRole)
+        QCOMPARE(lane.data(lane.index(firstRow, 0), role).toString(), u"opponent-b"_s);
+    else if (role >= RulesCardModel::BlockingIdsRole)
+        QCOMPARE(lane.data(lane.index(firstRow, 0), role).toStringList(),
+                 QStringList{u"opponent-b"_s});
+
+    updateCombat(2, u"opponent-b"_s);
+    QCOMPARE(lane.stacks().size(), 2);
+    QCOMPARE(lane.layoutStackCount(), 4);
+    for (const QString &id : {u"creature-0"_s, u"creature-1"_s}) {
+        const int row = laneIds(&lane).indexOf(id);
+        QCOMPARE(lane.data(lane.index(row, 0), RulesLaneSlotModel::SlotSizeRole).toInt(), 2);
+    }
+    int expectedStackChanges = 3;
+    if (role != RulesCardModel::AttackingRole) {
+        updateCombat(2, u"opponent-b"_s, true);
+        QCOMPARE(lane.stacks().size(), 3);
+        QCOMPARE(lane.layoutStackCount(), 4);
+        ++expectedStackChanges;
+    }
+    updateCombat(0, {});
+    QCOMPARE(lane.stacks().size(), 1);
+    QCOMPARE(lane.layoutStackCount(), 2);
+    QCOMPARE(stackChanges.count(), expectedStackChanges);
+    QCOMPARE(
+        laneSignals.resets.count() + laneSignals.inserted.count() + laneSignals.removed.count(), 0);
+
+    // Legal-action hints still update in place without changing pile geometry.
+    RulesCardModel::Presentation action;
+    action.actionCount = 1;
+    action.primaryResponseId = u"activate"_s;
+    laneSignals.changed.clear();
+    source.setPresentations({{u"creature-0"_s, action}});
+    QCOMPARE(stackChanges.count(), expectedStackChanges);
+    QCOMPARE(laneSignals.changed.count(), 1);
+    QCOMPARE(qvariant_cast<QList<int>>(laneSignals.changed.constFirst().at(2)),
+             (QList<int>{RulesCardModel::ActionCountRole, RulesCardModel::PrimaryResponseIdRole}));
+}
+
+void RulesTransitionsTest::combatRelationshipOrderDoesNotSplitPiles_data() const
+{
+    QTest::addColumn<int>("role");
+    QTest::newRow("blocking") << int(RulesCardModel::BlockingIdsRole);
+    QTest::newRow("blocked-by") << int(RulesCardModel::BlockedByIdsRole);
+    QTest::newRow("attacked-by") << int(RulesCardModel::AttackedByIdsRole);
+}
+
+void RulesTransitionsTest::combatRelationshipOrderDoesNotSplitPiles() const
+{
+    QFETCH(int, role);
+    RulesCardModel source;
+    QVector<RulesCardRow> rows = identicalCreatures();
+    if (role == RulesCardModel::BlockedByIdsRole) {
+        for (RulesCardRow &row : rows) {
+            row.attacking = true;
+            row.attackingSeat = 1;
+        }
+    }
+    source.replace(rows);
+    RulesLaneSlotModel lane(&source, 0, u"battlefield"_s, u"creature"_s);
+    QHash<QString, RulesCardModel::Presentation> presentations;
+    const auto setRelationships = [&](const QString &id, const QStringList &ids) {
+        auto &presentation = presentations[id];
+        if (role == RulesCardModel::BlockingIdsRole)
+            presentation.blockingIds = ids;
+        else if (role == RulesCardModel::BlockedByIdsRole)
+            presentation.blockedByIds = ids;
+        else
+            presentation.attackedByIds = ids;
+    };
+    setRelationships(u"creature-0"_s, {u"first"_s, u"second"_s});
+    setRelationships(u"creature-1"_s, {u"second"_s, u"first"_s, u"first"_s});
+    source.setPresentations(presentations);
+    QCOMPARE(lane.stacks().size(), 2);
+    for (int row = 0; row < lane.rowCount(); ++row)
+        QCOMPARE(lane.data(lane.index(row, 0), RulesLaneSlotModel::SlotSizeRole).toInt(), 2);
+    QSignalSpy stackChanges(&lane, &RulesLaneSlotModel::stacksChanged);
+    setRelationships(u"creature-1"_s, {u"first"_s, u"second"_s});
+    source.setPresentations(presentations);
+    QCOMPARE(stackChanges.count(), 0);
+    setRelationships(u"creature-1"_s, {u"first"_s});
+    source.setPresentations(presentations);
+    QCOMPARE(lane.stacks().size(), 3);
+    QCOMPARE(stackChanges.count(), 1);
+    source.setPresentations({});
+    QCOMPARE(lane.stacks().size(), 1);
+}
+
+void RulesTransitionsTest::draftCombatSplitsBatchAndPreserveAttachments() const
+{
+    RulesCardModel source;
+    QVector<RulesCardRow> rows = identicalCreatures();
+    RulesCardRow attachment = rows.constFirst();
+    attachment.id = u"attachment"_s;
+    attachment.attachedTo = u"creature-0"_s;
+    rows.append(attachment);
+    source.replace(rows);
+    RulesLaneSlotModel lane(&source, 0, u"battlefield"_s, u"creature"_s);
+    QCOMPARE(lane.stacks().size(), 2);
+    QCOMPARE(lane.layoutStackCount(), 3);
+    QSignalSpy stackChanges(&lane, &RulesLaneSlotModel::stacksChanged);
+    QSignalSpy stackPreparations(&lane, &RulesLaneSlotModel::stacksAboutToChange);
+    QSignalSpy draftChanges(&lane, &RulesLaneSlotModel::combatGroupingKeysChanged);
+    LaneSignals laneSignals(&lane);
+    bool publishingStacks = false;
+    bool movesDuringPublication = true;
+    connect(&lane, &RulesLaneSlotModel::stacksAboutToChange, &lane,
+            [&] { publishingStacks = true; });
+    connect(&lane, &QAbstractItemModel::rowsAboutToBeMoved, &lane,
+            [&] { movesDuringPublication &= publishingStacks; });
+    connect(&lane, &RulesLaneSlotModel::stacksChanged, &lane, [&] { publishingStacks = false; });
+
+    lane.beginBatch();
+    lane.setCombatGroupingKeys({{u"creature-1"_s, u"block:opponent"_s}});
+    const QVariantMap groupingKeys{{u"creature-1"_s, u"block:opponent"_s},
+                                   {u"creature-3"_s, u"block:opponent"_s},
+                                   {u"attachment"_s, u"block:opponent"_s}};
+    lane.setCombatGroupingKeys(groupingKeys);
+    QCOMPARE(lane.stacks().size(), 2);
+    QCOMPARE(stackChanges.count(), 0);
+    lane.endBatch();
+    QCOMPARE(lane.combatGroupingKeys(), groupingKeys);
+    QCOMPARE(lane.stacks().size(), 3);
+    QCOMPARE(lane.layoutStackCount(), 4);
+    QCOMPARE(stackChanges.count(), 1);
+    QCOMPARE(stackPreparations.count(), 1);
+    QVERIFY(laneSignals.moved.count() > 0);
+    QVERIFY(movesDuringPublication);
+    QVERIFY(!publishingStacks);
+    const int attachedRow = laneIds(&lane).indexOf(u"attachment"_s);
+    QCOMPARE(lane.data(lane.index(attachedRow, 0), RulesLaneSlotModel::SlotIndexRole).toInt(), -1);
+    QCOMPARE(lane.data(lane.index(attachedRow, 0), RulesCardModel::AttachedToRole).toString(),
+             u"creature-0"_s);
+
+    QVariantMap unchangedKeys = groupingKeys;
+    unchangedKeys.insert(u"creature-2"_s, QString());
+    unchangedKeys.insert(QString(), u"block:opponent"_s);
+    lane.setCombatGroupingKeys(unchangedKeys);
+    QCOMPARE(draftChanges.count(), 2);
+    QCOMPARE(stackChanges.count(), 1);
+    QCOMPARE(stackPreparations.count(), 1);
+    QVariantMap differentKeys = groupingKeys;
+    differentKeys.insert(u"creature-3"_s, u"block:other"_s);
+    lane.setCombatGroupingKeys(differentKeys);
+    QCOMPARE(lane.stacks().size(), 4);
+    lane.setCombatGroupingKeys({});
+    QCOMPARE(lane.stacks().size(), 2);
+    QCOMPARE(lane.layoutStackCount(), 3);
+    QCOMPARE(stackChanges.count(), 3);
+    QCOMPARE(stackPreparations.count(), 3);
+    QVERIFY(movesDuringPublication);
+    QVERIFY(!publishingStacks);
+    QCOMPARE(
+        laneSignals.resets.count() + laneSignals.inserted.count() + laneSignals.removed.count(), 0);
+
+    RulesCardModel handSource;
+    rows = identicalCreatures();
+    for (RulesCardRow &row : rows)
+        row.zone = u"hand"_s;
+    handSource.replace(rows);
+    RulesLaneSlotModel hand(&handSource, 0, u"hand"_s, {});
+    LaneSignals handSignals(&hand);
+    hand.setCombatGroupingKeys({{u"creature-0"_s, u"attack:opponent"_s}});
+    QCOMPARE(hand.stacks().size(), 4);
+    QCOMPARE(handSignals.changed.count() + handSignals.moved.count(), 0);
+}
+
+void RulesTransitionsTest::publicBlockersRepileOncePerSnapshot() const
+{
+    RulesSessionState session;
+    QJsonArray field;
+    for (int index = 0; index < 4; ++index) {
+        QJsonObject creature = card(u"creature-%1"_s.arg(index), u"Soldier"_s);
+        creature.insert(u"power"_s, u"1"_s);
+        creature.insert(u"toughness"_s, u"1"_s);
+        field.append(creature);
+    }
+    QJsonObject attacker = field.first().toObject();
+    attacker.insert(u"id"_s, u"attacker"_s);
+    attacker.insert(u"controllerSeat"_s, 1);
+    attacker.insert(u"ownerSeat"_s, 1);
+    attacker.insert(u"attacking"_s, true);
+    attacker.insert(u"attackingPlayer"_s, 0);
+    field.append(attacker);
+    QVERIFY(session.applySnapshot(snapshot({}, field)));
+    auto *lane = session.laneSlots(0, u"battlefield"_s, u"creature"_s);
+    QCOMPARE(lane->property("stacks").toList().size(), 1);
+    QSignalSpy stackChanges(lane, SIGNAL(stacksChanged()));
+    for (int index = 0; index < 2; ++index) {
+        QJsonObject blocker = field.at(index).toObject();
+        blocker.insert(u"blocking"_s, QJsonArray{u"attacker"_s});
+        field.replace(index, blocker);
+    }
+    QVERIFY(session.applySnapshot(snapshot({}, field)));
+    QCOMPARE(lane->property("stacks").toList().size(), 2);
+    QCOMPARE(lane->property("layoutStackCount").toInt(), 4);
+    QCOMPARE(stackChanges.count(), 1);
+    for (int index = 0; index < 2; ++index) {
+        QJsonObject blocker = field.at(index).toObject();
+        blocker.remove(u"blocking"_s);
+        field.replace(index, blocker);
+    }
+    QVERIFY(session.applySnapshot(snapshot({}, field)));
+    QCOMPARE(lane->property("stacks").toList().size(), 1);
+    QCOMPARE(stackChanges.count(), 2);
 }
 
 void RulesTransitionsTest::attachmentHostKeepsItsOwnSlot() const

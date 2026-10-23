@@ -52,7 +52,7 @@ func TestLiveForgeStartFailurePrivateDetailsAndRecovery(t *testing.T) {
 				}
 				members = append(members, peer)
 				defer peer.client.conn.CloseNow()
-				peer.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{DisplayName: name, ClientVersion: buildinfo.Version})
+				peer.command(t, ctx, protocol.TypeSessionHello, "hello", protocol.SessionHello{Protocol: protocol.ProtocolVersion, DisplayName: name, ClientVersion: buildinfo.Version})
 				peer.until(t, ctx, protocol.TypeSessionWelcome)
 			}
 			host, guest, observer := members[0], members[1], members[2]

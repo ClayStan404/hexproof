@@ -88,18 +88,7 @@ jobs:
         run: ./tools/check-license-headers.sh
       - name: Check shell scripts
         shell: bash
-        run: |
-          scripts=(tools/card-database-builder/build-latest.sh)
-          if [[ -f deploy/deploy-release-server.sh ]]; then
-            scripts+=(deploy/deploy-release-server.sh)
-          fi
-          if [[ -f deploy/deploy-forge-runtime.sh ]]; then
-            scripts+=(deploy/deploy-forge-runtime.sh)
-          fi
-          if [[ -f deploy/deploy-test-server.sh ]]; then
-            scripts+=(deploy/deploy-test-server.sh)
-          fi
-          shellcheck "${scripts[@]}"
+        run: ./tools/check-shell-scripts.sh
       - name: Check QML text safety
         run: ./tools/check-qml-text-safety.sh
       - name: Check protocol parity

@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-set(HEXPROOF_VERSION "3.0.0")
+set(HEXPROOF_VERSION "3.1.0")
 set(HEXPROOF_VERSION_OVERRIDE "" CACHE STRING "Hexproof release version override")
 if(HEXPROOF_VERSION_OVERRIDE)
     set(HEXPROOF_VERSION "${HEXPROOF_VERSION_OVERRIDE}")
@@ -177,6 +177,7 @@ set(HEXPROOF_SESSION_SOURCES
     src/services/FeedbackStorage.cpp
     src/services/FeedbackAttachments.cpp
     src/services/FeedbackTransport.cpp
+    src/services/FeedbackThread.cpp
     src/services/ForgeCrashReportService.cpp
     src/services/ForgeCrashReportValidation.cpp
     src/services/RulesStateModels.cpp
@@ -201,7 +202,7 @@ if(HEXPROOF_FEEDBACK_CONFIG_FILE)
     get_filename_component(HEXPROOF_FEEDBACK_CONFIG_RESOURCE "${HEXPROOF_FEEDBACK_CONFIG_FILE}" ABSOLUTE
         BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 else()
-    set(HEXPROOF_FEEDBACK_CONFIG_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/config/feedback.example.json")
+    set(HEXPROOF_FEEDBACK_CONFIG_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/config/feedback.official.json")
 endif()
 if(NOT EXISTS "${HEXPROOF_FEEDBACK_CONFIG_RESOURCE}")
     message(FATAL_ERROR "Feedback configuration file is missing")
@@ -443,6 +444,8 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/ForgeCrashReportNotice.qml
         qml/components/FeedbackWorkflow.qml
         qml/components/FeedbackComposer.qml
+        qml/components/FeedbackPublicationPreview.qml
+        qml/components/FeedbackThread.qml
         qml/components/FeedbackHistory.qml
         qml/components/FeedbackAttachmentPreview.qml
         qml/components/FeedbackEntryButton.qml
@@ -1117,7 +1120,7 @@ qt_add_executable(hexproof_test
 )
 target_include_directories(hexproof_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_test PRIVATE
-    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v1")
+    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
 target_link_libraries(hexproof_test PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME protocol COMMAND hexproof_test)
 
@@ -1135,7 +1138,7 @@ qt_add_executable(hexproof_wsclient_test
 target_include_directories(hexproof_wsclient_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_wsclient_test PRIVATE
     HEXPROOF_VERSION="${PROJECT_VERSION}"
-    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v1")
+    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
 target_link_libraries(hexproof_wsclient_test PRIVATE
     hexproof_session
     Qt6::Core
@@ -1323,7 +1326,7 @@ qt_add_executable(hexproof_gametablemodel_test
 target_include_directories(hexproof_gametablemodel_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_gametablemodel_test PRIVATE
-    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v1")
+    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
 target_link_libraries(hexproof_gametablemodel_test PRIVATE
     hexproof_table_models
     Qt6::Core

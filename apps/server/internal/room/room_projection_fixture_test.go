@@ -27,7 +27,7 @@ func assertGameSnapshotFixture(t *testing.T, name string, seq int64,
 	}
 	got = append(got, '\n')
 
-	fixturePath := filepath.Join("../../../../testdata/protocol/v1", name)
+	fixturePath := filepath.Join("../../../../testdata/protocol/v2", name)
 	if os.Getenv("UPDATE_PROTOCOL_FIXTURES") == "1" {
 		if err := os.WriteFile(fixturePath, got, 0o644); err != nil {
 			t.Fatalf("update fixture: %v", err)

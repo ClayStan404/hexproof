@@ -51,7 +51,14 @@ TestCase {
         id: fakeCatalog
         property bool installed: true
         property int imageRevision: -1
+        property bool multiFacePreviews: false
         function imageSource() { return "" }
+        function cardFaces(name, setCode, collectorNumber) {
+            return multiFacePreviews
+                ? [{name: name, faceName: name, setCode: setCode, collectorNumber: collectorNumber},
+                   {name: name + " back", faceName: name + " back", setCode: setCode, collectorNumber: collectorNumber}]
+                : []
+        }
     }
 
     ApplicationWindow {
@@ -59,6 +66,14 @@ TestCase {
         width: 1100
         height: 720
         visible: true
+
+        Flickable {
+            id: outerScroll
+            width: 1100
+            height: 720
+            contentHeight: 1440
+            visible: false
+        }
 
         DeckMainCollection {
             id: collection
@@ -71,7 +86,25 @@ TestCase {
     }
 
     SignalSpy { id: customArtSpy; target: collection; signalName: "customArtRequested" }
+    SignalSpy { id: previewVisibilitySpy; signalName: "visibleChanged" }
     CardFilterState { id: creatureFilter; types: ["Creature"] }
+    Popup {
+        id: testModal
+        parent: testWindow.contentItem
+        x: 500; y: 100; width: 300; height: 200
+        modal: true
+        focus: true
+    }
+    Component {
+        id: previewSourceProbe
+        Item {
+            width: 184; height: 380
+            property var card: ({name: "Probe", setCode: "TST", collectorNumber: "0"})
+            property bool previewEnabled: true
+            property int hoverChecks: 0
+            function isHoveredForPreview() { hoverChecks++; return true }
+        }
+    }
 
     function init() {
         testTranslations.setLanguage("en")
@@ -81,8 +114,10 @@ TestCase {
         collection.sortModeIndex = 0
         fakeDeckLibrary.lastMove = []
         fakeDeckLibrary.lastCountChange = []
+        fakeCatalog.multiFacePreviews = false
         collection.customArtEnabled = false
         collection.commanderFormat = false
+        collection.outerFlickable = null
     }
 
     function test_customArtActionPreservesPrintingAcrossViews_data() {
@@ -107,10 +142,16 @@ TestCase {
     }
 
     function cleanup() {
+        previewVisibilitySpy.target = null
+        testModal.close()
+        Theme.backdropScene = null
+        Theme.uiTheme = "classic"
+        waitForRendering(collection)
         // Release both virtualized views before the test engine is destroyed.
         // The large-deck cases can leave buffered delegates incubating after
         // their final assertion, even when all visible rows already exist.
         collection.cards = []
+        collection.outerFlickable = null
         collection.viewModeIndex = 0
         waitForPolish(testWindow)
         tryCompare(findChild(collection, "mainDeckList"), "count", 0)
@@ -204,6 +245,251 @@ TestCase {
         collection.viewModeIndex = 1
         compare(collection.viewModeIndex, 1)
         tryVerify(() => findChild(collection, "groupedDeckGallery") !== null)
+    }
+
+    function test_repeatedCardsDoNotCaptureGlassBackdrop_data() {
+        return [{tag: "list", view: 0}, {tag: "gallery", view: 1}]
+    }
+
+    function test_repeatedCardsDoNotCaptureGlassBackdrop(data) {
+        Theme.uiTheme = "glass"
+        Theme.backdropScene = outerScroll
+        collection.viewModeIndex = data.view
+        const view = findChild(collection, data.view === 0 ? "mainDeckList" : "groupedDeckGallery")
+        verify(waitForRendering(view))
+        const cards = visualCards(view)
+        verify(cards.length > 0)
+        for (const card of cards) {
+            const lens = findChild(card, "liquidGlassLens")
+            verify(lens !== null)
+            verify(lens.parent.drawn, "The card must retain its glass appearance")
+            verify(!lens.parent.live, "Scrolling cards must not create individual backdrop captures")
+        }
+    }
+
+    function test_galleryWheelMovesCardsAndSuspendsHoverPreview() {
+        collection.cards = makeCards(100)
+        collection.outerFlickable = outerScroll
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        const card = findCardDelegate(gallery, "TST", "0")
+        verify(card !== null)
+        const preview = findChild(collection, "cardHoverPreview")
+        mouseMove(card, card.width / 2, card.height / 2)
+        tryCompare(preview, "visible", true)
+        const before = gallery.contentY
+        mouseWheel(card, card.width / 2, card.height / 2, 0, -120)
+        verify(gallery.scrolling)
+        verify(!preview.visible, "Wheel scrolling must hide the moving hover preview")
+        for (const delegate of visualCards(gallery))
+            verify(!delegate.previewEnabled)
+        tryCompare(gallery, "contentY", before + Theme.size(144))
+        tryVerify(() => !gallery.scrolling)
+        verify(card.previewEnabled)
+        tryCompare(preview, "visible", true, 1000,
+                   "A stationary pointer over the source must recover its preview after scrolling settles")
+        preview.hide()
+    }
+
+    function test_modelUpdateRecoversHoveredCurrentCard_data() {
+        return [{tag: "single metadata", faces: false, count: false},
+                {tag: "double metadata", faces: true, count: false},
+                {tag: "single count", faces: false, count: true},
+                {tag: "double count", faces: true, count: true},
+                {tag: "nested double metadata", faces: true, count: false, nested: true}]
+    }
+
+    function test_galleryWheelPassesThroughAllPreviewFaces_data() {
+        return [{tag: "front", index: 0}, {tag: "back", index: 1}]
+    }
+
+    function test_galleryWheelPassesThroughAllPreviewFaces(data) {
+        fakeCatalog.multiFacePreviews = true
+        collection.cards = makeCards(100)
+        collection.outerFlickable = outerScroll
+        collection.groupModeIndex = 2
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        const card = findCardDelegate(gallery, "TST", "0")
+        const preview = findChild(collection, "cardHoverPreview")
+        mouseMove(card, card.width / 2, Theme.size(80))
+        tryCompare(preview, "visible", true)
+        const art = findChild(preview, data.index === 0 ? "cardHoverPreviewArt" : "cardHoverPreviewArt-1")
+        verify(art !== null)
+        mouseMove(art, art.width / 2, art.height / 2)
+        tryCompare(preview, "previewHeld", true)
+        const before = gallery.contentY
+        mouseWheel(art, art.width / 2, art.height / 2, 0, -120)
+        tryCompare(gallery, "contentY", before + Theme.size(144))
+    }
+
+    function test_modelUpdateKeepsHeldPreview_data() {
+        return [{tag: "metadata", change: "metadata", keep: true}, {tag: "count", change: "count", keep: true},
+                {tag: "printing", change: "printing", keep: false}, {tag: "removed", change: "removed", keep: false},
+                {tag: "modal", change: "modal", keep: false}, {tag: "pointer left", change: "pointer", keep: false}]
+    }
+
+    function test_modelUpdateKeepsHeldPreview(data) {
+        fakeCatalog.multiFacePreviews = true
+        const cards = makeCards(3)
+        collection.cards = cards
+        collection.groupModeIndex = 2
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        const card = findCardDelegate(gallery, "TST", "0")
+        const preview = findChild(collection, "cardHoverPreview")
+        mouseMove(card, card.width / 2, Theme.size(80))
+        tryCompare(preview, "visible", true)
+        const art = findChild(preview, "cardHoverPreviewArt-1")
+        mouseMove(art, art.width / 2, art.height / 2)
+        tryCompare(preview, "previewHeld", true)
+        tryCompare(preview, "sourceActive", false)
+        previewVisibilitySpy.target = preview
+        previewVisibilitySpy.clear()
+        fakeDeckLibrary.currentDeckCardsAboutToChange()
+        const updated = cards.slice()
+        updated[0] = Object.assign({}, cards[0], data.change === "printing" ? {collectorNumber: "99"}
+                                  : data.change === "count" ? {count: 2} : {typeLine: "Creature — Wizard"})
+        collection.cards = data.change === "removed" ? [] : updated
+        if (data.change === "modal") testModal.open()
+        else if (data.change === "pointer") mouseMove(testWindow.contentItem, 1090, 710)
+        fakeDeckLibrary.currentDeckCardsChanged()
+        tryCompare(preview, "visible", data.keep)
+        if (data.keep) {
+            wait(50)
+            compare(previewVisibilitySpy.count, 0, "Same-card held inspection must never disappear during the update")
+            compare(preview.card.typeLine, updated[0].typeLine)
+            compare(preview.card.count, updated[0].count)
+            verify(!preview.sourceActive, "Held inspection must not invent source hover")
+            mouseMove(testWindow.contentItem, 1090, 710)
+            tryCompare(preview, "visible", false, 1000)
+        }
+    }
+
+    function test_modelUpdateRecoversHoveredCurrentCard(data) {
+        fakeCatalog.multiFacePreviews = data.faces
+        const cards = makeCards(3)
+        collection.cards = cards
+        collection.groupModeIndex = 2
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        const card = findCardDelegate(gallery, "TST", "0")
+        const preview = findChild(collection, "cardHoverPreview")
+        mouseMove(card, card.width / 2, Theme.size(80))
+        tryCompare(preview, "visible", true)
+        previewVisibilitySpy.target = preview
+        previewVisibilitySpy.clear()
+        fakeDeckLibrary.currentDeckCardsAboutToChange()
+        verify(preview.visible, "A live inspection stays visible until its current identity can be checked")
+        const updated = cards.slice()
+        updated[0] = Object.assign({}, cards[0], data.count ? {count: 2} : {typeLine: "Creature — Wizard"})
+        collection.cards = updated
+        if (data.nested) {
+            fakeDeckLibrary.currentDeckCardsAboutToChange()
+            updated[0] = Object.assign({}, updated[0], {count: 2})
+            collection.cards = updated.slice()
+            fakeDeckLibrary.currentDeckCardsChanged()
+        }
+        fakeDeckLibrary.currentDeckCardsChanged()
+        tryCompare(preview, "visible", true)
+        wait(50)
+        compare(previewVisibilitySpy.count, 0, "Same-card source inspection must never disappear during the update")
+        compare(preview.card.name, card.card.name)
+        compare(preview.card.setCode, card.card.setCode)
+        compare(preview.card.collectorNumber, card.card.collectorNumber)
+        compare(preview.card.count, data.count || data.nested ? 2 : 1)
+        compare(preview.card.typeLine, data.count ? "" : "Creature — Wizard")
+    }
+
+    function test_modelUpdateValidatesNewerHoveredCard_data() {
+        return [{tag: "new hover metadata", printing: false}, {tag: "new hover printing", printing: true}]
+    }
+
+    function test_inactiveGalleryDoesNotCallSourceInspection() {
+        collection.viewModeIndex = 1
+        verify(waitForRendering(findChild(collection, "groupedDeckGallery")))
+        // A delegate QObject can outlive the Loader's invalidated QML context.
+        // Keep this source alive to verify that inactive views never call it.
+        const source = createTemporaryObject(previewSourceProbe, testWindow.contentItem)
+        const preview = findChild(collection, "cardHoverPreview")
+        preview.inspect(source.card, source)
+        verify(preview.visible)
+        collection.switchView(0)
+        collection.refreshCurrentInspection()
+        compare(source.hoverChecks, 0)
+        verify(!preview.visible)
+    }
+
+    function test_modelUpdateValidatesNewerHoveredCard(data) {
+        const cards = makeCards(3)
+        collection.cards = cards
+        collection.groupModeIndex = 2
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        const first = findCardDelegate(gallery, "TST", "0")
+        const second = findCardDelegate(gallery, "TST", "1")
+        const preview = findChild(collection, "cardHoverPreview")
+        mouseMove(first, first.width / 2, Theme.size(80))
+        tryCompare(preview, "visible", true)
+        fakeDeckLibrary.currentDeckCardsAboutToChange()
+        mouseMove(second, second.width / 2, Theme.size(80))
+        tryCompare(preview, "card", second.card)
+        previewVisibilitySpy.target = preview
+        previewVisibilitySpy.clear()
+        const updated = cards.slice()
+        updated[1] = Object.assign({}, cards[1], data.printing ? {collectorNumber: "99"} : {count: 2})
+        collection.cards = updated
+        fakeDeckLibrary.currentDeckCardsChanged()
+        compare(preview.visible, !data.printing)
+        wait(50)
+        if (!data.printing) {
+            compare(previewVisibilitySpy.count, 0, "An older update must not close the newer live inspection")
+            compare(preview.card.name, cards[1].name)
+            compare(preview.card.count, 2)
+        }
+    }
+
+    function test_modelUpdateDoesNotRecoverInactiveOrReplacedSource_data() {
+        return [{tag: "pointer left", change: "pointer"}, {tag: "modal opened", change: "modal"},
+                {tag: "printing changed", change: "printing"}, {tag: "card replaced", change: "replacement"},
+                {tag: "card filtered out", change: "filtered"}, {tag: "source scrolled away", change: "scrolled"},
+                {tag: "scrolling started", change: "scrolling"}]
+    }
+
+    function test_modelUpdateDoesNotRecoverInactiveOrReplacedSource(data) {
+        const cards = makeCards(data.change === "scrolled" || data.change === "scrolling" ? 100 : 3)
+        collection.cards = cards
+        collection.groupModeIndex = 2
+        collection.viewModeIndex = 1
+        const gallery = findChild(collection, "groupedDeckGallery")
+        verify(waitForRendering(gallery))
+        const card = findCardDelegate(gallery, "TST", "0")
+        const preview = findChild(collection, "cardHoverPreview")
+        mouseMove(card, card.width / 2, Theme.size(80))
+        tryCompare(preview, "visible", true)
+        fakeDeckLibrary.currentDeckCardsAboutToChange()
+        const updated = cards.slice()
+        if (data.change === "printing") updated[0] = Object.assign({}, cards[0], {collectorNumber: "99"})
+        else if (data.change === "replacement") updated[0] = Object.assign({}, cards[0], {name: "Another Card"})
+        collection.cards = data.change === "filtered" ? [] : updated
+        fakeDeckLibrary.currentDeckCardsChanged()
+        if (data.change === "pointer") mouseMove(testWindow.contentItem, 1090, 710)
+        else if (data.change === "modal") testModal.open()
+        else if (data.change === "scrolled") Qt.callLater(() => { gallery.positionViewAtEnd(); gallery.forceLayout() })
+        else if (data.change === "scrolling") Qt.callLater(() => gallery.flick(0, -600))
+        wait(100)
+        if (data.change === "scrolled" && preview.visible) {
+            verify(preview.card.collectorNumber !== "0", "A pooled source must not restore its old card")
+            compare(preview.card.name, preview.sourceItem.card.name)
+            compare(preview.card.collectorNumber, preview.sourceItem.card.collectorNumber)
+        } else {
+            verify(!preview.visible, "Recovery must not reopen a stale or inactive source: " + data.change)
+        }
     }
 
     function makeCards(count) {

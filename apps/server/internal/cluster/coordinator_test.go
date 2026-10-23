@@ -23,17 +23,17 @@ func testConfig() Config {
 }
 
 func report() Report {
-	return Report{Version: "test", MaxRooms: 4, MaxEvents: 4, MaxConnections: 100, MaxForge: 4, Forge: true,
+	return Report{Protocol: protocol.ProtocolVersion, Version: "test", MaxRooms: 4, MaxEvents: 4, MaxConnections: 100, MaxForge: 4, Forge: true,
 		MemoryMB: 4096, Resources: map[string][]protocol.AccountResource{}}
 }
 
 func register(t *testing.T, c *Coordinator, id string, r Report) string {
 	t.Helper()
-	out, err := c.Do(context.Background(), Request{Operation: "register", NodeID: id})
+	out, err := c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "register", NodeID: id})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = c.Do(context.Background(), Request{Operation: "report", ReportSequence: 1, NodeID: id, Generation: out.Generation, Report: &r})
+	_, err = c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "report", ReportSequence: 1, NodeID: id, Generation: out.Generation, Report: &r})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func register(t *testing.T, c *Coordinator, id string, r Report) string {
 }
 
 func allocation(node, generation string, demand Demand) Request {
-	return Request{Operation: "allocate", NodeID: node, Generation: generation, Demand: demand,
+	return Request{RPCVersion: RPCVersion, Operation: "allocate", NodeID: node, Generation: generation, Demand: demand,
 		CommandType: protocol.TypeRoomCreate, Digest: strings.Repeat("a", 64), AccountID: "account-one"}
 }
 
@@ -84,18 +84,23 @@ func TestPlacementCapabilitiesLoadVersionAndExpiry(t *testing.T) {
 		t.Fatalf("runtime placement: %+v %v", out, err)
 	}
 	two.MemoryMB = 100
-	_, _ = c.Do(context.Background(), Request{Operation: "report", ReportSequence: 2, NodeID: "N2", Generation: g2, Report: &two})
+	_, _ = c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "report", ReportSequence: 2, NodeID: "N2", Generation: g2, Report: &two})
 	if _, err := c.Do(context.Background(), q); err != ErrFull {
 		t.Fatal("low-memory node selected", err)
 	}
 	two.MemoryMB = 4096
 	two.Version = "different"
-	_, _ = c.Do(context.Background(), Request{Operation: "report", ReportSequence: 3, NodeID: "N2", Generation: g2, Report: &two})
+	_, _ = c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "report", ReportSequence: 3, NodeID: "N2", Generation: g2, Report: &two})
+	if _, err := c.Do(context.Background(), q); err != nil {
+		t.Fatal("same-protocol different-version node rejected", err)
+	}
+	two.Protocol = "hexproof.v3"
+	register(t, c, "N2", two)
 	if _, err := c.Do(context.Background(), q); err != ErrFull {
-		t.Fatal("different-version node selected", err)
+		t.Fatal("different protocol node selected", err)
 	}
 	now = now.Add(NodeLifetime)
-	if _, err := c.Do(context.Background(), allocation("N1", g1, Demand{Rooms: 1})); err != ErrFull {
+	if _, err := c.Do(context.Background(), allocation("N1", g1, Demand{Rooms: 1})); err != ErrUnavailable {
 		t.Fatal("expired node selected", err)
 	}
 }
@@ -109,7 +114,7 @@ func TestTicketIdentitySingleUseCompletionAndFencing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q := Request{Operation: "take", NodeID: "N1", Generation: g, Token: out.Ticket.Token, AccountID: "wrong-account"}
+	q := Request{RPCVersion: RPCVersion, Operation: "take", NodeID: "N1", Generation: g, Token: out.Ticket.Token, AccountID: "wrong-account"}
 	if _, err := c.Do(context.Background(), q); err != ErrInvalid {
 		t.Fatal("cross-account ticket", err)
 	}
@@ -123,7 +128,7 @@ func TestTicketIdentitySingleUseCompletionAndFencing(t *testing.T) {
 	if _, err := c.Do(context.Background(), allocation("N1", g, Demand{Rooms: 1})); err != ErrFull {
 		t.Fatal("taken lease released too early", err)
 	}
-	_, err = c.Do(context.Background(), Request{Operation: "report", ReportSequence: 2, NodeID: "N1", Generation: g, Report: &r, Completed: []string{q.Token}})
+	_, err = c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "report", ReportSequence: 2, NodeID: "N1", Generation: g, Report: &r, Completed: []string{q.Token}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +154,7 @@ func TestDirectoryNamespacesAndPrivateOwnership(t *testing.T) {
 	r.Events[0].Name = "mutated caller event"
 	r.Resources["alice"][0].Name = "mutated caller resource"
 	delete(r.Resources, "alice")
-	out, err := c.Do(context.Background(), Request{Operation: "view", NodeID: "N1", Generation: g, AccountID: "alice"})
+	out, err := c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view", NodeID: "N1", Generation: g, AccountID: "alice"})
 	if err != nil || len(out.Rooms) != 2 || len(out.Events) != 2 || len(out.Resources) != 2 {
 		t.Fatalf("view: %+v %v", out, err)
 	}
@@ -166,7 +171,7 @@ func TestDirectoryNamespacesAndPrivateOwnership(t *testing.T) {
 			t.Fatal("another account leaked", resource)
 		}
 	}
-	guest, _ := c.Do(context.Background(), Request{Operation: "view", NodeID: "N1", Generation: g})
+	guest, _ := c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view", NodeID: "N1", Generation: g})
 	if len(guest.Resources) != 0 {
 		t.Fatal("guest received account locations")
 	}
@@ -184,7 +189,7 @@ func TestRemoteAuthenticationAndCoordinatorRestart(t *testing.T) {
 	}
 	a := Start(remote, cfg.NodeID, report)
 	defer a.Close()
-	if view, err := a.Do(context.Background(), Request{Operation: "view"}); err != nil || view.Rooms == nil || view.Events == nil || view.Resources == nil {
+	if view, err := a.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "view"}); err != nil || view.Rooms == nil || view.Events == nil || view.Resources == nil {
 		t.Fatal("empty public collections must remain arrays across HTTP", view, err)
 	}
 	c.mu.Lock()
@@ -205,7 +210,7 @@ func TestRemoteAuthenticationAndCoordinatorRestart(t *testing.T) {
 	}
 	cfg.Key = strings.Repeat("z", 32)
 	wrong, _ := NewRemote(cfg)
-	if _, err := wrong.Do(context.Background(), Request{Operation: "register", NodeID: cfg.NodeID}); err != ErrUnavailable {
+	if _, err := wrong.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "register", NodeID: cfg.NodeID}); err != ErrUnavailable {
 		t.Fatal("wrong key accepted", err)
 	}
 }
@@ -267,8 +272,8 @@ func TestDelayedReportCannotReopenReservedCapacity(t *testing.T) {
 	fresh := report()
 	fresh.RoomCount = fresh.MaxRooms
 	for _, q := range []Request{
-		{Operation: "report", NodeID: "N1", Generation: generation, ReportSequence: 3, Report: &fresh},
-		{Operation: "report", NodeID: "N1", Generation: generation, ReportSequence: 2, Report: &stale},
+		{RPCVersion: RPCVersion, Operation: "report", NodeID: "N1", Generation: generation, ReportSequence: 3, Report: &fresh},
+		{RPCVersion: RPCVersion, Operation: "report", NodeID: "N1", Generation: generation, ReportSequence: 2, Report: &stale},
 	} {
 		if _, err := c.Do(context.Background(), q); err != nil {
 			t.Fatal(err)

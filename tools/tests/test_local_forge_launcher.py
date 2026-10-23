@@ -42,8 +42,10 @@ class LocalForgeLauncherTests(unittest.TestCase):
                         HEXPROOF_SERVER_BINARY_PATH=str(self.server),
                         HEXPROOF_FORGE_LOCAL_ROOT=str(self.runtime),
                         HEXPROOF_FORGE_JAVA="java")
+        # Runner JDK hints precede JAVA_HOME; keep Java selection inside the fixture.
         for key in list(self.env):
-            if key.upper() == "JAVA_HOME" or key.upper().startswith("JAVA_HOME_21_"):
+            if key.upper().startswith("JAVA_HOME_21_") or key in (
+                    "JAVA_HOME", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS"):
                 del self.env[key]
         self.native_host = versions / "native-host"
         java_source = self.native_host / "src/main/java/org/hexproof/forge"

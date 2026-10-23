@@ -40,7 +40,7 @@ func TestHandshakeValidation(t *testing.T) {
 	client.send(wrongVersion)
 	errEnv = client.recvType(protocol.TypeError)
 	_ = errEnv.DecodePayload(&ep)
-	if ep.Code != protocol.ErrInvalidMessage || errEnv.ID != wrongVersion.ID {
+	if ep.Code != protocol.ErrProtocolMismatch || ep.ClientProtocol != "hexproof.v999" || ep.ServerProtocol != protocol.ProtocolVersion || errEnv.ID != wrongVersion.ID {
 		t.Fatalf("wrong protocol response = type %q id %q code %q", errEnv.Type, errEnv.ID, ep.Code)
 	}
 
@@ -53,32 +53,22 @@ func TestHandshakeValidation(t *testing.T) {
 	client.send(missingClientVersion)
 	errEnv = client.recvType(protocol.TypeError)
 	_ = errEnv.DecodePayload(&ep)
-	if ep.Code != protocol.ErrClientVersionMismatch ||
-		ep.RequiredVersion != buildinfo.Version ||
-		ep.ClientVersion != "" ||
-		!strings.Contains(ep.Message, "download and install Hexproof") ||
-		errEnv.ID != missingClientVersion.ID {
-		t.Fatalf("missing client version response = id %q payload %+v",
-			errEnv.ID, ep)
+	if ep.Code != protocol.ErrInvalidMessage || errEnv.ID != missingClientVersion.ID {
+		t.Fatalf("missing version metadata: %+v", ep)
 	}
 
-	wrongClientVersion, _ := protocol.NewEnvelope(protocol.TypeSessionHello,
-		protocol.SessionHello{
-			DisplayName:   "Alice",
-			ClientVersion: "99.0.0",
-			Protocol:      protocol.ProtocolVersion,
-		})
-	wrongClientVersion.ID = "wrong-client-version"
-	client.send(wrongClientVersion)
-	errEnv = client.recvType(protocol.TypeError)
-	_ = errEnv.DecodePayload(&ep)
-	if ep.Code != protocol.ErrClientVersionMismatch ||
-		ep.RequiredVersion != buildinfo.Version ||
-		ep.ClientVersion != "99.0.0" ||
-		!strings.Contains(ep.Message, "download and install Hexproof") ||
-		errEnv.ID != wrongClientVersion.ID {
-		t.Fatalf("wrong client version response = id %q payload %+v",
-			errEnv.ID, ep)
+	compatible := dial(t, srv)
+	defer compatible.close()
+	hello, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{
+		DisplayName: "Different build", ClientVersion: "99.0.0", Protocol: protocol.ProtocolVersion,
+	})
+	hello.ID = "compatible-build"
+	compatible.send(hello)
+	welcome := compatible.recvType(protocol.TypeSessionWelcome)
+	var accepted protocol.SessionWelcome
+	_ = welcome.DecodePayload(&accepted)
+	if accepted.ServerVersion != buildinfo.Version || accepted.V != protocol.ProtocolVersion {
+		t.Fatalf("wrong welcome metadata: %+v", accepted)
 	}
 
 	longName, _ := protocol.NewEnvelope(protocol.TypeSessionHello, protocol.SessionHello{
@@ -561,7 +551,7 @@ func TestReconnectRestoresHostSeatAndPrivateProjection(t *testing.T) {
 	if hostWelcome.ResumeToken == "" {
 		t.Fatal("initial welcome omitted resume token")
 	}
-	guest.hello("Bob")
+	guest.helloVersion("Bob", "1.2.3")
 	_, roomID := host.createRoom("Modern", protocol.FormatModern, 2, true, "")
 	host.recvType(protocol.TypeRoomSnapshot)
 	joinRoom(t, guest, roomID, false)
@@ -623,7 +613,7 @@ func TestReconnectRestoresHostSeatAndPrivateProjection(t *testing.T) {
 
 	resumedHost := dial(t, srv)
 	defer resumedHost.close()
-	resumedWelcome := resumedHost.resume("Alice", hostWelcome.ResumeToken, 2)
+	resumedWelcome := resumedHost.resumeVersion("Alice", hostWelcome.ResumeToken, 2, "99.0.0")
 	if !resumedWelcome.Resumed || resumedWelcome.RoomID != roomID ||
 		resumedWelcome.Role != protocol.RolePlayer ||
 		resumedWelcome.Seat == nil || *resumedWelcome.Seat != 0 ||
@@ -654,7 +644,7 @@ func TestReconnectRestoresHostSeatAndPrivateProjection(t *testing.T) {
 	}
 
 	spectator := dial(t, srv)
-	spectatorWelcomeEnvelope := spectator.hello("Observer")
+	spectatorWelcomeEnvelope := spectator.helloVersion("Observer", "12.34.56")
 	var spectatorWelcome protocol.SessionWelcome
 	if err := spectatorWelcomeEnvelope.DecodePayload(&spectatorWelcome); err != nil {
 		t.Fatalf("decode spectator welcome: %v", err)
