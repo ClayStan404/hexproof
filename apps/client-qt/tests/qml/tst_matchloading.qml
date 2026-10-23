@@ -977,11 +977,12 @@ TestCase {
         verify(hoverPreview !== null)
         verify(previewArt !== null)
         verify(previewName !== null)
-        // This fixture has no image. Retain an accessible card-name fallback
-        // instead of expecting the image-only presentation of a loaded face.
-        verify(previewName.visible)
-        compare(previewName.text, "Raging Goblin")
+        // The harness supplies table art. Await its asynchronous load before
+        // checking the image-only presentation; a cached image may be ready
+        // immediately when this case follows other table tests.
         tryVerify(() => hoverPreview.visible)
+        tryCompare(previewArt, "status", Image.Ready)
+        verify(!previewName.visible)
         fuzzyCompare(hoverPreview.height, hoverPreview.width * 88 / 63, 0.01)
         table.selection.selectCard(relationSeats[0].battlefield[0], 0)
         targetSeat.triggered()

@@ -3898,8 +3898,13 @@ TestCase {
         verify(waitForPolish(window))
         const firstRect = first.mapToItem(lane, 0, 0, first.width, first.height)
         const idleRect = front.mapToItem(lane, 0, 0, front.width, front.height)
-        verify(firstRect.x + firstRect.width <= idleRect.x || idleRect.x + idleRect.width <= firstRect.x
-            || firstRect.y + firstRect.height <= idleRect.y || idleRect.y + idleRect.height <= firstRect.y,
+        // mapToItem crosses float-backed scene coordinates; touching edges
+        // can differ by a few millionths of a logical pixel.
+        const epsilon = 0.01
+        verify(firstRect.x + firstRect.width <= idleRect.x + epsilon
+            || idleRect.x + idleRect.width <= firstRect.x + epsilon
+            || firstRect.y + firstRect.height <= idleRect.y + epsilon
+            || idleRect.y + idleRect.height <= firstRect.y + epsilon,
             "A combat participant must have a separate visible card face")
         mouseClick(first)
         tryCompare(lane, "stackCount", 1)
@@ -7970,7 +7975,7 @@ TestCase {
         for (const row of battlefieldReadoutRects(state))
             verify(!mappedRectsOverlap(rect, row.rect), description + " leaves " + row.label.objectName + " readable")
     }
-    function battlefieldReadoutRects(state) {
+    function battlefieldReadoutRects(state, includeBadges) {
         const cards = []
         for (const zone of state.zones.filter(zone => zone.zone === "battlefield")) {
             for (const card of zone.cards) {
@@ -7999,7 +8004,10 @@ TestCase {
             let owner = label.parent
             while (owner && !cards.some(card => card.root === owner)) owner = owner.parent
             const card = cards.find(candidate => candidate.root === owner)
-            let pieces = [label.mapToItem(table, 0, 0, label.width, label.height)]
+            // Composition protects the painted P/T badge as well as its text.
+            const readout = includeBadges && label.objectName.indexOf("forgeCardStats-") === 0
+                ? label.parent : label
+            let pieces = [readout.mapToItem(table, 0, 0, readout.width, readout.height)]
             if (card) {
                 for (const front of cards) {
                     if (!front.opaque || !front.root.visible || front.slot.opacity !== 1
@@ -8069,8 +8077,14 @@ TestCase {
         const originalCenter = board.mapToItem(table, board.width / 2, centerY)
         const originalRect = Qt.rect(originalCenter.x - callout.width / 2,
             originalCenter.y - fullHeight / 2, callout.width, fullHeight)
-        const originalOverlaps = battlefieldReadoutRects(state).some(readout =>
-            mappedRectsOverlap(originalRect, readout.rect))
+        const clearance = 2 * board.unit
+        const originalOverlaps = battlefieldReadoutRects(state, true).some(readout => {
+            const rect = readout.rect
+            return originalRect.x < rect.x + rect.width + clearance
+                && originalRect.x + originalRect.width > rect.x - clearance
+                && originalRect.y < rect.y + rect.height + clearance
+                && originalRect.y + originalRect.height > rect.y - clearance
+        })
         if (!originalOverlaps) {
             fuzzyCompare(callout.y + callout.height / 2, centerY, 1,
                          "An unobstructed announcement retains the original center")

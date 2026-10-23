@@ -115,7 +115,8 @@ TestCase {
             combatTargets: [{responseId: "opaque-alpha", kind: data.kind === "attackers" ? "player" : "attacker",
                 seat: 1, label: publicTarget, objectId: "target-alpha", maxAssignments: 1},
                 {responseId: "opaque-beta", kind: data.kind === "attackers" ? "player" : "attacker",
-                seat: 2, label: "Defender Beta", objectId: "target-beta", maxAssignments: 1}],
+                // A deliberately short choice fits with different platform fonts.
+                seat: 2, label: "Beta", objectId: "target-beta", maxAssignments: 1}],
             damageTargets: [], scryDestinations: [], totalDamage: 0}))
         const prompt = createTemporaryObject(blockers, testWindow.contentItem, {
             x: 620, y: 650, width: 360, height: 220,
