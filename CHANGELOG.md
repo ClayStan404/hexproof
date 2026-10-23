@@ -39,6 +39,8 @@ application changes that use new catalog metadata are included here.
 
 ### Fixed
 
+- Retargeting a battlefield view no longer restores an obsolete combat draft
+  into a shared card model, so matching creatures can regroup after combat.
 - Preserve valid ignored or unconfirmed feedback-notification receipts without
   repeating the same event or claiming AI execution succeeded. Exhausted
   uncertain deliveries retain their records pending reconciliation.

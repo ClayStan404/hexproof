@@ -1476,6 +1476,20 @@ TestCase {
             showCaption: false
         }
     }
+    function test_retargetedLaneCannotRestoreCachedCombatGrouping() {
+        // This seat has no live field in the two-player fixture. Seed the
+        // cached native model as a previous view with a combat draft left it.
+        const cached = table.rulesSession.laneSlots(3, "battlefield", "creature")
+        cached.combatGroupingKeys = {"old-card":"earlier-combat-draft"}
+        const temporary = createTemporaryObject(shortLane, window.contentItem,
+            {ownerSeat:3, visible:false})
+        compare(temporary.slotModel, cached)
+        compare(Object.keys(cached.combatGroupingKeys).length, 0)
+        temporary.ownerSeat = 2
+        compare(temporary.slotModel, table.rulesSession.laneSlots(2, "battlefield", "creature"))
+        compare(Object.keys(cached.combatGroupingKeys).length, 0,
+            "Retargeting the view must retain the latest grouping, not its saved old value")
+    }
     Component {
         id: pileObstacleField
         Item {
@@ -1868,7 +1882,13 @@ TestCase {
             const targetId = "z-" + targetSeat + "-Karn, the Great Creator"
             prompt("chooseBoardTargets", {minSelections:1, maxSelections:1,
                 targets:[{responseId:"walker-target", kind:"card", objectId:targetId, label:"Karn"}]})
-            verify(presentation.reveal(targetId)); verify(waitForPolish(window)); verify(waitForRendering(table))
+            verify(waitForPolish(window))
+            tryVerify(() => presentation.reveal(targetId), 5000, "The current target delegate becomes available")
+            verify(waitForPolish(window))
+            // Polishing may consume the dirty frame before the render wait
+            // starts. Explicitly schedule the frame whose input we exercise.
+            window.update()
+            verify(waitForRendering(table), "The revealed target frame renders")
             mouseClick(item("forgeCard-" + targetId))
             compare(transport.responses.length, 1)
             compare(transport.responses[0].targets, ["walker-target"])
@@ -3694,6 +3714,8 @@ TestCase {
         state.zones[4].cards[0].blocking = ["hand-0", "missing"]
         verify(testRulesPrompt.applySnapshot(state))
         compare(table.rulesSession.battlefieldRelationships.length, 2)
+        compare(Object.keys(item("forgeOwnCreatures").slotModel.combatGroupingKeys).length, 0,
+            "Inactive combat cannot retain a retired lane's draft grouping")
         tryCompare(item("forgeOwnCreatures"), "stackCount", 2)
         compare(item("forgeCardInteractionHint-own-0").text, "")
     }

@@ -42,6 +42,9 @@ Item {
         target: root.slotModel
         property: "combatGroupingKeys"
         when: root.slotModel !== null
+        // Lane views share a cached native model. Retiring one view must not
+        // restore its earlier combat draft over the current view's value.
+        restoreMode: Binding.RestoreNone
         value: {
             const combat = root.tableController.combatInteraction
             return root.zone === "battlefield" && combat && combat.active
