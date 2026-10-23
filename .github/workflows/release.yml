@@ -195,7 +195,6 @@ jobs:
     name: Linux client (x86_64)
     needs:
       - prepare
-      - quality-gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -289,7 +288,6 @@ jobs:
     name: Windows client (x64)
     needs:
       - prepare
-      - quality-gate
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -385,7 +383,6 @@ jobs:
     name: macOS client (${{ matrix.arch }})
     needs:
       - prepare
-      - quality-gate
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -519,7 +516,6 @@ jobs:
     name: Linux server (${{ matrix.arch }})
     needs:
       - prepare
-      - quality-gate
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -575,6 +571,7 @@ jobs:
     name: Assemble release
     needs:
       - prepare
+      - quality-gate
       - client-linux
       - client-windows
       - client-macos

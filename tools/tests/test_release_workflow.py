@@ -6,6 +6,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -45,6 +46,24 @@ class ReleaseWorkflowTests(unittest.TestCase):
         return subprocess.run(["bash", "-c", workflow_script(name)], cwd=self.root,
                               env=self.environment, text=True, capture_output=True)
 
+    def test_packaging_runs_in_parallel_but_assembly_requires_full_quality(self):
+        text = WORKFLOW.read_text()
+        def dependencies(job):
+            block = re.search(rf"^  {job}:\n(.*?)(?=^  [a-z][a-z0-9-]*:|\Z)",
+                              text, re.MULTILINE | re.DOTALL)[1]
+            needs = re.search(r"^    needs:\n((?:      - [a-z0-9-]+\n)+)", block,
+                              re.MULTILINE)
+            return set(re.findall(r"      - ([a-z0-9-]+)", needs[1])) if needs else set()
+        platforms = {"client-linux", "client-windows", "client-macos", "server"}
+        for job in platforms:
+            self.assertTrue(dependencies(job) <= {"prepare"}, job)
+        required = dependencies("assemble")
+        self.assertTrue(platforms | {"prepare", "quality-gate"} <= required)
+        # Successful packages alone cannot create a combined/publishable bundle.
+        successful = platforms | {"prepare"}
+        self.assertFalse(required <= successful)
+        self.assertTrue(required <= successful | {"quality-gate"})
+
     def test_exact_tag_uses_committed_source_version(self):
         result = self.run_step("Resolve and validate version")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -73,6 +92,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         binary.write_text('''#!/usr/bin/env python3
 import json
 import os
+import re
 from pathlib import Path
 import sys
 

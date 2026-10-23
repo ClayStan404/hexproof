@@ -5,7 +5,10 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -62,6 +65,26 @@ class DiagnosticSymbolTests(unittest.TestCase):
             self.assertNotIn(b"PrivateScript", data)
             self.assertNotIn("dependency.Secret", value["classes"])
             self.assertEqual(data, SYMBOLS.generate(classes, [jar], cards, aliases, "fixture-adapter31"))
+
+    def test_utf8_catalog_names_survive_a_legacy_default_encoding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            classes, cards = root / "classes", root / "cards"
+            classes.mkdir(); cards.mkdir()
+            (classes / "ApiType.class").write_bytes(class_file(
+                "forge/game/ability/ApiType", ["values"], ["Draw"]))
+            (cards / "public.txt").write_text("Name:Public Card\n", encoding="utf-8")
+            aliases = root / "aliases.tsv"
+            aliases.write_text("Andúril // Éowyn\tSET\t1\tSET\t2\n", encoding="utf-8")
+            output = root / "symbols.json"
+            env = dict(os.environ, LC_ALL="C", PYTHONCOERCECLOCALE="0")
+            result = subprocess.run([sys.executable, "-X", "utf8=0", str(SPEC.origin),
+                "--classes", str(classes), "--cards", str(cards), "--aliases", str(aliases),
+                "--runtime-id", "fixture-adapter34", "--output", str(output)],
+                env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(output.read_bytes())["cardNames"],
+                             ["Andúril", "Public Card", "Éowyn"])
 
     def test_embedded_hub_index_matches_pinned_runtime_identity_and_digest(self):
         pin = json.loads((ROOT / "third_party/forge-runtime/native-host/upstream.json").read_text())
