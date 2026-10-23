@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,8 +25,23 @@ func TestDelayPacketLossAndUDPBlackhole(t *testing.T) {
 		t.Fatal(err)
 	}
 	var packets atomic.Uint64
+	var lossArmed atomic.Bool
+	var dropped atomic.Bool
 	var blackhole atomic.Bool
-	router.AddChunkFilter(func(vnet.Chunk) bool { return !blackhole.Load() && packets.Add(1)%13 != 0 })
+	router.AddChunkFilter(func(chunk vnet.Chunk) bool {
+		if blackhole.Load() {
+			return false
+		}
+		// Lose one large outbound data packet after authentication. Repeatedly
+		// dropping retransmissions couples this success case to SCTP backoff
+		// timing; sustained failure is covered by the blackhole phase below.
+		source, ok := chunk.SourceAddr().(*net.UDPAddr)
+		if lossArmed.Load() && ok && source.IP.Equal(net.IPv4(192, 0, 2, 10)) && len(chunk.UserData()) > 1000 && packets.Add(1) == 13 {
+			dropped.Store(true)
+			return false
+		}
+		return true
+	})
 	var nets [2]*vnet.Net
 	for i, ip := range []string{"192.0.2.10", "192.0.2.11"} {
 		nets[i], err = vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{ip}})
@@ -42,6 +58,7 @@ func TestDelayPacketLossAndUDPBlackhole(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	started := time.Now()
+	lossArmed.Store(true)
 	if peers[0].Send(ctx, payload) != nil {
 		t.Fatal("lossy send failed")
 	}
@@ -53,7 +70,10 @@ func TestDelayPacketLossAndUDPBlackhole(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("lossy data channel failed to retransmit")
 	}
-	t.Logf("30ms + 0..10ms each way, every 13th UDP packet dropped: %d bytes in %s", len(payload), time.Since(started))
+	if !dropped.Load() {
+		t.Fatal("payload did not exercise the injected packet loss")
+	}
+	t.Logf("30ms + 0..10ms each way, one large UDP data packet dropped: %d bytes in %s", len(payload), time.Since(started))
 	blackhole.Store(true)
 	short, stop := context.WithTimeout(t.Context(), 250*time.Millisecond)
 	defer stop()
