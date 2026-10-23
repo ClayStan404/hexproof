@@ -86,6 +86,25 @@ class FeedbackConfigTests(unittest.TestCase):
             subprocess.run(command, env=env, check=True, capture_output=True)
             self.assertEqual(json.loads(output.read_text()), CONFIG.DISABLED)
 
+    def test_packaging_writes_utf8_under_a_legacy_system_encoding(self):
+        value = dict(self.enabled(), supportLabel="Hexproof 官方支持",
+                     noticeText="此反馈将公开。\nAI 会参与处理。")
+        with tempfile.TemporaryDirectory() as directory:
+            defaults = Path(directory) / "defaults.json"
+            defaults.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+            output = Path(directory) / "packaged.json"
+            # Disable Python's UTF-8 mode and POSIX locale coercion. On Windows
+            # this keeps the native legacy code page; on POSIX it forces ASCII.
+            env = dict(os.environ, HEXPROOF_FEEDBACK_CONFIG_JSON="",
+                       LC_ALL="C", PYTHONCOERCECLOCALE="0")
+            result = subprocess.run([sys.executable, "-X", "utf8=0",
+                                     str(ROOT / "tools/write-feedback-config.py"),
+                                     str(output), "--defaults", str(defaults)],
+                                    env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), value)
+            self.assertEqual(result.stdout, b"")
+
     def test_invalid_defaults_leave_prior_output_intact_and_do_not_print_secrets(self):
         with tempfile.TemporaryDirectory() as directory:
             defaults = Path(directory) / "defaults.json"

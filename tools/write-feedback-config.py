@@ -118,7 +118,7 @@ def main():
         validate_receiver_match(value, args.receiver_config.read_text(encoding="utf-8"))
     destination = args.output
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+    destination.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
