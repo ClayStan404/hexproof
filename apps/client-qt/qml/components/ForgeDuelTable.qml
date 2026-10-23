@@ -902,10 +902,14 @@ Rectangle {
         // Probe the maximum two-line strip independently of its actual height,
         // so choosing the compact mode cannot feed back into its own width.
         // Wide tables retain the original single-line phase-strip density.
+        // A translated label may use a taller fallback font than the primary
+        // font. Include actual phase text when reserving the overlay height.
+        readonly property real textHeight: Math.max(phaseMetrics.height,
+            ...steps.map(step => phaseMetrics.boundingRect(I18n.gamePhaseLabel(step)).height))
         readonly property real twoLineHeight: Math.max(18 * root.unit,
-            Math.ceil(phaseMetrics.height) * 2 + Theme.size(4))
+            Math.ceil(textHeight) * 2 + Theme.size(4))
         readonly property real singleLineHeight: Math.max(18 * root.unit,
-            Math.ceil(phaseMetrics.height) + Theme.size(4))
+            Math.ceil(textHeight) + Theme.size(4))
         readonly property real statusProbeTop: Math.min(
             opponentDecidingBanner.y + opponentDecidingBanner.height + 4 * root.unit,
             root.battlefieldBottom - twoLineHeight)
