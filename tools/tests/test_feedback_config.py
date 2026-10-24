@@ -66,10 +66,14 @@ class FeedbackConfigTests(unittest.TestCase):
             "https://old.example.invalid/feedback/v1", "https://old.example.invalid/feedback/v2"
         ]))["schemaVersion"], 2)
 
-    def test_official_defaults_do_not_activate_unqualified_public_or_legacy_intake(self):
+    def test_official_defaults_use_the_qualified_public_destination(self):
         value = CONFIG.parse((ROOT / "apps/client-qt/config/feedback.official.json").read_text())
-        self.assertFalse(value["enabled"])
-        self.assertEqual(value["apiBase"], "")
+        self.assertTrue(value["enabled"])
+        self.assertEqual(value["apiBase"], "https://47.97.30.103/feedback/v2")
+        self.assertEqual(value["privacyUrl"], "https://47.97.30.103/feedback/privacy")
+        self.assertEqual(value["publicRepository"], "ClayStan404/hexproof")
+        self.assertEqual(value["noticeRevision"], "hexproof-public-20261024-v1")
+        self.assertEqual(value["providerPolicyRevision"], "hexproof-test-openai-multica-20261023-v1")
         self.assertIn("https://47.122.120.151/feedback/v1", value["receiptOnlyApiBases"])
 
     def test_packaging_defaults_are_used_and_environment_can_disable_them(self):

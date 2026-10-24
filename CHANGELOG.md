@@ -9,7 +9,7 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
-## [3.1.0] - 2026-10-23
+## [3.1.0] - 2026-10-24
 
 ### Changed
 
@@ -39,6 +39,8 @@ application changes that use new catalog metadata are included here.
 
 ### Fixed
 
+- Distinguish disabled public feedback, invalid configuration and transient
+  connectivity failures while preserving local drafts and prior submissions.
 - Phase controls account for taller fallback fonts in translated labels.
 - Retargeting a battlefield view no longer restores an obsolete combat draft
   into a shared card model, so matching creatures can regroup after combat.
@@ -59,11 +61,11 @@ application changes that use new catalog metadata are included here.
   versions can interoperate while they retain the same game protocol.
 - Existing Forge runtime/helper identity and privacy checks remain in force;
   this release does not relax engine compatibility checks.
-- Online public feedback remains disabled in the packaged defaults until the
-  receiver, reviewed disclosure and native connection are activated. Local
-  drafts remain available. Server 2 is the selected future receiver host.
-  Automatic source publication and scheduled AI releases are also prepared but
-  inactive; this release does not claim those services are operating.
+- Official packages enable public feedback through Server 2 with an explicit
+  public-submission notice and the Multica/OpenAI development connection.
+  Local drafts remain available offline. Reviewed private changes synchronize
+  allowed source to the public repository after integration; source publication
+  and an installed released fix remain separate delivery states.
 
 ## [3.0.0] - 2026-10-17
 

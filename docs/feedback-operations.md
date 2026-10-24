@@ -26,9 +26,10 @@ input or automatic deployment trigger.
 
 Run the receiver as its separate `hexproof-feedback.service`. The AI development
 machine remains the workstation running Multica and can be migrated separately.
-Selecting this host does not enable feedback, establish a public API/privacy
-route or authorize deployment before the planned release. Keep official client
-intake and native operations disabled until that activation.
+The owner authorized the formal 3.1.0 cutover on 2026-10-24 after the isolated
+trial. Official build defaults now select this receiver; installing those
+defaults does not itself open the HTTPS route or activate native operations.
+Complete the coordinated cutover below before distributing enabled packages.
 
 The short read-only probe on 2026-10-23 passed seven GitHub API and seven webpage
 requests over three minutes with application proxies disabled. This supports
@@ -76,14 +77,71 @@ The legacy client used the separate build input `HEXPROOF_FEEDBACK_CONFIG_FILE`
 with `schemaVersion: 1`, `enabled`, `apiBase` including `/feedback/v1`,
 `supportLabel`, `privacyUrl`, and `receiptOnlyApiBases`. Current clients require
 [V2 public configuration](public-feedback-v2.md#build-and-receiver-configuration)
-for new submissions; official source defaults and the example are disabled.
-Source configuration does not start the receiver. The owner's 2026-10-22 scope
-is code/build configuration only, with production activation deferred to the
-next separately authorized release.
+for new submissions. Official 3.1.0 source defaults enable the qualified Server 2
+destination; the generic example remains disabled. Source configuration does
+not start the receiver. The owner's initial 2026-10-22 code-only scope was
+superseded by the formal release authorization on 2026-10-24.
 Do not edit the strict existing server directory or distribute SMTP secrets.
 Production clients reject redirects and insecure endpoints. After endpoint
 migration, retain an old endpoint only for receipt queries if it is still
 trusted; users must explicitly authorize new submissions to the new endpoint.
+
+### Formal 3.1.0 public configuration
+
+The reviewed public build configuration is
+[`feedback.official.json`](../apps/client-qt/config/feedback.official.json), with
+API `https://47.97.30.103/feedback/v2`, notice
+`https://47.97.30.103/feedback/privacy` and public repository
+`ClayStan404/hexproof`. The matching [notice page](https://47.97.30.103/feedback/privacy)
+is rendered from `deploy/feedback/privacy.html` and contains the same disclosure
+text; install that template at
+`/var/www/hexproof-feedback/privacy.html`. It is a static public resource and
+contains no receiver credentials. Before a release build, check the public
+repository's `HEXPROOF_FEEDBACK_CONFIG_JSON` Actions variable: a nonempty value
+overrides the source defaults and must either match them or be removed.
+
+Use notice revision `hexproof-public-20261024-v1`. Keep provider policy
+`hexproof-test-openai-multica-20261023-v1` unchanged in the client, receiver
+`public` object and receiver `multica` object. Despite its historical name,
+this identifier still means the same qualified Multica/OpenAI processing
+permission: Mika coordinates with `gpt-6-astra`, Sol develops with `gpt-6.1-sol`
+and Astra independently reviews with `gpt-6-astra`, all at `ultra`. It does not enable Claude, GLM,
+DeepSeek, agy or Cursor/Grok. The formal notice removes trial-only wording
+without broadening the processors that can receive historical contributions.
+
+Change only `public.noticeRevision` and `public.noticeText` for this notice
+transition. Preserve repository and actor identities, token references, both
+stores, sockets, native workspace/Autopilot IDs and the webhook credential.
+The native binding includes the webhook destination, so a routine launch must
+not rotate it. A different provider-policy identifier would prevent old cases
+from being exported even if its display name looked equivalent.
+
+Before switching the notice, inspect the outbox and finish any pending,
+uncertain or stalled issue/reply publication under the old notice. The publisher
+rejects an unpublished contribution whose notice no longer matches. Already
+published contributions keep their immutable original notice and processing
+permission; changing the current notice does not rewrite or revoke that
+consent. Their receipt access, AI status projections, closure and removal remain
+available. New replies require the new client disclosure.
+
+The trial route in `/etc/nginx/snippets/hexproof-feedback-test.inc` restricts
+`/feedback/v2/` to selected source addresses. Formal activation removes that
+location's IP `allow`/`deny` rules while retaining the 5 MiB cap, literal
+loopback upstream, trusted forwarded-address handling, bounded timeouts,
+disabled request-body/access logging and the separate public attachment/notice
+routes. Do not expose `/healthz`, `/readyz` or either Unix socket. Validate the
+proxy configuration before reload and verify HTTPS from outside the former
+allowlist. Keep intake restricted until the notice, receiver, monitoring and
+native workflow match the released client.
+
+The trial's 32-record/64-identity/64 MiB capacity is not the production budget.
+Use the receiver's existing defaults for the initial public launch: 1,000
+records, 10,000 identities, 2 GiB payload storage, 512 MiB minimum free space,
+5 submissions and 20 MiB per source per hour, and 100 submissions and 256 MiB
+globally per hour. Verify available disk and independent monitoring before
+activation; `monitoringConfigured: true` is an operator assertion, not a monitor.
+Capacity exhaustion rejects new intake and must not evict outstanding removal
+obligations. Fresh V2 deployment needs no SMTP configuration.
 
 ## Release deployment
 
@@ -210,6 +268,57 @@ host, public destination, processing/removal policy, applicable mailbox/backup
 retention and support contact must appear in the notice before enabling
 submission. Deployment backups can contain old credentials; retain them only
 under the operator's private backup/expiry policy.
+
+### Initial test installation from a qualified Actions build
+
+An owner-authorized end-to-end trial may use the existing deployment entry
+point before creating a release tag. This exception applies only to the
+feedback component and an **initial installation**: the target must have no
+feedback service, binary, configuration, state directories or installer backups.
+Orphan service drop-ins under `/etc`, `/run`, `/usr/lib` and `/lib` also block
+the initial installation, even when systemd reports the unit as not found.
+It never upgrades an existing receiver or replaces game services. A retained
+failed installation requires separately scoped cleanup; the installer does not
+erase feedback stores to make another test installation possible.
+
+Provide all three exact build identities, with the same private receiver inputs
+described above:
+
+```sh
+HEXPROOF_COMPONENT=feedback HEXPROOF_TARGETS=aws HEXPROOF_VERSION=3.1.0 \
+  HEXPROOF_FEEDBACK_INPUTS=/private/feedback-inputs.json \
+  HEXPROOF_FEEDBACK_TEST_RUN_ID=39937074828 \
+  HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID=12496905925 \
+  HEXPROOF_FEEDBACK_TEST_HEAD_SHA=b1baa269395a9c78d673625f1aacb06b5cf6ec87 \
+  HEXPROOF_VERIFY_ONLY=1 ./deploy/deploy-release-server.sh
+```
+
+These example IDs identify the qualified 3.1.0 artifact-only build; expired or
+changed artifacts are rejected. After verification, repeat without
+`HEXPROOF_VERIFY_ONLY=1` to install under the owner's authorization. An optional
+`HEXPROOF_FEEDBACK_TEST_ARCHIVE=/absolute/path/artifact.zip` reuses the original
+downloaded ZIP, not an extracted directory. GitHub metadata is still read and
+its ZIP size/digest must match. This mode cannot be combined with
+`HEXPROOF_ALLOW_DRAFT=1` and is rejected for game deployments.
+
+The installer requires a successful `workflow_dispatch` run from the selected
+repository's `master`, the exact reviewed source SHA, the registered
+`.github/workflows/release.yml`, and byte-identical workflow content to the
+trusted local checkout. Successful combined assembly and skipped tag-only
+attestation/publication steps establish an artifact-only build. It verifies
+artifact ownership, expiry and ZIP digest, all eight bundle entries and seven
+checksums, compatibility metadata, package root, executable architecture, and
+the receiver's version before changing installed files. GitHub build metadata
+is read again after download. Configuration validation and rollback reuse the
+normal receiver installer.
+
+Local evidence and `/etc/hexproof-feedback/test-provenance.json` identify this
+as an **unattested test build**, including run/artifact/source and package
+identities. The default release path still requires the release checksum
+attestation; this test mode does not create a tag, publish a release, enable
+Multica schedules, or configure HTTPS. Public V2 endpoints retain the exact
+`/feedback/v2` path, even for a test receiver; use a separate host/HTTPS port
+if that route is already occupied.
 
 ## Monitoring and incident handling
 
