@@ -162,6 +162,11 @@ fails the gate. Its success is not evidence that skipped application checks ran.
 The separate manual Forge workflow retains the full native build, source rebuild
 and architecture matrix. None of these scopes reduce release requirements.
 
+The independent [feedback component update](feedback-operations.md#feedback-only-updates)
+uses a reviewed public merge and its dedicated attested build, including feedback
+vet/race tests. It qualifies only the receiver and cannot satisfy application
+release verification or deploy game servers.
+
 For a release, first finalize and commit the version, changelog and notes, then
 freeze a clean source checkout. `tools/release-verification.py run` runs the
 complete local static/tool, Go vet/test/race and client CTest suite, including

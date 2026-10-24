@@ -20,6 +20,7 @@ import shlex
 import shutil
 import stat
 import subprocess
+import tarfile
 import tempfile
 import time
 import urllib.request
@@ -38,6 +39,7 @@ UNIT = Path("/etc/systemd/system/hexproof-feedback.service")
 SERVICE = "hexproof-feedback.service"
 BACKUPS = Path("/var/lib/hexproof-feedback-install")
 TEST_PROVENANCE = CONFIG.parent / "test-provenance.json"
+COMPONENT_PROVENANCE = CONFIG.parent / "component-provenance.json"
 RELEASE_WORKFLOW = ".github/workflows/release.yml"
 SYSTEMD_UNIT_DIRECTORIES = tuple(Path(root) / "systemd/system"
                                  for root in ("/etc", "/run", "/usr/lib", "/lib"))
@@ -55,6 +57,13 @@ def ssh(target, *args):
 
 def load_backend():
     spec = importlib.util.spec_from_file_location("feedback_release_backend", ROOT / "deploy/deploy-home-release.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_component():
+    spec = importlib.util.spec_from_file_location("feedback_component", Path(__file__).with_name("component.py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -198,6 +207,21 @@ def verify_feedback_architecture(binary, arch):
         raise ValueError("Feedback binary architecture differs from the explicit target")
 
 
+def verify_component_archive(path, version, arch):
+    root = f"hexproof-feedback-{version}-linux-{arch}"
+    files = {root + "/bin/hexproof-feedback", root + "/deploy/hexproof-feedback.service.in", root + "/build.json"}
+    directories = {root, root + "/bin", root + "/deploy"}
+    with tarfile.open(path) as archive:
+        members = archive.getmembers()
+        names = [item.name.rstrip("/") for item in members]
+        if (len(names) != len(set(names)) or set(names) - files - directories
+                or {item.name for item in members if item.isfile()} != files
+                or sum(item.size for item in members) > 64 << 20
+                or any(not ((item.isfile() and item.name in files)
+                            or (item.isdir() and item.name.rstrip("/") in directories)) for item in members)):
+            raise ValueError("Invalid feedback component archive layout")
+
+
 def test_installation_paths():
     return (CONFIG.parent, DATA, PUBLIC_DATA, BINARY, UNIT, BACKUPS,
             *(directory / (SERVICE + ".d") for directory in SYSTEMD_UNIT_DIRECTORIES))
@@ -328,7 +352,7 @@ def render_unit(template, config):
     return "\n".join(lines) + "\n"
 
 
-def prepare_payload(payload, config, credentials, binary, template, test_provenance=None):
+def prepare_payload(payload, config, credentials, binary, template, test_provenance=None, component_provenance=None):
     payload.mkdir(mode=0o700)
     shutil.copy2(binary, payload / "hexproof-feedback")
     (payload / "config.json").write_text(json.dumps(config))
@@ -336,6 +360,8 @@ def prepare_payload(payload, config, credentials, binary, template, test_provena
     shutil.copy2(Path(__file__), payload / "install.py")
     if test_provenance is not None:
         (payload / "test-provenance.json").write_text(json.dumps(test_provenance, indent=2) + "\n")
+    if component_provenance is not None:
+        (payload / "component-provenance.json").write_text(json.dumps(component_provenance, indent=2) + "\n")
     for name, content in credentials.items():
         (payload / name).write_bytes(content)
     for item in payload.iterdir():
@@ -363,7 +389,50 @@ def atomic_write(path, content, mode, uid=0, gid=0):
         os.close(descriptor)
 
 
-def local_install(stage, version, test_initial=False):
+def update_baseline(stage, config, credentials, provenance):
+    """An update cannot silently change deployment configuration or credentials."""
+    if (not isinstance(provenance, dict) or provenance.get("mode") != "actions-feedback-update"
+            or provenance.get("componentAttested") is not True
+            or not re.fullmatch(r"[a-f0-9]{40}", provenance.get("headSha", ""))
+            or not re.fullmatch(r"[a-f0-9]{64}", provenance.get("expectedReceiverSha256", ""))
+            or digest(stage / "hexproof-feedback") != provenance.get("receiverSha256")):
+        raise ValueError("Invalid component update provenance")
+    paths = [BINARY, CONFIG, UNIT, *credentials.values()]
+    baseline = {}
+    for path in paths:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("Component updates require an existing regular installation")
+        info = path.stat()
+        baseline[str(path)] = [digest(path), stat.S_IMODE(info.st_mode), info.st_uid, info.st_gid]
+    if baseline[str(BINARY)][0] != provenance["expectedReceiverSha256"]:
+        raise ValueError("Installed receiver differs from the explicitly selected baseline")
+    if load_json(CONFIG.read_bytes()) != config or UNIT.read_bytes() != (stage / "hexproof-feedback.service").read_bytes():
+        raise ValueError("Binary-only update cannot change installed configuration or unit")
+    if any(path.read_bytes() != (stage / name).read_bytes() for name, path in credentials.items()):
+        raise ValueError("Binary-only update cannot change installed credentials")
+    return baseline
+
+
+def store_revision(config):
+    """Called only with the receiver stopped; do not restore live data on rollback."""
+    result = {}
+    for directory in [DATA] + ([PUBLIC_DATA] if config.get("public") is not None else []):
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError("Cannot establish the stopped feedback store revision")
+        for item in directory.glob("*.json"):
+            if item.is_symlink() or not item.is_file():
+                raise ValueError("Cannot establish the stopped feedback store revision")
+            result[str(item)] = digest(item)
+    return result
+
+
+def verify_running_component(checksum):
+    pid = run("systemctl", "show", SERVICE, "--property=MainPID", "--value")
+    if not re.fullmatch(r"[1-9][0-9]*", pid) or digest(Path("/proc") / pid / "exe") != checksum:
+        raise ValueError("Running feedback process does not match the verified component")
+
+
+def local_install(stage, version, test_initial=False, component_update=False):
     if os.geteuid() != 0:
         raise ValueError("Feedback installation requires the explicit owner's privileged invocation")
     manifest = load_json((stage / "manifest.json").read_text())
@@ -372,6 +441,8 @@ def local_install(stage, version, test_initial=False):
     expected = {"hexproof-feedback", "config.json", "hexproof-feedback.service"}
     if test_initial:
         expected.add("test-provenance.json")
+    if component_update:
+        expected.add("component-provenance.json")
     expected.update(set(manifest.get("files", {})) & {"smtp-password", "github-token", "multica-webhook"})
     if set(manifest) != {"version", "files"} or manifest["version"] != version or set(manifest["files"]) != expected:
         raise ValueError("Invalid staged feedback manifest")
@@ -391,8 +462,15 @@ def local_install(stage, version, test_initial=False):
         raise ValueError("Feedback release version mismatch")
     config = load_json((stage / "config.json").read_text())
     credentials = credential_paths(config)
-    if set(credentials) != expected - {"hexproof-feedback", "config.json", "hexproof-feedback.service", "test-provenance.json"}:
+    if set(credentials) != expected - {"hexproof-feedback", "config.json", "hexproof-feedback.service",
+                                       "test-provenance.json", "component-provenance.json"}:
         raise ValueError("Staged credentials do not match receiver configuration")
+    component = load_json((stage / "component-provenance.json").read_bytes()) if component_update else None
+    baseline = None
+    if component_update:
+        if test_initial or not isinstance(component, dict) or component.get("version") != version:
+            raise ValueError("Invalid component update mode or version")
+        baseline = update_baseline(stage, config, credentials, component)
     # Validate before modifying the current installation. A credential path in
     # this temporary copy points at the supplied private staged file.
     check_config = json.loads(json.dumps(config))
@@ -415,6 +493,8 @@ def local_install(stage, version, test_initial=False):
     try:
         account = pwd.getpwnam("hexproof-feedback")
     except KeyError:
+        if component_update:
+            raise ValueError("Component updates require the existing service identity") from None
         run("useradd", "--system", "--user-group", "--home-dir", DATA,
             "--no-create-home", "--shell", "/usr/sbin/nologin", "hexproof-feedback")
         account = pwd.getpwnam("hexproof-feedback")
@@ -424,12 +504,17 @@ def local_install(stage, version, test_initial=False):
     if any(path.is_symlink() for path in state_directories) or CONFIG.parent.is_symlink():
         raise ValueError("Feedback directories cannot be symlinks")
     for directory in state_directories:
+        if component_update:
+            if not directory.is_dir():
+                raise ValueError("Component updates require existing feedback stores")
+            continue
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         directory.chmod(0o700)
         os.chown(directory, account.pw_uid, account.pw_gid)
-    CONFIG.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    CONFIG.parent.chmod(0o700)
-    os.chown(CONFIG.parent, account.pw_uid, account.pw_gid)
+    if not component_update:
+        CONFIG.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        CONFIG.parent.chmod(0o700)
+        os.chown(CONFIG.parent, account.pw_uid, account.pw_gid)
     if BACKUPS.is_symlink():
         raise ValueError("Feedback installation backups cannot be symlinks")
     BACKUPS.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -443,6 +528,9 @@ def local_install(stage, version, test_initial=False):
         replacements[TEST_PROVENANCE] = ((stage / "test-provenance.json").read_bytes(), 0o600, 0, 0)
     for name, path in credentials.items():
         replacements[path] = ((stage / name).read_bytes(), 0o600, account.pw_uid, account.pw_gid)
+    if component_update:
+        replacements = {BINARY: (candidate.read_bytes(), *baseline[str(BINARY)][1:]),
+                        COMPONENT_PROVENANCE: ((stage / "component-provenance.json").read_bytes(), 0o600, 0, 0)}
     previous = {}
     for index, path in enumerate(replacements):
         if path.is_symlink():
@@ -455,22 +543,34 @@ def local_install(stage, version, test_initial=False):
             previous[path] = None
     was_active = subprocess.run(["systemctl", "is-active", "--quiet", SERVICE], check=False).returncode == 0
     was_enabled = subprocess.run(["systemctl", "is-enabled", "--quiet", SERVICE], check=False).returncode == 0
+    if component_update and not was_active:
+        raise ValueError("Component updates require an active receiver")
     backup_manifest = {"version": version, "serviceWasActive": was_active, "serviceWasEnabled": was_enabled,
                        "files": [{"path": str(path), "backup": str(index) if value else None,
                                   "mode": value[1] if value else None,
                                   "uid": value[2] if value else None, "gid": value[3] if value else None}
                                  for index, (path, value) in enumerate(previous.items())]}
     atomic_write(backup / "manifest.json", json.dumps(backup_manifest, indent=2).encode() + b"\n", 0o600)
+    stopped_revision = None
+    candidate_started = False
+    if component_update and update_baseline(stage, config, credentials, component) != baseline:
+        raise ValueError("Installed feedback files changed during preparation")
     try:
         if was_active:
             run("systemctl", "stop", SERVICE)
+        if component_update:
+            stopped_revision = store_revision(config)
         for path, parameters in replacements.items():
             atomic_write(path, *parameters)
         run(BINARY, "-config", CONFIG, "-validate-config")
-        run("systemctl", "daemon-reload")
-        run("systemctl", "enable", "--now", SERVICE)
-        if was_active:
-            run("systemctl", "restart", SERVICE)
+        candidate_started = True
+        if component_update:
+            run("systemctl", "start", SERVICE)
+        else:
+            run("systemctl", "daemon-reload")
+            run("systemctl", "enable", "--now", SERVICE)
+            if was_active:
+                run("systemctl", "restart", SERVICE)
         # Probe only the configured literal loopback listener. No external
         # message or new submission is sent by deployment verification.
         origin = "http://" + config.get("listen", "127.0.0.1:57324")
@@ -482,22 +582,39 @@ def local_install(stage, version, test_initial=False):
                     if response.status == 200:
                         break
             except OSError:
-                if time.monotonic() >= deadline:
-                    raise ValueError("Feedback service did not become ready") from None
-                time.sleep(1)
+                pass
+            if time.monotonic() >= deadline:
+                raise ValueError("Feedback service did not become ready") from None
+            time.sleep(1)
+        if component_update:
+            verify_running_component(component["receiverSha256"])
+            updated = dict(component, expectedReceiverSha256=component["receiverSha256"])
+            expected_baseline = dict(baseline)
+            expected_baseline[str(BINARY)] = [component["receiverSha256"], *baseline[str(BINARY)][1:]]
+            if update_baseline(stage, config, credentials, updated) != expected_baseline:
+                raise ValueError("Feedback configuration or credentials changed during activation")
         print(json.dumps({"version": version, "service": SERVICE, "backup": str(backup), "ready": True,
                           "configurationSchema": config["schemaVersion"],
                           "publicConfigured": config.get("public") is not None,
                           "multicaConfigured": config.get("multica") is not None,
-                          "testBuild": test_initial}))
+                          "testBuild": test_initial, "componentUpdate": component_update,
+                          "sourceCommit": component["headSha"] if component else None,
+                          "receiverSha256": digest(BINARY)}))
     except BaseException:
-        subprocess.run(["systemctl", "stop", SERVICE], check=False)
+        if component_update:
+            run("systemctl", "stop", SERVICE)
+            if candidate_started and (stopped_revision is None or store_revision(config) != stopped_revision):
+                raise ValueError("Candidate stopped after feedback state changed; automatic downgrade refused. "
+                                 "Preserve the candidate and stores for forward recovery.") from None
+        else:
+            subprocess.run(["systemctl", "stop", SERVICE], check=False)
         for path, value in previous.items():
             if value is None:
                 path.unlink(missing_ok=True)
             else:
                 atomic_write(path, *value)
-        run("systemctl", "daemon-reload")
+        if not component_update:
+            run("systemctl", "daemon-reload")
         if not was_enabled:
             subprocess.run(["systemctl", "disable", SERVICE], check=False)
         if was_active:
@@ -506,7 +623,8 @@ def local_install(stage, version, test_initial=False):
 
 
 def deploy(target, version, input_path, repo, allow_draft, verify_only,
-           test_run_id=None, test_artifact_id=None, test_head_sha=None, test_archive=None):
+           test_run_id=None, test_artifact_id=None, test_head_sha=None, test_archive=None,
+           component_run_id=None, component_artifact_id=None, component_head_sha=None, expected_receiver_sha=None):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", target):
         raise ValueError("Use an explicit existing SSH alias")
     config, _, credentials, arch = inputs(input_path, target)
@@ -515,6 +633,10 @@ def deploy(target, version, input_path, repo, allow_draft, verify_only,
     if system != "Linux" or {"x86_64": "amd64", "aarch64": "arm64"}.get(machine) != arch:
         raise ValueError("Feedback target OS or architecture differs from inputs")
     ssh(target, "sudo", "-n", "true")
+    if component_run_id is not None:
+        actual = ssh(target, "sha256sum", BINARY).split()[0]
+        if actual != expected_receiver_sha:
+            raise ValueError("Installed receiver differs from the explicitly selected baseline")
     if test_run_id is not None:
         paths = [str(path) for path in test_installation_paths()]
         probe = ("import pathlib, subprocess; paths=" + repr(paths) + "; "
@@ -528,7 +650,12 @@ def deploy(target, version, input_path, repo, allow_draft, verify_only,
     report = ROOT / "build" / ("release-" + version) / "feedback" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     report.mkdir(parents=True)
     test_provenance = None
-    if test_run_id is None:
+    component_provenance = None
+    if component_run_id is not None:
+        record, component_provenance = load_component().fetch_component(
+            backend, repo, version, arch, report, component_run_id, component_artifact_id, component_head_sha)
+        component_provenance["expectedReceiverSha256"] = expected_receiver_sha
+    elif test_run_id is None:
         release = backend.fetch_release(repo, version, allow_draft, {arch}, report)
         record = release["artifacts"][arch]
     else:
@@ -536,8 +663,11 @@ def deploy(target, version, input_path, repo, allow_draft, verify_only,
                                                  test_run_id, test_artifact_id, test_head_sha, test_archive)
     with tempfile.TemporaryDirectory(prefix="feedback-release-", dir=report) as temporary:
         stage = Path(temporary)
+        if component_provenance is not None:
+            verify_component_archive(Path(record["path"]), version, arch)
         archive = backend.PACKAGE.checked_archive(Path(record["path"]), record["sha256"], stage / "archive")
-        if archive.name != f"hexproof-server-{version}-linux-{arch}":
+        kind = "feedback" if component_provenance is not None else "server"
+        if archive.name != f"hexproof-{kind}-{version}-linux-{arch}":
             raise ValueError("Unexpected feedback package root")
         binary = archive / "bin/hexproof-feedback"
         if binary.is_symlink() or not binary.is_file() or not binary.stat().st_mode & 0o111:
@@ -550,12 +680,25 @@ def deploy(target, version, input_path, repo, allow_draft, verify_only,
         if template.is_symlink() or not template.is_file():
             raise ValueError("Verified release does not contain the feedback service template")
         render_unit(template.read_text(), config)
+        if component_provenance is not None:
+            expected_files = {"bin/hexproof-feedback", "deploy/hexproof-feedback.service.in", "build.json"}
+            actual_files = {p.relative_to(archive).as_posix() for p in archive.rglob("*") if not p.is_dir()}
+            if actual_files != expected_files or any(p.is_symlink() for p in archive.rglob("*")):
+                raise ValueError("Unexpected component package files")
+            verify_feedback_architecture(binary, arch)
+            build = load_json((archive / "build.json").read_bytes())
+            if build != {"schemaVersion": 1, "version": version, "sourceCommit": component_head_sha,
+                         "architecture": arch, "receiverSha256": digest(binary)}:
+                raise ValueError("Component build identity does not match its verified artifact")
+            component_provenance["receiverSha256"] = digest(binary)
+            (report / "component-provenance.json").write_text(json.dumps(component_provenance, indent=2) + "\n")
         if verify_only:
             print(json.dumps({"version": version, "target": target, "verified": True, "activated": False,
-                              "testBuild": test_provenance is not None}))
+                              "testBuild": test_provenance is not None,
+                              "componentUpdate": component_provenance is not None}))
             return
         payload = stage / "payload"
-        prepare_payload(payload, config, credentials, binary, template, test_provenance)
+        prepare_payload(payload, config, credentials, binary, template, test_provenance, component_provenance)
         files = [item for item in payload.iterdir() if item.name != "install.py"]
         (payload / "manifest.json").write_text(json.dumps({"version": version, "files": {p.name: digest(p) for p in files}}))
         for item in payload.iterdir():
@@ -566,6 +709,8 @@ def deploy(target, version, input_path, repo, allow_draft, verify_only,
         try:
             run("scp", *SSH_OPTIONS, *sorted(payload.iterdir()), target + ":" + remote + "/")
             install_args = ["--test-initial-install"] if test_provenance is not None else []
+            if component_provenance is not None:
+                install_args = ["--component-update"]
             output = ssh(target, "sudo", "-n", "python3", remote + "/install.py",
                          "--local", "--stage", remote, "--version", version, *install_args)
             result = json.loads(output)
@@ -588,6 +733,11 @@ def main():
     parser.add_argument("--test-head-sha")
     parser.add_argument("--test-archive", type=Path)
     parser.add_argument("--test-initial-install", action="store_true")
+    parser.add_argument("--component-run-id", type=int)
+    parser.add_argument("--component-artifact-id", type=int)
+    parser.add_argument("--component-head-sha")
+    parser.add_argument("--expected-receiver-sha")
+    parser.add_argument("--component-update", action="store_true")
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--stage", type=Path)
     args = parser.parse_args()
@@ -595,6 +745,14 @@ def main():
         parser.error("An explicit release version is required")
     testing = any(value is not None for value in (args.test_run_id, args.test_artifact_id,
                                                  args.test_head_sha, args.test_archive))
+    component = any(value is not None for value in (args.component_run_id, args.component_artifact_id,
+                                                   args.component_head_sha, args.expected_receiver_sha))
+    if component and (not args.component_run_id or args.component_run_id < 1
+                      or not args.component_artifact_id or args.component_artifact_id < 1
+                      or not re.fullmatch(r"[0-9a-f]{40}", args.component_head_sha or "")
+                      or not re.fullmatch(r"[0-9a-f]{64}", args.expected_receiver_sha or "")
+                      or testing or args.allow_draft or args.local):
+        parser.error("Component update requires exact run, artifact, source and installed binary identities")
     if testing and (not args.test_run_id or args.test_run_id < 1 or not args.test_artifact_id
                     or args.test_artifact_id < 1 or not re.fullmatch(r"[0-9a-f]{40}", args.test_head_sha or "")
                     or args.allow_draft or args.local):
@@ -603,12 +761,15 @@ def main():
         parser.error("Invalid GitHub repository")
     if args.test_initial_install and not args.local:
         parser.error("Test initial installation is an internal target-host operation")
+    if args.component_update and (not args.local or args.test_initial_install):
+        parser.error("Component update is an exclusive internal target-host operation")
     if args.local and args.stage:
-        local_install(args.stage.resolve(strict=True), args.version, args.test_initial_install)
+        local_install(args.stage.resolve(strict=True), args.version, args.test_initial_install, args.component_update)
     elif args.target and args.inputs:
         deploy(args.target, args.version, args.inputs.absolute(), args.repo,
                args.allow_draft, args.verify_only, args.test_run_id, args.test_artifact_id,
-               args.test_head_sha, args.test_archive)
+               args.test_head_sha, args.test_archive, args.component_run_id, args.component_artifact_id,
+               args.component_head_sha, args.expected_receiver_sha)
     else:
         parser.error("Use deploy/deploy-release-server.sh with explicit feedback inputs")
 
