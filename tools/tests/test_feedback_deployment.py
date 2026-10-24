@@ -630,6 +630,52 @@ class FeedbackDeploymentTests(unittest.TestCase):
             self.assertEqual(calls[-1], ("systemctl", "stop", INSTALL.SERVICE))
             self.assertEqual(calls.count(("systemctl", "start", INSTALL.SERVICE)), 1)
 
+    def test_component_failed_start_after_nested_legacy_delivery_write_refuses_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, _, stage, provenance = self.component_fixture(Path(directory))
+            legacy = managed["DATA"] / "legacy-receipt"
+            legacy.mkdir()
+            (legacy / "record.json").write_text('{"accepted":true}')
+            delivery = legacy / "delivery.json"
+            delivery.write_text('{"state":"pending"}')
+            calls, _, _ = self.simulated_install(managed, stage, component_update=True, fail_activation=True,
+                start_hook=lambda: delivery.write_text('{"state":"sent"}'), expected_error=ValueError)
+            self.assertEqual(INSTALL.digest(managed["BINARY"]), provenance["receiverSha256"])
+            self.assertEqual(delivery.read_text(), '{"state":"sent"}')
+            self.assertEqual((legacy / "record.json").read_text(), '{"accepted":true}')
+            self.assertTrue(managed["COMPONENT_PROVENANCE"].exists())
+            self.assertEqual(calls[-1], ("systemctl", "stop", INSTALL.SERVICE))
+            self.assertEqual(calls.count(("systemctl", "start", INSTALL.SERVICE)), 1)
+
+    def test_unreadable_nested_store_propagates_and_prevents_component_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, config, stage, provenance = self.component_fixture(Path(directory))
+            legacy = managed["DATA"] / "legacy-receipt"
+            legacy.mkdir()
+            delivery = legacy / "delivery.json"
+            delivery.write_text('{"state":"pending"}')
+            real_scandir = os.scandir
+
+            def unreadable(path):
+                if Path(path) == legacy:
+                    raise OSError("fixture subtree unavailable")
+                return real_scandir(path)
+
+            with patch.multiple(INSTALL, **managed), patch.object(INSTALL.os, "scandir", side_effect=unreadable):
+                with self.assertRaisesRegex(OSError, "subtree unavailable"):
+                    INSTALL.store_revision(config)
+            with contextlib.ExitStack() as patches:
+                def make_unreadable():
+                    patches.enter_context(patch.object(INSTALL.os, "scandir", side_effect=unreadable))
+
+                calls, _, _ = self.simulated_install(managed, stage, component_update=True, fail_activation=True,
+                    start_hook=make_unreadable, expected_error=OSError)
+            self.assertEqual(INSTALL.digest(managed["BINARY"]), provenance["receiverSha256"])
+            self.assertEqual(delivery.read_text(), '{"state":"pending"}')
+            self.assertTrue(managed["COMPONENT_PROVENANCE"].exists())
+            self.assertEqual(calls[-1], ("systemctl", "stop", INSTALL.SERVICE))
+            self.assertEqual(calls.count(("systemctl", "start", INSTALL.SERVICE)), 1)
+
     def test_component_archive_rejects_duplicate_traversal_links_and_extra_members(self):
         prefix = "hexproof-feedback-2.5.0-linux-amd64"
         expected = [prefix + suffix for suffix in ("/bin/hexproof-feedback", "/deploy/hexproof-feedback.service.in", "/build.json")]

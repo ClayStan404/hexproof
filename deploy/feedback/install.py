@@ -416,13 +416,25 @@ def update_baseline(stage, config, credentials, provenance):
 def store_revision(config):
     """Called only with the receiver stopped; do not restore live data on rollback."""
     result = {}
+
+    def visit(directory):
+        # Legacy record/delivery JSON lives below per-receipt directories. Use
+        # scandir so an unreadable subtree raises instead of silently disappearing.
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_symlink():
+                    raise ValueError("Cannot establish the stopped feedback store revision")
+                if entry.is_dir(follow_symlinks=False):
+                    visit(Path(entry.path))
+                elif entry.name.endswith(".json"):
+                    if not entry.is_file(follow_symlinks=False):
+                        raise ValueError("Cannot establish the stopped feedback store revision")
+                    result[entry.path] = digest(Path(entry.path))
+
     for directory in [DATA] + ([PUBLIC_DATA] if config.get("public") is not None else []):
         if directory.is_symlink() or not directory.is_dir():
             raise ValueError("Cannot establish the stopped feedback store revision")
-        for item in directory.glob("*.json"):
-            if item.is_symlink() or not item.is_file():
-                raise ValueError("Cannot establish the stopped feedback store revision")
-            result[str(item)] = digest(item)
+        visit(directory)
     return result
 
 
