@@ -17633,6 +17633,22 @@ Le immagini scaricate e personalizzate verranno copiate e verificate prima che l
             <source>The AI team is working on this</source>
             <translation>Il team IA ci sta lavorando</translation>
         </message>
+        <message>
+            <source>Feedback is public and processed by AI. Do not include personal information or secrets.</source>
+            <translation>Il feedback è pubblico e viene elaborato dall’IA. Non includere informazioni personali o riservate.</translation>
+        </message>
+        <message>
+            <source>This feedback and its attachments will be public and processed by AI. Check for personal information or secrets before publishing.</source>
+            <translation>Questo feedback e i suoi allegati saranno pubblici ed elaborati dall’IA. Prima di pubblicare, verifica che non contengano informazioni personali o riservate.</translation>
+        </message>
+        <message>
+            <source>Read full notice</source>
+            <translation>Leggi l’informativa completa</translation>
+        </message>
+        <message>
+            <source>Public feedback notice</source>
+            <translation>Informativa sul feedback pubblico</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>

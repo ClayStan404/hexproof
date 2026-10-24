@@ -17613,6 +17613,22 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>The AI team is working on this</source>
             <translation>AI 團隊正在處理</translation>
         </message>
+        <message>
+            <source>Feedback is public and processed by AI. Do not include personal information or secrets.</source>
+            <translation>意見回饋會公開並由 AI 處理。請勿填寫個人隱私或密碼等敏感資訊。</translation>
+        </message>
+        <message>
+            <source>This feedback and its attachments will be public and processed by AI. Check for personal information or secrets before publishing.</source>
+            <translation>此意見回饋及附件會公開並由 AI 處理。發布前請確認不含個人隱私或密碼等敏感資訊。</translation>
+        </message>
+        <message>
+            <source>Read full notice</source>
+            <translation>閱讀完整說明</translation>
+        </message>
+        <message>
+            <source>Public feedback notice</source>
+            <translation>公開意見回饋說明</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>

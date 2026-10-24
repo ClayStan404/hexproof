@@ -32,7 +32,7 @@ Item {
     readonly property bool editable: record.isPublic === true && (record.editable === true || record.state === "draft")
     readonly property bool interactionOpen: panel.visible || imageDialog.visible || exportDialog.visible
         || preview.visible || chooseCrash.visible || contextChoice.visible || deleteConfirmation.visible
-        || cloneConfirmation.visible || publicationPreview.visible || removalConfirmation.visible || closureConfirmation.visible
+        || cloneConfirmation.visible || publicationPreview.visible || notice.visible || removalConfirmation.visible || closureConfirmation.visible
     signal finished()
     onCaseIdChanged: {
         pendingThreadAttachment = ""
@@ -148,6 +148,10 @@ Item {
         publicationPreview.snapshot = prepared
         publicationPreview.open()
     }
+    function showNotice(text) {
+        notice.noticeText = String(text || "")
+        notice.open()
+    }
     function showCrashPicker() {
         if (crashService && typeof crashService.refresh === "function") crashService.refresh()
         chooseCrash.open()
@@ -176,6 +180,7 @@ Item {
         closePolicy: Popup.CloseOnEscape
         onOpened: root.refreshConversation()
         onClosed: {
+            notice.close()
             root.pendingThreadCaseId = ""
             root.pendingThreadAttachment = ""
             root.finished()
@@ -291,19 +296,9 @@ Item {
             Text {
                 objectName: "feedbackPrivacySummary"
                 Layout.fillWidth: true
-                visible: !root.historyVisible
+                visible: !root.historyVisible && root.record.isPublic !== false
                 textFormat: Text.PlainText
-                text: qsTr("Drafts stay on this device. Publishing makes the approved text and every attachment public.")
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontSize(12)
-                wrapMode: Text.WordWrap
-            }
-            Text {
-                objectName: "feedbackPublicRetention"
-                Layout.fillWidth: true
-                visible: !root.historyVisible && root.editable && root.service && root.service.enabled
-                textFormat: Text.PlainText
-                text: qsTr("Public feedback remains part of the development record. Local deletion does not remove published content or copies made by others.")
+                text: qsTr("Feedback is public and processed by AI. Do not include personal information or secrets.")
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontSize(12)
                 wrapMode: Text.WordWrap
@@ -324,11 +319,11 @@ Item {
                 }
                 AppButton {
                     objectName: "feedbackPrivacyLink"
-                    visible: root.service && String(root.service.privacyUrl || "").length > 0
-                    text: qsTr("Privacy")
+                    visible: root.service && String(root.service.noticeText || "").length > 0
+                    text: qsTr("Read full notice")
                     compact: true
                     variant: "ghost"
-                    onClicked: Qt.openUrlExternally(root.service.privacyUrl)
+                    onClicked: root.showNotice(root.service.noticeText)
                 }
             }
             Text {
@@ -394,10 +389,13 @@ Item {
         }
     }
     FeedbackAttachmentPreview { id: preview }
+    FeedbackNotice { id: notice }
     FeedbackPublicationPreview {
         id: publicationPreview
         working: root.service && (root.service.busy || root.service.saving)
         errorCode: root.service ? root.service.errorCode : "disabled"
+        onNoticeRequested: text => root.showNotice(text)
+        onClosed: notice.close()
         onConfirmed: digest => {
             if (root.service.confirmSubmission(digest)) close()
         }

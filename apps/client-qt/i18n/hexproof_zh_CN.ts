@@ -20196,6 +20196,22 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>The AI team is working on this</source>
             <translation>AI 团队正在处理</translation>
         </message>
+        <message>
+            <source>Feedback is public and processed by AI. Do not include personal information or secrets.</source>
+            <translation>反馈会公开并由 AI 处理。请勿填写个人隐私或密码等敏感信息。</translation>
+        </message>
+        <message>
+            <source>This feedback and its attachments will be public and processed by AI. Check for personal information or secrets before publishing.</source>
+            <translation>此反馈及附件会公开并由 AI 处理。发布前请确认不含个人隐私或密码等敏感信息。</translation>
+        </message>
+        <message>
+            <source>Read full notice</source>
+            <translation>阅读完整说明</translation>
+        </message>
+        <message>
+            <source>Public feedback notice</source>
+            <translation>公开反馈说明</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>

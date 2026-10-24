@@ -72,7 +72,7 @@ class FeedbackConfigTests(unittest.TestCase):
         self.assertEqual(value["apiBase"], "https://47.97.30.103/feedback/v2")
         self.assertEqual(value["privacyUrl"], "https://47.97.30.103/feedback/privacy")
         self.assertEqual(value["publicRepository"], "ClayStan404/hexproof")
-        self.assertEqual(value["noticeRevision"], "hexproof-public-20261024-v1")
+        self.assertEqual(value["noticeRevision"], "hexproof-public-20261024-v2")
         self.assertEqual(value["providerPolicyRevision"], "hexproof-test-openai-multica-20261023-v1")
         self.assertIn("https://47.122.120.151/feedback/v1", value["receiptOnlyApiBases"])
 

@@ -445,6 +445,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/FeedbackWorkflow.qml
         qml/components/FeedbackComposer.qml
         qml/components/FeedbackPublicationPreview.qml
+        qml/components/FeedbackNotice.qml
         qml/components/FeedbackThread.qml
         qml/components/FeedbackHistory.qml
         qml/components/FeedbackAttachmentPreview.qml

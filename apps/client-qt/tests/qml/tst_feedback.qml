@@ -166,6 +166,7 @@ TestCase {
         mock.draft = ({}); mock.records = []; mock.errorCode = ""
         mock.enabled = true; mock.busy = false; mock.saving = false
         mock.configurationErrorCode = ""
+        mock.noticeText = "Public test notice. No AI provider is enabled. Attachments are hosted by this local test service."
         mock.operationCode = ""; mock.operationRecordId = ""
         mock.nextId = 0; mock.submissions = 0; mock.removals = 0; mock.closures = 0; mock.previewDigest = ""; mock.stops = 0; mock.queries = 0; mock.deletions = 0
         mock.previewValue = ""; mock.attachedReport = ({}); crash.entries = []; crash.noticeId = ""
@@ -480,7 +481,21 @@ TestCase {
         compare(findChild(workflow, "feedbackPublicDescription").text, "<b>Literal public report</b>")
         compare(findChild(workflow, "feedbackPublicDescription").textFormat, TextEdit.PlainText)
         verify(findChild(workflow, "feedbackPublicContext").text.includes("feedback_test"))
-        compare(findChild(workflow, "feedbackPublicNotice").text, mock.noticeText)
+        verify(findChild(workflow, "feedbackPublicNoticeLink").enabled)
+        verify(!findChild(workflow, "feedbackNotice").visible)
+        const frozenNotice = mock.noticeText
+        mock.noticeText = "A later service notice must not replace this preview."
+        waitForRendering(findChild(workflow, "feedbackPublicNoticeLink"))
+        mouseClick(findChild(workflow, "feedbackPublicNoticeLink"))
+        tryCompare(findChild(workflow, "feedbackNotice"), "opened", true)
+        compare(findChild(workflow, "feedbackNoticeText").text, frozenNotice)
+        compare(findChild(workflow, "feedbackNoticeText").textFormat, TextEdit.PlainText)
+        verify(!findChild(workflow, "feedbackPublicConsent").checked)
+        compare(mock.submissions, 0)
+        mouseClick(findChild(workflow, "feedbackNoticeClose"))
+        tryCompare(findChild(workflow, "feedbackNotice"), "visible", false)
+        verify(preview.visible)
+        verify(!findChild(workflow, "feedbackPublish").enabled)
         verify(findChild(workflow, "feedbackPublicDestination").text.includes(mock.publicRepository))
         const attachments = findChild(workflow, "feedbackPublicAttachments")
         compare(attachments.count, 1)
@@ -496,6 +511,26 @@ TestCase {
         mouseClick(findChild(workflow, "feedbackPublicationCancel"))
         tryCompare(preview, "visible", false)
         compare(findChild(workflow, "feedbackPublicConsent").checked, false)
+    }
+    function test_fullNoticeIsAvailableOfflineAndDoesNotAuthorizePublication() {
+        mock.noticeText = "<b>Full notice stays literal and scrollable.</b>\n".repeat(60)
+        compare(mock.privacyUrl, "")
+        verify(findChild(workflow, "feedbackPrivacyLink").visible)
+        const button = findChild(workflow, "feedbackPrivacyLink")
+        waitForRendering(button)
+        mouseClick(button)
+        const notice = findChild(workflow, "feedbackNotice")
+        tryCompare(notice, "opened", true)
+        compare(findChild(workflow, "feedbackNoticeText").text, mock.noticeText)
+        verify(findChild(workflow, "feedbackNoticeText").readOnly)
+        verify(findChild(workflow, "feedbackNoticeText").selectByMouse)
+        tryVerify(() => findChild(workflow, "feedbackNoticeScroll").contentItem.contentHeight
+                  > findChild(workflow, "feedbackNoticeScroll").height)
+        compare(mock.submissions, 0)
+        verify(workflow.interactionOpen)
+        findChild(workflow, "feedbackDialog").close()
+        tryCompare(notice, "visible", false)
+        tryCompare(workflow, "interactionOpen", false)
     }
     function test_cancelledPreviewDoesNotAuthorizePublication() {
         findChild(workflow, "feedbackDescription").text = "Keep as draft"
@@ -713,19 +748,19 @@ TestCase {
     }
 
     function test_retentionAndReceiptNoticesFollowSubmissionState() {
-        const receiver = findChild(workflow, "feedbackPublicRetention")
+        const receiver = findChild(workflow, "feedbackPrivacySummary")
         const meaning = findChild(workflow, "feedbackReceivedMeaning")
         const local = findChild(workflow, "feedbackReceivedLocalRetention")
         verify(receiver.visible)
-        verify(receiver.text.includes("development record") && receiver.text.includes("copies"))
+        verify(receiver.text.includes("public") && receiver.text.includes("AI"))
         verify(!meaning.visible && !local.visible)
         compare(findChild(workflow, "feedbackSend").variant, "primary")
         findChild(workflow, "feedbackDescription").text = "Notice state test"
         mock.submit()
-        verify(!receiver.visible && !meaning.visible && !local.visible)
+        verify(receiver.visible && !meaning.visible && !local.visible)
         mock.updateDraft({state:"accepted", receipt:"receipt-1", uploadAuthorized:false,
             accessExpiresAt:"2027-10-22T12:00:00Z"})
-        verify(!receiver.visible)
+        verify(receiver.visible)
         verify(meaning.visible && local.visible)
         verify(meaning.text.includes("storage") && meaning.text.includes("separate steps"))
         verify(local.text.includes("30 days") && local.text.includes("deleting it loses access"))
@@ -770,6 +805,16 @@ TestCase {
             verify(pos.x + control.width <= testWindow.width, name + " width")
             verify(pos.y + control.height <= testWindow.height, name + " height")
         }
+        waitForRendering(findChild(workflow, "feedbackPublicNoticeLink"))
+        mouseClick(findChild(workflow, "feedbackPublicNoticeLink"))
+        tryCompare(findChild(workflow, "feedbackNotice"), "opened", true)
+        const noticeClose = findChild(workflow, "feedbackNoticeClose")
+        const noticePos = noticeClose.mapToItem(testWindow.contentItem, 0, 0)
+        verify(noticePos.x >= 0 && noticePos.y >= 0)
+        verify(noticePos.x + noticeClose.width <= testWindow.width)
+        verify(noticePos.y + noticeClose.height <= testWindow.height)
+        mouseClick(noticeClose)
+        tryCompare(findChild(workflow, "feedbackNotice"), "visible", false)
         mouseClick(findChild(workflow, "feedbackPublicationCancel"))
         mouseClick(findChild(workflow, "feedbackHistoryButton"))
         verify(workflow.historyVisible)

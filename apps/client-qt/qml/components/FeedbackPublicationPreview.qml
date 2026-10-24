@@ -14,6 +14,7 @@ AppPopup {
     property bool working: false
     property string errorCode: ""
     signal confirmed(string digest)
+    signal noticeRequested(string noticeText)
     width: parent ? Math.min(Theme.size(840), parent.width - Theme.size(32)) : 0
     height: parent ? Math.min(Theme.size(850), parent.height - Theme.size(32)) : 0
     z: 330
@@ -54,7 +55,7 @@ AppPopup {
                     objectName: "feedbackPublicWarning"
                     Layout.fillWidth: true
                     textFormat: Text.PlainText
-                    text: qsTr("Anyone can view and copy this text, technical information and every attachment. Check images and reports for personal information or secrets. Preparing this preview sends nothing.")
+                    text: qsTr("This feedback and its attachments will be public and processed by AI. Check for personal information or secrets before publishing.")
                     color: Theme.warning
                     wrapMode: Text.WordWrap
                 }
@@ -68,17 +69,13 @@ AppPopup {
                     color: Theme.text
                     wrapMode: Text.WrapAnywhere
                 }
-                TextArea {
-                    objectName: "feedbackPublicNotice"
-                    Layout.fillWidth: true
-                    textFormat: TextEdit.PlainText
-                    text: String(root.snapshot.noticeText || "")
-                    readOnly: true
-                    selectByMouse: true
-                    wrapMode: TextEdit.Wrap
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSize(12)
-                    background: Rectangle { color: Theme.surface; radius: Theme.radiusSmall }
+                AppButton {
+                    objectName: "feedbackPublicNoticeLink"
+                    text: qsTr("Read full notice")
+                    compact: true
+                    variant: "ghost"
+                    enabled: String(root.snapshot.noticeText || "").length > 0
+                    onClicked: root.noticeRequested(String(root.snapshot.noticeText || ""))
                 }
                 Text {
                     Layout.fillWidth: true

@@ -100,13 +100,17 @@ contains no receiver credentials. Before a release build, check the public
 repository's `HEXPROOF_FEEDBACK_CONFIG_JSON` Actions variable: a nonempty value
 overrides the source defaults and must either match them or be removed.
 
-Use notice revision `hexproof-public-20261024-v1`. Keep provider policy
+The pending 3.1.0 notice UI revision uses `hexproof-public-20261024-v2`.
+It moves the full notice behind an in-app reading action and removes IP addresses,
+model/effort names and internal coordination details from user-facing prose.
+The currently deployed `hexproof-public-20261024-v1` notice remains unchanged
+until the coordinated update. Keep provider policy
 `hexproof-test-openai-multica-20261023-v1` unchanged in the client, receiver
 `public` object and receiver `multica` object. Despite its historical name,
 this identifier still means the same qualified Multica/OpenAI processing
 permission: Mika coordinates with `gpt-6-astra`, Sol develops with `gpt-6.1-sol`
 and Astra independently reviews with `gpt-6-astra`, all at `ultra`. It does not enable Claude, GLM,
-DeepSeek, agy or Cursor/Grok. The formal notice removes trial-only wording
+DeepSeek, agy or Cursor/Grok. The revised formal notice simplifies user-facing wording
 without broadening the processors that can receive historical contributions.
 
 Change only `public.noticeRevision` and `public.noticeText` for this notice

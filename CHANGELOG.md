@@ -36,6 +36,9 @@ application changes that use new catalog metadata are included here.
   A small JSON CLI reuses the receiver's restricted native interface.
 - Private V1 feedback receipts, retention and unfinished mail delivery remain
   supported without converting private content into public submissions.
+- Feedback forms show a brief public/AI notice, with full details available in
+  a separate in-app view before consent. Hosting addresses and internal model
+  configuration are omitted from the notice.
 
 ### Fixed
 
