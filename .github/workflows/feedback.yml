@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Feedback service package
+
+on:
+  workflow_dispatch:
+    inputs:
+      head_sha:
+        description: Exact reviewed master commit (40 lowercase hexadecimal characters)
+        required: true
+        type: string
+      arch:
+        description: Receiver architecture
+        required: true
+        type: choice
+        options: [amd64, arm64]
+        default: amd64
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  package:
+    name: Build feedback service
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Validate source identity
+        env:
+          REQUESTED_HEAD_SHA: ${{ inputs.head_sha }}
+          TARGET_ARCH: ${{ inputs.arch }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REPOSITORY" == ClayStan404/hexproof &&
+             "$REPOSITORY_PRIVATE" == false && "$GITHUB_REF" == refs/heads/master ]] || {
+            echo "Feedback packages require the official public repository's master branch." >&2
+            exit 1
+          }
+          [[ "$REQUESTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_SHA" == "$REQUESTED_HEAD_SHA" ]] || {
+            echo "The selected master commit differs from the reviewed source." >&2
+            exit 1
+          }
+          case "$TARGET_ARCH" in amd64|arm64) ;; *) exit 1 ;; esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Verify feedback service
+        working-directory: apps/server
+        env:
+          GOFLAGS: ""
+        run: |
+          go vet ./internal/feedback ./cmd/hexproof-feedback
+          go test -race ./internal/feedback ./cmd/hexproof-feedback
+      - name: Build feedback package
+        id: package
+        env:
+          TARGET_ARCH: ${{ inputs.arch }}
+          GOFLAGS: ""
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" && -z "$(git status --porcelain --untracked-files=all)" ]] || {
+            echo "The verified source checkout changed before packaging." >&2
+            exit 1
+          }
+          version="$(sed -nE 's/^[[:space:]]*set\(HEXPROOF_VERSION[[:space:]]+"([0-9]+\.[0-9]+\.[0-9]+)"[[:space:]]*\)[[:space:]]*$/\1/p' apps/client-qt/CMakeLists.txt)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          case "$TARGET_ARCH" in amd64|arm64) ;; *) exit 1 ;; esac
+          output="$GITHUB_WORKSPACE/build/feedback-package"
+          stage="$(mktemp -d)"
+          trap 'rm -rf -- "$stage"' EXIT
+          name="hexproof-feedback-$version-linux-$TARGET_ARCH"
+          package="$stage/$name"
+          mkdir -p "$package/bin" "$package/deploy" "$output"
+          (
+            cd apps/server
+            CGO_ENABLED=0 GOOS=linux GOARCH="$TARGET_ARCH" go build -trimpath \
+              -ldflags "-X hexproof/server/internal/buildinfo.Version=$version" \
+              -o "$package/bin/hexproof-feedback" ./cmd/hexproof-feedback
+          )
+          cp packaging/server/hexproof-feedback.service.in "$package/deploy/"
+          python3 - "$package" "$version" "$GITHUB_SHA" "$TARGET_ARCH" <<'PY'
+          import hashlib, json, pathlib, sys
+          package = pathlib.Path(sys.argv[1])
+          record = {"schemaVersion": 1, "version": sys.argv[2], "sourceCommit": sys.argv[3],
+                    "architecture": sys.argv[4], "receiverSha256": hashlib.sha256((package / "bin/hexproof-feedback").read_bytes()).hexdigest()}
+          (package / "build.json").write_text(json.dumps(record, indent=2) + "\n")
+          PY
+          archive="$output/$name.tar.gz"
+          tar -C "$stage" -czf "$archive" "$name"
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+      - name: Attest feedback package
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: ${{ steps.package.outputs.archive }}
+      - name: Upload feedback package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hexproof-feedback-${{ github.sha }}-linux-${{ inputs.arch }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

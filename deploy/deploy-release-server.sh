@@ -50,6 +50,10 @@ Environment overrides:
   HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID=456     Exact combined Actions artifact ID
   HEXPROOF_FEEDBACK_TEST_HEAD_SHA=<40 hex>   Exact reviewed build source commit
   HEXPROOF_FEEDBACK_TEST_ARCHIVE=/private/artifact.zip Optional cached original artifact ZIP
+  HEXPROOF_FEEDBACK_RUN_ID=123             Feedback-only signed update: successful manual build
+  HEXPROOF_FEEDBACK_ARTIFACT_ID=456        Exact feedback component artifact ID
+  HEXPROOF_FEEDBACK_HEAD_SHA=<40 hex>      Exact reviewed public master source
+  HEXPROOF_FEEDBACK_EXPECTED_SHA256=<64 hex> Installed receiver binary baseline
 
 Targets and defaults come from operator-owned JSON (see deploy/home/README.md).
 Set HEXPROOF_DEPLOYMENT_TARGETS_FILE / HEXPROOF_NODES_FILE to override their paths.
@@ -134,6 +138,21 @@ case "${HEXPROOF_COMPONENT:-game}" in
                             --test-head-sha "${HEXPROOF_FEEDBACK_TEST_HEAD_SHA}")
             [[ -z "${HEXPROOF_FEEDBACK_TEST_ARCHIVE:-}" ]] || feedback_args+=(--test-archive "${HEXPROOF_FEEDBACK_TEST_ARCHIVE}")
         fi
+        if [[ -n "${HEXPROOF_FEEDBACK_RUN_ID:-}${HEXPROOF_FEEDBACK_ARTIFACT_ID:-}${HEXPROOF_FEEDBACK_HEAD_SHA:-}${HEXPROOF_FEEDBACK_EXPECTED_SHA256:-}" ]]; then
+            if [[ ! "${HEXPROOF_FEEDBACK_RUN_ID:-}" =~ ^[1-9][0-9]*$ ||
+                  ! "${HEXPROOF_FEEDBACK_ARTIFACT_ID:-}" =~ ^[1-9][0-9]*$ ||
+                  ! "${HEXPROOF_FEEDBACK_HEAD_SHA:-}" =~ ^[0-9a-f]{40}$ ||
+                  ! "${HEXPROOF_FEEDBACK_EXPECTED_SHA256:-}" =~ ^[0-9a-f]{64}$ ||
+                  -n "${HEXPROOF_FEEDBACK_TEST_RUN_ID:-}${HEXPROOF_FEEDBACK_TEST_ARCHIVE:-}" ||
+                  "${HEXPROOF_ALLOW_DRAFT:-0}" != 0 ]]; then
+                printf 'Feedback component update requires exact build and installed binary identities; test and draft modes are incompatible.\n' >&2
+                exit 2
+            fi
+            feedback_args+=(--component-run-id "${HEXPROOF_FEEDBACK_RUN_ID}"
+                            --component-artifact-id "${HEXPROOF_FEEDBACK_ARTIFACT_ID}"
+                            --component-head-sha "${HEXPROOF_FEEDBACK_HEAD_SHA}"
+                            --expected-receiver-sha "${HEXPROOF_FEEDBACK_EXPECTED_SHA256}")
+        fi
         if [[ "${install_monitoring}" != 0 || -n "${HEXPROOF_HOME_INPUTS:-}" ||
               "${HEXPROOF_ALLOW_ACTIVE_ROOMS:-0}" != 0 ]]; then
             printf 'Game/home deployment options do not apply to the feedback component.\n' >&2
@@ -142,7 +161,7 @@ case "${HEXPROOF_COMPONENT:-game}" in
         exec python3 "${script_dir}/feedback/install.py" "${feedback_args[@]}"
         ;;
     game)
-        if [[ -n "${HEXPROOF_FEEDBACK_INPUTS:-}${HEXPROOF_FEEDBACK_TEST_RUN_ID:-}${HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID:-}${HEXPROOF_FEEDBACK_TEST_HEAD_SHA:-}${HEXPROOF_FEEDBACK_TEST_ARCHIVE:-}" ]]; then
+        if [[ -n "${HEXPROOF_FEEDBACK_INPUTS:-}${HEXPROOF_FEEDBACK_TEST_RUN_ID:-}${HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID:-}${HEXPROOF_FEEDBACK_TEST_HEAD_SHA:-}${HEXPROOF_FEEDBACK_TEST_ARCHIVE:-}${HEXPROOF_FEEDBACK_RUN_ID:-}${HEXPROOF_FEEDBACK_ARTIFACT_ID:-}${HEXPROOF_FEEDBACK_HEAD_SHA:-}${HEXPROOF_FEEDBACK_EXPECTED_SHA256:-}" ]]; then
             printf 'Feedback inputs require HEXPROOF_COMPONENT=feedback.\n' >&2
             exit 2
         fi
