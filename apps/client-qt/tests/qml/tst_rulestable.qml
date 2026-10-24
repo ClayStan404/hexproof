@@ -9,7 +9,7 @@ import "../../qml/screens"
 
 TestCase {
     // Exercise retained legacy components explicitly. Production rooms of every
-    // size use the Forge presentation tested with real models in tst_forgeduel.qml.
+    // size use the Forge presentation tested with real models in tst_forgeduel_*.qml.
     name: "RulesLegacyTable"
     when: windowShown
 

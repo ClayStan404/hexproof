@@ -62,6 +62,7 @@ QByteArray manifestDigest(const Record &record);
 QByteArray revocationDigest(const Record &record);
 bool validClosure(const QJsonObject &object);
 constexpr qsizetype MaxImageBytes = 2 * 1024 * 1024;
+constexpr qsizetype MaxImageInputBytes = 32 * 1024 * 1024;
 constexpr qsizetype MaxStoreBytes = 64 * 1024 * 1024;
 } // namespace feedback
 

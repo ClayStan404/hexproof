@@ -17,26 +17,18 @@ only while unfinished legacy deliveries require it.
 
 ## Selected deployment host
 
-On 2026-10-23 the owner selected **Server 2**, SSH alias **`aws`**, currently
-`47.97.30.103`, for the feedback receiver. Use this alias as the explicit
-`HEXPROOF_TARGETS` value and the private deployment input's `target`. The
-[native operations manifest](../deploy/multica/operations.json) records it as
-`feedback.receiverTarget`; that field is operator guidance, not an installer
-input or automatic deployment trigger.
+Resolve the selected host from `feedback.receiverTarget` in the operator's
+trusted native operations configuration. Use its SSH alias
+as the explicit `HEXPROOF_TARGETS` and private deployment input's `target`.
+The field is operator guidance, not an installer input or deployment trigger.
+Confirm installed state from the operator's current deployment records and
+service readback.
 
-Run the receiver as its separate `hexproof-feedback.service`. The AI development
-machine remains the workstation running Multica and can be migrated separately.
-The owner authorized the formal 3.1.0 cutover on 2026-10-24 after the isolated
-trial. Official build defaults now select this receiver; installing those
-defaults does not itself open the HTTPS route or activate native operations.
-Complete the coordinated cutover below before distributing enabled packages.
-
-The short read-only probe on 2026-10-23 passed seven GitHub API and seven webpage
-requests over three minutes with application proxies disabled. This supports
-the host selection but does not establish all-day network stability, GitHub
-write permissions or Multica webhook delivery. Evidence is retained locally in
-`build/github-connectivity/server2-probe.jsonl` and `comparison.json` in the same
-directory. No server configuration was changed by that probe or host selection.
+Run the receiver as the separate `hexproof-feedback.service`. The AI development
+workstation migrates independently. Host selection or enabled client defaults
+do not open an HTTPS route, establish GitHub write permission or activate native
+operations. Verify connectivity and complete the coordinated cutover below for
+an authorized installation or upgrade.
 
 ## Configuration
 
@@ -220,10 +212,12 @@ missing configured credential, an unreferenced supplied credential or an
 arbitrary remote credential path. It snapshots the validated bytes rather than
 rereading a mutable source file during packaging.
 
-The receiver isolates this compatibility work in its legacy startup/retention
-component. Fresh public deployments need no SMTP; a store with unfinished
-private mail still refuses SMTP-free startup without discarding that mail.
-The refactor changes neither the configuration keys nor the established paths.
+Legacy startup is isolated from public V2. With no V1 records or tombstones,
+a public receiver retains only the legacy directory lease, preventing a second
+V1 process from writing there. It starts no V1 routes, admin socket, mail or
+retention workers. Existing history retains its private receipt/retention path;
+unfinished mail still refuses SMTP-free startup. Configuration keys, schemas
+and established paths are unchanged.
 
 The target must match the explicit alias; the installer checks Linux and
 architecture. Legacy state remains `/var/lib/hexproof-feedback`; public state is
@@ -332,9 +326,12 @@ targets: alert on uncertain/permanent delivery failures, an oldest pending
 age exceeding one hour, or storage above 80%; review within one working day.
 These targets are operational obligations, not a player-facing response SLA.
 
-Use the receiver's local admin CLI through its protected socket to list pending
-work, inspect a receipt, confirm relay handoff, deliberately retry, or discard
-manually confirmed spam. The socket and all data use owner-only permissions.
+The legacy admin socket exists only in V1 mode or when V1 records/tombstones
+remain. Fresh public V2 deployments use loopback HTTP readiness plus configured
+public-outbox and native-task monitoring; absence of `admin.sock` is expected
+there. For retained V1 data, use the protected local admin CLI to list
+pending work, inspect a receipt, confirm relay handoff, deliberately retry, or
+discard manually confirmed spam. The socket and all data use owner-only permissions.
 Detailed feedback is private support content; aggregate status can be recorded
 without descriptions, contact, attachments or bearer capabilities. Do not paste
 an inspect result into a public issue without reviewing and minimizing it.

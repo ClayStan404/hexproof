@@ -16834,8 +16834,8 @@ Le immagini scaricate e personalizzate verranno copiate e verificate prima che l
             <translation>Controlla ricevuta</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>Scegli un’immagine PNG o JPEG più piccola (massimo 2 MiB e 16 megapixel).</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>Scegli un’immagine PNG o JPEG fino a 32 MiB, 8192 pixel per lato e 16 megapixel.</translation>
         </message>
         <message>
             <source>Choose an image</source>

@@ -134,9 +134,9 @@ class TableArchitectureTests(unittest.TestCase):
         self.assertIn("zoneDragCard.Drag.drop()", release_handler)
         self.assertNotIn("if (drag.active)", release_handler)
 
-    def test_ci_runs_table_architecture_gate(self) -> None:
-        for workflow in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
-            text = self.source(workflow)
+    def test_development_ci_and_local_verification_run_table_architecture_gate(self) -> None:
+        for entry_point in (".github/workflows/ci.yml", "tools/verify.sh"):
+            text = self.source(entry_point)
             self.assertIn("python3 -m unittest discover -s tools/tests", text)
 
     def test_ci_automatically_races_gameplay_and_control_plane(self) -> None:

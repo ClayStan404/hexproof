@@ -16834,8 +16834,8 @@ Les images téléchargées et personnalisées seront copiées et vérifiées ava
             <translation>Vérifier le reçu</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>Choisissez une image PNG ou JPEG plus petite (2 MiB et 16 mégapixels maximum).</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>Choisissez une image PNG ou JPEG de 32 MiB maximum, avec au plus 8192 pixels par côté et 16 mégapixels.</translation>
         </message>
         <message>
             <source>Choose an image</source>

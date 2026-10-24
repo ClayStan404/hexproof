@@ -40,6 +40,8 @@ endif()
 option(HEXPROOF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(HEXPROOF_BUILD_NATIVE_AUDIT
     "Build the opt-in native GUI automation executable (never installed)" OFF)
+option(HEXPROOF_QML_TESTS_PER_FILE
+    "Register isolated QML files as separate CTest tests for bounded parallel runs" OFF)
 
 set(HEXPROOF_SERVER_DIRECTORY_FILE "" CACHE FILEPATH
     "JSON server directory embedded in the client")
@@ -1531,19 +1533,50 @@ qt_add_resources(hexproof_qml_test "qml_test_translations"
     FILES
         ${HEXPROOF_UI_QM_FILES}
         ${HEXPROOF_DYNAMIC_QM_FILES})
-if(WIN32)
-    set(HEXPROOF_QML_TEXT_LOG
-        "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.txt")
+# Register QML tests with one output namespace per runner process.
+if(HEXPROOF_QML_TESTS_PER_FILE)
+    file(GLOB_RECURSE HEXPROOF_QML_TEST_FILES FOLLOW_SYMLINKS CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/qml/tst_*.qml")
+    if(NOT HEXPROOF_QML_TEST_FILES)
+        message(FATAL_ERROR "No QML test files found for per-file registration")
+    endif()
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results")
+    foreach(qml_test_file IN LISTS HEXPROOF_QML_TEST_FILES)
+        file(RELATIVE_PATH qml_test_relative "${CMAKE_CURRENT_SOURCE_DIR}/tests/qml"
+            "${qml_test_file}")
+        get_filename_component(qml_test_directory "${qml_test_relative}" DIRECTORY)
+        get_filename_component(qml_test_stem "${qml_test_file}" NAME_WE)
+        string(REGEX REPLACE "^tst_" "" qml_test_stem "${qml_test_stem}")
+        if(NOT "${qml_test_directory}" STREQUAL "")
+            set(qml_test_stem "${qml_test_directory}/${qml_test_stem}")
+            file(MAKE_DIRECTORY
+                "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results/${qml_test_directory}")
+        endif()
+        set(qml_test_name "qml_${qml_test_stem}")
+        add_test(NAME "${qml_test_name}" COMMAND hexproof_qml_test
+            -input "${qml_test_file}"
+            -import "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+            -o "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results/${qml_test_stem}.txt,txt"
+            -o "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results/${qml_test_stem}.xml,junitxml"
+            -v1)
+        set_tests_properties("${qml_test_name}" PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen" LABELS qml)
+    endforeach()
 else()
-    set(HEXPROOF_QML_TEXT_LOG "-")
+    if(WIN32)
+        set(HEXPROOF_QML_TEXT_LOG
+            "${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.txt")
+    else()
+        set(HEXPROOF_QML_TEXT_LOG "-")
+    endif()
+    add_test(NAME qml COMMAND hexproof_qml_test
+        -input ${CMAKE_CURRENT_SOURCE_DIR}/tests/qml
+        -import ${CMAKE_CURRENT_SOURCE_DIR}/qml
+        -o ${HEXPROOF_QML_TEXT_LOG},txt
+        -o ${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.xml,junitxml
+        -v1)
+    set_tests_properties(qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" LABELS qml)
 endif()
-add_test(NAME qml COMMAND hexproof_qml_test
-    -input ${CMAKE_CURRENT_SOURCE_DIR}/tests/qml
-    -import ${CMAKE_CURRENT_SOURCE_DIR}/qml
-    -o ${HEXPROOF_QML_TEXT_LOG},txt
-    -o ${CMAKE_CURRENT_BINARY_DIR}/qml-test-results.xml,junitxml
-    -v1)
-set_tests_properties(qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Context properties are an intentional part of the current QML integration,
 # but syntax, type, import, and layout diagnostics must remain clean.

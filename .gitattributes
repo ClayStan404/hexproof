@@ -5,3 +5,4 @@
 third_party/forge-runtime/native-host/** text eol=lf
 third_party/forge-runtime/*.py text eol=lf
 apps/server/internal/runtimepkg/manifest.json text eol=lf
+third_party/forge-runtime/overlay-base.json text eol=lf

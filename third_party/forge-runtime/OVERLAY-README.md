@@ -42,6 +42,11 @@ builder and accompanies both corresponding-source bundles.
 There is no Maven resolution. Initial build inputs total about 446 MiB; the
 content-addressed cache is `build/forge-overlay/downloads`. `--base-archive` and
 `--source-archive` accept predownloaded files, with the same mandatory checksums.
+CI and release jobs share these platform-independent downloads through
+`.github/actions/cache-forge-downloads`; the cache key covers both pinned
+manifests. Every restored archive still passes its pinned size and SHA-256
+checks before use. Compiled overlays and corresponding-source bundles are
+built from the current checkout, not restored from this cache.
 Only the small overlay ships beside `hexproof-forge-host`; players prepare the
 large base and platform Java payload on demand. Java is not required to join.
 

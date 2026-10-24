@@ -9,6 +9,12 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Feedback accepts larger PNG/JPEG source images and proportionally reduces
+  oversized images to the existing upload limit before preview. Size-limit
+  failures no longer appear as unsupported-format errors.
+
 ## [3.1.0] - 2026-10-24
 
 ### Changed

@@ -31,6 +31,7 @@ Surface {
     // A temporarily hidden decision returns with the next prompt or the result.
     property bool collapsed: false
     readonly property bool showsBody: expanded && !collapsed
+    readonly property bool showsChoices: showsBody || zoneActions.visible
     // Offboard targets need their card list just like an opened combat list.
     // Keep the compact reservation for decisions answered on the battlefield.
     readonly property bool listChoiceShown: showsBody && (prompt.combatListShown
@@ -119,7 +120,8 @@ Surface {
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             Layout.minimumHeight: implicitHeight
-            visible: root.showActions && root.showZoneActions && actions.length > 0 && !cardActionPicker.opened
+            visible: root.showActions && root.showZoneActions && !root.collapsed
+                && actions.length > 0 && !cardActionPicker.opened
                 && !root.tableController.priority.yieldMode
             tableController: root.tableController
         }

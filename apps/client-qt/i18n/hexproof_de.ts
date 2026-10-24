@@ -16834,8 +16834,8 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
             <translation>Beleg prüfen</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>Wählen Sie ein kleineres PNG- oder JPEG-Bild (maximal 2 MiB und 16 Megapixel).</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>Wählen Sie ein PNG- oder JPEG-Bild mit höchstens 32 MiB, 8192 Pixeln pro Seite und 16 Megapixeln.</translation>
         </message>
         <message>
             <source>Choose an image</source>

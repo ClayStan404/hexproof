@@ -149,7 +149,7 @@ function error(code) {
     case "invalid_attachment":
     case "unsupported_content": return qsTranslate("Feedback", "This attachment or report format is not supported.")
     case "attachment_limit": return qsTranslate("Feedback", "Attach up to two images, one crash report and one hosting report.")
-    case "image_too_large": return qsTranslate("Feedback", "Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).")
+    case "image_too_large": return qsTranslate("Feedback", "Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.")
     case "parent_unavailable":
     case "record_unavailable": return qsTranslate("Feedback", "This record is no longer available.")
     case "not_editable": return qsTranslate("Feedback", "Create an editable copy to change this submission.")

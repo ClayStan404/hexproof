@@ -16814,8 +16814,8 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>查詢收件憑證</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>請選擇較小的 PNG 或 JPEG 圖片（不超過 2 MiB、1600 萬畫素）。</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>請選擇 PNG 或 JPEG 圖片（最大 32 MiB、單邊不超過 8192 畫素、總畫素不超過 1600 萬）。</translation>
         </message>
         <message>
             <source>Choose an image</source>

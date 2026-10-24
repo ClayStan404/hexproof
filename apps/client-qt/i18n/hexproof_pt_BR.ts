@@ -16834,8 +16834,8 @@ Imagens baixadas e personalizadas serão copiadas e verificadas antes de a confi
             <translation>Consultar recibo</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>Escolha uma imagem PNG ou JPEG menor (até 2 MiB e 16 megapixels).</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>Escolha uma imagem PNG ou JPEG de até 32 MiB, 8192 pixels por lado e 16 megapixels.</translation>
         </message>
         <message>
             <source>Choose an image</source>

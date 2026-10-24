@@ -44,6 +44,43 @@ class CiScopeTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertFalse(scope.build_scope([path])[2])
 
+    def test_tool_deployment_and_release_workflow_edits_do_not_build_applications(self):
+        for path in ("tools/release-verification.py", "tools/tests/test_public_source_export.py",
+                     "tools/check-i18n.py", "tools/export-public-tree.sh",
+                     "tools/write-feedback-config.py", "deploy/feedback/install.py",
+                     ".github/workflows/release.yml", ".github/screenshots/home.png"):
+            with self.subTest(path=path):
+                self.assertEqual(scope.build_scope([path]), (False, False, False))
+
+    def test_build_protocol_and_unknown_tools_keep_application_checks(self):
+        for path in ("tools/build.sh", "tools/protocol_codegen.py", "tools/payload_schema.py",
+                     "tools/payload_go_structs.py", "tools/payload_enums.py",
+                     "tools/protocol_fixture_index.py", "tools/check-protocol-parity.py",
+                     "tools/generate-runtime.py", "tools/new-generator/build.py",
+                     "tools/new-generator/check-i18n.py"):
+            with self.subTest(path=path):
+                self.assertEqual(scope.build_scope([path]), (True, True, True))
+
+    def test_push_and_private_internal_pr_reuse_local_application_checks(self):
+        for repository in ("ClayStan404/hexproof", "ClayStan404/hexproof-private"):
+            self.assertFalse(scope.full_checks("push", repository, ""))
+        self.assertFalse(scope.full_checks("pull_request", "ClayStan404/hexproof-private",
+                                           "ClayStan404/hexproof-private"))
+
+    def test_public_external_and_manual_checks_are_not_bypassed(self):
+        for event, repository, head in (
+                ("pull_request", "ClayStan404/hexproof", "ClayStan404/hexproof"),
+                ("pull_request", "ClayStan404/hexproof-private", "contributor/fork"),
+                ("workflow_dispatch", "ClayStan404/hexproof-private", ""),
+                ("pull_request", "", ""), ("future_event", "", "")):
+            with self.subTest(event=event, repository=repository, head=head):
+                self.assertTrue(scope.full_checks(event, repository, head))
+
+    def test_lightweight_push_does_not_need_comparison_history(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), "--event", "push"],
+                                text=True, capture_output=True, check=True)
+        self.assertEqual(result.stdout, "client=false\nserver=false\nforge=false\nfull=false\n")
+
     def test_shared_or_unknown_changes_fail_toward_more_checks(self):
         for path in ("protocol/v2/wire-schema.json", "tools/verify.sh", "packaging/linux/build-tarball.sh",
                      ".github/workflows/ci.yml", "future-build-system.conf"):
@@ -55,12 +92,12 @@ class CiScopeTests(unittest.TestCase):
             with self.subTest(base=base):
                 result = subprocess.run([sys.executable, str(SCRIPT), "--base", base],
                                         text=True, capture_output=True, check=True)
-                self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\n")
+                self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\n")
 
     def test_manual_override_does_not_need_git_history(self):
         result = subprocess.run([sys.executable, str(SCRIPT), "--force-all"],
                                 text=True, capture_output=True, check=True)
-        self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\n")
+        self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\n")
 
     def test_rename_out_of_source_domain_keeps_old_source_path(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -91,7 +128,9 @@ class CiScopeTests(unittest.TestCase):
         root = SCRIPT.parents[1]
         ci = (root / ".github/workflows/ci.yml").read_text()
         quality = ci.split("  quality:\n", 1)[1].split("  server:\n", 1)[0]
-        self.assertNotIn("needs.changes", quality)
+        self.assertIn("if: needs.changes.outputs.full == 'true'", quality)
+        # Cheap checks remain unconditional; only the full tool suite is selected.
+        self.assertNotIn("if:", quality.split("      - name: Test quality checks", 1)[0])
         self.assertIn("python3 -m unittest discover -s tools/tests", quality)
         release = (root / ".github/workflows/release.yml").read_text()
         self.assertNotIn("ci-scope.py", release)

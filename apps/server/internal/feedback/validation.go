@@ -219,8 +219,10 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 	return b.Buffer.Write(p)
 }
 
-func normalizeImage(raw []byte, kind string) ([]byte, error) {
-	if len(raw) > MaxImage {
+// decodeImage validates the whole image without changing the approved bytes.
+// V1 additionally normalizes its private attachment; V2 publishes the original.
+func decodeImage(raw []byte, kind string) (image.Image, error) {
+	if len(raw) > MaxImage || !oneOf(kind, "image/png", "image/jpeg") {
 		return nil, ErrInvalid
 	}
 	if kind == "image/png" && !staticPNG(raw) {
@@ -234,8 +236,16 @@ func normalizeImage(raw []byte, kind string) ([]byte, error) {
 	if err != nil {
 		return nil, ErrInvalid
 	}
+	return im, nil
+}
+
+func normalizeImage(raw []byte, kind string) ([]byte, error) {
+	im, err := decodeImage(raw, kind)
+	if err != nil {
+		return nil, err
+	}
 	out := &limitedBuffer{limit: MaxImage}
-	if format == "png" {
+	if kind == "image/png" {
 		err = png.Encode(out, im)
 	} else {
 		err = jpeg.Encode(out, im, &jpeg.Options{Quality: 90})

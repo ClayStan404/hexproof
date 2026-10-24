@@ -15,7 +15,10 @@ import (
 
 func TestPublicStartupPreservesUnfinishedPrivateDelivery(t *testing.T) {
 	config := feedback.Config{DataDir: t.TempDir(), Public: &feedback.PublicConfig{}}
-	legacy, err := openLegacyCompatibility(config, nil)
+	// Seed history through the private mode before the public-only transition.
+	private := config
+	private.Public = nil
+	legacy, err := openLegacyCompatibility(private, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,11 +41,11 @@ func TestPublicStartupPreservesUnfinishedPrivateDelivery(t *testing.T) {
 	if err != nil || !created {
 		t.Fatalf("accept: created=%v error=%v", created, err)
 	}
-	if err := legacy.store.Close(); err != nil {
+	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := openLegacyCompatibility(config, nil); err == nil {
-		got.store.Close()
+		got.Close()
 		t.Fatal("public startup silently abandoned private delivery")
 	}
 	// Failed cutover releases its lock and preserves both the receipt and mail.
@@ -69,7 +72,7 @@ func TestPublicStartupPreservesUnfinishedPrivateDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer legacy.store.Close()
+	defer legacy.Close()
 	got, err = legacy.store.Lookup(context.Background(), id, secret, "")
 	if err != nil || got != receipt {
 		t.Fatalf("drained receipt lost: %#v %v", got, err)
@@ -77,4 +80,29 @@ func TestPublicStartupPreservesUnfinishedPrivateDelivery(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	legacy.run(ctx)
+}
+
+func TestEmptyPublicStartupRetainsOnlyLegacyDirectoryLease(t *testing.T) {
+	config := feedback.Config{DataDir: t.TempDir(), Public: &feedback.PublicConfig{}}
+	legacy, err := openLegacyCompatibility(config, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.store != nil || legacy.sender != nil {
+		t.Fatal("empty public startup enabled legacy routing or mail")
+	}
+	// No retention/mail worker is needed, even with an uncancelled context.
+	legacy.run(context.Background())
+	if store, err := feedback.OpenStore(config.DataDir, feedback.Limits{}); err == nil {
+		store.Close()
+		t.Fatal("an old private process could write after public startup")
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err := feedback.OpenStore(config.DataDir, feedback.Limits{})
+	if err != nil {
+		t.Fatalf("empty legacy directory lease was not released: %v", err)
+	}
+	store.Close()
 }

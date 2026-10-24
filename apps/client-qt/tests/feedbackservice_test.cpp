@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 #include "forgecrashreport_fixture.h"
 #include "services/FeedbackService.h"
+#include <QColorSpace>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -1891,9 +1892,88 @@ class FeedbackServiceTest : public QObject
             QCOMPARE(QImage::fromData(stored.bytes).size(), size);
             QCOMPARE(stored.descriptor.value(u"mediaType"_s).toString(), u"image/png"_s);
         } else {
-            QCOMPARE(service.errorCode(), u"invalid_attachment"_s);
+            QCOMPARE(service.errorCode(), u"image_too_large"_s);
         }
         QTRY_VERIFY(!service.saving());
+    }
+    void largeImagesAreNormalizedBeforeApplyingUploadLimit_data()
+    {
+        QTest::addColumn<QByteArray>("format");
+        QTest::addColumn<bool>("transparent");
+        QTest::newRow("png-larger-than-upload-limit") << QByteArray("PNG") << false;
+        QTest::newRow("png-preserves-transparency") << QByteArray("PNG") << true;
+        QTest::newRow("jpeg-expands-when-normalized") << QByteArray("JPEG") << false;
+    }
+    void largeImagesAreNormalizedBeforeApplyingUploadLimit()
+    {
+        QFETCH(QByteArray, format);
+        QFETCH(bool, transparent);
+        QTemporaryDir dir;
+        FeedbackService service(dir.path(), disabledConfig());
+        QTRY_VERIFY(!service.saving());
+        const auto id = service.createDraft();
+        QVERIFY(!id.isEmpty());
+        QImage image(1200, 1000, transparent ? QImage::Format_ARGB32 : QImage::Format_RGB32);
+        quint32 random = 0x12345678;
+        for (int y = 0; y < image.height(); ++y) {
+            auto *row = reinterpret_cast<QRgb *>(image.scanLine(y));
+            for (int x = 0; x < image.width(); ++x) {
+                random ^= random << 13;
+                random ^= random >> 17;
+                random ^= random << 5;
+                row[x] = (transparent ? 0x80000000 : 0xff000000) | (random & 0x00ffffff);
+            }
+        }
+        image.setText(u"private"_s, u"PRIVATE_IMAGE_METADATA"_s);
+        image.setColorSpace(QColorSpace::SRgb);
+        const auto path = dir.filePath(u"source.image"_s);
+        QVERIFY(image.save(path, format.constData(), 90));
+        QFile source(path);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        const auto original = source.readAll();
+        QVERIFY(original.size() < feedback::MaxImageInputBytes);
+        QCOMPARE(original.size() > feedback::MaxImageBytes, format == "PNG");
+        QVERIFY(service.attachImage(QUrl::fromLocalFile(path)));
+        QTRY_VERIFY_WITH_TIMEOUT(!service.busy(), 30000);
+        QVERIFY2(service.errorCode().isEmpty(), qPrintable(service.errorCode()));
+        QCOMPARE(service.m_records[id].attachments.size(), 1);
+        const auto &stored = service.m_records[id].attachments.first();
+        QVERIFY(stored.bytes.size() <= feedback::MaxImageBytes);
+        QCOMPARE(stored.descriptor.value(u"mediaType"_s).toString(), u"image/png"_s);
+        QCOMPARE(stored.descriptor.value(u"byteLength"_s).toInteger(), stored.bytes.size());
+        QCOMPARE(stored.descriptor.value(u"sha256"_s).toString(),
+                 QString::fromLatin1(feedback::digest(stored.bytes)));
+        const auto normalized = QImage::fromData(stored.bytes, "PNG");
+        QVERIFY(!normalized.isNull());
+        QVERIFY(normalized.width() < image.width());
+        QVERIFY(normalized.height() < image.height());
+        QVERIFY(qAbs(double(normalized.width()) / normalized.height() - 1.2) < 0.01);
+        QVERIFY(normalized.textKeys().isEmpty());
+        QVERIFY(!normalized.colorSpace().isValid());
+        QCOMPARE(qAlpha(normalized.pixel(normalized.width() / 2, normalized.height() / 2)),
+                 transparent ? 128 : 255);
+        QVERIFY(!stored.bytes.contains("PRIVATE_IMAGE_METADATA"));
+        const auto preview = service.attachmentPreview(stored.descriptor.value(u"id"_s).toString());
+        QCOMPARE(QByteArray::fromBase64(preview.mid(preview.indexOf(u',') + 1).toLatin1()),
+                 stored.bytes);
+        source.seek(0);
+        QCOMPARE(source.readAll(), original);
+        QTRY_VERIFY(!service.saving());
+    }
+    void oversizedImageInputHasSizeError()
+    {
+        QTemporaryDir dir;
+        FeedbackService service(dir.path(), disabledConfig());
+        QTRY_VERIFY(!service.saving());
+        QVERIFY(!service.createDraft().isEmpty());
+        QFile source(dir.filePath(u"oversized.png"_s));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        QVERIFY(source.resize(feedback::MaxImageInputBytes + 1));
+        source.close();
+        QVERIFY(service.attachImage(QUrl::fromLocalFile(source.fileName())));
+        QTRY_VERIFY(!service.busy());
+        QCOMPARE(service.errorCode(), u"image_too_large"_s);
+        QVERIFY(service.draft().value(u"attachments"_s).toList().isEmpty());
     }
     void storageFailurePreventsDispatchAndLimitsDoNotEvict()
     {

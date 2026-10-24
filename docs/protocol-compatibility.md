@@ -1,11 +1,13 @@
 # Application releases and communication compatibility
 
 - Owner decision: 2026-10-21.
-- Status: **Implemented in source; release and deployment pending.**
+- Status: **Released in 3.1.0; all four official hubs and paired home connectors
+  migrated to `hexproof.v2` on 2026-10-25 (Asia/Shanghai).**
 - Scope: one exact game-protocol identifier per client/hub build, independent
   application release versions. No feature negotiation or protocol ranges.
-- Supersedes the 2026-07-30 exact application-version decision for the future
-  implementation. Released 3.0.0 binaries still enforce that older decision.
+- Supersedes the 2026-07-30 exact application-version decision starting with
+  3.1.0. Released 3.0.0 binaries still enforce that older decision and require
+  a client update to connect to the migrated official fleet.
 
 ## 1. Compatibility rule
 

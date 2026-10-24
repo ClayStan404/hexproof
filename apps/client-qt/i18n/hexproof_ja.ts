@@ -16814,8 +16814,8 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>受付確認</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>小さいPNGまたはJPEG画像を選んでください（最大2 MiB、1600万画素）。</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>PNG または JPEG 画像を選んでください（32 MiB 以下、各辺 8192 ピクセル以下、1600 万画素以下）。</translation>
         </message>
         <message>
             <source>Choose an image</source>

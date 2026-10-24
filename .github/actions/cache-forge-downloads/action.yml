@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+name: Cache immutable Forge build inputs
+description: Reuse pinned download archives across platforms; the builder still verifies every size and checksum.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: build/forge-overlay/downloads
+        key: forge-base-${{ hashFiles('apps/server/internal/runtimepkg/manifest.json', 'third_party/forge-runtime/overlay-base.json') }}
+        enableCrossOsArchive: true

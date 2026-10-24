@@ -78,7 +78,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer legacy.store.Close()
+	defer legacy.Close()
 	var handler interface {
 		http.Handler
 		Close()
@@ -100,11 +100,15 @@ func run() error {
 		return fmt.Errorf("feedback listener unavailable")
 	}
 	defer listener.Close()
-	admin, adminListener, err := feedback.StartAdmin(c.AdminSocket, legacy.store)
-	if err != nil {
-		return fmt.Errorf("feedback administration listener unavailable")
+	var admin *http.Server
+	var adminListener net.Listener
+	if legacy.store != nil {
+		admin, adminListener, err = feedback.StartAdmin(c.AdminSocket, legacy.store)
+		if err != nil {
+			return fmt.Errorf("feedback administration listener unavailable")
+		}
+		defer adminListener.Close()
 	}
-	defer adminListener.Close()
 	var native *http.Server
 	var nativeListener net.Listener
 	if multica != nil {
@@ -122,8 +126,10 @@ func run() error {
 	go func() {
 		defer close(workerDone)
 		var workers sync.WaitGroup
-		workers.Add(1)
-		go func() { defer workers.Done(); legacy.run(workerCtx) }()
+		if legacy.store != nil {
+			workers.Add(1)
+			go func() { defer workers.Done(); legacy.run(workerCtx) }()
+		}
 		if publicStore != nil {
 			workers.Add(1)
 			go func() { defer workers.Done(); feedback.RunPublicOutbox(workerCtx, publicStore, publisher) }()
@@ -139,7 +145,9 @@ func run() error {
 	}()
 	errors := make(chan error, 3)
 	go func() { errors <- public.Serve(listener) }()
-	go func() { errors <- admin.Serve(adminListener) }()
+	if admin != nil {
+		go func() { errors <- admin.Serve(adminListener) }()
+	}
 	if native != nil {
 		go func() { errors <- native.Serve(nativeListener) }()
 	}
@@ -158,7 +166,7 @@ func run() error {
 	if public.Shutdown(shutdownCtx) != nil {
 		_ = public.Close()
 	}
-	if admin.Shutdown(shutdownCtx) != nil {
+	if admin != nil && admin.Shutdown(shutdownCtx) != nil {
 		_ = admin.Close()
 	}
 	if native != nil && native.Shutdown(shutdownCtx) != nil {

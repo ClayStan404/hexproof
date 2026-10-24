@@ -216,6 +216,28 @@ class ForgeOverlayTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "checksum"):
                 OVERLAY.pinned_file(pin, root, first)
 
+    def test_download_cache_hits_still_require_pinned_size_and_checksum(self):
+        payload = b"verified immutable archive"
+        pin = {"url": "https://example.invalid/archive.tar.gz", "size": len(payload),
+               "sha256": hashlib.sha256(payload).hexdigest()}
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = Path(temporary)
+            target = cache / (pin["sha256"] + ".tar.gz")
+            target.write_bytes(payload)
+            with patch.object(OVERLAY.urllib.request, "urlopen") as download:
+                self.assertEqual(OVERLAY.pinned_file(pin, cache), target)
+                download.assert_not_called()
+
+            for invalid in (b"short", b"x" * len(payload)):
+                with self.subTest(cached_size=len(invalid)):
+                    target.write_bytes(invalid)
+                    response = io.BytesIO(payload)
+                    response.url = pin["url"]
+                    with patch.object(OVERLAY.urllib.request, "urlopen", return_value=response) as download:
+                        self.assertEqual(OVERLAY.pinned_file(pin, cache), target)
+                        download.assert_called_once()
+                    self.assertEqual(target.read_bytes(), payload)
+
     def test_relocated_source_bundle_keeps_its_toolchain_and_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

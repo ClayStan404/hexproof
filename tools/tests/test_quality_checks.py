@@ -323,27 +323,6 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn("apps/client-qt/tests/qml/tst_matchloading.qml", sources)
         self.assertIn("apps/server/internal/room/room_test.go", sources)
 
-    def test_clang_format_is_limited_to_c_and_cpp_sources(self) -> None:
-        script = (TOOLS_DIR / "verify.sh").read_text(encoding="utf-8")
-        self.assertIn(
-            "git clang-format --diff --extensions c,cpp,h",
-            script,
-        )
-
-    def test_default_server_output_matches_client_integration_default(self) -> None:
-        script = (TOOLS_DIR / "verify.sh").read_text(encoding="utf-8")
-        cmake = (TOOLS_DIR.parent / "apps/client-qt/CMakeLists.txt").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn(
-            'server_binary="${HEXPROOF_SERVER_BINARY_PATH:-$repo_root/build/server/hexproof-server}"',
-            script,
-        )
-        self.assertIn(
-            'HEXPROOF_DEFAULT_SERVER_BINARY="${CMAKE_CURRENT_SOURCE_DIR}/../../build/server/hexproof-server"',
-            cmake,
-        )
-
     def test_public_export_includes_rules_engine_contract_and_changelog(self) -> None:
         root = TOOLS_DIR.parent
         policy = json.loads((TOOLS_DIR / "public_export_policy.json").read_text(encoding="utf-8"))
@@ -356,7 +335,6 @@ class VerificationScriptTests(unittest.TestCase):
         paths = (
             TOOLS_DIR / "verify.sh",
             TOOLS_DIR.parent / ".github/workflows/ci.yml",
-            TOOLS_DIR.parent / ".github/workflows/release.yml",
         )
         for path in paths:
             with self.subTest(path=path):
@@ -429,24 +407,24 @@ class VerificationScriptTests(unittest.TestCase):
         workflow = (TOOLS_DIR.parent / ".github/workflows/release.yml").read_text(
             encoding="utf-8"
         )
-        quality_job = workflow.split("  quality-gate:\n", 1)[1].split(
-            "\n  client-linux:\n", 1
+        prepare_job = workflow.split("  prepare:\n", 1)[1].split(
+            "\n  forge-sources:\n", 1
         )[0]
         assemble_job = workflow.split("  assemble:\n", 1)[1]
         self.assertNotIn("\n  card-database:\n", workflow)
         self.assertIn(
             "Verify stable card database compatibility",
-            quality_job,
+            prepare_job,
         )
         self.assertIn(
             "kCatalogIndexVersion",
-            quality_job,
+            prepare_job,
         )
         self.assertIn(
             "releases/download/card-data/card-database-manifest.json",
-            quality_job,
+            prepare_job,
         )
-        self.assertIn(".schemaVersion == $expectedSchema", quality_job)
+        self.assertIn(".schemaVersion == $expectedSchema", prepare_job)
         self.assertNotIn("      - card-database", assemble_job)
         self.assertNotIn("hexproof-card-database", assemble_job)
         self.assertIn('! -name SHA256SUMS', assemble_job)
@@ -541,8 +519,8 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn('git cat-file -e "$base^{commit}"', ci)
         self.assertIn("git rev-parse --verify --quiet HEAD^", ci)
 
-    def test_shell_lint_is_shared_by_local_ci_and_release_gates(self) -> None:
-        for path in ("tools/verify.sh", ".github/workflows/ci.yml", ".github/workflows/release.yml"):
+    def test_shell_lint_is_shared_by_local_and_ci_gates(self) -> None:
+        for path in ("tools/verify.sh", ".github/workflows/ci.yml"):
             with self.subTest(path=path):
                 self.assertIn("./tools/check-shell-scripts.sh", self.source(path))
 

@@ -11,6 +11,8 @@ run_ctest=1
 run_race=1
 scope=all
 clean_build=0
+qml_per_file=0
+tool_test_patterns=()
 format_base=""
 started_at=$SECONDS
 
@@ -23,10 +25,14 @@ Native visual verification is separate and should be used when the task needs it
 
 Options:
   --scope SCOPE       all (default), static, client, or server. Every scope runs
-                      shared static checks. Client tests build a local server
+                      shared static checks; all/static run all tool tests.
+                      Client tests build a local server
                       for integration tests, but do not run the Go test suite.
   --quick             Skip CTest and Go race tests; keep builds and other gates.
   --clean             Force clean rebuilds and uncached Go tests (opt-in).
+  --qml-per-file      Register every QML test file separately for parallel CTest.
+  --tool-tests GLOB   Run selected tool tests (repeatable, e.g. test_ci_scope.py).
+                      Only for scoped checks; complete all scope stays complete.
   --format-base REF   Check changed C/C++ lines against REF (default: working
                       tree against HEAD, or the latest commit when clean).
   -h, --help          Show this help.
@@ -34,6 +40,7 @@ Options:
 Optional environment variables:
   HEXPROOF_CLIENT_BUILD_DIR    Client build directory.
   HEXPROOF_SERVER_BINARY_PATH Server output used by CTest integration tests.
+  CTEST_PARALLEL_LEVEL        Maximum concurrent CTest tasks (for example 2).
 EOF
 }
 
@@ -58,6 +65,17 @@ while (($# > 0)); do
             run_ctest=0
             run_race=0
             ;;
+        --qml-per-file)
+            qml_per_file=1
+            ;;
+        --tool-tests)
+            if (($# < 2)) || [[ "$2" != test_*.py || "$2" == */* ]]; then
+                echo "--tool-tests requires a test_*.py filename or glob." >&2
+                exit 2
+            fi
+            tool_test_patterns+=("$2")
+            shift
+            ;;
         --format-base)
             if (($# < 2)); then
                 echo "--format-base requires a Git revision." >&2
@@ -80,6 +98,16 @@ while (($# > 0)); do
 done
 
 cd "$repo_root"
+if [[ "$scope" == all ]] && ((${#tool_test_patterns[@]})); then
+    echo "Use a scoped check to select tool tests; all scope always runs the full suite." >&2
+    exit 2
+fi
+for pattern in "${tool_test_patterns[@]}"; do
+    if ! compgen -G "$repo_root/tools/tests/$pattern" >/dev/null; then
+        echo "No tool tests match: $pattern" >&2
+        exit 2
+    fi
+done
 build_client=0
 build_server=0
 test_server=0
@@ -117,7 +145,7 @@ require_command() {
 
 check_clang_format() {
     local output
-    local -a command=(git clang-format --diff --extensions c,cpp,h)
+    local -a command=(git clang-format --diff --extensions 'c,cpp,h')
     local -a source_paths=(apps/client-qt tools/ui-automation/x11)
 
     if [[ -n "$format_base" ]]; then
@@ -189,7 +217,15 @@ python3 tools/check-qml-resources.py
 python3 tools/check-protocol-parity.py
 python3 tools/check-i18n.py --strict
 python3 tools/check-module-size.py
-python3 -m unittest discover -s tools/tests
+if ((${#tool_test_patterns[@]})); then
+    for pattern in "${tool_test_patterns[@]}"; do
+        python3 -m unittest discover -s tools/tests -p "$pattern"
+    done
+elif [[ "$scope" == all || "$scope" == static ]]; then
+    python3 -m unittest discover -s tools/tests
+else
+    echo "Tool tests are separate from this application scope; use --tool-tests for affected tools."
+fi
 
 go_test_flags=()
 go_build_flags=()
@@ -241,8 +277,12 @@ fi
 
 if ((build_client)); then
     section "Client configure and build"
+    client_configure_flags=()
+    if ((qml_per_file)); then
+        client_configure_flags+=(-DHEXPROOF_QML_TESTS_PER_FILE=ON)
+    fi
     cmake -S apps/client-qt -B "$client_build_dir" -G Ninja \
-        -DHEXPROOF_VERSION_OVERRIDE=
+        -DHEXPROOF_VERSION_OVERRIDE= "${client_configure_flags[@]}"
     cmake --build "$client_build_dir" "${client_build_flags[@]}"
 
     client_version_output="$(

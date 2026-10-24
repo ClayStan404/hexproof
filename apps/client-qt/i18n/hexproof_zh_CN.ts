@@ -19397,8 +19397,8 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>查询回执</translation>
         </message>
         <message>
-            <source>Choose a smaller PNG or JPEG image (up to 2 MiB and 16 megapixels).</source>
-            <translation>请选择更小的 PNG 或 JPEG 图片（不超过 2 MiB、1600 万像素）。</translation>
+            <source>Choose a PNG or JPEG image up to 32 MiB, 8192 pixels per side and 16 megapixels.</source>
+            <translation>请选择 PNG 或 JPEG 图片（最大 32 MiB、单边不超过 8192 像素、总像素不超过 1600 万）。</translation>
         </message>
         <message>
             <source>Choose an image</source>

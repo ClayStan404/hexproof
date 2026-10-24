@@ -23,6 +23,7 @@ class VerificationScriptTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         self.write("apps/client-qt/CMakeLists.txt", 'set(HEXPROOF_VERSION "1.2.3")\n')
+        self.write("tools/tests/test_fixture.py", "# Selected-test fixture\n")
         (self.root / "apps/server").mkdir(parents=True)
         self.script = self.write("tools/verify.sh", SCRIPT.read_text(encoding="utf-8"))
         self.write("tools/check-shell-scripts.sh", SHELL_LINT_SCRIPT.read_text(encoding="utf-8"),
@@ -40,6 +41,10 @@ args = sys.argv[1:]
 with open(os.environ["VERIFY_TEST_LOG"], "a") as log:
     log.write(json.dumps([name, *args]) + "\\n")
 if name == os.environ.get("VERIFY_TEST_FAIL_TOOL"):
+    sys.exit(13)
+if (name == "python3" and args[:3] == ["-m", "unittest", "discover"]
+    and "-p" in args
+    and args[args.index("-p") + 1] == os.environ.get("VERIFY_TEST_FAIL_PATTERN")):
     sys.exit(13)
 if name == "cmake" and "--target" in args:
     target = args[args.index("--target") + 1]
@@ -96,6 +101,47 @@ elif name == "hexproof":
         self.assertFalse({call[0] for call in calls} & {"go", "gofmt", "cmake", "ctest", "hexproof"})
         self.assertIn(["python3", "-m", "unittest", "discover", "-s", "tools/tests"], calls)
         self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh"], calls)
+        self.assertTrue(any(call[:5] == ["git", "clang-format", "--diff", "--extensions", "c,cpp,h"]
+                            for call in calls))
+
+    def test_scoped_application_checks_do_not_repeat_unrelated_tool_suite(self):
+        for scope in ("client", "server"):
+            with self.subTest(scope=scope):
+                self.log.unlink(missing_ok=True)
+                _, calls = self.run_script("--scope", scope)
+                self.assertFalse(any(call[:3] == ["python3", "-m", "unittest"] for call in calls))
+
+    def test_selected_tool_tests_and_per_file_qml_are_forwarded(self):
+        self.write("tools/tests/test_another_fixture.py", "# Second selected-test fixture\n")
+        _, calls = self.run_script("--scope", "client", "--qml-per-file",
+                                   "--tool-tests", "test_fixture.py",
+                                   "--tool-tests", "test_another*.py")
+        self.assertEqual(
+            [call for call in calls if call[:3] == ["python3", "-m", "unittest"]],
+            [["python3", "-m", "unittest", "discover", "-s", "tools/tests", "-p", pattern]
+             for pattern in ("test_fixture.py", "test_another*.py")])
+        self.assertTrue(any(call[0] == "cmake" and "-DHEXPROOF_QML_TESTS_PER_FILE=ON" in call
+                            for call in calls))
+
+    def test_selected_tool_test_failure_stops_before_application_checks(self):
+        self.write("tools/tests/test_failing_fixture.py", "# Failing selected-test fixture\n")
+        self.env["VERIFY_TEST_FAIL_PATTERN"] = "test_failing_fixture.py"
+        result, calls = self.run_script("--scope", "server",
+                                        "--tool-tests", "test_fixture.py",
+                                        "--tool-tests", "test_failing_fixture.py", succeeds=False)
+        self.assertEqual(result.returncode, 13)
+        self.assertEqual(
+            [call[-1] for call in calls if call[:3] == ["python3", "-m", "unittest"]],
+            ["test_fixture.py", "test_failing_fixture.py"])
+        self.assertFalse({call[0] for call in calls} & {"go", "gofmt", "cmake", "ctest"})
+
+    def test_missing_tool_selection_and_narrowed_full_scope_fail_before_work(self):
+        for args in (("--scope", "static", "--tool-tests", "test_missing.py"),
+                     ("--tool-tests", "test_fixture.py"),
+                     ("--scope", "static", "--tool-tests", "../test_fixture.py")):
+            with self.subTest(args=args):
+                _, calls = self.run_script(*args, succeeds=False)
+                self.assertEqual(calls, [])
 
     def test_shell_lint_includes_available_private_deployment_scripts(self):
         scripts = ("deploy/deploy-release-server.sh", "deploy/deploy-forge-runtime.sh",

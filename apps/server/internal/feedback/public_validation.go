@@ -99,7 +99,7 @@ func parsePublicSubmissionFor(ctx context.Context, r io.Reader, contentType, id,
 			case <-ctx.Done():
 				return sub, ErrUnavailable
 			}
-			_, err = normalizeImage(raw, a.MediaType)
+			_, err = decodeImage(raw, a.MediaType)
 			<-decodes
 		case "forge_crash":
 			_, err = normalizeCrash(raw, a)

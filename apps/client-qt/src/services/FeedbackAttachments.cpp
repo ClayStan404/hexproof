@@ -9,14 +9,21 @@
 #include <QFutureWatcher>
 #include <QGuiApplication>
 #include <QImageReader>
+#include <QImageWriter>
 #include <QJsonDocument>
 #include <QPainter>
 #include <QUuid>
 #include <QtConcurrentRun>
+#include <cmath>
 
 namespace hexproof::client {
 using namespace Qt::StringLiterals;
 namespace {
+struct NormalizedImage
+{
+    QByteArray bytes;
+    QString error;
+};
 bool safeSize(const QSize &s)
 {
     return s.width() > 0 && s.height() > 0 && s.width() <= 8192 && s.height() <= 8192 &&
@@ -122,55 +129,83 @@ bool FeedbackService::normalizeImage(const QUrl &source, const QImage &input)
     if (m_attachmentBusy)
         return fail(u"busy"_s);
     if (source.isEmpty() && !safeSize(input.size()))
-        return fail(u"invalid_attachment"_s);
+        return fail(input.isNull() ? u"invalid_attachment"_s : u"image_too_large"_s);
     m_attachmentBusy = true;
     emit statusChanged();
     const auto id = m_selected;
-    auto *watcher = new QFutureWatcher<QByteArray>(this);
-    connect(watcher, &QFutureWatcher<QByteArray>::finished, this, [this, watcher, id] {
-        const auto data = watcher->result();
+    auto *watcher = new QFutureWatcher<NormalizedImage>(this);
+    connect(watcher, &QFutureWatcher<NormalizedImage>::finished, this, [this, watcher, id] {
+        const auto result = watcher->result();
         watcher->deleteLater();
         m_attachmentBusy = false;
-        if (data.isEmpty())
-            fail(u"invalid_attachment"_s);
+        if (!result.error.isEmpty())
+            fail(result.error);
         else if (m_records.contains(id) && m_records[id].state == u"draft") {
-            addAttachment(attachment(u"screenshot"_s, u"image/png"_s, data), id);
+            addAttachment(attachment(u"screenshot"_s, u"image/png"_s, result.bytes), id);
         }
         emit statusChanged();
     });
-    watcher->setFuture(QtConcurrent::run(&m_io, [source, input] {
+    watcher->setFuture(QtConcurrent::run(&m_io, [source, input]() -> NormalizedImage {
         QImage image = input;
         if (!source.isEmpty()) {
             QFile file(source.toLocalFile());
-            if (!file.open(QIODevice::ReadOnly) || file.size() > feedback::MaxImageBytes)
-                return QByteArray{};
-            const auto data = file.readAll();
+            if (!file.open(QIODevice::ReadOnly))
+                return {{}, u"invalid_attachment"_s};
+            if (file.size() > feedback::MaxImageInputBytes)
+                return {{}, u"image_too_large"_s};
+            const auto data = file.read(feedback::MaxImageInputBytes + 1);
+            if (data.size() > feedback::MaxImageInputBytes)
+                return {{}, u"image_too_large"_s};
             if (animatedPng(data))
-                return QByteArray{};
+                return {{}, u"invalid_attachment"_s};
             QBuffer buffer;
             buffer.setData(data);
             buffer.open(QIODevice::ReadOnly);
             QImageReader reader(&buffer);
             if (!QList<QByteArray>{"png", "jpeg", "jpg"}.contains(reader.format()) ||
-                !safeSize(reader.size()) || reader.imageCount() > 1)
-                return QByteArray{};
+                reader.size().isEmpty() || reader.imageCount() > 1)
+                return {{}, u"invalid_attachment"_s};
+            if (!safeSize(reader.size()))
+                return {{}, u"image_too_large"_s};
             reader.setAutoTransform(true);
             image = reader.read();
         }
-        if (image.isNull() || !safeSize(image.size()))
-            return QByteArray{};
+        if (image.isNull())
+            return {{}, u"invalid_attachment"_s};
+        if (!safeSize(image.size()))
+            return {{}, u"image_too_large"_s};
         QImage pixels(image.size(), QImage::Format_ARGB32);
+        if (pixels.isNull())
+            return {{}, u"invalid_attachment"_s};
         pixels.fill(Qt::transparent);
         {
             QPainter painter(&pixels);
             painter.drawImage(0, 0, image);
         }
-        QByteArray result;
-        QBuffer output(&result);
-        output.open(QIODevice::WriteOnly);
-        if (!pixels.save(&output, "PNG") || result.size() > feedback::MaxImageBytes)
-            return QByteArray{};
-        return result;
+        image = {};
+        const auto original = pixels;
+        // Keep full resolution when possible. The source-file limit is separate
+        // from the receiver's PNG limit, including for JPEG and clipboard input.
+        for (int attempt = 0; attempt < 16; ++attempt) {
+            QByteArray result;
+            QBuffer output(&result);
+            output.open(QIODevice::WriteOnly);
+            QImageWriter writer(&output, "png");
+            // Maximum PNG compression is disproportionately slow on screenshots.
+            writer.setCompression(50);
+            if (!writer.write(pixels))
+                return {{}, u"invalid_attachment"_s};
+            if (result.size() <= feedback::MaxImageBytes)
+                return {result, {}};
+            const double scale = qMin(
+                0.85, 0.95 * std::sqrt(double(feedback::MaxImageBytes) / double(result.size())));
+            const QSize next(qMax(1, int(pixels.width() * scale)),
+                             qMax(1, int(pixels.height() * scale)));
+            pixels = original.scaled(next, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            if (pixels.isNull())
+                return {{}, u"invalid_attachment"_s};
+        }
+        return {{}, u"image_too_large"_s};
     }));
     return true;
 }

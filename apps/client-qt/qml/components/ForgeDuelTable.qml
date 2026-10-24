@@ -318,7 +318,7 @@ Rectangle {
     readonly property bool dockTurnShown: !tableController.sideboarding && !decisionPanel.showsBody
     readonly property bool decisionCollapsible: decisionPanel.visible
         && (decisionPanel.collapsed
-            || decisionPanel.expanded && decisionPanel.targetHeight > dockReservedHeight)
+            || decisionPanel.showsChoices && decisionPanel.targetHeight > dockReservedHeight)
     property Item bottomPlayerPlate: null
     property Item topPlayerPlate: null
     readonly property var permanentLanes: [ownCreatures, opponentCreatures, ownLands, opponentLands,
@@ -500,7 +500,7 @@ Rectangle {
         return false
     }
     function uncoverRevealedCard(item) {
-        if (!item || !decisionPanel.visible || !decisionPanel.showsBody
+        if (!item || !decisionPanel.visible || !decisionPanel.showsChoices
                 || decisionPanel.targetHeight <= dockReservedHeight) return
         const face = item.mapToItem(root, 0, 0, item.width, item.height)
         if (face.x < decisionPanel.x + decisionPanel.width && face.x + face.width > decisionPanel.x
