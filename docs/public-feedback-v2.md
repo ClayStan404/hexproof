@@ -153,6 +153,25 @@ existing cleanup obligations and automatic content expiry remain unchanged.
 
 ## Delivery, provenance and removal
 
+New GitHub issues use a short category prefix and the first nonempty line of
+the approved description, with whitespace collapsed and the complete title
+limited to 100 Unicode code points. Chinese UI locales use Chinese labels;
+other locales use English labels. This is a deterministic excerpt, not an AI
+diagnosis or confirmation of a bug. Mentions are neutralized in the title.
+The full description remains literal text in the body. Common environment
+fields and readable attachment links appear first; technical JSON, attachment
+descriptors, submission IDs and disclosure evidence remain in a collapsed
+details section. A neutral introduction points to replies for current progress
+instead of freezing an initial assessment status in the issue body.
+
+The publication marker and digest are unchanged. Ownership checks accept only
+the complete exact current projection or the complete exact legacy UUID-title
+projection, with all author/repository/mapping checks retained. Mixed formats,
+arbitrary title/body edits and copied markers do not establish ownership.
+Existing issues retain their original projection; changing their presentation
+requires a coordinated receiver upgrade and explicit migration, not manual
+GitHub edits while an older receiver still expects the frozen legacy content.
+
 The receiver owns a separate public store and serial durable outbox. No V1 data
 directory is converted to public content. Attachments are per-submission
 objects; no shared-object reference counting or source-history hosting is used.

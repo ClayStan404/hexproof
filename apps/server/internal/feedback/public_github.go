@@ -118,7 +118,7 @@ func (p *GitHubPublisher) repository(ctx context.Context) error {
 	}
 	return nil
 }
-func issueTitle(r PublicRecord) string {
+func legacyIssueTitle(r PublicRecord) string {
 	return "[Client feedback: " + r.Submission.Manifest.Category + "] " + r.Receipt.SubmissionID
 }
 func publicFence(text string) string {
@@ -129,7 +129,10 @@ func publicFence(text string) string {
 	fence := strings.Repeat("`", n)
 	return fence + "text\n" + text + "\n" + fence
 }
-func (p *GitHubPublisher) issueBody(r PublicRecord) string {
+
+// Keep the original projection byte-for-byte so existing publications can still
+// be reconciled, verified, closed and removed after a renderer upgrade.
+func (p *GitHubPublisher) legacyIssueBody(r PublicRecord) string {
 	m := r.Submission.Manifest
 	contextRaw, _ := json.MarshalIndent(m.Context, "", "  ")
 	body := "Public feedback submitted from Hexproof. Development assessment has not started.\n\nSubmitted at: " + m.CreatedAt + "\n\n## Description\n\n" + publicFence(m.Description) + "\n\n## Technical context\n\n" + publicFence(string(contextRaw)) + "\n\n## Attachments\n\n"
@@ -149,7 +152,13 @@ func (p *GitHubPublisher) assetURL(id string, a Attachment) string {
 	return p.publicURL + "/assets/" + id + "/" + a.ID + "/" + a.SHA256
 }
 func (p *GitHubPublisher) owned(issue githubIssue, r PublicRecord) bool {
-	return issue.Number > 0 && issue.NodeID != "" && len(issue.NodeID) <= 256 && issue.HTMLURL == "https://github.com/"+p.config.Repository+"/issues/"+strconv.Itoa(issue.Number) && (len(issue.PullRequest) == 0 || string(issue.PullRequest) == "null") && issue.User.ID == p.config.PublisherActorID && issue.Title == issueTitle(r) && issue.Body == p.issueBody(r)
+	if issue.Number <= 0 || issue.NodeID == "" || len(issue.NodeID) > 256 || issue.HTMLURL != "https://github.com/"+p.config.Repository+"/issues/"+strconv.Itoa(issue.Number) || (len(issue.PullRequest) != 0 && string(issue.PullRequest) != "null") || issue.User.ID != p.config.PublisherActorID {
+		return false
+	}
+	// Accept only complete, exact projections. A copied marker or a mixture of
+	// old and new fields is not enough to establish publication ownership.
+	return issue.Title == issueTitle(r) && issue.Body == p.issueBody(r) ||
+		issue.Title == legacyIssueTitle(r) && issue.Body == p.legacyIssueBody(r)
 }
 func mappedResult(issue githubIssue) PublicResult {
 	return PublicResult{Outcome: "mapped", IssueNumber: issue.Number, IssueNodeID: issue.NodeID, IssueURL: issue.HTMLURL}
