@@ -112,6 +112,14 @@ already produced. The client presents **Close feedback** separately from
 **Request content removal**, with an explicit explanation before each action.
 Deleting the local draft/receipt remains a third, independent operation.
 
+GitHub's development issue may be closed as completed when a reviewed fix
+merges. That state is independent of this author-controlled case closure:
+the receiver case remains open, accepts follow-up, and can publish a later
+release update to the closed GitHub issue. A source outcome still means
+`source-published-awaiting-release`, not a released fix. Native agents must use
+the receiver state to determine whether follow-up is permitted, rather than
+equating GitHub `closed` or task completion with a user request to stop.
+
 An authenticated empty-body `POST /submissions/{UUID}/close` records closure
 durably and returns the ordinary receipt with HTTP 200. Retrying that same
 operation is idempotent; it does not reopen the case, reset retry budgets or
@@ -152,6 +160,25 @@ needs no purge acknowledgment. Deletion requests, original processor bindings,
 existing cleanup obligations and automatic content expiry remain unchanged.
 
 ## Delivery, provenance and removal
+
+New GitHub issues use a short category prefix and the first nonempty line of
+the approved description, with whitespace collapsed and the complete title
+limited to 100 Unicode code points. Chinese UI locales use Chinese labels;
+other locales use English labels. This is a deterministic excerpt, not an AI
+diagnosis or confirmation of a bug. Mentions are neutralized in the title.
+The full description remains literal text in the body. Common environment
+fields and readable attachment links appear first; technical JSON, attachment
+descriptors, submission IDs and disclosure evidence remain in a collapsed
+details section. A neutral introduction points to replies for current progress
+instead of freezing an initial assessment status in the issue body.
+
+The publication marker and digest are unchanged. Ownership checks accept only
+the complete exact current projection or the complete exact legacy UUID-title
+projection, with all author/repository/mapping checks retained. Mixed formats,
+arbitrary title/body edits and copied markers do not establish ownership.
+Existing issues retain their original projection; changing their presentation
+requires a coordinated receiver upgrade and explicit migration, not manual
+GitHub edits while an older receiver still expects the frozen legacy content.
 
 The receiver owns a separate public store and serial durable outbox. No V1 data
 directory is converted to public content. Attachments are per-submission

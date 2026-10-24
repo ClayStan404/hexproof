@@ -3,7 +3,10 @@
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import importlib.util
+import json
+import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -189,6 +192,42 @@ class CiScopeTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", full)
         self.assertNotIn("pull_request:", full)
         self.assertIn("./third_party/forge-runtime/build.sh", full)
+
+    def required_verification(self):
+        workflow = (SCRIPT.parents[1] / ".github/workflows/ci.yml").read_text().split("jobs:\n", 1)[1]
+        job = re.search(r"^  required-verification:\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:|\Z)",
+                        workflow, re.MULTILINE | re.DOTALL)[1]
+        dependencies = set(re.findall(r"^      - ([A-Za-z_][A-Za-z0-9_-]*)$", job, re.MULTILINE))
+        script = "\n".join(line[10:] for line in job.split("        run: |\n", 1)[1].splitlines()) + "\n"
+        return workflow, job, dependencies, script
+
+    def test_required_check_waits_for_every_job_even_after_failure(self):
+        workflow, job, dependencies, _ = self.required_verification()
+        jobs = set(re.findall(r"^  ([A-Za-z_][A-Za-z0-9_-]*):", workflow, re.MULTILINE))
+        self.assertEqual(dependencies, jobs - {"required-verification"})
+        self.assertIn("    name: Required verification\n", job)
+        self.assertIn("    if: always()\n", job)
+        self.assertIn("JOB_RESULTS: ${{ toJSON(needs) }}", job)
+        self.assertNotRegex(workflow, r"(?m)^\s+continue-on-error:")
+
+    def test_required_check_accepts_scoped_skips_but_rejects_incomplete_verification(self):
+        _, _, dependencies, script = self.required_verification()
+        complete = {name: {"result": "success"} for name in dependencies}
+        light = {name: {"result": "success" if name in ("changes", "quality") else "skipped"}
+                 for name in dependencies}
+        scenarios = [("complete", complete, True), ("light", light, True)]
+        for name in dependencies:
+            for result in ("failure", "cancelled", "unknown"):
+                scenarios.append((name + ":" + result, {**light, name: {"result": result}}, False))
+        for name in ("changes", "quality"):
+            scenarios.append((name + ":skipped", {**light, name: {"result": "skipped"}}, False))
+            scenarios.append((name + ":missing", {key: value for key, value in light.items() if key != name}, False))
+        for name, jobs, expected in scenarios:
+            with self.subTest(scenario=name):
+                result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", script],
+                                        env=dict(os.environ, JOB_RESULTS=json.dumps(jobs)),
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode == 0, expected, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

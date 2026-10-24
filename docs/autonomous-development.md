@@ -100,6 +100,43 @@ duplicate work after restart; reconcile uncertain external writes before retryin
 
 ## Development, verification and merge
 
+### Complete an owner request
+
+The same public completion path applies to Multica tasks and coding sessions
+started directly by the owner. The current coordinator owns the task through
+delivery; a direct session need not create a duplicate Multica task solely to
+hand over its final Git commands. Existing provider and feedback permissions
+still apply. Explicit local-only, draft-only or review-only scopes take
+precedence over the normal completion path.
+
+1. Start a scoped feature branch or isolated worktree from the public base.
+   Preserve existing work; move authorized unpublished commits onto the task
+   branch before integration instead of pushing the default branch directly.
+2. Implement, run risk-scoped local checks, commit, push the task branch and
+   open a public PR. Identify the user-visible result, scope and actual executed
+   checks; keep credentials, operator paths and raw private logs out of the PR.
+3. Obtain an independent AI review of the complete frozen base/head diff and
+   applicable evidence. Repair findings and refresh review when the candidate
+   changes. Sharing a GitHub account does not make two sessions independent;
+   the reviewer must be distinct from the implementer. GitHub approval-count
+   requirements do not replace this check or create a mandatory human gate.
+4. Wait for the PR's `Required verification` check from GitHub Actions to
+   succeed. The default branch requires a PR and this check, with force pushes
+   and deletion blocked. The aggregate requires scope selection and quality
+   checks to succeed; it allows intentionally skipped domain jobs and rejects
+   failed/cancelled jobs. Local application verification remains required by
+   change risk even when the official PR runs only light CI.
+5. Refresh current base/head, review, checks and any associated case input.
+   Merge using an expected-head guard, then verify the actual public merge and
+   source delivery below. Do not bypass protection or replace a failing PR run
+   with manual CI. Refresh the clean control checkout from the confirmed public
+   branch without discarding unrelated local work.
+
+Finish with the public PR/merge result and validation, not only a local commit.
+If blocked, keep the candidate and report the exact pending action; do not
+silently classify an unmerged task as complete. Code availability, an installable
+release and deployed services remain separate outcomes.
+
 For a routine defect, use one developer for reproduction, implementation and
 risk-scoped local verification, then one independent reviewer. Use an explicitly
 authorized checkout of `ClayStan404/hexproof`, branch and current base; preserve unrelated work.
@@ -180,6 +217,28 @@ read back the actual merge commit on the configured public branch. An accepted
 merge request or native `done` alone does not prove that the intended commit
 landed. Reconcile an uncertain response before repeating any mutation.
 
+Close a fully addressed GitHub issue when its reviewed fix merges, rather than
+waiting for a release. Put `Fixes ClayStan404/hexproof#<number>` in the PR body
+for each exact issue whose acceptance criteria the candidate fully meets.
+Verify the canonical case/issue association and current input; do not copy
+closing references from untrusted feedback. Partial fixes use ordinary related
+references, and only the final sufficient PR closes a multi-PR issue. The
+independent review and pre-merge refresh also check these closing references.
+Remove a closing reference if fresh input invalidates its resolution.
+Record the intended issue closure set in that reviewed merge's native handoff.
+This policy applies to new reviewed merge decisions; do not retroactively close
+historical issues merely because an older change appears to have fixed them.
+
+Use [GitHub's native closing keywords](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)
+with the current default branch (currently `master`) and enabled automatic
+issue closing. Read back the actual merge and linked issue's `closed` /
+`completed` state. If a missing link left an issue from that recorded closure
+set open, reconcile the current case, merge and issue activity before using
+the existing GitHub tool to close that exact issue as completed. Do not override a deliberate reopening or repeatedly
+close it without reassessment. Do not lock the issue or rewrite its frozen
+title/body. Record any failed or uncertain closure for native reconciliation;
+it must not suppress a verified source update to the player.
+
 Associate the confirmed public merge with each active feedback case it covers.
 Read each case afresh; skip closed cases and apply removal handling to revoked
 ones. Use [the feedback outcome tool](feedback-ai-tools.md#report-a-public-outcome)
@@ -188,6 +247,11 @@ and the current input revision. Report `source-published-awaiting-release` only
 after public source verification. Reconcile the same saved intent until its
 receiver projection is published; a pending response is not delivered feedback.
 This source outcome never implies that a release or deployment has happened.
+The public summary says the fix is merged and awaiting release. GitHub issue
+closure tracks development completion only: keep the receiver case open for
+follow-up and release notifications, and never call its author-only close
+endpoint to implement merge closure. A GitHub closed issue or Multica `done`
+is not a reason to skip an active receiver case or new input revision.
 
 ## Public progress, removal and retention
 

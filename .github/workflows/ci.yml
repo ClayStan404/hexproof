@@ -327,3 +327,33 @@ jobs:
             cat "$qml_report"
           fi
           exit "$test_exit_code"
+
+  required-verification:
+    name: Required verification
+    if: always()
+    # Keep every verification job here; the focused workflow test checks coverage.
+    needs:
+      - changes
+      - quality
+      - server
+      - forge-regression
+      - client
+      - forge-host-service
+      - client-sanitizers
+      - client-platforms
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require successful selected checks
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          jobs = json.loads(os.environ["JOB_RESULTS"])
+          failed = {name for name, job in jobs.items() if job.get("result") not in ("success", "skipped")}
+          failed.update(name for name in ("changes", "quality") if jobs.get(name, {}).get("result") != "success")
+          if failed:
+              sys.exit("Required verification failed: " + ", ".join(sorted(failed)))
+          print("Required verification passed.")
+          PY
