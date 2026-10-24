@@ -139,19 +139,26 @@ The Qt Quick test runner fails on QML engine warnings, including warnings
 during component construction before test setup. Fix their source in the
 application or fixture rather than treating passing assertions as sufficient.
 
-Push CI runs cheap shared static checks without duplicating the development
-machine's completed heavy checks. Pull request CI runs the full tool suite and the application
-domains selected by `tools/ci-scope.py`; manual dispatch runs all domains and
-additional platform, sanitizer and fuzz jobs. Documentation and known tooling,
-deployment or non-build workflow changes do not compile applications. Client-only
-changes include a matching integration server; server/shared build/protocol or
-unknown changes retain the required domain coverage. On full-validation paths,
-an unavailable comparison selects all domains. Forge-sensitive changes on these
-paths retain bounded real-engine checks over the pinned base and native overlay.
-The main CI workflow also runs focused Windows/macOS Forge host-service tests
-for relevant pull request changes. Linux runs them through the client
-CTest suite; manual dispatch includes them in the full platform suites. This
-uses the same event policy rather than a separate heavy push workflow.
+CI scope is selected by `tools/ci-scope.py`:
+
+- Pushes and same-repository PRs in `ClayStan404/hexproof` run cheap shared static
+  checks. Risk-scoped local verification and independent AI review supply the
+  application evidence; CI does not repeat the heavy checks.
+- External-fork PRs run the full tool suite plus affected application domains.
+  Documentation and known non-build tooling/deployment changes do not compile
+  applications. Client checks include a matching integration server;
+  server/shared/protocol or unknown changes retain their required domain coverage.
+  Relevant Forge paths also run bounded real-engine checks and the focused
+  Windows/macOS Forge helper tests; Linux is covered by the client suite.
+- Manual dispatch runs all domains and the additional platform, sanitizer and
+  fuzz checks. Unknown events and missing comparisons on full-validation paths
+  conservatively retain full applicable verification. Do not dispatch full CI
+  merely because an official PR intentionally skips application jobs.
+
+`Required verification` is the stable GitHub merge check. It always evaluates
+all verification jobs: scope selection and quality must succeed, optional
+domain/platform jobs may be intentionally skipped, and any failure or cancellation
+fails the gate. Its success is not evidence that skipped application checks ran.
 The separate manual Forge workflow retains the full native build, source rebuild
 and architecture matrix. None of these scopes reduce release requirements.
 

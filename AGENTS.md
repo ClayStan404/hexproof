@@ -60,9 +60,18 @@ Native GUI verification is allowed for the requested layout, interaction, or pla
 
 ## Commit & Pull Request Guidelines
 
-The owner authorizes a local commit after each completed round of code changes
-and its appropriate checks. Commit automatically without asking again, scoped
-to the completed task.
+The owner authorizes normal public delivery of requested changes: commit after
+appropriate checks, push the task branch, open a PR, obtain independent AI
+review, and merge after the required checks pass. Continue without recurring
+approval; release and deployment authorization remain separate. An explicit
+local-only, draft-only or review-only request limits that task accordingly.
+
+Use a feature branch or isolated worktree before editing; do not develop or
+push directly on `master`. All coding agents, including owner-directed sessions
+outside Multica, use the same [completion procedure](docs/autonomous-development.md#complete-an-owner-request).
+A local commit or green CI alone is not completed delivery. Report the verified
+public merge, or the concrete blocker and pending PR, rather than leaving
+unpublished commits as an unmentioned follow-up. Preserve unrelated work.
 
 Follow the concise, scoped history style, such as `client: fix room navigation`, `tools: improve local testing`, or `docs: clarify privacy`; phase prefixes remain appropriate for phase work. Version advances use `Release: advance application version to X.Y.Z`. Follow the owner's commit agreement above; release authorization remains separate. PRs should identify the affected feature or phase, summarize behavior changes, link an issue when one exists, and list commands with pass/fail results. Preserve all applicable third-party copyright notices.
 

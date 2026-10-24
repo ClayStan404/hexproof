@@ -100,6 +100,43 @@ duplicate work after restart; reconcile uncertain external writes before retryin
 
 ## Development, verification and merge
 
+### Complete an owner request
+
+The same public completion path applies to Multica tasks and coding sessions
+started directly by the owner. The current coordinator owns the task through
+delivery; a direct session need not create a duplicate Multica task solely to
+hand over its final Git commands. Existing provider and feedback permissions
+still apply. Explicit local-only, draft-only or review-only scopes take
+precedence over the normal completion path.
+
+1. Start a scoped feature branch or isolated worktree from the public base.
+   Preserve existing work; move authorized unpublished commits onto the task
+   branch before integration instead of pushing the default branch directly.
+2. Implement, run risk-scoped local checks, commit, push the task branch and
+   open a public PR. Identify the user-visible result, scope and actual executed
+   checks; keep credentials, operator paths and raw private logs out of the PR.
+3. Obtain an independent AI review of the complete frozen base/head diff and
+   applicable evidence. Repair findings and refresh review when the candidate
+   changes. Sharing a GitHub account does not make two sessions independent;
+   the reviewer must be distinct from the implementer. GitHub approval-count
+   requirements do not replace this check or create a mandatory human gate.
+4. Wait for the PR's `Required verification` check from GitHub Actions to
+   succeed. The default branch requires a PR and this check, with force pushes
+   and deletion blocked. The aggregate requires scope selection and quality
+   checks to succeed; it allows intentionally skipped domain jobs and rejects
+   failed/cancelled jobs. Local application verification remains required by
+   change risk even when the official PR runs only light CI.
+5. Refresh current base/head, review, checks and any associated case input.
+   Merge using an expected-head guard, then verify the actual public merge and
+   source delivery below. Do not bypass protection or replace a failing PR run
+   with manual CI. Refresh the clean control checkout from the confirmed public
+   branch without discarding unrelated local work.
+
+Finish with the public PR/merge result and validation, not only a local commit.
+If blocked, keep the candidate and report the exact pending action; do not
+silently classify an unmerged task as complete. Code availability, an installable
+release and deployed services remain separate outcomes.
+
 For a routine defect, use one developer for reproduction, implementation and
 risk-scoped local verification, then one independent reviewer. Use an explicitly
 authorized checkout of `ClayStan404/hexproof`, branch and current base; preserve unrelated work.
