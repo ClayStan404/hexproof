@@ -221,8 +221,9 @@ before executing these steps.
    identities in the native task.
 8. In `draft-only` mode, finish with `DRAFT_READY`, the draft/run references,
    exact SHAs, compatibility outcome and remaining activation requirements.
-   A draft is neither a recommended update nor a deployed server. It must not
-   close public feedback as released.
+   A draft is neither a recommended update nor a deployed server and cannot
+   produce a released outcome. An included fix's GitHub issue may already be
+   closed as completed by its reviewed merge; that does not establish release.
 
 For each downloaded asset, constrain attestation verification to the frozen
 public source and existing workflow, using the actual tag and full SHA:
@@ -276,8 +277,11 @@ and open native repair work. Do not call a published release a deployment.
 After the publication and artifact checks above succeed, use existing native
 case/work associations to identify the included fixes. Read each case afresh
 through [the feedback tools](feedback-ai-tools.md#read-before-deciding). Skip
-closed cases; apply the removal procedure to revoked cases without publishing
+receiver-closed cases; apply the removal procedure to revoked cases without publishing
 their content. Other active cases sharing the same change remain independent.
+GitHub issues closed at merge remain eligible while their receiver case is
+active. Resolve them from known case/work associations, not an `is:open` issue
+search, and publish their release result without reopening or locking the issue.
 
 For each applicable active case, save a stable operation UUID, an advancing
 workflow revision and its current `expectedInputRevision`. Set `workState` to

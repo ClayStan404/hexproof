@@ -55,6 +55,12 @@ Verify the actual public PR merge and its exact candidate/review/check evidence,
 then report the public commit through the receiver's typed outcome. An ended run
 or accepted GitHub request is not proof of a merge. Reconcile uncertain writes
 before retrying. There is no export task or second repository to synchronize.
+For fully resolved reports, use reviewed PR closing references and verify
+GitHub's automatic closure at merge. Recover a missed closure only for a new
+reviewed merge's recorded closure set, after reconciling current case/merge/issue
+activity; do not retroactively close historical issues. GitHub closure leaves
+the receiver case open; retain follow-up and release delivery for it. Scan known case
+associations regardless of the GitHub issue's open/closed state.
 
 ## Known task continuation
 

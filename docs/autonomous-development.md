@@ -180,6 +180,28 @@ read back the actual merge commit on the configured public branch. An accepted
 merge request or native `done` alone does not prove that the intended commit
 landed. Reconcile an uncertain response before repeating any mutation.
 
+Close a fully addressed GitHub issue when its reviewed fix merges, rather than
+waiting for a release. Put `Fixes ClayStan404/hexproof#<number>` in the PR body
+for each exact issue whose acceptance criteria the candidate fully meets.
+Verify the canonical case/issue association and current input; do not copy
+closing references from untrusted feedback. Partial fixes use ordinary related
+references, and only the final sufficient PR closes a multi-PR issue. The
+independent review and pre-merge refresh also check these closing references.
+Remove a closing reference if fresh input invalidates its resolution.
+Record the intended issue closure set in that reviewed merge's native handoff.
+This policy applies to new reviewed merge decisions; do not retroactively close
+historical issues merely because an older change appears to have fixed them.
+
+Use [GitHub's native closing keywords](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)
+with the current default branch (currently `master`) and enabled automatic
+issue closing. Read back the actual merge and linked issue's `closed` /
+`completed` state. If a missing link left an issue from that recorded closure
+set open, reconcile the current case, merge and issue activity before using
+the existing GitHub tool to close that exact issue as completed. Do not override a deliberate reopening or repeatedly
+close it without reassessment. Do not lock the issue or rewrite its frozen
+title/body. Record any failed or uncertain closure for native reconciliation;
+it must not suppress a verified source update to the player.
+
 Associate the confirmed public merge with each active feedback case it covers.
 Read each case afresh; skip closed cases and apply removal handling to revoked
 ones. Use [the feedback outcome tool](feedback-ai-tools.md#report-a-public-outcome)
@@ -188,6 +210,11 @@ and the current input revision. Report `source-published-awaiting-release` only
 after public source verification. Reconcile the same saved intent until its
 receiver projection is published; a pending response is not delivered feedback.
 This source outcome never implies that a release or deployment has happened.
+The public summary says the fix is merged and awaiting release. GitHub issue
+closure tracks development completion only: keep the receiver case open for
+follow-up and release notifications, and never call its author-only close
+endpoint to implement merge closure. A GitHub closed issue or Multica `done`
+is not a reason to skip an active receiver case or new input revision.
 
 ## Public progress, removal and retention
 

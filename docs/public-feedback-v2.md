@@ -112,6 +112,14 @@ already produced. The client presents **Close feedback** separately from
 **Request content removal**, with an explicit explanation before each action.
 Deleting the local draft/receipt remains a third, independent operation.
 
+GitHub's development issue may be closed as completed when a reviewed fix
+merges. That state is independent of this author-controlled case closure:
+the receiver case remains open, accepts follow-up, and can publish a later
+release update to the closed GitHub issue. A source outcome still means
+`source-published-awaiting-release`, not a released fix. Native agents must use
+the receiver state to determine whether follow-up is permitted, rather than
+equating GitHub `closed` or task completion with a user request to stop.
+
 An authenticated empty-body `POST /submissions/{UUID}/close` records closure
 durably and returns the ordinary receipt with HTTP 200. Retrying that same
 operation is idempotent; it does not reopen the case, reset retry budgets or

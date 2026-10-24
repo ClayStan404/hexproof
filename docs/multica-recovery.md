@@ -174,6 +174,16 @@ against arbitrary agent behavior.
 
 ## Continue interrupted work without repeating it
 
+GitHub issue closure at merge and Multica task completion do not close the
+receiver case. Recover missing source/release delivery for active cases even
+when their GitHub issues are closed, and assess fresh input revisions normally.
+For a new reviewed merge's recorded closure set whose linked issue stayed open,
+follow the guarded closure
+readback/repair in [the merge procedure](autonomous-development.md#public-merge-and-source-delivery);
+do not override an intentional reopening or call the author-only case-close API.
+Historical merges without that reviewed closure intent are not automatic
+closure candidates; record any concern for assessment instead of backfilling it.
+
 A failed or interrupted task may already have changed source or published a
 result. Reconcile that work instead of repeating development. This continuation
 procedure does not broaden the offline-only automatic webhook replay rule or
