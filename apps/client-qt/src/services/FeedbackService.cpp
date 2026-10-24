@@ -74,8 +74,10 @@ FeedbackService::FeedbackService(const QString &root, const QJsonObject &configu
     // Legacy settings authorize receipt lookup only; they never activate public
     // submissions or replay the private outbox after the public cutover.
     m_enabled = valid && version == 2 && config.value(u"enabled"_s).toBool();
-    if (!valid)
-        m_error = u"configuration_invalid"_s;
+    if (!valid) {
+        m_configurationError = u"configuration_invalid"_s;
+        m_error = m_configurationError;
+    }
     if (valid) {
         if (!m_apiBase.isEmpty())
             m_queryEndpoints.insert(m_apiBase);

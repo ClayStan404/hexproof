@@ -75,6 +75,7 @@ class FeedbackService final : public QObject
     Q_PROPERTY(QVariantList records READ records NOTIFY changed)
     Q_PROPERTY(QVariantList cases READ cases NOTIFY changed)
     Q_PROPERTY(bool enabled READ enabled CONSTANT)
+    Q_PROPERTY(QString configurationErrorCode READ configurationErrorCode CONSTANT)
     Q_PROPERTY(QString supportLabel READ supportLabel CONSTANT)
     Q_PROPERTY(QUrl privacyUrl READ privacyUrl CONSTANT)
     Q_PROPERTY(QString publicRepository READ publicRepository CONSTANT)
@@ -103,6 +104,10 @@ class FeedbackService final : public QObject
     bool enabled() const
     {
         return m_enabled;
+    }
+    QString configurationErrorCode() const
+    {
+        return m_configurationError;
     }
     QString supportLabel() const
     {
@@ -207,7 +212,7 @@ class FeedbackService final : public QObject
     void readThreadPage(const QString &caseId, const QString &cursor, QJsonObject accumulated = {});
     void setOperation(const QString &code, const QString &id);
     QString m_directory, m_selected, m_error, m_operation, m_operationRecord;
-    QString m_apiBase, m_supportLabel;
+    QString m_apiBase, m_supportLabel, m_configurationError;
     QString m_threadCase, m_threadError;
     QVariantMap m_threadAttachment;
     QPointer<QNetworkReply> m_threadReply;

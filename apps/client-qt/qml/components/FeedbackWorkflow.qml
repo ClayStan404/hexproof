@@ -312,11 +312,12 @@ Item {
                 Layout.fillWidth: true
                 visible: !root.historyVisible
                 Text {
+                    objectName: "feedbackAvailability"
                     Layout.fillWidth: true
                     textFormat: Text.PlainText
                     text: root.service && root.service.enabled
                         ? qsTr("Publish to %1 after reviewing a public preview.").arg(root.service.publicRepository)
-                        : Labels.error("disabled")
+                        : Labels.error(root.service ? root.service.configurationErrorCode || "disabled" : "disabled")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSize(12)
                     wrapMode: Text.WordWrap

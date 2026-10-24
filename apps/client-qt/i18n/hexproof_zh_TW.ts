@@ -16974,8 +16974,12 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>舊內容已從本機儲存空間移除，仍可查看收件憑證。</translation>
         </message>
         <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>線上回饋目前無法使用，你仍可儲存或匯出草稿。</translation>
+            <source>Online submission is not enabled in this build. You can save or export a draft.</source>
+            <translation>目前版本尚未開放線上提交。你仍可儲存或匯出草稿。</translation>
+        </message>
+        <message>
+            <source>Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.</source>
+            <translation>回饋設定無效，無法線上提交。你仍可儲存或匯出草稿。</translation>
         </message>
         <message>
             <source>Other</source>

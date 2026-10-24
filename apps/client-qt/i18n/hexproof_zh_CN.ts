@@ -19557,8 +19557,12 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>旧内容已从本地存储中移除，回执仍可查看。</translation>
         </message>
         <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>在线反馈暂不可用，你仍可保存或导出草稿。</translation>
+            <source>Online submission is not enabled in this build. You can save or export a draft.</source>
+            <translation>当前版本尚未开放在线提交。你仍可保存或导出草稿。</translation>
+        </message>
+        <message>
+            <source>Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.</source>
+            <translation>反馈配置无效，无法在线提交。你仍可保存或导出草稿。</translation>
         </message>
         <message>
             <source>Other</source>

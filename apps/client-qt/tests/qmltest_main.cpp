@@ -7,6 +7,7 @@
 #include "models/OptimisticCommandModel.h"
 #include "models/SideboardTableModel.h"
 #include "services/DraftSimulator.h"
+#include "services/FeedbackService.h"
 #include "services/ForgeReplayService.h"
 #include "services/LimitedDeckDraftStore.h"
 #include "services/PublicContentService.h"
@@ -513,6 +514,20 @@ class QmlTestSetup : public QObject
     void qmlEngineAvailable(QQmlEngine *engine)
     {
         engine->rootContext()->setContextProperty(
+            QStringLiteral("testInvalidFeedbackService"),
+            new hexproof::client::FeedbackService(m_feedbackStorage.path() +
+                                                      QStringLiteral("/invalid"),
+                                                  QJsonObject{{QStringLiteral("schemaVersion"), 99},
+                                                              {QStringLiteral("enabled"), true}},
+                                                  false, engine));
+        engine->rootContext()->setContextProperty(
+            QStringLiteral("testDisabledFeedbackService"),
+            new hexproof::client::FeedbackService(m_feedbackStorage.path() +
+                                                      QStringLiteral("/disabled"),
+                                                  QJsonObject{{QStringLiteral("schemaVersion"), 2},
+                                                              {QStringLiteral("enabled"), false}},
+                                                  false, engine));
+        engine->rootContext()->setContextProperty(
             QStringLiteral("publicContent"),
             new hexproof::client::PublicContentService(m_preferencesStorage.path(), QStringList{},
                                                        engine));
@@ -648,6 +663,7 @@ class QmlTestSetup : public QObject
   private:
     QStringList m_qmlWarnings;
     QTemporaryDir m_preferencesStorage;
+    QTemporaryDir m_feedbackStorage;
     QTemporaryDir m_draftStorage;
     QTemporaryDir m_replayStorage;
 };

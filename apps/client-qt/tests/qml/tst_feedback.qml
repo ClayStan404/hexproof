@@ -24,6 +24,7 @@ TestCase {
         readonly property var cases: records.filter(row => !row.parentSubmissionId
             || !records.some(parent => parent.id === row.parentSubmissionId))
         property bool enabled: true
+        property string configurationErrorCode: ""
         property bool busy: false
         property bool saving: false
         property string errorCode: ""
@@ -164,6 +165,7 @@ TestCase {
     function init() {
         mock.draft = ({}); mock.records = []; mock.errorCode = ""
         mock.enabled = true; mock.busy = false; mock.saving = false
+        mock.configurationErrorCode = ""
         mock.operationCode = ""; mock.operationRecordId = ""
         mock.nextId = 0; mock.submissions = 0; mock.removals = 0; mock.closures = 0; mock.previewDigest = ""; mock.stops = 0; mock.queries = 0; mock.deletions = 0
         mock.previewValue = ""; mock.attachedReport = ({}); crash.entries = []; crash.noticeId = ""
@@ -643,6 +645,59 @@ TestCase {
         verify(findChild(workflow, "feedbackError").text.length > 0)
         verify(findChild(workflow, "feedbackSaveStatus").text !== "Draft saved")
         compare(mock.submissions, 0)
+    }
+    function test_configurationMessageSurvivesDraftLifecycle_data() {
+        return [
+            {tag: "invalid-en", invalid: true, language: "en",
+                expected: "Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft."},
+            {tag: "invalid-zh", invalid: true, language: "zh",
+                expected: "反馈配置无效，无法在线提交。你仍可保存或导出草稿。"},
+            {tag: "disabled-en", invalid: false, language: "en",
+                expected: "Online submission is not enabled in this build. You can save or export a draft."},
+            {tag: "disabled-zh", invalid: false, language: "zh",
+                expected: "当前版本尚未开放在线提交。你仍可保存或导出草稿。"}
+        ]
+    }
+    function test_configurationMessageSurvivesDraftLifecycle(data) {
+        const service = data.invalid ? testInvalidFeedbackService : testDisabledFeedbackService
+        tryCompare(service, "saving", false)
+        for (const record of service.records) verify(service.deleteRecord(record.id))
+        tryCompare(service, "saving", false)
+        const dialog = findChild(workflow, "feedbackDialog")
+        dialog.close()
+        tryCompare(dialog, "opened", false)
+        workflow.service = service
+        testTranslations.setLanguage(data.language)
+        workflow.openFor({}, "", {})
+        tryCompare(dialog, "opened", true)
+        const footer = findChild(workflow, "feedbackAvailability")
+        const id = service.draft.id
+        verify(String(id).length > 0)
+        compare(service.errorCode, "")
+        compare(footer.text, data.expected)
+        verify(!findChild(workflow, "feedbackSend").enabled)
+
+        findChild(workflow, "feedbackDescription").text = "Keep configuration diagnosis"
+        tryCompare(service, "saving", false)
+        compare(service.draft.description, "Keep configuration diagnosis")
+        compare(footer.text, data.expected)
+        verify(!service.updateDraft({description: "x".repeat(8193)}))
+        compare(service.errorCode, "invalid_description")
+        compare(footer.text, data.expected)
+        workflow.newDraft()
+        verify(service.draft.id !== id)
+        verify(service.selectRecord(id))
+        compare(service.errorCode, "")
+        compare(findChild(workflow, "feedbackDescription").text, "Keep configuration diagnosis")
+        compare(footer.text, data.expected)
+        verify(findChild(workflow, "feedbackExport").enabled)
+
+        dialog.close()
+        tryCompare(dialog, "opened", false)
+        workflow.openFor({}, "", {})
+        tryCompare(dialog, "opened", true)
+        compare(footer.text, data.expected)
+        tryCompare(service, "saving", false)
     }
     function test_metadataSnapshotsOnlyWhenCreatingDraft() {
         workflow.baseContext = {uiLanguage:"en", catalogVersion:"2026-10-01"}

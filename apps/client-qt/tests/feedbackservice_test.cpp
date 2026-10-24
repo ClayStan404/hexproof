@@ -1578,6 +1578,59 @@ class FeedbackServiceTest : public QObject
         QCOMPARE(receiver.requests.size(), 2);
         QTRY_VERIFY(!service.saving());
     }
+    void configurationErrorSurvivesDraftOperations_data()
+    {
+        QTest::addColumn<QJsonObject>("configuration");
+        QTest::addColumn<QString>("configurationError");
+        QTest::newRow("disabled-v2")
+            << QJsonObject{{u"schemaVersion"_s, 2}, {u"enabled"_s, false}} << QString{};
+        QTest::newRow("legacy-v1") << disabledConfig() << QString{};
+        QTest::newRow("invalid-schema")
+            << QJsonObject{{u"schemaVersion"_s, 99}, {u"enabled"_s, true}}
+            << u"configuration_invalid"_s;
+        QTest::newRow("invalid-v2") << QJsonObject{{u"schemaVersion"_s, 2}, {u"enabled"_s, true}}
+                                    << u"configuration_invalid"_s;
+    }
+    void configurationErrorSurvivesDraftOperations()
+    {
+        QFETCH(QJsonObject, configuration);
+        QFETCH(QString, configurationError);
+        QTemporaryDir dir;
+        QString id;
+        {
+            FeedbackService service(dir.path(), configuration);
+            QTRY_VERIFY(!service.saving());
+            QVERIFY(!service.enabled());
+            QCOMPARE(service.configurationErrorCode(), configurationError);
+            QCOMPARE(service.errorCode(), configurationError);
+            id = service.createDraft();
+            QVERIFY(!id.isEmpty());
+            QVERIFY(service.errorCode().isEmpty());
+            QVERIFY(service.updateDraft({{u"description"_s, u"Keep this local draft"_s}}));
+            QVERIFY(!confirm(service));
+            QCOMPARE(service.errorCode(), u"disabled"_s);
+            QCOMPARE(service.configurationErrorCode(), configurationError);
+            QVERIFY(!service.createDraft().isEmpty());
+            QVERIFY(service.selectRecord(id));
+            QVERIFY(service.errorCode().isEmpty());
+            QCOMPARE(service.configurationErrorCode(), configurationError);
+            QTRY_VERIFY(!service.saving());
+
+            const auto path = dir.filePath(u"export.json"_s);
+            QVERIFY(service.exportRecord(id, QUrl::fromLocalFile(path)));
+            QTRY_COMPARE(service.operationCode(), u"exported"_s);
+            QCOMPARE(service.configurationErrorCode(), configurationError);
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QVERIFY(file.readAll().contains("Keep this local draft"));
+        }
+        FeedbackService restored(dir.path(), configuration);
+        QTRY_VERIFY(!restored.saving());
+        QVERIFY(restored.selectRecord(id));
+        QVERIFY(restored.errorCode().isEmpty());
+        QCOMPARE(restored.configurationErrorCode(), configurationError);
+        QCOMPARE(restored.draft().value(u"description"_s).toString(), u"Keep this local draft"_s);
+    }
     void draftRestoresAndExportsWithoutSecrets()
     {
         QTemporaryDir dir;

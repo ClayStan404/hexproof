@@ -16974,8 +16974,12 @@ Downloaded and custom images will be copied and verified before the setting chan
             <translation>古い内容は端末から削除されました。受付情報は引き続き確認できます。</translation>
         </message>
         <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>オンライン送信は利用できません。下書きの保存や書き出しは可能です。</translation>
+            <source>Online submission is not enabled in this build. You can save or export a draft.</source>
+            <translation>このバージョンではオンライン送信が有効になっていません。下書きの保存や書き出しは可能です。</translation>
+        </message>
+        <message>
+            <source>Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.</source>
+            <translation>フィードバックの設定が正しくないため、オンライン送信は利用できません。下書きの保存や書き出しは可能です。</translation>
         </message>
         <message>
             <source>Other</source>

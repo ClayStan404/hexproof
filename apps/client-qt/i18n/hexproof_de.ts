@@ -16994,8 +16994,12 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
             <translation>Ältere Inhalte wurden lokal entfernt. Der Beleg bleibt verfügbar.</translation>
         </message>
         <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>Online-Feedback ist nicht verfügbar. Sie können einen Entwurf speichern oder exportieren.</translation>
+            <source>Online submission is not enabled in this build. You can save or export a draft.</source>
+            <translation>Die Online-Übermittlung ist in dieser Version nicht aktiviert. Sie können einen Entwurf speichern oder exportieren.</translation>
+        </message>
+        <message>
+            <source>Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.</source>
+            <translation>Die Online-Übermittlung ist wegen einer ungültigen Feedback-Konfiguration nicht verfügbar. Sie können einen Entwurf speichern oder exportieren.</translation>
         </message>
         <message>
             <source>Other</source>

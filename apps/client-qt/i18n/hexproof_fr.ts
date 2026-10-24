@@ -16994,8 +16994,12 @@ Les images téléchargées et personnalisées seront copiées et vérifiées ava
             <translation>L’ancien contenu a été supprimé du stockage local. Le reçu reste disponible.</translation>
         </message>
         <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>L’envoi en ligne est indisponible. Vous pouvez conserver ou exporter un brouillon.</translation>
+            <source>Online submission is not enabled in this build. You can save or export a draft.</source>
+            <translation>L’envoi en ligne n’est pas activé dans cette version. Vous pouvez enregistrer ou exporter un brouillon.</translation>
+        </message>
+        <message>
+            <source>Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.</source>
+            <translation>L’envoi en ligne est indisponible en raison d’une configuration des retours invalide. Vous pouvez enregistrer ou exporter un brouillon.</translation>
         </message>
         <message>
             <source>Other</source>

@@ -136,8 +136,8 @@ function error(code) {
     case "": return ""
     case "storage_unavailable": return qsTranslate("Feedback", "Could not save locally. Check storage before sending.")
     case "storage_full": return qsTranslate("Feedback", "Local feedback storage is full. Export or delete an older record.")
-    case "configuration_invalid":
-    case "disabled": return qsTranslate("Feedback", "Online feedback is unavailable. You can keep or export a draft.")
+    case "configuration_invalid": return qsTranslate("Feedback", "Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.")
+    case "disabled": return qsTranslate("Feedback", "Online submission is not enabled in this build. You can save or export a draft.")
     case "invalid_description": return qsTranslate("Feedback", "Enter a description of up to 8 KiB.")
     case "invalid_email": return qsTranslate("Feedback", "Enter one valid contact email, or leave it empty.")
     case "preview_required": return qsTranslate("Feedback", "Review the public preview and confirm publication first.")

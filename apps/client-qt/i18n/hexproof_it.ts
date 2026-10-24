@@ -16994,8 +16994,12 @@ Le immagini scaricate e personalizzate verranno copiate e verificate prima che l
             <translation>I vecchi contenuti sono stati rimossi dalla memoria locale. La ricevuta resta disponibile.</translation>
         </message>
         <message>
-            <source>Online feedback is unavailable. You can keep or export a draft.</source>
-            <translation>L’invio online non è disponibile. Puoi conservare o esportare una bozza.</translation>
+            <source>Online submission is not enabled in this build. You can save or export a draft.</source>
+            <translation>L’invio online non è abilitato in questa versione. Puoi salvare o esportare una bozza.</translation>
+        </message>
+        <message>
+            <source>Online submission is unavailable because the feedback configuration is invalid. You can save or export a draft.</source>
+            <translation>L’invio online non è disponibile perché la configurazione del feedback non è valida. Puoi salvare o esportare una bozza.</translation>
         </message>
         <message>
             <source>Other</source>
